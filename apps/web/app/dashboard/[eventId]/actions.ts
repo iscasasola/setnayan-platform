@@ -11,11 +11,12 @@ import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
 // fields) stay stale after wizard save".
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { resolveCadence } from '@/lib/event-anchor';
-import { isCelebrantShape } from '@/lib/event-type-profile';
+import { eventSpanDays, eventSpanRefusal, isCelebrantShape, resolveProfileByEvent } from '@/lib/event-type-profile';
+import { dateOptionsRefusal, dateOptionsSavedWords, isIsoDay } from '@/lib/event-date-options';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorRefusal, eventDatesFloorRefusal } from '@/lib/event-date-floor';
 import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { parsePaxSettingsForm } from '@/lib/pax-settings-form';
@@ -98,6 +99,13 @@ function isPrecision(value: unknown): value is EventDatePrecision {
  * that reached no row says so instead of answering "saved".
  *
  * Tiered precision (Task #39): year/month store the first day of the range ('2027-01-01', '2027-08-01').
+ *
+ * 📅 THE LAST DAY (owner 2026-11-13, DECISION_LOG "DATE EDIT PROTOTYPE APPROVED — … EXACT DATE CAN BE A RANGE"): a
+ * form that POSTS `event_end_date` ('' = "Same day") writes the one main span `event_date` → `event_end_date`, refused
+ * past the type's cap with `eventSpanRefusal`'s one line (`event_type_profiles.max_days`), and keeps `event_days` equal
+ * to its length. A form that does not post it leaves both untouched — every older caller is unchanged. A form that
+ * posts `clear_options=1` (the Suppliers sheet's "I have a date") also clears the options being considered
+ * (`date_candidates` / `date_window_*`): "picking one day replaces the options".
  */
 export type EventDateSaveResult =
   | { ok: true; date: string | null; precision: EventDatePrecision; note?: string }
@@ -113,6 +121,9 @@ export async function updateEventDate(formData: FormData): Promise<EventDateSave
   if (typeof eventId !== 'string' || !eventId) return { ok: false, error: DATE_NOT_SAVED };
 
   const newPrecision: EventDatePrecision = isPrecision(precisionRaw) ? precisionRaw : 'day';
+  const endPosted = formData.has('event_end_date');
+  const endRaw = formData.get('event_end_date');
+  const clearOptions = formData.get('clear_options') === '1';
 
   let eventDate: string | null = null;
   if (typeof dateRaw === 'string' && dateRaw.trim().length > 0) {
@@ -120,6 +131,25 @@ export async function updateEventDate(formData: FormData): Promise<EventDateSave
     const trimmed = dateRaw.trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return { ok: false, error: 'That date could not be read.' };
     eventDate = trimmed;
+  }
+
+  // 📅 The last day, when posted: a day after (or on) the first, inside the type's cap. "Same day" = no last day.
+  let eventEndDate: string | null = null;
+  if (endPosted) {
+    const trimmed = typeof endRaw === 'string' ? endRaw.trim() : '';
+    if (trimmed !== '') {
+      if (!isIsoDay(trimmed)) return { ok: false, error: 'That last day could not be read.' };
+      if (!eventDate || newPrecision !== 'day') return { ok: false, error: 'Pick the first day before the last day.' };
+      if (trimmed !== eventDate) eventEndDate = trimmed;
+    }
+    if (eventEndDate) {
+      const spanRefusal = eventSpanRefusal({
+        startDate: eventDate,
+        endDate: eventEndDate,
+        maxDays: (await resolveProfileByEvent(eventId)).maxDays,
+      });
+      if (spanRefusal) return { ok: false, error: spanRefusal };
+    }
   }
 
   const supabase = await createClient();
@@ -203,6 +233,14 @@ export async function updateEventDate(formData: FormData): Promise<EventDateSave
     .update({
       event_date: eventDate,
       event_date_precision: newPrecision,
+      // 📅 The span and its day count move together, only when the form posted the last day.
+      ...(endPosted
+        ? { event_end_date: eventEndDate, event_days: eventDate && eventEndDate ? eventSpanDays(eventDate, eventEndDate) : 1 }
+        : {}),
+      // "I have a date" replaces the options being considered — the date is exact now.
+      ...(clearOptions && eventDate && newPrecision === 'day'
+        ? { date_mode: 'specific', date_candidates: null, date_window_start: null, date_window_end: null }
+        : {}),
     })
     .eq('event_id', eventId)
     .select('event_id');
@@ -240,6 +278,90 @@ export async function updateEventDate(formData: FormData): Promise<EventDateSave
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidateGuestSite(priorRow.slug as string | null | undefined);
   return note ? { ok: true, date: eventDate, precision: newPrecision, note } : { ok: true, date: eventDate, precision: newPrecision };
+}
+
+/**
+ * 📅 A FEW DATES — the date as OPTIONS, with a day count (owner 2026-11-13, DECISION_LOG "DATE EDIT PROTOTYPE APPROVED —
+ * HOW MANY DAYS? FIRST · N-DAY OPTIONS …"; prototype `event_dates_edit_2026-11-13`). The Suppliers "Your date" sheet's
+ * third pill and its one writer.
+ *
+ * Writes the event's OWN option columns — `date_mode`, `date_candidates` (each the START of an N-day option) or
+ * `date_window_start/end` (where the N-day block may start), and `event_days` — and leaves the exact date EMPTY
+ * (`event_date` / `event_end_date` cleared): options stay options until a booking makes the date exact
+ * (DECISION_LOG 2026-11-13 "ONE MAIN DATE SPAN — CANDIDATES ARE OPTIONS UNTIL A VENUE IS BOOKED").
+ *
+ * Refused, in words, when: somebody is booked (the date is theirs now — a change is the date-change ask, never this);
+ * the options break the calendar's own rules (`dateOptionsRefusal` — the same module the calendar draws with: ≤ 4,
+ * none sharing a day, a window ≤ 30 days, N inside the type's `max_days`); or a day falls before the first event day
+ * (`eventDatesFloorRefusal`). The couple's own session writes it — RLS decides the row, and a write that reached no row
+ * says so.
+ */
+export type EventDateOptionsResult = { ok: true; message: string } | { ok: false; error: string };
+
+export async function updateEventDateOptions(formData: FormData): Promise<EventDateOptionsResult> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || !eventId) return { ok: false, error: DATE_NOT_SAVED };
+  const mode = formData.get('date_mode') === 'window' ? 'window' : 'specific';
+  const candidates = formData.getAll('date_candidate').filter((v): v is string => typeof v === 'string' && v.trim() !== '').map((v) => v.trim());
+  const str = (k: string) => {
+    const v = formData.get(k);
+    return typeof v === 'string' && v.trim() !== '' ? v.trim() : null;
+  };
+  const windowStart = mode === 'window' ? str('date_window_start') : null;
+  const windowEnd = mode === 'window' ? str('date_window_end') : null;
+  const days = Number(formData.get('event_days') ?? 1);
+
+  const profile = await resolveProfileByEvent(eventId);
+  const refusal = dateOptionsRefusal({ mode, candidates, windowStart, windowEnd, days, maxDays: profile.maxDays });
+  if (refusal) return { ok: false, error: refusal };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const floor = eventDatesFloorRefusal(
+    mode === 'specific' ? candidates : [windowStart, windowEnd],
+    await eventDateFloorExempt(supabase, { eventId }),
+  );
+  if (floor) return { ok: false, error: floor };
+
+  // A booked supplier holds the date — options are for before anyone is booked. Read FAIL-CLOSED.
+  const { count, error: countErr } = await supabase
+    .from('event_vendors')
+    .select('vendor_id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
+  if (countErr) return { ok: false, error: 'We could not check your booked suppliers. Nothing changed — please try again.' };
+  if ((count ?? 0) > 0) {
+    return { ok: false, error: 'A supplier is booked, so your date is set. A change asks them first — use I have a date.' };
+  }
+
+  const sorted = [...candidates].sort();
+  const { data: wrote, error } = await supabase
+    .from('events')
+    .update({
+      date_mode: mode,
+      date_candidates: mode === 'specific' ? sorted : null,
+      date_window_start: windowStart,
+      date_window_end: windowEnd,
+      event_days: Math.floor(days),
+      // Options leave the exact date EMPTY — a booking makes it exact.
+      event_date: null,
+      event_end_date: null,
+    })
+    .eq('event_id', eventId)
+    .select('event_id, slug');
+  if (error || !wrote || wrote.length === 0) {
+    if (error) logQueryError('updateEventDateOptions', error, { event_id: eventId }, 'graceful_degrade');
+    return { ok: false, error: error ? DATE_NOT_SAVED : 'Only the couple can change the date.' };
+  }
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidateGuestSite((wrote[0] as { slug?: string | null }).slug ?? null);
+  return { ok: true, message: dateOptionsSavedWords(mode, sorted, windowStart, windowEnd, Math.floor(days)) };
 }
 
 /**

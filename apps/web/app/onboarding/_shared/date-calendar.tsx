@@ -42,12 +42,23 @@
 'use client';
 
 import { eventDateMinFor } from '@/lib/event-date-floor';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import './date-calendar.css';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarRange, ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { StepPick } from '@/app/onboarding/_shared/step-field';
 import { countNoun } from '@/lib/format-number';
+import {
+  asksHowManyDays,
+  clampDays,
+  droppedLine,
+  keepOptionsForDays,
+  optionEnd,
+  optionHolding,
+  optionOverlapping,
+  optionWords,
+  sharesDayOffer,
+} from '@/lib/event-date-options';
 
 /**
  * What the calendar reports upward. Structurally the same four fields the
@@ -61,6 +72,8 @@ export type DateCalendarValue = {
   dateCandidates?: string[];
   windowStart?: string | null;
   windowEnd?: string | null;
+  /** 📅 "How many days is your event?" (owner 2026-11-13) — only reported when the step is shown (`maxDays` > 1). */
+  days?: number;
 };
 
 /* ── date helpers (prototype initCal) ── */
@@ -114,6 +127,8 @@ export function DateCalendar({
   title = 'When\u2019s the big day?',
   dateExempt = false,
   undecided = false,
+  days = 1,
+  maxDays = 1,
 }: {
   mode: 'specific' | 'window';
   candidates: string[];
@@ -138,8 +153,28 @@ export function DateCalendar({
    * blank if you're not sure yet"); the wedding's Continue needs a date, so it does not offer it.
    */
   undecided?: boolean;
+  /**
+   * 📅 HOW MANY DAYS IS YOUR EVENT? (owner 2026-11-13, DECISION_LOG "DATE EDIT PROTOTYPE APPROVED"; prototype
+   * `event_dates_edit_2026-11-13`). `days` is N; with N > 1 one tap picks N consecutive days as ONE option (drawn as a
+   * joined range), each candidate being its START day, and a window is where the N-day block may start. Reported up
+   * through `onChange({ days })`.
+   */
+  days?: number;
+  /**
+   * The event type's cap (`event_type_profiles.max_days`). Above 1 the "How many days is your event?" stepper is drawn
+   * above the calendar (− N +, 1 … maxDays); at 1 (the default) there is no step and the calendar is exactly as before.
+   */
+  maxDays?: number;
 }) {
   const [notYet, setNotYet] = useState(false);
+  /* N — 1 unless the type asks "How many days?" (a 1-day type, or a caller that does not ask, is today's calendar). */
+  const stepShown = asksHowManyDays(maxDays);
+  const n = stepShown ? clampDays(days, maxDays) : 1;
+  /* The one line a refused tap, or a stepper that dropped options, says (the prototype's `.refuse`). */
+  const [refuse, setRefuse] = useState<string | null>(null);
+  /* The window a shared-day tap offers ("Make it a window") — shown under the refusal line until answered. */
+  const [offer, setOffer] = useState<{ windowStart: string; windowEnd: string } | null>(null);
+  const daysLabId = useId();
   const today = useMemo(() => {
     const t = new Date();
     t.setHours(0, 0, 0, 0);
@@ -157,12 +192,9 @@ export function DateCalendar({
     return floor > today ? floor : today;
   }, [today, dateExempt]);
 
-  /* seed: a date ~6 months out (clamped), used when nothing is picked yet */
-  const seed = useMemo(() => {
-    const s = new Date(today);
-    s.setMonth(s.getMonth() + 6);
-    return s > maxD ? new Date(maxD) : s;
-  }, [today, maxD]);
+  /* seed: nothing picked yet → the FIRST month a day can be picked in (owner default 2026-11-13: "nothing set opens on
+     December 2026" — the floor month for a normal account; today's month for the founders'). It was ~6 months out. */
+  const seed = minD;
 
   /* working state — seeded once from props (resume), then local source of truth */
   const [multi, setMulti] = useState<Date[]>(() =>
@@ -238,13 +270,28 @@ export function DateCalendar({
 
   const clickDay = (cur: Date) => {
     setNotYet(false);
+    setRefuse(null);
+    setOffer(null);
     if (mode === 'specific') {
-      const k = keyOf(cur);
-      const idx = multi.findIndex((d) => keyOf(d) === k);
+      const iso = toISO(cur);
+      const starts = multi.map(toISO);
+      /* A tap inside an option removes it (with N = 1 the option IS the day — today's toggle). */
+      const holding = optionHolding(starts, iso, n);
       let next: Date[];
-      if (idx >= 0) next = multi.filter((_, i) => i !== idx);
-      else if (multi.length < MAXMULTI) next = [...multi, new Date(cur)];
-      else next = multi;
+      if (holding) next = multi.filter((d) => toISO(d) !== holding);
+      else if (multi.length >= MAXMULTI) next = multi;
+      else {
+        /* Two options never share a day (side by side is fine) — said with one line, never moved quietly, and offered
+           as a window instead (owner 2026-11-13). */
+        const hit = optionOverlapping(starts, iso, n);
+        if (hit) {
+          const o = sharesDayOffer(iso, hit, n, multi.length);
+          setRefuse(o.line);
+          setOffer({ windowStart: o.windowStart, windowEnd: o.windowEnd });
+          return;
+        }
+        next = [...multi, new Date(cur)];
+      }
       setMulti(next);
       lift(next, rStart, rEnd);
       return;
@@ -268,6 +315,56 @@ export function DateCalendar({
     setREnd(end);
     setPickingEnd(false);
     lift(multi, rStart, end);
+  };
+
+  /* "Make it a window": Flexible window from the earlier start to the later start; the options are cleared. */
+  const takeOffer = () => {
+    if (!offer) return;
+    const s = fromISO(offer.windowStart);
+    const e = fromISO(offer.windowEnd);
+    setRefuse(null);
+    setOffer(null);
+    setNotYet(false);
+    setMulti([]);
+    setRStart(s);
+    setREnd(e);
+    setPickingEnd(false);
+    lift([], s, e);
+    onChange({ dateMode: 'window' });
+  };
+  const dismissOffer = () => {
+    setRefuse(null);
+    setOffer(null);
+  };
+  /* A chip's ×: that option goes. */
+  const removeOption = (startIso: string) => {
+    setRefuse(null);
+    setOffer(null);
+    const next = multi.filter((d) => toISO(d) !== startIso);
+    setMulti(next);
+    lift(next, rStart, rEnd);
+  };
+  const clearWindow = () => {
+    setRefuse(null);
+    setRStart(null);
+    setREnd(null);
+    setPickingEnd(false);
+    lift(multi, null, null);
+  };
+  /* The stepper: a new N re-reads the options — any that would now overlap an earlier one, or run past the calendar,
+     is dropped, and how many is said. */
+  const setDays = (want: number) => {
+    const next = clampDays(want, maxDays);
+    if (next === n) return;
+    const { kept, dropped } = keepOptionsForDays(multi.map(toISO), next, toISO(maxD));
+    setOffer(null);
+    setRefuse(droppedLine(dropped, next));
+    if (dropped > 0) {
+      const keptDates = kept.map(fromISO);
+      setMulti(keptDates);
+      lift(keptDates, rStart, rEnd);
+    }
+    onChange({ days: next });
   };
 
   const prevMonth = () => {
@@ -296,17 +393,29 @@ export function DateCalendar({
   for (let i = 0; i < first; i++) cells.push({ cls: 'calday empty', disabled: true });
   for (let d = 1; d <= dim; d++) {
     const cur = new Date(view.y, view.m, d);
-    const isPicked = mode === 'specific' && multi.some((x) => keyOf(x) === keyOf(cur));
+    const curIso = toISO(cur);
+    /* The option this day sits in (its start) — with N = 1, the day itself when picked. */
+    const block = mode === 'specific' ? optionHolding(multi.map(toISO), curIso, n) : null;
+    const isPicked = block !== null;
     let disabled = cur < minD || cur > maxD;
     if (mode === 'specific' && !disabled && !isPicked) {
       if (locked) disabled = true;
       else if (multi.length >= 1 && (cur < clo || cur > chi)) disabled = true;
+      // An N-day block that would run past the calendar's last day cannot start here.
+      else if (n > 1 && optionEnd(curIso, n) > toISO(maxD)) disabled = true;
     }
     let cls = 'calday';
     if (disabled) cls += ' disabled';
     if (keyOf(cur) === keyOf(today)) cls += ' today';
     if (mode === 'specific') {
-      if (isPicked) cls += ' sel';
+      if (block && n === 1) cls += ' sel';
+      else if (block) {
+        // An N-day option is drawn as one joined range (the range's own classes).
+        const end = optionEnd(block, n);
+        if (curIso === block) cls += ' rstart';
+        if (curIso === end) cls += ' rend';
+        if (curIso > block && curIso < end) cls += ' inrange';
+      }
     } else if (rStart) {
       if (keyOf(cur) === keyOf(rStart)) cls += ' rstart';
       if (rEnd && keyOf(cur) === keyOf(rEnd)) cls += ' rend';
@@ -322,7 +431,27 @@ export function DateCalendar({
 
   let pickHtml: ReactNode;
   let warn: string | null = null;
-  if (mode === 'specific') {
+  if (mode === 'specific' && n > 1) {
+    const noun = 'options';
+    if (multi.length === 0) {
+      pickHtml = `Tap the first day — ${n} days are picked together. Up to 4 ${noun} within 3 months`;
+    } else if (multi.length === 1) {
+      pickHtml = (
+        <>
+          Your option: <b>{optionWords(toISO(sorted[0]!), n)}</b> <span className="addhint">· or add up to 3 more</span>
+        </>
+      );
+    } else {
+      const lk = multi.length >= MAXMULTI;
+      pickHtml = (
+        <>
+          Your {noun}: <b>{sorted.map((d) => optionWords(toISO(d), n)).join(' · ')}</b>{' '}
+          <span className="addhint">· {lk ? '4 set' : `add ${MAXMULTI - multi.length} more`}</span>
+        </>
+      );
+      if (lk) warn = `4 ${noun} set — tap one to swap.`;
+    }
+  } else if (mode === 'specific') {
     if (multi.length === 0) {
       pickHtml = 'Pick your date — or up to 4 within 3 months';
     } else if (multi.length === 1) {
@@ -354,22 +483,79 @@ export function DateCalendar({
     pickHtml = (
       <>
         Your window: <b>{fmtShort(rStart)} – {fmtShort(rEnd)}</b> · {span} days{' '}
-        <span className="addhint">· we find the shared date</span>
+        <span className="addhint">· {n > 1 ? `your ${n}-day block starts inside it` : 'we find the shared date'}</span>
       </>
     );
   }
 
+  /* The hint's tail is the one rule (owner default 2026-11-13, DECISION_LOG "ONE MAIN DATE SPAN"): these are options
+     until a venue is booked — "your venue's booked day becomes your date". */
   const setRangeMsg =
     mode === 'specific'
-      ? 'Up to 4 dates within ~3 months — we lock the one all your suppliers share.'
-      : `Tap a start + end (≤${MAXSPAN + 1} days) — we lock the shared date inside it.`;
+      ? n > 1
+        ? `Up to 4 options of ${n} days each, within ~3 months — your venue’s booked day becomes your date.`
+        : 'Up to 4 dates within ~3 months — your venue’s booked day becomes your date.'
+      : n > 1
+        ? `A window your ${n}-day block can start in (≤${MAXSPAN + 1} days) — your venue’s booked day inside it becomes your date.`
+        : `Tap a start + end (≤${MAXSPAN + 1} days) — your venue’s booked day inside it becomes your date.`;
+
+  /* The chosen days as removable chips under the calendar — the delta's one new piece (a pill with ×, 44 px). */
+  const chipLabel = (d: Date) => (n > 1 ? optionWords(toISO(d), n) : fmtShort(d));
+  const chips =
+    mode === 'specific' && sorted.length > 0 ? (
+      <ul className="datechips" aria-label={`Your ${n > 1 ? 'options' : 'dates'}`} data-datecal-chips="">
+        {sorted.map((d) => (
+          <li key={toISO(d)} className="datechip" data-datecal-chip={toISO(d)}>
+            {chipLabel(d)}
+            <ActionButton tone="neutral" quiet iconOnly className="rm" icon={<X />} label={`Remove ${chipLabel(d)}`} onClick={() => removeOption(toISO(d))} />
+          </li>
+        ))}
+      </ul>
+    ) : mode === 'window' && rStart && rEnd ? (
+      <ul className="datechips" aria-label="Your window" data-datecal-chips="">
+        <li className="datechip" data-datecal-chip="window">
+          {fmtShort(rStart)} – {fmtShort(rEnd)}
+          <ActionButton tone="neutral" quiet iconOnly className="rm" icon={<X />} label="Clear the range" onClick={clearWindow} />
+        </li>
+      </ul>
+    ) : null;
+
+  /* "How many days is your event?" — asked BEFORE the calendar (owner 2026-11-13); − N +, every press 44 px. */
+  const stepper = stepShown ? (
+    <div className="daysstep" data-datecal-days={n}>
+      <div className="daysstep-row">
+        <span className="daysstep-lab" id={daysLabId}>How many days is your event?</span>
+        <div className="daysstep-ctl" role="group" aria-labelledby={daysLabId}>
+          <ActionButton tone="neutral" quiet iconOnly icon={<Minus />} label="Fewer days" onClick={() => setDays(n - 1)} disabled={n <= 1} />
+          <span className="daysstep-num" aria-live="polite">
+            {n}
+            <small>{n === 1 ? 'day' : 'days'}</small>
+          </span>
+          <ActionButton tone="neutral" quiet iconOnly icon={<Plus />} label="More days" onClick={() => setDays(n + 1)} disabled={n >= maxDays} />
+        </div>
+      </div>
+      {n >= maxDays ? <p className="daysstep-cap">Up to {maxDays} days for this kind of event.</p> : null}
+    </div>
+  ) : null;
 
   const hint = chrome === 'wedding' ? 'micro' : 'sn-datecal-hint';
 
   const inner = (
     <>
+      {stepper}
       <div className="calpick">{pickHtml}</div>
       {warn && <div className="rangewarn">{warn}</div>}
+      {refuse ? (
+        <p className="refuse" role="alert" data-datecal-refuse="">
+          {refuse}
+        </p>
+      ) : null}
+      {refuse && offer ? (
+        <div className="refuse-offer" data-datecal-offer="">
+          <ActionButton tone="brand" main icon={<CalendarRange />} label="Make it a window" onClick={takeOffer} />
+          <ActionButton tone="neutral" icon={<X />} label="Keep my options" onClick={dismissOffer} />
+        </div>
+      ) : null}
       <div className={hint}>{setRangeMsg}</div>
       {/* 🔘 ONE DROPDOWN, never two hand-drawn toggles (Lane P slice 5 — owner 10 Nov: "the rule or uniform buttons and
           design templates is not followed yet"; any set of choices is ONE PickMenu). */}
@@ -378,7 +564,7 @@ export function DateCalendar({
           label="How sure are you of the date?"
           value={notYet ? 'undecided' : mode}
           options={[
-            { key: 'specific', label: 'Specific dates', hint: '1–4 days' },
+            { key: 'specific', label: 'Specific dates', hint: n > 1 ? '1–4 options' : '1–4 days' },
             { key: 'window', label: 'Flexible window', hint: 'a range' },
             ...(undecided ? [{ key: 'undecided', label: 'Not decided yet' }] : []),
           ]}
@@ -393,6 +579,8 @@ export function DateCalendar({
               return;
             }
             setNotYet(false);
+            setRefuse(null);
+            setOffer(null);
             setMode(k as 'specific' | 'window');
           }}
         />
@@ -423,6 +611,7 @@ export function DateCalendar({
           )}
         </div>
       </div>
+      {chips}
       {/* THE LEGEND. The tint has been on these cells since 2026-06-09 with
           nothing anywhere saying what it meant — the owner calls it "the hot
           date legend", which is the name of a thing you can READ. A colour

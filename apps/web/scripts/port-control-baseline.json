@@ -1163,6 +1163,7 @@
         "[slug]/_components/editorial/post-event-scene-views-3.tsx",
         "[slug]/_components/editorial/post-event-scene-views.tsx",
         "[slug]/_components/editorial/sample-ids.ts",
+        "[slug]/_components/editorial/story-progress.tsx",
         "[slug]/_components/editorial/voices.ts",
         "[slug]/_components/empty-states.tsx",
         "[slug]/_components/entourage-me-anchor.ts",
@@ -1333,6 +1334,7 @@
         "[slug]/_components/story/find-in-this-day.tsx",
         "[slug]/_components/story/minute-media.tsx",
         "[slug]/_components/story/relive.tsx",
+        "[slug]/_components/story/save-all-own-photos.tsx",
         "[slug]/_components/story/sheet-clip.tsx",
         "[slug]/_components/story/spine-data.ts",
         "[slug]/_components/story/story-clock.tsx",
@@ -1608,6 +1610,7 @@
         "GiftDoorCard",
         "GiftPageBody",
         "GiftPageContent",
+        "GiftThanksScene",
         "GlimpseRail",
         "GlowBlob",
         "GoogleGIcon",
@@ -1764,6 +1767,7 @@
         "OurPhotosWidget",
         "OurStory",
         "OverlayBackdrop",
+        "OwnGiftThanks",
         "OwnerCapability",
         "PahinaCoverParallax",
         "PahinaKeepsake",
@@ -1879,6 +1883,7 @@
         "SVGSVGElement",
         "Said",
         "SampleViewerInert",
+        "SaveAllOwnPhotos",
         "SaveAvatarResult",
         "SaveFileLink",
         "SaveOfferHead",
@@ -1952,6 +1957,7 @@
         "StoryIndexTabs",
         "StoryLens",
         "StoryLight",
+        "StoryProgress",
         "StoryRoom",
         "StorySpine",
         "StorySpineFacts",
@@ -2356,31 +2362,9 @@
         "[slug]/recap/_components/save-story-card-button.tsx",
         "[slug]/recap/page.tsx"
       ],
-      "destinations": [
-        "/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "ChapterBlock",
-        "CuratedGallery",
-        "EventSetnayanMarkLine",
-        "HeroMonogram",
-        "Link",
-        "Logo",
-        "PanoodReplay",
-        "PhotoGrid",
-        "RecapClosing",
-        "RecapFooter",
-        "RecapHeader",
-        "RecapHero",
-        "RecapPrologue",
-        "RecapStats",
-        "Reels",
-        "RoomFooter",
-        "SaveStoryCardButton",
-        "ShareButtons",
-        "Voices"
-      ]
+      "blocks": []
     },
     "/[slug]/request": {
       "files": [
@@ -2529,6 +2513,7 @@
         "admin/_components/console-table.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/mobile-landing-grid.tsx",
+        "admin/_components/posted-field-row.tsx",
         "admin/_components/read-failed.tsx",
         "admin/_components/record-search.ts",
         "admin/_components/what-you-change.tsx",
@@ -2660,6 +2645,7 @@
         "TermsReacceptSheet",
         "ThumbDock",
         "ThumbRow",
+        "TypedRow",
         "UnreadBellBadge"
       ]
     },
@@ -4397,17 +4383,22 @@
         "admin/pricing/_surfaces/free-windows-copy.ts",
         "admin/pricing/_surfaces/free-windows-surface.tsx",
         "admin/pricing/_surfaces/papic-ladder-surface.tsx",
+        "admin/pricing/_surfaces/plan-contents-surface.tsx",
         "admin/pricing/_surfaces/price-bands-surface.tsx",
         "admin/pricing/_surfaces/pricing-surface.tsx",
         "admin/pricing/actions.ts",
         "admin/pricing/loading.tsx",
         "admin/pricing/page.tsx",
+        "admin/pricing/plan-contents-actions.ts",
         "admin/pricing/price-control-actions.ts"
       ],
       "destinations": [
         "/admin/addons/pricing-report",
         "/admin/gifts",
-        "/admin/pricing?tab=[seg]"
+        "/admin/pricing?tab=[seg]",
+        "/admin/pricing?tab=papic-shots",
+        "/admin/pricing?tab=plan-contents&plan=[seg]",
+        "/admin/pricing?tab=pricing"
       ],
       "actions": [
         "bandFormAction",
@@ -4420,6 +4411,7 @@
         "recomputeFunnelBands",
         "recomputePriceBands",
         "removeFormAction",
+        "requestPlanContentsChange",
         "retireFormAction",
         "save",
         "saveBookingFeeSchedule",
@@ -4438,6 +4430,7 @@
         "ConsoleTable",
         "CreditLadderRow",
         "EmptyState",
+        "EventPlan",
         "Family",
         "Field",
         "FieldLabel",
@@ -4456,6 +4449,8 @@
         "PapicTypeSizingEditor",
         "PillButton",
         "PillTrack",
+        "PlanContentsSurface",
+        "PostedFieldRow",
         "PriceBandsSurface",
         "PriceCatalogBrowser",
         "PricingSurface",
@@ -4473,6 +4468,7 @@
         "SignupDiscountCard",
         "Stat",
         "SubmitButton",
+        "SupplierPlan",
         "Suspense",
         "TablePageSkeleton",
         "Tag",
@@ -5061,7 +5057,8 @@
       "files": [
         "admin/users/actions.ts",
         "admin/users/loading.tsx",
-        "admin/users/page.tsx"
+        "admin/users/page.tsx",
+        "admin/users/suspend-actions.ts"
       ],
       "destinations": [],
       "actions": [],
@@ -5070,6 +5067,7 @@
     "/admin/users/[userId]": {
       "files": [
         "admin/users/[userId]/_components/account-card-nav.tsx",
+        "admin/users/[userId]/_components/account-hold-section.tsx",
         "admin/users/[userId]/page.tsx"
       ],
       "destinations": [
@@ -5082,13 +5080,18 @@
         "/admin/users",
         "/admin/users/[seg]/export"
       ],
-      "actions": [],
+      "actions": [
+        "accountHold"
+      ],
       "blocks": [
+        "AccountHoldSection",
         "AccountTabs",
         "ActivityTimeline",
+        "ConfirmForm",
         "LifecycleStrip",
         "Link",
         "PageMasthead",
+        "PostedFieldRow",
         "ReadFailed",
         "SupportSection"
       ]
@@ -11471,6 +11474,7 @@
         "dashboard/[eventId]/website/editor/_components/pick-menu.tsx",
         "dashboard/[eventId]/website/editor/_components/post-event-preset-tiles.tsx",
         "dashboard/[eventId]/website/editor/_components/post-event-scene-panel.tsx",
+        "dashboard/[eventId]/website/editor/_components/post-event-story-controls.tsx",
         "dashboard/[eventId]/website/editor/_components/post-event-tile-words.ts",
         "dashboard/[eventId]/website/editor/_components/pro-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/rail-rows.ts",
@@ -11667,7 +11671,9 @@
         "PickSheet",
         "PillThumb",
         "PostEventDrawn",
+        "PostEventReadsAs",
         "PostEventScenePanel",
+        "PostEventStoryControls",
         "PostEventWordsField",
         "PresetTiles",
         "ProLockPanel",
@@ -12067,7 +12073,8 @@
         "AdminPinnedRow",
         "AdminRailContext",
         "AdminThumbRow",
-        "FrontDoorShell"
+        "FrontDoorShell",
+        "QueuesTriageFeed"
       ]
     },
     "/dev/admin-supplier-lab": {

@@ -12,7 +12,7 @@ import { resolvePoster } from '@/lib/celebration-poster';
 import {
   posterDate,
   posterWords,
-  sashLabel,
+  coverChipLabel,
 } from '@/lib/celebration-poster-words';
 import { pastShelf, splitComingUpAndPast } from '@/lib/coming-up-and-past';
 import { manilaTodayISO } from '@/lib/event-board';
@@ -50,6 +50,7 @@ import { ViewBeacon } from '@/app/u/_components/view-beacon';
 import { FollowButton } from '@/app/u/_components/follow-button';
 import { MutualDays } from '@/app/u/_components/mutual-days';
 import { ProfileBack } from '@/app/u/_components/profile-back';
+import { SectionBar, type SectionTab } from '@/app/u/_components/section-bar';
 import { formatCount } from '@/lib/format-number';
 import { readProfileViewer, relationLine, viewerKnowsThem, type ProfileViewer } from '@/lib/profile-viewer';
 import { pictureFrameStyle, readProfilePhotoFrame } from '@/lib/picture-frame';
@@ -374,7 +375,10 @@ export default async function AccountProfilePage({ params }: Props) {
       const poster = resolvePoster({ ...event, landing_page_hero_image_url: heroSrc });
       const words = posterWords(event.display_name, event.monogram_text);
       const when = posterDate(event.event_date, event.event_date_precision);
-      const sash = sashLabel(section, index, Boolean(when.date));
+      /* 🏷 THE COVER SAYS THE EVENT'S NAME, NEVER ITS DATE (owner 13 Nov 2026: "events should only say event name
+         no date"). The date is still READ — `sashLabel`'s honesty rule needs it, so an undated celebration is never
+         "Up next" — but it is never printed. The chip is the kind ("Wedding"), then the status on a coming-up cover. */
+      const chip = coverChipLabel(event.event_type, section, index, Boolean(when.date));
 
       // The accent reaches the CSS as one custom property; every coloured rule
       // is written against it, so no hex is ever hard-coded for one couple.
@@ -415,17 +419,6 @@ export default async function AccountProfilePage({ params }: Props) {
         </h3>
       );
 
-      /* The date, in two lines — and NEITHER is printed when the celebration
-         does not know it. `posterDate` drops the weekday below day precision,
-         which is not hypothetical: a prod row carries a full `event_date` under
-         `event_date_precision = 'year'`. */
-      const whenLines =
-        when.date || when.weekday ? (
-          <span className="uprof-when">
-            {when.weekday ? <span className="uprof-wd">{when.weekday}</span> : null}
-            {when.date ? <span className="font-display uprof-dt">{when.date}</span> : null}
-          </span>
-        ) : null;
 
       return (
         <li key={event.event_id}>
@@ -436,12 +429,12 @@ export default async function AccountProfilePage({ params }: Props) {
             data-sheet={poster.sheet}
             data-identity={identity.hasOwnIdentity ? 'own' : 'none'}
           >
-            {/* THE SASH IS FIRST IN READING ORDER and is the one mark the house
-                adds to a couple's poster — the same shape, in paper-white, on
-                every sheet that carries one. A memory carries none. */}
-            {sash ? (
-              <span className="uprof-sash">
-                <span>{sash}</span>
+            {/* THE CHIP IS FIRST IN READING ORDER and is the one mark the house
+                adds to a couple's poster — the kind, plus the status on a
+                coming-up cover. No date, ever (owner 13 Nov 2026). */}
+            {chip ? (
+              <span className="uprof-kind" data-cover-chip="">
+                {chip}
               </span>
             ) : null}
 
@@ -480,7 +473,6 @@ export default async function AccountProfilePage({ params }: Props) {
                 <span className="uprof-moon-in">
                   {names}
                   <span className="uprof-rule" aria-hidden="true" />
-                  {whenLines}
                 </span>
               </span>
             ) : poster.sheet === 'letterpress' ? (
@@ -495,7 +487,6 @@ export default async function AccountProfilePage({ params }: Props) {
                 </span>
                 {names}
                 <span className="uprof-bar" aria-hidden="true" />
-                {whenLines}
                 <span className="uprof-orn" aria-hidden="true">
                   <i />
                   <b />
@@ -520,7 +511,6 @@ export default async function AccountProfilePage({ params }: Props) {
                 <span className="uprof-txt">
                   {names}
                   <span className="uprof-rule" aria-hidden="true" />
-                  {whenLines}
                 </span>
               </>
             )}
@@ -564,12 +554,29 @@ export default async function AccountProfilePage({ params }: Props) {
       : 'A Setnayan profile';
   const firstName = (user.display_name?.trim() || '').split(/\s+/)[0] || 'they';
 
-  const subtitle =
-    mode === 'gallery'
-      ? 'A collection of events.'
-      : mode === 'stories'
-        ? 'Stories from events past.'
-        : null;
+  /*
+    🧭 THE SECTIONS, AND THE BAR THAT MOVES BETWEEN THEM (owner 13 Nov 2026, "SIMPLER TO MOVE AROUND" — prototype
+    `public_pages_three_2026-11-13`, Person frame): Events · Chapters · Partnered with. A tab exists ONLY for a section
+    this render draws — each one is gated on the SAME condition as its section below, so the bar can never point at
+    nothing. "Partnered with" stays storyteller-only as shipped: `influenceVendors` is only ever read for a profile
+    with chapters.
+  */
+  const hasEvents = listed.length > 0;
+  const hasPartners = influenceVendors.length > 0;
+  const sectionTabs: SectionTab[] = [
+    ...(hasEvents ? [{ id: 'u-events', label: 'Events' }] : []),
+    ...(hasChapters ? [{ id: 'u-chapters', label: 'Chapters' }] : []),
+    ...(hasPartners ? [{ id: 'u-partnered', label: 'Partnered with' }] : []),
+  ];
+
+  /*
+    🔢 "N EVENTS" COUNTS WHAT THE EVENTS SECTION DRAWS — `listed`, which is built only from `publicWebsiteEvents`
+    (the public gate in lib/public-profile.ts: effectively-public AND a website-type event). Never a DB total, never a
+    private or unlisted event. And NEVER "0 events": the events read swallows an error to [], so a refused read and an
+    account with nothing public look the same here — the count prints only when there is something to count.
+  */
+  const publicEventCount = listed.length;
+  const host = SITE_URL.replace(/^https?:\/\//, '').replace(/^www\./, '');
 
   return (
     <main className="uprof">
@@ -590,46 +597,45 @@ export default async function AccountProfilePage({ params }: Props) {
             Profile &amp; settings → URL &amp; handle to share it.
           </div>
         ) : null}
-        {/* 🪪 THE ONE PROFILE HEADER (owner 11 Nov 2026, "HOME IS THE PROFILE") — the same component Home draws, so the
-            profile IS the public page. Markup and styles moved verbatim into `app/u/_components/profile-header.tsx`. */}
+        {/* 🪪 THE ONE PROFILE HEADER, IN HOME'S SHAPE (owner 13 Nov 2026, "THREE PUBLIC PAGES APPROVED": the person
+            page "simulates their Home, but what the public sees"). `layout="home"` is the row Home draws — the
+            rounded-square photo with the frame's dot, the name, the address — with no pencils: this is the visitor's
+            view. Follow + Share sit right under the counts. */}
         <ProfileHeader
+          layout="home"
           photoSrc={photoSrc}
           photoStyle={pictureFrameStyle(readProfilePhotoFrame(user))}
           initials={initialsFor(heading)}
           heading={heading}
+          handle={`${host}/u/${canonicalSlug}`}
           relation={relation || null}
           badge={hasChapters ? <CreatorBadge size="md" /> : null}
           audience={
             hasPublicContent ? (
               <>
-                  {/* E6 — "N chapters", first in the row (spec order: chapters ·
-                      followers · views · inquiries-driven). Presentation-only:
-                      `chapters` is already loaded above for the timeline, so this
-                      adds ZERO reads, and it counts EXACTLY what the timeline below
-                      renders (published AND carrying an embed) — not a DB total, and
-                      deliberately not the owner's own draft-inclusive count.
+                  {/* "N events" — public events only, and only when there are some (see `publicEventCount`). */}
+                  {publicEventCount > 0 ? (
+                    <span className="uprof-stat" data-uprof-events-count="">
+                      <strong>{formatAudienceCount(publicEventCount)}</strong>{' '}
+                      {publicEventCount === 1 ? 'event' : 'events'}
+                    </span>
+                  ) : null}
+                  {/* E6 — "N chapters". Presentation-only: `chapters` is already loaded above for the timeline, so
+                      this adds ZERO reads, and it counts EXACTLY what the timeline below renders.
 
                       HONESTY GATE: `hasChapters` is the only gate, and a FAILED read
                       cannot reach it — fetchPublishedChapters swallows a Supabase
                       error to [], so a broken read renders no badge, no timeline and
                       no stat. There is no path where this prints "0 chapters". */}
                   {hasChapters ? (
-                    <>
-                      <span className="uprof-stat">
-                        <strong>{formatAudienceCount(chapters.length)}</strong>{' '}
-                        {chapters.length === 1 ? 'chapter' : 'chapters'}
-                      </span>
-                      <span aria-hidden className="uprof-stat-dot">
-                        &middot;
-                      </span>
-                    </>
+                    <span className="uprof-stat">
+                      <strong>{formatAudienceCount(chapters.length)}</strong>{' '}
+                      {chapters.length === 1 ? 'chapter' : 'chapters'}
+                    </span>
                   ) : null}
                   <span className="uprof-stat">
                     <strong>{formatAudienceCount(user.followers_count)}</strong>{' '}
                     {user.followers_count === 1 ? 'follower' : 'followers'}
-                  </span>
-                  <span aria-hidden className="uprof-stat-dot">
-                    &middot;
                   </span>
                   <span className="uprof-stat">
                     <strong>{formatAudienceCount(user.profile_view_count)}</strong>{' '}
@@ -637,73 +643,83 @@ export default async function AccountProfilePage({ params }: Props) {
                   </span>
                   {/* PR-C — renders NOTHING at 0 (no fake influence). */}
                   {inquiriesDriven > 0 ? (
-                    <>
-                      <span aria-hidden className="uprof-stat-dot">
-                        &middot;
-                      </span>
-                      <span className="uprof-stat">
-                        <strong>{formatAudienceCount(inquiriesDriven)}</strong>{' '}
-                        {inquiriesDriven === 1 ? 'inquiry driven' : 'inquiries driven'}
-                        {/* P3 tier band — a rendering of the SAME number, not a
-                            second metric; hides at 0 alongside the line itself. */}
-                        <CreatorTierChip
-                          inquiriesDriven={inquiriesDriven}
-                          className="uprof-tier-chip"
-                        />
-                      </span>
-                    </>
+                    <span className="uprof-stat">
+                      <strong>{formatAudienceCount(inquiriesDriven)}</strong>{' '}
+                      {inquiriesDriven === 1 ? 'inquiry driven' : 'inquiries driven'}
+                      {/* P3 tier band — a rendering of the SAME number, not a
+                          second metric; hides at 0 alongside the line itself. */}
+                      <CreatorTierChip
+                        inquiriesDriven={inquiriesDriven}
+                        className="uprof-tier-chip"
+                      />
+                    </span>
                   ) : null}
-                  {/* Follow — the client island renders only for a signed-in
-                      visitor viewing someone else's profile (never self/signed-out).
-                      E6: the one-way note rides INSIDE the island (past its own
-                      render gate) so it can never appear without the button. */}
-                  <FollowButton
-                    followedUserId={user.user_id}
-                    className="uprof-follow"
-                    noteClassName="uprof-follow-note"
-                  />
               </>
             ) : null
           }
-          subtitle={subtitle}
+          actions={
+            hasPublicContent ? (
+              <>
+                {/* Follow — the client island renders only for a signed-in visitor viewing someone else's profile
+                    (never self/signed-out). E6: the one-way note rides INSIDE the island (past its own render gate)
+                    so it can never appear without the button. */}
+                <FollowButton
+                  followedUserId={user.user_id}
+                  className="uprof-follow"
+                  noteClassName="uprof-follow-note"
+                />
+                {/* Share doorway (#7c) — gated on the profile being a real public showcase: opted in AND has public
+                    content. Never on the disabled owner-preview or the empty state. */}
+                {enabled ? (
+                  <ProfileShareButton
+                    url={`${SITE_URL}/u/${canonicalSlug}`}
+                    title={`${displayName} · Setnayan`}
+                    label="Share"
+                    ariaLabel="Share this page"
+                    className="uprof-share"
+                  />
+                ) : null}
+              </>
+            ) : null
+          }
+          rule={false}
         />
 
+        <SectionBar tabs={sectionTabs} />
+
         {/*
-            ── COMING UP · PAST (owner 2026-09-23: "split coming up from past") ──
-            He asked "why do we see the 2 upcoming events as well?" — which was
-            not a request for two headings. He had noticed that an INVITATION and
-            a MEMORY were drawn identically. So the sections read as different
-            things: Coming up leads the page at full size; Past is quieter and
-            smaller, something to look back at. Two identical grids under two
-            headings would satisfy the words and miss the point.
+            ── EVENTS: COMING UP, THEN PAST (owner 2026-09-23: "split coming up from past"; folded into one section
+            13 Nov 2026) ──
+            He had noticed that an INVITATION and a MEMORY were drawn identically, so the halves read as different
+            things: Coming up leads at full size; Past is quieter and smaller.
 
             "Is this over" is `isFinishedEvent` via `splitComingUpAndPast` —
             archived, multi-day and dateless already have ONE answer in this
             product. "Today" is Manila's, because a wedding is upcoming until it
             is over where it happens.
 
-            A section renders ONLY when it has cards: a couple with nothing
-            behind them must never meet an empty "Past celebrations" heading.
+            A half renders ONLY when it has cards: a couple with nothing
+            behind them must never meet an empty "Past" heading.
         */}
-        {listed.length > 0 ? (
-          <>
+        {hasEvents ? (
+          <section id="u-events" className="uprof-sec" aria-labelledby="u-events-h">
+            <h2 id="u-events-h" className="uprof-lab">Events</h2>
             {comingUp.length > 0 ? (
-              <section className="uprof-section">
-                <h2 className="uprof-section-head">Coming up</h2>
+              <div className="uprof-section">
+                <h3 className="uprof-section-head">Coming up</h3>
                 <ul className="uprof-grid">{comingUp.map(renderCelebration('coming-up'))}</ul>
-              </section>
+              </div>
             ) : null}
             {pastEvents.length > 0 ? (
-              <section className="uprof-section uprof-past">
-                <h2 className="uprof-section-head">Past events</h2>
+              <div className="uprof-section uprof-past">
+                <h3 className="uprof-section-head">Past</h3>
                 <ul className="uprof-grid">{pastShown.shown.map(renderCelebration('past'))}</ul>
                 {/*
                     A PLAIN <details>, SO THE REST IS ONE TAP AND NO JAVASCRIPT.
                     This page is ISR-cached and the rest of it is server-rendered;
-                    a client island to reveal six more memories would be the only
-                    script on the page, and it would leave the hidden ones out of
-                    the HTML a search engine or a reader-mode sees. The cards are
-                    RENDERED either way — `details` only hides them.
+                    a client island to reveal six more memories would leave the
+                    hidden ones out of the HTML a search engine or a reader-mode
+                    sees. The cards are RENDERED either way — `details` only hides them.
                 */}
                 {pastShown.moreLabel ? (
                   <details className="uprof-more">
@@ -713,9 +729,9 @@ export default async function AccountProfilePage({ params }: Props) {
                     </ul>
                   </details>
                 ) : null}
-              </section>
+              </div>
             ) : null}
-          </>
+          </section>
         ) : hasChapters ? null : (
           knowsThem ? (
             <div className="uprof-empty" data-uprof-empty="known">
@@ -742,17 +758,16 @@ export default async function AccountProfilePage({ params }: Props) {
             passed ONLY where the page already prints it publicly, so the island
             can never become a name oracle for a hidden/empty profile. */}
         {/* ⚠ NOT `displayName` — that variable falls back to the literal
-            "Celebrations" when the account has no name set, which would print
-            "the next time you and Celebrations are at the same celebration".
-            Pass the REAL name or nothing; the island says "them" when it has
-            nothing, which is always readable. */}
+            "Events" when the account has no name set. Pass the REAL name or
+            nothing; the island says "them" when it has nothing. */}
         <MutualDays
           profileUserId={user.user_id}
           profileName={hasPublicContent || knowsThem ? (user.display_name?.trim() || null) : null}
         />
 
         {hasChapters ? (
-          <>
+          <section id="u-chapters" className="uprof-sec" aria-labelledby="u-chapters-h">
+            <h2 id="u-chapters-h" className="uprof-lab">Chapters</h2>
             <WhoWasThereBand people={whoWasThere} />
             <ChapterTimeline
               chapters={chapters}
@@ -760,35 +775,24 @@ export default async function AccountProfilePage({ params }: Props) {
               pictures={chapterPictures}
               slug={canonicalSlug}
             />
-          </>
+          </section>
         ) : null}
 
-        {influenceVendors.length > 0 ? (
+        {hasPartners ? (
           <CreatorInfluence vendors={influenceVendors} />
         ) : null}
 
-        {/* Share doorway + report path (#7c). Gated on the profile being a real
-            public showcase — opted-in AND has ≥1 public chapter (hasPublicContent).
-            Never rendered on the disabled owner-preview or the empty state, so we
-            never offer sharing on, or attach a report target to, a non-public
-            profile. */}
-        {enabled && hasPublicContent ? (
-          <div className="uprof-actions">
-            <ProfileShareButton
-              url={`${SITE_URL}/u/${canonicalSlug}`}
-              title={`${displayName} · Setnayan`}
-              className="uprof-action-btn"
-            />
+        {/* Report path (#7c) + the house mark. Report is gated exactly as before — a real public showcase only —
+            so a report target is never attached to a non-public profile. */}
+        <footer className="uprof-foot">
+          {enabled && hasPublicContent ? (
             <ReportPageButton
               targetType="user_profile"
               targetId={user.user_id}
               label="Report this page"
-              className="inline-flex"
+              className="uprof-report"
             />
-          </div>
-        ) : null}
-
-        <footer className="uprof-foot">
+          ) : null}
           <a href="https://www.setnayan.com" className="uprof-foot-link">
             Made with Setnayan
           </a>
@@ -951,8 +955,8 @@ function ChapterTimeline({
 // the discount terms or the offer graph. Bookings-driven ROI is P2/P3.
 function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
   return (
-    <section className="uprof-inf" aria-label="Partnered suppliers">
-      <h2 className="m-serif uprof-inf-head">Partnered with</h2>
+    <section id="u-partnered" className="uprof-sec uprof-inf" aria-labelledby="u-partnered-h">
+      <h2 id="u-partnered-h" className="uprof-lab">Partnered with</h2>
       <ul className="uprof-inf-list">
         {vendors.map((v) => (
           <li key={v.slug}>
@@ -1027,7 +1031,7 @@ const UPROF_CSS = `
     font-size: clamp(1.2rem, 3.5vw, 1.6rem);
     text-align: center;
     margin: 0 0 clamp(1.25rem, 3vw, 1.75rem);
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
   }
   .uprof-md-invite {
     max-width: 34rem;
@@ -1035,7 +1039,7 @@ const UPROF_CSS = `
     text-align: center;
     font-size: 0.95rem;
     line-height: 1.65;
-    color: color-mix(in srgb, var(--m-ink, #1B1A17) 62%, transparent);
+    color: color-mix(in srgb, var(--m-ink) 62%, transparent);
   }
   .uprof-md-list { list-style: none; margin: 0; padding: 0; }
   .uprof-md-item + .uprof-md-item { margin-top: 0.9rem; }
@@ -1044,7 +1048,7 @@ const UPROF_CSS = `
     align-items: center;
     gap: 0.9rem;
     padding: 0.95rem 1.1rem;
-    border: 1px solid color-mix(in srgb, var(--m-ink, #1B1A17) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--m-ink) 12%, transparent);
     /* The same radius token as .uprof-empty, its actual neighbour in this
        column. ⚠ This comment used to point at .uprof-card, the event
        card — which the poster artwork replaced, and a poster rounds at 4px
@@ -1057,61 +1061,50 @@ const UPROF_CSS = `
   }
   .uprof-md-card:hover {
     background: #FFFFFF;
-    border-color: color-mix(in srgb, var(--m-ink, #1B1A17) 22%, transparent);
+    border-color: color-mix(in srgb, var(--m-ink) 22%, transparent);
   }
   .uprof-md-body { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1; }
-  .uprof-md-title { font-size: 1.02rem; color: var(--m-ink, #1B1A17); }
+  .uprof-md-title { font-size: 1.02rem; color: var(--m-ink); }
   .uprof-md-meta {
     font-size: 0.82rem;
-    color: color-mix(in srgb, var(--m-ink, #1B1A17) 55%, transparent);
+    color: color-mix(in srgb, var(--m-ink) 55%, transparent);
   }
   .uprof-md-chev {
     font-size: 1.35rem;
     line-height: 1;
-    color: color-mix(in srgb, var(--m-ink, #1B1A17) 35%, transparent);
+    color: color-mix(in srgb, var(--m-ink) 35%, transparent);
   }
 
-  .uprof-inf { margin-top: clamp(2.5rem, 6vw, 3.75rem); }
-  .uprof-inf-head {
-    font-size: clamp(1.2rem, 3.5vw, 1.6rem);
-    text-align: center;
-    margin: 0 0 clamp(1.25rem, 3vw, 1.75rem);
-    color: var(--m-ink, #1B1A17);
-  }
   .uprof-inf-list {
     list-style: none;
-    margin: 0 auto;
+    margin: 0;
     padding: 0;
-    max-width: 620px;
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.7rem;
+    gap: 8px;
   }
+  /* The prototype's .partner pill: a 52-px soft pill, the shop's logo in a 40-px circle. Name and logo only —
+     never the offer's terms. */
   .uprof-inf-card {
     display: inline-flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.5rem 0.95rem 0.5rem 0.6rem;
-    background: #fff;
-    border: 1px solid var(--m-line, #E2DED4);
+    gap: 10px;
+    min-height: 52px;
+    padding: 6px 16px 6px 6px;
     border-radius: var(--m-r-full, 999px);
-    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
+    background: var(--m-paper-2);
     text-decoration: none;
-    color: inherit;
-    transition: transform .15s cubic-bezier(.2,.7,.2,1), border-color .15s;
+    color: var(--m-ink);
+    transition: background-color .15s;
   }
-  .uprof-inf-card:hover {
-    transform: translateY(-1px);
-    border-color: var(--m-orange, #A9834B);
-  }
+  .uprof-inf-card:hover { background: var(--m-ivory); }
   .uprof-inf-logo {
     flex: 0 0 auto;
-    width: 26px;
-    height: 26px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--m-r-full, 999px);
     overflow: hidden;
-    background: var(--m-ivory, #EDEAE0);
+    background: var(--accent-soft, #EDEAE0);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1125,35 +1118,176 @@ const UPROF_CSS = `
     text-transform: uppercase;
   }
   .uprof-inf-name {
-    font-size: 0.86rem;
-    font-weight: 500;
-    color: var(--m-ink, #1B1A17);
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--m-ink);
   }
 
   .uprof {
     min-height: 100dvh;
     background: var(--m-paper, #FBFBFA);
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: clamp(3rem, 9vw, 6rem) 1.5rem clamp(2.5rem, 6vw, 4rem);
+    padding: clamp(1rem, 4vw, 2.5rem) 16px clamp(2rem, 5vw, 3rem);
   }
-  .uprof-inner { width: 100%; max-width: 760px; }
+  .uprof-inner { width: 100%; max-width: 760px; animation: uprof-in 240ms ease-out both; }
+  /* Calm motion: ONE short fade as the page arrives (the prototype's .calm .fade), nothing on scroll. */
+  @keyframes uprof-in { from { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .uprof-inner { animation: none; } }
   .uprof-back { display: flex; justify-content: flex-start; margin-bottom: 8px; }
 
   .uprof-preview {
     margin: 0 0 1.5rem;
     padding: 0.7rem 1rem;
-    border: 1px solid var(--m-line, #E2DED4);
+    border: 1px solid var(--m-line);
     border-radius: var(--m-r-md, 14px);
-    background: var(--m-ivory, #EDEAE0);
+    background: var(--m-ivory);
     color: var(--m-slate, #4F535B);
     font-size: 0.85rem;
     text-align: center;
   }
 
 ${PROFILE_HEADER_CSS}
+
+  /* ── 🪪 THE PERSON PAGE IN HOME'S SHAPE (owner 13 Nov 2026, "THREE PUBLIC PAGES APPROVED"; prototype
+     public_pages_three_2026-11-13, Person frame). The shared header draws layout="home"; these rules are the
+     visitor's version of it: the name may wrap (Home's is one ellipsised line beside pencils), the counts are a
+     plain row (not Home's section doors), and Follow + Share are the two buttons under them. */
+  .uprof .uprof-head[data-layout='home'] { padding: 18px 0 16px; display: grid; gap: 12px; }
+  .uprof .uprof-head[data-layout='home'] .uprof-hrow { gap: 16px; }
+  .uprof .uprof-head[data-layout='home'] .uprof-name {
+    font-size: 1.5rem;
+    letter-spacing: -.015em;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  @media (min-width: 900px) { .uprof .uprof-head[data-layout='home'] .uprof-name { font-size: 1.9rem; } }
+  .uprof .uprof-head[data-layout='home'] .uprof-handle { white-space: normal; overflow-wrap: anywhere; margin-top: 4px; }
+  .uprof .uprof-head[data-layout='home'] .uprof-relation,
+  .uprof .uprof-head[data-layout='home'] .uprof-badge-row,
+  .uprof .uprof-head[data-layout='home'] .uprof-audience { margin: 0; justify-content: flex-start; }
+  .uprof .uprof-head[data-layout='home'] .uprof-audience { gap: 4px 14px; }
+  .uprof .uprof-head[data-layout='home'] .uprof-relation { justify-self: start; }
+  .uprof .uprof-stat { font-size: 0.92rem; }
+  .uprof .uprof-head[data-layout='home'] .uprof-actions { margin: 0; flex-wrap: wrap; }
+  .uprof .uprof-follow,
+  .uprof .uprof-share {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 46px;
+    margin: 0;
+    padding: 0 18px;
+    border-radius: var(--m-r-full, 999px);
+    font-size: 0.95rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: transform .18s cubic-bezier(.2,.8,.2,1), background-color .15s, color .15s;
+  }
+  .uprof .uprof-follow {
+    order: 1;
+    border: 1px solid var(--m-ink);
+    background: var(--m-ink);
+    color: var(--m-paper, #fff);
+  }
+  .uprof .uprof-follow[data-following='1'] {
+    background: var(--m-paper, #fff);
+    color: var(--m-ink);
+    border-color: var(--m-line);
+  }
+  .uprof .uprof-share {
+    order: 2;
+    border: 1px solid var(--m-line);
+    background: var(--m-paper, #fff);
+    color: var(--m-ink);
+  }
+  .uprof .uprof-follow:active,
+  .uprof .uprof-share:active { transform: scale(.98); }
+  .uprof .uprof-follow:hover { transform: none; }
+  /* The one-way note: its own line under both buttons, left-aligned like the rest of the header. */
+  .uprof .uprof-follow-note { order: 3; text-align: left; margin: 2px 0 0; font-size: 0.86rem; }
+  @media (prefers-reduced-motion: reduce) {
+    .uprof .uprof-follow, .uprof .uprof-share { transition: none; }
+    .uprof .uprof-follow:active, .uprof .uprof-share:active { transform: none; }
+  }
+
+  /* ── 🧭 THE SECTION BAR — sticky under the header, one tap to each section, the current one underlined, ↑ Top at
+     its right edge. /u is not a NAV_ROUTE, so nothing else is pinned above it. */
+  .uprof-bar-nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 -16px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--m-line);
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: color-mix(in srgb, var(--m-paper, #fff) 94%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .uprof-bar-nav::-webkit-scrollbar { display: none; }
+  .uprof-bar-nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 46px;
+    padding: 0 14px;
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--m-slate-2, #6E6A62);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  .uprof-bar-nav a[aria-current] { color: var(--m-ink); border-bottom-color: rgb(var(--color-terracotta)); }
+  .uprof-totop {
+    position: sticky;
+    right: 0;
+    margin-left: auto;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 46px;
+    padding: 0 12px 0 18px;
+    border: 0;
+    background: linear-gradient(to right, transparent, var(--m-paper, #fff) 14px);
+    font: 700 .64rem var(--font-mono-marketing), ui-monospace, monospace;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--m-slate-2, #6E6A62);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  /* ── THE SECTIONS — one rule between each, the label in small mono capitals behind a short accent line. */
+  .uprof-sec {
+    padding: 30px 0;
+    border-top: 1px solid var(--m-line);
+    display: grid;
+    gap: 14px;
+    scroll-margin-top: 56px;
+  }
+  .uprof-bar-nav + .uprof-sec { border-top: 0; }
+  @media (min-width: 900px) { .uprof-sec { padding: 38px 0; } }
+  .uprof-lab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font: 700 .7rem var(--font-mono-marketing), ui-monospace, monospace;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--m-slate-2, #6E6A62);
+  }
+  .uprof-lab::before { content: ""; flex: none; width: 34px; height: 2px; background: rgb(var(--color-terracotta)); }
   /* ── COMING UP vs PAST ──────────────────────────────────────────────────
      His complaint was that an invitation and a memory were drawn identically,
      so the DIFFERENCE lives here, at section level, rather than in a second
@@ -1172,22 +1306,21 @@ ${PROFILE_HEADER_CSS}
     text-transform: uppercase;
     color: var(--m-slate-2, #6A6E76);
     padding: 0.55rem 1rem;
-    border: 1px solid var(--m-line, #E1DCD1);
+    border: 1px solid var(--m-line);
     border-radius: var(--m-r-full, 999px);
   }
   .uprof-more-btn::-webkit-details-marker { display: none; }
-  .uprof-more-btn:hover { color: var(--m-ink, #2C2A29); border-color: var(--m-orange, #A9834B); }
+  .uprof-more-btn:hover { color: var(--m-ink); border-color: var(--m-orange, #A9834B); }
   .uprof-more[open] .uprof-more-btn { margin-bottom: 1.1rem; }
   .uprof-more-grid { margin-top: 0; }
 
-  .uprof-section { margin-bottom: clamp(1.75rem, 4vw, 2.75rem); }
+  .uprof-section { margin: 0; }
+  .uprof-section + .uprof-section { margin-top: 1.25rem; }
   .uprof-section-head {
-    font-family: var(--font-display), Georgia, serif;
-    font-size: 0.82rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--m-slate-2, #6A6E76);
-    margin: 0 0 0.85rem;
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: var(--m-slate-2, #6E6A62);
+    margin: 0 0 0.75rem;
   }
   .uprof-past .uprof-section-head { color: var(--m-slate-3, #8A857B); }
 
@@ -1269,22 +1402,19 @@ ${PROFILE_HEADER_CSS}
   .uprof-pframe { position: absolute; inset: 14px; pointer-events: none; }
   .uprof-pframe::after { content: ""; position: absolute; inset: 4px; }
 
-  /* The status sash: paper-white, across the top-left corner, real text, first
-     in reading order. Identical on every sheet that carries one — a memory
-     carries none, and an undated event carries none either. */
-  .uprof-sash {
-    position: absolute; top: 0; left: 0;
-    width: 150px; height: 150px;
-    overflow: hidden; z-index: 4; pointer-events: none;
-  }
-  .uprof-sash span {
-    position: absolute; left: -60px; top: 36px; width: 240px;
-    padding: 8px 0; text-align: center; transform: rotate(-45deg);
-    background: var(--m-paper, #FFFFFF);
-    font-size: 12px; font-weight: 700; letter-spacing: .22em;
-    text-transform: uppercase; line-height: 1;
-    box-shadow: 0 2px 6px rgba(0,0,0,.22);
-    color: var(--m-ink, #2C2A29);
+  /* The kind chip: the event's kind (and, coming up, its status) in a dark pill at the top-left — the
+     prototype's .cover .kind. Real text, first in reading order; never a date. */
+  .uprof-kind {
+    position: absolute; left: 12px; top: 12px; z-index: 4; pointer-events: none;
+    max-width: calc(100% - 24px);
+    padding: 5px 9px;
+    border-radius: var(--m-r-full, 999px);
+    background: rgba(23,22,15,.62);
+    color: #FBFAF7;
+    font: 700 .6rem/1.2 var(--font-mono-marketing), ui-monospace, monospace;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
   /* ⛔ NO font-family IN THE NAME RULES. The event's own Save-the-Date
@@ -1297,15 +1427,6 @@ ${PROFILE_HEADER_CSS}
   .uprof-amp { display: block; font-style: italic; }
   .uprof-amp-in { font-style: italic; }
   .uprof-rule { display: block; height: 1px; margin-left: auto; margin-right: auto; }
-  .uprof-when { display: block; }
-  .uprof-wd {
-    display: block;
-    font-size: max(10.5px, 2.9cqw);
-    letter-spacing: .28em;
-    text-transform: uppercase;
-    font-weight: 600;
-  }
-  .uprof-dt { display: block; font-size: max(16px, 5.2cqw); line-height: 1.15; }
 
   /* ── the moon: an accent that cannot carry a letter ─────────────────────
      Measured, not chosen: white on his gold is 3.90 and ink on it is 3.66, so
@@ -1318,12 +1439,11 @@ ${PROFILE_HEADER_CSS}
   }
   .uprof-poster[data-sheet="moon"] .uprof-pframe { border: 1px solid rgba(255,255,255,.6); }
   .uprof-poster[data-sheet="moon"] .uprof-pframe::after { border: 1px solid rgba(255,255,255,.26); }
-  .uprof-poster[data-sheet="moon"] .uprof-sash span { color: var(--sn-gold-800, #5C4726); }
   .uprof-moon {
     position: absolute; left: 50%; top: 12cqw; transform: translateX(-50%);
     width: 78cqw; aspect-ratio: 1; border-radius: 50%;
     background: var(--m-paper, #FFFFFF);
-    color: var(--m-ink, #2C2A29);
+    color: var(--m-ink);
     display: grid; place-items: center; text-align: center; padding: 8cqw;
     box-shadow: 0 0 0 6px rgba(255,255,255,.24), 0 26px 44px -22px rgba(0,0,0,.5);
   }
@@ -1340,8 +1460,6 @@ ${PROFILE_HEADER_CSS}
     width: 34%; background: var(--sn-gold-300, #CBA766);
     margin-top: 4.5cqw; margin-bottom: 3cqw;
   }
-  .uprof-moon .uprof-wd { color: var(--m-slate-2, #6E6A62); }
-  .uprof-moon .uprof-dt { color: var(--m-ink, #2C2A29); margin-top: 1cqw; }
   .uprof-thread {
     position: absolute; left: 0; right: 0; top: 111cqw;
     display: flex; justify-content: center; align-items: center; gap: 8px;
@@ -1360,7 +1478,6 @@ ${PROFILE_HEADER_CSS}
   }
   .uprof-poster[data-sheet="sheet"] .uprof-pframe { border: 1px solid rgba(255,255,255,.3); }
   .uprof-poster[data-sheet="sheet"] .uprof-pframe::after { border: 1px solid rgba(255,255,255,.12); }
-  .uprof-poster[data-sheet="sheet"] .uprof-sash span { color: var(--uprof-accent, #9a244f); }
   .uprof-capiz {
     position: absolute; inset: 0; opacity: .9;
     background-image:
@@ -1400,7 +1517,6 @@ ${PROFILE_HEADER_CSS}
     width: 28%; background: rgba(255,255,255,.75);
     margin-top: 3.6cqw; margin-bottom: 3cqw;
   }
-  .uprof-txt .uprof-dt { margin-top: 1cqw; }
   .uprof-credits {
     position: absolute; left: 0; right: 0; bottom: 4.4cqw; text-align: center;
     font-size: max(10.5px, 2.7cqw); letter-spacing: .32em;
@@ -1412,7 +1528,7 @@ ${PROFILE_HEADER_CSS}
      behind the words, never covered by the white moon. The moon is a
      colour-legibility device and a photograph has no single colour to measure;
      a scrim works on any picture, which is why it is the one used here. */
-  .uprof-poster[data-sheet="photograph"] { background: var(--m-ink, #2C2A29); color: #fff; }
+  .uprof-poster[data-sheet="photograph"] { background: var(--m-ink); color: #fff; }
   .uprof-pimg {
     position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; display: block;
@@ -1424,7 +1540,6 @@ ${PROFILE_HEADER_CSS}
   }
   .uprof-poster[data-sheet="photograph"] .uprof-pframe { border: 1px solid rgba(255,255,255,.34); }
   .uprof-poster[data-sheet="photograph"] .uprof-pframe::after { border: 1px solid rgba(255,255,255,.14); }
-  .uprof-poster[data-sheet="photograph"] .uprof-sash span { color: var(--m-ink, #2C2A29); }
   .uprof-poster[data-sheet="photograph"] .uprof-txt { text-shadow: 0 1px 14px rgba(0,0,0,.5); }
 
   /* ── the letterpress playbill: no accent at all ─────────────────────────
@@ -1434,21 +1549,21 @@ ${PROFILE_HEADER_CSS}
   .uprof-poster[data-sheet="letterpress"] {
     background:
       repeating-linear-gradient(45deg, rgba(44,42,41,.035) 0 1px, transparent 1px 7px),
-      var(--m-paper-2, #F4F2EC);
-    color: var(--m-ink, #2C2A29);
-    outline: 1px solid var(--m-line, #E1DCD1);
+      var(--m-paper-2);
+    color: var(--m-ink);
+    outline: 1px solid var(--m-line);
     outline-offset: -1px;
   }
-  .uprof-poster[data-sheet="letterpress"] .uprof-pframe { border: 3px solid var(--m-ink, #2C2A29); }
-  .uprof-poster[data-sheet="letterpress"] .uprof-pframe::after { border: 1px solid var(--m-ink, #2C2A29); }
+  .uprof-poster[data-sheet="letterpress"] .uprof-pframe { border: 3px solid var(--m-ink); }
+  .uprof-poster[data-sheet="letterpress"] .uprof-pframe::after { border: 1px solid var(--m-ink); }
   .uprof-bill {
     position: absolute; inset: 18px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; padding: 5cqw;
   }
   .uprof-orn { display: flex; align-items: center; gap: 2cqw; }
-  .uprof-orn i { width: 6px; height: 6px; background: var(--m-ink, #2C2A29); transform: rotate(45deg); }
-  .uprof-orn b { width: 14cqw; height: 1px; background: var(--m-ink, #2C2A29); }
+  .uprof-orn i { width: 6px; height: 6px; background: var(--m-ink); transform: rotate(45deg); }
+  .uprof-orn b { width: 14cqw; height: 1px; background: var(--m-ink); }
   .uprof-bill .uprof-names {
     font-weight: 700; line-height: .92; letter-spacing: .02em; text-transform: uppercase;
     margin: 5cqw 0 4.5cqw;
@@ -1463,20 +1578,18 @@ ${PROFILE_HEADER_CSS}
   .uprof-bill .uprof-amp { font-size: .55em; font-weight: 400; margin: .12em 0; }
   .uprof-bar {
     width: 100%; height: 7px;
-    border-top: 3px solid var(--m-ink, #2C2A29);
-    border-bottom: 1px solid var(--m-ink, #2C2A29);
+    border-top: 3px solid var(--m-ink);
+    border-bottom: 1px solid var(--m-ink);
   }
-  .uprof-bill .uprof-wd { color: var(--m-slate-2, #6E6A62); margin-top: 4.5cqw; }
-  .uprof-bill .uprof-dt { font-size: max(20px, 7cqw); margin-top: 1cqw; margin-bottom: 5cqw; }
 
   .uprof-empty {
     text-align: center;
-    border: 1px dashed var(--m-line, #E2DED4);
+    border: 1px dashed var(--m-line);
     border-radius: var(--m-r-lg, 22px);
     padding: 2.75rem 1.5rem;
     background: #fff;
   }
-  .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1B1A17); }
+  .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink); }
   .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }
 
   /* ── WHO WAS THERE ────────────────────────────────────────────────────
@@ -1516,7 +1629,7 @@ ${PROFILE_HEADER_CSS}
      variation entirely rather than decide it by hand.
      Measured against the field: Zola ships 1,618 designs and two layouts;
      Appy Couple's "Stories" is six identical polaroids. Nobody varies. */
-  .uprof-yr { max-width: 660px; margin: 0 auto; }
+  .uprof-yr { max-width: 660px; margin: 0; }
   .uprof-yr-mark {
     display: flex; align-items: center; gap: 12px;
     margin: clamp(1.9rem, 5vw, 2.6rem) 0 1.05rem;
@@ -1526,7 +1639,7 @@ ${PROFILE_HEADER_CSS}
     font-size: 0.82rem; font-weight: 700; letter-spacing: 0.17em;
     text-transform: uppercase; color: #C24E25;
   }
-  .uprof-yr-rule { height: 2px; border-radius: var(--m-r-xs); flex: 1; background: var(--m-line, #E2DED4); }
+  .uprof-yr-rule { height: 2px; border-radius: var(--m-r-xs); flex: 1; background: var(--m-line); }
   .uprof-yr-c {
     font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
     color: var(--m-slate-2, #6A6E76);
@@ -1546,7 +1659,7 @@ ${PROFILE_HEADER_CSS}
      them. */
 
   /* CP-3 chapter timeline — a spine of dated cards (not a feed). */
-  .uprof-tl { margin-top: clamp(2.5rem, 6vw, 3.75rem); }
+  .uprof-tl { margin: 0; }
   /* THE YEAR — the season heading. It sits ON the spine, so a reader scrolling
      back through a life passes a year the way they pass a chapter break in a
      book. Deliberately quiet: it is furniture, not a title. */
@@ -1557,42 +1670,26 @@ ${PROFILE_HEADER_CSS}
   /* Scrim pill. Cream on rgba(44,42,41,.75) composited over the WORST case (a
      pure-white thumbnail) measures 6.20:1 — clears AA with room. */
 
-  .uprof-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem 1.4rem;
-    margin-top: clamp(2rem, 5vw, 3rem);
-  }
-  .uprof-action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--m-line, #E2DED4);
-    border-radius: var(--m-r-full, 999px);
-    background: #fff;
-    color: var(--m-ink, #1B1A17);
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
-    transition: border-color .15s, transform .15s cubic-bezier(.2,.7,.2,1);
-  }
-  .uprof-action-btn:hover {
-    border-color: var(--m-orange, #A9834B);
-    transform: translateY(-1px);
-  }
 
-  .uprof-foot { margin-top: clamp(2.5rem, 7vw, 4rem); text-align: center; }
+  /* The prototype's .foot: one quiet column — Report this page, then the house mark. */
+  .uprof-foot {
+    margin-top: 0;
+    padding: 26px 0 8px;
+    border-top: 1px solid var(--m-line);
+    display: grid;
+    gap: 6px;
+    justify-items: center;
+    text-align: center;
+  }
   .uprof-foot-link {
-    font-size: 0.8rem;
-    letter-spacing: 0.04em;
+    font-family: var(--font-mono-marketing), ui-monospace, monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     color: var(--m-slate-2, #6A6E76);
     text-decoration: none;
     border-bottom: 1px solid transparent;
     transition: color .15s, border-color .15s;
   }
-  .uprof-foot-link:hover { color: var(--m-ink, #1B1A17); border-color: var(--m-orange, #A9834B); }
+  .uprof-foot-link:hover { color: var(--m-ink); border-color: var(--m-orange, #A9834B); }
 `;

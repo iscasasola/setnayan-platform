@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1854
-# tables: 496
-# columns: 6038
-# notnull: 3641
+# ledger: 1857
+# tables: 497
+# columns: 6049
+# notnull: 3648
 [ledger]
 20260512000000
 20260513000000
@@ -1866,6 +1866,9 @@
 20271341557835
 20271341658320
 20271342032145
+20271342335343
+20271342770993
+20271342818285
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2262,6 +2265,11 @@ chat_decision_topics.reopened_at
 chat_decision_topics.thread_id
 chat_decision_topics.title
 chat_decision_topics.topic_id
+chat_file_removals.for_everyone
+chat_file_removals.message_id
+chat_file_removals.removed_at
+chat_file_removals.thread_id
+chat_file_removals.user_id
 chat_message_flags.action_taken
 chat_message_flags.categories
 chat_message_flags.created_at
@@ -2298,6 +2306,7 @@ chat_messages.body
 chat_messages.change_order_id
 chat_messages.created_at
 chat_messages.event_id
+chat_messages.file_removed_at
 chat_messages.is_bot
 chat_messages.message_id
 chat_messages.offer_good_until
@@ -6258,7 +6267,10 @@ taxonomy_category_request_drafts.drafted_at
 taxonomy_category_request_drafts.drafted_by
 taxonomy_category_request_drafts.near_matches
 taxonomy_category_request_drafts.request_id
+taxonomy_category_request_drafts.suggested_description
+taxonomy_category_request_drafts.suggested_inspirations
 taxonomy_category_request_drafts.suggested_label
+taxonomy_category_request_drafts.suggested_search_words
 taxonomy_category_request_drafts.suggested_tile_id
 taxonomy_category_request_drafts.tile_reason
 taxonomy_category_request_drafts.verdict
@@ -6272,6 +6284,7 @@ taxonomy_category_requests.resolution_note
 taxonomy_category_requests.reviewed_at
 taxonomy_category_requests.reviewed_by_admin_id
 taxonomy_category_requests.status
+taxonomy_category_requests.supplier_seen_at
 taxonomy_category_requests.tile_id
 taxonomy_category_requests.updated_at
 thread_calls.call_id
@@ -7629,6 +7642,7 @@ vendor_services.added_pax_price_php
 vendor_services.base_pax
 vendor_services.branch_id
 vendor_services.category
+vendor_services.category_request_id
 vendor_services.coverage_id
 vendor_services.created_at
 vendor_services.credit_price_centavos
@@ -8151,6 +8165,11 @@ chat_decision_topics.opened_at
 chat_decision_topics.thread_id
 chat_decision_topics.title
 chat_decision_topics.topic_id
+chat_file_removals.for_everyone
+chat_file_removals.message_id
+chat_file_removals.removed_at
+chat_file_removals.thread_id
+chat_file_removals.user_id
 chat_message_flags.categories
 chat_message_flags.created_at
 chat_message_flags.flag_id
@@ -10550,7 +10569,9 @@ taxonomy_category_request_drafts.drafted_at
 taxonomy_category_request_drafts.drafted_by
 taxonomy_category_request_drafts.near_matches
 taxonomy_category_request_drafts.request_id
+taxonomy_category_request_drafts.suggested_inspirations
 taxonomy_category_request_drafts.suggested_label
+taxonomy_category_request_drafts.suggested_search_words
 taxonomy_category_request_drafts.verdict
 taxonomy_category_requests.created_at
 taxonomy_category_requests.proposed_by_vendor_id

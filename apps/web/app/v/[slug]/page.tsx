@@ -146,6 +146,8 @@ import {
 } from './_components/review-groups';
 import { readCardGuestReviewStats, readGuestReviewsForVendor, type GuestReviewsRead } from '@/lib/guest-reviews';
 import { buildCardReviews } from '@/lib/card-reviews';
+import { cardWithoutHidden, pairPhotoRefs, withCardHides, type CardHidesRead } from '@/lib/service-card-hides';
+import { readCardHides, viewerRunsShop } from '@/lib/service-card-hides.server';
 import { resolveGuestReviewPhotoUrls } from '@/lib/guest-review-photos.server';
 import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
@@ -807,9 +809,15 @@ async function resolveServiceShowcaseMedia(
           Promise.all(photoKeys.map((k) => displayUrlForStoredAsset(k))),
           displayUrlForStoredAsset(s.showcase_video_r2_key),
         ]);
-        const photos = photoUrls.filter((u): u is string => Boolean(u));
+        // 🃏 The refs ride along, paired with the URLs that resolved — a hide per card is keyed on the ref.
+        const { photos, photoRefs } = pairPhotoRefs(photoKeys, photoUrls);
         if (photos.length > 0 || videoUrl) {
-          out.set(s.vendor_service_id, { photos, videoUrl: videoUrl ?? null });
+          out.set(s.vendor_service_id, {
+            photos,
+            videoUrl: videoUrl ?? null,
+            photoRefs,
+            videoRef: videoUrl ? (s.showcase_video_r2_key ?? null) : null,
+          });
         }
       } catch {
         // Fail-soft — the card simply renders without its media strip.
@@ -1254,6 +1262,7 @@ export async function renderVendorBySlug({
     coverUrlByService,
     tileByCardKind,
     couplePhotosByService,
+    cardHidesByService,
   ] = await Promise.all([
     fetchInclusionsByService(admin, activeServiceIds),
     // 🏷 the cards' own rows + the shop's running offers (Build 6 Lane D) — couples see the single best of both.
@@ -1266,6 +1275,8 @@ export async function renderVendorBySlug({
     resolveTileByCardKind(activeServices),
     // 📸 Couples' own photos the shop APPROVED, per card — the one public door (approved only), in the same batch.
     fetchServiceCardCouplePhotos(admin, activeServiceIds),
+    // 🃏 What the shop hid on each card (hide per card never deletes) — only read where the grown card is drawn.
+    detailsEnabled ? readCardHides(admin, activeServiceIds) : Promise.resolve<CardHidesRead>({ status: 'ok', byCard: new Map() }),
   ]);
   // ③0-c — the coarse category each category files its cards under is the LIVE column
   // (`service_categories.coarse_category`); same cached snapshot the tile lookup above read.
@@ -1646,6 +1657,10 @@ export async function renderVendorBySlug({
    *  fallback select carries no `user_id`, so a degraded read is a stranger. */
   const viewerOwnsShop =
     user !== null && typeof vendor.user_id === 'string' && vendor.user_id === user.id;
+  /** 🃏 The viewer runs this shop (owner or owner/admin team — who RLS lets hide): only THEY are sent the items hidden
+   *  on a card, to curate. Everyone else's cards are stripped on the server (`cardWithoutHidden`). Fails closed. */
+  const viewerCuratesCards =
+    detailsEnabled && !cachedCopy && user !== null && !isDemoVendor && (await viewerRunsShop(vendor.vendor_profile_id));
   let coupleEventId: string | null = null;
   /** `?event=` once CHECKED against the viewer's own events — the event this visit came for (lib/shop-back.ts).
    *  Never the `events[0]` fallback: only an event the link named can be "where you came from". */
@@ -2944,6 +2959,9 @@ export async function renderVendorBySlug({
             coupleEventDate={coupleEventDate}
             cardRecordByService={cardRecordByService}
             couplePhotosByService={couplePhotosByService}
+            cardHides={cardHidesByService}
+            viewerCuratesCards={viewerCuratesCards}
+            ownerCheckFor={viewerCuratesCards ? vendor.vendor_profile_id : null}
             /* 👁 A signed-in viewer reads the NON-public couple photos they may see AFTER the page — never in this HTML. */
             viewerSignedIn={user !== null}
             /* Reuses the SAME trusted aggregate the hero stars read — the only
@@ -3185,6 +3203,197 @@ export async function renderVendorBySlug({
               </div>
             ) : null}
           </section>
+        ) : null}
+
+||||||| abb617053b
+        {vendor.services.length > 0 ? (
+          <section className="space-y-3 border-b border-ink/10 py-8">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Services offered
+            </h2>
+            <ul className="flex flex-wrap gap-2">
+              {orderedServices.map((s) => (
+                <li
+                  key={s}
+                  className="rounded-full bg-terracotta/10 px-3 py-1 text-sm text-terracotta-700"
+                >
+                  {displayServiceLabel(s)}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {attributeDetails.length > 0 ? (
+          <section className="space-y-6 border-b border-ink/10 py-8">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Details
+            </h2>
+            <div className="space-y-6">
+              {attributeDetails.map((group) => (
+                <div key={group.canonicalService} className="space-y-3">
+                  <h3 className="text-sm font-medium text-ink">{group.displayName}</h3>
+                  {group.flags.length > 0 ? (
+                    <ul className="flex flex-wrap gap-2">
+                      {group.flags.map((flag) => (
+                        <li
+                          key={flag}
+                          className="rounded-full bg-ink/5 px-3 py-1 text-xs text-ink/70"
+                        >
+                          {flag}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {group.facts.length > 0 ? (
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+                      {group.facts.map((fact) => (
+                        <div key={fact.label} className="flex flex-col">
+                          <dt className="text-xs uppercase tracking-wide text-ink/45">
+                            {fact.label}
+                          </dt>
+                          <dd className="text-sm text-ink/80">{fact.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {(vendor.compatible_ceremony_types && vendor.compatible_ceremony_types.length > 0) ||
+        (vendor.compatible_venue_settings && vendor.compatible_venue_settings.length > 0) ? (
+          <section className="space-y-4 border-b border-ink/10 py-8">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              {/* D2 (2026-09-11): event-neutral — this shop page is not only
+                  for weddings, and a debut/christening host reading "Wedding
+                  compatibility" over a real answer about their own event is a
+                  small but real instance of the same lie row 3838 rules out. */}
+              Event compatibility
+            </h2>
+            {vendor.compatible_ceremony_types && vendor.compatible_ceremony_types.length > 0 ? (
+              <div className="space-y-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                  Ceremonies
+                </p>
+                <ul className="flex flex-wrap gap-2">
+                  {vendor.compatible_ceremony_types.map((ct) => (
+                    <li
+                      key={ct}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-ink/[0.05] px-3 py-1 text-sm text-ink/75"
+                    >
+                      {CEREMONY_TYPE_LABELS[ct] ?? ct}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {vendor.compatible_venue_settings && vendor.compatible_venue_settings.length > 0 ? (
+              <div className="space-y-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                  Venues
+                </p>
+                <ul className="flex flex-wrap gap-2">
+                  {vendor.compatible_venue_settings.map((v) => (
+                    <li
+                      key={v}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-ink/[0.05] px-3 py-1 text-sm text-ink/75"
+                    >
+                      {VENUE_SETTING_LABELS[v] ?? v.replace(/_/g, ' ')}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        {activeServices.length > 0 ? (
+          /* Hybrid-anonymity (V2.1 amendment #2): pass displayLabel so
+             the services section's section heading + per-service
+             cards' "by {vendor}" copy don't leak the hidden name. */
+          <ServicesPricingSection
+            /* 📈 Each grown-card open counts for "Which card sells" — never on a demo shop or the team's own preview
+               (the same rule as the portfolio photo views above; the database also refuses the shop's own people). */
+            countOpensFor={!isDemoVendor && teamPreview === null ? vendor.vendor_profile_id : null}
+            services={activeServices}
+            businessName={displayLabel}
+            inclusionsByService={inclusionsByService}
+            discountsByService={discountsByService}
+            servesByService={servesByService}
+            showcaseByService={showcaseByService}
+            coverUrlByService={coverUrlByService}
+            tileByCardKind={tileByCardKind}
+            coarseSource={coarseSource}
+            hidePrices={hidePricesPublicly}
+            coupleEventDate={coupleEventDate}
+            cardRecordByService={cardRecordByService}
+            couplePhotosByService={couplePhotosByService}
+            cardHides={cardHidesByService}
+            viewerCuratesCards={viewerCuratesCards}
+            ownerCheckFor={viewerCuratesCards ? vendor.vendor_profile_id : null}
+            /* 👁 A signed-in viewer reads the NON-public couple photos they may see AFTER the page — never in this HTML. */
+            viewerSignedIn={user !== null}
+            /* Reuses the SAME trusted aggregate the hero stars read — the only
+               source the anti-fraud lock permits for a public rating number —
+               so the record block can never disagree with the top of the page,
+               and costs no extra query. Vendor-level by nature: reviews carry
+               no service dimension, which is why the badge says "shop rating". */
+            cardRecordRating={cardRecordRatingFromTrusted(trustedReviewStats)}
+            /* The details sheet (flag-dark). OFF ⇒ every card renders as the
+               static div it does today and no sheet is mounted. */
+            detailsEnabled={detailsEnabled}
+            /* Which composer, if any, the sheet's "Inquire about this" can
+               reach — decided here because only the server knows. */
+            inquireMode={
+              showInquiryComposer
+                ? 'focus'
+                : anonComposerServices.length > 0
+                  ? 'anchor'
+                  : 'none'
+            }
+            openServicePublicId={openServicePublicId}
+            inspirationByService={inspirationByService}
+            reviewsByService={reviewsByService}
+          />
+        ) : null}
+
+        {/* Verified "typical price" (dark) — the vendor's OWN median of their
+            locked-booking prices, shown as a self-referential guide. Renders
+            only when the flag is on, the median is established (≥ min sample),
+            and the vendor isn't hiding prices. No cross-vendor comparison. */}
+        {verifiedTypicalPrice?.result.status === 'established' &&
+        verifiedTypicalPrice.typicalPricePhp != null ? (
+          <VerifiedPriceCard
+            typicalPricePhp={verifiedTypicalPrice.typicalPricePhp}
+            sampleN={verifiedTypicalPrice.result.sampleN}
+          />
+        ) : null}
+
+        {/* Vendor packages (owner directive 2026-05-22) — bundled multi-
+            category offerings. Hotels sell their "wedding package" SKU
+            here; locking one cascade-locks every included planning-card
+            category. Public read; the LockPackageModal CTA only renders
+            for signed-in hosts with an active event. */}
+        {vendorPackages.length > 0 ? (
+          <VendorPackagesSection
+            packages={vendorPackages}
+            coupleEventId={coupleEventId}
+            /* 🔒 An unverified shop's page is public now (DECISION_LOG 2026-11-07), so "not bookable" is what keeps
+               the Lock button off it — the same quiet "Not yet bookable" line, never a Lock that the
+               `event_vendors_require_verified_before_lock` trigger would refuse a step later. */
+            isComingSoon={isComingSoon || !bookable}
+            bookingsOpen={bookingsOpen}
+            hidePrices={hidePricesPublicly}
+            paxCount={packageLivePax}
+            /* Flag-dark secondary action: send the configured build to the
+               vendor as a question instead of locking it. Empty ⇒ the modal is
+               byte-identical to today. */
+            askTargets={packageAskTargets}
+            shopName={displayLabel}
+          />
         ) : null}
 
         {/* 🔗🖼 INSPIRATION (owner 2026-10-30; the approved website-by-plan design places it after Packages). Renders
@@ -3519,7 +3728,16 @@ function ServicesPricingSection({
   inspirationByService,
   reviewsByService,
   countOpensFor,
+  cardHides,
+  viewerCuratesCards,
+  ownerCheckFor,
 }: {
+  /** 🃏 A signed-in viewer → the gallery asks once whether they run this shop (hide per card · 👁 · opens). */
+  ownerCheckFor: string | null;
+  /** 🃏 What the shop hid on each card (`vendor_service_card_hides`), or `error` when that read failed. */
+  cardHides: CardHidesRead;
+  /** 🃏 The viewer runs the shop (checked on the server) — the only viewer sent the hidden items. */
+  viewerCuratesCards: boolean;
   /** 📈 The shop whose card opens count (Build 6 Lane I, "Which card sells") — null for a demo shop or a team preview. */
   countOpensFor: string | null;
   services: ReadonlyArray<VendorServiceRow>;
@@ -3646,7 +3864,14 @@ function ServicesPricingSection({
           coverUrlByService.get(row.vendor_service_id) ?? null,
         ),
         couplePhotosByService.get(row.vendor_service_id),
-      )).map((card) => withCardReviews(card, reviewsByService.get(card.id))),
+      ))
+        .map((card) => withCardReviews(card, reviewsByService.get(card.id)))
+        // 🃏 Hide per card: the refs the supplier's tap names + what is hidden. Only where the grown card exists.
+        .map((card) =>
+          detailsEnabled
+            ? withCardHides(card, showcaseByService.get(card.id), cardHides.status === 'ok' ? cardHides.byCard.get(card.id) : undefined)
+            : card,
+        ),
     });
   }
 
@@ -3657,6 +3882,18 @@ function ServicesPricingSection({
     for (const g of groups) {
       g.cards = g.cards.map((c) =>
         withInspirationLooks(c, inspirationByService.get(c.id) ?? [], cardAnchorId(publicIdOf.get(c.id), c.id)),
+      );
+    }
+  }
+
+  // 🃏 HIDDEN ITEMS ARE DROPPED HERE, ON THE SERVER — last, once every hideable item (photos, clip, event lines,
+  // inspiration looks) is on the card. A couple's browser never receives what the shop hid. A FAILED hides read
+  // is not "nothing hidden": nobody can say which items are hidden, so none are sent and the card says so — for the
+  // shop too ("show nothing extra"). Only the shop, on a good read, keeps them, greyed, to curate.
+  if (detailsEnabled && (cardHides.status === 'error' || !viewerCuratesCards)) {
+    for (const g of groups) {
+      g.cards = g.cards.map((c) =>
+        cardWithoutHidden(c, cardHides.status === 'error' ? 'unread' : (cardHides.byCard.get(c.id) ?? [])),
       );
     }
   }
@@ -3679,6 +3916,7 @@ function ServicesPricingSection({
         openServicePublicId={openServicePublicId}
         shopName={businessName}
         countOpensFor={countOpensFor}
+        ownerCheckFor={ownerCheckFor}
       />
     </section>
   );

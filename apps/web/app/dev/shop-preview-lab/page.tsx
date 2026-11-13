@@ -21,6 +21,7 @@ import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { shopBadges } from '@/lib/shop-badges';
 import { ServicesGallery } from '@/app/v/[slug]/_components/services-gallery';
 import { ShopInspirationSection } from '@/app/v/[slug]/_components/shop-inspiration-section';
+import { GrownOwnerLab } from './grown-owner-lab';
 import { LAB_GROWN_CARD, LAB_INSPIRATION_CARDS, LAB_INSPIRATION_TILES } from './inspiration-lab-fixture';
 
 export default async function ShopPreviewLabPage({
@@ -43,6 +44,15 @@ export default async function ShopPreviewLabPage({
             shopName="Bloom & Co."
           />
         </article>
+      </main>
+    );
+  }
+  if (sp.view === 'card-owner') {
+    /* 🃏 The shop's OWN grown card (ruling 5970) — hide per card, 👁 Couple view, the card's opens. One photo and one
+       event line start hidden, so the greyed "Hidden on this card" is on screen. */
+    return (
+      <main className="min-h-dvh bg-cream" data-lab-grown-owner="">
+        <GrownOwnerLab card={LAB_GROWN_CARD} hidden={['photo:r2://lab/g2.jpg', 'event:Debut|Aug 2026|100–199 pax#1']} />
       </main>
     );
   }

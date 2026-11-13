@@ -455,7 +455,7 @@ export function AddYourOwnWalk({
             ) : null}
             {hasMatches ? (
               <div className="mt-2 border-t border-ink/10 pt-3" data-add-own-matches="">
-                <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-ink/55">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   {ADD_OWN_MATCH_HEAD}{' '}
                   <span className="font-sans normal-case tracking-normal">· {ADD_OWN_MATCH_TAIL}</span>
                 </p>

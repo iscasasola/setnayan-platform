@@ -246,7 +246,7 @@ export default function SupplierSheet({
   const quote = cardVerbWords('ask');
   const photos = data?.photos ? sheetPhotoRow(data.photos) : null;
   const eyebrow = [target.categoryLabel, target.city].filter(Boolean).join(' · ');
-  const k2 = 'font-mono text-[12px] uppercase tracking-[0.12em] text-ink/45';
+  const k2 = 'text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70';
 
   return createPortal(
     <Sheet open onClose={onClose} labelledById="supplier-sheet-name" wide rise>
@@ -263,7 +263,7 @@ export default function SupplierSheet({
         <style>{SHEET_CSS}</style>
         <header className="pr-10">
           <p className={k2}>{eyebrow}</p>
-          <h2 id="supplier-sheet-name" className="mt-1 font-display text-[22px] leading-tight text-ink">
+          <h2 id="supplier-sheet-name" className="mt-1 text-[17px] font-semibold leading-snug text-ink">
             {target.name}
           </h2>
           {target.nameWithheld ? <p className="mt-0.5 text-[12px] text-ink/55">Real name shown after they reply</p> : null}

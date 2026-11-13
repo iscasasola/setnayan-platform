@@ -391,7 +391,7 @@ export function BuildCompare({
             section names itself twice). Flag-ON only: with the replan OFF this
             component still renders standalone-ish copy, so it keeps its own h2. */}
         {replan ? null : (
-          <h2 className="font-display text-2xl italic text-ink">Compare your plans</h2>
+          <h2 className="text-[17px] font-semibold leading-snug text-ink">Compare your plans</h2>
         )}
         <p className="text-sm text-ink/60">
           {replan
@@ -462,7 +462,7 @@ export function BuildCompare({
           spec §8.3) — the surface that owns the team owns emptying it. */}
       {replan ? (
         <div className="sn-tile space-y-2 p-4">
-          <h3 className="font-mono text-[12px] uppercase tracking-[0.12em] text-ink/50">
+          <h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Your saved plans
           </h3>
           {!savedBuildsMeasured ? (
@@ -497,7 +497,7 @@ export function BuildCompare({
                     <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                       {title}
                     </span>
-                    <span className="font-mono text-[12px] tabular-nums text-ink/55">
+                    <span className="text-[13px] font-semibold tabular-nums text-ink/70">
                       {peso(b.total_php)}
                     </span>
                     <button
@@ -549,7 +549,7 @@ export function BuildCompare({
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink/8 pt-2">
             <span className="text-xs text-ink/50">
               Current team{' '}
-              <span className="font-mono tabular-nums text-ink/70">{peso(currentPlan.totalPhp)}</span>
+              <span className="font-semibold tabular-nums text-ink">{peso(currentPlan.totalPhp)}</span>
             </span>
           </div>
         </div>
@@ -567,7 +567,7 @@ export function BuildCompare({
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-ink/[0.03] text-left">
-                <th className="px-3 py-2 font-mono text-[12px] uppercase tracking-[0.12em] text-ink/50">
+                <th className="px-3 py-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Category
                 </th>
                 {columns.map((c) => {
@@ -582,7 +582,7 @@ export function BuildCompare({
                   return (
                     <th
                       key={c.key}
-                      className="px-2 py-2 text-right font-mono text-[12px] uppercase tracking-[0.12em] text-ink/55"
+                      className="px-2 py-2 text-right text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
                     >
                       <div className={c.isCurrent ? 'text-terracotta-700' : 'text-ink/70'}>
                         {c.title}
@@ -759,7 +759,7 @@ export function BuildCompare({
                   const ou = overUnder(c.total);
                   return (
                     <td key={c.key} className="px-2 py-2 text-right">
-                      <div className="font-display text-base italic text-ink">{peso(c.total)}</div>
+                      <div className="text-[15px] font-bold tabular-nums text-ink">{peso(c.total)}</div>
                       {ou ? <div className={`text-[12px] ${ou.tone}`}>{ou.text}</div> : null}
                     </td>
                   );

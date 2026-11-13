@@ -118,12 +118,12 @@ export function VendorQuickViewInspector({
     >
       <div className="space-y-4">
         {/* Hero image / initials — mirrors the card's photo ladder. */}
-        <div className="flex h-32 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[#3a3f47] to-[#565b63]">
+        <div className="flex h-32 items-center justify-center overflow-hidden rounded-xl bg-[var(--m-paper-2)]">
           {v.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={v.photoUrl} alt="" className="h-full w-full object-cover" />
           ) : (
-            <span className="font-serif text-4xl italic text-cream/70">{initials(v.name)}</span>
+            <span className="text-3xl font-semibold text-ink/70">{initials(v.name)}</span>
           )}
         </div>
 
@@ -205,8 +205,8 @@ export function VendorQuickViewInspector({
         {/* Price — the vendor's quoted total, when there is one. */}
         {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
           <div className="border-t border-ink/10 pt-3">
-            <p className="font-mono text-[12px] uppercase tracking-[0.12em] text-ink/45">Your price</p>
-            <p className="mt-0.5 font-serif text-2xl italic font-semibold text-ink">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Your price</p>
+            <p className="mt-0.5 text-[17px] font-semibold leading-snug text-ink">
               {formatPhp(v.totalCostPhp)}
             </p>
           </div>

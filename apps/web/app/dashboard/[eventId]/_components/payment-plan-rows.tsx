@@ -332,7 +332,7 @@ function DatedPlanRows({
                             className={`${LINE_INPUT_CLASS} pr-2 ${r.dueIso ? '' : 'text-ink/45'}`}
                           />
                           <span className="relative border-l border-ink/10">
-                            <span aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-[13px] text-ink/45">₱</span>
+                            <span aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[15px] font-semibold text-ink/70">₱</span>
                             <input // field-ok: the amount cell of a payment LINE — same line, same swipe
                               type="text"
                               inputMode="decimal"
@@ -353,7 +353,7 @@ function DatedPlanRows({
                                   }
                                 });
                               }}
-                              className={`${LINE_INPUT_CLASS} pl-6 pr-3 text-right font-mono text-[13px] tabular-nums`}
+                              className={`${LINE_INPUT_CLASS} pl-6 pr-3 text-right text-[15px] font-semibold tabular-nums`}
                             />
                           </span>
                         </div>
@@ -631,7 +631,7 @@ function RulePlanRows({
                 any field smaller than that on tap. So the space came from
                 layout: the controls moved up here, keeping full 24px targets. */}
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[12px] uppercase tracking-[0.14em] text-ink/45">
+              <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                 Payment {i + 1}
               </span>
               {/* The row's three presses — the one ActionButton, icon-only: ↑ ↓ and

@@ -538,7 +538,7 @@ export function ServicesTakeover({
                 // a divider (owner 2026-10-11 — a frame only on what is pressed).
                 <p data-sai-line="" className="mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-ink/15 pb-3">
                   <Sparkles className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
-                  <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.18em] text-ink/70">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                     Setnayan&nbsp;AI
                   </span>
                   <span className="text-xs text-ink/60">

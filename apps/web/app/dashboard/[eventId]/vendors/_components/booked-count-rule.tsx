@@ -146,7 +146,7 @@ function CountRuleSheet({
   return (
     <Sheet open onClose={onClose} labelledById={titleId} rise>
       <div className="space-y-1 px-5 pb-6 pt-5" data-count-rule-sheet={service.id}>
-        <h2 id={titleId} className="pr-10 font-display text-[22px] leading-tight text-ink">
+        <h2 id={titleId} className="pr-10 text-[17px] font-semibold leading-snug text-ink">
           {service.label} · {shop}
         </h2>
         <div className="flex items-center justify-between gap-3 border-b border-ink/10 py-3 text-[15px]">

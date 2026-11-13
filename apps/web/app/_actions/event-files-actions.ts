@@ -15,6 +15,10 @@ import { parseStoredAsset } from '@/lib/uploads';
 import { fileKindOf, readExifTakenAt } from '@/lib/supplier-files';
 import { STORAGE_UPGRADE_HREF, isStorageRefusal } from '@/lib/supplier-storage';
 import { storageRefusalWords } from '@/lib/supplier-storage.server';
+import { canManageVendor, resolveVendorRoleForProfile } from '@/lib/vendor-role';
+
+/** Where "move to Supplier Ultra" goes — the shop's Plan, the same page storage sends a shop to. */
+const ALBUM_SHARE_UPGRADE_HREF = STORAGE_UPGRADE_HREF;
 
 /**
  * 📁 A SUPPLIER'S FILES FOR ONE EVENT — ONE dispatcher (Piece 3b · DECISION_LOG 2026-11-12), both sides, because every
@@ -28,6 +32,7 @@ import { storageRefusalWords } from '@/lib/supplier-storage.server';
  *                once (a hash already stored resolves to it — never a second row), then files it.
  *   • `map`    — "From your portfolio": each pick becomes a POINTER (grp linked) to the existing photo — no copy, keeps
  *                its own service. Only the shop's own portfolio / card photos are accepted.
+ *   • `albumshare` — 🎬 a Supplier Ultra shares its private album for this event to the event's story (on · off).
  *   • `remove` — a filed row leaves this event (the stored copy stays: it may back other files).
  *   • `filechat` — 📥 Piece 3c "File under a service": a photo/video the SHOP sent in this event's chat is filed under a
  *                quoted service. The server reads the chat file's bytes, measures hash + date; bytes already stored are a
@@ -327,6 +332,36 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
       return { status: 'error', message: error?.message.includes('quote') ? 'Only a service in this event’s quote can hold photos.' : NOT_SAVED };
     }
     return done({ status: 'done', message: 'Filed under the service' });
+  }
+
+  if (op === 'albumshare') {
+    // 🎬 A Supplier Ultra shares its private album for this event to the event's story (owner 2026-11-13, specs
+    // DECISION_LOG "Supplier Ultra shares its album" · "Ultra album share — default"). OFF by default; the switch and
+    // the one-time ask after the event both land here, and either answer stamps `asked_at` so the ask is never repeated.
+    // Turning it ON needs Supplier Ultra (read now, under the shop's own session); turning it OFF is always allowed.
+    // The story reads the plan again at render, so a shop that moves down stops showing without touching this row.
+    const want = String(fd.get('shared') ?? '');
+    if (want !== 'on' && want !== 'off') return { status: 'error', message: 'On or off.' };
+    if (!canManageVendor(await resolveVendorRoleForProfile(supabase, user.id, shop))) {
+      return { status: 'error', message: 'Only the shop’s owner can share its album.' };
+    }
+    if (want === 'on') {
+      const { data: plan, error: planErr } = await supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', shop).maybeSingle();
+      if (planErr || !plan) return { status: 'error', message: 'We couldn’t check your plan just now. Nothing changed — please try again.' };
+      if ((plan as { tier_state: string | null }).tier_state !== 'enterprise') {
+        return { status: 'error', message: 'Sharing your album to the event’s story comes with Supplier Ultra.', href: ALBUM_SHARE_UPGRADE_HREF };
+      }
+    }
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('vendor_event_album_shares')
+      .upsert({ vendor_profile_id: shop, event_id: eventId, shared: want === 'on', asked_at: now, updated_at: now }, { onConflict: 'vendor_profile_id,event_id' })
+      .select('shared');
+    if (error || !data || data.length !== 1) {
+      if (error) console.error('[supabase-error] app/_actions/event-files-actions.ts · from:vendor_event_album_shares.upsert', error);
+      return { status: 'error', message: 'We couldn’t change sharing just now. Nothing changed — please try again.' };
+    }
+    return done({ status: 'done', message: want === 'on' ? 'Shared to the event’s story' : 'Your album is private again' });
   }
 
   if (op === 'remove') {

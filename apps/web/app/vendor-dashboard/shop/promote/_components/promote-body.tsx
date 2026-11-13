@@ -144,7 +144,7 @@ export async function PromoteBody({
           {/* 📡 Scan or tap (v110): the NFC tap carries the same link as the shop code — this phone's Tap test. */}
           {part === 'qr' && pageLink ? (
             <div className="border-t border-ink/10 pt-2" data-shop-qr-nfc="">
-              <p className="pb-1 text-[12.5px] text-ink/60">Scan or tap · the NFC tap carries the same link as your shop code</p>
+              <p className="pb-1 text-[12.5px] text-[color:var(--m-slate-2)]">Scan or tap · the NFC tap carries the same link as your shop code</p>
               <NfcTapTest url={pageLink} />
             </div>
           ) : null}

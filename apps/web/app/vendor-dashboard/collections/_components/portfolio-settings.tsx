@@ -95,7 +95,7 @@ export function PortfolioSettings({
             <li key={r.key} className="flex min-h-[56px] items-center gap-3 py-2" data-portfolio-who-row={r.key}>
               <span className="min-w-0 flex-1">
                 <b className="block truncate text-[15px] font-medium text-ink">{SECTION_NAME[r.key]}</b>
-                <small className="block truncate text-[12.5px] text-ink/60">{r.line}</small>
+                <small className="block truncate text-[12.5px] text-[color:var(--m-slate-2)]">{r.line}</small>
               </span>
               {r.pageSwitch ? (
                 <PickMenu
@@ -111,7 +111,7 @@ export function PortfolioSettings({
                 />
               ) : (
                 <span
-                  className="inline-flex h-10 max-w-[52%] flex-none items-center rounded-full border border-dashed border-ink/20 px-3 text-[13px] text-ink/65"
+                  className="inline-flex min-h-10 max-w-[52%] flex-none items-center rounded-full bg-[color:var(--m-paper-2)] px-3 text-[13px] text-[color:var(--m-slate-2)]"
                   data-portfolio-who-word={r.key}
                 >
                   <span className="truncate">{WHO_BADGE[r.who].word}</span>
@@ -131,7 +131,7 @@ export function PortfolioSettings({
             dataAttr="data-portfolio-show-pick"
             className="min-h-11 w-full"
           />
-          <p className="text-[12.5px] text-ink/60">The ▶ in the thumb row’s menu plays this album full screen.</p>
+          <p className="text-[13px] text-[color:var(--m-slate-2)]">The ▶ in the thumb row’s menu plays this album full screen.</p>
         </div>
 
         <p className="sn-eye pt-5">Your photos</p>

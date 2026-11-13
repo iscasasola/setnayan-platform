@@ -88,7 +88,7 @@ export function PhoneField({
           <span>{message}</span>
         </span>
       ) : null}
-      <span id="open-shop-phone-note" className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
+      <span id="open-shop-phone-note" className="block text-xs" style={{ color: 'var(--m-slate-2)' }}>
         Mobile, or a landline with its area code.
       </span>
     </span>

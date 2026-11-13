@@ -6,6 +6,7 @@ import { Award, Check, Eye, Globe, Image as ImageIcon, Images, MapPin, Pencil, S
 import { RowIcon } from '../../_components/row-icon';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { useToast } from '@/app/_components/toast/toast-provider';
@@ -194,13 +195,13 @@ export function PageParts({
           style={{
             backgroundImage: cover
               ? `linear-gradient(to top, rgb(0 0 0 / 0.55), transparent 60%), url(${JSON.stringify(cover)})`
-              : `linear-gradient(160deg, ${accent?.swatch ?? '#d8b58a'}, rgb(var(--color-ink) / 0.75))`,
+              : `linear-gradient(160deg, ${accent?.swatch ?? 'rgb(var(--color-terracotta))'}, rgb(var(--color-ink) / 0.75))`,
           }}
         >
           <span className="truncate text-lg font-semibold text-white">{d.businessName}</span>
         </div>
         <div className="flex items-center gap-2 px-3.5 py-2.5">
-          <span className="min-w-0 flex-1 truncate text-sm text-ink/60">
+          <span className="min-w-0 flex-1 truncate text-sm text-[color:var(--m-slate-2)]">
             {[ratingLine, d.kindWord].filter(Boolean).join(' · ')}
           </span>
           {d.isDemo ? <DemoOnlyMarker align="end" /> : null}
@@ -219,9 +220,11 @@ export function PageParts({
         {d.showBeforeVerified?.offer ? (
           <ShowBeforeVerifiedRow shown={d.showBeforeVerified.shown} />
         ) : !d.live ? (
-          <p className="border-t border-ink/10 px-3.5 py-2.5 text-[13px] text-ink/60">
-            Only you and your team can open it for now. Couples see it once Setnayan checks your documents and lists your shop.
-          </p>
+          <div className="border-t border-[color:var(--m-line)] px-3.5 py-2.5">
+            <InfoTip label="Only you and your team can open it for now" align="start" labelClassName="text-[13px] text-[color:var(--m-slate-2)]">
+              Couples see it once Setnayan checks your documents and lists your shop.
+            </InfoTip>
+          </div>
         ) : null}
       </div>
 
@@ -232,7 +235,7 @@ export function PageParts({
       ) : null}
 
       <p className="sn-eye pt-1">Tap a part to change it</p>
-      <div className="divide-y divide-ink/10" data-page-parts="" data-tour="shop-page-list" data-ready={ready ? '' : undefined}>
+      <div className="divide-y divide-[color:var(--m-line)]" data-page-parts="" data-tour="shop-page-list" data-ready={ready ? '' : undefined}>
         <DatesRow
           data="page-details"
           tour="shop-details-row"
@@ -270,7 +273,7 @@ export function PageParts({
               className="input-field w-full"
               aria-label="About"
             />
-            <p className="text-xs tabular-nums text-ink/50">
+            <p className="text-xs tabular-nums text-[color:var(--m-slate-2)]">
               {formatCount(shown.about.length)}/{formatCount(MICROSITE_ABOUT_MAX)}
             </p>
             <FairNote hits={aboutFair} field="about" />
@@ -335,9 +338,9 @@ export function PageParts({
             <p className="pt-1 text-[13px] font-semibold text-ink">Pinned at the top{diamond(d.proAsks)}</p>
             {d.proAsks ? <PlanAsk plan="Supplier Pro" /> : null}
             {d.reviews === null ? (
-              <p className="text-sm text-ink/60">Your reviews could not be read just now.</p>
+              <p role="alert" className="text-sm text-[rgb(var(--color-warn))]">Your reviews could not be read just now — not the same as none.</p>
             ) : d.reviews.length === 0 ? (
-              <p className="text-sm text-ink/60">No reviews yet — once a couple reviews you, pin one here.</p>
+              <p className="text-sm text-[color:var(--m-slate-2)]">No reviews yet — once a couple reviews you, pin one here.</p>
             ) : (
               <PickMenu
                 label="Pinned review"
@@ -398,7 +401,7 @@ export function PageParts({
               ))}
             </div>
           ) : (
-            <p className="pb-4 pt-1 text-[13.5px] text-ink/60" data-badge-pills="none">
+            <p className="pb-4 pt-1 text-[13.5px] text-[color:var(--m-slate-2)]" data-badge-pills="none">
               They show here by themselves as you earn them.
             </p>
           )}
@@ -527,7 +530,7 @@ export function PageParts({
 function PlanAsk({ plan, when }: { plan: string; when?: string }) {
   // `when` — a part with its own save (not the page's Apply) says which press asks for the plan.
   return (
-    <p className="flex flex-wrap items-center gap-2 text-xs text-ink/60">
+    <p className="flex flex-wrap items-center gap-2 text-xs text-[color:var(--m-slate-2)]">
       <PaidMark state="try" label={when ? `Part of ${plan} — ${when}` : `Part of ${plan} — try it here; Apply asks for ${plan}`} text={plan.toUpperCase()} size="xs" />
       {when ? `Part of ${plan} — ${when}.` : `Part of ${plan}. Try it here — Apply asks for the plan.`}
     </p>
@@ -550,10 +553,10 @@ function SwitchRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex min-h-[56px] items-center gap-3 border-t border-ink/10 py-2 first:border-t-0">
+    <div className="flex min-h-[56px] items-center gap-3 border-t border-[color:var(--m-line)] py-2 first:border-t-0">
       <span className="min-w-0 flex-1">
         <span className="block text-[15px] text-ink">{title}</span>
-        {line || note ? <span className="block text-[13px] text-ink/55">{note ?? line}</span> : null}
+        {line || note ? <span className="block text-[13px] text-[color:var(--m-slate-2)]">{note ?? line}</span> : null}
       </span>
       <button
         type="button"
@@ -593,7 +596,7 @@ function PickTile({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={photo} alt="" className="h-full w-full object-cover" />
       ) : (
-        <span className="text-xs text-ink/60">{label}</span>
+        <span className="text-xs text-[color:var(--m-slate-2)]">{label}</span>
       )}
       {selected ? (
         <span aria-hidden className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-sn-accent text-sn-on-accent">
@@ -623,11 +626,11 @@ function ShowBeforeVerifiedRow({ shown }: { shown: boolean }) {
     });
   };
   return (
-    <div className="border-t border-ink/10 px-3.5 py-2" data-show-before-verified={on ? 'on' : 'off'}>
+    <div className="border-t border-[color:var(--m-line)] px-3.5 py-2" data-show-before-verified={on ? 'on' : 'off'}>
       <div className="flex min-h-[56px] items-center gap-3">
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] text-ink">Show my page now</span>
-          <span className="block text-[13px] text-ink/55">
+          <span className="block text-[13px] text-[color:var(--m-slate-2)]">
             {on
               ? 'Couples can open it at your address. Your Verified badge comes when Setnayan approves your documents.'
               : 'Couples can open it at your address before you are verified. Bookings open later.'}

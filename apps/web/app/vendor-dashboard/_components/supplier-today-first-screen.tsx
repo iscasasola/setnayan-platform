@@ -184,7 +184,7 @@ export function TodayRow({ href, label, line, pill, lineTone, marker, rowIcon, a
       <span className="min-w-0">
         <span className="home-t block truncate text-[15px] leading-tight text-ink">{label}</span>
         {line ? (
-          <span className="block truncate text-[13px] text-ink/60" style={lineTone ? { color: LINE_TONE[lineTone] } : undefined}>
+          <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]" style={lineTone ? { color: LINE_TONE[lineTone] } : undefined}>
             {line}
           </span>
         ) : null}
@@ -210,7 +210,7 @@ export function TodayNoteRow({ label, line, pill, rowIcon, marker }: {
       <RowIcon name={rowIcon} />
       <span className="min-w-0">
         <span className="home-t block text-[15px] leading-tight text-ink">{label}</span>
-        {line ? <span className="block text-[13px] text-ink/60">{line}</span> : null}
+        {line ? <span className="block text-[13px] text-[color:var(--m-slate-2)]">{line}</span> : null}
       </span>
       <span className="flex items-center gap-2">{pill}</span>
     </div>
@@ -321,7 +321,7 @@ export function SupplierTodayFirstScreen({
         <div
           role="status"
           data-supplier-outcome={outcome.tone}
-          className={`mb-1 flex items-center gap-3 py-2.5 text-[13.5px] leading-snug ${outcome.tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/80'}`}
+          className={`mb-1 flex items-center gap-3 py-2.5 text-[13.5px] leading-snug ${outcome.tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink'}`}
         >
           <span className="min-w-0 flex-1">{outcome.text}</span>
           {outcome.door ? (
@@ -386,7 +386,7 @@ export function SupplierTodayFirstScreen({
             <TodayNoteRow label="Nothing waiting on you" line="New asks land here first" rowIcon="check" marker="waiting-empty" />
           ) : null}
         </div>
-        <p hidden data-today-needs-none="" className="py-4 text-center text-[13.5px] text-ink/60">
+        <p hidden data-today-needs-none="" className="py-4 text-center text-[13.5px] text-[color:var(--m-slate-2)]">
           Nothing waiting matches that search
         </p>
       </div>

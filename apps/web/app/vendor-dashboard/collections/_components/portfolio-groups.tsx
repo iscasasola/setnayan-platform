@@ -1,8 +1,8 @@
 'use client';
 
-import { useId, useRef, useState, useTransition } from 'react';
+import { useContext, useEffect, useId, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Link2, Play, Plus } from 'lucide-react';
+import { ChevronRight, Link2, Play, Plus, Send } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { TOP_UP_WORDS } from '@/lib/booking-fee-top-up';
@@ -15,7 +15,8 @@ import { updateVendorProfileField } from '../../actions';
 import { formatCount } from '@/lib/format-number';
 import { parseVideoLink } from '@/lib/video-embed';
 import { VIDEO_TITLE_MAX, videoRowName, videoTitlesFor } from '@/lib/video-link-titles';
-import { PortfolioShow } from './portfolio-show';
+import { PhotoViewer } from '@/app/_components/gallery/photo-viewer';
+import { PhotoChatContext, SendPhotoToChat, PHOTO_CHAT_WORDS } from './send-photo-to-chat';
 
 /**
  * 🖼 THE OPENED COLLECTION (approved Portfolio, owner 9 Nov — "And this is how it expands if we open an album", with
@@ -26,8 +27,9 @@ import { PortfolioShow } from './portfolio-show';
  *   · Its head is the collection's name — a long album name WRAPS TO TWO LINES before it is cut — and its count.
  *   · Its body is a dense FULL-BLEED 3-column grid with 2-px gaps — the approved exception to the 16-px gutter rule;
  *     every text and button row in it keeps 16/16. Past what was loaded, a "+N" tile goes to the album's own screen.
- *   · One tap on a photo opens it full screen, swipeable (the shipped Show, landing on that photo).
- * Deferred (listed as follow-ups on the PR): the viewer's slide animation, Share → Send to a chat, Select.
+ *   · One tap on a photo opens it in THE shared photo viewer (`PhotoViewer`, ruling 5951), on that photo: it SLIDES to
+ *     its neighbours, and its one action is Send to a chat (`send-photo-to-chat.tsx`). The hand-over Show stays on
+ *     the Show button. Deferred: Select (several photos at once).
  * 🔒 collections/the-portfolio-is-collections.test.ts · _components/the-body-panel-keeps-the-navs.test.ts
  */
 export type OpenedPhotos = {
@@ -75,6 +77,22 @@ export function OpenedCollection({
  */
 export function PhotoGrid({ photos, data }: { photos: OpenedPhotos; data: string }) {
   const [showAt, setShowAt] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  // 💬 The Portfolio page hands its client chats down; anywhere else there is no Send to a chat button.
+  const chats = useContext(PhotoChatContext);
+  const at = showAt === null ? null : Math.min(showAt, photos.urls.length - 1);
+  const close = () => {
+    setSending(false);
+    setShowAt(null);
+  };
+  // The neighbours are fetched while this one is looked at, so the slide never brings in a blank frame.
+  useEffect(() => {
+    if (at === null) return;
+    for (const j of [at - 1, at + 1]) {
+      const u = photos.urls[j];
+      if (u) new Image().src = u;
+    }
+  }, [at, photos.urls]);
   const more = photos.total - photos.urls.length;
   return (
     <div data-collection-open={data} {...(photos.unlisted ? { 'data-top-up-unlisted': '' } : {})}>
@@ -122,7 +140,22 @@ export function PhotoGrid({ photos, data }: { photos: OpenedPhotos; data: string
           <DatesRow data="album-page" title="The whole album" line="Every photo · put one on your page" href={photos.href} />
         </div>
       ) : null}
-      {showAt !== null ? <PortfolioShow title={photos.title} urls={photos.urls} start={showAt} onClose={() => setShowAt(null)} /> : null}
+      {at !== null && at >= 0 ? (
+        <PhotoViewer
+          photo={{ src: photos.urls[at]!, kind: 'photo' }}
+          at={at}
+          total={photos.urls.length}
+          album={photos.title}
+          onMove={(to) => {
+            setSending(false);
+            setShowAt(to);
+          }}
+          onClose={close}
+          actions={chats ? [{ key: 'chat', label: PHOTO_CHAT_WORDS.title, icon: Send, onPress: () => setSending(true) }] : []}
+          panel={chats && sending ? <SendPhotoToChat key={at} url={photos.urls[at]!} share={chats} onDone={() => setSending(false)} /> : undefined}
+          onPanelClose={() => setSending(false)}
+        />
+      ) : null}
     </div>
   );
 }

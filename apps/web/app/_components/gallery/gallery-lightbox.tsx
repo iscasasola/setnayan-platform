@@ -51,6 +51,10 @@ import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
  *   · `blur` keeps a frame the content screen withheld blurred until the host presses "Look at it".
  * 🔒 `app/_components/memories/memories-photos-open-in-the-shared-viewer.test.ts`.
  */
+/** The slide's travel time and the reduced-motion crossfade (approved Portfolio v3: 280 ms ease-out · a short fade). */
+export const SLIDE_MS = 280;
+export const SLIDE_FADE_MS = 140;
+
 export type GalleryScreen = {
   /** "3 of 40 · Papic" — the top line. */
   counter: string;
@@ -117,6 +121,77 @@ export function GalleryLightbox({
   const [dragY, setDragY] = useState(0);
   const [dragX, setDragX] = useState(0);
   const start = useRef<{ x: number; y: number; axis: 'x' | 'y' | null } | null>(null);
+  /*
+   * 🖼➡ THE SLIDE (ruling 5951; owner 9 Nov, approved Portfolio v3: *"animate the shift to next photo"*) — `screen` only.
+   * The photo follows the finger; on release it slides FULLY out (280 ms, ease-out) and the next slides in from the
+   * other side; a short drag springs back. ‹ › and ← → do the same. Reduced motion = a short crossfade (no travel).
+   * Before this it SNAPPED: the next photo simply replaced the one under the finger.
+   * 🔒 app/_components/gallery/the-viewer-slides-to-the-next-photo.test.ts
+   */
+  const stageRef = useRef<HTMLDivElement>(null);
+  /*
+   * The slide is driven by the browser's own `transitionend`, never a timer (a photo surface never moves on a clock —
+   * `lib/photos-never-move-by-themselves.test.ts`). Phases: `out` (the photo leaves) → `moved` (the caller moves) → `pre` (the
+   * next one waits beyond the far edge, or invisible) → `in` (it lands) → done. `back` = a short drag springing home.
+   */
+  const [slide, setSlide] = useState<{ x: number; ms: number; fade: boolean; phase: 'out' | 'moved' | 'pre' | 'in' | 'back'; dir: 1 | -1 } | null>(null);
+  const enterFrom = useRef<0 | 1 | -1>(0);
+  const srcNow = useRef(src);
+  srcNow.current = src;
+  const reduced = () => typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  const width = () => stageRef.current?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 390);
+  const slideTo = (dir: 1 | -1) => {
+    if (!(dir > 0 ? onNext : onPrev) || slide) return;
+    setSlide(reduced() ? { x: 0, ms: SLIDE_FADE_MS, fade: true, phase: 'out', dir } : { x: -dir * width(), ms: SLIDE_MS, fade: false, phase: 'out', dir });
+  };
+  const springBack = () => setSlide({ x: 0, ms: 200, fade: false, phase: 'back', dir: 1 });
+  const onSlideEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget || !slide) return;
+    if (slide.phase === 'out') {
+      srcAtOut.current = srcNow.current;
+      enterFrom.current = slide.dir;
+      (slide.dir > 0 ? onNext : onPrev)?.();
+      // Committed WITH the caller's move, so the check below sees the photo the caller handed (or the same one).
+      setSlide({ ...slide, phase: 'moved' });
+    } else if (slide.phase === 'in' || slide.phase === 'back') setSlide(null);
+  };
+  /* The caller handed the same picture (or none): nothing will land — let go instead of stranding it off-screen. */
+  const srcAtOut = useRef<string | null>(null);
+  useEffect(() => {
+    if (slide?.phase === 'moved' && srcNow.current === srcAtOut.current) {
+      enterFrom.current = 0;
+      setSlide(null);
+    }
+  }, [slide]);
+  /* The next photo arrived: it starts beyond the far edge (or invisible, reduced) and lands in place. */
+  useEffect(() => {
+    const dir = enterFrom.current;
+    if (!dir) return;
+    enterFrom.current = 0;
+    const fade = reduced();
+    setSlide(fade ? { x: 0, ms: 0, fade: true, phase: 'pre', dir } : { x: dir * width(), ms: 0, fade: false, phase: 'pre', dir });
+    // Two frames: the far-edge position must be painted before the landing transition starts from it (one shot each).
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        setSlide(fade ? { x: 0, ms: SLIDE_FADE_MS, fade: false, phase: 'in', dir } : { x: 0, ms: SLIDE_MS, fade: false, phase: 'in', dir }),
+      ),
+    );
+    // Only a new photo starts the landing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src]);
+  /* ← → move the screen layout the same way (the buttons and the swipe already do). */
+  useEffect(() => {
+    if (!screen) return;
+    const onKey = (e: KeyboardEvent) => {
+      // Never while a panel is up or a field has the keys (Send to a chat's search moves its caret with ← →).
+      const t = e.target as HTMLElement | null;
+      if (screen.panel || (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable))) return;
+      if (e.key === 'ArrowRight' && onNext) slideTo(1);
+      else if (e.key === 'ArrowLeft' && onPrev) slideTo(-1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
   /* Every way out goes through history, so Back closes it and ✕ takes our entry back off. */
   const close = useBackCloses(true, onClose);
   useModalA11y({ open: true, onClose: close, containerRef: dialogRef });
@@ -149,6 +224,9 @@ export function GalleryLightbox({
   };
   const onTouchEnd = () => {
     if (dragY > 110) close();
+    else if (screen && dragX < -60 && onNext) slideTo(1);
+    else if (screen && dragX > 60 && onPrev) slideTo(-1);
+    else if (screen && dragX !== 0) springBack();
     else if (dragX < -60) onNext?.();
     else if (dragX > 60) onPrev?.();
     setDragY(0);
@@ -159,7 +237,19 @@ export function GalleryLightbox({
   if (!host) return null;
   if (screen) {
     const blurred = Boolean(screen.blur) && !peek;
-    const slide = dragY > 0 ? `translateY(${dragY}px)` : dragX !== 0 ? `translateX(${dragX}px)` : undefined;
+    // The finger leads while it is down (no transition); a release hands over to the slide's own timing.
+    const move =
+      dragY > 0
+        ? { transform: `translateY(${dragY}px)` }
+        : dragX !== 0
+          ? { transform: `translateX(${dragX}px)` }
+          : slide
+            ? {
+                transform: slide.x ? `translateX(${slide.x}px)` : undefined,
+                opacity: slide.fade ? 0 : 1,
+                transition: slide.ms ? `transform ${slide.ms}ms cubic-bezier(.2,.8,.2,1), opacity ${SLIDE_FADE_MS}ms linear` : undefined,
+              }
+            : undefined;
     return createPortal(
       <div
         ref={dialogRef}
@@ -183,13 +273,14 @@ export function GalleryLightbox({
 
         {/* THE PHOTO — as large as the screen allows; a sideways swipe moves, a pull down closes. */}
         <div
+          ref={stageRef}
           className="relative min-h-0 flex-1 touch-pan-y overflow-hidden"
           data-viewer-stage=""
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         >
-          <div className="absolute inset-3 flex items-center justify-center" style={slide ? { transform: slide } : undefined}>
+          <div className="absolute inset-3 flex items-center justify-center" style={move} onTransitionEnd={onSlideEnd} data-viewer-slide={slide ? slide.phase : undefined}>
             {kind === 'clip' ? (
               // eslint-disable-next-line jsx-a11y/media-has-caption
               <video src={src} poster={posterSrc ?? undefined} controls autoPlay playsInline loop className="max-h-full max-w-full rounded-card bg-black object-contain" />
@@ -206,12 +297,12 @@ export function GalleryLightbox({
             </span>
           ) : null}
           {onPrev ? (
-            <button type="button" onClick={onPrev} aria-label="Previous photo" className="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgb(23_22_15/0.55)]">
+            <button type="button" onClick={() => slideTo(-1)} aria-label="Previous photo" className="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgb(23_22_15/0.55)]">
               <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
             </button>
           ) : null}
           {onNext ? (
-            <button type="button" onClick={onNext} aria-label="Next photo" className="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgb(23_22_15/0.55)]">
+            <button type="button" onClick={() => slideTo(1)} aria-label="Next photo" className="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgb(23_22_15/0.55)]">
               <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
             </button>
           ) : null}

@@ -7,6 +7,9 @@ import { PortfolioView } from './_components/portfolio-view';
 import { isMusicToolCategory, readVendorSongs } from '@/lib/songs';
 import { latestPhotoKey } from '@/lib/supplier-hero';
 import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readShareTargets } from '@/lib/service-share-targets.server';
+import { offerServiceInterest } from '../messages/[threadId]/actions';
 
 export const metadata = { title: 'Portfolio' };
 
@@ -59,7 +62,10 @@ export default async function YourCollectionsPage({
         .then((r) => (r.failed ? null : { count: r.rows.length, withVideo: r.rows.filter((x) => x.performance_url).length }))
         .catch(() => null)
     : Promise.resolve('off' as const);
-  const [d, sp, songs] = await Promise.all([loadCollectionsData(supabase, profile, user.id), searchParams, songsRead]);
+  // 💬 Send to a chat (ruling 5951): THE card share list's chats — accepted, not removed (`readShareTargets`). An unread
+  // list reaches the panel as null, said as such; the post re-checks the chat on the server.
+  const chatsRead = readShareTargets(supabase, createAdminClient(), profile.vendor_profile_id).catch(() => ({ status: 'unreadable' as const }));
+  const [d, sp, songs, chatsAnswer] = await Promise.all([loadCollectionsData(supabase, profile, user.id), searchParams, songsRead, chatsRead]);
   // 🖼 The hero = the LATEST upload (the last key the uploader appended), else the category placeholder (Lane E 11–12).
   const latest = latestPhotoKey(d.portfolioRefs);
   const latestUrl = latest ? (d.portfolioDisplayMap[latest] ?? null) : null;
@@ -103,6 +109,9 @@ export default async function YourCollectionsPage({
         instagramPhotos={showAlbums.instagram?.urls ?? []}
         // 📂 The ONE uploader's facts, from the reads this page already made — an empty On my page's Upload opens the
         // device's picker in place (owner 11 Nov "c. yes"), priced exactly as the uploader below would.
+        best={d.best}
+        sectionOrder={d.sectionOrder}
+        chats={{ targets: chatsAnswer.status === 'ok' ? chatsAnswer.targets : null, share: offerServiceInterest }}
         uploadFacts={{
           vendorProfileId: d.vendorId,
           storedRefs: d.portfolioRefs,

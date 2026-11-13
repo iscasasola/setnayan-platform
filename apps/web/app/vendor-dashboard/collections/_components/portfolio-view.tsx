@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useContext, useRef, useState, type ReactNode } from 'react';
 import { useHeroPin } from '../../_components/use-hero-pin';
 import { ListFilter, Plus } from 'lucide-react';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
@@ -15,6 +15,9 @@ import { CollectionsList } from './collections-list';
 import { PortfolioShow } from './portfolio-show';
 import { PortfolioSettings, type ShowChoice } from './portfolio-settings';
 import type { PortfolioGroups } from '@/lib/portfolio-groups';
+import type { BestWorkPhoto } from '@/lib/portfolio-best-work';
+import { PhotoChatContext, type PhotoChatShare } from './send-photo-to-chat';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 
 /**
  * 🖼 THE PORTFOLIO TAB (THE ONE BUILD A3 W13–W15 Phase A, lane C4; v114 `?tab=portfolio`; spec §10 #24).
@@ -67,6 +70,9 @@ export function PortfolioView({
   songs = 'off',
   instagramPhotos = [],
   uploadFacts = null,
+  best = [],
+  sectionOrder = null,
+  chats = null,
 }: {
   vendorId: string;
   input: CollectionsInput;
@@ -97,8 +103,16 @@ export function PortfolioView({
   instagramPhotos?: string[];
   /** The ONE uploader's facts — an empty On my page's Upload opens the device picker in place. Null = no door facts. */
   uploadFacts?: PortfolioUploadFacts | null;
+  /** ⭐ Your best work (ruling 5940) — most viewed first; `null` = unread. */
+  best?: BestWorkPhoto[] | null;
+  /** 🖼 The supplier's stored section order (Reorder); `null` = the shipped order. */
+  sectionOrder?: readonly string[] | null;
+  /** 💬 Send to a chat (ruling 5951): this shop's client chats + the shipped post. `null` = no such button (a lab). */
+  chats?: PhotoChatShare | null;
 }) {
   // One pick for Show (the ⚙'s "Show plays" dropdown): a collection's key, or a group album's "<group>:<key>".
+  // 💬 The page hands its chats in; a lab may provide them around the view instead (never both).
+  const inheritedChats = useContext(PhotoChatContext);
   const [picked, setPicked] = useState<string | null>(null);
   const [showing, setShowing] = useState(false);
   const [order, setOrder] = useState<'listed' | 'name'>('listed');
@@ -195,6 +209,7 @@ export function PortfolioView({
         />
       </div>
 
+      <PhotoChatContext.Provider value={chats ?? inheritedChats}>
       <section className="pt-1" data-supplier-collections="">
         {igFlash}
         <p hidden className="px-4 py-3 text-[14px] text-ink/65" data-portfolio-search-none="">
@@ -213,8 +228,13 @@ export function PortfolioView({
           moodboard={moodboard}
           songs={songs}
           uploadFacts={uploadFacts}
+          best={best}
+          sectionOrder={sectionOrder}
         />
       </section>
+      </PhotoChatContext.Provider>
+      {/* The approved toast for Send to a chat and Reorder ("Posted in …’s chat" · "Your order is saved"). */}
+      <UndoToastHost />
 
       {showing && album ? <PortfolioShow title={album.title} urls={album.urls} onClose={() => setShowing(false)} /> : null}
 

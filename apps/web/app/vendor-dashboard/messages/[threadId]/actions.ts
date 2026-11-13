@@ -16,11 +16,29 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { offerServiceCore, type OfferServiceResult } from '@/lib/offer-service-core';
+import { sharePhotoCore } from '@/lib/share-photo-core';
 
 export type { OfferServiceResult };
 
 export async function offerServiceInterest(formData: FormData): Promise<OfferServiceResult> {
   const threadId = formData.get('thread_id');
+  // 💬 PORTFOLIO › SEND TO A CHAT (ruling 5951) — a photo, not a card, from the same "post into a client chat" door:
+  // `via=photo` re-checks the chat exactly as the card share does, then posts the photo through the shipped chat send
+  // (`sharePhotoCore`). Reused, not a new export: every exported server action is a Vercel route and the budget is at
+  // its ceiling (scripts/lint-server-action-budget.mjs).
+  if (formData.get('via') === 'photo') {
+    if (typeof threadId !== 'string') return { status: 'error', message: 'Invalid input' };
+    const photo = formData.get('photo');
+    const note = formData.get('note');
+    const supabase = await createClient();
+    const result = await sharePhotoCore(supabase, {
+      threadId,
+      photo: photo instanceof File ? photo : null,
+      note: typeof note === 'string' ? note : '',
+    });
+    if (result.status === 'ok') revalidatePath(`/vendor-dashboard/messages/${threadId}`);
+    return result;
+  }
   const serviceId = formData.get('vendor_service_id');
   if (typeof threadId !== 'string' || typeof serviceId !== 'string') {
     return { status: 'error', message: 'Invalid input' };

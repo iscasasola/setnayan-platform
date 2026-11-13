@@ -19,7 +19,7 @@
  * 🔒 app/vendor-dashboard/services/share-posts-the-card-into-a-client-chat.test.ts
  */
 import { useState } from 'react';
-import { ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronRight, Loader2, Search } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { guestToast } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import type { ShareTarget } from '@/lib/service-share-targets';
@@ -130,38 +130,7 @@ export function ServiceCardShareSheet({
             {SHARE_WORDS.empty}
           </p>
         ) : (
-          <ul className="divide-y divide-ink/10" data-card-share-list="">
-            {targets.map((t) => (
-              <li key={t.threadId}>
-                <button
-                  type="button"
-                  onClick={() => void pick(t)}
-                  disabled={pending !== null && pending !== t.threadId}
-                  aria-busy={pending === t.threadId || undefined}
-                  className="sn-press flex min-h-[52px] w-full items-center gap-2.5 px-0.5 py-2 text-left disabled:opacity-50"
-                  data-card-share-target={t.threadId}
-                >
-                  <span
-                    aria-hidden
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-terracotta/10 text-[11px] font-semibold text-terracotta-700"
-                  >
-                    {t.initials}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold leading-tight text-ink">{t.name}</span>
-                    {t.dateLabel ? (
-                      <span className="mt-0.5 block font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink/50">{t.dateLabel}</span>
-                    ) : null}
-                  </span>
-                  {pending === t.threadId ? (
-                    <Loader2 aria-hidden className="h-4 w-4 shrink-0 animate-spin text-ink/45" strokeWidth={2} />
-                  ) : (
-                    <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={2} />
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <ShareTargetList targets={targets} pending={pending} onPick={(t) => void pick(t)} />
         )}
         {refusal ? (
           <p role="alert" className="whitespace-pre-line text-[12.5px] leading-snug text-terracotta-700" data-card-share-refusal="">
@@ -170,5 +139,100 @@ export function ServiceCardShareSheet({
         ) : null}
       </div>
     </Sheet>
+  );
+}
+
+/** Said when the search box matches no client event (the list itself is not empty). */
+export const SHARE_NO_MATCH = 'No client event matches — try a name or a date.';
+
+/** Does a client event answer the words typed? Its name or its date, any case. */
+export function shareTargetMatches(t: ShareTarget, words: string): boolean {
+  const q = words.trim().toLowerCase();
+  return !q || `${t.name} ${t.dateLabel}`.toLowerCase().includes(q);
+}
+
+/**
+ * 🔎 THE CLIENT EVENTS, ONE ROW EACH, WITH A SEARCH BOX (ruling 5951; owner 9 Nov: *"Share will go to their picked
+ * chatbox. they search for it or find it manually"*). THE ONE chat list a supplier picks from — the card share sheet
+ * above draws it, and so does Portfolio's Send to a chat (`app/vendor-dashboard/collections/_components/send-photo-to-chat.tsx`). Never a
+ * second list: the rows are `readShareTargets`'s accepted, not-removed chats, and the server re-checks the pick.
+ * The empty and unread states belong to the caller (they say different things about different screens).
+ */
+export function ShareTargetList({
+  targets,
+  pending,
+  onPick,
+  picked = null,
+  tone = 'paper',
+}: {
+  targets: readonly ShareTarget[];
+  /** The thread being posted to — its row spins, the others wait. */
+  pending: string | null;
+  onPick: (t: ShareTarget) => void;
+  /** A row chosen but not yet sent (Send to a chat's confirm step) — drawn pressed. */
+  picked?: string | null;
+  /** `ink` = drawn inside the photo viewer's dark panel. */
+  tone?: 'paper' | 'ink';
+}) {
+  const [words, setWords] = useState('');
+  const shown = targets.filter((t) => shareTargetMatches(t, words));
+  const ink = tone === 'ink';
+  return (
+    <div data-share-target-list="">
+      <label
+        className={`mb-1 flex h-10 items-center gap-2 rounded-full border px-3.5 ${ink ? 'border-white/20 bg-white/5' : 'border-ink/15 bg-[color:var(--sn-canvas)]'}`}
+      >
+        <Search aria-hidden className={`h-4 w-4 shrink-0 ${ink ? 'text-white/55' : 'text-ink/45'}`} strokeWidth={2} />
+        <input
+          type="search"
+          value={words}
+          onChange={(e) => setWords(e.currentTarget.value)}
+          placeholder="Search a client, event or date"
+          aria-label="Search a client, event or date"
+          enterKeyHint="search"
+          className={`h-full min-w-0 flex-1 bg-transparent text-[15px] outline-none ${ink ? 'text-white placeholder:text-white/45' : 'text-ink placeholder:text-ink/45'}`}
+          data-share-search=""
+        />
+      </label>
+      {shown.length === 0 ? (
+        <p role="status" className={`py-2 text-[14px] leading-snug ${ink ? 'text-white/70' : 'text-ink/70'}`} data-share-no-match="">
+          {SHARE_NO_MATCH}
+        </p>
+      ) : (
+        <ul className={`divide-y ${ink ? 'divide-white/10' : 'divide-ink/10'}`} data-card-share-list="">
+          {shown.map((t) => (
+            <li key={t.threadId}>
+              <button
+                type="button"
+                onClick={() => onPick(t)}
+                disabled={pending !== null && pending !== t.threadId}
+                aria-busy={pending === t.threadId || undefined}
+                aria-pressed={picked === t.threadId || undefined}
+                className={`sn-press flex min-h-[52px] w-full items-center gap-2.5 px-0.5 py-2 text-left disabled:opacity-50 ${picked === t.threadId ? (ink ? 'bg-white/10' : 'bg-ink/[0.05]') : ''}`}
+                data-card-share-target={t.threadId}
+              >
+                <span
+                  aria-hidden
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-terracotta/10 text-[11px] font-semibold text-terracotta-700"
+                >
+                  {t.initials}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={`block truncate text-[15px] font-semibold leading-tight ${ink ? 'text-white' : 'text-ink'}`}>{t.name}</span>
+                  {t.dateLabel ? (
+                    <span className={`mt-0.5 block font-mono text-[10.5px] uppercase tracking-[0.12em] ${ink ? 'text-white/55' : 'text-ink/50'}`}>{t.dateLabel}</span>
+                  ) : null}
+                </span>
+                {pending === t.threadId ? (
+                  <Loader2 aria-hidden className={`h-4 w-4 shrink-0 animate-spin ${ink ? 'text-white/55' : 'text-ink/45'}`} strokeWidth={2} />
+                ) : (
+                  <ChevronRight aria-hidden className={`h-4 w-4 shrink-0 ${ink ? 'text-white/40' : 'text-ink/40'}`} strokeWidth={2} />
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

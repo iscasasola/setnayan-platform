@@ -49,9 +49,18 @@ describe('price-only leaves the rest of the costing alone', () => {
 
   it('every price-only caller says so', () => {
     assert.match(BENCH_PRICE, /fd\.set\('price_only', '1'\)/, 'the bench price control');
-    // addManualSupplier + updateSelfAddedSupplier both build a costFd.
+    // addManualSupplier + updateSelfAddedSupplier build a costFd for a typed price, and (2026-11-13)
+    // saveSelfAddedPriceBasis builds one for a per-guest / per-hour total — rate × the database's count.
     const n = (ACTIONS.match(/costFd\.set\('price_only', '1'\)/g) ?? []).length;
-    assert.equal(n, 2, `expected the add AND details sheets to post price_only, found ${n}`);
+    assert.equal(n, 3, `expected the add sheet, the details sheet AND the price-basis save to post price_only, found ${n}`);
+    // Every costFd built says price_only — a new one that forgets it would zero the rest of the costing.
+    const built = (ACTIONS.match(/const costFd = new FormData\(\)/g) ?? []).length;
+    assert.equal(built, n, `${built} costFd built but ${n} say price_only`);
+    assert.match(
+      ACTIONS,
+      /async function saveSelfAddedPriceBasis[\s\S]*?costFd\.set\('price_only', '1'\)[\s\S]*?\n\}/,
+      'the price-basis save no longer posts price_only',
+    );
   });
 
   it('the bench control no longer echoes columns it does not own', () => {

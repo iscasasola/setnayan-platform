@@ -145,7 +145,8 @@ test('🔑 the bench card wears the service card only on the one-screen page, an
 
 test('🔑 "Price on request" is said only when the cards were READ, and never over a recorded price', () => {
   const meta = BENCH.slice(BENCH.indexOf('<span className="meta">'), BENCH.indexOf('<CardStanding standing='));
-  assert.match(meta, /look\.face && !hasRecordedPrice && !v\.includedWith \?/);
+  // 13 Nov 2026 (manual price basis): nor over a self-added per-guest / per-hour line — that line IS the price said.
+  assert.match(meta, /look\.face && !hasRecordedPrice && !basisLine && !v\.includedWith \?/);
   assert.match(meta, /\) : look\.cards \? \(\s*<span className="sc-price none">\{PRICE_ON_REQUEST\}<\/span>\s*\) : null/);
   // The marketplace card in "More to compare" obeys the same rule.
   // 12 Nov 2026 (ONE SERVICE CARD, EVERYWHERE): that card is drawn by the one face, which says `priceMissing` only when

@@ -2,7 +2,7 @@
 
 import { formatCount } from '@/lib/format-number';
 import { useState } from 'react';
-import { Check, Download, Loader2 } from 'lucide-react';
+import { Check, Loader2, Share } from 'lucide-react';
 import { saveImagesToDevice } from '@/lib/save-to-device';
 
 /**
@@ -35,7 +35,7 @@ export function SaveAllOwnPhotos({ urls, baseName }: { urls: readonly string[]; 
         ) : state === 'done' ? (
           <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
         ) : (
-          <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
+          <Share aria-hidden className="h-4 w-4" strokeWidth={2} />
         )}
         {state === 'saving' ? 'Saving…' : state === 'done' ? 'Saved' : 'Save all'}
       </button>

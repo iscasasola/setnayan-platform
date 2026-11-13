@@ -544,7 +544,7 @@ test('the surfaces that carried the exits are IN the scanned set (derived, not a
     'app/v/[slug]/page.tsx', // the public shop page
     'app/[slug]/page.tsx', // the bare-root address that renders it too
     'app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx', // the couple's supplier card
-    'app/v/[slug]/_components/anon-inquiry-composer.tsx', // the signed-out door
+    'app/v/[slug]/_components/inquire-sheet.tsx', // the one Inquire pop-up (13 Nov 2026: replaced the inline composers)
     'app/v/[slug]/_components/service-details-sheet.tsx',
     'app/v/[slug]/booth/page.tsx', // the shop's walk-in booth
     'app/(shell)/explore/_lib/marketplace-view.tsx', // the marketplace

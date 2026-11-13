@@ -113,7 +113,6 @@ apps/web/app/signup/consent-is-affirmative.test.ts
 apps/web/app/signup/signup-contract.test.ts
 apps/web/app/tour/budget/the-tour-copy-does-not-drift.test.ts
 apps/web/app/u/[userSlug]/scale-carries-meaning.test.ts
-apps/web/app/v/[slug]/_components/anon-inquiry-event-type.test.ts
 apps/web/app/v/[slug]/identity-chips.test.ts
 apps/web/app/v/[slug]/one-inquire-button.test.ts
 apps/web/app/vendor-dashboard/_components/vendor-nav-boundary.test.ts

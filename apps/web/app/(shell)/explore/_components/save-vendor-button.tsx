@@ -36,6 +36,14 @@ type Props = {
    * one picked (`saveVendorToPicks` with its `event_id`, which checks it is theirs). One event or none: unchanged.
    */
   events?: ReadonlyArray<{ eventId: string; title: string; kindWord: string; dateISO: string | null }>;
+  /**
+   * The idle label. Default "Save" (Discover). The shop page says "Add to your event" (owner 2026-11-13, DECISION_LOG
+   * "THE SHOP PAGE HAS ONE MAIN BUTTON — INQUIRE": Add = put the shop on the couple's event list, no message) — the
+   * same action, `saveVendorToPicks`, so there is still one way to add a supplier.
+   */
+  label?: string;
+  /** Replaces the variant's look (the shop page's ghost pill); state colours still apply. */
+  className?: string;
 };
 
 /** The one row that starts a new event instead of saving. */
@@ -53,6 +61,8 @@ export function SaveVendorButton({
   initiallySaved,
   variant = 'card',
   events = [],
+  label = 'Save',
+  className,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -120,8 +130,9 @@ export function SaveVendorButton({
   const savedEventName = state.kind === 'saved' ? (state.eventName ?? null) : null;
   const isError = state.kind === 'error';
 
-  const baseClasses =
-    variant === 'card'
+  const baseClasses = className
+    ? className
+    : variant === 'card'
       ? 'inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors'
       : 'inline-flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors';
 
@@ -129,7 +140,9 @@ export function SaveVendorButton({
     ? 'border-success-300/60 bg-success-50 text-success-900'
     : isError
       ? 'border-danger-300/60 bg-danger-50 text-danger-900'
-      : 'border-ink/15 bg-cream text-ink/80 hover:border-terracotta/50 hover:text-terracotta';
+      : className
+        ? ''
+        : 'border-ink/15 bg-cream text-ink/80 hover:border-terracotta/50 hover:text-terracotta';
 
   /*
     SIGNED IN, BUT NOTHING TO SAVE INTO — a doorway, not an apology.
@@ -172,7 +185,7 @@ export function SaveVendorButton({
           trigger={
             <>
               <Bookmark aria-hidden className={variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5'} strokeWidth={1.75} />
-              <span className="truncate">{pending ? 'Saving…' : 'Save to…'}</span>
+              <span className="truncate">{pending ? 'Saving…' : label === 'Save' ? 'Save to…' : `${label}…`}</span>
               <ChevronDown aria-hidden className={pickArrowClass(false)} strokeWidth={2} />
             </>
           }
@@ -259,7 +272,7 @@ export function SaveVendorButton({
               className={variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5'}
               strokeWidth={1.75}
             />
-            {pending ? 'Saving…' : 'Save'}
+            {pending ? 'Saving…' : label}
           </>
         )}
       </button>

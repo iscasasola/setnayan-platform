@@ -39,8 +39,8 @@ import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
  *         owner retired all five by name.
  *
  * 💰 FINAL PRICE SHEET (owner 2026-11-04, DECISION_LOG "FINAL PRICE SHEET — ONE PRICE, APPLE AND WEBSITE"; *"same price
- * for both"*). The app sells: Event Plus (`event_plus`, new — EVENT_PLUS, 100 Papic credits + Setnayan AI) · Event Pro
- * (`event_pro`, new — COUPLE_WEBSITE_PRO, 1,000 Papic credits + everything Plus has) · Papic 150 / 1000 / 3000 · Live
+ * for both"*). The app sells: Event Plus (`event_plus`, new — EVENT_PLUS, Papic credits (catalogue row; 1,000 since owner 2026-11-13) + Setnayan AI) · Event Pro
+ * (`event_pro`, new — COUPLE_WEBSITE_PRO, Papic credits (catalogue row; 3,000 since owner 2026-11-13) + everything Plus has) · Papic 150 / 1000 / 3000 · Live
  * Watch · Music Maker · Patiktok. RETIRED from sale (ids forever; an already-charged transaction still delivers through
  * `iapProductForDelivery` in lib/iap/products-delivery.ts): `event_hub_pro` (replaced by `event_pro`, owner 2026-11-02)
  * and the four Setnayan AI products (owner 2026-11-04, *"Setnayan ai no separate purchase will be part of event plus and

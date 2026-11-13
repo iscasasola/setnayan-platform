@@ -4421,7 +4421,7 @@ function VendorPackagesSection({
               */
               <SignInHereLink
                 href="/login"
-                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep"
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep" // no-card-ok: a pressable link (Sign in to customize), not a box
               >
                 Sign in to customize
               </SignInHereLink>

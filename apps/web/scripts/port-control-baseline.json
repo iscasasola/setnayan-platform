@@ -9295,6 +9295,7 @@
         "DayActionsContext.Provider",
         "DayList",
         "DayMoment",
+        "DoneWarningBox",
         "DragState",
         "EmceePicks",
         "EmceePicksUnread",
@@ -9318,6 +9319,7 @@
         "Icon",
         "InSlot",
         "InfoTip",
+        "KeepAnswer",
         "LastSeenCapture",
         "LastSeenFallback",
         "LayerHeading.Provider",
@@ -9426,6 +9428,7 @@
         "ViewAsBody",
         "ViewAsMenu",
         "ViewLens",
+        "Warn",
         "WhenKey",
         "WhenRow",
         "WhoFields"
@@ -13009,6 +13012,24 @@
         "NotificationsList"
       ]
     },
+    "/dev/offer-card-lab": {
+      "files": [
+        "dev/offer-card-lab/compare-lab.tsx",
+        "dev/offer-card-lab/lab.tsx",
+        "dev/offer-card-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DroppedOffer",
+        "DroppedOfferCard",
+        "Lab",
+        "OfferDropCard",
+        "OfferDropLab",
+        "QuoteVersionsCompare",
+        "QuoteVersionsCompareLab"
+      ]
+    },
     "/dev/offer-maker-lab": {
       "files": [
         "dev/offer-maker-lab/lab-client.tsx",
@@ -13346,6 +13367,7 @@
       "blocks": [
         "Avatar",
         "DiscoverEventCard",
+        "EventPosterFacts",
         "FrontDoorShell",
         "NowShopCard",
         "SampleMarker",
@@ -16079,6 +16101,7 @@
         "vendor-dashboard/clients/[eventId]/_components/supplier-suggest-board.tsx",
         "vendor-dashboard/clients/[eventId]/_components/suppliers-list.tsx",
         "vendor-dashboard/clients/[eventId]/_components/suppliers-rows.ts",
+        "vendor-dashboard/clients/[eventId]/_components/top-up-carry-over.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-part-signoff.tsx",
         "vendor-dashboard/clients/[eventId]/_components/waitlist-form.tsx",
@@ -16282,6 +16305,7 @@
         "ScriptComposer",
         "ScriptTab",
         "Section",
+        "SettlePayBy",
         "Sheet",
         "ShopCard",
         "ShopEmpty",
@@ -16308,6 +16332,8 @@
         "TheyToldYou",
         "ThumbRow",
         "TimeRow",
+        "TopUpCarryOver",
+        "TopUpSettleSheet",
         "TypedRow",
         "UndoToastHost",
         "VendorChallengeSection",

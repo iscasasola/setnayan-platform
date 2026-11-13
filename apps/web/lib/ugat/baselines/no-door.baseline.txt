@@ -52,6 +52,7 @@
 /dev/me-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/memories-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/notifications-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/offer-card-lab	# 2026-11-12 · internal (dev) · PR-4 offer card + side-by-side lab; 404 in production, reached only by typing its address
 /dev/offer-maker-lab	# 2026-11-12 · internal (dev, prototypes) · a page nobody can reach without typing its address — the Offer Maker on fixture data (Build 6 Lane D), 404 in production
 /dev/onboarding-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/open-shop-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

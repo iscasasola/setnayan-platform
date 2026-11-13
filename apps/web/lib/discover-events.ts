@@ -373,6 +373,7 @@ async function dressCards(cards: DiscoverEventCard[]): Promise<void> {
   const [types, viewingAsFree] = await Promise.all([publicEventTypes(), viewingAsFreeCouple().catch(() => false)]);
   const scenes = new Map<string, DiscoverScene>();
   const papers = new Map<string, DiscoverPaper>();
+  const scenePosters = new Map<string, DiscoverPaper>();
   await Promise.all(
     rows.covers.map(async (r) => {
       const heroConfig = heroConfigById.get(r.event_id) ?? null;
@@ -380,13 +381,16 @@ async function dressCards(cards: DiscoverEventCard[]): Promise<void> {
         types && !viewingAsFree
           ? await dressEventCoverGiven(r, heroConfig, publicCoverIo(r, rows.facts[r.event_id], types))
           : await dressEventCover(r, heroConfig);
-      if (dressed.scene) scenes.set(r.event_id, dressed.scene);
-      else if (dressed.paper) papers.set(r.event_id, dressed.paper);
+      if (dressed.scene) {
+        scenes.set(r.event_id, dressed.scene);
+        if (dressed.scenePoster) scenePosters.set(r.event_id, dressed.scenePoster);
+      } else if (dressed.paper) papers.set(r.event_id, dressed.paper);
     }),
   );
   for (const c of cards) {
     c.scene = scenes.get(c.key) ?? null;
     c.paper = papers.get(c.key) ?? null;
+    c.scenePoster = scenePosters.get(c.key) ?? null;
   }
 }
 

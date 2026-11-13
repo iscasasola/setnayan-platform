@@ -2168,7 +2168,9 @@ export async function SiteBody({
       : hostReplyCard
         ? coverRsvpOf({ card: hostReplyCard })
         : pageStage === 'rsvp' && plan.rsvpShouldRender && vendorCapability === null && !viewerIsHost
-          ? coverRsvpOf({ card: null, visitorHref: replyDoor })
+          ? // 📬 F-W3-25: a reader the page does not recognise is shown the window's own line when replies are shut —
+            // never "Confirm attendance" into "Replies are not open yet".
+            coverRsvpOf({ card: null, visitorHref: replyDoor, window: repliesWindow, organizer: clientWords.theOrganizer })
           : null;
 
     return (

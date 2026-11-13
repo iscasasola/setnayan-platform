@@ -37,7 +37,10 @@ export async function claimPaymentQrToShop(
       .eq('manual_vendor_id', card)
       .eq('event_id', parent.event_id)
       .maybeSingle();
-    if (error) return null;
+    if (error) {
+      console.warn('[claim-door] the couple\'s pay-ways could not be read, so no QR is copied:', error.message);
+      return null;
+    }
     const qr = readStoredPayWays((wayRow as { pay_ways?: unknown } | null)?.pay_ways)[index]?.qr ?? null;
     const from = qr ? parseClientRef(qr, budgetPaymentProofPolicy(parent.event_id)) : null;
     if (!from) return null;

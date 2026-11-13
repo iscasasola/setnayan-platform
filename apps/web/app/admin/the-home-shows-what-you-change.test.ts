@@ -21,7 +21,9 @@ const code = (s: string) =>
 
 const tile = code(read('_components/what-you-change.tsx'));
 const nav = code(read('_components/admin-nav-groups.tsx'));
-const home = code(read('page.tsx'));
+// The jobs left the Work landing with the old Overview (13 Nov 2026) and live on
+// Insights › Overview now, where the approved drawing draws them.
+const home = code(read('app-performance/_surfaces/admin-totals-surface.tsx'));
 
 /** Every `key: '…'` that sits on a nav ITEM (8-space indent), not a group. */
 function navItemKeys(src: string): Set<string> {
@@ -43,7 +45,7 @@ test('every tile resolves to a nav item that exists', () => {
   );
 });
 
-test('the job the owner does most is on the page he lands on', () => {
+test('the job the owner does most is mounted on Insights › Overview', () => {
   // The whole reason this component exists. If the mount goes, so does the point.
   assert.match(home, /<WhatYouChange counts=\{whatYouChange\} \/>/);
   assert.match(tile, /key: 'pricing'/);

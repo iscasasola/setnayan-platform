@@ -3314,7 +3314,8 @@ export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ow
  * `history` (owner 2026-11-09, ↺ BECOMES A HISTORY LIST): return the draft to one row of the list — `to` (its index) and
  * `stamp` (the state it names), `lib/hub-draft-history.ts` `jumpHubDraft`. Draft only, never the live page.
  */
-export const HUB_DRAFT_INTENTS = ['save', 'apply', 'restore', 'reset', 'undo', 'drop', 'date_change', 'history'] as const;
+/** `peek` — 🎁 the couple's "Peek now" (owner 2026-11-13, "SIX CALLS SETTLED" (6)): written at once, never drafted. */
+export const HUB_DRAFT_INTENTS = ['save', 'apply', 'restore', 'reset', 'undo', 'drop', 'date_change', 'history', 'peek'] as const;
 export type HubDraftIntent = (typeof HUB_DRAFT_INTENTS)[number];
 
 export function isHubDraftIntent(v: unknown): v is HubDraftIntent {

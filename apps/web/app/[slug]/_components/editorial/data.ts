@@ -325,7 +325,7 @@ export {
   sectionOrderToPersist,
 } from './custom-columns';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
-import { readSceneLooks, type PostEventSceneLooks } from '@/lib/post-event-draft';
+import { readReadsAs, readSceneLooks, type PostEventReadsAs, type PostEventSceneLooks } from '@/lib/post-event-draft';
 export type { CustomColumn };
 export { readCustomColumns };
 
@@ -652,6 +652,11 @@ export type EditorialData = {
    * It carries no order and no eye — `sections` / `sectionOrder` above are those.
    */
   sceneLooks?: PostEventSceneLooks;
+  /**
+   * 📖 HOW THE STORY READS (owner 2026-11-13, "SIX CALLS SETTLED" (1)) — `draft_json.readAs`: `story` (one scene per
+   * screen, the default) or `page` (one long scroll). Read through `readReadsAs`, the one reader the Maker writes with.
+   */
+  readAs?: PostEventReadsAs;
   /** 🎞 The story's cover was chosen for after the day (not the hero) — Before & After's gate. */
   coverChosen?: boolean;
   /** The Save the Date's cover (the event's hero), signed — only when `coverChosen`. */
@@ -2926,6 +2931,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     sectionOrder: readSectionOrder(draftJson),
     customColumns: readCustomColumns(draftJson),
     sceneLooks: readSceneLooks(draftJson.sceneLooks),
+    readAs: readReadsAs(draftJson.readAs),
     coverChosen,
     eventHeroUrl,
   };

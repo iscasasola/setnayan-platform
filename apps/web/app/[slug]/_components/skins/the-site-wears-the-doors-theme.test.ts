@@ -280,7 +280,7 @@ test('every guest page wears the theme from ONE stamp, and House wears nothing',
   */
   for (const rel of [
     ['app', '[slug]', '_components', 'invitation-shell.tsx'],
-    ['app', '[slug]', 'recap', 'page.tsx'],
+    // (recap left 2026-11-13: `/{slug}/recap` now only sends to the story — owner, "POST EVENT = A STORY" (5).)
     ['app', '[slug]', 'pabuya', 'page.tsx'],
   ]) {
     const src = stripComments(read(...rel));

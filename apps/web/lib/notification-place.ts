@@ -165,6 +165,18 @@ export function resolveNotificationPlace(
   }
 }
 
+/**
+ * The ONE letter an event's notification mark draws (the approved drawing): the first letter of its monogram, else
+ * of its name. "M & J" at 38px overflowed the tile and clipped the J; the full monogram stays everywhere else.
+ */
+export function placeMarkLetter(event: { monogram_text: string | null; display_name: string | null }): string {
+  for (const source of [event.monogram_text, event.display_name]) {
+    const ch = Array.from(source ?? '').find((c) => /[\p{L}\p{N}]/u.test(c));
+    if (ch) return ch.toLocaleUpperCase();
+  }
+  return '?';
+}
+
 // ── the words ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** The quiet line above the title: **name** · stance — or the "didn't load" words. Never blank. */

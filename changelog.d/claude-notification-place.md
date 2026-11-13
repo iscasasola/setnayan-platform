@@ -43,3 +43,5 @@ needs server-side presigned hero/theme resolvers per event; the pop-over reads i
 light mark the account menu and Home's cards already wear is what it can draw honestly.
 
 SPEC IMPACT: None — the decision is already logged (the approved prototype).
+
+- The event's 38px notification mark draws ONE letter (first letter of the monogram, else of the event name — `placeMarkLetter`), with the event's full name as its `aria-label`; "M & J" overflowed and clipped the J. The full monogram is unchanged everywhere else.

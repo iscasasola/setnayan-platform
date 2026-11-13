@@ -36,6 +36,7 @@ import {
   eventWasRemoved,
   opensWords,
   placeLineText,
+  placeMarkLetter,
   placeLineWords,
   resolveNotificationPlace,
   type NotificationPlace,
@@ -43,7 +44,6 @@ import {
 } from '@/lib/notification-place';
 import { pictureFrameStyle } from '@/lib/picture-frame';
 import { InfoTip } from '@/app/_components/info-tip';
-import { EventMonogram } from '@/app/_components/event-monogram';
 import { VendorAvatar, deriveVendorInitials } from '@/app/_components/vendor-avatar';
 import { LogoMark } from '@/app/_components/brand-marks';
 import { WhereNoticeOk } from './where-notice-ok';
@@ -550,10 +550,12 @@ function PlaceFace({ place }: { place: NotificationPlace }) {
     case 'event':
       return (
         <span
-          aria-hidden
-          className="inline-flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-paper-2)]"
+          role="img"
+          aria-label={place.name}
+          className="inline-flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-paper-2)] font-display text-[20px] italic leading-none text-ink"
+          data-notice-mark-letter=""
         >
-          <EventMonogram event={place.event} size="md" place="notice-place" />
+          {placeMarkLetter(place.event)}
         </span>
       );
     case 'shop':

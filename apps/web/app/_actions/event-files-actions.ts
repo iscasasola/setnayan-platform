@@ -15,6 +15,7 @@ import { parseStoredAsset } from '@/lib/uploads';
 import { fileKindOf, readExifTakenAt } from '@/lib/supplier-files';
 import { STORAGE_UPGRADE_HREF, isStorageRefusal } from '@/lib/supplier-storage';
 import { storageRefusalWords } from '@/lib/supplier-storage.server';
+import { stylistAssetObjectKey } from '@/lib/moodboard-library-key';
 
 /**
  * 📁 A SUPPLIER'S FILES FOR ONE EVENT — ONE dispatcher (Piece 3b · DECISION_LOG 2026-11-12), both sides, because every
@@ -31,7 +32,8 @@ import { storageRefusalWords } from '@/lib/supplier-storage.server';
  *   • `remove` — a filed row leaves this event (the stored copy stays: it may back other files).
  *   • `tag`    — 🏷 filed photos → the inspirations their card offers (DECISION_LOG 2026-11-14), each pair through the
  *                library's one screened door (`importEditorialMediaToGallery` → `storeScreenedAsset`), landing "Checking".
- *   • `untag`  — 🏷 a tag leaves its inspiration: RETIRED, never deleted (a couple's saved board keeps it, credited).
+ *   • `untag`  — 🏷 a tag leaves its inspiration: one never approved is deleted with its copy; an approved one is
+ *                RETIRED, never deleted (a couple's saved board keeps it, credited).
  *   • `filechat` — 📥 Piece 3c "File under a service": a photo/video the SHOP sent in this event's chat is filed under a
  *                quoted service. The server reads the chat file's bytes, measures hash + date; bytes already stored are a
  *                link (no copy). New bytes get ONE kept copy in the shop's folder — the chat file itself is deleted by the
@@ -389,7 +391,7 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
     const admin = createAdminClient();
     const { data: row } = await admin
       .from('moodboard_library_assets')
-      .select('asset_id, vendor_profile_id, event_file_id')
+      .select('asset_id, vendor_profile_id, event_file_id, approved_at, storage_path, uploaded_by')
       .eq('asset_id', assetId)
       .eq('vendor_profile_id', shop)
       .maybeSingle();
@@ -397,17 +399,35 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
     if (!fileId) return { status: 'error', message: 'That tag is already gone.' };
     const { data: own } = await supabase.from('event_supplier_files').select('file_id').eq('file_id', fileId).eq('event_id', eventId).eq('vendor_profile_id', shop).maybeSingle();
     if (!own) return { status: 'error', message: 'That photo is not in this event’s Files.' };
-    // 🔑 RETIRED, NEVER DELETED (ruling 6): a couple may have saved it, and their board tile cascades on a delete.
-    const { data, error } = await admin
-      .from('moodboard_library_assets')
-      .update({ retired_at: new Date().toISOString() })
-      .eq('asset_id', assetId)
-      .eq('vendor_profile_id', shop)
-      .is('retired_at', null)
-      .select('asset_id');
-    if (error || !data || data.length !== 1) {
-      if (error) logQueryError('eventFilesAction.untag', error, { event_id: eventId }, 'graceful_degrade');
-      return { status: 'error', message: 'We couldn’t remove that tag. Please try again.' };
+    // A tag never approved was never in front of a couple: it is DELETED, with its stored copy. 🔑 An approved one is
+    // RETIRED, never deleted (ruling 6): a couple may have saved it, and their board tile cascades on a delete.
+    const r = row as { approved_at: string | null; storage_path: string | null; uploaded_by: string | null };
+    if (!r.approved_at) {
+      const { data, error } = await admin
+        .from('moodboard_library_assets')
+        .delete()
+        .eq('asset_id', assetId)
+        .eq('vendor_profile_id', shop)
+        .is('approved_at', null)
+        .select('asset_id');
+      if (error || !data || data.length !== 1) {
+        if (error) logQueryError('eventFilesAction.untag.pending', error, { event_id: eventId }, 'graceful_degrade');
+        return { status: 'error', message: 'We couldn’t remove that tag. Please try again.' };
+      }
+      const key = r.storage_path && r.uploaded_by ? stylistAssetObjectKey(r.storage_path, r.uploaded_by) : null;
+      if (key) await admin.storage.from('moodboard-library').remove([key]);
+    } else {
+      const { data, error } = await admin
+        .from('moodboard_library_assets')
+        .update({ retired_at: new Date().toISOString() })
+        .eq('asset_id', assetId)
+        .eq('vendor_profile_id', shop)
+        .is('retired_at', null)
+        .select('asset_id');
+      if (error || !data || data.length !== 1) {
+        if (error) logQueryError('eventFilesAction.untag', error, { event_id: eventId }, 'graceful_degrade');
+        return { status: 'error', message: 'We couldn’t remove that tag. Please try again.' };
+      }
     }
     return done({ status: 'done', message: 'Taken out of that inspiration · the photo stays in Files' });
   }

@@ -39,11 +39,27 @@ export type ShopInspirationLook = {
   part: string;
   /** The shop's own service card it belongs to, or null (the shop only). */
   vendorServiceId: string | null;
+  /** 🏷 Tagged from a Files photo of a booked event (DECISION_LOG 2026-11-14) — its line is read separately. */
+  fromEvent: boolean;
 };
+
+/**
+ * 🏷 Which Files photos are listed on the shop RIGHT NOW (`event_supplier_photos_listed`) — `null` when that could not
+ * be read. The service role skips the public read policy, so this read must ask the listing rule itself
+ * (`shownTagFilter` in lib/inspiration-tags.server.ts). 🛑 FAIL CLOSED: no gate, or a refused one, shows NO Files tag.
+ */
+export type ShopInspirationTagGate = (fileIds: readonly string[]) => Promise<ReadonlySet<string> | null>;
 
 export const SHOP_INSPIRATION_PAGE = 500;
 
-type Row = { asset_id: string; asset_subtype: string | null; label: string | null; storage_path: string; vendor_service_id: string | null };
+type Row = {
+  asset_id: string;
+  asset_subtype: string | null;
+  label: string | null;
+  storage_path: string;
+  vendor_service_id: string | null;
+  event_file_id: string | null;
+};
 
 /** The smallest slice of the Supabase client this read needs (so a fake can record the predicates). */
 export type ShopInspirationQuery = {
@@ -62,12 +78,13 @@ export async function fetchShopInspirationLooks(
   client: ShopInspirationClient,
   vendorProfileId: string,
   parts: InspirationPartsSnapshot,
+  tagGate?: ShopInspirationTagGate,
 ): Promise<ShopInspirationLook[] | null> {
   const read = await readAllPages(
     async (from, to) => {
       const { data, error, count } = await client
         .from('moodboard_library_assets')
-        .select('asset_id, asset_subtype, label, storage_path, vendor_service_id', { count: 'exact' }) // never source_event_id / source_suggestion_id
+        .select('asset_id, asset_subtype, label, storage_path, vendor_service_id, event_file_id', { count: 'exact' }) // never source_event_id / source_suggestion_id
         .eq('vendor_profile_id', vendorProfileId)
         .eq('asset_type', 'supplier_gallery')
         .not('approved_at', 'is', null)
@@ -89,12 +106,20 @@ export async function fetchShopInspirationLooks(
     );
     return null;
   }
-  return (read.rows as Row[]).map((r) => ({
-    id: r.asset_id,
-    url: galleryImageUrl(r.storage_path),
-    part: (r.asset_subtype ? libraryPartLabel(r.asset_subtype, parts) : null) ?? r.label?.trim() ?? 'Inspiration',
-    vendorServiceId: r.vendor_service_id ?? null,
-  }));
+  const rows = read.rows as Row[];
+  // 🏷 Nothing reaches an inspiration before the shop shows it (ruling 1): a Files tag stays only while its photo is
+  // listed. No gate, or a refused one, drops every Files tag — never shows them all.
+  const fileIds = [...new Set(rows.map((r) => r.event_file_id).filter((x): x is string => Boolean(x)))];
+  const shown = fileIds.length && tagGate ? await tagGate(fileIds) : null;
+  return rows
+    .filter((r) => !r.event_file_id || (shown?.has(r.event_file_id) ?? false))
+    .map((r) => ({
+      id: r.asset_id,
+      url: galleryImageUrl(r.storage_path),
+      part: (r.asset_subtype ? libraryPartLabel(r.asset_subtype, parts) : null) ?? r.label?.trim() ?? 'Inspiration',
+      vendorServiceId: r.vendor_service_id ?? null,
+      fromEvent: Boolean(r.event_file_id),
+    }));
 }
 
 /** The looks of each card, in page order — `inspirationLooks` on that card. A look with no card is the shop's only. */

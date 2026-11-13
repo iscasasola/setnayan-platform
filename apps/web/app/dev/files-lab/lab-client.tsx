@@ -8,6 +8,9 @@ import { FilesFinder } from '@/app/vendor-dashboard/clients/[eventId]/_pages/fil
 import type { SharedFileEntry } from '@/lib/chat-shared-files';
 import type { EventFile } from '@/lib/supplier-files.server';
 import type { FileTag, OfferedPart } from '@/lib/inspiration-tags';
+import { GalleryPicker } from '@/app/dashboard/[eventId]/studio/mood-board/_components/gallery-picker';
+import { ShopInspirationSection } from '@/app/v/[slug]/_components/shop-inspiration-section';
+import type { GalleryAsset } from '@/lib/moodboard-gallery';
 
 const EV = '00000000-0000-4000-8000-0000000000e1';
 const SHOP = '00000000-0000-4000-8000-0000000000cc';
@@ -90,8 +93,22 @@ const openTile = (name: string) => {
   setTimeout(() => click(`[data-files-grid] button[aria-label^="${name}"]`), 150);
 };
 
+// 🏷 The couple's side (frames 8 · 9 · 11) and the shop page (frame 10) — fixture photos, no database.
+const LINE = 'Wedding · Makati Shangri-La · Sep 2026';
+const LIB: GalleryAsset[] = [
+  { assetId: 'a1', imageUrl: tile(3), label: '', credit: 'Rosa Mendoza Catering · Caterer', vendorProfileId: SHOP, shopSlug: 'rosa', swatches: ['#c8907a', '#e9d8c4'], isEventLinked: true, eventLine: LINE, alsoIn: [{ slotKey: 'cake', label: 'Cake & desserts' }] },
+  { assetId: 'a2', imageUrl: tile(1), label: '', credit: 'Rosa Mendoza Catering · Caterer', vendorProfileId: SHOP, shopSlug: 'rosa', swatches: ['#a99fc8'], isEventLinked: true, eventLine: 'Debut · Tagaytay Highlands · Aug 2026', alsoIn: [] },
+  { assetId: 'a3', imageUrl: tile(2), label: 'Grazing table', credit: 'Rosa Mendoza Catering · Caterer', vendorProfileId: SHOP, shopSlug: 'rosa', swatches: ['#d9c08a'], isEventLinked: false },
+  { assetId: 'a4', imageUrl: tile(0), label: 'Long table', credit: 'Casa Verde Styling · Stylist', vendorProfileId: SHOP, shopSlug: null, swatches: ['#9bb894'], isEventLinked: false },
+];
+const libPage = (assets: GalleryAsset[]) => async () => ({ assets, total: assets.length, withheld: 0, offset: 0, limit: 24, hasMore: false });
+
 export function FilesLabClient({ mode }: { mode: string }) {
   useEffect(() => {
+    if (mode === 'library-open') {
+      const t = setTimeout(() => click('[data-gallery-open]'), 1200);
+      return () => clearTimeout(t);
+    }
     if (mode.startsWith('tag-')) {
       const steps: (() => void)[] =
         mode === 'tag-open'
@@ -142,6 +159,33 @@ export function FilesLabClient({ mode }: { mode: string }) {
     return () => clearTimeout(t);
   }, [mode]);
 
+  if (mode === 'library' || mode === 'library-open' || mode === 'library-waiting') {
+    return (
+      <GalleryPicker
+        eventId={EV}
+        slotKey="table"
+        slotLabel="Tables"
+        emptyPositions={[0, 1]}
+        fetchAction={libPage(mode === 'library-waiting' ? LIB.filter((a) => !a.eventLine) : LIB)}
+        applyAction={async () => ({ status: 'ok', imageUrl: LIB[0]!.imageUrl })}
+        onSaved={() => {}}
+        onClose={() => {}}
+      />
+    );
+  }
+  if (mode === 'shop') {
+    return (
+      <ShopInspirationSection
+        shopName="Rosa Mendoza Catering"
+        tiles={[
+          { id: 'a1', url: tile(3), part: 'Tables', card: { label: 'Garden buffet', priceLabel: 'Price on request', anchorId: 'card-a' }, eventLine: LINE },
+          { id: 'a1b', url: tile(3), part: 'Cake & desserts', card: { label: 'Garden buffet', priceLabel: 'Price on request', anchorId: 'card-a' }, eventLine: LINE },
+          { id: 'a3', url: tile(2), part: 'Tables', card: { label: 'Garden buffet', priceLabel: 'Price on request', anchorId: 'card-a' } },
+          { id: 'a5', url: tile(1), part: 'Cocktail & bar', card: null },
+        ]}
+      />
+    );
+  }
   // ?m=now — the SHIPPED Files page body, unchanged (the "Now" beside the board).
   if (mode === 'now') {
     const row = (k: string, kind: SharedFileEntry['kind'], name: string, typeLabel: string, isImage: boolean): SharedFileEntry => ({

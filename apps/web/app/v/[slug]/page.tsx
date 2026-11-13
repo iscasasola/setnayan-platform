@@ -213,6 +213,7 @@ import { onTheCachedHub } from '@/lib/hub-request';
 import { PortfolioPhotoTiles } from './_components/portfolio-photo-tiles';
 // 🔗🖼 The shop's approved inspiration — its own section and inside each card (owner 2026-10-30, "connected four ways").
 import { fetchShopInspirationLooks, looksByCard, type ShopInspirationClient, type ShopInspirationLook } from '@/lib/shop-inspiration.server';
+import { listedFilesGate, readTagEventLines } from '@/lib/inspiration-tags.server';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { cardAnchorId, withInspirationLooks } from '@/lib/service-card-view-model';
 import { ShopInspirationSection, type InspirationTile } from './_components/shop-inspiration-section';
@@ -1242,7 +1243,8 @@ export async function renderVendorBySlug({
   // 🔗🖼 ONE batched, paged read of the shop's approved inspiration — started here so it runs beside the card batch
   // below. `null` = it could not be read to the end: no Inspiration section and no looks strip (never a partial one).
   const shopInspirationRead: Promise<ShopInspirationLook[] | null> = getInspirationParts()
-    .then((parts) => fetchShopInspirationLooks(admin as unknown as ShopInspirationClient, vendor.vendor_profile_id, parts))
+    // 🏷 A Files photo tagged to an inspiration shows only while that photo shows on the shop (DECISION_LOG 2026-11-14).
+    .then((parts) => fetchShopInspirationLooks(admin as unknown as ShopInspirationClient, vendor.vendor_profile_id, parts, listedFilesGate(admin)))
     .catch(() => null);
   // Coverage ids behind the active cards — drive the "Serves" line (event
   // types + faiths). Legacy services (coverage_id null) simply show no line.
@@ -1335,12 +1337,15 @@ export async function renderVendorBySlug({
   const liveCardById = new Map(activeServices.map((s) => [s.vendor_service_id, s]));
   const shownLooks = (shopInspiration ?? []).filter((l) => !l.vendorServiceId || liveCardById.has(l.vendorServiceId));
   const inspirationByService = shopInspiration === null ? null : looksByCard(shownLooks);
+  // 🏷 Ruling (4): a tagged Files photo names its event as type · venue · month — never a name, never an id.
+  const tagLines = await readTagEventLines(admin, shownLooks.filter((l) => l.fromEvent).map((l) => l.id));
   const inspirationTiles: InspirationTile[] = shownLooks.map((l) => {
     const s = l.vendorServiceId ? liveCardById.get(l.vendorServiceId) : undefined;
     return {
       id: l.id,
       url: l.url,
       part: l.part,
+      eventLine: tagLines.get(l.id)?.line ?? null,
       card: s
         ? { label: serviceLabel(s), priceLabel: servicePriceLabel(s), anchorId: cardAnchorId(s.public_id, s.vendor_service_id) }
         : null,

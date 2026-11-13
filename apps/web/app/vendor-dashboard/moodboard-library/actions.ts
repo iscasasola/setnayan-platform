@@ -888,8 +888,8 @@ async function importSuggestionToGallery(
  *   · the photo is THIS shop's, filed under a service card (grp 'service'), and a PHOTO (ruling 7);
  *   · the part is one that photo's own card offers (ruling 3: the card is live and its service is in
  *     `inspiration_part_services` for the part — `verifyCardForPart`), and one this shop's trades may fill;
- *   · one row per (photo, part): a live tag is refused as already there; a tag the supplier removed earlier is
- *     brought back to "Checking" (approval cleared) rather than written twice — the UNIQUE holds it either way;
+ *   · one row per (photo, part): a live tag is refused as already there; an approved tag removed earlier stays out
+ *     (retired — it may be on a couple's board) — the UNIQUE holds it either way;
  * then the SAME storeScreenedAsset every upload takes: rights warranty · screen · watermark (the event seal — the row
  * carries the event) · store · theft scan. The row lands with approved_at NULL (ruling 2), and the public read policy
  * shows it only while the photo shows on the shop (ruling 1, migration 20271345380761). No quota: a photo delivered
@@ -954,20 +954,9 @@ async function importEventFileToGallery(
   }
   const prior = had as { asset_id: string; retired_at: string | null } | null;
   if (prior && !prior.retired_at) throw new Error('This photo is already in that inspiration.');
-  if (prior) {
-    // Removed earlier, tagged again: the same row comes back through the check — approval cleared, never assumed.
-    const { data: back, error: backErr } = await admin
-      .from('moodboard_library_assets')
-      .update({ retired_at: null, approved_at: null, rejected_at: null, rejection_reason: null, rights_warranted_at: new Date().toISOString(), rights_warranty_version: RIGHTS_WARRANTY_VERSION })
-      .eq('asset_id', prior.asset_id)
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .select('asset_id');
-    if (backErr || !back || back.length !== 1) {
-      if (backErr) logQueryError('moodboardLibrary.importEventFile.back', backErr, { assetId: prior.asset_id });
-      throw new Error('We couldn’t tag that photo just now — please try again in a moment.');
-    }
-    return { assetId: prior.asset_id, textScreen: 'ran', colorRanges: {} };
-  }
+  // A tag that was approved and later taken out is RETIRED (it may sit on a couple's board) and stays out: bringing it
+  // back is Setnayan's call, never a supplier write to approval (a retire and a takedown look the same here).
+  if (prior) throw new Error('This photo was taken out of that inspiration earlier, so it stays out. Pick another inspiration, or ask Setnayan.');
 
   const media = Array.isArray(file.supplier_media) ? file.supplier_media[0] : file.supplier_media;
   const at = parseStoredAsset(media?.r2_ref ?? null);

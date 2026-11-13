@@ -17,6 +17,10 @@
  *   ?m=tag-pick   frame 3 — the ▾ open, two picked, the rights line ticked
  *   ?m=tag-select frame 4 — Select mode, three picked, the bar
  *   ?m=tag-after  frame 5 — a tagged photo opened: one line per inspiration, its state, its ✕
+ *   ?m=library    frame 8 — the couple's library tile: the event line under the credit
+ *   ?m=library-open frame 9 — a tagged photo opened: From · From this event · Also in · Save
+ *   ?m=library-waiting frame 11 — before the shop shows the photo: no tile, no trace
+ *   ?m=shop       frame 10 — the shop page's Inspiration section with the event line
  */
 import { notFound } from 'next/navigation';
 import { FilesLabClient } from './lab-client';

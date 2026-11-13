@@ -120,6 +120,15 @@ export async function shownTagFilter(
   return (row) => !row.event_file_id || listed.has(row.event_file_id);
 }
 
+/** The shop page's gate for `fetchShopInspirationLooks` — the listed Files photos among these, on the service role. */
+export function listedFilesGate(admin: SupabaseClient): (fileIds: readonly string[]) => Promise<ReadonlySet<string> | null> {
+  return async (fileIds) => {
+    const keep = await shownTagFilter(admin, fileIds.map((id) => ({ event_file_id: id })));
+    if (!keep) return null;
+    return new Set(fileIds.filter((id) => keep({ event_file_id: id })));
+  };
+}
+
 /** One tagged photo's public line: "Wedding · Makati Shangri-La · Sep 2026", and the other parts it is also in. */
 export type TagEventLine = { line: string | null; alsoIn: { slotKey: string; label: string }[] };
 

@@ -20,6 +20,7 @@ export function PickOffRow({ o, oo }: { o: PickOption; oo: string }) {
   return (
     <li role="none">
       <div
+        aria-disabled="true"
         data-pick-option={o.key}
         data-pick-off=""
         className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-[14px] text-ink/40"

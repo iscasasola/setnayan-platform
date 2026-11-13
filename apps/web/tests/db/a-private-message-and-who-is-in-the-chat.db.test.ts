@@ -474,6 +474,7 @@ test('every function that reads chat_messages bodies is one this lane audited', 
 // The measured list, each judged for a private-message leak (see the report
 // for the reasoning per function). Kept sorted.
 const AUDITED_DEFINER_READERS: string[] = [
+  'apply_dropped_offer', // 🏷 PR-4 (20271339379038): reads ONE message's offer id · good-until · event · thread, never its body; a private line can never carry an offer (tg_chat_messages_offer_is_this_suppliers refuses it); inserts its own system line; returns the new quote id
   // 20271340018194 (Piece 1 · PR-3): inserts the new quote version's card line (a shop message with its proposal_id);
   // reads no message and returns the new proposal id — no body leaves it.
   'change_ask_write_version',
@@ -509,6 +510,7 @@ const AUDITED_DEFINER_READERS: string[] = [
   'tg_chat_messages_card_names_this_conversation', // validates NEW's card ids; returns no other row
   'tg_chat_messages_group_rules', // 20271340374819: reads NEW's thread kind only; returns no other row
   'tg_chat_messages_guard_end_user_write', // screens NEW's own body only
+  'tg_chat_messages_offer_is_this_suppliers', // 🏷 PR-4: validates NEW's offer id + day and refuses it on a private line; reads no other message
   'tg_chat_messages_private_is_between_members', // this lane's recipient check
   'unread_message_threads_by_event', // filters recipient_user_id
   'unread_message_threads_by_vendor', // filters recipient_user_id

@@ -74,7 +74,7 @@ const FILES = [
   'hub/page.tsx',
   'everyone/page.tsx',
   'pabuya/page.tsx',
-  'recap/page.tsx',
+  // (recap/page.tsx left 2026-11-13: it reads nothing now — it only sends to the story; owner, "POST EVENT = A STORY" (5).)
   'welcome/page.tsx',
   'seat/page.tsx',
   'seat/claim/route.ts',
@@ -251,7 +251,7 @@ test('2 · the reads this work changed decide something on failure — a throw, 
   assert.ok(seat.indexOf('if (occupantsErr)') > -1 && seat.indexOf('if (occupantsErr)') < seat.indexOf('No one has been seated here yet.'), 'the "nobody seated" sentence is reached before the failed read is ruled out');
 
   // Where a page reaches `notFound()` for the event, the event came through `guestRead`.
-  for (const file of ['hub/page.tsx', 'everyone/page.tsx', 'pabuya/page.tsx', 'recap/page.tsx', 'welcome/page.tsx']) {
+  for (const file of ['hub/page.tsx', 'everyone/page.tsx', 'pabuya/page.tsx', 'welcome/page.tsx']) {
     const s = src(file);
     assert.match(s, /guestRead\('\w+ \(event\)', \(\) =>\s*admin\s*\.from\('events'\)/, `${file}: the event read no longer goes through guestRead`);
     assert.ok(s.includes('notFound()'), `anti-vacuity: ${file} no longer has a notFound()`);

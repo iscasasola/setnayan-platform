@@ -1590,6 +1590,8 @@ export async function SiteBody({
              says what fills it. Both false for every guest. */
           draft={isEditorCanvas ? editorialDraft : null}
           hostPreview={isEditorCanvas}
+          /* 📖 Post Event reads as a story — one scene per screen — unless the couple chose Page (owner 2026-11-13). */
+          storyReading
           /* 🎨 ONE VALUE ACROSS STAGES — the Schedule and Gallery scenes wear the
              style picked on the section of the same name (`POST_EVENT_STYLE_HOME`),
              read off the rows this page already holds (the host's draft laid

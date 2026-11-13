@@ -412,11 +412,12 @@ async function executeClaimed(
     // competing claim requires status='pending'). Prevents clobbering any
     // other state. (A future hardening folds claim+execute into one
     // SECURITY DEFINER transaction so no compensating reset is needed.)
-    await admin
+    const { error: rollbackErr } = await admin
       .from('admin_approval_requests')
       .update({ status: 'pending', decided_by: null, decided_at: null })
       .eq('approval_id', claimed.approval_id)
       .eq('status', 'approved');
+    if (rollbackErr) console.error('[approvals] rollback to pending failed', rollbackErr.message);
     await audit(admin, {
       action: 'approval_execute_failed',
       area,
@@ -608,7 +609,14 @@ async function runDueOwnerApprovals(): Promise<{ ran: number; failed: number }> 
       .select('initiated_by')
       .eq('approval_id', approval_id)
       .maybeSingle();
-    if (readErr || !row?.initiated_by) continue;
+    if (readErr) {
+      console.error('[owner self-approval] due row read failed', readErr.message);
+      continue;
+    }
+    if (!row?.initiated_by) {
+      console.error('[owner self-approval] due row has no initiator (deleted admin) — left to expire', approval_id);
+      continue;
+    }
     const ownerId = row.initiated_by as string;
 
     // The claim: decided by its own initiator. The database refuses this for
@@ -634,11 +642,12 @@ async function runDueOwnerApprovals(): Promise<{ ran: number; failed: number }> 
     } catch (e) {
       failed += 1;
       const why = e instanceof Error ? e.message : String(e);
-      await admin
+      const { error: closeErr } = await admin
         .from('admin_approval_requests')
         .update({ status: 'expired', decision_reason: `Did not run after the 24-hour wait: ${why}`.slice(0, 2000) })
         .eq('approval_id', approval_id)
         .eq('status', 'pending');
+      if (closeErr) console.error('[owner self-approval] closing a failed run failed', closeErr.message);
       await emailOwnerRan({ what, publicId, ok: false, error: why });
       continue;
     }

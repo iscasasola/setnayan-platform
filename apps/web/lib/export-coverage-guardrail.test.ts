@@ -184,6 +184,11 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-11-13 (admin areas × levels, migration 20271343355752) ──
+  admin_scopes:
+    'Staff console configuration: which admin areas an account may act in (granted_by is an actor stamp). Same kind of fact as the users.is_team_member flag, which the export already carries on the profile; no customer data.',
+  work_escalations:
+    'Admin notes about a WORK ITEM (a queue row). escalated_by / resolved_by are the ADMINS who acted — actor stamps, not the subject of the row.',
   // ── added 2026-11-08 (service card checks, migration 20271328838140) ──
   card_claim_words:
     'Admin configuration (a claim-word list). The only user column is created_by — the ADMIN who added the word, an actor stamp, not the subject of the row; nothing here was typed by or is about the exporting person.',

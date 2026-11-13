@@ -209,6 +209,8 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
   { route: '/admin/ugat/map', tab: 'insights' },
 
   // ── AVATAR — running admin itself ─────────────────────────────────────────
+  { route: '/admin/team', tab: 'avatar', note: 'Team & permissions — areas × levels (2026-11-13).' },
+  { route: '/admin/admin-log', tab: 'avatar', note: 'Admin log — every act, by person · area · day (2026-11-13).' },
   { route: '/admin/secrets', tab: 'avatar', note: 'Secrets & integrations.' },
   { route: '/admin/integrations', tab: 'avatar', note: 'Secrets & integrations.' },
   {

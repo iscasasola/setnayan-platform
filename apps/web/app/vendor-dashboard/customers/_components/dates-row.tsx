@@ -15,6 +15,7 @@ import { SaveFileLink } from '@/app/_components/save-file-link';
 export function DatesRow({
   title,
   line,
+  line2,
   badge,
   href,
   lead,
@@ -27,6 +28,8 @@ export function DatesRow({
 }: {
   title: ReactNode;
   line?: ReactNode;
+  /** 🗓 A second quiet line (a booked day's "you arrive · done") — its own line, so neither wraps at 390 px. */
+  line2?: ReactNode;
   badge?: { tone: BadgeTone; word: string } | null;
   href?: string | null;
   lead?: ReactNode;
@@ -50,6 +53,11 @@ export function DatesRow({
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium leading-tight text-ink">{title}</span>
         {line ? <span className="mt-0.5 block truncate text-[13px] text-ink/60">{line}</span> : null}
+        {line2 ? (
+          <span className="block truncate text-[13px] text-ink/60" data-dates-row-line2="">
+            {line2}
+          </span>
+        ) : null}
       </span>
       {strong !== undefined && strong !== null ? <span className="text-[17px] font-semibold tabular-nums text-ink">{strong}</span> : null}
       {badge ? (

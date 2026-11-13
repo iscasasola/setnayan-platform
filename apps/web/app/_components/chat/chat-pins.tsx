@@ -210,6 +210,12 @@ export function ChatPins({
             else if (body) toggle(f.key);
           }}
         />
+        {f.olderCount ? (
+          // 🗓 More than one schedule change unanswered: the newest pins, the rest are counted under it (Seen answers all).
+          <p className="-mt-1 pb-2 pl-[38px] text-[13px] text-ink/60" data-chat-pin-older={f.olderCount}>
+            + {formatCount(f.olderCount)} older change{f.olderCount === 1 ? '' : 's'} · Seen answers them all
+          </p>
+        ) : null}
         {body ? (
           <Fold open={openKey === f.key}>
             <div className="pb-3 pl-[38px]" data-chat-pin-body={f.key}>

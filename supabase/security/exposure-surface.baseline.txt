@@ -7595,7 +7595,7 @@ func	public.mood_board_change_mark_undone(p_change_id uuid)	secdef=yes exec=auth
 func	public.mood_board_change_undo_plan(p_change_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.mood_board_home_asks(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.move_event_schedule_with_date(p_event_id uuid, p_to_day date)	secdef=yes exec=authenticated search_path=public, pg_temp
-func	public.move_schedule_chapter(p_block_id uuid, p_start_at timestamp with time zone)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.move_schedule_chapter(p_block_id uuid, p_start_at timestamp with time zone, p_keep_block_ids uuid[])	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.offer_creator_reach_hold(p_vendor_profile_id uuid, p_creator_user_id uuid, p_creator_rate_terms text, p_audience_rate_terms text, p_reach_tokens integer, p_expires_at timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.order_basket_lines(p_order_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.paid_quote_floor_centavos(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public

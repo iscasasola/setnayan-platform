@@ -132,8 +132,8 @@ test('a Discover card whose event has a hero photo renders that photo', () => {
   assert.match(html, /data-discover-cover="hero"/);
   // The mark is still drawn underneath, so a photo that fails shows it.
   assert.match(html, /class="fd-mono-cover"[^>]*>C&amp;I</);
-  // The date plate is still on the cover, after the photo (painted on top).
-  assert.ok(html.indexOf('fd-date') > html.indexOf(HERO), 'the date plate must follow the photo');
+  // Name only, no date (owner 2026-11-13): no corner date plate on the cover.
+  assert.doesNotMatch(html, /fd-date/, 'a date plate came back onto the cover');
 });
 
 /** What the loader hands the card for an `invitation` poster (`dressCards`). */
@@ -225,15 +225,14 @@ test('a Classic public event with no hero draws the dashboard\'s paper invitatio
   const html = shelves([card({ paper: paperOf(p) })]);
   assert.match(html, /data-discover-cover="paper"/, 'the card did not take the paper cover');
   assert.match(html, /class="fd-paper"/);
-  // The dashboard card's own words, from the same poster facts: the names,
-  // the mark in its circle, and the date.
+  // The dashboard card's own words, from the same poster facts: the names and
+  // the mark in its circle — and, since 2026-11-13, NO date (name only).
   assert.match(html, />Cale</, 'the first name is not on the card');
   assert.match(html, />Ice</, 'the second name is not on the card');
   assert.match(html, />C &amp; I</, 'the mark is not in the card');
-  assert.match(html, /18 December 2026/, 'the date is not on the card');
+  assert.doesNotMatch(html, /18 December 2026/, 'the date came back onto the card');
   assert.doesNotMatch(html, /<img/, 'a Classic card drew a picture');
-  // The date plate is still on top of the card.
-  assert.ok(html.indexOf('fd-date') > html.indexOf('fd-paper'), 'the date plate must follow the card');
+  assert.doesNotMatch(html, /fd-date/, 'a date plate came back onto the card');
 });
 
 test('the paper card never displaces a picture', () => {
@@ -361,4 +360,69 @@ test('the core never fills a cover — and an unlisted event is never a card to 
   const select = LOADER.indexOf('selectDiscoverShelves({');
   const dress = LOADER.indexOf('dressCards([...shelves.people, ...shelves.world])');
   assert.ok(select > -1 && dress > select, 'covers must be read only for cards that passed selectDiscoverShelves');
+});
+
+// ─── 4 · NAME ONLY, NO DATE (owner 2026-11-13) ─────────────────────────────
+// Owner, verbatim: *"events should only say event name no date"*. Every cover on Discover and on the Home
+// board prints the event's name and never a date: no weekday, no date line, no "Date to be set", no corner
+// "SAT 12 DEC" plate. And the name is not said twice (2026-10-11, *"yes ad drop so it is not twice"*): when
+// the cover prints it, the title line under the cover is screen-reader words only.
+
+const DATE_ON_COVER = /Saturday|Friday|December 2026|Date to be set|Sat 12 Dec|fd-date/;
+
+/** Only the cover's markup — the part of the card that is the picture. */
+function coverOnly(html: string): string {
+  const at = html.indexOf('fd-thumb');
+  const end = html.indexOf('fd-imeta');
+  return html.slice(at, end === -1 ? undefined : end);
+}
+
+test('4·1 · no Discover cover prints a date — the paper card, the invitation on a photo, the mark', () => {
+  const dated = poster({ eventDate: '2026-12-12' });
+  const photo = poster({ eventDate: '2026-12-18', heroSrc: HERO });
+  const photoScene = sceneCoverFor(photo);
+  assert.ok(photoScene && photoScene.kind === 'photo');
+  const cards = {
+    paper: card({ paper: paperOf(dated) }),
+    'photo with names': card({ scene: photoScene, scenePoster: { poster: photo, ground: null, markText: 'C & I', markSvg: null, markPlays: false } }),
+    'bare photo': card({ scene: photoScene }),
+    mark: card(),
+    undated: card({ paper: paperOf(poster({ eventDate: null })) }),
+  };
+  for (const [name, c] of Object.entries(cards)) {
+    const html = shelves([c]);
+    assert.doesNotMatch(coverOnly(html), DATE_ON_COVER, `the ${name} cover printed a date`);
+  }
+  // …while the names ARE on the covers that carry them.
+  assert.match(shelves([cards['photo with names']]), />Cale</, 'the photo cover lost the names');
+  assert.match(shelves([cards.paper]), />Cale</, 'the paper cover lost the names');
+});
+
+test('4·2 · the name is said once: a cover that prints it drops the visible title line', () => {
+  const photo = poster({ heroSrc: HERO });
+  const scene = sceneCoverFor(photo);
+  const said = shelves([card({ scene, scenePoster: { poster: photo, ground: null, markText: 'C & I', markSvg: null, markPlays: false } })]);
+  assert.match(said, /class="fd-ttl fd-ttl-said"/, 'the title line is still printed under a cover that names the event');
+  assert.match(said, /<a[^>]*class="fd-stretch"[^>]*><span class="sr-only">Cale &amp; Ice<\/span><\/a>/, 'the card lost its link or its accessible name');
+  const paperSaid = shelves([card({ paper: paperOf(poster()) })]);
+  assert.match(paperSaid, /fd-ttl-said/, 'the paper card still prints the title twice');
+  // A bare picture and the mark alone print no name, so the line stays visible.
+  for (const c of [card({ scene }), card()]) {
+    const html = shelves([c]);
+    assert.doesNotMatch(html, /fd-ttl-said/, 'a cover with no name lost its title line');
+    assert.match(html, /class="fd-stretch"[^>]*>Cale &amp; Ice</);
+  }
+});
+
+test('4·3 · Home and Discover ask the poster for the name only; the other screens are not changed silently', () => {
+  const home = stripComments(readFileSync(join(WEB, 'app/dashboard/(launcher)/page.tsx'), 'utf8'));
+  const cover = stripComments(readFileSync(join(WEB, 'app/_components/frontdoor/discover-event-cover.tsx'), 'utf8'));
+  const posterSrc = stripComments(readFileSync(join(WEB, 'app/_components/event-poster.tsx'), 'utf8'));
+  const tags = (src: string) => [...src.matchAll(/<EventPoster\b[\s\S]*?\/>/g)].map((m) => m[0]);
+  assert.ok(tags(home).length >= 1 && tags(home).every((t) => /\bnameOnly\b/.test(t)), 'a Home board poster still prints the date');
+  assert.equal(tags(cover).length, 2, 'expected the photo and the paper poster on the Discover cover');
+  assert.ok(tags(cover).every((t) => /\bnameOnly\b/.test(t)), 'a Discover poster still prints the date');
+  assert.doesNotMatch(cover, /datePlate|fd-date/, 'the Discover cover reads a date again');
+  // The prop is opt-in: the poster's default still prints the date for the screens he has not ruled on.
+  assert.match(posterSrc, /nameOnly = false/, 'nameOnly became the default, changing screens beyond Home and Discover');
 });

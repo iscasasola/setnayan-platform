@@ -1870,18 +1870,10 @@ h2.fd-sechead,
   height: 100%;
   object-fit: cover;
 }
-.fd-date {
-  position: absolute;
-  left: 6px;
-  top: 6px;
-  background: var(--fd-chipglass);
-  color: var(--fd-ink);
-  border-radius: var(--m-r-xs);
-  padding: 3px 7px;
-  font: 700 10.5px var(--fd-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  box-shadow: 0 1px 4px rgba(30, 26, 18, 0.15);
+/* The cover already prints the name (2026-10-11 · 2026-11-13): the title line keeps its stretched link and
+   its screen-reader words, and takes no room. No date plate on a cover — name only, no date. */
+.fd-ttl.fd-ttl-said {
+  margin: 0;
 }
 .fd-rel {
   color: var(--fd-m1);

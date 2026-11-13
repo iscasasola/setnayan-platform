@@ -48,6 +48,7 @@ export function EventPoster({
   markSvgUri = null,
   markSvg = null,
   markPlays = false,
+  nameOnly = false,
 }: {
   poster: EventPosterFacts;
   /** The couple's monogram text, from `resolveMonogram` ("M & J"). */
@@ -59,8 +60,16 @@ export function EventPoster({
   markSvg?: string | null;
   /** The logo moves and the animation is on (`logoPlaysFor`). */
   markPlays?: boolean;
+  /**
+   * 🗓 THE EVENT NAME ONLY, NO DATE (owner 2026-11-13: *"events should only say event name no date"*).
+   * The Home board and Discover covers pass it: no weekday, no date, no "Date to be set". Opt-in, so the
+   * other screens that draw this poster (the launch maker's preview, the board examples) keep the date
+   * until he rules on them.
+   */
+  nameOnly?: boolean;
 }) {
   const { names } = poster;
+  const when = nameOnly ? null : <PosterWhen weekday={poster.weekday} date={poster.date} />;
   const style = poster.accent ? ({ '--a': poster.accent } as CSSProperties) : undefined;
 
   if (poster.kind === 'quiet') {
@@ -70,7 +79,7 @@ export function EventPoster({
           <i className={s.orn} />
           <h2 className={s.ttl}>{[names.first, names.second].filter(Boolean).join(' & ')}</h2>
           <i className={s.rule} />
-          <PosterWhen weekday={poster.weekday} date={poster.date} />
+          {when}
           {poster.venue ? <p className={s.venue}>{poster.venue}</p> : null}
           <i className={s.orn} />
         </div>
@@ -90,7 +99,7 @@ export function EventPoster({
         <img src={poster.photoSrc ?? ''} alt="" className={s.photo} draggable={false} />
         <div className={s.over}>
           <PosterNames names={names} amp="&" />
-          <PosterWhen weekday={poster.weekday} date={poster.date} />
+          {when}
         </div>
       </div>
     );
@@ -104,7 +113,7 @@ export function EventPoster({
         {/* eslint-disable-next-line @next/next/no-img-element -- the theme's public still (resolveThemeGround) */}
         <img src={poster.photoSrc ?? ''} alt="" className={s.photo} draggable={false} />
         <i className={s.themeScrim} />
-        <InvitationPaper poster={poster} markText={markText} markSvgUri={markSvgUri} markSvg={markSvg} markPlays={markPlays} />
+        <InvitationPaper poster={poster} markText={markText} markSvgUri={markSvgUri} markSvg={markSvg} markPlays={markPlays} nameOnly={nameOnly} />
       </div>
     );
   }
@@ -131,8 +140,8 @@ export function EventPoster({
         )}
         <div className={s.deepTxt}>
           <PosterNames names={names} amp="&" />
-          <i className={s.rule} />
-          <PosterWhen weekday={poster.weekday} date={poster.date} />
+          {when ? <i className={s.rule} /> : null}
+          {when}
         </div>
       </div>
     );
@@ -145,8 +154,8 @@ export function EventPoster({
         <div className={s.moon}>
           <div>
             <PosterNames names={names} amp="&" />
-            <i className={s.rule} />
-            <PosterWhen weekday={poster.weekday} date={poster.date} />
+            {when ? <i className={s.rule} /> : null}
+            {when}
           </div>
         </div>
         <i className={s.thread} />
@@ -162,7 +171,7 @@ export function EventPoster({
       style={poster.paperGround ? paperGroundStyle(poster.paperGround) : undefined}
       data-paper-ground={poster.paperGround ? 'own' : undefined}
     >
-      <InvitationPaper poster={poster} markText={markText} markSvgUri={markSvgUri} markSvg={markSvg} markPlays={markPlays} />
+      <InvitationPaper poster={poster} markText={markText} markSvgUri={markSvgUri} markSvg={markSvg} markPlays={markPlays} nameOnly={nameOnly} />
     </div>
   );
 }
@@ -174,12 +183,14 @@ function InvitationPaper({
   markSvgUri,
   markSvg,
   markPlays,
+  nameOnly,
 }: {
   poster: EventPosterFacts;
   markText: string;
   markSvgUri: string | null;
   markSvg: string | null;
   markPlays: boolean;
+  nameOnly: boolean;
 }) {
   return (
     <div className={s.paper}>
@@ -202,7 +213,11 @@ function InvitationPaper({
       </div>
       <PosterNames names={poster.names} amp="and" />
       {poster.line ? <p className={s.ln}>{poster.line}</p> : null}
-      {poster.date ? <p className={s.dt}>{poster.date}</p> : <p className={`${s.dt} ${s.tbd}`}>Date to be set</p>}
+      {nameOnly ? null : poster.date ? (
+        <p className={s.dt}>{poster.date}</p>
+      ) : (
+        <p className={`${s.dt} ${s.tbd}`}>Date to be set</p>
+      )}
     </div>
   );
 }

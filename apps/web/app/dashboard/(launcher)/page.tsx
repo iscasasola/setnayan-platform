@@ -2100,6 +2100,8 @@ async function GlassEventCard({
             markSvgUri={markSvg ? bespokeSvgToDataUri(markSvg) : null}
             markSvg={markSvg}
             markPlays={markPlays}
+            /* Name only, no date (owner 2026-11-13). The day still travels in `meta`, the accessible name. */
+            nameOnly
           />
         ) : (
           <EventScene

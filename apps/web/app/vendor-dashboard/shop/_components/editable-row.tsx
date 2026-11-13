@@ -1,7 +1,7 @@
 'use client';
 
 import { PictureFrameControl } from '@/app/_components/picture-frame-control';
-import { DEFAULT_LOGO_FRAME, logoFrameStyle, type LogoFrame } from '@/lib/open-shop-logo';
+import { DEFAULT_LOGO_FRAME, logoFrameStyle, SHOP_LOGO_UPLOAD, shopLogoLimitsWords, type LogoFrame } from '@/lib/open-shop-logo';
 import { useActionState, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, ChevronDown, Loader2, MapPin, Pencil, Plus } from 'lucide-react';
@@ -54,6 +54,8 @@ export type ProfileFieldData = {
   logoFrame?: LogoFrame;
   logoDisplayMap: Record<string, string>;
   services: string[];
+  /** 🔢 Categories the shop runs, counted as sign-up counts them (`shopCategoryCount`) — never `services.length` (F-W1-03). */
+  serviceCategoryCount: number;
   serviceLabels?: Record<string, string>;
   extraServiceLeaves: { key: string; label: string }[];
   vendorProfileId: string;
@@ -693,10 +695,10 @@ function LogoRowControl({ data, onDirty, pickedFiles = null }: { data: ProfileFi
         unsavedHint="it saves when you close this row"
         currentValue={data.logo_url}
         initialDisplayUrls={data.logoDisplayMap}
-        maxSizeMB={2}
+        maxSizeMB={SHOP_LOGO_UPLOAD.maxSizeMB}
         // 🗜 Compressed in the browser before it is sent (owner rule 2026-09-25; THE ONE BUILD A3 W16).
         compressImage
-        acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+        acceptedTypes={[...SHOP_LOGO_UPLOAD.acceptedTypes]}
         variant="square"
         roundPreview
         pills={{ replace: 'Replace photo' }}
@@ -743,7 +745,8 @@ function FieldControl({
           label="Logo"
           htmlFor="logo_url"
           required
-          help="PNG, JPEG, or WebP up to 2 MB. Couples see this on every supplier card."
+          // 📏 Written from the one logo rule (F-W1-09) — never a size or a type list typed here.
+          help={`${shopLogoLimitsWords()}. Couples see this on every supplier card.`}
         >
           <LogoRowControl data={data} onDirty={onDirty} pickedFiles={pickedFiles} />
         </Field>

@@ -395,6 +395,7 @@
       "files": [
         "(shell)/for-suppliers/loading.tsx",
         "(shell)/for-suppliers/page.tsx",
+        "for-suppliers/_components/plan-page-preview.tsx",
         "for-suppliers/_components/plan-table-data.ts",
         "for-suppliers/_components/supplier-badge-shelf.tsx",
         "for-suppliers/_components/supplier-front-client.tsx",
@@ -425,11 +426,15 @@
         "Link",
         "Photo",
         "Pill",
+        "PlanPagePreview",
+        "PlanPageSheet",
+        "PlanPreview",
         "PriceShapeCalc",
         "QrChip",
         "QrCtx.Provider",
         "QrKey",
         "QrSheetProvider",
+        "SampleShopPage",
         "SupplierBadgeShelf",
         "SupplierFrontCodes",
         "SupplierFrontPage",
@@ -2560,6 +2565,7 @@
         "/admin/categories",
         "/admin/categories?show=requests",
         "/admin/chat-flags",
+        "/admin/colours",
         "/admin/completions",
         "/admin/concierge-abuse",
         "/admin/corrections",
@@ -3240,6 +3246,38 @@
         "FormFlash",
         "PageMasthead",
         "SubmitButton"
+      ]
+    },
+    "/admin/colours": {
+      "files": [
+        "admin/colours/_components/colours-editor.tsx",
+        "admin/colours/_components/colours-sample.tsx",
+        "admin/colours/actions.ts",
+        "admin/colours/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "formAction",
+        "saveAppColours"
+      ],
+      "blocks": [
+        "ActionButton",
+        "AppColours",
+        "Cat",
+        "CheckLine",
+        "ColourField",
+        "ColoursActionState",
+        "ColoursEditor",
+        "ColoursPreview",
+        "FormRows",
+        "JobKey",
+        "LookAlikeLine",
+        "PageMasthead",
+        "PickMenu",
+        "Sample",
+        "Slider",
+        "SwitchRow",
+        "TypedRow"
       ]
     },
     "/admin/completions": {
@@ -9257,6 +9295,7 @@
         "DayActionsContext.Provider",
         "DayList",
         "DayMoment",
+        "DoneWarningBox",
         "DragState",
         "EmceePicks",
         "EmceePicksUnread",
@@ -9280,6 +9319,7 @@
         "Icon",
         "InSlot",
         "InfoTip",
+        "KeepAnswer",
         "LastSeenCapture",
         "LastSeenFallback",
         "LayerHeading.Provider",
@@ -9388,6 +9428,7 @@
         "ViewAsBody",
         "ViewAsMenu",
         "ViewLens",
+        "Warn",
         "WhenKey",
         "WhenRow",
         "WhoFields"
@@ -12972,6 +13013,24 @@
         "NotificationsList"
       ]
     },
+    "/dev/offer-card-lab": {
+      "files": [
+        "dev/offer-card-lab/compare-lab.tsx",
+        "dev/offer-card-lab/lab.tsx",
+        "dev/offer-card-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DroppedOffer",
+        "DroppedOfferCard",
+        "Lab",
+        "OfferDropCard",
+        "OfferDropLab",
+        "QuoteVersionsCompare",
+        "QuoteVersionsCompareLab"
+      ]
+    },
     "/dev/offer-maker-lab": {
       "files": [
         "dev/offer-maker-lab/lab-client.tsx",
@@ -13309,6 +13368,7 @@
       "blocks": [
         "Avatar",
         "DiscoverEventCard",
+        "EventPosterFacts",
         "FrontDoorShell",
         "NowShopCard",
         "SampleMarker",
@@ -13360,18 +13420,10 @@
       "files": [
         "dev/shop-plan-lab/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
-        "PinnedReviewCard",
-        "ShopAddresses",
-        "ShopBadgePill",
-        "ShopReachLine",
-        "ShopReachMap",
-        "Wordmark"
+        "SampleShopPage"
       ]
     },
     "/dev/shop-preview-lab": {
@@ -14371,6 +14423,7 @@
         "CityPin",
         "ClaimDoor",
         "Count",
+        "CoverageMeter",
         "DesktopOAuthButtons",
         "DetectedCity",
         "Draft",
@@ -14405,6 +14458,7 @@
         "PlanInline",
         "PlanPane",
         "PlanSheet",
+        "PlanTipBody",
         "ServiceCards",
         "ServicePicker",
         "ServicesAtEvents",
@@ -15322,10 +15376,12 @@
         "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/portfolio-photo-tiles.tsx",
         "v/[slug]/_components/review-groups.tsx",
+        "v/[slug]/_components/sample-shop-page.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
         "v/[slug]/_components/shop-addresses.tsx",
+        "v/[slug]/_components/shop-branches-line.tsx",
         "v/[slug]/_components/shop-columns.ts",
         "v/[slug]/_components/shop-inspiration-section.tsx",
         "v/[slug]/_components/shop-reach.tsx",
@@ -15413,6 +15469,7 @@
         "ShareButton",
         "Sheet",
         "ShopAddresses",
+        "ShopBranchesLine",
         "ShopInspirationSection",
         "ShopPagePackage",
         "ShopReachLine",
@@ -16044,6 +16101,7 @@
         "vendor-dashboard/clients/[eventId]/_components/supplier-suggest-board.tsx",
         "vendor-dashboard/clients/[eventId]/_components/suppliers-list.tsx",
         "vendor-dashboard/clients/[eventId]/_components/suppliers-rows.ts",
+        "vendor-dashboard/clients/[eventId]/_components/top-up-carry-over.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-part-signoff.tsx",
         "vendor-dashboard/clients/[eventId]/_components/waitlist-form.tsx",
@@ -16247,6 +16305,7 @@
         "ScriptComposer",
         "ScriptTab",
         "Section",
+        "SettlePayBy",
         "Sheet",
         "ShopCard",
         "ShopEmpty",
@@ -16273,6 +16332,8 @@
         "TheyToldYou",
         "ThumbRow",
         "TimeRow",
+        "TopUpCarryOver",
+        "TopUpSettleSheet",
         "TypedRow",
         "UndoToastHost",
         "VendorChallengeSection",
@@ -17983,10 +18044,13 @@
         "ActionButton",
         "AddServicePicker",
         "CanvasMaker",
+        "CoverageMeter",
         "Link",
         "NewServiceMaker",
         "RefinementsEditor",
         "ServicePicker",
+        "Specialties",
+        "SpecialtyPicks",
         "SwipeToDelete"
       ]
     },
@@ -18377,6 +18441,7 @@
         "vendor-dashboard/subscription/_components/badge-upgrades-data.ts",
         "vendor-dashboard/subscription/_components/badge-upgrades-section.tsx",
         "vendor-dashboard/subscription/_components/booth-addon-card.tsx",
+        "vendor-dashboard/subscription/_components/limits-sheet.tsx",
         "vendor-dashboard/subscription/_components/papic-challenge-card.tsx",
         "vendor-dashboard/subscription/_components/plan-change-notice.tsx",
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
@@ -18420,13 +18485,16 @@
         "Column",
         "Cycle",
         "DatesRow",
+        "FitLine",
         "Fold",
         "GridPageSkeleton",
         "Icon",
         "InfoTip",
         "LimitRow",
+        "LimitsList",
         "Link",
         "LockButton",
+        "LowerPlanSwitch",
         "PaidMark",
         "PapicChallengeCard",
         "PayRow",
@@ -18438,6 +18506,7 @@
         "PlanScreen",
         "PlanSearch",
         "PlanSheet",
+        "RiseScreen",
         "Sheet",
         "ShopNotice",
         "SpecializedToolsActionState",

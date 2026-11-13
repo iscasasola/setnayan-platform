@@ -7,9 +7,9 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1853
+# ledger: 1854
 # tables: 496
-# columns: 6036
+# columns: 6038
 # notnull: 3641
 [ledger]
 20260512000000
@@ -1865,6 +1865,7 @@
 20271341349934
 20271341557835
 20271341658320
+20271342032145
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -3675,6 +3676,7 @@ event_vendor_working_notes.event_vendor_id
 event_vendor_working_notes.id
 event_vendor_working_notes.note_id
 event_vendor_working_notes.visibility
+event_vendors.agreed_hours
 event_vendors.archived_at
 event_vendors.archived_by_lock_of
 event_vendors.category
@@ -3740,6 +3742,7 @@ event_vendors.package_role
 event_vendors.papic_captures_hidden
 event_vendors.pax_quote_base
 event_vendors.pax_surcharge_php
+event_vendors.pricing_basis
 event_vendors.public_id
 event_vendors.requested_service_ids
 event_vendors.selection_match_rank

@@ -39,7 +39,8 @@ import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import type { LadderTier } from '@/lib/inline-more-order';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { findSuppliersWithNoBookingLeft } from '@/lib/bench-bookable-days.server';
-import { leavesBenchSearch } from '@/lib/bench-bookable-days';
+import { describeUnbookableScope, leavesBenchSearch, type UnbookableScope } from '@/lib/bench-bookable-days';
+import { findEmptyState, findEmptyWords } from '@/lib/supplier-find-empty';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   buildCoupleFaithSet,
@@ -275,7 +276,31 @@ export type CategorySearchResult = {
     /** The guest count the figure was built from. */
     pax: number | null;
   };
+  /** How many suppliers the date hide (`hideUnbookable`) removed — absent when it removed nobody. With no results
+   *  left it is the "Nobody is free on <date>" case, not an empty category (lib/supplier-find-empty.ts). */
+  hiddenForDate?: number;
+  /** The date(s) the hide judged them on. */
+  hiddenForDateScope?: UnbookableScope | null;
+  /** The sentence for that case, worded HERE so a client list (the search sheet) never imports the date writer.
+   *  Present only when the hide removed somebody AND nothing is left — the "Nobody is free on <date>" case. */
+  nobodyFreeWords?: string;
 };
+
+/** The hide's count, its date, and — with nothing left — the sentence that says so. */
+function hiddenForDateFields(
+  hiddenForDate: number,
+  found: number,
+  eventDate: string | null,
+  precision: unknown,
+): Pick<CategorySearchResult, 'hiddenForDate' | 'hiddenForDateScope' | 'nobodyFreeWords'> {
+  const scope = describeUnbookableScope(eventDate, typeof precision === 'string' ? precision : null);
+  const empty = findEmptyState({ found, shown: found, hiddenForDate, filtering: false });
+  return {
+    hiddenForDate,
+    hiddenForDateScope: scope,
+    ...(empty === 'nobody_free' ? { nobodyFreeWords: findEmptyWords(empty, scope) } : {}),
+  };
+}
 
 const EMPTY: CategorySearchResult = {
   results: [],
@@ -1380,8 +1405,11 @@ export async function searchCategoryVendors(input: {
       (s) => s.facetMatchCount === null || s.facetMatchCount > 0,
     );
   }
+  let hiddenForDate = 0;
   if (noBookingLeft.size > 0) {
+    const before = ordered.length;
     ordered = ordered.filter((s) => !leavesBenchSearch(s, noBookingLeft));
+    hiddenForDate = before - ordered.length;
   }
   // Service-date availability DOWN-RANK (never remove): stable-partition busy
   // vendors to the bottom, preserving each group's tier order. No-op when the
@@ -1450,5 +1478,9 @@ export async function searchCategoryVendors(input: {
     // NOT flag-gated: the band-derived budget is not either, so a couple ranked
     // on an estimate must be told regardless of the smart-sort switch.
     ...(budgetEstimate ? { budgetEstimate } : {}),
+    // 2026-11-13 "we only show what fits" — absent unless the hide removed somebody, so every other result keeps its
+    // shape; an empty list then says "Nobody is free on <date>", never "No supplier lists this yet"
+    // (lib/supplier-find-empty.ts). The date is the hide's own (`describeUnbookableScope` ← `unbookableDateScope`).
+    ...(hiddenForDate > 0 ? hiddenForDateFields(hiddenForDate, results.length, eventDateStr, ev.event_date_precision) : {}),
   };
 }

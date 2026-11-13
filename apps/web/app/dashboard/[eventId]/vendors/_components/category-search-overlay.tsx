@@ -209,6 +209,9 @@ export function CategorySearchOverlay({
   const [lastMinuteLocked, setLastMinuteLocked] = useState(false);
   /** 🔌 The suppliers could not be read — "Couldn't load suppliers · Try again", never "none here" (audit #22). */
   const [unreadable, setUnreadable] = useState(false);
+  /** 2026-11-13 "we only show what fits" — the date hide emptied the list: "Nobody is free on <date>", worded on the
+   *  server (`nobodyFreeWords`, lib/supplier-find-empty.ts), never "No … suppliers here yet". */
+  const [nobodyFree, setNobodyFree] = useState<string | null>(null);
   // 📱 Setnayan AI is a web-only paid feature (lib/store-shell.ts); inside the
   // app its "Unlock" door is not offered and the plain empty line shows instead.
   const storeShell = useIsStoreShell();
@@ -282,6 +285,7 @@ export function CategorySearchOverlay({
         setSavedTallyFailed(res.savedPhotoTallyFailed === true);
         setLastMinuteLocked(res.isLastMinuteLocked === true);
         setUnreadable(res.unreadable === true);
+        setNobodyFree(res.nobodyFreeWords ?? null);
         setBudgetRaise(res.budgetPressure === true);
         setBudgetEstimate(res.budgetEstimate ?? null);
         setFacetCatalog(res.facets);
@@ -651,6 +655,9 @@ export function CategorySearchOverlay({
               href={`/dashboard/${eventId}/studio/setnayan-ai`}
             />
           </div>
+        ) : results.length === 0 && nobodyFree ? (
+          // 2026-11-13 "we only show what fits": the date hide emptied the list — say WHO is missing and WHY.
+          <div className="empty" data-find-empty="nobody_free">{nobodyFree}</div>
         ) : results.length === 0 ? (
           // Two different facts, two different sentences (2026-07-29). The
           // shipped copy always said "try a different search, or widen your

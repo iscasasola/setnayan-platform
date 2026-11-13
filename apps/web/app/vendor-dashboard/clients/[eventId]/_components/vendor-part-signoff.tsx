@@ -121,7 +121,6 @@ export function VendorPartSignoff({
                 icon={X}
                 label="Not as designed"
                 disabled={busy === row.finalizationId}
-                aria-expanded={reasonFor === row.finalizationId}
                 onClick={() =>
                   setReasonFor(reasonFor === row.finalizationId ? null : row.finalizationId)
                 }

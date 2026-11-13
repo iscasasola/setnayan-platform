@@ -17,7 +17,7 @@ import type { BookingFeeStanding } from './booking-fee-disclosure';
 import { FIRST_BOOKING_ON_US_CLAUSE } from './booking-fee-lock';
 import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
-import { TIER_CAPS, TIER_LABEL, VENDOR_TIERS, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
+import { STORAGE_GB, TIER_CAPS, TIER_LABEL, VENDOR_TIERS, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
 
 export type PlanRowBadge = { tone: 'ok' | 'wait' | 'no' | 'quiet'; word: string };
@@ -96,6 +96,13 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     },
     { key: 'reach', title: 'How far you reach', line: reach },
     { key: 'branches', title: 'Branches beyond your main shop', line: branches },
+    {
+      // 💾 Owner 2026-11-13 "plan storage": Solo 5 GB · Pro 10 GB · Ultra 15 GB. Free · Verified were given none and keep
+      // what they had — no limit. GB of 1e9 bytes, the GB `storageWords` prints (lib/supplier-storage.ts).
+      key: 'storage',
+      title: 'Storage for your event files',
+      line: c.storageBytes === null ? 'No limit on this plan today' : `${formatCount(c.storageBytes / STORAGE_GB)} GB`,
+    },
     { key: 'insights', title: 'How is my business doing', line: insights },
     {
       key: 'web',

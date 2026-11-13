@@ -80,13 +80,13 @@ export async function ReuseBookingsPanel() {
                     {r.status === 'quoted' ? (
                       <form action={acceptVendorReuseForm}>
                         <input type="hidden" name="request_id" value={r.requestId} />
-                        <ActionButton tone="ok" type="submit" icon={Check} label="Accept" />
+                        <ActionButton tone="ok" type="submit" icon={<Check aria-hidden />} label="Accept" />
                       </form>
                     ) : null}
                     {r.status === 'pending' || r.status === 'quoted' ? (
                       <form action={cancelVendorReuseForm}>
                         <input type="hidden" name="request_id" value={r.requestId} />
-                        <ActionButton tone="neutral" quiet type="submit" icon={X} label="Cancel" />
+                        <ActionButton tone="neutral" quiet type="submit" icon={<X aria-hidden />} label="Cancel" />
                       </form>
                     ) : null}
                   </span>

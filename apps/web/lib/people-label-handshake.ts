@@ -227,3 +227,20 @@ export function offersPlanTogether(input: {
     input.sharesAnEvent === false
   );
 }
+
+// ── THE CONFIRMED NOTICE'S TITLE ────────────────────────────────────────────
+
+/**
+ * The title of the `connection_confirmed` notice a label confirm sends back. The confirmer's first name comes from
+ * the first source that has one — the person node's `display_name`, then their ACCOUNT's `users.display_name` — and
+ * when neither does, the sentence is said without a name ("Your partner confirmed"), never as "They confirmed —
+ * they're your Partner", which the owner read on 2026-11-13 and which names nobody.
+ */
+export function labelConfirmedTitle(
+  names: ReadonlyArray<string | null | undefined>,
+  word: ConnectionRelation,
+): string {
+  const who = names.map((n) => first(n, '')).find((n) => n.length > 0) ?? null;
+  if (who) return `${who} confirmed — they’re your ${RELATION_LABEL[word]}`;
+  return word === 'partner' ? 'Your partner confirmed' : `Confirmed — they’re your ${RELATION_LABEL[word]}`;
+}

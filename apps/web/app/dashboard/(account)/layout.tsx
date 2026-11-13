@@ -19,6 +19,7 @@ import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { waitingRequestCount } from '@/lib/people-roster';
 import { AccountRailContext } from './_components/account-rail-context';
+import { SettingsRailContext } from './_components/settings-rail-context';
 import { ACCOUNT_FOCUS_PATHS } from './_components/account-focus-paths';
 
 /**
@@ -125,6 +126,10 @@ export default async function AccountDashboardLayout({
     // one click from, instead of the old plain-white background.
     <div className="sn-ambient min-h-dvh">
       <AppRailShell
+        /* 📱→🖥 THE ACCOUNT TREE IS A TABLET FROM 701 (owner-approved plan D5, "Account/launcher onto the 701 line",
+           2026-11-13): the rail's 72-px strip comes down to 701 and the account bar goes with it — ONE boundary, given
+           to the shell AND the dock, as the event tree and the supplier dashboard do. Below 701 nothing moves. */
+        boundary="tab"
         /* FOCUS on Memories and People only (owner 2026-09-21) — their own
            menu plus one row back to My Home. Every other account page keeps
            the full rail; `AccountRailContext` renders nothing there. */
@@ -135,11 +140,15 @@ export default async function AccountDashboardLayout({
           paths: ACCOUNT_FOCUS_PATHS,
         }}
         railContext={
-          <AccountRailContext
-            showConnections={peopleConnectionsEnabled()}
-            showDependents={dependentsControlOn}
-            requestsWaiting={requestsWaiting}
-          />
+          <>
+            <AccountRailContext
+              showConnections={peopleConnectionsEnabled()}
+              showDependents={dependentsControlOn}
+              requestsWaiting={requestsWaiting}
+            />
+            {/* Profile & settings' six groups, as rows from 701 (plan D5, 2026-11-13) — nothing on any other page. */}
+            <SettingsRailContext />
+          </>
         }
         topBarSlot={
           <>
@@ -158,11 +167,11 @@ export default async function AccountDashboardLayout({
         {/* The bar is anchored and FIXED, so without room reserved below it the
             last control on a spoke sits UNDER it. It reserves the dock's MEASURED
             height (+ a breath) — the event tree's rule, `[data-shell-main]` — and
-            stops at 1024, the dock's own `lg:hidden` line. */}
+            stops at 701, the dock's own `tab:hidden` line (plan D5). */}
         {/* ↔ `.sn-vt-page` — the bar's page slide moves THIS, the same slide as the event and the shop (owner
             2026-10-24); `while-sliding` names it only while a slide runs (globals.css). */}
         <main
-          className="sn-vt-page pb-[max(calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem),var(--sn-thumb-room,0px))] lg:pb-[var(--sn-thumb-room,0px)]"
+          className="sn-vt-page pb-[max(calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem),var(--sn-thumb-room,0px))] tab:pb-[var(--sn-thumb-room,0px)]"
           data-sn-slide="while-sliding"
         >
           {children}
@@ -173,6 +182,7 @@ export default async function AccountDashboardLayout({
             context this layout already loaded; Discover only where `/` opens. */}
         <AccountBarSlot
           tabs={accountBarTabs({ discoverOpen })}
+          boundary="tab"
         />
         {/* 📲 What the account has, preloaded once the page is idle — the host app for
             the event they host, the supplier app for a shop (owner 2026-10-02, "THE

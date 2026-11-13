@@ -145,7 +145,7 @@ test('wiring: both layouts draw the ruled tabs from the server-side answers', ()
     const layout = src(f);
     assert.match(
       layout,
-      /<AccountBarSlot\s+tabs=\{accountBarTabs\(\{ discoverOpen \}\)\}\s*\/>/,
+      /<AccountBarSlot\s+tabs=\{accountBarTabs\(\{ discoverOpen \}\)\}\s+boundary="tab"\s*\/>/,
       `${f} no longer hands the bar the ruled tabs`,
     );
     assert.match(layout, /discoverOpensHere\(\)/, `${f} no longer asks whether Discover opens here`);

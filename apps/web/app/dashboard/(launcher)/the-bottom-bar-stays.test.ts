@@ -56,15 +56,16 @@ test('both layouts reserve the dock\'s MEASURED height, to the dock\'s own line'
   /* The bar is fixed, so the page must end above it. It reserves
      `--sn-bottomdock-h` (published by <BottomDock>) — never a flat number,
      which is how the event tree hid its last row on an iPhone — and stops at
-     `lg`, where the dock is `lg:hidden` and the rail takes over. */
+     `tab` (701, plan D5 2026-11-13), where the dock is `tab:hidden` and the
+     rail's strip takes over. */
   for (const f of [LAUNCHER_LAYOUT, ACCOUNT_LAYOUT]) {
     assert.match(
       code(f),
       // `sn-vt-page` leads since 2026-10-24 — the bar's page slide moves this <main> (one-tab-slide-everywhere.test.ts).
       // ⬇ 2026-10-25: the dock's clearance is the first term of max(…, the floating thumb row's measured room), and
       // from `lg` only that room is left (lib/thumb-room.ts · lib/a-thumb-row-leaves-room.test.ts).
-      /<main\s+className="sn-vt-page pb-\[max\(calc\(var\(--sn-bottomdock-h,[^"]*\),var\(--sn-thumb-room,0px\)\)\] lg:pb-\[var\(--sn-thumb-room,0px\)\]"/,
-      `${f}: <main> no longer reserves the dock's measured height up to lg`,
+      /<main\s+className="sn-vt-page pb-\[max\(calc\(var\(--sn-bottomdock-h,[^"]*\),var\(--sn-thumb-room,0px\)\)\] tab:pb-\[var\(--sn-thumb-room,0px\)\]"/,
+      `${f}: <main> no longer reserves the dock's measured height up to the dock's own line (tab)`,
     );
   }
 });
@@ -89,7 +90,7 @@ test('the current page is read, not assumed — by the canonical bar', () => {
   // 🏠 The items are the bar's own (`accountBarItems(tabs)`); since 11 Nov 2026 Home's address alone may carry the
   // section you left it on (`useHomeDoor`) — the lit tab is still the canonical matcher's.
   assert.match(bar, /const items = accountBarItems\(tabs\)\.map\(/, 'the items are no longer the bar\'s own');
-  assert.match(bar, /<BottomDock>\s*<BottomNav items=\{items\} \/>\s*<\/BottomDock>/, 'mounted inside the dock');
+  assert.match(bar, /<BottomDock boundary=\{boundary\}>\s*<BottomNav items=\{items\} \/>\s*<\/BottomDock>/, 'mounted inside the dock');
   assert.ok(!/aria-current/.test(bar), 'a hardcoded current page was true on one route and a lie on every other');
   assert.ok(
     !existsSync(join(WEB, 'app/dashboard/(launcher)/_components/home-pill-nav.tsx')),

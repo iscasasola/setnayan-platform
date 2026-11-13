@@ -34,6 +34,7 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import { manilaToday } from '@/lib/provisional-approval';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { feedsCrews } from '@/lib/crew-meals';
 import { Suspense, type ReactNode } from 'react';
@@ -663,7 +664,13 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   }
   // Offer the "also mark delivered" opt-in only when the booking hasn't already
   // reached delivered/complete (matches updateVendorStatus's own emit guard).
-  const canAdvanceToDelivered = ev.status !== 'delivered' && ev.status !== 'complete';
+  // 📅 …AND ONLY ONCE THE DAY HAS PASSED (walk 13 Nov 2026, F-W1-72): it was offered — and pre-ticked — 179 days before
+  // the event with nothing paid. A supplier cannot have delivered an event that has not happened; a refused or empty
+  // date read offers nothing (never a guess). The box itself now starts unticked (`HandoverInbox`).
+  const { data: deliverDateRow } = await supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle();
+  const deliverEventDate = (deliverDateRow as { event_date?: string | null } | null)?.event_date ?? null;
+  const dayHasPassed = deliverEventDate !== null && deliverEventDate.slice(0, 10) < manilaToday();
+  const canAdvanceToDelivered = dayHasPassed && ev.status !== 'delivered' && ev.status !== 'complete';
 
   // ── The couple's own service card for a self-added supplier (2026-09-20) ──
   // Under their own RLS (`event_manual_vendors_host_all`), keyed on the

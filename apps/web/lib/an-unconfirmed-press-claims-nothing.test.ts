@@ -73,7 +73,7 @@ test('checkout · "sending it twice cannot create a second order" is TRUE: one r
 test('checkout · an unanswered voucher check is the action’s own "couldn’t check" — nothing applied', () => {
   const src = code(`${E}/_components/inline-checkout-drawer.tsx`);
   assert.match(src, /const VOUCHER_NOT_CHECKED = 'We couldn’t check that code\. Please try again\.';/);
-  assert.match(src, /try \{\s*result = await applyVoucherAction\(null, fd\);\s*\} catch \{\s*result = \{ applied: false, code: null, discount_centavos: '0', final_centavos: originalPriceCentavos,[^}]*reason: VOUCHER_NOT_CHECKED \};\s*\}/);
+  assert.match(src, /try \{\s*result = await applyVoucherAction\(null, fd\);\s*\} catch \{\s*result = \{ applied: false, code: null, discount_centavos: '0', final_centavos: basePriceCentavos,[^}]*reason: VOUCHER_NOT_CHECKED \};\s*\}/);
 });
 
 test('Save the Date · launch never looks launched, schedule never scheduled, cancel never cancelled', () => {

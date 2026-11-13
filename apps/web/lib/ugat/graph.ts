@@ -4277,12 +4277,40 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
+     * 💎 THE EVENT PLAN — Event Plus · Event Pro · Event Ultra (Ultra: owner 2026-11-13, "EVENT ULTRA APPROVED — BUILD
+     * IT"). One order per plan; what it unlocks is read off that order, never minted as rows per part.
+     */
+    id: 'J71',
+    claims: [
+      { kind: 'column', table: 'platform_retail_catalog_v2', column: 'included_papic_credits' },
+      { kind: 'column', table: 'platform_retail_catalog_v2', column: 'fullres_extra_keep_days' },
+      { kind: 'check', table: 'platform_retail_catalog_v2', name: 'platform_retail_catalog_v2_fullres_extra_keep_days_nonneg', mentions: 'fullres_extra_keep_days' },
+      { kind: 'column', table: 'papic_event_point_grants', column: 'source' },
+      { kind: 'column', table: 'orders', column: 'service_key' },
+    ],
+    chain: 1,
+    pair: ['TYPE-EVENTS', 'TYPE-ORDERS'],
+    title: 'Event → Order (the plan: Event Plus · Event Pro · Event Ultra)',
+    joint: 'orders.service_key',
+    cardinality:
+      'One plan order per event (EVENT_PLUS · COUPLE_WEBSITE_PRO · EVENT_ULTRA); each refused once owned (order-charge-authority, iap-actions). A higher plan includes the lower one.',
+    implementedBy:
+      'platform_retail_catalog_v2 rows (price · included_papic_credits · fullres_extra_keep_days, admin-managed) · lib/sku-activation.ts activateEventPlan (Setnayan AI + credits topped up to the row) · lib/entitlements.ts SKU_OWNERSHIP_ALIASES (an EVENT_ULTRA order confers COUPLE_WEBSITE_PRO, LIVE_STUDIO, PATIKTOK_COMPILER and the Pro alias lists) · papic_events_past_fullres_clock (adds the largest fullres_extra_keep_days of any paid/fulfilled order) · lib/event-ultra-gates.ts (canvas prints)',
+    writtenBy:
+      'the couple checkout and the App Store purchase (`com.setnayan.app.event_plus` · `event_pro` · `event_ultra`) → admin approval runs the activation hook; migration 20271344860040 adds the Ultra row',
+    guardedBy:
+      'lib/event-ultra.test.ts · tests/db/event-ultra-keeps-originals-12-months.db.test.ts · app/_components/frontdoor/the-plan-prices-come-from-the-list.test.ts · lib/iap/products.test.ts',
+    traps:
+      'Aliases are NOT transitive: a list that confers something with COUPLE_WEBSITE_PRO must name EVENT_ULTRA too (event-ultra.test.ts holds it). The extra hold reads only APPROVED orders — a pending Ultra keeps nothing longer. Canvas prints are in Ultra but no surface sells them until the Our Day poster ships; a Pro bought before CANVAS_LEFT_PRO_AT keeps canvas.',
+  },
+  {
+    /**
      * 🏷 A FILES PHOTO TAGGED TO INSPIRATIONS (migration 20271345380761 · DECISION_LOG 2026-11-14). The tag IS the shipped
      * inspiration record (moodboard_library_assets, supplier_gallery, the part in asset_subtype) made from a Files photo:
      * one new pointer back to that photo, one row per (photo, part). The slot stays in asset_subtype — J45's no_column
      * on slot_key still holds.
      */
-    id: 'J71',
+    id: 'J72',
     claims: [
       { kind: 'fk', table: 'moodboard_library_assets', column: 'event_file_id', references: 'event_supplier_files' },
       { kind: 'unique', table: 'moodboard_library_assets', columns: ['asset_subtype', 'event_file_id'] },

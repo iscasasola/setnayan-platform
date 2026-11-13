@@ -109,6 +109,14 @@ export async function startAppStorePurchase(input: {
     if (own.full) return startRefusal('owned');
     if (own.parts.size > 0 || own.paidPhp > 0) return startRefusal('not_on_sale');
     if (await eventOwnsSku(admin, eventId, 'EVENT_PLUS')) return startRefusal('not_on_sale');
+  } else if (product.kind === 'event-ultra') {
+    // 💎 Event Ultra (owner 2026-11-13): one per event. Like Pro above, it is not sold in the app to an event that has
+    // already PAID toward a plan (Plus, Pro or a part) — the full Apple price would charge that twice, and what such an
+    // event pays for Ultra is not ruled yet. It upgrades on the web.
+    if (await eventOwnsSku(admin, eventId, product.serviceKey)) return startRefusal('owned');
+    const own = await eventHubOwnership(admin, eventId, 'owned');
+    if (own.full || own.parts.size > 0 || own.paidPhp > 0) return startRefusal('not_on_sale');
+    if (await eventOwnsSku(admin, eventId, 'EVENT_PLUS')) return startRefusal('not_on_sale');
   } else if (product.kind === 'event-plus') {
     if ((await eventHubOwnership(admin, eventId, 'owned')).full) return startRefusal('owned');
     if (await eventOwnsSku(admin, eventId, product.serviceKey)) return startRefusal('owned');

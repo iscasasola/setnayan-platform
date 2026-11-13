@@ -11,7 +11,7 @@ TAGS ITS EVENT PHOTOS TO INSPIRATIONS", owner: "Yes, take its picks").
   so a tag shows only while its photo shows on the shop. A Files photo removed or re-filed RETIRES its tags (still on
   saved boards, credited). `event_file_id` is granted to nobody but the service role (like `source_event_id`); the
   public event line (type · venue · month, never a name) comes from `inspiration_tag_event_lines`.
-- DB test `tests/db/a-tagged-files-photo-shows-in-inspiration-only-when-the-shop-does.db.test.ts`; Ugat joint J71.
+- DB test `tests/db/a-tagged-files-photo-shows-in-inspiration-only-when-the-shop-does.db.test.ts`; Ugat joint J72.
 - **Files board (frames 1–5):** a tagged tile wears a tag with a count; a service group has **Select** (one service at a
   time, Cancel in two places, "Tag to inspiration ▾"); the photo sheet gains one **Inspiration** row — each tag with its
   state (Checking · Waiting · Shown · Not published · Private) and its own ✕, then "Add to (another) inspiration ▾"

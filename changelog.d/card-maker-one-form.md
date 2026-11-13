@@ -5,7 +5,7 @@ not feel like a singluar form. We have a design template, use it and make this b
 `prototypes/card_maker_one_form_2026-11-11` (Setnayan-specs).
 
 The maker's first page (`canvas-maker.tsx`) is now one list of rows from the shipped Form-row template
-(`app/_components/form-row.tsx`): Name · Specialties · Price · How the price works · Price · more · same-day capacity,
+(`app/_components/form-row.tsx`): Name · Specialties · Price · How the price works · Price · more,
 then the sections What's included · Extras · Gift · Photos. Each section is a mono label over one divider, and every
 hint moved into an ⓘ. Pills are 150 px on the main list and 120 px on the extras list. **No field was added or removed.
 Every posted name is unchanged** (`canvas-field-parity` and `the-maker-maps-every-field` stay green).
@@ -14,8 +14,9 @@ Every posted name is unchanged** (`canvas-field-parity` and `the-maker-maps-ever
   An extra's "from ₱" sits in its 120 px pill. "Add a line" / "Add an extra" is the last row of the list. New template
   pieces `LineRow` and `AddLineRow` live in `app/_components/form-row-line.tsx`. An included line still has no peso
   (owner 11 Nov).
-- **Same-day capacity** (`vendor_services.daily_capacity`, per service card) moved from More settings › Booking terms to
-  the first page. It reads "How many events can you serve on the same day?" with a −/＋ stepper (`FormCounter`):
+- **Same-day capacity** (`vendor_services.daily_capacity`, per service card) STAYS under More settings › Booking terms
+  (owner 13 Nov, DECISION_LOG "CARD MAKER SAME-DAY ROW → MORE SETTINGS": *"more settings."*). It is no longer a raw
+  number box there: it reads "How many events can you serve on the same day?" with a −/＋ stepper (`FormCounter`):
   - A new card starts at 1.
   - A saved card shows its own number.
   - A saved card stored blank ("your plan's number") shows the plan's number and posts blank until someone taps.
@@ -30,4 +31,4 @@ Every posted name is unchanged** (`canvas-field-parity` and `the-maker-maps-ever
   - `the-cover-is-a-thumb-and-a-pill.test.ts` now asserts the new rule: Add is the list's last row.
   - The field-template baseline was regenerated (two raw boxes fewer).
 
-SPEC IMPACT: None. This builds the approved prototype; no decision changed.
+SPEC IMPACT: None. This builds the approved prototype plus the 13 Nov same-day ruling (already in DECISION_LOG).

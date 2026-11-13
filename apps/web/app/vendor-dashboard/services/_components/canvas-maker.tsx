@@ -1202,10 +1202,6 @@ export function CanvasMaker({
                     </div>
                   </OpensRow>
                 </div>
-                {/* ⚖ SAME-DAY CAPACITY IS PER SERVICE CARD (`vendor_services.daily_capacity`) — owner: "How many a day" was
-                    confusing, so it is asked as a whole question, with a −/＋ stepper from 1, inside the plan's bookings per
-                    date per card (owner 2026-11-06: Solo 1 · Pro 3 · Ultra 5). Time slots set it instead when the card has some. */}
-                <SameDayRow editing={editing} bookingsPerDate={bookingsPerDate} />
               </div>
             </FormRows>
 
@@ -1427,8 +1423,14 @@ export function CanvasMaker({
                           <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} className="input-field" />
                         </Field>
                       </div>
-                      {/* "How many events can you serve on the same day?" moved to the first page (ruling 6058) — the time
-                          slots stay here, and that row says when they set it instead. */}
+                      {/* ⚖ SAME-DAY CAPACITY IS PER SERVICE CARD (`vendor_services.daily_capacity`) — asked as a whole question
+                          with a −/＋ stepper from 1, inside the plan's bookings per date per card (owner 2026-11-06: Solo 1 ·
+                          Pro 3 · Ultra 5). It lives HERE under More settings, not on the first page — DECISION_LOG 2026-11-13
+                          "CARD MAKER SAME-DAY ROW → MORE SETTINGS" (owner: "more settings."). The fold stays mounted while
+                          shut (inert), so it still posts. Time slots set it instead when the card has some. */}
+                      <FormRows data="same-day-rows">
+                        <SameDayRow editing={editing} bookingsPerDate={bookingsPerDate} />
+                      </FormRows>
                       <SlotRows existing={editing?.slots ?? []} />
                     </div>
                   </Fold>

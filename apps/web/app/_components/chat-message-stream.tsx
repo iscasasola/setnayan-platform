@@ -21,6 +21,7 @@
 // resubscribe we refetch the latest messages so any inserts that happened
 // while we were offline catch up without a page reload.
 
+import { BOOKINGS_CLOSED_COUPLE_MESSAGE, BOOKINGS_OPEN_SOON } from '@/lib/bookings-open';
 import Link from 'next/link';
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -371,6 +372,12 @@ type Props = {
    */
   lockTarget?: CoupleLockTarget | null;
   /**
+   * 🚦 RW-26 (walk 13 Nov 2026): `platform_settings.bookings_open`, read on the server (`areBookingsOpen`). While
+   * bookings are closed the booking button above says "Bookings open soon" BEFORE anyone presses it — it used to be a
+   * live button that refused only after the press. Omitted = open (every other caller is unchanged).
+   */
+  bookingsOpen?: boolean;
+  /**
    * Inside the chat box (One Chat Box, 2026-09-18) the frame draws the border,
    * so the three scrollers drop their own card chrome — a box in a box is the
    * old wall one row shorter. The other mounts (client brief, workspace) keep
@@ -457,6 +464,7 @@ export function ChatMessageStream({
   counterHref,
   reviseHref,
   lockTarget = null,
+  bookingsOpen = true,
   flush = false,
   bookedStep = null,
   couplePay = null,
@@ -2017,7 +2025,14 @@ export function ChatMessageStream({
                           them to lock" and this button stops being offered. On
                           failure the button's own role="alert" line renders.
                         */}
-                        {quoteState.offerLock && lockTarget ? (
+                        {quoteState.offerLock && lockTarget && !bookingsOpen ? (
+                          <p role="status" data-bookings-open-soon="" className="text-sm text-ink/70">
+                            <span className="inline-flex h-9 items-center rounded-lg border border-ink/15 px-4 font-medium text-ink/60">
+                              {BOOKINGS_OPEN_SOON}
+                            </span>
+                            <span className="mt-1.5 block">{BOOKINGS_CLOSED_COUPLE_MESSAGE}</span>
+                          </p>
+                        ) : quoteState.offerLock && lockTarget ? (
                           lockTarget.groupId ? (
                             <AccordionLockButton
                               eventId={lockTarget.eventId}

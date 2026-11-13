@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -883,10 +884,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       }
     : null;
 
-  // Source badge: event_vendors.source = 'vendor_invite' → Imported (they came in
-  // through the vendor's own invite QR); anything else (host_manual, cascade,
-  // legacy NULL) → In-house.
-  const isImported = completion?.source === 'vendor_invite';
+  // Source badge: the supplier brought them → Imported — their own invite QR, Locked QR or a reused booking
+  // (`SUPPLIER_BROUGHT_SOURCES`), or an inquiry through the supplier's own link (`website`, RW-22: the record now
+  // carries its thread's source); anything else (a Setnayan surface, host_manual, cascade, legacy NULL) → In-house.
+  const isImported =
+    (completion?.source != null && SUPPLIER_BROUGHT_SOURCES.has(completion.source)) || completion?.source === 'website';
 
   const depositRecorded = Boolean(completion?.deposit_recorded_at);
   const depositAcked = Boolean(completion?.deposit_acknowledged_at);

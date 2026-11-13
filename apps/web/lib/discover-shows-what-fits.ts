@@ -23,7 +23,7 @@
  *
  * Pure — no database — so every rule is executed by `find-shows-only-what-can-be-booked.test.ts`.
  */
-import { leavesBenchSearch, refusalKey } from './bench-bookable-days';
+import { cardFits, fitOptions, leavesBenchSearch, needsEveryDay, type UnbookableScope } from './bench-bookable-days';
 
 /** What a keep returns: the rows the page goes on with, how many the date removed, and whether the date was judged. */
 export type FitResult<T> = { rows: T[]; hidden: number; checked: boolean };
@@ -50,26 +50,35 @@ export function keepSuppliersThatFit<T>(
 }
 
 /**
- * Service cards on Discover: a card stays when it is free on at least ONE of `days` (one day → that day; a month →
- * any day of it — `keepFreeCards`' rule), or when its shop is one the couple already knows.
- *   refused  `null` = the read failed → every card stays, `checked: false`.
- *   days     no days (no date) → every card stays, `checked: true` (there was nothing to check).
- *   known    `null` = that read failed; only matters when some card is refused.
+ * Service cards on Discover: a card stays when it fits the event's dates (`fitOptions`: free on ANY ONE judged day —
+ * one day, any day of the span, any one candidate, any day of the window or month; an accommodation card needs every
+ * night ±1 of one of them), or when its shop is one the couple already knows.
+ *   refused     `null` = the read failed → every card stays, `checked: false`.
+ *   days        the judged scope (`fitDateScope`), or a plain day list (each day its own option); none → every card
+ *               stays, `checked: true` (there was nothing to check).
+ *   known       `null` = that read failed; only matters when some card is refused.
+ *   categoryOf  the card's category, so accommodation is judged by its nights. Omitted → every card judged by day.
  */
 export function keepCardsThatFit<T>(
   cards: readonly T[],
   serviceIdOf: (card: T) => string,
   supplierIdOf: (card: T) => string,
   refused: ReadonlySet<string> | null,
-  days: readonly string[] | null,
+  days: readonly string[] | UnbookableScope | null,
   known: ReadonlySet<string> | null,
+  categoryOf?: (card: T) => string | null | undefined,
 ): { cards: T[]; hidden: number; checked: boolean } {
-  if (!days || days.length === 0) return { cards: [...cards], hidden: 0, checked: true };
+  const scope: UnbookableScope | null = !days ? null : Array.isArray(days) ? { kind: 'dates', days: [...days] } : (days as UnbookableScope);
+  if (!scope || scope.days.length === 0) return { cards: [...cards], hidden: 0, checked: true };
   if (refused === null) return { cards: [...cards], hidden: 0, checked: false };
   if (refused.size === 0) return { cards: [...cards], hidden: 0, checked: true };
   if (known === null) return { cards: [...cards], hidden: 0, checked: false };
   const kept = cards.filter(
-    (c) => known.has(supplierIdOf(c)) || days.some((d) => !refused.has(refusalKey(serviceIdOf(c), d))),
+    (c) => {
+      if (known.has(supplierIdOf(c))) return true;
+      const category = categoryOf?.(c) ?? null;
+      return cardFits(serviceIdOf(c), refused, fitOptions(scope, category), needsEveryDay(category));
+    },
   );
   return { cards: kept, hidden: cards.length - kept.length, checked: true };
 }

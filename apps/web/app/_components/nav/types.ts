@@ -58,6 +58,11 @@ export type NavBadge = {
   tone: NavBadgeTone;
   /** Optional sr-only label override when count alone is ambiguous. */
   label?: string;
+  /**
+   * Shown in place of the number — "—" when the count could not be read (T28/T29: a failed read is never a 0 and never
+   * a quiet nothing). With `text`, the badge draws even at `count: 0`. Default: the number, as before.
+   */
+  text?: string;
 };
 
 export type NavItem = {
@@ -187,6 +192,12 @@ export type BottomNavItem = {
    * Flat bar only.
    */
   onSelect?: () => void;
+  /**
+   * 👆👆 THE ONE DOUBLE TAP (owner 13 Nov 2026): another bar's tab, by its own address. While this tab is ALREADY the
+   * one you are on, a second tap within `TWIN_TAP_MS` opens that tab's last view (`tab-memory.ts`) — Home ⇄ the shop's
+   * Today. The first tap is still the top, at once; the single tap stays the accessible behaviour. Flat bar only.
+   */
+  twin?: string;
 };
 
 /**

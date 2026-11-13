@@ -264,7 +264,6 @@
 1 apps/web/app/tour/_components/tour-chat-thread.tsx
 1 apps/web/app/tour/budget/_components/tour-budget-planner.tsx
 1 apps/web/app/tour/seating/_components/find-your-seat.tsx
-2 apps/web/app/v/[slug]/_components/anon-inquiry-composer.tsx
 2 apps/web/app/vendor-dashboard/_components/branch-manager.tsx
 2 apps/web/app/vendor-dashboard/_components/overview-sections.tsx
 1 apps/web/app/vendor-dashboard/_components/video-links-editor.tsx

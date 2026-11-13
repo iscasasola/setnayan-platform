@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { eventDateOptionWords } from '@/lib/event-chat-title';
 import { regionLabel } from '@/lib/region-source';
 import { readInChunks } from '@/lib/read-all-pages';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -50,6 +51,8 @@ export type InquiryCustomerFacts = {
   eventType: string | null;
   /** City/area label — resolved here so callers never re-derive it. */
   city: string | null;
+  /** No day set yet → the couple's candidate date(s) / window as `eventDateOptionWords` says them. Null otherwise. */
+  dateOptions?: string | null;
 };
 
 /**
@@ -88,7 +91,7 @@ export async function fetchInquiryCustomerFacts(
     const { rows: data, error } = await readInChunks(ids, (part) =>
       admin
         .from('events')
-        .select('event_id, display_name, event_date, event_type, region')
+        .select('event_id, display_name, event_date, event_type, region, date_candidates, date_window_start, date_window_end')
         .in('event_id', part),
     );
     if (error) logQueryError('fetchInquiryCustomerFacts', error, { ids: ids.length }, 'graceful_degrade');
@@ -98,6 +101,9 @@ export async function fetchInquiryCustomerFacts(
       event_date: string | null;
       event_type: string | null;
       region: string | null;
+      date_candidates?: unknown;
+      date_window_start?: string | null;
+      date_window_end?: string | null;
     }>;
     for (const row of rows) {
       out.set(row.event_id, {
@@ -105,6 +111,15 @@ export async function fetchInquiryCustomerFacts(
         eventDate: row.event_date,
         eventType: row.event_type,
         city: regionLabel(row.region),
+        dateOptions: row.event_date
+          ? null
+          : eventDateOptionWords({
+              eventDate: null,
+              precision: null,
+              candidates: row.date_candidates,
+              windowStart: row.date_window_start ?? null,
+              windowEnd: row.date_window_end ?? null,
+            }),
       });
     }
   } catch {

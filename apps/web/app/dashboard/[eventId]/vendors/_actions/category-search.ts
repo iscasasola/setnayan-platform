@@ -39,7 +39,18 @@ import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import type { LadderTier } from '@/lib/inline-more-order';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { findSuppliersWithNoBookingLeft } from '@/lib/bench-bookable-days.server';
-import { describeUnbookableScope, leavesBenchSearch, type UnbookableScope } from '@/lib/bench-bookable-days';
+import {
+  ACCOMMODATION_CATEGORY,
+  cardFits,
+  fitDateScope,
+  fitDaysToAsk,
+  fitOptions,
+  leavesBenchSearch,
+  refusalKey,
+  type EventFitDates,
+  type UnbookableScope,
+} from '@/lib/bench-bookable-days';
+import { regionPin } from '@/lib/your-place';
 import { findEmptyState, findEmptyWords } from '@/lib/supplier-find-empty';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
@@ -290,10 +301,8 @@ export type CategorySearchResult = {
 function hiddenForDateFields(
   hiddenForDate: number,
   found: number,
-  eventDate: string | null,
-  precision: unknown,
+  scope: UnbookableScope | null,
 ): Pick<CategorySearchResult, 'hiddenForDate' | 'hiddenForDateScope' | 'nobodyFreeWords'> {
-  const scope = describeUnbookableScope(eventDate, typeof precision === 'string' ? precision : null);
   const empty = findEmptyState({ found, shown: found, hiddenForDate, filtering: false });
   return {
     hiddenForDate,
@@ -460,7 +469,7 @@ export async function searchCategoryVendors(input: {
   const { data: ev, error: evError } = await supabase
     .from('events')
     .select(
-      'venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date, event_date_precision',
+      'venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date, event_date_precision, event_end_date, date_candidates, date_window_start, date_window_end, region',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -561,8 +570,11 @@ export async function searchCategoryVendors(input: {
   // venues (a booked venue's pin, else the couple's own), read with the service role only AFTER the membership read
   // above came back with this event. The reception is what every distance here has always meant.
   const anchors = await readNearAnchors(createAdminClient(), eventId, ev as EventVenueColumns);
-  const lat = anchors.reception?.latitude ?? null;
-  const lng = anchors.reception?.longitude ?? null;
+  // 📍 No pin yet → the event's Region, read as its curated centroid (owner 2026-11-13, "fit reads candidates +
+  // Region + span"; `regionPin`). Only `events.region` — never `style_preferences.search_areas` or the film's city.
+  const regionAnchor = anchors.reception ? null : regionPin((ev as { region?: string | null }).region ?? null);
+  const lat = anchors.reception?.latitude ?? regionAnchor?.latitude ?? null;
+  const lng = anchors.reception?.longitude ?? regionAnchor?.longitude ?? null;
   const hasCoords = lat !== null && lng !== null;
 
   // ── Last-minute config (Setnayan AI §4) ──────────────────────────────────
@@ -775,16 +787,44 @@ export async function searchCategoryVendors(input: {
   // the couple's ONE event date — no labels, no other dates leak. No locked
   // date / no blocks / RPC error → nobody is flagged (fail-open, never wrongly
   // mark a vendor busy). Owner-picked privacy model (2026-07-11).
+  // 📅 THE DAYS THE FIT JUDGES (owner 2026-11-13, DECISION_LOG "ONE MAIN DATE SPAN PER EVENT" + "FIND KEEPS A SUPPLIER
+  // FREE ON ANY ONE CANDIDATE DATE"): the main span once the date is set, else the candidate dates or the window,
+  // else a month. Accommodation reads them as every night ±1 (`fitOptions`). One answer — `fitDateScope`.
+  const fitDates: EventFitDates = {
+    eventDate: (ev.event_date as string | null) ?? null,
+    precision: (ev.event_date_precision as string | null) ?? null,
+    endDate: (ev as { event_end_date?: string | null }).event_end_date ?? null,
+    candidates: (ev as { date_candidates?: unknown }).date_candidates ?? null,
+    windowStart: (ev as { date_window_start?: string | null }).date_window_start ?? null,
+    windowEnd: (ev as { date_window_end?: string | null }).date_window_end ?? null,
+  };
+  const fitScope = fitDateScope(fitDates);
   const unavailableIds = new Set<string>();
-  const eventDateStr = (ev.event_date as string | null) ?? null;
-  if (eventDateStr && /^\d{4}-\d{2}-\d{2}$/.test(eventDateStr) && ids.length > 0) {
+  if (fitScope && ids.length > 0) {
+    // One `vendors_blocked_on_date` call per day asked (the RPC takes ONE date), started together. A vendor is
+    // flagged only when NO way of fitting is wholly unblocked — free on any one candidate / any day of the span
+    // keeps them; an accommodation search needs every night ±1. A failed day reads unblocked (fail-open).
+    const fitCategory =
+      canonicals.length > 0 && canonicals.every((c) => c === ACCOMMODATION_CATEGORY) ? ACCOMMODATION_CATEGORY : null;
+    const options = fitOptions(fitScope, fitCategory);
+    const days = fitDaysToAsk(fitScope, fitCategory === ACCOMMODATION_CATEGORY);
     try {
-      const { data: blockedRows } = await supabase.rpc('vendors_blocked_on_date', {
-        p_vendor_ids: ids,
-        p_event_date: eventDateStr,
+      const answers = await Promise.all(
+        days.map((day) =>
+          supabase.rpc('vendors_blocked_on_date', {
+            p_vendor_ids: ids,
+            p_event_date: day,
+          }),
+        ),
+      );
+      const blocked = new Set<string>();
+      answers.forEach(({ data: blockedRows }, i) => {
+        for (const r of (blockedRows ?? []) as { vendor_profile_id: string | null }[]) {
+          if (r.vendor_profile_id) blocked.add(refusalKey(r.vendor_profile_id, days[i]!));
+        }
       });
-      for (const r of (blockedRows ?? []) as { vendor_profile_id: string | null }[]) {
-        if (r.vendor_profile_id) unavailableIds.add(r.vendor_profile_id);
+      for (const id of ids) {
+        if (!cardFits(id, blocked, options, fitCategory === ACCOMMODATION_CATEGORY)) unavailableIds.add(id);
       }
     } catch {
       // Fail-open: leave unavailableIds empty so the search is unchanged.
@@ -803,8 +843,7 @@ export async function searchCategoryVendors(input: {
           admin,
           supplierIds: ids,
           canonicals,
-          eventDate: eventDateStr,
-          eventDatePrecision: (ev.event_date_precision as string | null) ?? null,
+          dates: fitDates,
         })
       : new Set<string>();
 
@@ -1480,7 +1519,7 @@ export async function searchCategoryVendors(input: {
     ...(budgetEstimate ? { budgetEstimate } : {}),
     // 2026-11-13 "we only show what fits" — absent unless the hide removed somebody, so every other result keeps its
     // shape; an empty list then says "Nobody is free on <date>", never "No supplier lists this yet"
-    // (lib/supplier-find-empty.ts). The date is the hide's own (`describeUnbookableScope` ← `unbookableDateScope`).
-    ...(hiddenForDate > 0 ? hiddenForDateFields(hiddenForDate, results.length, eventDateStr, ev.event_date_precision) : {}),
+    // (lib/supplier-find-empty.ts). The date is the hide's own (`fitDateScope`, the scope the hide judged on).
+    ...(hiddenForDate > 0 ? hiddenForDateFields(hiddenForDate, results.length, fitScope) : {}),
   };
 }

@@ -45,6 +45,11 @@ export const LAB_MOOD_BOARD_ACTIONS: Partial<MoodBoardActions> = {
         return { op: 'audience', result: { status: 'ok' } };
       case 'viewer_looks':
         return { op: 'viewer_looks', result: {} };
+      // 🃏 The grown card's shop-only ops — the lab is never the shop.
+      case 'card_owner':
+        return { op: 'card_owner', result: { status: 'not_owner' } };
+      case 'card_hide':
+        return { op: 'card_hide', result: { status: 'refused' } };
     }
   },
 };

@@ -11,6 +11,7 @@ import {
 } from '@/lib/proposal-send';
 import type { ProposalLineItem } from '@/lib/vendor-proposals';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY } from '@/lib/demo-scope';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import {
   fetchVendorServices,
@@ -63,8 +64,21 @@ const NOTICE_BY_CODE: Record<Exclude<SendProposalError, 'unauthenticated' | 'not
   needs_valid_until: 'proposal_needs_valid_until',
   // 💳 pay in full (2026-11-09).
   plan_not_in_full: 'proposal_plan_not_in_full',
+  // 🧪 the demo rule — one notice per sentence (`demoNotice` picks it from the core's own message).
+  demo_scope: 'proposal_demo_shop',
   failed: 'proposal_failed',
 };
+
+/**
+ * The notice for a refused send. A demo-rule refusal names WHICH side is the demo (the core's `message` says so) —
+ * before 13 Nov it collapsed into "Couldn't send that quote. Please try again.", which no retry could ever fix.
+ */
+function refusalNotice(code: Exclude<SendProposalError, 'unauthenticated' | 'not_owner'>, message: string): string {
+  if (code === 'demo_scope') {
+    return message === DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY ? 'proposal_demo_event' : 'proposal_demo_shop';
+  }
+  return NOTICE_BY_CODE[code];
+}
 
 export async function sendProposalFromChat(formData: FormData) {
   const supabase = await createClient();
@@ -84,7 +98,7 @@ export async function sendProposalFromChat(formData: FormData) {
   if (!result.ok) {
     if (result.code === 'unauthenticated') redirect('/login');
     if (result.code === 'not_owner') redirect('/vendor-dashboard/messages');
-    redirect(`${back}?notice=${NOTICE_BY_CODE[result.code]}`);
+    redirect(`${back}?notice=${refusalNotice(result.code, result.message)}`);
   }
 
   revalidatePath(back);
@@ -558,7 +572,7 @@ export async function sendCustomProposalFromChat(formData: FormData) {
   if (!result.ok) {
     if (result.code === 'unauthenticated') redirect('/login');
     if (result.code === 'not_owner') redirect('/vendor-dashboard/messages');
-    redirect(`${back}?notice=${NOTICE_BY_CODE[result.code]}`);
+    redirect(`${back}?notice=${refusalNotice(result.code, result.message)}`);
   }
 
   revalidatePath(back);

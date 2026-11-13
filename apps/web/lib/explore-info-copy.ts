@@ -494,6 +494,15 @@ export function inlineMoreSavedNote(label: string): string {
   return `Saved to ${label}.`;
 }
 
+/**
+ * The same card once "Ask for a quote" was pressed — the save was only the ask's first half, so the card names the
+ * ask (walk 13 Nov 2026: it said "Saved to Mobile Bar." over an inquiry already sent). No Undo beside it.
+ */
+export function inlineMoreAskedNote(shopName: string): string {
+  const name = shopName.trim();
+  return name ? `Asked ${name} for a quote.` : 'Asked for a quote.';
+}
+
 /** The undo beside it. See `canUndoInlineSave` for when it may be offered. */
 export const INLINE_MORE_UNDO = 'Undo';
 

@@ -3,7 +3,9 @@
 /**
  * PendingVendorInquiryDispatcher — replays the compose-first inquiry a visitor
  * composed on a vendor profile before they had an account/event (see
- * lib/pending-vendor-inquiry + v/[slug]/_components/anon-inquiry-composer).
+ * lib/pending-vendor-inquiry). The compose-first composer that WROTE the stash was
+ * retired 2026-11-13 (one Inquire — the shop's pop-up); this stays to drain stashes
+ * a visitor wrote before then, so none of those inquiries is silently lost.
  *
  * Mounted once in the couple dashboard layout. On first mount, if a stashed
  * inquiry exists AND the viewer is a secured (non-anonymous) couple, it fires

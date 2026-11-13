@@ -37,7 +37,7 @@ test('the owner’s own example: four Reception venues + a hotel is NOT "Free an
   assert.notEqual(firstPlanThatHolds(four), 'free');
   const line = coverageLine([...rec(3), acc]);
   assert.equal(line.tally, '2 categories · 4 services');
-  assert.equal(line.verdict, 'Solo covers this');
+  assert.equal(line.verdict, 'Supplier Plus covers this');
   assert.equal(line.split, 'Reception 3 · Accommodation 1');
 });
 
@@ -75,17 +75,17 @@ test('the plan is the FIRST where categories AND services per category both fit 
   assert.equal(firstPlanThatHolds(past), null);
   assert.equal(
     coverageLine(past).verdict,
-    `more than Ultra holds — all on until your first booking, then Ultra keeps ${TIER_CAPS.enterprise.parentCategories} categories you choose`,
+    `more than Supplier Ultra holds — all on until your first booking, then Supplier Ultra keeps ${TIER_CAPS.enterprise.parentCategories} categories you choose`,
   );
   assert.doesNotMatch(coverageLine(past).verdict, /Custom|Talk to us/);
-  assert.match(coverageLine(rec(TIER_CAPS.pro.servicesPerLeaf + 1)).verdict, /^Ultra covers this/);
+  assert.match(coverageLine(rec(TIER_CAPS.pro.servicesPerLeaf + 1)).verdict, /^Supplier Ultra covers this/);
 });
 
 test('the ladder (Free · Verified → Solo → Pro → Ultra adds) is composed from TIER_CAPS — no number typed, no peso', () => {
   const l = planLadder();
   assert.deepEqual(
     l.map((r) => r.name),
-    ['Free · Verified', 'Solo adds', 'Pro adds', 'Ultra adds'],
+    ['Free · Verified', 'Supplier Plus adds', 'Supplier Pro adds', 'Supplier Ultra adds'],
   );
   // The prototype's own words, rebuilt from the caps (Free reaches what Verified does once verified).
   assert.equal(

@@ -53,9 +53,9 @@ test('1 · Where you work says WHY at 0 km, saves in place, and names the next p
   assert.doesNotMatch(s, /\b(20|30|50|100) km\b/, 'a plan reach is typed into the component');
 
   // Ultra is nationwide (`Infinity`) since owner 2026-11-04 — said in words, never "Infinity".
-  assert.equal(reachLadderWords(), `Verified ${TIER_CAPS.verified.serviceRadiusKm} km · Solo ${TIER_CAPS.solo.serviceRadiusKm} · Pro ${TIER_CAPS.pro.serviceRadiusKm} · Ultra nationwide`);
+  assert.equal(reachLadderWords(), `Verified ${TIER_CAPS.verified.serviceRadiusKm} km · Supplier Plus ${TIER_CAPS.solo.serviceRadiusKm} · Supplier Pro ${TIER_CAPS.pro.serviceRadiusKm} · Supplier Ultra nationwide`);
   assert.deepEqual(nextPlanReach('free'), { plan: 'Verified', km: TIER_CAPS.verified.serviceRadiusKm });
-  assert.deepEqual(nextPlanReach('solo'), { plan: 'Pro', km: TIER_CAPS.pro.serviceRadiusKm });
+  assert.deepEqual(nextPlanReach('solo'), { plan: 'Supplier Pro', km: TIER_CAPS.pro.serviceRadiusKm });
   assert.equal(nextPlanReach('enterprise'), null, 'the top plan has no farther plan to name');
 });
 
@@ -90,7 +90,7 @@ test('4a · Deep Search is priced from the run’s own source — never a typed 
   // 2026-11-04: both sides of the band are catalogue rows, read by the offer — never a typed matrix.
   assert.match(src('lib/vendor-deep-search-offer.ts'), /fetchVendorAddonBandPrices\(supabase, 'deep_search_about_you'\)/, 'the band is not read from the catalogue');
   const words = deepSearchBandWords({ entryPhp: 777, growthPhp: 333 });
-  assert.equal(words, '₱777 a search on Free, Verified and Solo · ₱333 on Pro and Ultra, one search per purchase.');
+  assert.equal(words, '₱777 a search on Free, Verified and Supplier Plus · ₱333 on Supplier Pro and Supplier Ultra, one search per purchase.');
   // 2026-11-09 (DECISION_LOG 🔎💳): no free search on any plan — the words never promise one.
   assert.equal(deepSearchBandWords({ entryPhp: 499, growthPhp: 499 }), '₱499 a search on every plan, one search per purchase.');
   for (const w of [words, deepSearchBandWords({ entryPhp: 499, growthPhp: 499 })]) {

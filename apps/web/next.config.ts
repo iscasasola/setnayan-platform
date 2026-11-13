@@ -753,6 +753,9 @@ const nextConfig: NextConfig = {
       */
       { source: '/how-it-works', destination: '/features', permanent: true },
       { source: '/tl/how-it-works', destination: '/tl/features', permanent: true },
+      // 🖼 The supplier's Portfolio lives at /vendor-dashboard/collections; the word a supplier types is "portfolio"
+      // (walk 13 Nov 2026, F-W1-64: /vendor-dashboard/portfolio was a 404). Temporary, exact source only.
+      { source: '/vendor-dashboard/portfolio', destination: '/vendor-dashboard/collections', permanent: false },
       /*
         ⚠ `/why-setnayan` HAD NO TAGLISH TWIN — it was English-only, which is
         part of why it was merged: the frame now HAS a Taglish edition it never

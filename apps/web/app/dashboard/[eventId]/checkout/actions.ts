@@ -58,6 +58,7 @@ import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { eventClockOf } from '@/lib/event-clock.server';
 import {
   resolveOrderChargeCentavos,
+  readUltraUpgradeCharge,
   refusalMessage,
   chargeOverchargesDisplayedPrice,
   orderTotalToPhp,
@@ -74,6 +75,7 @@ import { isUniqueRefusal, orderInsertRefusal, PAYMENT_NOT_LOGGED } from '@/lib/c
 import { HUB_PARTS_ORDER_KEY, hubPart, parseHubPartsField } from '@/lib/hub-parts';
 import { hubPartPrices } from '@/lib/couple-website-pro';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { EVENT_ULTRA_SKU, type UltraUpgradeFrom } from '@/lib/event-ultra';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -121,6 +123,11 @@ export type ApplyVoucherResult = {
    * first purchase, any read failed).
    */
   welcome?: { welcomeCentavos: string; pct: number } | null;
+  /**
+   * 💳 Only on an `intent=welcome_quote` call for `EVENT_ULTRA`: what THIS event pays as an upgrade from the plan it
+   * already paid for (owner 2026-11-13, "Pay the difference") — null when it paid toward none.
+   */
+  upgrade?: { centavos: string; from: UltraUpgradeFrom } | null;
 };
 
 export async function applyVoucherAction(
@@ -132,11 +139,15 @@ export async function applyVoucherAction(
   // 💲 The drawer's welcome-price check rides this read (see quoteWelcomeForLine).
   if (formData.get('intent') === 'welcome_quote') {
     const hubPartsRaw = formData.get('hub_parts');
-    const q = await quoteWelcomeForLine({
+    const quoteFor = {
       eventId: String(formData.get('event_id') ?? ''),
       serviceKey: String(formData.get('service_key') ?? ''),
       hubParts: typeof hubPartsRaw === 'string' ? hubPartsRaw : undefined,
-    });
+    };
+    const [q, upgrade] = await Promise.all([
+      quoteWelcomeForLine(quoteFor),
+      quoteFor.serviceKey === EVENT_ULTRA_SKU ? quoteUltraUpgradeForLine(quoteFor.eventId) : Promise.resolve(null),
+    ]);
     return {
       applied: false,
       code: null,
@@ -145,6 +156,7 @@ export async function applyVoucherAction(
       discount_php: '',
       final_php: '',
       welcome: q,
+      upgrade,
     };
   }
 
@@ -1183,6 +1195,36 @@ async function orderLandedForBuyer(
     .eq('user_id', userId)
     .maybeSingle();
   return !landedErr && Boolean(landed);
+}
+
+/**
+ * 💳 The Event Ultra upgrade price for the drawer (owner 2026-11-13, "Pay the difference") — the SAME reader the charge
+ * uses (`readUltraUpgradeCharge`), so the figure shown is the figure billed. A READ, NOT EXPORTED (the route budget is
+ * full); it rides `applyVoucherAction`'s `welcome_quote`. Null for a non-member, an event that paid toward no plan, or
+ * any failed read — the drawer then shows the row's price, and the charge refuses a read it could not make.
+ */
+async function quoteUltraUpgradeForLine(eventId: string): Promise<{ centavos: string; from: UltraUpgradeFrom } | null> {
+  try {
+    const eventIdClean = typeof eventId === 'string' ? eventId.trim() : '';
+    if (!eventIdClean) return null;
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data: membership } = await supabase
+      .from('event_members')
+      .select('event_id')
+      .eq('event_id', eventIdClean)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!membership) return null;
+    const read = await readUltraUpgradeCharge(createAdminClient(), eventIdClean);
+    if (read.status !== 'ok' || !read.charge || !read.charge.ok) return null;
+    return { centavos: String(read.charge.php * 100), from: read.charge.from };
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -223,7 +223,8 @@ test('the reveal — the one real exclusive — is still aliased to this SKU', (
   assert.ok(aliases, 'SKU_OWNERSHIP_ALIASES not found — the scan is blind');
   assert.match(
     aliases[0]!,
-    new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'\\]\\)`),
+    // 💎 Event Ultra (owner 2026-11-13) includes Event Pro whole, so it confers the reveal too — still never sold alone.
+    new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'(, EVENT_ULTRA_SKU)?\\]\\)`),
     'the cinematic reveal is no longer granted by Event Hub PRO — the copy claims it is the only way to get it',
   );
 });

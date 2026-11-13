@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1867
-# tables: 500
-# columns: 6074
-# notnull: 3661
+# ledger: 1869
+# tables: 501
+# columns: 6082
+# notnull: 3669
 [ledger]
 20260512000000
 20260513000000
@@ -1874,9 +1874,11 @@
 20271343002292
 20271343328401
 20271343340931
+20271343652941
 20271343761700
 20271344038763
 20271344061337
+20271344065097
 20271344452857
 20271344488042
 [columns]
@@ -3604,6 +3606,13 @@ event_vendor_found.found_at_claim_at
 event_vendor_found.last_viewed_at
 event_vendor_found.vendor_profile_id
 event_vendor_found.view_count
+event_vendor_guest_follow.agreed_guests
+event_vendor_guest_follow.agreed_total_php
+event_vendor_guest_follow.billed_guests
+event_vendor_guest_follow.event_id
+event_vendor_guest_follow.event_vendor_id
+event_vendor_guest_follow.followed_at
+event_vendor_guest_follow.followed_total_php
 event_vendor_line_items.amount_php
 event_vendor_line_items.created_at
 event_vendor_line_items.due_date
@@ -3831,6 +3840,7 @@ events.ceremony_venue_address
 events.ceremony_venue_latitude
 events.ceremony_venue_longitude
 events.ceremony_venue_setting
+events.chapters_peek
 events.cleared_at
 events.cleared_by_user_id
 events.community_id
@@ -9025,6 +9035,13 @@ event_vendor_found.first_source
 event_vendor_found.last_viewed_at
 event_vendor_found.vendor_profile_id
 event_vendor_found.view_count
+event_vendor_guest_follow.agreed_guests
+event_vendor_guest_follow.agreed_total_php
+event_vendor_guest_follow.billed_guests
+event_vendor_guest_follow.event_id
+event_vendor_guest_follow.event_vendor_id
+event_vendor_guest_follow.followed_at
+event_vendor_guest_follow.followed_total_php
 event_vendor_line_items.amount_php
 event_vendor_line_items.created_at
 event_vendor_line_items.event_id
@@ -9117,6 +9134,7 @@ event_wish_items.wish_item_id
 events.adaptive_pricing_mode
 events.archived
 events.auspicious_reasons
+events.chapters_peek
 events.concierge_status
 events.couple_media_bytes
 events.created_at

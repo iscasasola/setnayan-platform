@@ -195,7 +195,7 @@ export async function ScriptTab({
         <div className="flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-ink" data-script-prefilled="">
           <Sparkles className="h-4 w-4 shrink-0 text-sage-deep" aria-hidden />
           <InfoTip
-            label={`Drafted from your lines — ${formatCount(prefilled)} of ${workbook.entries.length}`}
+            label={`Drafted from your lines — ${formatCount(prefilled)} of ${formatCount(workbook.entries.length)}`}
             align="start"
           >
             These moments arrived already written, in your words with their names filled in. Edit anything that should

@@ -139,7 +139,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   },
   {
     tier: 'solo',
-    name: 'Solo',
+    name: 'Supplier Plus',
     tagline: 'Operate friction-free. Everything in Free, plus a personalized page and your own business analytics.',
     groups: [
       {
@@ -161,8 +161,8 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   },
   {
     tier: 'pro',
-    name: 'Pro',
-    tagline: 'Grow: a premium page, a team, wider reach, and market intelligence. Everything in Solo, plus:',
+    name: 'Supplier Pro',
+    tagline: 'Grow: a premium page, a team, wider reach, and market intelligence. Everything in Supplier Plus, plus:',
     groups: [
       {
         items: [
@@ -190,18 +190,18 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   },
   {
     tier: 'enterprise',
-    name: 'Ultra',
-    tagline: 'Scale as an organization: with a flagship page. Everything in Pro, plus:',
+    name: 'Supplier Ultra',
+    tagline: 'Scale as an organization: with a flagship page. Everything in Supplier Pro, plus:',
     groups: [
       {
         items: [
           { n: 'Flagship page + video films', b: 'A cinematic hero with your name over your best photo, plus a playable “Films” reel. Link your YouTube highlight videos and couples watch them right on your page.' },
-          { n: `${many(TIER_CAPS.enterprise.parentCategories, 'category', 'categories')}`, b: 'List under more parent categories than Pro.' },
+          { n: `${many(TIER_CAPS.enterprise.parentCategories, 'category', 'categories')}`, b: 'List under more parent categories than Supplier Pro.' },
           { n: `Up to ${TIER_CAPS.enterprise.agentAccounts} team seats + multi-admin`, b: 'A full team with shared, voted governance. Need more? Add seats.' },
           { n: 'Nationwide reach', b: 'Couples anywhere in the Philippines find you in their search.' },
           { n: `${many(TIER_CAPS.enterprise.branchesIncluded, 'branch', 'branches')} included`, b: 'Run your other locations under one shop, with no branch fee — and add more branches when you grow.' },
           { n: `Waitlist: ${many(TIER_CAPS.enterprise.waitlistAcceptances, 'couple', 'couples')} per date`, b: 'Take more couples off a booked-out date.' },
-          { n: `${many(TIER_CAPS.enterprise.servicesPerLeaf, 'service card', 'service cards')} per category`, b: 'More services per category than Pro.' },
+          { n: `${many(TIER_CAPS.enterprise.servicesPerLeaf, 'service card', 'service cards')} per category`, b: 'More services per category than Supplier Pro.' },
           { n: 'Market Intelligence — category benchmarks vs peers', b: 'Rank your funnel against anonymized peers in your exact category. Numbers fill in as category volume grows.' },
           // ⛔ TWO ROWS WERE DELETED HERE 2026-08-27 (owner ruling). "Quarterly
           // business review" and "a named contact" promised HUMAN ATTENTION

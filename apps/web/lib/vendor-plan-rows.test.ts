@@ -27,7 +27,7 @@ test('what a plan gives is read from TIER_CAPS', () => {
   assert.equal(line('pro', 'reach'), `${TIER_CAPS.pro.serviceRadiusKm} km around you`);
   // Own web address from Solo up ("website applies to solo as well"); below it, the plan is named from the table.
   assert.equal(line('solo', 'web'), 'Yes');
-  assert.equal(line('verified', 'web'), 'Comes with Solo');
+  assert.equal(line('verified', 'web'), 'Comes with Supplier Plus');
   // Branches (owner 2026-11-04, "branches 0,0,3,10"; only Ultra buys more).
   assert.equal(line('solo', 'branches'), 'Not on this plan');
   assert.equal(line('pro', 'branches'), `${TIER_CAPS.pro.branchesIncluded} included`);
@@ -81,7 +81,7 @@ test('an unread standing never says free; the fee off says nothing', () => {
 
 test('picking a plan says what happens, by the live ladder', () => {
   assert.match(planPickLine('solo', 'pro', '31 October 2026'), /^Starts the day your payment is confirmed/);
-  assert.equal(planPickLine('pro', 'solo', '31 October 2026'), 'Starts when Pro ends · 31 October 2026');
-  assert.equal(planPickLine('pro', 'free', '31 October 2026'), 'Nothing renews by itself · Pro ends 31 October 2026, then Free');
+  assert.equal(planPickLine('pro', 'solo', '31 October 2026'), 'Starts when Supplier Pro ends · 31 October 2026');
+  assert.equal(planPickLine('pro', 'free', '31 October 2026'), 'Nothing renews by itself · Supplier Pro ends 31 October 2026, then Free');
   assert.equal(planPickLine('free', 'free', null), 'You are on Free — nothing to pay');
 });

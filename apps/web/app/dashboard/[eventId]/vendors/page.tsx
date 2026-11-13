@@ -38,7 +38,7 @@ import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and
 import { buildBenchStandings } from '@/lib/conversation-list';
 import { resolveLivePax } from '@/lib/pax';
 import { readSelfAddedPriceLines } from '@/lib/self-added-price-basis.server';
-import type { SupplierStanding } from '@/lib/supplier-standing';
+import { standingQuotePhp, type SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { claimReveals, invitedCoupleName, revealFor, type AnsweredClaimAsk, type ClaimReveal } from '@/lib/supplier-corrections';
@@ -139,6 +139,7 @@ import { VendorQuickViewInspector } from './_components/vendor-quickview-inspect
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
 import {
   buildShortlistFolders,
+  withLiveQuotes,
   LOCKED_VENDOR_STATUSES,
   COVER_TILE_PREFIX,
   planGroupForCover,
@@ -1903,7 +1904,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     }
   }
 
-  const shortlistFolders = buildShortlistFolders({
+  const benchFoldersAsRead = buildShortlistFolders({
     vendorRows,
     enrichmentByVendorId,
     dateFitByVendorId,
@@ -1949,7 +1950,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const lockBlockedByVendorId = new Map<string, BlockedLockReason>();
   {
     const replanOn = isExploreReplanEnabled();
-    for (const folder of shortlistFolders) {
+    for (const folder of benchFoldersAsRead) {
       for (const tile of folder.tiles) {
         for (const v of tile.vendors) {
           const why = blockedLockReason(
@@ -1979,7 +1980,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // paint disagree across a midnight boundary.
   const standingsByVendorId: Record<string, SupplierStanding> = await (async () => {
     const out: Record<string, SupplierStanding> = {};
-    const contactable = shortlistFolders
+    const contactable = benchFoldersAsRead
       .flatMap((f) => f.tiles.flatMap((t) => t.vendors))
       .filter((v) => v.marketplaceVendorId != null && v.threadId != null);
     if (contactable.length === 0) return out;
@@ -2012,6 +2013,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     }
     return out;
   })();
+  // 💬 A sent quote is a price (`withLiveQuotes`): a card whose supplier has a live quote out never says "Price on
+  // request" or "Ask for a price". The amount is the one the standing line above already shows — no new read.
+  const shortlistFolders = withLiveQuotes(benchFoldersAsRead, (id) => standingQuotePhp(standingsByVendorId[id]));
 
   // Phase 1b PR-4 · per-category "saved request" icons. Load the couple's saved
   // event_vendor_preferences rows (one query, host-RLS scoped) and resolve, per

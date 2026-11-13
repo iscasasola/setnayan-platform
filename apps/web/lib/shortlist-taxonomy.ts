@@ -605,6 +605,12 @@ export type ShortlistVendor = {
    *  quiet "ask first" note (the bench's form of the shipped owner rule that
    *  only priced services enter the build). */
   priceBasisPhp: number | null;
+  /**
+   * The supplier's LIVE quote for this event (a `sent` / `viewed` proposal), in pesos — set only by `withLiveQuotes`
+   * from the standing line's own amount. Present ⇒ the card never says "Price on request" and never asks the couple
+   * to "Ask for a price": the price is in their hands already. Absent/null on every other card.
+   */
+  quotedPhp?: number | null;
   /** Verification state for the lock gate, TRI-state on purpose: TRUE verified ·
    *  FALSE still verifying (the lock button explains before the tap) · NULL
    *  unknown / off-platform → no indicator, the server + DB trigger decide.
@@ -1059,4 +1065,34 @@ export function buildShortlistFolders(args: {
     });
   }
   return folders;
+}
+
+/**
+ * 💬 A SENT QUOTE IS A PRICE (couple walk, 13 Nov 2026 — "TEST SetnaProd walk", Mobile Bar: the card's standing line
+ * said "Quoted ₱6,750 · Sent today" and the SAME card said "Price on request" and "Ask for a price to add this to your
+ * build"). `priceBasisPhp` read only `total_cost_php` and the card's "starts at", never the live proposal — so a card
+ * with a quote in hand was told to ask for one.
+ *
+ * The live total comes from the standing the page ALREADY derived (`buildBenchStandings` → the stage segment's
+ * `amountPhp`, read off the same `sent` / `viewed` rows that decide the Quoted rung) — no new query. A card with no
+ * recorded price takes it as its price basis (the basis docblock's own order: "a real quote first"), so its build
+ * action is Add, not needs_price. A card that already has a basis keeps it; nothing else about the money moves
+ * (the budget-fit badge is untouched).
+ */
+export function withLiveQuotes(
+  folders: ShortlistFolder[],
+  quoteOf: (vendorId: string) => number | null,
+): ShortlistFolder[] {
+  return folders.map((f) => ({
+    ...f,
+    tiles: f.tiles.map((t) => ({
+      ...t,
+      vendors: t.vendors.map((v) => {
+        if (v.includedWith) return v;
+        const quoted = quoteOf(v.vendorId);
+        if (quoted == null || !(quoted > 0)) return v;
+        return { ...v, quotedPhp: quoted, priceBasisPhp: v.priceBasisPhp ?? quoted };
+      }),
+    })),
+  }));
 }

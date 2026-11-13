@@ -333,6 +333,18 @@ export function buildSupplierStanding(facts: SupplierStandingFacts): SupplierSta
 }
 
 /**
+ * The live quote total the line is showing ("Quoted ₱6,750"), or null — read off the stage segment, so a card can
+ * never act on a quote its own line does not name (`withLiveQuotes`).
+ */
+export function standingQuotePhp(standing: SupplierStanding | null | undefined): number | null {
+  if (!standing) return null;
+  for (const seg of standing.segments) {
+    if (seg.kind === 'stage' && seg.amountPhp != null && seg.amountPhp > 0) return seg.amountPhp;
+  }
+  return null;
+}
+
+/**
  * The sentence as plain text — for the card's `aria-label`, for the shortened
  * copy in the Picks column, and for tests to assert on without a renderer.
  *

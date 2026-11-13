@@ -13,6 +13,7 @@ import { GraphCard, type GraphSpec } from './graph-tile';
 import { CountBarsPic, CountLinePic } from './new-graph-pics';
 import { AnalyticsLock } from './analytics-lock';
 import { HeldCount } from './growth-motion';
+import { useReanimate } from './reanimate';
 import { CARD_ORDER, FIXED_WINDOW, type CardKey } from './analytics-cards';
 import type { GrowthView, Totals } from './growth-view';
 
@@ -62,11 +63,27 @@ function countLine(k: CountKind, n: number, win: GrowthWindow): string {
   return `${formatCount(n)} ${n === 1 ? 'booking' : 'bookings'} ${w}.`;
 }
 
+/**
+ * 🔢 THE BIG NUMBER IS NEVER A HELD ZERO (supplier walk, SetnaProd, 13 Nov 2026: the page read "Opened 0 … 127 couples
+ * opened your page" and "Asked 0 … 1 couple asked" — one card, two answers). `HeldCount` inside a card that has not been
+ * seen yet shows its last value, 0 the first time; that 0 was in the server HTML, in a hidden tab, and in what a screen
+ * reader reads, beside the card's own line with the true count. Until the card is seen the figure now prints the TRUE
+ * number as plain text (no count memory touched, so the count-up still runs from 0 the moment it is seen).
+ */
 function Figure({ n, word }: { n: number | null; word: string }) {
+  const seen = useReanimate();
   return (
     <span className="ag-fig" data-analytics-figure={word}>
       {/* Counts up when the card is swiped into view, and old → new when its switch slides (reduced motion: at once). */}
-      {n === null ? <b>—</b> : <HeldCount value={n} id={`ag:fig:${word}`} className="ag-fig-n" />}
+      {n === null ? (
+        <b>—</b>
+      ) : seen === false ? (
+        <span className="ag-fig-n" style={{ fontVariantNumeric: 'tabular-nums' }} data-analytics-figure-unseen="">
+          {formatCount(n)}
+        </span>
+      ) : (
+        <HeldCount value={n} id={`ag:fig:${word}`} className="ag-fig-n" />
+      )}
       <small>{word}</small>
     </span>
   );

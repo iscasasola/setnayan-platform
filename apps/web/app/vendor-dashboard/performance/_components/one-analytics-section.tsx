@@ -76,7 +76,7 @@ import { regionLabel } from '@/lib/region-source';
 import { readShopTrackerFacts } from '@/lib/shop-badges.server';
 import { milestoneLadder, stepName, type TrackerFacts } from '@/lib/shop-badges';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { ratingLine, unmeasuredStats, type MeasuredStatsRow } from '@/lib/business-doing';
+import { trustedRating, unmeasuredStats, type MeasuredStatsRow } from '@/lib/business-doing';
 import { buildGrowthView, type PricePositionUnreadable } from './growth-view';
 import { canUse, papersProgress } from '@/lib/locks';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
@@ -572,6 +572,8 @@ export async function OneAnalyticsSection({
   const ladder = badgeFacts && badgeFacts.completedEvents !== null ? milestoneLadder(badgeFacts.completedEvents) : null;
   const priceKey = pricePosition && 'key' in pricePosition ? pricePosition.key : null;
 
+  const repRating = trustedRating(badgeFacts ? badgeFacts.trusted : null);
+
   // 🌱 ANALYTICS, GROWING (owner-approved 6 Nov 2026) — every read above, worded ONCE (growth-view.ts) for the client
   // tree to draw. Nothing new is computed about the shop.
   const growthView = buildGrowthView({
@@ -596,9 +598,10 @@ export async function OneAnalyticsSection({
     upcoming: upcomingBooked,
     radar: demandRadarUnreadable ? null : demandRadar,
     showMarket: canMarket,
-    rating: ratingLine(statsRead),
-    ratingAvg: statsRow?.review_avg_bayesian ?? null,
-    ratingCount: Number(statsRow?.review_count ?? 0),
+    // ⭐ The trusted stat — the SAME read the cover and the Rating badge under this carousel draw (`trustedRating`).
+    rating: repRating.line,
+    ratingAvg: repRating.avg,
+    ratingCount: repRating.count,
     reputation: reputationAnalytics,
     badges: badgeFacts
       ? {

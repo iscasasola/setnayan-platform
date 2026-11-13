@@ -76,6 +76,23 @@ export function ratingLine(
   return `${avg.toFixed(1)} ★ · ${formatCount(count)} ${count === 1 ? 'review' : 'reviews'}`;
 }
 
+/**
+ * ⭐ THE RATING THE SHOP SCREEN SAYS, FROM THE ONE SOURCE THE COUPLES SEE — `vendor_trusted_review_stats` (reviews from
+ * the hosts of events the shop was booked for). The cover, the Rating badge and the public page already read it; the
+ * Analytics card read `vendor_activity_stats.review_count` (EVERY review) instead, so one screen said "4.2 ★ · 3 reviews"
+ * and "No reviews yet" at once (supplier walk, SetnaProd, 13 Nov 2026: 3 reviews, none booked through Setnayan,
+ * trusted 0). `null` = the read was refused → "Couldn’t load", never "No reviews yet".
+ */
+export function trustedRating(
+  trusted: { trusted_avg_rating: number | null; trusted_review_count: number | null } | null,
+): { line: string; avg: number | null; count: number } {
+  if (trusted === null) return { line: 'Couldn’t load', avg: null, count: 0 };
+  const count = Number(trusted.trusted_review_count ?? 0);
+  const avg = Number(trusted.trusted_avg_rating ?? 0);
+  if (!(count > 0) || !(avg > 0)) return { line: 'No reviews yet', avg: null, count: 0 };
+  return { line: `${avg.toFixed(1)} ★ · ${formatCount(count)} ${count === 1 ? 'review' : 'reviews'}`, avg, count };
+}
+
 /** Where bookings come from — Setnayan vs your own, off the attribution window. */
 export function fromLine(a: { setnayan: { bookingCount: number }; offPlatform: { bookingCount: number } } | null): string {
   if (!a) return 'Couldn’t load';

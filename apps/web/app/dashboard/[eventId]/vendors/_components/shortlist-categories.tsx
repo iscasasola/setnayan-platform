@@ -1640,7 +1640,8 @@ function VendorCard({
         {/* No price recorded with THIS couple yet → the service card's own
             "from ₱X". Withheld by the shop, or never set → "Price on request",
             and only when the cards were actually read. */}
-        {look.face && !hasRecordedPrice && !v.includedWith ? (
+        {/* 💬 A live quote is out (`withLiveQuotes`) → the standing line names its amount; never "Price on request". */}
+        {look.face && !hasRecordedPrice && !v.includedWith && v.quotedPhp == null ? (
           svc?.priceText ? (
             <span className="sc-price">{svc.priceText}</span>
           ) : selfAdded ? (

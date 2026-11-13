@@ -1395,7 +1395,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           papicStanding={composerPapicStanding}
           shopGifts={shopGifts.basis}
           shopGiftsBuy={shopGifts.buy}
-          requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
+          requestedPax={thread.pax_at_inquiry ?? headerPax ?? null}
           livePax={headerPax ?? null}
           coupleName={coupleLabel}
           packages={proposalPackages.filter((p) => !bundleIds.has(p.id))}

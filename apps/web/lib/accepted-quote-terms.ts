@@ -791,12 +791,28 @@ export const DEFAULT_QUOTE_NOTE_TAIL =
   'Accepting shortlists them at this price so you can compare — nothing is booked or paid until you Book.';
 
 /**
+ * The same sentence as the SUPPLIER reads it on their own sent quote (supplier walk, 13 Nov 2026: the supplier's view
+ * said "Accepting shortlists them…" — the couple's words, about the supplier, to the supplier).
+ */
+export const DEFAULT_QUOTE_NOTE_TAIL_SUPPLIER =
+  'When the couple accepts, you are on their shortlist at this price — nothing is booked or paid until they book.';
+
+/**
  * The quote's note as the page should show it. A supplier's own words are
  * always shown; the DEFAULT note's pre-booking sentence is dropped once the
- * booking is real, because it is no longer true.
+ * booking is real, because it is no longer true — and, before that, the
+ * supplier viewing their own quote reads it in supplier words. The couple's
+ * view is unchanged.
  */
-export function quoteNoteShown(body: string | null | undefined, booked: boolean): string {
+export function quoteNoteShown(
+  body: string | null | undefined,
+  booked: boolean,
+  viewer: 'couple' | 'supplier' = 'couple',
+): string {
   const text = (body ?? '').trim();
-  if (!booked || !text.endsWith(DEFAULT_QUOTE_NOTE_TAIL)) return text;
-  return text.slice(0, text.length - DEFAULT_QUOTE_NOTE_TAIL.length).trim();
+  if (!text.endsWith(DEFAULT_QUOTE_NOTE_TAIL)) return text;
+  const head = text.slice(0, text.length - DEFAULT_QUOTE_NOTE_TAIL.length).trim();
+  if (booked) return head;
+  if (viewer === 'supplier') return `${head} ${DEFAULT_QUOTE_NOTE_TAIL_SUPPLIER}`.trim();
+  return text;
 }

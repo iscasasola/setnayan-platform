@@ -313,7 +313,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
     });
     if (read.step.kind !== 'not_booked') bookedMoney = read;
   }
-  const noteShown = quoteNoteShown(proposal.rendered_body, bookedMoney !== null);
+  const noteShown = quoteNoteShown(proposal.rendered_body, bookedMoney !== null, isVendorSide ? 'supplier' : 'couple');
 
   /**
    * THE WAY BACK (owner, live, 2026-09-20: *"when i click view proposal, it

@@ -465,8 +465,13 @@ export function ProposalMaker({
    *
    * ⚠ NO LONGER THE SEED. It is the historical figure the header names beside
    * the live one, and the fallback when no live count exists.
+   *
+   * `null` = the couple gave no count at all (no inquiry count, no guest list,
+   * no estimate). The builder then opens with the headcount EMPTY and asks the
+   * supplier to type it — never a guessed default (owner: "don't guess"; the
+   * page used to pass 100 here).
    */
-  requestedPax: number;
+  requestedPax: number | null;
   /**
    * What the couple is planning for NOW — and, since 2026-09-09, WHAT THE
    * BUILDER OPENS AT (owner decision; binding prototype
@@ -528,7 +533,11 @@ export function ProposalMaker({
     ⚠ THIS IS THE NUMBER THE FIRST QUOTE IS PRICED AGAINST, so it is read once,
     here, and named in the header rather than left to be inferred.
   */
-  const seedPax = livePax ?? requestedPax;
+  const seedPax: number | null = livePax ?? requestedPax ?? null;
+  /** No count from the couple at all — the headcount starts EMPTY and the supplier types it (never a guess). */
+  const noList = seedPax === null;
+  /** Their count for the money math — 0 when there is none, so billed = the headcount the supplier typed. */
+  const listPax = seedPax ?? 0;
   /*
     👥 PAX FOLLOWS THEIR GUEST LIST (owner 12 Nov 2026, verbatim: *"our quotation maker will follow their pax at auto.
     but they will set the minimum count for their pax. it only goes up as their guests go up."*). No guests stepper:
@@ -536,7 +545,7 @@ export function ProposalMaker({
     billed = max(their count, the minimum). A revision opens at the minimum the replaced quote was sent with.
   */
   const [minPax, setMinPax] = useState(() => revision?.minPax ?? 0);
-  const pax = billedPax(seedPax, minPax);
+  const pax = billedPax(listPax, minPax);
   const [hours, setHours] = useState(requestedHours);
   // 🪗 One line open at a time, the first open; the heading's icon opens / folds every line (owner 12 Nov).
   const [fold, setFold] = useState<LineFold>(FIRST_OPEN);
@@ -658,7 +667,7 @@ export function ProposalMaker({
     those are no longer the same number.
   */
   /** The live count and the inquiry count actually differ and both are known. */
-  const countsDiffer = livePax != null && livePax !== requestedPax;
+  const countsDiffer = livePax != null && requestedPax != null && livePax !== requestedPax;
 
   // 🏷 The quote's card names (the offer's "on <card> only") and the gift names an offer's gifts are drawn with.
   const cardName = (id: string) => cards.find((c) => c.id === id)?.label ?? 'its card';
@@ -981,10 +990,10 @@ export function ProposalMaker({
         */
         shopGiftCodes,
         /* 👥 What this quote billed against their guest list, and the ONE minimum — `merge_snapshot` (owner 12 Nov). */
-        pax: { live: seedPax, min: minPax, billed: pax },
+        pax: { live: listPax, min: minPax, billed: pax },
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `cards`/`pickedCards` are read for serviceCardIds as before
-    [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds, giftSwitch, shopGiftCodes, seedPax, minPax, pax],
+    [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds, giftSwitch, shopGiftCodes, listPax, minPax, pax],
   );
 
   /* ── Line mutation helpers ────────────────────────────────────────────── */
@@ -1282,7 +1291,7 @@ export function ProposalMaker({
     window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}${u.hash}`);
     const draft = kept ? parseSavedQuoteDraft(kept.draft) : null;
     const kMin = typeof kept?.minPax === 'number' && kept.minPax > 0 ? kept.minPax : minPax;
-    const kPax = billedPax(seedPax, kMin);
+    const kPax = billedPax(listPax, kMin);
     const kHours = typeof kept?.hours === 'number' && kept.hours > 0 ? kept.hours : hours;
     if (draft) applySavedDraft(draft);
     if (kept?.title) setTitle(kept.title);
@@ -1607,18 +1616,26 @@ export function ProposalMaker({
             <span className="min-w-0">
               <span className="block text-sm text-ink">On their list</span>
               <span className="block text-xs text-ink/55">
-                live · changes as they add names
-                {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}
+                {noList ? (
+                  'no guest list yet · no count given'
+                ) : (
+                  <>
+                    live · changes as they add names
+                    {countsDiffer && requestedPax != null ? <> · was {formatCount(requestedPax)} at inquiry</> : null}
+                  </>
+                )}
               </span>
             </span>
-            <strong className="font-serif text-lg tabular-nums text-ink" data-quote-live-pax="">
-              {formatCount(seedPax)}
+            <strong className="font-serif text-lg tabular-nums text-ink" data-quote-live-pax={noList ? 'none' : ''}>
+              {noList ? '—' : formatCount(listPax)}
             </strong>
           </div>
           <div className="flex min-h-[52px] items-center justify-between gap-3">
             <span className="min-w-0">
-              <span className="block text-sm text-ink">Bill at least</span>
-              <span className="block text-xs text-ink/55">your minimum · one for the whole quote</span>
+              <span className="block text-sm text-ink">{noList ? 'Headcount' : 'Bill at least'}</span>
+              <span className="block text-xs text-ink/55" data-quote-pax-ask={noList ? '' : undefined}>
+                {noList ? 'type how many guests to quote for' : 'your minimum · one for the whole quote'}
+              </span>
             </span>
             <span className="flex items-center gap-1">
               <button
@@ -1633,9 +1650,10 @@ export function ProposalMaker({
                 type="number"
                 min={0}
                 step={1}
-                value={minPax}
+                value={noList && minPax === 0 ? '' : minPax}
+                placeholder={noList ? 'Type' : undefined}
                 onChange={(e) => setMinPax(Math.max(0, Math.round(Number(e.target.value) || 0)))}
-                aria-label="Bill at least"
+                aria-label={noList ? 'Headcount' : 'Bill at least'}
                 data-quote-min-pax=""
                 className={`${numField} h-11 w-16 text-center`}
               />
@@ -1653,11 +1671,11 @@ export function ProposalMaker({
             <span className="min-w-0">
               <span className="block text-sm text-ink">Billed</span>
               <span className="block text-xs text-ink/55">
-                {pax > seedPax ? 'your minimum · above their list' : 'their list · at or above your minimum'}
+                {noList ? 'the headcount you typed' : pax > listPax ? 'your minimum · above their list' : 'their list · at or above your minimum'}
               </span>
             </span>
             <strong className="font-serif text-lg tabular-nums text-ink" data-quote-billed-pax="">
-              {formatCount(pax)} <span className="text-xs font-normal text-ink/55">pax</span>
+              {noList && pax === 0 ? '—' : formatCount(pax)} <span className="text-xs font-normal text-ink/55">pax</span>
             </strong>
           </div>
           <div className="flex min-h-[52px] items-center justify-between gap-3">

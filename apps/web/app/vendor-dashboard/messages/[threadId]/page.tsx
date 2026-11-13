@@ -130,6 +130,7 @@ import {
 } from './_components/on-demand';
 import type { VendorOfferOption } from './_components/vendor-offer-service';
 import { OUTCOME_NOTICE } from './_lib/outcome-notice';
+import { DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY, DEMO_SHOP_CANNOT_BE_BOOKED } from '@/lib/demo-scope';
 import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
@@ -229,6 +230,9 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   // 📅 No lifetime quotation (2026-11-09).
   proposal_needs_valid_until: 'Pick how long this quote is valid before you send it — nothing was sent.',
   proposal_plan_not_in_full: 'The payment plan must pay the whole quote — nothing was sent.',
+  // 🧪 The demo rule (lib/demo-scope.ts) — the same sentences the rule itself uses, plus "nothing was sent".
+  proposal_demo_shop: `${DEMO_SHOP_CANNOT_BE_BOOKED} Quotes from a demo shop go only to demo events — nothing was sent.`,
+  proposal_demo_event: `${DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY} Nothing was sent.`,
   proposal_lock_requested:
     'The couple has asked to lock at the quote they accepted. Agree or decline that request on your Today page first — a new quote can’t replace it while it’s open.',
   // Won & Lost Reasons capture (Wave 6) — its words live in `_lib/outcome-notice.ts`, shared with the stay door.

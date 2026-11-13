@@ -90,3 +90,41 @@ test('/recap before the day: the page says plainly the story opens after it', ()
   assert.match(body, /\{storyAsked && plan\.body !== 'editorial' && !isEditorCanvas \? \(\s*<p role="status" data-story-later="">?/, 'the line is not gated to "before the story"');
   assert.match(body, /\{STORY_LATER_WORDS\}/);
 });
+
+/* ── THE RE-WALK OF /rosa-ben/recap AFTER #7628 (controller, 2026-11-13): four rows only partly fixed. ── */
+
+test('F-W2-48 (re-walk) · the road never ends on an empty "0 · the day" stop', () => {
+  const road = read(`${E}/post-event-scene-views-3.tsx`);
+  assert.doesNotMatch(road, /0<span className=\{`\$\{MICRO\} ml-2`\}>the day<\/span>/, 'the empty "0 · the day" stop is drawn again');
+  assert.match(road, /days before the day/, 'anti-vacuity: the countdown itself is still there');
+});
+
+test('F-W2-49 (re-walk) · one day-window count of photos, everywhere the story says "photos"', () => {
+  const data = read(`${E}/data.ts`);
+  assert.match(data, /photos: typeof galleryDayTotal === 'number' \? galleryDayTotal : typeof frozen\.photos === 'number'/, 'metrics.photos is not the day count — the cover, By the numbers and Powered by disagree again');
+  assert.match(data, /photoWallPhotos = snap\.tiles\.filter\(\(t\) => capturedOnTheDay\(t\.sortAt, dayWindow\)\)/, 'Memory lane counts shots from before the day again');
+  const content = read(`${E}/editorial-content.tsx`);
+  assert.match(content, /<LivePhotoWall photos=\{data\.photoWallPhotos\} photoCount=\{data\.metrics\.photos\} \/>/, 'Powered by reads another count');
+});
+
+test('F-W2-52 (re-walk) · no bare "thank you" under the team', () => {
+  const credits = read(`${E}/post-event-scene-views-2.tsx`);
+  assert.doesNotMatch(credits, />thank you</, 'the credits roll ends on a bare "thank you" again');
+});
+
+test('F-W2-53 (re-walk) · a stranger’s page and the host’s own end at the story; a guest keeps their photos below it', () => {
+  const body = read('app/[slug]/_components/site-body.tsx');
+  const at = body.indexOf("plan.body === 'editorial' ? (");
+  const end = body.indexOf("plan.body === 'save_the_date' ? (", at);
+  assert.ok(at > 0 && end > at, 'anti-vacuity: the after-day branch was not found');
+  const branch = body.slice(at, end);
+  assert.match(branch, /\{identity\.kind === 'guest' \? \(\s*<>\s*<div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink\/15" \/>\s*\{normalBody\(\)\}/, 'the pre-day body is drawn under the story for a stranger or the host again');
+  assert.equal(branch.match(/normalBody\(\)/g)?.length, 1, 'the body is drawn under the story a second way');
+});
+
+test('F-W2-53 (re-walk) · under the story a stranger keeps only the way in; the host’s "You’re the host" note is gone', () => {
+  const body = read('app/[slug]/_components/site-body.tsx');
+  assert.match(body, /\) : afterStory\}/, 'a non-guest page draws nothing — or the whole body — under the story');
+  assert.match(body, /doorShown \? <div className="mx-auto mt-10 w-full max-w-md px-4" data-story-door="">\{strangerDoor\(false\)\}<\/div> : null\)\}/, 'a guest on a new phone has no way in to their photos after the day');
+  assert.match(body, /\{group\('me', <>\{plan\.openBrowse && viewerIsHost && !storyLeads \? \(/, 'the host’s "You don’t need an invitation" note is drawn after the day again');
+});

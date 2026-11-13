@@ -1546,6 +1546,9 @@ export async function SiteBody({
   const phasedBody = (
     normalBody: () => React.ReactNode,
     memento: React.ReactNode = null,
+    /** 📖 What a NON-guest page keeps under the story after the day — the stranger's door (`anonymousTree`), so a
+     *  guest on a new phone can still get in to their own photos. Null: nothing. */
+    afterStory: React.ReactNode = null,
   ): React.ReactNode =>
     plan.body === 'editorial' ? (
       // AFTER THE WEDDING: the editorial cover leads, then the site persists
@@ -1626,8 +1629,20 @@ export async function SiteBody({
           </p>
         ) : null}
         {memento}
-        <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />
-        {normalBody()}
+        {/* 📖 A STRANGER'S PAGE — AND THE HOST'S OWN — ENDS AT THE STORY (F-W2-53, the walk of /rosa-ben/recap after
+            #7628: under the story that page still drew the pre-day body — "No program was published…", "You're the
+            host — You don't need an invitation…"). Owner 2026-11-13, DECISION_LOG "POST EVENT = A STORY (ONE SCENE
+            PER SCREEN) — SIX CALLS SETTLED": after the day, the story REPLACES the invitation.
+            A GUEST keeps the body under it, because the 2026-08-05 ruling above holds there and only there: their
+            "Photos of you" (with its claim-your-account line) and "Your shots" are in the guest's body and nowhere
+            in the story. The stranger/host body holds none of that — its after-day contents were the cover, the
+            door, the empty plates and the host's note. */}
+        {identity.kind === 'guest' ? (
+          <>
+            <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />
+            {normalBody()}
+          </>
+        ) : afterStory}
       </>
     ) : plan.body === 'save_the_date' ? (
       // The film stops being a wall — for EVERY event, not only open-browse ones.
@@ -2688,11 +2703,14 @@ export async function SiteBody({
             </div>
             </>, { quiet: !storyScene && (storySceneShown || storyOffHere || !weddingOnly.love_story || !(event.love_story || plan.openBrowse)) })}
           </>
-        ))}
+        ), null,
+        /* 🚪 …and after the day, under the story, ONLY the way in (F-W2-53): the door a guest on a new phone uses to
+           reach their own photos — never the cover, the plates or the host's note. */
+        doorShown ? <div className="mx-auto mt-10 w-full max-w-md px-4" data-story-door="">{strangerDoor(false)}</div> : null)}
         {/* Me tab — under open-browse a cookie-less visitor gets designed
             find-mode (§1.1); otherwise the account/claim affordance lives in the
             fixed PublicEventDayBar and this marker just gives the tab a landing. */}
-        {group('me', <>{plan.openBrowse && viewerIsHost ? (
+        {group('me', <>{plan.openBrowse && viewerIsHost && !storyLeads ? (
           /* The host half of the Me tab. `FindModeCard` asks "Have an
              invitation?" and offers "Open my invitation" — a dead end for the
              person who ISSUES the invitations, and the tab must still land

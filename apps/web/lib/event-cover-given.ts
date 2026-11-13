@@ -53,6 +53,14 @@ export type DressedEventCover = {
   mainFrame: string[] | null;
   /** The theme the hub wears (`resolveHubTheme`), or null when it could not be read. */
   theme: InviteThemeId | null;
+  /**
+   * 🖼 THE WHOLE POSTER BEHIND A `scene` THAT CAME FROM IT (owner 2026-11-12: *"the event icons are not
+   * similar?"* — Home printed the couple's names and date on their photo, Discover showed the bare photo).
+   * `scene` is the picture alone (`sceneCoverFor`); this is the same `<EventPoster>` the home board draws,
+   * so Discover can draw the invitation ON the picture exactly as Home does. Null for the Main background
+   * (no poster words belong on it) and whenever `scene` is null. Optional so older callers keep compiling.
+   */
+  scenePoster?: DiscoverPaper | null;
 };
 
 /** Everything the cover asks of the outside world. */
@@ -164,18 +172,24 @@ export async function dressEventCoverGiven(
     scene = null;
     paperPoster = { ...poster, kind: 'invitation', dark: false, photoSrc: null, ground: null, legibility: null };
   }
-  if (scene) return { scene, paper: null, mainFrame: null, theme: hub?.theme ?? null };
-  if (paperPoster) {
-    // SEC-3: both logo columns are host-writable — read through the gate.
+  // SEC-3: both logo columns are host-writable — read through the gate.
+  const markOf = async (forPoster: NonNullable<typeof poster>, ground: DiscoverPaper['ground']): Promise<DiscoverPaper> => {
     const markSvg = resolveEventMonogramSvg(r);
-    const paper: DiscoverPaper = {
-      poster: paperPoster,
-      ground: paperGroundOf(look),
+    return {
+      poster: forPoster,
+      ground,
       markText: resolveMonogram(r).text,
       markSvg,
       // A logo that does not move costs no read (`coupleLogoPlays`).
       markPlays: coupleLogoPlays(markSvg, true) ? await io.logoAnimationOn().catch(() => false) : false,
     };
+  };
+  if (scene) {
+    const scenePoster = poster && scene.kind !== 'quiet' ? await markOf(poster, null) : null;
+    return { scene, paper: null, mainFrame: null, theme: hub?.theme ?? null, scenePoster };
+  }
+  if (paperPoster) {
+    const paper = await markOf(paperPoster, paperGroundOf(look));
     return { scene: null, paper, mainFrame: null, theme: hub?.theme ?? null };
   }
   return { scene: null, paper: null, mainFrame: null, theme: hub?.theme ?? null };

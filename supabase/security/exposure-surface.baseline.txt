@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7766
+# facts: 7770
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     632
-#   col       5593
+#   col       5597
 #   policy    1138
 #   view      10
 #   func      389
@@ -1013,6 +1013,7 @@ col	public.chat_messages.created_at	anon=S authenticated=S
 col	public.chat_messages.event_id	anon=S authenticated=SI
 col	public.chat_messages.is_bot	anon=S authenticated=S
 col	public.chat_messages.message_id	anon=S authenticated=SI
+col	public.chat_messages.offer_good_until	anon=S authenticated=SI
 col	public.chat_messages.offered_service_id	anon=S authenticated=SI
 col	public.chat_messages.proposal_id	anon=S authenticated=SI
 col	public.chat_messages.recipient_user_id	anon=S authenticated=SI
@@ -1021,6 +1022,7 @@ col	public.chat_messages.sender_role	anon=S authenticated=S
 col	public.chat_messages.sender_user_id	anon=S authenticated=S
 col	public.chat_messages.sent_as	anon=S authenticated=SI
 col	public.chat_messages.thread_id	anon=S authenticated=SI
+col	public.chat_messages.vendor_offer_id	anon=S authenticated=SI
 col	public.chat_messages.vendor_profile_id	anon=S authenticated=SI
 col	public.chat_poll_choices.choice_id	anon=- authenticated=S
 col	public.chat_poll_choices.label	anon=- authenticated=S
@@ -2324,6 +2326,7 @@ col	public.event_vendor_working_notes.event_vendor_id	anon=SIU authenticated=SIU
 col	public.event_vendor_working_notes.id	anon=SIU authenticated=SIU
 col	public.event_vendor_working_notes.note_id	anon=SIU authenticated=SIU
 col	public.event_vendor_working_notes.visibility	anon=SIU authenticated=SIU
+col	public.event_vendors.agreed_hours	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_at	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_by_lock_of	anon=SIU authenticated=SIU
 col	public.event_vendors.category	anon=SIU authenticated=SIU
@@ -2389,6 +2392,7 @@ col	public.event_vendors.package_role	anon=SIU authenticated=SIU
 col	public.event_vendors.papic_captures_hidden	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_surcharge_php	anon=SIU authenticated=SIU
+col	public.event_vendors.pricing_basis	anon=SIU authenticated=SIU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
 col	public.event_vendors.selection_match_rank	anon=SIU authenticated=SIU

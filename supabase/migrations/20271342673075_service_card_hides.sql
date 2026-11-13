@@ -16,6 +16,8 @@
 --   event  the anonymised record line (type · month · guest band, + its occurrence) — the record carries NO event id on
 --          purpose (`service_card_records`), so nor does this
 --   insp   the approved inspiration look's id
+--   review the review's id (`vendor_reviews.review_id`) — owner ruling DECISION_LOG 2026-11-13 "Yes, add reviews":
+--          hidden on THIS card only; the review is never deleted and stays on the shop and for the couple who wrote it
 -- A key that no longer matches anything simply hides nothing.
 --
 -- 🔑 NO vendor_profile_id COLUMN, ON PURPOSE: a second foreign key to vendor_profiles beside vendor_services makes
@@ -32,7 +34,7 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS public.vendor_service_card_hides (
   vendor_service_id UUID NOT NULL
                       REFERENCES public.vendor_services(vendor_service_id) ON DELETE CASCADE,
-  item_kind         TEXT NOT NULL CHECK (item_kind IN ('photo', 'clip', 'event', 'insp')),
+  item_kind         TEXT NOT NULL CHECK (item_kind IN ('photo', 'clip', 'event', 'insp', 'review')),
   item_key          TEXT NOT NULL CHECK (length(item_key) BETWEEN 1 AND 600),
   hidden_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (vendor_service_id, item_kind, item_key)
@@ -80,6 +82,6 @@ GRANT SELECT, DELETE ON public.vendor_service_card_hides TO authenticated;
 GRANT INSERT (vendor_service_id, item_kind, item_key) ON public.vendor_service_card_hides TO authenticated;
 
 COMMENT ON TABLE public.vendor_service_card_hides IS
-  'Hide per card never deletes (DECISION_LOG 2026-11-10 "SERVICE CARD GROWN — PROTOTYPE APPROVED"). One row = one item (photo · clip · event line · inspiration look) the shop hid on ONE card; it stays everywhere else. Couples and the 👁 Couple view get the card without it. Written by the shop''s owner/admin team under RLS; the public shop page reads it on the server.';
+  'Hide per card never deletes (DECISION_LOG 2026-11-10 "SERVICE CARD GROWN — PROTOTYPE APPROVED"). One row = one item (photo · clip · event line · inspiration look · review) the shop hid on ONE card; it stays everywhere else. Couples and the 👁 Couple view get the card without it. Written by the shop''s owner/admin team under RLS; the public shop page reads it on the server.';
 
 COMMIT;

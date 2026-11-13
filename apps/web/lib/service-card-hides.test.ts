@@ -23,7 +23,9 @@ import type { ServiceCard } from './service-card-view-model';
 
 test('a key goes in and comes back out; anything else is refused', () => {
   assert.deepEqual(parseCardHideKey(cardHideKey('photo', 'r2://setnayan-media/a/b.jpg')), { kind: 'photo', key: 'r2://setnayan-media/a/b.jpg' });
-  assert.equal(parseCardHideKey('review:abc'), null, 'reviews are never hidden on a card');
+  // ⭐ Reviews are hideable per card now (owner ruling DECISION_LOG 2026-11-13 "Yes, add reviews"); forms still are not.
+  assert.deepEqual(parseCardHideKey('review:host:abc'), { kind: 'review', key: 'host:abc' });
+  assert.equal(parseCardHideKey('form:abc'), null, 'forms are never hidden on a card');
   assert.equal(parseCardHideKey('photo:'), null);
   assert.equal(parseCardHideKey(':x'), null);
   assert.equal(parseCardHideKey(42), null);
@@ -31,7 +33,7 @@ test('a key goes in and comes back out; anything else is refused', () => {
 });
 
 test('the kinds match the table CHECK, and nothing else', () => {
-  const sql = readFileSync(join(__dirname, '../../../supabase/migrations/20271342009988_service_card_hides.sql'), 'utf8');
+  const sql = readFileSync(join(__dirname, '../../../supabase/migrations/20271342673075_service_card_hides.sql'), 'utf8');
   const inList = sql.match(/item_kind IN \(([^)]+)\)/)?.[1] ?? '';
   assert.deepEqual([...inList.matchAll(/'([a-z]+)'/g)].map((m) => m[1]), [...CARD_HIDE_KINDS]);
   assert.match(sql, /ENABLE ROW LEVEL SECURITY/, 'RLS at create time');
@@ -206,4 +208,74 @@ test('fix 3 · a hide save that fails or is refused is a message, never silence'
   assert.match(cardHideSaveError({ status: 'error' }, false) ?? '', /It is still hidden on this card/);
   assert.match(cardHideSaveError({ status: 'refused' }, true) ?? '', /can’t change this card/);
   assert.match(cardHideSaveError(null, true) ?? '', /wasn’t saved/, 'no reply (a thrown call) is a failure too');
+});
+
+// ── ⭐ REVIEWS hide per card (owner ruling DECISION_LOG 2026-11-13, verbatim "Yes, add reviews") ──────────────────────
+const reviewed = (): ServiceCard =>
+  card({
+    reviews: {
+      hosts: { count: 12, average: 4.8, quote: 'The drinks were the talk of the night.', by: 'Maria & Jose · Oct 2026', verifiedBooking: true, reviewId: 'hr-1' },
+      guests: {
+        count: 3,
+        average: 4.7,
+        newest: { shownName: 'Maria J.', stars: 5, line: 'Loved the bar.', photoUrl: 'https://u/g1', reviewId: 'gr-1' },
+        readAllHref: '#guest-reviews',
+      },
+    },
+  });
+
+test('⭐ the review each group SHOWS has a key; a group with no quote or no line has none', () => {
+  const k = cardItemKeys(reviewed());
+  assert.equal(k.reviews.host, 'review:host:hr-1');
+  assert.equal(k.reviews.guest, 'review:guest:gr-1');
+  const bare = cardItemKeys(card({ reviews: { hosts: { count: 2, average: 5, quote: null, by: null, verifiedBooking: false, reviewId: 'hr-9' }, guests: null } }));
+  assert.deepEqual(bare.reviews, { host: null, guest: null }, 'the number alone is never hideable — it still counts');
+  assert.deepEqual(cardItemKeys(card({})).reviews, { host: null, guest: null });
+});
+
+test('⭐ a hidden review loses its words, name and photo on THIS card — the number stays (nothing is deleted)', () => {
+  const out = cardWithoutHidden(reviewed(), ['review:host:hr-1', 'review:guest:gr-1']);
+  assert.equal(out.reviews?.hosts?.count, 12, 'the hidden review still counts');
+  assert.equal(out.reviews?.hosts?.average, 4.8);
+  assert.equal(out.reviews?.hosts?.quote, null);
+  assert.equal(out.reviews?.hosts?.by, null);
+  assert.equal(out.reviews?.hosts?.verifiedBooking, false);
+  assert.equal(out.reviews?.guests?.count, 3);
+  assert.equal(out.reviews?.guests?.newest, null);
+  const json = JSON.stringify(out);
+  assert.doesNotMatch(json, /talk of the night|Maria & Jose|Loved the bar|Maria J\.|u\/g1|hr-1|gr-1/, 'nothing of a hidden review is in the serialized card');
+  // One hidden, the other kept.
+  const one = cardWithoutHidden(reviewed(), ['review:guest:gr-1']);
+  assert.equal(one.reviews?.hosts?.quote, 'The drinks were the talk of the night.');
+  assert.equal(one.reviews?.guests?.newest, null);
+  // Nothing hidden → the reviews arrive whole.
+  assert.deepEqual(cardWithoutHidden(reviewed(), []).reviews, reviewed().reviews);
+  // The card is not mutated.
+  assert.equal(reviewed().reviews?.hosts?.quote, 'The drinks were the talk of the night.');
+});
+
+test('⭐ a FAILED hides read leaves out the reviews\' words too, and says so — the numbers stay', () => {
+  const out = cardWithoutHidden(reviewed(), 'unread');
+  assert.equal(out.reviews?.hosts?.quote, null);
+  assert.equal(out.reviews?.guests?.newest, null);
+  assert.equal(out.reviews?.hosts?.count, 12);
+  assert.equal(out.hidesUnread, true);
+});
+
+test('⭐ sabotage · EVERY kind in CARD_HIDE_KINDS is actually dropped by cardWithoutHidden (a new kind cannot ship inert)', () => {
+  const c: ServiceCard = { ...full(), reviews: reviewed().reviews };
+  const keys = cardItemKeys(c);
+  const one: Record<string, string> = {
+    photo: keys.photos[1]!,
+    clip: keys.clip!,
+    event: keys.events[1]!,
+    insp: keys.insp[1]!,
+    review: keys.reviews.host!,
+  };
+  assert.deepEqual(Object.keys(one).sort(), [...CARD_HIDE_KINDS].sort(), 'this check covers every kind the table allows');
+  const whole = JSON.stringify(cardWithoutHidden(c, []));
+  for (const kind of CARD_HIDE_KINDS) {
+    const out = JSON.stringify(cardWithoutHidden(c, [one[kind]!]));
+    assert.notEqual(out, whole, `hiding a ${kind} changes what a couple gets`);
+  }
 });

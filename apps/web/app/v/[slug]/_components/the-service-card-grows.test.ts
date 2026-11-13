@@ -84,8 +84,19 @@ test('🃏 ruling 5970 — hide per card, 👁 Couple view and the opens are the
   assert.match(code, /Hidden on this card\n/);
   // The opens have no hide: drawn for the shop in BOTH views, and a failed read never reads as zero.
   assert.match(code, /owner\.opens === null\s*\? 'Opens couldn’t load'/);
-  // Reviews are never a hidable.
-  assert.doesNotMatch(code, /hidable\([^)]*review/i);
+  // ⭐ Reviews ARE hidable now (owner ruling DECISION_LOG 2026-11-13 "Yes, add reviews") — through the same `hidable`,
+  // keyed on the review each group shows, and only while the shop curates.
+  assert.match(code, /curating\s*\?\s*hidable\(\s*which === 'host' \? keys\.reviews\.host : keys\.reviews\.guest,/);
+  // The 👁 Couple view leaves a hidden review's words OUT (its number stays).
+  assert.match(code, /const hostGone = hosts !== null && leftOut\(keys\.reviews\.host\);/);
+  assert.match(code, /const guestGone = guests !== null && leftOut\(keys\.reviews\.guest\);/);
+  assert.match(code, /reviews=\{shownReviews \?\? c\.reviews\}/);
+});
+
+test('⭐ the ⓘ copy says reviews CAN be hidden on a card — never the retired "Reviews and forms are never hidden here"', () => {
+  assert.doesNotMatch(SHEET, /Reviews and forms are never hidden here/);
+  assert.match(SHEET, /an inspiration photo or a review to hide it on this card/);
+  assert.match(SHEET, /A hidden review still counts in the card’s stars/);
 });
 
 test('📅 events show WITHOUT names — the record\'s anonymised lines, drawn once', () => {

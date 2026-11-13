@@ -5,6 +5,16 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { servicesReturnBase } from '@/lib/vendor-services-return';
 import { QUOTE_RETURN_FIELD, QUOTE_RETURN_PARAM, quoteReturnPath, quoteReturnWithCard } from '@/lib/quote-card-return';
+import {
+  CARD_QUEUE_FIELD,
+  CARD_QUEUE_PARAM,
+  CARD_SPECIALTIES_FIELD,
+  CARD_SPECIALTIES_PARAM,
+  cardMakerQueueHref,
+  encodeCardSpecialties,
+  parseCardQueue,
+  parseCardSpecialties,
+} from '@/lib/card-queue';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -923,6 +933,12 @@ export async function createVendorService(formData: FormData) {
       profile.vendor_profile_id,
       { discounts: discountRows, inclusions: inclusionRows, brackets: bracketRows },
     );
+    // Priced add-ons (`addons-editor.tsx` rows) — the same replace-all the canvas save runs, only when the form carried
+    // the editor. The claim door's Extras arrive this way (v2, owner 2026-11-13). Best-effort, like the lists above.
+    if (formData.get('addons_present') === '1') {
+      const addonErr = await replaceServiceAddons(supabase, created.vendor_service_id, profile.vendor_profile_id, parseAddonRows(formData));
+      if (addonErr) console.warn('[createVendorService] the add-ons were not saved:', addonErr);
+    }
   }
 
   // Repost-watch/NSFW hash-scan on a new cover — same post-response hook the
@@ -1532,10 +1548,20 @@ export async function commitVendorService(formData: FormData) {
   // (`quoteReturnPath`, only the two pages that draw the quote, never an open redirect). A refusal keeps it on the
   // maker's address; a new card's save returns there with the card (below).
   const quoteReturn = quoteReturnPath(formData.get(QUOTE_RETURN_FIELD));
+  // ➕ MAKE N CARDS (ruling 5820): the services still to make after this one — checked (`parseCardQueue`), only on a
+  // CREATE. A refusal keeps them on the card's address; a made card opens the next one's maker (below).
+  const cardQueue = isCreate ? parseCardQueue(formData.get(CARD_QUEUE_FIELD)) : [];
+  // 🏷 …and each queued service's own specialties, carried to its card (pre-ticked there, saved only with that card).
+  const queuedSpecialties = parseCardSpecialties(formData.get(CARD_SPECIALTIES_FIELD), cardQueue);
   const back = async (msg: string) => {
     if (returnTo && !(isCreate && claimToken)) {
       const keepQuote = quoteReturn ? `&${QUOTE_RETURN_PARAM}=${encodeURIComponent(quoteReturn)}` : '';
-      return redirect(`${returnTo}?error=${encodeURIComponent(msg)}${keepQuote}`);
+      const keepSp = encodeCardSpecialties(queuedSpecialties, cardQueue);
+      const keepQueue =
+        cardQueue.length > 0
+          ? `&${CARD_QUEUE_PARAM}=${cardQueue.join(',')}${keepSp ? `&${CARD_SPECIALTIES_PARAM}=${encodeURIComponent(keepSp)}` : ''}`
+          : '';
+      return redirect(`${returnTo}?error=${encodeURIComponent(msg)}${keepQuote}${keepQueue}`);
     }
     if (isCreate && claimToken && formCategory) {
       return redirect(
@@ -2322,6 +2348,9 @@ export async function commitVendorService(formData: FormData) {
   // the quote reads `quote_card` and puts the card in as lines.
   const backToQuote = isCreate && typeof savedId === 'string' && quoteReturn ? quoteReturnWithCard(quoteReturn, savedId) : null;
   if (backToQuote) redirect(backToQuote);
+  // ➕ MAKE N CARDS (ruling 5820): this card is made — the next queued service's maker opens, the rest behind it.
+  const nextCard = isCreate && typeof savedId === 'string' ? cardMakerQueueHref(cardQueue, queuedSpecialties) : null;
+  if (nextCard) redirect(nextCard);
   // Blank names are auto-named, never refused — so the save REPORTS how many
   // it filled in (the placeholder showed the same names before the save).
   const named = customizationAutoNamed > 0 ? `&autonamed=${customizationAutoNamed}` : '';

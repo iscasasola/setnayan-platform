@@ -11,14 +11,20 @@
  *   event:<line>#<n>     the anonymised record line "type|month|band" and which occurrence of it — the record carries
  *                        no event id on purpose (`service_card_records`), so neither does a hide
  *   insp:<look id>       the approved inspiration look
+ *   review:host:<id>     the hosts' review quoted on this card (`vendor_reviews.review_id`)
+ *   review:guest:<id>    the guest review shown on this card (`guest_reviews.review_id`)
  *
- * Pure (no I/O) so the rules are tested directly. Reviews and forms are NOT hideable here — the approved prototype:
- * "Reviews and forms are never hidden here: a form is unlinked from the card instead."
+ * ⭐ REVIEWS (owner ruling DECISION_LOG 2026-11-13, verbatim "Yes, add reviews" — superseding the prototype's "Reviews
+ * and forms are never hidden here"): a shop may hide the review a card SHOWS, on that card only. Nothing is deleted:
+ * the review stays on the shop page, in the card's number, and for the couple or guest who wrote it. Forms are still
+ * not hideable here (a form is unlinked from the card instead).
+ *
+ * Pure (no I/O) so the rules are tested directly.
  */
 
 import type { ServiceCard, ServiceShowcaseMedia } from '@/lib/service-card-view-model';
 
-export const CARD_HIDE_KINDS = ['photo', 'clip', 'event', 'insp'] as const;
+export const CARD_HIDE_KINDS = ['photo', 'clip', 'event', 'insp', 'review'] as const;
 export type CardHideKind = (typeof CARD_HIDE_KINDS)[number];
 
 /** Matches the table's CHECK (`length(item_key) BETWEEN 1 AND 600`). */
@@ -111,17 +117,27 @@ export function withCardHides(
 }
 
 /** The keys of every hideable item on a card, in the card's order — what the sheet walks. */
-export function cardItemKeys(card: Pick<ServiceCard, 'photos' | 'photoRefs' | 'clipRef' | 'record' | 'inspirationLooks'>): {
+export function cardItemKeys(
+  card: Pick<ServiceCard, 'photos' | 'photoRefs' | 'clipRef' | 'record' | 'inspirationLooks'> & Partial<Pick<ServiceCard, 'reviews'>>,
+): {
   photos: Array<string | null>;
   clip: string | null;
   events: string[];
   insp: string[];
+  /** The review each group SHOWS on this card (the hosts' quote · the newest guest line); null when none is shown. */
+  reviews: { host: string | null; guest: string | null };
 } {
+  const hostId = card.reviews?.hosts?.quote ? card.reviews.hosts.reviewId : null;
+  const guestId = card.reviews?.guests?.newest?.reviewId ?? null;
   return {
     photos: card.photos.map((_, i) => (card.photoRefs?.[i] ? cardHideKey('photo', card.photoRefs[i]!) : null)),
     clip: card.clipRef ? cardHideKey('clip', card.clipRef) : null,
     events: eventLineKeys(card.record?.ledger ?? []),
     insp: (card.inspirationLooks ?? []).map((l) => cardHideKey('insp', l.id)),
+    reviews: {
+      host: hostId ? cardHideKey('review', `host:${hostId}`) : null,
+      guest: guestId ? cardHideKey('review', `guest:${guestId}`) : null,
+    },
   };
 }
 
@@ -137,8 +153,9 @@ export type CardHidesRead = { status: 'ok'; byCard: Map<string, string[]> } | { 
  * card the page draws for anyone but the shop itself; the shop gets `withCardHides`' card and curates it.
  *
  * `hidden` is the card's hidden keys, or `'unread'` when the hides read failed. Then nothing hideable is shown — no
- * showcase photo the hide is keyed on, no clip, no event line, no inspiration photo — and `hidesUnread` makes the card
- * say so (only when it actually lost something). Not-hideable content (a cover fallback, the facts, the reviews) is untouched. The refs and the key list are
+ * showcase photo the hide is keyed on, no clip, no event line, no inspiration photo, no review quote or guest line —
+ * and `hidesUnread` makes the card say so (only when it actually lost something). Not-hideable content (a cover
+ * fallback, the facts, the reviews' NUMBERS) is untouched: a hidden review still counts, it just is not quoted here. The refs and the key list are
  * the shop's working data and never ride along.
  */
 export function cardWithoutHidden(card: ServiceCard, hidden: ReadonlyArray<string> | 'unread'): ServiceCard {
@@ -171,6 +188,19 @@ export function cardWithoutHidden(card: ServiceCard, hidden: ReadonlyArray<strin
     if (looks.length !== card.inspirationLooks.length) {
       dropped = true;
       out.inspirationLooks = looks;
+    }
+  }
+  // ⭐ A hidden review: its words, name and photo go; the card's number stays (the review still exists).
+  if (card.reviews) {
+    const { hosts, guests } = card.reviews;
+    const hostGone = hosts !== null && gone(keys.reviews.host);
+    const guestGone = guests !== null && guests.newest !== null && gone(keys.reviews.guest);
+    if (hostGone || guestGone) {
+      dropped = true;
+      out.reviews = {
+        hosts: hostGone && hosts ? { ...hosts, quote: null, by: null, verifiedBooking: false, reviewId: null } : hosts,
+        guests: guestGone && guests ? { ...guests, newest: null } : guests,
+      };
     }
   }
   // Said only where something was actually left out — a card with nothing hideable is whole.

@@ -27,10 +27,12 @@
  * photos (the face's cover show, #7532) and a swipe turns it.
  *
  * 🃏 THE SHOP'S OWN CARD (ruling 5970 · prototype `hidable()`): when the viewer runs the shop (`owner`), a tap on a
- * photo, the clip, an event line or an inspiration photo hides it ON THIS CARD — greyed, "Hidden on this card", a
+ * photo, the clip, an event line, an inspiration photo or a review hides it ON THIS CARD — greyed, "Hidden on this card", a
  * second tap shows it again; nothing is deleted and it stays everywhere else (`lib/service-card-hides.ts`). 👁 in the bar
  * flips to the Couple view: exactly what couples get, hidden items left out. The card's opens (the same count Shop ›
- * Analytics draws) sit under the face in both views and have no hide. Reviews and forms are never hidden here.
+ * Analytics draws) sit under the face in both views and have no hide. Forms are never hidden here. A hidden REVIEW
+ * (owner ruling DECISION_LOG 2026-11-13 "Yes, add reviews") loses its words on this card only; it still counts in the
+ * card's number, stays on the shop page and stays with the couple or guest who wrote it.
  *
  * EVENTS, WITHOUT NAMES (ruling 5970 "events shown without names"): the record's own anonymised lines (type · month ·
  * guest band — `service_card_records`, its SQL floor intact), drawn as their own section after Reviews.
@@ -115,6 +117,7 @@ const SUP_NOTE = {
   photos: 'tap one to hide it here',
   clip: 'tap to hide it here',
   inspiration: 'from this card’s work · tap one to hide it here',
+  reviews: 'tap a review to hide it here',
 } as const;
 const hiddenNote = (n: number, fallback: string) => (n > 0 ? `${formatCount(n)} hidden · tap to show again` : fallback);
 
@@ -300,6 +303,16 @@ export function ServiceDetailsSheet({
   const couples = c.coupleLooks ?? [];
   const hosts = c.reviews?.hosts ?? null;
   const guests = c.reviews?.guests ?? null;
+  // ⭐ The review each group shows, left out in the 👁 Couple view when hidden — its number stays (it still counts).
+  const hostGone = hosts !== null && leftOut(keys.reviews.host);
+  const guestGone = guests !== null && leftOut(keys.reviews.guest);
+  const shownReviews =
+    c.reviews && (hostGone || guestGone)
+      ? {
+          hosts: hostGone && hosts ? { ...hosts, quote: null, by: null, verifiedBooking: false } : hosts,
+          guests: guestGone && guests ? { ...guests, newest: null } : guests,
+        }
+      : c.reviews;
   const servesLine = c.serves ? (
     <p className="mt-2.5 flex items-start gap-1.5 text-[12.5px] leading-snug text-ink/60" data-grown-serves="">
       <Users aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/40" strokeWidth={2} />
@@ -371,8 +384,25 @@ export function ServiceDetailsSheet({
     sections.push({
       key: 'reviews',
       title: 'Reviews',
-      note: `${formatCount(n)} · ${avg.toFixed(1)}★`,
-      body: <CardReviewsBlock reviews={c.reviews} />,
+      note: curating
+        ? hiddenNote(nHidden([keys.reviews.host, keys.reviews.guest]), SUP_NOTE.reviews)
+        : `${formatCount(n)} · ${avg.toFixed(1)}★`,
+      body: (
+        <CardReviewsBlock
+          reviews={shownReviews ?? c.reviews}
+          // 🃏 The shop curating: the one review each group shows is tappable (hide · show again), like a photo.
+          item={(which, inner) =>
+            curating
+              ? hidable(
+                  which === 'host' ? keys.reviews.host : keys.reviews.guest,
+                  which === 'host' ? 'The hosts’ review' : 'The guest review',
+                  'flex w-full items-start gap-2 rounded-xl px-1 py-1',
+                  inner,
+                )
+              : inner
+          }
+        />
+      ),
     });
   }
   // ── EVENTS, without names — the record's anonymised lines (type · month · guest band) ──
@@ -592,9 +622,10 @@ export function ServiceDetailsSheet({
             {owner ? (
               <>
                 {' '}
-                Tap a photo, the clip, an event or an inspiration photo to hide it on this card. It greys out and says so;
-                tap again to show it. Nothing is deleted, and it stays on your shop, in Portfolio, in Inspiration and on
-                every other card. The eye shows the card as couples get it. Reviews and forms are never hidden here, and
+                Tap a photo, the clip, an event, an inspiration photo or a review to hide it on this card. It greys out
+                and says so; tap again to show it. Nothing is deleted, and it stays on your shop, in Portfolio, in
+                Inspiration and on every other card. A hidden review still counts in the card’s stars and stays with the
+                couple or guest who wrote it. The eye shows the card as couples get it. Forms are never hidden here, and
                 the card’s opens always show.
               </>
             ) : null}

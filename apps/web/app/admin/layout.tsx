@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
+import { maybeRunTopUpUnlist } from '@/lib/booking-fee-top-up.server';
 import { maybeRunSupplierPagePublish } from '@/lib/supplier-page-notice.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { createClient } from '@/lib/supabase/server';
@@ -201,6 +202,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Mounted here AND on the vendor layout, same reasoning as the two above; the
   // DB claim picks one winner per window. Flag-gated inside.
   after(() => maybeRunUnbilledFeeRepair().catch(() => {}));
+  after(() => maybeRunTopUpUnlist().catch(() => {}));
   // CTRL-B3 build 5. Dual-mounted like the repair above, and for the same
   // reason: the meter this feeds belongs to SUPPLIERS, so it must not depend
   // on an admin opening one particular screen. `claim_periodic_job` makes the

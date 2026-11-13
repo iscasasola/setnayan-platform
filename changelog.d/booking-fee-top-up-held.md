@@ -1,0 +1,51 @@
+## 2026-11-12 · feat(booking-fee): a top-up is held until the event day — the six top-up rules
+
+Owner, 12 Nov 2026 (DECISION_LOG "💸 BOOKING-FEE TOP-UP — SIX RULES", "Yes, use your picks"; prototype specs
+`Build_Booking_Fee_Hold_2026-11-12/booking-fee-hold.html`). When a booked quote rises, the supplier's booking fee grows
+by a top-up — the `amendment_delta` the shipped re-derive already mints. This changes only WHEN it is owed and what
+each surface says. Nothing new is priced; every figure is the charge row's own.
+
+- **Rule 1 · due on the event day.** Migration `20271340632149_a_top_up_is_held_until_the_event_day.sql`:
+  `booking_fee_rederive_lock_fee` stamps the top-up's `expires_at` at noon Manila on `events.event_date` (never in the
+  past; no date → the shipped 7 days). Bills read "Due today" on the day and "overdue" from the day after.
+- **Rule 4 · held, not owed, before then.** `vendor_event_fee_gate_stage` (SQL) and `eventAccessUnlocked` (TS,
+  reason `top_up_held`) ignore a pending top-up through its due day. From the day after, the shipped lock applies, with
+  the prototype's words "Settle ₱X booking fee to open this". The carry-over — an OVERDUE top-up stops a new
+  booking's yes — is refused in `vendorAgreeToLock` (`lock_agree=top_up_owed`) and drawn on the booking ask as
+  "Settle ₱X to accept" with one sheet (`top-up-carry-over.tsx`).
+- **Rule 2 · settle early.** The bill rows and the pay page read "Settle early" before the event day.
+- **Rule 3 · a free first booking stays free** — unchanged (`free_noop`), now pinned by a DB test.
+- **Rule 5 · no email.** The fee sweep that emails a due bill (`order_quoted`) drops top-up orders; the supplier is
+  told by the chat pin and Today's `booking_fee_overdue` blocker, which already fire only once a bill is overdue.
+- **Rule 6 · a drop shows no credit** — unchanged SQL; a guard pins that no app/lib file reads `amendment_credit`.
+- After the event day, unsettled: the supplier's message box keeps words only (`ChatSendForm` `wordsOnly`, refused
+  server-side as `fee_words_only`) — the chat page still never reads the event gate; the event's Papic album in the
+  portfolio is greyed under "Unlisted and uncounted until the top-up is settled · Settle ›".
+
+Tests: `tests/db/a-top-up-is-held-until-the-event-day.db.test.ts` (12, replayed SQL) · `lib/booking-fee-top-up.test.ts` (12).
+
+- **Unlisted and uncounted, on the PUBLIC side too** (owner approved 12 Nov). Migration
+  `20271341273990_an_overdue_top_up_unlists_the_event.sql`: one predicate, `booking_fee_top_up_overdue(shop, event)`,
+  takes that event's review out of the shop's public stars (`vendor_trusted_review_stats`) and the card's
+  (`vendor_service_trusted_review_stats`); settling re-reads the stars at once (a trigger on the charge), and a daily
+  request-driven job (`booking-fee-top-up-unlist`) catches the day a held top-up becomes overdue. The public shop page
+  leaves out that event's review (list and pin), the photos put on the page from it, the hero if it is one, and its
+  featured story (`readOverdueTopUpEventIds`). Same switch as the event gate: with the fee lock off, nothing is unlisted.
+- **A moved event moves its top-up**: a trigger re-stamps every still-owing top-up when `events.event_date` changes.
+
+- **The settle sheets say WHERE to pay** (owner 13 Nov: *"how can they settle if they do not have the QR Code or
+  information where to pay"*; prototype `booking_fee_top_up_2026-11-13` "Where to pay (under Pay by)"). A top-up bill's
+  door on the client page ("Settle early" held · "Settle" due/overdue) now opens one sheet (`top-up-settle-sheet.tsx`),
+  and the carry-over sheet gains the same part: **Pay by ▾** (one `PickMenu`, the admin's OPEN receiving accounts in
+  admin order, first selected, in the rail cards' words — `railCardWords`, now shared with `ChannelToggle`) · "how you
+  pay Setnayan" · the SHIPPED `PaymentDetailsBlock` (reference + Copy · the QR with the amount · "or send to our number"
+  · name / number / exact amount, each with Copy · Open GCash) · Receipt · Add (the shipped proof stage on /pay) · the
+  main button · Not now. One paying style (owner 20 Sep): the figure is /pay's own (`fetchPayableByReference`) and
+  each code is minted on the server (`lib/booking-fee-settle-pay.server.ts`). A carry-over of SEVERAL overdue bills keeps
+  its shipped door (a code carries one bill's figure, never a sum); a failed read keeps the shipped door too.
+  `PaymentDetailsBlock`'s account name and number now WRAP instead of truncating (every surface). Guard:
+  `app/_components/payment/the-settle-sheet-says-where-to-pay.test.ts`.
+
+SPEC IMPACT: None — implements the 2026-11-12 DECISION_LOG row as written. Still NOT uncounted: the raw star
+histogram on the shop page and the marketplace's sort-by-rating, both of which read the unfiltered
+`vendor_review_stats` (which already counts reviews the trusted stars exclude).

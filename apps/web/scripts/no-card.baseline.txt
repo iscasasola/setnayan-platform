@@ -48,6 +48,7 @@
 1 apps/web/app/_components/requirements-modal.tsx
 3 apps/web/app/_components/run-of-show-header.tsx
 1 apps/web/app/_components/schedule-suggest-chip.tsx
+2 apps/web/app/_components/service-picker.tsx
 1 apps/web/app/_components/storyteller-tile.tsx
 1 apps/web/app/_components/thread-call-room.tsx
 1 apps/web/app/_components/thread-interest-chips.tsx
@@ -478,7 +479,6 @@
 1 apps/web/app/open-shop/_components/address-preview.tsx
 2 apps/web/app/open-shop/_components/city-pin.tsx
 2 apps/web/app/open-shop/_components/open-shop-wizard.tsx
-2 apps/web/app/open-shop/_components/service-picker.tsx
 1 apps/web/app/panood/cam/[token]/_components/panood-camera-publish.tsx
 1 apps/web/app/panood/control/[eventId]/_components/broadcast-window-strip.tsx
 1 apps/web/app/panood/control/[eventId]/_components/ingest-health-strip.tsx

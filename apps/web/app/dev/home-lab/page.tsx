@@ -879,7 +879,7 @@ function LabBoard({ tagged, one }: { tagged: boolean; one: boolean }) {
                 coverTone={c.poster.dark ? 'dark' : 'light'}
                 index={i}
                 reserveMenuCorner
-                cover={<EventPoster poster={c.poster} markText={c.mark} />}
+                cover={<EventPoster poster={c.poster} markText={c.mark} nameOnly />}
                 kicker={[c.badge, <StanceChip stance="organiser" forTag={forTag} key="stance" />]}
                 title={c.title}
                 meta={`${c.badge}, ${forTag ? `for ${forTag.name}` : 'You organise this'}`}

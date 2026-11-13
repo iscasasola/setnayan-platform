@@ -7,7 +7,7 @@ import { hidesByCard, parseCardHideKey, type CardHidesRead } from '@/lib/service
 
 /**
  * 🃏 HIDE PER CARD — the reads and the one write (Build 5 Lane C; `vendor_service_card_hides`, migration
- * 20271342009988). Keys and rules: `lib/service-card-hides.ts`.
+ * 20271342673075). Keys and rules: `lib/service-card-hides.ts`.
  *
  * The public shop page reads every card's hides on the server (`readCardHides`, admin client — the table has no anon
  * grant) and drops the hidden items before the page is sent (`cardWithoutHidden`), unless the viewer runs the shop

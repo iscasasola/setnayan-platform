@@ -131,7 +131,13 @@ import { fileURLToPath } from 'node:url';
 // picks the mode), so the page costs +1, not +2. Unimported exports re-scanned: the same four as 11 Nov
 // (`setGuestPlusOneCount`, held by extra-seats-are-chairs, and three Papic purchase actions — money) — left alone. No
 // fresh `vercel build` count; the SUM is gated by check-vercel-route-count.mjs on this PR's production build.
-export const CEILING = 1246;
+// 1246 → 1247 (2026-11-13, merged with Piece 3b + group chats + Admin › Colours above — Quote + negotiation PR-4 — the offer card): ONE export, `applyDroppedOffer` in
+// app/_actions/offer-card-actions.ts. It cannot be a browser card call like the other chat cards: the couple may not
+// write a quote, and the offer's price must be computed on the server (offersForQuote) and handed to the service-role
+// writer `apply_dropped_offer` — a browser-callable writer would let a session name its own discount. The drop itself
+// is the supplier's own insert (no action). No unimported export was found to retire. No fresh `vercel build` count for
+// this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+export const CEILING = 1247;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

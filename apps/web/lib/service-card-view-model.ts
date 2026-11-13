@@ -165,11 +165,14 @@ export type CardReviews = {
     /** "A. & M. · Dec 2026" — the couple's "Shown as", then the month. null with no quote. */
     by: string | null;
     verifiedBooking: boolean;
+    /** 🃏 The quoted review's id — what a hide on this card names (`review:host:<id>`). null with no quote. */
+    reviewId?: string | null;
   } | null;
   guests: {
     count: number;
     average: number;
-    newest: { shownName: string; stars: number; line: string | null; photoUrl: string | null } | null;
+    /** `reviewId` — 🃏 what a hide on this card names (`review:guest:<id>`). */
+    newest: { shownName: string; stars: number; line: string | null; photoUrl: string | null; reviewId?: string } | null;
     /** Where "read all" lands — the shop page's "From guests" group. */
     readAllHref: string;
   } | null;

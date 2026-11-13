@@ -20,25 +20,26 @@
  * audience differs:
  *   • the write goes to saveGuestPushSubscription (guest session, not
  *     auth.uid()) instead of savePushSubscription;
- *   • this is a spontaneous, ONE-TIME banner rather than a settings toggle —
- *     it offers itself once and then gets out of the way permanently,
- *     because a declined browser permission can never be re-asked
- *     programmatically and re-nagging past a dismissal would just be noise
- *     on somebody's wedding day.
+ *   • this is an alerts ASK in the one notice system (inventory #33, owner
+ *     approved 14 Nov 2026): a To-do line, "Turn on alerts · Not now", that
+ *     stops after the second "Not now"; once the browser has an answer
+ *     (granted / denied) it is gone for good — a declined permission can never
+ *     be re-asked programmatically.
  *
  * NEVER BLOCKS the seat pass: this renders alongside the pass, not over it,
  * and has no effect on whether the guest can see their seat.
  */
 
 import { useEffect, useState } from 'react';
-import { Bell, X } from 'lucide-react';
+import type { CloseRecord } from '@/lib/notices';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
+import { NOTICE_ACTION } from '@/app/_components/notices/notices';
 import { saveGuestPushSubscription } from '../actions/guest-push-actions';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '';
 
-// Ask (and remember the ask) at most once per browser. A declined permission
-// is permanent in most browsers anyway; this flag also covers "asked and
-// dismissed without answering" so the banner doesn't return on a re-visit.
+// The older per-browser "asked" flag — only READ now, as the notice's legacy, so a guest who already
+// answered is not asked again. The one notice memory keeps every new answer.
 const ASKED_KEY = 'setnayan_guest_push_asked_v1';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
@@ -49,16 +50,6 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const output = new Uint8Array(buffer);
   for (let i = 0; i < raw.length; i += 1) output[i] = raw.charCodeAt(i);
   return output;
-}
-
-function markAsked(): void {
-  try {
-    window.localStorage.setItem(ASKED_KEY, '1');
-  } catch {
-    // Private browsing / storage blocked — worst case the banner can offer
-    // itself again next visit, which is still never more than a dismissable
-    // banner, never a blocking one.
-  }
 }
 
 function alreadyAsked(): boolean {
@@ -99,15 +90,12 @@ export function GuestPushPrompt() {
       'Notification' in window &&
       Boolean(VAPID_PUBLIC_KEY);
 
-    if (!supported || alreadyAsked()) return;
+    if (!supported) return;
 
     // Permission was already decided outside this banner (e.g. granted via
     // the couple's own device settings) — nothing to ask, and 'denied' can
     // never be re-asked, so either way the banner stays hidden.
-    if (Notification.permission !== 'default') {
-      markAsked();
-      return;
-    }
+    if (Notification.permission !== 'default') return;
 
     setVisible(true);
   }, []);
@@ -116,7 +104,6 @@ export function GuestPushPrompt() {
     setBusy(true);
     try {
       const permission = await Notification.requestPermission();
-      markAsked();
       if (permission === 'granted') {
         await subscribeAndSave();
       }
@@ -126,55 +113,22 @@ export function GuestPushPrompt() {
     }
   }
 
-  function handleDismiss() {
-    markAsked();
-    setVisible(false);
-  }
-
   if (!visible) return null;
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-ink/10 bg-cream p-4 text-left shadow-sm">
-      <span
-        aria-hidden
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink/5 text-ink/70"
-      >
-        <Bell className="h-4 w-4" strokeWidth={1.75} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-ink">Get seat & schedule alerts</p>
-        <p className="mt-0.5 text-xs text-ink/70">
-          We&rsquo;ll let you know on this device if your table changes or something at the venue
-          needs your attention — even if you close this page.
-        </p>
-        <div className="mt-3 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleEnable}
-            disabled={busy}
-            className="rounded-md bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream transition-opacity hover:bg-mulberry-600 disabled:opacity-60"
-          >
-            {busy ? 'Turning on…' : 'Turn on alerts'}
-          </button>
-          <button
-            type="button"
-            onClick={handleDismiss}
-            disabled={busy}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-ink/70 hover:text-ink/80"
-          >
-            Not now
-          </button>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={handleDismiss}
-        aria-label="Dismiss"
-        disabled={busy}
-        className="shrink-0 rounded-md p-1 text-ink/70 hover:text-ink/70"
-      >
-        <X className="h-4 w-4" strokeWidth={1.75} />
-      </button>
-    </div>
+    <InlineNotice
+      kind="todo"
+      ask
+      noticeKey="alerts-ask:guest-seat"
+      title="Get seat & schedule alerts"
+      detail="We’ll let you know on this device if your table changes or something at the venue needs your attention — even if you close this page."
+      actions={
+        <button type="button" onClick={handleEnable} disabled={busy} className={NOTICE_ACTION}>
+          {busy ? 'Turning on…' : 'Turn on alerts'}
+        </button>
+      }
+      legacy={(): CloseRecord | null => (alreadyAsked() ? { closedAt: Date.now(), count: 2 } : null)}
+      onClose={() => setVisible(false)}
+    />
   );
 }

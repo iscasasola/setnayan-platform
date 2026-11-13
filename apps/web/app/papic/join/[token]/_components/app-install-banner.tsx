@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Smartphone, X } from 'lucide-react';
+import type { CloseRecord } from '@/lib/notices';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
+import { NOTICE_ACTION } from '@/app/_components/notices/notices';
 import { deviceOs } from '@/lib/apple-device';
 
 // Papic · hybrid join — PAGE-LOCAL smart app-install banner.
@@ -36,8 +38,10 @@ import { deviceOs } from '@/lib/apple-device';
 // rather than linking to a 404 store page. The moment the owner publishes and
 // sets those env vars, the matching badge lights up automatically — no code
 // change. We also hide the banner entirely inside the native shell (a friend
-// already in the app never needs an install nudge) and remember a dismissal for
-// the session so it doesn't nag on a re-open.
+// already in the app never needs an install nudge).
+//
+// 🔔 Inventory #41 — an ask in the one notice system (owner approved 14 Nov 2026): a LINE on Papic join, never a bar,
+// "Not now" kept by the one notice memory (the old per-session key is only read, as its legacy).
 
 const DISMISS_KEY = 'papic-join-install-dismissed';
 
@@ -65,18 +69,12 @@ export function AppInstallBanner({
   iosUrl?: string;
   androidUrl?: string;
 }) {
-  // Render nothing on the server / first paint: platform + native-shell + the
-  // dismissed flag are all client-only, and we don't want a flash.
+  // Render nothing on the server / first paint: platform + native-shell are client-only, and we don't want a flash.
   const [show, setShow] = useState(false);
   const [platform, setPlatform] = useState<Platform>('other');
 
   useEffect(() => {
     if (isNativeShell()) return; // already in the app — no nudge
-    try {
-      if (sessionStorage.getItem(DISMISS_KEY) === '1') return;
-    } catch {
-      // sessionStorage can throw in privacy modes — fall through and show.
-    }
     setPlatform(detectPlatform());
     setShow(true);
   }, []);
@@ -85,48 +83,34 @@ export function AppInstallBanner({
 
   const storeUrl = platform === 'ios' ? iosUrl : platform === 'android' ? androidUrl : undefined;
 
-  function dismiss() {
-    try {
-      sessionStorage.setItem(DISMISS_KEY, '1');
-    } catch {
-      // ignore — worst case the banner shows again next open
-    }
-    setShow(false);
-  }
-
   return (
-    <div className="mb-5 flex items-start gap-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-3.5 text-left">
-      <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-mulberry/10 text-mulberry">
-        <Smartphone aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-ink">Shoot from the Setnayan app</p>
-        {storeUrl ? (
-          <>
-            <p className="mt-0.5 text-xs text-ink/60">
-              Keeps Setnayan one tap away. The camera works exactly the same either way.
-            </p>
-            <a
-              href={storeUrl}
-              className="mt-2 inline-flex items-center justify-center rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream transition hover:bg-mulberry-600"
-            >
-              {platform === 'ios' ? 'Get it on the App Store' : 'Get it on Google Play'}
-            </a>
-          </>
+    <InlineNotice
+      kind="todo"
+      ask
+      noticeKey="app-install:papic-join"
+      title="Shoot from the Setnayan app"
+      detail={
+        storeUrl ? (
+          'Keeps Setnayan one tap away. The camera works exactly the same either way.'
         ) : (
-          <p data-coming-soon className="mt-0.5 text-xs text-ink/60">
-            The app is coming soon — for now, keep going right here in your browser. Nothing to install.
-          </p>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={dismiss}
-        aria-label="Dismiss app suggestion"
-        className="-mr-1 -mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink/40 transition hover:bg-ink/5 hover:text-ink/70"
-      >
-        <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </button>
-    </div>
+          <span data-coming-soon="">The app is coming soon — for now, keep going right here in your browser. Nothing to install.</span>
+        )
+      }
+      actions={
+        storeUrl ? (
+          <a href={storeUrl} className={NOTICE_ACTION}>
+            {platform === 'ios' ? 'Get it on the App Store' : 'Get it on Google Play'}
+          </a>
+        ) : null
+      }
+      legacy={(): CloseRecord | null => {
+        try {
+          return sessionStorage.getItem(DISMISS_KEY) === '1' ? { closedAt: Date.now(), count: 1 } : null;
+        } catch {
+          return null;
+        }
+      }}
+      className="mb-5 text-left"
+    />
   );
 }

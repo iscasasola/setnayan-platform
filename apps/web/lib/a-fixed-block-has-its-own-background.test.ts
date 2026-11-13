@@ -334,7 +334,9 @@ test('4 · one card, never two: the markup each ground leans on is there', () =>
      in all three; the Banner and the Notice hold ONE `<div>` card, its direct child; the Line holds a `<p>`, no card. */
   const ANNC = src(`${G}/day-of-announcement.tsx`);
   const ANNS = src(`${G}/announcement-styles.tsx`);
-  assert.match(ANNC, /<aside\s+role="status"\s+aria-live="polite"\s+className="mx-auto mt-4 w-full max-w-3xl px-4"\s*>\s*<div\s+className=\{`flex items-start gap-3 rounded-2xl border /);
+  // 🔔 Since the one notice system (14 Nov 2026) the Banner's ONE card is the live notice's band (`InlineNotice` →
+  // `NoticeLine`), still the aside's only child — the ground dresses it and nothing else.
+  assert.match(ANNC, /<aside\s+role="status"\s+aria-live="polite"\s+className="mx-auto mt-4 w-full max-w-3xl px-4"\s*>\s*<InlineNotice\b/);
   assert.match(ANNS, /<aside role="status" aria-live="polite" className="mx-auto mt-4 w-full max-w-3xl px-4" data-scene-style="notice">\s*<div className=\{`border-l-4 px-4 py-4 \$\{live \? 'border-terracotta bg-ink text-cream' : 'border-ink\/30 bg-paper-deep text-ink'\}`\}>/);
   assert.match(ANNS, /<aside role="status" aria-live="polite" className="mx-auto mt-2 w-full max-w-3xl px-4" data-scene-style="line">\s*<p /);
   assert.equal((ANNS.match(/<div/g) ?? []).length, 1, 'a second card in the announcement’s drawings: a ground would land on both');

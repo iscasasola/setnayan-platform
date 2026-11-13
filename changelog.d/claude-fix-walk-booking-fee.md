@@ -16,3 +16,12 @@ supplier's own QR pointed at the same page untagged, so the two could not be tol
 Not changed: rows already written. The walk's booking (thread NULL) stays an import — fixing it is a production write.
 
 SPEC IMPACT: None — implements the corpus row of 2026-11-13 as written.
+
+## 2026-11-13 · fix(supplier): Agreed now loads on a booked client; times in Manila (F-W1-59, F-W1-61)
+
+- **F-W1-59** "Agreed now" read the couple's `events` row with the supplier's own session, which RLS refuses — an
+  empty event counted as a failure ("Couldn't load what is agreed"). It now reads the event's three facts with the
+  service client, as the client page itself does, once the supplier's own session shows it is on the event (a thread
+  or a quote of its own).
+- **F-W1-61** Three supplier-side times were formatted with no zone (a server render prints UTC): the manpower gig
+  card (a gig application's time), Deep Search's dates, and the verification meeting time — all now Asia/Manila.

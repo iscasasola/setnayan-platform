@@ -39,9 +39,9 @@ function walk(dir: string, out: string[] = []): string[] {
 
 /** The SKU constants a screen may name instead of the literal code. */
 const SKU_CONSTANTS: ReadonlyMap<string, string> = new Map(
-  Object.entries({ ...hubParts, ...eventUltra }).filter(
-    (e): e is [string, string] => /_SKU$/.test(e[0]) && typeof e[1] === 'string',
-  ),
+  (Object.entries({ ...hubParts, ...eventUltra }) as Array<[string, unknown]>)
+    .filter(([name, value]) => /_SKU$/.test(name) && typeof value === 'string')
+    .map(([name, value]) => [name, value as string] as [string, string]),
 );
 
 /** serviceKey: X / serviceKey={X} beside a checkout drawer → the code X names. */

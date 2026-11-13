@@ -1,5 +1,5 @@
 /**
- * 🚶 THE WALK, 13 Nov 2026 — the supplier's on-the-day round (F-W1-75 · 76 · 77 · 81). Each test names the walk row.
+ * 🚶 THE WALK, 13 Nov 2026 — the supplier's on-the-day round (F-W1-76 · 77 · 81; F-W1-75 = RW-20 rides claude/fix-walk-fee-2). Each test names the walk row.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -37,7 +37,6 @@ test('F-W1-76 · the live page before its day goes back to the Hub ON this event
   assert.match(hub, /data-hub-live-not-yet=""/);
 });
 
-test('F-W1-75 · the Hub tour names the booking-fee hold; F-W1-81 · the Hub ▾ says one view and one event', () => {
-  assert.match(read('lib/tours.ts'), /A day that is waiting on its booking fee says so on its row\./);
+test('F-W1-81 · the Hub ▾ says one view and one event, never "Tick as many as apply"', () => {
   assert.match(read('app/vendor-dashboard/on-the-day/_components/hub-event-menu.tsx'), /doneNote="One view and one event\."/);
 });

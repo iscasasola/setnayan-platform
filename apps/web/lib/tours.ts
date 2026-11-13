@@ -1512,9 +1512,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'hub-next-days',
           title: 'Your events',
-          // F-W1-75 (walk 13 Nov 2026): no fee rule here — it is not always true (the fee gate is a switch), and the page
-          // beside it said "Free until …". A locked day says "Opens once the booking fee is paid" on its own row.
-          body: 'Pick the event to set up — every booked day and every event you run. A day that is waiting on its booking fee says so on its row.',
+          body: 'Pick the event to set up — every booked day and every event you run. A day opens once its booking fee is paid.',
         },
         {
           anchor: 'hub-empty',

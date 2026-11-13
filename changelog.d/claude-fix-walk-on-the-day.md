@@ -11,8 +11,6 @@
   then) is no longer asked for, so the Hub's own copy can land; the strip says the console is saved on the day.
 - **F-W1-76** "Launch Hub" before the day bounced to a bare Hub with no event and no word. The live page now sends you
   back to the Hub on THAT event, and the Hub says "The live page opens on Fri, Dec 18, the booked day."
-- **F-W1-75** The Hub tour's last step names the booking-fee hold ("A day that is waiting on its booking fee says so on
-  its row") instead of implying every day is open.
 - **F-W1-81** The Hub ▾ no longer says "Tick as many as apply" — it ticks one view and one event.
 - Guard: `lib/the-walk-on-the-day.test.ts`.
 

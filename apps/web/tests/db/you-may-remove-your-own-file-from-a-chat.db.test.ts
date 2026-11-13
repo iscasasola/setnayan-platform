@@ -1,6 +1,6 @@
 /**
  * 👈 REMOVING YOUR OWN FILE FROM A CHAT — the undo ring and the swipe (DECISION_LOG 2026-11-13 "CHAT FILE: UNDO RING
- * SHOWS AT ONCE ON SEND…" + "CHAT FILE UNDO DRAWING APPROVED"). Migration 20271341904583 ·
+ * SHOWS AT ONCE ON SEND…" + "CHAT FILE UNDO DRAWING APPROVED"). Migration 20271342335343 ·
  * `public.remove_my_chat_file(message_id, mode)` · `public.chat_file_removal_options(message_id)` ·
  * `public.chat_file_removals`.
  *

@@ -195,7 +195,7 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
-  // ── added 2026-11-13 with the table (migration 20271341904583) ──
+  // ── added 2026-11-13 with the table (migration 20271342335343) ──
   chat_file_removals:
     'A removal mark on a chat file. user_id is NOT NULL ON DELETE CASCADE, so the account holder\'s rows go with their account on their own; the mark holds no content (the file and its message are erased with chat_messages).',
   // ── added 2026-11-08 with the tables themselves (service card checks, migration 20271328838140) ──

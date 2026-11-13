@@ -116,7 +116,7 @@ export async function GET(
  * for you only.
  *
  * A route method, not a server action: the server-action budget is at its ceiling, and this route already owns "a file
- * in a conversation". The DATABASE decides (`remove_my_chat_file`, migration 20271341904583 — the caller's own session,
+ * in a conversation". The DATABASE decides (`remove_my_chat_file`, migration 20271342335343 — the caller's own session,
  * so `auth.uid()` is theirs): only the sender, only a message that carries a file, only while they can still read the
  * chat, the windows against the row's own created_at, and never a booking file for undo or everyone. A booking file or a
  * closed window answers 409 with the reason so the sheet can say so; anything else is 404, exactly like a message that

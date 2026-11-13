@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7770
+# facts: 7772
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     632
-#   col       5597
+#   col       5599
 #   policy    1136
 #   view      10
 #   func      391
@@ -2332,6 +2332,7 @@ col	public.event_vendor_working_notes.event_vendor_id	anon=SIU authenticated=SIU
 col	public.event_vendor_working_notes.id	anon=SIU authenticated=SIU
 col	public.event_vendor_working_notes.note_id	anon=SIU authenticated=SIU
 col	public.event_vendor_working_notes.visibility	anon=SIU authenticated=SIU
+col	public.event_vendors.agreed_hours	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_at	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_by_lock_of	anon=SIU authenticated=SIU
 col	public.event_vendors.category	anon=SIU authenticated=SIU
@@ -2397,6 +2398,7 @@ col	public.event_vendors.package_role	anon=SIU authenticated=SIU
 col	public.event_vendors.papic_captures_hidden	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_surcharge_php	anon=SIU authenticated=SIU
+col	public.event_vendors.pricing_basis	anon=SIU authenticated=SIU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
 col	public.event_vendors.selection_match_rank	anon=SIU authenticated=SIU

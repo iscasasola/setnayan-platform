@@ -98,6 +98,7 @@ import { labSupplierShare } from '../lab-supplier-share';
 import { renderUrlQrSvg } from '@/lib/qr';
 import {
   LAB_ADDED_ROW,
+  labAddedRowPriced,
   LAB_CARDS,
   LAB_CLAIM_URL,
   LAB_ENRICHMENT,
@@ -199,10 +200,22 @@ export default async function SuppliersLabPage({
       ? labOwnRow(ownParts[0], categoryKeyForAdd(ownParts[0], ownParts[1], (t) => drawnTiles.has(t)), ownParts[2] ?? '')
       : null;
   const covers = one('covers') === '1';
+  // 🧾 `&basis=fixed|per_pax|per_hour` — Tita's card as the couple recorded it (price basis v2's samples): ₱80,000 one
+  // price · ₱162,000 for 120 guests agreed · ₱30,000 for 5 hours agreed. Brings Tita in (as `&added=1`).
+  const labBasis = one('basis');
+  const basisSample =
+    labBasis === 'per_pax'
+      ? { basis: 'per_pax' as const, total: 162_000, count: 120 }
+      : labBasis === 'per_hour'
+        ? { basis: 'per_hour' as const, total: 30_000, count: 5 }
+        : labBasis === 'fixed'
+          ? { basis: 'fixed' as const, total: 80_000, count: null }
+          : null;
+  const titaRow = basisSample ? labAddedRowPriced(basisSample.total) : LAB_ADDED_ROW;
   const rows = empty
     ? []
     : [
-        ...(one('added') === '1' ? [...LAB_ROWS, LAB_ADDED_ROW] : LAB_ROWS).map((r) =>
+        ...(one('added') === '1' || basisSample ? [...LAB_ROWS, titaRow] : LAB_ROWS).map((r) =>
           covers && r.vendor_id === 'v-seda' ? { ...r, covers_plan_groups: ['cake', 'catering'] } : r,
         ),
         ...(dunkin ? [labDunkinRow(dunkin)] : []),
@@ -344,6 +357,7 @@ export default async function SuppliersLabPage({
       serviceCardByVendorId={LAB_CARDS}
       payHrefByVendorId={{ 'v-seda': `/dev/suppliers-lab?open=reception` }}
       inviteStatusByVendorId={one('links') === 'fail' ? null : labInviteStatuses(Date.now())}
+      selfAddedPriceLines={basisSample ? { 'v-tita': { basis: basisSample.basis, count: basisSample.count } } : undefined}
       claimQrSvg={claimQrSvg}
       supplierShare={supplierShare}
       unread={{ pairs: [['t-lola', 2]], measured: true }}

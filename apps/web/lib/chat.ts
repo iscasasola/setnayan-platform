@@ -215,7 +215,7 @@ export type ChatMessageRow = {
   attachment_size_bytes?: number | null;
   /**
    * 👈 When the sender removed this message's file (the undo ring or Delete for everyone — 2026-11-13, migration
-   * 20271341904583). The attachment columns are already cleared; the words stay. Optional so a read before the
+   * 20271342335343). The attachment columns are already cleared; the words stay. Optional so a read before the
    * migration degrades to "never removed".
    */
   file_removed_at?: string | null;

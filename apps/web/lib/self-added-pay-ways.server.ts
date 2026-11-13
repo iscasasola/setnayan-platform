@@ -2,7 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
-import { readStoredPayWays, waysOrNote, type PayWayView } from '@/lib/self-added-pay-ways';
+import { readStoredPayWays, waysOrNote, type PayWayView, type StoredPayWay } from '@/lib/self-added-pay-ways';
 
 /**
  * The ways to pay a supplier the couple added — read under the CALLER'S client (the couple's own RLS is the
@@ -35,3 +35,22 @@ export async function readPayWaysForRecord(
   return { status: 'ok', ways };
 }
 
+
+/**
+ * The add sheet's ways, onto the contact card the couple owns — under the CALLER'S client (their RLS is the ownership
+ * check). `false` = refused or no row written (said by the caller as a warning against a supplier that exists).
+ */
+export async function writePayWaysToContactCard(
+  client: SupabaseClient,
+  eventId: string,
+  manualVendorId: string,
+  ways: StoredPayWay[],
+): Promise<boolean> {
+  const { data, error } = await client
+    .from('event_manual_vendors')
+    .update({ pay_ways: ways, updated_at: new Date().toISOString() })
+    .eq('manual_vendor_id', manualVendorId)
+    .eq('event_id', eventId)
+    .select('manual_vendor_id');
+  return !error && !!data && data.length > 0;
+}

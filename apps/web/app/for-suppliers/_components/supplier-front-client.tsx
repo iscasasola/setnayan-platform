@@ -538,6 +538,8 @@ export type GrowCard = {
   spec: string;
   plus: string;
   lines: GrowLine[];
+  /** Ruling 5735: this plan's shop-page preview row (`PlanPagePreview`), at the panel's foot so it switches with the tab. */
+  preview?: ReactNode;
 };
 
 export function GrowTiers({ cards, start }: { cards: readonly GrowCard[]; start: GrowTier }) {
@@ -574,6 +576,7 @@ export function GrowTiers({ cards, start }: { cards: readonly GrowCard[]; start:
               </li>
             ))}
           </ul>
+          {c.preview ?? null}
         </div>
       ))}
     </>

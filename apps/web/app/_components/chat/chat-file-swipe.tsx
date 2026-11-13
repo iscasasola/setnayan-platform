@@ -13,7 +13,7 @@
  *   3. A booking file never gets Delete for everyone: "This file is part of the booking, so it stays for everyone."
  *   4. A failed delete keeps the bubble and says "Couldn’t delete your file. Try again." — never a silent success.
  *
- * The DATABASE decides every one of these again (`remove_my_chat_file`, migration 20271341904583) through
+ * The DATABASE decides every one of these again (`remove_my_chat_file`, migration 20271342335343) through
  * `DELETE /api/chat/attachment/<id>?mode=…`; what the sheet offers comes from `?removal=options` (the server's clock,
  * and the booking check). Only YOUR file bubble is wrapped (the stream decides); words never swipe.
  */

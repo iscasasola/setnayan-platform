@@ -4,7 +4,7 @@
  * DECISION_LOG 2026-11-13 "CHAT FILE: UNDO RING SHOWS AT ONCE ON SEND (10 S, INSTANT DELETE) · SWIPE = DELETE FOR
  * EVERYONE (FIRST 5 MIN) OR DELETE FOR ME" + "CHAT FILE UNDO DRAWING APPROVED" (prototype
  * chat_file_undo_ring_2026-11-13 v3). The DATABASE enforces both windows against the row's own created_at
- * (`remove_my_chat_file`, migration 20271341904583); these numbers only decide what the screen offers.
+ * (`remove_my_chat_file`, migration 20271342335343); these numbers only decide what the screen offers.
  */
 
 /** The ↺ ring stands this long after you send a file. */

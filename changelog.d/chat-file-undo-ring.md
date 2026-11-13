@@ -10,7 +10,7 @@ AT ONCE ON SEND…" + "CHAT FILE UNDO DRAWING APPROVED"), replacing the PR's ear
   Delete for me · Cancel; after 5 min only Delete for me with the line why. Booking files: "This file is part of the
   booking, so it stays for everyone." and Delete for me only. A failure keeps the bubble: "Couldn’t delete your file.
   Try again."
-- **Server** (migration `20271341904583`, edited in place — never on main): `remove_my_chat_file(message_id, mode)`
+- **Server** (migration `20271342335343`, edited in place — never on main): `remove_my_chat_file(message_id, mode)`
   enforces undo ≤10 s (+5 s grace), everyone ≤5 min (+30 s grace) on the row's created_at, refuses booking files
   (`chat_message_is_booking_file`: decision cards/filings, "This booking" filings, payment proofs, contracts, or a
   booking between THIS couple and THIS chat's shop — an order naming the shop, the shop confirmed on the event, or a

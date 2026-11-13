@@ -47,7 +47,7 @@ BEGIN;
 -- by the stream through the table's existing SELECT (RLS: the member read) and its thread-filtered realtime UPDATE.
 ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS file_removed_at TIMESTAMPTZ;
 COMMENT ON COLUMN public.chat_messages.file_removed_at IS
-  'When the sender removed this message''s file (undo ring or Delete for everyone — DECISION_LOG 2026-11-13). The attachment columns are cleared in the same write; the words stay. Written only by remove_my_chat_file(). Migration 20271341904583.';
+  'When the sender removed this message''s file (undo ring or Delete for everyone — DECISION_LOG 2026-11-13). The attachment columns are cleared in the same write; the words stay. Written only by remove_my_chat_file(). Migration 20271342335343.';
 
 -- ── §1 · who removed which file, and for whom ───────────────────────────────
 -- No per-viewer hide existed on chat messages (searched 2026-11-13: chat_message_flags is the admin contact-info
@@ -78,7 +78,7 @@ CREATE POLICY chat_file_removals_read
 REVOKE ALL ON public.chat_file_removals FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.chat_file_removals TO authenticated;
 COMMENT ON TABLE public.chat_file_removals IS
-  'A chat file its sender removed (DECISION_LOG 2026-11-13 "CHAT FILE: UNDO RING…" + "CHAT FILE UNDO DRAWING APPROVED"): for_everyone = Delete for everyone (both sides draw "… removed a file · time"; the attachment columns are already cleared); FALSE = Delete for me (hidden for user_id only; the other person and Setnayan keep the file). Written only by remove_my_chat_file(). Migration 20271341904583.';
+  'A chat file its sender removed (DECISION_LOG 2026-11-13 "CHAT FILE: UNDO RING…" + "CHAT FILE UNDO DRAWING APPROVED"): for_everyone = Delete for everyone (both sides draw "… removed a file · time"; the attachment columns are already cleared); FALSE = Delete for me (hidden for user_id only; the other person and Setnayan keep the file). Written only by remove_my_chat_file(). Migration 20271342335343.';
 
 -- ── §2 · a booking file — the keeping rule, in one place ────────────────────
 -- The shipped keeping rule (`lib/chat-file-rules.ts` CHAT_KEPT_FOREVER_COLUMNS + the sweep's proof/contract read),
@@ -124,7 +124,7 @@ $$;
 -- Internal: only the two functions below call it.
 REVOKE ALL ON FUNCTION public.chat_message_is_booking_file(UUID) FROM PUBLIC, anon, authenticated;
 COMMENT ON FUNCTION public.chat_message_is_booking_file(UUID) IS
-  'TRUE when a chat message''s file is part of the booking: pinned to a decision (quote · meeting · adjustment · service card, or filed under a decision topic), filed to "This booking", named by a payment proof or a contract, or in a chat whose couple and shop have a booking (an order with the shop on this event, the shop confirmed on the event, or a dispute between them). Such a file never gets Delete for everyone or the undo ring''s instant delete. Migration 20271341904583.';
+  'TRUE when a chat message''s file is part of the booking: pinned to a decision (quote · meeting · adjustment · service card, or filed under a decision topic), filed to "This booking", named by a payment proof or a contract, or in a chat whose couple and shop have a booking (an order with the shop on this event, the shop confirmed on the event, or a dispute between them). Such a file never gets Delete for everyone or the undo ring''s instant delete. Migration 20271342335343.';
 
 -- ── §3 · what the sheet may offer — read before it opens ────────────────────
 CREATE OR REPLACE FUNCTION public.chat_file_removal_options(p_message_id UUID)
@@ -159,7 +159,7 @@ $$;
 REVOKE ALL ON FUNCTION public.chat_file_removal_options(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.chat_file_removal_options(UUID) TO authenticated;
 COMMENT ON FUNCTION public.chat_file_removal_options(UUID) IS
-  'For the sender of a chat file only (NOT_YOURS otherwise): is it a booking file, and how many seconds ago was it sent by the server''s clock — what the swipe''s sheet may offer (Delete for everyone only within 5 minutes, never on a booking file). Changes nothing. Migration 20271341904583.';
+  'For the sender of a chat file only (NOT_YOURS otherwise): is it a booking file, and how many seconds ago was it sent by the server''s clock — what the swipe''s sheet may offer (Delete for everyone only within 5 minutes, never on a booking file). Changes nothing. Migration 20271342335343.';
 
 -- ── §4 · the one writer ─────────────────────────────────────────────────────
 -- An earlier draft of this PR had a one-argument version; it never reached main.
@@ -252,6 +252,6 @@ $$;
 REVOKE ALL ON FUNCTION public.remove_my_chat_file(UUID, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.remove_my_chat_file(UUID, TEXT) TO authenticated;
 COMMENT ON FUNCTION public.remove_my_chat_file(UUID, TEXT) IS
-  'Removing your OWN file in a chat (DECISION_LOG 2026-11-13 "CHAT FILE: UNDO RING…" + "CHAT FILE UNDO DRAWING APPROVED"). undo (≤10 s +5 s grace): the file goes, file_removed_at is set, the words stay, no line. everyone (≤5 min +30 s grace): the same, plus a chat_file_removals row draws "… removed a file". Never deletes a row. me: hidden for the caller only. A booking file refuses undo and everyone (BOOKING_FILE). Refuses NOT_YOURS · NO_FILE · WINDOW_CLOSED · BAD_MODE. Returns the stored ref so the route drops the R2 object (never for me). The only member path that changes a message — there is still no DELETE or UPDATE policy. Migration 20271341904583.';
+  'Removing your OWN file in a chat (DECISION_LOG 2026-11-13 "CHAT FILE: UNDO RING…" + "CHAT FILE UNDO DRAWING APPROVED"). undo (≤10 s +5 s grace): the file goes, file_removed_at is set, the words stay, no line. everyone (≤5 min +30 s grace): the same, plus a chat_file_removals row draws "… removed a file". Never deletes a row. me: hidden for the caller only. A booking file refuses undo and everyone (BOOKING_FILE). Refuses NOT_YOURS · NO_FILE · WINDOW_CLOSED · BAD_MODE. Returns the stored ref so the route drops the R2 object (never for me). The only member path that changes a message — there is still no DELETE or UPDATE policy. Migration 20271342335343.';
 
 COMMIT;

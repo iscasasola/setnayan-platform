@@ -5,6 +5,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 import { TIER_CAPS, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import {
@@ -176,4 +179,31 @@ test('v19 planSplit · past the top plan → the top plan, and "you choose which
   const s = planSplit(many);
   assert.equal(s.held.name, TIER_LABEL.enterprise);
   assert.equal(s.held.choose, true);
+});
+
+// ── Owner ruling, 13 Nov 2026 (#7549): Free and Verified shops may pick ONE group of services at sign-up, and they may
+// also pick SEVERAL. No one-group cap at the pick: every pick stays on until the first booking, then
+// `TIER_CAPS.parentCategories` applies. The picker is a METER, never a gate — on both doors that draw it.
+test('13 Nov ruling · a Free / Verified shop may pick a second group: the meter names a plan, nothing refuses the pick', () => {
+  // Two groups (Food › Catering and Venues › Reception) — more than Free holds when Free holds one category.
+  const twoGroups: MeterService[] = [
+    { categoryId: 'catering', categoryLabel: 'Catering' },
+    { categoryId: 'reception', categoryLabel: 'Reception' },
+  ];
+  const line = coverageLine(twoGroups);
+  assert.equal(line.categories, 2);
+  assert.ok(line.verdict.length > 0, 'the meter always says which plan holds the picks');
+  // The cap that applies AFTER the first booking is TIER_CAPS', not a typed number.
+  assert.equal(TIER_CAPS.verified.parentCategories, TIER_CAPS.free.parentCategories);
+  assert.equal(planSplit(twoGroups).free.name, TIER_LABEL.free);
+
+  // No door gates a pick on the plan: the shared picker, the sign-up cards and the dashboard's Add a service never
+  // read a plan to refuse — the only plan words they draw come from the meter.
+  const WEB = join(__dirname, '..');
+  const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+  const PICKER = read('app/_components/service-picker.tsx');
+  const ADD = read('app/vendor-dashboard/services/new/_components/add-service-picker.tsx');
+  for (const [name, src] of [['service-picker.tsx', PICKER], ['add-service-picker.tsx', ADD]] as const) {
+    assert.doesNotMatch(src, /vendor-tier-caps|TIER_CAPS|planHolds|firstPlanThatHolds|parentCategories/, `${name} must not gate a pick on the plan`);
+  }
 });

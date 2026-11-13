@@ -250,6 +250,8 @@ export function CanvasMaker({
   detailsSlot = null,
   detailsKind = null,
   recordSlot = null,
+  portfolioSlot = null,
+  portfolioLine = null,
   editing = null,
   bookedNow,
   deleteGate = null,
@@ -317,6 +319,13 @@ export function CanvasMaker({
   detailsKind?: string | null;
   /** The card's collected record, server-rendered (`CardRecordSection`), on the edit sheet. */
   recordSlot?: ReactNode;
+  /**
+   * 🃏📸 What this card collected from its bookings (`CardPortfolioSection`, frames 72 · 74 · 75), server-rendered on
+   * the edit sheet — ONLY while the record flag is on. Null → the fold says what it always said.
+   */
+  portfolioSlot?: ReactNode;
+  /** The Portfolio fold's summary when `portfolioSlot` is drawn (`portfolioSummary`). */
+  portfolioLine?: string | null;
   /** An existing card → the edit sheet: Save, the Live switch, delete and copy. */
   editing?: MakerEditing | null;
   /**
@@ -1553,12 +1562,14 @@ export function CanvasMaker({
                     </div>
                   </Fold>
 
-                  <Fold data="m-portfolio" title="Portfolio · collected" line="Albums from events this card was booked for · read-only" lead={<SubIcon><Images aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <Fold data="m-portfolio" title="Portfolio · collected" line={portfolioLine ?? 'Albums from events this card was booked for · read-only'} lead={<SubIcon><Images aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
                     <div className="pb-4 pt-1">
-                      <p className="text-[14px] text-ink/65">
-                        Each booked event’s album lands here and in Their work on your page. Your cover photos are never
-                        shown as proof.
-                      </p>
+                      {portfolioSlot ?? (
+                        <p className="text-[14px] text-ink/65">
+                          Each booked event’s album lands here and in Their work on your page. Your cover photos are never
+                          shown as proof.
+                        </p>
+                      )}
                     </div>
                   </Fold>
 

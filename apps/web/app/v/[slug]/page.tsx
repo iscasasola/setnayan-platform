@@ -153,6 +153,8 @@ import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
+import { readShopWork } from '@/lib/card-portfolio-albums.server';
+import { cardAlbums, toAlbumViews, type AlbumView } from '@/lib/card-portfolio-albums';
 import {
   cardRecordHasSomethingToSay,
   cardRecordRatingFromTrusted,
@@ -1300,6 +1302,15 @@ export async function renderVendorBySlug({
   const cardRecordByService = cardRecordEnabled()
     ? await fetchServiceCardRecords(admin, activeServiceIds)
     : new Map<string, CompiledCardRecord>();
+  // 🃏📸 ONE ALBUM, TWO PLACES (DECISION_LOG 2026-10-08, frame 77) — each live card's albums from the events it was
+  // booked on, read ONCE for the shop (the same albums the supplier's Their work holds). Rides the same flag: OFF → not
+  // read, no card carries `albums`, the grown card is as before. A refused read → every card says "Couldn't load".
+  // No ids reach the page: `toAlbumViews` without an href is labels and photo URLs only.
+  const albumsByService: Map<string, AlbumView[] | null> | null = cardRecordEnabled()
+    ? await readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds })
+        .catch(() => null)
+        .then((work) => new Map(activeServiceIds.map((id) => [id, work ? toAlbumViews(cardAlbums(work.albums, id)) : null])))
+    : null;
 
   // Pre-format the per-service "Serves" line server-side so the client gallery
   // stays a dumb view (same contract as inclusions/discount labels).
@@ -2958,6 +2969,7 @@ export async function renderVendorBySlug({
             hidePrices={hidePricesPublicly}
             coupleEventDate={coupleEventDate}
             cardRecordByService={cardRecordByService}
+            albumsByService={albumsByService}
             couplePhotosByService={couplePhotosByService}
             cardHides={cardHidesByService}
             viewerCuratesCards={viewerCuratesCards}
@@ -3528,6 +3540,7 @@ function ServicesPricingSection({
   hidePrices,
   coupleEventDate,
   cardRecordByService,
+  albumsByService,
   couplePhotosByService,
   viewerSignedIn,
   cardRecordRating,
@@ -3579,6 +3592,8 @@ function ServicesPricingSection({
    *  ENABLED is off (the reader is not even called), so every card's record is
    *  null and the gallery renders exactly as it does today. */
   cardRecordByService: Map<string, CompiledCardRecord>;
+  /** 🃏📸 Each card's albums (flag on) — null = the flag is off, so no card carries any. */
+  albumsByService: Map<string, AlbumView[] | null> | null;
   /** 📸 Couples' approved photos per service id (`fetchServiceCardCouplePhotos`). Empty ⇒ cards as before. */
   couplePhotosByService: Map<string, CoupleLook[]>;
   /** A signed-in viewer → the gallery asks, after the page, for the non-public couple photos they are inside. */
@@ -3675,6 +3690,8 @@ function ServicesPricingSection({
         couplePhotosByService.get(row.vendor_service_id),
       ))
         .map((card) => withCardReviews(card, reviewsByService.get(card.id)))
+        // 🃏📸 The card's event photos ride along only while the flag is on (`eventWork` absent otherwise).
+        .map((card) => (albumsByService ? { ...card, eventWork: albumsByService.get(card.id) ?? null } : card))
         // 🃏 Hide per card: the refs the supplier's tap names + what is hidden. Only where the grown card exists.
         .map((card) =>
           detailsEnabled

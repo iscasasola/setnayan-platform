@@ -19,6 +19,7 @@
  * alike.
  */
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { AlertTriangle, BadgeCheck, ChevronRight, Info, Receipt, Wallet } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import type { FeeDisclosure, DueFeeBill, WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
@@ -128,8 +129,15 @@ export function BookingFeeBillRow({
   line = false,
   compact = false,
   today = false,
+  payDoor,
 }: {
   bill: DueFeeBill;
+  /**
+   * 💸 The boxed row's pay door, drawn by the caller in place of the link to the pay page — a top-up's settle sheet
+   * (`top-up-settle-sheet.tsx`, owner 13 Nov: the sheet shows WHERE to pay). Given the row's tone colour. Absent →
+   * the shipped link, exactly as before.
+   */
+  payDoor?: (accent: string) => ReactNode;
   /** `feeDueCopy(bill, phToday())` — the escalation is decided, not styled. */
   copy: FeeDisclosure;
   /**
@@ -185,8 +193,8 @@ export function BookingFeeBillRow({
         <ActionButton
           tone="neutral"
           icon={<Wallet aria-hidden strokeWidth={1.9} />}
-          label="Pay"
-          name={`Pay — ${copy.headline}`}
+          label={copy.payLabel ?? 'Pay'}
+          name={`${copy.payLabel ?? 'Pay'} — ${copy.headline}`}
           href={vendorBookingFeePayPath(bill.orderId)}
           className="min-h-11 shrink-0"
         />
@@ -201,8 +209,8 @@ export function BookingFeeBillRow({
         <ActionButton
           tone="neutral"
           icon={<Wallet aria-hidden strokeWidth={1.9} />}
-          label="Pay"
-          name={`Pay — ${copy.headline}`}
+          label={copy.payLabel ?? 'Pay'}
+          name={`${copy.payLabel ?? 'Pay'} — ${copy.headline}`}
           href={vendorBookingFeePayPath(bill.orderId)}
           className="min-h-11 shrink-0"
         />
@@ -228,7 +236,7 @@ export function BookingFeeBillRow({
               tone="brand"
               main
               icon={<Wallet aria-hidden strokeWidth={1.9} />}
-              label="Pay now"
+              label={copy.payLabel ?? 'Pay now'}
               href={vendorBookingFeePayPath(bill.orderId)}
               className="min-h-11"
             />
@@ -265,13 +273,17 @@ export function BookingFeeBillRow({
           </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href={vendorBookingFeePayPath(bill.orderId)}
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: accent }}
-          >
-            Pay now
-          </Link>
+          {payDoor ? (
+            payDoor(accent)
+          ) : (
+            <Link
+              href={vendorBookingFeePayPath(bill.orderId)}
+              className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
+              style={{ background: accent }}
+            >
+              {copy.payLabel ?? 'Pay now'}
+            </Link>
+          )}
           <Link
             href={VENDOR_BOOKING_FEES_PATH}
             className="inline-flex text-sm font-semibold text-ink underline underline-offset-2"
@@ -295,9 +307,12 @@ export function BookingFeeBills({
   rows = false,
   compact = false,
   today = false,
+  payDoorFor,
 }: {
   bills: readonly DueFeeBill[];
   copyFor: (bill: DueFeeBill) => FeeDisclosure;
+  /** 💸 A bill's own pay door (the boxed row only) — `BookingFeeBillRow`'s `payDoor`. Null → the shipped link. */
+  payDoorFor?: (bill: DueFeeBill) => ((accent: string) => ReactNode) | null;
   /** The simpler Today's rows — `BookingFeeBillRow`'s `today`. */
   today?: boolean;
   /** Hairline rows instead of boxes — `BookingFeeBillRow`'s `line` (the supplier's Today). */
@@ -309,7 +324,7 @@ export function BookingFeeBills({
   return (
     <>
       {bills.map((b) => (
-        <BookingFeeBillRow key={b.orderId} bill={b} copy={copyFor(b)} line={rows} compact={compact} today={today} />
+        <BookingFeeBillRow key={b.orderId} bill={b} copy={copyFor(b)} line={rows} compact={compact} today={today} payDoor={payDoorFor?.(b) ?? undefined} />
       ))}
     </>
   );

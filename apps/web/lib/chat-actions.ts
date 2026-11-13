@@ -133,6 +133,7 @@ export async function sendChatMessage(formData: FormData) {
       result.code === 'attachment_failed' ||
       result.code === 'contact_blocked' ||
       result.code === 'private_words_only' ||
+      result.code === 'fee_words_only' ||
       result.code === 'private_recipient'
     ) {
       if (isSafeNext(returnTo)) {

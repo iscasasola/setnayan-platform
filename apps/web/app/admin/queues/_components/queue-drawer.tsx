@@ -137,8 +137,32 @@ export function QueueDrawer({
           className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[color:var(--sn-line-soft,#F1ECE3)] py-3 last:border-b-0"
         >
           <span className="min-w-[9rem] flex-1">
-            <span className="block text-sm font-semibold">{it.title}</span>
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              {it.title}
+              {it.light ? (
+                <span
+                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
+                  style={
+                    it.light === 'green'
+                      ? { background: 'var(--sn-success-soft, #ECFDF3)', color: 'var(--sn-success, #027A48)' }
+                      : { background: 'var(--sn-warning-soft, #FFFAEB)', color: '#B54708' }
+                  }
+                >
+                  {it.light === 'green' ? 'Green' : 'Held'}
+                </span>
+              ) : null}
+            </span>
             <span className="block text-xs text-[color:var(--sn-ink-500)]">{it.detail}</span>
+            {/* Payments: the receipt read's own sentence (advisory — it decides nothing). */}
+            {it.verdict ? (
+              <span className="mt-0.5 block text-xs text-[color:var(--sn-ink-500)]">{it.verdict}</span>
+            ) : null}
+            {/* Amber rows: the one line saying why it is not in "Approve all N green". */}
+            {it.held ? (
+              <span className="mt-0.5 block text-xs" style={{ color: '#B54708' }}>
+                Why held: {it.held}
+              </span>
+            ) : null}
           </span>
 
           <span className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">

@@ -8,6 +8,7 @@
 import { renderBrandedEmail } from '@/lib/email-template';
 import {
   ADMIN_QUEUE_META,
+  ADMIN_QUEUE_DIGEST_LINES,
   type AdminQueueDigest,
   type QueueUrgency,
   type AdminQueueLane,
@@ -50,6 +51,8 @@ export function rollupByLane(
 ): LaneRollup[] {
   const by = new Map<AdminQueueLane, LaneRollup>();
   for (const [key, meta] of Object.entries(ADMIN_QUEUE_META)) {
+    // A trail to watch is not work waiting — it gets a named line, not a lane sum.
+    if (meta.watchOnly) continue;
     const count = Math.max(0, digest[key]?.count ?? 0);
     if (count <= 0) continue;
     const r = by.get(meta.lane) ?? { lane: meta.lane, open: 0, overdue: 0 };
@@ -58,6 +61,30 @@ export function rollupByLane(
     by.set(meta.lane, r);
   }
   return ADMIN_LANE_ORDER.filter((l) => by.has(l)).map((l) => by.get(l)!);
+}
+
+/** Said in place of a number when a count could not be read — never "0". */
+export const COULD_NOT_COUNT = 'couldn’t count';
+
+/**
+ * ONE LINE PER QUEUE THAT USED TO BE SILENT (admin slice 4, 2026-11-13).
+ *
+ * The solo-operator audit, fact 4: *"A queue the digest does not count fills
+ * silently."* The lane rollup above sums them in with everything else; this
+ * names each one that has something in it, in its own words ("3 auto-
+ * suspended, need your look"), so a quiet-looking lane can no longer hide it.
+ *
+ * ⚠ A FAILED COUNT IS NAMED, NOT SKIPPED: "Fraud queue — couldn't count". A
+ * skipped line reads exactly like an empty queue. Empty queues are left out.
+ */
+export function silentQueueLines(digest: AdminQueueDigest): string[] {
+  const out: string[] = [];
+  for (const q of ADMIN_QUEUE_DIGEST_LINES) {
+    const count = digest[q.key]?.count;
+    if (count === null || count === undefined) out.push(`${q.label} — ${COULD_NOT_COUNT}`);
+    else if (count > 0) out.push(`${q.label} — ${q.say(count)}`);
+  }
+  return out;
 }
 
 export type DigestEmail = { subject: string; text: string; html: string };
@@ -78,6 +105,7 @@ export function buildDigestEmail(
     const od = l.overdue > 0 ? ` · ${l.overdue} overdue` : '';
     return `${LANE_LABEL[l.lane]} — ${l.open} open${od}`;
   });
+  const namedLines = silentQueueLines(digest);
 
   const subject =
     urgency.overdue > 0
@@ -90,13 +118,18 @@ export function buildDigestEmail(
     headline + '.',
     '',
     ...laneLines,
+    ...(namedLines.length > 0 ? ['', 'Also on your list:', ...namedLines] : []),
     '',
     `Open the work list: ${workUrl}`,
   ].join('\n');
 
   const html = renderBrandedEmail({
     heading: 'Your morning queue digest',
-    paragraphs: [headline + '.', ...laneLines],
+    paragraphs: [
+      headline + '.',
+      ...laneLines,
+      ...(namedLines.length > 0 ? ['Also on your list:', ...namedLines] : []),
+    ],
     ctaLabel: 'Open the work list',
     ctaHref: workUrl,
     footnote: 'It sends once a morning, only when work is waiting.',

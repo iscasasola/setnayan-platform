@@ -28,6 +28,16 @@ import {
   ShieldCheck,
   type LucideIcon,
   Receipt,
+  Copy,
+  ShieldAlert,
+  FileWarning,
+  TrendingUp,
+  Share2,
+  Music,
+  Undo2,
+  Lightbulb,
+  Bug,
+  MailWarning,
 } from 'lucide-react';
 
 export type BaseRow = {
@@ -79,6 +89,21 @@ export const BASE_ROWS: BaseRow[] = [
   { key: 'chat-flags', label: 'Chat flags', href: '/admin/chat-flags', icon: MessageSquareWarning, description: 'Messages flagged for taking a deal off-platform.' },
   { key: 'corrections', label: 'Profile corrections', href: '/admin/corrections', icon: Handshake, description: 'Verified shops asking to fix a locked detail.' },
   { key: 'integrity-watch', label: 'Integrity watch', href: '/admin/integrity-watch', icon: ShieldCheck, description: 'Review-fraud and ghost-listing flags awaiting a verdict.' },
+  /* ─── ADDED 2026-11-13 · the silent queues (admin slice 4) ──────────────
+     The solo-operator audit's fact 4: these filled with no badge and no digest
+     line. Each counts in QUEUE_DEFS (lib/admin/queue-counts.ts) now. Pax
+     changes and supplier refunds are trails to watch (`watchOnly`) — they show
+     their week's number and stay out of "items need you". */
+  { key: 'repost-watch', label: 'Repost watch', href: '/admin/repost-watch', icon: Copy, description: 'Reposted pictures and payment QR codes found in a supplier’s media.' },
+  { key: 'fraud', label: 'Fraud queue', href: '/admin/fraud', icon: ShieldAlert, description: 'Auto-suspended suppliers — needs your look.' },
+  { key: 'editorial-review', label: 'Editorial review', href: '/admin/editorial-review', icon: FileWarning, description: 'Flagged editorials — the couple waits until you look.' },
+  { key: 'pax-changes', label: 'Pax changes', href: '/admin/pax-changes', icon: TrendingUp, description: 'Guest-count cost changes this week — you only watch these.' },
+  { key: 'social-queue', label: 'Social queue', href: '/admin/studio?tab=social-queue', icon: Share2, description: 'Auto-posts that failed, and posts to take down.' },
+  { key: 'pakanta', label: 'Music Maker queue', href: '/admin/pakanta', icon: Music, description: 'Paid songs still to write.' },
+  { key: 'supplier-refunds', label: 'Supplier refunds', href: '/admin/payments/supplier-refunds', icon: Undo2, description: 'Refunds suppliers recorded this week — you only watch these.' },
+  { key: 'service-requests', label: 'Service requests', href: '/admin/categories/requests', icon: Lightbulb, description: 'Suppliers asking for a service we don’t list.' },
+  { key: 'problems', label: 'Problems', href: '/admin/app-performance?tab=connection-logs', icon: Bug, description: 'Things failing in the app right now.' },
+  { key: 'email-bounces', label: 'Email bounces', href: '/admin/settings?tab=notifications', icon: MailWarning, description: 'Emails this week that did not arrive.' },
 ];
 
 /**

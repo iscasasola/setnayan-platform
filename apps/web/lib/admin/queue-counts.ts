@@ -7,6 +7,8 @@ import {
   completionStuckSince,
   type CompletionCandidate,
 } from '@/lib/admin/completions-stuck';
+import { ACTIVE_STATUSES, BUNDLE_CHILD_SKUS } from '@/lib/entitlements';
+import { FAILED_DELIVERY_EVENTS, SUMMARY_WINDOW_MS } from '@/lib/email-delivery-log';
 
 /**
  * Admin Work-queue counting + urgency — the single source of truth behind the
@@ -105,7 +107,221 @@ type QueueDef = {
    * prod 2026-06-28). Override where a table names it differently.
    */
   tsCol?: string;
+  /**
+   * A TRAIL TO WATCH, NOT A DECISION TO MAKE (admin slice 4, 2026-11-13). Its
+   * count is the last week's new rows — guest-count cost changes, refunds a
+   * supplier recorded — which HQ observes but cannot "clear". It shows its
+   * number everywhere a queue does, and is left out of every "N items need
+   * you" total, because a trail that can never drain would keep that total
+   * permanently above zero.
+   */
+  watchOnly?: true;
+  /**
+   * The line the morning digest prints for this queue BY NAME (admin slice 4).
+   * Set on the queues that had no badge and no digest line before 2026-11-13 —
+   * the audit's "silent queues". `null` counts print "couldn't count", never 0.
+   */
+  digestLine?: { label: string; say: (n: number) => string };
 };
+
+/** The week a watch-only trail counts — the same window Email delivery summarises. */
+export const WATCH_WINDOW_MS = SUMMARY_WINDOW_MS;
+
+/**
+ * Head-count + oldest timestamp for one filtered table, failing to NULL.
+ * The building block for the `digest` counts below that sum several tables.
+ */
+async function countAndOldest(
+  // A PostgREST builder, already filtered — duck-typed like every filter here.
+  q: any,
+  ts: string,
+): Promise<AdminQueueDigestRow | null> {
+  const r = await q.order(ts, { ascending: true }).limit(1);
+  if (r?.error || typeof r?.count !== 'number') return null;
+  const rows = r.data as Record<string, unknown>[] | null | undefined;
+  const oldestAt = Array.isArray(rows) && rows[0]?.[ts] ? String(rows[0][ts]) : null;
+  return { count: r.count, oldestAt };
+}
+
+/** Sum several counts; ANY failed part makes the whole count unknown. */
+function sumCounts(parts: Array<AdminQueueDigestRow | null>): AdminQueueDigestRow {
+  if (parts.some((p) => p === null || p.count === null)) return { count: null, oldestAt: null };
+  const rows = parts as AdminQueueDigestRow[];
+  const oldests = rows.map((p) => p.oldestAt).filter((v): v is string => Boolean(v));
+  return {
+    count: rows.reduce((n, p) => n + (p.count ?? 0), 0),
+    oldestAt: oldests.length > 0 ? oldests.reduce((a, b) => (a < b ? a : b)) : null,
+  };
+}
+
+/**
+ * REPOST WATCH — BOTH tables /admin/repost-watch lists as open: reposted
+ * pictures (`vendor_image_flags`) AND payment QR codes found inside media
+ * (`vendor_qr_media_flags`). This is the "two tables" reason it stayed out of
+ * QUEUE_DEFS; `countOpenDisputes` showed the shape, and this copies it.
+ */
+export async function countRepostWatch(
+  admin: SupabaseClient,
+  _nowMs: number,
+): Promise<AdminQueueDigestRow> {
+  const [images, qr] = await Promise.all([
+    countAndOldest(
+      admin.from('vendor_image_flags').select('created_at', { count: 'exact' }).eq('status', 'open'),
+      'created_at',
+    ),
+    countAndOldest(
+      admin.from('vendor_qr_media_flags').select('created_at', { count: 'exact' }).eq('status', 'open'),
+      'created_at',
+    ),
+  ]);
+  if (!images) logQueryError('countRepostWatch (vendor_image_flags)', null, {}, 'graceful_degrade');
+  if (!qr) logQueryError('countRepostWatch (vendor_qr_media_flags)', null, {}, 'graceful_degrade');
+  return sumCounts([images, qr]);
+}
+
+/**
+ * SOCIAL QUEUE — the two lanes of /admin/studio?tab=social-queue that wait on a
+ * PERSON: an auto-post that FAILED (it will not retry itself), and a couple who
+ * took back their consent AFTER we posted (the post must come down). Scheduled
+ * and publishing posts run themselves and are not counted.
+ */
+export async function countSocialQueue(
+  admin: SupabaseClient,
+  _nowMs: number,
+): Promise<AdminQueueDigestRow> {
+  const [failed, takedowns] = await Promise.all([
+    countAndOldest(
+      admin.from('social_posts').select('updated_at', { count: 'exact' }).eq('status', 'failed'),
+      'updated_at',
+    ),
+    countAndOldest(
+      admin
+        .from('marketing_share_consents')
+        .select('revoked_at', { count: 'exact' })
+        .not('revoked_at', 'is', null)
+        .not('posted_at', 'is', null)
+        .is('taken_down_at', null),
+      'revoked_at',
+    ),
+  ]);
+  if (!failed) logQueryError('countSocialQueue (social_posts failed)', null, {}, 'graceful_degrade');
+  if (!takedowns) logQueryError('countSocialQueue (take-downs)', null, {}, 'graceful_degrade');
+  return sumCounts([failed, takedowns]);
+}
+
+/**
+ * MUSIC MAKER (Pakanta) — songs still to write: an event holding a PAID order
+ * that grants the song (direct or in a bundle, `ACTIVE_STATUSES`), or a brief
+ * marked purchased, whose song is not yet delivered. The same rows
+ * /admin/pakanta tags "write the song".
+ *
+ * ⚖ CHEAP BY DESIGN. The page confirms each order event with
+ * `eventSkuActive`, several reads per event; a count that runs on every admin
+ * page load cannot. It reads the paid order itself instead — the same status
+ * set `eventSkuActive` checks first — so the two differ only for an
+ * entitlement that comes from somewhere other than a paid order (a comp, a
+ * promo window), which this count leaves out rather than guesses at.
+ */
+export async function countMusicMakerToWrite(
+  admin: SupabaseClient,
+  _nowMs: number,
+): Promise<AdminQueueDigestRow> {
+  const keys = ['PAKANTA', ...bundlesGrantingPakanta()];
+  const [orders, drafts] = await Promise.all([
+    admin
+      .from('orders')
+      .select('event_id, created_at')
+      .in('service_key', keys)
+      .in('status', Array.from(ACTIVE_STATUSES))
+      .limit(500),
+    admin
+      .from('pakanta_intake_drafts')
+      .select('event_id, status, updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(200),
+  ]);
+  if (orders.error || !Array.isArray(orders.data)) {
+    logQueryError('countMusicMakerToWrite (orders)', orders.error ?? null, {}, 'graceful_degrade');
+    return { count: null, oldestAt: null };
+  }
+  if (drafts.error || !Array.isArray(drafts.data)) {
+    logQueryError('countMusicMakerToWrite (drafts)', drafts.error ?? null, {}, 'graceful_degrade');
+    return { count: null, oldestAt: null };
+  }
+  // Since when each event has been owed its song (oldest paid order, or the brief).
+  const owedSince = new Map<string, string>();
+  for (const o of orders.data as Array<{ event_id: string | null; created_at: string }>) {
+    if (!o.event_id) continue;
+    const prev = owedSince.get(o.event_id);
+    if (!prev || o.created_at < prev) owedSince.set(o.event_id, o.created_at);
+  }
+  const seenDraft = new Set<string>();
+  for (const d of drafts.data as Array<{ event_id: string; status: string; updated_at: string }>) {
+    // Newest first, so the first row per event is its current brief (as the page reads it).
+    if (seenDraft.has(d.event_id)) continue;
+    seenDraft.add(d.event_id);
+    if (d.status === 'purchased' && !owedSince.has(d.event_id)) owedSince.set(d.event_id, d.updated_at);
+  }
+  if (owedSince.size === 0) return { count: 0, oldestAt: null };
+  const { data: events, error } = await admin
+    .from('events')
+    .select('event_id, pakanta_song_status, pakanta_song_r2_key')
+    .in('event_id', Array.from(owedSince.keys()));
+  if (error || !Array.isArray(events)) {
+    logQueryError('countMusicMakerToWrite (events)', error ?? null, {}, 'graceful_degrade');
+    return { count: null, oldestAt: null };
+  }
+  const delivered = new Set(
+    (events as Array<{ event_id: string; pakanta_song_status: string | null; pakanta_song_r2_key: string | null }>)
+      .filter((e) => e.pakanta_song_status === 'ready' && !!e.pakanta_song_r2_key)
+      .map((e) => e.event_id),
+  );
+  let count = 0;
+  let oldestAt: string | null = null;
+  for (const [eventId, since] of owedSince) {
+    if (delivered.has(eventId)) continue;
+    count += 1;
+    if (!oldestAt || since < oldestAt) oldestAt = since;
+  }
+  return { count, oldestAt };
+}
+
+/** The bundle codes that grant the song — derived, as /admin/pakanta derives them. */
+function bundlesGrantingPakanta(): string[] {
+  return (Object.entries(BUNDLE_CHILD_SKUS) as Array<[string, ReadonlyArray<string>]>)
+    .filter(([, children]) => children.includes('PAKANTA'))
+    .map(([bundleKey]) => bundleKey);
+}
+
+/**
+ * EMAIL BOUNCES — emails of the last week that will not arrive: refused at
+ * send, or reported by Resend as bounced / complained / failed / suppressed.
+ * The same verdict Email delivery shows as "failed" (`verdictOf`), asked as a
+ * head-count so it stays cheap on every admin page load.
+ *
+ * ⚠ "Not configured" (no Resend key) is NOT a bounce — nothing was sent. The
+ * Email delivery strip already says that one out loud.
+ */
+export async function countEmailBounces(
+  admin: SupabaseClient,
+  nowMs: number,
+): Promise<AdminQueueDigestRow> {
+  const since = new Date(nowMs - WATCH_WINDOW_MS).toISOString();
+  const events = FAILED_DELIVERY_EVENTS.join(',');
+  const r = await countAndOldest(
+    admin
+      .from('email_deliveries')
+      .select('created_at', { count: 'exact' })
+      .gte('created_at', since)
+      .or(`outcome.eq.send_failed,and(outcome.eq.accepted,last_event.in.(${events}))`),
+    'created_at',
+  );
+  if (!r) {
+    logQueryError('countEmailBounces', null, {}, 'graceful_degrade');
+    return { count: null, oldestAt: null };
+  }
+  return r;
+}
 
 /**
  * SINGLE SOURCE OF TRUTH for every Work queue's "open" filter. Each filter MUST
@@ -252,15 +468,9 @@ const QUEUE_DEFS: QueueDef[] = [
        · verification-docs — a document BROWSER (what a vendor uploaded to prove
          who they are), not work awaiting a decision.
        · data-privacy      — a compliance checklist plus the NPC document set.
-       · repost-watch      — TWO source tables (`vendor_image_flags` AND
-         `vendor_qr_media_flags`). One def counts one table, so adding it here
-         would UNDERCOUNT, and a lane that quietly reports less than its page is
-         worse than a lane that is absent.
-         ⚠ THE LAST SENTENCE HERE USED TO READ "extending the framework to sum
-         two tables is a separate change." That is now STALE and it is exactly
-         the kind of sentence this file records as the mechanism that keeps a
-         gap alive: `disputes` sums two tables today via `countOpenDisputes`.
-         The pattern to copy is there; repost-watch simply has not been done.
+       · repost-watch      — ✅ DONE 2026-11-13: it sums its TWO source tables
+         through `countRepostWatch`, the `countOpenDisputes` shape, at the end
+         of this list.
      ⛔ And payouts stays out — owner 2026-08-19: *"we do not have a payout."*
   ─────────────────────────────────────────────────────────────────────────── */
   {
@@ -486,6 +696,125 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: 72,
     filter: (q) => q.eq('status', 'open'),
   },
+  /* ─── ADDED 2026-11-13 · THE SILENT QUEUES (admin slice 4) ────────────────
+     The solo-operator audit (Setnayan-specs prototypes/admin_five_tabs_2026-11-13/
+     SOLO-OPERATOR-AUDIT.md, fact 4): "A queue the digest does not count fills
+     silently." These ten had no badge on Work and no line in the morning digest.
+     Each count mirrors its page's own "open" rows; each fails to NULL.
+
+     ⏱ NONE OF THEM HAS A CLOCK (`slaHours: null`). A promise time is the
+     owner's call, not a builder's guess — they show their number and never
+     turn red until he sets one.
+  ─────────────────────────────────────────────────────────────────────────── */
+  {
+    // Both tables /admin/repost-watch lists as open — see countRepostWatch.
+    key: 'repost-watch',
+    table: 'vendor_image_flags',
+    lane: 'trust',
+    slaHours: null,
+    filter: (q) => q.eq('status', 'open'),
+    digest: countRepostWatch,
+    digestLine: { label: 'Repost watch', say: (n) => `${n} flagged ${n === 1 ? 'picture' : 'pictures'} to look at` },
+  },
+  {
+    // The fraud runner's reversible auto-suspend (lib/fraud-enforcement-runner.ts
+    // sets fraud_suspended_at). A ban is final and is not waiting on anyone, so
+    // a banned shop is not counted. /admin/fraud tags these "Auto-suspended".
+    key: 'fraud',
+    table: 'vendor_profiles',
+    lane: 'trust',
+    slaHours: null,
+    filter: (q) => q.not('fraud_suspended_at', 'is', null).is('fraud_banned_at', null),
+    tsCol: 'fraud_suspended_at',
+    digestLine: { label: 'Fraud queue', say: (n) => `${n} auto-suspended, ${n === 1 ? 'needs' : 'need'} your look` },
+  },
+  {
+    // /admin/editorial-review's "Needs review" list. It BLOCKS the couple: their
+    // editorial stays locked until a red flag is resolved.
+    key: 'editorial-review',
+    table: 'event_editorial',
+    lane: 'trust',
+    slaHours: null,
+    filter: (q) => q.eq('scan_status', 'flagged'),
+    tsCol: 'scan_completed_at',
+    digestLine: { label: 'Editorial review', say: (n) => `${n} flagged ${n === 1 ? 'editorial' : 'editorials'} waiting — the couple is blocked` },
+  },
+  {
+    // A read-only TRAIL (/admin/pax-changes: "HQ only observes"), so its count
+    // is the last week's new rows, not an open state it never had.
+    key: 'pax-changes',
+    table: 'pax_change_audit',
+    lane: 'support',
+    slaHours: null,
+    watchOnly: true,
+    filter: (q, { nowIso }) =>
+      q.gte('created_at', new Date(Date.parse(nowIso) - WATCH_WINDOW_MS).toISOString()),
+    digestLine: { label: 'Pax changes', say: (n) => `${n} guest-count cost ${n === 1 ? 'change' : 'changes'} this week` },
+  },
+  {
+    // Failed auto-posts + take-downs owed — see countSocialQueue.
+    key: 'social-queue',
+    table: 'social_posts',
+    lane: 'support',
+    slaHours: null,
+    filter: (q) => q.eq('status', 'failed'),
+    digest: countSocialQueue,
+    digestLine: { label: 'Social queue', say: (n) => `${n} ${n === 1 ? 'post needs' : 'posts need'} you (failed or to take down)` },
+  },
+  {
+    // Songs still to write — see countMusicMakerToWrite. Key stays `pakanta`
+    // (the route); every word a person reads says Music Maker.
+    key: 'pakanta',
+    table: 'orders',
+    lane: 'support',
+    slaHours: null,
+    filter: (q) => q.in('service_key', ['PAKANTA']).in('status', Array.from(ACTIVE_STATUSES)),
+    digest: countMusicMakerToWrite,
+    digestLine: { label: 'Music Maker', say: (n) => `${n} ${n === 1 ? 'song' : 'songs'} to write` },
+  },
+  {
+    // Refunds suppliers RECORDED giving their clients — no money moves through
+    // Setnayan and the page decides nothing, so it is a week's trail too.
+    key: 'supplier-refunds',
+    table: 'event_vendor_refunds',
+    lane: 'support',
+    slaHours: null,
+    watchOnly: true,
+    filter: (q, { nowIso }) =>
+      q.is('removed_at', null).gte('created_at', new Date(Date.parse(nowIso) - WATCH_WINDOW_MS).toISOString()),
+    digestLine: { label: 'Supplier refunds', say: (n) => `${n} ${n === 1 ? 'refund' : 'refunds'} recorded this week` },
+  },
+  {
+    // A service we do not list yet — /admin/categories/requests, status pending.
+    key: 'service-requests',
+    table: 'taxonomy_category_requests',
+    lane: 'growth',
+    slaHours: null,
+    filter: (q) => q.eq('status', 'pending'),
+    digestLine: { label: 'Service requests', say: (n) => `${n} ${n === 1 ? 'request' : 'requests'} for a service we don't list` },
+  },
+  {
+    // Problems — the grouped fault list (lib/telemetry/fault-issues.server.ts),
+    // open issues only. It closes quiet issues when the page is read, so this
+    // can run one or two ahead of the page between visits — never behind.
+    key: 'problems',
+    table: 'app_fault_issues',
+    lane: 'support',
+    slaHours: null,
+    filter: (q) => q.eq('status', 'open'),
+    tsCol: 'first_seen',
+    digestLine: { label: 'Problems', say: (n) => `${n} ${n === 1 ? 'thing is' : 'things are'} failing in the app` },
+  },
+  {
+    // Emails of the last week that will not arrive — see countEmailBounces.
+    key: 'email-bounces',
+    table: 'email_deliveries',
+    lane: 'support',
+    slaHours: null,
+    filter: (q) => q.eq('outcome', 'send_failed'),
+    digest: countEmailBounces,
+    digestLine: { label: 'Email bounces', say: (n) => `${n} ${n === 1 ? 'email' : 'emails'} this week did not arrive` },
+  },
 ];
 
 /**
@@ -518,20 +847,32 @@ export function getQueueSource(
 
 export const ADMIN_QUEUE_META: Record<
   string,
-  { lane: AdminQueueLane; slaHours: number | null }
+  { lane: AdminQueueLane; slaHours: number | null; watchOnly?: true }
 > = Object.fromEntries(
-  QUEUE_DEFS.map((d) => [d.key, { lane: d.lane, slaHours: d.slaHours }]),
+  QUEUE_DEFS.map((d) => [
+    d.key,
+    d.watchOnly ? { lane: d.lane, slaHours: d.slaHours, watchOnly: true as const } : { lane: d.lane, slaHours: d.slaHours },
+  ]),
 );
 
-// DELIBERATELY NOT in QUEUE_DEFS (so they carry NO badge/urgency) — their
-// "pending count" and/or actionable age is COMPUTED, not a single-table head-
-// count, so an approximate filter would show a WRONG number (worse than none):
-//   • pax-changes      — pax_change_audit joined across vendor_profiles + events
-//   • social-queue     — social_posts auto-publish states ≠ "awaiting admin"
-//   • pakanta          — orders filtered to the Pakanta SKU (cross-table)
-//   • editorial-review — event_editorial flag severity computed from a jsonb array
-// These keep their /admin/<route> pages; closing this would need per-queue
-// count RPCs, tracked as a follow-up — NOT a silent omission.
+/**
+ * The digest's named lines — one per queue that carries a `digestLine`, in
+ * QUEUE_DEFS order. Derived, so a queue given a line here cannot be missed by
+ * the email (lib/admin/digest-content.ts reads this, never its own list).
+ */
+export const ADMIN_QUEUE_DIGEST_LINES: ReadonlyArray<{
+  key: string;
+  label: string;
+  say: (n: number) => string;
+}> = QUEUE_DEFS.flatMap((d) => (d.digestLine ? [{ key: d.key, ...d.digestLine }] : []));
+
+// ✅ CLOSED 2026-11-13 (admin slice 4). This block used to list pax-changes,
+// social-queue, pakanta and editorial-review as DELIBERATELY uncounted, "tracked
+// as a follow-up". All four now count in QUEUE_DEFS, each through the cut its
+// page uses (a week's trail · failed posts + take-downs owed · songs to write ·
+// scan_status 'flagged'), alongside repost-watch, fraud, service-requests,
+// supplier-refunds, problems and email-bounces. silent-queues-have-a-count.test.ts
+// fails if any of the ten loses its count source again.
 //
 // 🛑 `completions` WAS ON THIS LIST AND ITS REASONING WAS RIGHT — it needs the
 // celebration date from another table plus a JS "stuck" cut. On 2026-08-19 it
@@ -570,33 +911,46 @@ export type AdminQueueDigest = Record<string, AdminQueueDigestRow>;
  * limit(1) returns both). A table without a `created_at` column degrades to
  * oldestAt:null (that queue ranks by volume only) — never blocks the feed.
  */
+/**
+ * ONE queue's count + oldest-open age, failing to NULL — never to 0.
+ *
+ * Exported so `silent-queues-have-a-count.test.ts` can hand it a database that
+ * refuses every read and prove each queue answers "unknown" rather than an
+ * all-clear. `getAdminQueueDigest` is this, once per QUEUE_DEFS row.
+ * `undefined` = no queue has that key.
+ */
+export async function countQueue(
+  admin: SupabaseClient,
+  key: string,
+  nowMs: number,
+): Promise<AdminQueueDigestRow | undefined> {
+  const d = QUEUE_DEFS.find((q) => q.key === key);
+  if (!d) return undefined;
+  const nowIso = new Date(nowMs).toISOString();
+  try {
+    /* A queue that cannot be a single-table head-count reads itself. Caught
+       here so a rejection degrades THAT queue to null instead of poisoning
+       its siblings in getAdminQueueDigest's Promise.all. */
+    if (d.digest) return await d.digest(admin, nowMs);
+    const ts = d.tsCol ?? 'created_at';
+    const r = await d
+      .filter(admin.from(d.table).select(ts, { count: 'exact' }), { nowIso })
+      .order(ts, { ascending: true })
+      .limit(1);
+    // A refused read carries `error` and no count: NULL, never a zero.
+    if (r?.error) return { count: null, oldestAt: null };
+    const rows = r?.data as Record<string, unknown>[] | null | undefined;
+    const oldestAt = Array.isArray(rows) && rows[0]?.[ts] ? String(rows[0][ts]) : null;
+    return { count: num(r?.count), oldestAt };
+  } catch {
+    return { count: null, oldestAt: null };
+  }
+}
+
 export const getAdminQueueDigest = cache(async (): Promise<AdminQueueDigest> => {
   const admin = createAdminClient();
-  const nowIso = new Date().toISOString();
-  const nowMs = Date.parse(nowIso);
-  const results = await Promise.all(
-    QUEUE_DEFS.map(async (d): Promise<AdminQueueDigestRow> => {
-      /* A queue that cannot be a single-table head-count reads itself. Caught
-         here so a rejection degrades THAT queue to null instead of poisoning
-         its siblings in this Promise.all. */
-      if (d.digest) {
-        try {
-          return await d.digest(admin, nowMs);
-        } catch {
-          return { count: null, oldestAt: null };
-        }
-      }
-      const ts = d.tsCol ?? 'created_at';
-      const r = await d
-        .filter(admin.from(d.table).select(ts, { count: 'exact' }), { nowIso })
-        .order(ts, { ascending: true })
-        .limit(1);
-      const rows = r?.data as Record<string, unknown>[] | null | undefined;
-      const oldestAt =
-        Array.isArray(rows) && rows[0]?.[ts] ? String(rows[0][ts]) : null;
-      return { count: num(r?.count), oldestAt };
-    }),
-  );
+  const nowMs = Date.now();
+  const results = await Promise.all(QUEUE_DEFS.map((d) => countQueue(admin, d.key, nowMs)));
   const out: AdminQueueDigest = {};
   QUEUE_DEFS.forEach((d, i) => {
     /* Index-aligned with the Promise.all above by construction; the fallback is
@@ -739,6 +1093,13 @@ export function deriveQueueUrgency(
   let unknownCount = 0;
   for (const [key, meta] of Object.entries(ADMIN_QUEUE_META)) {
     const row = digest[key];
+    // A trail to watch is not work waiting: it keeps its own state (so its
+    // badge still shows) and stays out of every total below — including the
+    // unknown tally, which is "a queue of WORK we could not read".
+    if (meta.watchOnly) {
+      if (row) states[key] = computeDueState(row, meta.slaHours, nowMs);
+      continue;
+    }
     if (!row || row.count === null) {
       unknownCount += 1; // queue missing from digest, or its count query degraded
       if (row) states[key] = computeDueState(row, meta.slaHours, nowMs);

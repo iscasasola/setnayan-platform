@@ -4,7 +4,7 @@
  * (`suppliersDateFact`).
  *
  * Carried over from the unmerged `rd/suppliers-find-fits-the-event` (2026-10-11), cut to the two date shapes this
- * tree's hide knows (`describeUnbookableScope`: a day, or a whole month).
+ * tree's hide knows (`fitDateScope`: a day, a span, the candidate dates, a window, or a whole month).
  */
 import { suppliersDateFact } from '@/lib/suppliers-shell';
 import type { UnbookableScope } from '@/lib/bench-bookable-days';
@@ -61,8 +61,27 @@ export function findEmptyState(a: {
 export function findNobodyFreeWords(scope: UnbookableScope | null | undefined): string {
   const first = scope?.days[0];
   if (!scope || !first) return FIND_NOBODY_FREE_BARE;
-  if (scope.kind === 'month') return `Nobody is free in ${suppliersDateFact(first, 'month').text}.`;
-  return `Nobody is free on ${suppliersDateFact(first, 'day').text}.`;
+  return `Nobody is free ${whenWords(scope, first)}.`;
+}
+
+/**
+ * The date part of both sentences, by the shape the hide judged (`fitDateScope`, owner 2026-11-13):
+ *   day     on Sat, Dec 12, 2026
+ *   month   in December 2026
+ *   span    from Sat, Dec 12, 2026 to Sun, Dec 13, 2026      (the main span — a multi-day event)
+ *   range   between Tue, Dec 1, 2026 and Wed, Dec 30, 2026   (the date window, before a venue is booked)
+ *   dates   on any of your dates                             (the candidates, before a venue is booked)
+ */
+function whenWords(scope: UnbookableScope, first: string): string {
+  const last = scope.days[scope.days.length - 1] ?? first;
+  if (scope.kind === 'month') return `in ${suppliersDateFact(first, 'month').text}`;
+  if (scope.kind === 'dates') return scope.days.length > 1 ? 'on any of your dates' : `on ${suppliersDateFact(first, 'day').text}`;
+  if ((scope.kind === 'span' || scope.kind === 'range') && last !== first) {
+    const a = suppliersDateFact(first, 'day').text;
+    const b = suppliersDateFact(last, 'day').text;
+    return scope.kind === 'span' ? `from ${a} to ${b}` : `between ${a} and ${b}`;
+  }
+  return `on ${suppliersDateFact(first, 'day').text}`;
 }
 
 /** The hide removed somebody but the date it judged on did not arrive — it cannot happen while both come from one
@@ -88,6 +107,5 @@ export const DATE_UNCHECKED_TAIL = 'Some of these suppliers may already be booke
 export function dateUncheckedWords(scope: UnbookableScope | null | undefined): string {
   const first = scope?.days[0];
   if (!scope || !first) return `Couldn't check who's free on your date. ${DATE_UNCHECKED_TAIL}`;
-  if (scope.kind === 'month') return `Couldn't check who's free in ${suppliersDateFact(first, 'month').text}. ${DATE_UNCHECKED_TAIL}`;
-  return `Couldn't check who's free on ${suppliersDateFact(first, 'day').text}. ${DATE_UNCHECKED_TAIL}`;
+  return `Couldn't check who's free ${whenWords(scope, first)}. ${DATE_UNCHECKED_TAIL}`;
 }

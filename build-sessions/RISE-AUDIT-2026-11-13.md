@@ -25,7 +25,7 @@ Guard: `app/_components/rise/the-rise-screen-is-one-full-screen.test.ts`.
 |---|---|---|
 | 1 | every ⚙ rises — `MenuSettingsButton` `rise` becomes the default (Home · Guests · Event Hub · Suppliers · Memories · People · Today · Clients · Portfolio · Supplier Hub · Shop). The picked client's own ⚙ keeps its sheet (`rise={false}`: it is already inside a risen view — one level). | ✅ this PR |
 | 2 | lock & upsell explainers that were still sheets/dialogs → `RiseScreen` (`IapUnlockSheet` · `IapPapicSheet` · `IapLiveWatchSheet` · `ChoosePlanSheet`). `RiseScreen` gains `busy` (a purchase in flight holds every way out) and `useRiseClose` / `WithRiseClose` (an inner Done / Not now falls back exactly as ✕ does). | ✅ this PR |
-| 3 | avatar-sheet rows (Your details · Your page · Helpers · Plan · Settings · Billing · Profile & settings) — page jump → rise | next |
+| 3 | the supplier avatar rows (Your details · Your page · Helpers · Plan · Settings) — page jump → rise, through `@rise/(.)<page>` + `RiseRoute` (§ H). Billing & receipts and Profile & settings live in the `/dashboard` tree — next. | ✅ this PR (supplier rows) |
 | 4 | Prints ⚙ (`StudioPrintSettings`, its fields must never unmount) · `ApplyProSheet` (drawn at z-90 inside the Maker — above the pop layer, needs a layer decision first) · `offer-editor.tsx` / `body-panel.tsx` own overlays → `RiseScreen` | next |
 | 5+ | the content sheets marked RISE below (service/supplier card, schedule, forms, chat info, admin drawers) | next |
 
@@ -69,11 +69,11 @@ phone, left drawer on a desk). Supplier rows from `vendor-dashboard/_components/
 
 | row · key | href | today | target |
 |---|---|---|---|
-| Your details · `details` | `/vendor-dashboard/profile` | jump | RISE — b3 |
-| Your page · `page` | `/vendor-dashboard/website` | jump | RISE — b3 |
-| Helpers · `helpers` | `/vendor-dashboard/team` | jump | RISE — b3 |
-| Plan · `plan` | `/vendor-dashboard/subscription` | jump | RISE — b3 |
-| Settings · `settings` | `/vendor-dashboard/settings` | jump | RISE — b3 |
+| Your details · `details` | `/vendor-dashboard/profile` | jump | RISE ✅ b3 |
+| Your page · `page` | `/vendor-dashboard/website` | jump | RISE ✅ b3 |
+| Helpers · `helpers` | `/vendor-dashboard/team` | jump | RISE ✅ b3 |
+| Plan · `plan` | `/vendor-dashboard/subscription` | jump | RISE ✅ b3 |
+| Settings · `settings` | `/vendor-dashboard/settings` | jump | RISE ✅ b3 |
 | Billing & receipts · `data-sheet-row="billing"` | `/dashboard/billing` | jump | RISE — b3 |
 | cover "Profile & settings ›" | `/dashboard/profile` | jump | RISE — b3 |
 | Help tile | `/help` · `/vendor-dashboard/help` | jump | RISE — b3 |
@@ -167,3 +167,32 @@ public pages `[slug]/…`, `v/[slug]/…`, `open-shop/…`, `panood/…`, `samah
 pickers and stay.
 
 Re-measure any row: `grep -rn "<Sheet\b\|role=\"dialog\"\|<RiseScreen\|<MenuSettingsButton" apps/web/app --include=*.tsx`.
+
+## H · Batch 3 design (the avatar rows) — measured before building
+
+A page jump becomes a rise the way the picked client already does it: an **intercepted route**. Measured constraints:
+
+1. **Slot.** `vendor-dashboard/layout.tsx` takes a `rise` slot: `@rise/(.)profile` · `(.)website` · `(.)team` ·
+   `(.)subscription` · `(.)settings`, each re-exporting the SAME page (`export { default }` pattern of
+   `customers/@client/(..)clients/[eventId]/page.tsx`) inside one client wrapper on `RiseScreen`, ✕ → `router.back()`.
+   A hard load of the URL is not intercepted and draws the full page (deep links unchanged).
+2. **Reset.** On a soft navigation an unmatched parallel slot KEEPS its last state, so the slot needs `@rise/page.tsx`
+   and `@rise/[...catchAll]/page.tsx` returning null — or a bottom-tab tap would leave the risen page up.
+3. **Two history entries.** `RiseScreen` pushes its own Back entry (`useBackCloses`) on top of the route's. ✕ / Back pop
+   ours, play the fall, then `router.back()` pops the route's. A tab re-tap closes without popping ours (the wrapper
+   must then NOT `router.back()`; the tab's own navigation and the catch-all clear the slot).
+4. **Layer.** The avatar sheet (`account-switcher.tsx`, `z-[52]` panel over a `z-[51]` backdrop) is ABOVE the rise layer
+   (`--sn-z-pop` 40). Today every row `onClick={close}`s the sheet, so the tapped row is gone before the screen mounts
+   and `riseOriginNow()` finds nothing — it would appear, not rise. For "rises from the row, falls back into it" the
+   sheet must stay MOUNTED (the row keeps its rect) but step aside while the rise is up, and come back on ✕.
+5. **Couple side.** The same sheet is drawn on `/dashboard/*`; a soft tap there on a supplier row is outside the
+   `vendor-dashboard` tree and is NOT intercepted — it stays a page jump into the supplier dashboard (a place change,
+   which the rule allows).
+6. **Proof.** These pages need a session and a database; a container with the dummy lab env cannot draw them. The
+   mechanism is proved in `app/dev/rise-route-lab` (the shipped `SwitcherPanelBody`, rows pointed at lab pages, the same
+   slot shape and `RiseRoute`): ✕ and the phone's Back both land back on the first URL with the sheet under the thumb.
+   The real pages need a signed-in check by the controller.
+7. **Speed (measured in the lab).** `riseOriginNow()` keeps a press for 1.5 s. A route whose PAGE is the screen rises
+   only if the server answers inside that — warm 156 ms (rises), cold 1,489 ms (it simply appears). So the screen is
+   each intercept's LAYOUT (it stands the moment the tap lands — 0.9 s in dev with no prefetch, the rows are prefetched
+   in production) and the page, under its own `loading.tsx` skeleton, streams into the SAME screen (no second rise).

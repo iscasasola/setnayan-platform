@@ -187,3 +187,43 @@ test('6 · every lock / upsell explainer rises — no popup sheet, no drawer of 
     assert.match(code(rel), /<WithRiseClose fallback=\{closed\}>/, `${rel}: an inner close skips the fall`);
   }
 });
+
+// ⤴ 13 Nov rollout, batch 3 (build-sessions/RISE-AUDIT-2026-11-13.md § H): the avatar sheet's rows RISE their page over the
+// page you are on — an intercepted route whose LAYOUT is the ONE screen (it stands the moment the tap lands, the page streams
+// into it), the SAME page re-exported (never a second body), headed by the row's own words; the slot clears on any other
+// navigation; the sheet stays mounted under it (the row keeps its rect) but steps aside; and a ⚙ inside a risen page keeps
+// its sheet (one level). Proved end to end in app/dev/rise-route-lab (✕ and the phone's Back both land on the first URL).
+// 🛡 SABOTAGE (seen RED, then restored): `onClick={supplierSheet ? undefined : close}` → `onClick={close}` in
+// account-switcher.tsx.
+test('7 · every avatar row rises its page — one screen, the same page, the sheet under it, one level', () => {
+  const SLOT = 'app/vendor-dashboard/@rise';
+  const rows: Record<string, string> = { profile: 'details', website: 'page', team: 'helpers', subscription: 'plan', settings: 'settings' };
+  for (const [dir, key] of Object.entries(rows)) {
+    const layout = code(`${SLOT}/(.)${dir}/layout.tsx`);
+    assert.match(layout, /<RiseRoute title=\{label\} line=\{sub\} data=/, `${dir}: the row's page does not rise`);
+    assert.match(layout, new RegExp(`avatarRowWords\\('${key}'\\)`), `${dir}: the risen page is not headed by the row's own words`);
+    assert.equal(code(`${SLOT}/(.)${dir}/page.tsx`).trim(), `export { default } from '../../${dir}/page';`, `${dir}: a second page body`);
+  }
+  // Every supplier row's href has its intercept (a row added later must rise too).
+  const rowsSrc = code('app/vendor-dashboard/_components/supplier-avatar-rows.ts');
+  for (const m of rowsSrc.matchAll(/href: '\/vendor-dashboard\/([a-z-]+)'/g)) {
+    assert.ok(Object.prototype.hasOwnProperty.call(rows, m[1]!), `the avatar row to /vendor-dashboard/${m[1]} does not rise`);
+  }
+  // The slot is drawn by the supplier layout and clears on every other navigation.
+  assert.match(code('app/vendor-dashboard/layout.tsx'), /\{children\}<\/BasicSetupHold>\s*\{rise\}/, 'the supplier layout does not draw the rise slot');
+  for (const f of ['default.tsx', 'page.tsx', '[...rest]/page.tsx']) assert.match(code(`${SLOT}/${f}`), /return null;/, `${f}: the slot keeps a risen page up after a tab tap`);
+  // RiseRoute: ✕ / Back pop ours then the route's; a tab re-tap steps over both.
+  const route = code('app/_components/rise/rise-route.tsx');
+  assert.match(route, /if \(st\?\.\[LAYER_MARK\]\) window\.history\.go\(-2\);\s*else router\.back\(\);/, 'the risen page does not leave through both Back entries');
+  // The sheet stays under the risen page (the row keeps its rect) but steps aside.
+  const sheet = code('app/_components/account-switcher/account-switcher.tsx');
+  assert.match(sheet, /onClick=\{supplierSheet \? undefined : close\} data-switcher-shop-row=\{r\.key\}/, 'the sheet closes under the risen page — ✕ has no row to fall back into');
+  assert.equal([...sheet.matchAll(/<div data-account-sheet-layer="">/g)].length, 2, 'a sheet layer that never steps aside');
+  assert.match(
+    readFileSync(join(WEB, 'app/_components/frontdoor/front-door.css'), 'utf8'),
+    /html\[data-chrome-away\] \[data-account-sheet-layer\] \{\s*visibility: hidden;/,
+    'the sheet draws over the risen page',
+  );
+  // One level: a ⚙ inside a risen screen keeps its sheet.
+  assert.match(code('app/_components/menu-settings-button.tsx'), /const risen = rise && !insideRise;/, 'a ⚙ inside a risen page rises a second screen');
+});

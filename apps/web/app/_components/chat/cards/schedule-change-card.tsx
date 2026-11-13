@@ -48,7 +48,15 @@ export function ScheduleChangeCard({
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const load = useCallback(() => {
-    void loadScheduleSeen(threadId).then((r) => setSeen(r.ok ? { eventId: r.eventId, seenAt: r.seenAt } : null));
+    void loadScheduleSeen(threadId).then((r) => {
+      if (!r.ok) {
+        setSeen(null);
+        setProblem('Couldn’t load this. Try again in a moment.');
+        return;
+      }
+      setProblem(null);
+      setSeen({ eventId: r.eventId, seenAt: r.seenAt });
+    });
   }, [threadId]);
   useEffect(() => {
     if (!seed) load();

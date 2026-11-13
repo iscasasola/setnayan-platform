@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { randomUUID } from 'node:crypto';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchClaimLandingByToken, isCoupleMadeInvite } from '@/lib/vendor-invites';
 import { readStoredPayWays } from '@/lib/self-added-pay-ways';
 import { budgetPaymentProofPolicy, parseClientRef, vendorPaymentQrPolicy } from '@/lib/r2-client-ref';
@@ -19,12 +19,14 @@ import { r2Copy } from '@/lib/r2';
  * that failed) — the caller then simply saves no QR.
  */
 export async function claimPaymentQrToShop(
-  admin: SupabaseClient,
   token: string,
   index: number,
   vendorProfileId: string,
 ): Promise<string | null> {
   try {
+    // The service role, built HERE (as lib/claim-door.server.ts does): the landing read carries the shop's
+    // contact_email/contact_phone, which a session client is refused — see lib/security/shop-contact-is-not-session-readable.test.ts.
+    const admin = createAdminClient();
     const landing = await fetchClaimLandingByToken(admin, token);
     const parent = landing?.parentVendor;
     if (!landing || !parent || !isCoupleMadeInvite(landing.invite.source)) return null;

@@ -298,7 +298,7 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
       tries.push(fd);
     }
     if (ans.keepQr && rec.qrUrl) {
-      const qrRef = await claimPaymentQrToShop(admin, token, j, vendorProfileId);
+      const qrRef = await claimPaymentQrToShop(token, j, vendorProfileId);
       if (qrRef) {
         const fd = new FormData();
         fd.set('method_type', 'qr');

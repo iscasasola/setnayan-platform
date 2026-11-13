@@ -674,6 +674,8 @@ html.dark .slcat .bench-search{background:#232019}
 html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
 html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
+.slcat .vc [data-price-basis-line]{margin-top:auto;padding-top:4px}
+.slcat .vc [data-price-basis-line] .price{margin-top:0;padding-top:0}
 .slcat .vc .incl{font-size:11px;font-weight:600;color:#2e7d4f;margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the suppliers) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
@@ -1465,6 +1467,9 @@ function VendorCard({
   const look = useContext(ServiceCardCtx);
   const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
   const hasRecordedPrice = v.totalCostPhp != null && v.totalCostPhp > 0;
+  // The recorded price, drawn ONCE (the-bench-card-keeps-everything pins it to one span) — bare as shipped, or
+  // inside the price-basis line when an agreed count follows it.
+  const priceEl = hasRecordedPrice ? <span className="price">{formatPhp(v.totalCostPhp)}</span> : null;
   const router = useRouter();
   const [detailsLoading, startDetails] = useTransition();
   const [details, setDetails] = useState<SelfAddedSupplierPrefill | null>(null);
@@ -1616,12 +1621,14 @@ function VendorCard({
         {hasRecordedPrice ? (
           agreedSuffix(basisLine) ? (
             <span data-price-basis-line="">
-              <span className="price">{formatPhp(v.totalCostPhp)}</span>{' '}
+              {priceEl}{' '}
               <span className="sc-price">· {agreedSuffix(basisLine)}</span>
             </span>
           ) : (
-            <span className="price">{formatPhp(v.totalCostPhp)}</span>
+            priceEl
           )
+        ) : null}
+          </span>
         ) : null}
         {/* The decided after-claim line (owner 13 Nov: "Yes, follow it") — only while it is still the couple's record. */}
         {basisLine && hasRecordedPrice ? (

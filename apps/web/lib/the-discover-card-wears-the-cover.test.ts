@@ -378,39 +378,39 @@ function coverOnly(html: string): string {
 }
 
 test('4·1 · no Discover cover prints a date — the paper card, the invitation on a photo, the mark', () => {
-  const dated = poster({ eventDate: '2026-12-12' });
-  const photo = poster({ eventDate: '2026-12-18', heroSrc: HERO });
+  const dated = poster({ displayName: 'Ana & Miguel', eventDate: '2026-12-12' });
+  const photo = poster({ displayName: 'Ana & Miguel', eventDate: '2026-12-18', heroSrc: HERO });
   const photoScene = sceneCoverFor(photo);
   assert.ok(photoScene && photoScene.kind === 'photo');
   const cards = {
-    paper: card({ paper: paperOf(dated) }),
-    'photo with names': card({ scene: photoScene, scenePoster: { poster: photo, ground: null, markText: 'C & I', markSvg: null, markPlays: false } }),
-    'bare photo': card({ scene: photoScene }),
-    mark: card(),
-    undated: card({ paper: paperOf(poster({ eventDate: null })) }),
+    paper: card({ title: 'Ana & Miguel',  paper: paperOf(dated) }),
+    'photo with names': card({ title: 'Ana & Miguel',  scene: photoScene, scenePoster: { poster: photo, ground: null, markText: 'A & M', markSvg: null, markPlays: false } }),
+    'bare photo': card({ title: 'Ana & Miguel',  scene: photoScene }),
+    mark: card({ title: 'Ana & Miguel' }),
+    undated: card({ title: 'Ana & Miguel',  paper: paperOf(poster({ displayName: 'Ana & Miguel', eventDate: null })) }),
   };
   for (const [name, c] of Object.entries(cards)) {
     const html = shelves([c]);
     assert.doesNotMatch(coverOnly(html), DATE_ON_COVER, `the ${name} cover printed a date`);
   }
   // …while the names ARE on the covers that carry them.
-  assert.match(shelves([cards['photo with names']]), />Cale</, 'the photo cover lost the names');
-  assert.match(shelves([cards.paper]), />Cale</, 'the paper cover lost the names');
+  assert.match(shelves([cards['photo with names']]), />Ana</, 'the photo cover lost the names');
+  assert.match(shelves([cards.paper]), />Ana</, 'the paper cover lost the names');
 });
 
 test('4·2 · the name is said once: a cover that prints it drops the visible title line', () => {
-  const photo = poster({ heroSrc: HERO });
+  const photo = poster({ displayName: 'Ana & Miguel', heroSrc: HERO });
   const scene = sceneCoverFor(photo);
-  const said = shelves([card({ scene, scenePoster: { poster: photo, ground: null, markText: 'C & I', markSvg: null, markPlays: false } })]);
+  const said = shelves([card({ title: 'Ana & Miguel',  scene, scenePoster: { poster: photo, ground: null, markText: 'A & M', markSvg: null, markPlays: false } })]);
   assert.match(said, /class="fd-ttl fd-ttl-said"/, 'the title line is still printed under a cover that names the event');
-  assert.match(said, /<a[^>]*class="fd-stretch"[^>]*><span class="sr-only">Cale &amp; Ice<\/span><\/a>/, 'the card lost its link or its accessible name');
-  const paperSaid = shelves([card({ paper: paperOf(poster()) })]);
+  assert.match(said, /<a[^>]*class="fd-stretch"[^>]*><span class="sr-only">Ana &amp; Miguel<\/span><\/a>/, 'the card lost its link or its accessible name');
+  const paperSaid = shelves([card({ title: 'Ana & Miguel',  paper: paperOf(poster({ displayName: 'Ana & Miguel' })) })]);
   assert.match(paperSaid, /fd-ttl-said/, 'the paper card still prints the title twice');
   // A bare picture and the mark alone print no name, so the line stays visible.
-  for (const c of [card({ scene }), card()]) {
+  for (const c of [card({ title: 'Ana & Miguel',  scene }), card({ title: 'Ana & Miguel' })]) {
     const html = shelves([c]);
     assert.doesNotMatch(html, /fd-ttl-said/, 'a cover with no name lost its title line');
-    assert.match(html, /class="fd-stretch"[^>]*>Cale &amp; Ice</);
+    assert.match(html, /class="fd-stretch"[^>]*>Ana &amp; Miguel</);
   }
 });
 

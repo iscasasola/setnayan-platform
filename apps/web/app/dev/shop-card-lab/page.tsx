@@ -180,7 +180,7 @@ const labFacts = (over: Partial<EventPosterFacts>): EventPosterFacts => ({
   weekday: 'Saturday', date: '12 December 2026', eyebrow: null, line: null, venue: null, photoSrc: null, ground: null, legibility: null,
   ...over,
 });
-const LAB_PAPER = labFacts({ names: { first: 'Cale', second: 'Ice' } });
+const LAB_PAPER = labFacts({ names: { first: 'Ana', second: 'Miguel' } });
 const LAB_PHOTO = labFacts({
   kind: 'photo', dark: true, names: { first: 'Indalecio', second: 'Claire' }, weekday: 'Friday', date: '18 December 2026',
   photoSrc: '/event-types/wedding.webp', ground: 'hero',
@@ -196,7 +196,7 @@ const EVENTS: Card[] = [
   labEvent('santos-reunion', 'Santos Family Reunion', null, null, null),
   // 🖼 The two covers #7540 matched with Home (name only, no date — owner 2026-11-13): their paper card, and
   // their invitation on their photo. Fixture facts through the real poster rule.
-  { ...labEvent('cale-and-ice', 'Cale & Ice', 'Ice Casasola', 'you', null), paper: { poster: LAB_PAPER, ground: null, markText: 'C', markSvg: null, markPlays: false } },
+  { ...labEvent('ana-and-miguel', 'Ana & Miguel', 'Ice Casasola', 'you', null), paper: { poster: LAB_PAPER, ground: null, markText: 'A', markSvg: null, markPlays: false } },
   { ...labEvent('indalecio-claire', 'Indalecio & Claire', 'Ice Casasola', 'you', null), scene: sceneCoverFor(LAB_PHOTO), scenePoster: { poster: LAB_PHOTO, ground: null, markText: 'I & C', markSvg: null, markPlays: false } },
 ];
 

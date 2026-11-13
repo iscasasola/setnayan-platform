@@ -51,7 +51,7 @@ SPEC IMPACT: None. The corpus already carries both rulings.
   Unset elsewhere → unchanged. Note: `posterFor` no longer produces `deep` in production (2026-09-26);
   the overlap was seen on the `/dev/home-lab` fixture. Guard: `lib/event-poster.test.ts`, evaluated
   across 128–300 px card widths; sabotage-checked.
-- `/dev/shop-card-lab`: the paper fixture is now "Cale & Ice" (it was a second, unrelated "Maria & Jose"
+- `/dev/shop-card-lab`: the paper fixture is now "Ana & Miguel" (it was a second, unrelated "Maria & Jose"
   fixture), and both fixtures are plain facts, so `posterFor` keeps exactly one caller.
 
 SPEC IMPACT: None.

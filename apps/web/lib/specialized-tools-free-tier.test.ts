@@ -152,7 +152,7 @@ test('5a · the unlock mirror: plan · paid · trial, and nothing else', () => {
   assert.equal(specializedToolsUnlockFrom(null, 'e1', NOW).unlocked, false);
 });
 
-test('5b · who may buy: Verified and Solo, verified — never Pro or Ultra, who already have it', () => {
+test('5b · who may buy: Verified and Supplier Plus, verified — never Pro or Ultra, who already have it', () => {
   const buy = (tier: string | null, verification: string | null, tierExpiresAt: string | null = null) =>
     specializedToolsPurchaseEligibility({ tier, verification, tierExpiresAt, nowMs: NOW });
   assert.deepEqual(buy('verified', 'verified'), { ok: true });

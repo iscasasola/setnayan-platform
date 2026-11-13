@@ -8,7 +8,7 @@ import {
 
 /**
  * THE MEDIA METER — Event Hub Maker, Phase 4 (DECISION_LOG 2026-09-25); the
- * allowance follows the plan since 2026-10-15 (Free 10 MB · Event Hub Pro 500 MB).
+ * allowance follows the plan since 2026-10-15 (Free 10 MB · Event Pro 500 MB).
  *
  * A pure presentational read of `makerMediaMeterState` (`lib/maker-media-limits.ts`)
  * — no data fetching here, so it mounts the same whether the caller read
@@ -37,7 +37,7 @@ export function MakerMediaMeter({
   usedBytes: number;
   /** `coupleMediaCapBytes(isPro)` for this event — the plan's number, never a literal. */
   capBytes: number;
-  /** The existing Event Hub Pro buy path. Given ONLY to a Free event — its presence is what makes this a Free meter. */
+  /** The existing Event Pro buy path. Given ONLY to a Free event — its presence is what makes this a Free meter. */
   proHref?: string | null;
   className?: string;
 }) {
@@ -75,7 +75,7 @@ export function MakerMediaMeter({
       ) : null}
       {state.isFull && offerPro ? (
         <p className="text-xs text-ink/75">
-          ◆ Event Hub Pro gives you {formatMakerMediaMB(proBytes)}.{' '}
+          ◆ Event Pro gives you {formatMakerMediaMB(proBytes)}.{' '}
           {/* 12 px words, pressed at 44+ (`.sn-hit` — batch 7 R2: it was 10 px in a 13 px box). */}
           <Link href={proHref as string} className="sn-hit inline-block text-xs font-medium underline underline-offset-2">
             Unlock Pro

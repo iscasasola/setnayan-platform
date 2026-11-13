@@ -4,7 +4,7 @@
  * OUR LOVE STORY — THE MOMENTS, AND HOW EACH ONE BECOMES A SCENE.
  *
  * Owner, 2026-09-25 (DECISION_LOG): *"each love story is a scene"* · *"Max of 5
- * for free. no media files. Place more, add media files, Go Event Hub Pro?"* ·
+ * for free. no media files. Place more, add media files, Go Event Pro?"* ·
  * *"love story is part of the inviting stage"*. Build plan
  * `EVENT_HUB_MAKER_BUILD_PLAN_2026-09-25.md` Phase 7; prototype
  * `prototypes/our_love_story_scrapbook_2026-09-25.html`.
@@ -24,7 +24,7 @@
  * materialises exactly that seed and then applies the edit. Opening a page
  * never writes, and seeding the same blob twice gives the same list.
  *
- * ── FREE = FIVE WORD-ONLY STORIES; MORE AND ANY PHOTO IS EVENT HUB PRO ─────
+ * ── FREE = FIVE WORD-ONLY STORIES; MORE AND ANY PHOTO IS EVENT PRO ─────
  * `momentCapRefusal` is THE rule, pure, so the one server action and the test
  * ask the same function. A seed larger than five is never cut: those words
  * were the couple's before the cap existed, and hiding them would be a failure
@@ -46,7 +46,7 @@ import { FREE_MOMENT_CAP } from '@/lib/love-story-cap';
 
 /* ── LIMITS ─────────────────────────────────────────────────────────────── */
 
-/** Free couples: at most this many stories. The sixth needs Event Hub Pro. Declared in `lib/love-story-cap.ts` (a client list reads it). */
+/** Free couples: at most this many stories. The sixth needs Event Pro. Declared in `lib/love-story-cap.ts` (a client list reads it). */
 export { FREE_MOMENT_CAP };
 /** Hard ceiling for everyone — same bound `milestones[]` has, so one couple
  *  cannot balloon the blob every guest page render parses. */
@@ -61,6 +61,7 @@ export const MOMENT_TITLE_MAX = 80;
 
 /** The one line a free couple meets at the sixth story or any photo. Owner-worded. */
 export const LOVE_STORY_PRO_LINE = 'Add more stories and your photos';
+// ⏳ TRANSITION #7605: main's dashboard test (the-love-story-reaches-the-pixels) pins this text; #7605 reads the constant — rename when it lands.
 export const LOVE_STORY_PRO_CTA = 'Go Event Hub Pro';
 
 /* ── SHAPE ──────────────────────────────────────────────────────────────── */

@@ -99,7 +99,7 @@ test('five steps in the approved order, the account LAST', () => {
   // Gone from the door: the logo upload, "In business since", any role LIST (none exists to reuse).
   assert.doesNotMatch(WIZARD, /<FileUpload\b|in_business_since_year|<PickMenu\b/);
   assert.match(WIZARD, /'About you', 'Who couples will talk to\.'/);
-  assert.match(WIZARD, /'Your account', guest \? 'Pick how you’ll sign in\. This creates your Setnayan account\.' : null/);
+  assert.match(WIZARD, /'Your account', guest \? 'Pick how you’ll sign in\. This creates your Setnayan account\.' : 'Your shop’s email, then open your shop\.'/);
   // Five segments in the step bar.
   assert.match(WIZARD, /\(\[1, 2, 3, 4, 5\] as Step\[\]\)\.map\(\(n\) => \(\s*<div key=\{n\} className="h-1 flex-1/);
 });

@@ -77,7 +77,7 @@ test('the plan that holds them all is the lowest plan on the ladder whose caps f
 test('the ladder starts at the plan the shop lands on, and offers Free without its twin Verified', () => {
   assert.deepEqual(ladderFor('free', null), PLAN_LADDER.filter((t) => t !== 'verified'));
   assert.equal(ladderFor('verified', null)[0], 'verified');
-  // A Pro shop with Solo scheduled is offered Solo and up — never Free.
+  // A Pro shop with Supplier Plus scheduled is offered Supplier Plus and up — never Free.
   assert.deepEqual(ladderFor('pro', 'solo'), PLAN_LADDER.slice(PLAN_LADDER.indexOf('solo')));
   assert.equal(pickModeFor('solo', 'pro', 'solo'), 'at_plan_change');
   assert.equal(pickModeFor('pro', 'pro', 'solo'), 'now');

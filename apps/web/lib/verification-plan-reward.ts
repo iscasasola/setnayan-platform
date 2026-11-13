@@ -60,7 +60,7 @@ export type PlanRewardWrite = { tier_state: VendorTier; tier_expires_at: string;
  *   · a plan the shop PAYS for itself (a paid tier not stamped `admin_comp`) is never overwritten by a gift;
  *   · an open-ended comped Ultra (no end day) already has more than any reward could add.
  * A comped Ultra still running is EXTENDED from its own end day (the weeks stack); anything else (Free, Verified, a
- * comped Solo or Pro, an Ultra already over) starts Ultra today.
+ * comped Supplier Plus or Pro, an Ultra already over) starts Ultra today.
  */
 export function ultraRewardWrite(row: PlanRow | null, door: VerificationDoor, now: Date): PlanRewardWrite | null {
   const tier = row?.tier_state ?? 'free';

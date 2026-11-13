@@ -85,7 +85,7 @@ export function Nav({
         {/*
           🍎 THE IPHONE APP SEES NONE OF THESE THREE (Apple check 2026-10-19,
           rows #5 · #26 — guideline 3.1.1). Prices quotes the Setnayan AI rate,
-          Suppliers is the Solo/Pro/Enterprise ladder with "Want to upgrade
+          Suppliers is the Supplier Plus/Pro/Enterprise ladder with "Want to upgrade
           your business?", and Download promotes the Mac, Windows and web apps
           inside the iOS app. `data-web-only` hides the whole pill before the
           first paint in the store shell (app/globals.css), and HomeOverlays

@@ -133,7 +133,7 @@ test('the detectors catch what they are for (sabotage, in memory)', () => {
   assert.deepEqual(bareProPills('<span className="x">Pro</span>'), ['>Pro<']);
   assert.deepEqual(bareProPills('<span>\n  PRO\n</span>'), ['PRO']);
   assert.deepEqual(bareProPills('<PaidMark state="locked" label="x" text="Pro" />'), []);
-  assert.deepEqual(proLocks('<p>\n<Lock aria-hidden />\nPart of Event Hub Pro\n</p>'), [2]);
+  assert.deepEqual(proLocks('<p>\n<Lock aria-hidden />\nPart of Event Pro\n</p>'), [2]);
   assert.deepEqual(proLocks('<p>\n<Lock aria-hidden />\nThis scene is fixed\n</p>'), []);
   // Carrying is not reading only when the target draws the mark.
   assert.equal(onlyCarriesOwnsPro('  ownsPro: boolean;'), true);

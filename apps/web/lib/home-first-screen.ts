@@ -290,12 +290,12 @@ export function glanceMoney(php: number | null): string {
 export type HomeServiceKey = 'papic' | 'ai' | 'live' | 'music' | 'booth' | 'hub' | 'nikah';
 
 /*
-  ─── EVERY PAID SERVICE + EVENT HUB PRO (owner 2026-10-14 🧾 + ✅) ────────────
+  ─── EVERY PAID SERVICE + EVENT PRO (owner 2026-10-14 🧾 + ✅) ────────────
 
   DECISION_LOG 2026-10-14 "HOME › YOUR SERVICES = THE PAID SERVICES + EVENT HUB
   PRO; FREE TOOLS STAY OUT" and, the same day, "APPROVE ALL: THE SERVICES
   PROTOTYPE" (`prototypes/services_home_rows_and_bands_2026-10-14_fable.html`):
-  Guest photos · Planner · Live stream · Music · Video booth · Event Hub Pro.
+  Guest photos · Planner · Live stream · Music · Video booth · Event Pro.
   Owned = the full row (its state, its main door); not added = ONE slim line,
   the price under the name and **Add** on the right. Owner, live on cale-ice
   2026-10-20: *"i thought we will have our other paid services here in home?"* —
@@ -335,7 +335,7 @@ export const HOME_PAID_SKU: Readonly<Record<HomeSkuKey, string>> = {
   hub: 'COUPLE_WEBSITE_PRO',
 };
 
-/** The More menu's card each row stands for (`lib/our-services.ts`). Event Hub Pro has no card there. */
+/** The More menu's card each row stands for (`lib/our-services.ts`). Event Pro has no card there. */
 export const HOME_PAID_CARD: Readonly<Record<Exclude<HomeSkuKey, 'hub'>, string>> = {
   ai: 'setnayan-ai',
   live: 'live-studio',
@@ -343,10 +343,10 @@ export const HOME_PAID_CARD: Readonly<Record<Exclude<HomeSkuKey, 'hub'>, string>
   booth: 'patiktok',
 };
 
-/** Event Hub Pro's two lines (2026-10-14 🧾): its name, and what it unlocks under it. */
-export const HUB_PRO_NAME = 'Event Hub Pro';
+/** Event Pro's two lines (2026-10-14 🧾): its name, and what it unlocks under it. */
+export const HUB_PRO_NAME = 'Event Pro';
 export const HUB_PRO_UNLOCKS = '◆ Themes · photo and video backgrounds';
-/** The Event Hub card's name (owner 2026-10-23: Event Hub Pro is folded into the Event Hub — one card, its ◆ line). */
+/** The Event Hub card's name (owner 2026-10-23: Event Pro is folded into the Event Hub — one card, its ◆ line). */
 export const EVENT_HUB_NAME = 'Event Hub';
 
 /**
@@ -548,7 +548,7 @@ export function nikahStatus(done: number | null): string {
   return `${formatCount(done)} of ${formatCount(NIKAH_TRACKED_TOTAL)} in place`;
 }
 
-/** Each paid row's names — `lib/service-names.ts` (one list); Event Hub Pro is not a service card. */
+/** Each paid row's names — `lib/service-names.ts` (one list); Event Pro is not a service card. */
 function paidNames(key: HomeSkuKey): { name: string; brand: string } {
   if (key === 'hub') return { name: EVENT_HUB_NAME, brand: '' };
   const n = SERVICE_NAMES[HOME_PAID_CARD[key] as ServiceNameKey];
@@ -574,8 +574,8 @@ export function homeServices(input: {
    */
   ai: string | null;
   /**
-   * 🧾 EVERY PAID SERVICE + EVENT HUB PRO (owner 2026-10-14). When given, the Planner ·
-   * Live stream · Music · Video booth · Event Hub Pro rows come from these facts — one
+   * 🧾 EVERY PAID SERVICE + EVENT PRO (owner 2026-10-14). When given, the Planner ·
+   * Live stream · Music · Video booth · Event Pro rows come from these facts — one
    * state each (`homePaidState`) — and `ai` above is not used. Absent = yesterday's two rows.
    */
   paid?: Partial<Record<HomeSkuKey, HomePaidFact | null>> | null;

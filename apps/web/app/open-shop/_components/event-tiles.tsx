@@ -12,6 +12,15 @@ import {
 export type EventTileOption = { key: string; label: string; emoji: string; heroPhotoUrl?: string | null };
 
 /**
+ * 🗣 "event", never "celebration" (the owner's standing word rule; walk 13 Nov 2026, F-W1-06). The admin roster's
+ * `celebration` row is labelled "Celebration"; on the supplier door only the WORD changes — the key posted stays
+ * `celebration`. Applied once where the wizard receives the roster, so the tiles and the per-event chips agree.
+ */
+export function supplierEventWords<T extends EventTileOption>(options: readonly T[]): T[] {
+  return options.map((e) => (e.key === 'celebration' ? { ...e, label: 'Other events' } : e));
+}
+
+/**
  * 🖼 "Events you serve" as small photo tiles (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED":
  * events as small photo tiles). The owner's carve-out from "any set of choices is a dropdown".
  *

@@ -131,7 +131,7 @@ test('2 · the shell draws Prints alone: "Prints" where Stages | Studio stood, �
   const prints = await paintShell({ printsPage: true });
   const maker = await paintShell({});
   assert.ok(prints.includes('data-maker-shell=""') && prints.length > 1500, 'anti-vacuity: the shell was not drawn');
-  /* The top bar: the page's name, never the switch; the draft bar as ever. No ✕ on either — Event Hub Pro dropped it
+  /* The top bar: the page's name, never the switch; the draft bar as ever. No ✕ on either — Event Pro dropped it
      (owner 2026-10-30): the app's own nav is the way out (`the-hub-is-left-by-the-apps-nav.test.ts`). */
   assert.match(prints, /<h1 data-maker-tool="side" data-bar-item="Prints"[^>]*data-prints-page-title=""[^>]*>Prints<\/h1>/, 'the Prints page does not name itself where the switch stood');
   assert.doesNotMatch(prints, /data-bar-item="Stages or Studio"/, 'the Prints page draws Stages | Studio');

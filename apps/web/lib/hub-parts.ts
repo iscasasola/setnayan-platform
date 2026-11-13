@@ -1,10 +1,10 @@
 /**
  * apps/web/lib/hub-parts.ts
  *
- * 💎 EVENT HUB PRO, PART BY PART — the one table of what each part unlocks, and
+ * 💎 EVENT PRO, PART BY PART — the one table of what each part unlocks, and
  * the one piece of arithmetic that says when the parts add up to everything.
  *
- * Owner rulings, 2026-10-22 (corpus DECISION_LOG "EVENT HUB PRO, PART BY PART";
+ * Owner rulings, 2026-10-22 (corpus DECISION_LOG "EVENT PRO, PART BY PART";
  * approved prototype `prototypes/pro_part_by_part_2026-10-22.html`; gate
  * inventory `shots-2026-10-22/pro-gates/PRO-GATES.md`, 37 gates → 11 parts):
  *

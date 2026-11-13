@@ -25,7 +25,7 @@ import {
 /**
  * apps/web/lib/couple-website-pro.ts
  *
- * Ownership / active gate for the paid COUPLE_WEBSITE_PRO SKU — Event Hub PRO,
+ * Ownership / active gate for the paid COUPLE_WEBSITE_PRO SKU — Event Pro,
  * the single "Pro website" unlock (migration 20270103020000). ⚠ NO PRICE IS
  * WRITTEN HERE: this docblock carried ₱3,999 while a second one four lines
  * further down carried ₱4,999 and the live row said ₱3,500 — three figures for
@@ -92,11 +92,11 @@ export async function eventCoupleWebsiteProActive(
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   💎 EVENT HUB PRO, PART BY PART (owner 2026-10-22) — `lib/hub-parts.ts`
+   💎 EVENT PRO, PART BY PART (owner 2026-10-22) — `lib/hub-parts.ts`
    ══════════════════════════════════════════════════════════════════════════ */
 
 /**
- * Everything this event holds of Event Hub Pro: Full Pro, each part, and what
+ * Everything this event holds of Event Pro: Full Pro, each part, and what
  * it has paid toward everything (the cap).
  *
  *   · `'active'` — the FEATURE GATE (admin-approved orders only), like
@@ -275,11 +275,11 @@ export const EDITORIAL_PRO_SERVICE_KEY = 'EDITORIAL_PRO';
  *
  * DUAL UNLOCK (owner 2026-07-04): a couple has Editorial PRO when EITHER
  *   • the standalone à-la-carte EDITORIAL_PRO SKU is active, OR
- *   • the Event Hub PRO umbrella is active.
+ *   • the Event Pro umbrella is active.
  * ⚠ AND SINCE 2026-08-23 THE FIRST ARM IS ALWAYS TRUE: EDITORIAL_PRO joined
  * FREE_FOR_ALL_SKUS, which eventSkuActive checks before any order lookup, so
  * every couple passes here. The dual unlock is kept because the free ruling is
- * reversible and the owner's to reverse — but Event Hub PRO may NOT be SOLD on
+ * reversible and the owner's to reverse — but Event Pro may NOT be SOLD on
  * this inclusion while it is free (see the buy surface's own docblock).
  * Both are checked bundle-aware + admin-approved via eventSkuActive; an absent
  * EDITORIAL_PRO catalog row just returns false (graceful-degrade in

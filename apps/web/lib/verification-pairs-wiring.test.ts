@@ -74,9 +74,12 @@ test('every column the pairs type has a writer, and the number keeps its ONE wri
   assert.match(src, /IDENTITY_FIELD_WRITABLE[\s\S]{0,160}registration_number_raw/);
 });
 
-test('the screen renders the pairs, and the standalone registration-number box is GONE', () => {
+test('the screen renders the ONE upload place (design v10), and the standalone registration-number box is GONE', () => {
   const body = stripComments(read(DOCS_BODY));
-  assert.match(body, /<VerifyPairs\b/, 'docs-body no longer renders the pairs');
+  // Owner 2026-11-14 ("ONE UPLOAD PLACE — THE APP TELLS WHICH PAPER IT IS", design v10 approved):
+  // the papers-beside-the-fields pairs gave way to one upload place that fills what it read in READ-ONLY.
+  assert.match(body, /<PaperUploadPlace\b/, 'docs-body no longer renders the upload place');
+  assert.ok(!/<VerifyPairs\b/.test(body), 'the retired pairs are drawn again beside the upload place');
   assert.ok(
     !/Government registration number/.test(body),
     'the standalone registration-number box is back — two boxes for one number',

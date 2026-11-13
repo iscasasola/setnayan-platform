@@ -22,7 +22,7 @@ const CTX = { nowIso: '2026-11-14T02:00:00.000Z', todayManila: '2026-11-14', key
 
 const m = (over: Partial<ModelPaperRead>): ModelPaperRead => ({
   registry: 'dti', accountName: 'SAMPLE BLOOMS', ownerName: 'JUAN DELA CRUZ', registrationNumber: '5512034',
-  rdo: null, address: '1 Sample St, Pasig', city: 'Pasig', expirationDate: null, readAs: null,
+  rdo: null, address: '1 Sample St, Pasig', city: 'Pasig', barangay: null, expirationDate: null, readAs: null,
   couldNotRead: [], tin: null, unsure: [], ...over,
 });
 const page = (r2Key: string, model: ModelPaperRead | null, extra: Partial<PageRead> = {}): PageRead => ({
@@ -197,7 +197,7 @@ test('the permit address is only a PROPOSAL at upload; the pin is written only b
   assert.match(intake, /pin_proposal: proposal/);
   const actions = stripComments(readFileSync(join(WEB, 'app', 'vendor-dashboard', 'shop', 'inline-docs-actions.ts'), 'utf8'));
   const fn = actions.slice(actions.indexOf('async function confirmPermitPin('));
-  const confirm = fn.indexOf("String(formData.get('confirm') ?? '') !== 'yes'");
+  const confirm = fn.indexOf("String(formData.get('confirm') ?? formData.get('location_confirmed') ?? '') !== 'yes'");
   const nudge = fn.indexOf('PIN_NUDGE_MAX_KM');
   const write = fn.indexOf('hq_latitude: lat');
   assert.ok(confirm > 0 && nudge > confirm && write > nudge, 'the confirm and the nudge check must come before the write');

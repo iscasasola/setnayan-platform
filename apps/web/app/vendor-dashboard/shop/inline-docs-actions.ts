@@ -1062,7 +1062,8 @@ async function confirmPermitPin(
   auth: NonNullable<Awaited<ReturnType<typeof requireVendorId>>>,
   formData: FormData,
 ): Promise<IdentityFieldSaveResult> {
-  if (String(formData.get('confirm') ?? '') !== 'yes') {
+  // The shipped pin card posts `location_confirmed=yes` once "Yes, that's right" is pressed.
+  if (String(formData.get('confirm') ?? formData.get('location_confirmed') ?? '') !== 'yes') {
     return { ok: false, error: 'Confirm the pin first.' };
   }
   const key = paperSealKey();
@@ -1072,8 +1073,8 @@ async function confirmPermitPin(
   const proposal = (app?.doc_uploads as Record<string, IntakeSlot | undefined> | null)?.mayors_permit?.pin_proposal ?? null;
   if (!permit || !proposal) return { ok: false, error: 'There is no address from your permit to confirm.' };
 
-  const lat = Number(formData.get('lat') ?? proposal.lat);
-  const lng = Number(formData.get('lng') ?? proposal.lng);
+  const lat = Number(formData.get('hq_latitude') ?? formData.get('lat') ?? proposal.lat);
+  const lng = Number(formData.get('hq_longitude') ?? formData.get('lng') ?? proposal.lng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     return { ok: false, error: 'That pin is not a place.' };
   }

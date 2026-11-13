@@ -35,7 +35,8 @@ import {
 import type { PaperRead } from '@/lib/verification-pairs';
 import { formatLongDate } from '@/lib/format-date';
 
-export const MAX_TRIES = 3;
+import { MAX_TRIES } from '@/lib/paper-intake-shared';
+export { MAX_TRIES };
 
 export type DetectedKind = 'dti' | 'sec' | 'bir' | 'lgu' | 'other' | 'unknown';
 

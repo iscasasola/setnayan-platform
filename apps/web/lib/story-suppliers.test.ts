@@ -111,22 +111,31 @@ describe('a small story', () => {
 
 describe('the views carry the links, decided on the server', () => {
   it('a Pro card opens the shop attributed to the story, Book opens its Inquire pop-up; a self-added one links nowhere', async () => {
-    const { toStorySupplierViews } = await import('./story-suppliers');
+    const { toStorySupplierViews } = await import('./story-suppliers-views');
     const views = toStorySupplierViews(
       [
         { name: 'Own cake', tier: null, slug: null, category: 'cake', logoUrl: null },
-        { name: 'Liwanag Studio', tier: 'pro', slug: 'liwanag', category: 'photo_film', logoUrl: null, card: { coverUrl: null, bestWork: [], rating: 4.9, reviews: 41 } },
+        { name: 'Liwanag Studio', tier: 'pro', slug: 'liwanag', category: 'Photo & film', logoUrl: null, card: { coverUrl: null, bestWork: [], rating: 4.9, reviews: 41 } },
       ],
       'maria-jose',
     );
     assert.equal(views[0]!.name, 'Liwanag Studio');
     assert.equal(views[0]!.tap, 'card');
-    assert.equal(views[0]!.service, 'Photo film');
+    assert.equal(views[0]!.service, 'Photo & film');
     assert.match(views[0]!.shopHref!, /^\/v\/liwanag\?src=/);
     assert.match(views[0]!.bookHref!, /inquire=1/);
     assert.equal(views[0]!.planName, 'Supplier Pro');
     assert.equal(views[1]!.shopHref, null);
     assert.equal(views[1]!.bookHref, null);
     assert.equal(views[1]!.card, null);
+  });
+});
+
+describe('service words come from the one category map', () => {
+  it('a known key reads the shared label; a couple’s own words stay as written', async () => {
+    const { supplierServiceWords } = await import('./story-suppliers-views');
+    assert.equal(supplierServiceWords('host_emcee'), 'Host / Emcee');
+    assert.equal(supplierServiceWords('Photo & film'), 'Photo & film');
+    assert.equal(supplierServiceWords('  '), null);
   });
 });

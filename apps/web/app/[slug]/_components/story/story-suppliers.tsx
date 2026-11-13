@@ -391,7 +391,7 @@ export function UltraSupplierScene({
   return (
     <div className="py-8" data-ultra-scene={album.vendorProfileId}>
       <p className={EYEBROW}>
-        From your suppliers{of > 1 ? ` · ${index} of ${of}` : ''}
+        From your suppliers{of > 1 ? ` · ${formatCount(index)} of ${formatCount(of)}` : ''}
       </p>
       <div className="mt-2 flex items-center gap-3">
         {supplier ? <Mark s={supplier} size="h-12 w-12" /> : null}

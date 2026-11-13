@@ -58,7 +58,7 @@ import {
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { StorySpine } from '../story/story-spine';
 import { BackCoverBlock } from '../story/back-cover';
-import { toStorySupplierViews } from '@/lib/story-suppliers';
+import { toStorySupplierViews } from '@/lib/story-suppliers-views';
 import { PeopleWhoMadeIt, UltraSupplierScene } from '../story/story-suppliers';
 import { loadBackCover } from '../../_lib/back-cover.server';
 import { loadPreviousEdition, type PreviousEdition } from '../../_lib/previous-edition.server';

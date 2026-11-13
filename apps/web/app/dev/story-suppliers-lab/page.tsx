@@ -22,7 +22,7 @@ import { SupplierStoriesScene } from '@/app/[slug]/_components/editorial/post-ev
 import { PeopleWhoMadeIt, UltraSupplierScene } from '@/app/[slug]/_components/story/story-suppliers';
 import { PortfolioAlbumSection } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-album-section';
 import type { UltraAlbum, VendorCredit } from '@/app/[slug]/_components/editorial/data';
-import { toStorySupplierViews } from '@/lib/story-suppliers';
+import { toStorySupplierViews } from '@/lib/story-suppliers-views';
 import type { VendorTier } from '@/lib/vendor-tier-caps';
 
 const NAMES = 'Maria & Jose';

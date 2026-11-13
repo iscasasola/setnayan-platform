@@ -32,7 +32,6 @@ lib/todays-one-thing.ts
 # app/[slug]/_components/editorial/editorial-content.tsx — PUBLIC wedding page.
 #   Strips underscores without capitalising, and a sibling render is fully raw
 #   under CSS `uppercase`, so a couple's own page can read "BAND_DJ".
-app/[slug]/_components/editorial/editorial-content.tsx
 # app/[slug]/print/keepsake-layout.ts — an exported byte-identical twin of the
 #   editorial humaniser. Printed keepsake; changing it changes a PDF layout.
 app/[slug]/print/keepsake-layout.ts

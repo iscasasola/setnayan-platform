@@ -18,8 +18,6 @@
  */
 import { asVendorTier, tierRank, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
-import { storyTapHref } from './a-tap-from-the-story';
-import { inquireResumeHref } from './shop-inquire';
 
 /** The scene shows this many, then "See all N". */
 export const STORY_SUPPLIERS_TOP = 8;
@@ -170,33 +168,3 @@ export type StorySupplierView = {
   bookHref: string | null;
   card: StorySupplierCardView | null;
 };
-
-/** The service words a list shows: the couple's category with underscores read as spaces. */
-export function supplierServiceWords(category: string | null | undefined): string | null {
-  const c = (category ?? '').replace(/_/g, ' ').trim();
-  return c ? c.charAt(0).toUpperCase() + c.slice(1) : null;
-}
-
-export function toStorySupplierViews(
-  list: readonly (StorySupplierLike & { category: string | null; logoUrl: string | null; card?: StorySupplierCardView | null })[],
-  eventSlug: string | null,
-): StorySupplierView[] {
-  return orderStorySuppliers(list).map((s, i) => {
-    const tap = storySupplierTap(s);
-    const shopHref = tap === 'none' ? null : storyTapHref(s.slug, eventSlug);
-    return {
-      key: `${i}-${s.name}`,
-      name: s.name,
-      service: supplierServiceWords(s.category),
-      tier: s.tier,
-      badge: storySupplierBadge(s.tier),
-      planName: s.tier === null ? null : storySupplierGroupName(s.tier),
-      initials: supplierInitials(s.name),
-      logoUrl: s.logoUrl,
-      tap,
-      shopHref,
-      bookHref: shopHref ? inquireResumeHref(shopHref, []) : null,
-      card: tap === 'card' ? (s.card ?? null) : null,
-    };
-  });
-}

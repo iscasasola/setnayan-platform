@@ -66,7 +66,8 @@ test('nothing in the reach copy promises identity', () => {
  * The last line is the one that must not move: a link to nowhere, or to a shop the couple did not book, is a lie.
  */
 test('every booked supplier is tappable by its plan — and a supplier with no shop never links', async () => {
-  const { storySupplierTap, toStorySupplierViews } = await import('./story-suppliers');
+  const { storySupplierTap } = await import('./story-suppliers');
+  const { toStorySupplierViews } = await import('./story-suppliers-views');
   assert.equal(storySupplierTap({ name: 'x', tier: 'enterprise', slug: 'x' }), 'card');
   assert.equal(storySupplierTap({ name: 'x', tier: 'pro', slug: 'x' }), 'card');
   for (const tier of ['solo', 'verified', 'free'] as const) assert.equal(storySupplierTap({ name: 'x', tier, slug: 'x' }), 'shop');

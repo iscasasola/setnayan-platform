@@ -22,5 +22,9 @@ Owner, 13 Nov 2026: every public page, doc and AI file carries no retired names 
 - `sitemap-static.xml`: `/features` and `/tl/features` lastmod → 2026-11-13 (new supplier group on the hub).
 - `/for-suppliers` metadata already read names + prices from code; two stale comments (typed "Solo ₱1,000",
   "Solo / Pro / Enterprise") corrected. README tagline no longer says "V1 weddings".
+- `/features/supplier-plans` quotes plan prices, so it joins `STORE_SHELL_WEB_ONLY_FEATURE_SLUGS` (the A1 store-shell
+  rule, found by `lib/store-shell.test.ts`). `public-copy-is-not-wedding-only.test.ts` no longer REQUIRES llms.txt to
+  say "No avatar maker": C5's guest avatar picker exists behind `NEXT_PUBLIC_FIGURE_CHIBI`, so the line was false
+  whenever that flag is on. The ban on CLAIMING an avatar maker stays. `lib/ugat/screens.generated.json` regenerated.
 
 SPEC IMPACT: None — copy brought in line with shipped code; no decision changed.

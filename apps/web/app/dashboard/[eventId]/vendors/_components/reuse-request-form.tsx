@@ -23,8 +23,8 @@ export function ReuseRequestForm({
   const [target, setTarget] = useState('');
   return (
     <form action={requestVendorReuseForm} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-      <input type="hidden" name="source_event_vendor_id" value={source || null} />
-      <input type="hidden" name="target_event_id" value={target || null} />
+      <input type="hidden" name="source_event_vendor_id" value={source} />
+      <input type="hidden" name="target_event_id" value={target} />
       <PickMenu
         label="Past supplier"
         value={source || null}

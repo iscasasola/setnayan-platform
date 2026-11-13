@@ -142,7 +142,7 @@ export function QuoteFillRow({
 
   return (
     // 📐 The one next thing on the screen — the only block here that may wear a frame (design template rule 2).
-    <div className="space-y-1.5 rounded-[18px] bg-[var(--m-paper-2)] px-4 py-3" data-quote-fill="next">
+    <div className="space-y-1.5 rounded-2xl bg-[var(--m-paper-2)] px-4 py-3" data-quote-fill="next">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <p className="min-w-0 flex-1 text-[15px] text-ink">
           <Sparkles

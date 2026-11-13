@@ -242,7 +242,7 @@ export function TeamSavePlan({
           // truncating on write.
           maxLength={MAX_BUILD_TITLE_LEN}
           placeholder={`${autoNameHint} — or give it a name`}
-          className="min-h-11 min-w-[8rem] flex-1 rounded-[12px] border border-ink/15 bg-paper px-3 text-[15px] outline-none focus:border-ink/45"
+          className="min-h-11 min-w-[8rem] flex-1 rounded-xl border border-ink/15 bg-paper px-3 text-[15px] outline-none focus:border-ink/45"
           aria-label="Plan name (optional — we’ll name it for you)"
         />
         {/* New, or one of the saved plans → the one dropdown (2026-10-12 look sweep). */}

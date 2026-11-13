@@ -94,3 +94,16 @@ test('F-A-10 · Payouts says one true thing about itself, and offers no old perc
   assert.doesNotMatch(page, /Payouts land here the moment an admin reconciles/);
   assert.doesNotMatch(page, /PAYOUT_STAGE_PCT/);
 });
+
+test('F-A-16 · Problems: no [name]/[id] placeholders, and one row per problem a person can tell apart', async () => {
+  const { pageName, problemLine } = await import('@/lib/telemetry/problem-line');
+  assert.equal(pageName('/u/[name]/[id]'), '/u/…/…');
+  assert.doesNotMatch(problemLine({ kind: 'DEAD_END', action: 'not_found /x/[id] ← /u/[name]', label: null, page: '/u/[name]', dayCount: 1, dayDate: null, today: '2026-11-13' } as never), /\[/);
+  const src = code('lib/telemetry/fault-issues.server.ts');
+  assert.match(src, /open: mergeSameProblem\(/);
+  assert.match(src, /closed: mergeSameProblem\(/);
+  // The merge itself (a pure function in a server-only file — read and executed through its text would need the module).
+  const body = src.slice(src.indexOf('export function mergeSameProblem'));
+  assert.match(body, /\[row\.kind, row\.action, row\.label \?\? '', pageName\(row\.page as string \| null\) \?\? ''\]/);
+  assert.match(body, /merged\.hit_count = Number\(had\.hit_count \?\? 0\) \+ Number\(row\.hit_count \?\? 0\)/);
+});

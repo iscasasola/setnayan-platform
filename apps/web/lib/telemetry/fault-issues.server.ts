@@ -3,7 +3,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { currentBuildSha } from '@/lib/telemetry/fault-log';
 import { FLOWS, funnelOf, type FunnelStep } from '@/lib/telemetry/flows';
-import { problemLine } from '@/lib/telemetry/problem-line';
+import { pageName, problemLine } from '@/lib/telemetry/problem-line';
 import { formatCount } from '@/lib/format-number';
 import { resolveActionName } from '@/lib/telemetry/server-fault';
 
@@ -183,10 +183,39 @@ export async function readFaultIssues(opts: { limit?: number; flowDays?: number 
 
   return {
     ok: true,
-    open: ((openRes.data ?? []) as Record<string, unknown>[]).map(shape),
-    closed: ((closedRes.data ?? []) as Record<string, unknown>[]).map(shape),
+    open: mergeSameProblem((openRes.data ?? []) as Record<string, unknown>[]).map(shape),
+    closed: mergeSameProblem((closedRes.data ?? []) as Record<string, unknown>[]).map(shape),
     dropOffs,
     closedNow,
     build,
   };
+}
+
+/**
+ * 🔁 ONE ROW PER PROBLEM A PERSON CAN TELL APART (admin walk 13 Nov 2026, F-A-16: Problems listed the same sentence
+ * twice). Two fingerprints can differ only in a detail the line does not show — two event ids on one route, two
+ * messages from one button — and they then read as identical rows. Rows with the same kind, action, label and named
+ * page merge: their counts add up, the newest one's trace and dates lead. Order is kept (first row of each group).
+ */
+export function mergeSameProblem(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  const groups = new Map<string, Record<string, unknown>>();
+  const order: string[] = [];
+  for (const row of rows) {
+    const key = [row.kind, row.action, row.label ?? '', pageName(row.page as string | null) ?? ''].join('|');
+    const had = groups.get(key);
+    if (!had) {
+      groups.set(key, { ...row });
+      order.push(key);
+      continue;
+    }
+    const newer = String(row.last_seen ?? '') > String(had.last_seen ?? '');
+    const merged = newer ? { ...row } : { ...had };
+    merged.hit_count = Number(had.hit_count ?? 0) + Number(row.hit_count ?? 0);
+    merged.day_count = Number(had.day_count ?? 0) + Number(row.day_count ?? 0);
+    merged.reopened_count = Math.max(Number(had.reopened_count ?? 0), Number(row.reopened_count ?? 0));
+    merged.first_seen = String(had.first_seen ?? '') < String(row.first_seen ?? '') ? had.first_seen : row.first_seen;
+    merged.id = had.id;
+    groups.set(key, merged);
+  }
+  return order.map((k) => groups.get(k)!);
 }

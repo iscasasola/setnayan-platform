@@ -27,5 +27,7 @@
 - **F-A-10** Payouts describes itself once, truly: couples pay suppliers directly, so this is the record of older
   bookings paid through Setnayan. The stage filters no longer advertise the old 20/60/20 split (each older row keeps
   its own share).
+- **F-A-16** Problems: an unnamed route no longer prints its code placeholders (`[name]`/`[id]` read "…"), and two
+  fingerprints that draw the same sentence (same kind, action, label and page) merge into one row, counts added.
 
 SPEC IMPACT: None.

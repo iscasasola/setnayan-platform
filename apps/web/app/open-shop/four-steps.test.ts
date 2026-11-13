@@ -249,7 +249,7 @@ test('🔴 Enter cannot submit the form', () => {
   // And it must NOT advance past the last step, or Enter becomes the submit
   // button again by another route.
   assert.ok(
-    /if \(step < TOTAL_STEPS\) next\(\)/.test(WIZARD),
+    /if \(step < TOTAL_STEPS\) (?:next|go)\(\)/.test(WIZARD),
     'the Enter handler advances unconditionally — on the last step that is a submit',
   );
 });

@@ -102,3 +102,28 @@ export function signUpSaysEmailTaken(result: {
   if (result.error) return /already (registered|exists)/i.test(result.error.message ?? '');
   return Array.isArray(result.identities) && result.identities.length === 0;
 }
+
+/**
+ * 🔁 THE PREFILLED EMAIL BELONGS TO THE ACCOUNT THAT SUBMITS (walk 13 Nov 2026, F-W1-13).
+ *
+ * Signed in, step 5's company email is prefilled with the ACCOUNT's email. The wizard keeps its state across a change
+ * of account (the sign-in pane, another tab), so the box could still hold the OLD account's address when "Open my
+ * shop" is pressed — and the shop saved it. The form now posts what it was prefilled with
+ * (`PREFILLED_ACCOUNT_EMAIL_FIELD`); an address that is still exactly that prefill was never chosen by the person, so it
+ * is re-read from the account that actually submits. An address they typed themselves is kept as typed.
+ */
+export const PREFILLED_ACCOUNT_EMAIL_FIELD = 'prefilled_account_email';
+
+export function accountEmailAtSubmit(input: {
+  /** The email the form posted (already cleaned). */
+  posted: string | null;
+  /** What the box was prefilled with from the account the page was drawn for (already cleaned), or null. */
+  prefilled: string | null;
+  /** The email of the account that is submitting, or null (signed out). */
+  sessionEmail: string | null;
+}): string | null {
+  const { posted, prefilled, sessionEmail } = input;
+  if (!posted || !prefilled || !sessionEmail) return posted;
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  return same(posted, prefilled) && !same(prefilled, sessionEmail) ? sessionEmail.trim().toLowerCase() : posted;
+}

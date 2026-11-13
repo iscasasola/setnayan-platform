@@ -50,7 +50,12 @@ import {
   OPEN_SHOP_ERRORS,
   OPEN_SHOP_LOGO_REQUIRED,
 } from '@/lib/open-shop-validation';
-import { decideOpenShopAccount, OPEN_SHOP_ACCOUNT_ERRORS } from '@/lib/open-shop-account';
+import {
+  accountEmailAtSubmit,
+  decideOpenShopAccount,
+  OPEN_SHOP_ACCOUNT_ERRORS,
+  PREFILLED_ACCOUNT_EMAIL_FIELD,
+} from '@/lib/open-shop-account';
 import { createVendorAccountForShop } from '@/lib/open-shop-account.server';
 import { captchaTokenFromForm } from '@/lib/turnstile';
 import { OPEN_SHOP_LOGO_PATH } from '@/lib/open-shop-logo';
@@ -220,7 +225,13 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     ? parseVendorPhone(contactPhoneRaw, (clean(formData.get('hq_country'), 2) ?? '').toUpperCase())
     : null;
   const contactPhone = phone?.ok ? phone.e164 : contactPhoneRaw;
-  const contactEmail = cleanEmail(formData.get('contact_email'));
+  // 🔁 F-W1-13 (walk 13 Nov): a company email still exactly as it was PREFILLED from an account is re-read from the
+  // account that submits — the page may have been drawn for a different one (`accountEmailAtSubmit`).
+  const contactEmail = accountEmailAtSubmit({
+    posted: cleanEmail(formData.get('contact_email')),
+    prefilled: cleanEmail(formData.get(PREFILLED_ACCOUNT_EMAIL_FIELD)),
+    sessionEmail: sessionUser?.email ? cleanEmail(sessionUser.email) : null,
+  });
   if (!shopName) redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.shopName));
   // Logo gate reads the SHARED flag (client wizard reads the same one), so the
   // two layers can never disagree. Off since 2026-07-21 — see the flag's doc.

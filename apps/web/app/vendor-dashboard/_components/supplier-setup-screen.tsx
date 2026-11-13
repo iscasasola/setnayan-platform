@@ -17,6 +17,9 @@ import { SetupDaysOffRow } from './setup-days-off-row';
 import { SetupPapers } from './setup-papers';
 import { SetupQrStep } from './setup-qr-step';
 
+/** The id of Today's papers list — the "Get verified" fold's documents step links to it (F-W1-11). */
+const SETUP_PAPERS_ID = 'setup-papers';
+
 /** The parts of Your details the six steps mount (`loadDetailsData`, or the lab's fixture). */
 export type SetupDetails = Pick<
   DetailsData,
@@ -128,7 +131,9 @@ export function SupplierSetupScreen({
     ),
     docs: (
       <div className="space-y-3">
-        <SetupPapers papers={d.papers} vendorProfileId={d.vendorId} reason={d.verify.decisionReason} displayUrls={paperUrls} />
+        <div id={SETUP_PAPERS_ID} className="scroll-mt-20">
+          <SetupPapers papers={d.papers} vendorProfileId={d.vendorId} reason={d.verify.decisionReason} displayUrls={paperUrls} />
+        </div>
         <Fold
           data="setup-papers-more"
           title="Get verified"
@@ -143,6 +148,8 @@ export function SupplierSetupScreen({
               profileComplete={d.profileComplete}
               profileFieldsLeft={d.fieldsLeft}
               verify={d.verify}
+              // 📄 F-W1-11: the papers are the list just above — asked once, pointed to here.
+              papersAbove={SETUP_PAPERS_ID}
             />
           </div>
         </Fold>

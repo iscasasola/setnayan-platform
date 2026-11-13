@@ -44,7 +44,6 @@ import { formatCount } from '@/lib/format-number';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import {
   updateEventDate,
-  updateEventDateOptions,
   updateEventMatchCriteria,
   type EventDateOptionsResult,
   type EventDateSaveResult,
@@ -85,7 +84,7 @@ export type FactSheetStandIns = {
   /** 🗓 The date, straight to the event — its one live door (`updateEventDate`; owner 2026-11-05). `extra.end` posts the
    *  main span's last day (null = "Same day"; owner 2026-11-13); `extra.clearOptions` — a day replaces the options. */
   date: (date: string, precision: 'day' | 'month', extra?: { end?: string | null; clearOptions?: boolean }) => Promise<EventDateSaveResult>;
-  /** 📅 A few dates — the options and the day count (`updateEventDateOptions`, owner 2026-11-13). Absent in a lab = saved. */
+  /** 📅 A few dates — the options and the day count (`updateEventDate` with `date_options=1`, owner 2026-11-13). Absent in a lab = saved. */
   options?: (o: Required<Pick<DateCalendarValue, 'dateMode' | 'dateCandidates' | 'windowStart' | 'windowEnd'>> & { days: number }) => Promise<EventDateOptionsResult>;
   /** 📍 A non-wedding's City or area = `events.region`, through `updateEventMatchCriteria` (owner 2026-11-13). Absent in a lab = saved. */
   region?: (next: string, was: string | null) => Promise<{ ok: true } | { ok: false; message: string }>;
@@ -120,12 +119,13 @@ function useDoors(eventId: string, priced: readonly string[]): FactSheetStandIns
         options: (o) => {
           const fd = new FormData();
           fd.set('event_id', eventId);
+          fd.set('date_options', '1');
           fd.set('date_mode', o.dateMode);
           for (const c of o.dateCandidates) fd.append('date_candidate', c);
           if (o.windowStart) fd.set('date_window_start', o.windowStart);
           if (o.windowEnd) fd.set('date_window_end', o.windowEnd);
           fd.set('event_days', String(o.days));
-          return updateEventDateOptions(fd);
+          return updateEventDate(fd).then((r): EventDateOptionsResult => (r.ok ? { ok: true, message: r.note ?? 'Saved.' } : { ok: false, error: r.error }));
         },
         region: (next, was) => {
           /* ONE value — the Region in ⚙ Event settings. Posted "based" (what it started from), so ONLY the region is
@@ -451,7 +451,7 @@ function DateBody({
 /**
  * 📅 A FEW DATES (owner 2026-11-13, prototype `event_dates_edit_2026-11-13`): the shared onboarding calendar
  * (`DateCalendar`, reused as-is — never forked) with "How many days is your event?" above it. Nothing reaches the event
- * until Save; Save writes the options and the day count and leaves the exact date EMPTY (`updateEventDateOptions`).
+ * until Save; Save writes the options and the day count and leaves the exact date EMPTY (`updateEventDate` with `date_options=1`).
  */
 function FewDates({
   data,

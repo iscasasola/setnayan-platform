@@ -113,8 +113,8 @@ test('the shared-day offer is wired: Make it a window · Keep my options', () =>
 
 test('A few dates saves the START days and the day count — and leaves the exact date EMPTY', () => {
   const a = src('app', 'dashboard', '[eventId]', 'actions.ts');
-  const body = a.slice(a.indexOf('export async function updateEventDateOptions'), a.indexOf('export async function setPlanningMode'));
-  assert.ok(body.length > 200, 'updateEventDateOptions is gone');
+  const body = a.slice(a.indexOf('async function saveEventDateOptions'), a.indexOf('export async function setPlanningMode'));
+  assert.ok(body.length > 200, 'the options saver is gone');
   assert.match(body, /dateOptionsRefusal\(/, 'the options are not checked by the calendar’s own rules');
   assert.match(body, /date_candidates: mode === 'specific' \? sorted : null/);
   assert.match(body, /event_days: Math\.floor\(days\)/);
@@ -132,7 +132,7 @@ test('A few dates saves the START days and the day count — and leaves the exac
 
 test('Last day is refused past the type’s cap with eventSpanRefusal, BEFORE the write', () => {
   const a = src('app', 'dashboard', '[eventId]', 'actions.ts');
-  const body = a.slice(a.indexOf('export async function updateEventDate('), a.indexOf('export async function updateEventDateOptions'));
+  const body = a.slice(a.indexOf('export async function updateEventDate('), a.indexOf('async function saveEventDateOptions'));
   const refuse = body.indexOf('eventSpanRefusal(');
   const write = body.indexOf('.update({');
   assert.ok(refuse > 0, 'updateEventDate never calls eventSpanRefusal');
@@ -217,7 +217,7 @@ test('gap 2 — a first + last day is clash-checked on EVERY day of the span, by
   assert.equal(eventSpanDayList('2026-12-19', '2028-12-19').length, 30, 'bounded — a bad post never fans out');
 
   const a = src('app', 'dashboard', '[eventId]', 'actions.ts');
-  const body = a.slice(a.indexOf('export async function updateEventDate('), a.indexOf('export async function updateEventDateOptions'));
+  const body = a.slice(a.indexOf('export async function updateEventDate('), a.indexOf('async function saveEventDateOptions'));
   const loop = body.indexOf("for (const day of eventSpanDayList(eventDate, newPrecision === 'day' ? eventEndDate : null))");
   assert.ok(loop > 0, 'the clash check no longer walks every day of the span');
   const inLoop = body.slice(loop, body.indexOf('// 3 ·', loop));

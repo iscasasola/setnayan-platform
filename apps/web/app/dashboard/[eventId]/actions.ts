@@ -114,6 +114,9 @@ export type EventDateSaveResult =
 const DATE_NOT_SAVED = 'That date did not save. Nothing changed — please try again.';
 
 export async function updateEventDate(formData: FormData): Promise<EventDateSaveResult> {
+  // 📅 "A few dates" is this SAME door with `date_options=1` (one exported action, not two — the server-action budget):
+  // it writes the options instead of an exact day, and answers in `note`.
+  if (formData.get('date_options') === '1') return saveEventDateOptions(formData);
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const dateRaw = formData.get('event_date');
@@ -302,9 +305,10 @@ export async function updateEventDate(formData: FormData): Promise<EventDateSave
  * (`eventDatesFloorRefusal`). The couple's own session writes it — RLS decides the row, and a write that reached no row
  * says so.
  */
+/** What the Suppliers sheet's "A few dates" door answers — `updateEventDate` with `date_options=1`, reshaped by the caller. */
 export type EventDateOptionsResult = { ok: true; message: string } | { ok: false; error: string };
 
-export async function updateEventDateOptions(formData: FormData): Promise<EventDateOptionsResult> {
+async function saveEventDateOptions(formData: FormData): Promise<EventDateSaveResult> {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || !eventId) return { ok: false, error: DATE_NOT_SAVED };
@@ -362,13 +366,13 @@ export async function updateEventDateOptions(formData: FormData): Promise<EventD
     .eq('event_id', eventId)
     .select('event_id, slug');
   if (error || !wrote || wrote.length === 0) {
-    if (error) logQueryError('updateEventDateOptions', error, { event_id: eventId }, 'graceful_degrade');
+    if (error) logQueryError('saveEventDateOptions', error, { event_id: eventId }, 'graceful_degrade');
     return { ok: false, error: error ? DATE_NOT_SAVED : 'Only the couple can change the date.' };
   }
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidateGuestSite((wrote[0] as { slug?: string | null }).slug ?? null);
-  return { ok: true, message: dateOptionsSavedWords(mode, sorted, windowStart, windowEnd, Math.floor(days)) };
+  return { ok: true, date: null, precision: 'day', note: dateOptionsSavedWords(mode, sorted, windowStart, windowEnd, Math.floor(days)) };
 }
 
 /**

@@ -13,7 +13,7 @@
  *     booked day becomes your date" (DECISION_LOG 2026-11-13 "ONE MAIN DATE SPAN").
  *
  * PURE and client-safe: the shared calendar (`onboarding/_shared/date-calendar.tsx`) and the server writer
- * (`updateEventDateOptions`) read the SAME rules from here, so what the screen allows and what the save accepts can
+ * (`updateEventDate` with `date_options=1`) read the SAME rules from here, so what the screen allows and what the save accepts can
  * never disagree. Dates are `YYYY-MM-DD`, read by their parts (a DATE column must not drift a day across timezones).
  */
 

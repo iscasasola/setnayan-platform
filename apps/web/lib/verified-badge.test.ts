@@ -24,6 +24,7 @@ import {
   badgeLapsedCopy,
   badgeReminderCopy,
   deadlineAtApproval,
+  renewalUploadOpen,
   deadlineLabel,
   defaultPermitValidUntil,
   hasVerifiedBadge,
@@ -250,4 +251,11 @@ test('"same badge" still holds: nothing here labels a vouched shop for a couple'
     !/(Vouched|Provisional|Pending documents|Trial|Unverified badge)/.test(text),
     'a couple-facing distinction crept into the badge module',
   );
+});
+
+test('🔁 renewal opens inside the 60-day window or after the deadline — never earlier, never without one', () => {
+  assert.equal(renewalUploadOpen(inDays(61), NOW), false);
+  assert.equal(renewalUploadOpen(inDays(59), NOW), true);
+  assert.equal(renewalUploadOpen(inDays(-3), NOW), true);
+  assert.equal(renewalUploadOpen(null, NOW), false);
 });

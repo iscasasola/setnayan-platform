@@ -182,3 +182,25 @@ test('PARALLEL UPLOADS DO NOT LOSE A SLOT — compare-and-set re-merges on the f
   assert.equal(slot(row.docUploads, 'dti_certificate')?.r2_key, 'dti', 'the first upload survives');
   assert.equal(slot(row.docUploads, 'bir_2303')?.r2_key, 'bir');
 });
+
+/* ── THE PIN IS NOT WRITTEN WITHOUT THE SUPPLIER'S CONFIRM ──────────────── */
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from './strip-comments';
+
+const WEB = join(new URL('.', import.meta.url).pathname, '..');
+
+test('the permit address is only a PROPOSAL at upload; the pin is written only behind confirm=yes', () => {
+  const intake = stripComments(readFileSync(join(WEB, 'lib', 'paper-intake.server.ts'), 'utf8'));
+  assert.ok(!/from\('vendor_profiles'\)/.test(intake), 'the upload path touches the profile');
+  assert.match(intake, /pin_proposal: proposal/);
+  const actions = stripComments(readFileSync(join(WEB, 'app', 'vendor-dashboard', 'shop', 'inline-docs-actions.ts'), 'utf8'));
+  const fn = actions.slice(actions.indexOf('async function confirmPermitPin('));
+  const confirm = fn.indexOf("String(formData.get('confirm') ?? '') !== 'yes'");
+  const nudge = fn.indexOf('PIN_NUDGE_MAX_KM');
+  const write = fn.indexOf('hq_latitude: lat');
+  assert.ok(confirm > 0 && nudge > confirm && write > nudge, 'the confirm and the nudge check must come before the write');
+  // The only writers of the shop pin in this file are the confirm path.
+  assert.equal((actions.match(/hq_latitude:/g) ?? []).length, 1);
+});

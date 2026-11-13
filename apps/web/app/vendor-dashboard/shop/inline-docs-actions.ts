@@ -51,6 +51,7 @@ import { fileTypedValues, openSealedSlot, type IntakeReport, type IntakeSlot } f
 import { MAX_FILES_PER_INTAKE, intakePapers, paperSealKey } from '@/lib/paper-intake.server';
 import { runAutoVerifyOnSubmit } from '@/lib/auto-verify.server';
 import { haversineKm } from '@/lib/geo';
+import { renewalUploadOpen } from '@/lib/verified-badge';
 import {
   LOCKED_IDENTITY_FIELD_KEYS,
   VERIFIED_LOCK_ERROR,
@@ -307,6 +308,19 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
   };
 }
 
+/** The shop's badge deadline is within the reminder window or past — or the badge is already gone. */
+async function renewalIsOpen(_supabase: SupabaseClient, vendorProfileId: string): Promise<boolean> {
+  // Service role, scoped by the session-proved shop id: the deadline is a trust column.
+  const { data, error } = await createAdminClient()
+    .from('vendor_profiles')
+    .select('verification_state,next_renewal_due_at')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (error || !data) return false;
+  const row = data as { verification_state: string | null; next_renewal_due_at: string | null };
+  return row.verification_state !== 'verified' || renewalUploadOpen(row.next_renewal_due_at);
+}
+
 /**
  * Find the vendor's editable draft, or create a fresh one. A submitted/approved
  * application blocks edits (they continue on /verify). rejected/withdrawn/none
@@ -322,7 +336,12 @@ async function resolveEditableDraft(
   if (status === 'draft' && app) {
     return { ok: true, applicationId: app.application_id };
   }
-  if (status != null && LOCKED_STATUSES.has(status)) {
+  // 🔁 RENEWAL (owner 2026-11-14): an APPROVED shop may start a fresh draft —
+  // an `annual_renewal` — once its badge deadline is near or past, so the
+  // renewed papers go into the same upload place and through the same Submit.
+  if (status === 'approved' && (await renewalIsOpen(supabase, vendorProfileId))) {
+    // falls through to the new-draft insert below
+  } else if (status != null && LOCKED_STATUSES.has(status)) {
     return {
       ok: false,
       error: 'Your verification is already submitted — continue on the verification page.',

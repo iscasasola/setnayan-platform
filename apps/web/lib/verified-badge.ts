@@ -45,6 +45,18 @@ export const BADGE_REMINDER_DAYS = 60;
  */
 export const BADGE_REMINDER_STAGES: readonly number[] = [BADGE_REMINDER_DAYS, 30, 7];
 
+/**
+ * May a shop whose papers were APPROVED start a renewal now? Yes once its
+ * badge deadline is inside the widest reminder window, or past it (owner
+ * 2026-11-14: "renewal is an upload of the new permit in the same upload
+ * place"). Before that there is nothing to renew. No deadline → no.
+ */
+export function renewalUploadOpen(nextRenewalDueAt: string | null | undefined, now: Date = new Date()): boolean {
+  const ms = badgeDeadlineMs(nextRenewalDueAt);
+  if (ms === null) return false;
+  return ms - now.getTime() <= BADGE_REMINDER_DAYS * DAY_MS;
+}
+
 /** The stage a shop with `daysLeft` is in: the smallest stage it has reached. */
 export function reminderStage(daysLeft: number): number {
   let stage = BADGE_REMINDER_STAGES[0]!;

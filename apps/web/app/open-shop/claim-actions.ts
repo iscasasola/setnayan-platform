@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchClaimLandingByToken, opensTheClaimDoor } from '@/lib/vendor-invites';
 import { readClaimAccountVerdict } from '@/lib/claim-account-gate.server';
-import { CLAIM_DOOR_FIELD, claimDoorHref, parseClaimDoorAnswers, splitClaimCards } from '@/lib/claim-door';
+import { CLAIM_DOOR_FIELD, claimCardServiceFields, claimDoorHref, parseClaimDoorAnswers, splitClaimCards } from '@/lib/claim-door';
 import { readClaimDoor } from '@/lib/claim-door.server';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { parseVendorPhone } from '@/lib/phone-rules';
@@ -19,6 +19,8 @@ import { mergeServiceRefinements } from '@/lib/vendor-service-refinements-write'
 import { ATTRIBUTE_FIELD_NAME_PREFIX } from '@/lib/vendor-service-attributes';
 import { createVendorService } from '@/app/vendor-dashboard/services/actions';
 import { savePackage } from '@/app/vendor-dashboard/packages/actions';
+import { addPaymentMethod } from '@/app/vendor-dashboard/payment-options/actions';
+import { claimPaymentQrToShop } from '@/lib/claim-door-pay.server';
 import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { captchaTokenFromForm } from '@/lib/turnstile';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE, TERMS_VERSION, hasAgreedToTerms } from '@/lib/terms-agreement';
@@ -218,12 +220,15 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   // The couple's cards, then the supplier's own — each added service is its own card on the shop, priced on its own.
   const made: string[] = [];
   for (const card of [...theirs, ...added]) {
-    if (card.bundled || !card.price) continue;
+    if (card.bundled) continue;
+    // 🧾 v2: the Card Maker's own pricing fields as the supplier confirmed them (One price · Per guest · Per hour,
+    // and the extras as the maker's add-on rows) — or no card, as before, when it carries no price.
+    const priceFields = claimCardServiceFields(card);
+    if (!priceFields) continue;
     const fd = new FormData();
     fd.set('category', card.leaf ?? card.category);
     fd.set('title', card.name);
-    fd.set('pricing_basis', 'fixed');
-    fd.set('starting_price_php', String(card.price));
+    for (const [k, v] of priceFields) fd.append(k, v);
     for (const line of card.inclusions) {
       fd.append('inclusion_label', line);
     }
@@ -272,6 +277,50 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
       ],
     }).catch((e: unknown) => ({ status: 'error' as const, message: e instanceof Error ? e.message : String(e) }));
     if (res.status !== 'ok') console.warn('[claim-door] the bundle was not saved:', res.status);
+  }
+
+  // ── 🏦 THEIR PAYMENT DETAILS, AS THE COUPLE RECORDED (owner 2026-11-13) — through the SHIPPED `addPaymentMethod` ──
+  // Each way the supplier kept on the door becomes one of THEIR OWN payment options — bank details and/or the QR — by
+  // the same action Your details › How clients pay you calls, so its moderation gate is exactly as it is today (bank
+  // approved by the server; a QR approved only when the server can read it, else held for review). The couple's ways
+  // are re-read from the record here, paired by index — the post only says which were kept and how they were fixed.
+  // Its answer is a redirect, read and never followed; a refusal costs that way, never the claim.
+  const recordWays = recordRead.record.payWays ?? [];
+  for (const [j, ans] of (answers.payWays ?? []).entries()) {
+    const rec = recordWays[j];
+    if (!rec || !ans.keep) continue;
+    const tries: FormData[] = [];
+    if (ans.accountNumber) {
+      const fd = new FormData();
+      fd.set('method_type', 'bank');
+      fd.set('label', ans.provider ?? 'Account');
+      if (ans.provider) fd.set('provider', ans.provider);
+      if (ans.accountName) fd.set('account_name', ans.accountName);
+      fd.set('account_number', ans.accountNumber);
+      tries.push(fd);
+    }
+    if (ans.keepQr && rec.qrUrl) {
+      const qrRef = await claimPaymentQrToShop(token, j, vendorProfileId);
+      if (qrRef) {
+        const fd = new FormData();
+        fd.set('method_type', 'qr');
+        fd.set('label', ans.provider ? `${ans.provider} QR` : 'QR code');
+        fd.set('qr_r2_key', qrRef);
+        tries.push(fd);
+      }
+    }
+    for (const fd of tries) {
+      try {
+        await addPaymentMethod(fd);
+      } catch (e) {
+        if (!isRedirectError(e)) {
+          console.warn('[claim-door] a payment option was not saved:', e instanceof Error ? e.message : String(e));
+          continue;
+        }
+        const url = new URL(getURLFromRedirectError(e) ?? '', 'http://claim-door.local');
+        if (url.searchParams.get('error')) console.warn('[claim-door] a payment option was refused:', url.searchParams.get('error'));
+      }
+    }
   }
 
   // ── 🧾 A CHANGE TO WHAT THE COUPLE BOUGHT IS THEIRS TO APPROVE (DECISION_LOG 2026-11-07 — owner: *"price change, or

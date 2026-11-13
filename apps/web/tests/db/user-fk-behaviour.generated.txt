@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 276 single-column FKs onto auth.users / public.users
-# CASCADE=74  RESTRICT=1  SET NULL=201
+# 281 single-column FKs onto auth.users / public.users
+# CASCADE=75  RESTRICT=1  SET NULL=205
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -40,6 +40,7 @@ chat_blocker_shows.user_id                                CASCADE      NOT NULL 
 chat_decision_messages.added_by_user_id                   SET NULL     nullable  -> auth.users
 chat_decision_topics.closed_by_user_id                    SET NULL     nullable  -> auth.users
 chat_decision_topics.opened_by_user_id                    SET NULL     nullable  -> auth.users
+chat_file_removals.user_id                                CASCADE      NOT NULL  -> auth.users
 chat_message_flags.reviewed_by                            SET NULL     nullable  -> users
 chat_message_flags.sender_user_id                         SET NULL     nullable  -> users
 chat_message_hearts.user_id                               CASCADE      NOT NULL  -> auth.users
@@ -272,6 +273,10 @@ vendor_lock_proposals.proposed_by_user_id                 SET NULL     nullable 
 vendor_lock_proposals.resolved_by_user_id                 SET NULL     nullable  -> auth.users
 vendor_member_token_wallets.user_id                       CASCADE      NOT NULL  -> auth.users
 vendor_payment_asks.asked_by_user_id                      SET NULL     nullable  -> auth.users
+vendor_plan_content_changes.changed_by                    SET NULL     nullable  -> users
+vendor_plan_content_changes.confirmed_by                  SET NULL     nullable  -> users
+vendor_plan_contents.changed_by                           SET NULL     nullable  -> users
+vendor_plan_contents.confirmed_by                         SET NULL     nullable  -> users
 vendor_profiles.created_by_admin_user_id                  SET NULL     nullable  -> users
 vendor_profiles.user_id                                   CASCADE      nullable  -> users
 vendor_qr_media_flags.reviewed_by                         SET NULL     nullable  -> users

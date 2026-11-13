@@ -25,8 +25,8 @@ const peso = (n: number) =>
   '₱' + new Intl.NumberFormat('en-PH').format(Math.round(n));
 
 const TIER_LABEL: Record<string, string> = {
-  pro: 'Pro',
-  enterprise: 'Ultra',
+  pro: 'Supplier Pro',
+  enterprise: 'Supplier Ultra',
 };
 
 /**

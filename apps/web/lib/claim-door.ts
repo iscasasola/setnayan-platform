@@ -17,6 +17,9 @@
  * carries the offer, which the shipped `claim_ready_the_invited_shop` applies on the finish.
  */
 
+import { PAY_WAY_PROVIDERS } from './self-added-pay-ways';
+import type { SelfAddedBasis } from './self-added-price-basis';
+
 /** The ONE place a claim link points — a couple's and Setnayan's own. `/signup?as=vendor` is never a claim link again. */
 export const CLAIM_DOOR_PARAM = 'claim';
 export function claimDoorHref(token: string): string {
@@ -79,7 +82,78 @@ export type ClaimDoorRecord = {
   price: number | null;
   inclusions: string[];
   plan: ClaimDoorPayment[];
+  /**
+   * 🧾 How the couple said the price works (v2, owner 2026-11-13) — the invite's own row's `pricing_basis` — and the
+   * guests / hours they agreed (`pax_quote_base` / `agreed_hours`). Absent = One price (Setnayan's invite, a lab).
+   */
+  priceBasis?: SelfAddedBasis;
+  agreedCount?: number | null;
+  /** 🏦 How the couple recorded paying them (`event_manual_vendors.pay_ways`) — confirmed or fixed on the door. */
+  payWays?: ClaimDoorPayWay[];
 };
+
+/** One way to pay, as the couple recorded it, for the supplier to confirm (the QR presigned for the door). */
+export type ClaimDoorPayWay = {
+  provider: string | null;
+  accountName: string | null;
+  accountNumber: string | null;
+  qrUrl: string | null;
+  /** The older free-text way (before account fields) — shown, never posted. */
+  details: string | null;
+};
+
+/**
+ * 🧾 A card's pricing as the supplier confirmed it on the door — the Card Maker's own fields (`pricing-basis-editor.tsx`):
+ * One price → From (`card.price`) + Extras · Per guest → `per_pax_price_php` + `min_pax` · Per hour → `min_hours` +
+ * `hour_base_php` + `extra_hour_php`.
+ */
+export type ClaimCardPricing = {
+  basis: SelfAddedBasis;
+  perPax: number | null;
+  minPax: number | null;
+  minHours: number | null;
+  hourBase: number | null;
+  extraHour: number | null;
+  extras: { name: string; price: number | null }[];
+};
+
+export const CLAIM_EXTRAS_MAX = 12;
+
+/** Per hour, the price for each extra hour is the supplier's to set — the door asks for it (v2: required). */
+export function claimPricingMissing(p: ClaimCardPricing | undefined): 'extra_hour' | null {
+  return p?.basis === 'per_hour' && !(p.extraHour != null && p.extraHour > 0) ? 'extra_hour' : null;
+}
+
+/**
+ * The fields the SHIPPED card maker (`createVendorService`) reads, for one door card — or null when the card carries
+ * no price to make it with (it is then not made, as before). Extras ride as the maker's own add-on rows.
+ */
+export function claimCardServiceFields(card: { price: number | null; pricing?: ClaimCardPricing }): Array<[string, string]> | null {
+  const p = card.pricing;
+  const out: Array<[string, string]> = [];
+  if (p?.basis === 'per_pax') {
+    if (!p.perPax) return null;
+    out.push(['pricing_basis', 'per_pax'], ['per_pax_price_php', String(p.perPax)]);
+    if (p.minPax) out.push(['min_pax', String(p.minPax)]);
+  } else if (p?.basis === 'per_hour') {
+    if (!p.hourBase) return null;
+    out.push(['pricing_basis', 'per_hour'], ['hour_base_php', String(p.hourBase)]);
+    if (p.minHours) out.push(['min_hours', String(p.minHours)]);
+    if (p.extraHour) out.push(['extra_hour_php', String(p.extraHour)]);
+  } else {
+    if (!card.price) return null;
+    out.push(['pricing_basis', 'fixed'], ['starting_price_php', String(card.price)]);
+  }
+  const extras = (p?.extras ?? []).filter((x) => x.name.trim()).slice(0, CLAIM_EXTRAS_MAX);
+  if (extras.length) {
+    out.push(['addons_present', '1']);
+    for (const x of extras) out.push(['addon_label', x.name.trim()], ['addon_price', x.price != null ? String(x.price) : '']);
+  }
+  return out;
+}
+
+/** One way the supplier confirmed on the door: kept (as fixed), or left off. `keepQr` keeps the couple's QR picture. */
+export type ClaimDoorPayAnswer = { keep: boolean; provider: string | null; accountName: string; accountNumber: string; keepQr: boolean };
 
 /** The details slide 2 lists, in the prototype's order (`DETAILS`). Email is not one of them — see above. */
 export const CLAIM_DETAIL_KEYS = ['name', 'who', 'phone', 'service', 'price', 'incl', 'plan'] as const;
@@ -166,7 +240,16 @@ export type ClaimDoorAnswers = {
   /** Picked services: a record service (by category) or a leaf the supplier added. */
   services: { category: string; leaf: string | null; label: string; fromRecord: boolean }[];
   /** One per service, in order. `fromRecord` = a service the couple recorded (the door's claim — the server re-checks it). */
-  cards: { name: string; category: string; leaf: string | null; price: number | null; inclusions: string[]; bundled: boolean; fromRecord: boolean }[];
+  cards: {
+    name: string;
+    category: string;
+    leaf: string | null;
+    price: number | null;
+    inclusions: string[];
+    bundled: boolean;
+    fromRecord: boolean;
+    pricing?: ClaimCardPricing;
+  }[];
   bundle: { name: string; extras: string[] } | null;
   specialties: Record<string, Record<string, string[]>>;
   /**
@@ -175,6 +258,8 @@ export type ClaimDoorAnswers = {
    * (`lib/supplier-purchase-change.ts`).
    */
   price: number | null;
+  /** In the record's order (`ClaimDoorRecord.payWays`) — the server re-reads the record and pairs them by index. */
+  payWays?: ClaimDoorPayAnswer[];
 };
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -207,7 +292,44 @@ export function parseClaimDoorAnswers(raw: unknown): ClaimDoorAnswers | null {
     const category = str(o.category, 64);
     const leaf = str(o.leaf, 96) || null;
     if (!category && !leaf) return [];
-    return [{ name: str(o.name, 80), category, leaf, price: num(o.price), inclusions: lines(o.inclusions), bundled: o.bundled === true, fromRecord: o.fromRecord === true }];
+    const pr = (o.pricing ?? null) as Record<string, unknown> | null;
+    const basis = pr && (pr.basis === 'per_pax' || pr.basis === 'per_hour' || pr.basis === 'fixed') ? (pr.basis as SelfAddedBasis) : null;
+    const hours = (v: unknown) => {
+      const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(/[^\d.]/g, ''));
+      return Number.isFinite(n) && n > 0 && n <= 999 ? Math.round(n * 2) / 2 : null;
+    };
+    const pricing: ClaimCardPricing | undefined = basis
+      ? {
+          basis,
+          perPax: num(pr!.perPax),
+          minPax: num(pr!.minPax),
+          minHours: hours(pr!.minHours),
+          hourBase: num(pr!.hourBase),
+          extraHour: num(pr!.extraHour),
+          extras: (Array.isArray(pr!.extras) ? pr!.extras : []).slice(0, CLAIM_EXTRAS_MAX).flatMap((x) => {
+            const e = (x ?? {}) as Record<string, unknown>;
+            const name = str(e.name, 80);
+            return name ? [{ name, price: num(e.price) }] : [];
+          }),
+        }
+      : undefined;
+    return [
+      {
+        name: str(o.name, 80),
+        category,
+        leaf,
+        price: num(o.price),
+        inclusions: lines(o.inclusions),
+        bundled: o.bundled === true,
+        fromRecord: o.fromRecord === true,
+        ...(pricing ? { pricing } : {}),
+      },
+    ];
+  });
+  const payWays = (Array.isArray(d.payWays) ? d.payWays : []).slice(0, 8).map((x) => {
+    const w = (x ?? {}) as Record<string, unknown>;
+    const provider = typeof w.provider === 'string' && PAY_WAY_PROVIDERS.includes(w.provider) ? w.provider : null;
+    return { keep: w.keep !== false, provider, accountName: str(w.accountName, 96), accountNumber: str(w.accountNumber, 64), keepQr: w.keepQr === true };
   });
   const b = d.bundle as Record<string, unknown> | null | undefined;
   const specialties: ClaimDoorAnswers['specialties'] = {};
@@ -233,6 +355,7 @@ export function parseClaimDoorAnswers(raw: unknown): ClaimDoorAnswers | null {
     bundle: b && typeof b === 'object' ? { name: str(b.name, 120), extras: lines(b.extras) } : null,
     specialties,
     price: num(d.price),
+    ...(payWays.length ? { payWays } : {}),
   };
 }
 

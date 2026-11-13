@@ -131,7 +131,27 @@ import { fileURLToPath } from 'node:url';
 // picks the mode), so the page costs +1, not +2. Unimported exports re-scanned: the same four as 11 Nov
 // (`setGuestPlusOneCount`, held by extra-seats-are-chairs, and three Papic purchase actions — money) — left alone. No
 // fresh `vercel build` count; the SUM is gated by check-vercel-route-count.mjs on this PR's production build.
-export const CEILING = 1246;
+// 1246 → 1247 (2026-11-13, merged with Piece 3b + group chats + Admin › Colours above — Quote + negotiation PR-4 — the offer card): ONE export, `applyDroppedOffer` in
+// app/_actions/offer-card-actions.ts. It cannot be a browser card call like the other chat cards: the couple may not
+// write a quote, and the offer's price must be computed on the server (offersForQuote) and handed to the service-role
+// writer `apply_dropped_offer` — a browser-callable writer would let a session name its own discount. The drop itself
+// is the supplier's own insert (no action). No unimported export was found to retire. No fresh `vercel build` count for
+// this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+// 1247 → 1249 (2026-11-13, merged on top of the offer card's +1 above and Admin › Colours' +1, service requests — owner rulings 13 Nov): TWO new exports, one per side, which cannot be one
+// dispatcher without moving the leaf mint out of admin/categories/actions.ts (category-proposal-mints-nothing.test.ts pins
+// it there): `decideServiceRequest` (admin, admin/categories/actions.ts — the ONE Decision that moves every shop's cards)
+// and `putCardUnderRequest` (supplier, vendor-dashboard/services/requests/actions.ts — a card joins its waiting request).
+// The four exports nothing but tests import (papic purchasePapicCameras / activatePapicLimited / purchasePapicExtras,
+// guests setGuestPlusOneCount) are pinned by their tests, so none was retired. No fresh `vercel build` count for this +2 —
+// the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+// 1249 → 1251 (2026-11-13, admin slice 3 — owner "Yes, add both": account suspend + editable plan contents): TWO
+// dispatchers, one per feature, instead of the five exports they would have been — `accountHold` (admin/users/
+// suspend-actions.ts, op=suspend|unsuspend|undo) and `requestPlanContentsChange` (admin/pricing/plan-contents-actions.ts,
+// kind=supplier|event). The plan-change EXECUTOR was kept out of 'use server' on purpose (lib/plan-contents-execute.server.ts),
+// so it is not a route at all. An unimported-export sweep of all 390 'use server' files found none to retire. No fresh
+// `vercel build` count for this +2 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build;
+// read that job before merging.
+export const CEILING = 1251;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

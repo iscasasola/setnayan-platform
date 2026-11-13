@@ -67,8 +67,10 @@ test('never down — fewer guests, the minimum, or the billed pax already sent h
   }
 });
 
-test('a booked deal is untouched here (Piece 2); a quote without its own rate is never repriced', () => {
-  assert.equal(followGuestCount(quote({ booked: true }), 200).rose, false);
+test('a BOOKED deal rises like a locked quote (Piece 2, owner 2026-11-12); a quote without its own rate is never repriced', () => {
+  // SABOTAGE: restore `q.booked ||` in followGuestCount → RED.
+  assert.equal(followGuestCount(quote({ booked: true }), 200).rose, true);
+  assert.deepEqual(followGuestCount(quote({ booked: true }), 200), followGuestCount(quote({ booked: false, locked: true }), 200));
   const bare = quote({ lines: [{ label: 'Buffet', amount_centavos: 6_500_000 }] });
   assert.equal(quoteFollowsGuestList(bare.lines), false);
   assert.equal(followGuestCount(bare, 200).rose, false);

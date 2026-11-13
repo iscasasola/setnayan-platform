@@ -42,6 +42,8 @@ export type BenchMarketResult = {
   rating: number | null;
   reviewCount: number | null;
   slug: string | null;
+  /** The shop's canonical services (`vendor_market_stats.services`) — which category row its cards are under. */
+  tiles: string[];
 };
 
 /** 🔌 `unreadable` — the shops could not be read; the page says so instead of drawing no shops. */
@@ -168,6 +170,7 @@ export async function searchMarketplaceForBench(eventId: string, rawQuery: strin
       rating: rating != null && rating > 0 ? rating : null,
       reviewCount: r.review_count ?? null,
       slug: r.business_slug ?? null,
+      tiles: r.services ?? [],
     };
   });
   return { results, unreadable: false };

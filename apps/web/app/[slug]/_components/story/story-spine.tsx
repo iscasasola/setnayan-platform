@@ -145,6 +145,7 @@ export function StorySpine({
   coverScene = null,
   hideRoad = false,
   you = 'here',
+  keptUntil = null,
 }: {
   data: EditorialData;
   facts: StorySpineFacts;
@@ -209,6 +210,8 @@ export function StorySpine({
    * page draws it right after the film).
    */
   you?: 'here' | 'none' | 'only';
+  /** 📸 "Full size until <date>" on the reader's own Were you there? (`fullSizeKeptUntil`). Null: no date to promise. */
+  keptUntil?: string | null;
 }): ReactElement {
   // A sample carries no audience and exists to be read — the same exemption the
   // shipped gate and `redactStoryLayers` both make, for the same reason.
@@ -754,6 +757,7 @@ export function StorySpine({
           occasion={words.occasion}
           host={words.host}
           storyCard={storyCard}
+          keptUntil={keptUntil}
         />
       </OpenUpScene>
     </>

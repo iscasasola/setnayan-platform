@@ -60,6 +60,8 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   supplier_questions_sent: 'normal', // a supplier sent their questions into the event from the chat ＋ (every supplier)
   supplier_report: 'normal', // a supplier filed a Report from a picked client into /admin/help (admins)
   service_card_shared: 'normal', // a supplier posted one of their service cards into the client's chat (Share)
+  account_suspended: 'normal', // an admin put the account on hold (the person is signed out, so this mostly waits for the lift)
+  account_unsuspended: 'normal', // the hold was lifted — they can sign in again
   schedule_released: 'normal', // a guest's own full schedule and call time are on Me (Release)
   chat_message: 'normal',
   chat_message_in_app: 'normal', // the same message, to a shop's team · another co-host · a coordinator (8 Nov 2026)

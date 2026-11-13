@@ -474,6 +474,7 @@ test('every function that reads chat_messages bodies is one this lane audited', 
 // The measured list, each judged for a private-message leak (see the report
 // for the reasoning per function). Kept sorted.
 const AUDITED_DEFINER_READERS: string[] = [
+  'apply_dropped_offer', // 🏷 PR-4 (20271339379038): reads ONE message's offer id · good-until · event · thread, never its body; a private line can never carry an offer (tg_chat_messages_offer_is_this_suppliers refuses it); inserts its own system line; returns the new quote id
   // 20271340018194 (Piece 1 · PR-3): inserts the new quote version's card line (a shop message with its proposal_id);
   // reads no message and returns the new proposal id — no body leaves it.
   'change_ask_write_version',
@@ -483,11 +484,15 @@ const AUDITED_DEFINER_READERS: string[] = [
   'chat_decision_file_message', // locks the message row; returns a status word
   'chat_decision_filing_refusal', // thread + recipient only — refuses a private line; returns a word, no body
   'chat_decision_move_message', // locks the message row; returns a status word
+  // 👈 20271342335343: the caller's own file only — returns is_booking + seconds since sent, never a body.
+  'chat_file_removal_options',
   // 💬 20271340374819 (event group chats): the Groups list's last line is filtered to rows the CALLER may read
   // (shared · sent · one of its recipients) — pinned by event-group-chats-and-a-private-line-to-several.db.test.ts;
   // the post-line helper inserts a system line and returns nothing.
   'chat_group_list', // preview filtered by recipient_user_ids for the caller
   'chat_group_post_line', // inserts a system line in a group; returns nothing
+  // 👈 20271342335343: EXECUTE revoked from every browser role; returns one boolean (is this file part of the booking).
+  'chat_message_is_booking_file',
   'chat_poll_open', // inserts the poll's own system line; returns the poll id
   'chat_record_post_line', // finds the thread and inserts a system line; returns nothing
   'count_unread_message_threads', // filters recipient_user_id (20271329968207/20271330575424)
@@ -495,10 +500,17 @@ const AUDITED_DEFINER_READERS: string[] = [
   // checks that NEW.chat_message_id is a message of THIS shop's thread with THIS event (EXISTS) — never reads a body,
   // returns nothing but NEW, and its refusal is a fixed sentence.
   'guard_event_supplier_file', // EXISTS on message_id + thread only; no body read or returned
+  // 👈 20271342335343 (DECISION_LOG 2026-11-13 chat file undo ring + swipe): removes or hides the CALLER's own file —
+  // sender = auth.uid() and still readable by them; returns only an outcome word, that row's thread id and stored ref
+  // (their own file), never a body, never another row. The options read returns two facts about the caller's own file
+  // (booking? seconds since sent); the booking check returns one boolean and is callable by neither browser role.
+  // Pinned by you-may-remove-your-own-file-from-a-chat.db.test.ts.
+  'remove_my_chat_file',
   'tg_chat_message_hearts_scope', // copies a heart's thread from its message; returns no body
   'tg_chat_messages_card_names_this_conversation', // validates NEW's card ids; returns no other row
   'tg_chat_messages_group_rules', // 20271340374819: reads NEW's thread kind only; returns no other row
   'tg_chat_messages_guard_end_user_write', // screens NEW's own body only
+  'tg_chat_messages_offer_is_this_suppliers', // 🏷 PR-4: validates NEW's offer id + day and refuses it on a private line; reads no other message
   'tg_chat_messages_private_is_between_members', // this lane's recipient check
   'unread_message_threads_by_event', // filters recipient_user_id
   'unread_message_threads_by_vendor', // filters recipient_user_id
@@ -548,12 +560,16 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
       // 20271340018194: the chat's asks, for a member of the thread only; a masked coordinator's money is withheld.
       'change_asks_read',
       'chat_blocker_shown',
+      // 👈 20271342335343: only a member who can still read the chat asks what may be removed of their own file.
+      'chat_file_removal_options',
       // 20271332497337 (Build 3 lane B): the decision topics' membership check — a member of the chat (this helper)
       // or the shop's team; chat_decision_open / _set_closed / the topics' read policy all ask it.
       'chat_is_in_thread',
       'chat_thread_add_host',
       'chat_thread_leave',
       'count_unread_message_threads',
+      // 👈 20271342335343 (2026-11-13 undo ring + swipe): only a member who can still read the chat removes their own file.
+      'remove_my_chat_file',
       // 20271333348826 (Build 3 lane B, round 3): coordinators post like hosts — the sender trigger's coordinator
       // branch admits an event_members coordinator only for a thread this helper already lets them read.
       'tg_chat_messages_derive_sender',

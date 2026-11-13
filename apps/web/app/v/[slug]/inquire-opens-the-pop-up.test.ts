@@ -58,8 +58,10 @@ test('no shop page renders "Plan with Setnayan"', () => {
   assert.deepEqual(offenders, [], `"Plan with Setnayan" is retired on shop pages (owner 2026-11-07): ${offenders.join(', ')}`);
 });
 
-test('the shop page mounts the pop-up for every bookable shop — never behind having a service', () => {
-  assert.match(page, /\{bookable \? \(\s*<InquireSheet\b/, 'the Inquire pop-up must be mounted on `bookable` alone');
+// 13 Nov 2026 (owner, "Yes, only one"): the pop-up is the ONLY way to ask, so it is mounted for every shop that takes
+// messages (`canMessage` — an unverified shop can be messaged, never booked), not only bookable ones.
+test('the shop page mounts the pop-up for every shop that takes messages — never behind having a service', () => {
+  assert.match(page, /\{canMessage \? \(\s*<InquireSheet\b/, 'the Inquire pop-up must be mounted on `canMessage` alone');
   const at = page.indexOf('<InquireSheet');
   const before = page.slice(Math.max(0, at - 400), at);
   assert.doesNotMatch(
@@ -80,7 +82,8 @@ test('a shop with no service still has a working Inquire: the pop-up asks a gene
   assert.match(action, /if \(general\) \{[\s\S]{0,400}saveVendorToPicks\(form\)/, 'a general ask still puts the shop on the event');
   // The section's dead end is gone, and it has its own way in.
   assert.doesNotMatch(page, /Check back soon/, 'the dead-end "Check back soon" is back on the shop page');
-  assert.match(page, /<a href="#get-in-touch"[^>]*data-inquire-general-ask=""/);
+  // The general ask is the ONE Inquire itself now — the pop-up says the shop has no services listed.
+  assert.match(page, /<a href="#get-in-touch" className=\{SHOP_MAIN_INQUIRE_CLASS\} data-shop-main-inquire="">/);
 });
 
 test('every Inquire on the page opens the pop-up, which sends through the ONE inquiry action', () => {
@@ -144,7 +147,7 @@ test('the names come from the ONE taxonomy resolver — never a label map on the
   assert.match(page, /import \{ cardKindLabeller \} from '@\/lib\/card-kind-labeller';/);
   assert.match(page, /await cardKindLabeller\(\)/);
   assert.match(page, /inquireServiceList\(\s*activeServices\.map\(/, 'the list must be built by `inquireServiceList`');
-  assert.match(page, /inquireProvidedKeys = bookable \? \(vendor\.services \?\? \[\]\) : \[\]/, 'the source is `vendor_profiles.services`');
+  assert.match(page, /inquireProvidedKeys = canMessage \? \(vendor\.services \?\? \[\]\) : \[\]/, 'the source is `vendor_profiles.services`');
   // No hand-kept key → name table in the pop-up or on the page.
   for (const [file, src] of [['inquire-sheet.tsx', sheet], ['page.tsx', page]] as const) {
     assert.doesNotMatch(src, /\bband_live_music\b|\bday_of_coordinator\b|\bpabati\s*:/, `${file} hard-codes a taxonomy name`);
@@ -184,7 +187,9 @@ test('the general question is only for a shop with no card AND no provided servi
   assert.equal(inquireServiceList([], [], (k) => k).length, 0);
   assert.equal(inquireServiceList([], null, (k) => k).length, 0);
   assert.match(sheet, /const general = services\.length === 0;/);
-  assert.match(page, /inquireServices\.length > 0 \? \(\s*<span data-inquire-provided="">/, 'a shop with provided services must not say it has none');
+  // The page's prose about it went with the Inquire section (13 Nov, "Yes, only one"); the pop-up decides alone, and
+  // it says "no services listed" only when the list it is handed is empty.
+  assert.doesNotMatch(page, /NO_SERVICES_LINE\(displayLabel\)/, 'the page states "no services" itself again');
 });
 
 test('the message is the house field — TypedRow, long + boxed — never a hand-drawn box', () => {

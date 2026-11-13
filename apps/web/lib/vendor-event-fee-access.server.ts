@@ -228,6 +228,8 @@ function chargeFacts(row: ChargeRow, orderId: string | null): BookingFeeChargeFa
     amountPhp: Math.max(0, Number(row.amount_charged_centavos ?? 0)) / 100,
     dueAt: row.expires_at,
     orderId,
+    // 💸 A top-up (`amendment_delta`) is HELD through the event day (owner 2026-11-12) — the rule reads the kind.
+    chargeKind: row.kind ?? null,
   };
 }
 

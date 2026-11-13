@@ -23,6 +23,6 @@ import type { AccountBarTab } from '@/lib/account-bar';
  */
 const AccountBottomNav = dynamic(() => import('./account-bottom-nav').then((m) => m.AccountBottomNav));
 
-export function AccountBarSlot({ tabs }: { tabs: readonly AccountBarTab[] }) {
-  return <AccountBottomNav tabs={tabs} />;
+export function AccountBarSlot({ tabs, hasShop = false }: { tabs: readonly AccountBarTab[]; hasShop?: boolean }) {
+  return <AccountBottomNav tabs={tabs} hasShop={hasShop} />;
 }

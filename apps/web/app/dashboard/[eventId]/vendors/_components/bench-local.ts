@@ -27,7 +27,15 @@ import type { SaveVendorResult } from '@/app/(shell)/explore/actions';
 import type { removeBuildPick, setBuildPick } from '../build-pick-actions';
 
 /** A supplier saved from "More to compare": its new pick, and whether Undo may remove it. */
-export type SavedFromMore = { eventVendorId: string; undoable: boolean };
+export type SavedFromMore = {
+  eventVendorId: string;
+  undoable: boolean;
+  /**
+   * The save was the first half of "Ask for a quote" (walk 13 Nov 2026: the card said "Saved to Mobile Bar." over an
+   * ask that had been sent). The card then says the ask, and offers no Undo — an Undo removes the pick, not the ask.
+   */
+  asked?: boolean;
+};
 
 type BenchLocalStore = {
   /** `event_vendors` ids removed in place. They never come back (the row is gone). */

@@ -1,6 +1,9 @@
 import { CanvasMaker } from '../../_components/canvas-maker';
 import { RefinementsEditor } from '../../_components/refinements-editor';
 import type { MakerContext, loadKindDetails } from '@/lib/service-card-maker.server';
+import type { PickerParentView } from '@/app/_components/service-picker';
+import type { SpecialtyField } from '@/app/open-shop/_components/service-cards';
+import { AddServicePicker } from './add-service-picker';
 
 /**
  * THE NEW-SERVICE MAKER, as one element — drawn by `/vendor-dashboard/services/new` and, as a SHEET over Today, by a
@@ -15,7 +18,13 @@ export function NewServiceMaker({
   details,
   error,
   quoteReturn = null,
+  picker = null,
 }: {
+  /**
+   * ➕ THE ONE ADD-A-SERVICE PICKER (ruling 5820) — the tree `/open-shop` draws (`getServicePickerTree`). Given, the
+   * page opens on the picker ("Make N cards"), the maker one press away; absent (Today's setup sheet), the maker as it was.
+   */
+  picker?: { tree: PickerParentView[]; specialties?: Record<string, SpecialtyField[]> } | null;
   /** ＋ Opened from a quote: where it is (checked by the page, `quoteReturnPath`) — a new card goes back there. */
   quoteReturn?: string | null;
   vendorProfileId: string;
@@ -24,7 +33,7 @@ export function NewServiceMaker({
   details: Awaited<ReturnType<typeof loadKindDetails>>;
   error: string | null;
 }) {
-  return (
+  const maker = (
       <CanvasMaker
         categoryValue=""
         categoryLabel=""
@@ -69,4 +78,6 @@ export function NewServiceMaker({
         initial={null}
       />
   );
+  if (!picker) return maker;
+  return <AddServicePicker tree={picker.tree} specialties={picker.specialties ?? {}} onShop={ctx.ownKinds} maker={maker} startOnMaker={quoteReturn !== null} />;
 }

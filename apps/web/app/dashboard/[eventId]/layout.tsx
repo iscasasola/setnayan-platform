@@ -21,6 +21,7 @@ import { countUnreadMessages } from '@/lib/chat';
 import { countGuestsByEvent } from '@/lib/guests';
 import { getLocale, makeT } from '@/lib/i18n';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
@@ -579,6 +580,7 @@ export default async function EventLayout({ children, params }: Props) {
         href="/dashboard/notifications"
         ariaBaseLabel={tr('nav.notifications')}
         ariaUnreadSuffix="unread"
+        who={placeWhoFromSwitcher(switcherData)}
       />
       {/*
         AccountSwitcher — now at EVERY width (One Shell slice 1, 2026-08-13).
@@ -687,11 +689,14 @@ export default async function EventLayout({ children, params }: Props) {
            ⚠ THE OTHER THREE FOCUS ROWS ARE UNCHANGED and still wear the arrow
            ("My Home", from HQ · the shop · an account spoke). Those say what
            pressing them DOES; this one says where it goes. */
+        /* ↩ SUPERSEDED 2026-11-12 (owner, on the event menu beside the shop's: *"It need to be able to
+           go back home. The need to have similar way of presenting this to go back to home"*). The row
+           now reads exactly as HQ's, the shop's and every account spoke's: "← My Home", to the same
+           `/dashboard`. The 2026-09-23 "Events" + grid icon ruling below is kept for history only. */
         focus={{
           href: '/dashboard',
-          label: 'Events',
-          caption: 'Events',
-          icon: 'events',
+          label: 'My Home',
+          caption: 'Home',
         }}
         railContext={
           <EventRailContext

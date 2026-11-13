@@ -134,11 +134,7 @@ const ALLOWED_LINES: ReadonlyArray<{ file: string; snippet: string; why: string 
       'CoupleLogo ships no logo-layers) — the word is in the MODULE NAME and nothing is rendered ' +
       'from it. Keyed on the LINE, so every other line of the seal stays under the scan.',
   },
-  {
-    file: 'recap/page.tsx',
-    snippet: "from '@/lib/couple-website-pro'",
-    why: 'The Pro-tier helper import. The rest of this file — its rendered stand-in included — stays under the scan.',
-  },
+  // (recap left 2026-11-13: `/{slug}/recap` now only sends to the story — owner, "POST EVENT = A STORY" (5).)
   {
     /*
       🪤 THE FILE MOVED, THE PARDON FOLLOWED IT — 2026-09-22. These two lines were

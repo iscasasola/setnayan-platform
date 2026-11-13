@@ -1669,7 +1669,7 @@ function SlotDetail({ slotKey, value }: { slotKey: string; value: DocUpload }) {
 
 /** What every grant does to the shop, said the same way wherever it is offered. */
 const GRANT_CONSEQUENCE =
-  'Approving flips this supplier to Verified — their public listing goes live, the verified badge appears, Pro/Ultra unlock, and they are notified.';
+  'Approving flips this supplier to Verified — their public listing goes live, the verified badge appears, Supplier Pro/Supplier Ultra unlock, and they are notified.';
 
 /**
  * The sentence the grant dialog shows, warning first.
@@ -2143,7 +2143,7 @@ function VouchControls({
           today. Their documents are due by {deadlineLabel(founderVouchExpiry(new Date()))}, with
           next year&rsquo;s verification. Couples see the same Verified badge as a fully checked
           shop — miss the deadline and the badge comes off by itself; the shop stays listed and
-          bookable. Their reward: {ULTRA_SETS.founders} &times; 4 weeks of Ultra&rsquo;s tools (once per shop; not Ultra&rsquo;s
+          bookable. Their reward: {ULTRA_SETS.founders} &times; 4 weeks of Supplier Ultra&rsquo;s tools (once per shop; not Supplier Ultra&rsquo;s
           monthly gifts), plus
           the Verified badge&rsquo;s own Papic 150 and 4 weeks of Papic Challenges.
         </p>

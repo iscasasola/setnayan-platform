@@ -320,6 +320,12 @@ export function PostEventScenePanel({
         ) : null}
       </FormRows>
 
+      {/* 🎁 Thank you for your gift (owner 2026-11-13 (2)) — its one part is the couple's one line for every giver,
+          typed right here (it has no style cards, so no part sheet to open). Free; drafted like every scene's words. */}
+      {scene === 'gifts' && arrangement ? (
+        <PostEventWordsField eventId={eventId} scene="gifts" part="body" arrangement={arrangement} draftAction={draftAction} />
+      ) : null}
+
       {failures}
     </section>
   );

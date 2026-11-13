@@ -18,6 +18,7 @@ import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { buildLeafIndex, isCoverageLeafKind } from '@/lib/service-card-kind';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { buildCanvasInitialFromCard } from '@/lib/vendor-card-copy';
+import { cardQueueLine, encodeCardSpecialties, parseCardQueue, parseCardSpecialties, specialtiesAsInitial } from '@/lib/card-queue';
 
 export const metadata = { title: 'Add a service' };
 
@@ -75,10 +76,15 @@ export default async function NewServicePage({
   searchParams,
 }: {
   params: Promise<{ category: string }>;
-  searchParams: Promise<{ claim?: string; from?: string; error?: string }>;
+  searchParams: Promise<{ claim?: string; from?: string; error?: string; then?: string; sp?: string }>;
 }) {
   const { category } = await params;
-  const { claim, from, error } = await searchParams;
+  const { claim, from, error, then, sp } = await searchParams;
+  // ➕ MAKE N CARDS (ruling 5820): the services still to make after this one — checked, never this one again.
+  const cardQueue = parseCardQueue(then).filter((k) => k !== category);
+  // 🏷 The specialties picked for each service in the picker — THIS card's are pre-ticked below, the queued ones ride on.
+  const carried = parseCardSpecialties(sp, [category, ...cardQueue]);
+  const queuedSpecialties = encodeCardSpecialties(carried, cardQueue);
   // ⚖ TWO VOCABULARIES ARE LEGAL HERE (owner 2026-08-28, *"yes their own
   // words"*): a legacy kind, or one of the shop's own COVERAGE LEAVES. Without
   // the second arm this route 404s on a card the new door legitimately created —
@@ -180,6 +186,11 @@ export default async function NewServicePage({
           </p>
         </>
       )}
+      {canvas && cardQueue.length > 0 ? (
+        <p className="mb-3 text-[13.5px] text-ink/65" data-card-queue={cardQueue.join(',')}>
+          {cardQueueLine(cardQueue, kindLabel)}
+        </p>
+      ) : null}
       {showClaimBanner && claimContext ? (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-terracotta/25 bg-terracotta/5 px-4 py-3">
           <Heart
@@ -224,11 +235,19 @@ export default async function NewServicePage({
           detailsKind={details ? category : null}
           detailsSlot={
             details ? (
-              <RefinementsEditor canonicalService={category} refinements={details.refinements} initial={details.values} leafLabel={kindLabel(cat)} bare />
+              <RefinementsEditor
+                canonicalService={category}
+                refinements={details.refinements}
+                initial={specialtiesAsInitial(details.refinements.fields, details.values, carried[category])}
+                leafLabel={kindLabel(cat)}
+                bare
+              />
             ) : null
           }
           errorLine={typeof error === 'string' && error.length > 0 ? error : null}
           returnTo={`/vendor-dashboard/services/new/${category}`}
+          cardQueue={cardQueue}
+          cardSpecialties={queuedSpecialties}
           initial={initial}
         />
       ) : (

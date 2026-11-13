@@ -83,7 +83,7 @@ test('the live arrangement is read through the page’s own rules', () => {
   assert.equal(a.sectionOrder, null, 'no stored order = the default');
   assert.deepEqual(a.customIds, ['dogs1'], 'the workroom’s own columns take part in the order, read only');
   assert.deepEqual(a.sceneLooks, {});
-  assert.deepEqual(arr('nope'), { sections: {}, sectionOrder: null, sceneLooks: {}, customIds: [] });
+  assert.deepEqual(arr('nope'), { sections: {}, sectionOrder: null, sceneLooks: {}, readAs: 'story', customIds: [] });
 });
 
 test('sanitize: a draft save is a public POST — junk never reaches the draft', () => {
@@ -249,4 +249,37 @@ test('the draft keeps Post Event across save, undo and a reload; Reset never tou
     const { items } = classifyHubDraft(mergeHubDraft(emptyHubDraft(), hubResetPatch(scope)), live());
     assert.ok(!hubDraftWriteTables(items).includes('event_editorial'), `reset ${scope} would touch the story`);
   }
+});
+
+/* 📖 READS AS — owner 2026-11-13, DECISION_LOG "POST EVENT = A STORY (ONE SCENE PER SCREEN) — SIX CALLS SETTLED" (1):
+   Story is the default for every Post Event; Page is the other choice. ONE key (`readAs`), stored only as `page`. */
+test('📖 reads as: Story by default, Page stored as the one key, drafted then applied, free', () => {
+  assert.equal(postEventArrangementOf({}).readAs, 'story');
+  assert.equal(postEventArrangementOf({ readAs: 'page' }).readAs, 'page');
+  assert.equal(postEventArrangementOf({ readAs: 'junk' }).readAs, 'story', 'anything else reads as the default');
+  assert.deepEqual(sanitizePostEventDraft({ readAs: 'page' }), { readAs: 'page' });
+  assert.deepEqual(sanitizePostEventDraft({ readAs: 42 }), undefined);
+  // The Maker shows the draft laid over live.
+  assert.equal(withPostEventDraft(postEventArrangementOf(LIVE_STORY), { readAs: 'page' }).readAs, 'page');
+  assert.equal(overlayPostEventDraftJson(LIVE_STORY, { readAs: 'page' }).readAs, 'page');
+  assert.equal(overlayPostEventDraftJson({ ...LIVE_STORY, readAs: 'page' }, { readAs: 'story' }).readAs, undefined, 'the default is an absence');
+  // Apply: an item only when it differs from live; never Pro; writes ONLY its key.
+  const items = classifyPostEventDraft({ readAs: 'page' }, LIVE_STORY);
+  assert.deepEqual(items, [{ field: 'readAs', value: 'page', change: 'change', pro: false }]);
+  assert.deepEqual(classifyPostEventDraft({ readAs: 'story' }, LIVE_STORY), []);
+  const applied = applyPostEventItems(LIVE_STORY, items);
+  assert.equal(applied.readAs, 'page');
+  assert.deepEqual({ ...applied, readAs: undefined }, { ...LIVE_STORY, readAs: undefined }, 'nothing else moved');
+  assert.equal(applyPostEventItems(applied, [{ field: 'readAs', value: 'story', change: 'change', pro: false }]).readAs, undefined);
+});
+
+/* 🎁 THE GIFT THANK-YOU — one line for all givers, the `gifts` scene's own words (owner 2026-11-13 (2)). */
+test('🎁 the gift thank-you line is the gifts scene’s body — kept in the story’s looks, free', () => {
+  const arr0 = postEventArrangementOf(LIVE_STORY);
+  const r = postEventSetWords(arr0, 'gifts', 'body', 'Thank you — the air fryer is already in the kitchen.');
+  assert.ok(r && !('refused' in r));
+  assert.equal((r as PostEventDraft).sceneLooks?.gifts?.words?.body, 'Thank you — the air fryer is already in the kitchen.');
+  const items = classifyPostEventDraft(r as PostEventDraft, LIVE_STORY);
+  assert.equal(items.length, 1);
+  assert.equal(items[0]!.pro, false, 'words are free');
 });

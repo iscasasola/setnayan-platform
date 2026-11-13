@@ -263,3 +263,33 @@ export function sashLabel(
   if (!hasDate) return null;
   return index === 0 ? 'Up next' : 'Coming soon';
 }
+
+/* ───────────────────────────── the kind chip ───────────────────────────── */
+
+/**
+ * The kind chip on a person's public event cover — "Wedding", "Birthday" (owner 13 Nov 2026: covers say the
+ * event NAME only, no date; the kind chip stays — DECISION_LOG "EVENT COVERS SAY THE EVENT NAME ONLY, NO DATE").
+ * Read from `events.event_type`, the column the public read already carries; the chip sets it in capitals.
+ * An unknown or unset type prints no chip rather than a guess.
+ */
+export function posterKindLabel(eventType: string | null | undefined): string | null {
+  const t = (eventType ?? '').trim().toLowerCase();
+  if (!t || t === 'unspecified') return null;
+  const words = t.replace(/[_-]+/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * The whole chip: the kind, then — on a coming-up cover only — the sash's status ("Up next" · "Coming soon").
+ * The status keeps `sashLabel`'s honesty rule (an undated celebration is never "up next"); the DATE itself is
+ * never printed on the cover.
+ */
+export function coverChipLabel(
+  eventType: string | null | undefined,
+  section: 'coming-up' | 'past',
+  index: number,
+  hasDate: boolean,
+): string | null {
+  const parts = [posterKindLabel(eventType), sashLabel(section, index, hasDate)].filter(Boolean);
+  return parts.length ? parts.join(' · ') : null;
+}

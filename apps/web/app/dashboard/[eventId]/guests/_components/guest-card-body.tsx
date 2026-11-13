@@ -1171,6 +1171,21 @@ export function GuestCardBody({
             Passed Away and, like it, outside the autosave form, posting with it by `form=`. Ticks keep the list open; Done
             closes it (the shared PickMenu). Never for the couple, nor a guest already not counted at all (passed away);
             not drawn while nothing is booked, nor when the read was refused — no marker then, so nothing is changed. ═══ */}
+        {/* 🔒 GREYED, NEVER HIDDEN (owner 2026-11-13, "same on guest card"): with no supplier priced per head yet — or the
+            read refused, said as such — the row still shows, greyed and unpressable. It posts NOTHING: a decoy name, a
+            form id that does not exist, and no NOT_COUNTED_POSTED marker, so no save can clear what is stored. */}
+        {!isCouple && !guest.passed_away && (!notCounted || notCounted.services.length === 0) ? (
+          <div aria-disabled="true" className="pointer-events-none select-none border-b border-ink/10 px-0.5 opacity-50" data-card-not-counted-none="">
+            <K.Pick
+              name="not_counted_unavailable"
+              label="Not counted for"
+              form="guest-not-counted-unavailable"
+              value=""
+              options={[]}
+              emptyText={notCounted ? 'Shows once a supplier is priced per guest' : 'Couldn’t load your suppliers'}
+            />
+          </div>
+        ) : null}
         {isCouple || guest.passed_away || !notCounted || notCounted.services.length === 0 ? null : (
           <div className="border-b border-ink/10 px-0.5" data-card-not-counted="">
             {/* 📏 The row FIRST, its marker after it (owner 2026-11-04: "i see a double line in between access and not counted

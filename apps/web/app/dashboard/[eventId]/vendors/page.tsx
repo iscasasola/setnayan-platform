@@ -37,6 +37,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
 import { resolveLivePax } from '@/lib/pax';
+import { readSelfAddedPriceLines } from '@/lib/self-added-price-basis.server';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
@@ -47,7 +48,7 @@ import type { BookedFacts } from '@/lib/booked-rows';
 import { coveredKeyOf } from '@/lib/supplier-where';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { buildTally, suppliersDateFact, suppliersPlaceFact, type LiveTallyBase } from '@/lib/suppliers-shell';
-import { dateFitOf, type DateFit } from '@/lib/calendar-truth';
+import { dateFitOf, takenOnWords, type DateFit } from '@/lib/calendar-truth';
 import { readCalendarTruth } from '@/lib/calendar-truth.server';
 import { readOpenDateChange } from '@/lib/date-change.server';
 import { buildLinesOf, buildMoneyOf, buildSnapshotOf, buildViewOf, type BuildCardFree } from '@/lib/suppliers-build';
@@ -258,6 +259,9 @@ type EventBudgetRow = {
   date_candidates: string[] | null;
   date_window_start: string | null;
   date_window_end: string | null;
+  // 📅 The main span's last day and the day count (owner 2026-11-13) — the date · place line reads them.
+  event_end_date: string | null;
+  event_days: number | null;
   // Planning mode (owner 2026-06-05) — 'manual' collapses the strip + (Home)
   // turns off Setnayan AI + deadlines. Default 'guided'.
   planning_mode: string | null;
@@ -355,7 +359,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // read path; same columns, same row shape, guests get zero rows.
       .from('events_host')
       .select(
-        'event_date, event_date_precision, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
+        'event_date, event_date_precision, event_end_date, event_days, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
       )
       // `event_id`, NOT `id`. The view carries BOTH: `id` is the hidden
       // bigserial (internal joins only) and `event_id` is the uuid every route
@@ -522,6 +526,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const inviteStatusRead = isExploreReplanEnabled()
     ? startRead(readInviteStatusByVendorId(supabase, vendors.map((v) => v.vendor_id), Date.now()))
     : null;
+  // 🧾 Each self-added card priced per guest / per hour: "₱1,350 per guest · 120 counted · ₱162,000" (owner-approved
+  // 2026-11-13). `null` = refused — the cards then draw their one total as shipped, never a made-up line.
+  const selfAddedPriceLinesRead = startRead(readSelfAddedPriceLines(supabase, eventId));
   // The bottom search's EMPTY STATE (owner 2026-10-21 — the big "Find a supplier"
   // button is gone; the search shows the categories when nothing is typed): the
   // Find page's own list, from the Find page's own read (`lib/supplier-find-read.ts`).
@@ -2048,6 +2055,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // read error degrades to the normal rails (the surface is unaffected).
   const coveredByTile: Record<string, string> = await coveredTilesRead;
   const inviteStatusByVendorId = inviteStatusRead ? await inviteStatusRead : undefined;
+  const selfAddedPriceLines = await selfAddedPriceLinesRead;
   // The bottom search's empty state. A refused read is said, never drawn as an
   // empty list: the box then opens on one line that says it could not load.
   const findRead = findListRead ? await findListRead.catch(() => null) : undefined;
@@ -2337,6 +2345,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         nearOptions={nearRows(await nearAnchorsRead)}
         onePerEventGroups={[...onePerEventGroups]}
         inspiration={findInspiration}
+        // Owner 13 Nov 2026 — a supplier taken on the committed day reads "Taken on Dec 12" (the prototype's words).
+        takenOnLabel={planPrecision === 'day' ? takenOnWords(planDate) : null}
         // Pairs, not a Map — this component's own `teamCalendar` prop states the
         // rule: a Set/Map "crosses to the client as an array and is rebuilt there
         // rather than trusted to survive the boundary".
@@ -2369,6 +2379,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         )}
         // A self-added supplier's claim link: sent · declined · ran out · joined.
         inviteStatusByVendorId={inviteStatusByVendorId}
+        selfAddedPriceLines={selfAddedPriceLines}
         // Explore Replan PR-G1 — the convergence banner between the Coverage
         // Strip and the bench. Null on an open window (nothing to report yet)
         // and whenever the tier isn't running.
@@ -2898,7 +2909,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         ? (teamRowList.find((r) => r.vendorId === booked.vendor_id)?.name ?? booked.vendor_name)
         : null;
       return {
-        date: suppliersDateFact(planDate, planPrecision),
+        date: suppliersDateFact(planDate, planPrecision, {
+          endDate: ev.event_end_date ?? null,
+          options: {
+            mode: ev.date_mode,
+            candidates: ev.date_candidates,
+            windowStart: ev.date_window_start,
+            windowEnd: ev.date_window_end,
+            days: ev.event_days ?? 1,
+          },
+        }),
         // The area by its own name; an unlisted spelling is shown as typed
         // (what the Build body's Location tile already prints).
         place: suppliersPlaceFact(venueName, regionLabel(ev.region) ?? ev.region),

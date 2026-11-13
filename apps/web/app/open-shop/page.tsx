@@ -4,19 +4,13 @@ import { createClient } from '@/lib/supabase/server';
 import { shopConsolePath } from '@/lib/shop-console-path';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
-import { displayUrlForCatalogueArt, displayUrlForStoredAsset } from '@/lib/uploads';
-import { getTaxonomy } from '@/lib/taxonomy-db';
-import { fetchCategoryChipRefinementsMany } from '@/lib/vendor-service-attributes';
-import type { SpecialtyField } from './_components/service-cards';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { OpenShopWizard } from './_components/open-shop-wizard';
-import { getOpenShopServiceTree } from '@/lib/open-shop-service-tree';
+import { getServicePickerSpecialties, getServicePickerTree } from '@/lib/service-picker-tree.server';
 import { readBookingFeeJoinSchedule } from '@/lib/booking-fee-disclosure.server';
 import { bookingFeeJoinDisclosure } from '@/lib/booking-fee-disclosure';
 import { getOAuthGate } from '@/lib/request-platform';
 import { OAUTH_FLAGS } from '@/app/_components/oauth-button-row';
-import { reviewedAliasesByLiveTrade } from '@/lib/service-trade-aliases';
-import { getReviewedTradeAliasRows } from '@/lib/service-trade-aliases-db';
-import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
 import { categoryLadder } from '@/lib/vendor-tier-caps';
 import { readClaimDoor } from '@/lib/claim-door.server';
 import { claimDoorHref } from '@/lib/claim-door';
@@ -160,72 +154,14 @@ export default async function OpenShopPage({
     if (displayUrl) logoDisplayMap[row.logo_url] = displayUrl;
   }
 
-  // The parent -> branch -> leaf tree the picker drills (owner 2026-08-09).
-  // First-party Setnayan SKUs are stripped inside — picking one would make the
-  // shop invisible on /explore. Fail-soft: [] makes the wizard fall back to its
-  // flat select rather than blocking a vendor from opening a shop.
-  const bareTree = await getOpenShopServiceTree().catch(() => []);
-  // 🔤 The reviewed aliases ride on each leaf (owner 2026-11-06 gate walk: the picker searches with the SAME ranker
-  // and the SAME reviewed words as Explore and the card maker — `lib/service-card-maker.server.ts` builds them the
-  // same way). Fail-soft: no aliases is today's search, never a blocked wizard.
-  const [aliasRows, mergeForwards] = await Promise.all([
-    getReviewedTradeAliasRows().catch(() => []),
-    getServiceMergeForwards().catch(() => ({})),
-  ]);
-  const aliasesByLeaf = reviewedAliasesByLiveTrade(
-    aliasRows,
-    mergeForwards,
-    new Set(bareTree.flatMap((p) => p.branches.flatMap((b) => b.leaves.map((l) => l.canonicalService)))),
-  );
-  // 🖼 Each CATEGORY wears its photo and its ⓘ (prototype v11 + v9; owner 6 Nov: "add (i) for each so we can define the
-  // categories"): `service_categories.sample_photo_r2_key` (resolved the way Explore resolves it) and `hint_en` (Admin ›
-  // Categories "ⓘ text"), both through the taxonomy snapshot. Fail-soft: no photo = the plain tile, no hint = no ⓘ.
-  const tax = await getTaxonomy().catch(() => null);
-  const photoOf = new Map<string, string | null>(
-    await Promise.all(
-      bareTree.flatMap((p) => p.branches).map(async (b) => {
-        const ref = tax?.categoryPhotos[b.tileId] ?? null;
-        const url = ref ? await displayUrlForCatalogueArt(ref).catch(() => null) : null;
-        return [b.tileId, url] as const;
-      }),
-    ),
-  );
-  const serviceTree = bareTree.map((p) => ({
-    ...p,
-    branches: p.branches.map((b) => ({
-      ...b,
-      photoUrl: photoOf.get(b.tileId) ?? null,
-      hint: tax?.categoryHints?.[b.tileId] ?? null,
-      leaves: b.leaves.map((l) => ({ ...l, aliases: aliasesByLeaf.get(l.canonicalService) })),
-    })),
-  }));
-  // ③ Each service's specialties — the CHIP-shaped refinements of its own schema (`canonical_service_schemas`, readable
-  // signed out), the same read the services manager makes (`fetchCategoryChipRefinementsMany`). An `enum` keeps one
-  // value; a `boolean` is one chip. Fail-soft: no schema = no "+ Specialties" on that service.
-  const specialties: Record<string, SpecialtyField[]> = {};
-  try {
-    const refinements = await fetchCategoryChipRefinementsMany(
-      supabase,
-      serviceTree.flatMap((p) => p.branches.flatMap((b) => b.leaves.map((l) => l.canonicalService))),
-    );
-    const words = (v: string) => v.replaceAll('_', ' ');
-    for (const [svc, r] of refinements) {
-      specialties[svc] = Object.entries(r.fields).map(([key, def]) => {
-        const label = def.label ?? words(key);
-        return def.type === 'boolean'
-          ? { key, label, options: [{ value: 'true', label }], single: true }
-          : {
-              key,
-              label,
-              options: (def.options ?? []).map((o) => ({ value: o, label: words(o) })),
-              single: def.type === 'enum',
-            };
-      }).filter((f) => f.options.length > 0);
-      if (!specialties[svc]!.length) delete specialties[svc];
-    }
-  } catch {
-    // A refused read leaves the specialties out — they are optional and never block opening a shop.
-  }
+  // The parent -> branch -> leaf tree the picker drills (owner 2026-08-09), with each service's reviewed aliases and
+  // each category's photo + ⓘ — read through THE ONE loader every door into the Add-a-service picker shares (ruling
+  // 5820: the dashboard's "Add a service" draws the same picker). First-party Setnayan SKUs are stripped inside —
+  // picking one would make the shop invisible on /explore. Fail-soft: [] makes the wizard fall back to its flat select.
+  const serviceTree = await getServicePickerTree();
+  // ③ Each service's specialties — the CHIP-shaped refinements of its own schema, through the ONE read every door into
+  // the Add-a-service picker shares (`getServicePickerSpecialties`, ruling 5820). Fail-soft: no schema = no chips.
+  const specialties = await getServicePickerSpecialties(supabase, serviceTree);
   // The signed-in account's own name — shown read-only on step 4 rather than
   // asked (owner 2026-08-10). Fail-soft: null keeps the field editable, which is
   // the right behaviour for an account that has no display name yet.

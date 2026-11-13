@@ -13,6 +13,8 @@ import { r2Copy, r2Delete, r2GetBytes } from '@/lib/r2';
 import { randomUUID } from 'node:crypto';
 import { parseStoredAsset } from '@/lib/uploads';
 import { fileKindOf, readExifTakenAt } from '@/lib/supplier-files';
+import { STORAGE_UPGRADE_HREF, isStorageRefusal } from '@/lib/supplier-storage';
+import { storageRefusalWords } from '@/lib/supplier-storage.server';
 
 /**
  * 📁 A SUPPLIER'S FILES FOR ONE EVENT — ONE dispatcher (Piece 3b · DECISION_LOG 2026-11-12), both sides, because every
@@ -44,7 +46,8 @@ export type EventFilesState =
   | { status: 'idle' }
   | { status: 'known'; mediaId: string | null }
   | { status: 'done'; message: string; count?: number }
-  | { status: 'error'; message: string };
+  /** `href` — the way out of a refusal (the Plan, for a file past the plan's storage). */
+  | { status: 'error'; message: string; href?: string };
 
 const NOT_SAVED = 'We couldn’t add that file. Nothing was lost — please try again.';
 const SHA = /^[0-9a-f]{64}$/;
@@ -117,6 +120,7 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
     if (grp === 'service' && !UUID.test(serviceId)) return { status: 'error', message: 'Pick which quoted service this is for.' };
 
     let mediaId = String(fd.get('media_id') ?? '');
+    let measured: number | null = null;
     if (!UUID.test(mediaId)) {
       const ref = String(fd.get('r2_ref') ?? '');
       const at = parseClientRef(ref, { bucket: 'setnayan-thread-files', prefixes: [`supplier-files/${shop}/`] });
@@ -128,6 +132,8 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
       try {
         const { bytes } = await r2GetBytes({ bucket: at.bucket, key: at.key });
         sha = createHash('sha256').update(bytes).digest('hex');
+        // 💾 The stored size is MEASURED here too — the plan's storage allowance counts it (owner 2026-11-13).
+        measured = bytes.byteLength;
         if (kind === 'photo') takenAt = readExifTakenAt(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
       } catch (e) {
         console.error('[eventFilesAction.file] read failed:', e instanceof Error ? e.message : e);
@@ -136,7 +142,7 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
       if (!SHA.test(sha)) return { status: 'error', message: NOT_SAVED };
       const ins = await supabase
         .from('supplier_media')
-        .insert({ vendor_profile_id: shop, content_sha256: sha, r2_ref: ref, mime: mime || 'application/octet-stream', size_bytes: size || null, taken_at: takenAt })
+        .insert({ vendor_profile_id: shop, content_sha256: sha, r2_ref: ref, mime: mime || 'application/octet-stream', size_bytes: measured ?? (size || null), taken_at: takenAt })
         .select('media_id')
         .single();
       if (ins.data) mediaId = (ins.data as { media_id: string }).media_id;
@@ -166,6 +172,10 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
         mime: mime || null,
       })
       .select('file_id, counts');
+    if (error && isStorageRefusal(error.message)) {
+      // 💾 Past the plan's storage (the database's backstop). Nothing stored was touched.
+      return { status: 'error', message: await storageRefusalWords(createAdminClient(), shop, measured ?? size), href: STORAGE_UPGRADE_HREF };
+    }
     if (error || !data || data.length !== 1) {
       if (error) logQueryError('eventFilesAction.file', error, { event_id: eventId }, 'graceful_degrade');
       return {
@@ -275,7 +285,7 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
             content_sha256: sha,
             r2_ref: `r2://${src.bucket}/${toKey}`,
             mime: m.attachment_mime || 'application/octet-stream',
-            size_bytes: m.attachment_size_bytes,
+            size_bytes: bytes.byteLength, // 💾 measured — the plan's storage allowance counts it
             taken_at: takenAt,
           })
           .select('media_id')
@@ -305,6 +315,13 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
         mime: m.attachment_mime,
       })
       .select('file_id');
+    if (error && isStorageRefusal(error.message)) {
+      return {
+        status: 'error',
+        message: await storageRefusalWords(createAdminClient(), shop, m.attachment_size_bytes ?? 0),
+        href: STORAGE_UPGRADE_HREF,
+      };
+    }
     if (error || !data || data.length !== 1) {
       if (error) logQueryError('eventFilesAction.filechat', error, { event_id: eventId }, 'graceful_degrade');
       return { status: 'error', message: error?.message.includes('quote') ? 'Only a service in this event’s quote can hold photos.' : NOT_SAVED };

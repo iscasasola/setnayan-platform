@@ -195,6 +195,9 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-11-13 with the table (migration 20271342335343) ──
+  chat_file_removals:
+    'A removal mark on a chat file. user_id is NOT NULL ON DELETE CASCADE, so the account holder\'s rows go with their account on their own; the mark holds no content (the file and its message are erased with chat_messages).',
   // ── added 2026-11-08 with the tables themselves (service card checks, migration 20271328838140) ──
   // ADMIN configuration. The only user column on each is an actor stamp — `created_by` / `granted_by`, nullable + ON
   // DELETE SET NULL — so deleting the admin's account strips the stamp on its own. The rows are a word list and which
@@ -365,6 +368,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // ── accountability: audit trails ──
   admin_data_access_log: 'Record of ADMIN access to an account. Erasing the subject id destroys the accountability trail that protects that same subject.',
   admin_approval_requests: 'Two-admin governance record.',
+  vendor_plan_contents: 'Setnayan plan configuration (owner 2026-11-13); changed_by/confirmed_by are the two admins who approved a plan change — the accountability stamp of a two-admin decision.',
+  vendor_plan_content_changes: 'The change history of plan configuration — the two-admin accountability trail; erasing the admin id destroys it.',
   event_action_log: 'Per-event action trail used for dispute resolution.',
   account_deletion_requests:
     'The erasure REQUEST itself. Deleting it would erase the evidence that erasure was asked for and fulfilled — and this is also where a failed erasure is discoverable.',

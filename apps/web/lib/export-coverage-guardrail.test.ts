@@ -356,6 +356,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Which shared chat message is filed under which decision topic (2026-11-11) — the conversation\'s filing, moved and removed by either side; added_by_user_id only stamps who filed it. The message is exported to its sender as chat_messages_authored; erasure nulls the stamp (lib/erasure/coverage.ts).',
   chat_polls:
     'A chat\'s shared poll (2026-11-11) — a question and its choices both sides vote on; asked_by_user_id / closed_by_user_id only stamp who pressed (same call as chat_decision_topics). The subject\'s own act is their vote, exported as chat_poll_votes; erasure nulls both stamps.',
+  chat_file_removals:
+    'Which chat file was taken back (2026-11-13) — a removal mark on a shared message, by its sender for everyone or by either side for themselves; user_id only stamps who pressed (same call as chat_decision_messages). The file\'s message is exported to its sender as chat_messages_authored; rows cascade away with the account (ON DELETE CASCADE).',
   chat_message_flags:
     'Anti-abuse enforcement record (off-platform-contact block) — metadata only (categories + timestamp of a blocked message, NEVER the text); exporting it hands the subject the exact filter triggers to evade (NPC investigation carve-out, same rule as concierge_abuse_flags). sender_user_id is the blocked sender.',
   concierge_brain_chunks:
@@ -367,6 +369,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   setnayan_pay_methods: 'Platform payment configuration — Setnayan’s own rails, not subject data.',
   hub_tools: 'Setnayan-authored Hub tool library; updated_by is an internal admin editor, not a data subject.',
   category_hub_settings: 'Setnayan per-category configuration; updated_by is an internal admin editor, not a data subject.',
+  vendor_plan_contents: 'Setnayan supplier-plan configuration (owner 2026-11-13); changed_by/confirmed_by are internal admins who approved a change, not a data subject.',
+  vendor_plan_content_changes: 'History of Setnayan plan configuration; the user ids are the approving internal admins, not a data subject.',
   platform_settings:
     'Platform configuration; platform_settings.ig_user_id is Setnayan’s OWN IG account, not a user’s.',
   vendor_verifications: 'Admin decision record — the uid on it is a staff actor, not the subject.',

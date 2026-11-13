@@ -127,6 +127,13 @@ import { MessageHeart } from './chat/message-heart';
 import { FiledChip, FileToDecisionMenu, type FilingDone } from './chat/file-to-decision-menu';
 import { attachmentTap, bubbleTap, NO_TAP, type LastTap } from '@/lib/chat-double-tap';
 import { AttachmentBlock } from './chat/attachment-block';
+import { MaybeChatFileSwipe, routeRemoveIO, type ChatFileRemoveIO, type ChatFileRemoved } from './chat/chat-file-swipe';
+import {
+  CHAT_FILE_REMOVED_FOR_ME,
+  CHAT_FILE_REMOVED_UNKNOWN,
+  fileLeftMessage,
+  removedForEveryoneLine,
+} from '@/lib/chat-file-removal';
 import { loadOpenFilings, type Filing, type OpenDecisionTopic } from '@/lib/chat-decisions';
 import { ChatPinnedStack } from './chat/chat-pinned-stack';
 import { setPrivateReply, usePrivateTo } from './chat/private-to';
@@ -320,6 +327,11 @@ type Props = {
    * database. A refused re-read never clears a seed (it only marks the picker refused). Pages leave it unset.
    */
   labFilings?: { topics: OpenDecisionTopic[]; byMessage: Map<string, Filing> };
+  /**
+   * 🧪 DEV LABS ONLY — removing your own file without a database: every file is (or is not) a booking file, and one
+   * message's sheet may open on arrival for a screenshot. Pages leave it unset (the real route answers).
+   */
+  labFileRemove?: { booking: boolean; openSheetFor?: string | null };
   /** 🚦 The full-screen blocker, when one is unanswered (its fact must also be in `extraPins`, as the red pin). */
   blocker?: (Omit<ChatBlockerProps, 'onReturn' | 'threadId'> & { pinKey: string }) | null;
   /** Where a (+) card's Send lands (`return_to`) and the event its full-page doors open. */
@@ -468,6 +480,7 @@ export function ChatMessageStream({
   extraPins = [],
   pinBodies,
   labFilings,
+  labFileRemove,
   blocker = null,
   plus = null,
   moneyHidden = false,
@@ -477,6 +490,11 @@ export function ChatMessageStream({
   const supabase = useMemo(() => createClient(), []);
 
   const [messages, setMessages] = useState<ChatMessageRow[]>(initialMessages);
+  // The lab's stand-in for the removal options reads a message's own time from here (never during render).
+  const messagesRef = useRef<ChatMessageRow[]>(initialMessages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   // 🔁 A REPLY GOES TO THE SAME PEOPLE (owner, 12 Nov): the newest private line written to you names who the composer's
   // 🔒 opens ticked — its sender and its other recipients (`latestPrivateReply`). Your own newest private line clears it.
   const replyKey = latestPrivateReply(messages, currentUserId)?.join(',') ?? '';
@@ -580,6 +598,73 @@ export function ChatMessageStream({
   // (`null` = the read was refused → the picker says so, the chips stay as they were); the picker's message; its Undo line.
   const [filings, setFilings] = useState<{ topics: OpenDecisionTopic[]; byMessage: Map<string, Filing> } | null>(labFilings ?? null);
   const [filingsRefused, setFilingsRefused] = useState(false);
+  // 👈 Files their senders removed (2026-11-13): for everyone ("… removed a file · time", both sides) or for me (hidden
+  // for this viewer only). Read with the thread; a refused read keeps what is drawn and says so in the logs.
+  const [removals, setRemovals] = useState<Map<string, { everyone?: { by: string; at: string }; mine?: { at: string } }>>(() => new Map());
+  const refetchRemovals = useCallback(async () => {
+    if (labFileRemove) return;
+    const { data, error } = await supabase
+      .from('chat_file_removals')
+      .select('message_id,user_id,for_everyone,removed_at')
+      .eq('thread_id', threadId)
+      .limit(2000);
+    if (error) {
+      console.error('[chat] file removals read refused', error);
+      return;
+    }
+    const next = new Map<string, { everyone?: { by: string; at: string }; mine?: { at: string } }>();
+    for (const r of (data ?? []) as { message_id: string; user_id: string; for_everyone: boolean; removed_at: string }[]) {
+      const cur = next.get(r.message_id) ?? {};
+      if (r.for_everyone) cur.everyone = { by: r.user_id, at: r.removed_at };
+      else if (r.user_id === currentUserId) cur.mine = { at: r.removed_at };
+      next.set(r.message_id, cur);
+    }
+    setRemovals(next);
+  }, [supabase, threadId, currentUserId, labFileRemove]);
+  const removeIO = useMemo<ChatFileRemoveIO>(
+    () =>
+      labFileRemove
+        ? {
+            // 🧪 The lab answers as the database would, after a short wait.
+            async options(id) {
+              const m = messagesRef.current.find((x) => x.message_id === id);
+              const ago = m ? Math.max(0, Math.floor((Date.now() - Date.parse(m.created_at)) / 1000)) : 0;
+              return { booking: labFileRemove.booking, sentSecondsAgo: ago };
+            },
+            async remove(_id, mode) {
+              await new Promise((r) => setTimeout(r, 400));
+              if (labFileRemove.booking && mode !== 'me') return { ok: false, reason: 'booking' };
+              return { ok: true, outcome: mode === 'me' ? 'hidden_for_me' : mode === 'everyone' ? 'removed_for_everyone' : 'file_removed', removedAt: new Date().toISOString() };
+            },
+          }
+        : routeRemoveIO,
+    [labFileRemove],
+  );
+  const fileRemoved = useCallback(
+    (messageId: string, done: ChatFileRemoved) => {
+      const strip = (m: ChatMessageRow): ChatMessageRow => ({
+        ...m,
+        attachment_r2_key: null,
+        attachment_url: null,
+        attachment_name: null,
+        attachment_mime: null,
+        attachment_size_bytes: null,
+        file_removed_at: done.removedAt,
+      });
+      if (done.outcome === 'file_removed' || done.outcome === 'removed_for_everyone')
+        setMessages((prev) => prev.map((m) => (m.message_id === messageId ? strip(m) : m)));
+      if (done.outcome === 'removed_for_everyone' || done.outcome === 'hidden_for_me')
+        setRemovals((prev) => {
+          const next = new Map(prev);
+          const cur = { ...(next.get(messageId) ?? {}) };
+          if (done.outcome === 'removed_for_everyone') cur.everyone = { by: currentUserId, at: done.removedAt };
+          else cur.mine = { at: done.removedAt };
+          next.set(messageId, cur);
+          return next;
+        });
+    },
+    [currentUserId],
+  );
   const [filePick, setFilePick] = useState<string | null>(null);
   const [fileLine, setFileLine] = useState<{ messageId: string; text: string; undo?: () => Promise<unknown> } | null>(null);
   const lastTap = useRef<LastTap>(NO_TAP);
@@ -1184,6 +1269,7 @@ export function ChatMessageStream({
     const refetchAll = async () => {
       void refetchHearts();
       void refetchFilings();
+      void refetchRemovals();
       try {
         const fresh = await readThread(supabase, threadId);
         if (cancelled) return;
@@ -1248,6 +1334,10 @@ export function ChatMessageStream({
               return;
             }
             const row = payload.new as ChatMessageRow;
+            // 👈 A file just left a message (its sender removed it — the undo ring and Delete for everyone are both a SOFT
+            // removal, so it arrives here, filtered to this thread and checked by RLS): the bubble loses it with this row,
+            // and the line saying who comes from a re-read of the removals.
+            if (fileLeftMessage(messagesRef.current.find((m) => m.message_id === row.message_id), row)) void refetchRemovals();
             setMessages((prev) =>
               prev.map((m) => (m.message_id === row.message_id ? row : m)),
             );
@@ -1297,7 +1387,7 @@ export function ChatMessageStream({
       cancelled = true;
       stop();
     };
-  }, [supabase, threadId, readThread, moneyHidden, refetchFilings]);
+  }, [supabase, threadId, readThread, moneyHidden, refetchFilings, refetchRemovals]);
 
   // ---------------------------------------------------------------------------
   // Auto-scroll on new message (but only if the user was already at the bottom).
@@ -1799,6 +1889,8 @@ export function ChatMessageStream({
               its View quote live in "See every version" on the live card — never twice.
             */
             const replaced = card?.status === 'superseded';
+            // 💬 Lane C · the hosts' side never edits a price — they ask, from the part (6076; a lazy chunk, live quote only).
+            const askOnLines = !replaced && viewerRole === 'couple' && isLatestProposal && !!card && ['sent', 'viewed', 'accepted'].includes(card.status);
             return (
               <li
                 key={m.message_id}
@@ -1861,8 +1953,22 @@ export function ChatMessageStream({
                       card.status === 'accepted' ? (
                         <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
                       ) : null}
-                      {/* The card's lines — one component with the supplier's "As they see it" preview. */}
-                      {replaced ? null : <QuoteCardLines items={items} />}
+                      {/* The card's lines — one component with the supplier's "As they see it" preview. On the
+                          hosts' live quote the lines ARE the ask's door (ruling 6076 — an ask starts from the part it
+                          changes): tap a line, or the payment plan, and "Ask for a change" opens attached to it. A
+                          lazy chunk, so the lines are handed to it instead of drawn here twice. */}
+                      {replaced ? null : askOnLines ? (
+                        <AskChangeDoor
+                          threadId={threadId}
+                          supplierName={counterpartyLabel}
+                          proposalId={m.proposal_id}
+                          lines={items}
+                          locks={card.locks ?? {}}
+                          returnPath={returnPathFor(m)}
+                        />
+                      ) : (
+                        <QuoteCardLines items={items} />
+                      )}
                       {quoteDiff && quoteVersion?.previous ? (
                         <QuoteWhatChanged changes={quoteDiff} sinceVersion={quoteVersion.previous.version} />
                       ) : null}
@@ -2001,16 +2107,6 @@ export function ChatMessageStream({
                         ) : null}
                       </div>
                       )}
-                      {/* 💬 Lane C · the hosts' side never edits a price — they ask (a lazy chunk, only on the live quote). */}
-                      {!replaced && viewerRole === 'couple' && isLatestProposal && card && ['sent', 'viewed', 'accepted'].includes(card.status) ? (
-                        <AskChangeDoor
-                          threadId={threadId}
-                          supplierName={counterpartyLabel}
-                          proposalId={m.proposal_id}
-                          locks={card.locks ?? {}}
-                          returnPath={returnPathFor(m)}
-                        />
-                      ) : null}
                       {isLatestProposal && quoteVersions && m.proposal_id ? (
                         <QuoteVersionsRow
                           versions={versionsNewestFirst(quoteVersions, m.proposal_id)}
@@ -2241,6 +2337,34 @@ export function ChatMessageStream({
           // 👥 Several since 12 Nov ("Private · only you, Ana and Miguel"): every OTHER person, the viewer left out.
           const privateWithIds = privateOtherIds(m, currentUserId);
           const privateWith = privateWithIds.length === 0 ? null : privateWithIds.map((id) => personName(id));
+          // 👈 A file its sender removed (2026-11-13): for everyone, both sides draw who and when; for me, only this viewer
+          // stops seeing it. The words, if any, stay. A file that left with no line to say who (a refused read) still says
+          // a file was removed — never an empty bubble.
+          const removal = removals.get(m.message_id);
+          const hiddenForMe = !!removal?.mine;
+          const removedLine = removal?.everyone
+            ? removedForEveryoneLine(
+                removal.everyone.by === currentUserId ? 'You' : personName(removal.everyone.by),
+                formatChatTimestamp(removal.everyone.at),
+              )
+            : removal?.mine
+              ? `${CHAT_FILE_REMOVED_FOR_ME} · ${formatChatTimestamp(removal.mine.at)}`
+              : null;
+          const hasWords = (m.body ?? '').trim() !== '';
+          const hasFile = !hiddenForMe && !!(m.attachment_r2_key || m.attachment_url);
+          const ownFile = mine && privateWith === null && hasFile;
+          // The ring's undo (marked, no for-everyone line): nothing is drawn — the approved "no line". With words, the
+          // words stay as an ordinary bubble.
+          if (!hasWords && m.file_removed_at && !removedLine) return null;
+          if (!hasWords && (removedLine || (!m.attachment_r2_key && !m.attachment_url && !m.attachment_name))) {
+            return (
+              <li key={m.message_id} className="flex justify-center py-1">
+                <p className="text-center text-[12.5px] text-ink/55" data-chat-file-removed="">
+                  {removedLine ?? CHAT_FILE_REMOVED_UNKNOWN}
+                </p>
+              </li>
+            );
+          }
           const heartSet = hearts.get(m.message_id);
           const heartCount = heartSet?.size ?? 0;
           const corner = mine
@@ -2257,6 +2381,18 @@ export function ChatMessageStream({
                   {staffName}
                 </span>
               ) : null}
+              {/* 👈 2026-11-13 · YOUR file: the ↺ undo ring LEFT of the bubble for 10 s after sending, and a swipe left opens
+                  Delete for everyone (first 5 min) · Delete for me. Words never swipe, and a private line is words only.
+                  The database re-decides it is yours, the windows and the booking rule (`remove_my_chat_file`). */}
+              <MaybeChatFileSwipe
+                on={ownFile}
+                messageId={m.message_id}
+                name={m.attachment_name ?? null}
+                createdAt={m.created_at}
+                io={removeIO}
+                openSheetAtStart={labFileRemove?.openSheetFor === m.message_id}
+                onRemoved={(done) => fileRemoved(m.message_id, done)}
+              >
               <div className={`flex max-w-full items-end gap-1.5 ${mine ? 'justify-end' : ''}`}>
               {!mine ? (
                 run.last ? (
@@ -2300,7 +2436,8 @@ export function ChatMessageStream({
                   }
                 }}
                 data-chat-heartable=""
-                className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${
+                // Your own file bubble's 75% lives on its swipe (`OwnFileRow`), so the ↺ ring sits right beside it.
+                className={`${ownFile ? 'max-w-full' : 'max-w-[75%]'} rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${
                   privateWith !== null
                     ? PRIVATE_BUBBLE_FILL
                     : mine
@@ -2320,7 +2457,7 @@ export function ChatMessageStream({
                     the legacy public column — no writer has set it since, and
                     prod never had a row that used it, but a stored value there
                     is still somebody's file, so it keeps a way in. */}
-                {m.attachment_r2_key || m.attachment_url ? (
+                {hasFile ? (
                   <AttachmentBlock
                     url={`/api/chat/attachment/${m.message_id}`}
                     name={m.attachment_name ?? null}
@@ -2343,7 +2480,7 @@ export function ChatMessageStream({
                       return true;
                     }}
                   />
-                ) : isExpired(m) ? (
+                ) : !hiddenForMe && isExpired(m) ? (
                   // The file went with the 90-days-after rule (C2): its name stays, and it says so.
                   <p className={`text-[13px] ${mine ? 'text-white/85' : 'text-ink/60'}`} data-chat-file-expired="">
                     {CHAT_FILE_EXPIRED_LABEL} · {m.attachment_name}
@@ -2365,6 +2502,12 @@ export function ChatMessageStream({
                 </span>
               </div>
               </div>
+              </MaybeChatFileSwipe>
+              {removedLine ? (
+                <p className={`mt-0.5 text-[12px] text-ink/55 ${mine ? 'self-end' : 'self-start pl-[38px]'}`} data-chat-file-removed="">
+                  {removedLine}
+                </p>
+              ) : null}
               {privateWith !== null ? <PrivateTime at={m.created_at} alignEnd={mine} /> : null}
               <MessageHeart
                 count={heartCount}

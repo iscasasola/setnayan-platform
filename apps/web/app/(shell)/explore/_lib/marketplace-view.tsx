@@ -81,6 +81,11 @@ import {
 import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
+import { fitDateScope, fitDaysToAsk, type EventFitDates } from '@/lib/bench-bookable-days';
+import { regionPin } from '@/lib/your-place';
+import { readCardRefusals, readSuppliersWithNoBookingLeft } from '@/lib/bench-bookable-days.server';
+import { keepCardsThatFit, keepSuppliersThatFit } from '@/lib/discover-shows-what-fits';
+import { dateUncheckedWords, findNobodyFreeWords } from '@/lib/supplier-find-empty';
 import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
 import { toServiceCard, type ServiceShowcaseMedia } from '@/lib/service-card-view-model';
 import {
@@ -439,6 +444,9 @@ const SORT_LABEL: Record<SortKey, string> = {
 const SORT_CHIP_KEYS: ReadonlyArray<SortKey> = ['most_reviews', 'highest_rated', 'newest'];
 
 const PAGE_SIZE = 24;
+
+/** The date hide's "who the couple knows" when nobody is full — it is never read then, so nothing is known. */
+const NOBODY_KNOWN: ReadonlySet<string> = new Set();
 
 // Task #48 — couple-facing labels for the venue_setting enum values.
 // ⚠ The list itself is lib/venue-settings.ts; venue-settings.test.ts fails if
@@ -1246,6 +1254,9 @@ export async function MarketplaceView({
   // in the same select so the intersection filter doesn't add a roundtrip.
   let coupleEventDate: string | null = null;
   let coupleEventDatePrecision: 'year' | 'month' | 'day' | null = null;
+  // 📅 The rest of the event's dates the fit judges (owner 2026-11-13): the main span's end, and — before a venue is
+  // booked — the candidate dates and the window. `fitDateScope` reads them; read in the same select, no roundtrip.
+  let coupleFitDates: EventFitDates | null = null;
   if (user) {
     const userEvents = await fetchUserEvents(supabase, user.id, 'couple');
     coupleEventId = userEvents[0]?.event_id ?? null;
@@ -1267,7 +1278,7 @@ export async function MarketplaceView({
       const { data: ev, error: evError } = await admin
         .from('events')
         .select(
-          'ceremony_type, secondary_ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name, event_date, event_date_precision',
+          'ceremony_type, secondary_ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name, event_date, event_date_precision, event_end_date, date_candidates, date_window_start, date_window_end, region',
         )
         .eq('event_id', coupleEventId)
         .maybeSingle();
@@ -1289,6 +1300,11 @@ export async function MarketplaceView({
           lat: Number(ev.venue_latitude),
           lng: Number(ev.venue_longitude),
         };
+      } else {
+        // 📍 No pin → the event's Region, as its curated centroid (owner 2026-11-13; `regionPin`). Never
+        // `style_preferences.search_areas`, never the film's city.
+        const rp = regionPin((ev as { region?: string | null } | null)?.region ?? null);
+        if (rp) venueAnchor = { lat: rp.latitude, lng: rp.longitude };
       }
       // Iteration 0043 — ceremony × venue compat fields are wedding-only
       // (NULL for non-wedding events per migration 20260521080000), so the
@@ -1318,6 +1334,22 @@ export async function MarketplaceView({
         if (p === 'year' || p === 'month' || p === 'day') {
           coupleEventDatePrecision = p;
         }
+      }
+      if (ev) {
+        const d = ev as {
+          event_end_date?: string | null;
+          date_candidates?: unknown;
+          date_window_start?: string | null;
+          date_window_end?: string | null;
+        };
+        coupleFitDates = {
+          eventDate: coupleEventDate,
+          precision: coupleEventDatePrecision,
+          endDate: d.event_end_date ?? null,
+          candidates: d.date_candidates ?? null,
+          windowStart: d.date_window_start ?? null,
+          windowEnd: d.date_window_end ?? null,
+        };
       }
     }
   }
@@ -1430,6 +1462,10 @@ export async function MarketplaceView({
   // is real, and `archived_at` is where the product actually records it, the
   // same way the dashboard's own saved-vendor reads do.
   let compareHref: string | null = null;
+  // 2026-11-13 "we only show what fits" — the suppliers already on the couple's list never leave Discover for being
+  // full on the date (`lib/discover-shows-what-fits.ts`). Read by THIS query (no second one); null = it failed, and
+  // then the date hide hides nobody.
+  let savedOnEvent: Set<string> | null = null;
   if (coupleEventId) {
     const { data: savedForCompare, error: savedForCompareError } = await supabase
       .from('event_vendors')
@@ -1454,6 +1490,7 @@ export async function MarketplaceView({
           .filter((id): id is string => Boolean(id)),
       ),
     );
+    savedOnEvent = savedForCompareError ? null : new Set(savedIds);
     if (savedIds.length >= 2) {
       compareHref = `/explore/compare?ids=${savedIds[0]},${savedIds[1]}`;
     }
@@ -1557,9 +1594,66 @@ export async function MarketplaceView({
     also move the exposure baseline and need a migration to undo. This is one
     identifier, revertible in one line.
   */
-  const serviceCards = isLandingView
+  const listedServiceCards = isLandingView
     ? await fetchMarketplaceServiceCards(admin, { limit: 24 }).catch(() => null)
     : null;
+  /*
+    ═ WE ONLY SHOW WHAT FITS (owner 13 Nov 2026, 6134) ═
+    *"If a supplier is unavailable for that day, then we do not need to show them. we only show what fits."* A card
+    the booking path would refuse on every one of the couple's days (one day → that day; a month → every day of it)
+    leaves this view — the refusal is `service_cards_unbookable_on` (`readCardRefusals`), the one Find uses. A card of
+    a shop already on the couple's list stays. A failed read hides nothing. `lib/discover-shows-what-fits.ts`.
+  */
+  const dateHideScope = coupleEventId && coupleFitDates ? fitDateScope(coupleFitDates) : null;
+  // Accommodation cards are judged on every night ±1, so those nights are read too.
+  const dateHideDays = dateHideScope ? fitDaysToAsk(dateHideScope, true) : null;
+  let knownForDateHide: Promise<Set<string> | null> | null = null;
+  // Who the couple already knows: their list (read above, no second query) and every supplier who opened their
+  // event (`vendor_event_unlocks`) — the bench search's own "already knows" (`leavesBenchSearch`). Read only when the
+  // hide would remove somebody, once per render.
+  const knownOnEventForDateHide = (): Promise<Set<string> | null> => {
+    knownForDateHide ??= (async () => {
+      if (!coupleEventId || savedOnEvent === null) return null;
+      const { data, error } = await admin
+        .from('vendor_event_unlocks')
+        .select('vendor_profile_id')
+        .eq('event_id', coupleEventId);
+      if (error) {
+        console.error('[supabase-error] marketplace-view · date hide · vendor_event_unlocks', error);
+        return null;
+      }
+      return new Set([
+        ...savedOnEvent,
+        ...((data ?? []) as { vendor_profile_id: string }[]).map((r) => r.vendor_profile_id),
+      ]);
+    })();
+    return knownForDateHide;
+  };
+  let hiddenForDate = 0;
+  // 🔑 A read that failed hides nobody AND is said out loud (audit of #7556): `dateUnchecked` puts "Couldn't check
+  // who's free on <date>." above the list, so an unfiltered list is never passed off as a filtered one.
+  let dateUnchecked = false;
+  let serviceCards = listedServiceCards;
+  if (listedServiceCards && listedServiceCards.length > 0 && dateHideDays) {
+    const refused = await readCardRefusals({
+      admin,
+      serviceIds: listedServiceCards.map((c) => c.row.vendor_service_id),
+      days: dateHideDays,
+    });
+    const known = refused && refused.size > 0 ? await knownOnEventForDateHide() : NOBODY_KNOWN;
+    const fit = keepCardsThatFit(
+      listedServiceCards,
+      (c) => c.row.vendor_service_id,
+      (c) => c.vendorProfileId,
+      refused,
+      dateHideScope,
+      known,
+      (c) => c.row.category,
+    );
+    serviceCards = fit.cards;
+    hiddenForDate += fit.hidden;
+    if (!fit.checked) dateUnchecked = true;
+  }
   /*
     ═ THE CARD CARRIES ITS SHOP'S LOGO — resolved ONCE PER SHOP ═
     Owner, 2026-09-09: the card body opens that service's details, the LOGO
@@ -2413,6 +2507,38 @@ export async function MarketplaceView({
       }
     }
   }
+
+  // ── WE ONLY SHOW WHAT FITS (owner 13 Nov 2026, 6134) ─────────────────────────────────────────────────────────
+  // The date-open priority above only MOVED a full supplier down. Now a stranger with no booking left on the couple's
+  // date leaves the page — the SAME read as Find's `hideUnbookable` (`findSuppliersWithNoBookingLeft`: every bookable
+  // card in the category on screen — every category with none picked — refused by `service_cards_unbookable_on` on
+  // every day of the date), and the SAME stranger rule (`leavesBenchSearch`). Fails open. The landing's service cards
+  // were judged the same way where they were read. `lib/discover-shows-what-fits.ts`.
+  if (dateHideDays && visible.length > 0) {
+    const dateHideCanonicals = filters.tile
+      ? ((await getCanonicalBuckets()).byTile.get(filters.tile) ?? [])
+      : filters.category
+        ? [filters.category]
+        : null;
+    const noBookingLeft = await readSuppliersWithNoBookingLeft({
+      admin,
+      supplierIds: visible.map((r) => r.vendor_profile_id),
+      canonicals: dateHideCanonicals,
+      dates: coupleFitDates ?? { eventDate: coupleEventDate, precision: coupleEventDatePrecision },
+    });
+    const known = noBookingLeft && noBookingLeft.size > 0 ? await knownOnEventForDateHide() : NOBODY_KNOWN;
+    const fit = keepSuppliersThatFit(visible, (r) => r.vendor_profile_id, noBookingLeft, known);
+    visible = fit.rows;
+    hiddenForDate += fit.hidden;
+    if (!fit.checked) dateUnchecked = true;
+  }
+  const dateUncheckedLine = dateUnchecked
+    ? dateUncheckedWords(dateHideScope)
+    : null;
+  const nobodyFreeWords =
+    hiddenForDate > 0
+      ? findNobodyFreeWords(dateHideScope)
+      : null;
 
   // Sort + ad-floating already happened SQL-side (see .order chain above),
   // so `rows` is already in render order. `totalCount` is the count: 'exact'
@@ -3297,11 +3423,17 @@ export async function MarketplaceView({
   );
   const resultsBody = (
     <>
-      {visible.length === 0 ? (
+      {dateUncheckedLine ? (
+        <p className="mt-6 text-sm font-medium text-ink/75" role="status" data-find-date-unchecked="">
+          {dateUncheckedLine}
+        </p>
+      ) : null}
+      {visible.length === 0 || (serviceCards !== null && serviceCards.length === 0 && nobodyFreeWords !== null) ? (
         <EmptyState
           filters={filters}
           broadenedCount={broadenedCount}
           stillSettingUp={stillSettingUp}
+          nobodyFreeWords={nobodyFreeWords}
           eventTypeLabel={
             filters.eventType ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType) : null
           }
@@ -4264,6 +4396,7 @@ function EmptyState({
   broadenedCount,
   stillSettingUp,
   eventTypeLabel,
+  nobodyFreeWords,
 }: {
   filters: {
     base?: MarketplaceBase;
@@ -4285,6 +4418,8 @@ function EmptyState({
   stillSettingUp: ShopStillSettingUp[];
   /** Couple-facing label for filters.eventType (DB vocab; null when unset). */
   eventTypeLabel: string | null;
+  /** "Nobody is free on <date>." — set when the date hide emptied the list (lib/supplier-find-empty.ts). */
+  nobodyFreeWords: string | null;
 }) {
   const hasFilter = !!(
     filters.q ||
@@ -4295,6 +4430,23 @@ function EmptyState({
     filters.offSeason ||
     filters.eventType
   );
+
+  // 2026-11-13 "we only show what fits": the suppliers here are full on the couple's date — say THAT, never "No
+  // suppliers match" or the invite-a-supplier outreach (they exist; they are taken). One door: clear the filters.
+  if (nobodyFreeWords) {
+    return (
+      <div className="mt-10 px-4 py-6 text-center" data-find-empty="nobody_free">
+        <p className="text-base font-medium text-ink/75">{nobodyFreeWords}</p>
+        {hasFilter ? (
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Link href={clearAllHref(filters)} className="button-secondary inline-flex h-10 px-4">
+              Clear all filters
+            </Link>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   // Off-Season Promos (Wave 5) — when the off-season narrow returned nothing,
   // frame it honestly: no vendor is running a live off-peak offer right now.

@@ -69,7 +69,7 @@ export const MAKER_PART_GROUPS: readonly MakerPartGroup[] = [
        draw them is never offered them (`makerPartOffers` `pathOf`). Each by its shipped name (`MAKER_PARTS`). */
     parts: [
       ...['numbers', 'wishes', 'road', 'watchlive', 'challenge', 'supstories', 'wall', 'said', 'beforeafter', 'song', 'next'] as const,
-      ...['cover', 'chapters', 'pegallery', 'videos', 'you', 'letters', 'seating', 'entourage', 'couple', 'loved', 'powered'] as const,
+      ...['cover', 'chapters', 'pegallery', 'videos', 'you', 'letters', 'seating', 'entourage', 'pegifts', 'couple', 'loved', 'powered'] as const,
     ],
   },
   { label: 'Brand', parts: ['logo', 'reveal'] },

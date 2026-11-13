@@ -19,6 +19,8 @@
  *                `&price=395000` starts it priced · `&booked=1` re-opens the
  *                plan the lock seeds (Setnayan's 50/50 estimate) the way the
  *                real loader does (`planInstancesToRows`, `defaultSeeded`)
+ *                `&basis=per_pax|per_hour` — price basis v2's samples (₱162,000 · 120 guests agreed ·
+ *                ₱30,000 · 5 hours agreed) · `&ways=1` how to pay them, already added (obviously fake numbers)
  *
  * Names are samples (the prototype's): nobody real.
  */
@@ -89,7 +91,15 @@ export default async function AddYourOwnLabPage({
     // `&who=dunkin` — the owner's own card (2026-10-20): a doughnut cart filed
     // under Everything else that already "also covers" Guest booths.
     const dunkin = sp.who === 'dunkin';
-    const priced = typeof sp.price === 'string' && /^\d+$/.test(sp.price) ? sp.price : '';
+    const basis = sp.basis === 'per_pax' || sp.basis === 'per_hour' ? sp.basis : 'fixed';
+    const priced =
+      typeof sp.price === 'string' && /^\d+$/.test(sp.price)
+        ? sp.price
+        : basis === 'per_pax'
+          ? '162000'
+          : basis === 'per_hour'
+            ? '30000'
+            : '';
     const planRows =
       sp.booked === '1' && priced
         ? planInstancesToRows(
@@ -142,6 +152,8 @@ export default async function AddYourOwnLabPage({
             claimAsk: sp.claim === '1',
             inclusions: '',
             price: priced,
+            basis,
+            agreedCount: basis === 'per_pax' ? '120' : basis === 'per_hour' ? '5' : '',
             planRows,
             planSaved: planRows.length > 0,
             // The record card's dated rows (2026-10-29): what "after you book" counts from, and the event date.
@@ -155,8 +167,9 @@ export default async function AddYourOwnLabPage({
             payWays:
               sp.ways === '1'
                 ? [
-                    { method: 'gcash', details: 'Maria Santos · 0917 555 1234', qr: null, qrUrl: null },
-                    { method: 'bank', details: 'BPI · Tita Baby’s Catering · 1234-5678-90', qr: null, qrUrl: null },
+                    // Test values only — obviously fake numbers.
+                    { method: 'gcash', details: null, qr: null, qrUrl: null, provider: 'GCash', account_name: 'Maria Santos', account_number: '0900 000 0000' },
+                    { method: 'bank', details: null, qr: null, qrUrl: null, provider: 'BPI', account_name: 'Tita Baby’s Catering', account_number: '0000-0000-00' },
                   ]
                 : [],
           }}

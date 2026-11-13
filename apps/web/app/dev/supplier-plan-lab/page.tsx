@@ -63,6 +63,7 @@ import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-r
 import { giftEndedLine, giftEndsSoon, giftPlanLine, planGiftOf, portfolioPlanRowLine } from '@/lib/plan-gift';
 import { dayAfterWords } from '@/lib/personal-invite-offer';
 import { portfolioPhotoCap } from '@/lib/vendor-tier-caps';
+import { storageRowLine } from '@/lib/supplier-storage';
 import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
@@ -139,7 +140,8 @@ function labSheet(
  * 📉 `?s=plan&who=studio&limits=1` — the LIMITS SHEET (ruling 5683) on a Pro shop with more than Solo holds: five
  * services over three categories, one taking three bookings a day, four counted seats, three included branches, a
  * 100 km reach and a Verified badge on the 30 March renewal day. `&floor=1` adds the storage floor with a LAB-ONLY
- * allowance (no plan has a storage allowance yet — `storageAllowanceBytes` in lib/downgrade-limits.server.ts).
+ * allowance (the lab's own number, so the floor draws on any plan; the real one is `storageAllowanceBytes`, read from
+ * TIER_CAPS — Solo 5 GB · Pro 10 GB · Ultra 15 GB since 2026-11-13).
  */
 const labCard = (id: string, name: string, kind: string, family: string, daily: number | null) => ({
   id,
@@ -180,7 +182,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(shop.tier, 'free', shop.expires) },
     ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({
       key: t,
-      name: t === 'solo' ? 'Solo' : t === 'pro' ? 'Pro' : 'Ultra',
+      name: t === 'solo' ? 'Supplier Plus' : t === 'pro' ? 'Supplier Pro' : 'Supplier Ultra',
       price: LAB_PRICES[t]!,
       tooShort: { monthly: who === 'studio' ? 'You are paid up to 3 October 2027 — pick a year so it covers that.' : null, annual: null },
       pickLine: planPickLine(shop.tier, t, shop.expires),
@@ -218,8 +220,8 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
           : shop.tier === 'free'
             ? []
             : [
-                { key: 'r1', title: `${shop.tier === 'pro' ? 'Pro' : 'Solo'} plan`, line: 'Thu 1 Oct 2026 · lab price', receiptId: 'lab-receipt' },
-                { key: 'r2', title: `${shop.tier === 'pro' ? 'Pro' : 'Solo'} plan`, line: 'Tue 1 Sep 2026 · lab price', receiptId: null },
+                { key: 'r1', title: `${shop.tier === 'pro' ? 'Supplier Pro' : 'Supplier Plus'} plan`, line: 'Thu 1 Oct 2026 · lab price', receiptId: 'lab-receipt' },
+                { key: 'r2', title: `${shop.tier === 'pro' ? 'Supplier Pro' : 'Supplier Plus'} plan`, line: 'Tue 1 Sep 2026 · lab price', receiptId: null },
               ]
       }
       papicPackPrice={99}
@@ -244,7 +246,7 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(tier, 'free', gift ? '31 January 2027' : null) },
     ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({
       key: t,
-      name: t === 'solo' ? 'Solo' : t === 'pro' ? 'Pro' : 'Ultra',
+      name: t === 'solo' ? 'Supplier Plus' : t === 'pro' ? 'Supplier Pro' : 'Supplier Ultra',
       price: LAB_PRICES[t]!,
       tooShort: { monthly: null, annual: null },
       pickLine: planPickLine(tier, t, gift ? '31 January 2027' : null),
@@ -287,6 +289,7 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
         giftUntilDay: gift ? gift.untilDay : null,
         giftEnded: mode === 'ended',
       })}
+      storageLine={storageRowLine(tier, { status: 'ok', bytes: 1_240_000_000 })}
     />
   );
 }

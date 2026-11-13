@@ -172,7 +172,8 @@ export function ServiceFace({
       }
     >
       <div className="grid grid-cols-[80px_minmax(0,1fr)] items-start gap-x-3 gap-y-1">
-        <span className="relative flex h-28 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--m-slate)]">
+        {/* data-service-face-cover: the grown card's hero morphs out of THIS box (`heroClipFrom`). */}
+        <span className="relative flex h-28 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--m-slate)]" data-service-face-cover="">
           {coverNode}
           {coverCorner ? (
             <span className={`absolute inset-x-1.5 bottom-1.5 text-center${plays ? ' pointer-events-none z-20' : ''}`}>{coverCorner}</span>

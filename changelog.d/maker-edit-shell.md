@@ -16,7 +16,7 @@ SPEC IMPACT: None (implements the approved prototype; DECISION_LOG 2026-11-13 ro
 
 Step 2 (prototype frames 1 and 4; DECISION_LOG 2026-11-13 "MAKER › COUNTDOWN EDIT = THE EVENT DATE, NOT 'OPEN INFO'"). The Countdown's Edit was a door to Info and the cover's Date a link out to Suppliers. Both now show **Event date** — "Sat, 12 December 2026 · Final · 29 days to go", or "Not final yet" with the dates being weighed — and ONE button, "Change date" / "Pick your final date", that opens the SHIPPED date sheet (`FactSheet which="date"`, #7583) over the Maker. One writer (`updateEventDate`); no new date write was added. Row 4: "Suppliers and Home use this date too." The date is the sheet's own read, asked when the part is picked; a failed read says so with Try again.
 
-- `stage-panel/date-edit.tsx` (the rows, loaded on first pick through `date-edit-lazy.tsx`), `lib/maker-date-edit.ts` (the words, pure), `makerPartEditsTheDate` in `lib/maker-parts.ts`.
+- `stage-panel/date-edit.tsx` (the rows, loaded through `date-edit-lazy.tsx` and warmed with the Maker's tools in `maker-tools.tsx`, so the first tap never waits), `lib/maker-date-edit.ts` (the words, pure), `makerPartEditsTheDate` in `lib/maker-parts.ts`.
 - `/dev/maker-lab` now answers the date sheet from the Suppliers lab's fixtures (`LabFactSheets`), so the lab opens the real sheet.
 - help answer `maker-event-date`.
 - the date sheet's two "Help me choose" saves now catch a request that never answers (`fact-sheets.tsx`) — the sheet is reachable from the Maker now, where an uncaught rejection replaces the whole Maker.

@@ -47,6 +47,7 @@ import {
   type PaperworkRow,
 } from './paperwork';
 import { formatCount } from '@/lib/format-number';
+import { withBookingMoney } from '@/lib/event-vendor-money';
 
 /** The live snapshot the studio ACTIVE state renders. */
 export type AiActivity = {
@@ -114,14 +115,17 @@ export async function loadAiActivity(
   const [vendorsRes, sponsorsRes, paperworkRes, upcoming] = await Promise.all([
     (async () => {
       try {
-        return await supabase
+        const res = await supabase
           .from('event_vendors')
           // `lock_request_state` (SUP-69) — same read the Overview makes, so the
           // briefing's "N decisions need you" matches it.
-          .select('vendor_id, vendor_name, category, status, lock_request_state, total_cost_php')
+          // 🔒 total_cost_php comes from event_vendor_money_read (#5936), not the row select.
+          .select('vendor_id, vendor_name, category, status, lock_request_state')
           .eq('event_id', eventId)
           .is('archived_at', null)
           .order('created_at', { ascending: true });
+        if (res.error || !res.data) return res;
+        return { data: await withBookingMoney(supabase, eventId, res.data), error: null };
       } catch {
         return { data: [] as unknown[], error: { message: 'threw' } };
       }

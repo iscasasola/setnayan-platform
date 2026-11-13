@@ -13,6 +13,7 @@ import { formatPhp } from '@/lib/php';
 import { decideLogPayment } from '@/lib/accepted-quote-terms';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
+import { readOneBookingMoney } from '@/lib/event-vendor-money';
 
 // Hard upper bound on the budget setter (₱100,000,000 = 10_000_000_000
 // centavos). Captures real-world Filipino wedding budgets without
@@ -269,10 +270,11 @@ export async function addSuggestedMilestones(
 
   // Resolve the vendor's headline total + the event date (for the balance due
   // date) under the couple's RLS — proves ownership implicitly.
-  const [vendorRes, eventRes, existingRes] = await Promise.all([
+  // 🔒 total_cost_php comes from event_vendor_money_read (#5936), not the row select.
+  const [vendorRes, eventRes, existingRes, vendorMoney] = await Promise.all([
     supabase
       .from('event_vendors')
-      .select('vendor_id, total_cost_php, marketplace_vendor_id')
+      .select('vendor_id, marketplace_vendor_id')
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)
       .maybeSingle(),
@@ -283,9 +285,10 @@ export async function addSuggestedMilestones(
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)
       .limit(1),
+    readOneBookingMoney(supabase, eventId, vendorId),
   ]);
 
-  const vendor = vendorRes.data as
+  const vendor = (vendorRes.data ? { ...vendorRes.data, ...vendorMoney } : null) as
     | { total_cost_php: number | null; marketplace_vendor_id: string | null }
     | null;
   if (!vendor) return { ok: false, error: 'Supplier not found.' };

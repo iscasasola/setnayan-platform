@@ -90,10 +90,12 @@ export async function saveClose(key: string, prev: CloseRecord | null): Promise<
   try {
     const { supabase, userId } = await signedIn();
     if (userId) {
-      await supabase.from('notice_closes').upsert(
+      const { error } = await supabase.from('notice_closes').upsert(
         { user_id: userId, notice_key: k, closed_at: new Date(rec.closedAt).toISOString(), close_count: rec.count },
         { onConflict: 'user_id,notice_key' },
       );
+      // A refused write keeps the close in this browser only (written above); the notice still goes here.
+      if (error) console.warn('[notice-memory] close kept in this browser only', error.message);
     }
   } catch {
     /* kept in this browser */

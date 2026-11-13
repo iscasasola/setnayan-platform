@@ -31,6 +31,9 @@ import {
   type NoticeEntry,
 } from './notice-store';
 import type { ReactNode } from 'react';
+import { useHydrated } from '@/lib/use-hydrated';
+import { NOTICE_ACTION, NOTICE_QUIET } from './notice-styles';
+export { NOTICE_ACTION };
 
 function useStore() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
@@ -120,11 +123,8 @@ function KindMark({ kind, tone }: { kind: NoticeKind; tone?: NoticeTone }) {
   );
 }
 
-export const NOTICE_ACTION =
-  'sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/15 px-4 text-sm font-semibold text-ink';
 /** A block on a phone (the actions stack under the line), one row from 768. Never a bare flex. */
 export const LINE_ROOT = 'md:flex md:items-center md:gap-3';
-const NOTICE_QUIET = 'sn-press min-h-11 rounded-full px-3 text-sm font-semibold text-ink/60';
 
 export function NoticeLine({
   entry,
@@ -260,11 +260,12 @@ function ForYouSheet() {
   const open = s.trayOpen;
   const more = arranged(s).more;
   const close = () => openTray(false);
+  const hydrated = useHydrated();
   useModalA11y({ open, onClose: close, containerRef: ref });
   useEffect(() => {
     if (open && more.length === 0) openTray(false);
   }, [open, more.length]);
-  if (!open || typeof document === 'undefined') return null;
+  if (!open || !hydrated) return null;
   return createPortal(
     <>
       <OverlayBackdrop onClose={close} label="Close" className="z-[51]" />
@@ -274,7 +275,7 @@ function ForYouSheet() {
         aria-modal="true"
         aria-label="For you"
         data-notices-for-you=""
-        className="fixed inset-x-0 bottom-0 z-[52] max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-ink/10 bg-cream px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl md:inset-x-auto md:left-1/2 md:w-[28rem] md:-translate-x-1/2"
+        className="fixed inset-x-0 bottom-0 z-[52] max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-ink/10 bg-cream pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl md:inset-x-auto md:left-1/2 md:w-[28rem] md:-translate-x-1/2"
       >
         <div aria-hidden className="mx-auto mb-2 h-1 w-10 rounded-full bg-ink/15" />
         <p className="text-[15px] font-semibold text-ink">For you</p>

@@ -229,8 +229,8 @@ tpriv	public.event_vendor_preferences|authenticated	SIUD
 tpriv	public.event_vendor_refunds|authenticated	S
 tpriv	public.event_vendor_working_notes|anon	SIUD
 tpriv	public.event_vendor_working_notes|authenticated	SIUD
-tpriv	public.event_vendors|anon	SIUD
-tpriv	public.event_vendors|authenticated	SIUD
+tpriv	public.event_vendors|anon	IUD
+tpriv	public.event_vendors|authenticated	IUD
 tpriv	public.event_walkthrough_zones|authenticated	SIUD
 tpriv	public.event_wish_items|authenticated	SIUD
 tpriv	public.faith_vocab|anon	SIUD
@@ -2361,7 +2361,7 @@ col	public.event_vendors.deposit_dispute_settled_at	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_dispute_settled_by_user_id	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_method_id	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_method_label	anon=SIU authenticated=SIU
-col	public.event_vendors.deposit_paid_php	anon=SIU authenticated=SIU
+col	public.event_vendors.deposit_paid_php	anon=IU authenticated=IU
 col	public.event_vendors.deposit_proof_url	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_recorded_at	anon=SIU authenticated=SIU
 col	public.event_vendors.event_date_at_delete	anon=SIU authenticated=SIU
@@ -2369,7 +2369,7 @@ col	public.event_vendors.event_id	anon=SIU authenticated=SIU
 col	public.event_vendors.event_type_at_delete	anon=SIU authenticated=SIU
 col	public.event_vendors.event_vendor_package_id	anon=SIU authenticated=SIU
 col	public.event_vendors.excluded_from_market_median	anon=SIU authenticated=SIU
-col	public.event_vendors.food_allowance_php	anon=SIU authenticated=SIU
+col	public.event_vendors.food_allowance_php	anon=IU authenticated=IU
 col	public.event_vendors.hard_single_group	anon=SIU authenticated=SIU
 col	public.event_vendors.host_inclusions	anon=SIU authenticated=SIU
 col	public.event_vendors.linked_vendor_profile_id	anon=SIU authenticated=SIU
@@ -2390,7 +2390,7 @@ col	public.event_vendors.package_item_id	anon=SIU authenticated=SIU
 col	public.event_vendors.package_role	anon=SIU authenticated=SIU
 col	public.event_vendors.papic_captures_hidden	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
-col	public.event_vendors.pax_surcharge_php	anon=SIU authenticated=SIU
+col	public.event_vendors.pax_surcharge_php	anon=IU authenticated=IU
 col	public.event_vendors.pricing_basis	anon=SIU authenticated=SIU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
@@ -2408,8 +2408,8 @@ col	public.event_vendors.source	anon=SIU authenticated=SIU
 col	public.event_vendors.source_category	anon=SIU authenticated=SIU
 col	public.event_vendors.source_venue_directory_id	anon=SIU authenticated=SIU
 col	public.event_vendors.status	anon=SIU authenticated=SIU
-col	public.event_vendors.total_cost_php	anon=SIU authenticated=SIU
-col	public.event_vendors.transport_php	anon=SIU authenticated=SIU
+col	public.event_vendors.total_cost_php	anon=IU authenticated=IU
+col	public.event_vendors.transport_php	anon=IU authenticated=IU
 col	public.event_vendors.updated_at	anon=SIU authenticated=SIU
 col	public.event_vendors.vendor_id	anon=SIU authenticated=SIU
 col	public.event_vendors.vendor_name	anon=SIU authenticated=SIU

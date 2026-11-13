@@ -5,6 +5,7 @@
         "error.tsx",
         "global-error.tsx",
         "layout.tsx",
+        "not-found-links.tsx",
         "not-found.tsx",
         "page.tsx",
         "providers.tsx",
@@ -38,6 +39,7 @@
         "NavProgress",
         "NavSlideController",
         "NfcTestSwitch",
+        "NotFoundLinks",
         "OfflineDaemonMount",
         "PersistQueryClientProvider",
         "PressFeel",
@@ -6076,6 +6078,7 @@
         "dashboard/(account)/samahan/[communityId]/_components/group-back.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/group-chatroom.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/group-collage.tsx",
+        "dashboard/(account)/samahan/[communityId]/_components/group-composer.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/group-home.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/member-actions-menu.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx",
@@ -6084,7 +6087,7 @@
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
-        "/dashboard?seg=people"
+        "/dashboard?seg=people&ask=[seg]"
       ],
       "actions": [
         "deleteSamahanMessage",
@@ -6108,6 +6111,7 @@
         "GroupBack",
         "GroupChatroom",
         "GroupCollage",
+        "GroupComposer",
         "GroupEventRow",
         "GroupHome",
         "GroupSectionHead",
@@ -6116,6 +6120,7 @@
         "HTMLFormElement",
         "HTMLInputElement",
         "HTMLLIElement",
+        "HTMLTextAreaElement",
         "HTMLVideoElement",
         "InfoTip",
         "Link",
@@ -6186,6 +6191,7 @@
         "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
         "dashboard/(launcher)/_components/year-moments-strip.tsx",
+        "dashboard/(launcher)/default.tsx",
         "dashboard/(launcher)/incoming-request-actions.ts",
         "dashboard/(launcher)/layout.tsx",
         "dashboard/(launcher)/loading.tsx",

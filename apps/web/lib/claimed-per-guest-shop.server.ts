@@ -5,6 +5,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { readInChunks } from '@/lib/read-all-pages';
 import { followFromRows } from '@/lib/claimed-per-guest-follow';
 import { agreedCountFromRow } from '@/lib/self-added-price-basis';
+import { agreedTotalNow, CHANGE_LINES_EMBED, type ChangeLineRow } from '@/lib/agreed-total-and-its-changes';
 
 /** A claimed per-guest booking as the supplier must read it — the same figure and count the couple sees. */
 export type ShopPerGuest = {
@@ -35,7 +36,7 @@ export async function readShopPerGuest(
   const rowsRead = await readInChunks(ids, (part) =>
     admin
       .from('event_vendors')
-      .select('vendor_id, event_id, total_cost_php, pax_quote_base')
+      .select(`vendor_id, event_id, total_cost_php, pax_quote_base, ${CHANGE_LINES_EMBED}`)
       .eq('marketplace_vendor_id', vendorProfileId)
       .eq('pricing_basis', 'per_pax')
       .is('archived_at', null)
@@ -45,7 +46,13 @@ export async function readShopPerGuest(
     logQueryError('readShopPerGuest.rows', rowsRead.error, { vendorProfileId }, 'graceful_degrade');
     return null;
   }
-  const rows = (rowsRead.rows ?? []) as Array<{ vendor_id: string; event_id: string; total_cost_php: number | string | null; pax_quote_base: number | string | null }>;
+  const rows = (rowsRead.rows ?? []) as Array<{
+    vendor_id: string;
+    event_id: string;
+    total_cost_php: number | string | null;
+    pax_quote_base: number | string | null;
+    change_lines?: ChangeLineRow[] | null;
+  }>;
   if (rows.length === 0) return out;
   const followRead = await readInChunks(
     rows.map((r) => r.vendor_id),
@@ -61,7 +68,8 @@ export async function readShopPerGuest(
   for (const r of rows) {
     const follow = followFromRows(agreedCountFromRow('per_pax', r), follows.get(r.vendor_id));
     if (!follow) continue;
-    const total = r.total_cost_php == null ? null : Number(r.total_cost_php);
+    // The agreed total NOW (owner 2026-09-11, "Show the total now") — the headline plus any change lines.
+    const total = agreedTotalNow(r.total_cost_php, r.change_lines);
     out.set(r.event_id, {
       totalPhp: total != null && Number.isFinite(total) && total > 0 ? total : null,
       guests: follow.billedGuests,

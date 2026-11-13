@@ -10,3 +10,7 @@ the guests it bills (`event_vendor_guest_follow`, else the guests agreed):
 A refused read draws as shipped, never a guessed figure.
 
 SPEC IMPACT: None.
+
+- CI follow-up: the reader prints the agreed total NOW (headline + change lines, `agreedTotalNow` over
+  `CHANGE_LINES_EMBED`), and is registered as a service-role reader of the booking amounts on both guards
+  (`SERVICE_ROLE_READS`, `PROVEN_BY_HAND`) and on the total-now roster.

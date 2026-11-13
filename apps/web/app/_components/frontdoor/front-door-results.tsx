@@ -60,7 +60,8 @@ import { ShellOnward } from './shell-search-onward';
 import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
 import type { ShellPeopleResults } from '@/lib/shell-people-results';
 import { ShellPeopleSection } from './shell-people-section';
-import { DiscoverAddOwn } from './discover-add-own';
+// ⚡ Signed-in search only — loaded only when drawn (front-door-lazy.tsx).
+import { DiscoverAddOwn } from './front-door-lazy';
 import { readAddOwnCategories } from '@/lib/add-own-categories.server';
 import type { ShelfState } from '@/lib/discover-events';
 import type { DiscoverEventCard as DiscoverEventCardData } from '@/lib/discover-events-core';

@@ -150,6 +150,7 @@ import { CouplePhotoApprovals } from './_components/couple-photo-approvals';
 import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
+import { followFromRows, guestFollowLine } from '@/lib/claimed-per-guest-follow';
 import { readPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CouplePayMethodsState } from '@/lib/deposit-pay-step';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
@@ -353,7 +354,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const { data: vendorRaw, error: vendorErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, lock_request_state, lock_request_expires_at, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, category_key, crew_size, crew_meal_covered, created_at',
+      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, lock_request_state, lock_request_expires_at, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, category_key, crew_size, crew_meal_covered, created_at, pricing_basis, pax_quote_base',
     )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
@@ -506,7 +507,28 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     crew_size: number | null;
     crew_meal_covered: boolean | null;
     created_at: string;
+    pricing_basis?: string | null;
+    pax_quote_base?: number | null;
   };
+
+  // 👥 AFTER THE CLAIM (20271343652941): a booking the couple priced per guest, now a claimed shop's, follows the
+  // guest list. The one line under its Price says why the total is what it is. A refused read draws no line.
+  const guestFollow =
+    ev.marketplace_vendor_id && ev.pricing_basis === 'per_pax'
+      ? await supabase
+          .from('event_vendor_guest_follow')
+          .select('agreed_guests, billed_guests')
+          .eq('event_vendor_id', ev.vendor_id)
+          .maybeSingle()
+          .then(({ data, error }) => {
+            if (error) {
+              console.error('[supabase-error] app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx · from:event_vendor_guest_follow.select', error);
+              return null;
+            }
+            return followFromRows(ev.pax_quote_base ?? null, data as { agreed_guests: number | null; billed_guests: number | null } | null);
+          })
+      : null;
+  const guestFollowWords = guestFollowLine(guestFollow);
 
   // 🔒 The couple's deposit receipt is a PRIVATE file — a short-lived link scoped
   // to this booking's own event deposit folder, never the stored value.
@@ -1514,6 +1536,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <dd className="mt-1 text-sm font-semibold text-ink">
               {moneyHidden ? HOSTS_ONLY : (heroPriceFormatted ?? '—')}
             </dd>
+            {!moneyHidden && guestFollowWords ? (
+              <dd className="mt-0.5 text-xs text-ink/60" data-guest-follow="">
+                {guestFollowWords}
+              </dd>
+            ) : null}
           </div>
           <div>
             <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">

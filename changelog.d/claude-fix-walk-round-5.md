@@ -25,6 +25,17 @@
   event's details and day-of tools") only when the live gate (`resolveFeeEnforcement`) is on.
 - **RW-39** A Setnayan-sourced booking's chip read "In-house" beside "fee due". It reads **From Setnayan** now — the same
   sources the fee counts as sourced.
+- **Round 6 folded in (same cause as RW-37 — the bill's placeholder payment row):**
+  - **RW-46/47** Admin saw two approvable payments per fee order — the empty placeholder ("NO REFERENCE GIVEN") and the
+    real one — and the placeholder stayed pending after the real one was approved. Logging a real payment now removes
+    that order's placeholder (pending, no reference, no screenshot, never the new row), and the admin queue hides a
+    placeholder beside any logged or matched payment for the same order (`hidePlaceholdersBesideLogged`), which also
+    covers rows already in production.
+  - **RW-45 (money)** The admin booking-fees page summed the fee alone ("₱2,675 owed") while the bill was ₱1,818.90
+    (fee + Papic gift). Owed is now the bill's own total, shown as "fee + gift" where a gift rides on it; "has proof" is
+    now "any logged row", not whichever row the read returned last.
+  - **RW-48** A paid bill kept saying "up for verification, confirmation within 24 hrs" (the minted description). The
+    screen drops that clause once the bill is no longer due; the stored text is untouched.
 - Guard: `lib/the-walk-round-5.test.ts`.
 
 SPEC IMPACT: None.

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { paymentWasLogged } from '@/lib/payment-logged';
+import { hidePlaceholdersBesideLogged, paymentWasLogged } from '@/lib/payment-logged';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 import { paymentProofPolicy } from '@/lib/r2-client-ref';
@@ -287,7 +287,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
         logQueryError('admin/payments: payment queue', queueError);
         readFailed = 'queue';
       }
-      payments = (data ?? []) as unknown as PaymentJoined[];
+      payments = hidePlaceholdersBesideLogged((data ?? []) as unknown as PaymentJoined[]);
     }
   }
 
@@ -2146,3 +2146,4 @@ function RecordPaymentCard({ record, query }: { record: RecordTarget; query: str
     </section>
   );
 }
+

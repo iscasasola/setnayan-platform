@@ -26,7 +26,8 @@ import {
 } from '@/lib/platform-settings';
 import { everyOpenRailCarriesAmount, qrWords } from '@/lib/qr-amount-truth';
 import { payAmount } from '@/lib/pay-amount';
-import { bookingFeeErrorCopy,
+import {
+  feeOrderDescriptionNow, bookingFeeErrorCopy,
   isVendorBookingFeeServiceKey,
   isFeeOrderPayable,
   VENDOR_BOOKING_FEES_PATH,
@@ -242,7 +243,7 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
           Order <span className="normal-case">{order.public_id}</span>
         </p>
-        <p className="whitespace-pre-wrap text-sm text-ink/75">{order.description}</p>
+        <p className="whitespace-pre-wrap text-sm text-ink/75">{feeOrderDescriptionNow(order.description, order.status)}</p>
         {topUp ? (
           // 💸 The top-up's stage, said on its own bill (prototype: Held → Due today → Overdue).
           <p

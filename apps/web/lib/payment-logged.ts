@@ -19,3 +19,17 @@ export function paymentWasLogged(p: PaymentEvidence): boolean {
   if (p.status === 'matched') return true;
   return Boolean((p.reference_number ?? '').trim() || (p.screenshot_url ?? '').trim());
 }
+
+/**
+ * 🧾 RW-46/47 (walk 13 Nov 2026): the admin sees only the payment the supplier (or couple) actually logged. A bill's
+ * own placeholder row (pending, no reference, no screenshot — `paymentWasLogged`) is dropped from the queue whenever
+ * the same order has a logged row, so it is never approvable beside the real one. A placeholder ALONE stays: it is how
+ * an unpaid bill is seen, and a bank alert can still match it.
+ */
+export function hidePlaceholdersBesideLogged<T extends PaymentEvidence & { order_id: string; status: string }>(
+  rows: readonly T[],
+): T[] {
+  const logged = new Set(rows.filter((r) => paymentWasLogged(r) && r.status !== 'matched').map((r) => r.order_id));
+  const matchedOrder = new Set(rows.filter((r) => r.status === 'matched').map((r) => r.order_id));
+  return rows.filter((r) => paymentWasLogged(r) || !(logged.has(r.order_id) || matchedOrder.has(r.order_id)));
+}

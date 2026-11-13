@@ -77,3 +77,35 @@ test('RW-39 · a Setnayan-sourced booking’s chip reads From Setnayan, never In
   assert.match(page, /isFromSetnayan \?/);
   assert.match(page, /\/> From Setnayan/);
 });
+
+/* ── ROUND 6, folded in (same cause as RW-37: the bill's placeholder payment row) ───────────────────────────── */
+
+test('RW-46/47 · the admin queue never shows the placeholder beside a logged payment; logging one removes it', async () => {
+  const { hidePlaceholdersBesideLogged } = await import('./payment-logged');
+  const rows = [
+    { payment_id: 'ph', order_id: 'o1', status: 'pending', reference_number: null, screenshot_url: null },
+    { payment_id: 'real', order_id: 'o1', status: 'pending', reference_number: 'GC1', screenshot_url: 'r2://p' },
+    { payment_id: 'alone', order_id: 'o2', status: 'pending', reference_number: null, screenshot_url: null },
+    { payment_id: 'ph3', order_id: 'o3', status: 'pending', reference_number: null, screenshot_url: null },
+    { payment_id: 'ok3', order_id: 'o3', status: 'matched', reference_number: 'GC9', screenshot_url: null },
+  ];
+  assert.deepEqual(hidePlaceholdersBesideLogged(rows).map((r) => r.payment_id), ['real', 'alone', 'ok3']);
+  assert.match(code('app/admin/payments/page.tsx'), /payments = hidePlaceholdersBesideLogged\(/);
+  const pay = code('app/pay/[reference]/actions.ts');
+  assert.match(pay, /\.delete\(\)\s*\.eq\('order_id', payable\.orderId\)\s*\.eq\('status', 'pending'\)\s*\.is\('reference_number', null\)\s*\.is\('screenshot_url', null\)/);
+  assert.match(pay, /if \(newId\) sweep = sweep\.neq\('payment_id', newId\);/);
+});
+
+test('RW-45 · the admin owed figure is the bill — fee plus gift — never the fee alone', () => {
+  const page = code('app/admin/booking-fees/page.tsx');
+  assert.match(page, /select\('order_id, public_id, service_key, requested_total_php, confirmed_total_php'\)/);
+  assert.match(page, /const owedTotal = charges\.reduce\(\(s, c\) => s \+ owedOf\(c\), 0\);/);
+  assert.match(page, /hasProof: loggedOrders\.has\(o\.order_id\)/, 'proof is any logged row, never the last one read');
+});
+
+test('RW-48 · a bill that is no longer due drops its "up for verification" clause on screen', async () => {
+  const { feeOrderDescriptionNow } = await import('./vendor-booking-fees');
+  const d = 'Setnayan booking fee (5% to ₱100,000) — up for verification, confirmation within 24 hrs';
+  assert.equal(feeOrderDescriptionNow(d, 'paid'), 'Setnayan booking fee (5% to ₱100,000)');
+  assert.equal(feeOrderDescriptionNow(d, 'submitted'), d, 'still due: the waiting words are true');
+});

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { BRANCH_SKU_CODE } from './vendor-branches';
+import { fetchLiveTierCaps } from './vendor-plan-contents';
 import { SEAT_SKU_CODE } from './vendor-seats';
 import {
   canBuyExtraBookingsPerDate,
@@ -9,7 +10,6 @@ import {
   canBuyExtraSeats,
   canBuyExtraServiceCards,
   canBuyExtraWaitlist,
-  tierCaps,
   type TierCaps,
 } from './vendor-tier-caps';
 
@@ -211,7 +211,9 @@ export async function fetchCapsWithAddOns(
   vendorProfileId: string,
   tier: string | null | undefined,
 ): Promise<TierCaps> {
-  const base = tierCaps(tier);
+  // 🧮 The plan's allowances as the admin last set them (vendor_plan_contents, owner 2026-11-13), the code values
+  // when unread — lib/vendor-plan-contents.ts. Every create gate reads its caps through here.
+  const base = await fetchLiveTierCaps(supabase, tier);
   if (!canBuyExtraCategories(tier)) return base;
   return applyAddOnExtras(base, await fetchAddOnExtras(supabase, vendorProfileId));
 }

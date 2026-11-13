@@ -36,6 +36,7 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { COMP_GRANT_CO_REVIEW_PESOS } from '@/lib/rule-constants';
 import { formatCount } from '@/lib/format-number';
+import { holdDateWords } from '@/lib/account-suspension';
 
 /**
  * The ceiling on BOTH reads this surface makes — the account list and the
@@ -63,6 +64,10 @@ type UserRow = {
   is_internal: boolean;
   is_team_member: boolean;
   created_at: string;
+  /** ⏸ Account suspend (owner 2026-11-13) — NULL = not on hold. */
+  suspended_at: string | null;
+  suspended_until: string | null;
+  suspended_reason: string | null;
 };
 
 type BlacklistRow = {
@@ -73,7 +78,8 @@ type BlacklistRow = {
 };
 
 // 'team_pool' filter retired 2026-11-05 with the service-credit pool it was named for (owner: "retire").
-type Filter = 'all' | 'customer' | 'vendor' | 'internal' | 'blacklisted';
+// 'suspended' added 2026-11-13 (owner, ACCOUNT SUSPEND — prototype people.html "⏸ Suspended").
+type Filter = 'all' | 'customer' | 'vendor' | 'internal' | 'suspended' | 'blacklisted';
 
 /**
  * UsersSurface — the Users LIST body, re-homed byte-identical from
@@ -167,7 +173,7 @@ export async function UsersSurface({
     let query = admin
       .from('users')
       .select(
-        'user_id,public_id,email,display_name,account_type,is_internal,is_team_member,created_at',
+        'user_id,public_id,email,display_name,account_type,is_internal,is_team_member,created_at,suspended_at,suspended_until,suspended_reason',
       )
       .order('created_at', { ascending: false })
       .limit(ACCOUNT_ROW_LIMIT);
@@ -176,6 +182,9 @@ export async function UsersSurface({
       query = query.eq('account_type', filter);
     } else if (filter === 'internal') {
       query = query.eq('is_internal', true);
+    } else if (filter === 'suspended') {
+      // On hold now — a passed Until the hourly lift has not reached yet still shows, with its date, until it is lifted.
+      query = query.not('suspended_at', 'is', null);
     }
 
     if (q.length > 0) {
@@ -393,6 +402,7 @@ export async function UsersSurface({
           <option value="customer">Couples (customer)</option>
           <option value="vendor">Suppliers</option>
           <option value="internal">🟣 Internal (§ 10a)</option>
+          <option value="suspended">⏸ Suspended</option>
           <option value="blacklisted">🚫 Blacklisted</option>
         </select>
         <button type="submit" className="button-secondary">Apply</button>
@@ -554,6 +564,15 @@ function UsersTable({
                     <Sparkle className="h-3 w-3" strokeWidth={2} />
                     Team
                   </span>
+                ) : null}
+                {u.suspended_at ? (
+                  <Link
+                    href={`/admin/users/${u.user_id}`}
+                    title={u.suspended_reason ?? undefined}
+                    className="inline-flex items-center gap-1 rounded-full bg-[var(--sn-warning-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-ink"
+                  >
+                    ⏸ Suspended {u.suspended_until ? `until ${holdDateWords(u.suspended_until)}` : '· until lifted'}
+                  </Link>
                 ) : null}
               </div>
             ),

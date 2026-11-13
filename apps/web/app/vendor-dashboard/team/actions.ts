@@ -19,7 +19,8 @@ import {
   fetchAdminVendorContext,
   type VendorTeamRole,
 } from '@/lib/vendor-team';
-import { tierCaps, asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/lib/vendor-tier-caps';
+import { asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/lib/vendor-tier-caps';
+import { fetchLiveTierCaps } from '@/lib/vendor-plan-contents';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import { FREE_HELPER_ROLE, FREE_HELPER_SEATS, canSeat, type SeatMember } from '@/lib/vendor-free-helper';
 import {
@@ -72,8 +73,10 @@ async function seatCapFor(
   supabase: Awaited<ReturnType<typeof createClient>>,
   ctx: { tierState: string | null; vendorProfileId: string },
 ): Promise<number> {
+  // 🧮 The plan's seats as the admin last set them (vendor_plan_contents, owner 2026-11-13), the code value when unread.
+  const planCaps = await fetchLiveTierCaps(supabase, asVendorTier(ctx.tierState ?? 'free'));
   const baseCap = vendorAllowance(
-    tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts,
+    planCaps.agentAccounts,
     entryTierAllowance('agentAccounts'),
   );
   const extraSeats = await fetchExtraAgentSeats(supabase, ctx.vendorProfileId);

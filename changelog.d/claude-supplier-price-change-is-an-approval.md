@@ -20,12 +20,21 @@ changed, needs approval."* The contact half shipped in `lib/supplier-corrections
   Price is the supplier's word on the bundle and raises the same proposal; left at the couple's figure, the cards decide.
   Its hint says a new price goes to the couple to approve.
 - A couple who recorded NO price gets no proposal: the supplier's price is simply their price.
-- NOT in this change: an accepted claim amendment has no base quote, so the shipped `lockDeal` still answers "no price,
-  no lock" for it (as for any Deal struck before a quote). Making it lockable needs a quote written from the couple's
-  record — an owner call (migration 20271328327292 refuses a quote made from a total alone).
-- Guard `lib/a-price-change-is-the-couples-to-approve.test.ts` (7 tests; eight sabotages each seen red).
+- **An approved claim change is LOCKABLE** (owner 13 Nov, DECISION_LOG "AN APPROVED CLAIM CHANGE IS LOCKABLE":
+  *"yes lockable."*). The claim finish builds a REAL quote (`claimChangeQuote`): the couple's agreed guests / hours
+  (read on the server) × the pricing the supplier confirmed on the door (Per guest: rate × guests, billed never below
+  the minimum · Per hour: base for its hours + extra hours × the extra-hour rate · One price: the typed price; a bundled
+  card is a line with no amount). It is staged as a DRAFT `vendor_proposals` row (`merge_snapshot.source =
+  'claim_door'`) and set as the Deal's `base_proposal_id`, so the couple reads nothing before they accept. On the
+  couple's Accept (`respondAmendmentFromChat` → `acceptClaimChangeQuote`), it becomes their ACCEPTED quote (the shop's
+  earlier live quotes on the event are superseded first: the Booked QR claim's move). The shipped `lockDeal` then books
+  it. With a quote behind it, the Deal's price line carries no amount, so the change is never counted twice. **No
+  quote** (the Deal stays "no price, no lock", as before) when the lines cannot add up to exactly the price the couple
+  accepts, e.g. a rate rounded from ₱100,000 ÷ 120, or per guest with no guests agreed. A withdrawn or declined
+  staging deletes its draft.
+- Guard `lib/a-price-change-is-the-couples-to-approve.test.ts` (8 tests; twelve sabotages each seen red).
 
 No migration. No new UI shape (the shipped `chat-amendment-card.tsx`). The card renders only while
 `NEXT_PUBLIC_CHAT_NEGOTIATION_V1` is on, like every amendment.
 
-SPEC IMPACT: None — implements the existing 2026-11-07 DECISION_LOG row.
+SPEC IMPACT: None — implements the existing 2026-11-07 and 2026-11-13 DECISION_LOG rows.

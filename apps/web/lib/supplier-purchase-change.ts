@@ -81,16 +81,22 @@ export function hasPurchaseChange(c: PurchaseChange | null | undefined): c is Pu
 }
 
 /** The amendment's lines, in the shape `proposal_amendment_items` stores (signed pesos through `signedAmount`). */
-export function purchaseChangeItems(c: PurchaseChange): { kind: AmendmentItemKind; label: string; amount_php: number | null }[] {
+export function purchaseChangeItems(
+  c: PurchaseChange,
+  opts: { quoted?: boolean } = {},
+): { kind: AmendmentItemKind; label: string; amount_php: number | null }[] {
   const out: { kind: AmendmentItemKind; label: string; amount_php: number | null }[] = [];
   if (c.price) {
-    const delta = c.price.to - c.price.from;
-    const kind: AmendmentItemKind = delta > 0 ? 'addon' : 'discount';
-    out.push({
-      kind,
-      label: `New price ${formatPhp(c.price.to)} (you recorded ${formatPhp(c.price.from)})`.slice(0, 200),
-      amount_php: signedAmount(kind, Math.abs(delta)),
-    });
+    const label = `New price ${formatPhp(c.price.to)} (you recorded ${formatPhp(c.price.from)})`.slice(0, 200);
+    if (opts.quoted) {
+      // 🔒 The Deal's base quote (`claimChangeQuote`) already IS the new price — the line says so and adds nothing,
+      // or the lock would book the change twice.
+      out.push({ kind: 'request', label, amount_php: null });
+    } else {
+      const delta = c.price.to - c.price.from;
+      const kind: AmendmentItemKind = delta > 0 ? 'addon' : 'discount';
+      out.push({ kind, label, amount_php: signedAmount(kind, Math.abs(delta)) });
+    }
   }
   for (const s of c.removed) {
     // A removed service carries no amount of its own (the couple's price is one bundle); it is a line the couple says
@@ -123,4 +129,120 @@ export function purchaseChangeNotice(args: { eventId: string; threadId: string; 
     body: 'Open the chat to accept or decline. Your booking stays as it is until you do.',
     relatedUrl: `/dashboard/${args.eventId}/messages/${args.threadId}`,
   };
+}
+
+/**
+ * 🔒 AN APPROVED CLAIM CHANGE IS LOCKABLE (DECISION_LOG 2026-11-13, owner: *"yes lockable."*). The shipped `lockDeal`
+ * books a Deal at its BASE QUOTE + the Deal's lines, and refuses a Deal with no base quote ("no price, no lock"). So the
+ * claim change carries a REAL quote, built from the couple's record (the guests / hours they agreed) and the pricing the
+ * supplier confirmed on the claim door (basis · per-guest rate · base + extra-hour rate · one price) — the deliberate
+ * exception to migration 20271328327292's "no quote made up from the Total alone": every line here is a rate times an
+ * agreed count, or a price the supplier typed, never a bare total.
+ *
+ * The quote IS the new price, so the Deal's price line then carries no amount of its own (`purchaseChangeItems` with
+ * `quoted`) — base + lines = the quote, never the quote twice.
+ *
+ * Null (no quote — the Deal stays unlockable, exactly as before) when:
+ *   · a card the couple keeps has no price the door can work out (Per guest / Per hour with no agreed count on the
+ *     record, or a missing rate);
+ *   · the lines do not add up to the price the couple is asked to accept (`lockPrice`) — e.g. a rate rounded from
+ *     ₱100,000 ÷ 120. The couple accepted a number; the lock may only ever book that number.
+ */
+export type ClaimQuoteCard = {
+  name: string;
+  price: number | null;
+  bundled: boolean;
+  inclusions: readonly string[];
+  pricing?: {
+    basis: 'fixed' | 'per_pax' | 'per_hour';
+    perPax: number | null;
+    minPax: number | null;
+    minHours: number | null;
+    hourBase: number | null;
+    extraHour: number | null;
+  };
+};
+
+export type ClaimQuoteLine = {
+  label: string;
+  detail: string | null;
+  amount_centavos: number | null;
+  basis?: 'flat' | 'per_pax' | 'per_hour';
+  rate_centavos?: number;
+  incl_hours?: number;
+  extra_hour_centavos?: number;
+};
+
+export function claimChangeQuote(args: {
+  /** How the couple said the price works, and the guests / hours they agreed (`ClaimDoorRecord`). */
+  recordBasis: 'fixed' | 'per_pax' | 'per_hour' | null | undefined;
+  agreedCount: number | null | undefined;
+  /** The couple's cards as the supplier confirmed them (`splitClaimCards` → `theirs`). */
+  confirmed: readonly ClaimQuoteCard[];
+  /** The price the couple is asked to accept — `change.price.to`, or their recorded price when it did not move. */
+  lockPrice: number | null;
+}): { lines: ClaimQuoteLine[]; totalCentavos: number } | null {
+  const lock = whole(args.lockPrice);
+  if (lock == null || args.confirmed.length === 0) return null;
+  const agreed = args.agreedCount != null && Number.isFinite(args.agreedCount) && args.agreedCount > 0 ? args.agreedCount : null;
+  const cents = (php: number) => Math.round(php * 100);
+  const incl = (c: ClaimQuoteCard) => {
+    const words = c.inclusions.map((s) => s.trim()).filter(Boolean);
+    return words.length ? `Includes ${words.join(' · ')}`.slice(0, 500) : null;
+  };
+
+  const lines: ClaimQuoteLine[] = [];
+  for (const c of args.confirmed) {
+    const label = (c.name.trim() || 'Your booking').slice(0, 200);
+    if (c.bundled) {
+      // Part of the first card's price — a line of the quote with no amount of its own.
+      lines.push({ label, detail: incl(c) ?? 'Part of the bundle price', amount_centavos: null });
+      continue;
+    }
+    const p = c.pricing;
+    if (p?.basis === 'per_pax') {
+      const rate = whole(p.perPax);
+      if (rate == null || args.recordBasis !== 'per_pax' || agreed == null) return null;
+      const billed = Math.max(Math.round(agreed), whole(p.minPax) ?? 0);
+      lines.push({
+        label,
+        detail: [`${formatPhp(rate)} × ${formatCount(billed)} guests agreed`, incl(c)].filter(Boolean).join(' · ').slice(0, 500),
+        amount_centavos: cents(rate * billed),
+        basis: 'per_pax',
+        rate_centavos: cents(rate),
+      });
+    } else if (p?.basis === 'per_hour') {
+      const base = whole(p.hourBase);
+      if (base == null || args.recordBasis !== 'per_hour' || agreed == null) return null;
+      const inHours = p.minHours != null && p.minHours > 0 ? p.minHours : 0;
+      const extraHours = Math.max(0, agreed - inHours);
+      const extraRate = whole(p.extraHour);
+      if (extraHours > 0 && extraRate == null) return null;
+      const extra = extraHours > 0 && extraRate != null ? extraHours * extraRate : 0;
+      lines.push({
+        label,
+        detail: [
+          extraHours > 0 && extraRate != null
+            ? `${formatPhp(base)} for ${formatCount(inHours)} hours + ${formatCount(extraHours)} extra × ${formatPhp(extraRate)}`
+            : `${formatPhp(base)} for ${formatCount(agreed)} hours agreed`,
+          incl(c),
+        ]
+          .filter(Boolean)
+          .join(' · ')
+          .slice(0, 500),
+        amount_centavos: cents(base + extra),
+        basis: 'per_hour',
+        rate_centavos: cents(base),
+        ...(inHours > 0 ? { incl_hours: inHours } : {}),
+        ...(extraRate != null ? { extra_hour_centavos: cents(extraRate) } : {}),
+      });
+    } else {
+      const price = whole(c.price);
+      if (price == null) return null;
+      lines.push({ label, detail: incl(c), amount_centavos: cents(price), basis: 'flat' });
+    }
+  }
+  const totalCentavos = lines.reduce((s, l) => s + (l.amount_centavos ?? 0), 0);
+  if (totalCentavos <= 0 || totalCentavos !== cents(lock)) return null;
+  return { lines, totalCentavos };
 }

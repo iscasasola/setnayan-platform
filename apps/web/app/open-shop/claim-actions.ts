@@ -28,7 +28,7 @@ import { decideOpenShopAccount } from '@/lib/open-shop-account';
 import { createVendorAccountForShop } from '@/lib/open-shop-account.server';
 import { isValidOpenShopEmail } from '@/lib/open-shop-validation';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
-import { purchaseChange } from '@/lib/supplier-purchase-change';
+import { claimChangeQuote, purchaseChange } from '@/lib/supplier-purchase-change';
 import { stagePurchaseChange } from '@/lib/supplier-purchase-change.server';
 
 /**
@@ -331,18 +331,28 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   // Fail-soft: the shop is open; a missed staging only loses the ask, and it is logged.
   if (!fromSetnayan && eventId && landing.parentVendor) {
     try {
+      const change = purchaseChange({
+        recordPrice: recordRead.record.price,
+        recorded: recordRead.record.services,
+        confirmed: theirs,
+        // The details slide's "Price" — the couple's bundle price as the supplier states it.
+        statedPrice: answers.price,
+      });
       await stagePurchaseChange(admin, {
         eventId,
         recordVendorId: landing.parentVendor.vendor_id,
         shopId: vendorProfileId,
         supplierUserId: user.id,
         shopName: answers.name || shop.business_name || null,
-        change: purchaseChange({
-          recordPrice: recordRead.record.price,
-          recorded: recordRead.record.services,
+        change,
+        // 🔒 AN APPROVED CLAIM CHANGE IS LOCKABLE (DECISION_LOG 2026-11-13): the real quote behind it — the couple's
+        // agreed guests / hours × the pricing the supplier confirmed here. Null when the lines cannot make the exact
+        // price the couple is asked to accept; the Deal then goes out unlockable, as before.
+        quote: claimChangeQuote({
+          recordBasis: recordRead.record.priceBasis,
+          agreedCount: recordRead.record.agreedCount,
           confirmed: theirs,
-          // The details slide's "Price" — the couple's bundle price as the supplier states it.
-          statedPrice: answers.price,
+          lockPrice: change.price?.to ?? recordRead.record.price,
         }),
       });
     } catch (e) {

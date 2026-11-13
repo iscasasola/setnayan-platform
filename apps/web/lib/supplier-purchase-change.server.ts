@@ -9,6 +9,7 @@ import {
   purchaseChangeItems,
   purchaseChangeNote,
   purchaseChangeNotice,
+  type ClaimQuoteLine,
   type PurchaseChange,
 } from '@/lib/supplier-purchase-change';
 
@@ -43,16 +44,65 @@ function staged(admin: Admin, eventId: string, shopId: string) {
     .is('thread_id', null);
 }
 
+/** The marker on a quote the claim door wrote (`merge_snapshot.source`) — the accept step flips only these. */
+export const CLAIM_QUOTE_SOURCE = 'claim_door';
+
 async function withdrawStaged(admin: Admin, eventId: string, shopId: string, reason: string): Promise<void> {
-  const { error } = await admin
+  const { data, error } = await admin
     .from('proposal_amendments')
     .update({ status: 'withdrawn', decline_reason: reason.slice(0, 500), updated_at: new Date().toISOString() })
     .eq('event_id', eventId)
     .eq('vendor_profile_id', shopId)
     .eq('raised_by', 'vendor')
     .eq('status', 'proposed')
-    .is('thread_id', null);
-  if (error) console.error('[supabase-error] lib/supplier-purchase-change.server.ts · withdraw staged', error.message);
+    .is('thread_id', null)
+    .select('base_proposal_id');
+  if (error) {
+    console.error('[supabase-error] lib/supplier-purchase-change.server.ts · withdraw staged', error.message);
+    return;
+  }
+  // Its quote goes with it: a claim quote is still a DRAFT until the couple accepts, and a withdrawn Deal never will.
+  const quoteIds = ((data ?? []) as { base_proposal_id: string | null }[]).map((r) => r.base_proposal_id).filter((v): v is string => !!v);
+  if (quoteIds.length === 0) return;
+  const { error: delErr } = await admin
+    .from('vendor_proposals')
+    .delete()
+    .in('proposal_id', quoteIds)
+    .eq('status', 'draft')
+    .eq('merge_snapshot->>source', CLAIM_QUOTE_SOURCE);
+  if (delErr) console.error('[supabase-error] lib/supplier-purchase-change.server.ts · from:vendor_proposals.delete', delErr.message);
+}
+
+/**
+ * 🔒 THE CLAIM CHANGE'S QUOTE (DECISION_LOG 2026-11-13 "AN APPROVED CLAIM CHANGE IS LOCKABLE") — written as a DRAFT
+ * beside the staged Deal (its `base_proposal_id`), so the couple reads nothing until they accept, and turned into their
+ * ACCEPTED quote by `acceptClaimChangeQuote` when they do. Returns the draft's id, or null (logged): the Deal then goes
+ * out exactly as before — unlockable, "no price, no lock".
+ */
+async function writeClaimQuoteDraft(
+  admin: Admin,
+  args: { eventId: string; shopId: string; shopName: string | null; quote: { lines: ClaimQuoteLine[]; totalCentavos: number } },
+): Promise<string | null> {
+  const title = `${(args.shopName ?? '').replace(/\s+/g, ' ').trim() || 'Your supplier'} — your booking`.slice(0, 160);
+  const { data, error } = await admin
+    .from('vendor_proposals')
+    .insert({
+      vendor_profile_id: args.shopId,
+      event_id: args.eventId,
+      template_id: null,
+      title,
+      merge_snapshot: { source: CLAIM_QUOTE_SOURCE, resolved_at: new Date().toISOString() },
+      line_items: args.quote.lines,
+      total_centavos: args.quote.totalCentavos,
+      status: 'draft',
+    })
+    .select('proposal_id')
+    .maybeSingle();
+  if (error || !data) {
+    console.error('[supabase-error] lib/supplier-purchase-change.server.ts · from:vendor_proposals.insert', error?.message);
+    return null;
+  }
+  return (data as { proposal_id: string }).proposal_id;
 }
 
 /**
@@ -62,10 +112,21 @@ async function withdrawStaged(admin: Admin, eventId: string, shopId: string, rea
  */
 export async function stagePurchaseChange(
   admin: Admin,
-  args: { eventId: string; recordVendorId: string; shopId: string; supplierUserId: string; shopName: string | null; change: PurchaseChange },
-): Promise<{ staged: boolean }> {
+  args: {
+    eventId: string;
+    recordVendorId: string;
+    shopId: string;
+    supplierUserId: string;
+    shopName: string | null;
+    change: PurchaseChange;
+    /** `claimChangeQuote` — the real quote that makes the approved change lockable; null = none could be built. */
+    quote?: { lines: ClaimQuoteLine[]; totalCentavos: number } | null;
+  },
+): Promise<{ staged: boolean; quoted: boolean }> {
   await withdrawStaged(admin, args.eventId, args.shopId, 'Replaced by the supplier');
-  if (!hasPurchaseChange(args.change)) return { staged: false };
+  if (!hasPurchaseChange(args.change)) return { staged: false, quoted: false };
+
+  const quoteId = args.quote ? await writeClaimQuoteDraft(admin, { eventId: args.eventId, shopId: args.shopId, shopName: args.shopName, quote: args.quote }) : null;
 
   const { data, error } = await admin
     .from('proposal_amendments')
@@ -74,7 +135,7 @@ export async function stagePurchaseChange(
       event_vendor_id: args.recordVendorId,
       vendor_profile_id: args.shopId,
       thread_id: null,
-      base_proposal_id: null,
+      base_proposal_id: quoteId,
       raised_by: 'vendor',
       proposed_by_user_id: args.supplierUserId,
       note: purchaseChangeNote(args.shopName),
@@ -84,11 +145,12 @@ export async function stagePurchaseChange(
     .maybeSingle();
   if (error || !data) {
     console.error('[supabase-error] lib/supplier-purchase-change.server.ts · from:proposal_amendments.insert', error?.message);
-    return { staged: false };
+    if (quoteId) await admin.from('vendor_proposals').delete().eq('proposal_id', quoteId).eq('status', 'draft');
+    return { staged: false, quoted: false };
   }
   const amendmentId = (data as { amendment_id: string }).amendment_id;
   const { error: itemsErr } = await admin.from('proposal_amendment_items').insert(
-    purchaseChangeItems(args.change).map((it, idx) => ({
+    purchaseChangeItems(args.change, { quoted: !!quoteId }).map((it, idx) => ({
       amendment_id: amendmentId,
       event_id: args.eventId,
       vendor_profile_id: args.shopId,
@@ -102,9 +164,63 @@ export async function stagePurchaseChange(
     // An amendment with no lines would ask the couple to accept nothing — take it back rather than leave it.
     console.error('[supabase-error] lib/supplier-purchase-change.server.ts · from:proposal_amendment_items.insert', itemsErr.message);
     await withdrawStaged(admin, args.eventId, args.shopId, 'Could not record the change');
-    return { staged: false };
+    return { staged: false, quoted: false };
   }
-  return { staged: true };
+  return { staged: true, quoted: !!quoteId };
+}
+
+/**
+ * Step 3 — the couple ACCEPTED the claim change (`respondAmendmentFromChat`): its draft quote becomes their accepted
+ * quote, so the shipped `lockDeal` can book it. The Booked QR claim's move (migration 20271328327292): one accepted
+ * quote per event × shop, so the shop's earlier live quotes on the event are superseded first. Only a draft the claim
+ * door wrote, on this Deal's own event and shop, is ever flipped. Fail-soft and logged — the acceptance stands; the Deal
+ * then simply reads "no price, no lock" as before.
+ */
+export async function acceptClaimChangeQuote(
+  admin: Admin,
+  args: { amendmentId: string; eventId: string; shopId: string; coupleUserId: string },
+): Promise<{ accepted: boolean }> {
+  const { data: am } = await admin
+    .from('proposal_amendments')
+    .select('base_proposal_id, event_id, vendor_profile_id, raised_by, status')
+    .eq('amendment_id', args.amendmentId)
+    .maybeSingle();
+  const row = am as { base_proposal_id: string | null; event_id: string; vendor_profile_id: string; raised_by: string; status: string } | null;
+  if (!row?.base_proposal_id || row.status !== 'accepted' || row.raised_by !== 'vendor') return { accepted: false };
+  if (row.event_id !== args.eventId || row.vendor_profile_id !== args.shopId) return { accepted: false };
+
+  const { data: q } = await admin
+    .from('vendor_proposals')
+    .select('proposal_id, status, event_id, vendor_profile_id, merge_snapshot')
+    .eq('proposal_id', row.base_proposal_id)
+    .maybeSingle();
+  const quote = q as { proposal_id: string; status: string; event_id: string; vendor_profile_id: string; merge_snapshot: { source?: string } | null } | null;
+  if (!quote || quote.status !== 'draft' || quote.merge_snapshot?.source !== CLAIM_QUOTE_SOURCE) return { accepted: false };
+  if (quote.event_id !== args.eventId || quote.vendor_profile_id !== args.shopId) return { accepted: false };
+
+  const now = new Date().toISOString();
+  const { error: supErr } = await admin
+    .from('vendor_proposals')
+    .update({ status: 'superseded', updated_at: now })
+    .eq('event_id', args.eventId)
+    .eq('vendor_profile_id', args.shopId)
+    .in('status', ['sent', 'viewed', 'accepted'])
+    .neq('proposal_id', quote.proposal_id);
+  if (supErr) {
+    console.error('[supabase-error] lib/supplier-purchase-change.server.ts · supersede earlier quotes', supErr.message);
+    return { accepted: false };
+  }
+  const { data: flipped, error } = await admin
+    .from('vendor_proposals')
+    .update({ status: 'accepted', sent_at: now, resolved_at: now, resolved_by_user_id: args.coupleUserId, updated_at: now })
+    .eq('proposal_id', quote.proposal_id)
+    .eq('status', 'draft')
+    .select('proposal_id');
+  if (error || !flipped || flipped.length === 0) {
+    console.error('[supabase-error] lib/supplier-purchase-change.server.ts · accept the claim quote', error?.message ?? 'not flipped');
+    return { accepted: false };
+  }
+  return { accepted: true };
 }
 
 /** Decline: the supplier was not let in, so the couple is not asked about their price either. */

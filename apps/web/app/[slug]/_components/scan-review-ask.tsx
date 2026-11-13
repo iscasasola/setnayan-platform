@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
-import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { REVIEW_LINE_MAX, REVIEW_STAR_OPTIONS, reviewAskWords } from '@/lib/supplier-scan';

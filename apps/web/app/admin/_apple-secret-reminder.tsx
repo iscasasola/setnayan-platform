@@ -23,7 +23,7 @@
 
 import { useEffect, useState } from 'react';
 import { Notice } from '@/app/_components/notices/notices';
-import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 
 const SHOW_FROM = '2026-12-08T00:00:00'; // 3 days before expiry
 const EXPIRES = '2026-12-11T00:00:00';

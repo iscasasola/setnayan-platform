@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { LOVE_STORY_PRO_CTA, LOVE_STORY_PRO_LINE } from '@/lib/love-story-moments';
 

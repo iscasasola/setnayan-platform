@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import type { HubProOffer } from '@/lib/event-hub-pro';
 

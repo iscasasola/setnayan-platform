@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
 import { Notice } from '@/app/_components/notices/notices';
-import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 
 /*
  * 🔔 Inventory #18 — a To-do that blocks (the plan is not saved to an account), one notice system (owner approved 14

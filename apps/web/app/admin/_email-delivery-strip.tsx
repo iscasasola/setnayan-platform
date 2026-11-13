@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Notice } from '@/app/_components/notices/notices';
-import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { isEmailConfigured } from '@/lib/email';
 import { readRecentDeliveries } from '@/lib/email-delivery.server';
 import { homeAlert } from '@/lib/email-delivery-log';

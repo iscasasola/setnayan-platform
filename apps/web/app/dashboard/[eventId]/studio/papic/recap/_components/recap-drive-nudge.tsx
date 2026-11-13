@@ -4,7 +4,7 @@ import { CloudUpload } from 'lucide-react';
 import { DriveSafetyPanel } from '@/app/_components/drive-connect-card';
 import type { CloseRecord } from '@/lib/notices';
 import { Notice } from '@/app/_components/notices/notices';
-import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 
 /**
  * 🔔 Inventory #17 — a To-do (one notice system, owner approved 14 Nov 2026): "Maybe later" and × became one "Not now"

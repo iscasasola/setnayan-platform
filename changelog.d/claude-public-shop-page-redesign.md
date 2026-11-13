@@ -15,7 +15,11 @@ guard is kept; only placement, grouping and motion change.
 - **ONE Inquire per page** (owner 13 Nov, "Yes, only one"): no Inquire tab, no Inquire section or inline form at the
   foot, no hero button. The button — and a service card's "Inquire about this" (card picked) — open the shipped
   pop-up (`InquireSheet`), now mounted for every shop that takes messages (`canMessage`, so unverified shops too).
-  The inline `InquiryComposer` / `AnonInquiryComposer` and the foot "which celebration" picker are no longer mounted;
+  The inline `InquiryComposer` / `AnonInquiryComposer` and the foot "which celebration" picker are no longer mounted —
+  and the two composer files are DELETED (no other importer; the Ugat both-ends guard flagged them as unmounted). Their
+  guards follow the behaviour to `inquire-sheet.tsx` (no wedding hard-code; a new event hands off to the create-event
+  picker, which asks the kind); the composer-only claims were retired with it. The pending-inquiry dispatcher stays,
+  draining stashes written before the retirement;
   arriving on `#get-in-touch` (Compare, shared links) opens the pop-up for a signed-in visitor. The waitlist block and
   the cold "See more suppliers" door stay.
 - **Body in sections under a sticky section bar** (About · Services · Portfolio · Reviews, ↑ Top): About

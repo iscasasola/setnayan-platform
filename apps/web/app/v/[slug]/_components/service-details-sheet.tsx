@@ -71,9 +71,9 @@ import type { ServiceCard } from './services-gallery';
  * How the grown card's "Choose this service" behaves, decided SERVER-side because only the server knows which composer
  * (if any) is on the page:
  *
- *   • 'focus'  — the signed-in couple's `InquiryComposer` is mounted. The button points it at THIS service and opens it.
- *   • 'anchor' — only the compose-first `AnonInquiryComposer` is mounted (a visitor without an event yet). It has its own
- *                service picker, so we send them to it rather than pretending to preselect.
+ *   • 'focus'  — points a listener on the service-inquiry focus bus at THIS service. Its only listener, the inline
+ *                `InquiryComposer`, was retired 2026-11-13 (one Inquire), so the page no longer passes this.
+ *   • 'anchor' — the button is a `#get-in-touch` link, which the shop's ONE Inquire pop-up catches and opens.
  *   • 'none'   — no composer at all (not bookable / no contact route). No CTA, because a button that does nothing is
  *                worse than no button.
  */

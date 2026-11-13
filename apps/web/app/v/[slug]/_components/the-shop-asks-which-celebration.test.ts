@@ -19,7 +19,9 @@ import { stripComments } from '@/lib/strip-comments';
 
 const WEB = process.cwd();
 const PAGE = join(WEB, 'app/v/[slug]/page.tsx');
-const COMPOSER = join(WEB, 'app/v/[slug]/_components/inquiry-composer.tsx');
+// 13 Nov 2026 (owner, "Yes, only one"): the inline InquiryComposer was retired and deleted; the shop's ONE Inquire
+// is the pop-up, so the no-celebration rule is pinned where it now lives.
+const INQUIRE_SHEET = join(WEB, 'app/v/[slug]/_components/inquire-sheet.tsx');
 const RESOLVER = join(WEB, 'app/v/[slug]/_components/add-shop-to-event-data.ts');
 
 function code(path: string): string {
@@ -105,21 +107,16 @@ test('choosing writes NOTHING — every row is a link', () => {
 });
 
 test('a person with no celebration is ASKED which kind, never marched into a wedding', () => {
-  const src = code(COMPOSER);
+  const src = code(INQUIRE_SHEET);
   const hardcoded = src.match(/['"`]\/onboarding\/wedding/g) ?? [];
   assert.equal(
     hardcoded.length,
     0,
     `${hardcoded.length} hard-coded wedding onboarding path(s) remain in code`,
   );
-  // Both no_event branches NAVIGATE there. Counting bare `noEventDestination()`
-  // would also match its own declaration — `function noEventDestination(): string`
-  // — and report 3, so this counts the assignment that actually leaves the page.
-  const sends = src.match(/window\.location\.href = noEventDestination\(\)/g) ?? [];
-  assert.equal(
-    sends.length,
-    2,
-    `expected both no_event branches to navigate, found ${sends.length}`,
-  );
-  assert.match(src, /\/dashboard\/create-event\?next=/);
+  // The retired composer NAVIGATED from two no_event branches (pinned as a count of 2). The pop-up never reaches a
+  // no_event send: with no event it offers "Start a new event", a LINK to the create-event picker (which asks the
+  // kind) carrying this shop back in `next` — so the claim is that link, once.
+  const sends = src.match(/\/dashboard\/create-event\?next=/g) ?? [];
+  assert.equal(sends.length, 1, `expected one create-event hand-off in the Inquire pop-up, found ${sends.length}`);
 });

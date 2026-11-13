@@ -43,6 +43,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
 import { afterClaim, agreedSuffix, type SelfAddedPriceLines } from '@/lib/self-added-price-basis';
+import { guestFollowLine } from '@/lib/claimed-per-guest-follow';
 import {
   Search,
   ChevronDown,
@@ -1465,8 +1466,10 @@ function VendorCard({
   const payHrefs = useContext(PayDueCtx);
   const inviteStatuses = useContext(InviteStatusCtx);
   const priceLines = useContext(PriceLineCtx);
-  // Only for the couple's own record — a Setnayan shop's card never reads this.
-  const basisLine = selfAdded ? (priceLines?.[v.vendorId] ?? null) : null;
+  // The couple's own record — and, after the claim, a per-guest booking whose total now follows the guest list
+  // (its entry carries `follow`; 20271343652941). Any other Setnayan shop's card never reads this.
+  const priceLine = priceLines?.[v.vendorId] ?? null;
+  const basisLine = selfAdded || priceLine?.follow ? priceLine : null;
   const look = useContext(ServiceCardCtx);
   const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
   const hasRecordedPrice = v.totalCostPhp != null && v.totalCostPhp > 0;
@@ -1622,7 +1625,7 @@ function VendorCard({
         {/* v2 (owner 2026-11-13): the card's own total, then what was agreed — "₱162,000 · 120 guests agreed" /
             "₱30,000 · 5 hours agreed". One price span, so the bench card still draws the number exactly once. */}
         {hasRecordedPrice ? (
-          agreedSuffix(basisLine) ? (
+          !basisLine?.follow && agreedSuffix(basisLine) ? (
             <span data-price-basis-line="">
               {priceEl}{' '}
               <span className="sc-price">· {agreedSuffix(basisLine)}</span>
@@ -1632,7 +1635,12 @@ function VendorCard({
           )
         ) : null}
         {/* The decided after-claim line (owner 13 Nov: "Yes, follow it") — only while it is still the couple's record. */}
-        {basisLine && hasRecordedPrice ? (
+        {/* 👥 After the claim (20271343652941): a per-guest total follows the guest list — one line saying why. */}
+        {basisLine?.follow && hasRecordedPrice && guestFollowLine(basisLine.follow) ? (
+          <span className="sc-rec" data-guest-follow="">
+            {guestFollowLine(basisLine.follow)}
+          </span>
+        ) : basisLine && hasRecordedPrice ? (
           <span className="sc-rec" data-price-basis-after={basisLine.basis}>
             {afterClaim(basisLine.basis).line}
           </span>

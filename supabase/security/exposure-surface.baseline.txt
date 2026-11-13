@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7764
+# facts: 7769
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     631
-#   col       5593
-#   policy    1135
+#   col       5597
+#   policy    1136
 #   view      10
 #   func      391
 #
@@ -2233,6 +2233,10 @@ col	public.event_vendor_found.found_at_claim_at	anon=- authenticated=S
 col	public.event_vendor_found.last_viewed_at	anon=- authenticated=S
 col	public.event_vendor_found.vendor_profile_id	anon=- authenticated=S
 col	public.event_vendor_found.view_count	anon=- authenticated=S
+col	public.event_vendor_guest_follow.agreed_guests	anon=- authenticated=S
+col	public.event_vendor_guest_follow.billed_guests	anon=- authenticated=S
+col	public.event_vendor_guest_follow.event_id	anon=- authenticated=S
+col	public.event_vendor_guest_follow.event_vendor_id	anon=- authenticated=S
 col	public.event_vendor_line_items.amount_php	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.created_at	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.due_date	anon=SIU authenticated=SIU
@@ -6647,6 +6651,7 @@ policy	public.event_vendor_booth_posters|event_vendor_booth_posters_vendor_read	
 policy	public.event_vendor_count_rules|event_vendor_count_rules_couple_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin))
 policy	public.event_vendor_found|event_vendor_found_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.event_vendor_found|event_vendor_found_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
+policy	public.event_vendor_guest_follow|event_vendor_guest_follow_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_vendor_line_items|event_vendor_line_items_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_vendor_line_items|event_vendor_line_items_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_vendor_line_items|event_vendor_line_items_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('budget'::text) l(event_id, level) WHERE (l.level = ANY (ARRAY['view'::text, 'edit'::text])))) check=NULL

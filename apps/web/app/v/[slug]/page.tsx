@@ -162,8 +162,8 @@ import {
 } from './_components/review-groups';
 import { readCardGuestReviewStats, readGuestReviewsForVendor, type GuestReviewsRead } from '@/lib/guest-reviews';
 import { buildCardReviews } from '@/lib/card-reviews';
-import { pairPhotoRefs, withCardHides } from '@/lib/service-card-hides';
-import { readCardHides } from '@/lib/service-card-hides.server';
+import { cardWithoutHidden, pairPhotoRefs, withCardHides, type CardHidesRead } from '@/lib/service-card-hides';
+import { readCardHides, viewerRunsShop } from '@/lib/service-card-hides.server';
 import { resolveGuestReviewPhotoUrls } from '@/lib/guest-review-photos.server';
 import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
@@ -1281,7 +1281,7 @@ export async function renderVendorBySlug({
     // 📸 Couples' own photos the shop APPROVED, per card — the one public door (approved only), in the same batch.
     fetchServiceCardCouplePhotos(admin, activeServiceIds),
     // 🃏 What the shop hid on each card (hide per card never deletes) — only read where the grown card is drawn.
-    detailsEnabled ? readCardHides(admin, activeServiceIds) : Promise.resolve(new Map<string, string[]>()),
+    detailsEnabled ? readCardHides(admin, activeServiceIds) : Promise.resolve<CardHidesRead>({ status: 'ok', byCard: new Map() }),
   ]);
   // ③0-c — the coarse category each category files its cards under is the LIVE column
   // (`service_categories.coarse_category`); same cached snapshot the tile lookup above read.
@@ -1688,6 +1688,10 @@ export async function renderVendorBySlug({
    *  fallback select carries no `user_id`, so a degraded read is a stranger. */
   const viewerOwnsShop =
     user !== null && typeof vendor.user_id === 'string' && vendor.user_id === user.id;
+  /** 🃏 The viewer runs this shop (owner or owner/admin team — who RLS lets hide): only THEY are sent the items hidden
+   *  on a card, to curate. Everyone else's cards are stripped on the server (`cardWithoutHidden`). Fails closed. */
+  const viewerCuratesCards =
+    detailsEnabled && !cachedCopy && user !== null && !isDemoVendor && (await viewerRunsShop(vendor.vendor_profile_id));
   let coupleEventId: string | null = null;
   /** `?event=` once CHECKED against the viewer's own events — the event this visit came for (lib/shop-back.ts).
    *  Never the `events[0]` fallback: only an event the link named can be "where you came from". */
@@ -3317,8 +3321,9 @@ export async function renderVendorBySlug({
             coupleEventDate={coupleEventDate}
             cardRecordByService={cardRecordByService}
             couplePhotosByService={couplePhotosByService}
-            cardHidesByService={cardHidesByService}
-            ownerCheckFor={user !== null && !isDemoVendor ? vendor.vendor_profile_id : null}
+            cardHides={cardHidesByService}
+            viewerCuratesCards={viewerCuratesCards}
+            ownerCheckFor={viewerCuratesCards ? vendor.vendor_profile_id : null}
             /* 👁 A signed-in viewer reads the NON-public couple photos they may see AFTER the page — never in this HTML. */
             viewerSignedIn={user !== null}
             /* Reuses the SAME trusted aggregate the hero stars read — the only
@@ -3853,13 +3858,16 @@ function ServicesPricingSection({
   inspirationByService,
   reviewsByService,
   countOpensFor,
-  cardHidesByService,
+  cardHides,
+  viewerCuratesCards,
   ownerCheckFor,
 }: {
   /** 🃏 A signed-in viewer → the gallery asks once whether they run this shop (hide per card · 👁 · opens). */
   ownerCheckFor: string | null;
-  /** 🃏 What the shop hid on each card (`vendor_service_card_hides`) — couples get the card without them. */
-  cardHidesByService: Map<string, string[]>;
+  /** 🃏 What the shop hid on each card (`vendor_service_card_hides`), or `error` when that read failed. */
+  cardHides: CardHidesRead;
+  /** 🃏 The viewer runs the shop (checked on the server) — the only viewer sent the hidden items. */
+  viewerCuratesCards: boolean;
   /** 📈 The shop whose card opens count (Build 6 Lane I, "Which card sells") — null for a demo shop or a team preview. */
   countOpensFor: string | null;
   services: ReadonlyArray<VendorServiceRow>;
@@ -3991,7 +3999,7 @@ function ServicesPricingSection({
         // 🃏 Hide per card: the refs the supplier's tap names + what is hidden. Only where the grown card exists.
         .map((card) =>
           detailsEnabled
-            ? withCardHides(card, showcaseByService.get(card.id), cardHidesByService.get(card.id))
+            ? withCardHides(card, showcaseByService.get(card.id), cardHides.status === 'ok' ? cardHides.byCard.get(card.id) : undefined)
             : card,
         ),
     });
@@ -4004,6 +4012,18 @@ function ServicesPricingSection({
     for (const g of groups) {
       g.cards = g.cards.map((c) =>
         withInspirationLooks(c, inspirationByService.get(c.id) ?? [], cardAnchorId(publicIdOf.get(c.id), c.id)),
+      );
+    }
+  }
+
+  // 🃏 HIDDEN ITEMS ARE DROPPED HERE, ON THE SERVER — last, once every hideable item (photos, clip, event lines,
+  // inspiration looks) is on the card. A couple's browser never receives what the shop hid. A FAILED hides read
+  // is not "nothing hidden": nobody can say which items are hidden, so none are sent and the card says so — for the
+  // shop too ("show nothing extra"). Only the shop, on a good read, keeps them, greyed, to curate.
+  if (detailsEnabled && (cardHides.status === 'error' || !viewerCuratesCards)) {
+    for (const g of groups) {
+      g.cards = g.cards.map((c) =>
+        cardWithoutHidden(c, cardHides.status === 'error' ? 'unread' : (cardHides.byCard.get(c.id) ?? [])),
       );
     }
   }

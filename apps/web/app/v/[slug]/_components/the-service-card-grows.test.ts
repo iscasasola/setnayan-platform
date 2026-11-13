@@ -77,7 +77,9 @@ test('🃏 ruling 5970 — hide per card, 👁 Couple view and the opens are the
   // Curating = the shop, not in the couple view; everyone else leaves a hidden item OUT.
   assert.match(code, /const curating = owner !== null && !coupleView;/);
   assert.match(code, /const leftOut = \(key: string \| null\) => !curating && isHidden\(key\);/);
-  assert.match(code, /owner \? owner\.hidden\.has\(key\) : \(c\.hiddenOnCard \?\? \[\]\)\.includes\(key\)/);
+  // Only the shop's own state says what is hidden — a couple's card arrives with the hidden items already dropped.
+  assert.match(code, /const isHidden = \(key: string \| null\) => key !== null && owner !== null && owner\.hidden\.has\(key\);/);
+  assert.doesNotMatch(code, /c\.hiddenOnCard/, 'the client never filters a couple\'s card — the server already did');
   // The greyed words, exactly.
   assert.match(code, /Hidden on this card\n/);
   // The opens have no hide: drawn for the shop in BOTH views, and a failed read never reads as zero.
@@ -91,4 +93,42 @@ test('📅 events show WITHOUT names — the record\'s anonymised lines, drawn o
   assert.match(code, /c\.record\?\.ledger \?\? \[\]/, 'Events read the floored, anonymised ledger — never a new event read');
   assert.match(code, /record=\{\{ \.\.\.c\.record, ledger: \[\] \}\}/, 'the ledger is not drawn twice');
   assert.doesNotMatch(code, /display_name|couple_display_name|event_id/, 'no name or event id reaches the grown card');
+});
+
+test('🃏 fix · a hide that did not save SAYS so, and the item is never flipped before the save is confirmed', () => {
+  const gallery = stripComments(GALLERY);
+  const toggle = gallery.slice(gallery.indexOf('const toggleHide'), gallery.indexOf('const ownerFor'));
+  assert.ok(toggle.length > 0, 'toggleHide is where the save lives');
+  // setHides runs only inside settle, after the reply — never before the call goes out.
+  const callAt = toggle.indexOf("couplePhotoShare({ op: 'card_hide'");
+  const settleAt = toggle.indexOf('const settle');
+  assert.ok(callAt > 0 && settleAt > 0 && settleAt < callAt);
+  assert.ok(toggle.indexOf('setHides') > settleAt && toggle.indexOf('setHides') < callAt, 'setHides lives inside settle only');
+  assert.match(toggle, /if \(error\) \{\s*setHideError[\s\S]{0,80}return;\s*\}/, 'a failed save stops before setHides');
+  assert.match(toggle, /\.catch\(\(\) => settle\(cardHideSaveError\(null, hide\)\)\)/, 'a thrown call is a failure too');
+  assert.match(gallery, /saveError: hideError\[cardId\] \?\? null/);
+  // The sheet draws it as an alert, and a saving item cannot be tapped twice.
+  const sheet = stripComments(SHEET);
+  assert.match(sheet, /\{owner\?\.saveError \? \([\s\S]{0,120}role="alert"[\s\S]{0,300}\{owner\.saveError\}/);
+  assert.match(sheet, /disabled=\{saving\}/);
+});
+
+test('🃏 fix · a failed hides read shows an honest line, to the shop and to couples', () => {
+  const sheet = stripComments(SHEET);
+  assert.match(sheet, /\{c\.hidesUnread \? \(/);
+  assert.match(sheet, /couldn’t load, so its photos, clip, events and inspiration are left out/);
+  assert.match(sheet, /Some of this card’s photos and events couldn’t load right now/);
+});
+
+test('🃏 fix · no "Albums" anywhere on the grown card — the owner ruled albums are Events', () => {
+  const files = [
+    SHEET,
+    GALLERY,
+    readFileSync(join(HERE, '../../../../lib/service-card-hides.ts'), 'utf8'),
+    readFileSync(join(HERE, '../../../../lib/service-card-hides.server.ts'), 'utf8'),
+    readFileSync(join(HERE, '../../../dev/shop-preview-lab/grown-owner-lab.tsx'), 'utf8'),
+    readFileSync(join(HERE, '../../../../../../changelog.d/service-card-hero-and-reviews.md'), 'utf8'),
+    readFileSync(join(HERE, '../../../../../../changelog.d/service-card-hero-and-reviews-audit-fixes.md'), 'utf8'),
+  ];
+  for (const f of files) assert.doesNotMatch(f, /\balbums?\b/i);
 });

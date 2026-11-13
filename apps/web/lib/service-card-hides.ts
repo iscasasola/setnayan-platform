@@ -124,3 +124,67 @@ export function cardItemKeys(card: Pick<ServiceCard, 'photos' | 'photoRefs' | 'c
     insp: (card.inspirationLooks ?? []).map((l) => cardHideKey('insp', l.id)),
   };
 }
+
+/**
+ * 🃏 What the hides read came back as. `error` is NOT "nothing hidden": the page cannot tell which items the shop took
+ * off, so every card is drawn without its hideable items (fail closed) and says why (`hidesUnread`).
+ */
+export type CardHidesRead = { status: 'ok'; byCard: Map<string, string[]> } | { status: 'error' };
+
+/**
+ * 🃏 THE CARD A COUPLE GETS — the hidden items dropped ON THE SERVER, before the card is serialized into the page, so
+ * nothing the shop hid ever reaches a couple's browser (not greyed, not behind a flag, not in the HTML). Run on every
+ * card the page draws for anyone but the shop itself; the shop gets `withCardHides`' card and curates it.
+ *
+ * `hidden` is the card's hidden keys, or `'unread'` when the hides read failed. Then nothing hideable is shown — no
+ * showcase photo the hide is keyed on, no clip, no event line, no inspiration photo — and `hidesUnread` makes the card
+ * say so (only when it actually lost something). Not-hideable content (a cover fallback, the facts, the reviews) is untouched. The refs and the key list are
+ * the shop's working data and never ride along.
+ */
+export function cardWithoutHidden(card: ServiceCard, hidden: ReadonlyArray<string> | 'unread'): ServiceCard {
+  const all = hidden === 'unread';
+  const off = new Set(all ? [] : hidden);
+  const gone = (key: string | null) => key !== null && (all || off.has(key));
+  const keys = cardItemKeys(card);
+  const { photoRefs: _refs, clipRef: _clip, hiddenOnCard: _hidden, ...rest } = card;
+  const out: ServiceCard = { ...rest };
+
+  let dropped = false;
+  const photoKeep = card.photos.map((_, i) => !gone(keys.photos[i] ?? null));
+  if (photoKeep.includes(false)) {
+    dropped = true;
+    out.photos = card.photos.filter((_, i) => photoKeep[i]);
+  }
+  if (card.videoUrl && gone(keys.clip)) {
+    dropped = true;
+    out.videoUrl = null;
+  }
+  if (card.record) {
+    const ledger = card.record.ledger.filter((_, i) => !gone(keys.events[i] ?? null));
+    if (ledger.length !== card.record.ledger.length) {
+      dropped = true;
+      out.record = { ...card.record, ledger };
+    }
+  }
+  if (card.inspirationLooks) {
+    const looks = card.inspirationLooks.filter((_, i) => !gone(keys.insp[i] ?? null));
+    if (looks.length !== card.inspirationLooks.length) {
+      dropped = true;
+      out.inspirationLooks = looks;
+    }
+  }
+  // Said only where something was actually left out — a card with nothing hideable is whole.
+  if (all && dropped) out.hidesUnread = true;
+  return out;
+}
+
+/** 🃏 A hide toggle's reply, in words. Anything but a plain `ok` is a failure the supplier is told about. */
+export function cardHideSaveError(
+  reply: { status: 'ok' | 'refused' | 'error' } | null,
+  hide: boolean,
+): string | null {
+  if (reply?.status === 'ok') return null;
+  const still = hide ? 'It is still showing on this card.' : 'It is still hidden on this card.';
+  if (reply?.status === 'refused') return `That change wasn’t saved — this account can’t change this card. ${still}`;
+  return `That change wasn’t saved. ${still} Try again.`;
+}

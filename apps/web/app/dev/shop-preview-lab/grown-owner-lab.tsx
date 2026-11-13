@@ -26,6 +26,8 @@ export function GrownOwnerLab({ card, hidden: start }: { card: ServiceCard; hidd
       onClose={() => setOpen(false)}
       owner={{
         hidden,
+        saving: new Set<string>(),
+        saveError: null,
         opens: 37,
         onToggle: (key, hide) =>
           setHidden((h) => {

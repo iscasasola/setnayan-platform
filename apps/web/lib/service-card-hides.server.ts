@@ -3,14 +3,15 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { hidesByCard, parseCardHideKey } from '@/lib/service-card-hides';
+import { hidesByCard, parseCardHideKey, type CardHidesRead } from '@/lib/service-card-hides';
 
 /**
  * 🃏 HIDE PER CARD — the reads and the one write (Build 5 Lane C; `vendor_service_card_hides`, migration
  * 20271342009988). Keys and rules: `lib/service-card-hides.ts`.
  *
  * The public shop page reads every card's hides on the server (`readCardHides`, admin client — the table has no anon
- * grant). The supplier's own grown card asks, after the page, whether this viewer runs the shop (`readCardOwnerView`)
+ * grant) and drops the hidden items before the page is sent (`cardWithoutHidden`), unless the viewer runs the shop
+ * (`viewerRunsShop`). The supplier's own grown card asks, after the page, whether this viewer runs the shop (`readCardOwnerView`)
  * and toggles one item (`setCardHide`) — both under the CALLER'S session, so RLS (`current_vendor_profile_ids()`: the
  * owner and the owner/admin team) is the gate, never this file.
  *
@@ -19,20 +20,42 @@ import { hidesByCard, parseCardHideKey } from '@/lib/service-card-hides';
  */
 
 /**
- * Every card's hidden keys. A refused read is logged and reads as "nothing hidden" — the card shows everything, which
- * is the shop's own content, never someone else's; it is never drawn as an error to a couple.
+ * Every card's hidden keys. A refused read is `{ status: 'error' }` — NEVER "nothing hidden": an empty map would draw
+ * every item the shop took off straight back onto its cards for every couple. The page then drops every hideable item
+ * (`cardWithoutHidden(card, 'unread')`) and the card says it couldn't load them.
  */
-export async function readCardHides(admin: SupabaseClient, serviceIds: ReadonlyArray<string>): Promise<Map<string, string[]>> {
-  if (serviceIds.length === 0) return new Map();
+export async function readCardHides(admin: SupabaseClient, serviceIds: ReadonlyArray<string>): Promise<CardHidesRead> {
+  if (serviceIds.length === 0) return { status: 'ok', byCard: new Map() };
   const { data, error } = await admin
     .from('vendor_service_card_hides')
     .select('vendor_service_id, item_kind, item_key')
     .in('vendor_service_id', [...serviceIds]);
   if (error) {
     logQueryError('readCardHides', error, { cards: serviceIds.length }, 'graceful_degrade');
-    return new Map();
+    return { status: 'error' };
   }
-  return hidesByCard((data ?? []) as Array<{ vendor_service_id: string; item_kind: string; item_key: string }>);
+  return { status: 'ok', byCard: hidesByCard((data ?? []) as Array<{ vendor_service_id: string; item_kind: string; item_key: string }>) };
+}
+
+/**
+ * Does the signed-in viewer run this shop — the owner or its owner/admin team, exactly who RLS lets write a hide
+ * (`current_vendor_profile_ids()`)? Asked on the SERVER, so the page knows whether to send the hidden items at all.
+ * Fails CLOSED: no session or a refused read is a stranger, who gets the card without them.
+ */
+export async function viewerRunsShop(vendorProfileId: string): Promise<boolean> {
+  if (!vendorProfileId) return false;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data: mine, error } = await supabase.rpc('current_vendor_profile_ids');
+  if (error) {
+    logQueryError('viewerRunsShop', error, { vendorProfileId }, 'graceful_degrade');
+    return false;
+  }
+  const ids = ((mine ?? []) as unknown[]).map((r) => (typeof r === 'string' ? r : (r as Record<string, unknown>)?.current_vendor_profile_ids));
+  return ids.includes(vendorProfileId);
 }
 
 /**
@@ -43,20 +66,9 @@ export async function readCardHides(admin: SupabaseClient, serviceIds: ReadonlyA
 export type CardOwnerView = { status: 'owner'; opens: Record<string, number> | null } | { status: 'not_owner' };
 
 export async function readCardOwnerView(vendorProfileId: string): Promise<CardOwnerView> {
-  if (!vendorProfileId) return { status: 'not_owner' };
+  // The same check the page made on the server — one definition of "runs the shop".
+  if (!(await viewerRunsShop(vendorProfileId))) return { status: 'not_owner' };
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: 'not_owner' };
-  const { data: mine, error: mineError } = await supabase.rpc('current_vendor_profile_ids');
-  if (mineError) {
-    logQueryError('readCardOwnerView.mine', mineError, { vendorProfileId }, 'graceful_degrade');
-    return { status: 'not_owner' };
-  }
-  const ids = ((mine ?? []) as unknown[]).map((r) => (typeof r === 'string' ? r : (r as Record<string, unknown>)?.current_vendor_profile_ids));
-  if (!ids.includes(vendorProfileId)) return { status: 'not_owner' };
-
   const { data: opensRows, error: opensError } = await supabase.rpc('service_card_opens', { p_vendor_profile_id: vendorProfileId });
   if (opensError) {
     logQueryError('readCardOwnerView.opens', opensError, { vendorProfileId }, 'graceful_degrade');

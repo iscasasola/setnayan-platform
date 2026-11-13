@@ -9,7 +9,9 @@ import { join } from 'node:path';
 import {
   CARD_HIDE_KINDS,
   cardHideKey,
+  cardHideSaveError,
   cardItemKeys,
+  cardWithoutHidden,
   eventLineKeys,
   hidesByCard,
   pairPhotoRefs,
@@ -113,4 +115,95 @@ test('heroClipFrom: at frame 0 the clip sits over the cover, mapped back through
   assert.equal(HERO_CLIP_OPEN, 'inset(0px 0px 0px 0px round 0px)');
   // A zero-size rect never divides by zero.
   assert.match(heroClipFrom(hero, cover, { left: 0, top: 0, width: 0, height: 0 }, to), /^inset\(/);
+});
+
+// ── the fixes from the controller's audit ──────────────────────────────────────────────────────────────────────────
+const full = (): ServiceCard =>
+  card({
+    photos: ['https://u/a', 'https://u/b', 'https://u/c'],
+    photoRefs: ['r2://a', 'r2://b', 'r2://c'],
+    videoUrl: 'https://u/v',
+    clipRef: 'r2://v',
+    record: {
+      bookedCount: 2,
+      mix: [],
+      ledger: [
+        { label: 'Wedding', month: 'Jun 2027', pax: '100–199' },
+        { label: 'Debut', month: 'May 2027', pax: '50–99' },
+      ],
+      milestones: { earned: [], next: null },
+    } as unknown as ServiceCard['record'],
+    inspirationLooks: [
+      { id: 'look-1', url: 'https://u/l1', part: null },
+      { id: 'look-2', url: 'https://u/l2', part: null },
+    ] as unknown as ServiceCard['inspirationLooks'],
+    hiddenOnCard: ['photo:r2://b', 'clip:r2://v', 'event:Debut|May 2027|50–99#1', 'insp:look-2'],
+  });
+
+test('fix 1 · hidden items are DROPPED on the server — a couple\'s card never carries them, greyed or flagged', () => {
+  const c = full();
+  const out = cardWithoutHidden(c, c.hiddenOnCard ?? []);
+  assert.deepEqual(out.photos, ['https://u/a', 'https://u/c']);
+  assert.equal(out.videoUrl, null);
+  assert.deepEqual(out.record?.ledger.map((l) => l.label), ['Wedding']);
+  assert.deepEqual(out.inspirationLooks?.map((l) => l.id), ['look-1']);
+  // The shop's working data never rides along: no refs, no list of what was hidden.
+  assert.equal(out.photoRefs, undefined);
+  assert.equal(out.clipRef, undefined);
+  assert.equal(out.hiddenOnCard, undefined);
+  assert.equal(out.hidesUnread, undefined, 'a good read is not an error');
+  const json = JSON.stringify(out);
+  assert.doesNotMatch(json, /u\/b|u\/v|look-2|Debut/, 'nothing hidden is left anywhere in the serialized card');
+  // The card itself is not mutated (the shop's copy is built from the same rows).
+  assert.equal(c.photos.length, 3);
+});
+
+test('fix 1 · nothing hidden → the couple gets every item (just not the refs)', () => {
+  const out = cardWithoutHidden({ ...full(), hiddenOnCard: undefined }, []);
+  assert.equal(out.photos.length, 3);
+  assert.equal(out.videoUrl, 'https://u/v');
+  assert.equal(out.record?.ledger.length, 2);
+  assert.equal(out.inspirationLooks?.length, 2);
+  assert.equal(out.photoRefs, undefined);
+});
+
+test('fix 1 · the page drops them on the server, for everyone but the shop, AFTER the looks are attached', () => {
+  const page = readFileSync(join(__dirname, '../app/v/[slug]/page.tsx'), 'utf8');
+  const strip = page.indexOf('cardWithoutHidden(c,');
+  assert.ok(strip > 0, 'the page strips the cards');
+  assert.ok(strip > page.indexOf('withInspirationLooks(c, inspirationByService'), 'after every hideable item is on the card');
+  assert.ok(strip < page.indexOf('<ServicesGallery', strip), 'before the cards are handed to the client');
+  assert.match(page, /if \(detailsEnabled && \(cardHides\.status === 'error' \|\| !viewerCuratesCards\)\)/);
+  // "The shop" is decided on the server, fail-closed, with the same check RLS uses for the write.
+  assert.match(page, /await viewerRunsShop\(vendor\.vendor_profile_id\)/);
+  assert.match(page, /ownerCheckFor=\{viewerCuratesCards \? vendor\.vendor_profile_id : null\}/);
+});
+
+test('fix 2 · a FAILED hides read fails closed: nothing hideable is shown, and the card says so', () => {
+  const out = cardWithoutHidden({ ...full(), hiddenOnCard: undefined }, 'unread');
+  assert.deepEqual(out.photos, [], 'every showcase photo a hide is keyed on is left out');
+  assert.equal(out.videoUrl, null);
+  assert.deepEqual(out.record?.ledger, []);
+  assert.deepEqual(out.inspirationLooks, []);
+  assert.equal(out.record?.bookedCount, 2, 'the facts stay — only the hideable items go');
+  assert.equal(out.hidesUnread, true, 'the honest line is drawn');
+  // A cover fallback (no refs) is not hideable, so it stays — and a card that lost nothing says nothing.
+  const cover = cardWithoutHidden(card({ photos: ['https://u/cover'] }), 'unread');
+  assert.deepEqual(cover.photos, ['https://u/cover']);
+  assert.equal(cover.hidesUnread, undefined);
+});
+
+test('fix 2 · readCardHides reports an error — never an empty map that reads as "nothing hidden"', () => {
+  const src = readFileSync(join(__dirname, 'service-card-hides.server.ts'), 'utf8');
+  const body = src.slice(src.indexOf('export async function readCardHides'), src.indexOf('export async function viewerRunsShop'));
+  assert.match(body, /if \(error\) \{[\s\S]{0,160}return \{ status: 'error' \};/);
+  assert.doesNotMatch(body, /if \(error\) \{[\s\S]{0,160}return new Map\(\);/);
+});
+
+test('fix 3 · a hide save that fails or is refused is a message, never silence', () => {
+  assert.equal(cardHideSaveError({ status: 'ok' }, true), null);
+  assert.match(cardHideSaveError({ status: 'error' }, true) ?? '', /wasn’t saved\. It is still showing on this card\. Try again\./);
+  assert.match(cardHideSaveError({ status: 'error' }, false) ?? '', /It is still hidden on this card/);
+  assert.match(cardHideSaveError({ status: 'refused' }, true) ?? '', /can’t change this card/);
+  assert.match(cardHideSaveError(null, true) ?? '', /wasn’t saved/, 'no reply (a thrown call) is a failure too');
 });

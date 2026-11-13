@@ -25,6 +25,7 @@ import type { ServiceCard } from '@/lib/service-card-view-model';
 // type's home is the view-model lib, which both sides of the app read.
 export type { ServiceCard };
 import type { CompiledCardRecord } from '@/lib/service-card-record';
+import { cardHideSaveError } from '@/lib/service-card-hides';
 import {
   ServiceDetailsSheet,
   type GrownCardOwner,
@@ -140,26 +141,44 @@ export function ServicesGallery({
       live = false;
     };
   }, [ownerCheckFor, detailsEnabled]);
-  /** Hide (or show again) one item on one card — shown at once, put back if the save is refused. */
+  // 🃏 A toggle is drawn only once the save SUCCEEDED — never flipped first and put back, which would look like it
+  // worked. While it saves the item is marked busy; a failed or refused save leaves it as it was and says so.
+  const [pendingHide, setPendingHide] = useState<Record<string, string[]>>({});
+  const [hideError, setHideError] = useState<Record<string, string | null>>({});
   const toggleHide = (cardId: string, key: string, hide: boolean) => {
-    const apply = (on: boolean) =>
+    if ((pendingHide[cardId] ?? []).includes(key)) return;
+    const busy = (on: boolean) =>
+      setPendingHide((p) => {
+        const cur = new Set(p[cardId] ?? []);
+        if (on) cur.add(key);
+        else cur.delete(key);
+        return { ...p, [cardId]: [...cur] };
+      });
+    busy(true);
+    setHideError((e) => ({ ...e, [cardId]: null }));
+    const settle = (error: string | null) => {
+      busy(false);
+      if (error) {
+        setHideError((e) => ({ ...e, [cardId]: error }));
+        return;
+      }
       setHides((h) => {
         const cur = new Set(h[cardId] ?? []);
-        if (on) cur.add(key);
+        if (hide) cur.add(key);
         else cur.delete(key);
         return { ...h, [cardId]: [...cur] };
       });
-    apply(hide);
+    };
     couplePhotoShare({ op: 'card_hide', vendorServiceId: cardId, key, hidden: hide })
-      .then((reply) => {
-        if (reply.op !== 'card_hide' || reply.result.status !== 'ok') apply(!hide);
-      })
-      .catch(() => apply(!hide));
+      .then((reply) => settle(cardHideSaveError(reply.op === 'card_hide' ? reply.result : null, hide)))
+      .catch(() => settle(cardHideSaveError(null, hide)));
   };
   const ownerFor = (cardId: string): GrownCardOwner | null =>
     ownerOpens
       ? {
           hidden: new Set(hides[cardId] ?? []),
+          saving: new Set(pendingHide[cardId] ?? []),
+          saveError: hideError[cardId] ?? null,
           onToggle: (key, hide) => toggleHide(cardId, key, hide),
           opens: ownerOpens.opens === null ? null : (ownerOpens.opens[cardId] ?? 0),
         }

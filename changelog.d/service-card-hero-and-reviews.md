@@ -24,7 +24,7 @@ the shop's own card) and still pins as the slim title bar; one section head pins
 - Lab: `/dev/shop-preview-lab?view=card-owner`.
 
 Not done here: hiding a REVIEW per card (the approved prototype says "Reviews and forms are never hidden here") · Forms ·
-Albums · the Card Maker door to the grown card (the shop's own card opens from its public shop page today).
+the Card Maker door to the grown card (the shop's own card opens from its public shop page today).
 
 SPEC IMPACT: None — builds the approved prototype and the 10 Nov rulings as written; the one divergence from the
 controller brief (no per-card review hide) follows the approved prototype and is raised on the PR.

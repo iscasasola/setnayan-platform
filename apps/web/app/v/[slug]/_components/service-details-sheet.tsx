@@ -35,7 +35,7 @@
  * EVENTS, WITHOUT NAMES (ruling 5970 "events shown without names"): the record's own anonymised lines (type · month ·
  * guest band — `service_card_records`, its SQL floor intact), drawn as their own section after Reviews.
  *
- * Not drawn yet: Forms (`vendor_form_service_links`) · Albums. Nothing here is invented in their place.
+ * Not drawn yet: Forms (`vendor_form_service_links`). Nothing here is invented in its place.
  *
  * ⚠ THE SETNAYAN EXCLUSIVE IS NOT HERE, AND MUST NOT BE. `vendor_services.exclusive_perk_text` is "Never shown
  * publicly. Revealed in-thread when the vendor token-pursues" (lib/vendor-services.ts) — a reward for the conversation,
@@ -93,11 +93,16 @@ const lines = (n: number, one: string, many: string) => `${formatCount(n)} ${n =
 
 /**
  * 🃏 The shop's own view of its card (ruling 5970): what it hid on this card and the card's opens. Null for everyone
- * else — a couple's card is drawn from `card.hiddenOnCard` alone, with the hidden items left out.
+ * else — a couple's card arrives with the hidden items already dropped on the server (`cardWithoutHidden`), so there
+ * is nothing here for it to leave out.
  */
 export type GrownCardOwner = {
   /** Keys hidden on THIS card right now (`lib/service-card-hides.ts`). */
   hidden: ReadonlySet<string>;
+  /** Keys whose save is in flight — drawn busy, never flipped until the save is confirmed. */
+  saving: ReadonlySet<string>;
+  /** The last save on this card failed or was refused — said in words; the item stays as it was. */
+  saveError: string | null;
   /** Hide (true) or show again (false) one item. */
   onToggle: (key: string, hide: boolean) => void;
   /** Distinct viewer-days opened in the last 12 months; null = the read failed ("Couldn't load", never 0). */
@@ -146,8 +151,7 @@ export function ServiceDetailsSheet({
   const toldOnce = useRef(false);
   /** The supplier curating: hidden items stay, greyed, and a tap toggles them. */
   const curating = owner !== null && !coupleView;
-  const isHidden = (key: string | null) =>
-    key !== null && (owner ? owner.hidden.has(key) : (c.hiddenOnCard ?? []).includes(key));
+  const isHidden = (key: string | null) => key !== null && owner !== null && owner.hidden.has(key);
   /** Left out of the card — for couples, and in the 👁 Couple view. */
   const leftOut = (key: string | null) => !curating && isHidden(key);
 
@@ -256,12 +260,14 @@ export function ServiceDetailsSheet({
   const hidable = (key: string | null, label: string, className: string, inner: ReactNode) => {
     if (!curating || key === null) return <div className={className}>{inner}</div>;
     const h = isHidden(key);
+    const saving = owner?.saving.has(key) ?? false;
     // A tile fills its square (the label sits over its foot); a row keeps the label at its end.
     const tile = className.includes('absolute inset-0');
     return (
       <button
         type="button"
         onClick={() => {
+          if (saving) return;
           owner?.onToggle(key, !h);
           if (!h && !toldOnce.current) {
             toldOnce.current = true;
@@ -269,12 +275,15 @@ export function ServiceDetailsSheet({
           }
         }}
         aria-pressed={h}
+        aria-busy={saving || undefined}
+        disabled={saving}
         aria-label={`${label} · ${h ? 'hidden on this card · tap to show it' : 'tap to hide it on this card'}`}
         className={`${className} sn-press text-left${tile ? '' : ' relative'}`}
         data-card-hidable=""
         data-hidden={h ? '' : undefined}
+        data-saving={saving ? '' : undefined}
       >
-        <span className={`${tile ? 'absolute inset-0 block' : 'block min-w-0 flex-1'}${h ? ' opacity-35 grayscale' : ''}`}>{inner}</span>
+        <span className={`${tile ? 'absolute inset-0 block' : 'block min-w-0 flex-1'}${h ? ' opacity-35 grayscale' : ''}${saving ? ' animate-pulse' : ''}`}>{inner}</span>
         {h ? (
           <span
             className={`pointer-events-none flex items-center justify-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium leading-tight text-ink/70 ${
@@ -648,6 +657,26 @@ export function ServiceDetailsSheet({
                 <span className="flex-1">Tap a photo, the clip, an event or an inspiration photo to hide it on this card</span>
                 <X aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={2} />
               </button>
+            </div>
+          ) : null}
+          {/* 🃏 A hide that did not save says so; the item is still as it was (never flipped first). */}
+          {owner?.saveError ? (
+            <div className="px-4 pb-2">
+              <p role="alert" className="flex min-h-11 items-center gap-2 rounded-xl bg-danger-50 px-3 text-[12.5px] text-danger-700" data-grown-hide-error="">
+                <Info aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                {owner.saveError}
+              </p>
+            </div>
+          ) : null}
+          {/* 🃏 The hides read failed: the hideable items were left out on the server, and this line says why. */}
+          {c.hidesUnread ? (
+            <div className="px-4 pb-2">
+              <p role="status" className="flex min-h-11 items-center gap-2 rounded-xl bg-ink/[0.04] px-3 text-[12.5px] text-ink/70" data-grown-hides-unread="">
+                <Info aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={2} />
+                {owner
+                  ? 'What you hid on this card couldn’t load, so its photos, clip, events and inspiration are left out for everyone until it does. Reload to try again.'
+                  : 'Some of this card’s photos and events couldn’t load right now. Reload to try again.'}
+              </p>
             </div>
           ) : null}
           {owner && coupleView ? (

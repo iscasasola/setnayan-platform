@@ -149,6 +149,11 @@ export type ServiceCard = {
   photoRefs?: string[];
   clipRef?: string;
   hiddenOnCard?: string[];
+  /**
+   * 🃏 The hides read FAILED (`cardWithoutHidden(card, 'unread')`): the card's hideable items were left out because
+   * nobody could say which the shop hid, and the grown card says so in one line. Absent on every other card.
+   */
+  hidesUnread?: true;
 };
 
 export type CardReviews = {

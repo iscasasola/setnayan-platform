@@ -25,7 +25,7 @@ export type GreenBatch = { ok: true; rows: PaymentLightRow[] } | { ok: false };
 export function GreenBatchAction({ batch, backTo }: { batch: GreenBatch; backTo: string }) {
   if (!batch.ok) {
     return (
-      <p className="flex items-start gap-2 border-t border-[color:var(--sn-line-soft,#F1ECE3)] px-4 py-2.5 text-xs" style={{ color: '#B54708' }}>
+      <p className="flex items-start gap-2 border-t border-[color:var(--sn-line)] px-4 py-2.5 text-xs" style={{ color: 'var(--sn-warning-deep)' }}>
         <ShieldAlert aria-hidden className="mt-px h-4 w-4 shrink-0" strokeWidth={1.75} />
         <span>Couldn’t sort the payments into green and held — this is not the same as none being clean. Open them one by one.</span>
       </p>
@@ -37,9 +37,9 @@ export function GreenBatchAction({ batch, backTo }: { batch: GreenBatch; backTo:
   const label = `Approve all ${formatCount(n)} green`;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[color:var(--sn-line-soft,#F1ECE3)] px-4 py-2.5">
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[color:var(--sn-line)] px-4 py-2.5">
       <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--sn-ink-500)' }}>
-        <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--sn-success, #027A48)' }} />
+        <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--sn-success)' }} />
         {formatCount(n)} {n === 1 ? 'payment is' : 'payments are'} a clean match
       </span>
       <ConfirmForm
@@ -77,7 +77,7 @@ export function GreenBatchAction({ batch, backTo }: { batch: GreenBatch; backTo:
         <SubmitButton
           pendingLabel="Approving…"
           className="min-h-[44px] rounded-md px-3 py-1.5 text-xs font-semibold"
-          style={{ background: 'var(--sn-cta, #C24E25)', color: '#FFFFFF' }}
+          style={{ background: 'var(--sn-accent)', color: 'var(--sn-on-accent)' }}
         >
           {label}
         </SubmitButton>

@@ -18,14 +18,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { isDecisivePaymentMatch } from '@/lib/orders';
+import { stripComments } from '@/lib/strip-comments';
 import { paymentLight, receiptVerdictLine, greenIds, type PaymentLightInput } from '@/lib/admin/green-payments';
 
 const WEB = join(process.cwd(), process.cwd().endsWith('apps/web') ? '' : 'apps/web');
-const code = (p: string) =>
-  readFileSync(join(WEB, p), 'utf8')
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+const code = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
 
 const BASE: PaymentLightInput = {
   referenceNumber: 'GC-SN1A2B3C4D-884213',

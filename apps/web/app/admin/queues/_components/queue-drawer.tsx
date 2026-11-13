@@ -144,8 +144,8 @@ export function QueueDrawer({
                   className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
                   style={
                     it.light === 'green'
-                      ? { background: 'var(--sn-success-soft, #ECFDF3)', color: 'var(--sn-success, #027A48)' }
-                      : { background: 'var(--sn-warning-soft, #FFFAEB)', color: '#B54708' }
+                      ? { background: 'var(--sn-success-soft)', color: 'var(--sn-success)' }
+                      : { background: 'var(--sn-warning-soft)', color: 'var(--sn-warning-deep)' }
                   }
                 >
                   {it.light === 'green' ? 'Green' : 'Held'}
@@ -159,7 +159,7 @@ export function QueueDrawer({
             ) : null}
             {/* Amber rows: the one line saying why it is not in "Approve all N green". */}
             {it.held ? (
-              <span className="mt-0.5 block text-xs" style={{ color: '#B54708' }}>
+              <span className="mt-0.5 block text-xs" style={{ color: 'var(--sn-warning-deep)' }}>
                 Why held: {it.held}
               </span>
             ) : null}

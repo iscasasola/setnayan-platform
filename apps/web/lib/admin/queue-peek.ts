@@ -310,10 +310,14 @@ export async function peekQueue(
             .join(' · '),
           light: row.light.light,
           verdict: row.verdict,
-          held: row.light.light === 'amber' ? row.light.why : undefined,
+          // A proofless row already says why in its note — not twice.
+          held: row.light.light === 'amber' && hasProof ? row.light.why : undefined,
           action: hasProof
             ? { kind: 'approve-payment', label: 'Confirm payment', id: row.paymentId }
             : undefined,
+          note: hasProof
+            ? undefined
+            : 'No reference or screenshot yet — nothing to check the money against. Open it to see the order.',
           href: '/admin/payments',
         };
       });

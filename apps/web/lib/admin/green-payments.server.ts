@@ -112,7 +112,10 @@ export async function readPaymentLights(
       referenceNumber: p.reference_number,
       who: p.user?.email ?? p.order?.public_id ?? 'a guest order',
       createdAt: p.created_at,
-      hasProof: (p.reference_number ?? '').trim() !== '' || (p.screenshot_url ?? '').trim() !== '',
+      // Proof means non-empty, not merely non-null — '' is what an empty field posts.
+      hasProof:
+        (p.reference_number != null && p.reference_number.trim() !== '') ||
+        (p.screenshot_url != null && p.screenshot_url.trim() !== ''),
       light: paymentLight({
         referenceNumber: p.reference_number,
         referenceCode: p.order?.reference_code ?? null,

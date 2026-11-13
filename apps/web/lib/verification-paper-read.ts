@@ -85,15 +85,18 @@ Reply with ONE JSON object and nothing else, with exactly these keys:
   "rdo": the BIR Revenue District Office code, or null,
   "address": the business address as printed, or null,
   "city": the city or municipality that issued or is named on the paper, or null,
+  "tin": the Taxpayer Identification Number wherever it is printed on this paper, as printed, or null,
   "expiration_date": the date the document expires or is valid until, as YYYY-MM-DD, or null,
   "read_as": one short plain sentence saying what this paper is, e.g. "Read as a DTI business name certificate for ICASA ENTERPRISE.",
-  "could_not_read": a list of the keys above whose value is printed but you could not make out
+  "could_not_read": a list of the keys above whose value is printed but you could not make out,
+  "confident": an object with one boolean per key above that has a value — true only when you read it clearly and are sure of every character
 }
 
 Rules:
 - Copy values exactly as printed. Never correct, complete or guess a value.
 - "expiration_date" ONLY when the paper prints one. A BIR Form 2303 usually has no expiry: use null. Never use the issue date, the registration date, or the end of the year as an expiry.
-- If a value is not on the paper, use null. If it is on the paper but you cannot read it, use null AND list the key in "could_not_read".`;
+- If a value is not on the paper, use null. If it is on the paper but you cannot read it, use null AND list the key in "could_not_read".
+- Mark "confident" false for any value you had to guess at, even one character.`;
 
 /** What the model returned, after defensive parsing. */
 export type ModelPaperRead = {
@@ -108,6 +111,14 @@ export type ModelPaperRead = {
   expirationDate: string | null;
   readAs: string | null;
   couldNotRead: readonly string[];
+  /** The TIN wherever it is printed, as printed. */
+  tin: string | null;
+  /**
+   * Keys that HAVE a value but the model did not mark `confident: true`. A
+   * missing `confident` object makes every valued key unsure — silence is not
+   * confidence.
+   */
+  unsure: readonly string[];
 };
 
 const REGISTRY_SET: ReadonlySet<string> = new Set(['dti', 'sec', 'bir', 'lgu', 'unreadable']);
@@ -159,8 +170,27 @@ export function parseModelPaperJson(text: string): ModelPaperRead | null {
   const couldNotRead = Array.isArray(r.could_not_read)
     ? r.could_not_read.filter((k): k is string => typeof k === 'string').slice(0, 20)
     : [];
+  const valued: Record<string, unknown> = {
+    account_name: r.account_name,
+    owner_name: r.owner_name,
+    registration_number: r.registration_number,
+    tin: r.tin,
+    rdo: r.rdo,
+    address: r.address,
+    city: r.city,
+    expiration_date: r.expiration_date,
+  };
+  const conf =
+    r.confident && typeof r.confident === 'object' && !Array.isArray(r.confident)
+      ? (r.confident as Record<string, unknown>)
+      : {};
+  const unsure = Object.entries(valued)
+    .filter(([k, v]) => cleanValue(v) !== null && conf[k] !== true)
+    .map(([k]) => k);
   return {
     registry,
+    tin: cleanValue(r.tin, 40),
+    unsure,
     accountName: cleanValue(r.account_name),
     ownerName: cleanValue(r.owner_name),
     registrationNumber: cleanValue(r.registration_number, 80),

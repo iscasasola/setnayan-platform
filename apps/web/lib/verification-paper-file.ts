@@ -23,6 +23,43 @@ const MAX_JPEG_BYTES = 3_500_000;
  */
 const MAX_PDF_BYTES = 20_000_000;
 
+/** Adopted spec item 1: 10 MB, PDF / JPEG / PNG (HEIC only where `sharp` opens it). */
+export const PAPER_MAX_BYTES = 10 * 1024 * 1024;
+
+export type PaperFileCheck = { ok: true; kind: 'pdf' | 'jpeg' | 'png' | 'heic' } | { ok: false; reason: string };
+
+/**
+ * Is this a paper we will read? Decided from the BYTES (magic numbers), never
+ * the name, and a file that does not open is refused before any model sees it.
+ */
+export async function checkPaperFile(bytes: Uint8Array): Promise<PaperFileCheck> {
+  if (bytes.byteLength > PAPER_MAX_BYTES) return { ok: false, reason: 'The file is over 10 MB.' };
+  const kind = sniffPaperFile(bytes);
+  if (kind === 'pdf') {
+    try {
+      const { PDFDocument } = await import('pdf-lib');
+      const doc = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
+      if (doc.getPageCount() < 1) return { ok: false, reason: 'The PDF has no pages.' };
+      return { ok: true, kind };
+    } catch {
+      return { ok: false, reason: 'The PDF does not open — it may be damaged.' };
+    }
+  }
+  if (kind === 'jpeg' || kind === 'png' || kind === 'heic') {
+    try {
+      const meta = await sharp(bytes).metadata();
+      if (!meta.width || !meta.height) return { ok: false, reason: 'The picture does not open — it may be damaged.' };
+      return { ok: true, kind };
+    } catch {
+      return {
+        ok: false,
+        reason: kind === 'heic' ? 'This HEIC photo could not be opened here.' : 'The picture does not open — it may be damaged.',
+      };
+    }
+  }
+  return { ok: false, reason: 'Only PDF, JPEG or PNG papers are read.' };
+}
+
 export type ModelBlock =
   | { type: 'document'; source: { type: 'base64'; media_type: 'application/pdf'; data: string } }
   | { type: 'image'; source: { type: 'base64'; media_type: 'image/jpeg'; data: string } };
@@ -81,21 +118,28 @@ export async function paperToModelBlock(bytes: Uint8Array): Promise<ModelBlock> 
  */
 export async function readPaperQr(
   bytes: Uint8Array,
-): Promise<{ qrText: string | null; qrUnreadable: boolean }> {
+): Promise<{ qrText: string | null; qrTexts: string[]; qrUnreadable: boolean }> {
+  const found: string[] = [];
   try {
     const kind = sniffPaperFile(bytes);
+    // EVERY picture on EVERY page of a PDF — `pdfEmbeddedImages` walks the whole
+    // file, not page one — and every QR found is kept (adopted spec item 2).
     const pictures =
       kind === 'pdf'
-        ? await pdfEmbeddedImages(bytes)
+        ? await pdfEmbeddedImages(bytes, { maxImages: 40 })
         : kind === 'unknown'
           ? []
           : [bytes];
     for (const pic of pictures) {
       const text = await decodeQrPayloadFromImage(pic);
-      if (text) return { qrText: text.slice(0, 2000), qrUnreadable: false };
+      const t = text?.slice(0, 2000);
+      if (t && !found.includes(t)) found.push(t);
+      if (found.length >= 8) break;
     }
   } catch {
     // fall through — an unreadable QR, never an error
   }
-  return { qrText: null, qrUnreadable: true };
+  return found.length
+    ? { qrText: found[0]!, qrTexts: found, qrUnreadable: false }
+    : { qrText: null, qrTexts: [], qrUnreadable: true };
 }

@@ -319,7 +319,7 @@ test('a JPEG paper with a QR — decoded by the shared decoder', async () => {
     .composite([{ input: await qrPng(), left: 760, top: 360 }])
     .jpeg({ quality: 92 })
     .toBuffer();
-  assert.deepEqual(await readPaperQr(page), { qrText: QR_TEXT, qrUnreadable: false });
+  assert.deepEqual(await readPaperQr(page), { qrText: QR_TEXT, qrTexts: [QR_TEXT], qrUnreadable: false });
 });
 
 test('a PDF paper with a QR (as PNG and as JPEG inside it) — decoded', async () => {
@@ -333,15 +333,15 @@ test('a PDF paper with a QR (as PNG and as JPEG inside it) — decoded', async (
     page.drawImage(img, { x: 380, y: 60, width: 160, height: 160 });
     const pdf = await doc.save();
     assert.equal(sniffPaperFile(pdf), 'pdf');
-    assert.deepEqual(await readPaperQr(pdf), { qrText: QR_TEXT, qrUnreadable: false }, asJpeg ? 'jpeg' : 'png');
+    assert.deepEqual(await readPaperQr(pdf), { qrText: QR_TEXT, qrTexts: [QR_TEXT], qrUnreadable: false }, asJpeg ? 'jpeg' : 'png');
   }
 });
 
 test('a paper with no readable QR — unreadable, never an error', async () => {
   const blank = await sharp({ create: { width: 300, height: 200, channels: 3, background: '#ffffff' } }).jpeg().toBuffer();
-  assert.deepEqual(await readPaperQr(blank), { qrText: null, qrUnreadable: true });
-  assert.deepEqual(await readPaperQr(SYNTHETIC_PDF), { qrText: null, qrUnreadable: true });
-  assert.deepEqual(await readPaperQr(Buffer.from('not a paper at all, just words')), { qrText: null, qrUnreadable: true });
+  assert.deepEqual(await readPaperQr(blank), { qrText: null, qrTexts: [], qrUnreadable: true });
+  assert.deepEqual(await readPaperQr(SYNTHETIC_PDF), { qrText: null, qrTexts: [], qrUnreadable: true });
+  assert.deepEqual(await readPaperQr(Buffer.from('not a paper at all, just words')), { qrText: null, qrTexts: [], qrUnreadable: true });
 });
 
 test('THE SERVER NEVER FETCHES THE DECODED LINK', () => {

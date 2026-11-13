@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1862
-# tables: 498
-# columns: 6055
-# notnull: 3654
+# ledger: 1867
+# tables: 500
+# columns: 6074
+# notnull: 3661
 [ledger]
 20260512000000
 20260513000000
@@ -1874,6 +1874,11 @@
 20271343002292
 20271343328401
 20271343340931
+20271343761700
+20271344038763
+20271344061337
+20271344452857
+20271344488042
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -6432,6 +6437,9 @@ users.sex
 users.sex_consent_at
 users.share_profile_photo_with_hosts
 users.slug
+users.suspended_at
+users.suspended_reason
+users.suspended_until
 users.terms_accepted_at
 users.terms_version
 users.theme_preference
@@ -7174,6 +7182,22 @@ vendor_payouts.trigger_type
 vendor_payouts.updated_at
 vendor_payouts.vendor_net_centavos
 vendor_payouts.vendor_profile_id
+vendor_plan_content_changes.approval_id
+vendor_plan_content_changes.change_id
+vendor_plan_content_changes.changed_at
+vendor_plan_content_changes.changed_by
+vendor_plan_content_changes.confirmed_by
+vendor_plan_content_changes.key
+vendor_plan_content_changes.new_value
+vendor_plan_content_changes.old_value
+vendor_plan_content_changes.plan
+vendor_plan_contents.approval_id
+vendor_plan_contents.changed_at
+vendor_plan_contents.changed_by
+vendor_plan_contents.confirmed_by
+vendor_plan_contents.key
+vendor_plan_contents.plan
+vendor_plan_contents.value
 vendor_portfolio_photo_view_days.photo_key
 vendor_portfolio_photo_view_days.vendor_profile_id
 vendor_portfolio_photo_view_days.viewed_on
@@ -11138,6 +11162,13 @@ vendor_payouts.stage_pct
 vendor_payouts.trigger_type
 vendor_payouts.updated_at
 vendor_payouts.vendor_profile_id
+vendor_plan_content_changes.change_id
+vendor_plan_content_changes.changed_at
+vendor_plan_content_changes.key
+vendor_plan_content_changes.plan
+vendor_plan_contents.changed_at
+vendor_plan_contents.key
+vendor_plan_contents.plan
 vendor_portfolio_photo_view_days.photo_key
 vendor_portfolio_photo_view_days.vendor_profile_id
 vendor_portfolio_photo_view_days.viewed_on

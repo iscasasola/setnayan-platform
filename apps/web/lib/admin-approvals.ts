@@ -54,7 +54,11 @@ export type ApprovalActionType =
   // confirmed by a second admin. Never in the picker: there is nothing to
   // propose in the abstract, only a specific new price on a specific SKU.
   // target_id carries the service_code; the figures ride in the payload.
-  | 'approve_retail_price_change';
+  | 'approve_retail_price_change'
+  // Owner 2026-11-13 ("Yes, add both") — what a supplier plan INCLUDES (vendor_plan_contents), changed "like a price".
+  // Initiated from /admin/pricing?tab=plan-contents, confirmed by a second admin. Never in the picker. target_id
+  // carries `<plan>:<key>`; the new number rides in the payload.
+  | 'approve_plan_contents_change';
 
 /**
  * Display labels for action types that are NOT in the manual picker
@@ -70,6 +74,7 @@ const NON_PICKER_ACTION_LABEL: Record<string, string> = {
   approve_large_refund: 'Approve refund over ₱25,000 (money)',
   approve_payment_account_change: 'Change a receiving account (money)',
   approve_retail_price_change: 'Change what a customer pays for a SKU (money)',
+  approve_plan_contents_change: 'Change what a supplier plan includes',
 };
 
 export type ApprovalActionMeta = {

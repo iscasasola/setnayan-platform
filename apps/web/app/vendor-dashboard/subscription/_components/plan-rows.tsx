@@ -159,8 +159,8 @@ export function PlanRows({
           data="plan-boost"
           lead={ic(Star)}
           title="Featured by Setnayan"
-          line={featured ? 'Setnayan features your work in its stories' : 'Setnayan features Pro shops in its stories'}
-          badge={featured ? { tone: 'ok', word: 'On' } : { tone: 'quiet', word: 'Pro' }}
+          line={featured ? 'Setnayan features your work in its stories' : 'Setnayan features Supplier Pro shops in its stories'}
+          badge={featured ? { tone: 'ok', word: 'On' } : { tone: 'quiet', word: 'Supplier Pro' }}
         />
         <DatesRow
           data="plan-cancel"

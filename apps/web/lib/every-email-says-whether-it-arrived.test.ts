@@ -74,7 +74,8 @@ test('a notification email is tagged with its type', () => {
 });
 
 test('the home strip is mounted — once, unconditionally', () => {
-  const home = code('app/admin/page.tsx');
+  // Since 13 Nov 2026 /admin IS the work list (it renders work/page.tsx), so the strip rides the list's lead.
+  const home = code('app/admin/work/page.tsx');
   assert.equal(count(home, '<EmailDeliveryStrip />'), 1);
   const at = home.indexOf('<EmailDeliveryStrip />');
   const before = home.slice(Math.max(0, at - 120), at);

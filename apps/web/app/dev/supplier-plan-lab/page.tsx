@@ -182,7 +182,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(shop.tier, 'free', shop.expires) },
     ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({
       key: t,
-      name: t === 'solo' ? 'Solo' : t === 'pro' ? 'Pro' : 'Ultra',
+      name: t === 'solo' ? 'Supplier Plus' : t === 'pro' ? 'Supplier Pro' : 'Supplier Ultra',
       price: LAB_PRICES[t]!,
       tooShort: { monthly: who === 'studio' ? 'You are paid up to 3 October 2027 — pick a year so it covers that.' : null, annual: null },
       pickLine: planPickLine(shop.tier, t, shop.expires),
@@ -220,8 +220,8 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
           : shop.tier === 'free'
             ? []
             : [
-                { key: 'r1', title: `${shop.tier === 'pro' ? 'Pro' : 'Solo'} plan`, line: 'Thu 1 Oct 2026 · lab price', receiptId: 'lab-receipt' },
-                { key: 'r2', title: `${shop.tier === 'pro' ? 'Pro' : 'Solo'} plan`, line: 'Tue 1 Sep 2026 · lab price', receiptId: null },
+                { key: 'r1', title: `${shop.tier === 'pro' ? 'Supplier Pro' : 'Supplier Plus'} plan`, line: 'Thu 1 Oct 2026 · lab price', receiptId: 'lab-receipt' },
+                { key: 'r2', title: `${shop.tier === 'pro' ? 'Supplier Pro' : 'Supplier Plus'} plan`, line: 'Tue 1 Sep 2026 · lab price', receiptId: null },
               ]
       }
       papicPackPrice={99}
@@ -246,7 +246,7 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(tier, 'free', gift ? '31 January 2027' : null) },
     ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({
       key: t,
-      name: t === 'solo' ? 'Solo' : t === 'pro' ? 'Pro' : 'Ultra',
+      name: t === 'solo' ? 'Supplier Plus' : t === 'pro' ? 'Supplier Pro' : 'Supplier Ultra',
       price: LAB_PRICES[t]!,
       tooShort: { monthly: null, annual: null },
       pickLine: planPickLine(tier, t, gift ? '31 January 2027' : null),

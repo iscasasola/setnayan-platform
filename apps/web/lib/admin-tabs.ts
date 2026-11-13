@@ -155,6 +155,12 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
     tab: 'catalogue',
     note: 'The four-level taxonomy, event types and Hub tools all live on this one page.',
   },
+  {
+    route: '/admin/categories/requests',
+    tab: 'catalogue',
+    note: 'Service requests — what suppliers asked us to add, and the one Decision that moves their cards (2026-11-13).',
+  },
+  { route: '/admin/categories/requests/[requestId]', tab: 'catalogue' },
   { route: '/admin/pricing', tab: 'catalogue', note: 'The price list.' },
   { route: '/admin/addons', tab: 'catalogue', stubTo: '/admin/pricing' },
   { route: '/admin/price-bands', tab: 'catalogue', stubTo: '/admin/pricing?tab=price-bands' },

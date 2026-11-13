@@ -92,6 +92,9 @@ export async function requestConnection(input: {
     ),
     body: 'Open your people to accept or decline. Nothing connects until you say so.',
     relatedUrl: '/dashboard?seg=people',
+    // 📍 A request sent FROM an event says that event on the bell row (owner 2026-11-13, the notification place).
+    // The link stays the People page; the event rides `event_id`, since `/dashboard?seg=people` names none.
+    eventId: fromEvent?.eventId ?? null,
   });
   const email = normalizeEmail(input.theirEmail);
   if (email && input.invite) await input.invite(email, myFirstName);

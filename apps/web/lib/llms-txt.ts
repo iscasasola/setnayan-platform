@@ -200,6 +200,9 @@ const REQUIRED_RETAIL = [
   // ANIMATED_MONOGRAM removed 2026-10-22 — retired from sale (migration 20271283592608): the animated logo is the
   // Logo & QR part of Event Hub PRO then (2026-10-26: Event Hub PRO, sold whole). 🪤 Entry and prose went together.
   'COUPLE_WEBSITE_PRO',
+  // 💎 Event Ultra (owner 2026-11-13, migration 20271344860040_event_ultra_plan) — the third event plan. Its price is
+  // the row, read by R('EVENT_ULTRA'); its grants are `EVENT_ULTRA_GRANTS` (lib/event-ultra.ts).
+  'EVENT_ULTRA',
   // COUPLE_HUB_PART_* (the eleven Event Hub Pro parts) removed 2026-10-26 — off sale (owner: "just have the upgrade
   // event hub pro" … "no more by part as well on the website"; migration 20271290543004). 🪤 Entry and prose went
   // together: a quoted retired row throws and drops the whole file to its stub.
@@ -588,7 +591,7 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
 
 ## What Setnayan does
 
-Setnayan is software, not an agency. Hosts start free with the planning workspace (schedule, budget, guest list, seat plan, mood board) and a preview of their supplier matches, then optionally add Event Plus or Event Pro — both carry Setnayan AI, the supplier-matchmaking and guided-planning layer — and any of the in-app paid services. Verified Filipino suppliers list their services and are booked inside the event — the quote, the payments and the chat record sit in one place — and couples pay them directly. ${supplierFee}
+Setnayan is software, not an agency. Hosts start free with the planning workspace (schedule, budget, guest list, seat plan, mood board) and a preview of their supplier matches, then optionally add Event Plus, Event Pro or Event Ultra — all three carry Setnayan AI, the supplier-matchmaking and guided-planning layer — and any of the in-app paid services. Verified Filipino suppliers list their services and are booked inside the event — the quote, the payments and the chat record sit in one place — and couples pay them directly. ${supplierFee}
 
 ## What Setnayan is
 
@@ -604,7 +607,7 @@ ${featurePagesSection()}
 - [Setnayan Home](${url('/')}) — Platform overview, transparent PHP pricing, Filipino supplier stories.
 - [Find suppliers on Discover](${url('/')}) — Browse verified Filipino event suppliers on the front page: pick a category, filter by city, event type and faith; compare shortlisted suppliers at [/explore/compare](${url('/explore/compare')}).
 - [Supplier pages](${url('/v/')}) — Each supplier has a public page at /v/[slug] (canonical bare-root /[slug] once claimed) with services, packages, coverage cities, and plan badge.
-- [Pricing](${url('/pricing')}) — Free, Event Plus and Event Pro for an event, the à-la-carte services, and the supplier plans.
+- [Pricing](${url('/pricing')}) — Free, Event Plus, Event Pro and Event Ultra for an event, the à-la-carte services, and the supplier plans.
 - [For Suppliers](${url('/for-suppliers')}) — List your business. Free verified pages, for good — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
 - [For Coordinators](${url('/for-coordinators')}) — For event coordinators: every client's event from one login, with the access each couple grants area by area, on the same supplier plans.
 - [Setnayan AI](${url('/setnayan-ai')}) — Supplier matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-supplier risk.
@@ -623,7 +626,7 @@ ${featurePagesSection()}
 - **Geography:** Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city Filipino suppliers serve.
 - **Languages:** English (primary). Tagalog (TL) for the dashboard's menus and buttons, and a Tagalog twin of every feature page.
 - **Data residency:** Database in Singapore (Supabase); object storage in Cloudflare R2's APAC region. Nothing is hosted in the Philippines.
-- **Pricing model:** Software publisher. Couples start free; Event Plus and Event Pro are the two paid plans for an event (Setnayan AI comes inside both); everything else is à la carte. Couples pay suppliers directly with no Setnayan markup; suppliers pay for an optional plan and the booking fee described under the supplier plans.
+- **Pricing model:** Software publisher. Couples start free; Event Plus, Event Pro and Event Ultra are the three paid plans for an event (Setnayan AI comes inside all three); everything else is à la carte. Couples pay suppliers directly with no Setnayan markup; suppliers pay for an optional plan and the booking fee described under the supplier plans.
 - **Privacy:** No public sharing of guest data without explicit opt-in. Couples own their event content. Couples pay suppliers directly; Setnayan does not hold that money.
 
 ## Planning tiers (couple-side)
@@ -631,7 +634,8 @@ ${featurePagesSection()}
 - **Free** — ₱0. Browse the marketplace, see a personalized match preview, and plan with the free workspace: schedule, budget, guest list, seat plan, mood board. No card required.
 - **Event Plus** — ${R('EVENT_PLUS')} one-time per event. Setnayan AI (supplier matchmaking plus the guided planning workspace that tells you what's next and flags what's at risk) and Papic credits for the guests' cameras. ${PLUS_MORE.join(' ')}.
 - **Event Pro** — ${R('COUPLE_WEBSITE_PRO')} one-time per event. Everything in Event Plus with more Papic credits. ${PRO_PEEK.join('. ')}. No Setnayan watermark on the Event Hub page.
-- Setnayan AI is not sold on its own — it comes with Event Plus and Event Pro. Beyond these two plans everything is à la carte.
+- **Event Ultra** — ${R('EVENT_ULTRA')} one-time per event. Everything in Event Pro with the most Papic credits, plus Live Watch for one day and full-size originals kept 12 months after the event instead of 3.
+- Setnayan AI is not sold on its own — it comes with Event Plus, Event Pro and Event Ultra. Beyond these three plans everything is à la carte.
 
 ## Customer software services (à la carte)
 
@@ -679,9 +683,9 @@ Supplier-side: public page editor · inquiry inbox · calendar with intra-day bl
 
 ## Common questions Setnayan answers
 
-- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus ${R('EVENT_PLUS')} and Event Pro ${R('COUPLE_WEBSITE_PRO')} are the two paid plans for an event; Setnayan AI comes inside both. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; ${TIER_LABEL.solo} ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')} every 4 weeks), ${TIER_LABEL.pro} ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), ${TIER_LABEL.enterprise} ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). Couples pay no commission. Suppliers pay a booking fee only on couples Setnayan introduces (see the supplier plans).
+- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside all three. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; ${TIER_LABEL.solo} ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')} every 4 weeks), ${TIER_LABEL.pro} ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), ${TIER_LABEL.enterprise} ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). Couples pay no commission. Suppliers pay a booking fee only on couples Setnayan introduces (see the supplier plans).
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The Event Hub with unlimited RSVP is free; designing every part of it comes with Event Pro ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is included.
-- **What is Setnayan AI?** The assisted-planning layer — supplier matchmaking plus the guided planning workspace, until the event date. It is not sold on its own: it comes with Event Plus (${R('EVENT_PLUS')}) and Event Pro (${R('COUPLE_WEBSITE_PRO')}).
+- **What is Setnayan AI?** The assisted-planning layer — supplier matchmaking plus the guided planning workspace, until the event date. It is not sold on its own: it comes with Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}).
 - **What is Papic?** Guests' phones become a coordinated capture crew. You buy credits once — 50 free ${PAPIC_FREE_CREDIT_CONDITION}, then ${papicLadderCompact(R)} — and every guest shoots from that shared pot. Cameras are free and unlimited. Photos are matched to the guests in them (face matching only with each guest's consent), so each guest can find the photos they're in.
 - **What is Live Watch?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} once per event, unlimited streams; single-camera streaming is included, and so is rehearsing with up to 12 cameras.
 - **What is Music Maker?** A custom Filipino-style song written for the couple. ${R('PAKANTA')}.

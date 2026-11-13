@@ -16,7 +16,7 @@ export const STALE_CLAIMS: readonly StaleClaim[] = [
   { pattern: /\bEnterprise\b/, why: 'the top supplier plan is called Ultra (owner 2026-10-23)' },
   { pattern: /\bCustom plan\b|\bCustom tier\b/i, why: 'the negotiated Custom tier was retired 2026-11-06 — Ultra add-ons replace it' },
   // Event Hub Pro was folded into Event Pro; "Pro Event Hub" is the same retired product in other words.
-  { pattern: /Event Hub Pro\b|Pro Event Hub/i, why: 'Event Hub Pro is retired — the paid event plans are Event Plus and Event Pro' },
+  { pattern: /Event Hub Pro\b|Pro Event Hub/i, why: 'Event Hub Pro is retired — the paid event plans are Event Plus, Event Pro and Event Ultra' },
   { pattern: /4-in-1/i, why: 'the "4-in-1 Event Hub" description was removed as untrue in Build 6 Lane J' },
   // The token wallet was retired 2026-05-11 (token-economy-is-retired.test.ts holds the code side).
   { pattern: /token wallet|\btokens?\b/i, why: 'the token wallet is retired (2026-05-11) — prices are PHP-direct' },
@@ -26,7 +26,7 @@ export const STALE_CLAIMS: readonly StaleClaim[] = [
   { pattern: /Proposal Builder/i, why: 'no proposal builder exists in the app (grep finds it only in old llms.txt copy)' },
   // No public API in V1 (CLAUDE.md, settled).
   { pattern: /\bread API\b|\bpublic API\b/i, why: 'there is no public API in V1 (a settled decision in CLAUDE.md)' },
-  // Setnayan AI is not sold on its own since 2026-11-04 — it comes inside Event Plus and Event Pro.
+  // Setnayan AI is not sold on its own since 2026-11-04 — it comes inside Event Plus, Event Pro and Event Ultra (AI_INCLUDED_PLAN_SKUS).
   { pattern: /Setnayan AI (?:costs|is sold|for ₱)|buy Setnayan AI\b/i, why: 'Setnayan AI is not sold on its own (owner 2026-11-04)' },
   // An unqualified "No" to the commission question is the error every AI repeats (google-ai-says-2026-11-10.md §5).
   {

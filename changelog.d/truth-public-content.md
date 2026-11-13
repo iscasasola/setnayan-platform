@@ -26,5 +26,11 @@ Owner, 13 Nov 2026: every public page, doc and AI file carries no retired names 
   rule, found by `lib/store-shell.test.ts`). `public-copy-is-not-wedding-only.test.ts` no longer REQUIRES llms.txt to
   say "No avatar maker": C5's guest avatar picker exists behind `NEXT_PUBLIC_FIGURE_CHIBI`, so the line was false
   whenever that flag is on. The ban on CLAIMING an avatar maker stays. `lib/ugat/screens.generated.json` regenerated.
+- Event Ultra (Controller, 13 Nov, after #7601): llms.txt names all three event plans wherever it lists them — "Event
+  Plus, Event Pro and Event Ultra … Setnayan AI comes inside all three" (`AI_INCLUDED_PLAN_SKUS` names `EVENT_ULTRA`),
+  an Event Ultra line priced `R('EVENT_ULTRA')` with only what `EVENT_ULTRA_GRANTS` + the row unlock today (Live Watch
+  one day, originals kept 12 months; Patiktok stays unlisted, canvas prints are not built), and the storage answer
+  says twelve months with Ultra. `EVENT_ULTRA` joins `REQUIRED_RETAIL`; the guard fixture mirrors the
+  `20271344860040_event_ultra_plan` row. The AI-not-sold-alone guard is re-pointed to the three-plan sentence.
 
 SPEC IMPACT: None — copy brought in line with shipped code; no decision changed.

@@ -409,7 +409,7 @@ export function BuildCompare({
           compares plans. A MOVE: flag ON this renders nothing, and
           `TeamSavePlan` is the only save bar on the page. */}
       {replan ? null : (
-        <div className="sn-tile space-y-2 p-4">
+        <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
             <Bookmark className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
             Save your current plan as
@@ -453,7 +453,7 @@ export function BuildCompare({
           USED to be inside the save card above — which, now that the card lives
           on the team, would have left every error on this panel invisible.
           Flag OFF this renders nothing: the card's own line (unchanged) has it. */}
-      {replan && err ? <p className="text-xs text-danger-700">{err}</p> : null}
+      {replan && err ? <p role="alert" className="text-[13px] font-semibold text-danger-700">{err}</p> : null}
 
       {/* ── PR-F · the Plans list: named rows + a first-class Load ───────────
           Each saved plan is a NAMED row you can load straight back into your
@@ -461,7 +461,7 @@ export function BuildCompare({
           Its counterpart, "Clear candidates", now lives on Your team (PR-E ·
           spec §8.3) — the surface that owns the team owns emptying it. */}
       {replan ? (
-        <div className="sn-tile space-y-2 p-4">
+        <div className="space-y-2">
           <h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Your saved plans
           </h3>
@@ -472,7 +472,7 @@ export function BuildCompare({
               saved has been lost.
             </p>
           ) : orderedBuilds.length === 0 ? (
-            <p className="text-sm text-ink/55">
+            <p className="text-[15px] text-ink/70">
               No saved plans yet. Add candidates to your build, then save your suppliers under a name.
             </p>
           ) : (
@@ -493,15 +493,19 @@ export function BuildCompare({
                     onDelete={(close) => void onDelete(b.build_id, title, close)}
                     disabled={pending}
                   >
-                  <div className="flex flex-wrap items-center justify-between gap-2 py-2">
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+                  <div className="flex min-h-[56px] flex-wrap items-center justify-between gap-2 py-2">
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">
                       {title}
                     </span>
                     <span className="text-[13px] font-semibold tabular-nums text-ink/70">
                       {peso(b.total_php)}
                     </span>
-                    <button
-                      type="button"
+                    <ActionButton
+                      tone="neutral"
+                      quiet
+                      icon={Pencil}
+                      label="Rename"
+                      name={`Rename ${title}`}
                       // §7a "make renaming easy": load this plan's name into the
                       // Save-As bar with itself pre-selected as the overwrite
                       // target — typing + Save renames it in place (the shipped
@@ -520,14 +524,12 @@ export function BuildCompare({
                         goToBuildTab('build');
                       }}
                       disabled={pending}
-                      aria-label={`Rename ${title}`}
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-ink/45 transition hover:text-terracotta-700 disabled:opacity-50"
-                    >
-                      <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                      Rename
-                    </button>
-                    <button
-                      type="button"
+                    />
+                    <ActionButton
+                      tone="info"
+                      icon={FolderOpen}
+                      label="Load"
+                      name={`Load ${title}`}
                       onClick={() => onApply(b.snapshot, 'build', title)}
                       disabled={pending || !loadable}
                       title={
@@ -535,11 +537,7 @@ export function BuildCompare({
                           ? undefined
                           : 'Nothing to load — every supplier in this plan is either booked already or no longer on your shortlist.'
                       }
-                      className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/75 transition hover:border-terracotta/50 hover:text-terracotta-700 disabled:opacity-40"
-                    >
-                      <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                      Load
-                    </button>
+                    />
                   </div>
                   </SwipeToDelete>
                 );
@@ -547,7 +545,7 @@ export function BuildCompare({
             </ul>
           )}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink/8 pt-2">
-            <span className="text-xs text-ink/50">
+            <span className="text-[13px] text-ink/70">
               Current team{' '}
               <span className="font-semibold tabular-nums text-ink">{peso(currentPlan.totalPhp)}</span>
             </span>
@@ -557,13 +555,13 @@ export function BuildCompare({
 
       {/* Side-by-side comparison */}
       {rows.length === 0 ? (
-        <div className="sn-tile px-4 py-10 text-center text-sm text-ink/60">
+        <p className="py-3 text-[15px] text-ink/70" data-compare-empty="">
           {replan
             ? 'No suppliers yet. Add some candidates from your Saved list, then save them under a name to compare plans side by side.'
             : 'No suppliers in your plan yet. Shortlist some and add them on the Build tab, then save a plan to compare versions side by side.'}
-        </div>
+        </p>
       ) : (
-        <div className="sn-tile overflow-x-auto p-0">
+        <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-ink/[0.03] text-left">

@@ -430,7 +430,7 @@ const AI_BANDS = ['A', 'B', 'C', 'D', 'E'] as const;
 type AiBand = (typeof AI_BANDS)[number];
 
 /**
- * Moves ONE kind of celebration into ONE band.
+ * Moves ONE kind of event into ONE band.
  *
  * ⚖ Owner 2026-08-28: *"a price and a checkbox. If a checkbox is checked, it
  * should not show to the other prices."*
@@ -455,7 +455,7 @@ export async function setEventTypeBand(
   const admin = createAdminClient();
 
   const eventType = String(formData.get('event_type') ?? '').trim();
-  if (!eventType) return { ok: false, message: 'No kind of celebration was named.' };
+  if (!eventType) return { ok: false, message: 'No kind of event was named.' };
 
   const raw = String(formData.get('band') ?? '').trim();
   const band: AiBand | null = raw === '' ? null : (raw as AiBand);
@@ -468,8 +468,8 @@ export async function setEventTypeBand(
     .select('event_type, label_en, ai_price_tier')
     .eq('event_type', eventType)
     .maybeSingle();
-  if (readErr) return { ok: false, message: `Couldn't read that celebration — ${readErr.message}` };
-  if (!prior) return { ok: false, message: 'That kind of celebration no longer exists.' };
+  if (readErr) return { ok: false, message: `Couldn't read that event — ${readErr.message}` };
+  if (!prior) return { ok: false, message: 'That kind of event no longer exists.' };
 
   const before = (prior as { ai_price_tier?: string | null }).ai_price_tier ?? null;
   const label = (prior as { label_en?: string | null }).label_en ?? eventType;
@@ -753,7 +753,7 @@ export async function savePapicTypeSizing(
     ceiling_points: ceiling as number,
   };
   if (nums.ceiling_points < nums.floor_points) {
-    return { ok: false, message: 'The most a celebration may hold cannot be below the least.' };
+    return { ok: false, message: 'The most an event may hold cannot be below the least.' };
   }
 
   const { data: prior, error: readErr } = await admin
@@ -841,7 +841,7 @@ export async function recomputePapicPoolLearning(
     ok: true,
     message:
       changed === 0
-        ? 'Nothing changed — no event type has enough finished celebrations yet.'
+        ? 'Nothing changed — no event type has enough finished events yet.'
         : `${changed} event type${changed === 1 ? '' : 's'} updated.`,
   };
 }

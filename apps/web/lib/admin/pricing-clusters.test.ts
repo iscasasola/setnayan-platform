@@ -14,15 +14,15 @@ import {
 
 /** The nine real customer products in production, 2026-08-29. */
 const REAL_PRODUCTS: [string, string][] = [
-  ['CUSTOM_QR_GUEST', 'The celebration page'],
+  ['CUSTOM_QR_GUEST', 'The event page'],
   ['ANIMATED_MONOGRAM', 'Film and music'],
   ['PATIKTOK_COMPILER', 'Film and music'],
-  ['SEATING_3D', 'The celebration page'],
+  ['SEATING_3D', 'The event page'],
   ['SETNAYAN_AI', 'Setnayan AI'],
   ['PAPIC_ADDON_THANK_YOU', 'Papic'],
   ['PAKANTA', 'Film and music'],
   ['LIVE_STUDIO', 'Film and music'],
-  ['COUPLE_WEBSITE_PRO', 'The celebration page'],
+  ['COUPLE_WEBSITE_PRO', 'The event page'],
 ];
 
 test('every real product lands on a shelf, and on the one a person would look under', () => {

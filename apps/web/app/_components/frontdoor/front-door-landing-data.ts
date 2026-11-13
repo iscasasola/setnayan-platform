@@ -287,7 +287,7 @@ export const SOLVES_SHOWN_FIRST = 5;
  *
  * ⚖ The owner ruled the day-of desks free with no end date (DECISION_LOG 2026-11-04, "DAY-OF DESKS STAY FREE").
  * But the code still paywalls the coordinator's floor kit — the live schedule, the requests inbox, the seat
- * scanner — behind Solo while the free-until date is unset (`lib/vendor-specialization-gate.ts`; CLOUD_BOARD
+ * scanner — behind Supplier Plus while the free-until date is unset (`lib/vendor-specialization-gate.ts`; CLOUD_BOARD
  * "TRUE-CLAIMS CHECK", 5 Nov). So a row marked `floorKit` says "Free" only while that same gate makes it free
  * (`specializationFreeWindowActive`, read by the caller); the page never promises what the app does not do.
  *

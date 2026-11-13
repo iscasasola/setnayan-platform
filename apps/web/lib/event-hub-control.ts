@@ -746,7 +746,7 @@ export function resolveHubRoleView(input: {
         ],
         previewHref: at(ownDoor),
         previewLabel: 'Open your page',
-        footnote: 'The only role that may edit the site.',
+        footnote: 'The only role that may edit the Event Hub.',
       };
 
     case 'coordinator':
@@ -756,11 +756,11 @@ export function resolveHubRoleView(input: {
         name: 'Coordinator',
         headline: 'A host key — the same page you open.',
         blurb:
-          'They open exactly what you open. Their work is on the planning desk, not in the site editor.',
+          'They open exactly what you open. Their work is on the planning desk, not in the Event Hub editor.',
         cells: [
           { mark: 'full', text: 'Writes the announcements guests read where they stand', known: true },
           { mark: 'full', text: 'The only role that may advance the running order', known: true },
-          { mark: 'none', text: 'Cannot edit the site itself', known: true },
+          { mark: 'none', text: 'Cannot edit the Event Hub itself', known: true },
         ],
         previewHref: at(ownDoor),
         previewLabel: 'Open the page they open',

@@ -30,7 +30,7 @@ Builds the owner's 2026-11-13 rulings on a service we don't list (DECISION_LOG "
 - **The AI reads each request first (flag still OFF — the owner's to flip):** an existing match sends the
   supplier straight to that service's card maker (the request stays queued with the recommendation); a truly
   new one also drafts a description, search words and inspiration parts, shown to admin above the decision.
-- Migration `20271341741286_service_requests_cards_follow_the_decision.sql`: `vendor_services.category_request_id`,
+- Migration `20271342770993_service_requests_cards_follow_the_decision.sql`: `vendor_services.category_request_id`,
   `taxonomy_category_requests.supplier_seen_at`, three draft columns; exposure baseline regenerated for the two
   new columns (a uuid on a public card; a timestamp only admins can write).
 

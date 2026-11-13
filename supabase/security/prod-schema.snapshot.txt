@@ -7,9 +7,9 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1846
+# ledger: 1854
 # tables: 496
-# columns: 6033
+# columns: 6038
 # notnull: 3641
 [ledger]
 20260512000000
@@ -1850,6 +1850,7 @@
 20271338412990
 20271338442002
 20271339373845
+20271339379038
 20271339773560
 20271339826198
 20271339978803
@@ -1857,7 +1858,14 @@
 20271340142149
 20271340374819
 20271340566104
+20271340572060
+20271340632149
+20271341145486
+20271341273990
 20271341349934
+20271341557835
+20271341658320
+20271342032145
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2292,6 +2300,7 @@ chat_messages.created_at
 chat_messages.event_id
 chat_messages.is_bot
 chat_messages.message_id
+chat_messages.offer_good_until
 chat_messages.offered_service_id
 chat_messages.proposal_id
 chat_messages.recipient_user_id
@@ -2300,6 +2309,7 @@ chat_messages.sender_role
 chat_messages.sender_user_id
 chat_messages.sent_as
 chat_messages.thread_id
+chat_messages.vendor_offer_id
 chat_messages.vendor_profile_id
 chat_poll_choices.choice_id
 chat_poll_choices.label
@@ -3666,6 +3676,7 @@ event_vendor_working_notes.event_vendor_id
 event_vendor_working_notes.id
 event_vendor_working_notes.note_id
 event_vendor_working_notes.visibility
+event_vendors.agreed_hours
 event_vendors.archived_at
 event_vendors.archived_by_lock_of
 event_vendors.category
@@ -3731,6 +3742,7 @@ event_vendors.package_role
 event_vendors.papic_captures_hidden
 event_vendors.pax_quote_base
 event_vendors.pax_surcharge_php
+event_vendors.pricing_basis
 event_vendors.public_id
 event_vendors.requested_service_ids
 event_vendors.selection_match_rank
@@ -5612,6 +5624,7 @@ platform_secret_rotations.updated_at
 platform_settings.admin_digest_enabled
 platform_settings.admin_digest_last_sent_at
 platform_settings.ai_signup_discount_pct
+platform_settings.app_colours
 platform_settings.bdo_account_name
 platform_settings.bdo_account_number
 platform_settings.bdo_available_as_of

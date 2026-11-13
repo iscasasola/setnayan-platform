@@ -42,7 +42,7 @@ import {
 } from '@/lib/open-shop-more-services';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { useStaleBuild } from './use-stale-build';
-import { ServicePicker, type PickerParentView, type PickerLeafView } from './service-picker';
+import { ServicePicker, type PickerParentView, type PickerLeafView } from '@/app/_components/service-picker';
 import { becomeVendor } from '../actions';
 import { SHOP_NAME_MAX, shopNameCounter } from '@/lib/business-slug';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';

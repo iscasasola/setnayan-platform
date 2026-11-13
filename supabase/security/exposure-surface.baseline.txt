@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7760
+# facts: 7764
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     631
-#   col       5591
+#   col       5595
 #   policy    1135
 #   view      10
 #   func      389
@@ -1012,6 +1012,7 @@ col	public.chat_messages.created_at	anon=S authenticated=S
 col	public.chat_messages.event_id	anon=S authenticated=SI
 col	public.chat_messages.is_bot	anon=S authenticated=S
 col	public.chat_messages.message_id	anon=S authenticated=SI
+col	public.chat_messages.offer_good_until	anon=S authenticated=SI
 col	public.chat_messages.offered_service_id	anon=S authenticated=SI
 col	public.chat_messages.proposal_id	anon=S authenticated=SI
 col	public.chat_messages.recipient_user_id	anon=S authenticated=SI
@@ -1020,6 +1021,7 @@ col	public.chat_messages.sender_role	anon=S authenticated=S
 col	public.chat_messages.sender_user_id	anon=S authenticated=S
 col	public.chat_messages.sent_as	anon=S authenticated=SI
 col	public.chat_messages.thread_id	anon=S authenticated=SI
+col	public.chat_messages.vendor_offer_id	anon=S authenticated=SI
 col	public.chat_messages.vendor_profile_id	anon=S authenticated=SI
 col	public.chat_poll_choices.choice_id	anon=- authenticated=S
 col	public.chat_poll_choices.label	anon=- authenticated=S
@@ -2323,6 +2325,7 @@ col	public.event_vendor_working_notes.event_vendor_id	anon=SIU authenticated=SIU
 col	public.event_vendor_working_notes.id	anon=SIU authenticated=SIU
 col	public.event_vendor_working_notes.note_id	anon=SIU authenticated=SIU
 col	public.event_vendor_working_notes.visibility	anon=SIU authenticated=SIU
+col	public.event_vendors.agreed_hours	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_at	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_by_lock_of	anon=SIU authenticated=SIU
 col	public.event_vendors.category	anon=SIU authenticated=SIU
@@ -2388,6 +2391,7 @@ col	public.event_vendors.package_role	anon=SIU authenticated=SIU
 col	public.event_vendors.papic_captures_hidden	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_surcharge_php	anon=SIU authenticated=SIU
+col	public.event_vendors.pricing_basis	anon=SIU authenticated=SIU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
 col	public.event_vendors.selection_match_rank	anon=SIU authenticated=SIU
@@ -7594,7 +7598,7 @@ func	public.mood_board_change_mark_undone(p_change_id uuid)	secdef=yes exec=auth
 func	public.mood_board_change_undo_plan(p_change_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.mood_board_home_asks(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.move_event_schedule_with_date(p_event_id uuid, p_to_day date)	secdef=yes exec=authenticated search_path=public, pg_temp
-func	public.move_schedule_chapter(p_block_id uuid, p_start_at timestamp with time zone)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.move_schedule_chapter(p_block_id uuid, p_start_at timestamp with time zone, p_keep_block_ids uuid[])	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.offer_creator_reach_hold(p_vendor_profile_id uuid, p_creator_user_id uuid, p_creator_rate_terms text, p_audience_rate_terms text, p_reach_tokens integer, p_expires_at timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.order_basket_lines(p_order_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.paid_quote_floor_centavos(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public

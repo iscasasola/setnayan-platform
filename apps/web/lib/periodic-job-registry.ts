@@ -461,6 +461,19 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
   },
   {
     /*
+      💸 THE DAY A HELD TOP-UP BECOMES OVERDUE (owner 2026-11-12). From the day after an event, an unsettled
+      booking-fee top-up unlists that event's review from the public stars — but the stars are a materialized
+      snapshot and nothing in the database marks "the day after". This re-reads them once a day. Settling is
+      instant (a trigger on the charge's status), so only the unlisting waits for this run.
+    */
+    key: 'booking-fee-top-up-unlist',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: 'Re-reading the public star ratings so a review from an event with an overdue booking-fee top-up stops counting',
+    reportsCount: false,
+  },
+  {
+    /*
       `market_price_bands` was 0 rows in production because the only caller of
       `recompute_market_price_bands()` was a human pressing Recompute on
       /admin/pricing. Every supplier's Price-Position Meter was therefore empty

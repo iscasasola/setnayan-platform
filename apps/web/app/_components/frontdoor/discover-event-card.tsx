@@ -1,6 +1,6 @@
 /**
- * discover-event-card.tsx — ONE Discover event card: the event's cover with a
- * date plate, a host line and exactly one action. Rendered by the two event
+ * discover-event-card.tsx — ONE Discover event card: the event's cover (name
+ * only, no date — owner 2026-11-13), a host line and exactly one action. Rendered by the two event
  * shelves in `front-door-discover.tsx`.
  *
  * Its own module (2026-10-03) so the card can be rendered and tested without
@@ -18,7 +18,7 @@ import type { DiscoverEventCard as Card } from '@/lib/discover-events-core';
 import { shopInitials } from '@/lib/shop-initials';
 import { withDiscoverArrival } from '@/lib/discover-way-back';
 import { ChannelLink } from './front-door-feed';
-import { DiscoverEventCover } from './discover-event-cover';
+import { DiscoverEventCover, coverPrintsTheName } from './discover-event-cover';
 
 function relationText(card: Card): string | null {
   if (card.relation === 'you') return 'Your event';
@@ -30,6 +30,9 @@ function relationText(card: Card): string | null {
 export function DiscoverEventCard({ card }: { card: Card }) {
   const rel = relationText(card);
   const place = [rel, card.regionLabel].filter(Boolean).join(' · ');
+  // The cover already prints the name (ruling 2026-10-11): the title stays as the card's link and its
+  // accessible name, but is not printed a second time under the cover.
+  const nameOnCover = coverPrintsTheName(card);
   return (
     <div className="fd-item" data-discover-card>
       <DiscoverEventCover card={card} />
@@ -47,11 +50,11 @@ export function DiscoverEventCard({ card }: { card: Card }) {
           </span>
         )}
         <div className="fd-itxt">
-          <p className="fd-ttl">
+          <p className={nameOnCover ? 'fd-ttl fd-ttl-said' : 'fd-ttl'}>
             {/* ‹ `?via=discover` — the event page draws its one back button ONLY for a visitor this card sent (2026-11-12,
                 DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED", answer 3; lib/discover-way-back.ts). */}
             <Link href={withDiscoverArrival(card.href)} className="fd-stretch">
-              {card.title}
+              {nameOnCover ? <span className="sr-only">{card.title}</span> : card.title}
             </Link>
           </p>
           {card.typeLabel || card.host ? (

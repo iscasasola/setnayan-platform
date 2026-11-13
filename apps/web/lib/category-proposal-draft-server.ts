@@ -187,7 +187,7 @@ async function writeDraft(requestId: string, draft: CategoryProposalDraft): Prom
       })),
       drafted_by: draft.draftedBy,
       drafted_at: new Date().toISOString(),
-      // 2026-11-13 — the fuller draft for a truly new service (columns from 20271341741286).
+      // 2026-11-13 — the fuller draft for a truly new service (columns from 20271342770993).
       ...(draft.verdict === 'new'
         ? {
             suggested_description: draft.description ?? null,

@@ -395,6 +395,7 @@
       "files": [
         "(shell)/for-suppliers/loading.tsx",
         "(shell)/for-suppliers/page.tsx",
+        "for-suppliers/_components/plan-page-preview.tsx",
         "for-suppliers/_components/plan-table-data.ts",
         "for-suppliers/_components/supplier-badge-shelf.tsx",
         "for-suppliers/_components/supplier-front-client.tsx",
@@ -425,11 +426,15 @@
         "Link",
         "Photo",
         "Pill",
+        "PlanPagePreview",
+        "PlanPageSheet",
+        "PlanPreview",
         "PriceShapeCalc",
         "QrChip",
         "QrCtx.Provider",
         "QrKey",
         "QrSheetProvider",
+        "SampleShopPage",
         "SupplierBadgeShelf",
         "SupplierFrontCodes",
         "SupplierFrontPage",
@@ -6407,6 +6412,7 @@
         "dashboard/[eventId]/_components/pay-ways-editor.tsx",
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
+        "dashboard/[eventId]/_components/price-basis-rows.tsx",
         "dashboard/[eventId]/_components/read-refused-notice.tsx",
         "dashboard/[eventId]/_components/record-card-folds.tsx",
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
@@ -6519,6 +6525,7 @@
         "AutoPreloadOnEventDay",
         "B",
         "BankBody",
+        "BasisRow",
         "Blob",
         "BoothTemplatePick",
         "BottomDock",
@@ -6753,10 +6760,12 @@
         "PlanningTick",
         "PostSaveStep",
         "PreviewConflictsResult",
+        "PriceBasisRows",
         "PriceSourceChip",
         "ProfileShareButton",
         "ProgressRing",
         "PromoFreeWindowBanner",
+        "ProviderRow",
         "PutAwayCard",
         "QrActions",
         "QrBody",
@@ -6792,6 +6801,7 @@
         "ScheduleUnread",
         "Screen",
         "SearchHead",
+        "SelfAddedBasis",
         "SendBroadcastResult",
         "ServiceGlanceRow",
         "ServiceLines",
@@ -9333,6 +9343,7 @@
         "DayActionsContext.Provider",
         "DayList",
         "DayMoment",
+        "DoneWarningBox",
         "DragState",
         "EmceePicks",
         "EmceePicksUnread",
@@ -9356,6 +9367,7 @@
         "Icon",
         "InSlot",
         "InfoTip",
+        "KeepAnswer",
         "LastSeenCapture",
         "LastSeenFallback",
         "LayerHeading.Provider",
@@ -9464,6 +9476,7 @@
         "ViewAsBody",
         "ViewAsMenu",
         "ViewLens",
+        "Warn",
         "WhenKey",
         "WhenRow",
         "WhoFields"
@@ -11017,6 +11030,7 @@
         "PlanBudgetAccordion",
         "PlanRows",
         "PlansRowPick",
+        "PriceLineCtx.Provider",
         "PriceSummary",
         "QuoteFillRow",
         "RenamePlanRequest",
@@ -11041,6 +11055,7 @@
         "SearchMarketplaceVendorsResult",
         "SectionStub",
         "SelfAddedPrice",
+        "SelfAddedPriceLines",
         "SelfAddedSupplierPrefill",
         "Service",
         "ServiceCardCtx.Provider",
@@ -11080,6 +11095,7 @@
         "SwitchRow",
         "SwitchTrack",
         "T",
+        "TakenOnCtx.Provider",
         "TeamCandidateSwipe",
         "TeamClearCandidates",
         "TeamDecisionDoorway",
@@ -12211,6 +12227,7 @@
       ],
       "actions": [],
       "blocks": [
+        "AddServicePicker",
         "CanvasMaker",
         "SetupOfferFold"
       ]
@@ -13047,6 +13064,24 @@
         "NotificationsList"
       ]
     },
+    "/dev/offer-card-lab": {
+      "files": [
+        "dev/offer-card-lab/compare-lab.tsx",
+        "dev/offer-card-lab/lab.tsx",
+        "dev/offer-card-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DroppedOffer",
+        "DroppedOfferCard",
+        "Lab",
+        "OfferDropCard",
+        "OfferDropLab",
+        "QuoteVersionsCompare",
+        "QuoteVersionsCompareLab"
+      ]
+    },
     "/dev/offer-maker-lab": {
       "files": [
         "dev/offer-maker-lab/lab-client.tsx",
@@ -13399,6 +13434,7 @@
       "blocks": [
         "Avatar",
         "DiscoverEventCard",
+        "EventPosterFacts",
         "FrontDoorShell",
         "NowShopCard",
         "SampleMarker",
@@ -13450,19 +13486,10 @@
       "files": [
         "dev/shop-plan-lab/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
-        "PinnedReviewCard",
-        "ShopAddresses",
-        "ShopBadgePill",
-        "ShopBranchesLine",
-        "ShopReachLine",
-        "ShopReachMap",
-        "Wordmark"
+        "SampleShopPage"
       ]
     },
     "/dev/shop-preview-lab": {
@@ -14433,7 +14460,6 @@
         "open-shop/_components/phone-field.tsx",
         "open-shop/_components/plan-sheet.tsx",
         "open-shop/_components/service-cards.tsx",
-        "open-shop/_components/service-picker.tsx",
         "open-shop/_components/services-at-events.tsx",
         "open-shop/_components/taken-sign-in.tsx",
         "open-shop/_components/use-stale-build.ts",
@@ -14460,10 +14486,11 @@
         "AddressPreview",
         "Box",
         "Card",
-        "CategoryTiles",
+        "CardPricing",
         "CityPin",
         "ClaimDoor",
         "Count",
+        "CoverageMeter",
         "DesktopOAuthButtons",
         "DetectedCity",
         "Draft",
@@ -14492,12 +14519,14 @@
         "OpenShopWizard",
         "Page2",
         "PasswordField",
+        "PayDraft",
         "PhoneField",
         "PickMenu",
         "PlanBody",
         "PlanInline",
         "PlanPane",
         "PlanSheet",
+        "PlanTipBody",
         "ServiceCards",
         "ServicePicker",
         "ServicesAtEvents",
@@ -14509,7 +14538,6 @@
         "Step",
         "SubmitButton",
         "SwipeToDelete",
-        "T",
         "TakenSignIn",
         "TurnstileField",
         "UndoToastHost"
@@ -15416,6 +15444,7 @@
         "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/portfolio-photo-tiles.tsx",
         "v/[slug]/_components/review-groups.tsx",
+        "v/[slug]/_components/sample-shop-page.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
@@ -16140,6 +16169,7 @@
         "vendor-dashboard/clients/[eventId]/_components/supplier-suggest-board.tsx",
         "vendor-dashboard/clients/[eventId]/_components/suppliers-list.tsx",
         "vendor-dashboard/clients/[eventId]/_components/suppliers-rows.ts",
+        "vendor-dashboard/clients/[eventId]/_components/top-up-carry-over.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-part-signoff.tsx",
         "vendor-dashboard/clients/[eventId]/_components/waitlist-form.tsx",
@@ -16343,6 +16373,7 @@
         "ScriptComposer",
         "ScriptTab",
         "Section",
+        "SettlePayBy",
         "Sheet",
         "ShopCard",
         "ShopEmpty",
@@ -16369,6 +16400,8 @@
         "TheyToldYou",
         "ThumbRow",
         "TimeRow",
+        "TopUpCarryOver",
+        "TopUpSettleSheet",
         "TypedRow",
         "UndoToastHost",
         "VendorChallengeSection",
@@ -18066,6 +18099,7 @@
     },
     "/vendor-dashboard/services/new": {
       "files": [
+        "vendor-dashboard/services/new/_components/add-service-picker.tsx",
         "vendor-dashboard/services/new/_components/new-service-maker.tsx",
         "vendor-dashboard/services/new/page.tsx"
       ],
@@ -18075,10 +18109,17 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "AddServicePicker",
         "CanvasMaker",
+        "CoverageMeter",
         "Link",
         "NewServiceMaker",
-        "RefinementsEditor"
+        "RefinementsEditor",
+        "ServicePicker",
+        "Specialties",
+        "SpecialtyPicks",
+        "SwipeToDelete"
       ]
     },
     "/vendor-dashboard/services/new/[category]": {

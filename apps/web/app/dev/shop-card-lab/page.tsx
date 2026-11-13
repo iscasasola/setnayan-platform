@@ -22,6 +22,7 @@ import { cardBadges, type ShopBadgeFacts } from '@/lib/shop-badges';
 import { shopInitials } from '@/lib/shop-initials';
 import { SHOP_ARRIVAL_SRC, withShopArrival } from '@/lib/shop-back';
 import type { DiscoverEventCard as Card } from '@/lib/discover-events-core';
+import { sceneCoverFor, type EventPosterFacts } from '@/lib/event-poster';
 
 export const dynamic = 'force-dynamic';
 
@@ -173,6 +174,19 @@ const labEvent = (key: string, title: string, host: string | null, relation: Car
   hostPhotoUrl,
 });
 
+// Fixture facts in the poster's own shape (only `posterFor` composes a poster — lib/event-poster.test.ts).
+const labFacts = (over: Partial<EventPosterFacts>): EventPosterFacts => ({
+  kind: 'invitation', accent: null, capiz: false, dark: false, names: { first: '', second: null },
+  weekday: 'Saturday', date: '12 December 2026', eyebrow: null, line: null, venue: null, photoSrc: null, ground: null, legibility: null,
+  ...over,
+});
+const LAB_PAPER = labFacts({ names: { first: 'Ana', second: 'Miguel' } });
+const LAB_PHOTO = labFacts({
+  kind: 'photo', dark: true, names: { first: 'Indalecio', second: 'Claire' }, weekday: 'Friday', date: '18 December 2026',
+  photoSrc: '/event-types/wedding.webp', ground: 'hero',
+  legibility: { '--hub-ink': 'rgb(251 250 247)', '--hub-heading': 'rgb(251 250 247)', '--hub-accent-text': 'rgb(230 211 168)', '--hub-scrim': 'rgba(20,14,10,.62)' },
+});
+
 const EVENTS: Card[] = [
   // Your own event: your photo, even with your profile off.
   labEvent('maria-and-jose', 'Maria & Jose', 'Ice Casasola', 'you', '/portraits/isabel-santos.avif'),
@@ -180,6 +194,10 @@ const EVENTS: Card[] = [
   labEvent('ana-and-paolo', 'Ana & Paolo', 'Ana Reyes', 'connected', '/portraits/isabella-reyes.avif'),
   // Nobody named (no public profile): initials.
   labEvent('santos-reunion', 'Santos Family Reunion', null, null, null),
+  // 🖼 The two covers #7540 matched with Home (name only, no date — owner 2026-11-13): their paper card, and
+  // their invitation on their photo. Fixture facts through the real poster rule.
+  { ...labEvent('ana-and-miguel', 'Ana & Miguel', 'Ice Casasola', 'you', null), paper: { poster: LAB_PAPER, ground: null, markText: 'A', markSvg: null, markPlays: false } },
+  { ...labEvent('indalecio-claire', 'Indalecio & Claire', 'Ice Casasola', 'you', null), scene: sceneCoverFor(LAB_PHOTO), scenePoster: { poster: LAB_PHOTO, ground: null, markText: 'I & C', markSvg: null, markPlays: false } },
 ];
 
 const Avatar = () => (

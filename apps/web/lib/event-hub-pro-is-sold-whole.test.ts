@@ -1,5 +1,5 @@
 /**
- * ⛔💎 EVENT HUB PRO IS SOLD WHOLE (owner 2026-10-26: "just have the upgrade event hub pro" → "i mean no more by part
+ * ⛔💎 EVENT PRO IS SOLD WHOLE (owner 2026-10-26: "just have the upgrade Event Pro" → "i mean no more by part
  * as well on the website"). It retires the SALE of the eleven parts of 2026-10-22 — never their ownership: a part
  * already paid for keeps working and still counts toward the cap.
  *
@@ -9,7 +9,7 @@
  *   1. the catalogue has every part OFF sale (the latest migration that touches them says so, and refuses otherwise);
  *   2. every part price a surface reads goes through `onSale` — a read that skips it would sell a retired part
  *      (`formatV2Sku` never looks at `is_active`, which is how the Monogram and Panood pages kept a ₱500 part button);
- *   3. with no part on sale the Event Hub Pro page sells Everything alone, the parts only as the list of what it opens;
+ *   3. with no part on sale the Event Pro page sells Everything alone, the parts only as the list of what it opens;
  *   4. with no part on sale /pricing draws no "Everything / Just the parts you need" dropdown — a dropdown of one;
  *   5. the SERVER refuses a part order — off sale with an event, outright without one — never only a hidden button.
  *
@@ -57,8 +57,8 @@ test('the latest migration that sets a part’s is_active takes EVERY part off s
   assert.ok(touching.length > 0, 'no migration sets a part’s is_active — the scan is blind');
   const latest = read(join(MIGRATIONS, touching[touching.length - 1]!));
   assert.match(latest, /SET is_active = FALSE[\s\S]{0,80}WHERE service_code LIKE 'COUPLE\\_HUB\\_PART\\_%'/, 'the latest word on the parts does not take them all off sale');
-  assert.match(latest, /RAISE EXCEPTION 'an Event Hub Pro part is still on sale/);
-  assert.match(latest, /service_code = 'COUPLE_WEBSITE_PRO' AND is_active\) THEN\s*RAISE EXCEPTION/, 'nothing checks Event Hub Pro itself stays on sale');
+  assert.match(latest, /RAISE EXCEPTION 'an Event (?:Hub )?Pro part is still on sale/);
+  assert.match(latest, /service_code = 'COUPLE_WEBSITE_PRO' AND is_active\) THEN\s*RAISE EXCEPTION/, 'nothing checks Event Pro itself stays on sale');
 });
 
 /* ── 2 · every part price goes through the switch ───────────────────────── */
@@ -81,7 +81,7 @@ test('every part price a surface reads goes through onSale', () => {
   assert.ok(reads >= 5, `only ${reads} part-price reads found — the scan is blind`);
 });
 
-/* ── 3 · the Event Hub Pro page ─────────────────────────────────────────── */
+/* ── 3 · the Event Pro page ─────────────────────────────────────────── */
 
 test('with no part on sale the Pro page sells Everything alone — no part price, button, pick or "counts toward"', () => {
   const body = code('app/dashboard/[eventId]/studio/website-pro/_components/pro-parts-body.tsx');
@@ -89,7 +89,7 @@ test('with no part on sale the Pro page sells Everything alone — no part price
   // The Apply sheet's `?buy=` pick is a part order — only while parts are sold.
   assert.match(body, /\{partsOnSale && !active\?\.full && !owned\?\.full && buyParts\.length > 0/);
   // One list of what Everything opens, instead of the priced big/small bands.
-  assert.match(body, /partsOnSale\s*\?\s*\[\s*\{ title: 'Big parts'[\s\S]{0,120}\]\s*:\s*\[\{ title: 'What Event Hub Pro unlocks', parts: HUB_PARTS \}\]/);
+  assert.match(body, /partsOnSale\s*\?\s*\[\s*\{ title: 'Big parts'[\s\S]{0,120}\]\s*:\s*\[\{ title: 'What Event (?:Hub )?Pro unlocks', parts: HUB_PARTS \}\]/);
   // A part's own button needs its price — and no part price is handed in once they are off sale.
   assert.match(body, /state === 'buy' && php !== null && !owned\?\.full \? \(/);
   assert.match(body, /\{partsOnSale \? `Everything you pay here counts toward everything\./);

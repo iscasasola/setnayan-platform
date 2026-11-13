@@ -44,7 +44,7 @@ import { FieldPick, SavePick, TogglePick } from './pickers';
 import { BackFields, INPUT, KeyRow, ReadOnly, SAVE, Section, backRecord } from './ui';
 
 const SURFACES: { key: string; label: string }[] = [
-  { key: 'website', label: 'Website' },
+  { key: 'website', label: 'Event Hub' },
   { key: 'save_the_date', label: 'Save the Date' },
   { key: 'rsvp', label: 'RSVP' },
   { key: 'seating', label: 'Seating' },
@@ -341,7 +341,7 @@ export async function EventTypePanel({
             </label>
           ))}
         </div>
-        <ReadOnly>Day-of and Memories need Website on — the save refuses otherwise.</ReadOnly>
+        <ReadOnly>Day-of and Memories need Event Hub on — the save refuses otherwise.</ReadOnly>
         <SubmitButton disabled={profileReadFailed} form={formId} className={SAVE} pendingLabel="Saving…">
           Save
         </SubmitButton>

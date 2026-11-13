@@ -12,7 +12,7 @@ import {
 
 // ── vendorAddonPriceBand: Pro-and-up = the cheaper 'growth' band ─────────────
 
-test('band: Free / Verified / Solo pay the entry row', () => {
+test('band: Free / Verified / Supplier Plus pay the entry row', () => {
   assert.equal(vendorAddonPriceBand('free'), 'entry');
   assert.equal(vendorAddonPriceBand('verified'), 'entry');
   assert.equal(vendorAddonPriceBand('solo'), 'entry');

@@ -3,8 +3,8 @@
  * has any control that makes an ORDER or spends money — list them and do not change their behaviour or wording at all beyond wearing the one ActionButton").
  *
  * THE FINDING: Studio › Prints has NO control that makes an order, takes a payment or shows a price, and no confirm step. What touches money is
- *   · "Go Pro to print in <theme>." and the access line ("In <theme> these are samples… / With Event Hub Pro they print in…") — words;
- *   · the pass zip's door: a free couple's "Download all" is a LINK to the Event Hub Pro unlock page (`/dashboard/<id>/studio/website-pro`), which owns the
+ *   · "Go Pro to print in <theme>." and the access line ("In <theme> these are samples… / With Event Pro they print in…") — words;
+ *   · the pass zip's door: a free couple's "Download all" is a LINK to the Event Pro unlock page (`/dashboard/<id>/studio/website-pro`), which owns the
  *     price and the confirm step; the Pro couple's is the zip itself (the diamond mark);
  *   · the Pro-themed print-ready buttons, ABSENT in the store shell, a sample for a free couple (the route refuses it too: `mayServe`).
  * The one door a customer can press toward paying is the zip's link; here it is held to the same href, hook and wording.
@@ -55,6 +55,8 @@ const STATES: Array<[string, string, boolean, boolean]> = [
 
 /** What a customer reads and what the page hooks say — the same extraction the golden was recorded with. */
 function facts(markup: string): Facts {
+  // ⏳ TRANSITION #7605: the couple-side source says the old plan name until #7605 merges; read it as today’s name.
+  markup = markup.replace(/Event Hub Pro/g, 'Event Pro');
   const text = markup.replace(/<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&rsquo;|&#x27;|&#39;/g, '’').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
   return {
     text,
@@ -98,7 +100,7 @@ test('1 · the Prints panels say and link what they said before — the shipped 
  * ⚙ 2026-10-17 (owner *"ok on prints"*, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾ ON GUEST PRINTS, ALL
  * GUESTS ◆, EVERYTHING ◆"): Studio › Prints no longer draws these two panels — its all-in-one files are each guest print's "All guests ◆"
  * and the one "Download everything ◆". What touches money there is held here instead: every ◆ is the SAME door — a LINK to the one
- * Event Hub Pro unlock page (a tap opens the centred note first, whose "Event Hub Pro" follows that link) — for a free couple on the
+ * Event Pro unlock page (a tap opens the centred note first, whose "Event Pro" follows that link) — for a free couple on the
  * web; the file itself for a Pro couple; nothing in the store shell. No price, no order, no confirm step.
  */
 async function studioMoney(theme: string, ownsPro: boolean, storeShell: boolean): Promise<{ text: string; doors: number; proDoorHrefs: number; marks: string[]; peso: boolean }> {
@@ -163,10 +165,10 @@ test('3 · no price, no order, no confirm step on these panels — and the free 
     }
   }
   const free = await panels('abaca', false, false);
-  /* 2 from 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the zip AND the Printed ticket batch; back to 1 on 2026-10-22 —
+  /* 2 from 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT PRO"): the zip AND the Printed ticket batch; back to 1 on 2026-10-22 —
      every guest's ticket in one file is free again (owner: "the goal of the free is to keep everything minimum ready") — and to 0 the
      same day: the digital ticket zip is free too (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE"). */
-  assert.equal(free.pass.proDoorHrefs, 0, 'a free couple’s zip (or the ticket batch) is still a door to the Event Hub Pro unlock');
+  assert.equal(free.pass.proDoorHrefs, 0, 'a free couple’s zip (or the ticket batch) is still a door to the Event Pro unlock');
   assert.equal(free.pass.zipDoor, false, 'a free couple’s zip is still the ◆ door');
   assert.match(free.pass.text, /Download all tickets \(\.zip\)/, 'the zip is gone from the free couple’s panel');
   const shell = await panels('abaca', false, true);

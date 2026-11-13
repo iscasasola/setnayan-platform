@@ -102,7 +102,7 @@ test('buying Advanced promotes; buying Basic while Advanced does NOT demote', ()
 test('each rung maps to its catalogue rows by plan band (prices live only in vendor_billing_catalog)', () => {
   assert.equal(VENDOR_AI_LEVEL_PRICING_SKU.basic, 'ai_chatbot_basic');
   assert.equal(VENDOR_AI_LEVEL_PRICING_SKU.advanced, 'ai_chatbot_advanced');
-  // Owner 2026-11-04: two prices by plan — Free/Verified/Solo one row, Pro/Ultra another.
+  // Owner 2026-11-04: two prices by plan — Free/Verified/Supplier Plus one row, Pro/Ultra another.
   assert.equal(vendorAddonSkuCode(VENDOR_AI_LEVEL_PRICING_SKU.basic, 'free'), 'vendor_ai_addon_entry');
   assert.equal(vendorAddonSkuCode(VENDOR_AI_LEVEL_PRICING_SKU.basic, 'verified'), 'vendor_ai_addon_entry');
   assert.equal(vendorAddonSkuCode(VENDOR_AI_LEVEL_PRICING_SKU.basic, 'solo'), 'vendor_ai_addon_entry');

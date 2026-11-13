@@ -15,7 +15,7 @@
  *     to be "every member beyond the founding admin". It is now that, MINUS up to
  *     `FREE_HELPER_SEATS` members whose role is the Helper role (`viewer` — "sees
  *     the schedule", read-only). So a Free shop can add one Helper even with the
- *     plan paywall ON, a Solo shop has its 1 seat AND a Helper, and an Enterprise
+ *     plan paywall ON, a Supplier Plus shop has its 1 seat AND a Helper, and an Enterprise
  *     shop reaches its 10 paid seats one Helper later — i.e. it buys an extra seat
  *     one person later than before.
  *   · ONLY THE HELPER ROLE. A free seat that could be an Admin or a Team member

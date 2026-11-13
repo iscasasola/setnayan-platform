@@ -24,7 +24,7 @@ drawing, and never production. ⚠ Not the owner's real shop "SetnaProd" (`/setn
 |---|---|---|---|
 | Free | `free` | no | Public by self-publishing, before verification. No seal, not in search, **one** live card. |
 | Verified | `verified` | yes | The seal; in search; cards within `TIER_CAPS.verified`. |
-| Solo | `solo` | yes | Own web address; cards within `TIER_CAPS.solo`. |
+| Supplier Plus | `solo` | yes | Own web address; cards within `TIER_CAPS.solo`. |
 | Pro | `pro` | yes | Pinned review; all five cards. |
 | Ultra | `enterprise` | yes | Nationwide reach; all five cards. |
 

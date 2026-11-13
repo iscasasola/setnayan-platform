@@ -7,7 +7,7 @@
  *
  * 💎 TRIED FREE, ASKED AT APPLY (owner 2026-09-28/29: *"they can edit it with
  * pro features. but need to upgrade to pro when clicked on apply"*). A couple
- * without Event Hub Pro writes these in the story workroom like anyone else;
+ * without Event Pro writes these in the story workroom like anyone else;
  * `saveEditorial` keeps them in the Event Hub DRAFT (`lib/post-event-draft.ts`)
  * rather than on the live story, and the Maker's Apply sheet names them and
  * asks for Pro. A couple with Pro saves them live, as before.

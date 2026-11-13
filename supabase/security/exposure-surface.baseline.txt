@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7757
+# facts: 7758
 #   schema    4
 #   rls       0
 #   rlsforce  0

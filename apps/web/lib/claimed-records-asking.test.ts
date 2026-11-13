@@ -84,5 +84,6 @@ test('the supplier’s month counts a claimed couple as asking until their date 
   const page = code('app/vendor-dashboard/customers/page.tsx');
   assert.match(page, /const bookedEventIds = new Set\(bookings\.map\(\(b\) => b\.eventId\)\);/);
   // Build 2 #43: the month's asks are read once in `customersMonth`, with the list's threads handed in.
-  assert.match(page, /await readOpenAsks\(threads, bookedEventIds\)/);
+  // (F-W1-68 adds the shop, so the reader can tell an agreed-but-unpaid booking from an ask.)
+  assert.match(page, /await readOpenAsks\(threads, bookedEventIds, vendorProfileId\)/);
 });

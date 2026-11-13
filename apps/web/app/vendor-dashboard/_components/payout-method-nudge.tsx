@@ -27,6 +27,8 @@
  */
 import Link from 'next/link';
 import { Wallet } from 'lucide-react';
+import { Notice, NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 
 /**
@@ -62,6 +64,11 @@ export function payoutNudgeCopy(
   return { body, cta: inReview ? 'View your payment options' : 'Add a payment method' };
 }
 
+/**
+ * 🔔 Inventory #4 — a To-do that blocks money (one notice system, owner approved 14 Nov 2026): "Couples can't see
+ * anywhere to pay you yet ⓘ · Add a payment method · Not now". On Today it queues for the top; "on a client or quote
+ * page it stays inline where it is" (prototype §4). The first sentence is the line, the rest is behind the ⓘ.
+ */
 export function PayoutMethodNudge({
   readiness,
   context,
@@ -72,28 +79,19 @@ export function PayoutMethodNudge({
   const copy = payoutNudgeCopy(readiness, context);
   if (!copy) return null;
   const { body, cta } = copy;
-
-  return (
-    <div
-      role="note"
-      className="mt-3 flex items-start gap-2.5 rounded-xl border p-3"
-      style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-surface, #fff)' }}
-    >
-      <Wallet
-        aria-hidden
-        className="mt-0.5 h-4 w-4 shrink-0"
-        strokeWidth={1.75}
-        style={{ color: 'var(--sn-gold-700)' }}
-      />
-      <div className="min-w-0 space-y-1.5">
-        <p className="text-sm text-ink/75">{body}</p>
-        <Link
-          href={PAYMENT_OPTIONS_HREF}
-          className="inline-flex text-sm font-semibold text-ink underline underline-offset-2"
-        >
-          {cta}
-        </Link>
-      </div>
-    </div>
-  );
+  const cut = body.indexOf('. ');
+  const notice = {
+    kind: 'todo' as const,
+    blocking: true,
+    noticeKey: `payout-missing:${context}`,
+    title: cut > 0 ? body.slice(0, cut) : body,
+    detail: cut > 0 ? body.slice(cut + 2) : undefined,
+    actions: (
+      <Link href={PAYMENT_OPTIONS_HREF} className={NOTICE_ACTION}>
+        <Wallet aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        {cta}
+      </Link>
+    ),
+  };
+  return context === 'today' ? <Notice {...notice} /> : <InlineNotice {...notice} className="mt-3" />;
 }

@@ -4,6 +4,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { answerIncomingRequest, muteInviter } from '../incoming-request-actions';
 import { INCOMING_REQUEST_FAILED } from '@/lib/stay-doors/accLauncher';
 import { StayForm } from '@/app/_components/stay-form';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
+import { NOTICE_ACTION } from '@/app/_components/notices/notices';
 
 /**
  * incoming-requests.tsx — "You are invited to {user name}'s {event name}
@@ -68,39 +70,29 @@ export async function IncomingRequests({
           const kind = (r.event_type ?? '').replace(/_/g, ' ');
           const follows = cohostNames.get(r.event_id) ?? [];
           return (
-            <li key={r.guest_id} className="rounded-2xl bg-white/80 px-4 py-4 shadow-[0_2px_10px_rgba(30,26,18,0.06)]">
-              <p className="text-[15px] leading-snug text-ink">
-                You are invited to {owner}&apos;s{' '}
-                <b className="font-semibold">{r.event_name ?? 'event'}</b>
-                {kind ? ` ${kind}` : ''} event.
-              </p>
-              <StayForm door="accLauncher.answerIncomingRequest" action={answerIncomingRequest} className="mt-3 flex gap-2.5">
-                <input type="hidden" name="guest_id" value={r.guest_id} />
-                <button
-                  type="submit"
-                  name="answer"
-                  value="yes"
-                  className="h-11 flex-1 rounded-full bg-ink px-5 text-sm font-semibold text-cream"
-                >
-                  Yes
-                </button>
-                <button
-                  type="submit"
-                  name="answer"
-                  value="no"
-                  className="h-11 flex-1 rounded-full bg-ink/[0.06] px-5 text-sm font-medium text-ink/70"
-                >
-                  No
-                </button>
-              </StayForm>
-              {follows.length > 0 ? (
-                // The follow line (owner 2026-09-28: accepted guests follow the
-                // co-hosts) — said up front, so a follow is never a surprise.
-                <p className="mt-2 text-xs text-ink/55">
-                  Saying yes follows {joinNames(follows)} — you can unfollow any time.
-                </p>
-              ) : null}
-              <StayForm door="accLauncher.muteInviter" action={muteInviter} className="mt-1.5">
+            <li key={r.guest_id}>
+              {/* 🔔 Inventory #20 — News with Yes · No (one notice system, owner approved 14 Nov 2026), drawn where it
+                  stands: the answers are the close, so it has no close word of its own. Who saying yes follows (owner
+                  2026-09-28) is behind the ⓘ — said up front, so a follow is never a surprise. */}
+              <InlineNotice
+                kind="news"
+                closable={false}
+                noticeKey={`invited:${r.guest_id}`}
+                title={`You are invited to ${owner}'s ${r.event_name ?? 'event'}${kind ? ` ${kind}` : ''} event.`}
+                detail={follows.length > 0 ? `Saying yes follows ${joinNames(follows)} — you can unfollow any time.` : undefined}
+                actions={
+                  <StayForm door="accLauncher.answerIncomingRequest" action={answerIncomingRequest} className="flex gap-2">
+                    <input type="hidden" name="guest_id" value={r.guest_id} />
+                    <button type="submit" name="answer" value="yes" className={NOTICE_ACTION}>
+                      Yes
+                    </button>
+                    <button type="submit" name="answer" value="no" className={NOTICE_ACTION}>
+                      No
+                    </button>
+                  </StayForm>
+                }
+              />
+              <StayForm door="accLauncher.muteInviter" action={muteInviter} className="mt-1 text-right">
                 <input type="hidden" name="inviter_user_id" value={r.owner_user_id} />
                 <button type="submit" className="text-xs text-ink/45 underline-offset-2 hover:underline">
                   Don&apos;t show me invites from {ownerFirst}

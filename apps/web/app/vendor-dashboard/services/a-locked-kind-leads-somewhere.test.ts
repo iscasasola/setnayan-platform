@@ -34,6 +34,8 @@ const MAKER = 'app/vendor-dashboard/services/_components/canvas-maker.tsx';
 const MANAGER = 'app/vendor-dashboard/services/_components/services-manager.tsx';
 const ACTIONS = 'app/vendor-dashboard/services/actions.ts';
 const ANCHOR = 'lib/service-picker-anchor.ts';
+const REQUEST_PAGE = 'app/vendor-dashboard/services/requests/_components/tell-us-view.tsx';
+const REQUEST_FORM = 'app/vendor-dashboard/services/requests/_components/name-fields.tsx';
 
 test('the files under test actually read back', () => {
   assert.ok(read(MAKER).length > 5000, 'the maker read back empty');
@@ -71,8 +73,10 @@ test('the anchor lib declares one id, one param and one href for the intake', ()
   assert.match(src, /export const PROPOSE_CATEGORY_PARAM = 'wantCategory';/, 'the intent param is gone');
   assert.match(
     src,
-    /export const PROPOSE_CATEGORY_HREF =\s*\n\s*`\/vendor-dashboard\/services\?\$\{PROPOSE_CATEGORY_PARAM\}=1#\$\{PROPOSE_CATEGORY_ANCHOR_ID\}` as const;/,
-    'the href stopped being built from the same id and param it must match',
+    // 2026-11-13: the door opens the category browse page (owner rulings, service requests), still
+    // carrying the same intent param so that page can offer "Back to your card".
+    /export const PROPOSE_CATEGORY_HREF =\s*\n\s*`\/vendor-dashboard\/services\/requests\/new\?\$\{PROPOSE_CATEGORY_PARAM\}=1` as const;/,
+    'the href stopped being built from the same param it must match',
   );
   assert.match(src, /export function proposeCategoryRequested/, 'the reader for the intent param is gone');
 });
@@ -108,11 +112,17 @@ test('the intake tab opens on arrival, and scrolls to itself', () => {
     /const wantsCategoryForm = proposeCategoryRequested\(search\.wantCategory\);/,
     'the manager stopped reading the intent param',
   );
-  // 🔁 2026-11-09 (Build 3 Lane E item 7): the Tools tab is gone — the form now DRAWS when it was asked for.
+  // 🔁 2026-11-09 (Build 3 Lane E item 7): the Tools tab is gone — the block now DRAWS when it was asked for.
+  // 🔁 2026-11-13: …or when the shop has requests to show (the "Your requests" row lives in it).
   assert.match(
     manager,
     /const showProposeForm = search\.requested \|\| wantsCategoryForm;/,
-    'arriving from a locked kind stopped drawing the form',
+    'arriving from a locked kind stopped drawing the block',
+  );
+  assert.match(
+    manager,
+    /\{showProposeForm \|\| myRequests\.length > 0 \|\| !requestsMeasured \? \(/,
+    'the Requests block stopped drawing for an intent, for a shop with requests, or for a refused read',
   );
   assert.match(
     manager,
@@ -135,26 +145,37 @@ test('arriving from a locked kind offers an explicit way back to the card', () =
 });
 
 test('the return survives the submit — the intent is carried through the redirect', () => {
+  // 2026-11-13: the form moved to the category-browse page; the Services block's door carries the
+  // intent there, and the page posts it on.
   const manager = read(MANAGER);
   assert.match(
     manager,
-    /<input type="hidden" name="from_locked_kind" value=\{wantsCategoryForm \? '1' : ''\} \/>/,
-    'the form stopped carrying the intent through the redirect',
+    /href=\{wantsCategoryForm \? `\$\{SERVICE_REQUEST_NEW_HREF\}\?wantCategory=1` : SERVICE_REQUEST_NEW_HREF\}/,
+    'the Services door stopped carrying the intent to the request page',
   );
+  const page = read(REQUEST_PAGE);
+  assert.match(page, /<RequestNameForm[\s\S]{0,120}fromMaker=\{fromMaker\}/, 'the page stopped handing the intent to its form');
+  assert.match(
+    read(REQUEST_FORM),
+    /<input type="hidden" name="from_locked_kind" value=\{fromMaker \? '1' : ''\} \/>/,
+    'the request form stopped carrying the intent through the redirect',
+  );
+  assert.match(page, /const fromMaker = proposeCategoryRequested\(sp\.wantCategory\);/, 'the page stopped reading the intent');
+  assert.match(page, /fromMaker \? \([\s\S]{0,300}<Link href=\{SERVICE_MAKER_HREF\}/, 'the page lost its "Back to your card"');
   const actions = read(ACTIONS);
   assert.match(
     actions,
     /const fromLockedKind = formData\.get\('from_locked_kind'\) === '1' \? '&wantCategory=1' : '';/,
     'proposeCategory stopped reading the carried intent',
   );
-  // All three exits of proposeCategory must carry it, or a validation error
-  // or an insert failure silently drops the way back.
+  // EVERY exit of proposeCategory must carry it, or a validation error, a twin, an insert failure or
+  // the AI's "you already have this" silently drops the way back.
   const fn = actions.slice(
     actions.indexOf('export async function proposeCategory'),
     actions.indexOf('export async function updateVendorService'),
   );
   const redirects = fn.match(/redirect\(\s*`[^`]*`/g) ?? [];
-  assert.equal(redirects.length, 3, `proposeCategory has ${redirects.length} redirects, expected 3`);
+  assert.ok(redirects.length >= 3, `proposeCategory has ${redirects.length} redirects — the scan is blind`);
   for (const r of redirects) {
     assert.match(r, /\$\{fromLockedKind\}/, `a proposeCategory redirect dropped the carried intent: ${r}`);
   }

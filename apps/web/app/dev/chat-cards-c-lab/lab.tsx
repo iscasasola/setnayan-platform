@@ -150,7 +150,15 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
         return (
           <div className="grid gap-1 py-2">
             <p className="text-[15px] font-semibold">Full-day coverage · v2</p>
-            <AskChangeDoor threadId={THREAD} supplierName="Lumina Studio" proposalId={QUOTE.proposalId} locks={empty ? { quote: true, plan: true } : {}} returnPath={BACK} />
+            {/* Ruling 6076 — the lines ARE the ask's door (tap a line or the payment plan). */}
+            <AskChangeDoor
+              threadId={THREAD}
+              supplierName="Lumina Studio"
+              proposalId={QUOTE.proposalId}
+              lines={QUOTE.lines.map((l) => ({ label: l.label, detail: l.detail, amount_centavos: l.amountCentavos }))}
+              locks={empty ? { quote: true, plan: true } : {}}
+              returnPath={BACK}
+            />
           </div>
         );
       case 'askcard':

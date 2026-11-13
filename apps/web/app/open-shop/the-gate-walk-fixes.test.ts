@@ -22,7 +22,7 @@ const WIZARD = read('app/open-shop/_components/open-shop-wizard.tsx');
 const ACTIONS = read('app/open-shop/actions.ts');
 const PAGE = read('app/open-shop/page.tsx');
 const ACCOUNT = read('lib/open-shop-account.server.ts');
-const PICKER = read('app/open-shop/_components/service-picker.tsx');
+const PICKER = read('app/_components/service-picker.tsx');
 const CITY_PIN = read('app/open-shop/_components/city-pin.tsx');
 const TAKEN = read('app/open-shop/_components/taken-sign-in.tsx');
 const LOGO_SCREEN = read('app/open-shop/logo/_components/add-your-logo.tsx');
@@ -145,7 +145,9 @@ test('A4 · the picker calls the SHARED ranker with reviewed aliases — no priv
   assert.match(PICKER, /aliases: l\.aliases/);
   assert.doesNotMatch(PICKER, /\.startsWith\(q\)|\.includes\(q\)/, 'the private search is back');
   assert.match(PICKER, /Close matches/);
-  assert.match(PAGE, /reviewedAliasesByLiveTrade\(/);
+  // The page reads the tree through the ONE loader every Add-a-service door shares (ruling 5820) — the aliases ride there.
+  assert.match(PAGE, /await getServicePickerTree\(\)/);
+  assert.match(read('lib/service-picker-tree.server.ts'), /reviewedAliasesByLiveTrade\(/);
   // Never auto-picked: a close match is a row the vendor taps, like any hit.
   assert.doesNotMatch(PICKER, /onPick\(close\[0\]/);
 });

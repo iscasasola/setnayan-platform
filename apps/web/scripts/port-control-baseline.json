@@ -12176,6 +12176,7 @@
       ],
       "actions": [],
       "blocks": [
+        "AddServicePicker",
         "CanvasMaker",
         "SetupOfferFold"
       ]
@@ -14393,7 +14394,6 @@
         "open-shop/_components/phone-field.tsx",
         "open-shop/_components/plan-sheet.tsx",
         "open-shop/_components/service-cards.tsx",
-        "open-shop/_components/service-picker.tsx",
         "open-shop/_components/services-at-events.tsx",
         "open-shop/_components/taken-sign-in.tsx",
         "open-shop/_components/use-stale-build.ts",
@@ -14420,10 +14420,10 @@
         "AddressPreview",
         "Box",
         "Card",
-        "CategoryTiles",
         "CityPin",
         "ClaimDoor",
         "Count",
+        "CoverageMeter",
         "DesktopOAuthButtons",
         "DetectedCity",
         "Draft",
@@ -14458,6 +14458,7 @@
         "PlanInline",
         "PlanPane",
         "PlanSheet",
+        "PlanTipBody",
         "ServiceCards",
         "ServicePicker",
         "ServicesAtEvents",
@@ -14469,7 +14470,6 @@
         "Step",
         "SubmitButton",
         "SwipeToDelete",
-        "T",
         "TakenSignIn",
         "TurnstileField",
         "UndoToastHost"
@@ -18031,6 +18031,7 @@
     },
     "/vendor-dashboard/services/new": {
       "files": [
+        "vendor-dashboard/services/new/_components/add-service-picker.tsx",
         "vendor-dashboard/services/new/_components/new-service-maker.tsx",
         "vendor-dashboard/services/new/page.tsx"
       ],
@@ -18040,10 +18041,17 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "AddServicePicker",
         "CanvasMaker",
+        "CoverageMeter",
         "Link",
         "NewServiceMaker",
-        "RefinementsEditor"
+        "RefinementsEditor",
+        "ServicePicker",
+        "Specialties",
+        "SpecialtyPicks",
+        "SwipeToDelete"
       ]
     },
     "/vendor-dashboard/services/new/[category]": {

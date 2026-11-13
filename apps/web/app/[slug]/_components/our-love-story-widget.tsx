@@ -24,7 +24,7 @@ import { OurStory, ourStoryRenders } from './our-story';
  * (each scene carries its `canvas` and a suggested `template`) and replaces the
  * `<article>` below; nothing upstream changes.
  *
- * Photos (Event Hub Pro) arrive already signed in `mediaUrls` — resolved ONCE
+ * Photos (Event Pro) arrive already signed in `mediaUrls` — resolved ONCE
  * for the whole page by `SiteBody`, never here, so the widget stays pure and a
  * ref whose signing failed simply draws no picture.
  *

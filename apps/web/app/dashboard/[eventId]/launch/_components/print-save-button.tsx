@@ -39,7 +39,7 @@ import { StatusLine } from '@/app/_components/status-line';
  *
  * 🔑 A FAILURE MUST NOT RENDER LIKE SUCCESS. A refused or failed request says
  * so, in words, on the button's own line (the route's own message when it
- * sent one — "The print-ready file in your theme comes with Event Hub Pro").
+ * sent one — "The print-ready file in your theme comes with Event Pro").
  *
  * `href` + `download` stay on the anchor so a click before hydration (or with
  * scripting off) still gets the file the old way.

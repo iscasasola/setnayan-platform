@@ -104,7 +104,7 @@ export function CoverSceneGroundRows({
    *  gate (Free 10 MB · Pro 500 MB). A number, not the Pro flag: this panel draws no Pro control of its own. Required,
    *  so a new mount cannot fall back to Free silently (`couple-media-cap-is-enforced.test.ts` 4c). */
   mediaCapBytes: number;
-  /** The existing Event Hub Pro buy path — given only to a Free event (null for Pro / a store shell), as `main-background-panel.tsx` does. */
+  /** The existing Event Pro buy path — given only to a Free event (null for Pro / a store shell), as `main-background-panel.tsx` does. */
   proHref: string | null;
 }) {
   const router = useRouter();

@@ -195,7 +195,7 @@ export function MakerShell({
   /**
    * 🖨 THE PRINTS PAGE (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO" — `lib/prints-page.ts`): this shell draws Prints
    * ALONE, at `/dashboard/<id>/prints` — the shipped Prints workspace whole (the swipe carousel, ⚙ Print settings,
-   * Download ▾, View as ▾, every save), full screen as the Studio tile drew it. The top bar keeps ↶ · ✓ (Event Hub Pro dropped
+   * Download ▾, View as ▾, every save), full screen as the Studio tile drew it. The top bar keeps ↶ · ✓ (Event Pro dropped
    * ✕ — the app's own nav is the way out) and names the page "Prints" where the stage pill stands; there is no Studio home, no lower third and no stage. An item that is
    * not a print opens the Maker (`detailsItemHref`); in the Maker, a print opens this page.
    */
@@ -1060,7 +1060,7 @@ export function MakerShell({
           toolbar. While the Maker is on the page that name is dropped, so the
           shell's z-index is the page's. `:has()` applies it from the first
           server paint; the class is the fallback once hydrated.
-          ③ 🧭 THE HUB KEEPS THE APP'S NAV (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign) — THE
+          ③ 🧭 THE HUB KEEPS THE APP'S NAV (owner 2026-10-30, DECISION_LOG "EVENT PRO (look redesign) — THE
           APP'S NAV STAYS"): the shell sits in the room the app's top bar, rail and bottom nav leave
           (`MAKER_IN_THE_APP_CSS`, `useTheAppsRoom`), never over them. */}
       <style>
@@ -1104,7 +1104,7 @@ export function MakerShell({
           data-phone-chrome-name="the toolbar"
           className="sn-glass-bare relative z-20 flex shrink-0 flex-nowrap items-center gap-x-1 px-2 py-1 max-lg:h-[52px] lg:gap-1.5 lg:px-2.5"
         >
-          {/* ✕ EXIT IS DROPPED (owner 2026-10-30, "yes" to call (1) of DECISION_LOG "EVENT HUB PRO (look redesign)"):
+          {/* ✕ EXIT IS DROPPED (owner 2026-10-30, "yes" to call (1) of DECISION_LOG "EVENT PRO (look redesign)"):
               the app's own nav — the top bar, the rail, the bottom nav with Hub lit — is the way out, as on Home ·
               Guests · Suppliers. Amends Maker_Two_Bars_LOCKED's "✕ left everywhere" for the Hub tab. Unapplied
               changes stay in the draft whichever way the couple leaves (they always did — the ✕ was a plain link). */}
@@ -1180,7 +1180,7 @@ export function MakerShell({
                   prints: { href: printsPageHref(eventId) },
                 }}
               >
-                {/* The work area's own extras for Your Event Hub (the Event Hub Pro line), and what the page hands in. */}
+                {/* The work area's own extras for Your Event Hub (the Event Pro line), and what the page hands in. */}
                 <div id={MAKER_MORE_ROWS_ID} ref={setMoreHost} className="flex flex-col gap-2 pt-3 empty:hidden" />
                 {more}
               </HubSettingsGear>

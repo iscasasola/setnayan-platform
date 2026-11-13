@@ -69,7 +69,7 @@ import {
  *      caterer's meal counts and the event QR. Open to every event and shown
  *      in the app-store shell: none of them is a purchase.
  *   2. THE INVITATION SET — every piece saves PRINT-READY in CLASSIC for
- *      everyone, and in the couple's theme with Event Hub Pro (owner: *"let's
+ *      everyone, and in the couple's theme with Event Pro (owner: *"let's
  *      allow free for all? but if they want to print with theme is pro?"*).
  *      Without Pro a PRO-themed piece is a SAMPLE — flattened, watermarked, low
  *      resolution — and the web says "Go Pro to print in <theme>". In the store
@@ -196,8 +196,8 @@ export function printPlan({ eventId, slug, theme, ownsPro, storeShell, formats, 
 }
 
 /**
- * 🗂 AN ALL-IN-ONE FILE IS EVENT HUB PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL' IS
- * EVENT HUB PRO"; `isAllInOnePrint`, refused by the route too). The 2026-09-29 ticket zip's pattern (`makerProMark`; the zip itself is free since 2026-10-22): owned → the file,
+ * 🗂 AN ALL-IN-ONE FILE IS EVENT PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL' IS
+ * EVENT PRO"; `isAllInOnePrint`, refused by the route too). The 2026-09-29 ticket zip's pattern (`makerProMark`; the zip itself is free since 2026-10-22): owned → the file,
  * ◆ unlocked in the icon's place; a free couple on the web → the ◆ door that opens the centred note (`StudioProDoor`); the store
  * shell without it → nothing. An unlock belongs to the event: an internal host's event reads as owned (`printOwnsPro`).
  */
@@ -212,8 +212,8 @@ export function allInOneFile(
 ): AllInOneFile {
   const mark = makerProMark({ owns: input.ownsPro, storeShell: input.storeShell });
   if (mark === null) return null;
-  if (mark === 'unlocked') return { kind: 'save', ...save, icon: <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} /> };
-  return { kind: 'door', href: `/dashboard/${input.eventId}/studio/website-pro`, label: save.label, icon: <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} />, note };
+  if (mark === 'unlocked') return { kind: 'save', ...save, icon: <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Pro')} /> };
+  return { kind: 'door', href: `/dashboard/${input.eventId}/studio/website-pro`, label: save.label, icon: <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} />, note };
 }
 /**
  * 🎟 A FREE ALL-GUESTS FILE (owner 2026-10-22, DECISION_LOG "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE QR SHEET ARE FREE";
@@ -232,7 +232,7 @@ function AllInOneShipped({ f, children, primary = false, data }: { f: AllInOneFi
     return (
       <PrintSaveButton href={f.href} file={f.file} variant={primary ? 'primary' : 'secondary'}>
         {/* ◆ unlocked on a Pro file only — a free all-guests file (`freeAllGuestsFile`) carries no mark. */}
-        {f.icon ? <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} className="mr-1 align-middle" /> : null}
+        {f.icon ? <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Pro')} className="mr-1 align-middle" /> : null}
         {data ? <span {...{ [data]: '' }}>{children}</span> : children}
       </PrintSaveButton>
     );
@@ -431,7 +431,7 @@ export function PrintPieceEditor({
     const name = spec.label.replace(/^the\s+/i, '');
     if (k === 'pass' && fam) {
       /* 🎟 THE EVENT PASS IS A GUEST PRINT (owner 2026-10-17): View as ▾ — one guest's pass, free (`pass_guest=<id>`, the size picked)
-         — and All guests, every guest's pass ganged on A4 (◆ Event Hub Pro 2026-10-17, FREE since 2026-10-22: `freeAllGuestsFile`).
+         — and All guests, every guest's pass ganged on A4 (◆ Event Pro 2026-10-17, FREE since 2026-10-22: `freeAllGuestsFile`).
          "Pass for ▾" and "Sample (PDF)" are retired: the
          Download IS one real guest's pass. The picture is the guest picked. */
       const guests = input.passGuests ?? null;
@@ -509,7 +509,7 @@ export function PrintPieceEditor({
  * 🎫 THE PASS GUESTS SAVE (owner 2026-09-29) — one look for every card, and
  * its two outputs: *"print outs are PDF. digital versions are png"*. Each
  * guest saves their own card free; the couple's zip of every card is FREE
- * since 2026-10-22 (`freeAllGuestsFile` — it was Event Hub Pro from
+ * since 2026-10-22 (`freeAllGuestsFile` — it was Event Pro from
  * 2026-09-29); the Phone card print is the SAME drawing as a PDF. Drawn in
  * Details › Pass, under the piece's own saves — the look is ONE dropdown in
  * the right part, beside the card it picks.
@@ -521,7 +521,7 @@ export function PassCardsPanel({ input }: { input: PrintsInput }) {
      "THE DIGITAL TICKET ZIP IS FREE": it is how couples hand out tickets). A free event's tickets are plain white (`printLookForEvent`). */
   const zip = freeAllGuestsFile({ href: `${PASS_CARDS_ZIP_ROUTE}?event=${eventId}`, file: passCardsZip, label: PASS_CARD_WORDS.downloadAll });
   const classicPhoneCards = `/api/hub-print/passes?event=${eventId}&mode=print&theme=${CLASSIC_PRINT_THEME}&pass_format=${PASS_CARD_FORMAT_ID}`;
-  /* 🎟 Every guest's ticket, Phone card, in one PDF — Event Hub Pro 2026-10-16, FREE again 2026-10-22 (`freeAllGuestsFile`). */
+  /* 🎟 Every guest's ticket, Phone card, in one PDF — Event Pro 2026-10-16, FREE again 2026-10-22 (`freeAllGuestsFile`). */
   const printedAll = freeAllGuestsFile({
     href: themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID),
     file: themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes'),
@@ -601,7 +601,7 @@ export function freePrintParts(
         </p>
         <div className="flex flex-wrap gap-x-3 gap-y-1">
           {fp.saves.map((s, i) => {
-            /* 🗂 The whole place-card pack is an all-guests file — Event Hub Pro since 2026-10-17 (the route refuses it too): the zip's
+            /* 🗂 The whole place-card pack is an all-guests file — Event Pro since 2026-10-17 (the route refuses it too): the zip's
                ◆ pattern here as well (`AllInOneShipped`); absent in the store shell without it. Every guest's QR is free again
                (2026-10-22), a plain save like the rest of the group. */
             const pro = ALL_GUESTS_NOTE[fp.key];
@@ -626,7 +626,7 @@ export function freePrintParts(
 }
 
 /**
- * 🗂 The free prints whose all-guests file is Event Hub Pro (owner 2026-10-17) and the ◆ note each opens. The Guest QR sheet left on
+ * 🗂 The free prints whose all-guests file is Event Pro (owner 2026-10-17) and the ◆ note each opens. The Guest QR sheet left on
  * 2026-10-22 (owner: *"the goal of the free is to keep everything minimum ready but no personalization."*) — it downloads free.
  */
 const ALL_GUESTS_NOTE: Partial<Record<FreePrint['key'], { title: string; body: string }>> = {
@@ -636,7 +636,7 @@ const ALL_GUESTS_NOTE: Partial<Record<FreePrint['key'], { title: string; body: s
 /**
  * 🖨 A PRINT FOR THE DAY, STUDIO'S ROW (owner 2026-10-17): picture · name · line · ONE Download — and
  *   · Guest QR codes, Table signs & place cards: guest prints — View as ▾, one guest's file (free: their own QR PNG, their own place
- *     card) and All guests ◆ (the sheet / the pack: Event Hub Pro);
+ *     card) and All guests ◆ (the sheet / the pack: Event Pro);
  *   · the 2D seat plan's "Colours ▾" and the caterer's "File ▾": two files, one dropdown + one Download;
  *   · the entrance seating chart: its size ▾ on the row, its layout (By table · A to Z) in Print settings.
  */
@@ -671,7 +671,7 @@ function studioFreeEditor(eventId: string, slug: string | null, fp: FreePrint, i
           holds={guestPrintCountLine(fp.key, guests)}
           none={qr ? 'No guest is on your list yet — add your guests, then pick one here.' : 'No guest is seated yet — seat your guests in the seat plan, then pick one here.'}
           /* 🎟 Pick guests on both (owner 2026-10-26, "all guest related prints"): the place cards' picked file is those guests'
-             cards only — offered where All guests saves (Event Hub Pro for the pack), refused by the route otherwise too. */
+             cards only — offered where All guests saves (Event Pro for the pack), refused by the route otherwise too. */
           pickNoun={qr ? { one: 'QR code', many: 'QR codes' } : { one: 'place card', many: 'place cards' }}
           tip={fp.blurb}
         />
@@ -763,7 +763,7 @@ export function PrintSetBody({ input }: { input: PrintsInput }) {
 
 export function PrintSetDownloads({ input }: { input: PrintsInput }) {
   const { access, t, themed, freeTheme, themedReady, spot, q, classic, file, formats } = printPlan(input);
-  /* 🗂 THE WHOLE SET IS EVENT HUB PRO (owner 2026-10-16, "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the zip's ◆ pattern (`allInOneFile`);
+  /* 🗂 THE WHOLE SET IS EVENT PRO (owner 2026-10-16, "EVERY 'DOWNLOAD ALL' IS EVENT PRO"): the zip's ◆ pattern (`allInOneFile`);
      the route refuses it without it. Every guest's ticket in one file is FREE again (2026-10-22, `freeAllGuestsFile`), and each
      piece's own PDF, on its own row, stays free. */
   const wholeSet = (href: string, f: string, label: string) => allInOneFile(input, { href, file: f, label }, WHOLE_SET_PRO_NOTE);
@@ -787,14 +787,14 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
         — 3 mm bleed and crop marks, no watermark.{' '}
         {input.storeShell ? null : (
           <>
-            <PaidMark state={input.ownsPro ? 'unlocked' : 'try'} label={paidMarkLabel(input.ownsPro ? 'unlocked' : 'try', 'Event Hub Pro')} className="mr-1 align-middle" />
-            Your Event Hub look on paper is Event Hub Pro.{' '}
+            <PaidMark state={input.ownsPro ? 'unlocked' : 'try'} label={paidMarkLabel(input.ownsPro ? 'unlocked' : 'try', 'Event Pro')} className="mr-1 align-middle" />
+            Your Event Hub look on paper is Event Pro.{' '}
           </>
         )}
         {!themed || freeTheme ? null : access.printReady ? (
           <>
-            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} className="mr-1 align-middle" />
-            With Event Hub Pro they print in <span className="font-semibold text-ink">{t.name}</span> too
+            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Pro')} className="mr-1 align-middle" />
+            With Event Pro they print in <span className="font-semibold text-ink">{t.name}</span> too
             {spot.foil || spot.whiteInk
               ? `, with ${[spot.foil ? 'foil' : null, spot.whiteInk ? 'white ink' : null].filter(Boolean).join(' and ')} on their own layers`
               : ''}
@@ -809,7 +809,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
       </p>
       {!freeTheme && access.offerPro ? (
         <p data-prints-go-pro="" className="text-sm font-medium text-mulberry">
-          <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} className="mr-1 align-middle" />
+          <PaidMark state="try" label={paidMarkLabel('try', 'Event Pro')} className="mr-1 align-middle" />
           Go Pro to print in {t.name}.
         </p>
       ) : null}
@@ -845,7 +845,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
 /**
  * 🎫 THE DIGITAL TICKET (owner 2026-10-17) — a guest print of its own row: the PNG each guest saves, drawn for the guest View as ▾
  * shows (`/api/guest/pass-card?guest=<id>`, the Guest list's own per-guest file, free), and All guests — the zip of every ticket
- * (`PASS_CARDS_ZIP_ROUTE`): Event Hub Pro from 2026-09-29, FREE for every event since 2026-10-22 (owner "yes", DECISION_LOG "THE
+ * (`PASS_CARDS_ZIP_ROUTE`): Event Pro from 2026-09-29, FREE for every event since 2026-10-22 (owner "yes", DECISION_LOG "THE
  * DIGITAL TICKET ZIP IS FREE" — it is how couples hand out tickets), so a plain Download (`freeAllGuestsFile`), the store shell
  * included, and the route asks no Pro question. Its look is its own slide's Ticket style ▾ (Classic ▾, owner 2026-10-26 — it left Print settings); a free event's is plain white.
  */
@@ -894,7 +894,7 @@ export function DigitalTicketEditor({ input }: { input: PrintsInput }) {
 
 /**
  * 🗂 EVERYTHING ◆ (owner 2026-10-17): every piece above in one PDF — the set, every guest's pass and place card, the day's sheets
- * (`/api/hub-print/everything`, Event Hub Pro, refused by the route too). It replaces "Download the set"'s buttons in Studio; the
+ * (`/api/hub-print/everything`, Event Pro, refused by the route too). It replaces "Download the set"'s buttons in Studio; the
  * piece bar's ⬇ offers it beside "This piece".
  */
 export function PrintEverythingStudio({ input }: { input: PrintsInput }) {

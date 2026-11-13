@@ -56,7 +56,7 @@ export type RecordEditorContext = {
   profile: EventTypeProfile;
   /** The event's Event Hub draft (null = none, or unread). */
   draft: HubDraft | null;
-  /** Event Hub Pro, as the viewer is shown it (`printOwnsPro`). */
+  /** Event Pro, as the viewer is shown it (`printOwnsPro`). */
   ownsPro: boolean;
   storeShell: boolean;
   /** The viewer may read the guest list (the RSVP panel's Requests rows). */

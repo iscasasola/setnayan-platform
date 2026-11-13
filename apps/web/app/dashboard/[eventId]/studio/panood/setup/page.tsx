@@ -251,9 +251,9 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // the Broadcast Style Pack / AI Edited Highlight have NO V2 SKU yet, so those
   // surfaces honest-state "arrives with the streaming rollout" instead of a
   // price (owner rule: never hardcode a price).
-  // 💎 2026-10-22: the animation is sold as Event Hub Pro's Logo & QR part (the standalone row is retired) — its price.
+  // 💎 2026-10-22: the animation is sold as Event Pro's Logo & QR part (the standalone row is retired) — its price.
   // ⛔ 2026-10-26 (owner: "just have the upgrade event hub pro"): while that part is off sale, the animation is IN
-  // Event Hub Pro — the card says so with Pro's price. The catalogue is the one switch (`hubPartPrices().onSale`).
+  // Event Pro — the card says so with Pro's price. The catalogue is the one switch (`hubPartPrices().onSale`).
   const monogramPrices = await hubPartPrices(createAdminClient()).catch(() => null);
   const monogramPartSku = hubPart('logo_qr').sku;
   const monogramPartPhp = monogramPrices?.onSale.has(monogramPartSku) ? monogramPrices.parts.get(monogramPartSku) : undefined;
@@ -261,7 +261,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
     monogramPartPhp != null
       ? formatPhp(monogramPartPhp)
       : monogramPrices?.full != null
-        ? `In Event Hub Pro · ${formatPhp(monogramPrices.full)}`
+        ? `In Event Pro · ${formatPhp(monogramPrices.full)}`
         : null;
 
   // The venue connection check's last result — the couple's and the coordinator's to see.

@@ -1345,7 +1345,7 @@ function GracefulFallback({ words: w }: { words: EventWords }): ReactElement {
           This {w.eventWord}&rsquo;s story isn&rsquo;t available yet.
         </h2>
         <p className="text-sm text-ink/65">
-          The recap is composed a few days after the celebration. Please check back soon.
+          The recap is composed a few days after the event. Please check back soon.
         </p>
       </div>
     </div>
@@ -1410,7 +1410,7 @@ function HeroPhoto({
         />
       ) : null}
       <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/70 to-transparent px-3 pb-2 pt-5 font-mono text-xs uppercase tracking-[0.08em] text-cream">
-        {names}, from the celebration — captured on the day.
+        {names}, from the event — captured on the day.
       </figcaption>
     </figure>
   );
@@ -1822,7 +1822,7 @@ function LivePhotoWall({
         Powered by Setnayan
         {typeof photoCount === 'number' && photoCount > 0
           ? ` · ${photoCount.toLocaleString('en-PH')} photos captured live`
-          : ' · captured live during the celebration'}
+          : ' · captured live during the event'}
       </p>
       <div className="gap-2 [column-fill:_balance] columns-2 sm:columns-3 lg:columns-4">
         {photos.slice(0, 24).map((url, i) => (

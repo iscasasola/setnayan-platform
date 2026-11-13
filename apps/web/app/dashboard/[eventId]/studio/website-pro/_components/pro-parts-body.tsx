@@ -111,7 +111,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
       {active?.full ? (
         <div className="rounded-3xl bg-ink/[0.04] p-5" data-pro-everything="yours">
           <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-success-800">
-            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} size="lg" tone="current" /> Unlocked
+            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Pro')} size="lg" tone="current" /> Unlocked
           </p>
           <p className="text-sm text-ink/70">
             Everything is on across your Event Hub{partsOnSale ? ` — all ${HUB_PARTS.length} parts —` : ''} and the &ldquo;Powered by Setnayan&rdquo; footer is off.
@@ -130,7 +130,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
             <Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} /> Payment under review
           </p>
           <p className="text-sm text-ink/70">
-            We&rsquo;ve received your Event Hub Pro order. Our team reconciles within one business day — everything unlocks
+            We&rsquo;ve received your Event Pro order. Our team reconciles within one business day — everything unlocks
             automatically once it is approved.
           </p>
           <Link href={`/dashboard/${eventId}/orders`} className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-mulberry underline underline-offset-2">
@@ -153,10 +153,10 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
           <div className="mt-3">
             {drawer({
               serviceKey: FULL_PRO_SKU,
-              name: partsOnSale ? 'Event Hub Pro · everything' : 'Event Hub Pro',
+              name: partsOnSale ? 'Event Pro · everything' : 'Event Pro',
               php: restPhp,
               // The drawer's own trigger shows the figure beside the words — the label is words only.
-              label: paidPhp > 0 ? 'Unlock the rest' : partsOnSale ? 'Unlock everything' : 'Unlock Event Hub Pro',
+              label: paidPhp > 0 ? 'Unlock the rest' : partsOnSale ? 'Unlock everything' : 'Unlock Event Pro',
             })}
           </div>
         </div>
@@ -175,7 +175,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
           <div className="mt-3">
             {drawer({
               serviceKey: buyParts.length === 1 ? hubPart(buyParts[0]!).sku : HUB_PARTS_ORDER_KEY,
-              name: `Event Hub Pro · ${hubPartsLabel(buyParts)}`,
+              name: `Event Pro · ${hubPartsLabel(buyParts)}`,
               php: chargeOf(buyPricePhp),
               label: `Unlock ${hubPartsLabel(buyParts)}`,
               ...(buyParts.length > 1 ? { hubParts: buyParts } : {}),
@@ -190,7 +190,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
             { title: 'Big parts', parts: big },
             { title: 'Small parts', parts: small },
           ]
-        : [{ title: 'What Event Hub Pro unlocks', parts: HUB_PARTS }]
+        : [{ title: 'What Event Pro unlocks', parts: HUB_PARTS }]
       ).map((band) => (
         <section key={band.title} aria-label={band.title} data-pro-parts-band={band.title}>
           <p className="flex items-baseline justify-between border-b border-ink/15 pb-2 pt-2">
@@ -219,7 +219,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
                           <span className="text-sm font-semibold text-mulberry">Under review</span>
                         ) : php !== null ? (
                           <span className="inline-flex items-center gap-1.5 font-mono text-sm text-ink">
-                            <PaidMark state="try" bare label="Event Hub Pro" size="xs" /> {formatPhp(php)}
+                            <PaidMark state="try" bare label="Event Pro" size="xs" /> {formatPhp(php)}
                           </span>
                         ) : null}
                         <ChevronRight aria-hidden className="h-4 w-4 text-ink/40 transition-transform group-open:rotate-90" strokeWidth={2} />
@@ -240,7 +240,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
                         <div className="mt-3">
                           {drawer({
                             serviceKey: p.sku,
-                            name: `Event Hub Pro · ${p.name}`,
+                            name: `Event Pro · ${p.name}`,
                             php: chargeOf(php),
                             label: `Unlock ${p.name}`,
                           })}

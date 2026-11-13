@@ -24,7 +24,7 @@ import type { UpdateQrStyleResult } from '../qr-look-actions';
  *     just show that these tools are for pro with the diamond icon"*); the
  *     diamond once owned. Every pick is DRAFTED (owner 2026-09-29, "yes to
  *     all 3"): the preview draws it for the host, the Apply sheet names it, and
- *     Apply writes it only with Event Hub Pro (qr-look-actions).
+ *     Apply writes it only with Event Pro (qr-look-actions).
  *   · In the app-store shell a locked door is ABSENT, not locked (the same rule
  *     maker-made-once follows): nothing here renders for a free couple there.
  *   · Colour offers only the couple's Mood Board colours that clear the
@@ -85,7 +85,7 @@ export function QrLookControls({
 
   /* 💾 Every pick goes into the DRAFT (owner 2026-09-29, "yes to all 3") —
      a couple without Pro tries it too; the Apply sheet names it, and Apply
-     puts it on the live code only with Event Hub Pro. */
+     puts it on the live code only with Event Pro. */
   const save = (patch: StoredQrStyle) => {
     setNote(null);
     const before = latest.current;
@@ -126,7 +126,7 @@ export function QrLookControls({
     <div className="flex min-h-11 items-center justify-between gap-3" data-qr-look-row={label.toLowerCase()}>
       <span className="flex items-center gap-1.5 text-sm text-ink">
         {label}
-        {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
+        {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" /> : null}
       </span>
       {children}
     </div>

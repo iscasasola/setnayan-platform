@@ -52,7 +52,7 @@ export const stdOpeningsActiveCached = cache(async (eventId: string) =>
 );
 export async function RevealOverlayServer({ eventId, hostTrial = false, ...props }: Props) {
   const config = await fetchRevealConfig();
-  // ALL REVEAL IS PAID (owner 2026-09-24): Event Hub Pro ownership is now the
+  // ALL REVEAL IS PAID (owner 2026-09-24): Event Pro ownership is now the
   // ONLY gate, so it is read whenever the reveal's phase is on (`enabled` — the
   // Save-the-Date window OR the invitation). It used to be SKIPPED when the
   // admin master toggle was on, because that toggle handed the paid veil to

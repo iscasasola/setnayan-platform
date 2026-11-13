@@ -44,7 +44,7 @@ import { AmbientEffectLayer } from '../_components/ambient-effect';
  * 🧱 THE ONE PAGE-GROUND RULE (`lib/page-ground.ts`, owner 2026-09-26 "YES TO
  * ALL" (a)): the colour + effect is always the base; the hero sits on top as
  * Pro media — on a Pro theme, and (owner 2026-09-29, "yes") on a free theme
- * with a loop when the event OWNS Event Hub Pro (`websiteProActiveFor`, the
+ * with a loop when the event OWNS Event Pro (`websiteProActiveFor`, the
  * entitlement resolver as viewed). Classic never gets it ("classic has no
  * photo or video"); a free or lapsed couple on Modern / Cyber Neon gets the
  * theme's own loop.
@@ -192,7 +192,7 @@ function shadeFollowers(
  * or for media this viewer is not shown).
  *
  * ◆ One of the six ALWAYS-Pro effects (`AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO`) is drawn for a guest only while the event
- * OWNS Event Hub Pro (the request's cached read — asked only when one is stored), and on the host's own canvas as it
+ * OWNS Event Pro (the request's cached read — asked only when one is stored), and on the host's own canvas as it
  * WOULD look (`tryOn`). Soft haze and Bokeh lights became Pro on 2026-10-16 and are gated at ✓ Apply instead, so one a
  * free event published before that keeps drawing (*"free events keep what they already published"*) and asks nothing.
  * It wears the COUPLE's colours only. Returning a layer also tells the page to drop its opaque paper (`ownGround`),

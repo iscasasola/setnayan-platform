@@ -716,7 +716,7 @@ export default async function EventHomePage({
   // React-cached, the layout's own read.
   const homeTypeProfileRead = startAhead(resolveProfile((event.event_type as string | null) ?? 'wedding'));
   /*
-    🧾 EVERY PAID SERVICE + EVENT HUB PRO (owner 2026-10-14; live on cale-ice 2026-10-20: "i thought we
+    🧾 EVERY PAID SERVICE + EVENT PRO (owner 2026-10-14; live on cale-ice 2026-10-20: "i thought we
     will have our other paid services here in home?"). Per SKU: is it ON — `eventSkuActive`, the feature
     gate the service's own page reads (an internal / founder-seat host owns every feature, and the row
     must say what the feature does) — is a payment waiting (`eventOwnsSku`), and, only where it is not

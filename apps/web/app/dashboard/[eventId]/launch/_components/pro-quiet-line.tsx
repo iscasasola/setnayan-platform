@@ -32,7 +32,7 @@ export function ProQuietLine({ part }: { part?: HubPartId }) {
       data-pro-quiet-line={mine ? 'yours' : line.paidPhp > 0 ? 'paid' : 'free'}
       className="flex min-h-11 items-center gap-2 border-b border-ink/10 text-[12.5px] text-ink/60 hover:text-ink"
     >
-      <PaidMark state={owned ? 'unlocked' : 'try'} bare label="Event Hub Pro" size="xs" />
+      <PaidMark state={owned ? 'unlocked' : 'try'} bare label="Event Pro" size="xs" />
       <span className="min-w-0 flex-1 truncate">
         {mine ? (
           <>

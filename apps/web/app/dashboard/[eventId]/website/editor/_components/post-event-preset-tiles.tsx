@@ -59,7 +59,7 @@ export function PresetTiles({
           ? 'You have all six of your own scenes. Remove one you are not using to add another.'
           : presets.ownsPro
             ? 'Each goes into your draft — guests see it when you press Apply.'
-            : 'Every preset is part of Event Hub Pro — try it now; Pro is asked for when you press Apply.'}
+            : 'Every preset is part of Event Pro — try it now; Pro is asked for when you press Apply.'}
       </p>
       <div className={`mt-2 grid gap-2 ${view === 'desktop' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
         {POST_EVENT_PRESETS.map((p) => {
@@ -83,7 +83,7 @@ export function PresetTiles({
                 </span>
                 <span className="flex items-center gap-1 pr-7 text-[0.7rem] font-semibold leading-tight text-ink">
                   {/* ◆ marks what Pro covers — the diamond, never a padlock: the tap still places it (2026-09-29). */}
-                  {mark ? <PaidMark state={mark} size="xs" label={paidMarkLabel(mark, 'Event Hub Pro')} /> : null}
+                  {mark ? <PaidMark state={mark} size="xs" label={paidMarkLabel(mark, 'Event Pro')} /> : null}
                   {p.name}
                 </span>
                 <span className="text-[0.62rem] leading-tight text-ink/60">{p.fields}</span>

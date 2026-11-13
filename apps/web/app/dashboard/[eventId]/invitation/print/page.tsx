@@ -50,7 +50,7 @@ export default async function PrintSheetPage({ params }: Props) {
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const admin = createAdminClient();
   // Every printed code wears the event's look — the Setnayan mark, or the
-  // couple's own logo · shape · pattern · ink on Event Hub Pro (lib/qr-look.ts).
+  // couple's own logo · shape · pattern · ink on Event Pro (lib/qr-look.ts).
   const look = await resolveEventQrLook(admin, event.event_id, event);
   // Canonical URL form for the printed QRs — nested /u/ under the cutover flag,
   // bare root otherwise (resolve self-noops OFF, so no query pre-cutover).

@@ -222,7 +222,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     const oneGuest = params.get('guest');
     if (oneGuest !== null && !GUEST_ID.test(oneGuest)) return new NextResponse('Which guest?', { status: 400 });
     /* 🎟 PICKED GUESTS' PLACE CARDS (owner 2026-10-26, *"this should apply to all guest related prints"*): `guests=<id>,…` draws
-       those guests' cards only (no directory, no signs) — a file of several guests, so it asks the SAME Event Hub Pro question as
+       those guests' cards only (no directory, no signs) — a file of several guests, so it asks the SAME Event Pro question as
        the whole pack below. Every id must be a guest this pack seats (`seatedGuestsOf`, the one answer the Prints row lists and
        counts from): one that is not — another event's guest, an unseated guest, a removed one — refuses the whole file (403), never
        dropped and never included. Malformed / empty / oversized → 400; with `guest=` too → 400 (one file, one question). */
@@ -230,7 +230,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     if (!pickedParam.ok) return new NextResponse(pickedParam.why, { status: 400 });
     const picked = pickedParam.ids;
     if (picked && oneGuest !== null) return new NextResponse('Pick one guest or several — not both.', { status: 400 });
-    /* 🗂 …and the whole pack — the directory, every sign and every place card in one file — is Event Hub Pro (owner 2026-10-17,
+    /* 🗂 …and the whole pack — the directory, every sign and every place card in one file — is Event Pro (owner 2026-10-17,
        "ALL GUESTS ◆"; `isAllInOnePrint('seating-pack')`): refused before anything is drawn. Its on-screen picture stays free. */
     if (format === 'pdf' && oneGuest === null) {
       const [ownsPro, storeShell] = await Promise.all([printOwnsPro(eventId), isStoreShellRequest()]);

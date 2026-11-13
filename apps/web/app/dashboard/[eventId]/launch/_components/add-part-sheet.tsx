@@ -1238,7 +1238,7 @@ function AddPartSheet({
           <section data-add-part-own="">
             <p className="flex items-center gap-1.5 px-3 pb-1 pt-3 text-[11px] font-bold uppercase tracking-[0.12em] text-ink/45">
               A scene of your own
-              {proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} tone="auto" /> : null}
+              {proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Pro')} tone="auto" /> : null}
               <span className="font-semibold normal-case tracking-normal" data-own-left={left}>· {makerOwnScenesLine(used)}</span>
             </p>
             {'action' in own ? (

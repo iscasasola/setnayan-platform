@@ -4,7 +4,7 @@ import { LOVE_STORY_PRO_CTA, LOVE_STORY_PRO_LINE } from '@/lib/love-story-moment
 
 /**
  * THE ONE QUIET LINE — owner 2026-09-25, verbatim ruling: a sixth story or any
- * photo shows *"Add more stories and your photos · Go Event Hub Pro"*, opening
+ * photo shows *"Add more stories and your photos · Go Event Pro"*, opening
  * the existing Pro offer (`/studio/website-pro`, the same `ctaPath`
  * `resolveHubProOffer` hands the Maker). Nothing else in Love Story is locked,
  * dimmed or badged.

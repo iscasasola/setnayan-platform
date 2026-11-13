@@ -315,7 +315,7 @@ export default async function EventDetailsPage({
   const venuesWon = vendorsRead.ok ? pickVenueBookingRows(vendorsRead.v) : { ceremony: null, reception: null };
 
   // ── The look (as drafted) ─────────────────────────────────────────────────
-  // 💎 Part by part (owner 2026-10-22): "Event Hub Pro · Active" is everything; a Pro theme is the Style part's (13).
+  // 💎 Part by part (owner 2026-10-22): "Event Pro · Active" is everything; a Pro theme is the Style part's (13).
   const ownsPro = proRead.ok && proRead.v.full;
   const ownsStyle = proRead.ok && (proRead.v.full || proRead.v.parts.has('style'));
   const theme = INVITE_THEMES[resolveInviteTheme({ saved: shown.invite_theme, ownsPro: ownsStyle || (canEditHub && !storeShell) })];
@@ -876,14 +876,14 @@ export default async function EventDetailsPage({
               review notes say the digital extras are "not offered, priced, or
               advertised in the app", and a web extra unlocks nothing there).
               In the store shell this section keeps only Plan it myself — no
-              Event Hub Pro / Setnayan AI / Papic row, owned or not (an "Active"
+              Event Pro / Setnayan AI / Papic row, owned or not (an "Active"
               row would claim an unlock the app does not honour), and no "Open
               Services" link (the More menu it opens is not in the app). Held by
               `app/the-app-names-no-paid-service.test.ts`. */}
           <Section k="services" open={storeShell ? null : { href: studioHubHref(eventId), label: 'Open Services' }}>
             {storeShell ? null : (
               <>
-                <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
+                <Row fact="services" label="Event Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
                 <Row label="Setnayan AI" value={e.setnayan_ai_active === true ? 'Active' : 'Not added'} />
               </>
             )}

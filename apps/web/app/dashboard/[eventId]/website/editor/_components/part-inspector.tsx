@@ -130,7 +130,7 @@ export function PartTextTab({
    * today — draws every shipped row.
    */
   threeControls?: boolean;
-  /** 💎 Font ▾ is Event Hub Pro — its `<PaidMark>`, or null (none to draw). */
+  /** 💎 Font ▾ is Event Pro — its `<PaidMark>`, or null (none to draw). */
   fontMark?: ReactNode;
   /** The store shell, not owned: a Pro row is hidden, never shown locked. */
   hideFont?: boolean;
@@ -511,7 +511,7 @@ export function PartAnimateTab({
    * rows under each are the same.
    */
   buildWords?: boolean;
-  /** 💎 How a part moves is Event Hub Pro — its `<PaidMark>`, or null (none to draw). */
+  /** 💎 How a part moves is Event Pro — its `<PaidMark>`, or null (none to draw). */
   proMark?: ReactNode;
   motion: HubElementMotion;
   moveTo: (part: keyof HubElementMotion, value: string | MotionFx | null) => void;

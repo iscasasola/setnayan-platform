@@ -5,7 +5,7 @@ import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { AppleProScreen } from '@/app/_components/iap/apple-pro-screen';
 
 /**
- * 🍎 /dashboard/[eventId]/apple-pro — Event Hub Pro through Apple, opened by the
+ * 🍎 /dashboard/[eventId]/apple-pro — Event Pro through Apple, opened by the
  * Maker's "Unlock Pro and Apply" in the iPhone app (lib/hub-draft-store.ts
  * `proHref`). Anywhere Apple does not sell (the web, the desktop app, an old
  * phone build, the owner's switch off) it is not a page: it goes straight back.
@@ -27,7 +27,7 @@ export default async function AppleProPage({ params, searchParams }: Props) {
   /* What the event holds — Full Pro, any part, the cap (an order under review counts, so nothing is sold twice). */
   const own = ent ? await eventHubOwnership(ent, eventId, 'owned').catch(() => null) : null;
   if (own?.full) redirect(`${back}?apply=1`);
-  /* ⛔ Event Hub Pro is sold WHOLE (owner 2026-10-26, "just have the upgrade event hub pro") — never a part, here or on
+  /* ⛔ Event Pro is sold WHOLE (owner 2026-10-26, "just have the upgrade event hub pro") — never a part, here or on
      the web. "Everything" is not sold in the app once any part is owned — it would charge Apple's full price for less
      on the web, and the app may not say so (owner 2026-10-22, Q1); such an event finishes on the web. */
   if (own && (own.parts.size > 0 || own.paidPhp > 0)) redirect(back);

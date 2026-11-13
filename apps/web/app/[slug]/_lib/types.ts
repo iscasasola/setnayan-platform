@@ -309,7 +309,7 @@ export type EventMedia = {
   proWatermarkHidden: boolean;
   /** 🏷 The event plan's Setnayan mark (Build 6 Lane L): Free watermark · Event Plus quiet · Event Pro none. */
   setnayanMark: SetnayanMark;
-  /** 💎 The Event Hub Pro parts this event holds, as the viewer is shown it (every part when it holds everything). */
+  /** 💎 The Event Pro parts this event holds, as the viewer is shown it (every part when it holds everything). */
   hubParts: readonly HubPartId[];
   bespokeSvg: string | null;
   studioAnim: StudioAnim;

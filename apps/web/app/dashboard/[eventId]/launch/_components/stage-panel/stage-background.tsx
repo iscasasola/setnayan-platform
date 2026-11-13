@@ -64,7 +64,7 @@ export function StageBackground({
   /** 🖼 The first source's name and its one quiet line — the Cover Scene's is "The theme's own" (its written card). */
   hubLabel?: string;
   hubLine?: string;
-  /** The source the stored background IS, and the ones offered (each with ◆ where Apply asks for Event Hub Pro). */
+  /** The source the stored background IS, and the ones offered (each with ◆ where Apply asks for Event Pro). */
   source: StageBgSource;
   sources: ReadonlyArray<{ key: StageBgSource; pro: boolean }>;
   onSource: (s: StageBgSource) => void;

@@ -1,5 +1,5 @@
 /**
- * THE EVENT HUB PRO UNLOCK LABEL — one pure helper, and deliberately NOT in a
+ * THE EVENT PRO UNLOCK LABEL — one pure helper, and deliberately NOT in a
  * client file (see `rail-rows.ts` for why a `'use client'` module is a boundary a
  * server page may not call across). Both the server page and the three client
  * panels may import it.
@@ -18,7 +18,7 @@
  * Held by `unlock-label.test.ts`.
  */
 
-export const UNLOCK_EVENT_HUB_PRO = 'Unlock Event Hub PRO';
+export const UNLOCK_EVENT_HUB_PRO = 'Unlock Event PRO';
 
 /** The unlock CTA's words: with the live catalogue price, or with none. */
 export function unlockLabel(priceLabel: string | null): string {

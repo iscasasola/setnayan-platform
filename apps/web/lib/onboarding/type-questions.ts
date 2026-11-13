@@ -375,7 +375,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       options: [
         { key: 'documented', title: 'Documented', desc: 'A photo/video team along the way.', adds: ['photo_video', 'editorial'] },
         { key: 'logistics', title: 'Group logistics', desc: 'Transfers and a coordinator.', adds: ['guest_shuttle', 'coordinator'] },
-        { key: 'keepsake', title: 'A keepsake site', desc: 'A shared page for the journey.', adds: ['digital_services'] },
+        { key: 'keepsake', title: 'A keepsake Event Hub', desc: 'A shared page for the journey.', adds: ['digital_services'] },
       ],
     },
     {

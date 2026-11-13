@@ -189,7 +189,7 @@ export function ThemePickProvider({
 function ProMark({ tier, ownsPro, storeShell }: { tier: ThemeTile['tier']; ownsPro: boolean; storeShell: boolean }) {
   if (tier !== 'pro') return null;
   const mark = makerProMark({ owns: ownsPro, storeShell });
-  return mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null;
+  return mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" /> : null;
 }
 
 /**
@@ -205,7 +205,7 @@ export function MakerThemeGallery({
 }: {
   /** `pickableInviteThemes` — already fenced to what this celebration may wear. */
   themes: ThemeTile[];
-  /** Event Hub Pro, as this viewer is shown it. */
+  /** Event Pro, as this viewer is shown it. */
   ownsPro: boolean;
   storeShell: boolean;
   /** The theme matching the couple's onboarding feel, or null — a label only. */
@@ -435,7 +435,7 @@ export function MakerThemeMenu({
           {/* 🍎 The iPhone app lists only the free themes (`tilesShown`) and names no paid extra. */}
           {storeShell && !ownsPro ? null : (
             <>
-              {themeNames(FREE_THEMES)} are free; the others come with Event Hub Pro. Pick one anyway — Apply names it and
+              {themeNames(FREE_THEMES)} are free; the others come with Event Pro. Pick one anyway — Apply names it and
               asks.{' '}
             </>
           )}

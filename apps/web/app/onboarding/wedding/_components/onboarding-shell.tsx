@@ -944,7 +944,7 @@ const groupDigits = (raw: string) => {
 // live_background dropped 2026-07-22: Live Background is bundle-only (folded into
 // Monogram PRO = animated_monogram), so it is no longer a standalone onboarding
 // pick (its SKU is is_active=false → the card would otherwise render as ₱0).
-// animated_monogram dropped 2026-10-22: the standalone Animated Monogram is retired into Event Hub Pro's Logo & QR
+// animated_monogram dropped 2026-10-22: the standalone Animated Monogram is retired into Event Pro's Logo & QR
 // part (is_active=false → the card would otherwise render as ₱0), and onboarding keeps ONE Pro offer (Full Pro).
 const INAPP_KEYS = ['papic_seats', 'advanced_website', 'panood', 'papic_guest', 'pakanta', 'guest_stories', 'thank_you', 'live_photowall'];
 // Onboarding pick → its in-app add-on checkout route (the InlineCheckoutDrawer · BDO/GCash QR +
@@ -1067,7 +1067,7 @@ function WeddingCountdown({ iso, active }: { iso: string; active: boolean }) {
    total here — a value line returns only with cited figures. */
 type FreeTool = { key: string; label: string; blurb: string };
 const FREE_TOOLS: ReadonlyArray<FreeTool> = [
-  { key: 'website', label: 'Basic website', blurb: 'RSVP, your event site, and an editorial page — built for you.' },
+  { key: 'website', label: 'Basic Event Hub', blurb: 'RSVP, your Event Hub, and an editorial page — built for you.' },
   { key: 'drive', label: 'Photos on your Google Drive', blurb: 'Every original synced to your own Drive, yours to keep.' },
   { key: 'mood', label: 'Mood board', blurb: 'One styled board your suppliers actually follow.' },
   { key: 'budget', label: 'Budget tracker', blurb: 'Live spend and payment reminders — never a missed due date.' },
@@ -2642,7 +2642,7 @@ export function OnboardingShell({
     return fresh;
   }, [mirror.show, mirror.chips]);
   const peekMirror = () => {
-    setMirCap('✨ Keep going — your whole website appears at the end');
+    setMirCap('✨ Keep going — your whole Event Hub appears at the end');
     if (mirCapTimer.current) clearTimeout(mirCapTimer.current);
     mirCapTimer.current = setTimeout(() => setMirCap(null), 1400);
   };

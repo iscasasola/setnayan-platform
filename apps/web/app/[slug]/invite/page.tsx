@@ -136,7 +136,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   }
 
   // The couple's invite theme (lib/invite-themes.ts) — House unless they saved
-  // one, and a Pro theme only while the event holds Event Hub Pro.
+  // one, and a Pro theme only while the event holds Event Pro.
   const look = await loadInviteLook(event);
 
   // THE REVEAL OPENS THE INVITE (owner 2026-09-10: "our cinematic reveal is also
@@ -147,7 +147,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   // WHEN it may play is the Event Hub's own rule too (lib/invite-reveal.ts): the
   // stages the couple chose (`reveal_stages` — the Save the Date alone when never
   // chosen), never after the day, never a wake.
-  // The overlay still resolves its own Event Hub Pro ownership
+  // The overlay still resolves its own Event Pro ownership
   // (RevealOverlayServer), so a lapsed unlock shows no reveal.
   const revealPlays =
     look.theme !== 'house' &&

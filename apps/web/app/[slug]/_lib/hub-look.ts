@@ -83,7 +83,7 @@ export type HubLook = {
 };
 
 /**
- * Is Event Hub Pro (COUPLE_WEBSITE_PRO) live for this event RIGHT NOW — asked
+ * Is Event Pro (COUPLE_WEBSITE_PRO) live for this event RIGHT NOW — asked
  * ONCE per request, however many surfaces ask.
  *
  * 🔑 THREE READERS, ONE ANSWER. The theme gate below, the guest-tree layout's
@@ -102,7 +102,7 @@ export const websiteProActiveFor = cache(
 );
 
 /**
- * 💎 What this event holds of Event Hub Pro, PART BY PART (owner 2026-10-22) —
+ * 💎 What this event holds of Event Pro, PART BY PART (owner 2026-10-22) —
  * asked once per request, as the viewer is shown it. The guest page's gates each
  * ask for THEIR part (`hubPartActiveFor`); the footer alone asks
  * `websiteProActiveFor` (everything).
@@ -152,7 +152,7 @@ export async function resolveHubTheme(event: HubLookEvent): Promise<Omit<HubLook
 
 /**
  * House unless the couple SAVED a shipped theme, the event TYPE may carry the
- * Save-the-Date film, and — for a Pro theme — the event holds Event Hub Pro
+ * Save-the-Date film, and — for a Pro theme — the event holds Event Pro
  * right now. A lapse of either falls back to House with NO write, so the choice
  * comes back the moment the unlock or the event type does.
  */

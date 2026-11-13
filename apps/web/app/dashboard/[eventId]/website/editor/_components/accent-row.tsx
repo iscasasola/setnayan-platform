@@ -9,7 +9,7 @@
  * Spot ▾ dropped: one dropdown is enough). It lists ONLY this scene's accents (`SCENE_ACCENTS`, `lib/art-kits.ts`):
  * None · each piece or pair. Picking one puts its pieces in their designed slot — nothing to place. The pick goes to
  * the DRAFT through the one events door (`useHeldEventsSave`): the whole `scene_accents` map, so a pick on one scene
- * never drops another's, and guests see it at ✓ Apply. ◆ Event Hub Pro while `ART_KIT_IS_PRO`: tried free here,
+ * never drops another's, and guests see it at ✓ Apply. ◆ Event Pro while `ART_KIT_IS_PRO`: tried free here,
  * named "Decorations" at Apply; None is always free.
  *
  * 🔑 THE MAP IS BUILT ON THE MAKER'S OWN COPY, NEVER ON THE RENDER (owner 17 Oct: *"the accents are not saving"*). A pick
@@ -60,7 +60,7 @@ export function AccentRow({
   picks: SceneAccents;
   /** The look the page wears — a kit look starts each scene with its accent on. */
   theme: InviteThemeId | null;
-  /** ◆ on the pill: the accents are Pro and this couple does not own Event Hub Pro yet (tried free). */
+  /** ◆ on the pill: the accents are Pro and this couple does not own Event Pro yet (tried free). */
   tryPro: boolean;
   draftAction: ElementDraftAction;
 }) {
@@ -85,7 +85,7 @@ export function AccentRow({
             key: o.id,
             label: o.label,
             thumb: PIECE_THUMB[o.pieces[0] ?? ''],
-            ...(tryPro ? { hint: 'Event Hub Pro — try it here, it is asked for at ✓ Apply' } : {}),
+            ...(tryPro ? { hint: 'Event Pro — try it here, it is asked for at ✓ Apply' } : {}),
           })),
         ]}
         onPick={(id) => {

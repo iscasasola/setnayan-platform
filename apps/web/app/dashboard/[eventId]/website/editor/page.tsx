@@ -1330,7 +1330,7 @@ export default async function WebsiteEditorPage({
         {
           key: 'sections-order',
           label: 'Show, hide & reorder',
-          blurb: 'What appears on your site, and in what order.',
+          blurb: 'What appears on your Event Hub, and in what order.',
           href: `${w}/widgets`,
           status: (() => {
             const showing = sectionRows.filter((r) => r.is_visible).length;

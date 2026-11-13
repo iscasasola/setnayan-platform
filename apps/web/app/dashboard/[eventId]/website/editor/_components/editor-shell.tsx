@@ -393,7 +393,7 @@ export function MakerWork({
         returnTo: string;
         /** The first-visit tour (`MiniTour`), server-rendered and handed down; mounts when the sheet opens. */
         tour?: ReactNode;
-        /** 💎 No Event Hub Pro: the scene is tried free and Apply asks — the ＋ wears ◆ PRO. */
+        /** 💎 No Event Pro: the scene is tried free and Apply asks — the ＋ wears ◆ PRO. */
         tried?: boolean;
       }
     | { note: string }
@@ -822,7 +822,7 @@ export function MakerWork({
   /* ＋ ADD A SCENE — the shell's ＋ (desktop) and More ▾ row (phone) cannot know
      whether a scene may be added here, so the work area REGISTERS the answer
      (`MakerAddScene`, `maker-context.tsx`): ready opens the sheet below; refused
-     carries the note (padlocked when it is Event Hub Pro); null where the
+     carries the note (padlocked when it is Event Pro); null where the
      navigator offers nothing either (the store shell, a stage without scenes
      of their own — `stageTakesOwnScenes`). */
   const setAddScene = maker?.setAddScene;
@@ -3593,7 +3593,7 @@ export function MakerWork({
 
       {/* ⚙ The Hub's ⚙ Event Hub settings: its "Your Event Hub" group is the shipped Studio rows (address · Go live · who can
           view · which version · Event Bar · the QR — `StudioHubSettings`, owner 2026-10-30), so the old navigator's rows
-          and their QR card are no longer drawn beside them (one setting, one place); only the Event Hub Pro line is the
+          and their QR card are no longer drawn beside them (one setting, one place); only the Event Pro line is the
           work area's to add. */}
       {moreHost
         ? createPortal(
@@ -3795,7 +3795,7 @@ function MoreExtras({
       {showProCta ? (
         <section className="rounded-md bg-ink px-4 py-3.5 text-cream">
           <p className="text-[13px] font-semibold text-cream">
-            <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} text="Event Hub Pro" size="md" tone="current" />
+            <PaidMark state="try" label={paidMarkLabel('try', 'Event Pro')} text="Event Pro" size="md" tone="current" />
           </p>
           <p className="mt-0.5 text-[12px] leading-relaxed text-cream/80">
             One unlock for every stage — the look, the reveal, your own photos and film, music and the

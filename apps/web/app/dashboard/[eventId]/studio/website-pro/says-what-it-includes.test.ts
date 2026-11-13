@@ -1,5 +1,5 @@
 /**
- * EVENT HUB PRO MAY ONLY CLAIM WHAT A NON-BUYER IS ACTUALLY REFUSED.
+ * EVENT PRO MAY ONLY CLAIM WHAT A NON-BUYER IS ACTUALLY REFUSED.
  *
  * Owner ruled 2026-08-28: say what it includes. Doing that honestly turned up
  * the opposite problem first — of the FOUR inclusions this ₱3,500 upgrade
@@ -48,7 +48,7 @@ const GATE = 'eventCoupleWebsiteProActive';
 
 /** The customer-facing sentences that describe this upgrade, all three of them. */
 function claimSurfaces(): Array<{ where: string; text: string }> {
-  /* 💎 RE-AIMED 2026-10-22 ("Event Hub Pro, part by part"): the buy page is the PARTS page now — its claims are the
+  /* 💎 RE-AIMED 2026-10-22 ("Event Pro, part by part"): the buy page is the PARTS page now — its claims are the
      Everything card's sentence and each part's one line (`HUB_PARTS[].blurb`, the prototype's frame-4 words). */
   const body = read(join(HERE, '_components', 'pro-parts-body.tsx'));
   const everything = /`(All \$\{HUB_PARTS\.length\} parts, and the "Powered by Setnayan" footer[^`]*)`/.exec(body);
@@ -144,7 +144,7 @@ test('Editorial PRO is not sold as an inclusion while it is free for everyone', 
 /**
  * Guest-facing gates on this SKU that are NOT the watermark — each allowed ONLY
  * while every claim surface names it. Added 2026-09-10 for the invite link's Pro
- * themes (owner: "the other 4 will be the Event Hub Pro service"). Checked both
+ * themes (owner: "the other 4 will be the Event Pro service"). Checked both
  * ways: an entry whose gate is gone fails too, so the copy cannot outlive it.
  */
 const ADVERTISED_GUEST_GATES: ReadonlyArray<{ under: string; claim: RegExp; what: string }> = [
@@ -162,7 +162,7 @@ const ADVERTISED_GUEST_GATES: ReadonlyArray<{ under: string; claim: RegExp; what
 
     ⚠ THE CLAIM REGEX IS DELIBERATELY UNCHANGED. `invite link` is still true —
     the door is still themed — and all three claim surfaces still say it. What is
-    now UNDERSTATED is the scope: a couple buying Event Hub PRO gets the theme on
+    now UNDERSTATED is the scope: a couple buying Event PRO gets the theme on
     every page behind the door too, and no surface says so. That is the safe
     direction (the copy promises less than it delivers, never more, which is the
     direction this guard exists to police) but it is a real upsell left on the
@@ -184,7 +184,7 @@ test('every guest-facing gate on this SKU is the watermark or an inclusion the c
     assert.ok(
       advertised,
       `${file} gates something guest-facing on ${SKU} that is not a watermark — ` +
-        `re-check what Event Hub PRO advertises; it may now include more than it says.`,
+        `re-check what Event PRO advertises; it may now include more than it says.`,
     );
     for (const { where, text } of surfaces) {
       assert.match(text, advertised.claim, `${where} does not name ${advertised.what}, which ${file} withholds from non-buyers`);
@@ -224,7 +224,7 @@ test('the reveal — the one real exclusive — is still aliased to this SKU', (
   assert.match(
     aliases[0]!,
     new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'\\]\\)`),
-    'the cinematic reveal is no longer granted by Event Hub PRO — the copy claims it is the only way to get it',
+    'the cinematic reveal is no longer granted by Event PRO — the copy claims it is the only way to get it',
   );
 });
 

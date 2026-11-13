@@ -109,7 +109,7 @@ export type MakerPartOps = {
         returnTo: string;
         stageLabel: string;
         heading: string;
-        /** 💎 No Event Hub Pro: the scene is tried free and Apply asks — the row wears ◆. */
+        /** 💎 No Event Pro: the scene is tried free and Apply asks — the row wears ◆. */
         tried: boolean;
         tour?: ReactNode;
         facts?: { names?: string | null; monogram?: string | null; days?: number | null } | null;

@@ -69,7 +69,7 @@ export function AnimateRows({
   initialTiming: { dur: number; delay: number; smooth: number };
   /** Does the event own the paid animation already? */
   owned: boolean;
-  /** "Included with Event Hub Pro" when the animation came with Pro (owner
+  /** "Included with Event Pro" when the animation came with Pro (owner
    *  2026-09-24) — shown on the owned state so the missing ₱500 button reads
    *  as a benefit, not a glitch. Null otherwise. */
   includedNote?: string | null;

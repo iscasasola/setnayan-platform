@@ -1,7 +1,7 @@
 /**
  * unlock-label.test.ts — THE EDITOR'S UNLOCK BUTTON SAYS THE CATALOGUE'S PRICE.
  *
- * The website editor painted a hard-coded figure on three "Unlock Event Hub PRO"
+ * The website editor painted a hard-coded figure on three "Unlock Event PRO"
  * buttons (the locked-row panel, the editorial panel and the rail's umbrella
  * CTA). The owner repriced `COUPLE_WEBSITE_PRO` in `platform_retail_catalog_v2`
  * on 2026-09-23 — the only price a customer is charged — and the editor kept
@@ -37,9 +37,9 @@ test('the catalogue price appears on the unlock button', () => {
 });
 
 test('a failed catalogue read yields the price-less label — never a guessed figure, never ₱0', () => {
-  assert.equal(unlockLabel(null), 'Unlock Event Hub PRO');
-  assert.equal(unlockLabel(''), 'Unlock Event Hub PRO');
-  assert.equal(unlockLabel('   '), 'Unlock Event Hub PRO');
+  assert.equal(unlockLabel(null), 'Unlock Event PRO');
+  assert.equal(unlockLabel(''), 'Unlock Event PRO');
+  assert.equal(unlockLabel('   '), 'Unlock Event PRO');
   for (const bad of [null, undefined, 0, -5, Number.NaN, 'abc']) {
     const priced = proPriceLabelFrom(bad, formatPhp);
     assert.equal(priced, null, `${String(bad)} must not become a price`);
@@ -90,7 +90,7 @@ test('⛔ the unlock words live in one helper, so no button can re-type a price 
     if (name === '_components/unlock-label.ts') continue;
     assert.doesNotMatch(
       src,
-      /Unlock Event Hub PRO/i,
+      /Unlock Event PRO/i,
       `${name} spells the unlock CTA itself — render unlockLabel(priceLabel) instead`,
     );
     if (/\bunlockLabel\(/.test(src)) callers += 1;

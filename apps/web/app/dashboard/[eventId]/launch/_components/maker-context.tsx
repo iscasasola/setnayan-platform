@@ -148,7 +148,7 @@ export type MakerState = {
   factEditors?: Partial<Record<DetailsItemKey, ReactNode>>;
   /**
    * 📱 THE VENUE CARDS' PICTURES for the new Maker's Venue scene › Edit (`VenuePictureRows`): the
-   * SAME slots Details › Venues draws (`loadYourEvent`) and Event Hub Pro as the viewer is shown it.
+   * SAME slots Details › Venues draws (`loadYourEvent`) and Event Pro as the viewer is shown it.
    * Null/absent: the Venue scene keeps only its door.
    */
   venuePictures?: MakerVenuePictures | null;
@@ -389,7 +389,7 @@ export const MAKER_MORE_ROWS_ID = 'maker-more-rows';
  * posting to `addCustomSection`.
  */
 export type MakerAddScene =
-  /** `tried`: the couple has no Event Hub Pro — the scene is tried free and Apply asks (◆ PRO, 2026-09-28). */
+  /** `tried`: the couple has no Event Pro — the scene is tried free and Apply asks (◆ PRO, 2026-09-28). */
   | { kind: 'ready'; open: () => void; tried?: boolean }
   /** Why a scene cannot be added here (all six in use). Never a Pro refusal any
    *  more — a couple without Pro adds and pays at Apply (owner 2026-09-28). */

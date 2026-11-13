@@ -119,7 +119,7 @@ export function GalleryPanel({
   return (
     <SafeForm action={action} className={PANEL}>
       {/* Into the draft (`updateOurPhotos`' door, owner 2026-09-29) — tried by
-          every couple; Apply puts the photos live, with Event Hub Pro. */}
+          every couple; Apply puts the photos live, with Event Pro. */}
       <HubDraftField />
       <ReturnTo eventId={eventId} rowKey="gallery" />
       <FileUpload

@@ -56,7 +56,7 @@ export type LoveStoryBookProps = {
   makerHref: string;
   guestHref: string | null;
   ownsPro: boolean;
-  /** 💎 Pro is usable because it is being TRIED (no Event Hub Pro yet) — Apply asks. */
+  /** 💎 Pro is usable because it is being TRIED (no Event Pro yet) — Apply asks. */
   tryingPro?: boolean;
   storeShell: boolean;
   /**
@@ -226,7 +226,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                 ? p.storeShell
                   ? /* 🍎 The iPhone app names no paid extra (lib/store-shell.ts). */
                     'Your words are free. Photos are not included in the app.'
-                  : 'Your words are free — photos come with Event Hub Pro.'
+                  : 'Your words are free — photos come with Event Pro.'
                 : `Your first ${FREE_MOMENT_CAP} stories are free.`}
             </p>
             <div className="flex justify-center">{proLine}</div>
@@ -365,7 +365,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
               {p.tryingPro && (!p.storeShell || p.appleIap) ? (
                 <span className="inline-flex flex-wrap items-center gap-1.5">
                   {`Up to ${FREE_MOMENT_CAP} stories, in your words, are free. More, and photos:`}
-                  <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" />
+                  <PaidMark state="try" label={paidMarkLabel('try', 'Event Pro')} size="xs" />
                 </span>
               ) : p.ownsPro
                 ? 'Add as many moments as you like, with your photos.'

@@ -1626,7 +1626,7 @@ function AddBlockForm({
           <span>
             <span className="block font-medium text-ink">Show to guests</span>
             <span className="block text-xs text-ink/55">
-              When on, this block appears on every guest&rsquo;s invitation site.
+              When on, this block appears on every guest&rsquo;s Event Hub.
             </span>
           </span>
         </label>

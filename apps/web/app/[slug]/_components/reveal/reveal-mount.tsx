@@ -7,11 +7,11 @@ import { VEIL_HOLD_SCRIPT } from '@/lib/hub-veil';
 
 /**
  * The SYNCHRONOUS half of RevealOverlayServer — everything after its two reads
- * (Reveal Studio config · Event Hub Pro ownership). Split out so a test can
+ * (Reveal Studio config · Event Pro ownership). Split out so a test can
  * render it without a database: `reveal-mount.test.ts` pins that a free
  * couple's page mounts NO reveal even with the admin master toggle ON.
  *
- * ALL REVEAL IS PAID (owner 2026-09-24). A couple without Event Hub Pro does
+ * ALL REVEAL IS PAID (owner 2026-09-24). A couple without Event Pro does
  * not get the overlay mounted at all. The client overlay re-runs the same
  * `revealAllowedFor` (it alone can read a staff preview's `?reveal=`), so the
  * two halves agree by construction.
@@ -21,7 +21,7 @@ export type RevealMountProps = Omit<
   'config' | 'premiumUnlocked' | 'seenEventId'
 > & {
   config: RevealStudioConfig;
-  /** The event holds Event Hub Pro (STD_PREMIUM_OPENINGS, active). */
+  /** The event holds Event Pro (STD_PREMIUM_OPENINGS, active). */
   ownsPro: boolean;
   eventId?: string;
   /** Build-time preview authority (NEXT_PUBLIC_STD_REVEAL=1). Never a guest. */

@@ -32,7 +32,7 @@ import type { CelebrationPlayer } from '@/lib/celebration-engine';
  * ticked. Picking one DRAFTS it like every Maker pick (`onPick` → the panel's
  * one-object save) and replays it on the page; "Play it again" — the house
  * action under the row — replays the current pick. A free couple may try every
- * effect — Apply names it and asks for Event Hub Pro (`planHubDraftApply`).
+ * effect — Apply names it and asks for Event Pro (`planHubDraftApply`).
  * In the app-store shell a couple without Pro is not shown the control at all
  * (`makerProUsable`). WHAT IS PRO, WHO MAY TRY IT AND WHAT APPLY DOES ARE
  * UNCHANGED — only the drawing moved onto the row. (It was a full-width
@@ -67,7 +67,7 @@ export function CelebrationPick({
     preview: <CelebrationMini kind={kind} colours={colours} />,
     trail: celebrationIsPro(kind)
       ? mark
-        ? { text: mark === 'try' ? '◆ Pro' : '◆', tone: 'muted' as const, label: paidMarkLabel(mark, 'Event Hub Pro') }
+        ? { text: mark === 'try' ? '◆ Pro' : '◆', tone: 'muted' as const, label: paidMarkLabel(mark, 'Event Pro') }
         : undefined
       : { text: 'Free', tone: 'muted' as const },
   }));
@@ -77,7 +77,7 @@ export function CelebrationPick({
       attrs={{ 'data-rsvp-setting': 'celebration' }}
       name={RSVP_CELEBRATION_LABEL}
       /* ◆ PRO while tried, the diamond once owned — information, never a lock. */
-      mark={mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
+      mark={mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" /> : null}
       dataAttr="data-rsvp-celebration-pick"
       value={value}
       buttonText={shown}

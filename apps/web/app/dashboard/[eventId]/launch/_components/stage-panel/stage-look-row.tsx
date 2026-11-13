@@ -90,7 +90,7 @@ export function StageLookRow({
     <div className={SP_LOOK_ROW} data-stage-look-row={target.el}>
       {can.colour ? (
         <>
-          {/* 💎 ◆ — a part's Style is Event Hub Pro (owner 2026-10-16): tried here, named at ✓ Apply. */}
+          {/* 💎 ◆ — a part's Style is Event Pro (owner 2026-10-16): tried here, named at ✓ Apply. */}
           <span className={`${SP_LOOK_ROW_LABEL} hidden sm:inline`} aria-hidden>
             Colour ◆
           </span>

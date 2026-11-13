@@ -100,7 +100,7 @@ export default async function WidgetsEditorPage({
 
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  // 🔒💎 The Pro rows' mark follows the event's MEASURED Event Hub Pro — a
+  // 🔒💎 The Pro rows' mark follows the event's MEASURED Event Pro — a
   // padlock until it is owned, a diamond after (owner 2026-09-25). A failed
   // read is "not owned": it can only show a padlock, never open a paid door.
   const [ownsPro, storeShell] = await Promise.all([
@@ -418,7 +418,7 @@ function WidgetRow({
   isLastHideable,
   proMark,
 }: {
-  /** The Event Hub Pro mark for a Pro row — null in the store shell when not owned. */
+  /** The Event Pro mark for a Pro row — null in the store shell when not owned. */
   proMark: PaidMarkState | null;
   row: InvitationWidgetRow;
   eventId: string;
@@ -471,7 +471,7 @@ function WidgetRow({
             </span>
           ) : null}
           {row.tier === 'pro' && proMark ? (
-            <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} text="Pro" size="xs" />
+            <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Pro')} text="Pro" size="xs" />
           ) : null}
         </div>
         {/* ⚠ THE HOST'S OWN WORD, NOT ALWAYS "wedding". Five of the sixteen

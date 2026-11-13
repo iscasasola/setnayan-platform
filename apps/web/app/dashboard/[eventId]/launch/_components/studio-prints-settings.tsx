@@ -165,7 +165,7 @@ export function StudioPrintSettingsDoor() {
 /* ── 🎨 YOUR EVENT HUB LOOK — ◆ owned, ◆ PRO the door ──────────────────────────────────────────────────────────────────────── */
 
 /**
- * EVERY PRINT WEARS THE EVENT HUB LOOK — WITH EVENT HUB PRO (owner 2026-10-21, *"yes wire all, and yes it's Pro"*). One row under
+ * EVERY PRINT WEARS THE EVENT HUB LOOK — WITH EVENT PRO (owner 2026-10-21, *"yes wire all, and yes it's Pro"*). One row under
  * Print settings, saying which look the pieces below are drawn in — the route draws them so (`printLookForEvent`), this only says it.
  * The prints' own Pro pattern (`allInOneFile`, `makerProMark` — the ticket zip's): never a padlock on the Event Hub (owner
  * 2026-09-29, *"◆ marks Pro and never blocks; there are no padlocks"* — `nothing-locks-before-apply.test.ts`):
@@ -190,7 +190,7 @@ export function StudioHubLookRow({ eventId, ownsPro, storeShell }: { eventId: st
         <b className="flex items-center gap-1.5 text-[15px] font-semibold text-ink">
           {HUB_LOOK_ROW.name}
           {/* Owned: the diamond. In the app-store shell nothing names a paid web extra — not even an owned one's label. */}
-          {owned ? <PaidMark state="unlocked" size="sm" label={paidMarkLabel('unlocked', storeShell ? HUB_LOOK_ROW.name : 'Event Hub Pro')} /> : null}
+          {owned ? <PaidMark state="unlocked" size="sm" label={paidMarkLabel('unlocked', storeShell ? HUB_LOOK_ROW.name : 'Event Pro')} /> : null}
         </b>
         <span className="block text-[12.5px] leading-snug text-ink/60">{owned ? HUB_LOOK_ROW.owned : HUB_LOOK_ROW.free}</span>
       </span>
@@ -199,7 +199,7 @@ export function StudioHubLookRow({ eventId, ownsPro, storeShell }: { eventId: st
           <StudioProDoor
             href={`/dashboard/${eventId}/studio/website-pro`}
             label={HUB_LOOK_ROW.door}
-            icon={<PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} />}
+            icon={<PaidMark state="try" label={paidMarkLabel('try', 'Event Pro')} />}
             note={HUB_LOOK_PRO_NOTE}
           />
         </span>

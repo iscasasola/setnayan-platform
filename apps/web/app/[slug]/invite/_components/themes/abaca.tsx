@@ -5,7 +5,7 @@ import { SealMark } from './seal-mark';
 import styles from './abaca.module.css';
 
 /**
- * ABACA — the Rustic invite theme (Event Hub Pro). See abaca.module.css for the
+ * ABACA — the Rustic invite theme (Event Pro). See abaca.module.css for the
  * port and its three measured corrections.
  *
  * The photo is painted as a CSS background whose URL goes through

@@ -185,7 +185,7 @@ export type InlineCheckoutDrawerProps = {
    */
   onBeforeOpen?: () => Promise<void> | void;
   /**
-   * 💎 Several Event Hub Pro parts in one order (owner 2026-10-22) — sent as `hub_parts` ("style,motion") with the
+   * 💎 Several Event Pro parts in one order (owner 2026-10-22) — sent as `hub_parts` ("style,motion") with the
    * `COUPLE_HUB_PARTS` key; the server prices each from the catalogue. Every other caller omits it.
    */
   hubParts?: string;

@@ -82,7 +82,7 @@ export function BgEffects({
     /** The background has a picture to move and blur. */
     takes: boolean;
     parallax: boolean;
-    /** ◆ on Parallax while tried (no Event Hub Pro) — tried free, named at Apply. */
+    /** ◆ on Parallax while tried (no Event Pro) — tried free, named at Apply. */
     proMark: boolean;
     onParallax: (on: boolean) => void;
     blur: PictureBlur;
@@ -91,7 +91,7 @@ export function BgEffects({
   eventId: string;
   /** The effect the draft holds — the ringed card. */
   effect: HubMainEffect | null;
-  /** The couple does not own Event Hub Pro: every card wears ◆ (tried free, named at ✓ Apply). */
+  /** The couple does not own Event Pro: every card wears ◆ (tried free, named at ✓ Apply). */
   locked: boolean;
   /** The real background, as a card draws it: its CSS fallback, and its picture over that. */
   swatch: string;
@@ -197,7 +197,7 @@ export function BgEffects({
           <div data-bg-row="parallax" data-bg-picture-off={treat.takes ? undefined : ''} className={`${STUDIO_ROW_FLAT} ${treat.takes ? '' : 'opacity-55'}`}>
             <span className="flex min-w-0 flex-1 flex-col leading-tight">
               <span className="text-[14px] text-ink">
-                Parallax{treat.proMark ? <span aria-label="Event Hub Pro" className="ml-1 text-[12px] text-ink/50">◆</span> : null}
+                Parallax{treat.proMark ? <span aria-label="Event Pro" className="ml-1 text-[12px] text-ink/50">◆</span> : null}
               </span>
               <small className="text-[11.5px] text-ink/55">{treat.takes ? PICTURE_LINE.parallax : PICTURE_LINE.parallaxOff}</small>
             </span>

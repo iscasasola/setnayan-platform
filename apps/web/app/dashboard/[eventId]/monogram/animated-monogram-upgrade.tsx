@@ -58,7 +58,7 @@ import { FULL_PRO_SKU, hubPart } from '@/lib/hub-parts';
  * preview survive only for the fallback-lockup path (no custom mark).
  */
 
-/* 💎 THE ANIMATION IS THE LOGO & QR PART NOW (owner 2026-10-22, "Event Hub Pro, part by part", Q2 "yes"): the standalone
+/* 💎 THE ANIMATION IS THE LOGO & QR PART NOW (owner 2026-10-22, "Event Pro, part by part", Q2 "yes"): the standalone
    ₱500 Animated Monogram is retired from sale (migration 20271283592608); what this page sells is the Logo & QR part —
    the animation, the logo travelling to the bar, and the logo on every guest QR. Its price is that row's. Ownership is
    still asked through `eventOwnsAnimatedMonogram` / `eventAnimatedMonogramActive`, which read the part (and an old
@@ -67,7 +67,7 @@ const SKU_CODE = hubPart('logo_qr').sku;
 
 /**
  * ⛔ WHAT THIS PAGE SELLS (owner 2026-10-26, "just have the upgrade event hub pro" → "no more by part as well on the
- * website"): the Logo & QR part only while its catalogue row is on sale; otherwise Event Hub Pro, whole — the
+ * website"): the Logo & QR part only while its catalogue row is on sale; otherwise Event Pro, whole — the
  * animation is in it. The catalogue is the one switch (`hubPartPrices().onSale`); every figure is its read.
  */
 type MonogramSale = { serviceKey: string; pricePhp: number | null; name: string; whole: boolean };
@@ -171,8 +171,8 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
   // hardcoded price). null when the row is unreadable → the buy block degrades.
   const catalogue = await hubPartPrices(createAdminClient()).catch(() => null);
   const sale: MonogramSale = catalogue?.onSale.has(SKU_CODE)
-    ? { serviceKey: SKU_CODE, pricePhp: catalogue.parts.get(SKU_CODE) ?? null, name: 'Event Hub Pro · Logo & QR', whole: false }
-    : { serviceKey: FULL_PRO_SKU, pricePhp: catalogue?.full ?? null, name: 'Event Hub Pro', whole: true };
+    ? { serviceKey: SKU_CODE, pricePhp: catalogue.parts.get(SKU_CODE) ?? null, name: 'Event Pro · Logo & QR', whole: false }
+    : { serviceKey: FULL_PRO_SKU, pricePhp: catalogue?.full ?? null, name: 'Event Pro', whole: true };
 
   /* ── THE UNLOCK IS A ROW, NOT A SECTION (owner 2026-09-20) ──────────────
    * "it doesn't need its own row. it just needs to be on the Animate and
@@ -311,7 +311,7 @@ function OwnedView({
             rel="noreferrer"
             className="button-secondary inline-flex items-center gap-1.5"
           >
-            View live site
+            View live Event Hub
             <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           </a>
         ) : null}
@@ -365,7 +365,7 @@ function OwnedView({
         <p className="mt-5 text-sm text-ink/60">
           This is exactly how it animates on your Event Hub&rsquo;s hero.
           {bespokeSvg
-            ? ' Change your mark or reveal in the studio above and the site follows.'
+            ? ' Change your mark or reveal in the studio above and the Event Hub follows.'
             : ' Change your mark or motion in the studio above and the animation follows.'}
         </p>
       </section>
@@ -434,13 +434,13 @@ async function UnownedView({
             {bespokeSvg ? (
               <>
                 Every reveal previews free above. This makes {revealLabel} play for
-                real — on your website, your invitation, your save-the-date and the
+                real — on your Event Hub, your invitation, your save-the-date and the
                 screens on the day.
               </>
             ) : (
               <>
                 Every reveal previews free above. This makes your monogram draw
-                itself in for real — on your website, your invitation, your
+                itself in for real — on your Event Hub, your invitation, your
                 save-the-date and the screens on the day.
               </>
             )}
@@ -452,7 +452,7 @@ async function UnownedView({
            * and a made-up "within 2 hours" is a number governing money. */}
           <p className="pt-1 text-xs text-ink/55">
             {sale.whole
-              ? 'Part of Event Hub Pro — one unlock for this event, with every other Pro feature.'
+              ? 'Part of Event Pro — one unlock for this event, with every other Pro feature.'
               : 'One unlock for your wedding — designed mark or uploaded logo, whichever you use.'}{' '}
             We check every payment by hand and email you the moment it
             goes live; your mark shows everywhere in the meantime.
@@ -471,7 +471,7 @@ async function UnownedView({
                * "Animate & apply · ₱500 · ₱500.00" on a MONEY button — seen in
                * production, invisible to tsc, lint and every test, because the
                * appending happens inside the drawer. */
-              triggerLabel={sale.whole ? 'Unlock Event Hub Pro' : 'Animate & apply'}
+              triggerLabel={sale.whole ? 'Unlock Event Pro' : 'Animate & apply'}
 
               triggerClassName="inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-700 disabled:opacity-70 sm:w-auto"
             />
@@ -581,7 +581,7 @@ async function UnownedView({
             </p>
             <p className="text-xs text-ink/55">
               {bespokeSvg
-                ? 'Change the reveal anytime in the studio above — the site follows.'
+                ? 'Change the reveal anytime in the studio above — the Event Hub follows.'
                 : 'One of six signatures — pick yours in the studio above.'}
             </p>
           </div>
@@ -622,7 +622,7 @@ async function UnownedView({
         {pricePhp != null ? (
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink/65">
-              {sale.whole ? 'Part of Event Hub Pro' : 'One price for your wedding'} ·{' '}
+              {sale.whole ? 'Part of Event Pro' : 'One price for your wedding'} ·{' '}
               <span className="font-mono text-base text-ink">{formatPhp(pricePhp)}</span>
             </p>
             <div className="sm:w-auto">
@@ -632,7 +632,7 @@ async function UnownedView({
                 displayName={`${sale.name}${displayName ? ` · ${displayName}` : ''}`}
                 originalPriceCentavos={String(Math.round(pricePhp * 100))}
                 settings={settings}
-                triggerLabel={sale.whole ? 'Unlock Event Hub Pro' : 'Draw my monogram live'}
+                triggerLabel={sale.whole ? 'Unlock Event Pro' : 'Draw my monogram live'}
                 triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
               />
             </div>

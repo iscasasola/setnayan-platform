@@ -58,8 +58,8 @@ export default async function SiteChromeEditorPage({
       : null;
   const musicEnabled = event.site_bg_music_enabled === true;
 
-  // ── Event Hub PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
-  // ONLY background music is a Event Hub PRO perk here — the video hero stays FREE
+  // ── Event PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
+  // ONLY background music is a Event PRO perk here — the video hero stays FREE
   // and always renders. The music gate = (NOT PRO) AND (no music set yet). A
   // couple that already uploaded a song (grandfathered) OR owns PRO keeps the
   // music control, and the live guest site never loses a launched song (only the
@@ -117,7 +117,7 @@ export default async function SiteChromeEditorPage({
       </div>
 
       <SafeForm action={updateAction} className="space-y-8">
-        {/* Background music — Event Hub PRO (video hero below stays free). When
+        {/* Background music — Event PRO (video hero below stays free). When
             gated, an inline lock replaces the field; no bg_music_* inputs render,
             so the action leaves any existing (none, when gated) music untouched. */}
         {musicGated ? (
@@ -125,7 +125,7 @@ export default async function SiteChromeEditorPage({
             eventId={eventId}
             variant="inline"
             featureName="Background music"
-            description="Add a soft looping song guests can play while they browse your Event Hub. It's part of Event Hub PRO."
+            description="Add a soft looping song guests can play while they browse your Event Hub. It's part of Event PRO."
           />
         ) : (
           <fieldset className="space-y-3 sn-tile p-5">
@@ -164,13 +164,13 @@ export default async function SiteChromeEditorPage({
           </fieldset>
         )}
 
-        {/* Video hero — Event Hub PRO since 2026-09-24 */}
+        {/* Video hero — Event PRO since 2026-09-24 */}
         {videoGated ? (
           <WebsiteProLock
             eventId={eventId}
             variant="inline"
             featureName="Video hero"
-            description="A short clip of the two of you looping at the top of your Event Hub, in place of our photo. It's part of Event Hub PRO."
+            description="A short clip of the two of you looping at the top of your Event Hub, in place of our photo. It's part of Event PRO."
           />
         ) : (
         <fieldset className="space-y-3 sn-tile p-5">

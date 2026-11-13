@@ -151,7 +151,7 @@ const ALLOWED_LINES: ReadonlyArray<{ file: string; snippet: string; why: string 
     */
     file: '_lib/hub-look.ts',
     snippet: "from '@/lib/couple-website-pro'",
-    why: 'The Pro-tier helper import — the themes are Event Hub Pro (owner 2026-09-10). A resolver that renders nothing; every other line stays under the scan.',
+    why: 'The Pro-tier helper import — the themes are Event Pro (owner 2026-09-10). A resolver that renders nothing; every other line stays under the scan.',
   },
 ];
 

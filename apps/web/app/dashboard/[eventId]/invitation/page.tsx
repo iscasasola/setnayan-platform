@@ -113,7 +113,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
 
   // THE LOOK every code on this page wears (owner 2026-09-27, lib/qr-look.ts):
   // the Setnayan mark in the centre for a free event; the couple's own logo,
-  // shape, pattern and palette ink on Event Hub Pro. The old "Custom QR per
+  // shape, pattern and palette ink on Event Pro. The old "Custom QR per
   // guest" product (palette-tinted modules behind its own SKU) folded into Pro,
   // so there is no second branch here any more — one look, one renderer.
   //
@@ -334,7 +334,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
             <p className="sn-eye">
-              Your invitation site
+              Your Event Hub
             </p>
             {publicLandingUrl ? (
               <p className="break-all font-mono text-sm text-ink/75">{publicLandingUrl}</p>

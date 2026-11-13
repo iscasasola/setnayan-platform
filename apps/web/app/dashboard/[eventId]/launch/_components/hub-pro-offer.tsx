@@ -63,7 +63,7 @@ export function HubProOffer({
       <p className="sn-eye">
         <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         {/* One unlock, one price, named once. The catalog's own title. */}
-        Event Hub Pro{priceLabel ? ` · ${priceLabel}` : ''} · one unlock
+        Event Pro{priceLabel ? ` · ${priceLabel}` : ''} · one unlock
       </p>
       <h3
         id="hub-pro-offer-headline"

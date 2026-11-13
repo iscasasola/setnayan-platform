@@ -252,12 +252,12 @@ export function SceneAnimateTab({
   return (
     <div data-scene-tab="animate" aria-busy={pending}>
       {ownsPro ? null : <ProQuietLine part="motion" />}
-      {/* 💎 How a scene moves is Event Hub Pro — the diamond for an owning couple,
+      {/* 💎 How a scene moves is Event Pro — the diamond for an owning couple,
           ◆ PRO for one trying it (their pick waits in the draft for Apply). */}
       <ISection>
         <span className="inline-flex items-center gap-1.5">
           How it moves
-          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
+          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" /> : null}
         </span>
       </ISection>
       {/* ▾ ONE dropdown, never a pill row (owner: any set of choices is a dropdown) —
@@ -325,7 +325,7 @@ export function SceneAnimateTab({
       <ISection>
         <span className="inline-flex items-center gap-1.5">
           Into the next scene
-          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
+          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" /> : null}
         </span>
       </ISection>
       {isLast ? (

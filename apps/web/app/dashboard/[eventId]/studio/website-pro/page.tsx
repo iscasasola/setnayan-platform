@@ -12,7 +12,7 @@ import { ProPartsBody } from './_components/pro-parts-body';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { UNLOCK_AND_APPLY_PARAM } from '@/lib/hub-pro-effects';
 
-export const metadata = { title: 'Event Hub PRO' };
+export const metadata = { title: 'Event PRO' };
 
 /* Name + promise from the one record every Studio row reads — never a second
    sentence written into this page. Throws rather than rendering a nameless
@@ -22,7 +22,7 @@ const HERO = addOnHeroCopy('website-pro');
 
 /**
  * /dashboard/[eventId]/studio/website-pro — the couple-facing buy surface for
- * Event Hub PRO (the UMBRELLA · owner 2026-07-04). Price is read LIVE from the
+ * Event PRO (the UMBRELLA · owner 2026-07-04). Price is read LIVE from the
  * catalog, never written here. Wires the EXISTING apply-then-pay flow (live
  * catalog price + platform BDO/GCash settings → InlineCheckoutDrawer →
  * submitOrderAction). No new payment mechanics.
@@ -55,7 +55,7 @@ const HERO = addOnHeroCopy('website-pro');
  *   • Active (admin-approved) → "Unlocked" + a link into the website hub.
  *   • Owned but pending → "Payment under review", no second drawer.
  *   • Owned nothing → the working buy drawer.
- * Event Hub PRO is the top tier, so there's no cross-sell line up from it.
+ * Event PRO is the top tier, so there's no cross-sell line up from it.
  */
 
 type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string; then?: string; buy?: string }> };

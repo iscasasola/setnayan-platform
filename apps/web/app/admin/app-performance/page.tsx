@@ -1,19 +1,4 @@
 import { Suspense, type ReactNode } from 'react';
-import Link from 'next/link';
-import {
-  Activity,
-  LineChart,
-  Radar,
-  Globe,
-  BarChart3,
-  TrendingUp,
-  Bug,
-  WifiOff,
-  Waypoints,
-  ShieldAlert,
-  Timer,
-  Footprints,
-} from 'lucide-react';
 import {
   GridPageSkeleton,
   TablePageSkeleton,
@@ -89,21 +74,6 @@ function first(v: string | string[] | undefined): string | undefined {
 function coerceTab(v: string | undefined): Tab {
   return (TABS as readonly string[]).includes(v ?? '') ? (v as Tab) : 'overview';
 }
-
-const TAB_STRIP: { key: Tab; label: string; icon: typeof Activity }[] = [
-  { key: 'overview', label: 'Overview', icon: Activity },
-  { key: 'visits', label: 'Visits', icon: Footprints },
-  { key: 'growth', label: 'Growth', icon: LineChart },
-  { key: 'intelligence', label: 'Intelligence', icon: Radar },
-  { key: 'seo', label: 'SEO & GEO', icon: Globe },
-  { key: 'funnels', label: 'Funnels', icon: BarChart3 },
-  { key: 'operations', label: 'Operations & Hiring', icon: TrendingUp },
-  { key: 'connection-logs', label: 'Problems', icon: Bug },
-  { key: 'offline', label: 'Offline daemon', icon: WifiOff },
-  { key: 'interconnections', label: 'Interconnections', icon: Waypoints },
-  { key: 'browser-blocks', label: 'Browser blocks', icon: ShieldAlert },
-  { key: 'slow-loads', label: 'Slow loads', icon: Timer },
-];
 
 // Per-tab <title> — restores what each standalone route used to set.
 const TAB_TITLE: Record<Tab, string> = {
@@ -229,33 +199,11 @@ export default async function InsightsStudioPage({ searchParams }: Props) {
   const tab = coerceTab(first(search.tab));
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <nav
-        aria-label="Numbers sections"
-        className="mb-6 flex flex-wrap gap-1.5 border-b border-ink/10 pb-3"
-      >
-        {TAB_STRIP.map((t) => {
-          const active = t.key === tab;
-          const Icon = t.icon;
-          return (
-            <Link
-              key={t.key}
-              href={`/admin/app-performance?tab=${t.key}`}
-              aria-current={active ? 'page' : undefined}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-terracotta/10 text-terracotta-700'
-                  : 'text-ink/65 hover:bg-ink/5 hover:text-ink'
-              }`}
-            >
-              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              {t.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Per-tab Suspense — the tab strip above is already painted; the active
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-4 sm:px-6 lg:px-8">
+      {/* 📐 NO TAB STRIP (design template 2026-11-14, rule 1 · F-A-17): the views live behind the layout's pinned
+          row — "Insights · Overview ▾" — whose ▾ opens all of them, grouped (`lib/admin/admin-tabs.ts`). The
+          twelve wrapped tabs that used to sit here took half a phone before the first number.
+          Per-tab Suspense — the pinned row is already painted; the active
           surface streams in behind its own tab-shaped skeleton. Keyed by tab so
           switching tabs remounts the boundary and re-shows the skeleton. */}
       <Suspense key={tab} fallback={tabSkeleton(tab)}>

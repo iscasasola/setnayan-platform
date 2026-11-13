@@ -67,6 +67,11 @@ AS $$
   ]::TEXT[];
 $$;
 
+-- Not secret (it is the vocabulary), but nobody signed out needs it.
+REVOKE ALL ON FUNCTION public.admin_areas() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.admin_areas() FROM anon;
+GRANT EXECUTE ON FUNCTION public.admin_areas() TO authenticated, service_role;
+
 COMMENT ON FUNCTION public.admin_areas() IS
   'The 16 admin AREAS (DECISION_LOG 2026-11-13). Twin of ADMIN_AREAS in '
   'apps/web/lib/admin/areas.ts. Every area has two LEVELS: basic (answer, '

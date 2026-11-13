@@ -388,7 +388,7 @@ export default async function AdminApprovalsPage() {
                                   <input type="hidden" name="approval_id" value={r.approval_id} />
                                   <SubmitButton
                                     pendingLabel="Cancelling…"
-                                    className="rounded-md border border-danger-700/30 bg-raised px-3 py-1.5 text-xs font-bold text-danger-700 dark:text-danger-300"
+                                    className="rounded-md border border-danger-700/30 bg-raised px-3 py-1.5 text-xs font-bold text-danger-700"
                                   >
                                     Cancel
                                   </SubmitButton>

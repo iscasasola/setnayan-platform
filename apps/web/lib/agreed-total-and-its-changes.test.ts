@@ -876,8 +876,8 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
     // `lib/add-own-categories.server.ts` (2026-10-24) is "What they do" for the add walk opened from Discover's
     // empty search: built from NO vendor rows, it returns category rows only — no vendor, no price.
     readsNoPrice: [
-      'app/dev/add-your-own-lab/page.tsx',
-      'app/dev/suppliers-lab/page.tsx',
+      'app/dev/add-your-own-lab/page.lab.tsx',
+      'app/dev/suppliers-lab/page.lab.tsx',
       'lib/add-own-categories.server.ts',
       'lib/cover-catalog.server.ts',
       'lib/supplier-find-read.ts',
@@ -887,7 +887,7 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
     folds: ['app/dashboard/[eventId]/vendors/page.tsx'],
     // `/dev/swipe-rows-lab/suppliers` draws the real Your team on two FIXTURE candidates priced NULL (`./fixtures`) —
     // no event, no database, 404 in production — so it prints no price at all.
-    readsNoPrice: ['app/dev/swipe-rows-lab/suppliers/page.tsx'],
+    readsNoPrice: ['app/dev/swipe-rows-lab/suppliers/page.lab.tsx'],
   },
   bucketVendorsByGroup: {
     folds: ['app/dashboard/[eventId]/vendors/page.tsx', 'lib/vendors-plan-budget.ts'],

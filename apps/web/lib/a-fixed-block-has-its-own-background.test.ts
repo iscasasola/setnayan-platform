@@ -400,7 +400,7 @@ test('5 · a guest’s page: no mark and no style unless something is kept; the 
   /* THE MAKER LAB draws two of the four for real (the March, E-Gifts): each mark right BEFORE the real block — inside
      the lab's own wrapper, or a ground would dress the lab's padding and miss the door — and the one style on both of
      its canvases (The Day's had the March's mark and no style: a look picked there drew nothing, seen 2026-10-10). */
-  const LAB = src('app/dev/maker-lab/guest/page.tsx');
+  const LAB = src('app/dev/maker-lab/guest/page.lab.tsx');
   assert.match(LAB, /<span hidden \{\.\.\.\{ \[BLOCK_MARK_ATTR\]: 'entourage' \}\} \/>\s*<EntourageSection /);
   assert.match(LAB, /<span hidden \{\.\.\.\{ \[BLOCK_MARK_ATTR\]: 'gifts' \}\} \/>\s*\{words \? <WelcomeGifts /);
   assert.equal((LAB.match(/<style \{\.\.\.\{ \[BLOCK_LOOKS_STYLE_ATTR\]: '' \}\}>/g) ?? []).length, 2, 'a lab canvas draws the blocks with no style for their looks');

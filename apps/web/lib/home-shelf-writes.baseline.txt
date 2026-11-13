@@ -16,7 +16,7 @@ unreadable	events	app/admin/pakanta/actions.ts	1
 unreadable	events	app/api/oauth/drive/disconnect/route.ts	2
 unreadable	events	app/dashboard/(account)/create-event/actions.ts	2
 unreadable	events	app/dashboard/(account)/profile/concierge/actions.ts	2
-unreadable	events	app/dashboard/[eventId]/actions.ts	2
+unreadable	events	app/dashboard/[eventId]/actions.ts	3
 unreadable	events	app/dashboard/[eventId]/monogram/commit-actions.ts	1
 unreadable	events	app/dashboard/[eventId]/pabuya/actions.ts	1
 unreadable	events	app/dashboard/[eventId]/studio/mood-board/actions.ts	2

@@ -350,6 +350,7 @@ export async function updateEventDateOptions(formData: FormData): Promise<EventD
       event_days: Math.floor(days),
       // Options leave the exact date EMPTY — a booking makes it exact.
       event_date: null,
+      event_date_precision: 'day',
       event_end_date: null,
     })
     .eq('event_id', eventId)

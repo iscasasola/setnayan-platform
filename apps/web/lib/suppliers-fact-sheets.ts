@@ -15,6 +15,7 @@ import type { DateChangeView } from './date-change';
 import type { MatrixDate } from './schedule-matrix';
 import type { VenueChoice, VenueSlotKey } from './event-venues';
 import { daysBetweenIso, optionEnd, optionWords, shortDayWords } from './event-date-options';
+import { formatCount } from './format-number';
 
 export type FactSheetKey = 'date' | 'place';
 
@@ -150,7 +151,7 @@ export function dateLadder(
       const span = (xs: string[]) => (xs.length > 1 ? `${xs[0]} – ${xs[xs.length - 1]}` : xs[0]!);
       const considering =
         o.mode === 'specific'
-          ? `considering ${starts.length} ${n > 1 ? `${starts.length === 1 ? 'option' : 'options'} of ${n} days` : starts.length === 1 ? 'date' : 'dates'}: ${starts.map((x) => optionWords(x, n)).join(' · ')}`
+          ? `considering ${starts.length} ${n > 1 ? `${starts.length === 1 ? 'option' : 'options'} of ${formatCount(n)} days` : starts.length === 1 ? 'date' : 'dates'}: ${starts.map((x) => optionWords(x, n)).join(' · ')}`
           : `considering ${shortDayWords(starts[0]!)} – ${shortDayWords(starts[1]!)}${n > 1 ? `, for a ${n}-day block` : ''}`;
       const time = timeWords(d.ceremonyTime);
       return [

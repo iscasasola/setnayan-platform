@@ -8,5 +8,11 @@ Owner, 13 Nov 2026: every public page, doc and AI file carries no retired names 
   offer only while `launchOfferIsOpen` says it runs, with the admin-edited cap read by the route; the guest-avatar
   claim (flag-dependent) and the false "no avatar maker" line are both dropped; the fallback stub no longer links the
   retired `/explore` door.
+  The supplier verification line no longer claims "a short video call" — the shipped flow
+  (`verify-section.tsx`) is papers + email proof + a final confirmation the admin schedules.
+- `/features` "For suppliers": the group was EMPTY (`suppliers-a.ts`/`suppliers-b.ts` held `[]` since 2026-10-01).
+  Six pages written from shipped supplier code, each with `evidence`: Your supplier page · Chats and quotes ·
+  Calendar and free dates · Supplier QR codes · Get Verified · Supplier plans (price from
+  `vendor_billing_catalog`, `free-plus`). `FEATURES_LASTMOD` → 2026-11-13.
 
 SPEC IMPACT: None — copy brought in line with shipped code; no decision changed.

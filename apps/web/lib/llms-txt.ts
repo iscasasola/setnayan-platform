@@ -663,7 +663,7 @@ ${supplierPlanTable(input)}
 
 ${supplierFee}
 
-A shop starts on **Free** the moment it is opened, and shows in search until its first inquiry (the plan table's "${FREE_FINDABLE}") — then it waits for **Verified**: a business-legitimacy check plus a short video call with a Setnayan admin, free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Paid plans buy reach — service area, categories, service cards per category, team seats, branches, search visibility and an own web address — never the right to take bookings.
+A shop starts on **Free** the moment it is opened, and shows in search until its first inquiry (the plan table's "${FREE_FINDABLE}") — then it waits for **Verified**: the supplier sends business papers (DTI or SEC registration, BIR 2303, a business permit and bank proof) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Paid plans buy reach — service area, categories, service cards per category, team seats, branches, search visibility and an own web address — never the right to take bookings.
 
 Supplier Plus, Supplier Pro and Supplier Ultra are prepaid blocks of 4 weeks (13 a year), or a year at a discount. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends. Bigger than Supplier Ultra? Supplier Ultra can add more, one at a time: ${ultraAddonPhrase(input)}.
 
@@ -688,7 +688,7 @@ Supplier-side: public page editor · inquiry inbox · calendar with intra-day bl
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.
 - **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. More than 30 Filipino ceremony roles, including Nikah roles. Multi-faith supplier compatibility tagging.
 - **Where does Setnayan operate?** Philippines.
-- **How are suppliers verified?** Business-legitimacy check plus a short video call with a Setnayan admin. Free, for good.
+- **How are suppliers verified?** The supplier sends business papers — DTI or SEC registration, BIR 2303, a business permit and bank proof — and proves their email; a Setnayan admin reviews them and contacts the supplier for a final confirmation. Free, for good.
 - **What about my privacy?** RA 10173 compliant. Guest list and event details are never publicly shared without explicit opt-in. If a real event story is ever published it publishes 30 days post-event, with explicit consent; every showcase on the site today is a labelled sample. NPC registration in progress. DPO contact: dpo@setnayan.com.
 - **How do I contact support?** The contact form at /help.
 

@@ -203,9 +203,11 @@ export function supplierPlusRows(opts: { paid: boolean; pollOpen?: boolean }): P
  */
 export function hostPlusRows(opts: { canLogPayment: boolean; pollOpen?: boolean }): PlusRow[] {
   const rows: PlusRow[] = [
-    // 🤝 NEGOTIATE FIRST (12 Nov): the hosts never edit a price — they ask, counter, or propose a plan; the supplier
+    // 🤝 NEGOTIATE FIRST (12 Nov): the hosts never edit a price — they counter or propose a plan; the supplier
     // accepts, counters or declines.
-    { key: 'ask', label: 'Ask for a change', line: 'Name the line · they revise or decline', card: 'ask', door: null },
+    // ✋ NO GENERIC "Ask for a change" ROW (owner, ruling 6076): an ask STARTS FROM THE PART being changed and carries
+    // it — the "Ask for a change" action sits on the quote's lines, its payment plan and a sent form, in the chat
+    // (`AskChangeDoor`, `ask-change-card.tsx`). A blank ask from the (+) had to be told afterwards what it was about.
     { key: 'counter', label: 'Counter with a price', line: 'The total or one line · good until a date', card: 'counter', door: null },
     { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
     VERSIONS_ROW,

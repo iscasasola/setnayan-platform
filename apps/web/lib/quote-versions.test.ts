@@ -233,7 +233,13 @@ test('the couple accepts the update through the existing respondToProposal, and 
 test('a replaced quote is compact — no lines, no buttons, no "· Superseded" beside the price (prototype)', () => {
   const s = read(STREAM);
   assert.equal(count(s, /const replaced = card\?\.status === 'superseded';/g), 1);
-  assert.equal(count(s, /\{replaced \? null : <QuoteCardLines items=\{items\} \/>\}/g), 1, 'a replaced card draws its lines');
+  // Ruling 6076: on the hosts' live quote the lines are the ask's door (`AskChangeDoor lines={items}`), else the plain lines — neither on a replaced card.
+  assert.equal(
+    count(s, /\{replaced \? null : askOnLines \? \(\s*<AskChangeDoor[^>]*?lines=\{items\}[\s\S]{0,200}?\) : \(\s*<QuoteCardLines items=\{items\} \/>\s*\)\}/g),
+    1,
+    'a replaced card draws its lines',
+  );
+  assert.equal(count(s, /const askOnLines = !replaced && /g), 1, 'the ask door can open on a replaced card');
   assert.equal(count(s, /\{replaced \? null : \(\s*<div className="mt-2 flex flex-wrap items-center gap-2">/g), 1, 'a replaced card draws buttons');
   assert.equal(count(s, /\{replaced \? null : \(\s*<>\s*\{quoteState\.note\?\.startsWith/g), 1, 'a replaced card repeats its status');
 });

@@ -171,7 +171,7 @@ COMMENT ON TABLE public.vendor_plan_content_changes IS
 
 DROP POLICY IF EXISTS vendor_plan_content_changes_admin_read ON public.vendor_plan_content_changes;
 CREATE POLICY vendor_plan_content_changes_admin_read ON public.vendor_plan_content_changes
-  FOR SELECT TO authenticated USING (public.is_admin());
+  FOR SELECT TO authenticated USING ((SELECT public.is_admin()));
 
 REVOKE ALL ON public.vendor_plan_content_changes FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.vendor_plan_content_changes TO authenticated;
@@ -203,7 +203,7 @@ CREATE TRIGGER vendor_plan_contents_history_trg
   FOR EACH ROW
   EXECUTE FUNCTION public.record_vendor_plan_content_change();
 
--- ── 3 · vendor_tier_limit reads the table (fallback VERBATIM from 20271316466285) ──
+-- ── 3 · vendor_tier_limit reads the table (fallback VERBATIM from 20271316466285, plus the storage_gb arm from 20271342883073) ──
 CREATE OR REPLACE FUNCTION public.vendor_tier_limit(p_tier text, p_key text)
 RETURNS int
 LANGUAGE sql
@@ -255,10 +255,17 @@ AS $$
         WHEN 'enterprise' THEN 5    -- "ultra has 5 per date/service"
         ELSE 1                      -- unknown tier reads as Free (asVendorTier)
       END
+    WHEN 'storage_gb' THEN
+      CASE COALESCE(p_tier, 'free')
+        WHEN 'solo'       THEN 5    -- owner 2026-11-13 "plan storage": Solo 5 GB
+        WHEN 'pro'        THEN 10   -- Pro 10 GB
+        WHEN 'enterprise' THEN 15   -- Ultra 15 GB
+        ELSE NULL                   -- Free · Verified (and an unknown tier, read as Free): no allowance ruled — no cap
+      END
     ELSE NULL                      -- unknown key: NULL, never a silent 0
     END
   );
 $$;
 
 COMMENT ON FUNCTION public.vendor_tier_limit(text, text) IS
-  'Per-plan limits. Reads public.vendor_plan_contents first (admin-editable since 2026-11-13, two-admin approval), falling back to the code values when no row exists. Keys: whitelist_per_date · waitlist_acceptances · branches_included · bookings_per_date_per_service (the table also holds services_per_leaf · parent_categories · agent_accounts, which the app reads). STABLE since 2026-11-13 (was IMMUTABLE — it reads a table now). An unknown TIER reads as Free; an unknown KEY returns NULL on purpose so a typo cannot read as an unlimited/zero cap. Fallback mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts.';
+  'Per-plan limits. Reads public.vendor_plan_contents first (admin-editable since 2026-11-13, two-admin approval), falling back to the code values when no row exists. Keys: whitelist_per_date · waitlist_acceptances · branches_included · bookings_per_date_per_service · storage_gb (the table also holds services_per_leaf · parent_categories · agent_accounts, which the app reads). STABLE since 2026-11-13 (was IMMUTABLE — it reads a table now). An unknown TIER reads as Free; an unknown KEY returns NULL on purpose so a typo cannot read as an unlimited/zero cap. Fallback mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts.';

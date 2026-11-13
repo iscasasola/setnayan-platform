@@ -151,7 +151,7 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
           </div>
           <ActionButton
             tone="neutral"
-            icon={ArrowRight}
+            icon={<ArrowRight aria-hidden />}
             label="Open the seat plan"
             href={`/vendor-dashboard/clients/${eventId}/seat-plan`}
           />
@@ -193,7 +193,7 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
                 <strong className="font-semibold text-ink">We couldn’t load today’s requests just now.</strong> This list
                 may be incomplete. Nothing has been lost — open the desk to try again.
               </p>
-              <ActionButton tone="neutral" icon={ArrowRight} label="Open the inbox" href="/vendor-dashboard/on-the-day" />
+              <ActionButton tone="neutral" icon={<ArrowRight aria-hidden />} label="Open the inbox" href="/vendor-dashboard/on-the-day" />
             </>
           ) : panel === 'inbox' && requests.side ? (
             <>
@@ -202,7 +202,7 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
                 initialRows={requests.rows}
                 side={requests.side}
               />
-              <ActionButton tone="neutral" quiet icon={ArrowRight} label="Open the full desk" href="/vendor-dashboard/on-the-day" />
+              <ActionButton tone="neutral" quiet icon={<ArrowRight aria-hidden />} label="Open the full desk" href="/vendor-dashboard/on-the-day" />
             </>
           ) : (
             <p className="text-sm text-[color:var(--m-slate-2)]">

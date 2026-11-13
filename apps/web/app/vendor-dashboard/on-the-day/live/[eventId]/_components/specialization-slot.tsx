@@ -252,7 +252,7 @@ function LockedUpsell({ model }: { model: DayOfFrameModel }) {
       <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">{line}</p>
       <ActionButton
         tone="brand"
-        icon={ArrowRight}
+        icon={<ArrowRight aria-hidden />}
         label={upsell.lapsed ? 'Renew your plan' : 'See the plans'}
         href={upsell.href}
       />

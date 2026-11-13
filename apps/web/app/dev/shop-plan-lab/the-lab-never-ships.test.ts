@@ -10,6 +10,14 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
+import { shopAlsoInLine } from '@/lib/shop-page-plan';
+import { tierCaps } from '@/lib/vendor-tier-caps';
+import {
+  SAMPLE_BRANCH_CITIES,
+  SAMPLE_SHOP_PLAN_TIER,
+  SAMPLE_SHOP_PLANS,
+  samplePlanBranchCities,
+} from '@/app/v/[slug]/_components/sample-shop-page';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LAB = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
@@ -39,8 +47,29 @@ test('the drawing mounts the real plan pieces and the real rules', () => {
   assert.match(DRAWING, /<ShopAddresses setnayanAddress=/);
 });
 
-test('the /for-suppliers plan cards draw NO branches — an open owner question (ruling 5735)', () => {
+test('🔑 the /for-suppliers Pro and Ultra previews draw their branches — owner 13 Nov 2026, "Show the branches as needed"', () => {
   const front = stripComments(readFileSync(join(HERE, '../../for-suppliers/_components/supplier-front-page.tsx'), 'utf8'));
-  assert.match(front, /<SampleShopPage plan=\{plan\} \/>/, 'the plan card no longer mounts the sample drawing bare');
-  assert.doesNotMatch(front, /branchCities/, 'the plan cards now draw branches — that needs the owner first');
+  // The plan card hands the drawing that plan's own branches — never a typed list, never none.
+  assert.match(front, /<SampleShopPage plan=\{plan\} branchCities=\{samplePlanBranchCities\(plan\)\} \/>/);
+  assert.doesNotMatch(front, /<SampleShopPage plan=\{plan\} \/>/, 'a plan card mounts the drawing without its branches');
+  // The drawing draws them with the shipped line, the same one /v/[slug] renders.
+  assert.match(DRAWING, /\{branchCities\.length > 0 \? <ShopBranchesLine cities=\{branchCities\} hqCity=\{SAMPLE\.city\} \/> : null\}/);
+
+  // Executed: the count is each plan's own `branchesIncluded` — Pro and Ultra draw "Also in …", the rest draw nothing.
+  for (const plan of SAMPLE_SHOP_PLANS) {
+    const cities = samplePlanBranchCities(plan);
+    const included = tierCaps(SAMPLE_SHOP_PLAN_TIER[plan]).branchesIncluded;
+    assert.equal(cities.length, included, `${plan}: draws ${cities.length} branches, the plan includes ${included}`);
+    const line = shopAlsoInLine(cities, 'Tagaytay');
+    if (plan === 'pro' || plan === 'ultra') {
+      assert.ok(included > 0, `${plan} includes no branches any more — re-read the owner's ruling`);
+      assert.equal(line, `Also in ${cities.join(' · ')}`, `${plan}: the preview does not draw "Also in <city>"`);
+    } else {
+      assert.equal(line, null, `${plan}: a plan with no branches draws an "Also in" line`);
+    }
+  }
+  // The sample has enough cities for the top plan — a shorter list would silently draw fewer than the plan includes.
+  const most = Math.max(...SAMPLE_SHOP_PLANS.map((p) => tierCaps(SAMPLE_SHOP_PLAN_TIER[p]).branchesIncluded));
+  assert.ok(SAMPLE_BRANCH_CITIES.length >= most, `the sample lists ${SAMPLE_BRANCH_CITIES.length} branch cities, a plan includes ${most}`);
+  assert.ok(!SAMPLE_BRANCH_CITIES.some((c) => c.toLowerCase() === 'tagaytay'), 'a branch city is the HQ city, so the line would drop it');
 });

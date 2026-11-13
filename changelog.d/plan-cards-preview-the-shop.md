@@ -10,7 +10,7 @@ Solo / Pro / Ultra Grow tab panel (so it switches with the tab): a 3:4 miniature
   `NotYetVerifiedNotice`) and decides every plan difference with the page's own rules (`shopReach` / `ownWebAddress` /
   `pinnedQuote` over `tierCaps`, `micrositeCan`, `micrositeAccentVars`). `/dev/shop-plan-lab` now renders it too, so
   the lab and the plan cards cannot drift. The miniature is that drawing at 390 px scaled to 112 px; the full-screen view
-  is the same node. Sample data, wearing the "(DEMO ONLY)" chip (the retired "Sample shop" label stays retired). Branches ("Also in …") are NOT drawn — open owner question.
+  is the same node. Sample data, wearing the "(DEMO ONLY)" chip (the retired "Sample shop" label stays retired). Pro and Ultra draw their branches ("Also in …") — see `plan-previews-draw-the-branches.md`.
 - **The motion.** A tap lifts the page full screen with the house rise (`lib/rise-motion.ts`, 0.7 s on `--sn-ease-rise`,
   a 120 ms cross-fade under reduced motion) from the miniature's own box, under a floating pill bar with ‹ Back (44 px).
   ‹ Back, Esc, the scrim and the browser's back close it with the exact reverse. `useModalA11y` carries focus + scroll lock.

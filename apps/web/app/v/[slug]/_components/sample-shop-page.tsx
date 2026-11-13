@@ -64,6 +64,12 @@ const SAMPLE = {
   accent: 'sage',
 } as const;
 
+/**
+ * The sample shop's other branches (Tagaytay HQ) — sample data. As many as the top plan includes
+ * (`branchesIncluded`, Ultra = 6); each plan draws the first `branchesIncluded` of them (`samplePlanBranchCities`).
+ */
+export const SAMPLE_BRANCH_CITIES = ['Lipa', 'Batangas City', 'Silang', 'Nasugbu', 'Calamba', 'Sta. Rosa'] as const;
+
 const PHOTOS = '/marketing/for-suppliers-2026-11-06';
 const SAMPLE_CARDS = [
   { title: 'Plated dinner', line: '3-course menu · service staff · tableware', photo: `${PHOTOS}/supplier-caterer-hero.webp` },
@@ -89,6 +95,16 @@ export function samplePlanShop(plan: SampleShopPlan, declaredOuterKm: number | n
     personalize: can.canPersonalize,
     cardsPerCategory: caps.servicesPerLeaf,
   };
+}
+
+/**
+ * The branches a plan's sample page draws — "Also in <city> · <city>" (owner 13 Nov 2026, DECISION_LOG "BRANCHES SHOW
+ * ON THE SHOP PAGE, AS NEEDED": *"Show the branches as needed."* … *"the plan-preview miniatures for Pro/Ultra draw the
+ * same line"*). The count is the plan's own `branchesIncluded` (lib/vendor-tier-caps.ts — Pro 3, Ultra 6, every other
+ * plan 0), never typed here, so a plan without branches draws nothing. Pure.
+ */
+export function samplePlanBranchCities(plan: SampleShopPlan): readonly string[] {
+  return SAMPLE_BRANCH_CITIES.slice(0, tierCaps(SAMPLE_SHOP_PLAN_TIER[plan]).branchesIncluded);
 }
 
 /** The miniature's one caption line — each clause is a decision above, said in a few words (no new fact). */
@@ -117,8 +133,9 @@ export function samplePlanCaption(plan: SampleShopPlan): string {
 
 /**
  * `branchCities` — the shop's other branches, drawn by the shipped `ShopBranchesLine` ("Also in …", PR #7561). The lab
- * passes fixture cities; the /for-suppliers plan cards pass NONE on purpose — whether a plan's preview shows branches
- * is an open owner question (ruling 5735 brief: "Do NOT draw branches").
+ * passes as many as its `?branches=` asks; the /for-suppliers plan cards pass `samplePlanBranchCities(plan)` — the
+ * plan's included branches, so Pro and Ultra draw the line and the others do not (owner 13 Nov 2026, "Show the
+ * branches as needed", which settled the question ruling 5735 left open).
  */
 export function SampleShopPage({
   plan,

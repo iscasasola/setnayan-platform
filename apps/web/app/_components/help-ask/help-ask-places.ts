@@ -64,7 +64,7 @@ const EVENT_DOORS: Record<string, { path: string; opens: string }> = {
 
 const ACCOUNT_DOORS: Record<string, HelpDoor> = {
   'getting-started': { href: '/dashboard', opens: 'your Home' },
-  'people-memories': { href: '/dashboard/people', opens: 'People' },
+  'people-memories': { href: '/dashboard?seg=people', opens: 'People on your Home' },
   'account-privacy': { href: '/dashboard/profile', opens: 'your profile' },
 };
 

@@ -73,8 +73,7 @@ export default async function AdminHelpGuidesPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6" data-help-coverage="team">
-      <h1 className="sn-h1">Help</h1>
-      <div className="mt-4">
+      <div>
         <AskBox q={q} action="/admin/help/guides" clearHref="/admin/help/guides" />
       </div>
       <p className="mt-2 text-sm text-ink/60" data-help-account="">
@@ -131,7 +130,7 @@ export default async function AdminHelpGuidesPage({ searchParams }: Props) {
         </section>
 
         <p className="text-sm">
-          <Link href="/admin/help" className="font-medium text-terracotta underline-offset-2 hover:underline">
+          <Link href="/admin/help" className="font-medium text-ink underline underline-offset-2">
             Messages ›
           </Link>
         </p>

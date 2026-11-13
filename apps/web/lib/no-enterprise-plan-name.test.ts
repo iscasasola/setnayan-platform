@@ -51,7 +51,7 @@ function offences(): string[] {
 }
 
 test('the top plan is called Ultra wherever a person reads it', () => {
-  assert.equal(TIER_LABEL.enterprise, 'Ultra');
+  assert.equal(TIER_LABEL.enterprise, 'Supplier Ultra');
   const hits = offences();
   assert.deepEqual(
     hits,

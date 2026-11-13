@@ -93,7 +93,7 @@ export function deepSearchEligibility(
 /** Human copy for each deny reason (surfaced in the vendor UI). */
 export const DEEP_SEARCH_DENY_MESSAGE: Record<DeepSearchDenyReason, string> = {
   tier_too_low:
-    'Running a Deep Search is part of the paid plans (Solo, Pro, Ultra). Pick one on the Plans page to run it.',
+    'Running a Deep Search is part of the paid plans (Supplier Plus, Supplier Pro, Supplier Ultra). Pick one on the Plans page to run it.',
   unverified: 'Get your shop verified first — Deep Search unlocks once you’re verified.',
 };
 

@@ -432,7 +432,7 @@ export async function buyExtraSeat(formData: FormData) {
   const { supabase, ctx, currentUserId } = await ensureAdmin();
 
   if (!canBuyExtraSeats(ctx.tierState)) {
-    return err('Extra team seats are an Ultra add-on. Upgrade to Ultra first.');
+    return err('Extra team seats are a Supplier Ultra add-on. Upgrade to Supplier Ultra first.');
   }
 
   // The rail is CHOSEN ON THE PAYMENT PAGE now, where the QR that carries it is

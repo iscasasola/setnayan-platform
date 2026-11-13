@@ -140,7 +140,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
         appBody: 'Planning in the Setnayan app is free: schedule, budget, guest list, seat plan, mood board, RSVP with a QR code for every guest, and marketplace browse with a match preview. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout.',
-        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. For an event there are two optional paid plans, Event Plus and Event Pro — Setnayan AI comes inside both — and each other service is priced on its own; current rates are on setnayan.com/pricing. Couples pay 0% commission on supplier bookings — they pay suppliers directly. Suppliers: Verified is free, for good, and optional paid plans add reach — see setnayan.com/for-suppliers.',
+        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. For an event there are two optional paid plans, Event Plus and Event Pro — Setnayan AI comes inside both — and each other service is priced on its own; current rates are on setnayan.com/pricing. Couples pay 0% commission on supplier bookings — they pay suppliers directly. Suppliers: Verified is free, for good, with Supplier Plus, Supplier Pro and Supplier Ultra plans — see setnayan.com/for-suppliers.',
       },
       {
         slug: 'is-setnayan-free-for-couples',

@@ -276,7 +276,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
                     {linkHiddenForTier ? (
                       <p className="inline-flex items-center gap-1 text-xs text-ink/55">
                         <Info aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                        Hidden from clients — payment links are Pro &amp; Ultra only.
+                        Hidden from clients — payment links are Supplier Pro &amp; Supplier Ultra only.
                       </p>
                     ) : null}
                   </div>

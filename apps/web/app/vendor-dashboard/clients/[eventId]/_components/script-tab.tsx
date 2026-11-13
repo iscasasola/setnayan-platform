@@ -13,7 +13,7 @@ import {
 // ❓ The answers renderer is shared with every other trade's customer card (Details tab) since 2026-11-04.
 import { TheyToldYou } from './couple-answers';
 import { ScriptComposer } from './script-composer';
-import { ShopCard } from '../../../_components/kit';
+import { InfoTip } from '@/app/_components/info-tip';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -130,17 +130,20 @@ export async function ScriptTab({
   );
 
   if (workbook.empty) {
+    // 📐 Design template rule 6: an empty part is one honest line, no card; the "why" sits behind the ⓘ (rule 7).
     return (
-      <ShopCard pad="none" className="p-8 text-center">
-        <Mic className="mx-auto h-6 w-6 text-ink/25" aria-hidden />
-        <p className="mt-3 text-sm font-medium text-ink">
-          {coupleName} haven&rsquo;t built their timeline yet.
-        </p>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
-          The moment they add their program, every moment of the night appears here ready to
-          script — nothing for you to set up.
-        </p>
-      </ShopCard>
+      <div className="flex min-h-14 items-center gap-2 border-b border-ink/10 py-3" data-script-empty="">
+        <Mic className="h-4 w-4 shrink-0 text-[color:var(--m-slate-3)]" aria-hidden />
+        <InfoTip
+          label={`${coupleName} haven’t built their timeline yet.`}
+          labelAs="p"
+          labelClassName="text-[15px] text-ink"
+          align="start"
+        >
+          The moment they add their program, every moment of the night appears here ready to script — nothing for
+          you to set up.
+        </InfoTip>
+      </div>
     );
   }
 
@@ -168,16 +171,16 @@ export async function ScriptTab({
   ).length;
 
   return (
-    <section className="space-y-4">
-      {/* His craft is his. Mirrors the shipped CRM-notes lock copy. */}
-      <p className="flex items-start gap-2 rounded-xl border border-ink/10 bg-gold/5 px-3 py-2 text-xs text-ink/65">
-        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" aria-hidden />
-        <span>
-          <strong className="text-ink">Only your team sees these lines.</strong> Never {coupleName},
-          never their coordinator, never other suppliers. Their timeline and notes come from them —
+    <section>
+      {/* His craft is his. Mirrors the shipped CRM-notes lock copy — the label stays, the explaining sits behind the
+          ⓘ (design template rule 7). */}
+      <div className="flex min-h-11 items-center gap-2 text-[13px] text-ink/70" data-script-private="">
+        <Lock className="h-4 w-4 shrink-0 text-gold" aria-hidden />
+        <InfoTip label="Only your team sees these lines" align="start">
+          Never {coupleName}, never their coordinator, never other suppliers. Their timeline and notes come from them —
           your script stays yours.
-        </span>
-      </p>
+        </InfoTip>
+      </div>
 
       <TheyToldYou
         coupleName={coupleName}
@@ -189,43 +192,46 @@ export async function ScriptTab({
       />
 
       {prefilled > 0 ? (
-        <p className="flex items-start gap-2 rounded-xl border border-sage/30 bg-sage/10 px-3 py-2 text-sm text-ink/75">
-          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-sage-deep" aria-hidden />
-          <span>
-            <strong className="text-ink">Drafted from your lines</strong> — {formatCount(prefilled)} of{' '}
-            {workbook.entries.length} moments arrived already written, in your words with their
-            names filled in. Edit anything that should be different for {coupleName}.{' '}
-            <Link href="/vendor-dashboard/lines" className="underline">
-              My lines
-            </Link>
-          </span>
-        </p>
+        <div className="flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-ink" data-script-prefilled="">
+          <Sparkles className="h-4 w-4 shrink-0 text-sage-deep" aria-hidden />
+          <InfoTip
+            label={`Drafted from your lines — ${formatCount(prefilled)} of ${workbook.entries.length}`}
+            align="start"
+          >
+            These moments arrived already written, in your words with their names filled in. Edit anything that should
+            be different for {coupleName}.
+          </InfoTip>
+          <Link href="/vendor-dashboard/lines" className="inline-flex min-h-11 items-center font-semibold text-sn-accent">
+            My lines ›
+          </Link>
+        </div>
       ) : (
-        <p className="text-xs text-ink/50">
-          Lines you write here are saved to{' '}
-          <Link href="/vendor-dashboard/lines" className="underline">
-            My lines
-          </Link>{' '}
-          automatically — with {coupleName}&rsquo;s names swapped out — so your next wedding opens
-          already written.
-        </p>
+        <div className="flex min-h-11 flex-wrap items-center gap-x-2 text-[13px] text-ink/70" data-script-saved-to-lines="">
+          <InfoTip label="Lines you write here are saved to My lines" align="start">
+            Automatically — with {coupleName}&rsquo;s names swapped out — so your next wedding opens already written.
+          </InfoTip>
+          <Link href="/vendor-dashboard/lines" className="inline-flex min-h-11 items-center font-semibold text-sn-accent">
+            My lines ›
+          </Link>
+        </div>
       )}
 
       {attention.length > 0 ? (
-        <div className="rounded-xl border border-gold/40 border-l-4 border-l-gold bg-white p-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold-dark">
-            Get these right — {attention.length}
-          </p>
-          <p className="mt-1 text-sm text-ink/75">
-            {coupleName} asked for something specific on these moments. Everything else you can
-            ad-lib.
-          </p>
-          <ul className="mt-2 flex flex-wrap gap-2">
+        <div className="pt-4" data-script-attention="">
+          <InfoTip
+            label={`Get these right · ${attention.length}`}
+            labelAs="h3"
+            labelClassName="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70"
+            align="start"
+          >
+            {coupleName} asked for something specific on these moments. Everything else you can ad-lib.
+          </InfoTip>
+          <ul className="mt-1">
             {attention.map(({ item, entry }) => (
-              <li key={entry.blockId}>
+              <li key={entry.blockId} className="border-b border-ink/10 border-l-4 border-l-gold">
                 <a
                   href={`#script-${entry.blockId}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-xs font-semibold text-ink"
+                  className="sn-press flex min-h-14 items-center gap-3 py-2 pl-3"
                   title={
                     item.reason === 'ask_on_reused_line'
                       ? 'They asked for something your saved line cannot know about'
@@ -234,8 +240,9 @@ export async function ScriptTab({
                         : 'They asked and nothing answers it yet'
                   }
                 >
-                  <span className="font-mono text-[10px] text-gold-dark">{entry.time}</span>
-                  {entry.label}
+                  <span className="w-16 shrink-0 text-[13px] tabular-nums text-ink/70">{entry.time}</span>
+                  <span className="min-w-0 flex-1 text-[15px] font-semibold text-ink">{entry.label}</span>
+                  <span aria-hidden className="text-sn-accent">›</span>
                 </a>
               </li>
             ))}
@@ -243,7 +250,7 @@ export async function ScriptTab({
         </div>
       ) : null}
 
-      <ol className="space-y-2.5">
+      <ol className="pt-4">
         {workbook.entries.map((e) => {
           const match = matches.get(e.blockId);
           const saved = e.script;
@@ -257,20 +264,19 @@ export async function ScriptTab({
               key={e.blockId}
               id={`script-${e.blockId}`}
               className={[
-                'scroll-mt-24 rounded-xl border bg-white p-3',
+                'scroll-mt-24 border-b border-ink/10 py-4',
                 e.depth === 1 ? 'ml-5' : '',
-                isPrivate ? 'border-ink/30 bg-ink/[0.03]' : 'border-ink/10',
-                !isPrivate && e.note && !saved ? 'border-gold/40 border-l-4 border-l-gold' : '',
+                !isPrivate && e.note && !saved ? 'border-l-4 border-l-gold pl-3' : '',
               ].join(' ')}
             >
               {isPrivate ? (
                 // Never a subtler shade — a worded banner. He is holding a mic.
-                <p className="-mx-3 -mt-3 mb-2.5 flex items-center gap-2 rounded-t-xl bg-ink px-3 py-2 text-cream">
-                  <EyeOff className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  <strong className="font-mono text-[10px] uppercase tracking-[0.2em]">
+                <p className="mb-2.5 flex items-center gap-2 rounded-lg bg-ink px-3 py-2 text-cream">
+                  <EyeOff className="h-4 w-4 shrink-0" aria-hidden />
+                  <strong className="text-[13px] font-semibold uppercase tracking-[0.08em]">
                     Don&rsquo;t read aloud
                   </strong>
-                  <span className="ml-auto text-right text-[10px] leading-tight text-cream/65">
+                  <span className="ml-auto text-right text-[13px] leading-tight text-cream">
                     Private moment —<br />
                     context for you only
                   </span>
@@ -278,33 +284,32 @@ export async function ScriptTab({
               ) : null}
 
               <div className="flex flex-wrap items-baseline gap-2">
-                <span className="font-mono text-[11px] text-ink/50">{e.time}</span>
-                <span className={e.depth === 1 ? 'text-sm text-ink' : 'text-sm font-semibold text-ink'}>
+                <span className="text-[13px] tabular-nums text-ink/70">{e.time}</span>
+                <span className={e.depth === 1 ? 'text-[15px] text-ink' : 'text-[15px] font-semibold text-ink'}>
                   {e.label}
                 </span>
               </div>
 
               {e.note ? (
-                <div className="mt-2 rounded-lg bg-gold/10 px-3 py-2">
-                  <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-gold-dark">
+                <div className="mt-2 border-l-2 border-gold pl-3">
+                  <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">
                     {isPrivate ? 'They told you' : 'They asked'}
                   </p>
-                  <p className="mt-0.5 text-sm text-ink/80">{e.note}</p>
+                  <p className="mt-0.5 text-[15px] text-ink">{e.note}</p>
                 </div>
               ) : null}
 
               {e.cue && !isPrivate ? (
-                <p className="mt-2 text-xs italic text-ink/45">{e.cue}</p>
+                <p className="mt-2 text-[13px] italic text-ink/70">{e.cue}</p>
               ) : null}
 
               {/* Rung 2 and 3 are guesses and must say so. */}
               {suggestion && !saved && match && !match.trusted ? (
-                <p className="mt-2 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
-                  <AlertCircle className="h-3 w-3" aria-hidden />
+                <p className="mt-2 flex items-center gap-1.5 text-[13px] font-semibold text-warn-800">
+                  <AlertCircle className="h-4 w-4" aria-hidden />
                   {match.rung === 'by_name' ? 'Matched by name — glance it' : 'From your usual line'}
                 </p>
               ) : null}
-
               <ScriptComposer
                 eventId={eventId}
                 blockId={e.blockId}

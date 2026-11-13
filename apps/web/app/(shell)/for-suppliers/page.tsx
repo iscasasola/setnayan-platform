@@ -158,7 +158,7 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
       offer(
         'solo-vendor-subscription',
         'Supplier Plus (28-day prepaid block)',
-        // Lane J: the plan's caps, read (this said "1 marketplace category · solo operator" — Solo is 2 · 1 seat since 4 Nov).
+        // Lane J: the plan's caps, read (this said "1 marketplace category · solo operator" — Supplier Plus is 2 · 1 seat since 4 Nov).
         `${growSpec('solo')}. ${supplierCommissionPromise(fee)}`,
         p.num.soloMonthly,
       ),

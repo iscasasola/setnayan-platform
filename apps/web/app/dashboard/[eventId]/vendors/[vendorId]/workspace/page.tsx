@@ -2030,7 +2030,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             No payment milestones added yet. Add a line item or log a payment as money moves to {displayName}.
           </TemplateEmpty>
         )}
-      </div>
       </section>
   );
 

@@ -297,7 +297,7 @@ export async function TransactionsLedger() {
                     </>
                   }
                   line={`${r.description} · ${manilaDay(r.created_at)}`}
-                  amount={formatPhp(r.chargedPhp)}
+                  money={formatPhp(r.chargedPhp)}
                   chip={statusChip(r)}
                   receiptHref={r.receiptId ? `/receipts/${r.receiptId}` : null}
                   facts={[

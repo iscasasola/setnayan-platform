@@ -20,7 +20,7 @@ import { TEMPLATE_MONEY, TEMPLATE_SUBLINE } from '@/app/_components/template-row
 export function LedgerPhoneRow({
   title,
   line,
-  amount,
+  money,
   chip,
   facts,
   receiptHref,
@@ -29,7 +29,7 @@ export function LedgerPhoneRow({
   title: ReactNode;
   /** What they bought · when. */
   line: string;
-  amount: string;
+  money: string;
   chip: ReactNode;
   facts: readonly { label: string; value: ReactNode }[];
   receiptHref: string | null;
@@ -51,7 +51,7 @@ export function LedgerPhoneRow({
           <span className={`mt-0.5 block truncate ${TEMPLATE_SUBLINE}`}>{line}</span>
         </span>
         <span className="flex flex-none flex-col items-end gap-1">
-          <span className={`text-[15px] ${TEMPLATE_MONEY}`}>{amount}</span>
+          <span className={`text-[15px] ${TEMPLATE_MONEY}`}>{money}</span>
           {chip}
         </span>
       </button>
@@ -59,7 +59,7 @@ export function LedgerPhoneRow({
         <div className="px-4 pb-5 pt-1">
           <div className="flex items-center gap-2">
             <h2 id={titleId} className="min-w-0 flex-1 truncate text-[19px] font-extrabold text-ink">
-              {title} · {amount}
+              {title} · {money}
             </h2>
             <ActionButton tone="neutral" icon={X} label="Close" iconOnly type="button" onClick={() => setOpen(false)} />
           </div>

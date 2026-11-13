@@ -174,7 +174,7 @@ export function TemplateFail({ children, retryHref, data }: { children: ReactNod
       style={{ color: 'rgb(var(--color-warn))' }}
     >
       <span className="min-w-0 flex-1">{children}</span>
-      {retryHref ? <ActionButton tone="warn" icon={RotateCw} label="Try again" href={retryHref} prefetch={false} /> : null}
+      {retryHref ? <ActionButton tone="warn" icon={<RotateCw aria-hidden strokeWidth={1.9} />} label="Try again" href={retryHref} prefetch={false} /> : null}
     </p>
   );
 }

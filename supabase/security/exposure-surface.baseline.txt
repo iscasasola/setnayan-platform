@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7776
+# facts: 7778
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     632
-#   col       5601
+#   col       5603
 #   policy    1136
 #   view      10
 #   func      393
@@ -2186,6 +2186,7 @@ col	public.event_type_profiles.guest_word	anon=SIU authenticated=SIU
 col	public.event_type_profiles.layer_mode	anon=SIU authenticated=SIU
 col	public.event_type_profiles.look_set	anon=SIU authenticated=SIU
 col	public.event_type_profiles.marketplace_enabled	anon=SIU authenticated=SIU
+col	public.event_type_profiles.max_days	anon=SIU authenticated=SIU
 col	public.event_type_profiles.monogram_set_key	anon=SIU authenticated=SIU
 col	public.event_type_profiles.multi_day	anon=SIU authenticated=SIU
 col	public.event_type_profiles.onboarding_flow_key	anon=SIU authenticated=SIU
@@ -2495,6 +2496,7 @@ col	public.events.estimated_budget_centavos	anon=IU authenticated=IU
 col	public.events.estimated_pax	anon=SIU authenticated=SIU
 col	public.events.event_date	anon=SIU authenticated=SIU
 col	public.events.event_date_precision	anon=SIU authenticated=SIU
+col	public.events.event_days	anon=- authenticated=SU
 col	public.events.event_end_date	anon=SIU authenticated=SIU
 col	public.events.event_id	anon=S authenticated=S
 col	public.events.event_type	anon=SIU authenticated=SIU

@@ -123,7 +123,7 @@ test('the City or area is a closed pick — onboarding’s list or nothing, refu
   // The editor has no box a city is typed into: the one search field only finds, a tap on a row picks.
   assert.doesNotMatch(EDITORS, /e\.g\. Quezon City|setCityValue\(e\.target\.value\)/, 'the city is free text again');
   assert.match(EDITORS, /<CityPick\b/);
-  assert.match(CITY, /onPick\(c\.n\);/);
+  assert.match(CITY, /onPick\(c\.n(?:, c)?\);/);
   assert.equal((stripComments(CITY).match(/onPick\(/g) ?? []).length, 1, 'something other than a listed row picks the city');
   assert.match(CITY, /from '@\/app\/onboarding\/wedding\/_data\/wedding-cities'/, 'not onboarding’s own list');
   assert.match(CITY, /import\('@\/app\/onboarding\/wedding\/_data\/ph-places'\)/, 'the PSGC list must load lazily, as onboarding loads it');

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1858
+# ledger: 1859
 # tables: 498
-# columns: 6053
-# notnull: 3652
+# columns: 6054
+# notnull: 3653
 [ledger]
 20260512000000
 20260513000000
@@ -1870,6 +1870,7 @@
 20271342673075
 20271342770993
 20271342818285
+20271343002292
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -3526,6 +3527,7 @@ event_type_profiles.guest_word
 event_type_profiles.layer_mode
 event_type_profiles.look_set
 event_type_profiles.marketplace_enabled
+event_type_profiles.max_days
 event_type_profiles.monogram_set_key
 event_type_profiles.multi_day
 event_type_profiles.onboarding_flow_key
@@ -8955,6 +8957,7 @@ event_type_profiles.event_class
 event_type_profiles.event_type
 event_type_profiles.layer_mode
 event_type_profiles.marketplace_enabled
+event_type_profiles.max_days
 event_type_profiles.multi_day
 event_type_profiles.terminology
 event_type_profiles.updated_at

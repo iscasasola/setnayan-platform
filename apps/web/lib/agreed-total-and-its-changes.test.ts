@@ -690,7 +690,7 @@ const SOURCES: ReadonlyMap<string, string> = new Map(
 );
 const count = (src: string, re: RegExp) => (src.match(new RegExp(re.source, 'g')) ?? []).length;
 /** THE SET — derived from the source, never typed: every file that reads the column. */
-// #5936: a browser read of the price now arrives through lib/event-vendor-money.ts (the one path today; the column close lands in migration B),
+// #5936: a browser read of the price now arrives through lib/event-vendor-money.ts (the one session path; migration B 20271343340931 closed the columns),
 // so a file that calls the reader reads total_cost_php as surely as one that names it — it stays on the roster.
 const BOOKING_MONEY_READ = /\b(readBookingMoney|readOneBookingMoney|withBookingMoney)\s*\(/;
 const READERS = new Set(

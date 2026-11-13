@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowLeft, Lock, MessageSquare, Wallet } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import {
   feeLockCopy,
   VENDOR_FEE_LOCK_TESTID,
@@ -55,31 +56,24 @@ export function EventLockedByFee({
   return (
     <section
       data-testid={VENDOR_FEE_LOCK_TESTID}
-      className={`rounded-2xl border border-terracotta/30 bg-terracotta/5 p-4 sm:p-5 ${className ?? ''}`}
+      className={`rounded-2xl bg-[color:var(--m-paper-2)] p-4 sm:p-5 ${className ?? ''}`}
     >
       <div className="flex items-start gap-3">
         <Lock className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" aria-hidden />
         <div className="min-w-0">
-          <h2 className="font-serif text-lg text-ink">{headline}</h2>
-          <p className="mt-1 text-sm text-ink/70">{detail}</p>
+          <h2 className="text-[17px] font-bold text-ink">{headline}</h2>
+          <p className="mt-1 text-[15px] text-ink/70">{detail}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {cta ? (
-              <Link
-                href={payHref}
-                className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-medium text-cream transition hover:bg-ink/90"
-              >
-                <Wallet className="h-4 w-4" aria-hidden />
-                {cta}
-              </Link>
+              <ActionButton tone="brand" main href={payHref} icon={<Wallet className="h-4 w-4" aria-hidden />} label={cta} />
             ) : null}
             {threadId ? (
-              <Link
+              <ActionButton
+                tone="info"
                 href={`/vendor-dashboard/messages/${threadId}`}
-                className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/30"
-              >
-                <MessageSquare className="h-4 w-4" aria-hidden />
-                Message the couple
-              </Link>
+                icon={<MessageSquare className="h-4 w-4" aria-hidden />}
+                label="Message the couple"
+              />
             ) : null}
           </div>
         </div>
@@ -119,7 +113,7 @@ export function EventLockedPage({
     <section className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
       <Link
         href={backHref ?? `/vendor-dashboard/clients/${eventId}`}
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink/60 transition hover:text-ink"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink/70 transition hover:text-ink"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
         {backLabel}

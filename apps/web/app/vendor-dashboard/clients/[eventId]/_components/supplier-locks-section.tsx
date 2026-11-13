@@ -7,6 +7,7 @@
  * Empty is honest — "Nothing to lock yet" with what will appear — and a refused read says "Couldn't load", never none.
  */
 import 'server-only';
+import { InfoTip } from '@/app/_components/info-tip';
 import dynamic from 'next/dynamic';
 import type { ComponentProps, ComponentType } from 'react';
 
@@ -91,13 +92,15 @@ export function SupplierLocksView({
   const empty = !quote && forms.length === 0 && questionsLocked == null;
   return (
     <section data-supplier-locks="" data-read={failed ? 'failed' : empty ? 'empty' : 'ok'} className="mb-5">
-      <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/55">Your locks</h2>
+      <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">Your locks</h2>
       {failed ? (
-        <p className="mt-1 text-[15px] text-ink/75">Couldn&rsquo;t load your locks. Pull to refresh, or open it again in a moment.</p>
+        <p role="status" className="mt-1 text-[15px] font-semibold text-warn-800">Couldn&rsquo;t load your locks. Pull to refresh, or open it again in a moment.</p>
       ) : empty ? (
-        <p className="mt-1 text-[15px] text-ink/70">
-          Nothing to lock yet. Once you send a quotation or a form, its lock shows here — locked, they can&rsquo;t ask for a change.
-        </p>
+        <div className="mt-1 flex min-h-14 items-center border-b border-ink/10 text-[15px] text-ink/70">
+          <InfoTip label="Nothing to lock yet." align="start">
+            Once you send a quotation or a form, its lock shows here — locked, they can&rsquo;t ask for a change.
+          </InfoTip>
+        </div>
       ) : (
         <ul className="mt-1">
           {quote ? (

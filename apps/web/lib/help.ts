@@ -399,7 +399,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'share-album-to-story',
         title: 'Supplier: how do I share my album to an event’s story?',
-        body: 'On Supplier Ultra, open the event in On the day → What you shot. Under “Your private portfolio”, turn on “Share this album to the event’s story”. The photos in that album then fill your own scene in the event’s story, with your shop name, your Supplier Ultra badge and a button to your shop. It is off until you turn it on, and you can turn it off any time. After the event you are asked once whether to share. The album counts toward your plan’s storage. On other plans you are listed in the story with no scene of your own.',
+        body: 'On Supplier Ultra, open the event in On the day → What you shot. Under “Your private portfolio”, turn on “Share this album to the event’s story”. The photos and videos in that album then fill your own scene in the event’s story, with your shop name, your Supplier Ultra badge and a button to your shop. It is off until you turn it on, and you can turn it off any time. After the event you are asked once whether to share. The album counts toward your plan’s storage. On other plans you are listed in the story with no scene of your own.',
       },
       {
         slug: 'people-page',

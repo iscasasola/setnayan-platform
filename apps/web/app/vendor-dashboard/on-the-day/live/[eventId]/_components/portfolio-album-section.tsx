@@ -49,7 +49,7 @@ export async function PortfolioAlbumSection({
 }) {
   const { data, error } = await supabase
     .from('vendor_papic_portfolio_photos')
-    .select('photo_id, event_id, r2_object_key, credits_spent, created_at, hidden_at, nsfw_checked')
+    .select('photo_id, event_id, r2_object_key, credits_spent, created_at, hidden_at, nsfw_checked, media_kind')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })
     .limit(60);
@@ -165,7 +165,13 @@ export async function PortfolioAlbumSection({
         />
       ) : null}
 
-      <PortfolioImportForm eventId={eventId} canImport={canImport} />
+      <PortfolioImportForm
+        eventId={eventId}
+        canImport={canImport}
+        creditsLeft={creditsLeft}
+        // 🎬 Videos go into the album a Supplier Ultra can share (owner 2026-11-13); other plans import photos.
+        vendorProfileId={share.ready && share.isUltra ? (vendorProfileId ?? null) : null}
+      />
 
       {tiles.length > 0 ? (
         <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -175,6 +181,11 @@ export async function PortfolioAlbumSection({
                 {url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                ) : null}
+                {photo.isVideo ? (
+                  <span aria-label="Video" className="absolute bottom-1.5 left-1.5 rounded-full bg-ink/70 px-1.5 text-xs text-cream">
+                    ▶
+                  </span>
                 ) : null}
               </div>
               {/* One tap puts THIS photo on your page (owner 2026-10-15, "SIX OWNER ANSWERS" (3)) — after the guests'

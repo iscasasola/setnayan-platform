@@ -37,7 +37,7 @@ import { formatCount } from '@/lib/format-number';
 
 const EYEBROW = 'font-mono text-xs font-semibold uppercase tracking-[0.2em] text-ink/70';
 const ULTRA_SCENE_TIP =
-  'Every Supplier Ultra on this event gets its own scene, however many there are. The photos are the ones the supplier shared from this event. Other supplier plans are listed in the story, with no scene.';
+  'Every Supplier Ultra on this event gets its own scene, however many there are. The photos and videos are the ones the supplier shared from this event. Other supplier plans are listed in the story, with no scene.';
 
 /* ── the frame every layer shares ────────────────────────────────────────── */
 

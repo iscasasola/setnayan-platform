@@ -5,6 +5,7 @@
         "error.tsx",
         "global-error.tsx",
         "layout.tsx",
+        "not-found-links.tsx",
         "not-found.tsx",
         "page.tsx",
         "providers.tsx",
@@ -38,6 +39,7 @@
         "NavProgress",
         "NavSlideController",
         "NfcTestSwitch",
+        "NotFoundLinks",
         "OfflineDaemonMount",
         "PersistQueryClientProvider",
         "PressFeel",
@@ -13560,6 +13562,20 @@
         "SuppliersLabPage"
       ]
     },
+    "/dev/story-suppliers-lab": {
+      "files": [
+        "dev/story-suppliers-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "PeopleWhoMadeIt",
+        "PortfolioAlbumSection",
+        "SupplierStoriesScene",
+        "UltraSupplierScene",
+        "VendorCredit"
+      ]
+    },
     "/dev/supplier-chat-lab": {
       "files": [
         "dev/supplier-chat-lab/page.tsx"
@@ -17404,6 +17420,7 @@
     },
     "/vendor-dashboard/on-the-day/live/[eventId]": {
       "files": [
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/album-share-switch.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/event-hub-bar.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/event-hub-views.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-clock.tsx",
@@ -17450,6 +17467,7 @@
       ],
       "blocks": [
         "ActionButton",
+        "AlbumShareSwitch",
         "AnnounceButton",
         "AnnouncementsCard",
         "Answer",
@@ -17533,6 +17551,7 @@
         "SupplierSavedStrip",
         "Surface",
         "SwipeToDelete",
+        "SwitchTrack",
         "TierMeter",
         "UndoToastHost",
         "VendorSpecializationSet",

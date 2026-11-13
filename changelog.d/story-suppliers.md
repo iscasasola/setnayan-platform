@@ -35,7 +35,14 @@ approved "yes to all". Extends the Post Event story from #7596.
 - Help: `story-suppliers`, `share-album-to-story`. Tour: Post Event "The people who made it".
 - `/dev/story-suppliers-lab` (dev-only) for the 390 px shots.
 
-**Not in this change:** videos in the album wait on the owner (credit cost of an imported video is not set).
+**Videos in the album (owner 2026-11-14, "x3 of the video based on their seconds as compared to papic")**
+- `lib/album-video-cost.ts` (pure, tested): an imported video costs 3 × what Papic charges for the same seconds — up to
+  Papic's longest clip it IS `papicCaptureCost('clip', ms, 'upload')`; longer videos are priced as back-to-back Papic
+  clips, the last for its own seconds. Seconds round up; an unreadable length is refused, never guessed. No number typed.
+- The form reads the length in the browser and SHOWS the cost before anything uploads (Import / Cancel); the MP4 goes
+  to the shop's own album folder via /api/upload, the import carries its screened still. The route measures size and
+  length itself (`r2Head`, `probeMp4DurationMs`), charges `albumVideoCredits(measured)`, checks credits and storage,
+  and removes the uploaded video on any refusal. Supplier Ultra only (the album it can share).
 
 SPEC IMPACT: None — builds the approved 13 Nov rows as drawn. Flag: the a-tap guard's old rule was retired by the
 owner's 13 Nov ruling, not weakened.

@@ -30,11 +30,10 @@ const DATE_LINE = '12 December 2026 · Tagaytay';
 const EVENT_ID = '00000000-0000-4000-8000-000000000001';
 const SHOP_ID = '00000000-0000-4000-8000-000000000002';
 
-/** A soft square in one of the prototype's tones — the lab has no photographs. */
+/** The lab has no event photos — it borrows the sample stories' own pictures (public/realstories). */
+const SAMPLE_PHOTOS = ['jack-jill-cebu.jpg', 'jack-jill-g1.jpg', 'jack-jill-g2.jpg', 'jack-jill-g3.jpg', 'jack-jill-v1.jpg', 'jack-jill-v2.jpg', 'jack-rose-baguio.jpg', 'jack-rose-g1.jpg', 'jack-rose-g2.jpg', 'jack-rose-g3.jpg', 'jack-rose-v1.jpg', 'jack-rose-v2.jpg', 'john-jane-g1.jpg', 'john-jane-g2.jpg', 'john-jane-g3.jpg', 'john-jane-manila.jpg', 'john-jane-v1.jpg', 'john-jane-v2.jpg', 'maria-juan-g1.jpg', 'maria-juan-g2.jpg', 'maria-juan-g3.jpg', 'maria-juan-tagaytay.jpg', 'maria-juan-v1.jpg', 'maria-juan-v2.jpg', 'peter-mary-g1.jpg', 'peter-mary-g2.jpg', 'peter-mary-g3.jpg', 'peter-mary-tagaytay.jpg', 'peter-mary-v1.jpg', 'peter-mary-v2.jpg', 'sofia-reyes-c1.jpg', 'sofia-reyes-c2.jpg', 'sofia-reyes-c3.jpg', 'sofia-reyes-makati.jpg'];
 function tone(i: number): string {
-  const c = ['#A2457E', '#3B4E67', '#6f8f7b', '#C24E25', '#b9794f', '#2F6DB5', '#8a6f4e'][i % 7]!;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="#f3ece2"/></linearGradient></defs><rect width="300" height="300" fill="url(#g)"/></svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  return `/realstories/${SAMPLE_PHOTOS[i % SAMPLE_PHOTOS.length]!}`;
 }
 
 const card = (rating: number, reviews: number, i: number) => ({ coverUrl: tone(i), bestWork: [tone(i + 1), tone(i + 2), tone(i + 3)], rating, reviews });

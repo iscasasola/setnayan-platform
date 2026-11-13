@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1867
+# ledger: 1868
 # tables: 500
-# columns: 6074
-# notnull: 3661
+# columns: 6075
+# notnull: 3662
 [ledger]
 20260512000000
 20260513000000
@@ -1877,6 +1877,7 @@
 20271343761700
 20271344038763
 20271344061337
+20271344065097
 20271344452857
 20271344488042
 [columns]
@@ -3831,6 +3832,7 @@ events.ceremony_venue_address
 events.ceremony_venue_latitude
 events.ceremony_venue_longitude
 events.ceremony_venue_setting
+events.chapters_peek
 events.cleared_at
 events.cleared_by_user_id
 events.community_id
@@ -9117,6 +9119,7 @@ event_wish_items.wish_item_id
 events.adaptive_pricing_mode
 events.archived
 events.auspicious_reasons
+events.chapters_peek
 events.concierge_status
 events.couple_media_bytes
 events.created_at

@@ -26,23 +26,23 @@ ALTER TABLE public.notice_closes ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS notice_closes_owner_select ON public.notice_closes;
 CREATE POLICY notice_closes_owner_select ON public.notice_closes
   FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
+  USING (user_id = (SELECT auth.uid()));
 
 DROP POLICY IF EXISTS notice_closes_owner_insert ON public.notice_closes;
 CREATE POLICY notice_closes_owner_insert ON public.notice_closes
   FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
+  WITH CHECK (user_id = (SELECT auth.uid()));
 
 DROP POLICY IF EXISTS notice_closes_owner_update ON public.notice_closes;
 CREATE POLICY notice_closes_owner_update ON public.notice_closes
   FOR UPDATE TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+  USING (user_id = (SELECT auth.uid()))
+  WITH CHECK (user_id = (SELECT auth.uid()));
 
 DROP POLICY IF EXISTS notice_closes_owner_delete ON public.notice_closes;
 CREATE POLICY notice_closes_owner_delete ON public.notice_closes
   FOR DELETE TO authenticated
-  USING (user_id = auth.uid());
+  USING (user_id = (SELECT auth.uid()));
 
 -- ALTER DEFAULT PRIVILEGES hands anon + authenticated everything on a new relation. Revoke first, then
 -- grant back exactly the four verbs the four policies above use. anon gets nothing.

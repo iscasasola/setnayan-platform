@@ -88,5 +88,7 @@ export function forwardToHome(seg: Exclude<HomeSeg, 'events'>, sp: Readonly<Reco
   return homeSegHref(seg, extra);
 }
 
-/** The key the bar remembers the last section under, so Discover → Home comes back to it (T5: other tab = last state). */
+/** The key Home's body slide remembers the last section under (`-body`). Discover → Home coming back to the section AND
+ * its scroll is the shared bar's job since 13 Nov 2026 (`app/_components/nav/tab-memory.ts`). */
 export const HOME_LAST_SEG_KEY = 'sn-home-last-seg';
+

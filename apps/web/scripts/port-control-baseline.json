@@ -6252,7 +6252,6 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLSpanElement",
-        "HomeDoorsInView",
         "HomeFindRow",
         "HomeGear",
         "HomePinPortal",
@@ -13494,6 +13493,7 @@
     },
     "/dev/shop-preview-lab": {
       "files": [
+        "dev/shop-preview-lab/grown-owner-lab.tsx",
         "dev/shop-preview-lab/inspiration-lab-fixture.ts",
         "dev/shop-preview-lab/page.tsx"
       ],
@@ -13502,7 +13502,9 @@
       ],
       "actions": [],
       "blocks": [
+        "GrownOwnerLab",
         "Link",
+        "ServiceDetailsSheet",
         "ServicesGallery",
         "ShopBadgePill",
         "ShopInspirationSection",
@@ -15408,6 +15410,7 @@
         "ProfileShareButton",
         "ReportPageButton",
         "ScaledTileList",
+        "SectionBar",
         "ViewBeacon",
         "WhoWasThereBand"
       ]
@@ -15480,6 +15483,7 @@
         "AutoCarryState",
         "AxisStat",
         "BackButton",
+        "CardHidesRead",
         "CardRecordSection",
         "CardReviewsBlock",
         "CheckADateLink",
@@ -15531,6 +15535,7 @@
         "SectionKey",
         "ServiceCardView",
         "ServiceDetailsSheet",
+        "ServiceFaceCoverShow",
         "ServicesGallery",
         "ServicesPricingSection",
         "SetnayanGiftLine",

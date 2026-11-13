@@ -76,6 +76,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+// The router by context, not `useRouter()`: a bar drawn outside the app router (a guard's server render) gets null and
+// falls back to a plain page load instead of throwing.
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import {
   createContext,
   useCallback,
@@ -85,7 +88,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import type { BottomNavItem, BottomNavMenu, NavBadgeTone } from './types';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { useIsStoreShell } from '@/lib/use-store-shell';
@@ -93,6 +96,15 @@ import { formatCount } from '@/lib/format-number';
 import type { ShellBoundary } from '@/app/_components/shell-boundary';
 import { useKeyboardRide } from '@/lib/keyboard-ride';
 import { dispatchTabReselect } from './use-chrome-away';
+import {
+  forgetTabView,
+  isTwinTap,
+  markTabRestore,
+  reselectInPlace,
+  saveTabView,
+  tabDoor,
+  takeTabRestore,
+} from './tab-memory';
 
 type FlatProps = {
   items: BottomNavItem[];
@@ -240,11 +252,13 @@ function BottomNavFlat({ items }: { items: BottomNavItem[] }) {
     }
   }, [items.length]);
 
+  const activeIndex = items.findIndex((it) => isActive(it));
+  const memory = useTabMemory(items, activeIndex >= 0 ? items[activeIndex]!.key : null, pathname);
+
   if (items.length < 1) return null;
 
   const n = Math.min(items.length, 6);
   const colW = 100 / n;
-  const activeIndex = items.findIndex((it) => isActive(it));
 
   return (
     <NavShell>
@@ -274,6 +288,9 @@ function BottomNavFlat({ items }: { items: BottomNavItem[] }) {
               active={i === activeIndex}
               pressed={pressed === i}
               compact={compact}
+              door={memory.door(item)}
+              onGo={() => memory.go(item)}
+              onReselect={(e) => memory.reselect(item, e)}
               onPressStart={() => {
                 setPressed(i);
                 setFlash((f) => ({ index: i, id: f ? f.id + 1 : 1 }));
@@ -956,6 +973,132 @@ function tabTourToken(href: string): string {
   return 'tab-' + (href.split(/[?#]/)[0]!.split('/').filter(Boolean).pop() ?? '');
 }
 
+/**
+ * 🔁 useTabMemory — EVERY TAB KEEPS ITS LAST VIEW; A RE-TAP GOES TO ITS TOP; ONE DOUBLE TAP (owner 9 Nov 2026,
+ * DECISION_LOG row 44a4c660 — *"tapping home returns you to your last view on home"* — widened 13 Nov: *"this should
+ * apply to any menu"*; the Home ⇄ shop double tap, 13 Nov). One mechanism for every bar that draws this flat path
+ * (account · event · supplier · admin). The rules and the storage live in `tab-memory.ts`, keyed by each tab's own
+ * address; this wires them to the page: keep the active tab's address + scroll, put an opened tab's scroll back once
+ * its page is drawn, point every other tab at its last view, and answer the re-tap.
+ */
+function useTabMemory(items: BottomNavItem[], activeKey: string | null, pathname: string) {
+  const router = useContext(AppRouterContext);
+  const active = items.find((it) => it.key === activeKey) ?? null;
+  const activeTab = active ? active.href : null;
+  const sig = items.map((it) => `${it.key}=${it.href}${it.onSelect ? '!' : ''}`).join('|');
+  const activeRef = useRef(activeTab);
+  activeRef.current = activeTab;
+  const lastRetap = useRef<{ tab: string; at: number } | null>(null);
+  const [doors, setDoors] = useState<Record<string, string>>({});
+  const here = () => window.location.pathname + window.location.search;
+
+  // Keep where you are in the tab you are on (rAF-throttled).
+  useEffect(() => {
+    let pending = 0;
+    const save = () => {
+      pending = 0;
+      const tab = activeRef.current;
+      if (!tab) return;
+      try {
+        saveTabView(window.sessionStorage, tab, { href: here(), y: window.scrollY });
+      } catch {
+        /* storage refused — the tab then opens at its own address, a correct answer */
+      }
+    };
+    const onScroll = () => {
+      if (!pending) pending = requestAnimationFrame(save);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(pending);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, []);
+
+  // Each page: record its address, put back an opened tab's scroll, point the other tabs at their last views.
+  useEffect(() => {
+    const at = here();
+    let frame = 0;
+    try {
+      const s = window.sessionStorage;
+      const back = takeTabRestore(s, activeTab, at);
+      if (activeTab) saveTabView(s, activeTab, { href: at, y: back ?? window.scrollY });
+      if (back !== null) {
+        const y = back;
+        let tries = 0;
+        // The page may still be filling in: retry until it is tall enough (or ~1 s has passed).
+        const put = () => {
+          const max = document.documentElement.scrollHeight - window.innerHeight;
+          window.scrollTo({ top: Math.min(y, Math.max(0, max)), behavior: 'auto' });
+          if (max < y && ++tries < 60) frame = requestAnimationFrame(put);
+        };
+        frame = requestAnimationFrame(put);
+      }
+      const next: Record<string, string> = {};
+      for (const it of items) if (it.key !== activeKey && !it.onSelect) next[it.key] = tabDoor(s, it.href);
+      setDoors(next);
+    } catch {
+      setDoors({});
+    }
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `sig` stands for `items`
+  }, [pathname, activeKey, activeTab, sig]);
+
+  return {
+    door: (it: BottomNavItem) => (it.key === activeKey ? it.href : doors[it.key] ?? it.href),
+    /** A tap on ANOTHER tab: keep this tab's place, and mark the tapped one's scroll to be put back. */
+    go: (it: BottomNavItem) => {
+      lastRetap.current = null;
+      try {
+        const s = window.sessionStorage;
+        if (activeTab) saveTabView(s, activeTab, { href: here(), y: window.scrollY });
+        markTabRestore(s, it.href);
+      } catch {
+        /* storage refused */
+      }
+    },
+    /**
+     * A tap on the tab you are ON: its top, in one tap — and its kept view is forgotten. 👆👆 The second tap within
+     * `TWIN_TAP_MS` on a tab with a `twin` opens the twin's last view (Home ⇄ the shop's Today).
+     */
+    reselect: (it: BottomNavItem, e: ReactMouseEvent) => {
+      const now = Date.now();
+      const twinTap = isTwinTap(lastRetap.current, it.href, it.twin, now);
+      lastRetap.current = twinTap ? null : { tab: it.href, at: now };
+      if (twinTap && it.twin) {
+        e.preventDefault();
+        let to = it.twin;
+        try {
+          const s = window.sessionStorage;
+          saveTabView(s, it.href, { href: here(), y: window.scrollY });
+          to = tabDoor(s, it.twin);
+          markTabRestore(s, it.twin);
+        } catch {
+          /* storage refused — the twin opens at its own address */
+        }
+        if (router) router.push(to);
+        else window.location.assign(to);
+        return;
+      }
+      try {
+        forgetTabView(window.sessionStorage, it.href);
+      } catch {
+        /* storage refused */
+      }
+      if (dispatchTabReselect({ key: it.key, href: it.href })) {
+        e.preventDefault();
+        return;
+      }
+      if (reselectInPlace(here(), it.href)) {
+        e.preventDefault();
+        const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+      }
+      // Else: the Link opens the tab's first screen — a fresh page, at its top.
+    },
+  };
+}
+
 /* ── flat-path tab cell (unchanged) ────────────────────────────────────── */
 
 function BottomNavTab({
@@ -963,12 +1106,19 @@ function BottomNavTab({
   active,
   pressed,
   compact,
+  door,
+  onGo,
+  onReselect,
   onPressStart,
   onPressEnd,
 }: {
   item: BottomNavItem;
   active: boolean;
   pressed: boolean;
+  /** Where a tap opens: the tab's last view (`useTabMemory`), else its own address. */
+  door: string;
+  onGo: () => void;
+  onReselect: (e: ReactMouseEvent) => void;
   /** Icons-only mode — a <SubNav> is docked, so collapse the label row. The
    *  icon size is unchanged (owner 2026-06-16: "do not shrink the icon"). */
   compact: boolean;
@@ -980,7 +1130,7 @@ function BottomNavTab({
   return (
     <li>
       <Link
-        href={item.href}
+        href={door}
         aria-current={active ? 'page' : undefined}
         aria-haspopup={item.onSelect ? 'dialog' : undefined}
         data-tour={tabTourToken(item.href)}
@@ -991,10 +1141,12 @@ function BottomNavTab({
             item.onSelect();
             return;
           }
-          /* 🔁 A re-tap on the ACTIVE tab tells the page (THE ONE BUILD F4 — Clients goes back to its unselected list).
-             A page that handles it cancels the event and the tab's own navigation is skipped; else it navigates as
-             before. 🔒 app/_components/nav/the-chrome-steps-away.test.ts */
-          if (active && dispatchTabReselect({ key: item.key, href: item.href })) e.preventDefault();
+          /* 🔁 A re-tap on the ACTIVE tab = its top, in one tap (`useTabMemory().reselect`: the page answers first —
+             THE ONE BUILD F4, Clients goes back to its unselected list — else the bar scrolls up or opens the tab's
+             first screen). A tap on ANOTHER tab opens its last view (`door`) and puts its scroll back.
+             🔒 app/_components/nav/the-chrome-steps-away.test.ts · app/_components/nav/every-tab-keeps-its-last-view.test.ts */
+          if (active) onReselect(e);
+          else onGo();
         }}
         onPointerDown={onPressStart}
         onPointerUp={onPressEnd}

@@ -5,12 +5,13 @@
  * coordinator without Budget & payments, and left ONE route open for the owner: the five price columns on
  * `event_vendors`, the same row a Suppliers delegate must read to do the job. This proves the database now:
  *
- *   • signed in as a delegate with Suppliers but no Budget, a direct SELECT of any of the five columns is REFUSED,
- *     the row's other columns still read, and event_vendor_money_read() hands back the rows with every amount NULL
- *     and money_shown = FALSE;
+ *   • signed in as a delegate with Suppliers but no Budget, event_vendor_money_read() hands back the rows with every
+ *     amount NULL and money_shown = FALSE;
  *   • a delegate WITH Budget & payments, and the host, read the real figures through the reader;
  *   • a stranger reads no row at all; the service role reads every figure;
- *   • every OTHER event_vendors column is still selectable by `authenticated` — a column added later must be granted.
+ *   • the readers are purely ADDITIVE — migration 20271341392450 closes no column, so the build still serving when
+ *     `db push` runs keeps working. The per-column close is migration B, a separate follow-up PR (controller audit
+ *     on PR #7560), and that PR flips the last test here into "every direct read of an amount is refused".
  *
  * Run (from apps/web): tsx --test tests/db/a-suppliers-only-delegate-reads-no-booking-amount.db.test.ts
  */
@@ -21,7 +22,6 @@ import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrat
 
 let replay: ReplayResult;
 let db: PGlite;
-const MONEY = ['total_cost_php', 'deposit_paid_php', 'transport_php', 'food_allowance_php', 'pax_surcharge_php'] as const;
 
 before(async () => {
   replay = await createReplayedDb();
@@ -49,14 +49,6 @@ async function as<T>(uid: string | null, role: 'authenticated' | 'service_role',
   }
 }
 const q = <T>(sql: string, params: unknown[] = []) => db.query<T>(sql, params).then((r) => r.rows);
-async function tryQ<T>(sql: string, params: unknown[] = []): Promise<{ rows: T[]; refused: string | null }> {
-  try {
-    return { rows: await q<T>(sql, params), refused: null };
-  } catch (e) {
-    await db.exec('ROLLBACK').catch(() => {});
-    return { rows: [], refused: (e as Error).message };
-  }
-}
 
 let seq = 0;
 async function newUser(): Promise<string> {
@@ -95,21 +87,6 @@ const readMoney = (w: World) =>
                       food_allowance_php::text, pax_surcharge_php, money_shown
                  FROM public.event_vendor_money_read($1)`, [w.eventId]);
 
-test('a Suppliers-only delegate: every direct read of an amount is refused; the row still reads', async () => {
-  const w = await newWorld();
-  await as(w.suppliersOnly, 'authenticated', async () => {
-    for (const col of MONEY) {
-      const r = await tryQ(`SELECT ${col} FROM public.event_vendors WHERE vendor_id = $1`, [w.booking]);
-      assert.match(r.refused ?? '', /permission denied/i, `${col} must be refused to a Suppliers-only delegate`);
-    }
-    const star = await tryQ(`SELECT * FROM public.event_vendors WHERE vendor_id = $1`, [w.booking]);
-    assert.match(star.refused ?? '', /permission denied/i, 'SELECT * names the money columns, so it is refused too');
-    const plain = await q<{ vendor_name: string; status: string }>(
-      `SELECT vendor_name, status FROM public.event_vendors WHERE vendor_id = $1`, [w.booking]);
-    assert.deepEqual(plain, [{ vendor_name: 'Lumina', status: 'contracted' }], 'the Suppliers job still reads the row');
-  });
-});
-
 test('a Suppliers-only delegate: the reader hands back the row with every amount hidden — never ₱0', async () => {
   const w = await newWorld();
   const rows = await as(w.suppliersOnly, 'authenticated', () => readMoney(w));
@@ -139,18 +116,20 @@ test('a stranger reads no row; the service role reads every figure', async () =>
   assert.equal(svc[0]!.money_shown, true);
 });
 
-test('only the five amounts are closed — every other event_vendors column is still selectable by authenticated', async () => {
-  const rows = await q<{ c: string }>(`
+test('the readers close nothing — the build still serving when db push runs keeps every column it selects', async () => {
+  // Migration A of two (controller audit on PR #7560): deploy-prod applies migrations BEFORE the new build serves,
+  // so a column close here would refuse the old build's selects. The close is migration B, in its own PR.
+  const closed = await q<{ c: string }>(`
     SELECT column_name AS c FROM information_schema.columns
      WHERE table_schema = 'public' AND table_name = 'event_vendors'
        AND NOT has_column_privilege('authenticated', 'public.event_vendors', column_name, 'SELECT')
      ORDER BY 1`);
-  assert.deepEqual(rows.map((r) => r.c), [...MONEY].sort(),
-    'an event_vendors column is not selectable by authenticated — since 20271341392450 SELECT is granted per column; grant the new one');
-  const anon = await q<{ c: string }>(`
-    SELECT column_name AS c FROM information_schema.columns
-     WHERE table_schema = 'public' AND table_name = 'event_vendors'
-       AND has_column_privilege('anon', 'public.event_vendors', column_name, 'SELECT')
-       AND column_name = ANY($1::text[])`, [[...MONEY]]);
-  assert.deepEqual(anon, [], 'anon must not SELECT a booking amount either');
+  assert.deepEqual(closed, [], 'a column was closed in migration A — that is migration B, after prod serves the readers');
+  const fns = await q<{ f: string; ok: boolean }>(`
+    SELECT f, has_function_privilege('authenticated', f, 'EXECUTE') AS ok
+      FROM unnest(ARRAY['public.event_vendor_money_read(uuid)', 'public.event_vendor_money_event_ids()']) f`);
+  assert.deepEqual(fns.map((r) => r.ok), [true, true], 'authenticated must be able to call both readers');
+  const anon = await q<{ ok: boolean }>(
+    `SELECT has_function_privilege('anon', 'public.event_vendor_money_read(uuid)', 'EXECUTE') AS ok`);
+  assert.equal(anon[0]!.ok, false, 'anon must not call the money reader');
 });

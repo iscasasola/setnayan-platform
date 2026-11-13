@@ -771,7 +771,9 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
     // `total_cost_php` FORM FIELD for the fee-leak price check — a price the couple
     // just typed, never a stored agreed total, so it is not one to route through
     // agreedTotalNow.
-    column: 14,
+    // 11 since #5936 (PR #7560, Fix A): the three reads inside updateVendorCosts' payload — the hidden-total
+    // compare and the two `total_cost_php: newTotal` writes — moved to lib/booking-cost-write.ts.
+    column: 11,
   },
   'lib/booking-payment-plan.server.ts': {
     what: 'the payment plan amounts — frozen at the direct lock and at the supplier’s yes',
@@ -895,6 +897,8 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
 
 /** NOT A PRICE SHOWN TO A PERSON — each with the reason that makes it so. */
 const NOT_A_PRICE_SHOWN: Record<string, string> = {
+  'lib/booking-cost-write.ts':
+    'WRITES the headline the costing form posted (updateVendorCosts’ payload rule, #5936) and compares the stored headline to it only to decide whether the pax surcharge re-baselines — shows nothing, and writes no amount at all when the reader hid them',
   'app/dev/suppliers-lab/fixtures.ts':
     'FIXTURE rows for /dev/suppliers-lab (no event, no database, 404 in production) — typed in the lab, never read from event_vendors',
   'app/dev/suppliers-lab/booked-fixtures.ts':

@@ -151,6 +151,7 @@ import type { PayWayView } from '@/lib/self-added-pay-ways';
 import { geocodeAddressWithCity } from '@/lib/geo';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 import { readOneBookingMoney } from '@/lib/event-vendor-money';
+import { bookingCostWrite } from '@/lib/booking-cost-write';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -258,11 +259,6 @@ export async function updateVendorCosts(formData: FormData) {
     });
   }
 
-  const totalChanged =
-    !quoteSettlesPrice &&
-    existing != null &&
-    Number(existing.total_cost_php ?? 0) !== Number(newTotal ?? 0);
-
   // Crew-meal coverage (2026-07-09): when the couple marks this vendor's crew as
   // fed by the event's crew-meal provider, its own crew-meal line
   // (food_allowance_php) is SUPERSEDED — nulled here so the budget rollup counts
@@ -288,19 +284,20 @@ export async function updateVendorCosts(formData: FormData) {
   // price" says so, and nothing else on the row is touched.
   const priceOnly = formData.get('price_only') === '1';
 
-  const updatePayload: Record<string, unknown> = priceOnly
-    ? quoteSettlesPrice
-      ? {}
-      : { total_cost_php: newTotal }
-    : quoteSettlesPrice
-    ? { crew_size: crewSize, crew_meal_covered: crewMealCovered }
-    : {
-        total_cost_php: newTotal,
-        transport_php: parseMoney(formData.get('transport_php')),
-        food_allowance_php: crewMealCovered ? null : parseMoney(formData.get('food_allowance_php')),
-        crew_size: crewSize,
-        crew_meal_covered: crewMealCovered,
-      };
+  // 🔒 A FIELD YOU CANNOT SEE IS A FIELD YOU DO NOT WRITE (#5936): when the
+  // reader hid this booking's amounts (Suppliers delegate, Budget Off), the
+  // payload carries NONE of them and the total is never compared — see
+  // lib/booking-cost-write.ts, held by lib/a-hidden-price-is-never-erased.test.ts.
+  const { payload: updatePayload, totalChanged } = bookingCostWrite({
+    priceOnly,
+    quoteSettlesPrice,
+    existing,
+    newTotal,
+    transport: parseMoney(formData.get('transport_php')),
+    foodAllowance: parseMoney(formData.get('food_allowance_php')),
+    crewSize,
+    crewMealCovered,
+  });
   if (totalChanged) {
     const livePax = await resolveLivePax(supabase, eventId);
     updatePayload.pax_quote_base = livePax;

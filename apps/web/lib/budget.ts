@@ -609,9 +609,16 @@ export async function fetchVendorBudgetSummary(
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)
       .order('paid_at', { ascending: false }),
-    readBookingMoney(supabase, eventId).catch(() => null),
+    // A refused amounts read returns null (the card says it could not load) — and is LOGGED, never swallowed.
+    readBookingMoney(supabase, eventId).catch((e: unknown) => {
+      console.error('[supabase-error] budget: fetchVendorBudgetSummary event_vendor_money_read', e);
+      return null;
+    }),
   ]);
 
+  if (vendorRes.error) {
+    console.error('[supabase-error] budget: fetchVendorBudgetSummary event_vendors', vendorRes.error);
+  }
   if (vendorRes.error || !vendorRes.data || !money) return null;
   const vendor = mergeBookingMoney([vendorRes.data as { vendor_id: string }], money)[0] as unknown as EventVendorRow;
   const myLineItems = (lineItemsRes.data ?? []) as LineItemRow[];

@@ -668,6 +668,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/settings?tab=settings',
       },
       {
+        // Colours (owner 2026-11-12, corpus Design_App_Colours_2026-11-12) — the app's colours by JOB (page, band,
+        // frame, money, decision, private chat, toggle, icon tiles) on every screen except the guest Event Hub. A
+        // STANDALONE page beside Settings: platform look the owner sets once. `Palette` is shared with the Moodboard
+        // library row (a couple's colours); this one is the app's own.
+        key: 'colours',
+        label: 'Colours',
+        href: '/admin/colours',
+        icon: Palette,
+        matchPrefix: '/admin/colours',
+      },
+      {
         // Compliance — the RA 10173 / NPC registration facts (PIC identity, DPO
         // designation, breach plan, sub-processors, processing declarations).
         // Sits in the settings tail beside Settings: it's platform-config the

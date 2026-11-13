@@ -26,6 +26,9 @@
  *       must be the viewer's own session (RLS), never the service role — the
  *       restrictive policy can only protect a read it sees.
  *
+ *   4 · ADMIN — an admin is a third person too until a dispute (task 6119, migration 20271341658320): the latest
+ *       definition of every chat-content read ties its admin arm to an open dispute, never a bare is_admin().
+ *
  * Export is pinned per chain by lib/export-reads-are-subject-scoped.test.ts
  * (`chat_messages: eqUid('sender_user_id')`) and run through both doors in the
  * db test, so it is not repeated here.
@@ -38,6 +41,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
+import { stripSqlComments } from './security/events-column-privileges';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib
 const WEB = path.resolve(HERE, '..');
@@ -337,5 +341,81 @@ test('search: every read that feeds a searchable preview is the viewer’s own s
     const code = stripComments(fs.readFileSync(path.join(WEB, caller), 'utf8'));
     assert.match(code, /readVendorConversationInputs\(\{\s*supabase,/, `${caller}: passes something else as \`supabase\``);
     assert.match(code, /const supabase = await createClient\(\);/, `${caller}: \`supabase\` is not the session client`);
+  }
+});
+
+// ── 4 · an admin is a third person too — until a dispute ────────────────────
+//
+// Task 6119 · migration 20271341658320: an admin session reads a chat ONLY while an open dispute ties the event to
+// the shop. The db half (tests/db/an-admin-reads-a-chat-only-inside-an-open-dispute.db.test.ts) signs in and reads.
+// This half walks the migrations in filename order and holds the LATEST definition of every chat-content read, so a
+// later file that restates one of them with the old bare `OR (SELECT public.is_admin())` arm fails here first.
+
+/** Chat-content SELECT policies (policy → its table). */
+const CHAT_CONTENT_POLICIES: Record<string, string> = {
+  chat_decision_messages_read: 'chat_decision_messages',
+  chat_decision_topics_read: 'chat_decision_topics',
+  chat_polls_read: 'chat_polls',
+  chat_poll_choices_read: 'chat_poll_choices',
+  chat_poll_votes_read: 'chat_poll_votes',
+  chat_thread_members_read: 'chat_thread_members',
+  booking_change_asks_members_read: 'booking_change_asks',
+  thread_calls_member_read: 'thread_calls',
+  chat_messages_member_read: 'chat_messages',
+  chat_threads_member_read: 'chat_threads',
+};
+/** SECURITY DEFINER readers that restate one of those policies' admission. */
+const CHAT_CONTENT_READERS = ['change_asks_read'];
+
+/** The latest CREATE POLICY / CREATE FUNCTION text for each name, across `files` in the order given. */
+function latestDefinitions(files: { name: string; sql: string }[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const { sql } of files) {
+    const s = stripSqlComments(sql);
+    for (const m of s.matchAll(/CREATE POLICY\s+"?([a-z_0-9]+)"?\s+ON\s+public\.([a-z_0-9]+)([\s\S]*?);/gi)) {
+      if (CHAT_CONTENT_POLICIES[m[1]!] === m[2]) out.set(m[1]!, m[3]!);
+    }
+    for (const m of s.matchAll(/CREATE (?:OR REPLACE )?FUNCTION\s+public\.([a-z_0-9]+)\s*\([\s\S]*?\$\$([\s\S]*?)\$\$/gi)) {
+      if (CHAT_CONTENT_READERS.includes(m[1]!)) out.set(m[1]!, m[2]!);
+    }
+  }
+  return out;
+}
+/** A bare admin arm: `is_admin()` with no dispute tie anywhere in the same definition. */
+const hasBareAdminArm = (def: string) =>
+  /is_admin\s*\(\s*\)/.test(def) && !/admin_disputed_thread_ids\s*\(\s*\)|chat_private_in_dispute\s*\(/.test(def);
+
+test('the admin-arm scanner sees a bare is_admin() and passes a dispute-tied one (sabotage)', () => {
+  const bare = 'CREATE POLICY chat_polls_read ON public.chat_polls FOR SELECT USING (x OR (SELECT public.is_admin()));';
+  const tied =
+    'CREATE POLICY chat_polls_read ON public.chat_polls FOR SELECT USING (x OR thread_id IN (SELECT public.admin_disputed_thread_ids()));';
+  assert.equal(hasBareAdminArm(latestDefinitions([{ name: 'a.sql', sql: bare }]).get('chat_polls_read')!), true);
+  assert.equal(
+    hasBareAdminArm(latestDefinitions([{ name: 'a.sql', sql: tied }, { name: 'b.sql', sql: bare }]).get('chat_polls_read')!),
+    true,
+    'a LATER file that restores the bare arm wins',
+  );
+  assert.equal(
+    hasBareAdminArm(latestDefinitions([{ name: 'a.sql', sql: bare }, { name: 'b.sql', sql: tied }]).get('chat_polls_read')!),
+    false,
+  );
+});
+
+test('admin: no chat-content read admits an admin outside an open dispute (latest definition of each)', () => {
+  const dir = path.join(REPO, 'supabase', 'migrations');
+  const files = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .map((name) => ({ name, sql: fs.readFileSync(path.join(dir, name), 'utf8') }));
+  const defs = latestDefinitions(files);
+  for (const name of [...Object.keys(CHAT_CONTENT_POLICIES), ...CHAT_CONTENT_READERS]) {
+    assert.ok(defs.has(name), `${name}: no definition found in supabase/migrations — re-point CHAT_CONTENT_POLICIES`);
+    assert.equal(
+      hasBareAdminArm(defs.get(name)!),
+      false,
+      `${name}: its latest definition admits any admin. An admin reads a chat only while an open dispute ties the ` +
+        'event to the shop — use `thread_id IN (SELECT public.admin_disputed_thread_ids())` (migration 20271341658320).',
+    );
   }
 });

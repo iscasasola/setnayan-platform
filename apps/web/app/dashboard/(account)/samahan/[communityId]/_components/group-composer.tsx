@@ -68,6 +68,7 @@ export function GroupComposer({ communityId }: { communityId: string }) {
       <input type="hidden" name="community_id" value={communityId} />
       {messageId ? <input type="hidden" name={SAMAHAN_MESSAGE_ID_FIELD} value={messageId} /> : null}
       <textarea
+        // field-ok: the group chat's composer — the chat-box template (one line that grows, Send beside it), not a form field
         ref={box}
         name="body"
         rows={1}

@@ -20,3 +20,6 @@ SPEC IMPACT: None.
 - **F-W3-03** Not a code bug: name search needs a name (testnayan5 has none — display, first and last are all empty);
   an email add DOES reach the existing account (a pending connection + notice) but never says so on screen, by design
   (`addPersonConnection`: nothing about the lookup is returned, so an email cannot be probed for an account).
+
+- CI follow-up: the group chat's composer box carries the field-template lint's `field-ok` reason (it is the chat-box
+  template, the lint's own documented exception) — the baseline is not raised.

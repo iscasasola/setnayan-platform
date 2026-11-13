@@ -50,8 +50,8 @@ export function EventLinesBody({ lines }: { lines: EventLines }) {
           <p className="py-2 text-[13.5px] text-ink/60">No host has joined on Setnayan yet.</p>
         ) : (
           <ul data-event-lines-hosts="">
-            {lines.hosts.map((h) => (
-              <li key={h.name} className="flex min-h-11 items-center gap-3 py-1.5">
+            {lines.hosts.map((h, i) => (
+              <li key={`${h.name}-${i}`} className="flex min-h-11 items-center gap-3 py-1.5">
                 <span aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-full bg-ink/[0.06] text-[12px] font-semibold text-ink/70">
                   {initials(h.name)}
                 </span>

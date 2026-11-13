@@ -119,6 +119,9 @@ export type EventLines = {
   firstEvent: { title: string; href: string } | null;
 };
 
+/** What "Hosted by" calls a host whose account has no name yet — the word `hostFirstName` falls back to in the chat. */
+export const UNNAMED_HOST = 'Host';
+
 /**
  * The hosts in the order the row lists them: the one who asked first, then the rest as the event lists them. With
  * `roleOf` (user → role word, for THIS event) each carries its role.
@@ -132,9 +135,18 @@ export function hostsInOrder(
   const ids = [...new Set(askedBy && !memberIds.includes(askedBy) ? [askedBy, ...memberIds] : memberIds)];
   const out: EventLineHost[] = [];
   for (const id of ids) {
-    const name = nameOf.get(id)?.trim();
-    if (!name) continue;
-    out.push(roleOf ? { name, askedYou: id === askedBy, role: roleOf.get(id) ?? null } : { name, askedYou: id === askedBy });
+    /*
+      👤 A HOST WITH NO NAME IS STILL A HOST (walk 13 Nov 2026: a brand-new couple account — no display or first name
+      yet — asked a supplier, and "Hosted by" said "No host has joined on Setnayan yet."). They are listed as "Host",
+      with their role and "Asked you"; the role is not said twice when it is that same word.
+    */
+    const name = nameOf.get(id)?.trim() || UNNAMED_HOST;
+    const role = roleOf ? (roleOf.get(id) ?? null) : undefined;
+    out.push(
+      roleOf
+        ? { name, askedYou: id === askedBy, role: name === UNNAMED_HOST && role === UNNAMED_HOST ? null : (role ?? null) }
+        : { name, askedYou: id === askedBy },
+    );
   }
   return out.sort((a, b) => Number(b.askedYou) - Number(a.askedYou));
 }

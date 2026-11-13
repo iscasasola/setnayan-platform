@@ -8,6 +8,7 @@ import { eventTypeLabel } from '@/lib/demand-radar';
 import { displayServiceLabel } from '@/lib/vendors';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { sanitizeRoleNames } from '@/lib/role-names';
+import { eventDateOptionWords } from '@/lib/event-chat-title';
 import {
   alsoOfferFrom,
   eventCelebrantWords,
@@ -83,10 +84,13 @@ export async function readSupplierEventLines(
       role_names: unknown;
       honoree_label: string | null;
       signature_details: unknown;
+      date_candidates: unknown;
+      date_window_start: string | null;
+      date_window_end: string | null;
     }>(ids, (part) =>
       admin
         .from('events')
-        .select('event_id, display_name, event_type, venue_name, event_date, event_date_precision, estimated_pax, role_names, honoree_label, signature_details')
+        .select('event_id, display_name, event_type, venue_name, event_date, event_date_precision, estimated_pax, role_names, honoree_label, signature_details, date_candidates, date_window_start, date_window_end')
         .in('event_id', part),
     ),
     // Every HOST of the event — the couple and every co-host (a live co-host seat makes a `couple` member,
@@ -327,7 +331,18 @@ export async function readSupplierEventLines(
           })
         : null,
       location: ev?.venue_name?.trim() || null,
-      date: eventDayWords(ev?.event_date ?? null, ev?.event_date_precision ?? null),
+      // 📅 No day yet → the couple's candidate date(s) / window ("May 22, 2027 · option"), never "Not set yet" over them.
+      date:
+        eventDayWords(ev?.event_date ?? null, ev?.event_date_precision ?? null) ??
+        (ev && !ev.event_date
+          ? eventDateOptionWords({
+              eventDate: null,
+              precision: null,
+              candidates: ev.date_candidates,
+              windowStart: ev.date_window_start,
+              windowEnd: ev.date_window_end,
+            })
+          : null),
       pax: t?.pax_current ?? t?.pax_at_inquiry ?? ev?.estimated_pax ?? null,
       hosts: membersRead.error || usersRead.error
         ? null

@@ -40,10 +40,25 @@ export function supplierInquiryBody(
    * 📅 Whether the event HAS a date (Build 5 F3, Lane W walk 2 item 3: an event with no date still said "for our
    * date"). `false` says "no date yet" instead; omitted keeps the dated wording (a caller that does not know).
    */
-  opts: { dated?: boolean } = {},
+  opts: {
+    dated?: boolean;
+    /**
+     * 📅 The couple's candidate day(s) when no date is set — `eventCandidateDays` ("May 22, 2027"). Said instead of
+     * "no date yet" (walk 13 Nov 2026: a birthday with one candidate told the supplier it had no date).
+     */
+    candidateDays?: string | null;
+  } = {},
 ): string {
   const { eventWord, register } = profile.terminology;
-  const undated = opts.dated === false;
+  const candidates = opts.candidateDays?.trim() || null;
+  const undated = opts.dated === false && !candidates;
+  if (opts.dated === false && candidates) {
+    return register === 'solemn'
+      ? `Hello. We are arranging a ${eventWord} and would like to ask about your availability and rates. ` +
+          `We are considering ${candidates}. Thank you.`
+      : `Hi! We're planning our ${eventWord} — we're considering ${candidates} — and would love to hear about ` +
+          "your availability and packages. Could you share your rates and what's included?";
+  }
 
   if (register === 'solemn') {
     /*

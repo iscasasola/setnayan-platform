@@ -107,3 +107,26 @@ test('F-A-16 · Problems: no [name]/[id] placeholders, and one row per problem a
   assert.match(body, /\[row\.kind, row\.action, row\.label \?\? '', pageName\(row\.page as string \| null\) \?\? ''\]/);
   assert.match(body, /merged\.hit_count = Number\(had\.hit_count \?\? 0\) \+ Number\(row\.hit_count \?\? 0\)/);
 });
+
+test('F-A-24 · the admin’s name is said once in the header — by the account pill', () => {
+  const layout = code('app/admin/layout.tsx');
+  assert.doesNotMatch(layout, /<span className="hidden text-sm text-ink\/70 sm:inline">\{displayName\}<\/span>/);
+  assert.match(layout, /<AccountSwitcher/);
+});
+
+test('F-A-20 · every admin page title reads "Name · Admin", in sentence case', async () => {
+  const { readdirSync, statSync } = await import('node:fs');
+  const bad: string[] = [];
+  const walk = (dir: string) => {
+    for (const n of readdirSync(dir)) {
+      const p = join(dir, n);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (n === 'page.tsx') {
+        const m = /export const metadata = \{ title: '([^']*)'/.exec(readFileSync(p, 'utf8'));
+        if (m && !/ · Admin$/.test(m[1]!)) bad.push(`${p.slice(WEB.length + 1)}: ${m[1]}`);
+      }
+    }
+  };
+  walk(join(WEB, 'app/admin'));
+  assert.deepEqual(bad, [], 'an admin page title does not end " · Admin"');
+});

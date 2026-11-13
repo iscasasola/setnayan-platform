@@ -29,5 +29,8 @@
   its own share).
 - **F-A-16** Problems: an unnamed route no longer prints its code placeholders (`[name]`/`[id]` read "…"), and two
   fingerprints that draw the same sentence (same kind, action, label and page) merge into one row, counts added.
+- **F-A-20** Every admin page title reads "Name · Admin" in sentence case (ten were "… HQ", Title Case, or had no
+  " · Admin").
+- **F-A-24** The admin's name is said once in the header — by the account pill; the loose name beside it is gone.
 
 SPEC IMPACT: None.

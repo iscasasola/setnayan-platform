@@ -14,7 +14,7 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { formatCount } from '@/lib/format-number';
-export const metadata = { title: 'Budget Planner' };
+export const metadata = { title: 'Budget planner · Admin' };
 
 /**
  * /admin/budget-planner — admin-facing control surface for the Budget Planner

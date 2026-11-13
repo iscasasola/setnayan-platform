@@ -289,8 +289,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Admin-of-admin under the avatar; a row another slice is still building has no address yet and is not drawn.
   const avatarRows = ADMIN_AVATAR_ROWS.flatMap((r) => (r.href ? [{ key: r.key, href: r.href, label: r.label }] : []));
 
-  const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
-
   // Role badge — warm info-slate for the Internal marker (Glass PR-1,
   // 2026-07-15: violet retired; admin's identity is the ShieldCheck + "HQ"
   // label, not a colour fork — gold is the only decorative colour).
@@ -396,7 +394,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         ) : null}
         {badge.label}
       </span>
-      <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
+      {/* F-A-24 (admin walk 13 Nov 2026): the name is not drawn here — the account pill beside it already says it, so
+          the header showed it twice. */}
       {/*
         SIGN OUT USED TO SIT HERE, LOOSE IN THE TOP BAR — retired 2026-08-13
         (Redesign Session 6, "the seam"). Owner: *"sign out lives under the

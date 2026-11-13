@@ -155,6 +155,13 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
     text: HOLD_WORDS.refusedYes(ctx.heldService),
     door: { label: HOLD_WORDS.door, href: '/vendor-dashboard/shop#stay-on' },
   }),
+  // 💸 A TOP-UP ELSEWHERE IS OVERDUE (owner 2026-11-12, top-up rule 4 — "they cannot accept a new booking until they
+  // have settled"). Only an OVERDUE top-up carries over; a held one never does. Said by the app before the RPC.
+  top_up_owed: () => ({
+    tone: 'refused',
+    text: 'A booking fee top-up from a past event is still unsettled, so a new booking cannot be accepted yet. Settle it and this booking can go through — your conversation with the couple stays open.',
+    door: { label: 'Booking fees', href: '/vendor-dashboard/booking-fees' },
+  }),
   hall_taken: (ctx) => {
     const taken = ctx.halls?.taken ?? [];
     const free = ctx.halls?.free ?? [];

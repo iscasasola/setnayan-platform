@@ -726,7 +726,6 @@ export default async function VendorOverviewPage({
           with no explanation. Its lasting status line is drawn by the screen, under the Next card. */}
       {outcome ? <SupplierToast text={outcome.text} tone={outcome.tone} retry={genericFailure.has(outcome.text)} line={false} /> : null}
 
-      <BadgeEarnedLine />
       <ClaimWaitLines read={await claimWaitsP} />
       <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <SupplierTodayScreen
@@ -738,6 +737,7 @@ export default async function VendorOverviewPage({
         nextEvents={<TodayNextEvents next={nextEvents} />}
         thumb={<TodayThumbRow />}
         hero={await heroP}
+        earned={<BadgeEarnedLine />}
         eventsYouRun={eventsYouRun}
         setup={setup}
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).

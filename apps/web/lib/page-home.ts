@@ -32,7 +32,7 @@
  *            (`app/dashboard/(launcher)/_components/account-bottom-nav.tsx`)
  *   event    Home · Guests · Suppliers · Hub · Memories (`lib/customer-menu.ts` `buildEventMenuSections`)
  *   supplier Today · Clients · Shop · Portfolio (`app/vendor-dashboard/_components/vendor-nav-destinations.ts`, THE ONE BUILD 8 Nov)
- *   admin    Today · People · Money · More (`app/admin/_components/admin-bottom-nav.tsx`)
+ *   admin    Work · Money · People · Catalogue · Insights (`lib/admin/admin-tabs.ts`, drawn by `admin-bottom-nav.tsx`)
  *
  * Pure and dependency-free: a server page, a client component and the guard all ask the same function.
  */
@@ -71,7 +71,8 @@ export const BAR_ROOTS = {
     '/vendor-dashboard/shop',
     '/vendor-dashboard/collections',
   ],
-  admin: ['/admin', '/admin/directory', '/admin/money', '/admin/more'],
+  // The five tabs' landings (owner 13 Nov 2026 — `lib/admin/admin-tabs.ts`).
+  admin: ['/admin', '/admin/payments', '/admin/accounts', '/admin/categories', '/admin/app-performance'],
 } as const;
 
 const ROOTS = new Set<string>(Object.values(BAR_ROOTS).flat());
@@ -101,7 +102,11 @@ const LABELS: Record<string, string> = {
   // The supplier's Hub room is no tab any more (THE ONE BUILD) — its own heading's word ("Hub", never the couple's
   // "Event Hub" — owner 2026-11-05), for the live console's ‹.
   '/vendor-dashboard/on-the-day': 'Hub',
-  '/admin': 'Today',
+  '/admin': 'Work',
+  '/admin/payments': 'Money',
+  '/admin/accounts': 'People',
+  '/admin/categories': 'Catalogue',
+  '/admin/app-performance': 'Insights',
   '/admin/more': 'All surfaces',
   '/admin/ugat': 'Root map',
   '/explore': 'Suppliers',

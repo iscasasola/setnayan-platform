@@ -1,5 +1,6 @@
 'use server';
 
+import { onePickedPlaceName } from '@/lib/onboarding/one-picked-place';
 import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { eventDatesFloorRefusal } from '@/lib/event-date-floor';
 import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
@@ -601,6 +602,9 @@ export async function commitOnboardingWedding(
       bride_name: brideFullName || null,
       groom_name: groomFullName || null,
       region: payload.region,
+      // 📍 F-W2-02 (walk 13 Nov): one picked area is the event's City or area — the column the Maker and the
+      // Suppliers place sheet read; two picks stay two regions (`onePickedPlaceName`).
+      std_film_venue_city: onePickedPlaceName(payload.places),
       venue_latitude: payload.venueLatitude,
       venue_longitude: payload.venueLongitude,
       date_mode: dateMode,

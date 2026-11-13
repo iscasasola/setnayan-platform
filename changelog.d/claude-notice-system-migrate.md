@@ -4,8 +4,7 @@ Builds on `claude/one-notice-system` (the rules, the `notice_closes` memory, the
 admin). This moves the rest of the 46-notice inventory onto that component and memory, as the approved prototype
 (`prototypes/notices_system_2026-11-14_fable.html`, DECISION_LOG 2026-11-14) sorts them:
 
-- **Couple** — set the date (#12), Papic is ready (#13), Setnayan AI offer at the end of Home (#14), the free-window deal
-  merged for both sides (#3 · #15), event day mode (#16), save the originals (#17), plan not saved (#18), co-host welcome
+- **Couple** — the free-window deal merged for both sides (#3 · #15), event day mode (#16), save the originals (#17), plan not saved (#18), co-host welcome
   as a line with Got it (#19, still marks the notification read), invites with Yes · No (#20), guest-reply alerts ask as a
   line, no longer a sheet (#21), plan with peace of mind (#22), guests see this live (#24), date specialist (#25), the
   three Event Hub Pro lines as one offer line (#26–28), the free venue shortlist (#29), no shared free day (#32).
@@ -23,7 +22,8 @@ admin). This moves the rest of the 46-notice inventory onto that component and m
 - 🔒 `lib/there-is-one-notice-system.test.ts` — fails a new dismiss store, a new hand-drawn close word, or an inventory
   notice that stops rendering through the system (each sabotage-checked red).
 
-Older hand-written closes are honoured once through each notice's `legacy`, never written again.
+Home's set the date, Papic is ready and the Setnayan AI offer (#12–#14) stay as shipped (the shipped Home shows no notices
+on its first screen, by the owner's choice). Older hand-written closes are honoured once through each notice's `legacy`, never written again.
 
 SPEC IMPACT: None — implements the approved prototype; the corpus row "one notice system approved" stands. Leftovers are
 listed on the PR.

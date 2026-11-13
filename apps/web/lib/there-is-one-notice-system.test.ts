@@ -88,6 +88,8 @@ const STORES_THAT_ARE_NOT_NOTICES: Record<string, string> = {
   'app/_components/guest-guided-tour.tsx': 'a guided tour\'s "seen" — tours are not notices (prototype §1)',
   'lib/spotlight-later.ts': 'a spotlight tour\'s "later" for this visit — tours are not notices (prototype §1)',
   'lib/reveal-once-per-visit.ts': 'the cinematic reveal played once per visit — the reveal, not a notice',
+  'app/dashboard/[eventId]/_components/set-date-nudge.tsx': 'Home #12, kept as shipped (controller 14 Nov: Home shows no notices on its first screen, owner\'s choice) — its own close stays until Home is ruled on',
+  'app/dashboard/[eventId]/_components/papic-ready-nudge.tsx': 'Home #13, kept as shipped (same ruling as #12)',
   'lib/last-seen/store.ts': 'the "last-seen data" cache (DECISION_LOG 2026-10-02) — page data kept for an instant first paint, not a close',
 };
 
@@ -133,7 +135,10 @@ const TOAST = 'the toast\'s own close — a toast is the answer to something the
 const TOUR = 'a tour step or an explainer — tours are not notices (prototype §1)';
 /* Measured 14 Nov 2026 when the one notice system landed, classed by where each sits (path), not read one by one —
    each class is a kind of thing the prototype does not count as an added notice. */
+const HOME = 'Home #12/#13 kept as shipped (controller 14 Nov: Home shows no notices on its first screen, owner\'s choice)';
 const CLOSE_WORDS_THAT_ARE_NOT_NOTICES: Record<string, { n: number; why: string }> = {
+  'app/dashboard/[eventId]/_components/set-date-nudge.tsx': { n: 2, why: HOME },
+  'app/dashboard/[eventId]/_components/papic-ready-nudge.tsx': { n: 2, why: HOME },
   'app/[slug]/_components/copy-my-link.tsx': { n: 1, why: FLOW },
   'app/[slug]/_components/selfie-capture.tsx': { n: 2, why: FLOW },
   'app/[slug]/_components/use-on-profile.tsx': { n: 1, why: FLOW },
@@ -211,7 +216,11 @@ test('2 · no new hand-drawn close — a notice gets its close word from its kin
 
 // ── 3 · the inventory renders through the system ────────────────────────────
 
-/** Inventory row → the file that draws it. Tours (#5 #6 #30 #31 #40) are not notices. */
+/**
+ * Inventory row → the file that draws it. Tours (#5 #6 #30 #31 #40) are not notices. Home's #12 #13 #14 stay as shipped
+ * (controller 14 Nov: the shipped Home shows no notices on its first screen, by the owner's choice). #10 has no notice
+ * on main to move; #23 (the Sai Watch rail) is a card of many items, not a banner — both listed on the PR.
+ */
 const INVENTORY: Record<string, string> = {
   '#1 badge earned': 'app/vendor-dashboard/_components/badge-earned-line.tsx',
   '#2 supplier alerts ask': 'app/vendor-dashboard/_components/push-notification-registrar.tsx',
@@ -221,9 +230,6 @@ const INVENTORY: Record<string, string> = {
   '#8 get verified': 'app/vendor-dashboard/_components/get-verified-line.tsx',
   '#9 pick which stay on': 'app/vendor-dashboard/_components/stay-on-today-line.tsx',
   '#11 who can see this page': 'app/v/[slug]/_components/team-preview-banner.tsx',
-  '#12 set the date': 'app/dashboard/[eventId]/_components/set-date-nudge.tsx',
-  '#13 Papic is ready': 'app/dashboard/[eventId]/_components/papic-ready-nudge.tsx',
-  '#14 Setnayan AI offer': 'app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx',
   '#15 couple free-window deal': 'app/_components/promo-free-window-banner.tsx',
   '#16 event day mode': 'app/dashboard/[eventId]/_components/day-of-mode/banner.tsx',
   '#17 save the originals': 'app/dashboard/[eventId]/studio/papic/recap/_components/recap-drive-nudge.tsx',

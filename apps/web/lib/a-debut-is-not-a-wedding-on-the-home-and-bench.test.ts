@@ -44,7 +44,7 @@ const CASES: Array<{
     name: 'event home date nudge',
     file: `${D}/_components/set-date-nudge.tsx`,
     banned: /Set your wedding date/,
-    uses: /Set your \$?\{noun\} date/,
+    uses: /Set your \{noun\} date/,
     mount: {
       file: `${D}/page.tsx`,
       re: /<SetDateNudge eventId=\{eventId\} eventType=\{event\.event_type as string \| null\} \/>/,

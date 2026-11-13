@@ -44,42 +44,81 @@
  * derived from the same read. A literal here would be the one place that drifts.
  */
 
-import { Camera } from 'lucide-react';
 import { papicCardHref } from '@/lib/papic-home-href';
-import type { CloseRecord } from '@/lib/notices';
-import { Notice, NOTICE_ACTION } from '@/app/_components/notices/notices';
-
-/** A close kept by the older hand-written store on this browser — honoured, so an earlier dismissal holds. */
-function legacyClosed(key: string): CloseRecord | null {
-  try {
-    return window.localStorage.getItem(key) ? { closedAt: Date.now(), count: 1 } : null;
-  } catch {
-    return null;
-  }
-}
+import { useEffect, useState } from 'react';
+import { Camera, ChevronRight, X } from 'lucide-react';
 
 type Props = {
   eventId: string;
 };
 
-/**
- * 🔔 Inventory #13 — News (one notice system, owner approved 14 Nov 2026; prototype §3 B): the terracotta card became a
- * line, "Papic is ready. Guests shoot from your event's QR ⓘ · Open Papic · Got it". Never returns for this event.
- */
+const DISMISS_KEY = (eventId: string) => `setnayan:papic-ready-nudge-dismissed:${eventId}`;
+
 export function PapicReadyNudge({ eventId }: Props) {
-  return (
-    <Notice
-      kind="news"
-      noticeKey={`papic-ready:${eventId}`}
-      title="Papic is ready. Guests shoot from your event’s QR"
-      detail="No app, and no limit on cameras. Every photo uses your event’s credits, and each one lands in your Memories."
-      actions={
-        <a href={papicCardHref(eventId)} className={NOTICE_ACTION}>
-          <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Open Papic
-        </a>
+  const [dismissed, setDismissed] = useState(false);
+
+  // Hydrate dismiss state from localStorage on mount.
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(DISMISS_KEY(eventId))) {
+        setDismissed(true);
       }
-      legacy={() => legacyClosed(`setnayan:papic-ready-nudge-dismissed:${eventId}`)}
-    />
+    } catch {
+      // localStorage unavailable (private mode); just render the nudge.
+    }
+  }, [eventId]);
+
+  if (dismissed) return null;
+
+  const handleDismiss = () => {
+    try {
+      window.localStorage.setItem(DISMISS_KEY(eventId), '1');
+    } catch {
+      // swallow — UI still hides via state below
+    }
+    setDismissed(true);
+  };
+
+  return (
+    <div
+      role="status"
+      className="mt-4 flex items-start gap-3 rounded-2xl border border-terracotta/35 bg-terracotta/[0.07] px-4 py-3.5 sm:items-center sm:px-5"
+    >
+      <span
+        aria-hidden
+        className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-cream sm:mt-0"
+      >
+        <Camera className="h-4 w-4" strokeWidth={2} />
+      </span>
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
+          Already on
+        </p>
+        <p className="text-base font-semibold text-ink">Papic is ready</p>
+        <p className="text-sm text-ink/65">
+          Guests shoot from your event’s QR — no app, and no limit on cameras. Every
+          photo uses your event’s credits, and each one lands in your Memories.
+        </p>
+        <a
+          href={papicCardHref(eventId)}
+          className="group mt-1.5 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
+        >
+          Open Papic
+          <ChevronRight
+            aria-hidden
+            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+            strokeWidth={2}
+          />
+        </a>
+      </div>
+      <button
+        type="button"
+        onClick={handleDismiss}
+        aria-label="Dismiss the Papic reminder"
+        className="ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-terracotta/15 hover:text-ink"
+      >
+        <X className="h-4 w-4" strokeWidth={2} />
+      </button>
+    </div>
   );
 }

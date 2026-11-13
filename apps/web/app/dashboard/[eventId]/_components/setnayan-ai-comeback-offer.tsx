@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Notice, NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { Sparkles } from 'lucide-react';
 import {
   InlineCheckoutDrawer,
   type InlineCheckoutDrawerProps,
@@ -122,51 +122,69 @@ export function SetnayanAiComebackOffer({
   */
   const discounted = comebackPhp != null && pctOff != null && !remaining.isPast;
 
-  // 🔔 Inventory #14 — an OFFER (one notice system, owner approved 14 Nov 2026; prototype §3 B): "◆ Setnayan AI · N% off,
-  // today only ⓘ · See the offer · Not now", at the END of Home, never at the top. N comes from the two live prices
-  // above, never typed. A "today only" window just ends: its key carries the window, so the list-price offer after it
-  // is a new notice.
-  const price = Math.round(discounted ? comebackPhp! : regularPhp);
   return (
-    <Notice
-      kind="offer"
-      noticeKey={discounted && expiresAtIso ? `ai-offer:${eventId}:${expiresAtIso}` : `ai-offer:${eventId}`}
-      title={discounted ? `Setnayan AI · ${pctOff}% off, today only` : 'Plan with Setnayan AI'}
-      detail={
-        <>
+    <div className="mt-4 rounded-2xl border border-mulberry/30 bg-mulberry/[0.05] px-4 py-4 sm:px-5">
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-mulberry text-cream"
+        >
+          <Sparkles className="h-4 w-4" strokeWidth={2} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-mulberry">
+            {discounted ? `${pctOff}% off · today only` : 'Setnayan AI'}
+          </p>
+          <p className="mt-0.5 text-base font-semibold text-ink">
+            {discounted ? (
+              <>
+                Setnayan AI, {pctOff}% off for the next{' '}
+                <span className="font-mono tabular-nums">
+                  {remaining.hours > 0 ? `${pad(remaining.hours)}:` : ''}
+                  {pad(remaining.minutes)}:{pad(remaining.seconds)}
+                </span>
+              </>
+            ) : (
+              'Plan with Setnayan AI'
+            )}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {BENEFIT_LINES.map((line) => (
+              <li key={line} className="text-sm text-ink/65">
+                {line}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <div className="mt-3.5 flex flex-wrap items-center gap-3">
+        <p className="text-sm text-ink/70">
+          {/* The strike-through is the DISCOUNT's, so it goes with it. Showing
+              a struck price beside an identical live one reads as a fake
+              markdown, which is the one thing a lapsed offer must not do. */}
           {discounted ? (
-            <span className="block">
-              For the next{' '}
-              <span className="font-mono tabular-nums">
-                {remaining.hours > 0 ? `${pad(remaining.hours)}:` : ''}
-                {pad(remaining.minutes)}:{pad(remaining.seconds)}
-              </span>
-              {' · '}
-              {/* The strike-through is the DISCOUNT's, so it goes with it. */}
-              <span className="text-ink/50 line-through">₱{Math.round(regularPhp).toLocaleString('en-PH')}</span>{' '}
-              <span className="font-mono font-bold">₱{price.toLocaleString('en-PH')}</span>
+            <span className="mr-1.5 text-ink/40 line-through">
+              ₱{Math.round(regularPhp).toLocaleString('en-PH')}
             </span>
-          ) : (
-            <span className="block font-mono font-bold">₱{price.toLocaleString('en-PH')}</span>
-          )}
-          {BENEFIT_LINES.map((line) => (
-            <span key={line} className="block">
-              {line}
-            </span>
-          ))}
-        </>
-      }
-      actions={
+          ) : null}
+          <span className="font-mono text-lg font-bold text-ink">
+            ₱{Math.round(discounted ? comebackPhp! : regularPhp).toLocaleString('en-PH')}
+          </span>
+        </p>
         <InlineCheckoutDrawer
           eventId={eventId}
           serviceKey={SKU_CODE}
           displayName={`Setnayan AI${displayName ? ` · ${displayName}` : ''}`}
-          originalPriceCentavos={String(Math.round((discounted ? comebackPhp! : regularPhp) * 100))}
+          originalPriceCentavos={String(
+            Math.round((discounted ? comebackPhp! : regularPhp) * 100),
+          )}
           settings={settings}
-          triggerLabel="See the offer"
-          triggerClassName={NOTICE_ACTION}
+          triggerLabel={
+            discounted ? `Unlock Setnayan AI · ${pctOff}% off` : 'Unlock Setnayan AI'
+          }
+          triggerClassName="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-6 py-2.5 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90 disabled:opacity-70"
         />
-      }
-    />
+      </div>
+    </div>
   );
 }

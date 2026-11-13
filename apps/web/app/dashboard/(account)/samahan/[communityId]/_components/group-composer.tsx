@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 
 import { ActionButton } from '@/components/action-button';
-import { useStaySubmit } from '@/app/_components/stay-form';
+import { StayForm } from '@/app/_components/stay-form';
 import { isCoarsePointer, shouldSendOnEnter } from '@/lib/chat-enter-to-send';
 import { SAMAHAN_MESSAGE_ID_FIELD } from '@/lib/samahan-message-id';
 import { postSamahanMessage } from '../../actions';
@@ -34,12 +34,9 @@ const MAX_BOX_PX = 120;
 export function GroupComposer({ communityId }: { communityId: string }) {
   const [text, setText] = useState('');
   const [messageId, setMessageId] = useState<string | null>(freshId);
-  const lastSent = useRef('');
   const box = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
-  const stay = useStaySubmit('accGroup.postSamahanMessage', () => setMessageId(freshId()), false);
 
-  // The box grows with its words (and shrinks back when emptied).
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
@@ -47,33 +44,23 @@ export function GroupComposer({ communityId }: { communityId: string }) {
     el.style.height = `${Math.min(el.scrollHeight, MAX_BOX_PX)}px`;
   }, [text]);
 
-  // A refused send: its words come back, unless something new was typed meanwhile.
-  const refused = stay.refusal !== null;
-  useLayoutEffect(() => {
-    if (refused && lastSent.current) setText((cur) => (cur ? cur : lastSent.current));
-  }, [refused]);
-
+  /* ONE SEND PER MESSAGE: the message keeps its id until it is saved, so a second press (or a double Enter) of the
+     same message is the same row on the server (`SAMAHAN_MESSAGE_ID_FIELD`); the box empties and a new id is minted
+     only once the save landed — a refused send keeps what was typed. */
   const send = () => {
-    if (stay.pending || !text.trim()) return;
+    if (!text.trim()) return;
     formRef.current?.requestSubmit();
   };
 
   return (
-    <form
+    <StayForm
+      door="accGroup.postSamahanMessage"
+      action={postSamahanMessage}
       ref={formRef}
-      action={postSamahanMessage as unknown as (fd: FormData) => void}
-      data-stay="accGroup.postSamahanMessage"
-      aria-busy={stay.pending || undefined}
-      onSubmit={(e) => {
-        if (stay.pending || !text.trim()) {
-          e.preventDefault();
-          return;
-        }
-        // The form data is read from the box NOW (inside `stay.onSubmit`); the box empties right after, so what is
-        // typed while this message travels is the next one.
-        lastSent.current = text;
-        stay.onSubmit(e);
+      resetOnSaved={false}
+      onSaved={() => {
         setText('');
+        setMessageId(freshId());
       }}
       className="flex h-full min-w-0 flex-1 items-center gap-1 pl-3.5 pr-1"
       data-group-send-form=""
@@ -81,7 +68,6 @@ export function GroupComposer({ communityId }: { communityId: string }) {
       <input type="hidden" name="community_id" value={communityId} />
       {messageId ? <input type="hidden" name={SAMAHAN_MESSAGE_ID_FIELD} value={messageId} /> : null}
       <textarea
-        // field-ok: the group chat's composer in the ThumbRow (a chat composer, another template — rule 2 of lint-field-template)
         ref={box}
         name="body"
         rows={1}
@@ -103,10 +89,9 @@ export function GroupComposer({ communityId }: { communityId: string }) {
       />
       {text.trim() ? (
         <span className="shrink-0" data-group-send="">
-          <ActionButton tone="brand" filled iconOnly icon={ArrowUp} label="Send" type="submit" waiting={stay.pending} />
+          <ActionButton tone="brand" filled iconOnly icon={ArrowUp} label="Send" type="submit" />
         </span>
       ) : null}
-      {stay.refusal}
-    </form>
+    </StayForm>
   );
 }

@@ -30,12 +30,15 @@ test('the action writes the composer’s id and answers a duplicate as sent', ()
   assert.match(body, /if \(error && isDuplicateSend\(error\.code\)\) redirect\(back\);/);
 });
 
-test('the composer: the shared Enter rule, one send in flight, a fresh box at send, a growing box', () => {
+test('the composer: the shared Enter rule, one id per message, a fresh box once saved, a growing box', () => {
   const c = code('app/dashboard/(account)/samahan/[communityId]/_components/group-composer.tsx');
   assert.match(c, /shouldSendOnEnter\(e\.nativeEvent/);
   assert.match(c, /<textarea/);
-  assert.match(c, /if \(stay\.pending \|\| !text\.trim\(\)\) \{\s*e\.preventDefault\(\);\s*return;/);
-  assert.match(c, /stay\.onSubmit\(e\);\s*setText\(''\);/, 'the box must empty the moment the message leaves');
+  // The shared save-in-place form (a-save-never-resets-the-screen); a second press of the same message carries the same
+  // id, so the server keeps one row — and the id and the box are renewed only once the save landed.
+  assert.match(c, /<StayForm\s+door="accGroup\.postSamahanMessage"\s+action=\{postSamahanMessage\}/);
+  assert.match(c, /onSaved=\{\(\) => \{\s*setText\(''\);\s*setMessageId\(freshId\(\)\);/, 'the box and the id renew when the message is saved');
+  assert.match(c, /if \(!text\.trim\(\)\) return;/);
   assert.match(c, /name=\{SAMAHAN_MESSAGE_ID_FIELD\}/);
   assert.match(code('app/dashboard/(account)/samahan/[communityId]/_components/group-chatroom.tsx'), /<GroupComposer communityId=\{communityId\} \/>/);
 });

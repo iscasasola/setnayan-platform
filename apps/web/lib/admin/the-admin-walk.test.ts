@@ -38,3 +38,12 @@ test('F-A-08 · a verification document is titled by its paper, with a Manila da
   assert.match(page, /uploaded \$\{manilaDay\(d\.lastModified\)\}/);
   assert.doesNotMatch(page, /lastModified\.slice\(0, 10\)\}/);
 });
+
+test('F-A-12 · Overview speaks plainly: no table or column names, no setnayan.ph, no token packs', () => {
+  const ex = code('app/admin/app-performance/_components/expenses.tsx');
+  assert.doesNotMatch(ex, /source="[^"]*(platform_expenses|next_due_on)/);
+  assert.doesNotMatch(ex, /has the platform_expenses/);
+  const ac = code('app/admin/app-performance/_components/action-center.tsx');
+  assert.doesNotMatch(ac, /setnayan\.ph/);
+  assert.doesNotMatch(ac, /token packs?/i);
+});

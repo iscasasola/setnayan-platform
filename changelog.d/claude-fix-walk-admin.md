@@ -13,5 +13,8 @@
   Setnayan (apply-then-pay: couples pay suppliers directly).
 - **F-A-01** The admin empty state no longer prints "Verified: read permitted · 0 rows" (18+ pages): a plain empty
   state. The read is still proven before Empty draws (`readPermitted: true` stays in the type).
+- **F-A-12** Overview: the expense cards name no table or column (`platform_expenses` / `next_due_on`), a failed
+  ledger read says so plainly (and is now logged), and the watchlist drops `setnayan.ph` (not ours) and token packs
+  (retired).
 
 SPEC IMPACT: None.

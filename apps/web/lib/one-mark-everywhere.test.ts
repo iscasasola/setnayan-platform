@@ -123,9 +123,9 @@ test('both markers import the URL from the shared module, and neither carries it
 test('the browser default and the server constant are the same string, and it is an address', () => {
   assert.equal(WATERMARK_TEXT, 'WWW.SETNAYAN.COM');
   assert.equal(SERVER_WATERMARK_TEXT, WATERMARK_TEXT);
-  // Brand lock (spec CLAUDE.md): full spelling, never STNYN.
+  // Brand lock (spec CLAUDE.md): full spelling, never abbreviated.
   assert.ok(WATERMARK_TEXT.includes('SETNAYAN'));
-  assert.doesNotMatch(WATERMARK_TEXT, /STNYN/);
+  assert.doesNotMatch(WATERMARK_TEXT, /STN[Y]N/); // never the abbreviation
   // An address, not a word: this is the whole owner ruling of 2026-09-05.
   assert.match(WATERMARK_TEXT, /\.COM$/);
 

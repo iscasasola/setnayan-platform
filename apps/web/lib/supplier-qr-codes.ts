@@ -80,6 +80,18 @@ export function myPageUrl(origin: string, slug: string): string {
   return `${origin.replace(/\/+$/, '')}${myPagePath(slug)}`;
 }
 
+/**
+ * 💳 THE SUPPLIER'S OWN LINK (owner 2026-11-13, DECISION_LOG "THE SUPPLIER'S PERSONAL QR IS FREE; THEIR SHOP PAGE IS
+ * CHARGED"; walk F-W1-58). The SAME page as `myPageUrl`, tagged `?src=own`, so an inquiry that arrives through the
+ * supplier's QR, door sticker, print or share link is stamped `website` — their own client, no booking fee — while an
+ * untagged arrival (somebody who found the shop on Setnayan) is `shop_page`, Setnayan-sourced. Every code or link the
+ * SUPPLIER distributes is built here; a page Setnayan itself links to uses `myPageUrl`.
+ */
+export const OWN_LINK_SRC = 'own';
+export function ownPageUrl(origin: string, slug: string): string {
+  return `${myPageUrl(origin, slug)}?src=${OWN_LINK_SRC}`;
+}
+
 export type CrewQrEvent = { eventId: string; label: string };
 
 /**

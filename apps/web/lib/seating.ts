@@ -2165,7 +2165,7 @@ export const BOOTH_CATALOG: ReadonlyArray<{ type: Exclude<BoothType, 'unassigned
 /** The brand string shown on any booth/slot with NO finalized vendor — the 3D
  *  Setnayan-promotion default + the 2D blueprint marker's "otherwise" label.
  *  Kept as a single constant so 2D + 3D never drift. Brand spelling per
- *  CLAUDE.md (full "SETNAYAN", never "STNYN"). */
+ *  CLAUDE.md (full "SETNAYAN", never abbreviated). */
 export const SETNAYAN_BOOTH_PROMO_LABEL = 'SETNAYAN';
 
 /**

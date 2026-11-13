@@ -603,7 +603,7 @@ export const HUB_THEMES: readonly InviteTheme[] = INVITE_THEME_IDS.map((id) => I
 /** The themes every couple may wear, in the one order — shipped ones only. */
 export const FREE_THEMES: readonly InviteTheme[] = HUB_THEMES.filter((t) => t.ready && t.tier === 'free');
 
-/** The themes Event Hub Pro opens, in the one order (lightest loop first) — shipped ones only. */
+/** The themes Event Pro opens, in the one order (lightest loop first) — shipped ones only. */
 export const PRO_THEMES: readonly InviteTheme[] = HUB_THEMES.filter((t) => t.ready && t.tier === 'pro');
 
 /**
@@ -654,7 +654,7 @@ export function themeMediaKey(ref: string): string | null {
  * 2026-10-01, DECISION_LOG "PRO THEMES OPEN TO EVERY EVENT TYPE (STILL PRO)":
  * *"both"*). This used to be a wedding-only fence on the Pro themes (Q7 = A,
  * 2026-09-11, the Save-the-Date-film fence); it is retired. A birthday, a
- * hangout or a wake can pick any theme; a Pro one still needs Event Hub Pro to
+ * hangout or a wake can pick any theme; a Pro one still needs Event Pro to
  * APPLY (◆, and trying it is never blocked). The Save-the-Date FILM itself keeps
  * its own wedding-only fence (`resolveWeddingOnlyParts`) — that is about a film,
  * not a look. No theme changed.
@@ -670,7 +670,7 @@ function themeIsAvailable(theme: InviteTheme, input: { ownsPro: boolean }): bool
 /**
  * The theme a guest actually sees. House (Classic) unless the host SAVED a
  * theme — a retired id read as its alias — and, for a Pro theme, the event holds
- * Event Hub Pro right now. A lapse falls back to House and the choice is
+ * Event Pro right now. A lapse falls back to House and the choice is
  * restored when it returns, with no write in between.
  */
 export function resolveInviteTheme(

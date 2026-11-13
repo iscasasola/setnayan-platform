@@ -27,7 +27,7 @@ function liveLazyMark() {
   const el = React.createElement(
     'span',
     { 'data-paid-mark': 'unlocked', className: 'inline-flex shrink-0 items-center text-terracotta-700' },
-    React.createElement('span', { role: 'img', 'aria-label': 'Unlocked — Event Hub Pro is yours' }),
+    React.createElement('span', { role: 'img', 'aria-label': 'Unlocked — Event Pro is yours' }),
   );
   return React.lazy(() => Promise.resolve({ default: el as unknown as React.ComponentType }));
 }

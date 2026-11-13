@@ -37,7 +37,7 @@ export function labMoney(reads?: MoneyReadStatus): EventMoney {
     orders: ordersFailed
       ? []
       : [
-          { order_id: 'o1', description: 'Event Hub Pro', service_key: 'EVENT_HUB_PRO', requested_total_php: 2_499, confirmed_total_php: 2_499, status: 'paid', created_at: '2026-09-14T03:00:00Z' },
+          { order_id: 'o1', description: 'Event Pro', service_key: 'EVENT_HUB_PRO', requested_total_php: 2_499, confirmed_total_php: 2_499, status: 'paid', created_at: '2026-09-14T03:00:00Z' },
           { order_id: 'o2', description: 'Papic · 2 cameras', service_key: 'PAPIC', requested_total_php: 2_899, confirmed_total_php: 2_899, status: 'paid', created_at: '2026-09-14T03:05:00Z' },
           { order_id: 'o3', description: 'Live Watch', service_key: 'LIVE_WATCH', requested_total_php: 2_500, confirmed_total_php: 2_500, status: 'paid', created_at: '2026-09-30T03:00:00Z' },
         ],

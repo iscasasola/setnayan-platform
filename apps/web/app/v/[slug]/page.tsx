@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { OWN_LINK_SRC } from '@/lib/supplier-qr-codes';
 import { readOverdueTopUpEventIds, readPageRefsFromEvents } from '@/lib/booking-fee-top-up.server';
 import { manilaToday } from '@/lib/std-views';
 import { logoFrameStyle, readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
@@ -1790,16 +1791,22 @@ export async function renderVendorBySlug({
   );
   // Creator Economy PR-C/PR-D — provenance from the arrival URL, read ONCE for the pop-up.
   // startServiceInquiry re-validates both server-side, so an unknown ?src is inert.
+  // 💳 THE OWN LINK VS THE SHOP PAGE (owner 2026-11-13: "their personal QR code" is free · "their website, we charge
+  // them"; walk F-W1-58). Every link the supplier hands out carries `?src=own` (`ownPageUrl`) → 'website', their own
+  // client, an import. An arrival with NO tag found the shop on Setnayan → 'shop_page', SOURCED. It used to be null,
+  // which is an import: a booking made wholly in the app read "This client did not come from Setnayan".
   const arrivalInquirySource =
-    search.src === 'editorial'
-      ? 'editorial'
-      : search.src === 'favorites'
-        ? 'favorites'
-        : search.src === 'explore'
-          ? 'explore'
-          : search.src === 'search'
-            ? 'search'
-            : null;
+    search.src === OWN_LINK_SRC
+      ? 'website'
+      : search.src === 'editorial'
+        ? 'editorial'
+        : search.src === 'favorites'
+          ? 'favorites'
+          : search.src === 'explore'
+            ? 'explore'
+            : search.src === 'search'
+              ? 'search'
+              : 'shop_page';
   const arrivalChapter =
     typeof search.ref_chapter === 'string' && search.ref_chapter ? search.ref_chapter : null;
   // Head count for the package configurator's per-head option upgrades

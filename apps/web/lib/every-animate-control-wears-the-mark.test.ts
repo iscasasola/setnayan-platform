@@ -2,7 +2,7 @@
  * apps/web/lib/every-animate-control-wears-the-mark.test.ts
  *
  * 💎 EVERY ANIMATE CONTROL WEARS THE SHIPPED " ◆" (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND
- * ACCENTS ARE EVENT HUB PRO ◆": *"all animate, effects, styles, accents are pro"*). The 2026-10-18 re-gate (#6623)
+ * ACCENTS ARE EVENT PRO ◆": *"all animate, effects, styles, accents are pro"*). The 2026-10-18 re-gate (#6623)
  * held every Animate pick at ✓ Apply, but on the toolbar's Animate only Movement ◆ and Leaves ◆ said so — the effects
  * (Fade · Blur · Move · Size), While on screen, From / To, Band, Plays, Rows, Words / Reveal and Delay wore nothing,
  * so a free couple met the Apply sheet's list with no warning on the row they had used.

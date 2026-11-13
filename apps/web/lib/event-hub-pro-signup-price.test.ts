@@ -56,7 +56,7 @@ test('Papic and Setnayan AI follow the one number; Pro is never re-derived', () 
 });
 
 test('the migration moves ONE row and no setting', () => {
-  assert.ok(migration, 'the Event Hub Pro price migration is missing');
+  assert.ok(migration, 'the Event Pro price migration is missing');
   const sql = readFileSync(join(MIGRATIONS, migration!), 'utf8').replace(/--.*$/gm, '');
   assert.match(sql, /SET\s+retail_price_php\s+=\s+5000,\s+onboarding_price_php\s+=\s+3000/);
   const updates = sql.match(/UPDATE\s+public\.[a-z_0-9]+/gi) ?? [];

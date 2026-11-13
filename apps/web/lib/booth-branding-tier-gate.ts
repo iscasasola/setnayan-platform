@@ -12,7 +12,7 @@ import { boothCanBrand, boothIsBranded, type BoothVendor } from './seating-3d';
  * branding to FREE shops as a side effect of a price change.
  *
  * He then ruled the floor directly: *"3D Plan and papic Challenge is only for
- * paid vendors Solo, Pro, Enterprise, and Custom. not for free"*. That floor
+ * paid vendors Supplier Plus, Pro, Enterprise, and Custom. not for free"*. That floor
  * lives in `boothCanBrand` and cannot be lifted by any caller.
  *
  * 🔑 A FLOOR THAT A PRICING FLAG CAN LIFT IS NOT A FLOOR.

@@ -48,7 +48,7 @@ const RETIRED_EVENT_PRODUCTS: readonly IapProduct[] = Object.freeze([
     serviceKey: 'COUPLE_WEBSITE_PRO',
     kind: 'event-hub-pro',
     appleType: 'consumable',
-    appStoreName: 'Event Hub Pro',
+    appStoreName: 'Event Pro',
     credits: null,
   },
   ...(

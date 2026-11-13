@@ -185,6 +185,7 @@ function Paced({ view, steps, finish, label, marketplace, dateExempt = false }: 
       {!only && step > 0 && step < last ? (
         /* 🔘 THE ONE BOTTOM BAR (step-bar.tsx, Lane P slice 5) — the same Back + Continue every flow draws. */
         <StepBar
+          stepKey={step}
           back={{ onClick: () => setStep((s) => Math.max(0, s - 1)) }}
           main={{ label: 'Continue', onClick: next, disabled: card !== null && !setupCardAnswered(card, answers) }}
         />

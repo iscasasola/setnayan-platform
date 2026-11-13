@@ -44,7 +44,7 @@ type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
 const HEADLINE = 'Not just a place to sell. A place to stay.';
 
 /**
- * "Solo ₱1,000 · Pro ₱2,500" — only the tiers whose price was READ. A tier whose
+ * "Supplier Plus ₱1,000 · Pro ₱2,500" — only the tiers whose price was READ. A tier whose
  * catalog row came back empty is left out of the copy entirely; it is never
  * priced from a typed fallback. `''` when nothing was readable.
  */
@@ -100,7 +100,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
   '',
 );
 
-// Schema.org pricing — vendor tier Offers (Solo / Pro / Enterprise · prices
+// Schema.org pricing — vendor tier Offers (Supplier Plus / Pro / Enterprise · prices
 // from the live catalog, never hardcoded).
 function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
   // An Offer is emitted only for a tier whose price was actually read.
@@ -158,7 +158,7 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
       offer(
         'solo-vendor-subscription',
         'Supplier Plus (28-day prepaid block)',
-        // Lane J: the plan's caps, read (this said "1 marketplace category · solo operator" — Solo is 2 · 1 seat since 4 Nov).
+        // Lane J: the plan's caps, read (this said "1 marketplace category · solo operator" — Supplier Plus is 2 · 1 seat since 4 Nov).
         `${growSpec('solo')}. ${supplierCommissionPromise(fee)}`,
         p.num.soloMonthly,
       ),

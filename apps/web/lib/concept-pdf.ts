@@ -324,7 +324,7 @@ export async function buildConceptPdf(input: ConceptPdfInput): Promise<Uint8Arra
         font,
         color: SOFT,
       });
-      p.drawText('your wedding site', {
+      p.drawText('your Event Hub', {
         x: A4.w - MARGIN - s - 78,
         y: by - s - 4,
         size: 7.5,

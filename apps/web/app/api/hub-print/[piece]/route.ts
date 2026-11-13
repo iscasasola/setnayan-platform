@@ -67,7 +67,7 @@ import { printsPageHref } from '@/lib/prints-page-href';
  * GET  ?event=<uuid>&mode=screen|sample|print[&theme=<preview>]
  * ⚖ Owner 2026-09-25, "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE THEMED
  * VERSION IS PRO": `theme=house` (Classic) is print-ready for EVERY event; a
- * Pro theme is print-ready only with Event Hub Pro. Since 2026-09-29 the free
+ * Pro theme is print-ready only with Event Pro. Since 2026-09-29 the free
  * themes (Classic, Modern, Cyber Neon — `isProPrint` false) all print free.
  *
  *   · a set piece (`invitation` · `entourage` · `details` · `menu` · `pass` ·
@@ -216,7 +216,7 @@ async function freeSheet(
       appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
       ownerSlug: await resolveEventOwnerSlug(admin, eventId).catch(() => null),
       // The free QR sheet wears the event's look too — the Setnayan mark, or
-      // the couple's own on Event Hub Pro (lib/qr-look.ts).
+      // the couple's own on Event Pro (lib/qr-look.ts).
       qrLook: qrLookForHostDraft(event, sheetDraft) ?? (await resolveEventQrLook(admin, eventId, event)),
     };
     /* 📄 The thumbnail draws ONE page's twelve codes (page 1 unless `?page=N`), the sheet still laid out whole. */
@@ -266,7 +266,7 @@ async function freeSheet(
 
 /**
  * 🗂 EVERYTHING ◆ (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾ ON GUEST PRINTS, ALL
- * GUESTS ◆, EVERYTHING ◆": *"Everything ◆ = the set + the day's sheets + the pass batch"*). ONE PDF, Event Hub Pro (checked by the
+ * GUESTS ◆, EVERYTHING ◆": *"Everything ◆ = the set + the day's sheets + the pass batch"*). ONE PDF, Event Pro (checked by the
  * caller, `isAllInOnePrint('everything')`), in this order:
  *
  *   1 · the invitation set (the whole set's own pages, print-ready, its layers), then the guest list registry and every guest's QR
@@ -412,9 +412,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   ]);
   if (!printEvent) return new NextResponse('Event not found.', { status: 404 });
   const access = printAccess({ ownsPro, storeShell });
-  /* 🗂 THE DESIGNED SET IN ONE FILE IS EVENT HUB PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY
-     'DOWNLOAD ALL' IS EVENT HUB PRO"; narrowed 2026-10-22, "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE QR SHEET ARE
-     FREE"): the whole set in one PDF and Everything — in EVERY theme, Classic too — need the event's Event Hub Pro, the SAME read
+  /* 🗂 THE DESIGNED SET IN ONE FILE IS EVENT PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY
+     'DOWNLOAD ALL' IS EVENT PRO"; narrowed 2026-10-22, "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE QR SHEET ARE
+     FREE"): the whole set in one PDF and Everything — in EVERY theme, Classic too — need the event's Event Pro, the SAME read
      the ticket zip's route makes (`printOwnsPro` → `eventSkuActive`, an internal host included: an unlock belongs to the event).
      Refused here, before anything is drawn, whatever the page did or did not show. Every guest's pass in one file (`passes`) is
      FREE since 2026-10-22 — drawn plain white for a free event like every free print (`printLookForEvent`) — as are each
@@ -444,7 +444,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   // ══ THE PRINT-READY PATH — checked HERE, on the server, before anything is
   // drawn (owner 2026-09-25: "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE
   // THEMED VERSION IS PRO"; 2026-09-29: Modern and Cyber Neon free too). A free
-  // theme is print-ready for everyone; a Pro theme only with Event Hub Pro.
+  // theme is print-ready for everyone; a Pro theme only with Event Pro.
   // Nothing below this block can produce a PDF or a vector of a PRO-THEMED
   // piece for a couple without Pro.
   if (mode === 'print' || piece === 'passes' || (mode === 'screen' && (access.printReady || freeTheme))) {
@@ -452,7 +452,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       return new NextResponse(
         storeShell
           ? 'Not available here.'
-          : `The print-ready file in ${INVITE_THEMES[theme].name} comes with Event Hub Pro. Free prints are plain white; your Event Hub look on paper is Event Hub Pro.`,
+          : `The print-ready file in ${INVITE_THEMES[theme].name} comes with Event Pro. Free prints are plain white; your Event Hub look on paper is Event Pro.`,
         { status: 403 },
       );
     }

@@ -538,7 +538,7 @@ export type TrackerRewardInput = {
   periodMonth: string;
   /** ⏱ The shop's badge upgrades (owner, 6 Nov). Null/absent = unread: the rows still say what each badge unlocks. */
   upgrades?: readonly BadgeUpgradeRow[] | null;
-  /** The shop's plan — whether a first-booking upgrade reads as the 3D Booth (Solo+) or Papic Challenges. */
+  /** The shop's plan — whether a first-booking upgrade reads as the 3D Booth (Supplier Plus and up) or Papic Challenges. */
   tier?: string | null;
 };
 

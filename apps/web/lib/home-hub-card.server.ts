@@ -54,7 +54,7 @@ export type HomeHubCardRead =
       table: GuestsSeeTable | null;
       /** The draft could not be read — the table shows the live rows. */
       draftUnread: boolean;
-      /** Event Hub Pro parts this event holds (Full Pro counts as all) — null when unread. */
+      /** Event Pro parts this event holds (Full Pro counts as all) — null when unread. */
       proParts: { full: boolean; count: number } | null;
     };
 

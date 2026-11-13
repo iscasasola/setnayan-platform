@@ -33,7 +33,7 @@
  * every account (`lib/help.ts` says so in public). The QR's LOOK is deliberately
  * NOT claimed here: every guest's personal QR is free and always renders (with
  * the Setnayan mark in the centre), while the couple's own logo, shape, pattern
- * and colour on it are Event Hub Pro (owner 2026-09-27, lib/qr-look.ts) — a
+ * and colour on it are Event Pro (owner 2026-09-27, lib/qr-look.ts) — a
  * paid perk this free page must not advertise. Only the per-guest personal QR
  * is described.
  * 🔴 PER-GUEST INVITATION SENDING. There is no per-guest send in this product —

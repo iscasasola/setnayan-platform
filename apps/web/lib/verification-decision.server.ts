@@ -68,7 +68,7 @@ export async function applyApplicationDecision(
   const { data: vendor, error: vendorErr } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,verification_state,demotion_count,last_demoted_at,last_verified_at,next_renewal_due_at,public_visibility',
+      'vendor_profile_id,verification_state,demotion_count,last_demoted_at,last_verified_at,next_renewal_due_at,public_visibility,papers_lapsed_at,tier_state',
     )
     .eq('vendor_profile_id', app.vendor_profile_id)
     .maybeSingle();
@@ -80,6 +80,8 @@ export async function applyApplicationDecision(
   let appStatus = app.status as string;
   let appDecision: 'approved' | 'rejected' | null = null;
   let approveSideEffects: {
+    papers_lapsed_at?: null;
+    tier_state?: 'verified';
     last_verified_at?: string;
     next_renewal_due_at?: string;
     public_visibility?: 'verified';
@@ -99,6 +101,14 @@ export async function applyApplicationDecision(
       // permit date is recorded with the approval (audit below) but no longer sets the day. The shop's listing and
       // bookability never read this column.
       approveSideEffects = {
+        // 📄 Renewed papers end a lapse at once (owner "Keep them, block new"):
+        // the shop is back in every list and takes new bookings again.
+        papers_lapsed_at: null,
+        // …and the free plan the lapse took down to "free" comes back. A paid plan was never touched.
+        ...((vendor as { papers_lapsed_at?: string | null }).papers_lapsed_at &&
+        (vendor as { tier_state?: string | null }).tier_state === 'free'
+          ? { tier_state: 'verified' as const }
+          : {}),
         last_verified_at: now,
         // The renewal day is 30 March (owner 12 Nov · "THE RENEWAL DAY IS 30 MARCH") for EVERY approval,
         // admin or automatic — never the permit's printed date (controller correction 2026-11-14).

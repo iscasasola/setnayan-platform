@@ -30,6 +30,7 @@ const LIVE = {
   public_visibility: 'verified',
   fraud_suspended_at: null,
   fraud_banned_at: null,
+  papers_lapsed_at: null,
 };
 
 test('1 · only a verified, listed shop with no fraud stamp is bookable', () => {
@@ -44,6 +45,8 @@ test('1 · only a verified, listed shop with no fraud stamp is bookable', () => 
   );
   assert.equal(shopBookingRefusal({ ...LIVE, verification_state: 'demoted' }), 'not_verified');
   assert.equal(shopBookingRefusal(null), 'missing');
+  // 📄 "Keep them, block new" (owner 2026-11-14): a lapsed shop takes no NEW ask.
+  assert.equal(shopBookingRefusal({ ...LIVE, papers_lapsed_at: '2027-03-30T16:00:00Z' }), 'papers_lapsed');
 });
 
 test('1b · an absent column (not selected) is a refusal, never "clear"', () => {

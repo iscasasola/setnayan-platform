@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { vouchHasLapsed } from '@/lib/verification-bypass';
+import { stampLapsedPapers } from '@/lib/papers-lapse.server';
 import {
   BADGE_REMINDER_DAYS,
   badgeLapsedCopy,
@@ -115,7 +116,7 @@ async function settleLapsedVouches(
  */
 export async function runVerifiedBadgeDeadlineSweep(
   now: Date = new Date(),
-): Promise<{ reminded: number; lapsed: number; vouchesSettled: number }> {
+): Promise<{ reminded: number; lapsed: number; vouchesSettled: number; papersLapsed: number }> {
   const admin = createAdminClient();
   const horizon = new Date(now.getTime() + BADGE_REMINDER_DAYS * DAY_MS).toISOString();
 
@@ -155,7 +156,7 @@ export async function runVerifiedBadgeDeadlineSweep(
     // every shop in the window the same email again on every pass.
     if (saidErr) {
       console.error('[verified-badge-sweep] dedupe read failed:', saidErr.message);
-      return { reminded: 0, lapsed: 0, vouchesSettled: await settleLapsedVouches(admin, now) };
+      return { reminded: 0, lapsed: 0, vouchesSettled: await settleLapsedVouches(admin, now), papersLapsed: await stampLapsedPapers(admin, now) };
     }
     const done = new Set<string>();
     for (const r of (said ?? []) as Array<{
@@ -247,5 +248,7 @@ export async function runVerifiedBadgeDeadlineSweep(
   }
 
   const vouchesSettled = await settleLapsedVouches(admin, now);
-  return { reminded, lapsed, vouchesSettled };
+  // 📄 After 30 March: an unrenewed shop keeps its bookings and takes no new ones (lib/papers-lapse.server.ts).
+  const papersLapsed = await stampLapsedPapers(admin, now);
+  return { reminded, lapsed, vouchesSettled, papersLapsed };
 }

@@ -31,6 +31,15 @@ THE BUSINESS PERMIT LEADS · THE RENEWAL DAY IS 30 MARCH. Outside-spec items 1�
 - **Badge**: reminders at 60, 30 and 7 days (`lib/verified-badge.ts`); the badge day stays 30 March
   (`lib/papers-due.ts`) for automatic and admin approvals; an approved shop may open a renewal draft once its deadline
   is within 60 days or past.
+- **After 30 March — "Keep them, block new"** (owner answer B, migration `20271345631375`): the daily badge pass stamps
+  `vendor_profiles.papers_lapsed_at` on a verified shop whose renewal day passed unrenewed. `verification_state` is NOT
+  changed (the couples who already booked it read it through policies that require `verified`). The stamp drops the shop
+  from every couple-facing list (`papers_current` in `FINDABLE_SHOP_GATE` and `vendor_market_stats`), refuses every new
+  ask in the app (`shopBookingRefusal` → `papers_lapsed`, which also closes the Locked QR) and in the booking trigger (an ask
+  made BEFORE the stamp may still be answered; confirmed bookings are never re-checked), drops a free "verified" plan to
+  "free", and tells the supplier once. A clean renewal approval clears it. A shop cannot write its own stamp (trigger
+  `guard_vendor_papers_lapsed_at`). Exposure baseline regenerated: +`papers_current` (anon/authenticated read) and
+  +`papers_lapsed_at` (authenticated; writes refused by the guard).
 - **Admin › Verify**: read values, QR label and "Read it again" beside each paper; "Verified automatically" filter;
   "Why it passed · N of 7 checks", the exact reason on every "Waiting for Setnayan", and "Take the badge off".
 - **Supplier**: the read is never drawn; Submit shows "Checking your papers…" then "You're verified" or "Waiting for

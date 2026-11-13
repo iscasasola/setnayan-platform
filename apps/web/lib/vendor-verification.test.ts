@@ -148,6 +148,7 @@ const LIVE = {
   public_visibility: 'verified',
   fraud_suspended_at: null,
   fraud_banned_at: null,
+  papers_lapsed_at: null,
 };
 
 test('isMarketplaceVendorBookable: true only for a verified, listed, clean profile', async () => {

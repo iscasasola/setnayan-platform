@@ -193,13 +193,15 @@ export const SHOP_LIVE_COLUMNS = 'public_visibility, verification_state' as cons
  * write. Fail-closed: an absent column reads as not bookable, so a `.select()`
  * must name all of `SHOP_BOOKABLE_COLUMNS`.
  */
-export type ShopBookingRefusal = 'missing' | 'not_verified' | 'not_listed' | 'suspended' | 'banned';
+export type ShopBookingRefusal = 'missing' | 'not_verified' | 'not_listed' | 'suspended' | 'banned' | 'papers_lapsed';
 
 export function shopBookingRefusal(row: {
   public_visibility?: unknown;
   verification_state?: unknown;
   fraud_suspended_at?: unknown;
   fraud_banned_at?: unknown;
+  /** Set once the 30 March renewal passed with no renewed papers: NO NEW bookings (owner, "Keep them, block new"). */
+  papers_lapsed_at?: unknown;
 } | null | undefined): ShopBookingRefusal | null {
   if (!row) return 'missing';
   // Ban first: a banned shop is also suspended (the wipe+ban stamps both).
@@ -208,6 +210,10 @@ export function shopBookingRefusal(row: {
   if (row.fraud_suspended_at !== null) return 'suspended';
   if (row.verification_state !== 'verified') return 'not_verified';
   if (!isShopLive(row)) return 'not_listed';
+  // Fail-closed like the fraud stamps: `undefined` (not selected) is refused.
+  // Every app door is a NEW ask; an ask made before the lapse is answered by the
+  // supplier through the database alone, whose trigger lets it through.
+  if (row.papers_lapsed_at !== null) return 'papers_lapsed';
   return null;
 }
 
@@ -217,4 +223,4 @@ export function isShopBookable(row: Parameters<typeof shopBookingRefusal>[0]): b
 
 /** The columns `isShopBookable` needs, for a PostgREST `.select()`. */
 export const SHOP_BOOKABLE_COLUMNS =
-  'public_visibility, verification_state, fraud_suspended_at, fraud_banned_at' as const;
+  'public_visibility, verification_state, fraud_suspended_at, fraud_banned_at, papers_lapsed_at' as const;

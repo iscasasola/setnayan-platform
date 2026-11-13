@@ -27,3 +27,9 @@ Inside the app no Event Plus was offered anywhere and no plan showed its Papic c
 - The Event Pro card adds "N Papic credits included." from its row.
 - New test `app/dashboard/[eventId]/studio/website-pro/the-app-offers-the-plans-pricing-offers.test.ts` renders the real component.
 - Wording ("Event Hub Pro" → "Event Pro") is left to PR #7605.
+
+### Event Ultra on the in-app plan screen (#7601 merged, same day)
+
+- `lib/event-plans.ts` now carries Event Ultra (`EVENT_ULTRA`): `planPricesFrom` / `planCreditsFrom` return `ultra` / `ultraCredits` — #7601's front-door helpers folded into the one module (merge conflict resolved there; the front door re-exports).
+- The in-app plan screen draws an **Event Ultra** card after Event Pro: the row's price and included credits, the front door's own lines (`ULTRA_PEEK`, `ultraMore`), bought through the same checkout drawer — which asks the server for the upgrade quote, so an event that paid for Plus or Pro is charged only the difference (`readUltraUpgradeCharge`, #7601) and the card says so. Holding Ultra hides Event Plus and the "Your plan" mark on Free.
+- The plan quiz's Setnayan AI line names Event Ultra beside Event Pro.

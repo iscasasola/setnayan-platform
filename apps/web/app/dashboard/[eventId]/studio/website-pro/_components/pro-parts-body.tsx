@@ -16,7 +16,8 @@ import {
   type HubOwnershipView,
   type HubPartId,
 } from '@/lib/hub-parts';
-import { PlanOffer, proCreditsLine, type PlanOfferFacts } from './plan-offer';
+import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
+import { PlanOffer, UltraOffer, proCreditsLine, type PlanOfferFacts } from './plan-offer';
 
 /**
  * 💎 THE PARTS PAGE'S BODY (owner 2026-10-22, prototype `pro_part_by_part_2026-10-22.html` frame 4) — everything it
@@ -177,6 +178,14 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
       ) : (
         <p className="text-sm text-ink/65">Pricing loads from your catalog &mdash; please refresh in a moment.</p>
       )}
+
+      {/* ── 💎 EVENT ULTRA (#7601) — after Event Pro; the drawer quotes the difference for a Plus/Pro event. ── */}
+      {plans ? (
+        <UltraOffer
+          facts={plans}
+          ultraDrawer={(php) => drawer({ serviceKey: EVENT_ULTRA_SKU, name: 'Event Ultra', php, label: 'Get Event Ultra' })}
+        />
+      ) : null}
 
       {/* ── THE APPLY SHEET'S PICK (`?buy=`) — one order, one payment. ── */}
       {partsOnSale && !active?.full && !owned?.full && buyParts.length > 0 && buyPricePhp !== null ? (

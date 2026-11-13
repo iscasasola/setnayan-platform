@@ -8,6 +8,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { EVENT_PLUS_SKU, HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
+import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
 import { ProPartsBody } from './_components/pro-parts-body';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { UNLOCK_AND_APPLY_PARAM } from '@/lib/hub-pro-effects';
@@ -108,7 +109,7 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
   // pending order (double-buy prevention). owned && !active ⇒ under review.
   const ent = await eventEntitlementClient(eventId);
   const supabase = await createClient();
-  const [active, owned, prices, settings, vatRatePct, catalog, plusActive, plusOwned, freeGrant] = await Promise.all([
+  const [active, owned, prices, settings, vatRatePct, catalog, plusActive, plusOwned, freeGrant, ultraActive, ultraOwned] = await Promise.all([
     eventHubOwnership(ent, eventId, 'active').catch(() => null),
     eventHubOwnership(ent, eventId, 'owned').catch(() => null),
     hubPartPrices(createAdminClient()).catch(() => null),
@@ -119,6 +120,9 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
     eventSkuActive(ent, eventId, EVENT_PLUS_SKU).catch(() => false),
     eventOwnsSku(ent, eventId, EVENT_PLUS_SKU).catch(() => false),
     readPapicFreeGrantRead(),
+    // 💎 Event Ultra (#7601) — its OWN order (an Ultra event also reads as Pro through the ownership aliases).
+    eventSkuActive(ent, eventId, EVENT_ULTRA_SKU).catch(() => false),
+    eventOwnsSku(ent, eventId, EVENT_ULTRA_SKU).catch(() => false),
   ]);
   const planPrices = planPricesFrom(catalog);
   const plans: PlanOfferFacts = {
@@ -126,6 +130,10 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
     ...planCreditsFrom(catalog),
     freePapic: papicFreeCreditPromise(freeGrant)?.sentence ?? null,
     plus: plusActive ? 'yours' : plusOwned ? 'review' : 'buy',
+    ultraPhp: planPrices.ultra,
+    ultra: ultraActive ? 'yours' : ultraOwned ? 'review' : 'buy',
+    // Paid toward Plus or Pro → Ultra asks only the difference (the drawer's server quote gives the figure).
+    paidTowardAPlan: plusOwned || Boolean(owned?.full) || (owned?.paidPhp ?? 0) > 0,
   };
   const view = (o: typeof active) => (o ? { full: o.full, parts: [...o.parts], paidPhp: o.paidPhp, fullPricePhp: o.fullPricePhp } : null);
   const partPricePhp: Partial<Record<HubPartId, number>> = {};

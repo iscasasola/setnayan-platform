@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { PlanOffer, proCreditsLine, type PlanOfferFacts } from './_components/plan-offer';
+import { PlanOffer, UltraOffer, proCreditsLine, type PlanOfferFacts } from './_components/plan-offer';
 import { planCreditsFrom, planPricesFrom, PLAN_PRICE_CODES } from '@/lib/event-plans';
 import { stripComments } from '@/lib/strip-comments';
 
@@ -26,8 +26,16 @@ const facts = (over: Partial<PlanOfferFacts> = {}): PlanOfferFacts => ({
   proCredits: 8765,
   freePapic: null,
   plus: 'buy',
+  ultraPhp: 5678,
+  ultraCredits: 3456,
+  ultra: 'buy',
+  paidTowardAPlan: false,
   ...over,
 });
+const drawUltra = (f: PlanOfferFacts) =>
+  renderToStaticMarkup(
+    React.createElement(UltraOffer, { facts: f, ultraDrawer: (php: number) => React.createElement('button', { 'data-buy-ultra': php }, 'buy') }),
+  );
 const draw = (f: PlanOfferFacts, proHeld = false) =>
   renderToStaticMarkup(
     React.createElement(PlanOffer, { facts: f, proHeld, plusDrawer: (php: number) => React.createElement('button', { 'data-buy-plus': php }, 'buy') }),
@@ -60,16 +68,31 @@ test('Event Pro includes everything in Plus — once Pro is held, Plus is not so
   assert.doesNotMatch(draw(facts({ plus: 'yours' })), /data-buy-plus/);
 });
 
+test('💎 Event Ultra (#7601) is offered with its catalogue price and credits; Plus/Pro events are told they pay the difference', () => {
+  const html = drawUltra(facts());
+  assert.match(html, /data-event-plan="ultra"/);
+  assert.match(html, /₱5,678/);
+  assert.match(html, /3,456 Papic credits/);
+  assert.match(html, /data-buy-ultra="5678"/, 'the drawer is handed the row price; its server quote asks only the difference');
+  assert.doesNotMatch(html, /data-ultra-pays-the-difference/);
+  assert.match(drawUltra(facts({ paidTowardAPlan: true })), /data-ultra-pays-the-difference/);
+  assert.equal(drawUltra(facts({ ultraPhp: null })), '', 'not on sale / unread → no card, no figure');
+  assert.match(drawUltra(facts({ ultra: 'yours' })), /Yours/);
+  assert.doesNotMatch(draw(facts({ ultra: 'yours' })), /data-event-plan="plus"/, 'Ultra holds everything in Plus');
+  assert.doesNotMatch(draw(facts({ ultra: 'yours' })), /Your plan/);
+});
+
 test('the page reads its plans through the front door’s helpers, from the customer catalogue', () => {
   const page = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
   assert.match(page, /fetchV2CustomerCatalog\(\)/);
   assert.match(page, /planPricesFrom\(catalog\)/);
   assert.match(page, /planCreditsFrom\(catalog\)/);
-  assert.deepEqual(PLAN_PRICE_CODES, { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO' });
+  assert.deepEqual(PLAN_PRICE_CODES, { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO', ultra: 'EVENT_ULTRA' });
   const rows = [
     { service_code: 'EVENT_PLUS', retail_price_php: 10, included_papic_credits: 20 },
     { service_code: 'COUPLE_WEBSITE_PRO', retail_price_php: 30, included_papic_credits: 40 },
+    { service_code: 'EVENT_ULTRA', retail_price_php: 50, included_papic_credits: 60 },
   ];
-  assert.deepEqual(planPricesFrom(rows), { plus: 10, pro: 30 });
-  assert.deepEqual(planCreditsFrom(rows), { plusCredits: 20, proCredits: 40 });
+  assert.deepEqual(planPricesFrom(rows), { plus: 10, pro: 30, ultra: 50 });
+  assert.deepEqual(planCreditsFrom(rows), { plusCredits: 20, proCredits: 40, ultraCredits: 60 });
 });

@@ -45,9 +45,11 @@ import {
   FREE_PEEK,
   PLUS_MORE,
   PRO_PEEK,
+  ULTRA_PEEK,
   freeGroups,
   plusPeek,
   proMore,
+  ultraMore,
   type PlanFacts,
   SOLVES,
   SOLVES_SHOWN_FIRST,
@@ -132,7 +134,7 @@ export function frontPageSample(now: Date): FrontPageSample | null {
 /* ─── The two plan prices, from the price list ─────────────────────────────────────────────────────── */
 
 /* Moved to `lib/event-plans.ts` (2026-11-13) so the in-app plan screen reads the SAME helpers; re-exported here so
-   every existing import keeps working. */
+   every existing import keeps working. 💎 Event Ultra (#7601) lives there too. */
 export { PLAN_PRICE_CODES, planPricesFrom, planCreditsFrom, type PlanPrices } from '@/lib/event-plans';
 import type { PlanPrices } from '@/lib/event-plans';
 
@@ -259,6 +261,9 @@ export function FrontDoorLanding({
   const plusItems = [...PLUS_PEEK, ...PLUS_MORE];
   const plusCount = plusItems.length + freeItems.length;
   const proCount = PRO_PEEK.length + PRO_MORE.length + plusCount;
+  const ULTRA_MORE = ultraMore(planFacts);
+  const proItems = [...PRO_PEEK, ...PRO_MORE];
+  const ultraCount = ULTRA_PEEK.length + ULTRA_MORE.length + proCount;
 
   const total = SOLVES.length;
 
@@ -475,7 +480,7 @@ export function FrontDoorLanding({
         <Head
           kicker="What you get"
           id="h-plans"
-          title="Free is complete. Plus and Pro are for more."
+          title="Free is complete. Plus, Pro and Ultra are for more."
           lede="One price for the whole event — it unlocks for everyone on it."
         />
         <div className="fl-plans">
@@ -555,6 +560,39 @@ export function FrontDoorLanding({
               Start free, upgrade any time
             </Link>
           </Expandable>
+
+          {/* 💎 Event Ultra (owner 2026-11-13) — the Pro card's own shape, one rung up. Drawn only while its row is on sale. */}
+          {planPrices.ultra !== null ? (
+            <Expandable as="article" className="fl-plan">
+              <div className="fl-plan-name">
+                <h3>Event Ultra</h3>
+                <PlanPrice php={planPrices.ultra} />
+              </div>
+              <p className="fl-plan-one">Everything in Pro, and your day shared live and kept.</p>
+              <Dots items={ULTRA_PEEK} />
+              <div className="fl-pmore">
+                <div>
+                  <PlainList items={ULTRA_MORE} />
+                  <div className="fl-pg">
+                    <p className="fl-fg">And everything in Pro</p>
+                    <PlainList items={proItems} />
+                  </div>
+                  <div className="fl-pg">
+                    <p className="fl-fg">And everything in Plus</p>
+                    <PlainList items={plusItems} />
+                  </div>
+                  <div className="fl-pg">
+                    <p className="fl-fg">And everything in Free</p>
+                    <PlainList items={freeItems} />
+                  </div>
+                </div>
+              </div>
+              <ExpandButton className="fl-ptoggle" more={`See all ${formatCount(ultraCount)} features`} less="Show less" chevron />
+              <Link className="fl-btn fl-btn-line" href="/start">
+                Start free, upgrade any time
+              </Link>
+            </Expandable>
+          ) : null}
         </div>
 
         <div className="fl-addons">

@@ -65,6 +65,13 @@ import {
 } from './supplier-front-client';
 import { Info } from './supplier-front-info';
 import { SupplierBadgeShelf } from './supplier-badge-shelf';
+import { PlanPagePreview } from './plan-page-preview';
+import {
+  SampleShopPage,
+  samplePlanBranchCities,
+  samplePlanCaption,
+  type SampleShopPlan,
+} from '@/app/v/[slug]/_components/sample-shop-page';
 import s from './supplier-front.module.css';
 
 export type SupplierFrontPrices = {
@@ -175,6 +182,23 @@ function feeWords(fee: SupplierFrontFee) {
   };
 }
 
+/** The Grow tab's tier → the sample shop page's plan (Ultra is the `enterprise` tier). */
+const GROW_PLAN: Record<GrowTier, SampleShopPlan> = { solo: 'solo', pro: 'pro', enterprise: 'ultra' };
+
+/**
+ * Ruling 5735 (owner-approved 13 Nov 2026, corpus `prototypes/plan_previews_2026-11-13/`): the row at the foot of a plan
+ * card — that plan's shop page in miniature, opening full screen. The page is `SampleShopPage` (the same drawing
+ * /dev/shop-plan-lab shows), server-rendered here once and scaled by the row; never a separate picture. Pro and Ultra
+ * draw their branches ("Also in …", owner 13 Nov 2026 "Show the branches as needed") — the plan's own included count.
+ */
+function PlanPreview({ plan, label }: { plan: SampleShopPlan; label: string }) {
+  return (
+    <PlanPagePreview plan={plan} label={label} caption={samplePlanCaption(plan)}>
+      <SampleShopPage plan={plan} branchCities={samplePlanBranchCities(plan)} />
+    </PlanPagePreview>
+  );
+}
+
 export function SupplierFrontPage({
   prices,
   fee,
@@ -219,6 +243,7 @@ export function SupplierFrontPage({
     spec: growSpec(t),
     plus: growPlus(t),
     lines: growLines(t),
+    preview: <PlanPreview plan={GROW_PLAN[t]} label={growName(t)} />,
   }));
   const fold = foldGroups();
   const helper = helperLine();
@@ -907,6 +932,7 @@ export function SupplierFrontPage({
                 <p className={s.pzero}>₱0, always</p>
                 <p>Every tool to run your bookings.</p>
                 <p className={s.spec}>{freeSpec()}</p>
+                <PlanPreview plan="free" label="Free" />
               </div>
               <div className={s.planstep} data-rv="">
                 <span className={s.planN}>STEP 2</span>
@@ -917,6 +943,7 @@ export function SupplierFrontPage({
                 <p>Couples can find you.</p>
                 <p className={s.spec}>{verifiedSpec()}</p>
                 <p className={`${s.small} ${s.muted}`}>Your papers: {VERIFIED_PAPERS.join(' · ')}</p>
+                <PlanPreview plan="verified" label="Verified" />
               </div>
               <div className={s.planstep} data-rv="">
                 <span className={s.planN}>STEP 3</span>

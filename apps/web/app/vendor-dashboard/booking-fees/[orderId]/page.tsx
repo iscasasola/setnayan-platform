@@ -37,6 +37,10 @@ import { asDisputeStatus, disputeStateLine } from '@/lib/booking-fee-dispute';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DisputeNoteField } from '@/app/_components/dispute-note-field';
 import { bookingFeeDispute } from '@/app/_actions/booking-fee-dispute-actions';
+import { TOP_UP_CHARGE_KIND, TOP_UP_WORDS, topUpPayLabel, topUpStage, type TopUpStage } from '@/lib/booking-fee-top-up';
+import { formatDueDate } from '@/lib/booking-fee-disclosure';
+import { manilaToday } from '@/lib/std-views';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export const metadata = { title: 'Booking fee · Supplier' };
 
@@ -154,6 +158,24 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
   // Disputable: an open bill, no dispute yet, and the dispute read answered.
   const canDispute = payable && Boolean(chargeId) && dispute === null;
 
+  // 💸 A TOP-UP (owner 2026-11-12, `lib/booking-fee-top-up.ts`): the fee grew with a booked quote. It is due on the
+  // event day — "Settle early" before it (rule 2), "Due today" on it, overdue after. Service-role read of THIS bill's
+  // own charge (proven the caller's above); a failed read draws the bill exactly as shipped.
+  let topUp: { stage: TopUpStage; dueOn: string | null } | null = null;
+  if (payable && chargeId) {
+    const { data: ch, error: chErr } = await createAdminClient()
+      .from('booking_fee_charges')
+      .select('kind, expires_at')
+      .eq('charge_id', chargeId)
+      .maybeSingle();
+    if (chErr) logQueryError('booking-fees/[orderId]: top-up kind', chErr);
+    const c = ch as { kind: string | null; expires_at: string | null } | null;
+    if (c?.kind === TOP_UP_CHARGE_KIND) {
+      const dueOn = c.expires_at ? c.expires_at.slice(0, 10) : null;
+      topUp = { stage: topUpStage(dueOn, manilaToday()), dueOn };
+    }
+  }
+
   const paymentScreenshotMap: Record<string, string> = {};
   await Promise.all(
     payments.map(async (p) => {
@@ -219,6 +241,28 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
           Order <span className="normal-case">{order.public_id}</span>
         </p>
         <p className="whitespace-pre-wrap text-sm text-ink/75">{order.description}</p>
+        {topUp ? (
+          // 💸 The top-up's stage, said on its own bill (prototype: Held → Due today → Overdue).
+          <p
+            role="status"
+            data-top-up-stage={topUp.stage}
+            className="rounded-xl px-3.5 py-2.5 text-[13.5px] font-semibold"
+            style={{
+              color: topUp.stage === 'overdue' ? 'rgb(var(--color-danger))' : 'rgb(var(--color-warn))',
+              background: `color-mix(in srgb, rgb(var(--color-${topUp.stage === 'overdue' ? 'danger' : 'warn'})) 12%, transparent)`,
+            }}
+          >
+            {TOP_UP_WORDS.badge[topUp.stage]}
+            {topUp.dueOn ? ` · the event day, ${formatDueDate(topUp.dueOn)}` : ''}
+            <small className="block font-normal text-ink/65">
+              {topUp.stage === 'held'
+                ? 'Your quote rose, so your booking fee grows by this top-up. Nothing closes before the event day — you may settle it early.'
+                : topUp.stage === 'due_today'
+                  ? 'Due today. Nothing closes today; settle it before tomorrow to keep the event open.'
+                  : 'Overdue. The event stays closed until it is settled — your chat with the couple stays open.'}
+            </small>
+          </p>
+        ) : null}
         <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-4">
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
             Amount to send
@@ -324,7 +368,8 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
             className="button-primary inline-flex items-center gap-2"
           >
             <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Send your payment
+            {/* 💸 Rule 2: a top-up may be settled EARLY — before the event day the door says so. */}
+            {topUp ? topUpPayLabel(topUp.dueOn, manilaToday()) : 'Send your payment'}
           </Link>
         </section>
       ) : null}

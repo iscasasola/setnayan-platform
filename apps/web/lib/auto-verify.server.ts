@@ -40,7 +40,8 @@ import type { ReadableSlotKey } from '@/lib/verification-paper-read';
  * NEVER THROWS; any failure is `to_admin`.
  */
 
-export const AUTO_CHECK_AUDIT_ACTION = 'vendor_verification_auto_check';
+export { AUTO_CHECK_AUDIT_ACTION } from '@/lib/auto-verify-audit';
+import { AUTO_CHECK_AUDIT_ACTION } from '@/lib/auto-verify-audit';
 
 const SLOTS: readonly ReadableSlotKey[] = ['dti_certificate', 'bir_2303', 'mayors_permit'];
 

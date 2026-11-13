@@ -114,6 +114,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
 import { formatLongDate } from '@/lib/format-date';
+import { AUTO_CHECK_AUDIT_ACTION, formatManilaDateTime } from '@/lib/auto-verify-audit';
 import { VERIFICATION_PAIRS, parsePaperRead } from '@/lib/verification-pairs';
 import {
   classifyPaperQr,
@@ -705,6 +706,31 @@ async function ApplicationsSurface({
   );
   for (const { id, report } of checkReports) checksMap[id] = report;
 
+  // ── CLEAN PAPERS VERIFY THE SHOP ON SUBMIT — what the machine decided ────
+  // One JSON row per submission (`lib/auto-verify.server.ts`); the latest per
+  // application. A refused read is said on the card, never shown as "no check".
+  const autoMap: Record<string, AutoCheckRow> = {};
+  let autoReadFailed = false;
+  if (fullRows.length > 0) {
+    const { data: autoRows, error: autoErr } = await admin
+      .from('admin_audit_log')
+      .select('target_id,created_at,metadata')
+      .eq('action', AUTO_CHECK_AUDIT_ACTION)
+      .in('target_id', fullRows.map((r) => r.application_id))
+      .order('created_at', { ascending: false })
+      .limit(1000);
+    if (autoErr) {
+      autoReadFailed = true;
+      logQueryError('AdminVerifyPage (admin_audit_log auto checks)', autoErr);
+    }
+    for (const row of (autoRows ?? []) as Array<{ target_id: string; created_at: string; metadata: unknown }>) {
+      if (autoMap[row.target_id]) continue;
+      const parsed = parseAutoCheckRow(row.metadata, row.created_at);
+      if (parsed) autoMap[row.target_id] = parsed;
+    }
+  }
+  const shownRows = tabFilter.autoOnly ? fullRows.filter((r) => autoMap[r.application_id]?.decision === 'verify') : fullRows;
+
   // ── ONE FREE FIRST BOOKING PER BUSINESS (owner 2026-11-06) ──────────────
   // DECISION_LOG "…THE NEW-ACCOUNT LOOPHOLE IS CLOSED AT THE VERIFICATION
   // DESK": the registration number, phone and payout account are matched
@@ -740,17 +766,24 @@ async function ApplicationsSurface({
 
       {error ? null : null}
 
-      {appErr ? null : fullRows.length === 0 && demotedFallback.length === 0 ? (
+      {autoReadFailed ? (
+        <FormFlash tone="error">
+          The automatic checks couldn&apos;t load, so this list can&apos;t say which shops were verified automatically. Refresh to try again.
+        </FormFlash>
+      ) : null}
+
+      {appErr ? null : shownRows.length === 0 && demotedFallback.length === 0 ? (
         <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
           {tabFilter.emptyHint}
         </p>
       ) : (
         <>
           <ul className="grid gap-3">
-            {fullRows.map((r) => (
+            {shownRows.map((r) => (
               <li key={r.application_id}>
                 <ApplicationCard
                   application={r}
+                  autoCheck={autoMap[r.application_id] ?? null}
                   confirmation={
                     contactConfirmations[r.application_id] ??
                     EMPTY_CONTACT_CONFIRMATION
@@ -840,6 +873,7 @@ async function readFreeBookingMatches(
 function parseApplicationsTab(raw: string | undefined): {
   statuses: ApplicationStatus[];
   emptyHint: string;
+  autoOnly?: boolean;
 } {
   switch (raw) {
     case 'in_review':
@@ -851,6 +885,14 @@ function parseApplicationsTab(raw: string | undefined): {
       return {
         statuses: ['approved'],
         emptyHint: 'No recently approved applications.',
+      };
+    case 'auto':
+      // Approved applications whose latest automatic check said `verify`
+      // (filtered after the audit read below).
+      return {
+        statuses: ['approved'],
+        emptyHint: 'No shop has been verified automatically yet.',
+        autoOnly: true,
       };
     case 'rejected':
       return {
@@ -890,6 +932,7 @@ function ApplicationsTabs({ current }: { current: string }) {
     { key: 'pending_review', label: 'Pending' },
     { key: 'in_review', label: 'In review' },
     { key: 'approved', label: 'Approved' },
+    { key: 'auto', label: 'Verified automatically' },
     { key: 'rejected', label: 'Rejected' },
     { key: 'demoted', label: 'Demoted' },
     { key: 'all', label: 'All' },
@@ -917,6 +960,7 @@ function ApplicationsTabs({ current }: { current: string }) {
 
 function ApplicationCard({
   application,
+  autoCheck,
   confirmation,
   validateContacts,
   dossierRow,
@@ -924,6 +968,8 @@ function ApplicationCard({
   freeBookingMatch,
 }: {
   application: ApplicationRow;
+  /** The latest automatic check on this application, or null when none ran. */
+  autoCheck: AutoCheckRow | null;
   confirmation: ContactConfirmation;
   validateContacts: VendorValidateContacts;
   dossierRow: DossierRow | null;
@@ -1055,6 +1101,8 @@ function ApplicationCard({
           {application.decision_reason}
         </p>
       ) : null}
+
+      {autoCheck ? <AutoCheckBlock auto={autoCheck} application={application} /> : null}
 
       <CheckResultsBlock checks={checks} />
 
@@ -1745,6 +1793,98 @@ function SlotRead({
         </ul>
       ) : null}
     </div>
+  );
+}
+
+type AutoCheckRow = {
+  decision: 'verify' | 'to_admin';
+  reason: string;
+  at: string;
+  checks: Array<{ key: string; label: string; pass: boolean; detail: string }>;
+};
+
+/** Defensive read of one `vendor_verification_auto_check` row. Malformed → null (never "passed"). */
+function parseAutoCheckRow(metadata: unknown, at: string): AutoCheckRow | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  const m = metadata as Record<string, unknown>;
+  const decision = m.decision === 'verify' ? 'verify' : m.decision === 'to_admin' ? 'to_admin' : null;
+  if (!decision) return null;
+  const checks = Array.isArray(m.checks)
+    ? m.checks
+        .filter((c): c is Record<string, unknown> => Boolean(c) && typeof c === 'object')
+        .map((c) => ({
+          key: String(c.key ?? ''),
+          label: String(c.label ?? ''),
+          pass: c.pass === true,
+          detail: String(c.detail ?? ''),
+        }))
+    : [];
+  return { decision, reason: typeof m.reason === 'string' ? m.reason : '', at, checks };
+}
+
+/**
+ * ✅ WHAT THE AUTOMATIC CHECK DECIDED (approved design "Supplier Verification
+ * Redesign", admin C/D). Verified automatically → "Why it passed · N of 6
+ * checks" and one tap to take the badge off. Waiting → the EXACT failing
+ * reason, first, then every check. Plain words; never the raw JSON.
+ */
+function AutoCheckBlock({ auto, application }: { auto: AutoCheckRow; application: ApplicationRow }) {
+  const passed = auto.checks.filter((c) => c.pass).length;
+  const verified = auto.decision === 'verify';
+  return (
+    <section
+      className={`space-y-2 rounded-md border px-3 py-2.5 text-xs ${
+        verified ? 'border-success-200 bg-success-50' : 'border-warn-300 bg-warn-50'
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold text-ink">
+          {verified ? 'Verified automatically' : 'Waiting for Setnayan'}
+        </span>
+        <span className="text-ink/60">{formatManilaDateTime(auto.at)}</span>
+        {verified && application.status === 'approved' ? (
+          <ConfirmForm
+            action={demoteVendor}
+            title="Take the badge off?"
+            confirmLabel="Take it off"
+            destructive
+            message="Their Verified badge and Pro perks come off. They stay listed and bookable, and they're told why."
+            className="ml-auto"
+          >
+            <input type="hidden" name="vendor_profile_id" value={application.vendor_profile_id} />
+            <input type="hidden" name="application_id" value={application.application_id} />
+            <input type="hidden" name="reason" value="A person at Setnayan looked again at the automatic verification and took the badge off." />
+            <SubmitButton
+              pendingLabel="Taking it off…"
+              className="inline-flex h-9 items-center rounded-full border border-[color:var(--sn-danger)]/45 bg-[var(--sn-danger-soft)] px-3 text-xs font-medium text-[color:var(--sn-danger)]"
+            >
+              Take the badge off
+            </SubmitButton>
+          </ConfirmForm>
+        ) : null}
+      </div>
+      {!verified ? <p className="font-medium text-warn-900">Why it waits: {auto.reason}</p> : null}
+      {auto.checks.length > 0 ? (
+        <>
+          <p className="text-ink/70">
+            {verified ? 'Why it passed' : 'The checks'} · {formatCount(passed)} of {formatCount(auto.checks.length)} checks
+          </p>
+          <ul className="space-y-1">
+            {auto.checks.map((c) => (
+              <li key={c.key} className="flex gap-2">
+                <span aria-hidden className={c.pass ? 'text-success-700' : 'text-warn-700'}>
+                  {c.pass ? '✓' : '✗'}
+                </span>
+                <span>
+                  <span className="font-medium text-ink">{c.label}</span>
+                  <span className="block text-ink/70">{c.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </section>
   );
 }
 

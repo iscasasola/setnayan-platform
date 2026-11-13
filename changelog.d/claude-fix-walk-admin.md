@@ -11,5 +11,7 @@
   storage path, and their upload day is Manila time. A paper we cannot name keeps its path.
 - **F-A-09** The shop's admin page shows Manila dates, and its Payouts empty state no longer says customers pay through
   Setnayan (apply-then-pay: couples pay suppliers directly).
+- **F-A-01** The admin empty state no longer prints "Verified: read permitted · 0 rows" (18+ pages): a plain empty
+  state. The read is still proven before Empty draws (`readPermitted: true` stays in the type).
 
 SPEC IMPACT: None.

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { recapHref } from '../_lib/story-later';
 
 /**
  * GET /[slug]/recap — FOLDED INTO THE STORY (owner 2026-11-13, DECISION_LOG "POST EVENT = A STORY (ONE SCENE PER
@@ -13,5 +14,6 @@ import { redirect } from 'next/navigation';
  */
 export default async function RecapPage({ params }: { params: Promise<{ slug: string }> }): Promise<never> {
   const { slug } = await params;
-  redirect(`/${encodeURIComponent(slug)}`);
+  /* 📖 `?story=later`: before the day the page says the story opens after it (`_lib/story-later.ts`). */
+  redirect(recapHref(slug));
 }

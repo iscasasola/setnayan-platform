@@ -8,11 +8,11 @@ import { usePickedNav } from './picked-client-nav';
  * the same ones the Clients month marks with — never a colour of its own.
  */
 const DOT: Record<DetailsNumber['key'], string> = {
-  paid: 'rgb(var(--sn-accent))',
-  quote: 'rgb(var(--color-ok))',
-  balance: 'rgb(var(--color-warn))',
-  schedules: 'rgb(var(--color-info))',
-  event: 'rgb(var(--color-ok))',
+  paid: 'bg-sn-accent',
+  quote: 'bg-success-600',
+  balance: 'bg-warn-600',
+  schedules: 'bg-info-600',
+  event: 'bg-success-600',
 };
 
 /**
@@ -32,12 +32,12 @@ export function DetailsNumbersRow({ cells }: { cells: DetailsNumber[] }) {
           className="sn-press flex min-h-11 flex-col items-center rounded-xl px-1 py-1.5 text-center"
           data-details-number={c.key}
         >
-          <span className="whitespace-nowrap text-[11px] font-medium text-ink/60">
-            <i aria-hidden className="mr-1 inline-block h-1.5 w-1.5 rounded-full align-[1px]" style={{ background: DOT[c.key] }} />
+          <span className="whitespace-nowrap text-xs font-medium text-ink/70">
+            <i aria-hidden className={`mr-1 inline-block h-1.5 w-1.5 rounded-full align-middle ${DOT[c.key]}`} />
             {c.label}
           </span>
-          <b className="whitespace-nowrap text-[16px] font-bold tabular-nums text-ink">{c.value}</b>
-          <small className="whitespace-nowrap text-[11px] text-ink/55">{c.sub}</small>
+          <b className="whitespace-nowrap text-base font-bold tabular-nums text-ink">{c.value}</b>
+          <small className="whitespace-nowrap text-xs text-ink/70">{c.sub}</small>
         </button>
       ))}
     </div>

@@ -18,6 +18,8 @@ export type CatalogueRow = Readonly<{
   /** `billing_period` (retail) or `offering_type` (supplier), verbatim. */
   period: string | null;
   active: boolean;
+  /** Retail only: the row's `included_papic_credits` (null when none or unread). The Plans compare names it (RW-12). */
+  credits?: number | null;
 }>;
 
 export type ResolvedFeaturePrice =

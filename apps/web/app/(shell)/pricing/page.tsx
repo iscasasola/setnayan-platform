@@ -11,6 +11,7 @@ import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { PASS_CARD_DESIGNS } from '@/lib/pass-card';
 import { PRO_THEMES } from '@/lib/invite-themes';
 import { TOURS } from '@/lib/tours';
+import { formatCount } from '@/lib/format-number';
 import { readOurPrices, papicRungWords } from './_pricing-reads';
 // The client pieces — Event Pro's one dropdown, and the included group's "See all included ↓". Figures arrive formatted.
 import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_pricing-pickers';
@@ -479,7 +480,7 @@ export default async function PricingPage() {
                   {prices.ultra != null ? (
                     <PriceRowShell
                       name="Event Ultra"
-                      tip="Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, Patiktok and more Papic credits. One unlock covers everyone on the event."
+                      tip={`Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, Patiktok and ${prices.planCredits.ultra != null ? `${formatCount(prices.planCredits.ultra)} Papic credits` : 'more Papic credits'}. One unlock covers everyone on the event.`}
                       what="Everything in Pro — and your day shared live and kept."
                       figure={<Figure php={prices.ultra} />}
                     />
@@ -553,7 +554,7 @@ export default async function PricingPage() {
                 <ul className="m-0 list-none p-0">
                   <PriceRowShell
                     name="Event Plus"
-                    tip="Setnayan AI — suggests verified suppliers by fit, then watches your deadlines, budget and dates — with Papic credits for your guests’ cameras. Event Pro includes everything in Event Plus."
+                    tip={`Setnayan AI — suggests verified suppliers by fit, then watches your deadlines, budget and dates — with ${prices.planCredits.plus != null ? `${formatCount(prices.planCredits.plus)} Papic credits` : 'Papic credits'} for your guests’ cameras. Event Pro includes everything in Event Plus.`}
                     what="Setnayan AI and Papic credits, for this event."
                     figure={<Figure php={prices.plus} />}
                   />

@@ -185,7 +185,7 @@ export function SupplierSchedule({
           (the chapters) · Lock my times · Asked of you. A move, not a rewrite — every block is the shipped one. */}
       {/* Seen · Confirm my times — the two things that ask the supplier to act, first. */}
       {marks === null ? (
-        <p className="text-xs text-ink/55">Whether you’ve seen the latest changes couldn’t be checked.</p>
+        <p className="text-xs text-ink/70">Whether you’ve seen the latest changes couldn’t be checked.</p>
       ) : changed && !seenNow ? (
         <div data-schedule-changed="" className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-warn-50 px-3 py-2 text-sm text-warn-900">
           <span>The schedule changed since you last looked.</span>
@@ -213,7 +213,7 @@ export function SupplierSchedule({
         />
         <InfoTip
           label={autoAgree ? 'Auto-agree is on' : 'Your changes wait for the host'}
-          labelClassName="text-xs text-ink/60"
+          labelClassName="text-xs text-ink/70"
           align="end"
         >
           {whereItGoesWords(autoAgree)} Other people’s moments are theirs: you can suggest a change to one in words.
@@ -255,9 +255,9 @@ export function SupplierSchedule({
       ) : null}
 
       {day.chapters.length === 0 ? (
-        <p className="text-sm text-ink/60">The hosts haven’t made their chapters yet. Your part shows here once they do.</p>
+        <p className="text-sm text-ink/70">The hosts haven’t made their chapters yet. Your part shows here once they do.</p>
       ) : shown.length === 0 ? (
-        <p className="text-sm text-ink/60">
+        <p className="text-sm text-ink/70">
           The host hasn’t linked you to a chapter yet. Once they do, you can add your moments and times there.
         </p>
       ) : (
@@ -266,7 +266,7 @@ export function SupplierSchedule({
             <li key={c.block_id} data-supplier-chapter={c.block_id} className={c.linked ? '' : 'opacity-60'}>
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <h3 className="text-base font-semibold">{c.label}</h3>
-                <span className="text-xs text-ink/60">
+                <span className="text-xs text-ink/70">
                   {chapterWhen({ start_at: c.start_at ?? '', end_at: c.end_at, time_tba: c.time_tba })} · {c.where}
                 </span>
               </div>
@@ -293,7 +293,7 @@ export function SupplierSchedule({
               ) : null}
               <ul className="mt-1 divide-y divide-ink/10">
                 {c.moments.length === 0 && c.waitingAdds.length === 0 ? (
-                  <li className="py-2 text-xs text-ink/55">No moments yet.</li>
+                  <li className="py-2 text-xs text-ink/70">No moments yet.</li>
                 ) : null}
                 {c.moments.map((m) => (
                   <li key={m.block_id}>
@@ -348,7 +348,7 @@ export function SupplierSchedule({
         </p>
       ) : asked.filter((a) => !answeredNow.includes(a.suggestion_id)).length > 0 ? (
         <section data-asked-of-you="" aria-label="Asked of you">
-          <InfoTip label="Asked of you" labelAs="h3" labelClassName="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55" align="start">
+          <InfoTip label="Asked of you" labelAs="h3" labelClassName="font-mono text-xs uppercase tracking-[0.2em] text-ink/70" align="start">
             The hosts or their coordinator ask you to change your times. Accept moves the moment on their schedule at
             once; Decline tells them, with your reason.
           </InfoTip>
@@ -382,7 +382,7 @@ export function SupplierSchedule({
 
       {day.otherWaiting.length > 0 ? (
         <section aria-label="Also waiting for the host">
-          <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Also waiting</h3>
+          <h3 className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">Also waiting</h3>
           <ul className="mt-1 divide-y divide-ink/10">
             {day.otherWaiting.map((r) => (
               <WaitingRow
@@ -399,11 +399,11 @@ export function SupplierSchedule({
 
       {answered.length > 0 ? (
         <section aria-label="Your answered requests">
-          <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Answered</h3>
+          <h3 className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">Answered</h3>
           <ul className="mt-1 space-y-1">
             {answered.map((r) => (
               <li key={r.suggestion_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
-                <span className={r.status === 'accepted' || r.status === 'answered_by_host' ? 'font-semibold text-success-900' : 'text-ink/55'}>
+                <span className={r.status === 'accepted' || r.status === 'answered_by_host' ? 'font-semibold text-success-900' : 'text-ink/70'}>
                   {r.status === 'accepted'
                     ? r.auto_agreed
                       ? 'In (Auto-agree)'
@@ -491,16 +491,16 @@ function MomentLine({ m, tasksRead, clashes }: { m: SupplierMoment; tasksRead: b
       <span className="w-16 flex-none pt-0.5 text-[13px] tabular-nums text-ink/70">{m.clock}</span>
       <span className="min-w-0 flex-1 text-sm">
         <span className="font-medium">{m.label}</span>
-        {m.mine ? <span className="ml-1.5 text-xs font-semibold text-terracotta-700">yours</span> : null}
-        {m.optional ? <span className="ml-1.5 text-xs text-ink/55">if kept</span> : null}
+        {m.mine ? <span className="ml-1.5 text-[13px] font-semibold text-terracotta-700">yours</span> : null}
+        {m.optional ? <span className="ml-1.5 text-xs text-ink/70">if kept</span> : null}
         {/* 🎭 Setup and pack-up are backstage (2026-11-04): the supplier sees them; guests never do. */}
         {m.section !== 'Event' ? (
-          <span data-backstage-moment="" className="block text-[11px] uppercase tracking-[0.06em] text-gold-deep">
+          <span data-backstage-moment="" className="block text-xs uppercase tracking-[0.06em] text-gold-deep">
             {m.section} · {BACKSTAGE_WORDS}
           </span>
         ) : null}
-        {m.mine && m.crew.length > 0 ? <span className="block text-xs text-ink/60">{m.crew.join(', ')}</span> : null}
-        {m.mine && !tasksRead ? <span className="block text-xs text-ink/50">Your crew on it couldn’t be read.</span> : null}
+        {m.mine && m.crew.length > 0 ? <span className="block text-xs text-ink/70">{m.crew.join(', ')}</span> : null}
+        {m.mine && !tasksRead ? <span className="block text-xs text-ink/70">Your crew on it couldn’t be read.</span> : null}
         {clashes.map((c) => (
           <span key={`${c.crew}|${c.eventName}|${c.theirStartIso}`} data-crew-clash={c.kind} className="block text-xs font-medium text-warn-900">
             {c.words}
@@ -550,7 +550,7 @@ function AskedRow({
       {whereNames !== null ? (
         <p className="text-sm" data-asked-where="">
           <span className="font-medium">{askerWords(a)}</span> asks you to work <span className="font-semibold">{whereNames}</span>.
-          <span className="block text-xs text-ink/60">Now: {whereNow}. Accept makes it exactly these chapters.</span>
+          <span className="block text-xs text-ink/70">Now: {whereNow}. Accept makes it exactly these chapters.</span>
         </p>
       ) : (
       <p className="text-sm">
@@ -559,7 +559,7 @@ function AskedRow({
           <>
             {' '}
             to <span className="font-semibold tabular-nums">{clockWords(a.proposed_start_at)}</span>
-            {a.proposed_end_at ? <span className="text-ink/60"> – {clockWords(a.proposed_end_at)}</span> : null}
+            {a.proposed_end_at ? <span className="text-ink/70"> – {clockWords(a.proposed_end_at)}</span> : null}
           </>
         ) : null}
         .
@@ -730,7 +730,7 @@ function SupplierWhereRow({
 function WaitingRow({ r, label, busy, onTakeBack }: { r: SupplierRequestRow; label: string | null; busy: boolean; onTakeBack: () => void }) {
   return (
     <li data-waiting={r.suggestion_id} className="flex min-h-11 items-center gap-3 px-3 py-2">
-      <span className="w-16 flex-none text-[13px] tabular-nums text-ink/60">{r.proposed_start_at ? clockWords(r.proposed_start_at) : ''}</span>
+      <span className="w-16 flex-none text-[13px] tabular-nums text-ink/70">{r.proposed_start_at ? clockWords(r.proposed_start_at) : ''}</span>
       <span className="min-w-0 flex-1 text-sm">
         {waitingWords(r, label)}
         <span className="block text-xs text-warn-900">Waiting for the host</span>
@@ -847,7 +847,7 @@ function MyMomentSheet({
         <h3 id={headingId} className="sr-only">
           {moment ? moment.label : `New moment in ${chapter.label}`}
         </h3>
-        <p className="text-[13px] text-ink/60">{whereItGoesWords(autoAgree)}</p>
+        <p className="text-[13px] text-ink/70">{whereItGoesWords(autoAgree)}</p>
         {stage === 'ask-delete' ? (
           <>
             <p className="text-sm">
@@ -1000,11 +1000,11 @@ function MyTimesSheet({
         <h3 id={headingId} className="sr-only">
           My times
         </h3>
-        <p className="text-[13px] text-ink/60">{whereItGoesWords(autoAgree)}</p>
+        <p className="text-[13px] text-ink/70">{whereItGoesWords(autoAgree)}</p>
         {chapters.map((c) => (
           <div key={c.block_id} data-times-chapter={c.block_id}>
             <p className="text-sm font-semibold">
-              {c.label} <span className="font-normal text-ink/60">· {c.where}</span>
+              {c.label} <span className="font-normal text-ink/70">· {c.where}</span>
             </p>
             <FormRows width="short">
               <TimeRow name="Arrive" value={times[c.block_id]?.arrive ?? ''} clearable onKeep={(t) => (put(c.block_id, 'arrive', t), { ok: true })} data="times-arrive" />
@@ -1086,7 +1086,7 @@ function VenueHoursSheet({
         <h3 id={headingId} className="sr-only">
           {c.label} hours
         </h3>
-        <p className="text-[13px] text-ink/60">
+        <p className="text-[13px] text-ink/70">
           You are the venue, so you set this chapter’s hours and its setup and pack-up. {whereItGoesWords(autoAgree)}
         </p>
         <FormRows width="short">
@@ -1158,7 +1158,7 @@ function SuggestSheet({
         <h3 id={headingId} className="sr-only">
           Suggest a change
         </h3>
-        <p className="text-[13px] text-ink/60">It’s someone else’s moment, so you ask in words. The host decides.</p>
+        <p className="text-[13px] text-ink/70">It’s someone else’s moment, so you ask in words. The host decides.</p>
         <FormRows width="wide">
           <ChosenRow name="Moment" value={blockId} options={options} onPick={setBlockId} data="suggest-moment" />
           <TypedRow

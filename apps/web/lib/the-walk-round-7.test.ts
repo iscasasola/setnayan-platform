@@ -33,3 +33,30 @@ test('RW-65 · plain words for the simple preset; the Get-together tile says sup
   assert.match(sql, /SET description = '[\s\S]*?No suppliers to book\.'/);
   assert.match(sql, /AND description = '[\s\S]*?No vendors, no marketplace\.'/, 'only the seed text is replaced — an admin edit stays');
 });
+
+test('RW-87 · before the event day the run of show says when it starts, never "Not started yet"', () => {
+  const h = code('app/_components/run-of-show-header.tsx');
+  assert.match(h, /startsOnWords \? `Starts on \$\{startsOnWords\}\.` : 'Not started yet\.'/, 'the card');
+  assert.match(h, /startsOnWords \? `Starts on \$\{startsOnWords\}` : 'Not started yet'/, 'the strip');
+  assert.match(
+    code('app/vendor-dashboard/clients/[eventId]/page.tsx'),
+    /props\.brief\.event\.event_date\.slice\(0, 10\) > manilaToday\(\)\s*\?\s*hubDayWords\(props\.brief\.event\.event_date\)/,
+  );
+});
+
+test('RW-89 · a booked row offers no "Your request"; the category name keeps its width', () => {
+  const s = code('app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx');
+  assert.match(s, /\{savedCanonical && rowState\?\.kind !== 'booked' \? \(/);
+  assert.match(s, /\.slcat \.fold\.flat \.cat-nm\{[^}]*overflow-wrap:break-word;flex:1 1 auto;min-width:6ch\}/);
+  assert.doesNotMatch(s, /\.slcat \.fold\.flat \.cat-nm\{[^}]*overflow-wrap:anywhere/, 'anywhere lets the name shrink to one letter');
+});
+
+test('RW-84 · Today\'s Booked stat says it counts events dated this month', () => {
+  assert.match(code('app/vendor-dashboard/_components/today-stats.tsx'), /line: s\.booked === null \? UNREAD : 'events this month'/);
+});
+
+test('RW-67 · a service card says its daily limit once — the shared schedule\'s, when it shares one', () => {
+  const c = code('app/vendor-dashboard/services/_components/canvas-maker.tsx');
+  assert.match(c, /const scheduleLine = sharedSchedule \? `Shares \$\{sharedSchedule\.name\}` : 'Its own';/);
+  assert.match(c, /that is the number that holds\./);
+});

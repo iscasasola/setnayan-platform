@@ -383,7 +383,7 @@ const SLCAT_CSS = `
 .slcat .fold.flat .cat:not(.open)>.cat-collapse>.cat-body{padding-top:0;padding-bottom:0}
 .slcat .fold.flat .cat-l{gap:12px}
 .slcat .fold.flat .cat-ic{width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--m-r-full);background:rgba(169,131,75,.13)}
-.slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;flex:1 1 auto;min-width:6ch}
 .slcat .cat-yours{font-weight:400;font-size:15px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st{font-size:13px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st.ok{color:rgb(var(--color-ok))}
@@ -4694,7 +4694,9 @@ export function ShortlistCategories({
                         <Explain title={t.label} label={categoryHintButtonLabel(t.label)} data="category-hint" className="cat-info">
                           {t.hint}
                         </Explain>
-                        {savedCanonical ? (
+                        {/* RW-89 (walk 13 Nov 2026): the saved search request is for FINDING a supplier — a booked row has
+                            found one, so it no longer offers "Your request" beside "Booked ✓". */}
+                        {savedCanonical && rowState?.kind !== 'booked' ? (
                           <ActionButton
                             tone="neutral"
                             quiet

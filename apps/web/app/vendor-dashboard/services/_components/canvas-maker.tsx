@@ -789,9 +789,9 @@ export function CanvasMaker({
     ...schedules.map((s) => ({ key: s.id, label: `${s.name} schedule` })),
   ];
   const sharedSchedule = schedules.find((s) => s.id === scheduleChoice) ?? null;
-  const scheduleLine = sharedSchedule
-    ? `Shares ${sharedSchedule.name}${sharedSchedule.perDay ? ` · ${formatCount(sharedSchedule.perDay)} a day` : ''}`
-    : 'Its own';
+  // RW-67 (walk 13 Nov 2026): the schedule's own "N a day" is said ONCE — on the daily field below, as the number that
+  // holds — not here as a third number beside the card's limit and the plan's.
+  const scheduleLine = sharedSchedule ? `Shares ${sharedSchedule.name}` : 'Its own';
 
   // ── 🏷 the one question ───────────────────────────────────────────────────
   const ask = !isEdit && category ? (coverageAsk[category] ?? null) : null;
@@ -1465,9 +1465,13 @@ export function CanvasMaker({
                         help={
                           (editing?.slots.length ?? 0) > 0
                             ? 'Time slots below set how many at once instead.'
-                            : bookingsPerDate?.help
-                              ? `Blank = up to your plan's number. ${bookingsPerDate.help}`
-                              : 'Blank = the schedule decides.'
+                            : /* RW-67: ONE answer. A shared schedule's own number is what holds (a booking takes a
+                                 place on the schedule), so it is the one said — never three numbers side by side. */
+                              sharedSchedule?.perDay
+                              ? `It shares the ${sharedSchedule.name} schedule, which takes ${formatCount(sharedSchedule.perDay)} ${sharedSchedule.perDay === 1 ? 'event' : 'events'} a day — that is the number that holds.`
+                              : bookingsPerDate?.help
+                                ? `Blank = up to your plan's number. ${bookingsPerDate.help}`
+                                : 'Blank = the schedule decides.'
                         }
                       >
                         <input

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { hubDayWords } from '@/lib/hub-events';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -3666,6 +3667,12 @@ function ScheduleTab(props: {
               initial={runOfShowBlocks}
               canAdvance={canAdvance}
               compact
+              // RW-87: before the event's day the Now box says when it starts, never "Not started yet".
+              startsOnWords={
+                props.brief.event.event_date && props.brief.event.event_date.slice(0, 10) > manilaToday()
+                  ? hubDayWords(props.brief.event.event_date)
+                  : null
+              }
             />
           </div>
         ) : null}

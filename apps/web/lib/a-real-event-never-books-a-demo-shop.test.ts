@@ -112,3 +112,18 @@ test('the retired Dec-1 demo deadline is gone, and the cross-booking audit repla
   assert.equal(pkg.scripts['check:no-demo-in-prod'], undefined);
   assert.equal(pkg.scripts['check:no-demo-cross-booking'], 'node scripts/check-no-demo-cross-booking.mjs');
 });
+
+test('a demo-rule refusal on a chat quote reaches the supplier as its own sentence, not "please try again"', () => {
+  // 13 Nov 2026: a demo shop quoting a real event was told "Couldn't send that quote. Please try again." — the gate's
+  // sentence was returned as code 'failed' and the action dropped it. A retry can never pass this rule.
+  const core = read('lib/proposal-send.ts');
+  assert.match(bodyOf(core, 'gateVendorProposalThread'), /code: 'demo_scope', message: demoRefusal/);
+  assert.match(core, /demoRefusalFromDbError\(insErr\)/, 'the trigger backstop no longer maps to its own sentence');
+  const action = read('app/vendor-dashboard/messages/[threadId]/proposal-actions.ts');
+  assert.match(action, /'proposal_demo_event'/);
+  assert.match(action, /'proposal_demo_shop'/);
+  assert.doesNotMatch(action, /notice=\$\{NOTICE_BY_CODE\[result\.code\]\}/, 'a sender skips refusalNotice');
+  const page = read('app/vendor-dashboard/messages/[threadId]/page.tsx');
+  assert.match(page, /proposal_demo_shop:/);
+  assert.match(page, /proposal_demo_event:/);
+});

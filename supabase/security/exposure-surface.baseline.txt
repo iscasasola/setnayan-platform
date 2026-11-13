@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7776
+# facts: 7784
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     632
-#   col       5601
-#   policy    1136
+#   tpriv     633
+#   col       5605
+#   policy    1139
 #   view      10
 #   func      393
 #
@@ -607,6 +607,7 @@ tpriv	public.vendor_service_addons|authenticated	SIUD
 tpriv	public.vendor_service_agents|authenticated	SIUD
 tpriv	public.vendor_service_attributes|anon	SIUD
 tpriv	public.vendor_service_attributes|authenticated	SIUD
+tpriv	public.vendor_service_card_hides|authenticated	SD
 tpriv	public.vendor_service_discounts|anon	SIUD
 tpriv	public.vendor_service_discounts|authenticated	SIUD
 tpriv	public.vendor_service_halls|authenticated	SIUD
@@ -5901,6 +5902,10 @@ col	public.vendor_service_attributes.meets_visibility_minimum	anon=SIU authentic
 col	public.vendor_service_attributes.schema_version_at_fill	anon=SIU authenticated=SIU
 col	public.vendor_service_attributes.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_service_attributes.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_service_card_hides.hidden_at	anon=- authenticated=S
+col	public.vendor_service_card_hides.item_key	anon=- authenticated=SI
+col	public.vendor_service_card_hides.item_kind	anon=- authenticated=SI
+col	public.vendor_service_card_hides.vendor_service_id	anon=- authenticated=SI
 col	public.vendor_service_discounts.conditions_md	anon=SIU authenticated=SIU
 col	public.vendor_service_discounts.created_at	anon=SIU authenticated=SIU
 col	public.vendor_service_discounts.discount_type	anon=SIU authenticated=SIU
@@ -7330,6 +7335,9 @@ policy	public.vendor_service_attributes|vendor_attrs_admin_all	mode=PERMISSIVE c
 policy	public.vendor_service_attributes|vendor_attrs_owner_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_service_attributes.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) check=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_service_attributes.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid)))))
 policy	public.vendor_service_attributes|vendor_attrs_public_read_visible	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((meets_visibility_minimum = true) OR ( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_service_attributes.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid)))))) check=NULL
 policy	public.vendor_service_attributes|vendor_service_attributes_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.vendor_service_card_hides|vendor_service_card_hides_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(vendor_service_id IN ( SELECT s.vendor_service_id FROM vendor_services s WHERE (s.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) check=NULL
+policy	public.vendor_service_card_hides|vendor_service_card_hides_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(vendor_service_id IN ( SELECT s.vendor_service_id FROM vendor_services s WHERE (s.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))))
+policy	public.vendor_service_card_hides|vendor_service_card_hides_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_service_id IN ( SELECT s.vendor_service_id FROM vendor_services s WHERE (s.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_service_discounts|vendor_service_discounts_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=( SELECT is_console_admin() AS is_console_admin) check=( SELECT is_console_admin() AS is_console_admin)
 policy	public.vendor_service_discounts|vendor_service_discounts_public_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.is_published = true))) AND (vendor_service_id IN ( SELECT vendor_services.vendor_service_id FROM vendor_services WHERE (vendor_services.is_active = true)))) check=NULL
 policy	public.vendor_service_discounts|vendor_service_discounts_vendor_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))

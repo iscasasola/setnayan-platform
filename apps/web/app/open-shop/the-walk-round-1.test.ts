@@ -89,3 +89,17 @@ test('F-W1-07 / F-W1-08 / F-W1-12 · the map hint clears the credit; the logo sc
   assert.match(WIZARD, /'Your shop’s email, then open your shop\.'/);
   assert.match(WIZARD, /books you through Setnayan\."/);
 });
+
+test('F-W1-02 · the typed name wins — an account’s name never overwrites what the supplier typed (owner 13 Nov 2026)', async () => {
+  const { shopOwnerNameOf } = await import('@/lib/open-shop-account');
+  assert.equal(shopOwnerNameOf('Ana Reyes', 'Ana Marie Reyes-Cruz'), 'Ana Reyes', 'the typed name wins');
+  assert.equal(shopOwnerNameOf('', 'Ana Marie Reyes-Cruz'), 'Ana Marie Reyes-Cruz', 'the account name only fills a blank');
+  assert.equal(shopOwnerNameOf('  ', null), null);
+  const action = stripComments(readFileSync(join(import.meta.dirname, 'actions.ts'), 'utf8'));
+  assert.match(action, /const contactName = shopOwnerNameOf\(typedName, accountName\);/);
+  assert.doesNotMatch(action, /accountName \?\? typedName/);
+  const wiz = stripComments(readFileSync(join(import.meta.dirname, '_components/open-shop-wizard.tsx'), 'utf8'));
+  const box = wiz.slice(wiz.indexOf('id="open-shop-contact_name"'), wiz.indexOf('{fieldError(\'contact_name\')}'));
+  assert.doesNotMatch(box, /readOnly/, 'the name box is locked to the account name again');
+  assert.match(wiz, /if \(accountName && box && !box\.value\.trim\(\)\)/, 'an account change fills the name only when it is empty');
+});

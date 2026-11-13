@@ -127,3 +127,18 @@ export function accountEmailAtSubmit(input: {
   const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
   return same(posted, prefilled) && !same(prefilled, sessionEmail) ? sessionEmail.trim().toLowerCase() : posted;
 }
+
+/**
+ * 🪪 THE TYPED NAME WINS (owner 13 Nov 2026, the open question on #7613 / walk F-W1-02). When the name a supplier typed
+ * on "About you" differs from the name on the Google, Apple or other account they open the shop with, the TYPED name is
+ * the shop owner's name — the account's name never overwrites it. The account name is only a fallback when nothing was
+ * typed. (This reverses the 2026-08-10 "the account name wins, read-only" lock.)
+ *
+ * 🔒 app/open-shop/the-walk-round-1.test.ts
+ */
+export function shopOwnerNameOf(typed: string | null | undefined, account: string | null | undefined): string | null {
+  const t = (typed ?? '').trim();
+  if (t) return t;
+  const a = (account ?? '').trim();
+  return a || null;
+}

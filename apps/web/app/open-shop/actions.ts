@@ -55,6 +55,7 @@ import {
   decideOpenShopAccount,
   OPEN_SHOP_ACCOUNT_ERRORS,
   PREFILLED_ACCOUNT_EMAIL_FIELD,
+  shopOwnerNameOf,
 } from '@/lib/open-shop-account';
 import { createVendorAccountForShop } from '@/lib/open-shop-account.server';
 import { captchaTokenFromForm } from '@/lib/turnstile';
@@ -185,7 +186,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // shown everywhere else.
   const typedName = titleCasePersonName(clean(formData.get('contact_name')) ?? '') || null;
   //
-  // ── THE VENDOR'S NAME IS THEIR ACCOUNT NAME (owner-locked 2026-08-10) ──────
+  // ── 🪪 THE TYPED NAME WINS (owner 13 Nov 2026 — supersedes the 2026-08-10 lock below) ──
+  // "When the name a supplier typed on About you differs from the name on the account they open the shop with,
+  // keep the typed name, and never let the account name overwrite it." `shopOwnerNameOf` decides it; the account
+  // name is read only as the fallback when nothing was typed. The history of the old lock is kept below.
+  //
+  // ── (SUPERSEDED) THE VENDOR'S NAME IS THEIR ACCOUNT NAME (owner-locked 2026-08-10) ──────
   // "vendor's name is their account name. so it should not be editable."
   //
   // 🔑 THE READ-ONLY BOX ON SCREEN WAS NEVER ENOUGH, AND HAD NEVER ONCE
@@ -211,7 +217,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       ((data as { display_name?: string | null } | null)?.display_name ?? '').trim(),
     ) || null;
   })();
-  const contactName = accountName ?? typedName;
+  const contactName = shopOwnerNameOf(typedName, accountName);
   const contactPosition = clean(formData.get('contact_position'), 64);
   const contactPhoneRaw = clean(formData.get('contact_phone'), 32);
   // ── THE NUMBER MUST BELONG TO WHERE THE SHOP IS (owner 2026-08-10) ────────

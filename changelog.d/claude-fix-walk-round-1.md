@@ -30,3 +30,13 @@ many a day", under the six) is removed — the checklist stays "N of 6" — and 
 events a day can this service take?", on the card's existing `vendor_services.daily_capacity` (no new column).
 
 SPEC IMPACT: None (the ruling is already in DECISION_LOG d8ec0922).
+
+## 2026-11-13 · fix(open-shop): the typed name wins over the account's name (F-W1-02, owner ruling)
+
+Owner, 13 Nov 2026: when the name a supplier typed on "About you" differs from the name on the Google, Apple or other
+account they open the shop with, keep the typed name — the account name never overwrites it. `shopOwnerNameOf`
+(`lib/open-shop-account.ts`) decides it; the server writes `business_owner_name` from it, and the wizard's name box is
+always editable (the account name only fills an EMPTY box after a sign-in). This supersedes the 2026-08-10 "account name
+wins, read-only" lock.
+
+SPEC IMPACT: The 2026-08-10 lock is superseded by the owner's 13 Nov ruling (already recorded by the controller).

@@ -53,7 +53,7 @@ import { OAUTH_VERB } from '@/lib/oauth-words';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
-import { OPEN_SHOP_ACCOUNT_ERRORS, OPEN_SHOP_PASSWORD_MIN, PREFILLED_ACCOUNT_EMAIL_FIELD } from '@/lib/open-shop-account';
+import { OPEN_SHOP_ACCOUNT_ERRORS, OPEN_SHOP_PASSWORD_MIN, PREFILLED_ACCOUNT_EMAIL_FIELD, shopOwnerNameOf } from '@/lib/open-shop-account';
 import {
   OPEN_SHOP_DRAFT_KEY,
   parseOpenShopDraft,
@@ -332,14 +332,20 @@ export function OpenShopWizard({
   const [confirmedCity, setConfirmedCity] = useState<string | null>(null);
   /** "Is this your address?" is waiting for an answer — at ≥768 the right column becomes that pane. */
   const [pinPending, setPinPending] = useState(false);
-  const [who, setWho] = useState(titleCasePersonName(accountName ?? defaults.contactName));
+  // 🪪 The typed name wins (owner 13 Nov 2026): a saved/typed name first, the account's only when nothing was typed.
+  const [who, setWho] = useState(titleCasePersonName(shopOwnerNameOf(defaults.contactName, accountName) ?? ''));
   // F-W1-13: a different account → "Contact" in the glance follows it (the box itself is remounted by `accountKey`).
   const seenAccount = useRef(accountKey);
   useEffect(() => {
     if (seenAccount.current === accountKey) return;
     seenAccount.current = accountKey;
-    // A named account's name replaces the box; an account with none keeps what was typed (the box is not remounted).
-    if (accountName) setWho(titleCasePersonName(accountName));
+    // 🪪 The typed name wins (owner 13 Nov 2026): a new account's name fills the box ONLY when nothing was typed — it
+    // never overwrites a name the supplier wrote.
+    const box = formRef.current?.elements.namedItem('contact_name') as HTMLInputElement | null;
+    if (accountName && box && !box.value.trim()) {
+      box.value = titleCasePersonName(accountName);
+      setWho(box.value);
+    }
     setTakenEmail(defaults.contactEmail);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only an account change resets these
   }, [accountKey]);
@@ -697,7 +703,7 @@ export function OpenShopWizard({
     if (d.email) setTakenEmail(d.email);
     if (d.name) {
       write('contact_name', d.name);
-      if (!accountName) setWho(d.name);
+      setWho(d.name);
     }
     if (d.address) setRestoredAddress(d.address);
     // Parked at submit: the server's `?step=` already names the step that owns the refusal — keep it. The address it
@@ -1268,33 +1274,25 @@ export function OpenShopWizard({
                   Your name
                 </span>
                 <input
-                  key={accountName ? `name-${accountKey}` : 'name-typed'}
                   id="open-shop-contact_name"
                   name="contact_name"
-                  // Owner 2026-08-10: "your name (automatic from their account)". READONLY, not disabled — a
-                  // disabled input submits NOTHING. Falls back to editable when the account has no name.
-                  readOnly={!!accountName}
+                  // 🪪 Always editable (owner 13 Nov 2026, "the typed name wins" — superseding 2026-08-10's read-only
+                  // account name). The account's name only fills an empty box; it never replaces what was typed.
                   // Capitalised on BLUR, not per keystroke: rewriting the box mid-word fights the typist.
                   onBlur={(e) => {
                     e.currentTarget.value = titleCasePersonName(e.currentTarget.value);
                     setWho(e.currentTarget.value);
                   }}
                   onInput={(e) => setWho(e.currentTarget.value)}
-                  defaultValue={titleCasePersonName(accountName ?? defaults.contactName)}
+                  defaultValue={titleCasePersonName(shopOwnerNameOf(defaults.contactName, accountName) ?? '')}
                   maxLength={128}
                   placeholder="Your full name"
                   autoComplete="name"
                   className="input-field"
-                  style={accountName ? { background: 'var(--m-paper-2)', color: 'var(--m-slate)' } : undefined}
                   aria-invalid={errorFor('contact_name') ? true : undefined}
                   aria-describedby={describedBy('contact_name')}
                 />
                 {fieldError('contact_name')}
-                {accountName ? (
-                  <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                    From your account.
-                  </span>
-                ) : null}
               </label>
 
               <div className="block max-w-[620px] space-y-1">

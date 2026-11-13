@@ -195,11 +195,15 @@ export default async function AdminBookingFeesPage() {
   // 🚪 The bookings switch, read fresh (not remembered) so this page shows what was just saved.
   const { data: switchRow, error: switchErr } = await admin
     .from('platform_settings')
-    .select('bookings_open')
+    .select('bookings_open, booking_fee_minting_live')
     .eq('id', 1)
     .maybeSingle();
   if (switchErr) logQueryError('admin/booking-fees.bookings_open', switchErr);
   const bookingsOpen = switchErr ? null : bookingsOpenFromSetting((switchRow as { bookings_open?: unknown } | null)?.bookings_open);
+  /* 💸 F-A-23 (admin walk 13 Nov 2026): the empty state said fees start "once the booking fee is switched on" while
+     `platform_settings.booking_fee_minting_live` was already true. It reads the real setting now; null = unread. */
+  const mintingRaw = (switchRow as { booking_fee_minting_live?: unknown } | null)?.booking_fee_minting_live;
+  const feesMinting: boolean | null = switchErr ? null : mintingRaw === true ? true : mintingRaw === false ? false : null;
 
   const owedTotal = charges.reduce((s, c) => s + num(c.amount_charged_centavos), 0);
   const withProof = charges.filter(
@@ -292,10 +296,12 @@ export default async function AdminBookingFeesPage() {
             strokeWidth={1.75}
             style={{ color: 'var(--sn-ink-500)' }}
           />
-          <p className="text-sm text-[color:var(--sn-ink-500)]">
-            Nobody owes a booking fee right now. Note that fees are only charged once the
-            booking fee is switched on — until then this page stays empty even when
-            bookings are being locked.
+          <p className="text-sm text-[color:var(--sn-ink-500)]" data-fees-minting={String(feesMinting)}>
+            {feesMinting === true
+              ? 'Nobody owes a booking fee right now. The booking fee is on, so a booking that owes one shows here as soon as it is locked.'
+              : feesMinting === false
+                ? 'Nobody owes a booking fee right now. The booking fee is off, so this page stays empty even when bookings are being locked.'
+                : 'Nobody owes a booking fee right now. Whether the booking fee is on could not be read just now.'}
           </p>
         </div>
       ) : null}

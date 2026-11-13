@@ -5,5 +5,7 @@
   order in its real kind; a paid fee charge already carried by a paid order is not counted twice. The total is unchanged.
 - **F-A-18** `/admin/insights` now opens Insights' first view, Overview (it landed on Intelligence).
 - **F-A-19** `/admin/vendors/verification` (a soft 404 — read as a shop id) redirects to `/admin/verify`.
+- **F-A-23** The booking-fees empty state read "once the booking fee is switched on" while
+  `platform_settings.booking_fee_minting_live` was true. It now reads that setting: on · off · or "could not be read".
 
 SPEC IMPACT: None.

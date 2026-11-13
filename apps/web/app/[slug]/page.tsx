@@ -185,6 +185,7 @@ import { PrivateLanding } from './_components/private-landing';
 // retained PublicLanding/InvitationSite pair (the duplicated 3-way body)
 // dissolved into it. See _components/site-body.tsx.
 import { SiteBody } from './_components/site-body';
+import { STORY_LATER } from './_lib/story-later';
 import { DiscoverArrivalBack } from './_components/discover-arrival-back';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { startAhead } from '@/lib/start-ahead';
@@ -215,6 +216,8 @@ type Props = {
     /** 🔁 The redeem's 30-minute re-entry code (`REENTRY_PARAM`) — `invitationReentryHref`. */
     k?: string;
     invite_error?: string;
+    /** 📖 `?story=later` — sent by `/{slug}/recap` (the live walk after #7596): the story was asked for; SiteBody says when it opens. */
+    story?: string;
     phase?: string;
     // Unified Website Editor (PR-1) — `?editor=1` mounts the click-to-edit
     // bridge INSIDE the editor's preview iframe. Host-gated exactly like
@@ -1792,6 +1795,7 @@ async function invitationBody({
     bespokeSvg,
     dayOfPhase,
     hostCameraOpen,
+    storyAsked: search.story === STORY_LATER,
     phasesEnabled,
     lifecyclePhase,
     replyWindow: repliesNow,

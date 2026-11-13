@@ -590,7 +590,7 @@ export type ProfileRow = {
   event_class: string | null;
   layer_mode: string | null;
   multi_day: boolean | null;
-  max_days: number | null;
+  max_days?: number | null;
   onboarding_flow_key: string | null;
   role_set_key: string | null;
   template_pack_key: string | null;

@@ -4,6 +4,7 @@ import { chatAttachmentPolicy } from '@/lib/r2-client-ref';
 import { presignClientRef } from '@/lib/r2-client-ref.server';
 import { cleanupDelete } from '@/lib/cleanup-delete';
 import { chatOwnFileScope } from '@/lib/cleanup-delete-scope';
+import { refusalFromError } from '@/lib/chat-file-removal';
 
 /**
  * THE ONLY WAY TO READ A FILE SHARED IN A CONVERSATION.
@@ -42,6 +43,21 @@ export async function GET(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return new NextResponse('Not found', { status: 404 });
+
+  // 👈 `?removal=options` — what the swipe's sheet may offer on YOUR file (2026-11-13): is it part of the booking, and
+  // how long ago was it sent by the SERVER's clock. The database answers for the sender only (`chat_file_removal_options`).
+  if (new URL(_req.url).searchParams.get('removal') === 'options') {
+    const { data, error } = await supabase.rpc('chat_file_removal_options', { p_message_id: messageId });
+    const opt = (Array.isArray(data) ? data[0] : data) as { is_booking: boolean; sent_seconds_ago: number } | undefined;
+    if (error || !opt) {
+      console.error('[chat-attachment] removal options refused', { messageId, error: error?.message ?? 'no row' });
+      return new NextResponse('Not found', { status: 404 });
+    }
+    return NextResponse.json(
+      { booking: opt.is_booking, sentSecondsAgo: opt.sent_seconds_ago },
+      { headers: { 'Cache-Control': 'private, no-store' } },
+    );
+  }
 
   // RLS decides. A caller who is not a party to this thread reads zero rows and
   // is answered exactly as if the message did not exist.
@@ -95,44 +111,60 @@ export async function GET(
 }
 
 /**
- * 👈 REMOVE YOUR OWN FILE FROM THE CHAT (ruling 6076; owner 12 Nov 2026: "delete it outright").
+ * 👈 REMOVE YOUR OWN FILE FROM THE CHAT (DECISION_LOG 2026-11-13 "CHAT FILE: UNDO RING…" + "CHAT FILE UNDO DRAWING
+ * APPROVED"). `?mode=undo` is the ↺ ring (10 s), `?mode=everyone` the swipe's red choice (5 min), `?mode=me` hides it
+ * for you only.
  *
- * The swipe on your own file bubble calls this after its Undo window. A route method, not a server action: the
- * server-action budget is at its ceiling, and this route already owns "a file in a conversation". The DATABASE
- * decides (`remove_my_chat_file`, migration 20271341904583 — the caller's own session, so `auth.uid()` is theirs):
- * only the sender, only a message that carries a file, only while they can still read the chat. Anything else is
- * answered 404, exactly like a message that does not exist.
+ * A route method, not a server action: the server-action budget is at its ceiling, and this route already owns "a file
+ * in a conversation". The DATABASE decides (`remove_my_chat_file`, migration 20271341904583 — the caller's own session,
+ * so `auth.uid()` is theirs): only the sender, only a message that carries a file, only while they can still read the
+ * chat, the windows against the row's own created_at, and never a booking file for undo or everyone. A booking file or a
+ * closed window answers 409 with the reason so the sheet can say so; anything else is 404, exactly like a message that
+ * does not exist. Never a silent success: the caller draws the removal only on a 200.
  *
- * The R2 object goes after the row, best-effort: the row is what GET re-proves, so a lingering object is unreachable
- * through the app. It goes through THE pinned choke point (`cleanupDelete`, `every-cleanup-delete-is-pinned.test.ts`),
- * held to the caller's OWN folder in this chat (`chatOwnFileScope` — the send guard files each upload under
- * `chat/<thread>/<sender>/`) — a legacy URL, the other side's file or a ref anywhere else is refused, never deleted.
+ * The R2 object goes after the row, best-effort, and never for `me` (the other person and Setnayan keep it): the row
+ * is what GET re-proves, so a lingering object is unreachable through the app. It goes through THE pinned choke point
+ * (`cleanupDelete`, `every-cleanup-delete-is-pinned.test.ts`), held to the caller's OWN folder in this chat
+ * (`chatOwnFileScope` — the send guard files each upload under `chat/<thread>/<sender>/`).
  */
 export async function DELETE(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ messageId: string }> },
 ) {
   const { messageId } = await ctx.params;
+  const mode = new URL(req.url).searchParams.get('mode');
+  if (mode !== 'undo' && mode !== 'everyone' && mode !== 'me') return new NextResponse('Not found', { status: 404 });
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return new NextResponse('Not found', { status: 404 });
 
-  const { data, error } = await supabase.rpc('remove_my_chat_file', { p_message_id: messageId });
+  const { data, error } = await supabase.rpc('remove_my_chat_file', { p_message_id: messageId, p_mode: mode });
   if (error) {
-    // NOT_YOURS / NO_FILE are refusals, not faults — but a refused write is never silent in the logs either.
-    console.error('[chat-attachment] remove refused', { messageId, error: error.message });
+    // A refused write is never silent in the logs either.
+    console.error('[chat-attachment] remove refused', { messageId, mode, error: error.message });
+    const reason = refusalFromError(error.message);
+    if (reason === 'refused') return new NextResponse('Not found', { status: 404 });
+    return NextResponse.json({ reason }, { status: 409, headers: { 'Cache-Control': 'private, no-store' } });
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { outcome: string; thread_id: string; stored_ref: string | null; removed_at: string }
+    | undefined;
+  if (!row?.outcome) {
+    console.error('[chat-attachment] remove answered no row', { messageId, mode });
     return new NextResponse('Not found', { status: 404 });
   }
-  const row = (Array.isArray(data) ? data[0] : data) as { thread_id: string; stored_ref: string | null } | undefined;
-  if (row?.stored_ref) {
+  if (row.stored_ref) {
     try {
       const done = await cleanupDelete(row.stored_ref, chatOwnFileScope(row.thread_id, user.id));
-      if (done === 'refused') console.error('[chat-attachment] r2 delete refused — not the caller’s own folder (row already gone)', { messageId });
+      if (done === 'refused') console.error('[chat-attachment] r2 delete refused — not the caller’s own folder (file already removed)', { messageId });
     } catch (err) {
-      console.error('[chat-attachment] r2 delete failed (row already gone)', { messageId, error: (err as Error).message });
+      console.error('[chat-attachment] r2 delete failed (file already removed)', { messageId, error: (err as Error).message });
     }
   }
-  return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'private, no-store' } });
+  return NextResponse.json(
+    { outcome: row.outcome, removedAt: row.removed_at },
+    { status: 200, headers: { 'Cache-Control': 'private, no-store' } },
+  );
 }

@@ -29,6 +29,7 @@ import {
   findEmptyState,
   findEmptyWords,
   findNobodyFreeWords,
+  dateUncheckedWords,
 } from './supplier-find-empty';
 import { describeUnbookableScope, refusalKey, unbookableDateScope } from './bench-bookable-days';
 import { suppliersDateFact } from './suppliers-shell';
@@ -101,10 +102,14 @@ test('the hide stays what it was: only strangers leave, a supplier with no card 
   assert.match(pure, /if \(row\.alreadyAdded \|\| row\.relationshipDepth > 0\) return false;/);
   assert.match(pure, /if \(cards\.length === 0\) continue;/);
   const server = read('lib/bench-bookable-days.server.ts');
-  const hide = server.slice(server.indexOf('export async function findSuppliersWithNoBookingLeft'), server.indexOf('export async function readCardRefusals'));
-  const emptyReturns = hide.match(/return new Set\(\);/g) ?? [];
-  assert.ok(emptyReturns.length >= 5, `expected the fail-open returns, found ${emptyReturns.length}`);
-  assert.match(hide, /\} catch \{\s*return new Set\(\);\s*\}/);
+  const hide = server.slice(server.indexOf('export async function readSuppliersWithNoBookingLeft'), server.indexOf('export async function findSuppliersWithNoBookingLeft'));
+  // Every failure says "could not check" (null) — never an empty set, which means "checked, everybody is free".
+  const unreadReturns = hide.match(/return null;/g) ?? [];
+  assert.equal(unreadReturns.length, 3, `expected the three could-not-check returns, found ${unreadReturns.length}`);
+  assert.match(hide, /\} catch \{\s*return null;\s*\}/);
+  assert.doesNotMatch(hide, /logQueryError\([^)]*\);\s*return new Set\(\);/, 'a failed read answered "everybody is free"');
+  // Find's bench search keeps its fail-open hide by folding the unread answer to "hide nobody".
+  assert.match(server, /return \(await readSuppliersWithNoBookingLeft\(args\)\) \?\? new Set\(\);/);
   // The refusal is the booking path's own — capacity per service, read through the pools — never a new rule.
   assert.match(hide, /\.rpc\('service_cards_unbookable_on'/);
   // Discover's "every category" reach is the ONLY widening: a null scope drops the category filter, nothing else.
@@ -177,14 +182,15 @@ test('🔑 the count and the date are the hide\'s own, and they reach Find\'s pa
 
 test('🔑 Discover hides with Find\'s read, Find\'s refusal and Find\'s stranger rule — suppliers AND service cards', () => {
   const src = read(DISCOVER);
-  assert.equal((src.match(/await findSuppliersWithNoBookingLeft\(\{/g) ?? []).length, 1);
+  assert.equal((src.match(/await readSuppliersWithNoBookingLeft\(\{/g) ?? []).length, 1);
+  assert.doesNotMatch(src, /findSuppliersWithNoBookingLeft/, 'Discover read the fold that cannot say "could not check"');
   assert.equal((src.match(/await readCardRefusals\(\{/g) ?? []).length, 1);
   // …and what they keep IS what the page goes on with.
   assert.match(
     src,
-    /const fit = keepSuppliersThatFit\(visible, \(r\) => r\.vendor_profile_id, noBookingLeft, known\);\s*visible = fit\.rows;\s*hiddenForDate \+= fit\.hidden;/,
+    /const fit = keepSuppliersThatFit\(visible, \(r\) => r\.vendor_profile_id, noBookingLeft, known\);\s*visible = fit\.rows;\s*hiddenForDate \+= fit\.hidden;\s*if \(!fit\.checked\) dateUnchecked = true;/,
   );
-  assert.match(src, /const fit = keepCardsThatFit\(\s*listedServiceCards,[\s\S]{0,200}?\);\s*serviceCards = fit\.cards;\s*hiddenForDate \+= fit\.hidden;/);
+  assert.match(src, /const fit = keepCardsThatFit\(\s*listedServiceCards,[\s\S]{0,200}?\);\s*serviceCards = fit\.cards;\s*hiddenForDate \+= fit\.hidden;\s*if \(!fit\.checked\) dateUnchecked = true;/);
   // The days are the hide's own, from the couple's event, and only for a couple with one.
   assert.match(src, /const dateHideDays = coupleEventId \? unbookableDateScope\(coupleEventDate, coupleEventDatePrecision\) : null;/);
   // The rendered cards are the judged ones.
@@ -204,6 +210,7 @@ test('Discover\'s rules, executed: a stranger full on the date leaves; the known
   const r = keepSuppliersThatFit(rows, (x) => x.id, full, new Set(['full-but-saved']));
   assert.deepEqual(r.rows.map((x) => x.id), ['free', 'full-but-saved']);
   assert.equal(r.hidden, 1);
+  assert.equal(r.checked, true);
   assert.equal(keepSuppliersThatFit(rows, (x) => x.id, new Set(), new Set()).hidden, 0);
 
   const cards = [
@@ -222,8 +229,48 @@ test('Discover\'s rules, executed: a stranger full on the date leaves; the known
   const c = keepCardsThatFit(cards, (x) => x.s, (x) => x.v, refused, days, new Set(['k']));
   assert.deepEqual(c.cards.map((x) => x.s), ['c-one-day-free', 'c-known'], 'a month keeps a card free on ANY day');
   assert.equal(c.hidden, 1);
+  assert.equal(c.checked, true);
   assert.equal(keepCardsThatFit(cards, (x) => x.s, (x) => x.v, null, days, new Set()).hidden, 0, 'a failed read hid a card');
   assert.equal(keepCardsThatFit(cards, (x) => x.s, (x) => x.v, refused, null, new Set()).hidden, 0, 'no date hid a card');
+});
+
+test('🔑 a failed capacity read is NEVER passed off as a filtered list — every row stays and the page says it could not check', () => {
+  const rows = [{ id: 'full' }, { id: 'free' }];
+  // The capacity read failed.
+  const unread = keepSuppliersThatFit(rows, (x) => x.id, null, new Set());
+  assert.deepEqual(unread.rows.map((x) => x.id), ['full', 'free'], 'a failed read hid a supplier');
+  assert.equal(unread.hidden, 0);
+  assert.equal(unread.checked, false, 'a failed read was reported as a real check');
+  // The read worked but "who the couple knows" failed while somebody is full → also unchecked, nobody hidden.
+  const unknown = keepSuppliersThatFit(rows, (x) => x.id, new Set(['full']), null);
+  assert.equal(unknown.hidden, 0);
+  assert.equal(unknown.checked, false);
+  // A real check that found everybody free IS a check.
+  assert.equal(keepSuppliersThatFit(rows, (x) => x.id, new Set(), null).checked, true);
+
+  const days = ['2026-12-12'];
+  const cards = [{ s: 'c1', v: 'a' }];
+  const c = keepCardsThatFit(cards, (x) => x.s, (x) => x.v, null, days, new Set());
+  assert.equal(c.cards.length, 1);
+  assert.equal(c.checked, false, 'a failed card read was reported as a real check');
+  assert.equal(keepCardsThatFit(cards, (x) => x.s, (x) => x.v, new Set([refusalKey('c1', days[0]!)]), days, null).checked, false);
+  assert.equal(keepCardsThatFit(cards, (x) => x.s, (x) => x.v, null, null, new Set()).checked, true, 'no date is nothing to check');
+
+  // The words: the date, the honest admission, and nothing that sounds like "nobody is free".
+  const dayWords = dateUncheckedWords(describeUnbookableScope('2026-12-12', 'day'));
+  assert.match(dayWords, /^Couldn't check who's free on .*2026\. Some of these suppliers may already be booked\.$/);
+  assert.match(dateUncheckedWords(describeUnbookableScope('2026-12-12', 'month')), /^Couldn't check who's free in December 2026\./);
+  assert.match(dateUncheckedWords(null), /^Couldn't check who's free on your date\./);
+  assert.doesNotMatch(dayWords, /Nobody is free/);
+
+  // The page draws the line whenever either read came back unchecked — above the list, rows or not.
+  const src = read(DISCOVER);
+  assert.match(src, /const dateUncheckedLine = dateUnchecked\s*\?\s*dateUncheckedWords\(describeUnbookableScope\(coupleEventDate, coupleEventDatePrecision\)\)\s*:\s*null;/);
+  assert.match(
+    src,
+    /const resultsBody = \(\s*<>\s*\{dateUncheckedLine \? \(\s*<p[^>]*role="status"[^>]*data-find-date-unchecked=""[^>]*>\s*\{dateUncheckedLine\}\s*<\/p>\s*\) : null\}/,
+    'the could-not-check line is not drawn above the results',
+  );
 });
 
 /* ── 5 · Build's pick list ──────────────────────────────────────────────── */

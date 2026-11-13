@@ -82,9 +82,9 @@ import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
 import { describeUnbookableScope, unbookableDateScope } from '@/lib/bench-bookable-days';
-import { findSuppliersWithNoBookingLeft, readCardRefusals } from '@/lib/bench-bookable-days.server';
+import { readCardRefusals, readSuppliersWithNoBookingLeft } from '@/lib/bench-bookable-days.server';
 import { keepCardsThatFit, keepSuppliersThatFit } from '@/lib/discover-shows-what-fits';
-import { findNobodyFreeWords } from '@/lib/supplier-find-empty';
+import { dateUncheckedWords, findNobodyFreeWords } from '@/lib/supplier-find-empty';
 import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
 import { toServiceCard, type ServiceShowcaseMedia } from '@/lib/service-card-view-model';
 import {
@@ -443,6 +443,9 @@ const SORT_LABEL: Record<SortKey, string> = {
 const SORT_CHIP_KEYS: ReadonlyArray<SortKey> = ['most_reviews', 'highest_rated', 'newest'];
 
 const PAGE_SIZE = 24;
+
+/** The date hide's "who the couple knows" when nobody is full — it is never read then, so nothing is known. */
+const NOBODY_KNOWN: ReadonlySet<string> = new Set();
 
 // Task #48 — couple-facing labels for the venue_setting enum values.
 // ⚠ The list itself is lib/venue-settings.ts; venue-settings.test.ts fails if
@@ -1600,6 +1603,9 @@ export async function MarketplaceView({
     return knownForDateHide;
   };
   let hiddenForDate = 0;
+  // 🔑 A read that failed hides nobody AND is said out loud (audit of #7556): `dateUnchecked` puts "Couldn't check
+  // who's free on <date>." above the list, so an unfiltered list is never passed off as a filtered one.
+  let dateUnchecked = false;
   let serviceCards = listedServiceCards;
   if (listedServiceCards && listedServiceCards.length > 0 && dateHideDays) {
     const refused = await readCardRefusals({
@@ -1607,21 +1613,18 @@ export async function MarketplaceView({
       serviceIds: listedServiceCards.map((c) => c.row.vendor_service_id),
       days: dateHideDays,
     });
-    if (refused && refused.size > 0) {
-      const known = await knownOnEventForDateHide();
-      if (known) {
-        const fit = keepCardsThatFit(
-          listedServiceCards,
-          (c) => c.row.vendor_service_id,
-          (c) => c.vendorProfileId,
-          refused,
-          dateHideDays,
-          known,
-        );
-        serviceCards = fit.cards;
-        hiddenForDate += fit.hidden;
-      }
-    }
+    const known = refused && refused.size > 0 ? await knownOnEventForDateHide() : NOBODY_KNOWN;
+    const fit = keepCardsThatFit(
+      listedServiceCards,
+      (c) => c.row.vendor_service_id,
+      (c) => c.vendorProfileId,
+      refused,
+      dateHideDays,
+      known,
+    );
+    serviceCards = fit.cards;
+    hiddenForDate += fit.hidden;
+    if (!fit.checked) dateUnchecked = true;
   }
   /*
     ═ THE CARD CARRIES ITS SHOP'S LOGO — resolved ONCE PER SHOP ═
@@ -2489,22 +2492,22 @@ export async function MarketplaceView({
       : filters.category
         ? [filters.category]
         : null;
-    const noBookingLeft = await findSuppliersWithNoBookingLeft({
+    const noBookingLeft = await readSuppliersWithNoBookingLeft({
       admin,
       supplierIds: visible.map((r) => r.vendor_profile_id),
       canonicals: dateHideCanonicals,
       eventDate: coupleEventDate,
       eventDatePrecision: coupleEventDatePrecision,
     });
-    if (noBookingLeft.size > 0) {
-      const known = await knownOnEventForDateHide();
-      if (known) {
-        const fit = keepSuppliersThatFit(visible, (r) => r.vendor_profile_id, noBookingLeft, known);
-        visible = fit.rows;
-        hiddenForDate += fit.hidden;
-      }
-    }
+    const known = noBookingLeft && noBookingLeft.size > 0 ? await knownOnEventForDateHide() : NOBODY_KNOWN;
+    const fit = keepSuppliersThatFit(visible, (r) => r.vendor_profile_id, noBookingLeft, known);
+    visible = fit.rows;
+    hiddenForDate += fit.hidden;
+    if (!fit.checked) dateUnchecked = true;
   }
+  const dateUncheckedLine = dateUnchecked
+    ? dateUncheckedWords(describeUnbookableScope(coupleEventDate, coupleEventDatePrecision))
+    : null;
   const nobodyFreeWords =
     hiddenForDate > 0
       ? findNobodyFreeWords(describeUnbookableScope(coupleEventDate, coupleEventDatePrecision))
@@ -3393,6 +3396,11 @@ export async function MarketplaceView({
   );
   const resultsBody = (
     <>
+      {dateUncheckedLine ? (
+        <p className="mt-6 text-sm font-medium text-ink/75" role="status" data-find-date-unchecked="">
+          {dateUncheckedLine}
+        </p>
+      ) : null}
       {visible.length === 0 || (serviceCards !== null && serviceCards.length === 0 && nobodyFreeWords !== null) ? (
         <EmptyState
           filters={filters}

@@ -74,3 +74,20 @@ export function findEmptyWords(state: FindEmptyState, scope?: UnbookableScope | 
   if (state === 'nobody_free') return findNobodyFreeWords(scope);
   return state === 'no_filter_match' ? FIND_NO_FILTER_MATCH : FIND_NONE_LISTED;
 }
+
+/* ─── WHEN THE DATE COULD NOT BE CHECKED ─────────────────────────────────────
+ * Discover hides suppliers full on the couple's date. When the capacity read fails it hides nobody — and must SAY
+ * so, or the unfiltered list reads exactly like a filtered one (audit of #7556, 2026-11-13). Shown above the list,
+ * whether or not the list has rows.
+ *
+ *   one day              Couldn't check who's free on Sat, Dec 12, 2026. Some of these suppliers may already be booked.
+ *   a month              Couldn't check who's free in December 2026. Some of these suppliers may already be booked.
+ */
+export const DATE_UNCHECKED_TAIL = 'Some of these suppliers may already be booked.';
+
+export function dateUncheckedWords(scope: UnbookableScope | null | undefined): string {
+  const first = scope?.days[0];
+  if (!scope || !first) return `Couldn't check who's free on your date. ${DATE_UNCHECKED_TAIL}`;
+  if (scope.kind === 'month') return `Couldn't check who's free in ${suppliersDateFact(first, 'month').text}. ${DATE_UNCHECKED_TAIL}`;
+  return `Couldn't check who's free on ${suppliersDateFact(first, 'day').text}. ${DATE_UNCHECKED_TAIL}`;
+}

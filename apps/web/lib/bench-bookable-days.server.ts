@@ -22,11 +22,15 @@ import {
  * switch the lock reads is passed, so the search and the lock resolve the same
  * pools. The caller must have already checked the couple is on the event.
  *
- * FAILS OPEN. Any error → nobody is hidden. A supplier wrongly left on the list
+ * FAILS OPEN — BUT SAYS SO. Any error → `null` ("could not check"), never an
+ * empty set: an empty set means "checked, everybody is free", and a page that
+ * cannot tell the two apart passes an unfiltered list off as a filtered one
+ * (audit of #7556, 2026-11-13). The caller hides nobody on `null` AND tells the
+ * couple the date could not be checked. A supplier wrongly left on the list
  * costs the couple a message; a supplier wrongly hidden costs them a supplier
  * who could have said yes.
  */
-export async function findSuppliersWithNoBookingLeft(args: {
+export async function readSuppliersWithNoBookingLeft(args: {
   admin: SupabaseClient;
   supplierIds: readonly string[];
   /** The categories whose cards are judged. `null` = every category the supplier sells in — Discover's supplier
@@ -34,7 +38,7 @@ export async function findSuppliersWithNoBookingLeft(args: {
   canonicals: readonly string[] | null;
   eventDate: string | null;
   eventDatePrecision: string | null;
-}): Promise<Set<string>> {
+}): Promise<Set<string> | null> {
   const days = unbookableDateScope(args.eventDate, args.eventDatePrecision);
   if (!days || args.supplierIds.length === 0 || (args.canonicals !== null && args.canonicals.length === 0)) return new Set();
 
@@ -49,7 +53,7 @@ export async function findSuppliersWithNoBookingLeft(args: {
     const { data: cardRows, error: cardErr } = await cardQuery;
     if (cardErr) {
       logQueryError('bench-bookable-days: cards', cardErr);
-      return new Set();
+      return null;
     }
     const cardsBySupplier = new Map<string, string[]>();
     for (const r of (cardRows ?? []) as { vendor_service_id: string; vendor_profile_id: string }[]) {
@@ -69,7 +73,7 @@ export async function findSuppliersWithNoBookingLeft(args: {
       });
       if (error) {
         logQueryError('bench-bookable-days: service_cards_unbookable_on', error);
-        return new Set();
+        return null;
       }
       for (const r of (data ?? []) as { service_id: string | null; refused_on: string | null }[]) {
         if (r.service_id && r.refused_on) refused.add(refusalKey(r.service_id, r.refused_on));
@@ -77,8 +81,18 @@ export async function findSuppliersWithNoBookingLeft(args: {
     }
     return suppliersWithNoBookingLeft(cardsBySupplier, refused, days);
   } catch {
-    return new Set();
+    return null;
   }
+}
+
+/**
+ * Find's bench search (`category-search.ts`, `hideUnbookable`): the same read, an unreadable answer folded to
+ * "hide nobody". Discover reads `readSuppliersWithNoBookingLeft` itself so it can SAY the date was not checked.
+ */
+export async function findSuppliersWithNoBookingLeft(
+  args: Parameters<typeof readSuppliersWithNoBookingLeft>[0],
+): Promise<Set<string>> {
+  return (await readSuppliersWithNoBookingLeft(args)) ?? new Set();
 }
 
 /**

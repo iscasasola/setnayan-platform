@@ -28,7 +28,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Notice, NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { Notice } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
 import { closeNotice } from '@/app/_components/notices/notice-store';
 import { deviceOs } from '@/lib/apple-device';
 import { isStoreShellInBrowser } from '@/lib/store-shell';

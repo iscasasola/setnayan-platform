@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Compass } from 'lucide-react';
-import { Notice, NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { Notice } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
 
 /**
  * Advisory nudge shown on the date-selection surfaces for Chinese (Tsinoy)

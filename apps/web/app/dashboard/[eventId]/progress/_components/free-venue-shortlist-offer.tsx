@@ -23,7 +23,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
-import { NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
 import {
   FREE_VENUE_ASSIST_BADGE,
   FIRST_VENUE_SHORTLIST_OFFER_TITLE,

@@ -5,7 +5,7 @@ import { answerIncomingRequest, muteInviter } from '../incoming-request-actions'
 import { INCOMING_REQUEST_FAILED } from '@/lib/stay-doors/accLauncher';
 import { StayForm } from '@/app/_components/stay-form';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
-import { NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
 
 /**
  * incoming-requests.tsx — "You are invited to {user name}'s {event name}

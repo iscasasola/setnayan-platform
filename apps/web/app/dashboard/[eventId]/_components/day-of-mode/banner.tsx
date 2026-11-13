@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Notice, NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { Notice } from '@/app/_components/notices/notices';
 import { formatRelativeMs } from '@/lib/day-of-mode';
 import { venueNowMs } from '@/lib/schedule';
 import { isTimeTba } from '@/lib/schedule-chapters';

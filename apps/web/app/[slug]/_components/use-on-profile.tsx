@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
-import { NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
 
 /** The server action, HANDED IN by the page (`adoptSeatNameOnProfile` in
  *  dashboard/(account)/profile/actions.ts) rather than imported here — the same

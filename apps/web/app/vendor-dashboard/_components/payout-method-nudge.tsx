@@ -27,7 +27,8 @@
  */
 import Link from 'next/link';
 import { Wallet } from 'lucide-react';
-import { Notice, NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { Notice } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 

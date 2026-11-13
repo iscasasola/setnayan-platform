@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { formatPhp } from '@/lib/php';

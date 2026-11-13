@@ -33,7 +33,7 @@
 import { useEffect, useState } from 'react';
 import type { CloseRecord } from '@/lib/notices';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
-import { NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
 import { saveGuestPushSubscription } from '../actions/guest-push-actions';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '';

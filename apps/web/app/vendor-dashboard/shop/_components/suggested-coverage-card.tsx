@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { Check, Loader2 } from 'lucide-react';
-import { NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 
 import { useToast } from '@/app/_components/toast/toast-provider';

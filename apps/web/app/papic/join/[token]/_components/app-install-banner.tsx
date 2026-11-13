@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { CloseRecord } from '@/lib/notices';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
-import { NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-action';
 import { deviceOs } from '@/lib/apple-device';
 
 // Papic · hybrid join — PAGE-LOCAL smart app-install banner.

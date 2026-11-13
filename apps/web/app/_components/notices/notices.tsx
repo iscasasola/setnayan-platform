@@ -120,8 +120,8 @@ function KindMark({ kind, tone }: { kind: NoticeKind; tone?: NoticeTone }) {
   );
 }
 
-export const NOTICE_ACTION =
-  'sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/15 px-4 text-sm font-semibold text-ink';
+import { NOTICE_ACTION } from './notice-action';
+export { NOTICE_ACTION };
 /** A block on a phone (the actions stack under the line), one row from 768. Never a bare flex. */
 export const LINE_ROOT = 'md:flex md:items-center md:gap-3';
 const NOTICE_QUIET = 'sn-press min-h-11 rounded-full px-3 text-sm font-semibold text-ink/60';

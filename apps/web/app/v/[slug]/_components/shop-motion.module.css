@@ -1,0 +1,149 @@
+/*
+ * 🎞 THE VERIFIED SHOP'S MOTION (prototype public_pages_three_2026-11-13, README "Animations and their reduced-motion
+ * fallback"; owner-approved 13 Nov 2026). The numbers are the family's: 700 ms on cubic-bezier(.2,.8,.2,1)
+ * (`--sn-pill-dur` / `--sn-ease-rise`), 120 ms cross-fade when the reader asks for less motion (`--sn-dur-rise-reduced`).
+ *
+ * 🔑 THE RESTING STATE IS THE BASE STYLE. Arrival motion is `from`-only keyframes (no JS); scroll motion hides a part
+ * only once `ShopSectionBar` has set `data-shop-js` on the root, and its one IntersectionObserver adds `.in`. With no
+ * JS the page is simply still and complete. Transform / opacity / clip-path only — no layout work per frame.
+ *
+ * Only the verified look wears `.verified`; the unverified shop gets `.calm` (one 240 ms fade, the prototype's).
+ */
+
+/* ── 1 · hero photo settles · 2 · kicker, name word by word, tagline · 3 · seal stamps, badges pop · 5 · card rises */
+.verified .heroPhoto {
+  animation: heroSettle 1600ms var(--sn-ease-rise) both;
+}
+.verified .kicker {
+  animation: fadeUp var(--sn-pill-dur) var(--sn-ease-rise) 160ms both;
+}
+.verified .kicker::before {
+  content: '';
+  display: inline-block;
+  width: 34px;
+  height: 2px;
+  margin-right: 12px;
+  vertical-align: middle;
+  background: currentColor;
+  transform-origin: left;
+  animation: drawX var(--sn-pill-dur) var(--sn-ease-rise) 260ms both;
+}
+.word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding: 0 0.14em 0.14em 0;
+  margin: 0 -0.14em -0.14em 0;
+}
+.word > span {
+  display: inline-block;
+}
+.verified .word > span {
+  animation: lineUp 900ms var(--sn-ease-rise) both;
+  animation-delay: calc(260ms + var(--i, 0) * 110ms);
+}
+.verified .tagline {
+  animation: fadeUp var(--sn-pill-dur) var(--sn-ease-rise) 560ms both;
+}
+.verified :global([data-shop-hero-badges]) > :first-child {
+  animation: stamp var(--sn-pill-dur) var(--sn-ease-rise) 760ms both;
+}
+.verified :global([data-shop-hero-badges]) > * {
+  animation: pop 520ms var(--sn-ease-rise) both;
+  animation-delay: 1050ms;
+}
+.verified :global([data-shop-hero-badges]) > *:nth-child(2) { animation-delay: 1140ms; }
+.verified :global([data-shop-hero-badges]) > *:nth-child(3) { animation-delay: 1230ms; }
+.verified :global([data-shop-hero-badges]) > *:nth-child(4) { animation-delay: 1320ms; }
+.verified :global([data-shop-hero-badges]) > *:nth-child(n + 5) { animation-delay: 1410ms; }
+/* Tablet+ only: on a phone the card holds the floating Inquire, and an animating transform would become its
+   containing block and drag it off the bottom of the screen. */
+@media (min-width: 768px) {
+  .verified .card {
+    animation: cardUp 900ms var(--sn-ease-rise) 500ms both;
+  }
+}
+
+/* ── 4 · the hero drifts and its words sink as the page scrolls (CSS scroll timeline, zero JS; else it holds still) */
+@supports (animation-timeline: view()) {
+  .verified .heroDrift {
+    animation: drift linear both;
+    animation-timeline: view();
+    animation-range: exit 0% exit 100%;
+  }
+  .verified .heroBody {
+    animation: sink linear both;
+    animation-timeline: view();
+    animation-range: exit 0% exit 80%;
+  }
+}
+
+/* ── 6 · 7 · 9 · 10 · parts rise as they enter, staggered; photos wipe in; the pinned review settles */
+.verified[data-shop-js] :global([data-shop-section]) > :not(:global(.in)),
+.verified[data-shop-js] :global([data-rise]):not(:global(.in)) {
+  opacity: 0;
+  transform: translateY(26px);
+}
+.verified[data-shop-js] :global([data-rise='settle']):not(:global(.in)) {
+  transform: translateX(-18px) rotate(-1.4deg);
+}
+.verified[data-shop-js] :global([data-shop-section]) > *,
+.verified[data-shop-js] :global([data-rise]) {
+  transition:
+    opacity var(--sn-pill-dur) var(--sn-ease-rise),
+    transform var(--sn-pill-dur) var(--sn-ease-rise);
+}
+.verified[data-shop-js] :global([data-shop-section]) > :global(.in) :global(img) {
+  animation: settle 1400ms var(--sn-ease-rise) both;
+}
+
+/* ── 11 · desktop hover lift on service cards (pointer devices only) */
+@media (hover: hover) and (min-width: 900px) {
+  .verified :global([data-service-card]) {
+    transition: transform 0.3s var(--sn-ease-rise), box-shadow 0.3s var(--sn-ease-rise);
+  }
+  .verified :global([data-service-card]):hover {
+    transform: translateY(-5px);
+  }
+}
+
+/* ── the unverified shop: one 240 ms fade, nothing travels */
+.calm {
+  animation: fadeIn 240ms ease-out both;
+}
+
+@keyframes heroSettle { from { transform: scale(1.12); } }
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(18px); } }
+@keyframes lineUp { from { transform: translateY(108%); } }
+@keyframes drawX { from { transform: scaleX(0); } }
+@keyframes stamp { from { opacity: 0; transform: scale(1.5) rotate(-18deg); } }
+@keyframes pop { from { opacity: 0; transform: scale(0.6); } }
+@keyframes cardUp { from { opacity: 0; transform: translateY(44px); } }
+@keyframes settle { from { transform: scale(1.06); } }
+@keyframes drift { to { transform: translateY(9%); } }
+@keyframes sink { to { opacity: 0.15; transform: translateY(-26px); } }
+
+/* ── REDUCED MOTION — every movement above becomes a 120 ms cross-fade; nothing travels, nothing scales. */
+@media (prefers-reduced-motion: reduce) {
+  .verified *,
+  .verified *::before,
+  .verified *::after,
+  .verified,
+  .calm {
+    animation-name: fadeIn !important;
+    animation-duration: var(--sn-dur-rise-reduced) !important;
+    animation-delay: 0ms !important;
+    animation-timeline: auto !important;
+    transition-property: opacity !important;
+    transition-duration: var(--sn-dur-rise-reduced) !important;
+    transition-delay: 0ms !important;
+  }
+  .verified[data-shop-js] :global([data-shop-section]) > *,
+  .verified[data-shop-js] :global([data-rise]) {
+    transform: none !important;
+  }
+  .verified :global([data-service-card]):hover {
+    transform: none;
+  }
+}

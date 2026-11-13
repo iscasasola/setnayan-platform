@@ -123,6 +123,17 @@ export function InquireSheet({
     return () => document.removeEventListener('click', onClick, true);
   }, [open, openSignIn, signedIn]);
 
+  // 🔗 ARRIVING ON `#get-in-touch` (Compare's "Ask about your date", shared links): since 13 Nov the page has no Inquire
+  // section to land on (owner, "Yes, only one"), so a signed-in arrival opens the pop-up instead. Once per page view;
+  // signed out, nothing pops — the one Inquire button asks for sign-in when pressed.
+  const arrivedOnAsk = useRef(false);
+  useEffect(() => {
+    if (arrivedOnAsk.current || !signedIn) return;
+    if (window.location.hash !== '#get-in-touch' || inquireResumeOf(window.location.search)) return;
+    arrivedOnAsk.current = true;
+    open();
+  }, [open, signedIn]);
+
   // Back from sign-in or from starting an event: `?inquire=1&isvc=…` reopens on the event step, the picks kept.
   useEffect(() => {
     const ask = inquireResumeOf(window.location.search);

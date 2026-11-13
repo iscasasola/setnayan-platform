@@ -98,11 +98,9 @@ test('a non-wedding type routes through the picker, which owns the real rule', (
   );
 });
 
-test('the page still passes the roster to the composer', () => {
-  assert.match(
-    page,
-    /eventTypes=\{anonComposerEventTypes\}/,
-    'the composer is mounted without its event-type roster — the question would vanish and ' +
-      'every visitor would fall back to the wedding flow',
-  );
+// 13 Nov 2026 (owner, "Yes, only one"): the shop page no longer mounts the inline composer — its one Inquire opens the
+// pop-up, which signs a stranger in first and then offers their events or a new one. The composer keeps its question
+// (tests above) for wherever it is mounted; the page must not mount it as a second, inline Inquire.
+test('the shop page no longer mounts the inline composer (one Inquire, the pop-up)', () => {
+  assert.doesNotMatch(page, /<AnonInquiryComposer\b/, 'a second, inline Inquire form came back on the shop page');
 });

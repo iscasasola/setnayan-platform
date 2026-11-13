@@ -28,6 +28,10 @@
  * instead of opening a popup; prototype `settings_full_screen_2026-11-10`): with `rise`, the same rows open in the ONE
  * `RiseScreen` — it grows out of the ⚙ you tapped, the bars slide away, ✕ is the exact reverse — headed by the same
  * name, the same one line and the same ⓘ words. One door, one frame per mode; never a second ⚙.
+ *
+ * ⤴ EVERY ⚙ RISES (owner 2026-11-10 *"fullscreen everything"*, 13 Nov rollout — build-sessions/RISE-AUDIT-2026-11-13.md):
+ * `rise` is now the DEFAULT. The one ⚙ that keeps the sheet is the one drawn INSIDE a risen view (the picked client's
+ * own ⚙) — it passes `rise={false}`, because a Rise is ONE level: never a second full screen on top of the first.
  */
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -46,7 +50,7 @@ export function MenuSettingsButton({
   tour,
   cover = false,
   line,
-  rise = false,
+  rise = true,
   children,
 }: {
   menu: SettingsMenu;
@@ -58,7 +62,8 @@ export function MenuSettingsButton({
   cover?: boolean;
   /** The sheet's one line and its ⓘ, when this viewer's sheet holds other rows than the menu's (Home's ⚙ for a helper). */
   line?: { line: string; tip: string };
-  /** ⤴ Open the rows in Rise full screen (out of this ⚙) instead of the sheet. Default false: every other ⚙ as before. */
+  /** ⤴ Open the rows in Rise full screen (out of this ⚙). Default TRUE — every ⚙ rises. `false` only for a ⚙ that is
+   *  itself inside a risen view (one level only): there it keeps the sheet. */
   rise?: boolean;
   /** The sheet's rows — the shipped controls. Absent: the door only; the caller draws the sheet `open` names. */
   children?: ReactNode;

@@ -338,9 +338,10 @@ export function PickedShell<P extends string>({
           {/* 📞 🎥 📎 — the page on show draws its own head actions here (`PickedHeadContext`; v8.3 head row). */}
           <span ref={setHeadSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-picked-head-actions="" />
           {/* ⚙ This page's own settings — not the list's ⚙ (that menu is mounted once, on the list). The house door
-              (`MenuSettingsButton`) on the `client` key (L1, `lib/menu-settings.ts`); its rows are this page's own. */}
+              (`MenuSettingsButton`) on the `client` key (L1, `lib/menu-settings.ts`); its rows are this page's own.
+              `rise={false}`: this ⚙ is already INSIDE a risen view — one level only, so it keeps its sheet. */}
           {gear ? (
-            <MenuSettingsButton menu="client" open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
+            <MenuSettingsButton menu="client" rise={false} open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
               {gear.node}
             </MenuSettingsButton>
           ) : null}

@@ -11,8 +11,9 @@
  *   3 · WHAT IT IS — a full-screen modal on the pop layer token, drawn on <body>; the bars step away (`useChromeAway`);
  *       the house modal contract (`useModalA11y`: focus, Esc, the page held and put back on the same pixel); the phone's
  *       Back closes it (`useBackCloses`); the close plays the SAME frames in reverse; a tab re-tap still reaches the top.
- *   4 · ONE PART — no other file draws a `data-rise-screen`; a ⚙ rises through `MenuSettingsButton rise` (rendered:
- *       the risen frame, never the sheet), every other ⚙ keeps its sheet byte-for-byte.
+ *   4 · ONE PART — no other file draws a `data-rise-screen`; a ⚙ rises through `MenuSettingsButton` (rendered: the risen
+ *       frame, never the sheet). Since 13 Nov `rise` is the DEFAULT — every ⚙ rises; only the picked client's own ⚙
+ *       (inside a risen view, one level) passes `rise={false}` and keeps its sheet.
  *   5 · THE SHOP TAB MAP — ⚙ · Logo · Share · Promote · QR · Cover · View shop · each Analytics card · each Badge open the
  *       ONE `RiseScreen`; none of those files draws a popup `<Sheet` any more; View shop stays in the app (the only new
  *       tab left is the risen page's own "Open in browser ↗").
@@ -119,6 +120,16 @@ test('4 · ONE part: nobody else draws a risen screen; a ⚙ rises through the s
   // Every other ⚙ is as it was — the popup sheet frame, no risen screen.
   const sheet = draw(false);
   assert.doesNotMatch(sheet, /data-rise-screen/);
+  // ⤴ 13 Nov — "fullscreen everything": a ⚙ with no `rise` prop RISES (the default), and the ONE ⚙ that keeps its sheet is
+  // the picked client's own, which already sits inside a risen view (one level only).
+  const byDefault = renderToStaticMarkup(
+    React.createElement(MenuSettingsButton, { menu: 'guests', open: true, onOpenChange: () => {} }, React.createElement('p', null, 'rows')),
+  );
+  assert.match(byDefault, /data-rise-screen="settings-guests"/, 'a ⚙ with no `rise` prop opens the popup sheet again');
+  const optOuts = walk(join(WEB, 'app'))
+    .filter((p) => /<MenuSettingsButton\b[^>]*rise=\{false\}/.test(stripComments(readFileSync(p, 'utf8'))))
+    .map((p) => relative(WEB, p));
+  assert.deepEqual(optOuts, ['app/_components/picked/picked-shell.tsx'], 'a ⚙ outside a risen view still opens a popup sheet');
 });
 
 test('5 · the Shop tab map: every door rises into the ONE screen — no popup sheet left; View shop stays in the app', () => {

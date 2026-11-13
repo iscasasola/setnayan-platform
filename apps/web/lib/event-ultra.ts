@@ -97,3 +97,58 @@ export function fullResKeepDays(standardDays: number, extraKeepDays: readonly (n
   );
   return standardDays + extra;
 }
+
+/* ── 💳 UPGRADE: PAY THE DIFFERENCE (owner 2026-11-13) ─────────────────────────────────────────────────────────────
+ * ⚖ DECISION_LOG 2026-11-13 "EVENT ULTRA UPGRADE — PAY THE DIFFERENCE", verbatim: *"Pay the difference"*. An event that
+ * already PAID for Event Plus or Event Pro pays Ultra's price minus what it paid for its current plan — every number a
+ * `platform_retail_catalog_v2` read, exactly as Plus → Pro already credits Plus (`hubOwnershipFrom`'s `plusPaid`). Pure:
+ * the reads live in `readUltraUpgradeCharge` (lib/order-charge-authority.ts), which both the charge and the drawer's
+ * quote call, so the figure on the screen is the figure billed.
+ */
+
+/** Which plan the credit came from — the words on the screen follow it. */
+export type UltraUpgradeFrom = 'pro' | 'plus' | 'parts';
+
+export type UltraUpgradeCharge =
+  | { ok: true; php: number; creditPhp: number; from: UltraUpgradeFrom }
+  | { ok: false; why: 'unpriced' };
+
+const pricedPhp = (n: number | null | undefined): number | null =>
+  typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : null;
+
+/**
+ * What an event that already paid toward a plan pays for Ultra — or null when it paid toward none (Ultra's row price,
+ * as before). 🔒 FAIL-CLOSED: a plan the event paid for whose price was not read is `unpriced` (the charge refuses);
+ * it never silently counts as ₱0, which would bill the full Ultra price to someone owed a credit.
+ *
+ *   · `proPaid`          — an Event Pro order (its own, or a basket line) in a status that counts → Pro's row price;
+ *   · otherwise          — `paidTowardProPhp` (`HubOwnership.paidPhp`: Plus at its row price + any Pro parts), the very
+ *                          figure Plus → Pro already credits.
+ * Never below ₱0.
+ */
+export function ultraUpgradeCharge(input: {
+  ultraPhp: number | null;
+  proPaid: boolean;
+  proPhp: number | null;
+  plusPaid: boolean;
+  plusPhp: number | null;
+  paidTowardProPhp: number;
+}): UltraUpgradeCharge | null {
+  const toward = Number.isFinite(input.paidTowardProPhp) && input.paidTowardProPhp > 0 ? input.paidTowardProPhp : 0;
+  if (!input.proPaid && !input.plusPaid && toward === 0) return null;
+  const ultra = pricedPhp(input.ultraPhp);
+  if (ultra === null) return { ok: false, why: 'unpriced' };
+  if (input.proPaid) {
+    const pro = pricedPhp(input.proPhp);
+    if (pro === null) return { ok: false, why: 'unpriced' };
+    return { ok: true, php: Math.max(0, ultra - pro), creditPhp: pro, from: 'pro' };
+  }
+  if (input.plusPaid && pricedPhp(input.plusPhp) === null) return { ok: false, why: 'unpriced' };
+  return { ok: true, php: Math.max(0, ultra - toward), creditPhp: toward, from: input.plusPaid ? 'plus' : 'parts' };
+}
+
+/** The one line the checkout shows — the amount is formatted by the caller from the figure it charges. */
+export function ultraUpgradeLine(amountLabel: string, from: UltraUpgradeFrom): string {
+  if (from === 'parts') return `You pay ${amountLabel} — the difference from what you paid toward Event Pro`;
+  return `You pay ${amountLabel} — the difference from your ${from === 'pro' ? 'Event Pro' : 'Event Plus'}`;
+}

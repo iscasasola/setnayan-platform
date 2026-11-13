@@ -277,7 +277,7 @@ export function VoiceMatchCard({
                 label="Language"
                 value={profile.languageMix}
                 dataAttr="data-voice-languageMix"
-                options={VOICE_LANGUAGE_MIXES.map((v) => ({ key: v, label: LANGUAGE_LABEL[v] }))}
+                options={VOICE_LANGUAGE_MIXES.map((v) => ({ key: v, label: LANGUAGE_LABEL[v] ?? v }))}
                 onPick={(k) => set('languageMix', k as VoiceProfile['languageMix'])}
               />
             </Field>
@@ -286,7 +286,7 @@ export function VoiceMatchCard({
                 label="Tone"
                 value={profile.warmth}
                 dataAttr="data-voice-warmth"
-                options={VOICE_WARMTHS.map((v) => ({ key: v, label: WARMTH_LABEL[v] }))}
+                options={VOICE_WARMTHS.map((v) => ({ key: v, label: WARMTH_LABEL[v] ?? v }))}
                 onPick={(k) => set('warmth', k as VoiceProfile['warmth'])}
               />
             </Field>
@@ -295,7 +295,7 @@ export function VoiceMatchCard({
                 label="Emoji"
                 value={profile.emojiLevel}
                 dataAttr="data-voice-emojiLevel"
-                options={VOICE_EMOJI_LEVELS.map((v) => ({ key: v, label: EMOJI_LABEL[v] }))}
+                options={VOICE_EMOJI_LEVELS.map((v) => ({ key: v, label: EMOJI_LABEL[v] ?? v }))}
                 onPick={(k) => set('emojiLevel', k as VoiceProfile['emojiLevel'])}
               />
             </Field>

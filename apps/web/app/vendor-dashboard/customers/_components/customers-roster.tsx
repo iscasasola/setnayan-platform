@@ -73,6 +73,8 @@ export type RosterRow = PipelineCustomer & {
   quoted: boolean;
   /** They booked this shop before (`chat_threads.is_returning`). */
   returning: boolean;
+  /** No day set yet → the couple's candidate date(s) / window (`eventDateOptionWords`), else null. */
+  dateOptions?: string | null;
 };
 
 /** The badge for a row — a booking ask is "Booking", a sent quote "Quoted". */
@@ -280,7 +282,7 @@ export function RosterRowView({
   // 🗂 THE ROW IS THE EVENT (owner 2026-10-29, "Customers are events, not people"): its title is the event's whole name ·
   // kind · day ("Indalecio & Claire · Wedding · Dec 18") — a couple with two events is two rows — and its line is what
   // the event wants from this shop and where it stands. The people are INSIDE: the opened row's "Hosted by".
-  const title = eventRowTitle({ name: r.identityRevealed ? r.title : null, kind: r.kind, date: r.eventDate, nowMs });
+  const title = eventRowTitle({ name: r.identityRevealed ? r.title : null, kind: r.kind, date: r.eventDate, nowMs, options: r.dateOptions ?? null });
   const rowWords = eventRowLine(r, nowMs, lines);
   const avatar = (
     <span

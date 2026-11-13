@@ -36,7 +36,7 @@ test('(1) the story is compiled by the real compiler — and holds every scene t
   const story = labPostEventRead(undefined);
   assert.equal(story.ok, true);
   assert.equal(story.dayHappened, true);
-  assert.deepEqual(story.arrangement, { sections: {}, sectionOrder: null, sceneLooks: {}, customIds: [] });
+  assert.deepEqual(story.arrangement, { sections: {}, sectionOrder: null, sceneLooks: {}, customIds: [], readAs: 'story' });
   const drawn = new Set(story.rows.filter((r) => postEventSceneDrawn(r.status, r.hidden)).map((r) => `p:${r.key}`));
   // The parts the new Maker lets a couple tap on the Post Event stage's pages — each scene they stand on is there.
   const scenes = [...new Set(['home', 'film', 'suppliers', 'gallery'].flatMap((page) => makerPartsOnPage('editorial', page)))]

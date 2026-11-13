@@ -186,6 +186,28 @@
      * (`.sn-editorial`), which wears the couple's own colours (`--hub-accent*`). */
     --sn-accent: var(--color-mulberry);
     --sn-on-accent: 255 255 255;         /* words on the accent → white · 4.76:1 on #C24E25 */
+    /* ── DECISION IS ITS OWN JOB, SPLIT FROM TOGGLE (Admin › Colours, owner 12 Nov 2026 — corpus
+     * Design_App_Colours_2026-11-12, map/01_shared_templates.md "Answer 1"). `--sn-accent` above is now ONLY the
+     * toggle "on" (a switch, a picked pill); the forward-step BUTTON (`.ab-brand`, `.button-primary`) reads
+     * `--sn-decision`, so recolouring the toggle can no longer recolour every Next/Add/Publish.
+     *
+     * ⚠ `--sn-decision`, `-600`, `-word` and `--sn-on-decision` are DELIBERATELY NOT DECLARED HERE. Every consumer
+     * reads them with a fallback to exactly what it read before — `.ab-brand` → `var(--sn-decision, var(--sn-accent))`,
+     * `.button-primary` → `var(--sn-decision, var(--color-mulberry))` — so with nothing saved no pixel moves. A
+     * `:root` alias would be resolved ONCE at the root: a Pro hub theme that re-points `--color-mulberry` on its own
+     * scope (`[data-hub-theme='abaca']` …) would then paint its `.button-primary` in the house terracotta. They are
+     * declared only by the admin's saved set (`<style id="sn-app-colours">`, `lib/app-colours.ts`), which resets them to
+     * `initial` inside every guest island. Held by `lib/app-colours-in-globals.test.ts`.
+     *
+     * The band and frame tokens below are for the next waves (band on PageMasthead/CollapsingTop · frame on
+     * .sn-tile/.sn-row/.sn-card): NOTHING READS THEM YET, so they move no pixel. Defaults = today's values. */
+    --sn-band-from: 194 78 37;          /* #C24E25 — flat terracotta */
+    --sn-band-to: 194 78 37;
+    --sn-band-angle: 135deg;
+    --sn-on-band: 255 255 255;          /* the band's words are always white; the gate darkens a pale stop */
+    --sn-frame-bg: 255 255 255;         /* = --m-paper */
+    --sn-frame-radius: 14px;            /* = --m-r-md */
+    --sn-frame-shadow: none;            /* today a frame is a line, not a float */
     /* Links + secondary buttons — NEW SLOT 2026-08-01. The app had no link
      * token; anchors inherited ink. Scope is deliberately NARROW (owner):
      * inline links and secondary/ghost buttons only. It is NOT a decorative
@@ -229,6 +251,16 @@
     /* A CARD above the page (dark mode PR 1, 2026-10-13) — Tailwind `raised`. Light = white, exactly what
      * `bg-white` paints today, so swapping one for the other moves no light pixel. Dark = the approved card. */
     --color-raised: 255 255 255;
+    /* 🖼 THE PAGE BEHIND EVERYTHING — ITS OWN SETTING (owner 12 Nov 2026: "is it possible for me to change the plain
+     * white background now?"). Until today the page read `--color-cream`, the same value that paints cards (`bg-cream`)
+     * and the white words on filled buttons (`text-cream`) — so tinting the page also greyed every button label.
+     * `--sn-page-bg` is read ONLY by `body` and the full-height wrappers (Tailwind `bg-page`); cards and labels keep
+     * `--color-cream`. TO CHANGE THE PAGE COLOUR, change the ONE line below (three numbers, red green blue).
+     * Never read inside the guest's Event Hub (`app/[slug]`), which wears the couple's own colours.
+     * Measured on the #F0F2F5 trial (lighter values only raise these): ink 12.74:1 · link 7.58:1 · gold 3.10:1 (UI only) ·
+     * terracotta as TEXT straight on the page 4.25:1 — under 4.5, so it stays a fill/large-text colour (the CTA label
+     * sits on the fill and is unchanged). */
+    --sn-page-bg: 255 255 255;            /* #FFFFFF — owner 12 Nov: "keep the background white"; the life goes in the frames + buttons on top */
     /* 🎨 THE FOUR CATEGORY COLOURS (owner, THE ONE BUILD item 13, 8 Nov 2026 — supplier-menu-r2.v113 `--c-ev/--c-sch/
      * --c-ask/--c-col`): what a supplier's Clients, Today and Shop mark by KIND — Booked · Schedules · Asked · To collect.
      * RGB triples so Tailwind alpha works (`text-cat-booked`, `bg-cat-asked/10`). Never a raw hex in a .tsx — read these.
@@ -302,6 +334,8 @@
     --surface-soft: #2b2821;           /* one step above the card — a wash, lighter in dark as the gallery's pill is */
     --ink-soft: 182 185 190;            /* Slate-3 #B6B9BE */
     --color-raised: 35 32 25;           /* the approved card #232019 */
+    --sn-page-bg: 23 22 15;               /* dark keeps the page it had — #17160F, same as --color-cream here */
+    --sn-frame-bg: 35 32 25;              /* the approved dark card #232019 (= --color-raised); nothing reads it before wave 2 */
     --sn-cat-booked: 79 191 138;       /* #4FBF8A */
     --sn-cat-schedule: 127 175 232;    /* #7FAFE8 */
     --sn-cat-asked: 240 130 90;        /* #F0825A */
@@ -360,7 +394,7 @@
   }
 
   body {
-    background-color: rgb(var(--color-cream));
+    background-color: rgb(var(--sn-page-bg));
     color: rgb(var(--color-ink));
   }
 
@@ -989,6 +1023,21 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
    */
   .button-primary {
     @apply inline-flex h-11 items-center justify-center rounded-md bg-mulberry px-6 text-sm font-medium text-cream transition hover:bg-mulberry-600 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+  }
+  /*
+   * 🎨 THE FORWARD STEP IS THE DECISION JOB (Admin › Colours, owner 12 Nov 2026 — corpus Design_App_Colours_2026-11-12).
+   * The recipe above stays the measured pair (`bg-mulberry` + `text-cream`, 4.61:1) — and with nothing saved it is
+   * exactly what paints: `--sn-decision` is unset, so these two rules resolve to `--color-mulberry` / `-600` AT THE
+   * BUTTON, the same per-element read the utilities make (a Pro hub theme that re-points mulberry on its scope keeps
+   * its own colour). A saved set declares the pair; the admin's gate (`lib/app-colours.ts`) refuses any decision
+   * colour white words do not read on at 4.5:1, and the label here is that white. Inside a guest island the saved set
+   * resets them to `initial`, which hands this rule back its fallback.
+   */
+  .button-primary {
+    background-color: rgb(var(--sn-decision, var(--color-mulberry)));
+  }
+  .button-primary:hover {
+    background-color: rgb(var(--sn-decision-600, var(--color-mulberry-600)));
   }
   /*
    * 🔠 With bigger iPhone text (the app only — `data-text-scale` is written by
@@ -2876,17 +2925,12 @@ html:not([data-sn-nav-dir]) .sn-vt-page:has([data-guests-thumb]) {
   padding-left: var(--sn-safe-l);
   padding-right: var(--sn-safe-r);
 }
-.sn-vt-fab {
-  view-transition-name: sn-navfab;
-}
-::view-transition-group(sn-bottomnav),
-::view-transition-group(sn-navfab) {
+/* (`.sn-vt-fab` / `sn-navfab` retired 2026-11-13 with the last floating button, the admin's — owner: five tabs.) */
+::view-transition-group(sn-bottomnav) {
   animation: none;
 }
 ::view-transition-old(sn-bottomnav),
-::view-transition-new(sn-bottomnav),
-::view-transition-old(sn-navfab),
-::view-transition-new(sn-navfab) {
+::view-transition-new(sn-bottomnav) {
   animation: none;
   mix-blend-mode: normal;
 }
@@ -6579,13 +6623,15 @@ div:has(> [data-apply-pro-sheet]),
    * everything NEW — the pill, the hover, the grey — is written `:not(.sn-editorial *)`, so it cannot reach it.
    * `lib/the-main-button-is-the-accent.test.ts` holds both halves.
    */
+  /* 🎨 DECISION, NOT TOGGLE (Admin › Colours, 12 Nov 2026): the fill is the decision job; with nothing saved
+     `--sn-decision` is unset and this reads `--sn-accent` exactly as before. */
   .app-surface .button-primary {
-    background: rgb(var(--sn-accent));
-    color: rgb(var(--sn-on-accent));
+    background: rgb(var(--sn-decision, var(--sn-accent)));
+    color: rgb(var(--sn-on-decision, var(--sn-on-accent)));
   }
   .app-surface .button-primary:not(.sn-editorial *):hover {
     transform: translateY(-2px);
-    box-shadow: 0 14px 26px -12px rgb(var(--sn-accent) / 0.6);
+    box-shadow: 0 14px 26px -12px rgb(var(--sn-decision, var(--sn-accent)) / 0.6);
   }
   .app-surface .button-secondary {
     background: var(--sn-surface);
@@ -10196,8 +10242,11 @@ input.sn-switch:focus-visible {
 /* 🎯 BRAND IS THE APP'S ACCENT, BY ITS JOB (owner 2026-10-08: "if we change our color to blue, it will be easy to change
  * the button colors"): the fill reads `--sn-accent` — today the terracotta `--color-mulberry` holds, so nothing moves on
  * screen — and the filled main verb's word reads `--sn-on-accent` (the rule after `.ab-main`, below). The outlined
- * word keeps mulberry-700 (measured on the 9% wash, above). Held by `lib/the-stages-panel-wears-the-accent.test.ts`. */
-:is(button, a).ab.ab-brand { --ab-tone: var(--sn-accent); --ab-word: var(--color-mulberry-700); }
+ * word keeps mulberry-700 (measured on the 9% wash, above). Held by `lib/the-stages-panel-wears-the-accent.test.ts`.
+ * 🎨 DECISION, NOT TOGGLE (Admin › Colours, 12 Nov 2026): brand is the DECISION job — `--sn-decision`, its outlined
+ * word `--sn-decision-word`, its filled word `--sn-on-decision`. All three are unset until the admin saves a set, and
+ * each falls back to exactly what this rule read before, so with nothing saved no pixel moves. */
+:is(button, a).ab.ab-brand { --ab-tone: var(--sn-decision, var(--sn-accent)); --ab-word: var(--sn-decision-word, var(--color-mulberry-700)); }
 :is(button, a).ab.ab-ok { --ab-tone: var(--color-ok); }
 :is(button, a).ab.ab-info { --ab-tone: var(--color-info); }
 :is(button, a).ab.ab-warn { --ab-tone: var(--color-warn); }
@@ -10219,7 +10268,7 @@ input.sn-switch:focus-visible {
 html.dark :is(button, a).ab.ab-main { color: #161513; }
 /* The main button in the accent: its word is the ink that reads ON the accent — one setting, both themes. */
 :is(button, a).ab.ab-brand.ab-main,
-html.dark :is(button, a).ab.ab-brand.ab-main { color: rgb(var(--sn-on-accent)); }
+html.dark :is(button, a).ab.ab-brand.ab-main { color: rgb(var(--sn-on-decision, var(--sn-on-accent))); }
 /* `filled` (the component's option) — the main verb's solid fill on a button that is NOT the row's main verb, so the
  * fit pass may still take its word (Find's ＋ Add your own). Same weight as `.ab-main`, its own class. */
 :is(button, a).ab.ab-fill {
@@ -10229,7 +10278,7 @@ html.dark :is(button, a).ab.ab-brand.ab-main { color: rgb(var(--sn-on-accent)); 
 }
 html.dark :is(button, a).ab.ab-fill { color: #161513; }
 :is(button, a).ab.ab-brand.ab-fill,
-html.dark :is(button, a).ab.ab-brand.ab-fill { color: rgb(var(--sn-on-accent)); }
+html.dark :is(button, a).ab.ab-brand.ab-fill { color: rgb(var(--sn-on-decision, var(--sn-on-accent))); }
 /* WAITING (`waiting` on the component) — it cannot be used yet and it is STILL A BUTTON: a grey fill and word, its
  * pill and a line kept — never the 35 % fade `disabled` wears, which read as faded text (owner 2026-10-08). Written
  * AFTER the tone, main and disabled rules and at their weight or higher, so it wins on purpose: any tone, main or
@@ -10756,6 +10805,28 @@ input[data-clearing]::-webkit-search-cancel-button { display: none; -webkit-appe
  * 🔒 app/vendor-dashboard/no-cut-line-under-a-pinned-row.test.ts */
 .sn-pin-hair {
   box-shadow: 0 1px 0 var(--sn-hair);
+}
+
+/* ═══ 📖 POST EVENT READS AS A STORY — ONE SCENE PER SCREEN ═══════════════════════════════════════════════════════════
+   Owner 2026-11-13, DECISION_LOG "POST EVENT = A STORY (ONE SCENE PER SCREEN) — SIX CALLS SETTLED" (1): Story is the
+   default for every Post Event (`editorial-content.tsx` sets `data-reads-as`); Page (the couple's other choice under
+   "Reads as") is today's long page, untouched. Each screen is a scene the page drew — a styled scene's frame
+   (`data-post-event-look`) or a plain one (`data-story-screen`) — at least one screen tall, centred, snapped to on
+   scroll; the progress bars are `story-progress.tsx`. 🔑 ONLY HERE: the Event Hub's scenes everywhere else stay as tall
+   as their content (DECISION_LOG "A SCENE IS AS TALL AS ITS CONTENT") — this never touches a `.hub-*` scene. A scene
+   taller than the screen keeps its height and scrolls (proximity snap, never mandatory). Screen only — print is the
+   long page. */
+@media screen {
+  html:has([data-reads-as='story']) {
+    scroll-snap-type: y proximity;
+  }
+  [data-reads-as='story'] :is([data-post-event-look], [data-story-screen]):not(:is([data-post-event-look], [data-story-screen]) *) {
+    min-height: calc(100svh - 4.5rem);
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
 }
 
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same

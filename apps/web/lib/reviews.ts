@@ -135,6 +135,11 @@ const REVIEW_COLUMNS =
 export type FetchReviewsOpts = {
   limit?: number;
   offset?: number;
+  /**
+   * 💸 Events whose review is UNLISTED (owner 2026-11-12: a booking-fee top-up past its event day and unsettled —
+   * `readOverdueTopUpEventIds`). A review with no event (its celebration deleted) is never excluded by this.
+   */
+  excludeEventIds?: readonly string[];
 };
 
 /**
@@ -149,12 +154,11 @@ export async function fetchReviewsForVendor(
 ): Promise<ReviewRow[]> {
   const limit = opts.limit ?? 25;
   const offset = opts.offset ?? 0;
-  const { data, error } = await supabase
-    .from('vendor_reviews')
-    .select(REVIEW_COLUMNS)
-    .eq('vendor_profile_id', vendorProfileId)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  let q = supabase.from('vendor_reviews').select(REVIEW_COLUMNS).eq('vendor_profile_id', vendorProfileId);
+  const skip = (opts.excludeEventIds ?? []).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  // `NOT IN` alone would also drop a review whose event_id is NULL (SQL's three-valued NOT IN) — keep those.
+  if (skip.length > 0) q = q.or(`event_id.is.null,event_id.not.in.(${skip.join(',')})`);
+  const { data, error } = await q.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
   if (error) throw new Error(`fetchReviewsForVendor failed: ${error.message}`);
   return (data ?? []) as ReviewRow[];
 }

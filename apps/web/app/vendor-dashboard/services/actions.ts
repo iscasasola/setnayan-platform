@@ -5,6 +5,16 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { servicesReturnBase } from '@/lib/vendor-services-return';
 import { QUOTE_RETURN_FIELD, QUOTE_RETURN_PARAM, quoteReturnPath, quoteReturnWithCard } from '@/lib/quote-card-return';
+import {
+  CARD_QUEUE_FIELD,
+  CARD_QUEUE_PARAM,
+  CARD_SPECIALTIES_FIELD,
+  CARD_SPECIALTIES_PARAM,
+  cardMakerQueueHref,
+  encodeCardSpecialties,
+  parseCardQueue,
+  parseCardSpecialties,
+} from '@/lib/card-queue';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -87,6 +97,8 @@ import { SHOP_PACK_GIFTS_DELIVER, giftColumns } from '@/lib/gift-pick';
 import { freeByKind, shopGiftKindOf } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { SERVICE_REQUESTS_HREF, SERVICE_REQUEST_NEW_HREF, sameNameKey } from '@/lib/service-requests';
+import { draftSaysExisting, loadRequestTree } from '@/lib/service-requests.server';
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
@@ -923,6 +935,12 @@ export async function createVendorService(formData: FormData) {
       profile.vendor_profile_id,
       { discounts: discountRows, inclusions: inclusionRows, brackets: bracketRows },
     );
+    // Priced add-ons (`addons-editor.tsx` rows) — the same replace-all the canvas save runs, only when the form carried
+    // the editor. The claim door's Extras arrive this way (v2, owner 2026-11-13). Best-effort, like the lists above.
+    if (formData.get('addons_present') === '1') {
+      const addonErr = await replaceServiceAddons(supabase, created.vendor_service_id, profile.vendor_profile_id, parseAddonRows(formData));
+      if (addonErr) console.warn('[createVendorService] the add-ons were not saved:', addonErr);
+    }
   }
 
   // Repost-watch/NSFW hash-scan on a new cover — same post-response hook the
@@ -945,25 +963,56 @@ export async function createVendorService(formData: FormData) {
 }
 
 /**
- * Vendor: propose a brand-new category for what they do but can't find in the
- * picker — the "There's always a place for what you do" on-ramp (spec 0023
- * §3.2c). Lands as a PENDING row in `taxonomy_category_requests` for an admin to
- * resolve (promote / map-to-existing / keep-private / reject). RLS gates the
- * insert to the vendor's own profile; the vendor tracks status read-only.
+ * Vendor: tell us a service we don't list — the "Can't find yours? Tell us what you do" door
+ * (spec 0023 §3.2c; owner rulings 2026-11-13). Lands as a PENDING row in
+ * `taxonomy_category_requests` for an admin to decide (Add · Move · Keep · Not added). RLS gates
+ * the insert to the vendor's own profile; the vendor tracks it on "Your requests".
+ *
+ * 2026-11-13 — the supplier now browses group → category FIRST and the request carries that
+ * category (`tile_id`, a column the table has had since 2026-08-11 that this action never filled).
+ * Until a decision, their cards sit under "<category> › Others" — a TAG on the card
+ * (`vendor_services.category_request_id`), never a new taxonomy row.
  */
 export async function proposeCategory(formData: FormData) {
   const { supabase, profile } = await ensureProfile();
 
   const label = String(formData.get('proposed_label') ?? '').trim();
-  const note = String(formData.get('proposed_note') ?? '').trim() || null;
+  const note = String(formData.get('proposed_note') ?? '').trim().slice(0, 400) || null;
   // Set only when this submit came from the maker's plan-locked-kind link
   // (S3, owner 2026-08-28) — carries "Back to your card" through the redirect,
   // since a server action can't read the page's own URL for it.
   const fromLockedKind = formData.get('from_locked_kind') === '1' ? '&wantCategory=1' : '';
+  // The category the supplier browsed to (a tier-2 `service_categories` id). Required: the owner's
+  // "pick a category until they find where they want to be in" comes BEFORE the name.
+  const tileId = String(formData.get('tile_id') ?? '').trim();
+  const back = `${SERVICE_REQUEST_NEW_HREF}?tile=${encodeURIComponent(tileId)}`;
   if (label.length < 2 || label.length > 80) {
     return redirect(
-      `${await servicesReturnBase()}?error=${encodeURIComponent('Category name must be 2–80 characters.')}${fromLockedKind}`,
+      `${back}&error=${encodeURIComponent('Give it a name of 2–80 characters.')}${fromLockedKind}`,
     );
+  }
+  const tree = await loadRequestTree();
+  // An unreadable tree does not refuse a supplier (the FK still guards a bad id); a READ tree that
+  // does not hold the id does.
+  if (!tileId || (tree !== null && !tree.categoryLabel.has(tileId))) {
+    return redirect(
+      `${SERVICE_REQUEST_NEW_HREF}?error=${encodeURIComponent('Pick the category it belongs in first.')}${fromLockedKind}`,
+    );
+  }
+
+  // A name this shop already has WAITING is the same request, not a twin.
+  {
+    const { data: mine } = await supabase
+      .from('taxonomy_category_requests')
+      .select('request_id, proposed_label')
+      .eq('proposed_by_vendor_id', profile.vendor_profile_id)
+      .eq('status', 'pending');
+    const twin = ((mine ?? []) as Array<{ request_id: string; proposed_label: string }>).find(
+      (r) => sameNameKey(r.proposed_label) === sameNameKey(label),
+    );
+    if (twin) {
+      return redirect(`${SERVICE_REQUESTS_HREF}/${twin.request_id}?already=1${fromLockedKind}`);
+    }
   }
 
   const { data: created, error } = await supabase
@@ -972,6 +1021,7 @@ export async function proposeCategory(formData: FormData) {
       proposed_by_vendor_id: profile.vendor_profile_id,
       proposed_label: label,
       proposed_note: note,
+      tile_id: tileId,
     })
     // RETURNING the id, because the draft below is keyed on an id THIS INSERT
     // produced. A drafter that accepted a request id from the form would let a
@@ -981,16 +1031,16 @@ export async function proposeCategory(formData: FormData) {
     .single();
   if (error) {
     return redirect(
-      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}${fromLockedKind}`,
+      `${back}&error=${encodeURIComponent(error.message)}${fromLockedKind}`,
     );
   }
 
-  // ── THE REQUEST ARRIVES READY TO PRESS (C4, 2026-08-28) ───────────────────
+  // ── THE REQUEST IS READ BY THE AI FIRST (C4 2026-08-28 · owner 2026-11-13) ──
   // Draft the proposal for the admin queue: a cleaner name, the branch it may
   // belong under, and the near-matches we rejected with a reason each. SHIPS
-  // DARK (`CATEGORY_PROPOSAL_DRAFT_ENABLED`, default OFF).
+  // DARK (`CATEGORY_PROPOSAL_DRAFT_ENABLED`, default OFF — the owner's to flip).
   //
-  // ⛔ IT DRAFTS; IT NEVER MINTS. A person presses Promote on /admin/taxonomy.
+  // ⛔ IT DRAFTS; IT NEVER MINTS. A person decides on Admin › Service requests.
   // 🔒 AND IT CANNOT COST THE SUPPLIER THEIR REQUEST — the insert above has
   // already happened, and `maybeDraftCategoryProposal` never throws: no key, no
   // network, a refusal or a slow model all leave a plain request in the queue,
@@ -999,7 +1049,16 @@ export async function proposeCategory(formData: FormData) {
 
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
-  redirect(`${await servicesReturnBase()}?requested=1${fromLockedKind}`);
+  revalidatePath(SERVICE_REQUESTS_HREF);
+
+  // An EXISTING match (owner ruling 3): the supplier goes straight to that service's card maker.
+  // The request stays in the queue with the AI's recommendation for admin to approve or decline —
+  // the AI only recommends. With the flag off there is no draft and this is always null.
+  const existing = await draftSaysExisting(created?.request_id ?? '', tree);
+  if (existing) {
+    return redirect(`/vendor-dashboard/services/new/${encodeURIComponent(existing)}?fromRequest=1${fromLockedKind}`);
+  }
+  redirect(`${SERVICE_REQUESTS_HREF}/${created?.request_id ?? ''}?requested=1${fromLockedKind}`);
 }
 
 export async function updateVendorService(formData: FormData) {
@@ -1532,10 +1591,20 @@ export async function commitVendorService(formData: FormData) {
   // (`quoteReturnPath`, only the two pages that draw the quote, never an open redirect). A refusal keeps it on the
   // maker's address; a new card's save returns there with the card (below).
   const quoteReturn = quoteReturnPath(formData.get(QUOTE_RETURN_FIELD));
+  // ➕ MAKE N CARDS (ruling 5820): the services still to make after this one — checked (`parseCardQueue`), only on a
+  // CREATE. A refusal keeps them on the card's address; a made card opens the next one's maker (below).
+  const cardQueue = isCreate ? parseCardQueue(formData.get(CARD_QUEUE_FIELD)) : [];
+  // 🏷 …and each queued service's own specialties, carried to its card (pre-ticked there, saved only with that card).
+  const queuedSpecialties = parseCardSpecialties(formData.get(CARD_SPECIALTIES_FIELD), cardQueue);
   const back = async (msg: string) => {
     if (returnTo && !(isCreate && claimToken)) {
       const keepQuote = quoteReturn ? `&${QUOTE_RETURN_PARAM}=${encodeURIComponent(quoteReturn)}` : '';
-      return redirect(`${returnTo}?error=${encodeURIComponent(msg)}${keepQuote}`);
+      const keepSp = encodeCardSpecialties(queuedSpecialties, cardQueue);
+      const keepQueue =
+        cardQueue.length > 0
+          ? `&${CARD_QUEUE_PARAM}=${cardQueue.join(',')}${keepSp ? `&${CARD_SPECIALTIES_PARAM}=${encodeURIComponent(keepSp)}` : ''}`
+          : '';
+      return redirect(`${returnTo}?error=${encodeURIComponent(msg)}${keepQuote}${keepQueue}`);
     }
     if (isCreate && claimToken && formCategory) {
       return redirect(
@@ -2322,6 +2391,9 @@ export async function commitVendorService(formData: FormData) {
   // the quote reads `quote_card` and puts the card in as lines.
   const backToQuote = isCreate && typeof savedId === 'string' && quoteReturn ? quoteReturnWithCard(quoteReturn, savedId) : null;
   if (backToQuote) redirect(backToQuote);
+  // ➕ MAKE N CARDS (ruling 5820): this card is made — the next queued service's maker opens, the rest behind it.
+  const nextCard = isCreate && typeof savedId === 'string' ? cardMakerQueueHref(cardQueue, queuedSpecialties) : null;
+  if (nextCard) redirect(nextCard);
   // Blank names are auto-named, never refused — so the save REPORTS how many
   // it filled in (the placeholder showed the same names before the save).
   const named = customizationAutoNamed > 0 ? `&autonamed=${customizationAutoNamed}` : '';

@@ -45,6 +45,9 @@ const WEB = resolve(HERE, '..');
 const EDITOR = 'app/admin/pricing/actions.ts';
 const BULK = 'app/admin/pricing/price-control-actions.ts';
 const DISPATCHER = 'app/admin/approvals/actions.ts';
+// Owner 2026-11-13 (plan contents): writes ONE non-price column — `included_papic_credits`, what Event Plus / Event Pro
+// include — and only as the executor of its own two-admin approval (`approve_plan_contents_change`). Never a price.
+const PLAN_CONTENTS = 'lib/plan-contents-execute.server.ts';
 
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
@@ -117,7 +120,7 @@ test('every writer of a customer-price column is known — exactly', () => {
 
   assert.deepEqual(
     writers.sort(),
-    [EDITOR, BULK].sort(),
+    [EDITOR, BULK, PLAN_CONTENTS].sort(),
     'A file outside the two known pricing surfaces writes what a customer is charged. That is a ' +
       'new door onto § 9.1, and a gate with another door is decoration. Either route it through ' +
       'approve_retail_price_change, or add it here with a reason.\n  ' + writers.join('\n  '),

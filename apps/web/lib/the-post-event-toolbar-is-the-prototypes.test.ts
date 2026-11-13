@@ -68,7 +68,7 @@ const h = React.createElement;
 type Any = React.ComponentType<Record<string, unknown>>;
 const seen = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
-const EMPTY: PostEventArrangement = { sections: {}, sectionOrder: null, sceneLooks: {}, customIds: [] };
+const EMPTY: PostEventArrangement = { sections: {}, sectionOrder: null, sceneLooks: {}, customIds: [], readAs: 'story' };
 type Tile = Record<string, unknown>;
 const WISHES: Tile = { kind: 'post-event', key: 'p:wishes', anchor: 'p:wishes', scene: 'wishes', label: 'Photo Notes', status: 'auto', hidden: false, drawn: true, position: 3, template: null, source: 'the wishes your guests left', note: null, open: null, pinned: false, switchKey: 'kwento', runKey: 'kwento' };
 const COVER: Tile = { ...WISHES, key: 'p:cover', anchor: 'p:cover', scene: 'cover', label: 'Front Page', pinned: true, switchKey: null, runKey: null };
@@ -327,8 +327,8 @@ test('(5) a scene with no look to pick has a grey Style that says so — exactly
     assert.equal(makerPartToolWorks(k, 'edit'), true);
   }
   /* (…and Were you there?, a part of its own since 2026-10-10 — (7).) */
-  assert.deepEqual(none.sort(), ['beforeafter', 'next', 'song', 'wall', 'you']);
-  assert.deepEqual([...MAKER_PARTS_NO_LOOK].sort(), ['beforeafter', 'coverphoto', 'next', 'song', 'spotlight', 'wall', 'you']);
+  assert.deepEqual(none.sort(), ['beforeafter', 'next', 'pegifts', 'song', 'wall', 'you']);
+  assert.deepEqual([...MAKER_PARTS_NO_LOOK].sort(), ['beforeafter', 'coverphoto', 'next', 'pegifts', 'song', 'spotlight', 'wall', 'you']);
 });
 
 /* ── (6) the ⓘ ────────────────────────────────────────────────────────── */

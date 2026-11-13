@@ -126,5 +126,12 @@ export function proposeCategoryRequested(raw: unknown): boolean {
   return raw === '1' || raw === 'true';
 }
 
+/**
+ * 2026-11-13 (owner rulings, service requests): the door now opens the category browse — "pick a
+ * category until they find where they want to be in", THEN name it — on its own page
+ * (`/vendor-dashboard/services/requests/new`). The param still carries "came from the maker", so that
+ * page offers "Back to your card" and the submit carries it through every redirect. The anchor id
+ * stays on the Services page's Requests block (its "Your requests" row and this same door).
+ */
 export const PROPOSE_CATEGORY_HREF =
-  `/vendor-dashboard/services?${PROPOSE_CATEGORY_PARAM}=1#${PROPOSE_CATEGORY_ANCHOR_ID}` as const;
+  `/vendor-dashboard/services/requests/new?${PROPOSE_CATEGORY_PARAM}=1` as const;

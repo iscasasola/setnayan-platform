@@ -71,6 +71,16 @@ export type InPlanInput = {
    * of the couple's suppliers, or a booking, is in plan whatever this says.
    */
   starterTiles?: ReadonlySet<string>;
+  /**
+   * 📋 FIND LISTS ONLY WHAT THE COUPLE ADDED (owner 2026-11-12, the organized-Find prototype —
+   * `suppliers-one-prototype-2026-11-12`, "Yes, build it"; and on the count: *"only the ones listed"*). Given, the
+   * bench's rows are ONLY the categories that hold one of the couple's suppliers (asked, saved or booked) — the plan,
+   * the starter ring and every empty category stay hidden — plus the pinned tile (a category the couple opened from
+   * search, so it shows while it is open). The count's denominator (`coverage`) is the listed categories only: a
+   * category opened just to look is never counted. Every other category waits behind the thumb row's search and ＋.
+   * Omitted → the rules above, unchanged.
+   */
+  listedOnly?: boolean;
 };
 
 export type InPlanResolution = {
@@ -103,6 +113,15 @@ export function resolveInPlanTiles(input: InPlanInput): InPlanResolution {
   for (const t of pinned) engaged.add(t);
 
   const seeded = [...input.plannedTiles].some((t) => known.has(t));
+
+  if (input.listedOnly) {
+    // Listed = holds a supplier of the couple's (or a booking), and was not removed. A lock is always listed.
+    const listed = new Set<string>();
+    for (const t of input.tilesWithVendors) if (known.has(t) && !excluded.has(t)) listed.add(t);
+    for (const t of input.tilesWithLocks) if (known.has(t)) listed.add(t);
+    const rows = new Set(all.filter((t) => listed.has(t) || pinned.has(t)));
+    return { seeded, inPlan: rows, pool: all.filter((t) => !rows.has(t)), coverage: new Set(all.filter((t) => listed.has(t))) };
+  }
 
   const inPlan = new Set<string>();
   if (seeded) {
@@ -159,6 +178,8 @@ export function resolveBenchRing(args: {
   pinnedTile?: string | null;
   /** Absent → the every-tile rule (the old shape). */
   starterTiles?: readonly string[];
+  /** Only the categories the couple added (`InPlanInput.listedOnly`, owner 2026-11-12). */
+  listedOnly?: boolean;
 }): InPlanResolution {
   return resolveInPlanTiles({
     allTiles: args.tiles.map((t) => t.tile),
@@ -168,6 +189,7 @@ export function resolveBenchRing(args: {
     excludedTiles: new Set(args.excludedTiles),
     pinnedTiles: args.pinnedTile ? new Set([args.pinnedTile]) : undefined,
     starterTiles: args.starterTiles ? new Set(args.starterTiles) : undefined,
+    listedOnly: args.listedOnly,
   });
 }
 

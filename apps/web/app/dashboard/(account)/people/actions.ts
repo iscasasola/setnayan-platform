@@ -19,6 +19,7 @@ import {
 } from '@/lib/people-connections';
 import {
   isOnePartnerRefusal,
+  labelConfirmedTitle,
   labelRequestLine,
   partnerHolding,
   replacePartnerQuestion,
@@ -27,7 +28,6 @@ import {
 import { getSpouseContext } from '@/lib/people-spouse-context';
 import { searchPeopleByName, type PersonHit } from '@/lib/people-search';
 import {
-  RELATION_LABEL,
   connectionRequestSentence,
   firstNameOf,
   normalizeEmail,
@@ -605,17 +605,24 @@ async function confirmLabel(
   // The answer travels back, on the same notice a confirmed connection uses.
   if (((data ?? []) as unknown[]).length > 0) {
     const admin = createAdminClient();
-    const [{ data: asker }, { data: me }] = await Promise.all([
+    const [{ data: asker }, { data: me }, { data: myAccount }] = await Promise.all([
       admin.from('people').select('claimed_by_user_id').eq('person_id', row.from_person_id).maybeSingle(),
       admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
+      // The account's own name — the person node's `display_name` can be empty (2026-11-13: "They confirmed").
+      admin.from('users').select('display_name').eq('user_id', user.id).maybeSingle(),
     ]);
     const askerUserId = (asker as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id;
     if (askerUserId) {
-      const myName = firstNameOf((me as { display_name: string | null } | null)?.display_name) ?? 'They';
       await emitNotification({
         userId: askerUserId,
         type: 'connection_confirmed',
-        title: `${myName} confirmed — they’re your ${RELATION_LABEL[asked]}`,
+        title: labelConfirmedTitle(
+          [
+            (me as { display_name: string | null } | null)?.display_name,
+            (myAccount as { display_name: string | null } | null)?.display_name,
+          ],
+          asked,
+        ),
         body:
           asked === 'partner'
             ? 'You’re a couple on Setnayan now. Plan an event together whenever you’re ready.'

@@ -28,6 +28,7 @@ import type { PortfolioAlbum, PortfolioGroups } from '@/lib/portfolio-groups';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
 import { AddTile, EmptyRail, MorePill, MorePills, PortfolioSection, Rail, Tile, type Door, type GroupRise } from './portfolio-sections';
+import { TOP_UP_WORDS } from '@/lib/booking-fee-top-up';
 import { AlbumGrids, OpenedCollection, PhotoGrid, SONG_BANK_HREF, VideoLinks, type OpenedPhotos } from './portfolio-groups';
 import { ReorderSections } from './reorder-sections';
 import { bestWorkLine, type BestWorkPhoto } from '@/lib/portfolio-best-work';
@@ -140,7 +141,7 @@ export function CollectionsList({
   const rows = Object.fromEntries(collectionRows(input).map((r) => [r.key, r]));
   const openPhotos = (key: string, photos: OpenedPhotos) => (origin: HTMLElement | null) => setOpen({ kind: 'photos', key, photos, origin });
   const openVideo = (origin: HTMLElement | null) => setOpen({ kind: 'video', origin });
-  const albumPhotos = (a: PortfolioAlbum): OpenedPhotos => ({ title: a.title, sub: a.line, urls: a.urls, total: a.total, href: a.href });
+  const albumPhotos = (a: PortfolioAlbum): OpenedPhotos => ({ title: a.title, sub: a.line, urls: a.urls, total: a.total, href: a.href, unlisted: a.unlisted ?? null });
   /** ⤴ What a group's head rises into: its count, the grid (photos · albums), and its own page as one row. */
   const riseOf = (line: string | null | undefined, body: ReactNode, page: GroupRise['page'] = null): GroupRise => ({ line: line ?? '', body, page });
   const albumsRise = (id: string, albums: PortfolioAlbum[] | null) => {
@@ -219,7 +220,7 @@ export function CollectionsList({
       ) : (
         <Rail data={id}>
           {albums.map((a) => (
-            <Tile key={a.key} name={a.title} sub={a.line} photo={a.urls[0] ?? null} icon={icon} open={openPhotos(`${id}:${a.key}`, albumPhotos(a))} data={id} />
+            <Tile key={a.key} name={a.title} sub={a.unlisted ? TOP_UP_WORDS.unlisted : a.line} photo={a.urls[0] ?? null} icon={icon} open={openPhotos(`${id}:${a.key}`, albumPhotos(a))} data={id} />
           ))}
         </Rail>
       )}

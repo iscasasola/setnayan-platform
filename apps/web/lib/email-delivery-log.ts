@@ -50,8 +50,10 @@ export type DeliveryVerdict =
 
 /** Resend `last_event` values that mean the message reached the mail server. */
 const DELIVERED_EVENTS = new Set(['delivered', 'opened', 'clicked']);
-/** Resend `last_event` values that mean it will not arrive. */
-const FAILED_EVENTS = new Set(['bounced', 'complained', 'failed', 'suppressed']);
+/** Resend `last_event` values that mean it will not arrive. Exported so the
+ *  admin's "email bounces" count (lib/admin/queue-counts.ts) asks the same question. */
+export const FAILED_DELIVERY_EVENTS = ['bounced', 'complained', 'failed', 'suppressed'] as const;
+const FAILED_EVENTS = new Set<string>(FAILED_DELIVERY_EVENTS);
 
 /**
  * How long we keep asking Resend about one message. A normal delivery settles in

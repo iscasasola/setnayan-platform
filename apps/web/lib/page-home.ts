@@ -32,7 +32,7 @@
  *            (`app/dashboard/(launcher)/_components/account-bottom-nav.tsx`)
  *   event    Home · Guests · Suppliers · Hub · Memories (`lib/customer-menu.ts` `buildEventMenuSections`)
  *   supplier Today · Clients · Shop · Portfolio (`app/vendor-dashboard/_components/vendor-nav-destinations.ts`, THE ONE BUILD 8 Nov)
- *   admin    Today · People · Money · More (`app/admin/_components/admin-bottom-nav.tsx`)
+ *   admin    Work · Money · People · Catalogue · Insights (`lib/admin/admin-tabs.ts`, drawn by `admin-bottom-nav.tsx`)
  *
  * Pure and dependency-free: a server page, a client component and the guard all ask the same function.
  */
@@ -71,7 +71,8 @@ export const BAR_ROOTS = {
     '/vendor-dashboard/shop',
     '/vendor-dashboard/collections',
   ],
-  admin: ['/admin', '/admin/directory', '/admin/money', '/admin/more'],
+  // The five tabs' landings (owner 13 Nov 2026 — `lib/admin/admin-tabs.ts`).
+  admin: ['/admin', '/admin/payments', '/admin/accounts', '/admin/categories', '/admin/app-performance'],
 } as const;
 
 const ROOTS = new Set<string>(Object.values(BAR_ROOTS).flat());
@@ -101,7 +102,11 @@ const LABELS: Record<string, string> = {
   // The supplier's Hub room is no tab any more (THE ONE BUILD) — its own heading's word ("Hub", never the couple's
   // "Event Hub" — owner 2026-11-05), for the live console's ‹.
   '/vendor-dashboard/on-the-day': 'Hub',
-  '/admin': 'Today',
+  '/admin': 'Work',
+  '/admin/payments': 'Money',
+  '/admin/accounts': 'People',
+  '/admin/categories': 'Catalogue',
+  '/admin/app-performance': 'Insights',
   '/admin/more': 'All surfaces',
   '/admin/ugat': 'Root map',
   '/explore': 'Suppliers',
@@ -129,8 +134,10 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/dashboard/samahan/**': { home: '/dashboard?seg=people&view=samahan' },
   // 🏠 An alaga's page belongs to Home › People › Loved ones (its URL parent only forwards there).
   '/dashboard/people/[dependentId]': { home: '/dashboard?seg=people&view=alaga' },
-  // A person's public profile is opened from People (`app/u/_components/profile-back.tsx`).
-  '/u/[userSlug]': { home: '/dashboard?seg=people' },
+  // A person's public profile goes back WHERE THE VISIT CAME FROM, in place — Discover, People, anywhere (2026-11-12,
+  // DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"; was a fixed Home › People, drawn signed in only). Cold:
+  // People signed in, Discover signed out — per visit, so computed (`app/u/_components/profile-back.tsx`).
+  '/u/[userSlug]': { none: 'computed', by: 'app/u/_components/profile-back.tsx' },
   '/u/[userSlug]/c/[chapterId]': { home: '/u/[userSlug]', label: 'Profile' },
   // The claim link is made and shared from People; the issuer who opens it lands back there (audit ⚠, kept).
   '/claim/[token]': { home: '/dashboard?seg=people' },
@@ -189,7 +196,13 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // saved supplier — read from the arrival (`?src=` / a checked `?event=`). Was a fixed `/explore` (the 28 Oct audit ❌
   // "goes to the front page" fixed one arrival and broke the rest — owner 2026-11-07: "back to suppliers? it went to a
   // wrong shell"). With no arrival it says "See more suppliers" → /explore, never "Back".
+  // 2026-11-12 ("DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): that door is now ALSO the top-left ‹ for everyone,
+  // returning in place; cold, it is "home" — Discover signed out, Home signed in (`shopTopBack`).
   '/v/[slug]': { none: 'computed', by: 'lib/shop-back.ts' },
+  // 🎟 The host's own event page draws NO back — an invited guest sees nothing from Setnayan — EXCEPT for a visitor
+  // Discover's event card sent (`?via=discover`, read in the browser only): one ‹ Discover (2026-11-12, "DISCOVER WITH
+  // SUPPLIERS — PROTOTYPE APPROVED", answer 3). Per visit, so computed. (Its sub-pages keep `/[slug]/**` below.)
+  '/[slug]': { none: 'computed', by: 'lib/discover-way-back.ts' },
   '/suppliers/[event]/[category]': { home: '/suppliers' },
   '/tl/*': { home: '/' },
   // The API reference is read by whoever holds a key, made in Settings › API keys.

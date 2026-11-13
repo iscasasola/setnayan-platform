@@ -34,6 +34,31 @@ export function riseFrames(from: RiseRect, to: RiseRect): Keyframe[] {
   return [{ transform: `translate(${r(dx)}px, ${r(dy)}px) scale(${r(sx)}, ${r(sy)})` }, { transform: 'none' }];
 }
 
+/**
+ * 🃏 THE COVER MORPH (Service card grown — prototype `service-card-maker.html` `heroClipFrom`, run at the house 0.7 s):
+ * while the layer rises from the tapped card's box, the hero's own clip starts on the tapped card's COVER and opens to
+ * the full hero. Returns the starting `clip-path` in the HERO's own (untransformed) coordinates — the cover's screen box
+ * mapped back through the rise's first frame (`riseFrames(from, to)`), so at frame 0 the clip sits exactly over the
+ * cover. Each inset is clamped to the hero, so a cover that sits outside it still yields a valid clip. Pure.
+ */
+export function heroClipFrom(hero: RiseRect, cover: RiseRect, from: RiseRect, to: RiseRect, radius = 8): string {
+  const sx = to.width > 0 && from.width > 0 ? from.width / to.width : 1;
+  const sy = to.height > 0 && from.height > 0 ? from.height / to.height : 1;
+  const left = to.left + (cover.left - from.left) / sx;
+  const top = to.top + (cover.top - from.top) / sy;
+  const right = left + cover.width / sx;
+  const bottom = top + cover.height / sy;
+  const fit = (n: number, max: number) => Math.round(Math.min(Math.max(n, 0), Math.max(max, 0)) * 10) / 10;
+  const t = fit(top - hero.top, hero.height);
+  const b = fit(hero.top + hero.height - bottom, hero.height - t);
+  const l = fit(left - hero.left, hero.width);
+  const r = fit(hero.left + hero.width - right, hero.width - l);
+  return `inset(${t}px ${r}px ${b}px ${l}px round ${radius}px)`;
+}
+
+/** The hero at rest — the clip the morph ends on. */
+export const HERO_CLIP_OPEN = 'inset(0px 0px 0px 0px round 0px)';
+
 /** The cross-fade used under reduced motion. */
 export const RISE_REDUCED_FRAMES: Keyframe[] = [{ opacity: 0 }, { opacity: 1 }];
 

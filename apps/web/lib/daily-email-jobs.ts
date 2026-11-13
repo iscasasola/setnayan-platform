@@ -1,4 +1,5 @@
 import 'server-only';
+import { maybeRunAccountSuspensionLift } from '@/lib/account-suspension.server';
 import { sweepOldDownloadZips } from '@/lib/papic-download-all.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
@@ -750,6 +751,9 @@ export async function runDailyEmailJobs(): Promise<void> {
     }
     return deleted;
   });
+  // ⏸ Not an email — account holds that reached their Until date are lifted (owner 2026-11-13, ACCOUNT SUSPEND),
+  // hourly, on the same traffic-driven runner (lib/account-suspension.server.ts).
+  await maybeRunAccountSuspensionLift();
   // S5 — ships OFF (WHATS_NEXT_Suppliers_Room_SESSIONS_2026-08-27.md). The
   // claim always fires; runSupplierNightBeforeEmailReminders() itself no-ops
   // until isSupplierNightBeforeEmailEnabled() is flipped, so this mount stays

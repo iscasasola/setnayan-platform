@@ -72,6 +72,20 @@ test('the marketplace card shows it only for a demo shop, and its own amber Demo
   assert.ok(!card.includes('ring-warn-200'), 'the old amber demo ring is back');
 });
 
+/**
+ * The ONE place "Sample shop" is the owner's word again — owner, 13 Nov 2026, on the plan-card previews:
+ * *"make it sample shop instead of demo only"*. That drawing is an illustration on the supplier front page, not a
+ * demo SHOP row, so the "(DEMO ONLY)" ruling above (which governs `is_demo` shops) does not reach it. Exempted by
+ * exact path, and pinned below so it cannot drift either way.
+ */
+const SAMPLE_DRAWING = join('app', 'v', '[slug]', '_components', 'sample-shop-page.tsx');
+
+test('the plan-card sample drawing says "Sample shop" and never the demo chip (owner 13 Nov 2026)', () => {
+  const src = read(SAMPLE_DRAWING);
+  assert.match(src, /<SampleMarker>Sample shop<\/SampleMarker>/, 'the sample drawing lost its "Sample shop" chip');
+  assert.ok(!/DemoOnlyMarker|DEMO_ONLY_LABEL/.test(src), 'the sample drawing wears the demo-shop chip again');
+});
+
 test('the retired "Sample shop" marker is drawn nowhere (the owner\'s later words replaced it)', () => {
   const hits: string[] = [];
   const walk = (dir: string) => {
@@ -80,7 +94,7 @@ test('the retired "Sample shop" marker is drawn nowhere (the owner\'s later word
       if (e.isDirectory()) {
         if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
         walk(rel);
-      } else if (/\.tsx$/.test(e.name) && /<SampleShopMarker\b|>\s*Sample shop\s*</.test(read(rel))) hits.push(rel);
+      } else if (rel !== SAMPLE_DRAWING && /\.tsx$/.test(e.name) && /<SampleShopMarker\b|>\s*Sample shop\s*</.test(read(rel))) hits.push(rel);
     }
   };
   walk('app');

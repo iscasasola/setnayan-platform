@@ -710,7 +710,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
         gearBody={
           gear ? (
             <ShopSettingsRows
-              planLine="Solo · Papic credits · receipts"
+              planLine="Supplier Plus · Papic credits · receipts"
               wallet={{ title: walletRowTitle(fail ? null : 128), line: fail ? walletRowSubline({ balance: null, pendingPack: null }, formatPhp) : 'Portfolio and any event · packs you bought' }}
               plan={
                 <p className="text-sm text-ink/60" data-lab-stand-in="plan">

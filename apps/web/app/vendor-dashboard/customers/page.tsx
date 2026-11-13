@@ -35,6 +35,7 @@ import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import { entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
 import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { datesBlocksForWire, datesBookingsForWire } from './dates-wire';
+import { readBookedDayHours } from '@/lib/booked-day-hours.server';
 import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import {
@@ -90,7 +91,7 @@ import { CustomersSettings } from './_components/customers-settings';
 import { CustomersSettingsBody } from './_components/customers-settings-body';
 import { InquiryOutcomesRollup } from '../messages/_components/inquiry-outcomes-rollup';
 import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
-import { eventChatTitle } from '@/lib/event-chat-title';
+import { eventChatTitle, eventDateOptionWords } from '@/lib/event-chat-title';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { OutsideClientAdd } from './_components/outside-client-add';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -445,6 +446,8 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const eventTypeByEvent = new Map<string, string | null>();
   const eventNameByEvent = new Map<string, string | null>();
   const eventDateByEvent = new Map<string, string | null>();
+  // 📅 No day set yet → the couple's candidate date(s) / window, as the chat title says them (walk 13 Nov 2026).
+  const dateOptionsByEvent = new Map<string, string | null>();
   const rosterEventIds = [
     ...new Set([...bookedByEvent.keys(), ...bookingByEvent.keys(), ...threadByEvent.keys()]),
   ];
@@ -457,7 +460,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       (part) =>
         rosterAdmin
           .from('events')
-          .select('event_id, display_name, event_date, venue_name, event_type')
+          .select('event_id, display_name, event_date, venue_name, event_type, date_candidates, date_window_start, date_window_end')
           .in('event_id', part),
     );
     // ⚠ THE EVENT DATE, VENUE AND TYPE for every customer. Refused, all three
@@ -474,11 +477,26 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       event_date: string | null;
       venue_name: string | null;
       event_type: string | null;
+      date_candidates?: unknown;
+      date_window_start?: string | null;
+      date_window_end?: string | null;
     }[]) {
       venueByEvent.set(e.event_id, e.venue_name);
       eventTypeByEvent.set(e.event_id, e.event_type);
       eventNameByEvent.set(e.event_id, e.display_name);
       eventDateByEvent.set(e.event_id, e.event_date);
+      if (!e.event_date) {
+        dateOptionsByEvent.set(
+          e.event_id,
+          eventDateOptionWords({
+            eventDate: null,
+            precision: null,
+            candidates: e.date_candidates,
+            windowStart: e.date_window_start ?? null,
+            windowEnd: e.date_window_end ?? null,
+          }),
+        );
+      }
     }
   }
 
@@ -685,6 +703,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       kind: type && type !== 'unspecified' ? eventTypeLabel(type) : null,
       quoted: false,
       returning: Boolean(t?.is_returning),
+      dateOptions: dateOptionsByEvent.get(r.eventId) ?? null,
     };
   };
   const noLanes = Object.fromEntries(CUSTOMER_LANES.map((l) => [l, [] as PipelineCustomer[]])) as Record<CustomerLane, PipelineCustomer[]>;
@@ -834,6 +853,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
           kind: type && type !== 'unspecified' ? eventTypeLabel(type) : null,
           date: eventDateByEvent.get(t.event_id) ?? null,
           nowMs: rosterNowMs,
+          options: dateOptionsByEvent.get(t.event_id) ?? null,
         }),
         why: t.archived
           ? 'Archived'
@@ -1167,7 +1187,11 @@ async function customersMonth({
   teamRows: Awaited<ReturnType<typeof fetchVendorTeam>>;
   reads: ReturnType<typeof startMonthReads>;
 }) {
-  const [monthDayStates, monthWaitlist, upcomingWaitlist, settingsRead, pickedRead] = await reads;
+  const [[monthDayStates, monthWaitlist, upcomingWaitlist, settingsRead, pickedRead], bookedHours] = await Promise.all([
+    reads,
+    // 🗓 A booked day's hours and the shop's own times (part (b)) — a hall reads only its own chapter.
+    readBookedDayHours(bookings, new Set(pools.filter((p) => p.isHall).map((p) => p.poolId)), todayIso),
+  ]);
   // 🔴 G7: refused (null) is not "nothing held" — the month says so over itself (`initialDayStatesRead`).
   const dayStates = monthDayStates ?? [];
   const blocks = blocksRead.blocks;
@@ -1248,7 +1272,7 @@ async function customersMonth({
       todayIso,
       pools,
       // Only what the month and the day's rows read — a block's contact and note never cross the wire.
-      bookings: datesBookingsForWire(bookings),
+      bookings: datesBookingsForWire(bookings, bookedHours),
       blocks: datesBlocksForWire(blocks),
       agents,
       agentCategories,

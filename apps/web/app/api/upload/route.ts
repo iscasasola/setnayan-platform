@@ -40,6 +40,8 @@ import { tellTheCouplePapicPoolIsSpent } from '@/lib/papic-pool-spent-notice';
 import { captureWindowState } from '@/lib/papic-window';
 import { COUPLE_MEDIA_FULL_CODE, coupleMediaFullMessage, isCoupleMediaMeterPath } from '@/lib/couple-media-allowance';
 import { reserveCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
+import { STORAGE_CHECK_FAILED, STORAGE_FULL_CODE, STORAGE_UPGRADE_HREF } from '@/lib/supplier-storage';
+import { checkSupplierStorage } from '@/lib/supplier-storage.server';
 import { hubMusicUploadRefusal, hubMusicUploadRule } from '@/lib/hub-music';
 import { isAdminProfile } from '@/lib/admin/admin-predicate';
 
@@ -693,6 +695,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // exactly this population and nothing else (never Papic/guest captures,
   // never a vendor's own uploads, never a chat/order attachment).
   let coupleMediaEventId: string | null = null;
+  // 💾 Set below, only for a shop's own stored event files (`supplier-files/<shop>/…`, Piece 3b) — the bytes its plan's
+  // storage allowance counts (owner 2026-11-13: Solo 5 GB · Pro 10 GB · Ultra 15 GB; lib/supplier-storage.ts).
+  let supplierStorageShopId: string | null = null;
   if (!seatMode) {
     const tenancy = tenancyForPathPrefix(pathPrefix);
     // ── `profile-photo/<authUserId>` is answered WITHOUT a query ─────────────
@@ -759,6 +764,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
       if (tenancy.kind === 'event' && bucketKey === 'media' && isCoupleMediaMeterPath(pathPrefix, tenancy.id)) {
         coupleMediaEventId = tenancy.id;
+      }
+      if (tenancy.kind === 'vendor' && bucketKey === 'threadFiles' && pathPrefix.split('/')[0] === 'supplier-files') {
+        supplierStorageShopId = tenancy.id;
       }
     }
   }
@@ -924,6 +932,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { error: 'We couldn’t check your event’s upload allowance just now. Try again in a moment.' },
         { status: 503 },
       );
+    }
+  }
+
+  // ── 💾 THE PLAN HOLDS STORAGE (owner 2026-11-13) ─────────────────────────
+  // Asked BEFORE the PUT is signed, so a file past the allowance never reaches storage. The shop was proven the
+  // caller's by the tenancy check above. Nothing stored is touched; the database's backstop
+  // (`enforce_supplier_storage_allowance`) refuses the same file on every other path. Fail CLOSED when blind.
+  if (supplierStorageShopId) {
+    const room = await checkSupplierStorage(createAdminClient(), supplierStorageShopId, sizeBytes);
+    if (room.kind === 'full') {
+      return NextResponse.json(
+        { error: room.message, code: STORAGE_FULL_CODE, upgradeHref: STORAGE_UPGRADE_HREF },
+        { status: 413 },
+      );
+    }
+    if (room.kind === 'unavailable') {
+      return NextResponse.json({ error: STORAGE_CHECK_FAILED }, { status: 503 });
     }
   }
 

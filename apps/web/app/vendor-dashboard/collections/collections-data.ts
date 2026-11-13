@@ -3,6 +3,10 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { fetchDueFeeBills, FEE_BILLS_UNREADABLE } from '@/lib/booking-fee-disclosure.server';
+import { overdueTopUps } from '@/lib/booking-fee-top-up';
+import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
+import { manilaToday } from '@/lib/std-views';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { MICROSITE_COLUMNS, micrositeFromRow } from '@/lib/vendor-microsite';
 import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
@@ -346,6 +350,19 @@ export async function loadCollectionsData(
     );
     return urls.filter((u): u is string => Boolean(u));
   });
+  // 💸 THE OVERDUE TOP-UPS (owner 2026-11-12, booking-fee top-up): an event whose top-up is past its event day and
+  // unsettled draws its album greyed — event id → its pay page. A held top-up greys nothing; a failed read greys nothing.
+  const unlistedRead: Promise<Map<string, string>> = fetchDueFeeBills(supabase, userId)
+    .then((bills) => {
+      const out = new Map<string, string>();
+      if (bills === FEE_BILLS_UNREADABLE) return out;
+      for (const b of overdueTopUps(bills, manilaToday())) if (b.eventId && !out.has(b.eventId)) out.set(b.eventId, vendorBookingFeePayPath(b.orderId));
+      return out;
+    })
+    .catch((err) => {
+      logQueryError('VendorCollections.topUps', err, { vendorId }, 'graceful_degrade');
+      return new Map<string, string>();
+    });
   const [own, cards, albumsFull, ownShots, delivered, ig, moodboard, portfolioDisplayMap, cardThumbs, pool, stories, looks, papicOn, albumUrls, cardAlbums] =
     await Promise.all([
       ownRead,
@@ -417,6 +434,7 @@ export async function loadCollectionsData(
               thisYear,
               // The album's own screen (Put on my page, import) opens only while the Papic flag is on.
               albumHref: papicOn ? (id) => `/vendor-dashboard/on-the-day/live/${id}/papic#portfolio` : null,
+              unlisted: await unlistedRead,
             }),
       services: cardAlbums === null ? null : serviceAlbums(cardAlbums),
       inspiration: looks === 'off' ? 'off' : looks === null ? null : inspirationAlbums(looks),

@@ -58,15 +58,11 @@ test('/admin/work: an uncounted queue is never folded into "All queues clear."',
   assert.match(s, /unreadNote && totalOpen === 0\s*\?\s*unreadNote/);
 });
 
-test('Overview: the headline says "—", not "0 items need you", when a queue went uncounted', () => {
-  const s = src('app/admin/page.tsx');
-  assert.match(s, /const actionableUnread = Object\.entries\(ADMIN_QUEUE_META\)\.some\(/);
-  assert.match(s, /typeof digest\[key\]\?\.count !== 'number'/);
-  assert.match(s, /\{actionableUnread \? '—' : <CountUp value=\{actionableOpen\} \/>\}/);
-  assert.doesNotMatch(s, /^\s*<CountUp value=\{actionableOpen\} \/>\s*$/m, 'an ungated headline count came back');
-  // The cleared-queues ring does not show a partial percentage either.
-  assert.match(s, /pct=\{anyUnavailable \? 0 : clearedPct\}/);
-  // Recent activity: a refused log read is not "No admin actions logged yet."
+test('Insights › Overview: a refused admin-log read is not "No admin actions logged yet."', () => {
+  /* The old /admin Overview's "—" headline went with the Exception desk (13 Nov
+     2026) — Work › All is the work list, whose unread gate is pinned above.
+     Recent admin activity moved to Insights › Overview and keeps its gate. */
+  const s = src('app/admin/app-performance/_surfaces/admin-totals-surface.tsx');
   assert.match(s, /const \{ data: auditRows, error: auditError \} = await admin/);
   follows(s, '{auditError ? (', 'No admin actions logged yet.', 400, 'the empty activity line must sit after the auditError gate');
 });

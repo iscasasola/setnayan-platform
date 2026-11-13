@@ -42,8 +42,10 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
+import { afterClaim, agreedSuffix, type SelfAddedPriceLines } from '@/lib/self-added-price-basis';
 import {
   Search,
+  Store,
   ChevronDown,
   ChevronRight,
   ArrowRight,
@@ -180,6 +182,7 @@ import {
   INLINE_MORE_UNDO,
   INLINE_MORE_UNDO_FAILED,
   inlineMoreSavedNote,
+  inlineMoreAskedNote,
   inlineMoreSeeAllLabel,
   inlineMoreSunkNote,
   MORE_TO_COMPARE_SAVE,
@@ -213,6 +216,8 @@ import {
   saveBenchArrangement,
 } from '../_actions/bench-arrangement';
 import { fetchInlineMoreRow } from '../_actions/inline-more-row';
+import { searchMarketplaceForBench, type BenchMarketResult } from '../_actions/bench-marketplace-search';
+import { categoryHitsFor, shopHitTile } from './bench-search-fallback';
 import {
   FIND_FILTERS_OFF,
   FIND_PAGE_CARDS,
@@ -234,8 +239,8 @@ import {
   type FindService,
 } from '@/lib/find-service-cards';
 import { FindServicesSheet } from './find-services-sheet';
-import { FindInspirationRow, FindInspirationStrip } from './find-inspiration';
-import { findBoardHref, type FindInspiration } from '@/lib/find-inspiration';
+import { FindInspirationRow, FindInspirationStrip, FindLikedIdeas } from './find-inspiration';
+import { FIND_INSPIRATION_WORDS, findBoardHref, likedCardFor, type FindInspiration, type FindLikedPhoto } from '@/lib/find-inspiration';
 import { findSortMenu } from './find-sort-menu';
 import { sheetFits, sheetStateLine } from '@/lib/supplier-sheet';
 import type { SupplierSheetLoad, SupplierSheetTarget } from './supplier-sheet';
@@ -301,6 +306,14 @@ import { countNoun, formatCount } from '@/lib/format-number';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 const SLCAT_CSS = `
+/* 📋 The opened category's parts (owner 2026-11-12, the organized-Find prototype). */
+.slcat .planh{margin:4px 0 2px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgb(var(--color-ink)/.5)}
+.slcat .slstripe{margin:10px 0 4px;font-size:12.5px;font-weight:600;color:rgb(var(--color-ink)/.7)}
+.slcat .donerow{display:flex;width:100%;min-height:44px;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;padding:0 2px;border-top:1px solid rgb(var(--color-ink)/.1);font-size:14px;font-weight:500;color:rgb(var(--color-ink));text-align:left}
+.slcat .slempty{padding:16px 0 8px}
+.slcat .slempty .se-t{font-size:15px;font-weight:600;color:rgb(var(--color-ink))}
+.slcat .slempty .se-s{margin-top:2px;font-size:13.5px;line-height:1.45;color:rgb(var(--color-ink)/.6)}
+
 .slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
   /* --ink-faint was USED SEVEN TIMES IN THIS STYLESHEET AND DEFINED NOWHERE
      (2026-09-09). An undefined custom property makes the declaration invalid at
@@ -665,6 +678,8 @@ html.dark .slcat .bench-search{background:#232019}
 html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
 html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
+.slcat .vc [data-price-basis-line]{margin-top:auto;padding-top:4px}
+.slcat .vc [data-price-basis-line] .price{margin-top:0;padding-top:0}
 .slcat .vc .incl{font-size:11px;font-weight:600;color:#2e7d4f;margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the suppliers) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
@@ -1325,6 +1340,9 @@ const UnreadCtx = createContext<BenchUnread>(UNREAD_UNKNOWN);
  * that something is owed. Empty → no card offers Pay (it offers "Payments").
  */
 const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
+/** "Taken on Dec 12" — the couple's committed day, worded on the server (`takenOnWords`, lib/calendar-truth.ts).
+ *  Null → no committed day: a taken card keeps "Booked that day". */
+const TakenOnCtx = createContext<string | null>(null);
 /**
  * vendorId → where the couple's claim link stands, for a supplier they added
  * themselves (`lib/supplier-invite-status.ts`). `undefined` = this bench was
@@ -1333,6 +1351,9 @@ const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
  * failed read must not look like "no link was ever sent".
  */
 const InviteStatusCtx = createContext<InviteStatusByVendorId | undefined>(undefined);
+/** 🧾 A self-added supplier's price basis (v2, owner 2026-11-13) — "₱162,000 · 120 guests agreed" and its "After they
+ *  claim" line. Absent / null (a refused read) → every card draws its price as shipped. */
+const PriceLineCtx = createContext<SelfAddedPriceLines | null | undefined>(undefined);
 
 /**
  * THE SERVICE CARD A BENCH CARD WEARS (owner 2026-10-07 · PR2). On the
@@ -1447,9 +1468,15 @@ function VendorCard({
   const sheetDoor = useContext(SheetDoorCtx);
   const payHrefs = useContext(PayDueCtx);
   const inviteStatuses = useContext(InviteStatusCtx);
+  const priceLines = useContext(PriceLineCtx);
+  // Only for the couple's own record — a Setnayan shop's card never reads this.
+  const basisLine = selfAdded ? (priceLines?.[v.vendorId] ?? null) : null;
   const look = useContext(ServiceCardCtx);
   const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
   const hasRecordedPrice = v.totalCostPhp != null && v.totalCostPhp > 0;
+  // The recorded price, drawn ONCE (the-bench-card-keeps-everything pins it to one span) — bare as shipped, or
+  // inside the price-basis line when an agreed count follows it.
+  const priceEl = hasRecordedPrice ? <span className="price">{formatPhp(v.totalCostPhp)}</span> : null;
   const router = useRouter();
   const [detailsLoading, startDetails] = useTransition();
   const [details, setDetails] = useState<SelfAddedSupplierPrefill | null>(null);
@@ -1528,7 +1555,7 @@ function VendorCard({
       // a self-added supplier. Every other card keeps the inspector untouched.
       {...(selfAdded ? { onClick: openDetails, 'aria-busy': detailsLoading || undefined }
         : sheetDoor && tile
-          ? { onClick: openSheet, 'aria-haspopup': 'dialog' as const }
+          ? { onClick: openSheet, 'aria-haspopup': svc?.detailsHref ? undefined : ('dialog' as const) }
           : {})}
     >
       <span className="img">
@@ -1596,8 +1623,23 @@ function VendorCard({
           </span>
         ) : null}
         <FitBadges v={v} />
-        {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
-          <span className="price">{formatPhp(v.totalCostPhp)}</span>
+        {/* v2 (owner 2026-11-13): the card's own total, then what was agreed — "₱162,000 · 120 guests agreed" /
+            "₱30,000 · 5 hours agreed". One price span, so the bench card still draws the number exactly once. */}
+        {hasRecordedPrice ? (
+          agreedSuffix(basisLine) ? (
+            <span data-price-basis-line="">
+              {priceEl}{' '}
+              <span className="sc-price">· {agreedSuffix(basisLine)}</span>
+            </span>
+          ) : (
+            priceEl
+          )
+        ) : null}
+        {/* The decided after-claim line (owner 13 Nov: "Yes, follow it") — only while it is still the couple's record. */}
+        {basisLine && hasRecordedPrice ? (
+          <span className="sc-rec" data-price-basis-after={basisLine.basis}>
+            {afterClaim(basisLine.basis).line}
+          </span>
         ) : null}
         {/* No price recorded with THIS couple yet → the service card's own
             "from ₱X". Withheld by the shop, or never set → "Price on request",
@@ -1805,6 +1847,8 @@ function VendorCard({
  * computed batched upstream (page.tsx, one calendar query for the whole bench).
  */
 function FitBadges({ v }: { v: ShortlistVendor }) {
+  // "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026); null → "Booked that day".
+  const takenOn = useContext(TakenOnCtx);
   // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · spec §17). When the vendor
   // has DECLARED both rings, their own word replaces the tier-derived reach
   // read with a three-state, money-shaped answer:
@@ -1860,7 +1904,7 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
         ? {
             cls: 'warn',
             icon: <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />,
-            text: 'Booked that day',
+            text: takenOn ?? 'Booked that day',
           }
         : v.dateFit === 'not_set'
           ? {
@@ -1959,7 +2003,7 @@ function InlineMoreCard({
   sunk: boolean;
   /** The candidate named in the amber badge; null when there is no one culprit. */
   clashWith: string | null;
-  saved: { eventVendorId: string; undoable: boolean } | undefined;
+  saved: SavedFromMore | undefined;
   busy: boolean;
   /** Its Save is waiting on the write. */
   saving?: boolean;
@@ -2024,8 +2068,8 @@ function InlineMoreCard({
           the card says where it went and offers the way back. */}
       {saved ? (
         <div className="mra">
-          <span className="mrsaved">{inlineMoreSavedNote(label)}</span>
-          {saved.undoable ? (
+          <span className="mrsaved">{saved.asked ? inlineMoreAskedNote(v.name) : inlineMoreSavedNote(label)}</span>
+          {saved.undoable && !saved.asked ? (
             <ActionButton tone="neutral" icon={Undo2} label={INLINE_MORE_UNDO} disabled={busy} onClick={onUndo} />
           ) : null}
         </div>
@@ -2120,7 +2164,10 @@ function MoreToCompare({
   onClearFilters,
   shape,
   onSeeAll,
+  suggest = false,
 }: {
+  /** 📋 "Suggested for you" (owner 2026-11-12): three fitting cards, then ONE "Search all <Category> (N) ›" door. */
+  suggest?: boolean;
   eventId: string;
   tile: string;
   label: string;
@@ -2380,6 +2427,11 @@ function MoreToCompare({
   const inquireFromMore = async (v: CategoryVendorResult) => {
     const vendorId = await saveFromMore(v);
     if (!vendorId) return;
+    // The card says the ASK, not the save, from here on (walk 13 Nov 2026 — "Saved to Mobile Bar." read over a sent
+    // ask while the chat opened). A refused ask puts the save's own words back.
+    const markAsked = (asked: boolean) =>
+      setMoreSaved((cur) => (cur[v.vendorProfileId] ? { ...cur, [v.vendorProfileId]: { ...cur[v.vendorProfileId]!, asked } } : cur));
+    markAsked(true);
     setMoreBusy(v.vendorProfileId);
     try {
       const res = await contactShortlistVendor({ eventId, vendorId });
@@ -2387,10 +2439,12 @@ function MoreToCompare({
         router.push(`/dashboard/${res.eventId}/messages/${res.threadId}`);
         return;
       }
+      markAsked(false);
       setMoreError(
         res.status === 'not_signed_in' ? INLINE_MORE_SIGNED_OUT : INLINE_MORE_INQUIRE_FAILED,
       );
     } catch {
+      markAsked(false);
       setMoreError(INLINE_MORE_INQUIRE_FAILED);
     } finally {
       setMoreBusy(null);
@@ -2450,7 +2504,7 @@ function MoreToCompare({
     ...clusterCards(moreClassified.fits.map((f) => f.row), listCards, order, keepCard).map((c) => ({ ...c, sunk: false })),
     ...clusterCards(moreClassified.clashes.map((c) => c.row), listCards, order, keepCard).map((c) => ({ ...c, sunk: true })),
   ];
-  const page = pageOfClusters(clusters, morePage);
+  const page = pageOfClusters(clusters, suggest ? SUGGESTED_CARDS : morePage);
   // A new look at the list starts at its first page.
   const pageKey = `${hiddenHere.join(',')}|${filters.rating}|${moreQ}|${effectiveSort}`;
   useEffect(() => setMorePage(FIND_PAGE_CARDS), [pageKey]);
@@ -2516,8 +2570,8 @@ function MoreToCompare({
     <div className="morerow" data-more-to-compare={tile}>
       <div className="morehead">
         <span className="mt">
-          {moreToCompareHeading(hasOwn)}
-          {counted ? (
+          {suggest ? SUGGESTED_HEAD : moreToCompareHeading(hasOwn)}
+          {counted && !suggest ? (
             <>
               {' '}
               · <Count value={shown} id={`sup-cmp-${tile}`} /> {shown === 1 ? 'card' : 'cards'}
@@ -2525,7 +2579,7 @@ function MoreToCompare({
           ) : null}
         </span>
       </div>
-      {best.length > 0 ? (
+      {best.length > 0 && !suggest ? (
         <section className="findbest" aria-label="Best for your event" data-find-best="">
           <div className="fb-h">
             <span>Best for your event</span>
@@ -2673,8 +2727,8 @@ function MoreToCompare({
           <span>{inlineMoreSunkNote(moreClassified.clashes.length)}</span>
         </div>
       ) : null}
-      {/* "Show 20 more" — never splits a shop (`pageOfClusters`). */}
-      {left > 0 ? (
+      {/* "Show 20 more" — never splits a shop (`pageOfClusters`). Suggested shows three; the rest is "Search all". */}
+      {left > 0 && !suggest ? (
         <div className="morefoot">
           <ActionButton
             tone="neutral"
@@ -2689,14 +2743,22 @@ function MoreToCompare({
         <div className="morefoot">
           <ActionButton
             tone="neutral"
-            icon={ListFilter}
-            label={inlineMoreSeeAllLabel(label)}
+            icon={suggest ? Search : ListFilter}
+            label={suggest ? searchAllLabel(label, page.totalCards) : inlineMoreSeeAllLabel(label)}
             onClick={onSeeAll}
           />
         </div>
       ) : null}
     </div>
   );
+}
+
+/** 📋 "Suggested for you" — three fitting cards before the full search (owner 2026-11-12: "3 suggested cards"). */
+const SUGGESTED_CARDS = 3;
+const SUGGESTED_HEAD = 'Suggested for you';
+/** "Search all Catering (36) ›" — the door to every card of the category. */
+function searchAllLabel(label: string, total: number): string {
+  return `Search all ${label} (${total}) ›`;
 }
 
 /** A list the ✎ or ⇅ emptied — said as that, never as "nobody here". */
@@ -2810,6 +2872,7 @@ export function ShortlistCategories({
   starterTiles,
   payHrefByVendorId = NO_PAY_DUE,
   inviteStatusByVendorId,
+  selfAddedPriceLines,
   serviceCardByVendorId = null,
   convergence = null,
   buildWindow = null,
@@ -2820,6 +2883,7 @@ export function ShortlistCategories({
   findPanel = null,
   onePerEventGroups = [],
   inspiration = null,
+  takenOnLabel = null,
 }: {
   /**
    * Unread messages per chat thread for this event, and whether we know them.
@@ -2908,6 +2972,8 @@ export function ShortlistCategories({
   /** vendorId → where a self-added supplier's claim link stands
    *  (`InviteStatusCtx`). Absent → no link line; `null` → the read failed. */
   inviteStatusByVendorId?: InviteStatusByVendorId;
+  /** 🧾 The per guest / per hour line of each self-added card (`readSelfAddedPriceLines`). Absent / null → as shipped. */
+  selfAddedPriceLines?: SelfAddedPriceLines | null;
   /** Pick id → the supplier's own service card. `null` = the read failed (or
    *  the pre-replan bench, which draws none). */
   serviceCardByVendorId?: Readonly<Record<string, BenchServiceCard>> | null;
@@ -2959,6 +3025,9 @@ export function ShortlistCategories({
    * read on the server (`readFindInspiration`). Null → not read for this viewer: no row, no strips.
    */
   inspiration?: FindInspiration | null;
+  /** "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026) — the badge on a supplier whose calendar
+   *  shows it taken. Null/absent → "Booked that day", as before. */
+  takenOnLabel?: string | null;
   /**
    * The plan groups that are ONE PER EVENT — the categories' switch (`service_categories.one_per_event`, owner
    * 2026-10-29), read on the server (lib/one-per-event.ts). An array: it crosses to the client. Absent → none, so
@@ -3101,6 +3170,69 @@ export function ShortlistCategories({
   const openSearch = (tile: string, label: string) => {
     setSearch({ ...benchSearchScopeForTile(tile), label });
   };
+  // 💗 A LIKED PHOTO'S TWO PRESSES (owner 2026-11-12, the organized-Find prototype).
+  //   "From <shop> · <card> ›" — the shop is on the couple's list here: open its card, the sheet every card opens.
+  //   "Ask for a quote" — the SAME ask a service card makes (`inquireFromMore`'s path): the shop joins the couple's list
+  //   in this category with the photo's card, then the quote thread opens. Only the press asks — never automatic.
+  const [likedBusy, setLikedBusy] = useState<string | null>(null);
+  const openLikedCard = (p: FindLikedPhoto, tile: string, label: string) => {
+    if (!p.vendorProfileId) return;
+    const here = folders.flatMap((f) => f.tiles).find((x) => x.tile === tile);
+    const there = here?.vendors.find((x) => x.marketplaceVendorId === p.vendorProfileId);
+    if (!there || !sheetDoor) {
+      openSearch(tile, label);
+      return;
+    }
+    sheetDoor.open({
+      vendorId: there.vendorId,
+      vendorProfileId: there.marketplaceVendorId,
+      name: there.name,
+      nameWithheld: false,
+      tile,
+      categoryLabel: label,
+      city: there.city,
+      rating: there.rating,
+      reviewCount: there.reviewCount,
+      verified: there.isVerified,
+      card: likedCardFor(p.serviceId, serviceLook.face ? (serviceLook.cards?.[there.vendorId] ?? null) : null),
+      cardsRead: Boolean(serviceLook.cards),
+      coverUrl: null,
+      stateLine: null,
+      fits: [],
+      threadId: there.threadId ?? null,
+      booked: there.status === 'locked',
+      onPage: sheetDoor.onPage(there.marketplaceVendorId, tile),
+    });
+  };
+  const askLiked = async (p: FindLikedPhoto, tile: string) => {
+    if (!p.vendorProfileId || likedBusy) return;
+    setLikedBusy(p.key);
+    const failed = () => setToast({ tone: 'bad', text: INLINE_MORE_INQUIRE_FAILED, key: Date.now() });
+    try {
+      const fd = new FormData();
+      fd.set('vendor_profile_id', p.vendorProfileId);
+      fd.set('event_id', eventId);
+      fd.set('tile', tile);
+      if (p.serviceId) fd.set('service_id', p.serviceId);
+      fd.set(ANSWER_IN_PLACE_FIELD, '1');
+      const saved = await saveVendorToPicks(fd);
+      if (saved.status !== 'ok' && saved.status !== 'already_saved') {
+        setToast({ tone: 'bad', text: saved.status === 'not_signed_in' ? INLINE_MORE_SIGNED_OUT : INLINE_MORE_INQUIRE_FAILED, key: Date.now() });
+        return;
+      }
+      markBenchDirty(eventId);
+      const res = await contactShortlistVendor({ eventId, vendorId: saved.eventVendorId });
+      if (res.status === 'ok') {
+        router.push(`/dashboard/${res.eventId}/messages/${res.threadId}`);
+        return;
+      }
+      failed();
+    } catch {
+      failed();
+    } finally {
+      setLikedBusy(null);
+    }
+  };
   /* ⚡ No refresh on close: each add from the search (`saveVendorToPicks`) revalidates, so the page behind was redrawn
      by the add's own answer — a refresh here drew it a second time. */
   const closeSearch = () => setSearch(null);
@@ -3129,6 +3261,12 @@ export function ShortlistCategories({
   // categories (and their considered vendors). Empty = the normal single-open
   // accordion; a query filters to matching tiles and auto-expands them.
   const [query, setQuery] = useState('');
+  // 🔎 Words the bench puts in the thumb row's box (a marketplace hit pressed, or a category hit emptying it).
+  const [thumbPreset, setThumbPreset] = useState<{ text: string; n: number } | null>(null);
+  const setBoxText = (text: string) => {
+    setQuery(text);
+    setThumbPreset((cur) => ({ text, n: (cur?.n ?? 0) + 1 }));
+  };
 
   // ── Inline "More in {category}" row · ROW 2 (owner 2026-09-06) ─────────────
   // Owner: "when they also click the find reception button, it must show a
@@ -3383,7 +3521,15 @@ export function ShortlistCategories({
   );
   const sheetDoor = useMemo<SheetDoor>(
     () => ({
-      open: setSheetTarget,
+      // 🃏 SERVICE CARD GROWN (owner 2026-11-13: "We have a full screen of a supplier card that expands all the
+      // information of that card"). A card with a service opens THAT shipped card — the shop page's `?service=`
+      // address raises `ServiceDetailsSheet` with the shop page's own props; nothing is redrawn here. The Find sheet
+      // stays for a card with no address (switched off, no slug, a withheld supplier, a self-added one).
+      open: (target) => {
+        const href = target.nameWithheld ? null : (target.card?.detailsHref ?? null);
+        if (href) router.push(href);
+        else setSheetTarget(target);
+      },
       onPage: (vendorProfileId, exceptTile) => {
         const out: Record<string, string> = {};
         if (!vendorProfileId) return out;
@@ -3406,7 +3552,7 @@ export function ShortlistCategories({
         return out;
       },
     }),
-    [folders, standings, buildPickVendorIds],
+    [folders, standings, buildPickVendorIds, router],
   );
   const plannedTileSet = new Set<string>(plannedList.map((p) => p.tile));
 
@@ -3644,9 +3790,14 @@ export function ShortlistCategories({
       })),
     ),
     excludedTiles,
-    pinnedTile: initialOpenTile,
+    // 📋 The OPEN category is pinned too: a category opened from the thumb row's search shows while it is open, even
+    // with nobody in it yet (owner 2026-11-12 — Find lists only what was added; the rest is reached through search).
+    pinnedTile: replan ? (openTile ?? initialOpenTile) : initialOpenTile,
     // The starter ring belongs to the one-screen shape only.
     starterTiles: replan ? starterTiles : undefined,
+    // 📋 FIND LISTS ONLY THE CATEGORIES THE COUPLE ADDED (owner 2026-11-12, "Yes, build it" on the organized-Find
+    // prototype; the count is *"only the ones listed"*). `lib/explore-in-plan.ts` `listedOnly`.
+    listedOnly: replan,
   });
   // Flag OFF → null everywhere below, so every adaptive branch is skipped and
   // the bench renders exactly as it does in production today.
@@ -3772,7 +3923,9 @@ export function ShortlistCategories({
    * opens and lands pinned (the same landing a head tap makes). False → not on this page.
    */
   function goToCategory(tile: string): boolean {
-    if (!benchRows.some((r) => r.t.tile === tile)) return false;
+    // 📋 Any category of the event's taxonomy opens here — one that is not listed yet shows while it is open
+    // (owner 2026-11-12: new categories are reached through this search).
+    if (!(replan ? folders.some((f) => f.tiles.some((t) => t.tile === tile)) : benchRows.some((r) => r.t.tile === tile))) return false;
     if (openAll) {
       setOpenAll(false);
       setFolded(new Set());
@@ -3879,6 +4032,53 @@ export function ShortlistCategories({
         }))
         .filter((f) => f.tiles.length > 0)
     : folders;
+  // 🔎 WHEN THE SHORTLIST HAS NO MATCH (walk 13 Nov 2026, `./bench-search-fallback.ts`): a hit is only a hit if its
+  // row is DRAWN — a matching category that is not on the event drew nothing, and said nothing either.
+  const drawnHit = visibleFolders.some((f) => f.tiles.some((t) => !inPlanTiles || inPlanTiles.has(t.tile)));
+  const shortlistMissed = searching && !drawnHit;
+  const categoryHits = shortlistMissed ? categoryHitsFor(q, poolRows.map(({ t, f }) => ({ tile: t.tile, label: t.label, f }))) : [];
+  const [marketHits, setMarketHits] = useState<{ q: string; results: BenchMarketResult[]; unreadable: boolean } | null>(null);
+  useEffect(() => {
+    if (!shortlistMissed || q.length < 2) return;
+    let cancelled = false;
+    void searchMarketplaceForBench(eventId, q)
+      .then((res) => {
+        if (!cancelled) setMarketHits({ q, ...res });
+      })
+      .catch(() => {
+        if (!cancelled) setMarketHits({ q, results: [], unreadable: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, q, shortlistMissed]);
+  const tilesOnEvent = new Set<string>(benchRows.map((r) => r.t.tile));
+  const tilesOnPage = new Set<string>(folders.flatMap((f) => f.tiles.map((t) => t.tile)));
+  const tileLabelOf = new Map<string, string>(folders.flatMap((f) => f.tiles.map((t) => [t.tile, t.label] as const)));
+  const shopHits =
+    shortlistMissed && marketHits?.q === q
+      ? marketHits.results.flatMap((r) => {
+          const tile = shopHitTile(r.tiles, tilesOnEvent, tilesOnPage);
+          return tile ? [{ r, tile }] : [];
+        })
+      : [];
+  /** A shop hit: its category row opens, searched by the shop's name — its card and "Ask for a quote" are there. */
+  const openShopHit = (tile: string, name: string) => {
+    const pool = poolRows.find((p) => p.t.tile === tile);
+    if (pool && !tilesOnEvent.has(tile)) {
+      if (!planEditing) addTileToPlan(pool.t.tile, pool.f.folder, pool.f.slug);
+    } else {
+      goToCategory(tile);
+    }
+    setBoxText(name);
+  };
+  /** A category hit: the "Add a category" picker's own add — the row opens, the box empties. */
+  const openCategoryHit = (tile: string) => {
+    const pool = poolRows.find((p) => p.t.tile === tile);
+    if (!pool || planEditing) return;
+    setBoxText('');
+    addTileToPlan(pool.t.tile, pool.f.folder, pool.f.slug);
+  };
 
 
   // Rebuilt from pairs on this side of the boundary — see the `unread` prop.
@@ -3937,7 +4137,9 @@ export function ShortlistCategories({
     <SheetDoorCtx.Provider value={replan ? sheetDoor : null}>
     <UnreadCtx.Provider value={benchUnread}>
     <PayDueCtx.Provider value={payHrefByVendorId}>
+    <TakenOnCtx.Provider value={takenOnLabel}>
     <InviteStatusCtx.Provider value={inviteStatusByVendorId}>
+    <PriceLineCtx.Provider value={selfAddedPriceLines}>
     <ServiceCardCtx.Provider value={serviceLook}>
     <div className="slcat" ref={benchRef}>
       <style>{SLCAT_CSS}</style>
@@ -3953,6 +4155,17 @@ export function ShortlistCategories({
       <BenchRollUp folders={folders} standings={standings} />
       {/* 💡 A · "Your inspiration board" — the first row of Find; it opens the whole board (`find-inspiration.tsx`). */}
       {inspiration ? <FindInspirationRow board={inspiration} href={findBoardHref(eventId)} /> : null}
+      {/* 📋 A BRAND-NEW EVENT (owner 2026-11-12, the organized-Find prototype): Find lists only the categories with
+          someone asked or booked, so before the first one there is nothing to list — said, with the way in. */}
+      {replan && !searching && benchRows.length === 0 ? (
+        <div className="slempty" data-find-empty="">
+          <p className="se-t">No suppliers yet.</p>
+          <p className="se-s">
+            Search a category below, or add someone you already know with ＋. A category shows here once you ask or book
+            someone in it.
+          </p>
+        </div>
+      ) : null}
       {replan && stripTiles.length > 0 && coverInHeader ? null : replan && stripTiles.length > 0 ? (
         /* "Covered N of M" — the ring IS the rows below now (owner 2026-10-07:
            one screen; a category unfolds in place). The Coverage Strip's icon
@@ -4037,10 +4250,44 @@ export function ShortlistCategories({
           service card manually that i can give the supplier itself."*). The results stay HERE: a hit opens under its
           own category row below, and nothing in this block leaves the page — the whole-marketplace rows to `/v/…`
           and the "See all results" door to `/explore` are gone. The last row adds what was typed (`bench-add`). */}
-      {searching && visibleFolders.length === 0 ? (
+      {shortlistMissed ? (
         <div className="bench-empty" data-bench-empty="">
-          Nothing in your shortlist matches “{query.trim()}”. Add them as your own below.
+          Nothing in your shortlist matches “{query.trim()}”.{' '}
+          {categoryHits.length > 0 || shopHits.length > 0 ? 'On Setnayan:' : 'Add them as your own below.'}
         </div>
+      ) : null}
+      {/* 🔎 ON SETNAYAN — the categories not on the event, then the marketplace's shops, matching the words. Rows in
+          the "Add a category" row's own shape; nothing leaves the page. */}
+      {categoryHits.map((h) => (
+        <div key={`cat-${h.tile}`} className={`addmore ${FORM_ROW_RULE}`} data-bench-hit-category={h.tile}>
+          <button type="button" className="addcat sn-press sn-press-ring" disabled={planEditing} onClick={() => openCategoryHit(h.tile)}>
+            <span className="addcat-ic" aria-hidden>
+              <Plus size={18} strokeWidth={1.75} />
+            </span>
+            <span className="addcat-t">
+              <span className="addcat-nm">{h.label}</span>
+              <span className={FORM_ROW_SUBLINE}>Category · add it to your event and see its suppliers</span>
+            </span>
+          </button>
+        </div>
+      ))}
+      {shopHits.map(({ r, tile }) => (
+        <div key={`shop-${r.vendorProfileId}`} className={`addmore ${FORM_ROW_RULE}`} data-bench-hit-shop={r.vendorProfileId}>
+          <button type="button" className="addcat sn-press sn-press-ring" disabled={planEditing} onClick={() => openShopHit(tile, r.name)}>
+            <span className="addcat-ic" aria-hidden>
+              <Store size={18} strokeWidth={1.75} />
+            </span>
+            <span className="addcat-t">
+              <span className="addcat-nm">{r.name}</span>
+              <span className={FORM_ROW_SUBLINE}>
+                {[tileLabelOf.get(tile) ?? null, r.city].filter(Boolean).join(' · ')}
+              </span>
+            </span>
+          </button>
+        </div>
+      ))}
+      {shortlistMissed && marketHits?.q === q && marketHits.unreadable ? (
+        <div className="bench-empty" data-bench-market-unread="">Couldn’t search Setnayan’s suppliers just now.</div>
       ) : null}
       {visibleFolders.map((folder) => {
         // The one-screen shape has NO folder level: every folder is open and
@@ -4246,6 +4493,58 @@ export function ShortlistCategories({
                     : null;
                   // A booking settles the category: nothing more to compare.
                   const rowBooked = (rowCoverage?.lockedCount ?? 0) > 0;
+                  // 📋 THE OPENED CATEGORY, IN ITS OWN ORDER (owner 2026-11-12, the organized-Find prototype): what the couple
+                  // is planning first — Booked, then Asked — each under its own label; the cards are the same cards.
+                  const fitCard = ({ v, reason }: (typeof rail.fits)[number]) => (
+                                <VendorCard
+                                  key={v.vendorId}
+                                  v={v}
+                                  reason={reason}
+                                  eventId={eventId}
+                                  tileLabel={t.label}
+                                  tile={t.tile}
+                                  dates={dateViewFor(v)}
+                                  arrange={{
+                                    active: isArranging,
+                                    busy: tileBusy,
+                                    grabbed: grabbedCard === v.vendorId,
+                                    onEnter: () => setArrangeTile(t.tile),
+                                    canLeft:
+                                      keyboardMoveTarget(railOrder, v.vendorId, 'left') !== null,
+                                    canRight:
+                                      keyboardMoveTarget(railOrder, v.vendorId, 'right') !== null,
+                                    onMove: (direction) => {
+                                      const to = keyboardMoveTarget(railOrder, v.vendorId, direction);
+                                      if (to === null) return;
+                                      moveArrangedCard(t.tile, railOrder, v.vendorId, to);
+                                    },
+                                    onDragStart: () => setGrabbedCard(v.vendorId),
+                                    onDragEnd: () => setGrabbedCard(null),
+                                    onDropOn: () => {
+                                      const from = grabbedCard;
+                                      setGrabbedCard(null);
+                                      if (!from || from === v.vendorId) return;
+                                      const to = railOrder.indexOf(v.vendorId);
+                                      if (to < 0) return;
+                                      moveArrangedCard(t.tile, railOrder, from, to);
+                                    },
+                                  }}
+                                  standing={standings[v.vendorId] ?? null}
+                                  // Slice D — three-action card. The resolver is
+                                  // pure + unit-tested; flag OFF returns nothing
+                                  // and the card renders exactly as it shipped.
+                                  actions={resolveBenchCardActions({
+                                    enabled: replan,
+                                    vendor: v,
+                                    inBuild: buildPickSet.has(v.vendorId),
+                                  })}
+                                />
+                  );
+                  // The category's ONE door to its full search — "Search all", "Find who does this", "Search again".
+                  const searchHere = () => openSearch(t.tile, t.label);
+                  const bookedFits = replan ? rail.fits.filter(({ v }) => v.status === 'locked') : [];
+                  const askedFits = replan ? rail.fits.filter(({ v }) => v.status !== 'locked') : rail.fits;
+                  const askedCount = askedFits.length + rail.clashes.length + availability.unavailable.length;
                   return (
                     <div
                       key={t.tile}
@@ -4421,8 +4720,15 @@ export function ShortlistCategories({
                       ) : null}
                       <div className="cat-collapse">
                         <div className="cat-body">
-                          {/* 💡 B · the category's Inspiration strip, first — above its suppliers. */}
-                          <FindInspirationStrip board={inspiration} tile={t.tile} href={findBoardHref(eventId)} />
+                          {/* 💡 B · the category's Inspiration strip, first — above its suppliers (the pre-replan bench). On the
+                              one-screen page it is the category's "Ideas", after "Suggested for you" (owner 2026-11-12). */}
+                          {replan ? (
+                            <p className="planh" data-find-planning="">
+                              What you&rsquo;re planning
+                            </p>
+                          ) : (
+                            <FindInspirationStrip board={inspiration} tile={t.tile} href={findBoardHref(eventId)} />
+                          )}
                           {scopedNone && (rowBooked || Boolean(coveredGroup)) ? (
                             <p className="scope-none" role="status">
                               Nobody called “{query.trim()}” in {t.label} yet — add them as your own.
@@ -4456,6 +4762,19 @@ export function ShortlistCategories({
                             </div>
                           ) : t.vendors.length > 0 ? (
                             <>
+                            {replan && bookedFits.length > 0 ? (
+                              <>
+                                <p className="slstripe" data-find-part="booked">
+                                  Booked · {formatCount(bookedFits.length)}
+                                </p>
+                                <div className="rail">{bookedFits.map(fitCard)}</div>
+                              </>
+                            ) : null}
+                            {replan && askedCount > 0 ? (
+                              <p className="slstripe" data-find-part="asked">
+                                Asked · {formatCount(askedCount)}
+                              </p>
+                            ) : null}
                             {/* ── THE COUPLE'S OWN ORDER (owner 2026-09-09) ──
                                 "Your order" appears on the CATEGORY, not on the
                                 Sort by bar above, and that is the ruling rather
@@ -4495,51 +4814,7 @@ export function ShortlistCategories({
                               </div>
                             ) : null}
                             <div className="rail">
-                              {rail.fits.map(({ v, reason }) => (
-                                <VendorCard
-                                  key={v.vendorId}
-                                  v={v}
-                                  reason={reason}
-                                  eventId={eventId}
-                                  tileLabel={t.label}
-                                  tile={t.tile}
-                                  dates={dateViewFor(v)}
-                                  arrange={{
-                                    active: isArranging,
-                                    busy: tileBusy,
-                                    grabbed: grabbedCard === v.vendorId,
-                                    onEnter: () => setArrangeTile(t.tile),
-                                    canLeft:
-                                      keyboardMoveTarget(railOrder, v.vendorId, 'left') !== null,
-                                    canRight:
-                                      keyboardMoveTarget(railOrder, v.vendorId, 'right') !== null,
-                                    onMove: (direction) => {
-                                      const to = keyboardMoveTarget(railOrder, v.vendorId, direction);
-                                      if (to === null) return;
-                                      moveArrangedCard(t.tile, railOrder, v.vendorId, to);
-                                    },
-                                    onDragStart: () => setGrabbedCard(v.vendorId),
-                                    onDragEnd: () => setGrabbedCard(null),
-                                    onDropOn: () => {
-                                      const from = grabbedCard;
-                                      setGrabbedCard(null);
-                                      if (!from || from === v.vendorId) return;
-                                      const to = railOrder.indexOf(v.vendorId);
-                                      if (to < 0) return;
-                                      moveArrangedCard(t.tile, railOrder, from, to);
-                                    },
-                                  }}
-                                  standing={standings[v.vendorId] ?? null}
-                                  // Slice D — three-action card. The resolver is
-                                  // pure + unit-tested; flag OFF returns nothing
-                                  // and the card renders exactly as it shipped.
-                                  actions={resolveBenchCardActions({
-                                    enabled: replan,
-                                    vendor: v,
-                                    inBuild: buildPickSet.has(v.vendorId),
-                                  })}
-                                />
-                              ))}
+                              {(replan ? askedFits : rail.fits).map(fitCard)}
                               {/* The rail's two end tiles — the PRE-REPLAN
                                   bench only ("Find more" / "＋ Add another X" to
                                   the shipped `/explore?tile=`, and "Add
@@ -4676,8 +4951,39 @@ export function ShortlistCategories({
                               marketplace read only when it is looked at) and
                               only while nothing is booked here: a booking
                               settles the category. */}
+                          {/* A category opened from search, with nobody in it yet (owner 2026-11-12). */}
+                          {replan && !coveredGroup && t.vendors.length === 0 ? (
+                            <p className="scope-none" data-find-nobody="">
+                              Nobody asked yet.
+                            </p>
+                          ) : null}
+                          {/* 💗 LIKED IDEAS — the couple's liked photos here, each linked to its shop and card (owner 2026-11-12). */}
+                          {replan && tileOpen ? (
+                            <FindLikedIdeas
+                              board={inspiration}
+                              tile={t.tile}
+                              label={t.label}
+                              busyKey={likedBusy}
+                              onOpenCard={(p) => openLikedCard(p, t.tile, t.label)}
+                              onAsk={(p) => void askLiked(p, t.tile)}
+                              onFindWho={searchHere}
+                            />
+                          ) : null}
+                          {/* ✓ A BOOKED CATEGORY IS DONE — Suggested and Ideas fold into one row (owner 2026-11-12). */}
+                          {replan && tileOpen && (rowBooked || coveredGroup) ? (
+                            <button
+                              type="button"
+                              className="donerow"
+                              data-find-done-search=""
+                              onClick={searchHere}
+                            >
+                              <span>✓ Done · Search again</span>
+                              <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
+                            </button>
+                          ) : null}
                           {replan && tileOpen && !rowBooked && !coveredGroup ? (
                             <MoreToCompare
+                              suggest
                               eventId={eventId}
                               tile={t.tile}
                               label={t.label}
@@ -4694,7 +5000,18 @@ export function ShortlistCategories({
                               onLoaded={onListLoaded}
                               onClearFilters={() => setFiltersByTile((cur) => ({ ...cur, [t.tile]: FIND_FILTERS_OFF }))}
                               shape={sortShapeFor<CategoryVendorResult>((r) => r.ceremonyDistanceKm ?? null)}
-                              onSeeAll={() => openSearch(t.tile, t.label)}
+                              onSeeAll={searchHere}
+                            />
+                          ) : null}
+                          {/* 💡 IDEAS — the category's parts (the shipped strip, four at most) and the whole board. */}
+                          {replan && tileOpen && !rowBooked && !coveredGroup ? (
+                            <FindInspirationStrip
+                              board={inspiration}
+                              tile={t.tile}
+                              href={findBoardHref(eventId)}
+                              head={FIND_INSPIRATION_WORDS.ideasHead}
+                              more={FIND_INSPIRATION_WORDS.moreIdeas}
+                              max={4}
                             />
                           ) : null}
                           {/* No add of its own here (owner 2026-10-13: ONE add — the thumb row's ＋, which adds in
@@ -4807,6 +5124,7 @@ export function ShortlistCategories({
           onToggleAll={toggleOpenAll}
           scope={scopeRow ? scopeRow.t.label : 'all suppliers'}
           onSearch={setQuery}
+          preset={thumbPreset}
           onAdd={addYourOwn}
           emptyPanel={findPanel}
           onGoToCategory={goToCategory}
@@ -5019,7 +5337,9 @@ export function ShortlistCategories({
       ) : null}
     </div>
     </ServiceCardCtx.Provider>
+    </PriceLineCtx.Provider>
     </InviteStatusCtx.Provider>
+    </TakenOnCtx.Provider>
     </PayDueCtx.Provider>
     </UnreadCtx.Provider>
     </SheetDoorCtx.Provider>

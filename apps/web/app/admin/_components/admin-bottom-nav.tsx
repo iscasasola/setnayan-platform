@@ -1,264 +1,124 @@
 'use client';
 
 /**
- * AdminBottomNav — admin mobile nav (ops-shaped redesign 2026-06-08).
+ * AdminBottomNav — the admin's bottom bar: Work · Money · People · Catalogue · Insights.
  *
- * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock specified a
- * 5-tab strip (Home · Queues · Directory · Money · More). The ops-shaped
- * nav redesign (Admin_Console_Nav_Redesign_2026-06-08.md · owner
- * conditionally signed off) re-cut it to a 4-tab spine (Home · Work ·
- * Directory · More).
+ * Owner, 13 Nov 2026: *"admin has been ok'ed"* — `Setnayan-specs/prototypes/admin_pub/` (DECISION_LOG 2026-11-13
+ * "ADMIN DRAWING APPROVED — BUILD IT"; BUILDER-NOTES: "Five tabs, no More"). Admin-of-admin (Team, Admin log,
+ * Secrets, Email delivery, Switches, Business) lives under the avatar, never as a tab.
  *
- * 6-MENU RESPINE 2026-07-04 (owner: "Overview · Accounts · Studio · Ugat
- * Console · App Performance · Money" — the desktop sidebar IA in
- * ADMIN_NAV_GROUPS). Owner directive 2026-07-04: mobile menus must carry the
- * SAME content as desktop, only the orientation differs. The COMPLETE 6-menu
- * set now lives in the /admin/more full-menu landing (rendered straight from
- * ADMIN_NAV_GROUPS). This bottom strip is the ≤5-tab SUBSET SHORTCUT (locked
- * ≤5 primitive) into the daily-driver menus — it is NOT the full menu; More is.
+ * ⚖ THIS SUPERSEDES TWO EARLIER RULINGS, BY THE OWNER'S OWN LATER ONES — not by taste:
+ *   · 2026-08-26 "on a phone the console answers, it does not edit" → reversed 2026-10-28 in the drawing's design
+ *     review ("edit from the phone = yes", every edit through the confirm step), and approved with the drawing.
+ *   · "More is the only route from a phone to sixty pages" → every page now has a tab › view, reached from the
+ *     pinned row's `Page · View ▾` on every screen; `app/admin/admin-routes-all-have-a-tab.test.ts` proves no page
+ *     is left without one. /admin/more still answers (it lights Work); it is just no longer a tab.
  *
- * TAB CHOICE (≤5) — the owner's three "sure" priority menus (Overview · Ugat
- * Console · App Performance) get their own tab, plus Accounts (record look-up)
- * and a More tab that opens the complete 6-group menu:
- *   Today · People · Money · More
+ * WHICH TAB LIGHTS comes from `lib/admin/admin-tabs.ts` — query-aware and most-specific-wins
+ * (`/admin/studio?tab=referrals` is Money, `/admin/studio` is Catalogue). The shared bar's own matcher is prefix-only,
+ * so this bar resolves the one winner and hands the primitive an exact match for it alone. Avatar pages light no tab.
  *
- * ⚠ RELABELLED 2026-08-26 with the six-menu regroup. The strip is still the
- * ≤5-tab SUBSET SHORTCUT — its tabs must NAME the menus they open, or the phone
- * and the desktop disagree about what a place is called.
- * The retired 2026-07-03 "Marketing" tab is GONE — its group folded into Studio
- * on desktop, so its surfaces are reachable in More → Studio. Studio + Money
- * (the two non-tab desktop menus) are always one tap away inside More.
+ * ⚖ THE WORK BADGE IS HONEST (T28/T29): the sum of open work, red when anything is overdue, amber when due soon —
+ * and when a count could not be read it shows "—", never a quiet nothing that reads as "all clear".
  *
- * Key CONTINUITY: 'home' · 'directory' · 'performance' · 'more' keep their keys
- * (localStorage / active-state). The 'marketing' slot is REPLACED by 'ugat'
- * (new). Overview = the merged Home+Work task inbox (the /admin pulse + every
- * act-now queue); the old Work tab's rolled-up badge lives on Overview.
+ * Labels and icons stay renamable from /admin/menus through the nav registry (`admin.bottom-nav.<tab key>`); the
+ * address and which pages light the tab stay in code.
  *
- * Landings: /admin/directory (Accounts) · /admin/more (full 6-menu). Ugat +
- * Performance tabs land on real anchor pages (/admin/taxonomy = the Ugat
- * Console's Taxonomy-Studio anchor · /admin/app-performance = the cockpit), not
- * overflow grids. Legacy /admin/queues → /admin/work; /admin/marketing +
- * /admin/money + /admin/insights stay as bookmark landings.
- *
- * activeMatch rules:
- *   - Overview       — EXACT /admin (via activeMatchAlsoExact — every other
- *                      tab's route also starts with /admin/) PLUS every act-now
- *                      queue route as a prefix umbrella.
- *   - Accounts       — /admin/directory OR any account record route
- *   - Money          — /admin/money OR any money queue
- *   - App Performance— /admin/app-performance OR any Performance route
- *   - More           — /admin/more OR any Studio / Money route (the two
- *                      non-tab desktop menus). /admin/settings umbrella also
- *                      covers payment-methods; /admin/marketing kept as a
- *                      legacy bookmark landing.
- *
- * BottomNav primitive auto-hides at lg via lg:hidden, so this only renders
- * on mobile + tablet. Desktop uses SidebarShell + AdminSidebar.
- *
- * CLIENT BOUNDARY (REQUIRED): this file holds `ADMIN_BOTTOM_NAV_ITEMS` whose
- * entries carry `icon: LucideIcon` refs (forwardRef objects). A Server
- * Component rendering <BottomNav items={...}/> would try to serialize those
- * function refs across the Server→Client boundary and throw into the root
- * error boundary. `'use client'` keeps the refs client-side end-to-end.
- * Symmetric with admin-sidebar.tsx. Caught + fixed 2026-05-29.
+ * CLIENT BOUNDARY (REQUIRED): the items carry Lucide component refs, which cannot cross the Server→Client boundary.
  */
 
-import { Home, Users, Banknote, Menu } from 'lucide-react';
+import { Banknote, Inbox, LayoutGrid, LineChart, Users, type LucideIcon } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
+import { ADMIN_TABS, activeAdminTabKey, type AdminTab } from '@/lib/admin/admin-tabs';
 import { formatCount } from '@/lib/format-number';
+import { usePathname } from 'next/navigation';
+import { useAdminAddress } from './admin-address';
 
-export const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
-  {
-    // OVERVIEW — the merged Home+Work task inbox. Lands on the /admin pulse;
-    // lights for the exact /admin path (activeMatchAlsoExact — every other
-    // admin route starts with /admin/) AND for every act-now queue route.
-    key: 'home',
-    label: 'Today',
-    href: '/admin',
-    icon: Home,
-    activeMatchAlsoExact: ['/admin'],
-    activeMatch: [
-      '/admin/work',
-      // legacy landing — /admin/queues now redirects to /admin/work
-      '/admin/queues',
-      '/admin/verify',
-      '/admin/vendor-partnerships',
-      '/admin/payments',
-      '/admin/payouts',
-      '/admin/subscriptions',
-      '/admin/payment-options',
-      '/admin/disputes',
-      '/admin/pax-changes',
-      '/admin/force-majeure',
-      '/admin/completions',
-      '/admin/reviews',
-      '/admin/concierge-abuse',
-      '/admin/account-deletions',
-      '/admin/user-reports',
-      '/admin/repost-watch',
-      '/admin/corrections',
-      '/admin/data-privacy',
-      '/admin/integrity-watch',
-      '/admin/fraud',
-      '/admin/approvals',
-      '/admin/pakanta',
-      '/admin/editorial-review',
-      '/admin/help',
-    ],
-  },
-  {
-    key: 'directory',
-    label: 'People',
-    href: '/admin/directory',
-    icon: Users,
-    activeMatch: [
-      '/admin/directory',
-      '/admin/accounts',
-      '/admin/users',
-      '/admin/vendors',
-      '/admin/demo-vendors',
-      '/admin/events',
-      '/admin/venues',
-    ],
-  },
-  {
-    /* 💰 MONEY — the third ANSWERING desk, and the reason this strip changed.
-     *
-     * OWNER 2026-08-26: *"for mobile version, we only provide quick answers. no
-     * editing of settings or features. just responses for those that needs
-     * decision and response."*
-     *
-     * The two tabs that stood here — Set up and Numbers — are editing and
-     * looking. Neither answers anything, and Set up opens the taxonomy editor,
-     * which is exactly the work this ruling moves off the phone. Money replaces
-     * them because confirming a payment IS a response: the receipt is on the
-     * row and one press settles it.
-     *
-     * ⚖ STILL WITHIN THE LOCKED ≤5 PRIMITIVE — this takes the strip to four.
-     * More is deliberately KEPT: removing the only route from a phone to sixty
-     * pages is a capability deletion nobody asked for. Its landing carries the
-     * signpost instead. */
-    key: 'settings-group',
-    label: 'Money',
-    href: '/admin/money',
-    icon: Banknote,
-    activeMatch: [
-      '/admin/money',
-      '/admin/payments',
-      '/admin/booking-fees',
-      '/admin/payouts',
-      '/admin/subscriptions',
-      '/admin/payment-options',
-      '/admin/receipts',
-    ],
-  },
-  {
-    key: 'more',
-    label: 'More',
-    href: '/admin/more',
-    icon: Menu,
-    // More opens the COMPLETE 6-menu landing (rendered from ADMIN_NAV_GROUPS).
-    // As a lit-state umbrella it claims the two desktop menus WITHOUT their own
-    // tab — Studio (old Content + Marketing lanes) + Money — so none goes
-    // "unlit" on mobile per [[feedback_setnayan_orphan_prevention]]. The Ugat
-    // Console routes moved to the dedicated 'ugat' tab above. /admin/money
-    // stays matched here as a legacy bookmark landing.
-    activeMatch: [
-      '/admin/more',
-      // Studio group — the consolidation hub landing + Content lane
-      '/admin/studio',
-      '/admin/website',
-      // Live Studio channel pool (Wave 9). Listed unconditionally even though the
-      // ROUTE is flag-gated: an activeMatch entry only lights a tab, it does not
-      // create a doorway, and a stale string here is harmless where a MISSING one
-      // would leave the surface unlit the day the flag flips.
-      '/admin/live-studio-channels',
-      '/admin/reveal-studio',
-      '/admin/real-stories',
-      '/admin/recaps',
-      '/admin/patiktok',
-      '/admin/songs',
-      '/admin/moodboard-library',
-      // Studio group — Marketing lane (folded into Studio 2026-07-04; the old
-      // standalone Marketing tab retired, its surfaces live here now.
-      // /admin/marketing itself is a redirect into /admin/studio — matched
-      // above — so it needs no entry of its own.)
-      '/admin/social-queue',
-      '/admin/spotlight-awards',
-      '/admin/journal-spotlights',
-      '/admin/discount-codes',
-      '/admin/referrals',
-      // Money group — config + settings tail (note: /admin/settings also covers
-      // /admin/settings/demo-mode + /admin/settings/payment-methods)
-      '/admin/pricing',
-      '/admin/vendor-recommendations',
-      '/admin/price-bands',
-      '/admin/budget-planner',
-      '/admin/receipts',
-      '/admin/money',
-      '/admin/settings',
-      '/admin/notifications',
-    ],
-  },
-];
+export const ADMIN_TAB_ICON: Record<AdminTab['icon'], LucideIcon> = {
+  Inbox,
+  Banknote,
+  Users,
+  LayoutGrid,
+  LineChart,
+};
+
+/** The five tabs, in the approved order. Lit by `activeAdminTabKey`, never by a prefix list of their own. */
+export const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = ADMIN_TABS.map((t) => ({
+  key: t.key,
+  label: t.label,
+  href: t.href,
+  icon: ADMIN_TAB_ICON[t.icon],
+  activeMatch: [],
+  activeMatchExact: true,
+}));
+
+/** The Work tab's badge — the open work, honestly. `null` = nothing to show. */
+export function workBadge(
+  queueCounts: AdminQueueCounts | undefined,
+  overdue: number,
+  dueSoon: number,
+  unreadable: number,
+): BottomNavItem['badge'] | null {
+  const total = queueCounts
+    ? Object.values(queueCounts).reduce<number>((sum, c) => sum + (typeof c === 'number' && c > 0 ? c : 0), 0)
+    : 0;
+  if (total > 0) {
+    return {
+      count: total,
+      tone: overdue > 0 ? 'red' : dueSoon > 0 ? 'amber' : 'neutral',
+      label: overdue > 0 ? `${formatCount(total)} pending, ${overdue} overdue` : `${formatCount(total)} pending`,
+    };
+  }
+  // Nothing counted, but something could not be counted: say so — a failed read is not a clear desk.
+  if (!queueCounts || unreadable > 0) {
+    return { count: 0, text: '—', tone: 'amber', label: 'Work counts unavailable — not the same as none' };
+  }
+  return null;
+}
 
 export function AdminBottomNav({
   navSlots,
   queueCounts,
   overdue = 0,
   dueSoon = 0,
+  unreadable = 0,
+  at,
 }: {
   navSlots?: Record<string, NavSlotLite>;
   queueCounts?: AdminQueueCounts;
-  /** Count of queues past SLA — turns the Work tab badge red. */
+  /** Lab only — an address drawn on fixtures. */
+  at?: string;
+  /** Count of queues past SLA — turns the Work badge red. */
   overdue?: number;
   /** Count of queues approaching SLA — turns it amber. */
   dueSoon?: number;
+  /** Count of queues whose count could not be read. */
+  unreadable?: number;
 }) {
-  // The mobile "Overview" tab is the merged task inbox, so its badge is the
-  // SUM of open work across every queue (the per-queue split lives in the
-  // sidebar + the /admin/work feed). Tone escalates with the worst queue: red
-  // if anything is overdue, amber if anything is due-soon, else neutral.
-  const workTotal = queueCounts
-    ? Object.values(queueCounts).reduce<number>(
-        (sum, c) => sum + (typeof c === 'number' && c > 0 ? c : 0),
-        0,
-      )
-    : 0;
-  const workTone = overdue > 0 ? 'red' : dueSoon > 0 ? 'amber' : 'neutral';
+  const { pathname, params } = useAdminAddress(at);
+  const active = activeAdminTabKey(pathname, params);
+  // The shared bar lights a tab by the URL it is actually on, so the winner is handed THAT address.
+  const here = usePathname() ?? pathname;
+  const badge = workBadge(queueCounts, overdue, dueSoon, unreadable);
 
-  const withWorkBadge = (item: BottomNavItem): BottomNavItem =>
-    item.key === 'home' && workTotal > 0
-      ? {
-          ...item,
-          badge: {
-            count: workTotal,
-            tone: workTone,
-            label:
-              overdue > 0
-                ? `${formatCount(workTotal)} pending, ${overdue} overdue`
-                : `${formatCount(workTotal)} pending`,
-          },
-        }
-      : item;
-
-  // Nav registry overlay: label + icon per tab from its admin.bottom-nav.<key>
-  // slot (keys match the slot suffix 1:1). Fallback = the hardcoded default;
-  // hidden slot drops the tab; href/activeMatch stay in code. No-op when absent.
-  const items = (
-    navSlots
-      ? ADMIN_BOTTOM_NAV_ITEMS.flatMap((item) => {
-          const slot = navSlots[`admin.bottom-nav.${item.key}`];
-          if (!slot) return [item];
-          if (slot.isHidden) return [];
-          return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
-        })
-      : ADMIN_BOTTOM_NAV_ITEMS
-  ).map(withWorkBadge);
+  const items = ADMIN_BOTTOM_NAV_ITEMS.flatMap((item): BottomNavItem[] => {
+    // Registry overlay: label + icon per tab from its admin.bottom-nav.<key> slot; a hidden slot drops the tab.
+    const slot = navSlots?.[`admin.bottom-nav.${item.key}`];
+    if (slot?.isHidden) return [];
+    const named = slot ? { ...item, label: slot.label, icon: navIconComponent(slot.icon) } : item;
+    return [
+      {
+        ...named,
+        // The one winner lights by its exact current address; every other tab matches nothing.
+        activeMatch: item.key === active ? [here] : [],
+        ...(item.key === 'work' && badge ? { badge } : {}),
+      },
+    ];
+  });
 
   return <BottomNav items={items} />;
 }

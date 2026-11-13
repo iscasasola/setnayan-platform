@@ -207,7 +207,11 @@ export type CouplePhotoShareRequest =
   | { op: 'take_back'; eventId: string; shareId: string }
   | { op: 'answer'; shareId: string; approve: boolean }
   | { op: 'audience'; eventId: string; shareId: string; audience: CouplePhotoAudience }
-  | { op: 'viewer_looks'; vendorServiceIds: string[] };
+  | { op: 'viewer_looks'; vendorServiceIds: string[] }
+  // 🃏 The shop's own grown card (Build 5 Lane C — hide per card · 👁 Couple view · the card's opens). Riding this
+  // dispatcher because it is already the shop's door to what shows on its card; no new route (export budget).
+  | { op: 'card_owner'; vendorProfileId: string }
+  | { op: 'card_hide'; vendorServiceId: string; key: string; hidden: boolean };
 
 export type CouplePhotoShareReply =
   | { op: 'read'; result: PhotoShareOptions }
@@ -215,7 +219,9 @@ export type CouplePhotoShareReply =
   | { op: 'take_back'; result: { status: 'ok' | 'gone' | 'error' } }
   | { op: 'answer'; result: AnswerCouplePhotoResult }
   | { op: 'audience'; result: { status: 'ok' | 'gone' | 'error' } }
-  | { op: 'viewer_looks'; result: Record<string, Array<{ id: string; url: string; credit: string }>> };
+  | { op: 'viewer_looks'; result: Record<string, Array<{ id: string; url: string; credit: string }>> }
+  | { op: 'card_owner'; result: { status: 'owner'; opens: Record<string, number> | null } | { status: 'not_owner' } }
+  | { op: 'card_hide'; result: { status: 'ok' | 'refused' | 'error' } };
 
 export type PhotoShareCard = { vendorServiceId: string; title: string; shop: string };
 

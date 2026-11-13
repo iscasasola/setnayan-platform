@@ -132,7 +132,7 @@ function daysApart(aKey: string, bKey: string): number {
 }
 
 /** Every day key in [start, end] inclusive, ascending. Pure date arithmetic. */
-function expandRange(startKey: string, endKey: string): string[] {
+export function expandRange(startKey: string, endKey: string): string[] {
   const out: string[] = [];
   const [sy, sm, sd] = startKey.split('-').map(Number);
   const [ey, em, ed] = endKey.split('-').map(Number);

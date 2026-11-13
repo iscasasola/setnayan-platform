@@ -322,7 +322,7 @@ test('kept: the page shows a wedding its own picks plus what it added, and hands
   assert.match(bench, /starterTiles: replan \? starterTiles : undefined,/);
   // The bench and the page build the ring through the SAME call.
   assert.match(bench, /const inPlanResolution = resolveBenchRing\(\{/);
-  assert.match(page, /const ring = resolveBenchRing\(\{\s*tiles: ringTiles,\s*excludedTiles,\s*pinnedTile: sp\.open \?\? null,\s*starterTiles: \[\.\.\.popularTilesFor\(ev\?\.event_type \?\? null\)\],\s*\}\);/);
+  assert.match(page, /const ring = resolveBenchRing\(\{\s*tiles: ringTiles,\s*excludedTiles,\s*pinnedTile: sp\.open \?\? null,\s*starterTiles: \[\.\.\.popularTilesFor\(ev\?\.event_type \?\? null\)\],\s*listedOnly: true,\s*\}\);/);
   assert.match(page, /return \{ \.\.\.money, \.\.\.ringBuildCount\(ringTiles, ring\.inPlan\) \};/);
 });
 
@@ -342,4 +342,26 @@ test('Build N/M is counted over the ring — the rows Find shows, at the rows’
   // A removed row is not counted; a booked one cannot be removed from the count.
   const cut = resolveBenchRing({ tiles, excludedTiles: ['cake', 'reception'] , starterTiles: [] });
   assert.deepEqual(ringBuildCount(tiles, cut.inPlan), { filled: 3, total: 4 });
+});
+
+test('📋 listed only (owner 2026-11-12): Find lists the categories the couple added, and counts only those', () => {
+  const tiles = [
+    { tile: 'reception', planned: true, vendorCount: 1, lockedCount: 1 },
+    { tile: 'cake', planned: true, vendorCount: 0, lockedCount: 0 },
+    { tile: 'catering', planned: false, vendorCount: 2, lockedCount: 0 },
+    { tile: 'florist', planned: false, vendorCount: 0, lockedCount: 0 },
+    { tile: 'photo_video', planned: false, vendorCount: 1, lockedCount: 0 },
+  ];
+  const ring = resolveBenchRing({ tiles, excludedTiles: ['photo_video'], starterTiles: ['florist'], listedOnly: true });
+  // A planned or starter category with nobody in it is hidden; a removed one with a supplier stays removed.
+  assert.deepEqual([...ring.inPlan], ['reception', 'catering']);
+  assert.deepEqual([...ring.coverage], ['reception', 'catering']);
+  // A category opened from search shows while it is open — but is never counted.
+  const visit = resolveBenchRing({ tiles, excludedTiles: [], pinnedTile: 'florist', listedOnly: true });
+  assert.deepEqual([...visit.inPlan], ['reception', 'catering', 'florist', 'photo_video']);
+  assert.equal(visit.coverage.has('florist'), false);
+  // A brand-new event lists nothing.
+  const fresh = resolveBenchRing({ tiles: tiles.map((t) => ({ ...t, vendorCount: 0, lockedCount: 0 })), excludedTiles: [], starterTiles: ['cake'], listedOnly: true });
+  assert.equal(fresh.inPlan.size, 0);
+  assert.equal(fresh.coverage.size, 0);
 });

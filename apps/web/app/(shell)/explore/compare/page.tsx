@@ -384,7 +384,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
       is in the shared bar; the marketplace is a rail row. The `<h1>` below is
       untouched, so the page keeps exactly one heading.
     */
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
 
       <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         {/*
@@ -405,7 +405,9 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
           className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline"
         >
           <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Back to marketplace
+          {/* 2026-11-12 (DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED", the drawing's "Going back" row):
+              the visible copy says "suppliers". Still /explore until Discover's supplier view ships (build step 2). */}
+          Back to suppliers
         </Link>
         <div className="mb-6 space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">

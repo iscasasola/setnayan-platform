@@ -190,6 +190,8 @@ export const MAKER_PART_KEYS = [
   ...PE,
   'chapters',
   'pegallery',
+  /* 🎁 The gift thank-you (owner 2026-11-13, "POST EVENT = A STORY" (2)) — `gifts` is the RSVP's Gifts part, so its own key. */
+  'pegifts',
   /* ✍ THE COUPLE'S OWN SIX SCENES (`lib/custom-sections.ts` `custom_1`…`custom_6`, added by ＋ "A scene of your own").
      Owner 2026-10-17 on his own Maker, a "Your own section" just added: *"i cannot edit this"*. Measured: a tap on it
      named `w:custom_1`, no part had that canvas key, so `makerPartOfTap` answered null — the toolbar stayed on the
@@ -433,6 +435,7 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   /* The day's chapters share one marker (`p:ch-1`) and the Schedule's name; the story's Gallery is not `gallery`. */
   chapters: pe('ch-1'),
   pegallery: pe('gallery'),
+  pegifts: pe('gifts'),
   /* ✍ A scene of their own: tapped, it is picked like any scene; Edit is its Heading and Words (`stage-panel/part-words.ts`
      lists both even while the scene is still empty); Background and Animate are a `w:` scene's. Its name is the
      editor row's (`customSectionEditorLabel`, held equal by `own-scenes-are-parts.test.ts`). */
@@ -491,7 +494,7 @@ export function makerPartQuietRow(
  */
 /* 🖼 + the cover's photo (owner-approved 2026-10-16, "SIX NEW EFFECTS"): a picture with no colour, size or style cards of
    its own — it only moves. */
-export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you', 'coverphoto'];
+export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you', 'coverphoto', 'pegifts'];
 
 /**
  * 🚫 DOES A TOOL HAVE ANYTHING TO SET ON THIS PART? (owner rule: a failure never renders as success — a pill that

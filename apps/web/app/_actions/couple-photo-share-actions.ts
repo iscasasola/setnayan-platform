@@ -10,6 +10,8 @@
  *   { op: 'send' }       the couple sends it — consent + credit — to ONE card; the shop is told in-app (no email)
  *   { op: 'take_back' }  the uploader takes it back; an approved photo leaves the card at once
  *   { op: 'answer' }     the SHOP approves, declines, or takes an approved one off its card; the couple is told in-app
+ *   { op: 'card_owner' } 🃏 does this viewer run the shop? → the grown card's hide per card + 👁 + opens (Build 5 Lane C)
+ *   { op: 'card_hide' }  🃏 the shop hides (or shows again) one item on ONE card — `lib/service-card-hides.server.ts`
  *
  * 🔢 ONE EXPORT ON PURPOSE: every exported server action is a Vercel route and the repo budget
  * (`scripts/lint-server-action-budget.mjs`) sat at its ceiling — four exports would have been four routes.
@@ -29,6 +31,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { emitNotification } from '@/lib/notification-emit';
+import { readCardOwnerView, setCardHide } from '@/lib/service-card-hides.server';
 import { coupleLookUrl, fetchViewerCouplePhotos, moveCoupleLook, publishCoupleLook, reconcileCoupleLooks, unpublishCoupleLook } from '@/lib/couple-photo-share.server';
 import {
   COUPLE_PHOTO_CONSENT_VERSION,
@@ -67,6 +70,10 @@ export async function couplePhotoShare(req: CouplePhotoShareRequest): Promise<Co
       return { op: 'audience', result: await setShareAudience(req.eventId, req.shareId, req.audience) };
     case 'viewer_looks':
       return { op: 'viewer_looks', result: await viewerLooks(req.vendorServiceIds) };
+    case 'card_owner':
+      return { op: 'card_owner', result: await readCardOwnerView(req.vendorProfileId) };
+    case 'card_hide':
+      return { op: 'card_hide', result: await setCardHide(req.vendorServiceId, req.key, req.hidden === true) };
   }
 }
 

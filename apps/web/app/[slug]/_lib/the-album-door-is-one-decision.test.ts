@@ -226,14 +226,12 @@ test('the scan can actually see the defect it looks for (anti-vacuous floor)', (
 test('the guest tree has exactly ONE place that builds the album door', () => {
   const { scanned, doors, selfCanonical } = scanGuestTree();
 
-  // FLOORS — three independent ways for an empty sweep to fail loudly.
+  // FLOORS — independent ways for an empty sweep to fail loudly. (The third — "the recap page names itself absolutely"
+  // — left 2026-11-13 with the page: `/{slug}/recap` only sends to the story now. The classifier's own two answers are
+  // held by the anti-vacuous test above, so it stays proven without a real page to find.)
   assert.ok(scanned > 50, `Only ${scanned} files scanned; the walk is not reaching the tree.`);
   assert.ok(doors.length > 0, 'No album-door construction found AT ALL — the rule module should be one.');
-  assert.ok(
-    selfCanonical.length > 0,
-    'No absolute recap address found — the recap page names itself in its canonical tag, ' +
-      'OG card and share link. Finding none means the scan or the classifier is broken.',
-  );
+  void selfCanonical;
 
   const strays = doors
     .filter((h) => h.file !== THE_RULE)

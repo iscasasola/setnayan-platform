@@ -183,3 +183,28 @@ test('💎 part by part (2026-10-22): the saved Pro theme asks the Style part, t
     assert.equal(backgroundOnly.theme, 'house', `${id}: the Background part wore a Pro theme it does not own`);
   }
 });
+
+/* 🖼 ONE EVENT, ONE COVER (owner 2026-11-12: *"the event icons are not similar?"*). Home printed the
+   couple's names and date on their photo; Discover showed the bare photo, because the dressed cover
+   handed it only the picture (`sceneCoverFor`). A cover that comes from the poster now carries the
+   whole poster too, so Discover draws the same `<EventPoster>` Home does. */
+test('a photo cover carries the whole poster, so Discover prints the names on it as Home does', async () => {
+  const cover = await dressEventCoverGiven(
+    row({ landing_page_hero_image_url: 'r2://setnayan-media/events/e/hero.jpg' }),
+    null,
+    readers({ owned: false }).io,
+  );
+  assert.equal(cover.scene?.kind, 'photo', 'expected the hero photo as the scene');
+  assert.ok(cover.scenePoster, 'the scene came from the poster, but the poster was not handed on');
+  assert.equal(cover.scenePoster?.poster.kind, 'photo');
+  assert.equal(cover.scenePoster?.poster.names.first, 'Cale');
+  // The same picture, not a second one.
+  assert.equal(cover.scenePoster?.poster.photoSrc, cover.scene && 'src' in cover.scene ? cover.scene.src : undefined);
+});
+
+test('a plain event has no scene poster — it is the paper card, as before', async () => {
+  const cover = await dressEventCoverGiven(row(), null, readers({ owned: false }).io);
+  assert.equal(cover.scene, null);
+  assert.ok(cover.paper);
+  assert.equal(cover.scenePoster ?? null, null);
+});

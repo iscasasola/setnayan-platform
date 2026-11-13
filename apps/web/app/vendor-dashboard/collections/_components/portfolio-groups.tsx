@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronRight, Link2, Play, Plus, Send } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
+import { TOP_UP_WORDS } from '@/lib/booking-fee-top-up';
 import type { KeepAnswer } from '@/lib/form-row';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { DatesRow } from '../../customers/_components/dates-row';
@@ -40,6 +41,8 @@ export type OpenedPhotos = {
   total: number;
   /** Where the whole collection lives, when it has its own screen. */
   href: string | null;
+  /** 💸 Greyed while its event's booking-fee top-up is overdue — where to settle it (`PortfolioAlbum.unlisted`). */
+  unlisted?: { href: string } | null;
 };
 
 export function OpenedCollection({
@@ -92,10 +95,21 @@ export function PhotoGrid({ photos, data }: { photos: OpenedPhotos; data: string
   }, [at, photos.urls]);
   const more = photos.total - photos.urls.length;
   return (
-    <div data-collection-open={data}>
+    <div data-collection-open={data} {...(photos.unlisted ? { 'data-top-up-unlisted': '' } : {})}>
+      {photos.unlisted ? (
+        // 💸 The prototype's line (owner 2026-11-12): the album stays the supplier's, greyed, with the one door.
+        <p className="flex min-h-11 items-center justify-between gap-3 px-4 pb-1 text-[13px] font-medium" style={{ color: 'rgb(var(--color-warn))' }}>
+          <span className="min-w-0">{TOP_UP_WORDS.unlisted}</span>
+          <Link href={photos.unlisted.href} className="inline-flex min-h-11 shrink-0 items-center font-semibold text-sn-accent">
+            Settle ›
+          </Link>
+        </p>
+      ) : null}
       {photos.urls.length === 0 ? (
         <p className="px-4 py-4 text-[13.5px] text-ink/65">These photos couldn&rsquo;t be shown just now.</p>
       ) : (
+        // 💸 Greyed while its top-up is overdue — the grid itself is the shipped one, unchanged.
+        <div className={photos.unlisted ? 'opacity-[.45] grayscale' : undefined}>
         <ul className="grid grid-cols-3 gap-[2px]" data-collection-grid="" data-bleed="">
           {photos.urls.map((u, i) => (
             <li key={`${i}-${u}`} className="aspect-square overflow-hidden bg-ink/5">
@@ -119,6 +133,7 @@ export function PhotoGrid({ photos, data }: { photos: OpenedPhotos; data: string
             </li>
           ) : null}
         </ul>
+        </div>
       )}
       {photos.href ? (
         <div className="px-4 pt-3">

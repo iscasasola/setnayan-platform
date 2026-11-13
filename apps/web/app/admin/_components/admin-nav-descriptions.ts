@@ -47,7 +47,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     because the pre-V2 trail must stay readable during a dispute.
   */
   payouts: 'Closed trail from before Setnayan stopped handling supplier money — nothing new arrives here.',
-  subscriptions: 'Supplier Pro / Ultra upgrades awaiting confirmation.',
+  subscriptions: 'Supplier Pro / Supplier Ultra upgrades awaiting confirmation.',
   'payment-options': 'Supplier payment destinations awaiting a fraud screen.',
   disputes: 'Open customer and supplier disputes.',
   /*
@@ -170,6 +170,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'The receiving accounts (bank or e-wallet) shown on payment instructions.',
   settings:
     'Platform identity, business details, and Sentry smoke-test. Edit gated to internal admins.',
+  colours:
+    'The app’s colours by job — page, header band, frames, money, decision, private chat, toggle and icon tiles — with a live preview. Every screen except the guest Event Hub. Unreadable words or two look-alike buttons will not save.',
   compliance:
     'The RA 10173 / NPC registration facts — PIC identity, DPO designation, breach plan, and sub-processors. Sensitive IDs stay in the database.',
   notifications:
@@ -252,6 +254,7 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   'data-privacy': 'npc privacy dpo consent ra10173 filing',
   approvals: 'pending sign off second admin two admin',
   subscriptions: 'pro plan upgrade billing recurring',
+  colours: 'colour color colors theme palette brand look button band frame background mood accent toggle',
   gifts: 'comp complimentary free gift grant waive promo giveaway tier credits deal cohort window verified suppliers vendors event date range couple',
   // 'prices' and 'papic' added 2026-08-26 under this list's own rule — the owner
   // typed "show me the prices of papic" and "take me to the pricing for papic

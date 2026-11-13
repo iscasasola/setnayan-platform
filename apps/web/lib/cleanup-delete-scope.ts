@@ -342,6 +342,19 @@ export function chatAttachmentScope(threadId: unknown): CleanupScope {
   return mintScope(`chat_messages:${t}`, [{ bucket: THREAD_FILES, prefixes: [`chat/${t}/`] }]);
 }
 
+/**
+ * 👈 YOUR OWN chat file, removed by you (ruling 6076, `remove_my_chat_file`) — tighter than `chatAttachmentScope`:
+ * the send guard (migration 20271221089848, D) files every upload under `chat/<thread>/<the sender's uid>/`, and the
+ * database only removes a row whose sender is the caller, so the delete is held to THAT person's folder — never the
+ * other side's file in the same chat.
+ */
+export function chatOwnFileScope(threadId: unknown, senderUid: unknown): CleanupScope {
+  const t = safeId(threadId);
+  const u = safeId(senderUid);
+  if (!t || !u) return emptyScope('chat_messages:own');
+  return mintScope(`chat_messages:${t}:own`, [{ bucket: THREAD_FILES, prefixes: [`chat/${t}/${u}/`] }]);
+}
+
 /** A person's profile photo — `profile-photo/<user_id>/…` in media. */
 export function profilePhotoScope(userId: unknown): CleanupScope {
   const u = safeId(userId);

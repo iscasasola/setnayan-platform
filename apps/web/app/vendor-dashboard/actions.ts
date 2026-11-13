@@ -1047,7 +1047,7 @@ function websiteFieldPatch(
   ) {
     return {
       ok: false,
-      error: 'Personalizing your page is part of Solo. Pick a plan on the Plans page to save it.',
+      error: 'Personalizing your page is part of Supplier Plus. Pick a plan on the Plans page to save it.',
     };
   }
 
@@ -1055,7 +1055,7 @@ function websiteFieldPatch(
   // custom slug (Pro/Enterprise). The UI hides them for lower tiers; this is
   // the server-side backstop.
   if (PRO_WEBSITE_FIELDS.has(field) && vendorPaywallApplies(caps.premiumPage)) {
-    return { ok: false, error: 'This is part of Pro. Pick Pro on the Plans page to save it.' };
+    return { ok: false, error: 'This is part of Supplier Pro. Pick Supplier Pro on the Plans page to save it.' };
   }
 
   // ENTERPRISE gate — the video portfolio is a Flagship differentiator. UI hides
@@ -1066,7 +1066,7 @@ function websiteFieldPatch(
   ) {
     return {
       ok: false,
-      error: 'Video portfolio is part of Ultra. Pick Ultra on the Plans page to add films.',
+      error: 'Video portfolio is part of Supplier Ultra. Pick Supplier Ultra on the Plans page to add films.',
     };
   }
 

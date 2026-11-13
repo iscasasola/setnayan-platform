@@ -3,10 +3,12 @@
  * shown."* (on `shots-2026-10-25/thumb-room/header-after-{390,1280}.png`).
  *
  *   1  the bar's fill is the covered share — 0…100, never NaN
- *   2  the title row: "Cover your event ⓘ" then the quiet "N of M covered" on its right; the thin bar under it
+ *   2  ⟳ OVERTURNED 2026-11-12 (owner, the organized-Find prototype, "Yes, build it"): the "Cover your event" block
+ *      folds into the PINNED ROW — "N of M covered" beside Find ▾ ("nothing added yet" with nothing listed) and the
+ *      thin bar along the row's foot. The heading stays for a screen reader only; no ⓘ on the row.
  *   3  the bench's "Covered N of M" line is not drawn under the calm header (it publishes the count instead)
  *   4  a SETTLED date ('anchored') draws no banner under it; a conflict (every other tone) still does
- *   5  "free that day" is in the ⓘ
+ *   5  ⟳ (2026-11-12) the page-level ⓘ left with the header; the words stay in lib/explore-info-copy.ts
  *   6  the count is read, never pressed — no button, no link
  */
 import test from 'node:test';
@@ -30,16 +32,17 @@ test('1 · the bar fills by the covered share', () => {
   assert.equal(coverPercent({ covered: 9, total: 4 }), 100);
 });
 
-test('2 · the title row carries the quiet count on its right, and the bar sits under the title', () => {
-  const sec = SHELL.slice(SHELL.indexOf('function ServiceSection('), SHELL.indexOf('function ExploreInfoToggle('));
-  assert.ok(sec.length > 0, 'ServiceSection moved — re-anchor');
-  const h2 = sec.slice(sec.indexOf('<h2'), sec.indexOf('</h2>'));
-  assert.match(h2, /\{showInfo \? <ExploreInfoToggle \/> : null\}[\s{}]*\{showInfo \? <CoverCount \/> : null\}/, 'the count left the title row');
-  const after = sec.slice(sec.indexOf('</h2>'), sec.indexOf('</header>'));
-  assert.match(after, /\{showInfo \? <CoverBar \/> :/, 'the thin bar is not under the title');
-  assert.match(sec, /return showInfo \? <CoverRingProvider>\{section\}<\/CoverRingProvider> : section;/, 'nothing carries the bench’s count up to the title');
-  assert.match(RING, /data-cover-count=""[^>]*className="ml-auto /, 'the count is not pushed to the right');
-  assert.match(RING, /<Count value=\{ring\.covered\} id="sup-ring-covered" \/> of <Count value=\{ring\.total\} id="sup-ring-total" \/> covered/);
+test('2 · (2026-11-12) the count sits in the pinned row beside Find ▾, the bar along its foot; the header is for a screen reader', () => {
+  const at = SHELL.indexOf('data-suppliers-stick=""');
+  const row = SHELL.slice(SHELL.lastIndexOf('<div', at), SHELL.indexOf('<MenuSettingsButton', at));
+  assert.match(SHELL, /mode === 'find' \? \(\s*<CoverCount \/>/, 'Find’s count is not the row’s count');
+  assert.match(row, /\{mode === 'find' \? <CoverBar \/> : null\}/, 'the bar is not along the pinned row');
+  assert.match(SHELL, /<CoverRingProvider>\s*<section ref=\{rootRef\}/, 'the row cannot hear the bench’s count');
+  const sec = SHELL.slice(SHELL.indexOf('function ServiceSection('), SHELL.indexOf('function SectionStub('));
+  assert.match(sec, /<header className=\{folded \? 'sr-only' : 'mb-4'\}>/, 'the folded header is drawn on the page again');
+  assert.doesNotMatch(sec, /<CoverCount|<CoverBar|<Explain/, 'the old header block is back — the count twice');
+  assert.match(RING, /<Count value=\{ring\.covered\} id="sup-ring-covered" \/> of <Count value=\{ring\.total\} id="sup-ring-total" \/>/);
+  assert.match(RING, /COVER_NOTHING_YET = 'nothing added yet'/);
   assert.match(RING, /data-cover-bar=""[\s\S]*?role="progressbar"/);
   assert.match(RING, /h-\[3px\]/, 'the bar is no longer thin');
 });
@@ -64,10 +67,8 @@ test('4 · a settled date draws no banner under the calm header; a conflict stil
   assert.doesNotMatch(BENCH, /convergence\.tone === '(?:conflict|narrowing|converged)'\)\s*\?\s*null/);
 });
 
-test('5 · "free that day" lives in the ⓘ', () => {
+test('5 · (2026-11-12) the ⓘ words stay one place — "free that day" is still said in the copy module', () => {
   assert.match(EXPLORE_INFO_DATE, /free that day/);
-  const info = SHELL.slice(SHELL.indexOf('function ExploreInfoToggle('), SHELL.indexOf('function SectionStub('));
-  assert.match(info, /\{EXPLORE_INFO_DATE\}/, 'the ⓘ no longer says what the date banner said');
 });
 
 test('6 · the count is read, never pressed', () => {

@@ -38,7 +38,7 @@ test('nothing else names the couple — unlisted-unpublished, private, invited, 
   }
 });
 
-test('/{slug} and /{slug}/recap decide their metadata by the rule — not by visibility alone', () => {
+test('/{slug} decides its metadata by the rule — not by visibility alone (and /{slug}/recap has none of its own)', () => {
   const page = stripComments(readFileSync(join(WEB, 'app', '[slug]', 'page.tsx'), 'utf8'));
   const meta = page.slice(page.indexOf('export async function generateMetadata'), page.indexOf('export default async function'));
   assert.match(meta, /const preview = linkPreviewFor\(visibility, shareState\.published\);/);
@@ -49,9 +49,7 @@ test('/{slug} and /{slug}/recap decide their metadata by the rule — not by vis
   // (+ 2026-10-20: a fourth argument, the look of the mark it draws — lib/social/the-link-preview-wears-the-logo.test.ts.)
   assert.match(meta, /ogCardUrlFor\(\s*siteUrl,\s*event\.slug,\s*shareState\.versionAt\s*[,)]/);
 
-  const recap = stripComments(readFileSync(join(WEB, 'app', '[slug]', 'recap', 'page.tsx'), 'utf8'));
-  const rmeta = recap.slice(recap.indexOf('export async function generateMetadata'), recap.indexOf('export default async function'));
-  assert.match(rmeta, /const preview = linkPreviewFor\(resolveEffectiveVisibility\(event\), true\);/);
-  assert.match(rmeta, /if \(!preview\.namesTheCouple\) \{/);
-  assert.match(rmeta, /recapCardUrlFor\(SITE_URL, event\.slug, await readStoryVersionAt\(event\.event_id\)\)/, 'the recap card in the metadata must be the VERSIONED address');
+  // `/{slug}/recap` has no metadata of its own since 2026-11-13 — it sends to `/{slug}` (the story), whose metadata is
+  // the one held above (owner, "POST EVENT = A STORY" (5)); `a-sample-says-what-it-is.test.ts` holds that it stays so.
+  assert.doesNotMatch(stripComments(readFileSync(join(WEB, 'app', '[slug]', 'recap', 'page.tsx'), 'utf8')), /generateMetadata/);
 });

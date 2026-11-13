@@ -252,7 +252,7 @@ export function parseApplicationStatus(raw: unknown): ApplicationStatus {
 //
 //   • upload   — vendor uploads a file (DTI, BIR 2303, Mayor's Permit, …)
 //   • external — third-party check (Persona ID liveness, AMLC sanctions)
-//   • manual   — admin-side step (Google Meet, reference call)
+//   • manual   — admin-side step (none since the Google Meet slot retired 2026-11-14)
 // ---------------------------------------------------------------------------
 
 export type DocSlotKind = 'upload' | 'external' | 'manual';
@@ -266,8 +266,8 @@ export type DocSlot = {
   /**
    * Optional Help Center article slug (`/help/{guideSlug}`) explaining how to
    * obtain / prepare this document. Set on the legal + financial slots that
-   * vendors often don't know how to source (DTI/SEC, BIR 2303, Mayor's Permit,
-   * bank proof); the card renders a "How to get this →" link when present.
+   * vendors often don't know how to source (DTI/SEC, BIR 2303, Mayor's Permit);
+   * the card renders a "How to get this →" link when present.
    */
   guideSlug?: string;
 };
@@ -280,6 +280,20 @@ export type DocSlot = {
 // vendor_verification_applications.contact_*_confirmed_at). Any value already
 // stored under a retired key in doc_uploads JSONB is simply ignored (extra keys
 // never count toward completion), so in-flight applications keep working.
+//
+// RETIRED 2026-11-14 (owner, DECISION_LOG f69ec167: "delete bank account proof.
+// we do not need that. just the 3. DTI/SEC, BIR, Mayor's/Business Permit"):
+// `bank_account_proof` is no longer a slot. A bank proof a shop uploaded earlier
+// stays in doc_uploads untouched (never deleted here) and is simply not read —
+// the same rule as the 2026-07-03 prune above. A payout account (GCash / bank for
+// receiving couple payments) is a separate setting and is unchanged.
+//
+// RETIRED 2026-11-14 (owner, DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE
+// SUBMIT": "verification process is simple. submit the 3 documents and press
+// submit. that's it. no other steps needed. we wait for admin cofirmation
+// first."): the `google_meet` slot (the 15-min identity call) is no longer a
+// step. A `scheduled_at` already stored under it stays in doc_uploads untouched
+// and is simply not read. The admin's approval is the only thing that verifies.
 export const DOC_SLOTS: readonly DocSlot[] = [
   {
     key: 'dti_certificate',
@@ -306,54 +320,39 @@ export const DOC_SLOTS: readonly DocSlot[] = [
     guideSlug: 'how-to-get-mayors-permit',
   },
   {
-    key: 'bank_account_proof',
-    number: 4,
-    label: 'Bank account proof',
-    kind: 'upload',
-    hint: 'Screenshot or PDF of Maya / GCash / bank statement showing the account name, provider, and number — the name should match your DTI/SEC business name (or your own name if sole proprietor). You can blur the balance. Micro-deposit verification happens once Setnayan Pay integration is live.',
-    guideSlug: 'how-to-prepare-bank-account-proof',
-  },
-  {
     key: 'portfolio_samples',
-    number: 5,
+    number: 4,
     label: '5–10 portfolio samples',
     kind: 'upload',
     hint: 'Add 5–10 photos of your work — a new slot opens as you add each one, up to 10. JPG / PNG / WEBP. We run a reverse image search to flag stolen portfolios.',
   },
   {
     key: 'client_references',
-    number: 6,
+    number: 5,
     label: '3–5 past client references',
     kind: 'upload',
     hint: 'Add 3–5 past clients — each with a name, contact number, event, and date. A new blank reference appears as you fill each one, up to 5. Setnayan will randomly call 1–2.',
   },
   {
     key: 'social_media',
-    number: 7,
+    number: 6,
     label: 'Social media presence',
     kind: 'upload',
     hint: 'Add any of your public links — website, Facebook, Instagram, TikTok, X, YouTube, Vimeo, Snapchat, WhatsApp, Telegram. All optional; even one helps.',
     guideSlug: 'build-your-online-presence',
   },
-  {
-    key: 'google_meet',
-    number: 8,
-    label: '15-min Google Meet with admin',
-    kind: 'manual',
-    hint: "We'll email you a scheduling link once your documents are in — that's where we confirm your identity.",
-  },
 ] as const;
 
 /**
- * The documents a vendor MUST upload before submitting for review (owner
- * 2026-07-03). The remaining vendor uploads (portfolio, references, social)
+ * The documents a vendor MUST upload before submitting for review — THREE since
+ * the owner's 2026-11-14 ruling (DECISION_LOG f69ec167: DTI/SEC · BIR 2303 ·
+ * Mayor's/Business Permit; bank proof removed). The remaining vendor uploads (portfolio, references, social)
  * strengthen the application but don't block submission.
  */
 export const REQUIRED_DOC_SLOT_KEYS: ReadonlySet<string> = new Set([
   'dti_certificate',
   'bir_2303',
   'mayors_permit',
-  'bank_account_proof',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -515,7 +514,13 @@ export function parseSocialLinks(
 // ---------------------------------------------------------------------------
 
 export type DocUpload =
-  | { r2_key?: string; uploaded_at?: string; notes?: string }
+  | {
+      r2_key?: string;
+      uploaded_at?: string;
+      notes?: string;
+      /** Set by the admin on a NAMED paper when the application is sent back (2026-11-14) — see `sentBackOf`. */
+      sent_back?: { reason: string; at?: string | null };
+    }
   | Array<{ r2_key: string; uploaded_at?: string }>
   // client_references — structured entries (name · contact · event · date).
   | ClientReference[]
@@ -672,15 +677,12 @@ export function isSlotComplete(slotKey: string, v: DocUpload): boolean {
   return typeof (v as { r2_key?: string }).r2_key === 'string';
 }
 
-// The slots the VENDOR fills themselves vs the one the Setnayan team runs
-// (the 15-min Google Meet — post-prune the sole non-upload slot; it renders as
-// Step 3 of the Get-verified stepper, never as a document card). The vendor's
-// progress + submit gate count against VENDOR_DOC_SLOTS only.
+// The slots the VENDOR fills themselves. Since the Google Meet slot was retired
+// (2026-11-14) every slot is an upload; the filter stays so a future non-upload
+// slot can never be counted as the vendor's. The vendor's progress + submit gate
+// count against VENDOR_DOC_SLOTS only.
 export const VENDOR_DOC_SLOTS: readonly DocSlot[] = DOC_SLOTS.filter(
   (s) => s.kind === 'upload',
-);
-export const ADMIN_DOC_SLOTS: readonly DocSlot[] = DOC_SLOTS.filter(
-  (s) => s.kind !== 'upload',
 );
 
 /** How many of the vendor's own items (VENDOR_DOC_SLOTS) are complete. */
@@ -694,9 +696,9 @@ export function countCompleteVendorSlots(uploads: DocUploadMap): number {
 
 /**
  * 🔢 ONE DOCUMENT COUNT, EVERYWHERE (owner "Yes to all", 2026-10-22 — journey_fixes Supplier 2): the
- * supplier is counted against the FOUR required papers only — "n of 4 required" on the stepper, on Today,
- * on Your details, and "Required · n of 4" on a card. Never "of 7" (every upload) or "of 8" (DOC_SLOTS,
- * whose 8th is Setnayan's own Google Meet). The optional three say "Optional" and carry no count.
+ * supplier is counted against the REQUIRED papers only — THREE since 2026-11-14 (DECISION_LOG f69ec167) —
+ * "n of 3 required" on the stepper, on Today, on Your details, and "Required · n of 3" on a card. Never
+ * every upload. The optional three say "Optional" and carry no count.
  */
 export const REQUIRED_DOC_COUNT: number = REQUIRED_DOC_SLOT_KEYS.size;
 
@@ -707,7 +709,7 @@ export function countCompleteRequiredSlots(uploads: DocUploadMap): number {
   return n;
 }
 
-/** A required paper's place among the four (1-based, DOC_SLOTS order) — null for an optional item. */
+/** A required paper's place among the three (1-based, DOC_SLOTS order) — null for an optional item. */
 export function requiredDocPosition(key: string): number | null {
   if (!REQUIRED_DOC_SLOT_KEYS.has(key)) return null;
   return DOC_SLOTS.filter((s) => REQUIRED_DOC_SLOT_KEYS.has(s.key)).findIndex((s) => s.key === key) + 1;
@@ -721,18 +723,107 @@ export function requiredDocsComplete(uploads: DocUploadMap): boolean {
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// A SEND-BACK NAMES ONLY THE PAPER THAT NEEDS A NEW COPY
+//
+// Owner 2026-11-14 (DECISION_LOG "A SEND-BACK NAMES ONLY THE PAPER THAT NEEDS A
+// NEW COPY": "Only the named one"). The admin picks one or more papers and gives
+// a reason. ONLY those papers read "Needs a new copy" with the reason; the other
+// papers keep their state and are not re-uploaded. On re-Submit the whole
+// application is decided again.
+//
+// Where it lives — no migration: the marker rides in `doc_uploads[slot].sent_back`
+// beside the `r2_key` the slot already stores (the same place, and the same
+// reasoning, as the paper `read` block in `lib/verification-pairs.ts`). Extra keys
+// never count toward completion. The sent-back application keeps every file for
+// the record; the supplier's NEXT draft is seeded from it (`seedDraftAfterSendBack`)
+// with the kept papers as they were and each named paper carrying only its
+// marker — no file, so it is not complete until a new copy is uploaded, which
+// replaces the slot value and with it the marker.
+//
+// An application sent back BEFORE this rule carries no marker at all: it reads
+// exactly as before (every paper needs a new copy, the next draft starts empty).
+// ---------------------------------------------------------------------------
+
+export type SentBack = { reason: string; at: string | null };
+
+/** The send-back marker on one stored paper, or null. Defensive: a malformed marker is null, never a throw. */
+export function sentBackOf(v: DocUpload): SentBack | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const raw = (v as { sent_back?: unknown }).sent_back;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const reason = (raw as { reason?: unknown }).reason;
+  if (typeof reason !== 'string' || !reason.trim()) return null;
+  const at = (raw as { at?: unknown }).at;
+  return { reason: reason.trim(), at: typeof at === 'string' ? at : null };
+}
+
+/** The REQUIRED papers named by a send-back, in slot order. Empty for a send-back made before 2026-11-14. */
+export function sentBackSlotKeys(uploads: DocUploadMap | null | undefined): string[] {
+  const out: string[] = [];
+  for (const slot of DOC_SLOTS) {
+    if (REQUIRED_DOC_SLOT_KEYS.has(slot.key) && sentBackOf(uploads?.[slot.key])) out.push(slot.key);
+  }
+  return out;
+}
+
 /**
- * The ONE submit gate for verification (owner flow 2026-07-03: complete the
- * profile → the documents appear → upload → submit → "we contact you for final
- * confirmation"). Submitting requires a complete profile + the 4 required
- * documents. The VALIDATE contact confirmations and the Google Meet are part
- * of the POST-submit review (Setnayan contacts the vendor), so submit never
- * waits on admin stamping latency. Shared by the Get-verified section (renders
+ * The admin's half: mark ONLY the named papers on the application being sent back. Every other slot — and every
+ * file, the named ones included — is returned untouched. Refuses (null) an empty pick, an unknown slot or a blank
+ * reason, so a send-back can never name nothing or everything by accident.
+ */
+export function markSentBack(
+  uploads: DocUploadMap | null | undefined,
+  slots: readonly string[],
+  reason: string,
+  at: string,
+): DocUploadMap | null {
+  const picked = Array.from(new Set(slots));
+  if (picked.length === 0 || !reason.trim()) return null;
+  if (picked.some((k) => !REQUIRED_DOC_SLOT_KEYS.has(k))) return null;
+  const next: DocUploadMap = { ...(uploads ?? {}) };
+  for (const key of picked) {
+    const cur = next[key];
+    const base = cur && typeof cur === 'object' && !Array.isArray(cur) ? cur : {};
+    next[key] = { ...base, sent_back: { reason: reason.trim(), at } } as DocUpload;
+  }
+  return next;
+}
+
+/**
+ * The supplier's half: what the NEXT draft starts with after a send-back. Named papers carry their marker and no
+ * file; every other slot is carried over exactly as it was, so it is not re-uploaded. A send-back with no marker (made
+ * before 2026-11-14) starts empty, as it always did.
+ */
+export function seedDraftAfterSendBack(rejectedUploads: DocUploadMap | null | undefined): DocUploadMap {
+  const uploads = rejectedUploads ?? {};
+  if (sentBackSlotKeys(uploads).length === 0) return {};
+  const seed: DocUploadMap = {};
+  for (const [key, value] of Object.entries(uploads)) {
+    const mark = REQUIRED_DOC_SLOT_KEYS.has(key) ? sentBackOf(value) : null;
+    if (mark) {
+      seed[key] = { sent_back: mark } as DocUpload;
+      continue;
+    }
+    // A paper `read` block belongs to the file it read; it stays with the file, as before.
+    seed[key] = value;
+  }
+  return seed;
+}
+
+/**
+ * The ONE submit gate for verification. Owner 2026-11-14 (DECISION_LOG "VERIFICATION
+ * IS THREE PAPERS AND ONE SUBMIT"): *"submit the 3 documents and press submit. that's
+ * it. no other steps needed. we wait for admin cofirmation first."* — and, on the
+ * profile gate, *"Yes, remove it"*. So submitting asks for the 3 required papers
+ * (plus the registration number typed beside the DTI/SEC paper, the anti-farm key).
+ * It does NOT ask for a complete business profile, a VALIDATE contact confirmation
+ * or a Google Meet — all three were removed from this gate on 2026-11-14. The
+ * admin's approval is the only thing that verifies. Shared by the Get-verified section (renders
  * the reasons) and `submitInlineForReview` (enforces them) so client copy and
  * server validation can never drift. Empty = ready to submit.
  */
 export function verificationSubmitMissing(input: {
-  profileComplete: boolean;
   uploads: DocUploadMap;
   /**
    * Whether the vendor has submitted a government registration number
@@ -744,17 +835,10 @@ export function verificationSubmitMissing(input: {
    * hard block), so a vendor whose number duplicated another's can still submit.
    */
   registrationNumberOnFile?: boolean;
-  /**
-   * TRUE when the logo is the ONLY business-profile item left (owner 2026-10-22, journey_fixes Supplier 2 ·
-   * A: the logo is its own first step, "Add your logo — needed to go live"). The refusal is unchanged —
-   * approval asks nothing less — only its words name the one thing to do.
-   */
-  onlyLogoMissing?: boolean;
 }): string[] {
   const missing: string[] = [];
-  if (!input.profileComplete) missing.push(input.onlyLogoMissing ? 'Add your logo' : 'Finish your business profile');
   if (!requiredDocsComplete(input.uploads)) {
-    missing.push('Upload your DTI/SEC, BIR 2303, Business Permit, and bank proof');
+    missing.push('Upload your DTI/SEC, BIR 2303, and Business Permit');
   }
   if (input.registrationNumberOnFile === false) {
     missing.push('Add your government registration number');

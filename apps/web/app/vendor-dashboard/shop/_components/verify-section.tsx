@@ -2,17 +2,7 @@
 
 import { VERIFY_DOCS_ANCHOR } from '../../_components/get-verified-line';
 import { useActionState, useEffect, useRef, useState } from 'react';
-import {
-  BadgeCheck,
-  Calendar,
-  Check,
-  ChevronDown,
-  Clock,
-  Copy,
-  Loader2,
-  Mail,
-  Smartphone,
-} from 'lucide-react';
+import { BadgeCheck, Check, ChevronDown, Clock, Loader2 } from 'lucide-react';
 
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -28,125 +18,75 @@ import { formatCount } from '@/lib/format-number';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots } from '@/lib/vendor-verification';
 
 /**
- * "Get verified" — the always-visible verification stage on My Shop (owner-
- * approved redesign 2026-07-03; final flow settled the same day — "or it
- * should show both?" → SHOW BOTH):
+ * "Get verified" — the always-visible verification stage (owner-approved
+ * redesign 2026-07-03), cut down to the owner's 2026-11-14 ruling (DECISION_LOG
+ * "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"): *"verification process is
+ * simple. submit the 3 documents and press submit. that's it. no other steps
+ * needed. we wait for admin cofirmation first."*
  *
- *   The two vendor steps are visible + usable from day one (documents are the
- *   slow, offline part — vendors start gathering early). While the profile is
- *   incomplete, a "First step: finish your business profile — N fields left"
- *   banner leads the card. The moment the profile hits 100% in-session, the
- *   Documents step auto-opens and the section scrolls into view (the "pop up"
- *   moment); it also starts open whenever profile-complete + no required docs.
+ *   One step — Your documents (DocsBody, lazy): the three papers (DTI/SEC ·
+ *   BIR 2303 · Mayor's/Business Permit) plus optional extras. Then Submit, gated
+ *   by ONE shared server helper (`verificationSubmitMissing`) so copy never
+ *   drifts from enforcement. Then the application waits for the admin, who
+ *   approves or sends it back.
  *
- *   Steps (each one Collapsible deep, one open at a time):
- *     1 · Your documents        — required + optional uploads (DocsBody, lazy)
- *     2 · Confirm your contacts — the vendor emails + texts Setnayan the token
- *                                 "VALIDATE <shop name>"; we stamp each as it
- *                                 lands (doesn't block submit)
- *
- *   Submit (gated on profile-100% + the 4 required docs — ONE shared server
- *   helper so copy never drifts from enforcement) → "Submitted — we'll contact
- *   you to schedule your final confirmation, a 15-min Google Meet."
+ *   REMOVED 2026-11-14, each from where it lived here:
+ *     · the "First step: finish your business profile" banner and the profile
+ *       auto-open (the profile-100% gate — owner: "Yes, remove it");
+ *     · Step 2 · Confirm your contacts (the VALIDATE email + text);
+ *     · the "final confirmation, a 15-min Google Meet" copy and its booked time;
+ *     · the "n of 2 steps done" bar.
  */
 export type VerifySummary = {
   /** Latest application status, or null when the vendor has none yet. */
   status: 'draft' | 'pending_review' | 'in_review' | 'approved' | 'rejected' | 'withdrawn' | null;
   vendorComplete: number;
   vendorTotal: number;
-  /** How many of the 4 REQUIRED papers are in — the one count shown (owner 2026-10-22). */
+  /** How many of the 3 REQUIRED papers are in — the one count shown (owner 2026-10-22). */
   requiredIn: number;
-  /** All 4 required documents in. */
+  /** All 3 required documents in (owner 2026-11-14, DECISION_LOG f69ec167). */
   requiredDocsIn: boolean;
-  emailConfirmedAt: string | null;
-  phoneConfirmedAt: string | null;
-  /** google_meet slot's scheduled_at, when the Meet is booked. */
-  meetScheduledAt: string | null;
-  /** Admin decision reason on a rejected application. */
+  /**
+   * Admin decision reason on a rejected application — ONLY for a send-back made before 2026-11-14, which named no
+   * paper. A send-back that names its papers says the reason on those papers alone (`lib/setup-papers.ts`, the pairs).
+   */
   decisionReason: string | null;
   /** Server-computed submit blockers (empty = ready). ONE source of truth. */
   submitMissing: string[];
-  /** Where the vendor sends the VALIDATE messages (admin-managed settings). */
-  validateEmail: string;
-  validatePhone: string | null;
 };
 
 export function VerifySection({
-  businessName,
   vendorProfileId,
   isVerified,
-  profileComplete,
-  profileFieldsLeft,
   verify,
 }: {
-  businessName: string;
   vendorProfileId: string;
   isVerified: boolean;
-  /** All 8 Business-Profile fields in — the prerequisite that unlocks this. */
-  profileComplete: boolean;
-  /** Unfinished profile items BUT the logo, which is its own first step on Today (`profileGaps`). */
-  profileFieldsLeft: number;
   verify: VerifySummary;
 }) {
   const submitted = verify.status === 'pending_review' || verify.status === 'in_review';
-  // The "pop up": when the section renders already-unlocked with no required
-  // docs in yet, the Documents step starts OPEN — the vendor lands on exactly
-  // what to do next.
-  const [openStep, setOpenStep] = useState<1 | 2 | null>(() =>
-    // A verified shop lands straight on its papers — it has no profile step
-    // left to finish, and the papers are the only thing being asked of it.
-    (isVerified || profileComplete) && !verify.requiredDocsIn && !submitted ? 1 : null,
-  );
-  const toggle = (s: 1 | 2) => setOpenStep((cur) => (cur === s ? null : s));
-
-  // Live in-session unlock: the vendor finishes their last profile field, the
-  // save revalidates this page, and profileComplete flips true on the SAME
-  // mounted component — open the Documents step and bring the section into
-  // view so the reveal is unmissable.
-  const sectionRef = useRef<HTMLElement>(null);
-  const wasComplete = useRef(profileComplete);
-  useEffect(() => {
-    if (profileComplete && !wasComplete.current && !submitted && !isVerified) {
-      setOpenStep(1);
-      sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    wasComplete.current = profileComplete;
-  }, [profileComplete, submitted, isVerified]);
+  // The papers step starts OPEN while papers are still missing — the supplier lands on exactly what to do next.
+  const [open, setOpen] = useState<boolean>(() => !verify.requiredDocsIn && !submitted);
 
   // 🛡 [Get verified] (`GetVerifiedLine`, owner 2026-10-29 v13 note 4) lands on `#docs`: the fold opens, and HERE the
   // papers step opens with it, so the first missing paper is on screen — not a closed step to find.
   useEffect(() => {
     if (isVerified || submitted) return;
     const onHash = () => {
-      if (window.location.hash === `#${VERIFY_DOCS_ANCHOR}`) setOpenStep(1);
+      if (window.location.hash === `#${VERIFY_DOCS_ANCHOR}`) setOpen(true);
     };
     onHash();
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, [isVerified, submitted]);
 
-  const step1Done = verify.requiredDocsIn;
-  // 🔢 Until texting works (no VALIDATE number is set) the contacts step asks for the email ALONE — it used to
-  // want both, so it could never finish (owner 2026-10-22, journey_fixes Supplier 2: "0 of 1" as drawn).
-  const textingWorks = Boolean(verify.validatePhone);
-  const step2Done = Boolean(verify.emailConfirmedAt && (!textingWorks || verify.phoneConfirmedAt));
-  const stepsDone = (step1Done ? 1 : 0) + (step2Done ? 1 : 0);
-
   return (
-    <section ref={sectionRef} id="get-verified" className="space-y-3">
+    <section id="get-verified" className="space-y-3">
       <h2 className="sn-sec">{isVerified ? 'Verification' : 'Get verified'}</h2>
 
-      {/* ── A VERIFIED SHOP KEEPS ITS BADGE **AND** IS ASKED FOR ITS PAPERS.
-          Until 2026-09-09 this branch RETURNED here: the whole section
-          collapsed to this one card the moment a shop was verified. Measured
-          on production that day, BOTH shops are verified with every identity
-          column NULL, and one of them was holding a `draft` application it
-          could no longer reach. Owner ruling: Setnayan keeps the papers behind
-          every badge. ⛔ No deadline is set and the badge is never threatened —
-          whether a verified shop that never sends its papers eventually loses
-          it was NOT ruled on. Submitting is safe for them by construction:
-          `PENDING_REVIEW_ADVANCEABLE` deliberately excludes 'verified', so the
-          badge stays through the review window. ── */}
+      {/* ── A VERIFIED SHOP KEEPS ITS BADGE **AND** IS ASKED FOR ITS PAPERS (owner ruling 2026-09-09). ⛔ No
+          deadline is set and the badge is never threatened. Submitting is safe for them by construction:
+          `PENDING_REVIEW_ADVANCEABLE` deliberately excludes 'verified', so the badge stays through the review. ── */}
       {isVerified ? (
         <div
           className="flex items-start gap-3 rounded-2xl border p-5"
@@ -190,41 +130,10 @@ export function VerifySection({
             <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
               {isVerified
                 ? 'Setnayan keeps the papers behind every badge. Send yours when they’re handy — your badge stays either way.'
-                : 'Couples trust and message verified shops first. Two steps — then we contact you for your final confirmation.'}
+                : 'Couples trust and message verified shops first. Add your three papers and press Submit — Setnayan checks them and confirms.'}
             </p>
           </div>
         </div>
-
-        {/* ⚠ NOT shown to a verified shop: its profile fields are locked
-            server-side, so "finish your business profile" would send them to a
-            form that refuses every save. A verified shop whose profile is
-            incomplete therefore cannot clear the submit gate — NAMED, NOT
-            FIXED: whether a verified shop's submit should skip the profile
-            gate is a ruling, and this build strictly widens what they can
-            reach (until today they could not open this section at all). */}
-        {/* 🔢 The logo is NOT one of these "fields left" — it is its own first step on Today (owner
-            2026-10-22, journey_fixes Supplier 2 · A), and the submit gate names it on its own. */}
-        {!profileComplete && profileFieldsLeft > 0 && !submitted && !isVerified ? (
-          // Owner 2026-07-03 ("or it should show both?"): the documents stay
-          // visible + uploadable while the profile is unfinished — docs are the
-          // slow, offline part, so vendors start gathering early. The profile
-          // is framed as the FIRST step, and Submit stays gated on it.
-          <a
-            href="#top"
-            onClick={(e) => {
-              e.preventDefault();
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            className="mb-4 flex items-center gap-2 rounded-lg border p-3 text-xs transition-colors hover:border-[color:var(--m-orange-3)]"
-            style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)', background: 'var(--m-orange-4)' }}
-          >
-            <BadgeCheck aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
-            <span>
-              First step: finish your business profile — {profileFieldsLeft} field
-              {profileFieldsLeft === 1 ? '' : 's'} left. You can upload documents in the meantime.
-            </span>
-          </a>
-        ) : null}
 
         {submitted ? (
           <div
@@ -232,25 +141,7 @@ export function VerifySection({
             style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
           >
             <Clock aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-            <span>
-              Submitted — we&rsquo;ll contact you to schedule your{' '}
-              <strong>final confirmation</strong>, a 15-min Google Meet, within 5 business days.
-              {verify.meetScheduledAt ? (
-                <>
-                  {' '}
-                  <span className="inline-flex items-center gap-1" style={{ color: 'var(--m-sage-deep)' }}>
-                    <Calendar className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                    Booked ·{' '}
-                    {new Date(verify.meetScheduledAt).toLocaleString('en-PH', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </>
-              ) : null}
-            </span>
+            <span>Waiting for Setnayan — your papers are being checked, within 5 business days.</span>
           </div>
         ) : null}
         {verify.status === 'rejected' && verify.decisionReason ? (
@@ -262,40 +153,15 @@ export function VerifySection({
           </div>
         ) : null}
 
-        {/* One quiet progress readout for the whole journey. */}
-        <p className="text-xs tabular-nums" style={{ color: 'var(--m-slate)' }} aria-live="polite">
-          {stepsDone} of 2 steps done
-        </p>
-        <div
-          className="mb-4 mt-1.5 h-1.5 w-full overflow-hidden rounded-full"
-          style={{ background: 'var(--m-line-soft)' }}
-        >
-          <span
-            className="block h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
-            style={{ width: `${Math.round((stepsDone / 2) * 100)}%`, background: 'var(--m-orange)' }}
-          />
-        </div>
-
         <div className="space-y-2.5">
           <DocsStep
             n={1}
-            done={step1Done}
-            open={openStep === 1}
-            onToggle={() => toggle(1)}
+            done={verify.requiredDocsIn}
+            open={open}
+            onToggle={() => setOpen((cur) => !cur)}
             requiredIn={verify.requiredIn}
             vendorProfileId={vendorProfileId}
             isVerified={isVerified}
-          />
-          <ContactsStep
-            n={2}
-            done={step2Done}
-            open={openStep === 2}
-            onToggle={() => toggle(2)}
-            businessName={businessName}
-            emailConfirmedAt={verify.emailConfirmedAt}
-            phoneConfirmedAt={verify.phoneConfirmedAt}
-            validateEmail={verify.validateEmail}
-            validatePhone={verify.validatePhone}
           />
         </div>
 
@@ -450,7 +316,7 @@ function DocsStep({
 
   // Lazy load whenever the step is OPEN without a payload yet — this covers both
   // the click-to-open path AND the parent's auto-open paths (initial mount when
-  // profile-complete + no docs, and the live in-session unlock) that set `open`
+  // papers still missing, and the #docs hash) that set `open`
   // directly on the parent without routing through handleToggle. The per-ref R2
   // presigns still run only once the step actually opens, preserving laziness.
   useEffect(() => {
@@ -462,13 +328,13 @@ function DocsStep({
     onToggle();
   };
 
-  // 🔢 ONE COUNT: the four required papers, never "of 7" (owner 2026-10-22, journey_fixes Supplier 2).
+  // 🔢 ONE COUNT: the three required papers (2026-11-14), never "of 7" (owner 2026-10-22, journey_fixes Supplier 2).
   const shown = payload ? countCompleteRequiredSlots(payload.docMap) : requiredIn;
   return (
     <StepShell
       n={n}
       title="Your documents"
-      sub="DTI/SEC, BIR 2303, Business Permit, bank proof — plus optional extras"
+      sub="DTI/SEC, BIR 2303, Business Permit — plus optional extras"
       pill={<StepPill tone={done ? 'done' : 'action'}>{formatCount(shown)} of {formatCount(REQUIRED_DOC_COUNT)} required</StepPill>}
       done={done}
       open={open}
@@ -501,122 +367,6 @@ function DocsStep({
   );
 }
 
-/* ─── Step 2 · Confirm your contacts (VALIDATE email + text) ────────────── */
-
-function ContactsStep({
-  n,
-  done,
-  open,
-  onToggle,
-  businessName,
-  emailConfirmedAt,
-  phoneConfirmedAt,
-  validateEmail,
-  validatePhone,
-}: {
-  n: number;
-  done: boolean;
-  open: boolean;
-  onToggle: () => void;
-  businessName: string;
-  emailConfirmedAt: string | null;
-  phoneConfirmedAt: string | null;
-  validateEmail: string;
-  validatePhone: string | null;
-}) {
-  const [copied, setCopied] = useState(false);
-  const token = `VALIDATE ${businessName}`;
-  // 🔢 Count only what can be confirmed: the text line joins the count the day a VALIDATE number exists.
-  const textingWorks = Boolean(validatePhone);
-  const needed = textingWorks ? 2 : 1;
-  const confirmed = (emailConfirmedAt ? 1 : 0) + (textingWorks && phoneConfirmedAt ? 1 : 0);
-  const pill = done ? (
-    <StepPill tone="done">Confirmed</StepPill>
-  ) : (
-    <StepPill tone={confirmed > 0 ? 'checking' : 'action'}>
-      {formatCount(confirmed)} of {formatCount(needed)}
-    </StepPill>
-  );
-
-  const copy = () => {
-    if (navigator.clipboard) void navigator.clipboard.writeText(token);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <StepShell
-      n={n}
-      title="Confirm your contacts"
-      sub={textingWorks ? 'Prove your email and number are really yours' : 'Prove your email is really yours'}
-      pill={pill}
-      done={done}
-      open={open}
-      onToggle={onToggle}
-    >
-      <div className="space-y-3">
-        <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
-          {textingWorks
-            ? 'From your own email and phone, send us an email and a text with this exact message — we confirm each as it lands:'
-            : 'From your own email, send us an email with this exact message — we confirm it as it lands:'}
-        </p>
-        <div
-          className="flex items-center justify-between gap-3 rounded-lg border p-2.5 pl-3"
-          style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
-        >
-          <code className="min-w-0 truncate font-mono text-sm" style={{ color: 'var(--m-orange-2)' }}>
-            {token}
-          </code>
-          <button
-            type="button"
-            onClick={copy}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta-700 hover:bg-white/60"
-          >
-            {copied ? <Check className="h-3.5 w-3.5" strokeWidth={2} aria-hidden /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />}
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <a
-            href={`mailto:${validateEmail}?subject=${encodeURIComponent(token)}&body=${encodeURIComponent(token)}`}
-            className="button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs"
-          >
-            <Mail className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-            Email {validateEmail}
-          </a>
-          {validatePhone ? (
-            <a
-              href={`sms:${validatePhone}?&body=${encodeURIComponent(token)}`}
-              className="button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs"
-            >
-              <Smartphone className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-              Text {validatePhone}
-            </a>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs">
-          <ReceiptLine label="Email" at={emailConfirmedAt} />
-          {textingWorks ? <ReceiptLine label="Text" at={phoneConfirmedAt} /> : null}
-        </div>
-      </div>
-    </StepShell>
-  );
-}
-
-function ReceiptLine({ label, at }: { label: string; at: string | null }) {
-  return at ? (
-    <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--m-sage-deep)' }}>
-      <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
-      {label} · received
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--m-slate-3)' }}>
-      <Clock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-      {label} · waiting
-    </span>
-  );
-}
-
 /* ─── Submit ────────────────────────────────────────────────────────────── */
 
 function SubmitBlock({ missing }: { missing: string[] }) {
@@ -646,7 +396,7 @@ function SubmitBlock({ missing }: { missing: string[] }) {
       </SubmitButton>
       <p className="text-center text-xs" style={{ color: 'var(--m-slate-3)' }} aria-live="polite">
         {ready
-          ? 'All set — after you submit, we contact you to schedule your final confirmation.'
+          ? 'All set — after you submit, Setnayan checks your papers and confirms.'
           : `To submit: ${missing.join(' · ').toLowerCase()}.`}
       </p>
     </form>

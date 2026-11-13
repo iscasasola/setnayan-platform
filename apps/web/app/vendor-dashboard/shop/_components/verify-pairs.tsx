@@ -21,7 +21,7 @@ import {
   type TallyBucket,
   type VerificationPair,
 } from '@/lib/verification-pairs';
-import { isSlotComplete, type DocUpload } from '@/lib/vendor-verification';
+import { isSlotComplete, sentBackOf, type DocUpload } from '@/lib/vendor-verification';
 import { LOCKED_FIELD_LABEL, type LockedIdentityFieldKey } from '@/lib/vendor-corrections';
 import { REGISTRATION_NUMBER_TAKEN_MESSAGE } from '@/lib/vendor-registration-number';
 import {
@@ -36,7 +36,7 @@ import { formatCount } from '@/lib/format-number';
  * THE PAPER BESIDE THE FIELDS IT PROVES — the screen.
  *
  * A PORT of the binding drawing `prototypes/shop_verification_2026-09-09.html`,
- * not a redraw. It replaces nothing on My Shop except the shape of the FOUR
+ * not a redraw. It replaces nothing on My Shop except the shape of the THREE
  * REQUIRED document cards inside the shipped Get-verified section: each paper
  * now sits beside the details it proves, and every line reports on its own. The
  * three optional slots (portfolio, references, social links) are untouched and
@@ -205,7 +205,7 @@ export function VerifyPairs({
   return (
     <div className="space-y-4">
       <p className="text-xs" style={{ color: '#6E6A62' }}>
-        Four papers. Beside each one, the details it proves — type them, or send the paper and we
+        Three papers. Beside each one, the details it proves — type them, or send the paper and we
         fill them in for you to check. Each line is checked on its own, so you can see exactly what
         is left.
       </p>
@@ -236,6 +236,13 @@ export function VerifyPairs({
             {pair.slotKey === firstMissing ? (
               <p className="mb-1.5 text-xs font-medium" style={{ color: 'var(--m-orange-deep)' }}>
                 Missing · the one that holds you back
+              </p>
+            ) : null}
+            {/* 📨 The send-back's reason, on the NAMED paper only (owner 2026-11-14, "Only the named one"). Gone the
+                moment a new copy replaces the slot. */}
+            {!paperPresent && sentBackOf(entry) ? (
+              <p role="alert" className="mb-1.5 text-xs font-medium text-danger-700" data-paper-reason="">
+                Needs a new copy · {sentBackOf(entry)!.reason}
               </p>
             ) : null}
             <PairCard

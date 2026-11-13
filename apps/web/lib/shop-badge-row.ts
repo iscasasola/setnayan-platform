@@ -197,7 +197,7 @@ function tileFor(row: TrackerRow, i: BadgeRowInput): BadgeTile | null {
       on: row.state === 'earned',
       sub: stateSub(row),
       goal: false,
-      how: 'Documents approved — DTI or SEC, BIR 2303, Mayor’s Permit and bank proof.',
+      how: 'Documents approved — DTI or SEC, BIR 2303 and Mayor’s Permit.',
       ladder: null,
       row,
     };

@@ -16,6 +16,7 @@ const COARSE_SERVICE_KEYS: ReadonlySet<string> = new Set<string>(VENDOR_CATEGORI
 import {
   fetchLatestApplication,
   countCompleteRequiredSlots,
+  sentBackSlotKeys,
   verificationSubmitMissing,
   REQUIRED_DOC_COUNT,
   type DocUploadMap,
@@ -119,21 +120,21 @@ export async function fetchVendorFirstStepsState(
         )
       : null,
     docsStatus: (application?.status as VerificationAppStatus | undefined) ?? 'none',
-    // 🔢 One count: the four required papers (owner 2026-10-22) — never every upload.
+    // 🔢 One count: the three required papers (owner 2026-10-22; three since 2026-11-14) — never every upload.
     docsIn: countCompleteRequiredSlots(uploads),
     docsTotal: REQUIRED_DOC_COUNT,
     // The ONE source of truth for why Submit is refused, shared with the
     // Get-verified stepper so the rail can never invent a different reason.
     submitMissing: verificationSubmitMissing({
-      profileComplete: profileChecklist.complete,
-      onlyLogoMissing: gaps.onlyLogoMissing,
       uploads,
       registrationNumberOnFile,
     }),
     customerCount,
     notAvailableCount: (known.blocks?.notAvailable ?? 0) + shopWideDaysOff,
     outsideCount: known.blocks?.outside ?? 0,
-    rejectionReason: (application?.decision_reason as string | null) ?? null,
+    // A send-back that named its papers says its reason on those papers only (owner 2026-11-14, "Only the named one").
+    rejectionReason:
+      sentBackSlotKeys(uploads).length > 0 ? null : ((application?.decision_reason as string | null) ?? null),
     inspiration: libraryOpen ? { count: libraryCount } : null,
   });
 }

@@ -165,16 +165,15 @@ test('a shop verified by hand is not nagged for paperwork it was never asked for
   assert.equal(buildFirstStepsRail(handVerified).complete, true);
 });
 
-test('the documents blocker quotes the server refusal, never a second copy of it', () => {
-  // `verificationSubmitMissing` is the one source of truth for why Submit is
-  // refused. Hand-writing the same sentence here is how the screen and the
-  // server drift apart without either being wrong on its own.
+test('nothing outside the papers blocks the documents step — the profile gate is gone (owner 2026-11-14)', () => {
+  // Owner 2026-11-14 (DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT", profile gate: "Yes, remove it").
+  // An unfinished profile used to block this step with "Finish your business profile"; it never does now.
   const rail = buildFirstStepsRail({
     ...FRESH,
-    submitMissing: ['Finish your business profile', 'Add your government registration number'],
+    submitMissing: ['Add your government registration number'],
   });
   const docs = rail.steps.find((s) => s.key === 'documents');
-  assert.equal(docs?.blockedBy, 'Finish your business profile');
+  assert.equal(docs?.blockedBy, null, 'the documents step is blocked from outside the papers again');
 
   // Profile complete → the server would accept, so nothing is claimed to block.
   const unblocked = buildFirstStepsRail({ ...FRESH, profileDone: 8, submitMissing: [] });

@@ -20,6 +20,7 @@ import {
   countCompleteVendorSlots,
   fetchLatestApplication,
   requiredDocsComplete,
+  sentBackSlotKeys,
   verificationSubmitMissing,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
@@ -113,11 +114,11 @@ export type DetailsData = {
   verify: VerifySummary;
   verifyMeasured: boolean;
   /**
-   * 🧾 The four required papers, one row each (Today's step 5 — `lib/setup-papers.ts`). NULL when the application
+   * 🧾 The three required papers, one row each (Today's step 5 — `lib/setup-papers.ts`). NULL when the application
    * read was refused — the step then says it could not load them, never "none sent".
    */
   papers: SetupPaper[] | null;
-  /** Required papers in, of how many — the documents row's line ("1 of 4 in"). */
+  /** Required papers in, of how many — the documents row's line ("1 of 3 in"). */
   docsIn: number;
   docsTotal: number;
   branch: {
@@ -212,24 +213,6 @@ export async function loadDetailsData(
     verifyMeasured = false;
     return null;
   });
-  const validateRead = (async () => {
-    let validateEmail = 'verify@setnayan.com';
-    let validatePhone: string | null = null;
-    try {
-      const { data, error } = await supabase
-        .from('platform_settings')
-        .select('vendor_validate_email,vendor_validate_phone')
-        .eq('id', 1)
-        .maybeSingle();
-      if (error) logQueryError('VendorDetails.validateContacts', error, { vendorId }, 'graceful_degrade');
-      const row = data as { vendor_validate_email?: string | null; vendor_validate_phone?: string | null } | null;
-      if (row?.vendor_validate_email?.trim()) validateEmail = row.vendor_validate_email.trim();
-      validatePhone = row?.vendor_validate_phone?.trim() || null;
-    } catch {
-      /* defaults above */
-    }
-    return { validateEmail, validatePhone };
-  })();
   const registrationRead = (async () => {
     try {
       // `vendor_profiles_self`, never the table: `registration_number_raw` is off `authenticated`'s column allowlist
@@ -319,12 +302,11 @@ export async function loadDetailsData(
   // Never throws: an unread list is logged where it is read and comes back `null` (the notes then wait for the save).
   const fairWordsRead = loadClaimWordsFor(vendorId);
 
-  const [own, businessStartDate, app, validate, registrationOnFile, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay, deepSearch, lastDeepSearch, fairWords] =
+  const [own, businessStartDate, app, registrationOnFile, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay, deepSearch, lastDeepSearch, fairWords] =
     await Promise.all([
       ownRead,
       startDateRead,
       appRead,
-      validateRead,
       registrationRead,
       logoRead,
       vocabRead,
@@ -346,31 +328,18 @@ export async function loadDetailsData(
 
   const completion = businessProfileChecklist(profile);
   const uploads = (app?.doc_uploads ?? {}) as DocUploadMap;
-  const meetSlot = uploads.google_meet;
-  const meetScheduledAt =
-    meetSlot && typeof meetSlot === 'object' && !Array.isArray(meetSlot) && 'scheduled_at' in meetSlot
-      ? ((meetSlot as { scheduled_at?: string | null }).scheduled_at ?? null)
-      : null;
   const verify: VerifySummary = {
     status: (app?.status as VerifySummary['status']) ?? null,
     vendorComplete: countCompleteVendorSlots(uploads),
     vendorTotal: VENDOR_DOC_SLOTS.length,
     requiredIn: countCompleteRequiredSlots(uploads),
     requiredDocsIn: requiredDocsComplete(uploads),
-    // The stamps ride on the application row itself (`fetchLatestApplication` merges them) — the shop page read
-    // them a second time; here they are taken from the row already in hand.
-    emailConfirmedAt: app?.contact_email_confirmed_at ?? null,
-    phoneConfirmedAt: app?.contact_phone_confirmed_at ?? null,
-    meetScheduledAt,
-    decisionReason: (app?.decision_reason as string | null) ?? null,
+    // A send-back that named its papers says its reason on those papers only (owner 2026-11-14, "Only the named one").
+    decisionReason: sentBackSlotKeys(uploads).length > 0 ? null : ((app?.decision_reason as string | null) ?? null),
     submitMissing: verificationSubmitMissing({
-      profileComplete: completion.complete,
-      onlyLogoMissing: profileGaps(completion).onlyLogoMissing,
       uploads,
       registrationNumberOnFile: registrationOnFile,
     }),
-    validateEmail: validate.validateEmail,
-    validatePhone: validate.validatePhone,
   };
   const requiredIn = verify.requiredIn;
   const isVerified = profile.public_visibility === 'verified';

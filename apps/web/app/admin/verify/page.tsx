@@ -23,6 +23,7 @@ import {
 import {
   APPLICATION_TYPE_NAME,
   DOC_SLOTS,
+  REQUIRED_DOC_SLOT_KEYS,
   EMPTY_CONTACT_CONFIRMATION,
   SOCIAL_PLATFORM_LABEL,
   computeSlaTone,
@@ -1786,11 +1787,22 @@ function ActionRow({
               name="application_id"
               value={application.application_id}
             />
+            {/* 📨 A SEND-BACK NAMES ONLY THE PAPER THAT NEEDS A NEW COPY (owner 2026-11-14, "Only the named one"):
+                tick one or more — only those read "Needs a new copy" with the reason; the rest keep their state. */}
+            <fieldset className="space-y-1" data-send-back-papers="">
+              <legend className="text-xs text-ink/65">Which paper needs a new copy? (at least one)</legend>
+              {DOC_SLOTS.filter((s) => REQUIRED_DOC_SLOT_KEYS.has(s.key)).map((s) => (
+                <label key={s.key} className="flex items-center gap-2 text-xs text-ink">
+                  <input type="checkbox" name="sent_back_slots" value={s.key} />
+                  {s.label}
+                </label>
+              ))}
+            </fieldset>
             <label
               className="block text-xs text-ink/65"
               htmlFor={`reason-${application.application_id}`}
             >
-              Reason (required — surfaces to supplier)
+              Reason (required — shown on the named paper)
             </label>
             <textarea
               id={`reason-${application.application_id}`}

@@ -106,7 +106,7 @@ test('ONE mismatch leaves every other check standing — four-fifths done stays 
   assert.equal(s.passed, clean.passed - 1);
   assert.equal(byKey(results, 'portfolio_count').outcome, 'mismatch');
   assert.equal(byKey(results, 'required_documents').outcome, 'pass');
-  assert.equal(byKey(results, 'contact_validate').outcome, 'pass');
+  assert.equal(byKey(results, 'registration_number').outcome, 'pass');
 });
 
 test('storage being down marks ONLY the storage check — it is not an opinion about the paperwork', () => {
@@ -123,7 +123,6 @@ test('storage being down marks ONLY the storage check — it is not an opinion a
   assert.match(storage.reason ?? '', /504 from the bucket/);
   assert.equal(byKey(results, 'required_documents').outcome, 'pass');
   assert.equal(byKey(results, 'registration_number').outcome, 'pass');
-  assert.equal(byKey(results, 'contact_validate').outcome, 'pass');
   assert.equal(summariseChecks(results).manual, 1);
 });
 
@@ -174,15 +173,19 @@ test('every check keeps a stable key, and the set does not silently shrink', () 
     'documents_in_storage',
     'document_tenancy',
     'registration_number',
-    'contact_validate',
     'portfolio_count',
     'client_references',
-    'identity_meeting',
     'shop_reachable',
     'declared_experience',
     'payout_account_name',
   ]) {
     assert.ok(keys.includes(expected), `the "${expected}" check disappeared`);
+  }
+  // Owner 2026-11-14 (DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"): "submit the 3 documents and
+  // press submit. that's it. no other steps needed." The VALIDATE token and the identity call are not steps, so
+  // the reviewer is never told to chase them.
+  for (const retired of ['contact_validate', 'identity_meeting']) {
+    assert.ok(!keys.includes(retired), `the retired "${retired}" check came back`);
   }
 });
 
@@ -214,7 +217,6 @@ test('EVERY mismatch carries two named sides with two sources — never bare "ne
       ],
     },
     { registrationNumberDuplicate: true, registrationNumberHeldAlsoBy: ['Riverside Catering'] },
-    { contactPhoneConfirmedAt: null },
     { portfolioCount: PORTFOLIO_MAX + 3 },
     { clientReferenceCount: 1 },
     { contactPhone: null, hqAddress: null },
@@ -298,23 +300,14 @@ test('a document filed under another shop names both shops', () => {
   assert.match(r.disagreement!.right.value, /vp-someone-else/);
 });
 
-test('one confirmed channel and one silent one is a MISMATCH, both silent is MANUAL', () => {
-  const half = byKey(
-    runVerificationChecks(cleanFacts({ contactPhoneConfirmedAt: null }), NOW),
-    'contact_validate',
+test('2026-11-14 · no VALIDATE and no identity call: a shop with neither stamped reads the same as one with both', () => {
+  const stamped = runVerificationChecks(cleanFacts(), NOW);
+  const none = runVerificationChecks(
+    cleanFacts({ contactEmailConfirmedAt: null, contactPhoneConfirmedAt: null, meetScheduledAt: null }),
+    NOW,
   );
-  assert.equal(half.outcome, 'mismatch');
-  assert.match(half.disagreement!.right.value, /never/i);
-
-  const neither = byKey(
-    runVerificationChecks(
-      cleanFacts({ contactEmailConfirmedAt: null, contactPhoneConfirmedAt: null }),
-      NOW,
-    ),
-    'contact_validate',
-  );
-  assert.equal(neither.outcome, 'manual', 'nothing attempted is not a disagreement');
-  assert.equal(neither.disagreement, undefined);
+  assert.deepEqual(summariseChecks(none), summariseChecks(stamped));
+  assert.equal(grantWarning(summariseChecks(none)), null, 'the grant is warned about a step that no longer exists');
 });
 
 // ---------------------------------------------------------------------------
@@ -369,13 +362,6 @@ test('a registry 504 does not become a mismatch — an outage has no opinion abo
     'registration_number',
   );
   assert.notEqual(r.outcome, 'mismatch');
-});
-
-test('the identity call is marked as always a person, not as an outage', () => {
-  const results = runVerificationChecks(cleanFacts({ meetScheduledAt: null }), NOW);
-  const meet = byKey(results, 'identity_meeting');
-  assert.equal(meet.outcome, 'manual');
-  assert.equal(meet.alwaysHuman, true);
 });
 
 test('reading the number off a certificate is always-human while no registry is wired', () => {
@@ -447,7 +433,8 @@ test('a rule that throws is caught as manual and does not take the other checks 
     },
   });
   const results = runVerificationChecks(poisoned, NOW);
-  assert.ok(results.length >= 10, 'the run stopped early');
+  // Nine checks since 2026-11-14 (the VALIDATE and identity-call checks retired).
+  assert.ok(results.length >= 9, 'the run stopped early');
   assert.ok(
     results.some((r) => r.outcome === 'manual' && /threw/i.test(r.reason ?? '')),
     'the throwing rule was not caught as manual',
@@ -461,7 +448,7 @@ test('a rule that throws is caught as manual and does not take the other checks 
 
 test('mismatches sort above the human pile, which sorts above what is already clear', () => {
   const results = runVerificationChecks(
-    cleanFacts({ portfolioCount: 1, meetScheduledAt: null }),
+    cleanFacts({ portfolioCount: 1, inBusinessSinceYear: null }),
     NOW,
   );
   const order = sortForReview(results).map((r) => r.outcome);
@@ -476,7 +463,7 @@ test('the summary line states the split and never a verdict', () => {
   const clean = summaryLine(summariseChecks(runVerificationChecks(cleanFacts(), NOW)));
   assert.match(clean, /clear/i);
   const mixed = summaryLine(
-    summariseChecks(runVerificationChecks(cleanFacts({ portfolioCount: 1, meetScheduledAt: null }), NOW)),
+    summariseChecks(runVerificationChecks(cleanFacts({ portfolioCount: 1, inBusinessSinceYear: null }), NOW)),
   );
   assert.match(mixed, /mismatch/i);
   assert.match(mixed, /for you/i);
@@ -495,7 +482,7 @@ test('the grant button is warned when anything is unchecked, and left silent whe
   assert.match(withMismatch!, /disagrees|disagree/);
 
   const withManual = grantWarning(
-    summariseChecks(runVerificationChecks(cleanFacts({ meetScheduledAt: null }), NOW)),
+    summariseChecks(runVerificationChecks(cleanFacts({ inBusinessSinceYear: null }), NOW)),
   );
   assert.ok(withManual);
   assert.match(withManual!, /not been decided/i);
@@ -787,11 +774,47 @@ test('AMBIGUOUS goes to a person, never to a refusal: a partial overlap is manua
   assert.match(r.reason ?? '', /Rosa Santos/);
 });
 
-test('no account on file is manual (read the bank proof), never a pass', () => {
+test('no account on file is manual (check the payment settings), never a pass', () => {
   const r = payout({ payoutAccounts: [] });
   assert.equal(r.outcome, 'manual');
   assert.equal(r.alwaysHuman, true);
   assert.match(r.detail, /No payout account/);
+  // The bank proof was retired 2026-11-14 (DECISION_LOG f69ec167): the reviewer is never sent to read a paper
+  // the shop is no longer asked for, and the check points at a slot that still exists.
+  assert.doesNotMatch(r.reason ?? '', /bank proof/i);
+  assert.equal(r.slotKey, 'dti_certificate');
+});
+
+/* ── OWNER RULING 2026-11-14 (specs DECISION_LOG f69ec167) ──────────────────────────────────────────────────
+   "delete bank account proof. we do not need that. just the 3. DTI/SEC, BIR, Mayor's/Business Permit".
+   The reviewer's documents check passes on the three, and an older application that still carries a bank proof
+   loads exactly the same (the stored key is extra, and extra keys never count). */
+test('2026-11-14 · the three papers are enough — the documents check passes with DTI/SEC, BIR 2303 and the permit', () => {
+  const three = runVerificationChecks(
+    cleanFacts({ completeSlotKeys: new Set(['dti_certificate', 'bir_2303', 'mayors_permit']) }),
+    NOW,
+  );
+  const req = byKey(three, 'required_documents');
+  assert.equal(req.outcome, 'pass', 'three papers must be enough to approve');
+  assert.match(req.label, /three/);
+  assert.match(req.detail, /All 3 required/);
+
+  const withOldBankProof = byKey(
+    runVerificationChecks(
+      cleanFacts({ completeSlotKeys: new Set(['dti_certificate', 'bir_2303', 'mayors_permit', 'bank_account_proof']) }),
+      NOW,
+    ),
+    'required_documents',
+  );
+  assert.deepEqual(withOldBankProof, req, 'an earlier bank proof changed the documents check');
+
+  const two = byKey(
+    runVerificationChecks(cleanFacts({ completeSlotKeys: new Set(['dti_certificate', 'bir_2303']) }), NOW),
+    'required_documents',
+  );
+  assert.equal(two.outcome, 'mismatch');
+  assert.match(two.detail, /2 of 3/);
+  assert.doesNotMatch(two.disagreement!.left.value, /bank/i);
 });
 
 test('an account with a blank name is manual, never a pass', () => {

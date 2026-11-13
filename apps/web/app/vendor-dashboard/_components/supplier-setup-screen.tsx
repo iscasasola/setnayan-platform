@@ -137,11 +137,8 @@ export function SupplierSetupScreen({
           <div className="space-y-3 pb-2">
             {!d.verifyMeasured ? <CouldNotLoad what="your documents" /> : null}
             <VerifySection
-              businessName={d.businessName}
               vendorProfileId={d.vendorId}
               isVerified={d.isVerified}
-              profileComplete={d.profileComplete}
-              profileFieldsLeft={d.fieldsLeft}
               verify={d.verify}
             />
           </div>

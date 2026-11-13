@@ -16,6 +16,7 @@
  * the migration was reshaped before it reached production.
  */
 import type { CSSProperties } from 'react';
+import { formatCount } from './format-number';
 
 import {
   DEFAULT_PICTURE_FRAME,
@@ -41,7 +42,7 @@ export const SHOP_LOGO_UPLOAD = {
 /** "PNG, JPEG, WEBP, HEIC or HEIF up to 10 MB" — the rule above, as a person reads it. */
 export function shopLogoLimitsWords(): string {
   const names = SHOP_LOGO_UPLOAD.acceptedTypes.map((t) => t.replace('image/', '').toUpperCase());
-  return `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]} up to ${SHOP_LOGO_UPLOAD.maxSizeMB} MB`;
+  return `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]} up to ${formatCount(SHOP_LOGO_UPLOAD.maxSizeMB)} MB`;
 }
 
 /** The screen right after "Open my shop": "Add your logo". */

@@ -21,6 +21,7 @@ import { countUnreadMessages } from '@/lib/chat';
 import { countGuestsByEvent } from '@/lib/guests';
 import { getLocale, makeT } from '@/lib/i18n';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
@@ -579,6 +580,7 @@ export default async function EventLayout({ children, params }: Props) {
         href="/dashboard/notifications"
         ariaBaseLabel={tr('nav.notifications')}
         ariaUnreadSuffix="unread"
+        who={placeWhoFromSwitcher(switcherData)}
       />
       {/*
         AccountSwitcher — now at EVERY width (One Shell slice 1, 2026-08-13).

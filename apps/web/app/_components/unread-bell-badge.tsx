@@ -39,6 +39,11 @@ import type { EventPlaceFact, NotificationPlaceFacts, PlaceWho } from '@/lib/not
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import dynamic from 'next/dynamic';
+// 🔔 ONE NOTICE SYSTEM (owner approved 14 Nov 2026): notices that do not fit a page's top wait here, in a
+// "Waiting on this page" group above the notifications. The badge's NUMBER stays the notifications count; waiting
+// notices add only a dot.
+import { NoticesWaiting, openTray, useNoticesWaiting, useTrayRequest } from '@/app/_components/notices/notices';
+import { bellMounted } from '@/app/_components/notices/notice-store';
 
 /*
   The pop-over's rows ride in a chunk of their own, fetched when the bell is first pressed — the bell is in the first
@@ -164,6 +169,16 @@ export function UnreadBellBadge({
 
   useEffect(() => setMounted(true), []);
 
+  // 🔔 This page has a bell: its notices' "N more" opens it.
+  useEffect(() => bellMounted(), []);
+  const waiting = useNoticesWaiting();
+  const trayAsked = useTrayRequest();
+  useEffect(() => {
+    if (!trayAsked) return;
+    setOpen(true);
+    openTray(false);
+  }, [trayAsked]);
+
   function close() {
     setOpen(false);
   }
@@ -226,7 +241,9 @@ export function UnreadBellBadge({
     setUnread(0);
   }
 
-  const label = unread > 0 ? `${ariaBaseLabel} · ${unread} ${ariaUnreadSuffix}` : ariaBaseLabel;
+  const label =
+    (unread > 0 ? `${ariaBaseLabel} · ${unread} ${ariaUnreadSuffix}` : ariaBaseLabel) +
+    (waiting > 0 ? ` · ${waiting} waiting on this page` : '');
   const places: NotificationPlaceFacts = { events, who };
   // The badge's count covers notices older than the eight drawn, so either one keeps "Mark all read" on show.
   const rowsUnread = rows ? Math.max(unread, rows.filter((r) => !r.read_at).length) : 0;
@@ -270,6 +287,7 @@ export function UnreadBellBadge({
         <NotificationsHead unreadCount={rowsUnread} returnTo={here} level="popover" onMarkAll={markedAllRead} />
 
         <div className="min-h-0 flex-1 overflow-y-auto pb-1" aria-busy={rows === undefined || undefined}>
+          <NoticesWaiting />
           {rows === undefined ? (
             <div className="mx-3 mt-8 h-[186px] rounded-tile bg-[var(--m-paper)] opacity-60" data-notifications-loading="" />
           ) : rows === null ? (
@@ -329,6 +347,8 @@ export function UnreadBellBadge({
           >
             {unread > 9 ? '9+' : unread}
           </span>
+        ) : waiting > 0 ? (
+          <span aria-hidden data-notice-dot="" className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-terracotta-700" />
         ) : null}
       </button>
 

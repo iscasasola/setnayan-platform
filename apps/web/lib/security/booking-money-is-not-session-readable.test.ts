@@ -51,6 +51,9 @@ const PROVEN_BY_HAND: Record<string, string> = {
   'lib/booking-payment-plan.server.ts::freezePaymentPlanAtBooking':
     'callers: vendors/actions.ts (planAdmin = createAdminClient()) and freezePaymentPlanAfterSupplierAgreed, whose ' +
     'one caller passes createAdminClient() inline',
+  'lib/claimed-per-guest-shop.server.ts::readShopPerGuest':
+    'RW-08 — callers: vendor-dashboard/customers/page.tsx (rosterAdmin = createAdminClient()) and ' +
+    'readSupplierEventLines, whose `admin` every caller builds with createAdminClient(); scoped to the session-proved shop',
   'lib/setnayan-ai-snapshot.ts::buildPlanningSnapshot':
     'callers: setnayan-ai-notify.ts (admin = createAdminClient()) and computeUserAiDigest, which has no caller',
   'lib/thread-decision-sources.server.ts::fetchThreadPayments':

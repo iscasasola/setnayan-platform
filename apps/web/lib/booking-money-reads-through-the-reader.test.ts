@@ -38,6 +38,8 @@ const SERVICE_ROLE_READS: Record<string, string> = {
   'lib/claim-door.server.ts': 'createAdminClient',
   'lib/plausibility-scanner.ts': 'createAdminClient',
   'lib/setnayan-ai-snapshot.ts': 'admin — every caller passes the admin client',
+  'lib/claimed-per-guest-shop.server.ts':
+    'readShopPerGuest(admin) — callers pass rosterAdmin = createAdminClient() (Clients) and the admin of readSupplierEventLines (RW-08)',
   'lib/thread-decision-sources.server.ts': 'fetchThreadPayments({ adminClient }) — both callers pass the admin client',
   'lib/vendor-card-from-couple.ts': 'admin — the one caller passes createAdminClient()',
   'lib/verified-median-read.ts': 'createAdminClient',

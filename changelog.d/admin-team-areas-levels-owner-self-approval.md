@@ -15,7 +15,7 @@ ACTIONS — TYPED + 24 H".
   sentence that says it could not read rather than "not your area".
 - **Nothing changes for anyone on the day it lands:** every existing admin who is not the owner is carried over with
   all 16 areas at both levels. The owner narrows people on the new Team screen; a brand-new admin starts with nothing.
-- `requireAdminCan(area, level)` added inside 37 actions: approvals (decide = Escalated in the request's area), pricing
+- `requireAdminCan(area, level)` added inside 38 actions plus every approval decision (Escalated in the request's area): approvals, pricing
   (11), payments (8), users (9), fraud (3), vendors (3), receiving accounts (3).
 - New screens: **/admin/team** (add an admin — name · email · area ticks · Basic / Escalated / both; owner shown as
   "everything" and locked; greyed with the reason in the ⓘ for anyone without Team · Escalated) and **/admin/admin-log**

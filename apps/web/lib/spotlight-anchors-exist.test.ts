@@ -175,8 +175,6 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'client-quote': 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx',
   'maker-hint': 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx',
   'maker-tools': 'app/dashboard/[eventId]/launch/_components/maker-lower-third.tsx',
-  // 🔒 Maker Edit shell (owner-approved 2026-11-13): the four tabs, where a locked one says why.
-  'maker-tool-tabs': 'app/dashboard/[eventId]/launch/_components/stage-tools.tsx',
   'maker-apply': 'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
   'budget-summary': 'app/dashboard/[eventId]/budget/_components/budget-summary.tsx',
   'budget-list': 'app/dashboard/[eventId]/budget/_components/budget-screen.tsx',

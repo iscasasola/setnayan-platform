@@ -1931,7 +1931,7 @@ export function StageTools({
 
       {/* ══ THE SELECTOR — [ Edit | Style | Background | Animate ] · ▶ ══ */}
       <div className={STAGE_ROW} data-stage-row="">
-        <span role="group" aria-label="Edit with" className={STAGE_TOOL_PILL} data-tour="maker-tool-tabs" data-stage-tpill="">
+        <span role="group" aria-label="Edit with" className={STAGE_TOOL_PILL} data-stage-tpill="">
           {/* 🎚 ONE thumb that TRAVELS from tool to tool (owner 2026-10-08: "apply the same pill selector") — the app's
               thumb, in the selector's one accent, lying 3 px inside the picked tool's box and as wide as its word. The
               tools are the track's DIRECT children, so the thumb can find the picked one. */}

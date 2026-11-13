@@ -12,10 +12,10 @@ export function ServicesEmptyCard() {
     <div className="space-y-2.5 rounded-2xl px-4 py-3" style={{ background: 'var(--m-paper)', boxShadow: '0 1px 2px color-mix(in srgb, var(--m-ink) 6%, transparent)' }} data-shop-services-empty="">
       <div className="flex items-baseline justify-between">
         <p className="sn-eye">Services</p>
-        <span className="text-[11.5px] text-ink/50">one card a host can book</span>
+        <span className="text-[11.5px] text-ink/70">one card a host can book</span>
       </div>
-      <p className="flex items-start gap-2 text-[14px] leading-snug text-ink/75">
-        <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.9} />
+      <p className="flex items-start gap-2 text-sm leading-snug text-ink/75">
+        <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.9} />
         <span>No service cards yet · your shop is found by its cards</span>
       </p>
       <ActionButton tone="brand" main icon={<Layers aria-hidden strokeWidth={1.9} />} label="New service" href={SERVICE_MAKER_HREF} tour="shop-add-service" />

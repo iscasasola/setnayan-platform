@@ -140,7 +140,7 @@ export function ShopMakers({
         <h2 id="shop-makers-h" className="sn-eye">
           Makers
         </h2>
-        <span className="text-[11.5px] text-ink/50">{list.map((t) => t.title.split(' ')[0]!.toLowerCase()).join(' · ')}</span>
+        <span className="text-[11.5px] text-ink/70">{list.map((t) => t.title.split(' ')[0]!.toLowerCase()).join(' · ')}</span>
       </div>
       <div className="grid gap-2 px-4" style={{ gridTemplateColumns: `repeat(${list.length}, minmax(0, 1fr))` }} data-maker-row="">
         {list.map((t) => (
@@ -159,11 +159,11 @@ export function ShopMakers({
             <span aria-hidden className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
               <t.icon className="h-5 w-5" strokeWidth={1.75} />
             </span>
-            <b className="inline-flex items-center gap-1 text-[14px] font-semibold leading-tight text-ink">
+            <b className="inline-flex items-center gap-1 text-sm font-semibold leading-tight text-ink">
               {t.title}
-              {t.k === 'offers' && offers && !offers.verified ? <Lock aria-label="Locked" className="h-3.5 w-3.5 flex-none text-ink/50" strokeWidth={2} /> : null}
+              {t.k === 'offers' && offers && !offers.verified ? <Lock aria-label="Locked" className="h-3.5 w-3.5 flex-none text-ink/70" strokeWidth={2} /> : null}
             </b>
-            <small className="text-[12px] leading-tight text-ink/60">{t.sub}</small>
+            <small className="text-xs leading-tight text-ink/70">{t.sub}</small>
           </button>
         ))}
       </div>
@@ -211,8 +211,8 @@ export function ShopMakers({
                         <span aria-hidden className="grid h-9 w-9 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
                           <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
                         </span>
-                        <b className="pt-1 text-[14px] font-semibold leading-tight text-ink">{t.title}</b>
-                        <small className="text-[12px] leading-snug text-ink/60">{t.line}</small>
+                        <b className="pt-1 text-sm font-semibold leading-tight text-ink">{t.title}</b>
+                        <small className="text-xs leading-snug text-ink/70">{t.line}</small>
                         <small className="mt-auto pt-1 text-[11.5px] font-semibold leading-tight text-ink/75">{toolFoot(t, suggested, scannerSub, booked)}</small>
                       </button>
                     </li>
@@ -223,7 +223,7 @@ export function ShopMakers({
             </div>
           ) : (
             (formsBody ?? (
-              <p role="status" className="py-4 text-[13.5px] text-ink/60" data-shop-forms-loading="">
+              <p role="status" className="py-4 text-[13.5px] text-ink/70" data-shop-forms-loading="">
                 Opening your forms…
               </p>
             ))
@@ -246,12 +246,12 @@ function offersSub(o: OfferTileFacts): string {
 function OfferLockPreview() {
   return (
     <div className="flex items-start gap-3" data-offer-lock-preview="">
-      <span aria-hidden className="grid h-12 w-[60px] flex-none place-items-center rounded-xl font-mono text-[11px] font-bold uppercase" style={{ background: 'var(--m-sage)', color: 'var(--m-ink)' }}>
+      <span aria-hidden className="grid h-12 w-[60px] flex-none place-items-center rounded-xl font-mono text-xs font-bold uppercase" style={{ background: 'var(--m-sage)', color: 'var(--m-ink)' }}>
         % off
       </span>
       <span className="min-w-0">
         <b className="block text-[14.5px] font-semibold text-ink">Off-season offer</b>
-        <small className="block text-[12.5px] text-ink/60">Events in your slow months · All cards · until switched off</small>
+        <small className="block text-[12.5px] text-ink/70">Events in your slow months · All cards · until switched off</small>
       </span>
     </div>
   );
@@ -271,7 +271,7 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
   if (tool.door.kind === 'scanner') {
     return (
       <div data-scanner-sheet="">
-        <p className="pb-2 text-[13px] text-ink/65">Set once per service — every event booked for it starts with it. How each scan counts:</p>
+        <p className="pb-2 text-[13px] text-ink/70">Set once per service — every event booked for it starts with it. How each scan counts:</p>
         {scanners === null ? (
           <p role="status" className="py-3 text-[13.5px] text-ink/70">
             Couldn&rsquo;t load your scanners just now. Close and open this again.
@@ -296,7 +296,7 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
     return (
       <div className="space-y-3" data-tool-body={tool.key}>
         <p className="text-[13.5px] text-ink/70">{tool.line}.</p>
-        <Link href={tool.door.href} className="sn-press flex min-h-[52px] items-center justify-center rounded-full bg-ink px-4 text-[14px] font-semibold text-[color:var(--m-paper)]" data-tool-open={tool.key}>
+        <Link href={tool.door.href} className="sn-press flex min-h-[52px] items-center justify-center rounded-full bg-ink px-4 text-sm font-semibold text-[color:var(--m-paper)]" data-tool-open={tool.key}>
           Open {tool.title}
         </Link>
       </div>
@@ -311,18 +311,18 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
         </p>
       ) : booked.length === 0 ? (
         <p className="flex items-start gap-2 py-2 text-[13.5px] text-ink/70" data-tool-no-events="">
-          <CalendarDays aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.9} />
+          <CalendarDays aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.9} />
           Runs on your booked events · it shows up here once a couple books you.
         </p>
       ) : (
         <ul className="divide-y divide-ink/10">
           {booked.map((b) => (
             <li key={`${b.eventId}:${b.bookedDate}`}>
-              <Link href={onTheDayHref(b.eventId)} className="sn-press flex min-h-[56px] items-center gap-3 py-2" data-tool-event={b.eventId}>
-                <CalendarDays aria-hidden className="h-4 w-4 shrink-0 text-ink/50" strokeWidth={1.9} />
+              <Link href={onTheDayHref(b.eventId)} className="sn-press flex min-h-14 items-center gap-3 py-2" data-tool-event={b.eventId}>
+                <CalendarDays aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.9} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium text-ink">{b.eventName}</span>
-                  <span className="block text-[12.5px] text-ink/60">{b.bookedDate}</span>
+                  <span className="block text-[12.5px] text-ink/70">{b.bookedDate}</span>
                 </span>
               </Link>
             </li>

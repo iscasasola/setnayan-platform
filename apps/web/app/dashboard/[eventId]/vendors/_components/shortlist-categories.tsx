@@ -42,8 +42,10 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
+import { afterClaim, agreedSuffix, type SelfAddedPriceLines } from '@/lib/self-added-price-basis';
 import {
   Search,
+  Store,
   ChevronDown,
   ChevronRight,
   ArrowRight,
@@ -180,6 +182,7 @@ import {
   INLINE_MORE_UNDO,
   INLINE_MORE_UNDO_FAILED,
   inlineMoreSavedNote,
+  inlineMoreAskedNote,
   inlineMoreSeeAllLabel,
   inlineMoreSunkNote,
   MORE_TO_COMPARE_SAVE,
@@ -213,6 +216,8 @@ import {
   saveBenchArrangement,
 } from '../_actions/bench-arrangement';
 import { fetchInlineMoreRow } from '../_actions/inline-more-row';
+import { searchMarketplaceForBench, type BenchMarketResult } from '../_actions/bench-marketplace-search';
+import { categoryHitsFor, shopHitTile } from './bench-search-fallback';
 import {
   FIND_FILTERS_OFF,
   FIND_PAGE_CARDS,
@@ -673,6 +678,8 @@ html.dark .slcat .bench-search{background:#232019}
 html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
 html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
+.slcat .vc [data-price-basis-line]{margin-top:auto;padding-top:4px}
+.slcat .vc [data-price-basis-line] .price{margin-top:0;padding-top:0}
 .slcat .vc .incl{font-size:11px;font-weight:600;color:#2e7d4f;margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the suppliers) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
@@ -1333,6 +1340,9 @@ const UnreadCtx = createContext<BenchUnread>(UNREAD_UNKNOWN);
  * that something is owed. Empty → no card offers Pay (it offers "Payments").
  */
 const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
+/** "Taken on Dec 12" — the couple's committed day, worded on the server (`takenOnWords`, lib/calendar-truth.ts).
+ *  Null → no committed day: a taken card keeps "Booked that day". */
+const TakenOnCtx = createContext<string | null>(null);
 /**
  * vendorId → where the couple's claim link stands, for a supplier they added
  * themselves (`lib/supplier-invite-status.ts`). `undefined` = this bench was
@@ -1341,6 +1351,9 @@ const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
  * failed read must not look like "no link was ever sent".
  */
 const InviteStatusCtx = createContext<InviteStatusByVendorId | undefined>(undefined);
+/** 🧾 A self-added supplier's price basis (v2, owner 2026-11-13) — "₱162,000 · 120 guests agreed" and its "After they
+ *  claim" line. Absent / null (a refused read) → every card draws its price as shipped. */
+const PriceLineCtx = createContext<SelfAddedPriceLines | null | undefined>(undefined);
 
 /**
  * THE SERVICE CARD A BENCH CARD WEARS (owner 2026-10-07 · PR2). On the
@@ -1455,9 +1468,15 @@ function VendorCard({
   const sheetDoor = useContext(SheetDoorCtx);
   const payHrefs = useContext(PayDueCtx);
   const inviteStatuses = useContext(InviteStatusCtx);
+  const priceLines = useContext(PriceLineCtx);
+  // Only for the couple's own record — a Setnayan shop's card never reads this.
+  const basisLine = selfAdded ? (priceLines?.[v.vendorId] ?? null) : null;
   const look = useContext(ServiceCardCtx);
   const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
   const hasRecordedPrice = v.totalCostPhp != null && v.totalCostPhp > 0;
+  // The recorded price, drawn ONCE (the-bench-card-keeps-everything pins it to one span) — bare as shipped, or
+  // inside the price-basis line when an agreed count follows it.
+  const priceEl = hasRecordedPrice ? <span className="price">{formatPhp(v.totalCostPhp)}</span> : null;
   const router = useRouter();
   const [detailsLoading, startDetails] = useTransition();
   const [details, setDetails] = useState<SelfAddedSupplierPrefill | null>(null);
@@ -1604,8 +1623,23 @@ function VendorCard({
           </span>
         ) : null}
         <FitBadges v={v} />
-        {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
-          <span className="price">{formatPhp(v.totalCostPhp)}</span>
+        {/* v2 (owner 2026-11-13): the card's own total, then what was agreed — "₱162,000 · 120 guests agreed" /
+            "₱30,000 · 5 hours agreed". One price span, so the bench card still draws the number exactly once. */}
+        {hasRecordedPrice ? (
+          agreedSuffix(basisLine) ? (
+            <span data-price-basis-line="">
+              {priceEl}{' '}
+              <span className="sc-price">· {agreedSuffix(basisLine)}</span>
+            </span>
+          ) : (
+            priceEl
+          )
+        ) : null}
+        {/* The decided after-claim line (owner 13 Nov: "Yes, follow it") — only while it is still the couple's record. */}
+        {basisLine && hasRecordedPrice ? (
+          <span className="sc-rec" data-price-basis-after={basisLine.basis}>
+            {afterClaim(basisLine.basis).line}
+          </span>
         ) : null}
         {/* No price recorded with THIS couple yet → the service card's own
             "from ₱X". Withheld by the shop, or never set → "Price on request",
@@ -1813,6 +1847,8 @@ function VendorCard({
  * computed batched upstream (page.tsx, one calendar query for the whole bench).
  */
 function FitBadges({ v }: { v: ShortlistVendor }) {
+  // "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026); null → "Booked that day".
+  const takenOn = useContext(TakenOnCtx);
   // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · spec §17). When the vendor
   // has DECLARED both rings, their own word replaces the tier-derived reach
   // read with a three-state, money-shaped answer:
@@ -1868,7 +1904,7 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
         ? {
             cls: 'warn',
             icon: <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />,
-            text: 'Booked that day',
+            text: takenOn ?? 'Booked that day',
           }
         : v.dateFit === 'not_set'
           ? {
@@ -1967,7 +2003,7 @@ function InlineMoreCard({
   sunk: boolean;
   /** The candidate named in the amber badge; null when there is no one culprit. */
   clashWith: string | null;
-  saved: { eventVendorId: string; undoable: boolean } | undefined;
+  saved: SavedFromMore | undefined;
   busy: boolean;
   /** Its Save is waiting on the write. */
   saving?: boolean;
@@ -2032,8 +2068,8 @@ function InlineMoreCard({
           the card says where it went and offers the way back. */}
       {saved ? (
         <div className="mra">
-          <span className="mrsaved">{inlineMoreSavedNote(label)}</span>
-          {saved.undoable ? (
+          <span className="mrsaved">{saved.asked ? inlineMoreAskedNote(v.name) : inlineMoreSavedNote(label)}</span>
+          {saved.undoable && !saved.asked ? (
             <ActionButton tone="neutral" icon={Undo2} label={INLINE_MORE_UNDO} disabled={busy} onClick={onUndo} />
           ) : null}
         </div>
@@ -2391,6 +2427,11 @@ function MoreToCompare({
   const inquireFromMore = async (v: CategoryVendorResult) => {
     const vendorId = await saveFromMore(v);
     if (!vendorId) return;
+    // The card says the ASK, not the save, from here on (walk 13 Nov 2026 — "Saved to Mobile Bar." read over a sent
+    // ask while the chat opened). A refused ask puts the save's own words back.
+    const markAsked = (asked: boolean) =>
+      setMoreSaved((cur) => (cur[v.vendorProfileId] ? { ...cur, [v.vendorProfileId]: { ...cur[v.vendorProfileId]!, asked } } : cur));
+    markAsked(true);
     setMoreBusy(v.vendorProfileId);
     try {
       const res = await contactShortlistVendor({ eventId, vendorId });
@@ -2398,10 +2439,12 @@ function MoreToCompare({
         router.push(`/dashboard/${res.eventId}/messages/${res.threadId}`);
         return;
       }
+      markAsked(false);
       setMoreError(
         res.status === 'not_signed_in' ? INLINE_MORE_SIGNED_OUT : INLINE_MORE_INQUIRE_FAILED,
       );
     } catch {
+      markAsked(false);
       setMoreError(INLINE_MORE_INQUIRE_FAILED);
     } finally {
       setMoreBusy(null);
@@ -2829,6 +2872,7 @@ export function ShortlistCategories({
   starterTiles,
   payHrefByVendorId = NO_PAY_DUE,
   inviteStatusByVendorId,
+  selfAddedPriceLines,
   serviceCardByVendorId = null,
   convergence = null,
   buildWindow = null,
@@ -2839,6 +2883,7 @@ export function ShortlistCategories({
   findPanel = null,
   onePerEventGroups = [],
   inspiration = null,
+  takenOnLabel = null,
 }: {
   /**
    * Unread messages per chat thread for this event, and whether we know them.
@@ -2927,6 +2972,8 @@ export function ShortlistCategories({
   /** vendorId → where a self-added supplier's claim link stands
    *  (`InviteStatusCtx`). Absent → no link line; `null` → the read failed. */
   inviteStatusByVendorId?: InviteStatusByVendorId;
+  /** 🧾 The per guest / per hour line of each self-added card (`readSelfAddedPriceLines`). Absent / null → as shipped. */
+  selfAddedPriceLines?: SelfAddedPriceLines | null;
   /** Pick id → the supplier's own service card. `null` = the read failed (or
    *  the pre-replan bench, which draws none). */
   serviceCardByVendorId?: Readonly<Record<string, BenchServiceCard>> | null;
@@ -2978,6 +3025,9 @@ export function ShortlistCategories({
    * read on the server (`readFindInspiration`). Null → not read for this viewer: no row, no strips.
    */
   inspiration?: FindInspiration | null;
+  /** "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026) — the badge on a supplier whose calendar
+   *  shows it taken. Null/absent → "Booked that day", as before. */
+  takenOnLabel?: string | null;
   /**
    * The plan groups that are ONE PER EVENT — the categories' switch (`service_categories.one_per_event`, owner
    * 2026-10-29), read on the server (lib/one-per-event.ts). An array: it crosses to the client. Absent → none, so
@@ -3211,6 +3261,12 @@ export function ShortlistCategories({
   // categories (and their considered vendors). Empty = the normal single-open
   // accordion; a query filters to matching tiles and auto-expands them.
   const [query, setQuery] = useState('');
+  // 🔎 Words the bench puts in the thumb row's box (a marketplace hit pressed, or a category hit emptying it).
+  const [thumbPreset, setThumbPreset] = useState<{ text: string; n: number } | null>(null);
+  const setBoxText = (text: string) => {
+    setQuery(text);
+    setThumbPreset((cur) => ({ text, n: (cur?.n ?? 0) + 1 }));
+  };
 
   // ── Inline "More in {category}" row · ROW 2 (owner 2026-09-06) ─────────────
   // Owner: "when they also click the find reception button, it must show a
@@ -3976,6 +4032,53 @@ export function ShortlistCategories({
         }))
         .filter((f) => f.tiles.length > 0)
     : folders;
+  // 🔎 WHEN THE SHORTLIST HAS NO MATCH (walk 13 Nov 2026, `./bench-search-fallback.ts`): a hit is only a hit if its
+  // row is DRAWN — a matching category that is not on the event drew nothing, and said nothing either.
+  const drawnHit = visibleFolders.some((f) => f.tiles.some((t) => !inPlanTiles || inPlanTiles.has(t.tile)));
+  const shortlistMissed = searching && !drawnHit;
+  const categoryHits = shortlistMissed ? categoryHitsFor(q, poolRows.map(({ t, f }) => ({ tile: t.tile, label: t.label, f }))) : [];
+  const [marketHits, setMarketHits] = useState<{ q: string; results: BenchMarketResult[]; unreadable: boolean } | null>(null);
+  useEffect(() => {
+    if (!shortlistMissed || q.length < 2) return;
+    let cancelled = false;
+    void searchMarketplaceForBench(eventId, q)
+      .then((res) => {
+        if (!cancelled) setMarketHits({ q, ...res });
+      })
+      .catch(() => {
+        if (!cancelled) setMarketHits({ q, results: [], unreadable: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, q, shortlistMissed]);
+  const tilesOnEvent = new Set<string>(benchRows.map((r) => r.t.tile));
+  const tilesOnPage = new Set<string>(folders.flatMap((f) => f.tiles.map((t) => t.tile)));
+  const tileLabelOf = new Map<string, string>(folders.flatMap((f) => f.tiles.map((t) => [t.tile, t.label] as const)));
+  const shopHits =
+    shortlistMissed && marketHits?.q === q
+      ? marketHits.results.flatMap((r) => {
+          const tile = shopHitTile(r.tiles, tilesOnEvent, tilesOnPage);
+          return tile ? [{ r, tile }] : [];
+        })
+      : [];
+  /** A shop hit: its category row opens, searched by the shop's name — its card and "Ask for a quote" are there. */
+  const openShopHit = (tile: string, name: string) => {
+    const pool = poolRows.find((p) => p.t.tile === tile);
+    if (pool && !tilesOnEvent.has(tile)) {
+      if (!planEditing) addTileToPlan(pool.t.tile, pool.f.folder, pool.f.slug);
+    } else {
+      goToCategory(tile);
+    }
+    setBoxText(name);
+  };
+  /** A category hit: the "Add a category" picker's own add — the row opens, the box empties. */
+  const openCategoryHit = (tile: string) => {
+    const pool = poolRows.find((p) => p.t.tile === tile);
+    if (!pool || planEditing) return;
+    setBoxText('');
+    addTileToPlan(pool.t.tile, pool.f.folder, pool.f.slug);
+  };
 
 
   // Rebuilt from pairs on this side of the boundary — see the `unread` prop.
@@ -4034,7 +4137,9 @@ export function ShortlistCategories({
     <SheetDoorCtx.Provider value={replan ? sheetDoor : null}>
     <UnreadCtx.Provider value={benchUnread}>
     <PayDueCtx.Provider value={payHrefByVendorId}>
+    <TakenOnCtx.Provider value={takenOnLabel}>
     <InviteStatusCtx.Provider value={inviteStatusByVendorId}>
+    <PriceLineCtx.Provider value={selfAddedPriceLines}>
     <ServiceCardCtx.Provider value={serviceLook}>
     <div className="slcat" ref={benchRef}>
       <style>{SLCAT_CSS}</style>
@@ -4145,10 +4250,44 @@ export function ShortlistCategories({
           service card manually that i can give the supplier itself."*). The results stay HERE: a hit opens under its
           own category row below, and nothing in this block leaves the page — the whole-marketplace rows to `/v/…`
           and the "See all results" door to `/explore` are gone. The last row adds what was typed (`bench-add`). */}
-      {searching && visibleFolders.length === 0 ? (
+      {shortlistMissed ? (
         <div className="bench-empty" data-bench-empty="">
-          Nothing in your shortlist matches “{query.trim()}”. Add them as your own below.
+          Nothing in your shortlist matches “{query.trim()}”.{' '}
+          {categoryHits.length > 0 || shopHits.length > 0 ? 'On Setnayan:' : 'Add them as your own below.'}
         </div>
+      ) : null}
+      {/* 🔎 ON SETNAYAN — the categories not on the event, then the marketplace's shops, matching the words. Rows in
+          the "Add a category" row's own shape; nothing leaves the page. */}
+      {categoryHits.map((h) => (
+        <div key={`cat-${h.tile}`} className={`addmore ${FORM_ROW_RULE}`} data-bench-hit-category={h.tile}>
+          <button type="button" className="addcat sn-press sn-press-ring" disabled={planEditing} onClick={() => openCategoryHit(h.tile)}>
+            <span className="addcat-ic" aria-hidden>
+              <Plus size={18} strokeWidth={1.75} />
+            </span>
+            <span className="addcat-t">
+              <span className="addcat-nm">{h.label}</span>
+              <span className={FORM_ROW_SUBLINE}>Category · add it to your event and see its suppliers</span>
+            </span>
+          </button>
+        </div>
+      ))}
+      {shopHits.map(({ r, tile }) => (
+        <div key={`shop-${r.vendorProfileId}`} className={`addmore ${FORM_ROW_RULE}`} data-bench-hit-shop={r.vendorProfileId}>
+          <button type="button" className="addcat sn-press sn-press-ring" disabled={planEditing} onClick={() => openShopHit(tile, r.name)}>
+            <span className="addcat-ic" aria-hidden>
+              <Store size={18} strokeWidth={1.75} />
+            </span>
+            <span className="addcat-t">
+              <span className="addcat-nm">{r.name}</span>
+              <span className={FORM_ROW_SUBLINE}>
+                {[tileLabelOf.get(tile) ?? null, r.city].filter(Boolean).join(' · ')}
+              </span>
+            </span>
+          </button>
+        </div>
+      ))}
+      {shortlistMissed && marketHits?.q === q && marketHits.unreadable ? (
+        <div className="bench-empty" data-bench-market-unread="">Couldn’t search Setnayan’s suppliers just now.</div>
       ) : null}
       {visibleFolders.map((folder) => {
         // The one-screen shape has NO folder level: every folder is open and
@@ -4985,6 +5124,7 @@ export function ShortlistCategories({
           onToggleAll={toggleOpenAll}
           scope={scopeRow ? scopeRow.t.label : 'all suppliers'}
           onSearch={setQuery}
+          preset={thumbPreset}
           onAdd={addYourOwn}
           emptyPanel={findPanel}
           onGoToCategory={goToCategory}
@@ -5197,7 +5337,9 @@ export function ShortlistCategories({
       ) : null}
     </div>
     </ServiceCardCtx.Provider>
+    </PriceLineCtx.Provider>
     </InviteStatusCtx.Provider>
+    </TakenOnCtx.Provider>
     </PayDueCtx.Provider>
     </UnreadCtx.Provider>
     </SheetDoorCtx.Provider>

@@ -2,12 +2,20 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { namedCalendarsEnabled } from '@/lib/schedule-pools';
 import {
+  ACCOMMODATION_CATEGORY,
   UNBOOKABLE_MAX_CARDS,
   UNBOOKABLE_MAX_DAYS,
+  fitDateScope,
+  fitDaysToAsk,
+  fitOptions,
   inBatches,
+  needsEveryDay,
   refusalKey,
   suppliersWithNoBookingLeft,
-  unbookableDateScope,
+  supplierDayFits,
+  type CardOptions,
+  type DayFit,
+  type EventFitDates,
 } from '@/lib/bench-bookable-days';
 
 /**
@@ -22,60 +30,102 @@ import {
  * switch the lock reads is passed, so the search and the lock resolve the same
  * pools. The caller must have already checked the couple is on the event.
  *
- * FAILS OPEN. Any error → nobody is hidden. A supplier wrongly left on the list
+ * FAILS OPEN — BUT SAYS SO. Any error → `null` ("could not check"), never an
+ * empty set: an empty set means "checked, everybody is free", and a page that
+ * cannot tell the two apart passes an unfiltered list off as a filtered one
+ * (audit of #7556, 2026-11-13). The caller hides nobody on `null` AND tells the
+ * couple the date could not be checked. A supplier wrongly left on the list
  * costs the couple a message; a supplier wrongly hidden costs them a supplier
  * who could have said yes.
  */
-export async function findSuppliersWithNoBookingLeft(args: {
+export async function readSuppliersWithNoBookingLeft(args: {
   admin: SupabaseClient;
   supplierIds: readonly string[];
-  canonicals: readonly string[];
-  eventDate: string | null;
-  eventDatePrecision: string | null;
-}): Promise<Set<string>> {
-  const days = unbookableDateScope(args.eventDate, args.eventDatePrecision);
-  if (!days || args.supplierIds.length === 0 || args.canonicals.length === 0) return new Set();
+  /** The categories whose cards are judged. `null` = every category the supplier sells in — Discover's supplier
+   *  view with no category picked (2026-11-13): a supplier leaves only when EVERY bookable card is refused. */
+  canonicals: readonly string[] | null;
+  /** The event's date columns (`EventFitDates`): the main span once the date is set, else the candidates or the
+   *  window (owner 2026-11-13 — a supplier free on ANY ONE candidate stays). */
+  dates: EventFitDates;
+  /** Optional: filled with each judged supplier's best per-option fit (`DayFit` — free on ALL / SOME of a block's
+   *  days; `null` = none fits) — the shape the coming "Free N of your M days" line and the all-days-first rank read. */
+  fitsOut?: Map<string, DayFit | null>;
+}): Promise<Set<string> | null> {
+  const scope = fitDateScope(args.dates);
+  if (!scope || args.supplierIds.length === 0 || (args.canonicals !== null && args.canonicals.length === 0)) return new Set();
 
   try {
-    const { data: cardRows, error: cardErr } = await args.admin
+    let cardQuery = args.admin
       .from('vendor_services')
-      .select('vendor_service_id, vendor_profile_id')
+      .select('vendor_service_id, vendor_profile_id, category')
       .in('vendor_profile_id', args.supplierIds as string[])
-      .in('category', args.canonicals as string[])
       .eq('is_active', true)
       .eq('is_linked_only', false);
+    if (args.canonicals !== null) cardQuery = cardQuery.in('category', args.canonicals as string[]);
+    const { data: cardRows, error: cardErr } = await cardQuery;
     if (cardErr) {
       logQueryError('bench-bookable-days: cards', cardErr);
-      return new Set();
+      return null;
     }
     const cardsBySupplier = new Map<string, string[]>();
-    for (const r of (cardRows ?? []) as { vendor_service_id: string; vendor_profile_id: string }[]) {
+    const categoryOf = new Map<string, string | null>();
+    for (const r of (cardRows ?? []) as { vendor_service_id: string; vendor_profile_id: string; category: string | null }[]) {
       const list = cardsBySupplier.get(r.vendor_profile_id) ?? [];
       list.push(r.vendor_service_id);
       cardsBySupplier.set(r.vendor_profile_id, list);
+      categoryOf.set(r.vendor_service_id, r.category ?? null);
     }
     const cards = [...cardsBySupplier.values()].flat();
     if (cards.length === 0) return new Set();
 
+    // Accommodation is judged on every night of the span ±1, so those nights are asked about too.
+    const withAccommodation = [...categoryOf.values()].includes(ACCOMMODATION_CATEGORY);
+    const days = fitDaysToAsk(scope, withAccommodation);
+    const optionsByCategory = new Map<string | null, CardOptions>();
+    const optionsOf = (card: string): CardOptions => {
+      const category = categoryOf.get(card) ?? null;
+      let options = optionsByCategory.get(category);
+      if (!options) {
+        options = { options: fitOptions(scope, category), everyDay: needsEveryDay(category) };
+        optionsByCategory.set(category, options);
+      }
+      return options;
+    };
+
     const refused = new Set<string>();
-    for (const batch of inBatches(cards, UNBOOKABLE_MAX_CARDS)) {
-      const { data, error } = await args.admin.rpc('service_cards_unbookable_on', {
-        p_service_ids: batch,
-        p_dates: days,
-        p_named_calendars: namedCalendarsEnabled(),
-      });
+    const calls = inBatches(cards, UNBOOKABLE_MAX_CARDS).flatMap((cardBatch) =>
+      inBatches(days, UNBOOKABLE_MAX_DAYS).map((dayBatch) =>
+        args.admin.rpc('service_cards_unbookable_on', {
+          p_service_ids: cardBatch,
+          p_dates: dayBatch,
+          p_named_calendars: namedCalendarsEnabled(),
+        }),
+      ),
+    );
+    for (const { data, error } of await Promise.all(calls)) {
       if (error) {
         logQueryError('bench-bookable-days: service_cards_unbookable_on', error);
-        return new Set();
+        return null;
       }
       for (const r of (data ?? []) as { service_id: string | null; refused_on: string | null }[]) {
         if (r.service_id && r.refused_on) refused.add(refusalKey(r.service_id, r.refused_on));
       }
     }
-    return suppliersWithNoBookingLeft(cardsBySupplier, refused, days);
+    if (args.fitsOut) for (const [id, fit] of supplierDayFits(cardsBySupplier, refused, optionsOf)) args.fitsOut.set(id, fit);
+    return suppliersWithNoBookingLeft(cardsBySupplier, refused, optionsOf);
   } catch {
-    return new Set();
+    return null;
   }
+}
+
+/**
+ * Find's bench search (`category-search.ts`, `hideUnbookable`): the same read, an unreadable answer folded to
+ * "hide nobody". Discover reads `readSuppliersWithNoBookingLeft` itself so it can SAY the date was not checked.
+ */
+export async function findSuppliersWithNoBookingLeft(
+  args: Parameters<typeof readSuppliersWithNoBookingLeft>[0],
+): Promise<Set<string>> {
+  return (await readSuppliersWithNoBookingLeft(args)) ?? new Set();
 }
 
 /**

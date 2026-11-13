@@ -48,7 +48,9 @@ const SLUG_ROOT = join(HERE, '..', 'app', '[slug]');
  * answer "may this person see this celebration?" before it renders. Deleting a
  * line to go green is deciding a stranger may read a private event.
  */
-const DOORS = ['venue', 'find-seat', 'pabuya', 'hub', 'recap'];
+/* `recap` left the list 2026-11-13 by folding, not by being let off: `/{slug}/recap` renders nothing now — it only
+   sends to `/{slug}`, which asks (owner, "POST EVENT = A STORY" (5); held by `a-sample-says-what-it-is.test.ts`). */
+const DOORS = ['venue', 'find-seat', 'pabuya', 'hub'];
 
 function doorSource(door: string): string | null {
   const p = join(SLUG_ROOT, door, 'page.tsx');

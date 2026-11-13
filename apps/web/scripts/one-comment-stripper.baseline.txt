@@ -66,7 +66,6 @@ apps/web/app/admin/_components/admin-gold-is-not-text.test.ts
 apps/web/app/admin/_components/admin-page-starts-at-its-content.test.ts
 apps/web/app/admin/_components/admin-rail-context.test.ts
 apps/web/app/admin/_components/the-menu-name-has-one-source.test.ts
-apps/web/app/admin/a-tile-with-work-looks-like-work.test.ts
 apps/web/app/admin/admin-carries-the-cron-free-jobs.test.ts
 apps/web/app/admin/money/the-money-page-has-the-money.test.ts
 apps/web/app/admin/payments/the-desk-says-what-it-approves.test.ts
@@ -75,8 +74,6 @@ apps/web/app/admin/subscriptions/subscriptions-speaks-no-dead-currency.test.ts
 apps/web/app/admin/the-console-can-reach-your-phone.test.ts
 apps/web/app/admin/the-console-speaks-english.test.ts
 apps/web/app/admin/the-home-shows-what-you-change.test.ts
-apps/web/app/admin/the-overview-shows-what-it-counts.test.ts
-apps/web/app/admin/the-phone-answers-it-does-not-edit.test.ts
 apps/web/app/api/guest/qr/guest-can-keep-their-code.test.ts
 apps/web/app/blog/[slug]/_components/journal-partner-credit.test.ts
 apps/web/app/dashboard/(account)/creator/your-story-is-a-chronicle.test.ts
@@ -114,7 +111,6 @@ apps/web/app/signup/consent-is-affirmative.test.ts
 apps/web/app/signup/signup-contract.test.ts
 apps/web/app/tour/budget/the-tour-copy-does-not-drift.test.ts
 apps/web/app/u/[userSlug]/scale-carries-meaning.test.ts
-apps/web/app/v/[slug]/_components/anon-inquiry-event-type.test.ts
 apps/web/app/v/[slug]/identity-chips.test.ts
 apps/web/app/v/[slug]/one-inquire-button.test.ts
 apps/web/app/vendor-dashboard/_components/vendor-nav-boundary.test.ts

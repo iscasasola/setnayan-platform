@@ -25,6 +25,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { inquiryServicesLine, supplierInquiryBody } from '@/lib/supplier-inquiry-opening';
+import { eventCandidateDays } from '@/lib/event-chat-title';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import * as Sentry from '@sentry/nextjs';
@@ -554,7 +555,11 @@ export async function startServiceInquiry(input: {
     const delivery = await postThreadMessage(
       supabase,
       threadId,
-      `${supplierInquiryBody(await resolveProfileByEvent(eventId), { dated: Boolean(theEvent?.event_date) })}${servicesLine}${requirementsBlock}${packagePicksBlock}${bundleAsk}`,
+      `${supplierInquiryBody(await resolveProfileByEvent(eventId), {
+        dated: Boolean(theEvent?.event_date),
+        // 📅 No date yet, but candidate day(s) → the message names them (walk 13 Nov 2026).
+        candidateDays: theEvent?.event_date ? null : eventCandidateDays({ eventDate: null, precision: null, candidates: theEvent?.date_candidates }),
+      })}${servicesLine}${requirementsBlock}${packagePicksBlock}${bundleAsk}`,
     );
     // Reported only when the build was inside that message; otherwise the note
     // stays best-effort exactly as it has always been.

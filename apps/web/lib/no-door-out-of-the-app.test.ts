@@ -154,6 +154,13 @@ const STAFF_OR_SHOP_OWN_TREES: ReadonlyArray<{ prefix: string; why: string }> = 
       "It imports the admin console's own actions, so it reaches what staff reach. Never a couple's or the public's page.",
   },
   {
+    prefix: 'app/dev/admin-shell-lab/',
+    why:
+      "The admin five-tab shell's dev lab — it draws the STAFF console's shell and, since slice 1b (13 Nov 2026), Work › All's " +
+      "real work list (whose drawers post to the admin console's own actions) from fixtures, and refuses to render in " +
+      "production (`notFound()`, pinned by app/dev/admin-shell-lab/the-lab-never-ships.test.ts). Never a couple's or the public's page.",
+  },
+  {
     prefix: 'app/vendor/claim/',
     why: 'A shop CLAIMING its own profile — the form is pre-filled with its own email and phone.',
   },
@@ -544,7 +551,7 @@ test('the surfaces that carried the exits are IN the scanned set (derived, not a
     'app/v/[slug]/page.tsx', // the public shop page
     'app/[slug]/page.tsx', // the bare-root address that renders it too
     'app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx', // the couple's supplier card
-    'app/v/[slug]/_components/anon-inquiry-composer.tsx', // the signed-out door
+    'app/v/[slug]/_components/inquire-sheet.tsx', // the one Inquire pop-up (13 Nov 2026: replaced the inline composers)
     'app/v/[slug]/_components/service-details-sheet.tsx',
     'app/v/[slug]/booth/page.tsx', // the shop's walk-in booth
     'app/(shell)/explore/_lib/marketplace-view.tsx', // the marketplace

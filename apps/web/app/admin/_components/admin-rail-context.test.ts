@@ -19,8 +19,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
-import { adminRailMenus, activeAdminMenuKey, ALL_SURFACES_MENU } from './admin-sidebar';
+import { ADMIN_TABS, activeAdminTabKey } from '@/lib/admin/admin-tabs';
 
 const HERE = __dirname;
 const RAIL = readFileSync(join(HERE, 'admin-rail-context.tsx'), 'utf8');
@@ -64,7 +63,7 @@ test('no rail row hardcodes its own active state', () => {
     literalOn,
     [],
     `A rail row states its active state as a literal: ${literalOn.join(', ')}. ` +
-      `It must come from activeAdminMenuKey() — a literal is not a match, and ` +
+      `It must come from activeAdminTabKey() — a literal is not a match, and ` +
       `nothing throws when it is wrong.`,
   );
   const literalCurrent = RAIL_CODE.match(/aria-current=(?:"page"|\{\s*['"]page['"]\s*\})/g) ?? [];
@@ -77,7 +76,7 @@ test('no rail row hardcodes its own active state', () => {
   );
   assert.match(
     RAIL_CODE,
-    /activeAdminMenuKey\(/,
+    /activeAdminTabKey\(/,
     'the rail no longer resolves an active key at all',
   );
 });
@@ -87,102 +86,62 @@ test('no rail row hardcodes its own active state', () => {
    in two places at once. Exercised against the REAL menu list, not a copy of
    it: on 2026-08-13 a rail test declared its own rows and a mutation to the
    real list passed every assertion. */
-const MENUS = adminRailMenus({});
-
-test('the real menu list is the six groups plus All surfaces', () => {
-  assert.equal(
-    MENUS.length,
-    ADMIN_NAV_GROUPS.length + 1,
-    `adminRailMenus() returned ${MENUS.length} rows for ${ADMIN_NAV_GROUPS.length} groups + All surfaces.`,
-  );
-  assert.equal(MENUS.at(-1)?.key, ALL_SURFACES_MENU.key, 'All surfaces must be the last row');
+/*
+   🛠 REWRITTEN 2026-11-13 for the approved five tabs (owner: "admin has been
+   ok'ed", `prototypes/admin_pub/`). The rail is no longer the six groups + All
+   surfaces — it is Work · Money · People · Catalogue · Insights, drawn from
+   `lib/admin/admin-tabs.ts`. The RULE is unchanged: one winner, never two,
+   never a fallback, read from the real list. */
+test('the rail draws the five tabs from the one source, in order', () => {
   assert.deepEqual(
-    MENUS.slice(0, -1).map((m) => m.key),
-    ADMIN_NAV_GROUPS.map((g) => g.key),
-    'the rail rows are DERIVED from ADMIN_NAV_GROUPS, in its order — never re-typed here',
+    ADMIN_TABS.map((t) => t.key),
+    ['work', 'money', 'people', 'catalogue', 'insights'],
   );
-});
-
-test('All surfaces is a link, deliberately NOT a seventh nav group', () => {
-  const keys = ADMIN_NAV_GROUPS.map((g) => g.key);
-  assert.ok(
-    !keys.includes('all-surfaces'),
-    'All surfaces became a nav GROUP. It is a link to /admin/more; adding it to ' +
-      'ADMIN_NAV_GROUPS breaks the groups-to-MENU_HUBS parity that ' +
-      'admin-nav-groups.test.ts asserts after two whole groups were once deleted.',
-  );
-  assert.equal(ALL_SURFACES_MENU.href, '/admin/more');
+  assert.match(RAIL_CODE, /ADMIN_TABS\.map\(/, 'the rail no longer draws its rows from ADMIN_TABS');
 });
 
 /** A stand-in for `useSearchParams()` — the matcher only ever calls `.get`. */
 const params = (q: string) => new URLSearchParams(q);
 
 for (const [pathname, query, expected] of [
-  ['/admin', '', 'queues'],
-  ['/admin/work', '', 'queues'],
-  // MOVED 2026-08-26: checking a shop is a shop job, so Verify left the work
-  // list for People & shops. The row it lights moved with it — this expectation
-  // is UPDATED, not relaxed: it still demands exactly one row.
-  ['/admin/verify', '', 'directory'],
-  ['/admin/accounts', '', 'directory'],
-  ['/admin/accounts', 'tab=users', 'directory'],
-  ['/admin/studio', '', 'media'],
-  ['/admin/ugat', '', 'ugat'],
-  ['/admin/app-performance', '', 'funnels'],
-  ['/admin/money', '', 'settings-group'],
-  // Query-aware: the Money group's pricing rows are TABS of one page, so the
-  // row is only found by reading the current query. Dropping the params here
-  // is what double-lighting looks like before it happens.
-  ['/admin/pricing', 'tab=pricing', 'settings-group'],
-  // MOVED 2026-08-26: Settings, Compliance, Notifications, Integrations and
-  // Secrets left Money for Set up — carrying them was what made Money a
-  // grab bag. Money now holds money.
-  ['/admin/settings', 'tab=notifications', 'ugat'],
-  ['/admin/more', '', 'all-surfaces'],
+  ['/admin', '', 'work'],
+  ['/admin/work', '', 'work'],
+  ['/admin/more', '', 'work'],
+  ['/admin/verify', '', 'people'],
+  ['/admin/accounts', '', 'people'],
+  ['/admin/accounts', 'tab=users', 'people'],
+  ['/admin/directory', '', 'people'],
+  ['/admin/studio', '', 'catalogue'],
+  ['/admin/ugat', '', 'catalogue'],
+  ['/admin/app-performance', '', 'insights'],
+  ['/admin/money', '', 'money'],
+  // Query-aware: one page, two tabs — the query decides.
+  ['/admin/pricing', 'tab=pricing', 'catalogue'],
+  ['/admin/pricing', 'tab=free-windows', 'money'],
+  ['/admin/studio', 'tab=discount-codes', 'money'],
+  // The old "bare tabbed URL lights nothing" gap is CLOSED: /admin/pricing with
+  // no query is Catalogue › Prices.
+  ['/admin/pricing', '', 'catalogue'],
 ] as const) {
   const url = query ? `${pathname}?${query}` : pathname;
-  test(`${url} lights exactly one row — ${expected}`, () => {
-    assert.equal(
-      activeAdminMenuKey(MENUS, pathname, params(query)),
-      expected,
-      `${url} must light "${expected}" and nothing else`,
-    );
+  test(`${url} lights exactly one tab — ${expected}`, () => {
+    assert.equal(activeAdminTabKey(pathname, params(query)), expected, `${url} must light "${expected}" and nothing else`);
   });
 }
 
-test('KNOWN GAP, pre-existing — a bare tabbed URL lights no row', () => {
-  /*
-    `/admin/pricing` with NO query is a real route: the page defaults to the
-    pricing tab. But the Money group declares that row as
-    `/admin/pricing?tab=pricing` with a matchPrefix that ALSO carries the
-    query — and a matchPrefix is compared against a pathname, which can never
-    contain a `?`. So the bare URL matches nothing and the rail says the admin
-    is nowhere.
-
-    ⚠ THIS IS NOT A REGRESSION OF THE ONE-SHELL PORT. The predicate is the
-    shipped `AdminSidebarMenu` rule, moved verbatim; the old sidebar lit
-    nothing here too. It is pinned rather than fixed because the fix is a
-    matchPrefix edit inside ADMIN_NAV_GROUPS — a nav-membership change, not
-    chrome, and this slice touches no group.
-
-    ✅ IF THIS TEST FAILS BECAUSE THE ROW NOW LIGHTS, THAT IS THE FIX LANDING.
-    Delete this test in that same commit; do not "restore" the null.
-  */
-  assert.equal(
-    activeAdminMenuKey(MENUS, '/admin/pricing', params('')),
-    null,
-    'the bare /admin/pricing gap closed — see the note above and remove this test',
-  );
+test('admin-of-admin lights no tab — it lives under the avatar', () => {
+  assert.equal(activeAdminTabKey('/admin/settings', params('tab=notifications')), null);
+  assert.equal(activeAdminTabKey('/admin/secrets', params('')), null);
 });
 
-test('a page no row owns lights NOTHING, and never falls back to the first row', () => {
+test('a page no tab owns lights NOTHING, and never falls back to the first tab', () => {
   /*
     `null` IS A REAL ANSWER. A person on a page the rail does not list is
     better told nothing than told they are somewhere they are not — and a
-    silent fallback to row one is indistinguishable from a correct match.
+    silent fallback to the first tab is indistinguishable from a correct match.
   */
-  assert.equal(activeAdminMenuKey(MENUS, '/dashboard'), null);
-  assert.equal(activeAdminMenuKey(MENUS, '/'), null);
+  assert.equal(activeAdminTabKey('/dashboard', null), null);
+  assert.equal(activeAdminTabKey('/', null), null);
 });
 
 /* ── 3 · THE ACCOUNT MENU SURVIVED THE CHROME SWAP ────────────────────────

@@ -22,6 +22,7 @@ import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { SUPPLIER_CHATS_HREF } from './customers/anchors';
@@ -504,6 +505,7 @@ export default async function VendorDashboardLayout({
         href="/vendor-dashboard/notifications"
         ariaBaseLabel="Notifications"
         ariaUnreadSuffix="unread"
+        who={placeWhoFromSwitcher(switcherData)}
       />
       {/* The SHOP's name, not the person's (the redesign's shell: "SETNAYAN ·
           shop name"). The person is the avatar beside it. */}
@@ -707,12 +709,10 @@ export default async function VendorDashboardLayout({
         the list you are already reading is a door into the room you are
         standing in.
 
-        🪤 THE ADMIN DOORWAY STILL HAS ONE, so its absence here reads as an
-        oversight unless this note exists. `AdminNavFab` still mounts the
-        shared `NavFab` primitive, which is untouched — only the vendor wrapper
-        was deleted (and the couple's `CustomerNavFab`, owner 2026-10-01).
-        Do not "restore the missing fab for consistency": three doorways with
-        three different jobs is not an inconsistency.
+        🪤 NO DOORWAY HAS ONE NOW. The couple's `CustomerNavFab` went 2026-10-01,
+        and the admin's `AdminNavFab` — the last mount of the shared `NavFab`
+        primitive — retired with the five-tab admin (owner 13 Nov 2026), so the
+        primitive is deleted too. Do not "restore the missing fab".
       */}
       {/* Push notification opt-in banner. Client-only; renders null once the
           vendor has granted push permission or dismissed the prompt. */}

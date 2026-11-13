@@ -7,6 +7,7 @@
  * Mirrors `commitOnboardingWedding`'s generic onboarding-v2 + style_preferences
  * columns. The wedding commit is NOT touched.
  */
+import { addDaysIso, clampDays } from '../event-date-options';
 import type { GenericOnboardingPayload } from './types';
 import { anchorForType, isAnchorOrigin, resolveCadence, singlePickedDate } from '../event-anchor';
 import { initialLandingVisibility } from './initial-visibility';
@@ -84,6 +85,8 @@ export type GenericInsertOpts = {
    *  the per-type SPI signal (signature_details — e.g. a christening honoree's
    *  DOB/gender) is stripped to NULL. Fail-closed: the event is still created. */
   homeSignalsEnabled: boolean;
+  /** 📅 The type's cap (`event_type_profiles.max_days`) — the payload's `eventDays` is clamped to it. Absent = 1. */
+  maxDays?: number;
   /**
    * The setup cards' answers, already re-read by the caller
    * (`sanitizeSetupAnswers`). Absent / null = the engine did not run for this
@@ -109,6 +112,10 @@ export function buildGenericEventInsert(
   const pickedDate = singlePickedDate(payload.eventType, candidates);
   const windowStart = dateMode === 'window' ? payload.windowStart : null;
   const windowEnd = dateMode === 'window' ? payload.windowEnd : null;
+  // 📅 How many days (owner 2026-11-13): clamped to the type's cap, never trusted from the wire. A single picked day
+  // of an N-day event is the start of the one main span — its last day is written beside it.
+  const eventDays = clampDays(payload.eventDays ?? 1, opts.maxDays ?? 1);
+  const eventEndDate = pickedDate && eventDays > 1 ? addDaysIso(pickedDate, eventDays - 1) : null;
   // Normalize legacy 'nolimit' → DB canonical 'no_limit' (matches the wedding commit).
   const budgetBand = payload.budgetBand === 'nolimit' ? 'no_limit' : payload.budgetBand;
 
@@ -197,6 +204,8 @@ export function buildGenericEventInsert(
     venue_latitude: payload.venueLatitude,
     venue_longitude: payload.venueLongitude,
     date_mode: dateMode,
+    event_days: eventDays,
+    ...(eventEndDate ? { event_end_date: eventEndDate } : {}),
     date_candidates: pickedDate || !candidates.length ? null : candidates,
     date_window_start: windowStart,
     date_window_end: windowEnd,

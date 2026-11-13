@@ -35,6 +35,7 @@ import {
 } from './checklist-budget-attribution';
 import { CHANGE_LINES_EMBED } from './agreed-total-and-its-changes';
 import { logQueryError } from './supabase/error-detect';
+import { mergeBookingMoney, readBookingMoney } from './event-vendor-money';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -205,13 +206,20 @@ export async function computeBudgetHealth(
   // The booking's change lines ride in the SAME read, so a supplier's committed
   // cost is the agreed total NOW, not the price the lock wrote (owner
   // 2026-09-11, "Show the total now"). `vendorCostCentavos` folds them.
-  const { data: vendors, error: vendorsError } = await supabase
-    .from('event_vendors')
-    .select(
-      `total_cost_php, transport_php, food_allowance_php, covers_plan_groups, status, category, ${CHANGE_LINES_EMBED}`,
-    )
-    .eq('event_id', eventId)
-    .in('status', [...COMMITTED_STATUSES]);
+  // 🔒 the three amounts come from event_vendor_money_read (#5936), not the row select.
+  const [{ data: vendorRows, error: vendorsRowError }, money] = await Promise.all([
+    supabase
+      .from('event_vendors')
+      .select(`vendor_id, covers_plan_groups, status, category, ${CHANGE_LINES_EMBED}`)
+      .eq('event_id', eventId)
+      .in('status', [...COMMITTED_STATUSES]),
+    readBookingMoney(supabase, eventId).then(
+      (m) => ({ m, error: null as unknown }),
+      (error: unknown) => ({ m: null, error }),
+    ),
+  ]);
+  const vendorsError = vendorsRowError ?? (money.error ? money.error : null);
+  const vendors = vendorRows && money.m ? mergeBookingMoney(vendorRows as Array<{ vendor_id: string }>, money.m) : null;
   if (vendorsError) {
     // A refused read must not pass for "nothing committed". It used to degrade
     // to [] and draw the card from market ranges alone — a buffer computed as if

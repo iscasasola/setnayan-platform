@@ -265,6 +265,9 @@ export type EventTypeProfile = {
    *  schedule). Segments (rehearsal dinner, send-off brunch) are schedule
    *  blocks on the ONE event, never separate events; lodging is never an event. */
   multiDay: boolean;
+  /** The longest this type may run, in days (1–30, owner ruling 2026-11-13; the minimum is always 1).
+   *  The SOURCE OF TRUTH — `multiDay` is `maxDays > 1`. */
+  maxDays: number;
   onboardingFlowKey: string | null;
   roleSetKey: string | null;
   templatePackKey: string | null;
@@ -325,6 +328,7 @@ export const WEDDING_PROFILE: EventTypeProfile = {
   eventClass: 'personal',
   layerMode: 'anchored',
   multiDay: true, // wedding WEEKEND — rehearsal dinner/brunch are days on ONE event
+  maxDays: 7,
   onboardingFlowKey: 'wedding',
   roleSetKey: 'wedding',
   templatePackKey: 'wedding',
@@ -392,6 +396,7 @@ export const GENERIC_PROFILE: EventTypeProfile = {
   eventClass: 'personal', // conservative default: unknown types stay personal-only
   layerMode: 'anchored',
   multiDay: false,
+  maxDays: 1,
   onboardingFlowKey: null,
   roleSetKey: null,
   templatePackKey: null,
@@ -456,6 +461,7 @@ export const SIMPLE_PROFILE: EventTypeProfile = {
   eventClass: 'community_eligible', // a Samahan may host a simple event
   layerMode: 'anchored',
   multiDay: false,
+  maxDays: 1,
   onboardingFlowKey: 'simple',
   roleSetKey: 'simple',
   templatePackKey: null,
@@ -520,6 +526,7 @@ export const TRAVEL_PROFILE: EventTypeProfile = {
   ),
   layerMode: 'roaming',
   multiDay: true,
+  maxDays: 30,
   onboardingFlowKey: 'travel',
   setup: { ...genericSetupFallback(), guestWord: 'travellers', giftsMode: 'ambag', lookSet: ['house', 'galeriya'] },
 };
@@ -556,6 +563,7 @@ export const WAKE_PROFILE: EventTypeProfile = {
     celebrantShape: 'single',
   },
   multiDay: true,  // 🕊 The quiet set (matrix M): family & friends, abuloy, a quiet camera,
+  maxDays: 7,
   // the muted looks only. Still NOT admitted to the engine (G5 seeds it).
   setup: {
     guestWord: 'family & friends',
@@ -582,6 +590,7 @@ export type ProfileRow = {
   event_class: string | null;
   layer_mode: string | null;
   multi_day: boolean | null;
+  max_days?: number | null;
   onboarding_flow_key: string | null;
   role_set_key: string | null;
   template_pack_key: string | null;
@@ -695,7 +704,7 @@ export function toProfile(row: ProfileRow): EventTypeProfile {
       row.layer_mode === 'anchored' || row.layer_mode === 'roaming'
         ? row.layer_mode
         : fb.layerMode,
-    multiDay: typeof row.multi_day === 'boolean' ? row.multi_day : fb.multiDay,
+    ...maxDaysOf(row, fb),
     onboardingFlowKey: row.onboarding_flow_key ?? fb.onboardingFlowKey,
     roleSetKey: row.role_set_key ?? fb.roleSetKey,
     templatePackKey: row.template_pack_key ?? fb.templatePackKey,
@@ -723,7 +732,51 @@ export function toProfile(row: ProfileRow): EventTypeProfile {
 const PROFILE_BASE_COLUMNS =
   'event_type, terminology, enabled_surfaces, onboarding_flow_key, role_set_key, template_pack_key, monogram_set_key, reveal_pack_key, budget_taxonomy_key, schedule_seed_key, statutory_pack_key';
 const PROFILE_OPTIONAL_COLUMNS =
-  'marketplace_enabled, event_class, layer_mode, multi_day, guest_word, gifts_mode, team_first, look_set, camera_default';
+  'marketplace_enabled, event_class, layer_mode, multi_day, max_days, guest_word, gifts_mode, team_first, look_set, camera_default';
+
+/**
+ * `maxDays` is the source of truth; `multiDay` is `maxDays > 1`. A row that
+ * carries no `max_days` (a not-yet-migrated prod, or a public row without the
+ * column) falls back to the hard-coded profile — and the pair is always
+ * returned together so the two can never disagree.
+ */
+function maxDaysOf(row: ProfileRow, fb: EventTypeProfile): { maxDays: number; multiDay: boolean } {
+  const n = row.max_days;
+  if (typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 30) {
+    return { maxDays: n, multiDay: n > 1 };
+  }
+  return { maxDays: fb.maxDays, multiDay: fb.maxDays > 1 };
+}
+
+/** Whole days an event spans, inclusive, from two YYYY-MM-DD dates. NaN when unreadable. */
+export function eventSpanDays(startDate: string, endDate: string): number {
+  const a = Date.parse(`${startDate.slice(0, 10)}T00:00:00Z`);
+  const b = Date.parse(`${endDate.slice(0, 10)}T00:00:00Z`);
+  return Math.round((b - a) / 86_400_000) + 1;
+}
+
+/**
+ * The ONE rule for how long an event may run (owner ruling 2026-11-13: min 1
+ * day, max per type from `event_type_profiles.max_days`). Returns a plain
+ * sentence to refuse with, or null when the span is allowed. Any writer of
+ * `events.event_end_date` must call this before saving.
+ */
+export function eventSpanRefusal(input: {
+  startDate: string | null;
+  endDate: string | null;
+  maxDays: number;
+}): string | null {
+  if (!input.startDate || !input.endDate) return null;
+  const days = eventSpanDays(input.startDate, input.endDate);
+  if (!Number.isFinite(days)) return 'Those dates could not be read.';
+  if (days < 1) return 'The last day cannot come before the first day.';
+  if (days > input.maxDays) {
+    return input.maxDays === 1
+      ? 'This kind of event runs for one day.'
+      : `This kind of event can run for up to ${input.maxDays} days. Pick an earlier last day.`;
+  }
+  return null;
+}
 
 export const resolveProfile = cache(
   async (eventType: string): Promise<EventTypeProfile> => {
@@ -776,6 +829,7 @@ async function readProfileRow(eventType: string): Promise<ProfileRow | null> {
     event_class: null,
     layer_mode: null,
     multi_day: null,
+    max_days: null,
     guest_word: null,
     gifts_mode: null,
     team_first: null,
@@ -808,6 +862,7 @@ export function profileFromPublicRow(
     event_class: null,
     layer_mode: null,
     multi_day: null,
+    max_days: null,
     guest_word: null,
     gifts_mode: null,
     team_first: null,

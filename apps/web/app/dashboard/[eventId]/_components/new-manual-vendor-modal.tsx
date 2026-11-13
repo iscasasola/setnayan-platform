@@ -52,7 +52,16 @@ import type { CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
 import { OWN_RECORD_PILL } from '@/lib/add-your-own';
 import { InfoTip } from '@/app/_components/info-tip';
 import { RecordCardFolds, recordLines } from './record-card-folds';
-import { payWaysSummary } from '@/lib/self-added-pay-ways';
+import {
+  PAY_WAY_NEEDED_WORDS,
+  parsePostedPayWays,
+  payWaysNeeded,
+  payWaysSummary,
+  planPostsPayments,
+} from '@/lib/self-added-pay-ways';
+import { PayWaysEditor } from './pay-ways-editor';
+import { PriceBasisRows } from './price-basis-rows';
+import { AGREED_COUNT_FIELD, type SelfAddedBasis } from '@/lib/self-added-price-basis';
 
 /** A Form row's keep: the sheet's own Save sends the form, so keeping has nothing to write. */
 const KEEP = () => ({ ok: true as const });
@@ -196,6 +205,13 @@ export function NewManualVendorModal({
     const n = Number(priceInput.replace(/,/g, ''));
     return Number.isFinite(n) && n > 0 ? n : null;
   })();
+  // ── HOW THE PRICE WORKS (v2, owner 2026-11-13) ── the total is typed for every basis (One price's Price, or Per
+  // guest / Per hour's Total agreed) and posts as the shipped `total_cost_php`; Per guest / Per hour add the guests /
+  // hours agreed, typed too — never read from the guest list or the schedule.
+  const [basis, setBasis] = useState<SelfAddedBasis>(edit?.basis ?? 'fixed');
+  const [countKept, setCountKept] = useState(edit?.agreedCount ?? '');
+  /** What the payment plan adds up to: the typed total, whatever the basis. */
+  const planTotal = priceNumber;
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -250,6 +266,10 @@ export function NewManualVendorModal({
   const [nameKept, setNameKept] = useState(edit?.name ?? '');
   // Whole pesos — stripping every non-digit from "80000.5" read ₱800,005.
   const [priceKept, setPriceKept] = useState(priceDigitsForSheet(edit?.price));
+  const planKeptTotal = (() => {
+    const n = Number(priceKept.replace(/,/g, ''));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  })();
   const [suggestions, setSuggestions] = useState<
     ReadonlyArray<MarketplaceVendorSuggestion>
   >([]);
@@ -412,6 +432,8 @@ export function NewManualVendorModal({
       'business_name',
       ...(isEdit ? [] : ['contact_person', 'contact_number']),
       ...(addressRequired ? ['address'] : []),
+      // Per guest / Per hour: the guests / hours agreed are the other half of the price (v2).
+      ...(mode.kind === 'manual' && basis !== 'fixed' ? [AGREED_COUNT_FIELD] : []),
     ].some(
       (k) => String(fd.get(k) ?? '').trim().length === 0,
     );
@@ -422,6 +444,14 @@ export function NewManualVendorModal({
     if (!isEdit && !homeTile) {
       setErrorMsg('Pick at least one service they cover.');
       return;
+    }
+    // A plan with payments needs somewhere to send them (owner 2026-11-13) — said here, before anything is made.
+    if (!isEdit && fd.get('pay_ways_present') === '1') {
+      const ways = parsePostedPayWays(fd, () => true);
+      if (ways.ok && payWaysNeeded(planPostsPayments(fd), ways.ways)) {
+        setErrorMsg(PAY_WAY_NEEDED_WORDS);
+        return;
+      }
     }
     // A receipt per paid line rides the same press as the photo — say so here rather than let the send fail.
     let sending = 0;
@@ -595,7 +625,14 @@ export function NewManualVendorModal({
               pending={pending}
               nameKept={nameKept}
               priceKept={priceKept}
-              priceNumber={priceNumber}
+              priceNumber={planTotal}
+              keptTotalPhp={planKeptTotal}
+              basisRows={{
+                basis,
+                onBasis: setBasis,
+                countKept,
+                onCountKeep: setCountKept,
+              }}
               lines={lines}
               planLine={planLine}
               payLine={payLine}
@@ -760,46 +797,55 @@ export function NewManualVendorModal({
               <InclusionLines disabled={pending} />
 
               <div className="border-t border-ink/10">
-                <FormRows width="wide" data="add-manual-terms">
-                  <TypedRow
-                    name="Price"
-                    fieldName="total_cost_php"
-                    value={priceKept}
-                    amount
-                    placeholder="80000"
-                    note="What you agreed, in pesos. The payment plan below has to add up to it."
-                    attrs={{ 'data-manual-field': 'total_cost_php' }}
-                    onType={(t) => setPriceInput(t)}
-                    onKeep={(t) => {
-                      setPriceKept(t);
-                      setPriceInput(t);
-                      return { ok: true as const };
-                    }}
-                  />
-                </FormRows>
+                {/* "How the price works ▾" above the shipped Price row (v2, owner 2026-11-13). One price is the Price
+                    row as it was; Per guest / Per hour are Total agreed + Guests / Hours agreed, both typed. */}
+                <PriceBasisRows
+                  basis={basis}
+                  onBasis={setBasis}
+                  totalKept={priceKept}
+                  onTotalType={(t) => setPriceInput(t)}
+                  onTotalKeep={(t) => {
+                    setPriceKept(t);
+                    setPriceInput(t);
+                  }}
+                  countKept={countKept}
+                  onCountType={() => {}}
+                  onCountKeep={setCountKept}
+                />
               </div>
 
               <div className="space-y-1 border-t border-ink/10 py-3">
                 <p className={SECTION_LABEL_CLASS}>
-                  Payment plan <span className={SECTION_NOTE_CLASS}>optional · adds up to the price</span>
+                  Payment plan <span className={SECTION_NOTE_CLASS}>optional · adds up to the {basis === 'fixed' ? 'price' : 'total'}</span>
                 </p>
                 {/* The payment lines — name · due date · amount, the record card's own rows — each with an "Already
                     paid" tick and, ticked, the optional proof (makers-match § 1). The running total reads the price
                     field live. Two named lines start it; a line left with no amount is no payment, so an untouched plan
                     asks nothing of the save. */}
                 <PaymentPlanRows
-                  totalPhp={priceNumber}
+                  totalPhp={planTotal}
                   disabled={pending}
                   initial={ADD_STARTER}
                   dated={{
                     dates: { lockIso: manilaTodayIso(), eventIso: eventDateIso ?? null },
-                    keptTotalPhp: (() => {
-                      const n = Number(priceKept.replace(/,/g, ''));
-                      return Number.isFinite(n) && n > 0 ? n : null;
-                    })(),
+                    keptTotalPhp: planKeptTotal,
                     paidAtAdd: true,
                   }}
                 />
+              </div>
+
+              {/* HOW TO PAY THEM (owner 2026-11-13: "either QR or account type, account name and account number or both")
+                  — the supplier's own shape, in the house rows; needed only once the plan has a payment. The detail is
+                  in the ⓘ (T17). */}
+              <div className="space-y-1 border-t border-ink/10 py-3" data-add-manual-pay-ways="">
+                <p className={SECTION_LABEL_CLASS}>
+                  <InfoTip label="How to pay them" align="start" ariaLabel="About how to pay them">
+                    Where you send the money — their QR, the account details, or both. Needed once your payment plan has a
+                    payment. When they claim, they confirm these as their own. Setnayan does not send or track it;
+                    nothing here creates a payment.
+                  </InfoTip>
+                </p>
+                <PayWaysEditor eventId={eventId} initial={[]} disabled={pending} startWithOne />
               </div>
 
               {/* Owner 2026-07-01: note to couples that a self-added vendor is NOT Setnayan-verified — inside the ⓘ

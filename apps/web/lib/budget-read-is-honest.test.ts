@@ -80,7 +80,27 @@ function stubClient(byTable: Record<string, Result | 'throw'>): SupabaseClient {
     };
     return builder;
   };
-  return { from: (table: string) => builderFor(table) } as unknown as SupabaseClient;
+  // #5936 — the booking amounts arrive through event_vendor_money_read, built here from the same event_vendors answer.
+  const rpc = (fn: string) => {
+    if (fn !== 'event_vendor_money_read') return Promise.resolve({ data: null, error: { message: `no stub for ${fn}` } });
+    const answer = byTable.event_vendors ?? OK_EMPTY;
+    if (answer === 'throw') return Promise.reject(new Error('network died on event_vendor_money_read'));
+    if (answer.error) return Promise.resolve({ data: null, error: answer.error });
+    const rows = (answer.data ?? []) as Array<Record<string, unknown>>;
+    return Promise.resolve({
+      data: rows.map((r) => ({
+        vendor_id: r.vendor_id,
+        total_cost_php: r.total_cost_php ?? null,
+        deposit_paid_php: r.deposit_paid_php ?? null,
+        transport_php: r.transport_php ?? null,
+        food_allowance_php: r.food_allowance_php ?? null,
+        pax_surcharge_php: r.pax_surcharge_php ?? null,
+        money_shown: true,
+      })),
+      error: null,
+    });
+  };
+  return { from: (table: string) => builderFor(table), rpc } as unknown as SupabaseClient;
 }
 
 /** PostgREST's shape for an RLS / grant refusal: it RESOLVES, with an error. */

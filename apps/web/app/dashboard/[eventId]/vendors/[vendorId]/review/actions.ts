@@ -218,17 +218,40 @@ export async function submitCoupleReview(formData: FormData) {
     redirect(`/dashboard/${eventId}/vendors/${eventVendorId}/review?refused=coordinator`);
   }
 
-  // 🃏 The card this review is for — only kept when it is THIS shop's (a forged id from another shop is dropped).
+  // 🃏 The card this review is for — only kept when it is THIS shop's card AND it was booked on THIS event (ruling
+  // 5970 "reviews per card": a review sits on the card the couple actually booked; the page offers exactly that set —
+  // the row it opened on plus this shop's booked rows on the event). Anything else — another shop's card, or one of this
+  // shop's cards this event never booked — is dropped: the review stays on the shop page with no card, never guessed.
   const serviceIdRaw = formData.get('service_id');
   let serviceId: string | null = null;
   if (typeof serviceIdRaw === 'string' && serviceIdRaw.length > 0) {
-    const { data: svc } = await createAdminClient()
-      .from('vendor_services')
-      .select('vendor_service_id')
-      .eq('vendor_service_id', serviceIdRaw)
-      .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle();
-    serviceId = svc ? serviceIdRaw : null;
+    const admin = createAdminClient();
+    const [{ data: svc }, { data: opened }, { data: booked }] = await Promise.all([
+      admin
+        .from('vendor_services')
+        .select('vendor_service_id')
+        .eq('vendor_service_id', serviceIdRaw)
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle(),
+      // the row this review page opened on…
+      admin
+        .from('event_vendors')
+        .select('vendor_id')
+        .eq('vendor_id', eventVendorId)
+        .eq('event_id', eventId)
+        .eq('service_id', serviceIdRaw)
+        .limit(1),
+      // …or one of this shop's booked rows on the event (the same set the page offers).
+      admin
+        .from('event_vendors')
+        .select('vendor_id')
+        .eq('event_id', eventId)
+        .eq('marketplace_vendor_id', vendorProfileId)
+        .eq('service_id', serviceIdRaw)
+        .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete'])
+        .limit(1),
+    ]);
+    serviceId = svc && ((opened ?? []).length > 0 || (booked ?? []).length > 0) ? serviceIdRaw : null;
   }
 
   let createdReviewId: string | null = null;

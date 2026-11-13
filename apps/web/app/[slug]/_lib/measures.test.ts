@@ -104,10 +104,7 @@ const KNOWN_DRIFT: Record<string, { count: number; why: string }> = {
     count: 2,
     why: 'A caption and a figure. TYPOGRAPHIC, not columns — the reading measure is ch-based. Decide while looking at the page.',
   },
-  'recap/page.tsx': {
-    count: 1,
-    why: 'The centred notice column on the unpublished-recap state. Between reading and plate; nobody has seen this state on a real event.',
-  },
+  // (recap left 2026-11-13: `/{slug}/recap` now only sends to the story — owner, "POST EVENT = A STORY" (5).)
   'empty-states.tsx': {
     count: 1,
     why: 'The teaser plate. Mounts only on the open-browse path, which is off for every production event.',

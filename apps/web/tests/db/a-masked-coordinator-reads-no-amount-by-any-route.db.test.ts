@@ -276,7 +276,7 @@ const DECIDED: Record<string, string> = {
   vendor_reuse_requests: 'CLOSED — hosts-only policy',
   event_vendor_line_items: 'ALREADY BUDGET-ONLY — couple or the budget delegate area',
   event_vendor_payments: 'ALREADY BUDGET-ONLY — couple or the budget delegate area',
-  event_vendors: 'OPEN — OWNER: the price columns ride on the row a Suppliers delegate reads; per-column needs a schema split. The supplier page masks every figure it draws.',
+  event_vendors: 'CLOSED (#5936) — the five amounts per column to anon + authenticated (migration 20271343340931); event_vendor_money_read (20271342818285) is the one browser read and hides them without Budget',
   orders: 'OUT OF SCOPE — the couple’s Setnayan purchases (current_couple_or_coordinator_event_ids)',
   events: 'OUT OF SCOPE — the event’s own budget band / Papic caps',
   budget_builds: 'OUT OF SCOPE — the budget planner',

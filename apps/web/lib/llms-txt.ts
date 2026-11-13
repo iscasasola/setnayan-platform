@@ -638,7 +638,7 @@ Pricing in PHP. All sales final on digital deliverables.
 
 The visual mood board — palette, location feel, dress codes — is included free with every account. No paywall.
 
-## Supplier plans — Free · Verified · Solo · Pro · Ultra
+## Supplier plans — Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra
 
 Every cell below is read from the code that enforces it and every peso from the live supplier catalogue — the same table a supplier sees at [/for-suppliers](${url('/for-suppliers')}).
 
@@ -648,7 +648,7 @@ ${supplierFee}
 
 A shop starts on **Free** the moment it is opened, and shows in search until its first inquiry (the plan table's "${FREE_FINDABLE}") — then it waits for **Verified**: a business-legitimacy check plus a short video call with a Setnayan admin, free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Paid plans buy reach — service area, categories, service cards per category, team seats, branches, search visibility and an own web address — never the right to take bookings.
 
-Solo, Pro and Ultra are prepaid blocks of 4 weeks (13 a year), or a year at a discount. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends. Bigger than Ultra? Ultra can add more, one at a time: ${ultraAddonPhrase(input)}.
+Supplier Plus, Supplier Pro and Supplier Ultra are prepaid blocks of 4 weeks (13 a year), or a year at a discount. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends. Bigger than Supplier Ultra? Supplier Ultra can add more, one at a time: ${ultraAddonPhrase(input)}.
 
 ## Answering couples (included free)
 
@@ -658,7 +658,7 @@ Reaching a matched couple is included with every supplier plan at no per-lead co
 
 Couple-side: guest list with more than 30 Filipino ceremony roles (ninong, ninang, principal and secondary sponsors, candle/veil/cord/coin, bearers, entourage) and CSV import · QR-coded personal invitations · RSVP with live count · Setnayan AI assisted planning with religion-adaptive guidance · mood board · budget tracker with .ics export · seating chart with a 13-table catalog · in-app vendor messaging with couple identity masked until first reply.
 
-Vendor-side: public profile editor · inquiry inbox · calendar with intra-day blocks and multi-service shared calendars on Pro and ${TIER_LABEL.enterprise} · team management · earnings rollup · reverse-image portfolio theft monitoring (Pro and Ultra) · mood board sharing with booked couples.
+Vendor-side: public profile editor · inquiry inbox · calendar with intra-day blocks and multi-service shared calendars on Supplier Pro and ${TIER_LABEL.enterprise} · team management · earnings rollup · reverse-image portfolio theft monitoring (Pro and Ultra) · mood board sharing with booked couples.
 
 ## Common questions Setnayan answers
 

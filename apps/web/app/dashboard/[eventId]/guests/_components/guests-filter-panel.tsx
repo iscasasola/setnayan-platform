@@ -15,10 +15,15 @@ import type { GuestsFilterSheetProps } from './guests-filter-sheet';
  * load (`scripts/check-maker-js-budget.mjs`).
  */
 export const FILTER_SHEET_TOPICS = ['Who you see', 'How it is laid out'] as const;
-/** 🍽 The per-head services' topic (owner 2026-11-12) — drawn only when the event has a service priced per head. */
+/** 🍽 The per-head services' topic (owner 2026-11-12) — always drawn; greyed while no service is priced per head (2026-11-13). */
 export const PAX_TOPIC = 'Who each service counts';
 
 const PAX_LINE = 'Counted · not counted';
+/** 🔒 Greyed, never hidden (owner 2026-11-13: "do not hide it. just grey it out until there is an available pax related
+ *  booked supplier"). A refused read says so — it never reads as "none". */
+const PAX_NONE_NAME = 'Per-guest suppliers';
+const PAX_NONE_LINE = 'Shows once a supplier is priced per guest';
+const PAX_REFUSED_LINE = 'Couldn’t load your suppliers';
 const PAX_ABOUT =
   'Only services priced per head are listed. “Not counted” is the guests you ticked out of this service on their card. “Counted” is everyone this supplier counts — attending, and inside the service’s rule. The supplier sees the number only, never who.';
 
@@ -88,6 +93,18 @@ export function GuestsFilterPanel({
       {pax ? (
         <>
           <ShowSortTopic name={PAX_TOPIC} />
+          {pax.services.length === 0 ? (
+            <div aria-disabled="true" className="pointer-events-none select-none opacity-50" data-filter-pax-none="">
+              <ChosenRow
+                data="filter-pax-none"
+                name={PAX_NONE_NAME}
+                line={pax.refused ? PAX_REFUSED_LINE : PAX_NONE_LINE}
+                value="none"
+                options={[{ key: 'none', label: pax.refused ? 'Couldn’t load' : 'None yet' }]}
+                onPick={() => {}}
+              />
+            </div>
+          ) : null}
           {pax.services.map((s) => (
             <ChosenRow
               key={s.id}

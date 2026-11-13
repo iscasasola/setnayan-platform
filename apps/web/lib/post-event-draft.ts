@@ -147,8 +147,27 @@ export const POST_EVENT_LOOK_KEYS = [
   'seating',
   'entourage',
   'beforeAfter',
+  /* 🎁 Thank you for your gift — its one line is this scene's `words.body` (owner 2026-11-13, "SIX CALLS SETTLED" (2)). */
+  'gifts',
 ] as const;
 const LOOK_KEYS = new Set<string>(POST_EVENT_LOOK_KEYS);
+
+/**
+ * 📖 HOW THE STORY READS (owner 2026-11-13, DECISION_LOG "POST EVENT = A STORY (ONE SCENE PER SCREEN) — SIX CALLS
+ * SETTLED" (1)): `story` — one scene per screen, progress bars on top, the default for every Post Event; `page` —
+ * today's long page, kept as the other choice under "Reads as". ONE key in `draft_json` (`readAs`), stored only when
+ * it is `page`: the default is an absence, never frozen into the story. No table.
+ */
+export const POST_EVENT_READS_AS = ['story', 'page'] as const;
+export type PostEventReadsAs = (typeof POST_EVENT_READS_AS)[number];
+export const POST_EVENT_READS_AS_LABEL: Readonly<Record<PostEventReadsAs, string>> = {
+  story: 'Story · one scene per screen',
+  page: 'Page · one long scroll',
+};
+/** `draft_json.readAs` → how the story reads. Anything but `page` is the default, `story`. */
+export function readReadsAs(raw: unknown): PostEventReadsAs {
+  return raw === 'page' ? 'page' : 'story';
+}
 
 /** The story's arrangement as the Maker edits it. */
 export type PostEventArrangement = {
@@ -156,6 +175,8 @@ export type PostEventArrangement = {
   /** Null = the default order. */
   sectionOrder: string[] | null;
   sceneLooks: PostEventSceneLooks;
+  /** 📖 Story (one scene per screen, the default) or Page. */
+  readAs: PostEventReadsAs;
   /**
    * The couple's own workroom columns' ids — READ ONLY here. They take part in
    * the run's order (so moving a scene past one keeps it), and are written only
@@ -172,7 +193,7 @@ export type PostEventArrangement = {
  * `saveEditorial` keeps them HERE, off the live story, until Apply asks for Pro
  * (`lib/story-pro-extras.ts`). Each is replaced whole, like every other key.
  */
-export type PostEventDraft = Partial<Pick<PostEventArrangement, 'sections' | 'sectionOrder' | 'sceneLooks'>> &
+export type PostEventDraft = Partial<Pick<PostEventArrangement, 'sections' | 'sectionOrder' | 'sceneLooks' | 'readAs'>> &
   Partial<StoryProExtras>;
 
 const isObj = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
@@ -272,6 +293,7 @@ export function postEventArrangementOf(draftJson: unknown): PostEventArrangement
     sections: readSectionsOff(d.sections),
     sectionOrder: readStorableSectionOrder(d.sectionOrder),
     sceneLooks: readSceneLooks(d.sceneLooks),
+    readAs: readReadsAs(d.readAs),
     customIds: readCustomColumns(d).map((c) => c.id),
   };
 }
@@ -289,6 +311,7 @@ export function sanitizePostEventDraft(raw: unknown): PostEventDraft | undefined
     out.sectionOrder = readStorableSectionOrder(raw.sectionOrder);
   }
   if ('sceneLooks' in raw && isObj(raw.sceneLooks)) out.sceneLooks = readSceneLooks(raw.sceneLooks);
+  if ('readAs' in raw && typeof raw.readAs === 'string') out.readAs = readReadsAs(raw.readAs);
   for (const key of STORY_PRO_EXTRA_KEYS) {
     if (key in raw && Array.isArray(raw[key])) (out as Record<string, unknown>)[key] = sanitizeStoryProExtra(key, raw[key]);
   }
@@ -302,6 +325,7 @@ export function withPostEventDraft(live: PostEventArrangement, draft: PostEventD
     sections: draft.sections !== undefined ? draft.sections : live.sections,
     sectionOrder: draft.sectionOrder !== undefined ? draft.sectionOrder : live.sectionOrder,
     sceneLooks: draft.sceneLooks !== undefined ? draft.sceneLooks : live.sceneLooks,
+    readAs: draft.readAs !== undefined ? draft.readAs : live.readAs,
     customIds: live.customIds,
   };
 }
@@ -333,6 +357,10 @@ export function overlayPostEventDraftJson(
   if (draft.sceneLooks !== undefined) {
     if (Object.keys(draft.sceneLooks).length === 0) delete base.sceneLooks;
     else base.sceneLooks = draft.sceneLooks;
+  }
+  if (draft.readAs !== undefined) {
+    if (draft.readAs === 'page') base.readAs = 'page';
+    else delete base.readAs;
   }
   for (const key of STORY_PRO_EXTRA_KEYS) {
     const v = draft[key];
@@ -480,6 +508,8 @@ export type PostEventApplyItem =
       /** Set only on the FREE PART of a held look (`sceneLooksFreePart`). */
       freePart?: true;
     }
+  /** 📖 Story or Page — a reading look, FREE (like a show / hide). */
+  | { field: 'readAs'; value: PostEventReadsAs; change: LookChange; pro: false }
   | {
       /** 💎 One of the story's Pro extras — added or changed is Pro, taken off is free. */
       field: StoryProExtraKey;
@@ -567,6 +597,9 @@ export function classifyPostEventDraft(draft: PostEventDraft, liveDraftJson: unk
     const change = sceneLooksChange(live.sceneLooks, draft.sceneLooks);
     items.push({ field: 'sceneLooks', value: draft.sceneLooks, change: change === 'none' ? 'change' : change, pro: grows(change) });
   }
+  if (draft.readAs !== undefined && draft.readAs !== live.readAs) {
+    items.push({ field: 'readAs', value: draft.readAs, change: 'change', pro: false });
+  }
   const liveExtras = storyProExtrasOf(liveDraftJson);
   for (const key of STORY_PRO_EXTRA_KEYS) {
     const drafted = draft[key];
@@ -611,6 +644,9 @@ export function applyPostEventItems(liveDraftJson: unknown, items: readonly Post
       const clean = readSceneLooks(item.value);
       if (Object.keys(clean).length === 0) delete base.sceneLooks;
       else base.sceneLooks = clean;
+    } else if (item.field === 'readAs') {
+      if (readReadsAs(item.value) === 'page') base.readAs = 'page';
+      else delete base.readAs;
     } else {
       const clean = sanitizeStoryProExtra(item.field, item.value);
       if (clean.length === 0) delete base[item.field];
@@ -629,6 +665,8 @@ export function postEventItemLabel(item: PostEventApplyItem): string {
       return 'Post Event · the order of its scenes';
     case 'sceneLooks':
       return 'Post Event · a font or an animation on a scene';
+    case 'readAs':
+      return 'Post Event · reads as a story or a page';
     default:
       return `Post Event · ${STORY_PRO_EXTRA_LABEL[item.field].toLowerCase()}`;
   }

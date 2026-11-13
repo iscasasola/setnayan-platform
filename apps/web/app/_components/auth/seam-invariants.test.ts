@@ -559,6 +559,8 @@ test('the app bottom bar never appears on a public page', () => {
     const rel = file.slice(APP.length + 1);
     if (APP_TREES.some((tree) => rel.startsWith(tree))) continue;
     if (rel.startsWith('_components/nav/')) continue; // the primitive itself
+    // A /dev lab is never public: every one 404s in production (`app/dev/layout.tsx`, held by the-labs-never-ship.test.ts).
+    if (rel.startsWith('dev/')) continue;
     if (/<(Customer|Admin|Vendor)BottomNav\b/.test(code(readFileSync(file, 'utf8')))) {
       offenders.push(rel);
     }

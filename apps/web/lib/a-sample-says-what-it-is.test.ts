@@ -60,38 +60,17 @@ test('the article agrees with the word', () => {
 });
 
 /**
- * THE WAKE'S RECAP GATE — asserted on the ROUTE, because it cannot be reached
- * any other way.
+ * THE WAKE'S RECAP GATE — now: THERE IS NO RECAP PAGE TO GATE.
  *
- * `/[slug]/recap` is a Server Component whose gate is two `await`s and a
- * `notFound()`; there is no exported function to call. So this reads the file
- * and requires BOTH arms — the metadata arm that stops it being indexed, and
- * the render arm that stops it being served. Gating one alone is how a page
- * comes to be reachable while claiming not to exist.
- *
- * ⚠ A SOURCE-TEXT GUARD IS THE WEAK KIND, and it is used here knowingly: it
- * would pass a gate that reads `.solemn` and does nothing with it. It is here to
- * stop the gate being DELETED — which is what happened to the belief that it
- * existed at all — not to prove it works. The behaviour is proven by the
- * refusal in the route itself.
+ * `/[slug]/recap` used to render its own page, and needed both a metadata arm and a render arm reading `.solemn` so a
+ * wake never had one. On 2026-11-13 the owner folded it into the Post Event story (DECISION_LOG "POST EVENT = A STORY
+ * (ONE SCENE PER SCREEN) — SIX CALLS SETTLED" (5)): the route only sends to `/{slug}`, whose own gates decide what a
+ * wake shows. So the guard is the stronger claim — the route renders NOTHING of its own: no metadata, no page, only
+ * the redirect. A recap page growing back would have to grow its own solemn gate with it.
  */
-test('the recap route refuses a solemn register in BOTH arms', () => {
-  const src = readFileSync(
-    join(process.cwd(), 'app/[slug]/recap/page.tsx'),
-    'utf8',
-  );
-  // ONE comment stripper in this repo — `lint-one-comment-stripper` caught this
-  // file growing a second, AFTER the guard sweep had already passed. A guard run
-  // before the last edit proves nothing about the last edit.
-  const stripped = stripComments(src);
-  const hits = (stripped.match(/\.solemn/g) || []).length;
-  assert.ok(
-    hits >= 2,
-    `expected the metadata arm AND the render arm to read .solemn, found ${hits}`,
-  );
-  assert.ok(
-    /solemn\)\s*notFound\(\)/.test(stripped.replace(/\s+/g, ' ')) ||
-      /notFound\(\)/.test(stripped),
-    'the render arm must actually refuse',
-  );
+test('the recap route renders nothing of its own — it only sends to the story', () => {
+  const stripped = stripComments(readFileSync(join(process.cwd(), 'app/[slug]/recap/page.tsx'), 'utf8'));
+  assert.ok(/redirect\(`\/\$\{encodeURIComponent\(slug\)\}`\)/.test(stripped), 'the recap route must send to the story at /{slug}');
+  assert.equal(/generateMetadata/.test(stripped), false, 'a recap route with its own metadata is a page again — and needs its solemn gate back');
+  assert.equal(/<\/|\/>/.test(stripped), false, 'the recap route draws markup again — a wake would have a recap page');
 });

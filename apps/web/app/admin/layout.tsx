@@ -30,6 +30,7 @@ import { maybeRunEmailDeliveryCheck } from '@/lib/email-delivery.server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
+import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuidedTour } from '@/app/_components/guided-tour';
@@ -42,7 +43,8 @@ import { AdminCommandPalette } from './_components/admin-command-palette';
 import { AdminSearchBox } from './_components/admin-search-box';
 import { fetchAdminRows } from '@/lib/admin-map/admin-row-index';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
-import { AdminNavFab } from './_components/admin-nav-fab';
+import { AdminPinnedRow, AdminThumbRow } from './_components/admin-tab-rows';
+import { ADMIN_AVATAR_ROWS } from '@/lib/admin/admin-tabs';
 import Link from 'next/link';
 import { TriangleAlert, Clock } from 'lucide-react';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -284,6 +286,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // CRON-FREE, dual-mounted with the supplier layout; hourly claim; never throws.
   after(() => maybeRunSupplierPagePublish().catch(() => {}));
 
+  // Admin-of-admin under the avatar; a row another slice is still building has no address yet and is not drawn.
+  const avatarRows = ADMIN_AVATAR_ROWS.flatMap((r) => (r.href ? [{ key: r.key, href: r.href, label: r.label }] : []));
+
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 
   // Role badge — warm info-slate for the Internal marker (Glass PR-1,
@@ -378,6 +383,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         href="/admin/settings?tab=notifications"
         ariaBaseLabel="Notifications"
         ariaUnreadSuffix="unread"
+        who={placeWhoFromSwitcher(switcherData)}
       />
       <span
         className={`fd-role inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
@@ -412,7 +418,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         console otherwise looking perfectly fine.
         `admin-rail-context.test.ts` fails if the class comes back.
       */}
-      <AccountSwitcher data={switcherData} here="admin" />
+      {/* Admin-of-admin lives here, under the avatar (owner 13 Nov 2026 — `lib/admin/admin-tabs.ts`
+          ADMIN_AVATAR_ROWS). A row whose page another slice is still building has no address and is not drawn. */}
+      <AccountSwitcher data={switcherData} here="admin" adminRows={avatarRows} />
     </div>
   );
 
@@ -444,7 +452,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <AdminRailContext
             navSlots={navSlots}
             queueCounts={queueCounts}
-            queueStates={urgency.states}
+            overdue={urgency.overdue}
+            dueSoon={urgency.dueSoon}
+            unreadable={urgency.unknownCount}
           />
         }
         topBarSlot={topBar}
@@ -478,7 +488,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             doesn't cover the last row of content — a fixed pb-20 under-reserved
             on safe-area devices (council fix #4). The desktop offset is the
             shell's grid now, so there is no padding math left here. */}
-        <div className="sn-vt-page pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">
+        <div className="sn-vt-page pb-[calc(env(safe-area-inset-bottom)+92px+var(--sn-thumb-room,0px))] lg:pb-0">
+          {/* T2 — `Page · View ▾` and the tab's ⚙, at the top of every admin page (owner 13 Nov 2026). */}
+          <AdminPinnedRow queueCounts={queueCounts} />
           {children}
         </div>
       </AppRailShell>
@@ -490,10 +502,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         queueCounts={queueCounts}
         overdue={urgency.overdue}
         dueSoon={urgency.dueSoon}
+        unreadable={urgency.unknownCount}
       />
-      {/* NAV-2 broken-out action — Payment requests (a sibling of the pill,
-          never a tab). Hides itself when a docked SubNav is up. */}
-      <AdminNavFab />
+      {/* T6 — the thumb row: this tab's search (the console's one search panel) and its ＋, phone only.
+          The Payment-requests FAB that sat here is retired with the old strip (Place map: "the Next card is the
+          payment that needs you"); Money › To confirm is that list now, one tap from the bar. */}
+      <AdminThumbRow />
       {!termsAsk && !(profile?.tour_seen_keys ?? []).includes('admin_welcome_v1') ? (
         <GuidedTour tourKey="admin_welcome_v1" completeAction={completeTour} />
       ) : null}

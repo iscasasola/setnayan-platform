@@ -31,6 +31,7 @@ import { labEventBarItems, type LabEventBar } from '@/app/dev/bar-lab/lab-bar';
 import { EventRailContext } from '@/app/dashboard/[eventId]/_components/event-rail-context';
 import { eventRailMatchRows } from '@/app/dashboard/[eventId]/_components/event-rail-match-rows';
 import type { EventMenuChild } from '@/lib/customer-menu';
+import type { EventPlaceFact, PlaceWho } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import type { NotificationRow } from '@/lib/notifications';
@@ -54,8 +55,13 @@ export function LabShell({
   homeAt,
   hubAt,
   notices,
+  noticeEvents,
+  noticeWho,
   bellUnread = 3,
 }: {
+  /** The notices' events and who is reading — each row's PLACE (`lib/notification-place.ts`). */
+  noticeEvents?: ReadonlyMap<string, EventPlaceFact>;
+  noticeWho?: PlaceWho | null;
   /** The bell pop-over's rows (`/dev/notifications-lab`); absent → it reads, which a lab cannot, and says so. */
   notices?: NotificationRow[];
   /** The bell's seeded unread count. */
@@ -87,6 +93,8 @@ export function LabShell({
               initialUnread={bellUnread}
               href="/dev/notifications-lab?view=all"
               labRows={notices}
+              labEvents={noticeEvents}
+              who={noticeWho ?? null}
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
             />

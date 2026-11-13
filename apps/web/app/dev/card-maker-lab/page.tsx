@@ -18,6 +18,11 @@
  *   &photos=1..6                  🖼 an edited card holding this many photos (the cover + the showcase) — the one gallery
  *                                 (owner 2026-11-13), drawn with the repo's own sample pictures under /public/realstories
  *   &booked=1                     🔒 an edited card couples have booked — the price row says they keep their price (Build 5 Lane C)
+ *   &host=add                     ➕ the dashboard's New service as it opens now (ruling 5820): THE ONE Add-a-service picker
+ *                                 on this lab's tree, the shop's own card kinds "On your shop", "Make N cards", the maker
+ *                                 behind "Start a blank card"; each pick's "+ Specialties (optional)" and the plan meter
+ *   &host=add&read=shop           🔒 …when the shop's own services could not be read: the line + Try again, no picker
+ *   &host=add&read=tree           🔒 …when the service list could not be read: the line + Try again, never a blank picker
  *   &host=today                   the maker inside TODAY's host — the "What you offer" step's ＋ Start opens it as the
  *                                 same `SetupOfferFold` sheet the page draws, so its own sheets (What you offer, Preview,
  *                                 the photos…) can be checked over that sheet, not only on the standalone page
@@ -35,6 +40,7 @@ import { SetupOfferFold } from '@/app/vendor-dashboard/_components/setup-offer-f
 import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
 import type { CardPhotoVerdict } from '@/lib/service-card-checks';
 import type { MakerCheckRules } from '@/app/vendor-dashboard/services/_components/card-checks';
+import { AddServicePicker } from '@/app/vendor-dashboard/services/new/_components/add-service-picker';
 
 /** 🃏 `&checks=1` — the owner's six seed words (the migration's), as the maker reads them. LAB FIXTURES. */
 const LAB_CLAIM_WORDS = [
@@ -250,6 +256,20 @@ function editFixture(shop: Shop): { initial: CanvasInitial; editing: MakerEditin
   };
 }
 
+/** ➕ host=add — each service's own specialty chips (the sign-up lab's shape; fixture words, nobody's real schema). */
+const labChips = (key: string, label: string, values: string[], single = false) => ({
+  key,
+  label,
+  options: values.map((v) => ({ value: v.toLowerCase().replace(/[^a-z0-9]+/g, '_'), label: v })),
+  single,
+});
+const LAB_PICKER_SPECIALTIES = {
+  cake_maker: [labChips('cake_style', 'Cake style', ['Fondant', 'Buttercream', 'Naked cake', 'Cupcake tower'])],
+  drone_photography: [labChips('drone_shots', 'Shots', ['Aerial stills', 'Aerial video', 'FPV fly-through'])],
+  photography: [labChips('shoot', 'Shoot', ['Pre-nup', 'Wedding day', 'Engagement'])],
+  sorbetes_cart: [labChips('flavours', 'Flavours', ['Ube', 'Mango', 'Cheese', 'Chocolate'])],
+};
+
 export default async function CardMakerLabPage({
   searchParams,
 }: {
@@ -347,6 +367,41 @@ export default async function CardMakerLabPage({
         photoCheck={withChecks ? labPhotoCheck : undefined}
       />
   );
+
+  if (sp.host === 'add') {
+    // The page's own frame (`/vendor-dashboard/services/new`): ‹ Shop · New service, then the ONE picker.
+    const pickerTree = FAKE_TREE.map((p) => ({
+      folderId: p.folderId,
+      label: p.label,
+      branches: p.branches.map((b) => ({
+        tileId: b.tileId,
+        label: b.label,
+        photoUrl: null,
+        hint: null,
+        leaves: b.leaves.map((l) => ({
+          canonicalService: l.canonicalService,
+          label: l.label,
+          tileId: b.tileId,
+          aliases: labTrades.find((t) => t.key === l.canonicalService)?.aliases,
+          allowedEventTypes: l.allowedEventTypes,
+        })),
+      })),
+    }));
+    return (
+      <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6" data-lab="card-maker" data-lab-host="add">
+        <div className="mb-2 flex min-h-11 items-center gap-2">
+          <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">‹ Shop</span>
+          <h1 className="text-[17px] font-semibold tracking-tight text-ink">New service</h1>
+        </div>
+        <AddServicePicker
+          tree={sp.read === 'tree' ? [] : pickerTree}
+          specialties={LAB_PICKER_SPECIALTIES}
+          onShop={sp.read === 'shop' ? null : shop.covered.map((c) => c.value)}
+          maker={maker}
+        />
+      </div>
+    );
+  }
 
   if (inToday) {
     return (

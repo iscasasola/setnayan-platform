@@ -211,6 +211,7 @@ export async function commitOnboardingEvent(
       experienceEnabled: experienceQuizEnabled(),
       homeSignalsEnabled: await isDataPrivacyControlActive('home_activity_signals'),
       setup,
+      maxDays: profile.maxDays,
     },
   );
 

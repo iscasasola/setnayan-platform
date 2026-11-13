@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useMemo, useRef, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { CheckCircle2, Clock, EyeOff, FileText, Images, Link2, Play, Plus, Search, SlidersHorizontal, Trash2, Upload } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -74,7 +75,8 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
   const [uploadStep, setUploadStep] = useState<null | 'for' | 'service'>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
   const [viewer, setViewer] = useState<EventFile | null>(null);
-  const [said, setSaid] = useState<{ ok: boolean; words: string } | null>(null);
+  // 💾 `href` — the way out of a refusal: a file past the plan's storage links to the Plan (owner 2026-11-13).
+  const [said, setSaid] = useState<{ ok: boolean; words: string; href?: string } | null>(null);
   const [busy, start] = useTransition();
   const target = useRef<{ grp: 'service' | 'booking'; serviceId: string | null }>({ grp: 'booking', serviceId: null });
   const input = useRef<HTMLInputElement>(null);
@@ -148,6 +150,7 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
     start(async () => {
       let ok = 0;
       let linked = 0;
+      let stopped = false;
       for (const file of files) {
         const kind = fileKindOf(file.type, file.name);
         if (grp === 'service' && kind === 'document') {
@@ -186,9 +189,15 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
               sizeBytes: file.size,
             }),
           })
-            .then((r) => r.json() as Promise<{ uploadUrl?: string; r2Ref?: string; error?: string }>)
-            .catch(() => ({ error: 'We couldn’t reach Setnayan.' }) as { uploadUrl?: string; r2Ref?: string; error?: string });
+            .then((r) => r.json() as Promise<{ uploadUrl?: string; r2Ref?: string; error?: string; upgradeHref?: string }>)
+            .catch(() => ({ error: 'We couldn’t reach Setnayan.' }) as { uploadUrl?: string; r2Ref?: string; error?: string; upgradeHref?: string });
           if (!pre.uploadUrl || !pre.r2Ref) {
+            if (pre.upgradeHref) {
+              // 💾 Past the plan's storage: the rest would be refused too — stop here, and keep the way up on screen.
+              setSaid({ ok: false, words: pre.error ?? `${file.name} does not fit your plan’s storage.`, href: pre.upgradeHref });
+              stopped = true;
+              break;
+            }
             setSaid({ ok: false, words: pre.error ?? `${file.name} could not be uploaded.` });
             continue;
           }
@@ -201,10 +210,15 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
           fd.set('r2_ref', pre.r2Ref);
         }
         const r = await run(fd);
+        if (r.status === 'error' && r.href) {
+          setSaid({ ok: false, words: r.message, href: r.href });
+          stopped = true;
+          break;
+        }
         if (r.status === 'error') setSaid({ ok: false, words: r.message });
         else ok++;
       }
-      if (ok) {
+      if (ok && !stopped) {
         setSaid({
           ok: true,
           words:
@@ -276,6 +290,14 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
       {said ? (
         <p role="status" className={`text-sm ${said.ok ? 'text-success-700' : 'text-danger-700'}`}>
           {said.words}
+          {said.href ? (
+            <>
+              {' '}
+              <Link href={said.href} className="font-medium underline underline-offset-2" data-files-storage-plan="">
+                See plans
+              </Link>
+            </>
+          ) : null}
         </p>
       ) : null}
       {busy ? (
@@ -443,7 +465,7 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
                     fd.set('message_id', viewer.fromChat?.messageId ?? '');
                     fd.set('service_id', serviceId);
                     const r = await run(fd);
-                    setSaid(r.status === 'error' ? { ok: false, words: r.message } : { ok: true, words: `Filed under ${p.serviceTitles[serviceId] ?? 'the service'}` });
+                    setSaid(r.status === 'error' ? { ok: false, words: r.message, href: r.href } : { ok: true, words: `Filed under ${p.serviceTitles[serviceId] ?? 'the service'}` });
                     setViewer(null);
                   })
                 }

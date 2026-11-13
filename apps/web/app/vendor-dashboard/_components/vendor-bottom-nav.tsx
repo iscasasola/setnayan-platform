@@ -34,6 +34,7 @@ import type { VendorTeamRole } from '@/lib/vendor-team';
 import { canManageVendor, VENDOR_SCOPED_BOTTOM_NAV_KEYS } from '@/lib/vendor-role';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { vendorCustomersBadge } from '@/lib/nav-badges';
+import { HOME_HREF } from '@/lib/home-segments';
 import { VENDOR_CLIENTS_EXTRA_MATCH, VENDOR_PORTFOLIO_EXTRA_MATCH, VENDOR_SHOP_EXTRA_MATCH } from './vendor-nav-destinations';
 
 export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
@@ -57,6 +58,9 @@ export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     icon: Store,
     activeMatch: '/vendor-dashboard',
     activeMatchExact: true,
+    // 👆👆 THE ONE DOUBLE TAP (owner 13 Nov 2026): already on Today, a second quick tap goes back to your Home, at its
+    // last view (`tab-memory.ts`). The first tap is still Today's top; the account sheet still holds the way home.
+    twin: HOME_HREF,
   },
   {
     // Clients (was "Customers" — THE ONE BUILD, 8 Nov 2026; the key stays) — the booking-pipeline destination + its

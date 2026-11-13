@@ -24,7 +24,7 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const WIZARD = read('app/open-shop/_components/open-shop-wizard.tsx');
 const ACTIONS = read('app/open-shop/actions.ts');
 const PAGE = read('app/open-shop/page.tsx');
-const PICKER = read('app/open-shop/_components/service-picker.tsx');
+const PICKER = read('app/_components/service-picker.tsx');
 const TILES = read('app/open-shop/_components/event-tiles.tsx');
 const PANE = read('app/_components/auth/sign-in-here-panel.tsx');
 const LINK = read('app/_components/auth/sign-in-here-link.tsx');
@@ -227,7 +227,9 @@ test('v16 ③ · specialties compile: picks in ink + "+ Add" when closed, every 
   // ONE open key, held by the wizard — opening one closes the others.
   assert.match(WIZARD, /const \[openSpecialty, setOpenSpecialty\] = useState<string \| null>\(null\)/);
   // From the shipped refinement schema, written through the ONE merge.
-  assert.match(PAGE, /fetchCategoryChipRefinementsMany\(/);
+  // Ruling 5820: the read moved to the ONE loader every picker door shares; the page calls it.
+  assert.match(PAGE, /getServicePickerSpecialties\(supabase, serviceTree\)/);
+  assert.match(read('lib/service-picker-tree.server.ts'), /fetchCategoryChipRefinementsMany\(/);
   assert.match(ACTIONS, /await mergeServiceRefinements\(admin, vendorProfileId as string, svc, fd\)/);
 });
 

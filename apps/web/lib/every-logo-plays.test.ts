@@ -443,6 +443,7 @@ const STILL: Record<string, string> = {
   'app/dev/group-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are drawn gradient stand-ins for a group’s photo and story frames — not the couple’s saved logo',
   'app/dev/review-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are drawn gradient stand-ins for a shop’s card cover and a guest’s Papic shot — not the couple’s saved logo',
   'app/dev/shop-card-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are drawn stand-ins for SHOPS’ logos on the Discover shop card (no R2 in a lab) — not the couple’s saved logo',
+  'app/dev/open-shop-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` is a drawn stand-in payment QR (renderUrlQrSvg of an example.test URL) on the sample claim door’s pay way — a QR code, not the couple’s saved logo',
   'app/dev/supplier-lab/page-lab.tsx': 'a dev-only lab: its `data:image/svg+xml` URIs are the badges’ PRINT FILE (lib/shop-badge-print.ts) handed to Save to print so the lab saves with no session — a shop’s badge pill, not the couple’s saved logo',
   'app/papic/decorate/_components/kwento-decorator.tsx': 'a flat colour swatch beside each caption-colour option in a dropdown — not a logo',
 };

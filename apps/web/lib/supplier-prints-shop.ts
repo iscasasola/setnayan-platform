@@ -3,7 +3,7 @@ import { shopBadges, type ShopBadgeFacts } from '@/lib/shop-badges';
 import { cardRecordRatingFromTrusted } from '@/lib/service-card-record';
 import { checkADateUrl } from '@/lib/check-a-date';
 import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
-import { myPagePath, myPageUrl } from '@/lib/supplier-qr-codes';
+import { myPagePath, myPageUrl, ownPageUrl } from '@/lib/supplier-qr-codes';
 import { shopReachLine, type ShopReach } from '@/lib/shop-page-plan';
 import { yearsInBusiness } from '@/lib/vendor-experience';
 import type { PrintMember, PrintQr, PrintShop } from '@/lib/supplier-prints-svg';
@@ -93,7 +93,7 @@ export function printMemberFrom(displayName: string | null | undefined, teamLabe
 /** The address the printed code opens — the shop's real one, from the helpers its Promote codes already use. */
 export function printQrUrl(mode: PrintQrMode, origin: string, slug: string): string {
   if (mode === 'shortlist') return buildVendorInviteUrl(slug, { eventType: null, category: null });
-  if (mode === 'page') return myPageUrl(origin, slug);
+  if (mode === 'page') return ownPageUrl(origin, slug); // 💳 a printed code is the supplier's own: ?src=own
   if (mode === 'reviews') return `${myPageUrl(origin, slug)}/review`;
   return checkADateUrl(origin, slug);
 }

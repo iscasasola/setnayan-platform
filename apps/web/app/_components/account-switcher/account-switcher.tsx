@@ -29,7 +29,8 @@ import type { SwitcherData } from './get-switcher-data';
 import { pictureFrameStyle } from '@/lib/picture-frame';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { newLabel, readSheetUnreadUrls, splitSheetUnread, type SheetUnread } from '@/lib/avatar-sheet-counts';
-import { signOutAllAction } from '@/lib/account-jars';
+// ⚡ Not from lib/account-jars: that module names `Buffer`, which ships the buffer polyfill to the browser.
+import { signOutAllAction } from '@/lib/account-sign-out-path';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { appearanceSwitchShown } from '@/lib/appearance';
 import { AppearanceChoice } from './appearance-choice';

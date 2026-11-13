@@ -82,6 +82,8 @@ export type ChargeSource =
   | 'setnayan_ai_comeback'
   /** 💎 Event Hub Pro, part by part (owner 2026-10-22) — parts at their catalogue sum, or the rest to everything. */
   | 'hub_parts'
+  /** 💳 Event Ultra for an event that already paid for Plus or Pro — the row's price less that plan's (owner 2026-11-13). */
+  | 'event_ultra_upgrade'
   /**
    * 💲 The website-only welcome price (owner 2026-10-28, "ONE PRICE EVERYWHERE") — an account's FIRST purchase at
    * the shipped set-up rule, applied to the figure one of the sources above ALREADY resolved. Never a source of its

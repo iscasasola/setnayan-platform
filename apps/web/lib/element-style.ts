@@ -585,7 +585,7 @@ export const HUB_EL_IN = ['rise', 'fade', 'none'] as const;
    SIX NEW EFFECTS", prototype `text_image_effects_2026-10-16.html`): Glow, a soft halo in the accent breathing every
    4.4 s (a blurred copy of each word, only its opacity moves — never `text-shadow`); Light leak, the shipped
    background Light leak ◆ (`lib/ambient-effects.ts` `leak`) drawn inside the photo. Both Pro ◆ ("ALL ANIMATE, EFFECTS,
-   STYLES AND ACCENTS ARE EVENT HUB PRO ◆"), asked at Apply as Shimmer is. */
+   STYLES AND ACCENTS ARE EVENT PRO ◆"), asked at Apply as Shimmer is. */
 export const HUB_EL_DURING = ['drift', 'still', 'kenburns', 'parallax', 'shimmer', 'glow', 'leak'] as const;
 export const HUB_EL_DURING_WORDS = ['drift', 'still', 'shimmer', 'glow'] as const;
 /** 🖼 A picture's Action ▾, in the prototype's order. Parallax is the photo's own (the plate has always moved so) — an absence. */

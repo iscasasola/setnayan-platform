@@ -108,7 +108,9 @@ function actionButtonRadius(): string {
 test('Continue and Back are the house ActionButton — the pill, the shape of /signup’s Create', () => {
   // Lane P slice 5 (owner 10 Nov: "the rule or uniform buttons … is not followed yet"): the bar's Continue and Back
   // are the house ActionButton, whose `.ab` is the full pill — the same round as `rounded-full`.
-  assert.match(WIZARD, /<ActionButton\s+tone="brand"\s+main\s+icon=\{ArrowRight\}\s+label="Continue"/, 'Continue is not the house ActionButton');
+  // F-W1-04 (walk 13 Nov): the icon is `continueIcon` — the arrow, or the spinner while the next step is drawn.
+  assert.match(WIZARD, /<ActionButton\s+tone="brand"\s+main\s+icon=\{continueIcon\}\s+label="Continue"/, 'Continue is not the house ActionButton');
+  assert.match(WIZARD, /const continueIcon = moving \? <Loader2[^;]*: ArrowRight;/, 'Continue lost its arrow');
   assert.match(WIZARD, /<ActionButton tone="neutral" iconOnly icon=\{ArrowLeft\} label="Back" onClick=\{back\}/, 'Back is not the house ActionButton');
   const full = TAILWIND.slice(TAILWIND.indexOf('borderRadius: {')).match(/(?:^|\n)\s*'?full'?:\s*'([^']+)'/)?.[1];
   assert.equal(actionButtonRadius(), full, 'the ActionButton is not the full pill');

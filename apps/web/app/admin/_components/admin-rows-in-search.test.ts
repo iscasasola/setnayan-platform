@@ -29,7 +29,7 @@ const ROWS: RowDest[] = (
     ['PAPIC_GUEST', 'Papic — add 3,000 shots', true],
     ['PAPIC_GUEST_10K', 'Papic — add 10,000 shots', true],
     ['PAPIC_SEATS', 'Papic (5 Seats)', false],
-    ['COUPLE_WEBSITE_PRO', 'Event Hub Pro', true],
+    ['COUPLE_WEBSITE_PRO', 'Event Pro', true],
   ] as [string, string, boolean][]
 ).map(([code, title, active]) => ({
   label: title,

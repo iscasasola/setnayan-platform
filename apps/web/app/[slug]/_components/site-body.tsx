@@ -215,7 +215,7 @@ import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMost, type HubCoverHoldBoxes } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
-import { OPEN_REPLY_WINDOW, type ReplyWindow } from '@/lib/reply-window';
+import { OPEN_REPLY_WINDOW, replyWindowWords, type ReplyWindow } from '@/lib/reply-window';
 import { ReplyWindowNote } from './reply-window-note';
 import { RsvpLookStyle } from './rsvp-look-style';
 import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
@@ -2168,7 +2168,14 @@ export async function SiteBody({
       : hostReplyCard
         ? coverRsvpOf({ card: hostReplyCard })
         : pageStage === 'rsvp' && plan.rsvpShouldRender && vendorCapability === null && !viewerIsHost
-          ? coverRsvpOf({ card: null, visitorHref: replyDoor })
+          ? // 📬 F-W3-25: a reader the page does not recognise is shown the window's own line when replies are shut —
+            // never "Confirm attendance" into "Replies are not open yet".
+            coverRsvpOf({
+              card: null,
+              visitorHref: replyDoor,
+              window: repliesWindow,
+              windowLine: replyWindowWords(repliesWindow, clientWords.theOrganizer)?.line,
+            })
           : null;
 
     return (

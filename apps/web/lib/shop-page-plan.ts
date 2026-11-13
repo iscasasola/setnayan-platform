@@ -7,7 +7,7 @@
  *   · reach  — `effectiveOuterRadiusKm` (lib/vendor-service-radius.ts): the plan's `serviceRadiusKm` (read from
  *              lib/vendor-tier-caps.ts — Ultra is `Infinity`, "nationwide", since 2026-11-04) clamping the shop's own
  *              declared outer ring — the SAME number couples' search and the supplier's own Where you work map draw;
- *   · own address — `tierCaps(tier).customWebsiteName` (Solo+ since 2026-11-04; the Pro page parts read
+ *   · own address — `tierCaps(tier).customWebsiteName` (Supplier Plus and up since 2026-11-04; the Pro page parts read
  *              `premiumPage`, the cap the page calls `premiumLayout`);
  *   · pinned review — the page's own `proPicksRender` (Pro+, flag-aware) and `reviewCommentsViewable`.
  *
@@ -73,7 +73,7 @@ export function shopAlsoInLine(
 
 /**
  * The shop's own web address, shown "sampaguitatable.com → this page" (approved Q4 = A: the shop's own domain pointing
- * at the page). Solo+ (`customWebsiteName`, owner 2026-11-04), and only a domain the verification backend has stamped — an
+ * at the page). Supplier Plus and up (`customWebsiteName`, owner 2026-11-04), and only a domain the verification backend has stamped — an
  * unverified row is a domain that does not point here yet. Lower-cased and bare (no scheme, no slash).
  */
 export function ownWebAddress(input: {

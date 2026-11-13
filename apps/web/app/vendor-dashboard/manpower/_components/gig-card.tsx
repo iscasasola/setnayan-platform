@@ -36,6 +36,8 @@ function formatPhp(centavos: number): string {
 function formatRelative(iso: string | null): string | null {
   if (!iso) return null;
   return new Date(iso).toLocaleString('en-PH', {
+      // 🕐 Manila, not the server's UTC (walk 13 Nov 2026, F-W1-61) — the same wall clock on the server and the phone.
+      timeZone: 'Asia/Manila',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',

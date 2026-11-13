@@ -76,7 +76,7 @@ export function verifiedSpec(): string {
 
 /**
  * A paid plan's spec line, e.g. Pro: "100 km · 8 categories · 10 service cards each · 5 team seats ·
- * 3 branches · waiting list, 1 a date". A cap of 0 is left out (Solo has no branches and no waiting list).
+ * 3 branches · waiting list, 1 a date". A cap of 0 is left out (Supplier Plus has no branches and no waiting list).
  */
 export function growSpec(t: GrowTier): string {
   const c: TierCaps = TIER_CAPS[t];
@@ -91,14 +91,14 @@ export function growSpec(t: GrowTier): string {
   return parts.join(' · ');
 }
 
-/** "20 km around you, 30 km on Solo, 100 km on Pro, nationwide on Ultra" — the search reach, plan by plan. */
+/** "20 km around you, 30 km on Supplier Plus, 100 km on Pro, nationwide on Ultra" — the search reach, plan by plan. */
 export function reachLadderSentence(): string {
   const head = `${reachWords(TIER_CAPS.verified.serviceRadiusKm)} around you`;
   const rest = GROW_TIERS.map((t) => `${reachWords(TIER_CAPS[t].serviceRadiusKm, 'nationwide')} on ${planName(t)}`);
   return [head, ...rest.slice(0, -1)].join(', ') + `, ${rest[rest.length - 1]}`;
 }
 
-/** The pill a plan-gated line wears: "Solo+" / "Pro+" — or the bare name at the top of the ladder. */
+/** The pill a plan-gated line wears: "Supplier Plus and up" / "Pro+" — or the bare name at the top of the ladder. */
 export function planPill(t: VendorTier): string {
   return t === 'enterprise' ? planName(t) : `${planName(t)}+`;
 }

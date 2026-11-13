@@ -30,6 +30,8 @@
  * Pure data: no server-only import, so the page, the guards and `tsx --test` all read the same rows.
  */
 import type { FeatureSlug } from '@/lib/feature-pages/types';
+import type { CatalogueRow } from '@/lib/feature-pages/price';
+import { formatCount } from '@/lib/format-number';
 
 export type RowStatus = 'live' | 'coming';
 export type RowPrice = 'free' | 'free-plus' | 'paid' | 'credits' | 'per-day';
@@ -342,15 +344,26 @@ export type PlanPrice =
   | { kind: 'free' }
   | { kind: 'paid'; catalogue: 'retail' | 'supplier'; codes: readonly string[] };
 
-export type PlanColumn = Readonly<{ name: string; tag: string; price: PlanPrice; lines: readonly string[] }>;
+export type PlanColumn = Readonly<{
+  name: string;
+  tag: string;
+  price: PlanPrice;
+  lines: readonly string[];
+  /**
+   * RW-12 (2026-11-14) · the line that names the plan's Papic credits, at `index` in `lines`. When the catalogue row's
+   * `included_papic_credits` is read, the compare swaps that line for `said(count)`; unread, the wordy line stays. The
+   * count is never typed here.
+   */
+  credits?: Readonly<{ index: number; said: (count: string) => string }>;
+}>;
 
 export const EVENT_PLANS: readonly PlanColumn[] = [
   { name: 'Free', tag: 'Plan and invite, complete.', price: { kind: 'free' }, lines: ['Guest list, Seat Plan, Budget, Schedule, Mood Board', 'Event Hub: Classic theme, your words, guests’ photos', 'The Post Event story, automatically', 'FaceBlock, always'] },
-  { name: 'Event Plus', tag: 'A nicer, bigger event.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_PLUS'] }, lines: ['Everything in Free', 'Papic credits included', 'Bigger uploads', 'One unlock covers everyone on the event'] },
-  { name: 'Event Pro', tag: 'The full show.', price: { kind: 'paid', catalogue: 'retail', codes: ['COUPLE_WEBSITE_PRO'] }, lines: ['Everything in Plus, more Papic credits', 'Nine themes, every reveal and scene animation', 'Your own photos, videos and music; custom scenes', 'Print-ready invitations, tickets, posters', 'Setnayan AI'] },
+  { name: 'Event Plus', tag: 'A nicer, bigger event.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_PLUS'] }, lines: ['Everything in Free', 'Papic credits included', 'Bigger uploads', 'One unlock covers everyone on the event'], credits: { index: 1, said: (n) => `${n} Papic credits included` } },
+  { name: 'Event Pro', tag: 'The full show.', price: { kind: 'paid', catalogue: 'retail', codes: ['COUPLE_WEBSITE_PRO'] }, lines: ['Everything in Plus, more Papic credits', 'Nine themes, every reveal and scene animation', 'Your own photos, videos and music; custom scenes', 'Print-ready invitations, tickets, posters', 'Setnayan AI'], credits: { index: 0, said: (n) => `Everything in Plus, ${n} Papic credits` } },
   // 💎 Event Ultra (owner 2026-11-13) — only what a paid Ultra order unlocks today; canvas prints join when the Our Day
   // poster ships (see ULTRA_PEEK in app/_components/frontdoor/front-door-landing-data.ts).
-  { name: 'Event Ultra', tag: 'Shared live, kept longer.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_ULTRA'] }, lines: ['Everything in Pro, the most Papic credits', 'Live Watch for one day', 'Full-size photos kept 12 months', 'Patiktok'] },
+  { name: 'Event Ultra', tag: 'Shared live, kept longer.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_ULTRA'] }, lines: ['Everything in Pro, the most Papic credits', 'Live Watch for one day', 'Full-size photos kept 12 months', 'Patiktok'], credits: { index: 0, said: (n) => `Everything in Pro, ${n} Papic credits` } },
 ];
 
 export const SUPPLIER_PLANS: readonly PlanColumn[] = [
@@ -360,6 +373,16 @@ export const SUPPLIER_PLANS: readonly PlanColumn[] = [
   { name: 'Supplier Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: ['Team seats', 'Performance insights, more reach', 'Specialized tools unlock included'] },
   { name: 'Supplier Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Branches and a bigger team', 'Everything in Pro', 'Specialized tools unlock included'] },
 ];
+
+/** RW-12 · a plan's lines with its credits line naming the catalogue's count, when the row is read and active. */
+export function planLines(plan: PlanColumn, rows: readonly CatalogueRow[] | null): readonly string[] {
+  if (!plan.credits || plan.price.kind !== 'paid' || !rows) return plan.lines;
+  const codes = plan.price.codes;
+  const n = rows.find((r) => r.catalogue === 'retail' && r.active && codes.includes(r.code))?.credits;
+  if (n == null || !Number.isFinite(n) || n <= 0) return plan.lines;
+  const said = plan.credits.said(formatCount(n));
+  return plan.lines.map((l, i) => (i === plan.credits!.index ? said : l));
+}
 
 /** A planned row — it wears the "Coming" chip and its ⓘ names the lane or ruling. */
 export function isComing(row: FeatureRow): boolean {

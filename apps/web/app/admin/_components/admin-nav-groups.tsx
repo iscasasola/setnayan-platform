@@ -167,10 +167,10 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/account-deletions',
       },
       {
-        // A couple asking us to remove a celebration that money is holding —
+        // A couple asking us to remove an event that money is holding —
         // a confirmed bill, or a payment nobody has checked yet. Distinct from
         // Account deletions above: that closes a PERSON, this removes one
-        // celebration and leaves the account alone.
+        // event and leaves the account alone.
         key: 'event-deletions',
         label: 'Event removals',
         href: '/admin/event-deletions',

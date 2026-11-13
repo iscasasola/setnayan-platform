@@ -1,7 +1,7 @@
 /**
  * lib/supplier-storage.ts — THE PLAN HOLDS STORAGE, THE PURE HALF.
  *
- * Owner 2026-11-13 (specs DECISION_LOG, commit ce2d0a8 "plan storage"): *Solo 5 GB · Pro 10 GB · Ultra 15 GB*, included
+ * Owner 2026-11-13 (specs DECISION_LOG, commit ce2d0a8 "plan storage"): *Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB*, included
  * in the plan. Free and Free · Verified were given no allowance and keep what they had: no limit, nothing drawn.
  *
  *   · the number   — `TIER_CAPS[plan].storageBytes` (lib/vendor-tier-caps.ts), twin `vendor_tier_limit(…,'storage_gb')`.

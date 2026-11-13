@@ -8,10 +8,10 @@ import { approveEventDeletion, rejectEventDeletion } from './actions';
 export const dynamic = 'force-dynamic';
 
 /**
- * /admin/event-deletions — celebrations a couple has asked us to remove.
+ * /admin/event-deletions — events a couple has asked us to remove.
  *
  * ─── WHAT LANDS HERE, AND WHAT DOES NOT ────────────────────────────────────
- * Only the ones money is holding. A couple removes an ordinary celebration
+ * Only the ones money is holding. A couple removes an ordinary event
  * themselves and nothing reaches this queue — what reaches it is a bill we
  * confirmed, an official receipt, or a payment nobody has checked yet.
  *

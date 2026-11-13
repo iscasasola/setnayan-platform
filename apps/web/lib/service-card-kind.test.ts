@@ -22,7 +22,7 @@ import {
  *  2. Nothing ever renders a raw database key — the rule `lib/vendors.ts` wrote
  *     down on 2026-08-09 and which survived, unfixed, in six other fallbacks.
  *  3. A leaf and its legacy pill count as ONE family, so a Pabati card does not
- *     spend a second slot of a Solo plan on the family its coverage already
+ *     spend a second slot of a Supplier Plus plan on the family its coverage already
  *     claimed.
  *  4. An unreadable taxonomy degrades to the LEGACY behaviour, never to "every
  *     unknown word is a valid kind" — the gate must not widen when a read fails.
@@ -101,7 +101,7 @@ test('a raw database key can never reach a person', () => {
 
 test('a leaf and its legacy pill count as ONE family, not two', () => {
   // `pabati` and the legacy `photobooth` pill both live under `booths`. If they
-  // counted separately, a Solo shop covering Pabati would be refused a Pabati
+  // counted separately, a Supplier Plus shop covering Pabati would be refused a Pabati
   // card by the family cap its own coverage had already claimed.
   assert.deepEqual(leafFamilies('pabati', INDEX), ['booths']);
   assert.deepEqual(leafFamilies('day_of_coordinator', INDEX), ['planning']);
@@ -159,7 +159,7 @@ test('the save’s gate asks the leaves, and is still a CLOSED set', () => {
     'the gate stopped refusing an unknown kind',
   );
   // The family cap must ask the leaf-aware helper, or a leaf card would count
-  // against no family and ride straight past a Solo plan's allowance.
+  // against no family and ride straight past a Supplier Plus plan's allowance.
   //
   // 🪤 THE FIRST VERSION OF THIS ASSERTION WAS DECORATION, and only the mutation
   // caught it: `assert.match(save, /parentsOfKind\(/)` is a FILE-LEVEL match

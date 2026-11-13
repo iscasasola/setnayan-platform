@@ -352,7 +352,7 @@ export async function CockpitSurface({ searchParams }: Props) {
               key={c.key}
               title={c.label}
               pill="live"
-              source={`${c.key} · created_at per bucket`}
+              source={`${c.label.replace(/^New /, '')} added, per period`}
             >
               <p
                 className="mb-2 text-2xl font-semibold tabular-nums"
@@ -376,7 +376,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           <ChartCard
             title="Sales — split three ways"
             pill="live"
-            source="orders (paid/fulfilled) + vendor_subscriptions + vendor_token_purchases · pesos"
+            source="paid orders + supplier plans · pesos"
           >
             <div className="mb-2 flex flex-wrap items-baseline gap-2">
               <p
@@ -488,7 +488,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           </ChartCard>
 
           {/* G6 — reviews */}
-          <ChartCard title="Reviews" pill="live" source="vendor_reviews · event-bound">
+          <ChartCard title="Reviews" pill="live" source="supplier reviews from real events">
             <div className="mb-2 flex flex-wrap items-baseline gap-2">
               <p
                 className="text-2xl font-semibold tabular-nums"
@@ -515,7 +515,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           <ChartCard
             title="Events by type"
             pill="live"
-            source="events.event_type · current snapshot"
+            source="every event by its type · today"
           >
             {growth.breakdowns.eventsByType.length === 0 ? (
               <p className="text-sm" style={{ color: 'var(--sn-ink-500)' }}>
@@ -635,7 +635,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           <ChartCard
             title="Abuse reports"
             pill="live"
-            source="user_reports by status · rising = worse"
+            source="abuse reports by status · rising = worse"
           >
             <div className="mb-2 flex flex-wrap items-baseline gap-2">
               <p

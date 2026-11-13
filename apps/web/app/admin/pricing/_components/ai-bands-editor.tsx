@@ -34,7 +34,7 @@ const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
  * ⚠ ONE KIND, ONE BAND, AND THE EXCLUSIVITY IS STRUCTURAL. Ticking a kind into
  * a band writes a single column on that kind's own row, so it leaves whichever
  * band it was in by construction. There is no "untick the others" pass that
- * could half-fail and leave a celebration quoted two prices.
+ * could half-fail and leave an event quoted two prices.
  */
 export function AiBandsEditor({
   bands,
@@ -79,7 +79,7 @@ export function AiBandsEditor({
 
       {/*
         ⚠ THE TRAY IS PERMANENT, EVEN WHEN EMPTY. Its whole job is to turn a
-        silent default into a visible question — so the NEXT kind of celebration
+        silent default into a visible question — so the NEXT kind of event
         somebody adds cannot start being sold at the middle price with nothing
         anywhere saying so. An empty tray reads as "nothing unanswered", which is
         information; a removed tray reads as nothing at all.

@@ -199,15 +199,15 @@ test('overpayment is said, with the figure', () => {
   assert.equal(m.deltaPhp, 101);
 });
 
-// ── 3 · which celebration, in all three states ──────────────────────────────
+// ── 3 · which event, in all three states ──────────────────────────────
 
-test('the card says which celebration — and a NULL date reads as intent', () => {
+test('the card says which event — and a NULL date reads as intent', () => {
   assert.match(PAGE, /'no date set'/, 'a NULL event date must say so, never a blank or dash');
-  assert.match(PAGE, /Not tied to a celebration/, 'a NULL event_id is intent, not breakage');
+  assert.match(PAGE, /Not tied to an event/, 'a NULL event_id is intent, not breakage');
   assert.match(
     PAGE,
-    /Could not read which celebration/,
-    'a failed read must be distinguishable from "no celebration"',
+    /Could not read which event/,
+    'a failed read must be distinguishable from "no event"',
   );
   assert.match(PAGE, /fetchOrderEventInfo\(/, 'the page must actually resolve the event');
 });

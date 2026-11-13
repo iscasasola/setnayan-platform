@@ -23,7 +23,7 @@ import type { UgatSchemaClaim } from './schema-claims';
  * The nine type nodes and their bindings mirror the schema confirmed live on
  * setnayan-prod (2026-07-04): users · events · guests · vendor_profiles ·
  * vendor_services · orders · chat_threads · billing (vendor_subscriptions +
- * token wallets) · the taxonomy tree (service_categories +
+ * token balances) · the taxonomy tree (service_categories +
  * canonical_service_taxonomy + canonical_service_schemas + onboarding_refinements).
  */
 
@@ -258,7 +258,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
     id: 'TYPE-BILLING',
     type: 'billing',
     name: 'Billing',
-    blurb: 'vendor subscriptions (org) · token wallets dormant',
+    blurb: 'supplier subscriptions (org) · token balances dormant',
     countKey: 'billing',
     icon: 'wallet',
     color: 'var(--ug-e-billing)',

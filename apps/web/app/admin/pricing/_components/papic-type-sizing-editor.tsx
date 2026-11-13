@@ -11,12 +11,12 @@ export type PapicTypeSizingRow = {
   initialPerGuest: number;
   floorPoints: number;
   ceilingPoints: number;
-  /** What was learned from finished celebrations, or null. */
+  /** What was learned from finished events, or null. */
   learnedPerGuest: number | null;
   /** Which of the two a couple is actually quoted. */
   inForce: number;
   inForceSource: 'initial' | 'learned';
-  /** Closed celebrations that did NOT run out of credits. */
+  /** Closed events that did NOT run out of credits. */
   sampleSize: number;
   censoredCount: number;
   minSample: number;

@@ -119,7 +119,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
   */
   /*
     💰 …and the two plan prices, from `platform_retail_catalog_v2` — the price list Admin edits — never typed:
-    Event Pro is Event Hub Pro (`COUPLE_WEBSITE_PRO`, live today); Event Plus is `EVENT_PLUS`, which the price-sheet
+    Event Pro is `COUPLE_WEBSITE_PRO` (`COUPLE_WEBSITE_PRO`, live today); Event Plus is `EVENT_PLUS`, which the price-sheet
     PR (#7262) puts on sale. A row that is not on sale or not readable draws no figure. Named cost: one catalogue
     read per signed-out view (prices are read live everywhere, never remembered).
   */

@@ -33,7 +33,7 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
  * guest page's REAL component, wearing the REAL Vintage look (`HostDraftLook`), and the kit decided by the page's own
  * rule (`artKitShows`):
  *
- *   ?decor=0   every scene's Accent at None                     ?free=1   an event without Event Hub Pro
+ *   ?decor=0   every scene's Accent at None                     ?free=1   an event without Event Pro
  *   ?accents=countdown:none,hero:drapes   per-scene picks         ?theme=house  a look with no kit
  *   ?veil=1    the Sheer veil over the cover, with its seal     ?photo=0  no cover photo (the oval holds the mark)
  *   ?ground=dark  the cover over a dark still (where a halo would show)

@@ -8,9 +8,7 @@ export function isSetnayanHost(host: string): boolean {
   const h = host.toLowerCase();
   return (
     h === 'setnayan.com' ||
-    h.endsWith('.setnayan.com') ||
-    h === 'setnayan.ph' ||
-    h.endsWith('.setnayan.ph')
+    h.endsWith('.setnayan.com')
   );
 }
 

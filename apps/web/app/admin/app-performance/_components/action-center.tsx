@@ -61,7 +61,7 @@ const QUEUE_CARDS: QueueCardDef[] = [
 const MANUAL_WATCHLIST: { label: string; todo: string }[] = [
   { label: 'Suno credits', todo: 'Top up before the next Music Maker batch — no balance API.' },
   { label: 'Claude API headroom', todo: 'Setnayan AI + contract intelligence draw on this.' },
-  { label: 'OpenAI / DALL·E balance', todo: 'Empty balance blocks Animated Monogram generation.' },
+  { label: 'OpenAI / DALL·E balance', todo: 'Empty balance blocks Logo Maker generation.' },
   { label: 'Recraft credits', todo: 'Marketing / editorial image generation.' },
   { label: 'R2 storage & Supabase tier', todo: 'Review usage vs plan — upgrade before it throttles.' },
   { label: 'Vercel build minutes', todo: 'Keep machine Elastic + skip-deployments ON; watch the spend.' },

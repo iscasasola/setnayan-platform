@@ -57,7 +57,7 @@ export function VerifiedMedianCard({ data }: { data: VendorVerifiedMedian }) {
 
       {result.status === 'established' && (
         <>
-          <div className="mt-2 rounded-[18px] bg-[color:var(--m-paper-2)] px-4 py-4" data-verified-median-top="">
+          <div className="mt-2 rounded-card bg-[color:var(--m-paper-2)] px-4 py-4" data-verified-median-top="">
             <p className="flex items-center gap-1.5 text-sm font-semibold text-success-700">
               <BadgeCheck className="h-4 w-4" strokeWidth={2} aria-hidden />
               Verified median

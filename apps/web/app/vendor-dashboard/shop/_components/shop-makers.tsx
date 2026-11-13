@@ -3,7 +3,8 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { CalendarDays, ClipboardList, Lock, Tag, Wrench, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, ClipboardList, Lock, Tag, Wrench, type LucideIcon } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
 import type { ScannerChoice } from '@/lib/supplier-scan';
 import { onTheDayHref, specializedToolsFor, type SpecializedTool, type SpecializedToolKey } from '@/lib/specialized-tools';
@@ -246,7 +247,7 @@ function offersSub(o: OfferTileFacts): string {
 function OfferLockPreview() {
   return (
     <div className="flex items-start gap-3" data-offer-lock-preview="">
-      <span aria-hidden className="grid h-12 w-[60px] flex-none place-items-center rounded-xl font-mono text-xs font-bold uppercase" style={{ background: 'var(--m-sage)', color: 'var(--m-ink)' }}>
+      <span aria-hidden className="grid h-12 w-[60px] flex-none place-items-center rounded-xl text-xs font-bold uppercase" style={{ background: 'var(--m-sage)', color: 'var(--m-ink)' }}>
         % off
       </span>
       <span className="min-w-0">
@@ -296,9 +297,15 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
     return (
       <div className="space-y-3" data-tool-body={tool.key}>
         <p className="text-[13.5px] text-ink/70">{tool.line}.</p>
-        <Link href={tool.door.href} className="sn-press flex min-h-[52px] items-center justify-center rounded-full bg-ink px-4 text-sm font-semibold text-[color:var(--m-paper)]" data-tool-open={tool.key}>
-          Open {tool.title}
-        </Link>
+        {/* Design template rule 3: the shared pill button, not a hand-made one (full width, as the old one sat). */}
+        <ActionButton
+          tone="brand"
+          icon={ArrowUpRight}
+          label={`Open ${tool.title}`}
+          href={tool.door.href}
+          className="w-full"
+          data-tool-open={tool.key}
+        />
       </div>
     );
   }

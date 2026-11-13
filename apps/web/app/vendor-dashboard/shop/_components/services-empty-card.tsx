@@ -9,12 +9,13 @@ import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
  */
 export function ServicesEmptyCard() {
   return (
-    <div className="space-y-2.5 rounded-2xl px-4 py-3" style={{ background: 'var(--m-paper)', boxShadow: '0 1px 2px color-mix(in srgb, var(--m-ink) 6%, transparent)' }} data-shop-services-empty="">
+    // Design template rules 2 · 6: no card around an empty part — the section label, ONE plain line, the next step.
+    <div className="space-y-2.5" data-shop-services-empty="">
       <div className="flex items-baseline justify-between">
-        <p className="sn-eye">Services</p>
-        <span className="text-[11.5px] text-ink/70">one card a host can book</span>
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Services</p>
+        <span className="text-xs text-ink/70">one card a host can book</span>
       </div>
-      <p className="flex items-start gap-2 text-sm leading-snug text-ink/75">
+      <p className="flex items-start gap-2 text-sm leading-snug text-ink">
         <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.9} />
         <span>No service cards yet · your shop is found by its cards</span>
       </p>

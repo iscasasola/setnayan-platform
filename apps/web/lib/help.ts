@@ -6,6 +6,7 @@ import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
 import { REFUND_REPORT_WINDOW_DAYS } from '@/lib/rule-constants';
 import { papicCaptureCost } from '@/lib/papic-cameras-pure';
+import { countNoun } from '@/lib/format-number';
 import { PHONE_CLIP_MAX_MS, PHONE_CLIP_MIN_MS } from '@/lib/papic-phone-uploads';
 
 /**
@@ -18,10 +19,7 @@ import { PHONE_CLIP_MAX_MS, PHONE_CLIP_MIN_MS } from '@/lib/papic-phone-uploads'
  */
 const SHOT_TERMS = papicPointCurrencyTerms();
 /** 📲 What one photo a guest adds from their phone costs the couple — asked of the capture route's own price function. */
-const UPLOAD_PHOTO_CREDITS = (() => {
-  const n = papicCaptureCost('photo', null, 'upload');
-  return `${n} ${n === 1 ? 'credit' : 'credits'}`;
-})();
+const UPLOAD_PHOTO_PRICE_WORDS = countNoun(papicCaptureCost('photo', null, 'upload'), 'credit', 'credits');
 
 /**
  * WHO A PUBLIC HELP TOPIC IS FOR. ⛔ There is deliberately no team/admin value:
@@ -791,13 +789,13 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'add-photos-from-your-phone',
         title: 'Guest: can I add photos I took on my own phone?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Yes, if the couple allows it. Open your camera, tap your shots beside the shutter, then Add from your phone. Pick freely: the date each photo was taken is read on your phone, and only photos and videos from the event day go in — screenshots and photos sent over chat carry no date, so they can't go. Tap a photo to leave it out. A video goes up at ${PHONE_CLIP_MIN_MS / 1000} to ${PHONE_CLIP_MAX_MS / 1000} seconds: trim a longer one on your phone, and only the part you keep is sent. Each photo uses ${UPLOAD_PHOTO_CREDITS} of the couple's credits. If their credits have run out, the sheet says Out of Credits and nothing is sent. Some couples check guests' photos before they show — yours then appear once they keep them.`,
+        body: `Yes, if the couple allows it. Open your camera, tap your shots beside the shutter, then Add from your phone. Pick freely: the date each photo was taken is read on your phone, and only photos and videos from the event day go in — screenshots and photos sent over chat carry no date, so they can't go. Tap a photo to leave it out. A video goes up at ${PHONE_CLIP_MIN_MS / 1000} to ${PHONE_CLIP_MAX_MS / 1000} seconds: trim a longer one on your phone, and only the part you keep is sent. Each photo uses ${UPLOAD_PHOTO_PRICE_WORDS} of the couple's credits. If their credits have run out, the sheet says Out of Credits and nothing is sent. Some couples check guests' photos before they show — yours then appear once they keep them.`,
       },
       {
         slug: 'photos-from-guests-phones',
         title: "How do guests' phone photos reach my Memories — and can I check them first?",
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Guests can add photos and short videos they took on your event day from their own phones. Each photo uses ${UPLOAD_PHOTO_CREDITS} from your Papic credits, the same as a photo you add yourself. Choose when they show in Memories → Papic → Photos from guests' phones: Right away, or After I check. With After I check, each one waits out of sight; you check them on your Recap before you publish it — Keep or Leave out. A photo you leave out, or never check, stays out of your Recap and Memories, and its credits are not refunded. Turning off Adding photos by hand stops guests adding from their phones too.`,
+        body: `Guests can add photos and short videos they took on your event day from their own phones. Each photo uses ${UPLOAD_PHOTO_PRICE_WORDS} from your Papic credits, the same as a photo you add yourself. Choose when they show in Memories → Papic → Photos from guests' phones: Right away, or After I check. With After I check, each one waits out of sight; you check them on your Recap before you publish it — Keep or Leave out. A photo you leave out, or never check, stays out of your Recap and Memories, and its credits are not refunded. Turning off Adding photos by hand stops guests adding from their phones too.`,
       },
       {
         slug: 'add-your-face',

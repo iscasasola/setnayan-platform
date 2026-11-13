@@ -1,5 +1,6 @@
 'use client';
 
+import { formatCount } from '@/lib/format-number';
 import { useState } from 'react';
 import { Check, Download, Loader2 } from 'lucide-react';
 import { saveImagesToDevice } from '@/lib/save-to-device';
@@ -44,7 +45,7 @@ export function SaveAllOwnPhotos({ urls, baseName }: { urls: readonly string[]; 
         </span>
       ) : state === 'done' && missed > 0 ? (
         <span role="status" className="text-xs text-ink/70">
-          {missed === 1 ? `${missed} photo could not be saved — open it and press and hold it.` : `${missed} photos could not be saved — open each and press and hold it.`}
+          {missed === 1 ? `${formatCount(missed)} photo could not be saved — open it and press and hold it.` : `${formatCount(missed)} photos could not be saved — open each and press and hold it.`}
         </span>
       ) : null}
     </span>

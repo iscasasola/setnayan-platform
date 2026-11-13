@@ -1803,7 +1803,7 @@ export async function resolveEventMoney(
   // the WHOLE query, which would zero the budget rather than degrade it.
   let vendorRows: VendorMoneyRow[] | null;
   if (vendorsRes.error && isMissingColumn(vendorsRes.error)) {
-    // Not `select('*')`: the five booking amounts are read only through the reader (#5936); once migration B closes them per column, `*` is refused outright.
+    // Not `select('*')`: the five booking amounts are read only through the reader (#5936); since migration B (20271343340931) closes them per column, `*` is refused outright.
     const retry = await supabase
       .from('event_vendors')
       .select('vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,notes,created_at,marketplace_vendor_id,manual_vendor_id')

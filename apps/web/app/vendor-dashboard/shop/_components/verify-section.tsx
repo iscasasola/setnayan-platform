@@ -242,6 +242,8 @@ export function VerifySection({
                     <Calendar className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                     Booked ·{' '}
                     {new Date(verify.meetScheduledAt).toLocaleString('en-PH', {
+      // 🕐 Manila, not the server's UTC (walk 13 Nov 2026, F-W1-61) — the same wall clock on the server and the phone.
+      timeZone: 'Asia/Manila',
                       month: 'short',
                       day: 'numeric',
                       hour: 'numeric',

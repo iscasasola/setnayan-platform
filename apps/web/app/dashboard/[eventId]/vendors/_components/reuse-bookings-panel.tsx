@@ -90,7 +90,7 @@ export async function ReuseBookingsPanel() {
                   <span className="block truncate font-semibold text-ink">
                     {r.vendorName ?? 'Supplier'} → {r.targetEventLabel}
                   </span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
+                  <span className="font-mono text-[12px] uppercase tracking-[0.1em] text-ink/45">
                     {r.status}
                     {r.status === 'quoted' ? ` · ${peso(r.quotedTotalPhp)}` : ''}
                   </span>
@@ -123,7 +123,7 @@ export async function ReuseBookingsPanel() {
                 </p>
               ) : null}
               {r.scope.length > 0 ? (
-                <p className="mt-1 truncate text-[11px] text-ink/50">
+                <p className="mt-1 truncate text-[12px] text-ink/50">
                   Includes: {r.scope.map((s) => s.label).join(', ')}
                 </p>
               ) : null}

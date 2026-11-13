@@ -462,7 +462,7 @@ export function BuildCompare({
           spec §8.3) — the surface that owns the team owns emptying it. */}
       {replan ? (
         <div className="sn-tile space-y-2 p-4">
-          <h3 className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+          <h3 className="font-mono text-[12px] uppercase tracking-[0.12em] text-ink/50">
             Your saved plans
           </h3>
           {!savedBuildsMeasured ? (
@@ -497,7 +497,7 @@ export function BuildCompare({
                     <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                       {title}
                     </span>
-                    <span className="font-mono text-[11px] tabular-nums text-ink/55">
+                    <span className="font-mono text-[12px] tabular-nums text-ink/55">
                       {peso(b.total_php)}
                     </span>
                     <button
@@ -567,7 +567,7 @@ export function BuildCompare({
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-ink/[0.03] text-left">
-                <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                <th className="px-3 py-2 font-mono text-[12px] uppercase tracking-[0.12em] text-ink/50">
                   Category
                 </th>
                 {columns.map((c) => {
@@ -582,7 +582,7 @@ export function BuildCompare({
                   return (
                     <th
                       key={c.key}
-                      className="px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55"
+                      className="px-2 py-2 text-right font-mono text-[12px] uppercase tracking-[0.12em] text-ink/55"
                     >
                       <div className={c.isCurrent ? 'text-terracotta-700' : 'text-ink/70'}>
                         {c.title}
@@ -595,7 +595,7 @@ export function BuildCompare({
                               onClick={() => onApply(c.snapshot, 'build', c.title)}
                               disabled={pending || !canApply}
                               aria-label={replan ? `Load ${c.title}` : `Modify with ${c.title}`}
-                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta-700 disabled:opacity-40"
+                              className="inline-flex items-center gap-0.5 text-[12px] normal-case tracking-normal text-ink/40 hover:text-terracotta-700 disabled:opacity-40"
                             >
                               {replan ? (
                                 <>
@@ -614,7 +614,7 @@ export function BuildCompare({
                               onClick={() => onApply(c.snapshot, 'lock', c.title)}
                               disabled={pending || !canApply}
                               aria-label={`Book ${c.title}`}
-                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta-700 disabled:opacity-40"
+                              className="inline-flex items-center gap-0.5 text-[12px] normal-case tracking-normal text-ink/40 hover:text-terracotta-700 disabled:opacity-40"
                             >
                               <Lock className="h-3 w-3" strokeWidth={1.75} aria-hidden /> book
                             </button>
@@ -623,13 +623,13 @@ export function BuildCompare({
                               onClick={() => onDelete(c.key, c.title)}
                               disabled={pending}
                               aria-label={`Delete ${c.title}`}
-                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/35 hover:text-danger-600 disabled:opacity-50"
+                              className="inline-flex items-center gap-0.5 text-[12px] normal-case tracking-normal text-ink/35 hover:text-danger-600 disabled:opacity-50"
                             >
                               <Trash2 className="h-3 w-3" strokeWidth={1.75} aria-hidden /> delete
                             </button>
                           </div>
                           {!canApply ? (
-                            <span className="text-[9px] normal-case tracking-normal text-ink/30">
+                            <span className="text-[12px] normal-case tracking-normal text-ink/30">
                               Re-save to enable
                             </span>
                           ) : null}
@@ -656,7 +656,7 @@ export function BuildCompare({
                       </td>
                       <td
                         colSpan={columns.length}
-                        className="px-2 py-2 text-center text-[11px] leading-snug text-ink/70"
+                        className="px-2 py-2 text-center text-[12px] leading-snug text-ink/70"
                       >
                         <span className="font-medium text-ink">{r.vendorName}</span>
                         <span className="tabular-nums"> · {peso(r.costPhp)}</span>
@@ -692,7 +692,7 @@ export function BuildCompare({
                   <td className="px-3 py-2 text-ink/80">
                     {r.label}
                     {sameEverywhere ? (
-                      <span className="ml-1.5 whitespace-nowrap text-[10px] text-ink/40">
+                      <span className="ml-1.5 whitespace-nowrap text-[12px] text-ink/40">
                         — same in every plan
                       </span>
                     ) : null}
@@ -729,12 +729,12 @@ export function BuildCompare({
                                 </button>
                               ) : null}
                             </div>
-                            <div className="tabular-nums text-[11px] text-ink/55">
+                            <div className="tabular-nums text-[12px] text-ink/55">
                               {peso(p.costPhp)}
                               {p.locked ? ' · booked' : ''}
                             </div>
                             {hasInclusions && isOpen ? (
-                              <div className="mt-0.5 text-[10px] leading-snug text-ink/45">
+                              <div className="mt-0.5 text-[12px] leading-snug text-ink/45">
                                 {inclusions.map((inc, i) => (
                                   <span key={`${cellKey}-inc-${i}`}>
                                     {i === 0 ? '+ ' : ', '}
@@ -760,16 +760,16 @@ export function BuildCompare({
                   return (
                     <td key={c.key} className="px-2 py-2 text-right">
                       <div className="font-display text-base italic text-ink">{peso(c.total)}</div>
-                      {ou ? <div className={`text-[10px] ${ou.tone}`}>{ou.text}</div> : null}
+                      {ou ? <div className={`text-[12px] ${ou.tone}`}>{ou.text}</div> : null}
                     </td>
                   );
                 })}
               </tr>
               {availability ? (
                 <tr className="border-t border-ink/10">
-                  <td className="px-3 py-2 align-top text-[11px] leading-snug text-ink/55">
+                  <td className="px-3 py-2 align-top text-[12px] leading-snug text-ink/55">
                     Dates that work
-                    <span className="block text-[10px] text-ink/40">in {availability.windowLabel}</span>
+                    <span className="block text-[12px] text-ink/40">in {availability.windowLabel}</span>
                   </td>
                   {columns.map((c) => {
                     const a = availability.byColumn[c.key];
@@ -777,17 +777,17 @@ export function BuildCompare({
                       <td key={c.key} className="px-2 py-2 text-right align-top">
                         {!a || a.connectedCount === 0 ? (
                           <span
-                            className="text-[10px] text-ink/35"
+                            className="text-[12px] text-ink/35"
                             title="No Setnayan-connected suppliers in this build to check calendars for"
                           >
                             —
                           </span>
                         ) : a.conflictText ? (
-                          <span className="block text-[10px] leading-snug text-danger-700">
+                          <span className="block text-[12px] leading-snug text-danger-700">
                             {a.conflictText}
                           </span>
                         ) : (
-                          <span className="block text-[10px] leading-snug text-success-700">
+                          <span className="block text-[12px] leading-snug text-success-700">
                             {formatCount(a.totalAvailable)} day{a.totalAvailable === 1 ? '' : 's'} free
                             {a.dayLabels.length > 0
                               ? ` · ${a.dayLabels.join(' · ')}${a.moreCount > 0 ? ` +${formatCount(a.moreCount)}` : ''}`
@@ -805,9 +805,9 @@ export function BuildCompare({
                   plan can be affordable and still be impossible. */}
               {anchoredDate ? (
                 <tr className="border-t border-ink/10">
-                  <td className="px-3 py-2 align-top text-[11px] leading-snug text-ink/55">
+                  <td className="px-3 py-2 align-top text-[12px] leading-snug text-ink/55">
                     On your date
-                    <span className="block text-[10px] text-ink/40">
+                    <span className="block text-[12px] text-ink/40">
                       {anchoredDate.dateLabel}
                     </span>
                   </td>
@@ -817,17 +817,17 @@ export function BuildCompare({
                       <td key={c.key} className="px-2 py-2 text-right align-top">
                         {!a || a.checkedCount === 0 ? (
                           <span
-                            className="text-[10px] text-ink/35"
+                            className="text-[12px] text-ink/35"
                             title="No Setnayan-connected suppliers in this plan to check calendars for"
                           >
                             —
                           </span>
                         ) : a.bookedNames.length === 0 ? (
-                          <span className="block text-[10px] leading-snug text-success-700">
+                          <span className="block text-[12px] leading-snug text-success-700">
                             Everyone here is free
                           </span>
                         ) : (
-                          <span className="block text-[10px] leading-snug text-danger-700">
+                          <span className="block text-[12px] leading-snug text-danger-700">
                             {a.bookedNames.join(', ')} booked that day
                           </span>
                         )}

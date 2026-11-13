@@ -82,7 +82,7 @@ export function BookedCountRule({
           <b className="block text-[20px] font-medium leading-none tabular-nums text-ink" data-booked-count={shown.counted}>
             {shown.counted}
           </b>
-          <span className="block text-[11.5px] text-ink/55">counted</span>
+          <span className="block text-[12px] text-ink/55">counted</span>
         </span>
         <ChevronRight aria-hidden strokeWidth={2} className="h-4 w-4 text-sn-accent" />
       </button>

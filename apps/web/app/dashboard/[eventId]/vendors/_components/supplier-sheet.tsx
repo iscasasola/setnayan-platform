@@ -246,7 +246,7 @@ export default function SupplierSheet({
   const quote = cardVerbWords('ask');
   const photos = data?.photos ? sheetPhotoRow(data.photos) : null;
   const eyebrow = [target.categoryLabel, target.city].filter(Boolean).join(' · ');
-  const k2 = 'font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45';
+  const k2 = 'font-mono text-[12px] uppercase tracking-[0.12em] text-ink/45';
 
   return createPortal(
     <Sheet open onClose={onClose} labelledById="supplier-sheet-name" wide rise>
@@ -269,7 +269,7 @@ export default function SupplierSheet({
           {target.nameWithheld ? <p className="mt-0.5 text-[12px] text-ink/55">Real name shown after they reply</p> : null}
           <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink/70">
             {target.verified ? (
-              <span className="rounded-full bg-[rgb(var(--color-ok)_/_0.12)] px-2.5 py-1 text-[11px] font-semibold text-[rgb(var(--color-ok))]">Verified</span>
+              <span className="rounded-full bg-[rgb(var(--color-ok)_/_0.12)] px-2.5 py-1 text-[12px] font-semibold text-[rgb(var(--color-ok))]">Verified</span>
             ) : null}
             {target.rating != null ? (
               <span className="inline-flex items-center gap-1">

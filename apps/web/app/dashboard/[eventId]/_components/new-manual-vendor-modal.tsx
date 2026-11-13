@@ -679,7 +679,7 @@ export function NewManualVendorModal({
                       label={photoPreviewUrl ? 'Replace photo' : 'Add photo'}
                       onClick={() => fileInputRef.current?.click()}
                     />
-                    <span className="text-[11px] text-ink/50">Optional — JPEG, PNG, WebP, or HEIC up to 6 MB.</span>
+                    <span className="text-[12px] text-ink/50">Optional — JPEG, PNG, WebP, or HEIC up to 6 MB.</span>
                   </div>
                   <input
                     ref={fileInputRef}
@@ -1195,7 +1195,7 @@ function MarketplaceAutocomplete({
         aria-label="Marketplace supplier matches"
         className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-ink/15 bg-cream p-3 shadow-lg"
       >
-        <p className="flex items-center gap-2 text-[11px] text-ink/55">
+        <p className="flex items-center gap-2 text-[12px] text-ink/55">
           <span
             aria-hidden
             className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta"
@@ -1225,7 +1225,7 @@ function MarketplaceAutocomplete({
           type="button"
           onClick={onDismiss}
           aria-label="Close suggestions"
-          className="text-[10px] uppercase tracking-[0.1em] text-ink/45 transition-colors hover:text-ink/75"
+          className="text-[12px] uppercase tracking-[0.1em] text-ink/45 transition-colors hover:text-ink/75"
         >
           Hide
         </button>
@@ -1297,14 +1297,14 @@ function SuggestionRow({
             {vendor.business_name}
           </span>
           {vendor.city ? (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-ink/55">
+            <span className="inline-flex items-center gap-0.5 text-[12px] text-ink/55">
               <MapPin aria-hidden className="h-2.5 w-2.5" strokeWidth={1.75} />
               {vendor.city}
             </span>
           ) : null}
         </div>
         {isCrossCategory ? (
-          <p className="text-[11.5px] leading-snug text-warn-800 dark:text-warn-200">
+          <p className="text-[12px] leading-snug text-warn-800 dark:text-warn-200">
             {categoriesPretty.length > 0 ? (
               <>
                 <strong className="font-semibold">{vendor.business_name}</strong>{' '}
@@ -1322,7 +1322,7 @@ function SuggestionRow({
             )}
           </p>
         ) : (
-          <span className="text-[11px] text-ink/55">
+          <span className="text-[12px] text-ink/55">
             Pick this supplier for {currentCategoryLabel}
           </span>
         )}
@@ -1367,13 +1367,13 @@ function LinkedVendorConfirmation({
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <p className="text-base font-semibold text-ink">{vendor.business_name}</p>
             {vendor.city ? (
-              <p className="flex items-center gap-0.5 text-[11.5px] text-ink/55">
+              <p className="flex items-center gap-0.5 text-[12px] text-ink/55">
                 <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 {vendor.city}
               </p>
             ) : null}
             {vendor.categories.length > 0 ? (
-              <p className="text-[11.5px] text-ink/65">
+              <p className="text-[12px] text-ink/65">
                 Offers{' '}
                 <span className="font-medium text-ink/80">
                   {vendor.categories
@@ -1408,7 +1408,7 @@ function LinkedVendorConfirmation({
           </span>
         </p>
       ) : (
-        <p className="text-[11px] text-ink/65">
+        <p className="text-[12px] text-ink/65">
           Adding to your <span className="font-medium">{currentCategoryLabel}</span>{' '}
           card as a considering pick. You can book or remove them anytime.
         </p>
@@ -1466,7 +1466,7 @@ function VendorLogo({
     <span
       aria-hidden
       className={`inline-flex shrink-0 items-center justify-center rounded-full bg-sn-accent/15 font-mono ${
-        large ? 'text-sm' : 'text-[10px]'
+        large ? 'text-sm' : 'text-[12px]'
       } font-semibold text-sn-accent`}
       style={{ width: size, height: size }}
     >

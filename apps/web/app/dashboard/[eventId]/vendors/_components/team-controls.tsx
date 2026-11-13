@@ -362,7 +362,7 @@ export function TeamDecisionDoorway({
       <Circle className="h-3 w-3 shrink-0 text-ink/30" strokeWidth={2} aria-hidden />
       <span className="min-w-0 flex-1 truncate text-sm text-ink/85">{label}</span>
       {meta ? (
-        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
+        <span className="shrink-0 font-mono text-[12px] uppercase tracking-[0.1em] text-ink/45">
           {meta}
         </span>
       ) : null}

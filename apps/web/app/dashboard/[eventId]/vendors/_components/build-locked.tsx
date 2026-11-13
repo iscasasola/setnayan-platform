@@ -349,7 +349,7 @@ export function BuildLocked({
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
-                  <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
+                  <span className="block font-mono text-[12px] uppercase tracking-[0.1em] text-ink/45">
                     {r.folder} · {r.group}
                   </span>
                 </span>
@@ -403,7 +403,7 @@ export function BuildLocked({
               that fixes it — Remove (the row's swipe) — and no "Lock to confirm". */}
           {blockedRows.length > 0 ? (
             <div className="space-y-2 pt-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
+              <p className="font-mono text-[12px] uppercase tracking-[0.1em] text-ink/55">
                 {CANT_LOCK_YET_HEADING}
               </p>
               {blockedRows.map((r) => {
@@ -450,7 +450,7 @@ export function BuildLocked({
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-[rgb(var(--color-ok))]" strokeWidth={1.75} aria-hidden />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
-                      <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
+                      <span className="block font-mono text-[12px] uppercase tracking-[0.1em] text-ink/45">
                         {r.folder} · {r.group}
                       </span>
                     </span>
@@ -476,7 +476,7 @@ export function BuildLocked({
                       />
                     ) : null}
                     {reviewStatusByVendorId?.get(r.vendorId) === 'submitted' ? (
-                      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[rgb(var(--color-ok))]">
+                      <span className="font-mono text-[12px] uppercase tracking-[0.1em] text-[rgb(var(--color-ok))]">
                         Reviewed
                       </span>
                     ) : null}
@@ -648,7 +648,7 @@ function DepositLine({ step, href }: { step: DepositStep | undefined; href: stri
     );
   }
   return (
-    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/60" data-money="">
+    <p className="mt-2 font-mono text-[12px] uppercase tracking-[0.1em] text-ink/60" data-money="">
       {step === 'confirmed' ? 'First payment confirmed' : 'First payment sent · waiting for them to confirm'}
     </p>
   );
@@ -727,13 +727,13 @@ function LockTile({
       // last-seen data (lib/last-seen).
       data-money={k === 'Date' || k === 'Location' ? undefined : ''}
     >
-      <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-ink/50">{k}</div>
+      <div className="font-mono text-[12px] uppercase tracking-[0.12em] text-ink/50">{k}</div>
       <div
         className={`mt-1 truncate font-display text-lg italic ${toneClass ?? 'text-ink'}${accent ? ' font-semibold' : ''}`}
       >
         {v}
       </div>
-      {note && <div className="mt-0.5 text-[11px] leading-snug text-ink/55">{note}</div>}
+      {note && <div className="mt-0.5 text-[12px] leading-snug text-ink/55">{note}</div>}
     </div>
   );
 }

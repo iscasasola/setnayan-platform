@@ -44,7 +44,7 @@ import { BookedStandInCtx } from './booked-stand-ins';
 import { OwnPayWays } from './own-pay-ways';
 import { formatPhp } from '@/lib/php';
 
-const K2 = 'text-[11px] uppercase tracking-[0.14em] text-ink/55';
+const K2 = 'text-[12px] uppercase tracking-[0.14em] text-ink/55';
 const MUTE = 'text-[13px] leading-snug text-ink/60';
 
 type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'not_booked' } | { kind: 'ok'; data: PaySheetData };

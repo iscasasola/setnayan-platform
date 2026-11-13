@@ -406,7 +406,7 @@ export function AddYourOwnWalk({
               className={`h-[3px] min-w-0 flex-1 rounded-full ${i < step ? 'bg-sn-accent' : 'bg-ink/15'}`}
             />
           ))}
-          <span className="shrink-0 pl-1 text-[11.5px] text-ink/55">{addOwnStepLine(step)}</span>
+          <span className="shrink-0 pl-1 text-[12px] text-ink/55">{addOwnStepLine(step)}</span>
         </div>
 
         {step === 1 ? (
@@ -455,7 +455,7 @@ export function AddYourOwnWalk({
             ) : null}
             {hasMatches ? (
               <div className="mt-2 border-t border-ink/10 pt-3" data-add-own-matches="">
-                <p className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-ink/55">
+                <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-ink/55">
                   {ADD_OWN_MATCH_HEAD}{' '}
                   <span className="font-sans normal-case tracking-normal">· {ADD_OWN_MATCH_TAIL}</span>
                 </p>

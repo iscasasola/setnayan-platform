@@ -130,11 +130,11 @@ export function VendorQuickViewInspector({
         {/* Status + identity chips */}
         <div className="flex flex-wrap items-center gap-2">
           {v.status === 'locked' ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-mulberry px-2.5 py-1 text-[11px] font-bold text-cream">
+            <span className="inline-flex items-center gap-1 rounded-full bg-mulberry px-2.5 py-1 text-[12px] font-bold text-cream">
               ★ Chosen
             </span>
           ) : (
-            <span className="rounded-full border border-ink/12 px-2.5 py-1 text-[11px] font-medium text-ink/55">
+            <span className="rounded-full border border-ink/12 px-2.5 py-1 text-[12px] font-medium text-ink/55">
               Considering
             </span>
           )}
@@ -149,12 +149,12 @@ export function VendorQuickViewInspector({
         {v.isVerified || v.isSetnayan ? (
           <div className="flex flex-wrap gap-2">
             {v.isSetnayan ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-mulberry/10 px-2.5 py-1 text-[11px] font-semibold text-mulberry">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-mulberry/10 px-2.5 py-1 text-[12px] font-semibold text-mulberry">
                 <Sparkles size={12} strokeWidth={2} aria-hidden /> Setnayan
               </span>
             ) : null}
             {v.isVerified ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[11px] font-semibold text-success-900">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[12px] font-semibold text-success-900">
                 <BadgeCheck size={12} strokeWidth={2} aria-hidden /> Verified
               </span>
             ) : null}
@@ -188,7 +188,7 @@ export function VendorQuickViewInspector({
             {fits.map((f, i) => (
               <span
                 key={i}
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ${
                   f.cls === 'ok'
                     ? 'bg-success-100 text-success-900'
                     : f.cls === 'muted'
@@ -205,7 +205,7 @@ export function VendorQuickViewInspector({
         {/* Price — the vendor's quoted total, when there is one. */}
         {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
           <div className="border-t border-ink/10 pt-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">Your price</p>
+            <p className="font-mono text-[12px] uppercase tracking-[0.12em] text-ink/45">Your price</p>
             <p className="mt-0.5 font-serif text-2xl italic font-semibold text-ink">
               {formatPhp(v.totalCostPhp)}
             </p>

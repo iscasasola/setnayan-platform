@@ -57,7 +57,7 @@ const PAID_NAMES: string[] = [
     EVERY_ADD_ON.filter((a) => STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)).flatMap((a) =>
       // "Event Pro" is also written "Event PRO" — both spellings, still from the label.
       // ⏳ TRANSITION #7605: the couple side still says the old name until #7605 merges — drop the old spellings then.
-      [a.label, a.label.replace(/\bPRO\b/, 'Pro'), a.label.replace(/\bPro\b/, 'PRO'), ...(a.label === 'Event Pro' ? ['Event Hub Pro', 'Event Hub PRO'] : [])],
+      [a.label, a.label.replace(/\bPRO\b/, 'Pro'), a.label.replace(/\bPro\b/, 'PRO'), ...(/^Event (?:Hub )?P(?:RO|ro)$/.test(a.label) ? ['Event Pro', 'Event PRO', 'Event Hub Pro', 'Event Hub PRO'] : [])],
     ),
   ),
 ];

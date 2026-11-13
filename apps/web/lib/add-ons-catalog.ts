@@ -517,7 +517,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     tags: ['Event Hub', 'Upgrade', 'Popular'],
     surface: 'website',
     opensDirect: true,
-    label: 'Event Pro',
+    // ⏳ TRANSITION #7605: the label stays until #7605 merges — two couple-side tests pin it (the-hub-and-its-controller-are-two-words, event-hub-pro-on-the-services-step).
+    label: 'Event Hub PRO',
     Icon: Globe2,
     iteration: '0002',
     status: 'live',

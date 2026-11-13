@@ -22,6 +22,7 @@ import type { QueuePeek } from '@/lib/admin/queue-peek';
 import { partitionQueues } from '@/lib/admin/queue-partition';
 import { EXPANDABLE_QUEUES } from '@/lib/admin/queue-peek';
 import { QueueDrawer } from './queue-drawer';
+import { GreenBatchAction, type GreenBatch } from './green-batch';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import type {
   AdminQueueLane,
@@ -47,6 +48,10 @@ export type TriageItem = {
   ageLabel?: string;
   /** Items behind this row, when the queue is the one `?open=` names. */
   peek?: QueuePeek | null;
+  /** A trail to watch (`watchOnly` in ADMIN_QUEUE_META) — shown, never summed as work waiting. */
+  watchOnly?: boolean;
+  /** Payments only: the green/held sort behind "Approve all N green" (admin slice 4). */
+  greenBatch?: GreenBatch;
 };
 
 type Props = {
@@ -187,6 +192,9 @@ function TriageRow({
           />
         )}
       </Link>
+      {item.greenBatch ? (
+        <GreenBatchAction batch={item.greenBatch} backTo={toggleHref ?? '/admin/work'} />
+      ) : null}
       {item.peek ? (
         <QueueDrawer
           peek={item.peek}
@@ -212,6 +220,8 @@ function triageTotals(items: TriageItem[]) {
     soon = 0,
     onPace = 0;
   for (const i of items) {
+    // A trail to watch is not work waiting — it keeps its badge, not a place here.
+    if (i.watchOnly) continue;
     const n = i.count ?? 0;
     if (n <= 0) continue;
     if (i.dueState === 'overdue') late += n;
@@ -330,6 +340,9 @@ const SETTLE_NOTICES: Record<string, { tone: 'warn' | 'ok'; headline: string }> 
   saved: { tone: 'ok', headline: 'Saved' },
   /* ➕ ADMIN SUPPLIER SLICE (owner 2026-10-28) — every outcome a supplier row can end in, said. */
   approved: { tone: 'ok', headline: 'Approved — the shop is told in the app' },
+  /* ➕ "APPROVE ALL N GREEN" (admin slice 4) — `why` carries the per-row tally. */
+  batch: { tone: 'ok', headline: 'Green payments approved' },
+  'batch-partial': { tone: 'warn', headline: 'Some payments were left for you' },
   'sent-back': { tone: 'ok', headline: 'Sent back with the reason — the shop sees it on its setup' },
   declined: { tone: 'ok', headline: 'Declined with the reason — the shop is told in the app' },
   'type-added': { tone: 'ok', headline: 'Event type added' },

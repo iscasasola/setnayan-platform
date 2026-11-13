@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { formatCentavosPhp } from '@/lib/payouts';
 import { getQueueSource } from '@/lib/admin/queue-counts';
 import { SUPPLIER_WORK_REASONS } from '@/lib/admin/supplier-work';
+import { readPaymentLights, type PaymentLightsRead } from '@/lib/admin/green-payments.server';
+import { withReceiptVerdicts } from '@/lib/admin/payment-verdicts.server';
 
 /**
  * QUEUE PEEK — the actual items behind a work-list row, so an admin can see and
@@ -96,6 +98,12 @@ export type PeekItem = {
   form?: PeekForm;
   /** Where "Open" goes — always available, even when an action is. */
   href: string;
+  /** Payments only: the desk's clean-match light (green = in "Approve all N green"). */
+  light?: 'green' | 'amber';
+  /** Payments only: the receipt read's own sentence, or plain words for its absence. */
+  verdict?: string;
+  /** Payments only, amber rows: the one line saying why it was held. */
+  held?: string;
 };
 
 export type QueuePeek = {
@@ -145,6 +153,11 @@ export const JUDGEMENT_QUEUES: Record<string, string> = {
      that is a ruling on whether a supplier did the job, not a fact to tick. */
   completions:
     'Deciding whether a supplier delivered moves a public review either way. Opens the file.',
+  /* Added 2026-11-13 with their counts (admin slice 4). */
+  'repost-watch':
+    'A repost is a judgement: open both pictures side by side before you decide.',
+  'editorial-review':
+    'A flagged editorial needs reading in full — the couple waits until you clear it. Opens the review.',
 };
 
 /**
@@ -162,6 +175,18 @@ export const SETTLED_ELSEWHERE: Record<string, string> = {
     'A fee is confirmed on Payments, where the supplier’s receipt is — this list only shows who has not paid yet.',
   'vendor-partnerships':
     'These wait on the other supplier, not on us. The only thing we can do is veto one, and that opens the file.',
+  /* Added 2026-11-13 with their counts (admin slice 4). */
+  'pax-changes':
+    'A record of guest-count cost changes — nothing to decide; open it to read the trail.',
+  'supplier-refunds':
+    'Refunds a supplier recorded giving their client — no money moves through Setnayan, so there is nothing to decide here.',
+  'social-queue':
+    'Retries and take-downs are done on the Social queue, where the post and its platforms are.',
+  pakanta: 'A song is written, then uploaded on its Music Maker row, where the brief is.',
+  'service-requests':
+    'Each request is decided on its own page — add the service, or point to one we have.',
+  problems: 'Each problem opens with its trace on Problems, where it can be closed.',
+  'email-bounces': 'Who did not get which email is on Email delivery, with the reason.',
 };
 
 /**
@@ -226,6 +251,8 @@ export async function peekQueue(
    * unexplained error every time it was pressed.
    */
   viewerUserId?: string,
+  /** Reads the caller already made this request, so opening a row is not a second read. */
+  pre?: { paymentLights?: PaymentLightsRead },
 ): Promise<QueuePeek | null> {
   // Both reasons a queue may withhold a control: it is a judgement, or the
   // work happens somewhere else. Either way the row SAYS so.
@@ -250,55 +277,43 @@ export async function peekQueue(
 
   try {
     if (key === 'payments') {
-      const q = open('payment_id, amount_php, channel, reference_number, screenshot_url, created_at');
-      if (!q) return null;
-      const { data, count, error } = await q
-        .order('created_at', { ascending: true })
-        .limit(PEEK_LIMIT);
-      // 🪤 SUPABASE DOES NOT THROW. It answers politely with { error }, so the
-      // try/catch below could never fire and `unreadable` was unreachable —
-      // a renamed column or a permission change still produced a green tick
-      // and \"Nothing waiting here\" over work that was genuinely sitting there.
-      if (error) return { items: [], total: 0, unreadable: true };
-
-      const items: PeekItem[] = (data ?? []).map((r: unknown) => {
-        const row = r as {
-          payment_id: string;
-          amount_php: number | null;
-          channel: string | null;
-          reference_number: string | null;
-          screenshot_url: string | null;
-        };
+      /* ➕ GREEN / AMBER (admin slice 4, 2026-11-13). The rows are sorted by the
+         SAME rule the desk's clean-match badge uses (lib/admin/green-payments.ts),
+         and each carries the receipt read's own sentence and, when held, why.
+         The Work page reads this once for the row's "Approve all N green" and
+         hands it in, so opening the row costs no second read. */
+      let lights = pre?.paymentLights;
+      if (!lights) {
+        const admin = createAdminClient();
+        const read = await readPaymentLights(admin);
+        lights = read.ok ? { ...read, rows: await withReceiptVerdicts(admin, read.rows) } : read;
+      }
+      if (!lights.ok) return { items: [], total: 0, unreadable: true };
+      // Green first (they clear fastest), then the queue's own oldest-first order.
+      const ordered = [...lights.rows].sort(
+        (a, b) => Number(b.light.light === 'green') - Number(a.light.light === 'green'),
+      );
+      const items: PeekItem[] = ordered.slice(0, PEEK_LIMIT).map((row) => {
         // 🚨 NO PROOF ⇒ NO ONE-CLICK. Owner, 2026-08-05: *"vendor must send
         // their booking fee payment before we activate it. admin will verify it
-        // manually if paid via QR."*
-        //
-        // A booking-fee row is OPENED AS PENDING THE MOMENT THE VENDOR CONFIRMS
-        // THE DEPOSIT — before any money moves — with a null reference number
-        // and a null screenshot. It is a placeholder for a payment that is
-        // EXPECTED, not a record of one that ARRIVED. On the payments page an
-        // admin would see the blank screenshot and think twice; on a list built
-        // for speed it looked exactly like every settled-by-one-tap row, and
-        // one tap now fully activates the booking (promoteOrder).
-        //
-        // 🔑 A FACT QUEUE IS ONLY A FACT QUEUE WHEN THE FACT IS ON THE ROW.
-        // With neither a reference nor a screenshot there is nothing to verify
-        // against, so this row gets the page and a sentence instead.
-        const hasProof =
-          (row.reference_number != null && row.reference_number.trim() !== '') ||
-          (row.screenshot_url != null && row.screenshot_url.trim() !== '');
+        // manually if paid via QR."* A booking-fee row is opened as pending the
+        // moment the vendor confirms the deposit — before any money moves — with
+        // no reference and no screenshot: a payment EXPECTED, not one that
+        // ARRIVED. 🔑 A FACT QUEUE IS ONLY A FACT QUEUE WHEN THE FACT IS ON THE
+        // ROW — so that row gets the page and its "why held" instead.
+        const hasProof = row.hasProof;
         return {
-          id: row.payment_id,
-          title: formatCentavosPhp(Math.round((row.amount_php ?? 0) * 100)),
-          detail: [
-            row.channel ?? 'payment',
-            row.reference_number ? `ref ${row.reference_number}` : null,
-          ]
+          id: row.paymentId,
+          title: formatCentavosPhp(Math.round((row.amountPhp ?? 0) * 100)),
+          detail: [row.channel ?? 'payment', row.referenceNumber ? `ref ${row.referenceNumber}` : null, row.who]
             .filter(Boolean)
             .join(' · '),
-          // A FACT — but only once there is something proving it. See hasProof.
+          light: row.light.light,
+          verdict: row.verdict,
+          // A proofless row already says why in its note — not twice.
+          held: row.light.light === 'amber' && hasProof ? row.light.why : undefined,
           action: hasProof
-            ? { kind: 'approve-payment', label: 'Confirm payment', id: row.payment_id }
+            ? { kind: 'approve-payment', label: 'Confirm payment', id: row.paymentId }
             : undefined,
           note: hasProof
             ? undefined
@@ -307,7 +322,7 @@ export async function peekQueue(
         };
       });
 
-      return { items, total: count ?? items.length };
+      return { items, total: lights.total };
     }
 
     if (key === 'verify') {

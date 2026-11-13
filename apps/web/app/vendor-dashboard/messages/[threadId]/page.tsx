@@ -138,7 +138,7 @@ import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
 import { ChatPrivacyTip } from '@/app/_components/chat-privacy-notice';
 import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { BackButton } from '@/app/_components/back-button';
-import { eventChatTitle } from '@/lib/event-chat-title';
+import { eventChatTitle, eventDateOptionWords } from '@/lib/event-chat-title';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { affordancePanelId } from '@/lib/chat-box-tools';
 import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
@@ -453,7 +453,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   const eventRead = (async () => {
     return await paxAdmin
       .from('events')
-      .select('display_name, event_date, event_type, region, setnayan_ai_active, created_at, budget_band, mood_feel_key, ceremony_type')
+      .select('display_name, event_date, event_type, region, setnayan_ai_active, created_at, budget_band, mood_feel_key, ceremony_type, date_candidates, date_window_start, date_window_end')
       .eq('event_id', thread.event_id)
       .maybeSingle();
   })();
@@ -1286,12 +1286,24 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
 
   // THE CUSTOMER SUMMARY (owner 2026-09-08). One builder, so the sentence and
   // the rows cannot disagree with each other or with the header above them.
+  // 📅 No day set yet, but the couple picked candidate date(s) or a window (walk 13 Nov 2026) — said as options
+  // wherever this page would otherwise say "Not set yet" / "(date not set)". `fitDateScope` underneath.
+  const dateOptions = event && !event.event_date
+    ? eventDateOptionWords({
+        eventDate: null,
+        precision: null,
+        candidates: (event as { date_candidates?: unknown }).date_candidates,
+        windowStart: (event as { date_window_start?: string | null }).date_window_start ?? null,
+        windowEnd: (event as { date_window_end?: string | null }).date_window_end ?? null,
+      })
+    : null;
   const customerSummary = buildCustomerEventSummary({
     hostName: customerPlan.hostName,
     eventTypeLabel: event?.event_type ? eventTypeLabel(event.event_type) : null,
     eventName: event?.display_name ?? null,
     createdAt: event?.created_at ?? null,
     targetDate: event?.event_date ?? null,
+    targetDateOptions: dateOptions,
     pax: headerPax ?? null,
     paxAtInquiry: thread.pax_at_inquiry ?? null,
     dateDemandNote: vendorDateDemandNote(dateDemand),
@@ -1817,6 +1829,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                     kind: event?.event_type && event.event_type !== 'unspecified' ? eventTypeLabel(event.event_type) : null,
                     date: event?.event_date ?? null,
                     nowMs: Date.now(),
+                    options: dateOptions,
                   })}
                   {founderInquiry ? (
                     <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
@@ -1831,7 +1844,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
               line={
                 <>
                   <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
-                  {event?.event_date ? <span>{formatLongDate(event.event_date)}</span> : null}
+                  {event?.event_date ? <span>{formatLongDate(event.event_date)}</span> : dateOptions ? <span>{dateOptions}</span> : null}
                   {guestCountLine(guestCounts) ? (
                     <span className="text-terracotta-700">
                       Planning for {guestCountLine(guestCounts)}
@@ -2086,7 +2099,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
-                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} />}
+                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} hasQuote={dealEntry.offerDeal} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
                   // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.
@@ -2115,6 +2128,10 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                       the header said something else again — three renderings of
                       one wedding day on one screen (owner 2026-09-08). */}
                   {formatLongDate(event.event_date)}
+                </span>
+              ) : dateOptions ? (
+                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
+                  {dateOptions}
                 </span>
               ) : null}
               {(() => {

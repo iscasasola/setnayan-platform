@@ -231,7 +231,8 @@ export function toServiceCard(
   const priceLabel =
     !hidePrices && row.starting_price_php !== null && row.starting_price_php > 0
       ? `from ${formatPhpRounded(row.starting_price_php)}`
-      : 'Inquire';
+      : // Never "Inquire": on a shop page that word is the ONE Inquire button (owner 13 Nov 2026, "Yes, only one").
+        'Price on request';
 
   // Pricing-basis detail — HOW the "from ₱X" anchor is computed. Per-pax shows
   // the per-guest rate (+ the min floor when set); per-hour shows the base

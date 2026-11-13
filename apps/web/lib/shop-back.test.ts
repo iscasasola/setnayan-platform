@@ -127,7 +127,8 @@ test('the shop page draws its back door from shopBackDoor — no fixed /explore 
   // Every way out that comes back to the shop carries the arrival.
   assert.match(page, /CheckADateLink\s+href=\{withShopArrival\(/);
   assert.match(page, /moreHref=\{withShopArrival\(/);
-  assert.match(page, /href:\s*withShopArrival\(o\.href/, 'the event picker keeps the arrival');
+  // 13 Nov 2026: the foot "which celebration" picker left with the inline composer; the choice is asked inside the
+  // pop-up and "Add to your event", neither of which navigates — so there is no picked-row link left to carry it.
   assert.match(page, /name="src" value=\{shopArrival\.src\}/, 'the waitlist form carries the arrival');
   // Only an event the page CHECKED may be "where you came from" — never the events[0] fallback.
   assert.match(page, /arrivalEventId = chosen\?\.event_id \?\? null;/);

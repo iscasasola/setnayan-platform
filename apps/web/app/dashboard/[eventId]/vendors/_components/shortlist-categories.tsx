@@ -45,6 +45,7 @@ import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions
 import { afterClaim, agreedSuffix, type SelfAddedPriceLines } from '@/lib/self-added-price-basis';
 import {
   Search,
+  Store,
   ChevronDown,
   ChevronRight,
   ArrowRight,
@@ -181,6 +182,7 @@ import {
   INLINE_MORE_UNDO,
   INLINE_MORE_UNDO_FAILED,
   inlineMoreSavedNote,
+  inlineMoreAskedNote,
   inlineMoreSeeAllLabel,
   inlineMoreSunkNote,
   MORE_TO_COMPARE_SAVE,
@@ -214,6 +216,8 @@ import {
   saveBenchArrangement,
 } from '../_actions/bench-arrangement';
 import { fetchInlineMoreRow } from '../_actions/inline-more-row';
+import { searchMarketplaceForBench, type BenchMarketResult } from '../_actions/bench-marketplace-search';
+import { categoryHitsFor, shopHitTile } from './bench-search-fallback';
 import {
   FIND_FILTERS_OFF,
   FIND_PAGE_CARDS,
@@ -1999,7 +2003,7 @@ function InlineMoreCard({
   sunk: boolean;
   /** The candidate named in the amber badge; null when there is no one culprit. */
   clashWith: string | null;
-  saved: { eventVendorId: string; undoable: boolean } | undefined;
+  saved: SavedFromMore | undefined;
   busy: boolean;
   /** Its Save is waiting on the write. */
   saving?: boolean;
@@ -2064,8 +2068,8 @@ function InlineMoreCard({
           the card says where it went and offers the way back. */}
       {saved ? (
         <div className="mra">
-          <span className="mrsaved">{inlineMoreSavedNote(label)}</span>
-          {saved.undoable ? (
+          <span className="mrsaved">{saved.asked ? inlineMoreAskedNote(v.name) : inlineMoreSavedNote(label)}</span>
+          {saved.undoable && !saved.asked ? (
             <ActionButton tone="neutral" icon={Undo2} label={INLINE_MORE_UNDO} disabled={busy} onClick={onUndo} />
           ) : null}
         </div>
@@ -2423,6 +2427,11 @@ function MoreToCompare({
   const inquireFromMore = async (v: CategoryVendorResult) => {
     const vendorId = await saveFromMore(v);
     if (!vendorId) return;
+    // The card says the ASK, not the save, from here on (walk 13 Nov 2026 — "Saved to Mobile Bar." read over a sent
+    // ask while the chat opened). A refused ask puts the save's own words back.
+    const markAsked = (asked: boolean) =>
+      setMoreSaved((cur) => (cur[v.vendorProfileId] ? { ...cur, [v.vendorProfileId]: { ...cur[v.vendorProfileId]!, asked } } : cur));
+    markAsked(true);
     setMoreBusy(v.vendorProfileId);
     try {
       const res = await contactShortlistVendor({ eventId, vendorId });
@@ -2430,10 +2439,12 @@ function MoreToCompare({
         router.push(`/dashboard/${res.eventId}/messages/${res.threadId}`);
         return;
       }
+      markAsked(false);
       setMoreError(
         res.status === 'not_signed_in' ? INLINE_MORE_SIGNED_OUT : INLINE_MORE_INQUIRE_FAILED,
       );
     } catch {
+      markAsked(false);
       setMoreError(INLINE_MORE_INQUIRE_FAILED);
     } finally {
       setMoreBusy(null);
@@ -3250,6 +3261,12 @@ export function ShortlistCategories({
   // categories (and their considered vendors). Empty = the normal single-open
   // accordion; a query filters to matching tiles and auto-expands them.
   const [query, setQuery] = useState('');
+  // 🔎 Words the bench puts in the thumb row's box (a marketplace hit pressed, or a category hit emptying it).
+  const [thumbPreset, setThumbPreset] = useState<{ text: string; n: number } | null>(null);
+  const setBoxText = (text: string) => {
+    setQuery(text);
+    setThumbPreset((cur) => ({ text, n: (cur?.n ?? 0) + 1 }));
+  };
 
   // ── Inline "More in {category}" row · ROW 2 (owner 2026-09-06) ─────────────
   // Owner: "when they also click the find reception button, it must show a
@@ -4015,6 +4032,53 @@ export function ShortlistCategories({
         }))
         .filter((f) => f.tiles.length > 0)
     : folders;
+  // 🔎 WHEN THE SHORTLIST HAS NO MATCH (walk 13 Nov 2026, `./bench-search-fallback.ts`): a hit is only a hit if its
+  // row is DRAWN — a matching category that is not on the event drew nothing, and said nothing either.
+  const drawnHit = visibleFolders.some((f) => f.tiles.some((t) => !inPlanTiles || inPlanTiles.has(t.tile)));
+  const shortlistMissed = searching && !drawnHit;
+  const categoryHits = shortlistMissed ? categoryHitsFor(q, poolRows.map(({ t, f }) => ({ tile: t.tile, label: t.label, f }))) : [];
+  const [marketHits, setMarketHits] = useState<{ q: string; results: BenchMarketResult[]; unreadable: boolean } | null>(null);
+  useEffect(() => {
+    if (!shortlistMissed || q.length < 2) return;
+    let cancelled = false;
+    void searchMarketplaceForBench(eventId, q)
+      .then((res) => {
+        if (!cancelled) setMarketHits({ q, ...res });
+      })
+      .catch(() => {
+        if (!cancelled) setMarketHits({ q, results: [], unreadable: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, q, shortlistMissed]);
+  const tilesOnEvent = new Set<string>(benchRows.map((r) => r.t.tile));
+  const tilesOnPage = new Set<string>(folders.flatMap((f) => f.tiles.map((t) => t.tile)));
+  const tileLabelOf = new Map<string, string>(folders.flatMap((f) => f.tiles.map((t) => [t.tile, t.label] as const)));
+  const shopHits =
+    shortlistMissed && marketHits?.q === q
+      ? marketHits.results.flatMap((r) => {
+          const tile = shopHitTile(r.tiles, tilesOnEvent, tilesOnPage);
+          return tile ? [{ r, tile }] : [];
+        })
+      : [];
+  /** A shop hit: its category row opens, searched by the shop's name — its card and "Ask for a quote" are there. */
+  const openShopHit = (tile: string, name: string) => {
+    const pool = poolRows.find((p) => p.t.tile === tile);
+    if (pool && !tilesOnEvent.has(tile)) {
+      if (!planEditing) addTileToPlan(pool.t.tile, pool.f.folder, pool.f.slug);
+    } else {
+      goToCategory(tile);
+    }
+    setBoxText(name);
+  };
+  /** A category hit: the "Add a category" picker's own add — the row opens, the box empties. */
+  const openCategoryHit = (tile: string) => {
+    const pool = poolRows.find((p) => p.t.tile === tile);
+    if (!pool || planEditing) return;
+    setBoxText('');
+    addTileToPlan(pool.t.tile, pool.f.folder, pool.f.slug);
+  };
 
 
   // Rebuilt from pairs on this side of the boundary — see the `unread` prop.
@@ -4186,10 +4250,44 @@ export function ShortlistCategories({
           service card manually that i can give the supplier itself."*). The results stay HERE: a hit opens under its
           own category row below, and nothing in this block leaves the page — the whole-marketplace rows to `/v/…`
           and the "See all results" door to `/explore` are gone. The last row adds what was typed (`bench-add`). */}
-      {searching && visibleFolders.length === 0 ? (
+      {shortlistMissed ? (
         <div className="bench-empty" data-bench-empty="">
-          Nothing in your shortlist matches “{query.trim()}”. Add them as your own below.
+          Nothing in your shortlist matches “{query.trim()}”.{' '}
+          {categoryHits.length > 0 || shopHits.length > 0 ? 'On Setnayan:' : 'Add them as your own below.'}
         </div>
+      ) : null}
+      {/* 🔎 ON SETNAYAN — the categories not on the event, then the marketplace's shops, matching the words. Rows in
+          the "Add a category" row's own shape; nothing leaves the page. */}
+      {categoryHits.map((h) => (
+        <div key={`cat-${h.tile}`} className={`addmore ${FORM_ROW_RULE}`} data-bench-hit-category={h.tile}>
+          <button type="button" className="addcat sn-press sn-press-ring" disabled={planEditing} onClick={() => openCategoryHit(h.tile)}>
+            <span className="addcat-ic" aria-hidden>
+              <Plus size={18} strokeWidth={1.75} />
+            </span>
+            <span className="addcat-t">
+              <span className="addcat-nm">{h.label}</span>
+              <span className={FORM_ROW_SUBLINE}>Category · add it to your event and see its suppliers</span>
+            </span>
+          </button>
+        </div>
+      ))}
+      {shopHits.map(({ r, tile }) => (
+        <div key={`shop-${r.vendorProfileId}`} className={`addmore ${FORM_ROW_RULE}`} data-bench-hit-shop={r.vendorProfileId}>
+          <button type="button" className="addcat sn-press sn-press-ring" disabled={planEditing} onClick={() => openShopHit(tile, r.name)}>
+            <span className="addcat-ic" aria-hidden>
+              <Store size={18} strokeWidth={1.75} />
+            </span>
+            <span className="addcat-t">
+              <span className="addcat-nm">{r.name}</span>
+              <span className={FORM_ROW_SUBLINE}>
+                {[tileLabelOf.get(tile) ?? null, r.city].filter(Boolean).join(' · ')}
+              </span>
+            </span>
+          </button>
+        </div>
+      ))}
+      {shortlistMissed && marketHits?.q === q && marketHits.unreadable ? (
+        <div className="bench-empty" data-bench-market-unread="">Couldn’t search Setnayan’s suppliers just now.</div>
       ) : null}
       {visibleFolders.map((folder) => {
         // The one-screen shape has NO folder level: every folder is open and
@@ -5026,6 +5124,7 @@ export function ShortlistCategories({
           onToggleAll={toggleOpenAll}
           scope={scopeRow ? scopeRow.t.label : 'all suppliers'}
           onSearch={setQuery}
+          preset={thumbPreset}
           onAdd={addYourOwn}
           emptyPanel={findPanel}
           onGoToCategory={goToCategory}

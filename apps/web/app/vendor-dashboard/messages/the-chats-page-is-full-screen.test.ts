@@ -103,7 +103,7 @@ test('b · rows: the event’s chat title whole, All · Unread only, newest firs
   assert.match(html, /data-chat-inbox=""/);
   // The chat title IS the event line (whose event · kind · day) — it takes the row's width, so its date is not cut.
   assert.match(html, /<span class="min-w-0 shrink truncate[^"]*">Ana(?:'|&#x27;)s Wedding \(Dec 18\)<\/span>/, 'the chat title is capped beside an empty event line');
-  assert.match(PAGE, /eventChatTitle\(\{ name: facts\.displayName, kind, date: facts\.eventDate, nowMs \}\)/, 'the row is not named by the one chat title');
+  assert.match(PAGE, /eventChatTitle\(\{ name: facts\.displayName, kind, date: facts\.eventDate, nowMs, options: facts\.dateOptions \}\)/, 'the row is not named by the one chat title');
   // The couple's rows (with an event line) keep their 70 % name.
   const couple = await render({ kind: 'read', rows: [{ ...ROW, eventLine: 'Dec 18 · Ana & Miguel' }], unreadMeasured: true, complete: true });
   assert.match(couple, /style="max-width:70%"/);

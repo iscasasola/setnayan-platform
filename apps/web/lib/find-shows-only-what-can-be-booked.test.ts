@@ -191,8 +191,10 @@ test('🔑 Discover hides with Find\'s read, Find\'s refusal and Find\'s strange
     /const fit = keepSuppliersThatFit\(visible, \(r\) => r\.vendor_profile_id, noBookingLeft, known\);\s*visible = fit\.rows;\s*hiddenForDate \+= fit\.hidden;\s*if \(!fit\.checked\) dateUnchecked = true;/,
   );
   assert.match(src, /const fit = keepCardsThatFit\(\s*listedServiceCards,[\s\S]{0,200}?\);\s*serviceCards = fit\.cards;\s*hiddenForDate \+= fit\.hidden;\s*if \(!fit\.checked\) dateUnchecked = true;/);
-  // The days are the hide's own, from the couple's event, and only for a couple with one.
-  assert.match(src, /const dateHideDays = coupleEventId \? unbookableDateScope\(coupleEventDate, coupleEventDatePrecision\) : null;/);
+  // The days are the hide's own, from the couple's event (span · candidates · window · month — `fitDateScope`, owner
+  // 2026-11-13), and only for a couple with one.
+  assert.match(src, /const dateHideScope = coupleEventId && coupleFitDates \? fitDateScope\(coupleFitDates\) : null;/);
+  assert.match(src, /const dateHideDays = dateHideScope \? fitDaysToAsk\(dateHideScope, true\) : null;/);
   // The rendered cards are the judged ones.
   assert.match(src, /let serviceCards = listedServiceCards;/);
   assert.doesNotMatch(src, /\{listedServiceCards\.map\(/, 'the landing draws the unjudged cards');
@@ -201,7 +203,7 @@ test('🔑 Discover hides with Find\'s read, Find\'s refusal and Find\'s strange
   assert.match(src, /if \(!coupleEventId \|\| savedOnEvent === null\) return null;/);
   // An empty view says the date, not "No suppliers match" or the invite outreach.
   assert.match(src, /if \(nobodyFreeWords\) \{\s*return \(/);
-  assert.match(src, /findNobodyFreeWords\(describeUnbookableScope\(coupleEventDate, coupleEventDatePrecision\)\)/);
+  assert.match(src, /findNobodyFreeWords\(dateHideScope\)/);
 });
 
 test('Discover\'s rules, executed: a stranger full on the date leaves; the known stay; a failed read hides nobody', () => {
@@ -265,7 +267,7 @@ test('🔑 a failed capacity read is NEVER passed off as a filtered list — eve
 
   // The page draws the line whenever either read came back unchecked — above the list, rows or not.
   const src = read(DISCOVER);
-  assert.match(src, /const dateUncheckedLine = dateUnchecked\s*\?\s*dateUncheckedWords\(describeUnbookableScope\(coupleEventDate, coupleEventDatePrecision\)\)\s*:\s*null;/);
+  assert.match(src, /const dateUncheckedLine = dateUnchecked\s*\?\s*dateUncheckedWords\(dateHideScope\)\s*:\s*null;/);
   assert.match(
     src,
     /const resultsBody = \(\s*<>\s*\{dateUncheckedLine \? \(\s*<p[^>]*role="status"[^>]*data-find-date-unchecked=""[^>]*>\s*\{dateUncheckedLine\}\s*<\/p>\s*\) : null\}/,

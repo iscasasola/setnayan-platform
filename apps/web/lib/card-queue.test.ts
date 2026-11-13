@@ -110,6 +110,8 @@ test('each picked service shows ITS OWN "+ Specialties (optional)" and the meter
   const add = read('app/vendor-dashboard/services/new/_components/add-service-picker.tsx');
   assert.match(add, /<Specialties\s+service=\{\{ key: p\.key, label: p\.label \}\}\s+fields=\{specialties\[p\.key\]!\}/);
   assert.match(add, /<CoverageMeter list=\{meterList\} \/>/);
+  // ONE remove control on an open row: the specialties bar's Remove (prototype fvBlock), never also the hover trash.
+  assert.match(add, /hover=\{openSpecialty !== p\.key\}/);
   assert.match(add, /\[\.\.\.onShop, \.\.\.picked\.map\(\(p\) => p\.key\)\]/, 'the meter counts what is on the shop AND the new picks');
   const cards = read('app/open-shop/_components/service-cards.tsx');
   assert.match(cards, /export function CoverageMeter\(\{ list \}: \{ list: readonly MeterService\[\] \}\) \{\s+const line = coverageLine\(list\);/);

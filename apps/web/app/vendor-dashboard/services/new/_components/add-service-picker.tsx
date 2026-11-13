@@ -141,6 +141,10 @@ export function AddServicePicker({
                     label={`Remove ${p.label}`}
                     word="Remove"
                     onDelete={() => remove(p.key)}
+                    // ONE remove control: while this service's specialties are open, their bar carries the red Remove
+                    // (prototype `fvBlock`: ⌃ Specialties · Remove · ✓ Done), so the computer's hover trash steps aside.
+                    // The phone's swipe stays.
+                    hover={openSpecialty !== p.key}
                     radiusClass="rounded-none"
                     surfaceClass="bg-[var(--m-paper)]"
                   >

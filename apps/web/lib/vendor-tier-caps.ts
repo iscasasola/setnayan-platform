@@ -437,10 +437,29 @@ export interface TierCaps {
    * card already holds are never touched — only a NEW booking past the cap is refused.
    */
   bookingsPerDatePerService: number;
+  /**
+   * STORAGE — the stored files a shop may keep, in bytes (owner 2026-11-13, specs DECISION_LOG commit ce2d0a8 "plan
+   * storage": *Solo 5 GB · Pro 10 GB · Ultra 15 GB*, included in the plan). `null` = NO ALLOWANCE: Free and Free ·
+   * Verified were not given one and keep what they had before the ruling — no limit, nothing drawn.
+   *
+   * GB are 1,000,000,000 bytes — the GB the supplier reads (`storageWords`, lib/downgrade-limits.ts) — so "5 GB" on the
+   * Plan is exactly this number. What counts: each stored copy (`supplier_media`) that a filed event file still points
+   * at, once (`vendor_storage_used_bytes`). The paid packs `vendor_storage_5/10/15gb` are priced and INACTIVE; they add
+   * nothing here.
+   *
+   * The SQL twin is `vendor_tier_limit(…,'storage_gb')` (5 · 10 · 15, NULL for Free/Verified); the database refuses new
+   * bytes past it (`enforce_supplier_storage_allowance`). Held in step by `supplier-storage-allowance.db.test.ts`.
+   * GRANDFATHERED: nothing already stored is ever touched — only the next new file past the allowance is refused.
+   */
+  storageBytes: number | null;
 }
+
+/** One storage GB, as the supplier reads it (decimal — see `TierCaps.storageBytes`). */
+export const STORAGE_GB = 1_000_000_000;
 
 export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   free: {
+    storageBytes: null, // no allowance ruled (owner 2026-11-13 ruled Solo · Pro · Ultra only) — what Free had before
     bookingsPerDatePerService: 1, // owner click 2026-11-06 "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": 1, like Solo
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 — same on every plan (was 1)
     waitlistAcceptances: 0, // FREE: no waitlist (owner 2026-08-09)
@@ -485,6 +504,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // cap and the 2-per-category edge are GONE (owner 2026-10-23, "plans price reach,
   // not income"): Solo is better on reach and tools, never on how much a shop may sell.
   verified: {
+    storageBytes: null, // no allowance ruled — what Verified had before
     bookingsPerDatePerService: 1, // owner click 2026-11-06 "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": 1, like Solo
     // OWNER 2026-08-29 — verified gets its OWN pair, 2 / 1. It used to clone the
     // FREE numbers (1 / 0) because the 2026-08-09 grid gave four numbers for five
@@ -538,6 +558,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // Token-burn model same as Pro/Enterprise (inAppGated = true). One agent seat
   // (owner 2026-07-02 — Solo now sits one seat above Free · Verified's 0).
   solo: {
+    storageBytes: 5 * STORAGE_GB, // owner 2026-11-13 "plan storage": Solo 5 GB
     bookingsPerDatePerService: 1, // owner 2026-11-06: "Solo has 1 per date/service"
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 3)
     waitlistAcceptances: 0, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": 0 (was 1, owner 2026-08-09)
@@ -577,6 +598,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inquireLink: true,
   },
   pro: {
+    storageBytes: 10 * STORAGE_GB, // owner 2026-11-13: Pro 10 GB
     bookingsPerDatePerService: 3, // owner 2026-11-06: "pro has 3 per date/service"
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS,
     waitlistAcceptances: 1, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES" (was 3, owner 2026-08-09)
@@ -626,6 +648,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // app 2026-11-06 — Ultra's add-ons are the way past Ultra.) Left unbounded: parentCategories ("all
   // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
   enterprise: {
+    storageBytes: 15 * STORAGE_GB, // owner 2026-11-13: Ultra 15 GB
     bookingsPerDatePerService: 5, // owner 2026-11-06: "ultra has 5 per date/service" — Ultra may buy +1 at a time
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 10)
     waitlistAcceptances: 3, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was 5)

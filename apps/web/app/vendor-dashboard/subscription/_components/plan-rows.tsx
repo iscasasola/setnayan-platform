@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { BadgeCheck, Camera, CircleX, Images, ReceiptText, Star, Store, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, Camera, CircleX, HardDrive, Images, ReceiptText, Star, Store, type LucideIcon } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
+import { FIX_HREF } from '@/lib/downgrade-limits';
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { planWord } from '@/lib/vendor-plan-change-words';
@@ -40,6 +41,7 @@ export function PlanRows({
   featured,
   gift = null,
   photosLine = null,
+  storageLine = null,
   titled = true,
 }: {
   tier: string;
@@ -62,6 +64,11 @@ export function PlanRows({
   gift?: { line: string } | null;
   /** The Portfolio photos row's line (`portfolioPlanRowLine`); null = the row is not drawn. */
   photosLine?: string | null;
+  /**
+   * 💾 The Storage row's line (`storageRowLine`, lib/supplier-storage.ts): "1.2 GB of 5 GB used", or that it could not
+   * be read. null = the plan has no allowance and the row is not drawn.
+   */
+  storageLine?: string | null;
   /** False inside the Shop ⚙'s "Plan and billing" fold — the fold names it (2026-10-31). */
   titled?: boolean;
 }) {
@@ -94,6 +101,10 @@ export function PlanRows({
 
         {photosLine ? (
           <DatesRow data="plan-photos" lead={ic(Images)} title="Portfolio photos" line={photosLine} href="/vendor-dashboard/collections" />
+        ) : null}
+
+        {storageLine ? (
+          <DatesRow data="plan-storage" lead={ic(HardDrive)} title="Storage" line={storageLine} href={FIX_HREF.storage} />
         ) : null}
 
         <div className="border-t border-ink/10" data-plan-fold="receipts">

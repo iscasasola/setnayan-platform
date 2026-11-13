@@ -24,7 +24,8 @@ import { HomePinPortal } from './home-segment-bar';
  *
  * WHERE IT SHOWS (v3 row 7): in Home's top, above the tabs, once the header has scrolled away — the shared
  * `CollapsingTop` locks and the row fades in (`HomePinPortal` carries it up into the top's seat). At rest it is not
- * drawn: the header's doors, "＋ Create an event" and the tabs say the same things there.
+ * drawn: "＋ Create an event" and the tabs (with their numbers) say the same things there — the header's pill doors
+ * were removed 13 Nov 2026 (owner: "dupes … just 1"), so the tabs are the one row of sections.
  *
  * Everything crossing from the server is plain data (hrefs, words, numbers); the row turns it into presses here.
  * 🔒 lib/home-is-the-profile.test.ts

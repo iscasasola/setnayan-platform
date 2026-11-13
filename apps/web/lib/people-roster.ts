@@ -1,4 +1,5 @@
 import 'server-only';
+import { ROSTER_UNNAMED } from '@/lib/no-name';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -137,7 +138,7 @@ export type RosterPerson = {
 };
 
 /** The word People shows for a connection whose name is not shown — a placeholder, never a name to copy (F-W3-22). */
-export const ROSTER_UNNAMED = 'Someone';
+export { ROSTER_UNNAMED } from '@/lib/no-name';
 
 export type PeopleRoster = {
   people: RosterPerson[];

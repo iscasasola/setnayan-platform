@@ -7,5 +7,10 @@
 - **RW-81** The sample shop page on /for-suppliers drew "View larger map →" as a live link. Both map components take
   `mapHref={null}` (like `checkHref={null}`) and then draw the words with no link; the sample passes it on every map.
   Guard: `app/v/[slug]/the-sample-is-the-real-page.test.ts`.
+- **RW-64** "Someone —" stopped being printed as a name in the From-your-people picker, on the reply page ("Someone —
+  · Not you? Switch") and in the account switcher. One pure rule, `realNameOrNull` (`lib/no-name.ts`): a name made only
+  of People's placeholder word and marks with no letter or digit is no name, and each screen then uses its own no-name
+  words ("Your reply"; the switcher's email). The placeholder word now lives in that pure module and People imports it.
+- Guard: `lib/the-walk-round-7.test.ts`.
 
 SPEC IMPACT: None.

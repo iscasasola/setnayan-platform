@@ -593,6 +593,43 @@ export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool):
 }
 
 /**
+ * 🔒 A LOCKED TAB SAYS PROBLEM → SOLUTION, IN THE ROWS (Maker Edit shell v3, owner-approved 2026-11-13, "maker shell
+ * approved"; prototype `prototypes/approved_2026-11-13/maker-toolbar-fable.html` frame 5: *"A tab with nothing shows 🔒
+ * and opens Problem → Solution."*). The PROBLEM is the part's one line (`makerPartToolWhy`, unchanged); the SOLUTION
+ * is where the thing IS set; `door` is the one tap the panel ends in, where there is one in the toolbar itself (a
+ * cover word's Background: the Cover Scene). Held by `lib/a-locked-tab-says-problem-then-solution.test.ts`.
+ */
+export type MakerToolLock = { problem: string; solution: string; door: typeof MAKER_COVER_SCENE | null };
+/** 📷 The Camera keeps ONE style (owner 2026-11-13, verbatim: *"camera one style only."*) — its Style tab is locked too. */
+export const MAKER_CAMERA_STYLE_LOCK = 'The camera has one style.';
+export const MAKER_CAMERA_STYLE_FIX = 'Every guest gets the same camera, so it always looks the way they know.';
+/** The solution when the toolbar has no better door: the tool, said plainly. */
+const LOCK_FIX: Readonly<Record<MakerPartTool, string>> = {
+  edit: 'Pick another part of the page to edit it.',
+  style: 'It wears the look of the page around it.',
+  bg: 'Pick the scene it sits in to set a background.',
+  animate: 'It arrives with the scene it sits in.',
+};
+export function makerPartToolLock(key: MakerPartKey | null, tool: MakerPartTool, said?: string): MakerToolLock {
+  const problem = makerPartToolWhy(key, tool);
+  /* The toolbar said a line of its own (a SAMPLE on the canvas, an empty E-Gifts, a group of reply lines): it stays the problem. */
+  if (said !== undefined && said !== problem) return { problem: said, solution: LOCK_FIX[tool], door: null };
+  if (key === 'camera') {
+    if (tool === 'style') return { problem: MAKER_CAMERA_STYLE_LOCK, solution: MAKER_CAMERA_STYLE_FIX, door: null };
+    return { problem, solution: 'Guests use the camera as it is — the whole screen is theirs.', door: null };
+  }
+  if (key === MAKER_COVER_PHOTO && tool === 'edit') return { problem: 'The cover photo has no words to edit.', solution: MAKER_COVER_PHOTO_EDIT_WHY, door: null };
+  if (tool === 'bg' && key && makerPartParent(key) === MAKER_COVER_SCENE) {
+    return { problem: `The ${MAKER_PARTS[key].label.toLowerCase()} sits on the Cover Scene.`, solution: 'Set the background on the Cover Scene.', door: MAKER_COVER_SCENE };
+  }
+  const src = key ? makerPartSource(key) : null;
+  if (src?.kind === 'studio') return { problem: 'Nothing to change here.', solution: 'Tap the scene to open its editor.', door: null };
+  if (src?.kind === 'guests') return { problem: 'Nothing to change here.', solution: 'Set it in Guests ⚙.', door: null };
+  if (src?.kind === 'guests-view') return { problem: 'Nothing to change here.', solution: 'Arrange it in Guests.', door: null };
+  return { problem, solution: LOCK_FIX[tool], door: null };
+}
+
+/**
  * 🧠 THE TOOL A PART OPENS ON: the one last used — or, where that one has nothing to set on this part, the FIRST of
  * the four that has (the prototype's `pickPart`: `tool = toolKeys().find(t => works(k, t))`). The remembered tool is
  * not rewritten: it comes back on the next part that has it.

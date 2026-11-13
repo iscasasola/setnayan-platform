@@ -534,6 +534,13 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'Yes. Event Hub Pro comes part by part — Style, Background, Motion, Music, Photos, Logo & QR, Prints, a custom address and more — or everything at once. Try any Pro effect in your draft: at Apply, the sheet names the parts it needs. What you pay for parts counts toward everything. Each part shows its price on the Event Hub Pro page in Studio.',
       },
       {
+        // 🔒 The Maker Edit shell's locked tabs (owner-approved 2026-11-13, "maker shell approved").
+        slug: 'maker-locked-tab',
+        title: 'Why does a tab in the Maker show a lock?',
+        appBody: HELP_NOT_IN_THE_APP,
+        body: 'In the Event Hub Maker every part has the same four tabs: Edit, Style, Background and Animate. A tab with a 🔒 has nothing to set on that part. Tap it anyway: the rows say the problem and where it is set instead — a line on the cover takes its background from the Cover Scene, and one tap selects it. The camera keeps one style for every guest, so its Style is locked too.',
+      },
+      {
         slug: 'monogram',
         title: 'Customize the QR monogram',
         appBody: 'Every guest’s QR code carries a mark in its centre and opens their own invitation. You will find it in Hub, under Event Details › QR Code.',

@@ -23,6 +23,8 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useHydrated } from '@/lib/use-hydrated';
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   groupStorySuppliers,
   searchStorySuppliers,
@@ -57,7 +59,9 @@ function Layer({
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   useModalA11y({ open, onClose, containerRef: ref, initialFocusRef: closeRef });
-  if (!open || typeof document === 'undefined') return null;
+  // The layer only ever opens on a tap, after hydration — `useHydrated` keeps the first pass identical to the server's.
+  const hydrated = useHydrated();
+  if (!open || !hydrated) return null;
   return createPortal(
     <div ref={ref} role="dialog" aria-modal="true" aria-label={label} className="fixed inset-0 z-[95] flex flex-col bg-cream text-ink">
       <header className="flex shrink-0 items-center gap-3 border-b border-ink/10 px-4 py-3">
@@ -420,12 +424,9 @@ export function UltraSupplierScene({
             Visit the shop
           </Tap>
         ) : null}
-        <details className="relative">
-          <summary aria-label="About this scene" className="inline-flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-full text-ink/70 hover:bg-ink/5">
-            ⓘ
-          </summary>
-          <p className="mt-1 max-w-xs text-sm text-ink/75">{ULTRA_SCENE_TIP}</p>
-        </details>
+        <InfoTip label="Supplier Ultra" labelClassName="text-sm text-ink/75" ariaLabel="About this scene" align="end">
+          {ULTRA_SCENE_TIP}
+        </InfoTip>
       </div>
       <Layer open={open} onClose={() => setOpen(false)} title={album.name} eyebrow="Supplier Ultra · shared album" label={`${album.name} — shared album`}>
         <p className="text-sm text-ink/70">

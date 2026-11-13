@@ -325,7 +325,7 @@ function detailsFixture(who: Who): DetailsData {
     verifyMeasured: true,
     papers: labPapers(verify.status, f.docsIn),
     docsIn: f.docsIn,
-    docsTotal: 4,
+    docsTotal: REQUIRED_DOC_COUNT,
     branch: {
       city: f.city,
       branchLocations: 1,

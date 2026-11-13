@@ -245,7 +245,7 @@ function TriageStrip({ items }: { items: TriageItem[] }) {
     [soon, 'due soon', '#B54708'],
     [onPace, 'on pace', '#8A6A2E'],
     // ⏳ F-A-05: work with no promised time is its own bucket — a 150-day-old post was being counted "on pace".
-    [noPromise, 'no set time', '#6B6A66'],
+    [noPromise, 'no set time', 'var(--sn-ink-500)'],
   ];
   return (
     <div className="sn-tile mb-5 p-4">

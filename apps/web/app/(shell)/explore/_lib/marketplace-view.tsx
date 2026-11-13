@@ -54,7 +54,8 @@ import {
   fetchServiceCardRecords,
   type CompiledCardRecord,
 } from '@/lib/service-card-record';
-import { EventTypeNotifyForm } from '../_components/event-type-notify-form';
+// ⚡ Supplier view only — fetched only when drawn (../_components/marketplace-lazy.tsx).
+import { EventTypeNotifyForm } from '../_components/marketplace-lazy';
 import { TaxonomySearch } from '../_components/taxonomy-search';
 import { CategoryTile, type CategoryTileData } from '../_components/category-tile';
 import { SaveVendorButton } from '../_components/save-vendor-button';
@@ -71,7 +72,9 @@ import { resolveHostEventChoices, type HostEventChoice } from '@/app/v/[slug]/_c
 // S40 (0 runtime importers, confirmed dead); IconTileFolderStrip.tsx defines
 // its own `FolderTab` type (structurally identical, per the comment above),
 // so the type import now points there instead.
-import { IconTileFolderStrip, type FolderTab } from '../_components/icon-tile-folder-strip';
+// ⚡ Supplier view only — fetched only when drawn (../_components/marketplace-lazy.tsx).
+import { IconTileFolderStrip } from '../_components/marketplace-lazy';
+import type { FolderTab } from '../_components/icon-tile-folder-strip';
 import { countLiveShops, countRealShops, LIVE_SHOP_GATE } from '@/lib/live-shops';
 import {
   shopsStillSettingUp,
@@ -98,7 +101,8 @@ import type { VendorServiceDiscount } from '@/lib/vendor-services';
 import { buildServesLine } from '@/lib/service-serves-line';
 import { ServiceCardView } from '@/app/_components/service-card-view';
 import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
-import { StickyMarketplaceHeader } from '../_components/sticky-marketplace-header';
+// ⚡ Supplier view only — fetched only when drawn (../_components/marketplace-lazy.tsx).
+import { StickyMarketplaceHeader } from '../_components/marketplace-lazy';
 import { ExploreSearchHero, type ExploreChip } from '../_components/explore-search-hero';
 import type { FilterDrawerProps } from '../_components/filter-drawer';
 import { DiscoverSupplierHead } from '../_components/discover-supplier-head';
@@ -166,7 +170,8 @@ import {
   getBatchVendorAvailableDays,
   getEventCommonAvailability,
 } from '@/lib/vendor-availability';
-import { VendorsAvailabilityBanner } from '../_components/vendors-availability-banner';
+// ⚡ Supplier view only — fetched only when drawn (../_components/marketplace-lazy.tsx).
+import { VendorsAvailabilityBanner } from '../_components/marketplace-lazy';
 // 2026-05-22 quick-view redesign — see CLAUDE.md decision log row
 // "Ship vendor marketplace card quick-view redesign + 4-badge system".
 // VendorCard replaces the inline VendorMarketCard render and consumes

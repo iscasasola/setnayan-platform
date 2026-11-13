@@ -1,12 +1,13 @@
 import { PauseCircle, Undo2 } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { TypedRow } from '@/app/_components/form-row';
 import {
   SUSPEND_DURATIONS,
   SUSPEND_REASONS,
   holdDateWords,
   isSuspendReason,
 } from '@/lib/account-suspension';
-import { suspendAccount, undoUnsuspend, unsuspendAccount } from '../../suspend-actions';
+import { accountHold } from '../../suspend-actions';
 
 /**
  * ⏸ ACCOUNT HOLD — Suspend / Unsuspend on the Person page (owner 2026-11-13, "Yes, add both"). PORTED from the
@@ -78,7 +79,7 @@ export function AccountHoldSection({
             {suspendedUntil ? ' It lifts itself on the Until date unless you lift it first.' : ''}
           </p>
           <ConfirmForm
-            action={unsuspendAccount}
+            action={accountHold}
             title={`Unsuspend ${name}`}
             confirmLabel="Unsuspend"
             message={
@@ -94,6 +95,7 @@ export function AccountHoldSection({
             }
             className="mt-3"
           >
+            <input type="hidden" name="op" value="unsuspend" />
             <input type="hidden" name="user_id" value={userId} />
             <button
               type="submit"
@@ -109,7 +111,8 @@ export function AccountHoldSection({
           {canUndo ? (
             <div role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-ink/[0.04] px-3 py-2">
               <span className="text-sm text-ink">Unsuspended. They were told in the app.</span>
-              <form action={undoUnsuspend}>
+              <form action={accountHold}>
+                <input type="hidden" name="op" value="undo" />
                 <input type="hidden" name="user_id" value={userId} />
                 <input type="hidden" name="reason" value={flash.undoReason ?? ''} />
                 <input type="hidden" name="until" value={flash.undoUntil ?? ''} />
@@ -123,7 +126,7 @@ export function AccountHoldSection({
             The gentler step before Ban and Delete — reversible, and nothing is deleted.
           </p>
           <ConfirmForm
-            action={suspendAccount}
+            action={accountHold}
             title={`Suspend ${name}`}
             confirmLabel="Suspend"
             destructive
@@ -141,6 +144,7 @@ export function AccountHoldSection({
               </div>
             }
           >
+            <input type="hidden" name="op" value="suspend" />
             <input type="hidden" name="user_id" value={userId} />
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-sm">
@@ -166,10 +170,9 @@ export function AccountHoldSection({
                   ))}
                 </select>
               </label>
-              <label className="block text-sm sm:col-span-2">
-                <span className="mb-1 block text-xs text-ink/60">Note for admins (they don&rsquo;t see this)</span>
-                <textarea name="note" rows={2} maxLength={2000} className="input-field w-full" />
-              </label>
+              <div className="sm:col-span-2">
+                <TypedRow name="Note for admins (they don’t see this)" value="" fieldName="note" long maxLength={2000} />
+              </div>
             </div>
             <button
               type="submit"

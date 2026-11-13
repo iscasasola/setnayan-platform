@@ -44,7 +44,7 @@ async function audit(
 }
 
 /** Suspend… — reason · until (7 days · 30 days · until lifted) · a note for admins that the person never sees. */
-export async function suspendAccount(formData: FormData): Promise<void> {
+async function suspendAccount(formData: FormData): Promise<void> {
   const { userId: adminUserId } = await requireAdminAction();
   const userId = String(formData.get('user_id') ?? '');
   if (!UUID.test(userId)) throw new Error('Invalid account');
@@ -82,7 +82,7 @@ export async function suspendAccount(formData: FormData): Promise<void> {
 }
 
 /** Unsuspend — lifts the hold now; the page then offers Undo with the hold it just lifted. */
-export async function unsuspendAccount(formData: FormData): Promise<void> {
+async function unsuspendAccount(formData: FormData): Promise<void> {
   const { userId: adminUserId } = await requireAdminAction();
   const userId = String(formData.get('user_id') ?? '');
   if (!UUID.test(userId)) throw new Error('Invalid account');
@@ -112,7 +112,7 @@ export async function unsuspendAccount(formData: FormData): Promise<void> {
  * Undo an Unsuspend — puts the SAME hold back (its reason, its Until). An Until that has passed in the meantime is
  * not re-applied; the admin is told to suspend afresh instead of the hold silently becoming "until lifted".
  */
-export async function undoUnsuspend(formData: FormData): Promise<void> {
+async function undoUnsuspend(formData: FormData): Promise<void> {
   const { userId: adminUserId } = await requireAdminAction();
   const userId = String(formData.get('user_id') ?? '');
   if (!UUID.test(userId)) throw new Error('Invalid account');
@@ -144,4 +144,15 @@ export async function undoUnsuspend(formData: FormData): Promise<void> {
   revalidatePath('/admin/accounts');
   revalidatePath(`/admin/users/${userId}`);
   back(userId, { suspended: '1' });
+}
+
+/**
+ * THE ONE EXPORT (one Vercel route — lint-server-action-budget): `op=suspend` · `op=unsuspend` · `op=undo`.
+ */
+export async function accountHold(formData: FormData): Promise<void> {
+  const op = String(formData.get('op') ?? '');
+  if (op === 'suspend') return suspendAccount(formData);
+  if (op === 'unsuspend') return unsuspendAccount(formData);
+  if (op === 'undo') return undoUnsuspend(formData);
+  throw new Error('Unknown account hold action');
 }

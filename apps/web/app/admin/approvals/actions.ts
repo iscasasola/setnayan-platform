@@ -271,7 +271,7 @@ async function executeApproved(
     if (!row.decided_by) throw new Error('Plan change has no confirming admin');
     if (!row.initiated_by) throw new Error('Plan change has no initiating admin');
     if (!row.payload) throw new Error('Plan change has no payload');
-    const { executePlanContentsChange } = await import('@/app/admin/pricing/plan-contents-actions');
+    const { executePlanContentsChange } = await import('@/lib/plan-contents-execute.server');
     await executePlanContentsChange(admin, {
       payload: row.payload,
       initiatedByAdminId: row.initiated_by,

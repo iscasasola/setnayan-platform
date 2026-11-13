@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ReadFailed } from '@/app/admin/_components/read-failed';
+import { TypedRow } from '@/app/_components/form-row';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -13,10 +14,7 @@ import {
   planWords,
   type PlanContentRow,
 } from '@/lib/vendor-plan-contents';
-import {
-  requestEventPlanCreditsChange,
-  requestPlanContentChange,
-} from '@/app/admin/pricing/plan-contents-actions';
+import { requestPlanContentsChange } from '@/app/admin/pricing/plan-contents-actions';
 
 /**
  * CATALOGUE › PLAN CONTENTS — what each supplier and event plan includes.
@@ -185,20 +183,20 @@ async function SupplierPlan({ plan, admin }: { plan: VendorTier; admin: ReturnTy
                       Waiting in Approvals: {waiting}
                     </p>
                   ) : (
-                    <form action={requestPlanContentChange} className="mt-2 flex flex-wrap items-center gap-2">
+                    <form action={requestPlanContentsChange} className="mt-2 flex flex-wrap items-center gap-2">
+                      <input type="hidden" name="kind" value="supplier" />
                       <input type="hidden" name="plan" value={plan} />
                       <input type="hidden" name="key" value={def.key} />
-                      <label className="sr-only" htmlFor={`v-${def.key}`}>
-                        New number for {def.label}
-                      </label>
-                      <input
-                        id={`v-${def.key}`}
-                        name="value"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        placeholder={stored === null ? 'No limit' : String(stored)}
-                        className="input-field w-28"
-                      />
+                      <div className="min-w-[14rem] flex-1">
+                        <TypedRow
+                          name={`New number · ${def.label}`}
+                          value=""
+                          empty={stored === null ? 'No limit' : String(stored)}
+                          fieldName="value"
+                          inputMode="numeric"
+                          maxLength={6}
+                        />
+                      </div>
                       {def.noLimitAllowed ? (
                         <label className="flex items-center gap-1.5 text-xs text-ink/70">
                           <input type="checkbox" name="no_limit" /> No limit
@@ -354,19 +352,19 @@ async function EventPlan({
                   Waiting in Approvals: {(pendingRes.data as { rationale: string | null }).rationale}
                 </p>
               ) : (
-                <form action={requestEventPlanCreditsChange} className="mt-2 flex flex-wrap items-center gap-2">
+                <form action={requestPlanContentsChange} className="mt-2 flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="kind" value="event" />
                   <input type="hidden" name="service_code" value={code ?? ''} />
-                  <label className="sr-only" htmlFor="ev-credits">
-                    New number of included Papic credits
-                  </label>
-                  <input
-                    id="ev-credits"
-                    name="value"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    placeholder={String(row.included_papic_credits ?? 0)}
-                    className="input-field w-32"
-                  />
+                  <div className="min-w-[14rem] flex-1">
+                    <TypedRow
+                      name="New number · Papic credits included"
+                      value=""
+                      empty={String(row.included_papic_credits ?? 0)}
+                      fieldName="value"
+                      inputMode="numeric"
+                      maxLength={7}
+                    />
+                  </div>
                   <button type="submit" className="button-secondary min-h-[44px]">
                     Ask to change
                   </button>

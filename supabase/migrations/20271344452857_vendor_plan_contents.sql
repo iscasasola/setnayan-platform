@@ -105,8 +105,9 @@ DROP POLICY IF EXISTS vendor_plan_contents_public_read ON public.vendor_plan_con
 CREATE POLICY vendor_plan_contents_public_read ON public.vendor_plan_contents
   FOR SELECT TO anon, authenticated USING (true);
 
+-- COLUMN-scoped: the public may read the plan, key and number — never WHICH admins changed it.
 REVOKE ALL ON public.vendor_plan_contents FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON public.vendor_plan_contents TO anon, authenticated;
+GRANT SELECT (plan, key, value) ON public.vendor_plan_contents TO anon, authenticated;
 GRANT ALL ON public.vendor_plan_contents TO service_role;
 
 -- Seed — printed from TIER_CAPS (Infinity → NULL); held equal by vendor-plan-contents.db.test.ts.

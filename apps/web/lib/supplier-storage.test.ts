@@ -31,7 +31,6 @@ import { planGivesLines } from './vendor-plan-rows';
 import { stripComments } from './strip-comments';
 
 {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Mod = require('node:module');
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {
@@ -39,7 +38,6 @@ import { stripComments } from './strip-comments';
     return load.call(this, request, ...rest);
   };
 }
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const server = require('./supplier-storage.server') as typeof import('./supplier-storage.server');
 
 const WEB = join(__dirname, '..');

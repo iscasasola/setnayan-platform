@@ -6,6 +6,10 @@ import { createClient } from '@/lib/supabase/server';
 import { notifyAdminsOfHelpMessage } from '@/lib/help-message-notify.server';
 import { resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { VENDOR_TIERS, type VendorTier } from '@/lib/vendor-tier-caps';
+import { logHelpAsk, type HelpAskCoverage } from '@/lib/help-asks.server';
+import { isStoreShellRequest } from '@/lib/request-platform';
+
+const ASK_COVERAGES: ReadonlyArray<HelpAskCoverage> = ['user', 'guest', 'supplier', 'public', 'team'];
 
 function trimmed(raw: FormDataEntryValue | null, max: number): string {
   if (typeof raw !== 'string') return '';
@@ -59,16 +63,50 @@ async function resolveSubmitterVendorTier(
   }
 }
 
+/**
+ * ❓ "DID THIS ANSWER IT?" rides THIS action (`intent=answered`), not a new export — the server-action budget is full
+ * (scripts/lint-server-action-budget.mjs), and Yes / No is the Help's own feedback into the Help's own log. It writes
+ * one `help_asks` row (yes · no; no name, no email) and returns nothing: the press already says "Saved." in place.
+ */
+async function recordAnswered(formData: FormData): Promise<void> {
+  const vote = formData.get('vote');
+  const coverage = formData.get('coverage');
+  if ((vote !== 'yes' && vote !== 'no') || typeof coverage !== 'string') return;
+  if (!(ASK_COVERAGES as ReadonlyArray<string>).includes(coverage)) return;
+  await logHelpAsk({
+    words: trimmed(formData.get('words'), 120) || trimmed(formData.get('slug'), 120),
+    coverage: coverage as HelpAskCoverage,
+    surface: (await isStoreShellRequest()) ? 'app' : 'web',
+    outcome: vote,
+    articleSlug: trimmed(formData.get('slug'), 120) || null,
+  });
+}
+
+/** Back to the Help this message was sent from — only ever a /help address with its own account (`for`). */
+function helpBack(formData: FormData): string {
+  const f = formData.get('for');
+  return f === 'guest' || f === 'shop' ? `/help?for=${f}&` : '/help?';
+}
+
 export async function submitHelpMessage(formData: FormData) {
+  if (formData.get('intent') === 'answered') return recordAnswered(formData);
+  const back = helpBack(formData);
   const email = trimmed(formData.get('sender_email'), 160);
   const name = trimmed(formData.get('sender_name'), 128);
   const topic = trimmed(formData.get('topic'), 64);
   const subject = trimmed(formData.get('subject'), 160);
-  const body = trimmed(formData.get('body'), 4000);
+  // "Message us" from an answer sends what was asked and what was shown with it (prototype: "Sent with it: your
+  // question and the answers we showed."), under the person's own words.
+  const asked = trimmed(formData.get('asked'), 120);
+  const shown = trimmed(formData.get('shown'), 600);
+  const typed = trimmed(formData.get('body'), 4000);
+  const body = typed && asked
+    ? `${typed}\n\n— Asked in Help: “${asked}”${shown ? ` · shown: ${shown}` : ' · no answer shown'}`.slice(0, 4000)
+    : typed;
 
   if (email.length === 0 || subject.length === 0 || body.length === 0) {
     return redirect(
-      `/help?error=${encodeURIComponent('Email, subject, and message are required.')}`,
+      `${back}error=${encodeURIComponent('Email, subject, and message are required.')}`,
     );
   }
 
@@ -101,7 +139,7 @@ export async function submitHelpMessage(formData: FormData) {
 
   if (error || !data) {
     return redirect(
-      `/help?error=${encodeURIComponent(error?.message ?? 'Could not submit. Try again.')}`,
+      `${back}error=${encodeURIComponent(error?.message ?? 'Could not submit. Try again.')}`,
     );
   }
 
@@ -114,5 +152,5 @@ export async function submitHelpMessage(formData: FormData) {
     body: `${email}: ${body.slice(0, 140)}`,
   });
 
-  return redirect(`/help?submitted=${encodeURIComponent(data.public_id)}`);
+  return redirect(`${back}submitted=${encodeURIComponent(data.public_id)}`);
 }

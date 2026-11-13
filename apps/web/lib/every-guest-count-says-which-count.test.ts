@@ -153,14 +153,16 @@ test('the quote builder OPENS AT THE LIVE COUNT, and says so beside the inquiry 
   // the opposite — the change is a re-pricing, so it is pinned rather than left
   // to a prop-passing accident.
   assert.match(threadSrc, /livePax=\{headerPax \?\? null\}/, 'the live count must reach the builder');
+  // 🔢 13 Nov 2026 (supplier walk): no count at all is `null`, never a guessed 100 — the maker then asks the supplier
+  // to type the headcount (`the-quote-never-guesses-a-headcount.test.ts`).
   assert.match(
     threadSrc,
-    /requestedPax=\{thread\.pax_at_inquiry \?\? headerPax \?\? 100\}/,
+    /requestedPax=\{thread\.pax_at_inquiry \?\? headerPax \?\? null\}/,
     'and so must the inquiry count — it is still named, it is just no longer the seed',
   );
   assert.match(
     makerSrc,
-    /const seedPax = livePax \?\? requestedPax;/,
+    /const theirCount: number \| null = livePax \?\? requestedPax \?\? null;/,
     'the seed is the LIVE count, falling back to the inquiry count when there is none',
   );
   // 👥 12 Nov 2026 (owner): *"our quotation maker will follow their pax at auto. but they will set the minimum count
@@ -177,7 +179,7 @@ test('the quote builder OPENS AT THE LIVE COUNT, and says so beside the inquiry 
     1,
     'the guest-list row must name the inquiry count the quote is moved away from',
   );
-  assert.match(makerSrc, /data-quote-live-pax=""[^>]*>\s*\{formatCount\(seedPax\)\}/, 'and show their live count as "On their list"');
+  assert.match(makerSrc, /data-quote-live-pax=\{noList \? 'none' : ''\}[^>]*>\s*\{noList \? '—' : formatCount\(seedPax\)\}/, 'and show their live count as "On their list"');
 });
 
 test('nothing snaps the quote back to the inquiry count', () => {
@@ -206,7 +208,7 @@ test('the raw guest-count columns are only ever handed to the helper or a fetche
   const ALLOWED = [
     /atInquiry: thread\.pax_at_inquiry \?\? null/, // → the one guestCounts object
     /paxAtInquiry: thread\.pax_at_inquiry/, // → fetchVendorPaxProposals + the rail builder
-    /requestedPax=\{thread\.pax_at_inquiry \?\? headerPax \?\? 100\}/, // → the quote seed
+    /requestedPax=\{thread\.pax_at_inquiry \?\? headerPax \?\? null\}/, // → the quote seed (null = no count: never a guess)
     /const headerPax = livePax \?\? thread\.pax_current;/, // → the live count, read once
   ];
 

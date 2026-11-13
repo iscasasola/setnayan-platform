@@ -272,7 +272,7 @@ test('the proposal-maker pax field is fixed — min on its step, every whole gue
   // 12 Nov 2026 (owner): the guests field became the quote's ONE "Bill at least" (their count is read live) —
   // 0 = no minimum, so its floor is 0; the step stays 1 so every whole count is valid.
   const src = stripComments(readFileSync(resolve(WEB, 'app/_components/proposal-maker.tsx'), 'utf8'));
-  const paxTag = findInputTags(src).find((t) => /value=\{minPax\}/.test(t));
+  const paxTag = findInputTags(src).find((t) => /value=\{noList && minPax === 0 \? '' : minPax\}/.test(t));
   assert.ok(paxTag, 'the pax input was not found — did it move or get renamed?');
   const min = attrValue(paxTag!, 'min');
   const step = attrValue(paxTag!, 'step');

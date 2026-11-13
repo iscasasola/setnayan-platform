@@ -533,11 +533,11 @@ export function ProposalMaker({
     ⚠ THIS IS THE NUMBER THE FIRST QUOTE IS PRICED AGAINST, so it is read once,
     here, and named in the header rather than left to be inferred.
   */
-  const seedPax: number | null = livePax ?? requestedPax ?? null;
+  const theirCount: number | null = livePax ?? requestedPax ?? null;
   /** No count from the couple at all — the headcount starts EMPTY and the supplier types it (never a guess). */
-  const noList = seedPax === null;
+  const noList = theirCount === null;
   /** Their count for the money math — 0 when there is none, so billed = the headcount the supplier typed. */
-  const listPax = seedPax ?? 0;
+  const seedPax = theirCount ?? 0;
   /*
     👥 PAX FOLLOWS THEIR GUEST LIST (owner 12 Nov 2026, verbatim: *"our quotation maker will follow their pax at auto.
     but they will set the minimum count for their pax. it only goes up as their guests go up."*). No guests stepper:
@@ -545,7 +545,7 @@ export function ProposalMaker({
     billed = max(their count, the minimum). A revision opens at the minimum the replaced quote was sent with.
   */
   const [minPax, setMinPax] = useState(() => revision?.minPax ?? 0);
-  const pax = billedPax(listPax, minPax);
+  const pax = billedPax(seedPax, minPax);
   const [hours, setHours] = useState(requestedHours);
   // 🪗 One line open at a time, the first open; the heading's icon opens / folds every line (owner 12 Nov).
   const [fold, setFold] = useState<LineFold>(FIRST_OPEN);
@@ -990,10 +990,10 @@ export function ProposalMaker({
         */
         shopGiftCodes,
         /* 👥 What this quote billed against their guest list, and the ONE minimum — `merge_snapshot` (owner 12 Nov). */
-        pax: { live: listPax, min: minPax, billed: pax },
+        pax: { live: seedPax, min: minPax, billed: pax },
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `cards`/`pickedCards` are read for serviceCardIds as before
-    [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds, giftSwitch, shopGiftCodes, listPax, minPax, pax],
+    [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds, giftSwitch, shopGiftCodes, seedPax, minPax, pax],
   );
 
   /* ── Line mutation helpers ────────────────────────────────────────────── */
@@ -1291,7 +1291,7 @@ export function ProposalMaker({
     window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}${u.hash}`);
     const draft = kept ? parseSavedQuoteDraft(kept.draft) : null;
     const kMin = typeof kept?.minPax === 'number' && kept.minPax > 0 ? kept.minPax : minPax;
-    const kPax = billedPax(listPax, kMin);
+    const kPax = billedPax(seedPax, kMin);
     const kHours = typeof kept?.hours === 'number' && kept.hours > 0 ? kept.hours : hours;
     if (draft) applySavedDraft(draft);
     if (kept?.title) setTitle(kept.title);
@@ -1627,7 +1627,7 @@ export function ProposalMaker({
               </span>
             </span>
             <strong className="font-serif text-lg tabular-nums text-ink" data-quote-live-pax={noList ? 'none' : ''}>
-              {noList ? '—' : formatCount(listPax)}
+              {noList ? '—' : formatCount(seedPax)}
             </strong>
           </div>
           <div className="flex min-h-[52px] items-center justify-between gap-3">
@@ -1671,7 +1671,7 @@ export function ProposalMaker({
             <span className="min-w-0">
               <span className="block text-sm text-ink">Billed</span>
               <span className="block text-xs text-ink/55">
-                {noList ? 'the headcount you typed' : pax > listPax ? 'your minimum · above their list' : 'their list · at or above your minimum'}
+                {noList ? 'the headcount you typed' : pax > seedPax ? 'your minimum · above their list' : 'their list · at or above your minimum'}
               </span>
             </span>
             <strong className="font-serif text-lg tabular-nums text-ink" data-quote-billed-pax="">

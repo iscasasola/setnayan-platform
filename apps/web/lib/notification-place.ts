@@ -209,9 +209,14 @@ export function opensWords(
   }
   switch (place.part) {
     case 'event': {
-      if (segs[0] !== 'dashboard') return `Opens ${place.name} — the event page`;
-      const s = sectionWord(segs[2]);
-      return s ? `Opens ${place.name} › ${s}` : `Opens ${place.name}`;
+      if (eventIdFromRelatedUrl(url)) {
+        const s = sectionWord(segs[2]);
+        return s ? `Opens ${place.name} › ${s}` : `Opens ${place.name}`;
+      }
+      // The event rides `event_id` and the link is elsewhere: say where the press lands, never the event's dashboard.
+      const at = sectionWord(seg ?? undefined) ?? (segs[0] === 'dashboard' ? sectionWord(segs[1]) : null);
+      if (at) return `Opens ${at}`;
+      return segs[0] === 'dashboard' ? 'Opens your events' : `Opens ${place.name} — the event page`;
     }
     case 'shop': {
       const s = sectionWord(segs[1]);

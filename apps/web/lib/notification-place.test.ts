@@ -96,6 +96,14 @@ test('3 · the stance: organiser · invited · helper · no seat', () => {
   assert.equal(opensWords(invited, { related_url: '/ana-30th', event_id: EV2 }), 'Opens Ana’s 30th — the event page');
   const shop = resolveNotificationPlace({ related_url: `/vendor-dashboard/messages/${EV}` }, FACTS);
   assert.equal(placeLineText(shop), 'SetnaProd · Your shop');
+  // An event notice whose link is not the event's own (an invitation → /dashboard, a request from an event → People)
+  // still names its event, and the ⓘ says where the press really lands.
+  const invite = resolveNotificationPlace({ related_url: '/dashboard', event_id: EV2 }, FACTS);
+  assert.equal(placeLineText(invite), 'Ana\u2019s 30th · Invited');
+  assert.equal(opensWords(invite, { related_url: '/dashboard', event_id: EV2 }), 'Opens your events');
+  const fromEvent = resolveNotificationPlace({ related_url: '/dashboard?seg=people', event_id: EV }, FACTS);
+  assert.equal(placeLineText(fromEvent), 'Maria & Jose · You organise');
+  assert.equal(opensWords(fromEvent, { related_url: '/dashboard?seg=people', event_id: EV }), 'Opens People');
   const me = resolveNotificationPlace({ related_url: '/dashboard?seg=people' }, FACTS);
   assert.equal(placeLineText(me), 'Your account');
   assert.equal(opensWords(me, { related_url: '/dashboard?seg=people' }), 'Opens People');

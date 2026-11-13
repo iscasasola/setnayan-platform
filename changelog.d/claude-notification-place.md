@@ -29,6 +29,15 @@ dashboard, or their supplier dashboard, or something"*. Built from the approved 
 - 🔒 `lib/notification-place.test.ts` — the prefixes, /admin → HQ, the stance, null → "Place didn't load", the push
   title trims only the name, and a guard that a row's place line is never blank (every part × every failure).
 
+- **Every event notice carries its event** — checked emitter by emitter. RSVPs and guest-detail edits
+  (`app/[slug]/actions.ts`), guest join requests (`app/join/[eventId]/actions.ts`) and couple⇄supplier chats
+  (`lib/chat-actions.ts`, `lib/offer-service-core.ts`, `app/_actions/thread-call-actions.ts`) already link
+  `/dashboard/<uuid>/…`; `schedule_released` and `event_invitation` are written by the database with `event_id`. The one
+  gap: a connection request sent FROM an event linked `/dashboard?seg=people` with no event — it now passes `eventId`
+  (`lib/people-connection-request.server.ts`), link unchanged. 🔒 `lib/event-notices-carry-their-event.test.ts` holds
+  every emitter of these types. Rows already in the table keep the event_id they were written with.
+- The lab's sample event is "Maria & Jose" (no real couple's names in fixtures); its event notices carry their event.
+
 ⚠ Deviation, flagged: the event mark is the event's **monogram tile**, not the full #7540 poster cover. The poster
 needs server-side presigned hero/theme resolvers per event; the pop-over reads in the browser at open time, so the
 light mark the account menu and Home's cards already wear is what it can draw honestly.

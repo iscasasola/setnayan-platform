@@ -119,6 +119,7 @@ type Props = {
 const LIST_CSS = `
 .sn-notice-card>li+li::before{content:"";position:absolute;left:62px;right:0;top:0;height:1px;background:var(--m-line);pointer-events:none;z-index:2}
 .sn-notice-tip button{pointer-events:auto}
+.sn-notice-tip .sn-tip-body{background:var(--m-paper)}
 `;
 
 const ICONS: Record<NotificationIcon, LucideIcon> = {
@@ -552,7 +553,7 @@ function PlaceFace({ place }: { place: NotificationPlace }) {
           aria-hidden
           className="inline-flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-paper-2)]"
         >
-          <EventMonogram event={place.event} size="sm" place="notice-place" />
+          <EventMonogram event={place.event} size="md" place="notice-place" />
         </span>
       );
     case 'shop':

@@ -42,13 +42,14 @@ const EV_OURS = '11111111-1111-4111-8111-111111111111';
 const EV_ANA = '22222222-2222-4222-8222-222222222222';
 const EV_GONE = '33333333-3333-4333-8333-333333333333';
 const THREAD = '44444444-4444-4444-8444-444444444444';
+const GUEST = '55555555-5555-4555-8555-555555555555';
 
 const mono = { monogram_color: null, monogram_font_key: null, monogram_style: null, monogram_frame_key: null, monogram_custom_svg: null, monogram_uploaded_svg: null };
 const LAB_EVENTS: ReadonlyMap<string, EventPlaceFact> = new Map([
-  [EV_OURS, { event_id: EV_OURS, display_name: 'Cale & Ice', member_type: 'couple', monogram_text: 'C & I', ...mono }],
+  [EV_OURS, { event_id: EV_OURS, display_name: 'Maria & Jose', member_type: 'couple', monogram_text: 'M & J', ...mono }],
   [EV_ANA, { event_id: EV_ANA, display_name: 'Ana\u2019s 30th', member_type: 'guest', monogram_text: 'A', ...mono }],
 ]);
-const LAB_WHO: PlaceWho = { photoUrl: null, initial: 'A', shops: [{ name: 'SetnaProd', logoUrl: null }] };
+const LAB_WHO: PlaceWho = { photoUrl: null, initial: 'M', shops: [{ name: 'SetnaProd', logoUrl: null }] };
 
 function notices(now: number): NotificationRow[] {
   const n = (
@@ -72,22 +73,24 @@ function notices(now: number): NotificationRow[] {
     created_at: ago(hours, now),
   });
   return [
-    n('p1', 'rsvp_received', 2, true, "Gabriel dela Pe\u00f1a RSVP'd: Attending", 'Meal preference: fish.', `/dashboard/${EV_OURS}/guests`, EV_OURS),
-    n('p2', 'vendor_inquiry_received', 9, true, 'New booking inquiry \u2014 from a Setnayan founder', 'Indalecio & Claire \u00b7 18 Dec 2026 \u00b7 Tagaytay', `/vendor-dashboard/messages/${THREAD}`),
-    n('p3', 'guest_claim_pending', 12, true, 'Someone asked to join your guest list', 'Ana Reyes asked to join.', '/dashboard?seg=people'),
-    n('p4', 'schedule_released', 30, false, 'Ana\u2019s schedule is out', 'Dinner starts 6pm \u00b7 Tagaytay Highlands', '/ana-30th', EV_ANA),
-    n('p5', 'payment_matched', 60, false, `Payment of ${SAMPLE_ORDER} matched`, 'The Setnayan team confirmed your payment.', `/dashboard/${EV_GONE}/orders`, null),
-    n('p6', 'order_awaiting_reconciliation', 120, false, `Someone logged a payment \u00b7 ${SAMPLE_ORDER} GCash`, 'Match it in Payments.', '/admin/payments'),
-    n('n1', 'rsvp_received', 18, true, "Maria Santos RSVP'd: Attending", 'Meal preference: Fish. They left you a note.', '/dev/notifications-lab?view=all'),
-    n('n2', 'chat_message', 2, true, 'New message from Lumina Photo Co.', 'Yes to the 3pm slot — sending the contract tonight.', '/dev/notifications-lab?view=all'),
-    n('n3', 'guest_claim_pending', 5, true, 'Someone asked to join your guest list', 'Ana Reyes asked to join. They are not inside yet — Keep, Link or Remove them in Requests.', null),
-    n('n4', 'order_quoted', 9, true, `Order S89O-3F7K2M9QXT quoted at ${SAMPLE_ORDER}`, 'Open the order to view payment instructions.', null),
-    n('n5', 'payment_matched', 48, false, `Payment of ${SAMPLE_ORDER} matched · order S89O-3F7K2M9QXT`, 'The Setnayan team confirmed your payment.', null),
-    n('n6', 'event_auto_surfaced', 72, false, 'You were added to Cale & Ice', 'A couple added you to their event on Setnayan. You can leave any time from your events.', null),
-    n('n7', 'rsvp_received', 96, false, 'Jose Dela Cruz updated their details', 'They added their mobile number.', null),
-    n('n8', 'chat_message', 144, false, 'New message from Bloom & Vine', 'Thank you! See you on the day.', null),
-    n('n9', 'rsvp_received', 192, false, "Liza Ocampo RSVP'd: Not attending", 'They left you a note.', null),
-    n('n10', 'chat_message', 216, false, 'New message from Casa Verde Catering', 'Tasting confirmed for Saturday 10am.', null),
+    // The pop-over's eight: an event you organise (an RSVP · a supplier's chat · a guest asking to join), your shop,
+    // your account, an event you are invited to, an event that was removed, and HQ. Every event notice carries its
+    // event, as the real emitters do (`lib/event-notices-carry-their-event.test.ts`).
+    n('p1', 'rsvp_received', 2, true, "Gabriel dela Pe\u00f1a RSVP'd: Attending", 'Meal preference: fish.', `/dashboard/${EV_OURS}/guests/${GUEST}`, EV_OURS),
+    n('p2', 'chat_message', 3, true, 'New message from Lumina Photo Co.', 'Yes to the 3pm slot \u2014 sending the contract tonight.', `/dashboard/${EV_OURS}/messages/${THREAD}`, EV_OURS),
+    n('p3', 'guest_claim_pending', 5, true, 'Someone asked to join your guest list', 'Ana Reyes asked to join. They are not inside yet \u2014 Keep, Link or Remove them in Requests.', `/dashboard/${EV_OURS}/guests/claims`, EV_OURS),
+    n('p4', 'vendor_inquiry_received', 9, true, 'New booking inquiry \u2014 from a Setnayan founder', 'Indalecio & Claire \u00b7 18 Dec 2026 \u00b7 Tagaytay', `/vendor-dashboard/messages/${THREAD}`),
+    n('p5', 'connection_confirmed', 18, true, 'Jose confirmed \u2014 you\u2019re Partners', 'Jose dela Cruz is in your People.', '/dashboard?seg=people'),
+    n('p6', 'schedule_released', 30, false, 'Ana\u2019s schedule is out', 'Dinner starts 6pm \u00b7 Tagaytay Highlands', '/ana-30th', EV_ANA),
+    n('p7', 'payment_matched', 60, false, `Payment of ${SAMPLE_ORDER} matched`, 'The Setnayan team confirmed your payment.', `/dashboard/${EV_GONE}/orders`, null),
+    n('p8', 'order_awaiting_reconciliation', 120, false, `Someone logged a payment \u00b7 ${SAMPLE_ORDER} GCash`, 'Match it in Payments.', '/admin/payments'),
+    // …and the rest of "View all".
+    n('n1', 'rsvp_received', 20, true, 'Angelo Palomer updated their details', 'They added their mobile number.', `/dashboard/${EV_OURS}/guests/${GUEST}`, EV_OURS),
+    n('n2', 'order_quoted', 40, true, `Order S89O-3F7K2M9QXT quoted at ${SAMPLE_ORDER}`, 'Open the order to view payment instructions.', `/dashboard/${EV_OURS}/orders`, EV_OURS),
+    n('n3', 'event_auto_surfaced', 72, false, 'You were added to Ana\u2019s 30th', 'A couple added you to their event on Setnayan. You can leave any time from your events.', '/ana-30th', EV_ANA),
+    n('n4', 'chat_message', 144, false, 'New message from Bloom & Vine', 'Thank you! See you on the day.', `/dashboard/${EV_OURS}/messages/${THREAD}`, EV_OURS),
+    n('n5', 'rsvp_received', 192, false, "Liza Ocampo RSVP'd: Not attending", 'They left you a note.', `/dashboard/${EV_OURS}/guests/${GUEST}`, EV_OURS),
+    n('n6', 'chat_message', 216, false, 'New message from Casa Verde Catering', 'Tasting confirmed for Saturday 10am.', `/dashboard/${EV_OURS}/messages/${THREAD}`, EV_OURS),
   ];
 }
 
@@ -156,7 +159,7 @@ export default async function NotificationsLabPage({
         </div>
       ) : (
         <div className="mx-auto w-full max-w-3xl px-4 pb-10 pt-6" data-lab-behind="">
-          <p className="font-display text-[34px] font-semibold leading-tight text-ink">Cale &amp; Ice</p>
+          <p className="font-display text-[34px] font-semibold leading-tight text-ink">Maria &amp; Jose</p>
           <p className="mt-1 text-sm text-[var(--m-slate-2)]">Sat 14 Feb 2027 · Tagaytay</p>
           <p className="mt-6 text-sm text-[var(--m-slate-2)]">Press the bell.</p>
         </div>

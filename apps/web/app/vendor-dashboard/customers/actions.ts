@@ -16,6 +16,8 @@ import { fetchVendorWaitlist, type WaitlistDateGroup } from '@/lib/vendor-waitli
 import { fetchVendorThreadsDetailed } from '@/lib/chat';
 import { asksByDate } from '@/lib/vendor-dates';
 import { readOpenAsks } from './open-asks';
+import { readBookedDayHours } from '@/lib/booked-day-hours.server';
+import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
 
 /**
  * The ONLY two datasets that change when the "My Customers" calendar pages to a
@@ -86,17 +88,20 @@ export async function fetchCustomerCalendarMonth(month: string, opts?: { whole?:
     ]);
     // The Schedule page's month has no partial state: refused held days ⇒ the whole read is refused, and it SAYS so.
     if (dayStates === null) return null;
-    const asks =
+    const [asks, bookedHours] = await Promise.all([
       threadsRead && threadsRead.complete
-        ? await readOpenAsks(threadsRead.threads, new Set(bookings.map((b) => b.eventId))).catch(() => null)
-        : null;
+        ? readOpenAsks(threadsRead.threads, new Set(bookings.map((b) => b.eventId))).catch(() => null)
+        : Promise.resolve(null),
+      // 🗓 A booked day's hours and the shop's own times (part (b)) — a hall reads only its own chapter.
+      readBookedDayHours(bookings, new Set(pools.filter((p) => p.isHall).map((p) => p.poolId)), manilaTodayIsoFor(Date.now())),
+    ]);
     return {
       dayStates,
       dayStatesRead: true,
       waitlist,
       whole: {
         pools,
-        bookings: datesBookingsForWire(bookings),
+        bookings: datesBookingsForWire(bookings, bookedHours),
         blocks: datesBlocksForWire(blocksRead.blocks),
         closuresComplete: blocksRead.complete,
         inquiries: asks && asks.measured ? asksByDate(asks.asks) : null,

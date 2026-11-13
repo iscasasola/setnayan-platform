@@ -132,7 +132,20 @@ export function daySheetHref(day: string): string {
 
 /* ── THE PICKED DAY'S ROWS (frame 04, under the month) ─────────────────────────────────────────────────────────── */
 
-export type DatesBooking = { poolId: string; bookedDate: string; eventName: string };
+export type DatesBooking = {
+  poolId: string;
+  bookedDate: string;
+  eventName: string;
+  /**
+   * 🗓 SCHEDULES HAND-IN-HAND part (b) (owner 2026-11-12): the event's hours that day ("2:00 PM – 11:00 PM"), or — for a
+   * hall — only the chapter held in THAT hall ("Reception · 6:00 PM – 11:00 PM"). Absent/null = not known.
+   */
+  hours?: string | null;
+  /** The shop's own arrive · done once the host OK'd them ("you arrive 11:30 AM · done 10:30 PM"). */
+  mine?: string | null;
+  /** The hours read was refused: the row keeps "Booked here" and SAYS it — "Couldn't read the hours · Try again". */
+  hoursUnread?: boolean;
+};
 export type DatesBlock = {
   /** A closure's own id (Customers › Dates' day switch reopens a one-day closure by it). Absent = not handed over. */
   blockId?: string;
@@ -163,6 +176,10 @@ export type DayRow = {
   badge: { tone: 'ok' | 'wait' | 'quiet'; word: string } | null;
   /** A part-day block's hours ("6 AM – 12 NN"), drawn as its badge; null for all day. */
   hours?: string | null;
+  /** 🗓 A booked row's second line — the shop's own "you arrive · done" (two lines at 390 px, never one that wraps). */
+  line2?: string | null;
+  /** 🗓 A booked row whose hours could not be read — drawn with "Couldn't read the hours · Try again". */
+  unread?: boolean;
 };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -200,7 +217,11 @@ export function dayRowsOf(
         key: `booked-${i}`,
         kind: 'booked',
         title: b.eventName,
-        line: namePools ? poolLabel(b.poolId) : 'Booked here',
+        // 🗓 The day's hours (and the calendar's name) on one line, the shop's own times on the next (part (b),
+        // approved prototype: two lines, so neither wraps at 390 px) — the plain words only when no hours are known.
+        line: [b.hours ?? '', namePools ? poolLabel(b.poolId) : ''].filter(Boolean).join(' · ') || 'Booked here',
+        line2: b.mine ?? null,
+        ...(b.hoursUnread ? { unread: true } : {}),
         badge: { tone: 'ok', word: 'Booked' },
       }),
     );

@@ -42,6 +42,8 @@ test('💰 2026-11-04 final sheet — Event Plus, Event Pro, three Papic packs, 
     // 💰 Event Pro (`event_pro`, replaces `event_hub_pro`) and Event Plus (`event_plus`) — owner 2026-11-02 / 2026-11-04.
     'COUPLE_WEBSITE_PRO',
     'EVENT_PLUS',
+    // 💎 Event Ultra (`event_ultra`) — owner 2026-11-13, "EVENT ULTRA APPROVED — BUILD IT".
+    'EVENT_ULTRA',
     'LIVE_STUDIO',
     // 🍎 The second wave — owner 2026-10-23, verbatim: "Add Setnayan AI, Music Maker, Patiktok, Thank You and Mood
     // Board pack as Apple products before submitting build 6." This SUPERSEDES the first wave's "no Setnayan AI"
@@ -68,6 +70,7 @@ test('ids are exactly the ruled ones (FOREVER), kinds and the owner’s display 
   const want: Array<[string, string, string, string, number | null]> = [
     ['com.setnayan.app.event_plus', 'EVENT_PLUS', 'event-plus', 'Event Plus', null],
     ['com.setnayan.app.event_pro', 'COUPLE_WEBSITE_PRO', 'event-hub-pro', 'Event Pro', null],
+    ['com.setnayan.app.event_ultra', 'EVENT_ULTRA', 'event-ultra', 'Event Ultra', null],
     ['com.setnayan.app.papic_pack_150', 'PAPIC_GUEST_150', 'papic-credits', 'Papic 150', 150], // gitleaks:allow — catalog service_codes, not secrets
     ['com.setnayan.app.papic_pack_1000', 'PAPIC_GUEST_1K', 'papic-credits', 'Papic 1000', 1_000], // gitleaks:allow — catalog service_codes, not secrets
     ['com.setnayan.app.papic_pack_3000', 'PAPIC_GUEST', 'papic-credits', 'Papic 3000', 3_000], // gitleaks:allow — catalog service_codes, not secrets

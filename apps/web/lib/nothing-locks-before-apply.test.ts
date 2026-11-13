@@ -5,7 +5,7 @@
  * BEFORE THEY HAVE MADE ANYTHING.
  *
  * Owner, 2026-09-29: *"◆ marks Pro and never blocks; there are no padlocks;
- * Apply is the gate ('Unlock Pro and Apply')."* A couple without Event Hub Pro
+ * Apply is the gate ('Unlock Pro and Apply')."* A couple without Event Pro
  * tries every Pro touch; the Maker's Apply sheet names what they chose and asks
  * for Pro then. Three places still answered a free couple with a lock before
  * they had made anything — "Photos you add" (an early `WebsiteProLock`), the

@@ -15,7 +15,7 @@
  *   ?item=invitation      open on one item (default: Theme, as a cold open)
  *   ?item=march           the Wedding March maker on fixtures — drags drawn, never sent
  *                         (+ `&march=owner`: the owner-shaped march, 45 walks · 80 walking)
- *   ?pro=1                a couple with Event Hub Pro
+ *   ?pro=1                a couple with Event Pro
  *   ?look=1               the Look (part 3): Mood Board, Logo, Hero, Reveal — stand-ins
  *                         for the work area's pages, so the layout can be checked
  *   ?type=birthday|wake   another celebration (default: wedding) — no Love Story item
@@ -258,7 +258,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   const venueLab = one('venue') === 'own';
   /* ⛪ `?venue=church` — Details › Venues with cale-ice's two venue NAMES typed by hand (no booking): the ceremony is the
      Santuario (a parish the drawing library has), with a stand-in uploaded photo (a file this repo ships).
-     `&vpic=photo|drawing|none` is the ceremony card's stored Picture (default photo); `&pro=1` = owns Event Hub Pro. */
+     `&vpic=photo|drawing|none` is the ceremony card's stored Picture (default photo); `&pro=1` = owns Event Pro. */
   const churchLab = one('venue') === 'church';
   /* 📍 `?venue=mixed` — one manual ceremony + one shop reception (owner 2026-10-22, "manual entry venues can set pin"). */
   const mixedLab = one('venue') === 'mixed';

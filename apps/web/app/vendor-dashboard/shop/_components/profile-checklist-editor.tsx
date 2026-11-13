@@ -118,7 +118,7 @@ export function ProfileChecklistEditor({
           // "Services covered" is taxonomy-driven — it jumps to the Coverage
           // flow instead of editing a column inline (owner 2026-07-03).
           item.key === 'services' ? (
-            <ServiceCoverageRow key={item.key} item={item} count={data.services.length} flat={flat} />
+            <ServiceCoverageRow key={item.key} item={item} count={data.serviceCategoryCount} flat={flat} />
           ) : rowAsks(item.key, item.ok, asks) ? (
             <RequestOnlyRow
               key={item.key}

@@ -2,13 +2,13 @@
  * vendor-addon-tier-pricing.ts — WHICH CATALOGUE ROW a supplier's add-on is priced from, by plan.
  *
  * The 2026-07-25 model (corpus `Vendor_Monetization_Model_LOCKED_2026-07-25.md`) priced add-ons in TWO plan bands —
- * Free / Verified / Solo pay the `entry` price, Pro / Ultra the cheaper `growth` price. Until 2026-11-04
+ * Free / Verified / Supplier Plus pay the `entry` price, Pro / Ultra the cheaper `growth` price. Until 2026-11-04
  * the two figures were TYPED here, in a matrix that overrode the catalogue whenever
  * `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING` was on — so the price a supplier was charged could differ from the price an
  * admin saw and edited.
  *
  * ⚖ 2026-11-04 (DECISION_LOG "FINAL PRICE SHEET" + "DEEP SEARCH AND CHATBOT KEEP TWO PRICES BY PLAN"): Deep Search
- * ₱499 Pro/Ultra · ₱799 Free/Verified/Solo; AI chatbot ₱1,490 · ₱1,990; 3D booth and Photo challenge one price.
+ * ₱499 Pro/Ultra · ₱799 Free/Verified/Supplier Plus; AI chatbot ₱1,490 · ₱1,990; 3D booth and Photo challenge one price.
  * Prices live ONLY in `vendor_billing_catalog` (migration `*_the_final_price_sheet.sql`), each band its OWN row, so an
  * admin edits both in Admin › Pricing and this file holds no money at all — only the map from (add-on, band) to the
  * row's `sku_code`. A one-price add-on names the same row on both sides. The band always applies now (the owner ruled
@@ -16,7 +16,7 @@
  *
  * ⚖ 2026-11-09 (DECISION_LOG 🔎💳 "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN"): Deep Search is ONE price on every plan —
  * both sides name `vendor_deep_search`; the entry row `vendor_deep_search_entry` is retired into it. The AI chatbot
- * KEEPS its two rows (owner, same row: "AI chatbot keeps ₱1,490 (Pro/Ultra) and ₱1,990 (Free/Verified/Solo)").
+ * KEEPS its two rows (owner, same row: "AI chatbot keeps ₱1,490 (Pro/Ultra) and ₱1,990 (Free/Verified/Supplier Plus)").
  *
  * The map is PURE; the read takes its Supabase client as an argument (import-type only) so this module stays
  * unit-testable under `tsx --test` with no server import.
@@ -33,7 +33,7 @@ export type VendorAddonSku =
   | 'deep_search_about_you'; // per search
 
 /**
- * Two price bands. `entry` = Free / Verified / Solo. `growth` = Pro / Enterprise (Ultra) / Custom. The boundary is
+ * Two price bands. `entry` = Free / Verified / Supplier Plus. `growth` = Pro / Enterprise (Ultra) / Custom. The boundary is
  * "Pro and up", reusing the tier ladder so there is no second source of truth for what counts as a subscriber.
  */
 export type VendorAddonPriceBand = 'entry' | 'growth';

@@ -57,7 +57,6 @@ export function SupplierSetupFolds({
   bodies,
   gear,
   tour,
-  daily,
 }: {
   view: SetupView;
   bodies: Readonly<Record<SetupFoldKey, ReactNode>>;
@@ -66,8 +65,6 @@ export function SupplierSetupFolds({
   /** The tour after step 6: its words (read on the server — `lib/tours.ts` never reaches the browser) and whether it
       is already on record (null: the read was refused — it does not run). */
   tour?: { script: SpotlightScript; seen: boolean | null; lab?: boolean } | null;
-  /** 7️⃣ Step 7 — How many a day (`SetupDailyStep`): a row UNDER the six, never counted in "N of 6". */
-  daily?: ReactNode;
 }) {
   const [open, setOpen] = useState<SetupFoldKey | null>(view.firstOpen);
   const wide = useMediaQuery('(min-width: 768px)');
@@ -164,7 +161,6 @@ export function SupplierSetupFolds({
             </div>
           </Fold>
         ))}
-        {daily ? <Fragment key="daily">{daily}</Fragment> : null}
       </div>
 
       {(() => {

@@ -110,7 +110,7 @@ const SEARCH_WORDS: Record<(typeof TIER_CAPS)[VendorTier]['seoLevel'], string> =
 const reachWords = (km: number) => (Number.isFinite(km) ? `reach ${formatCount(km)} km` : 'nationwide');
 
 /**
- * 🪜 THE LADDER THE PLAN SHEET SHOWS — "Free · Verified → Solo adds → Pro adds → Ultra adds" (prototype v16 `LADDER`,
+ * 🪜 THE LADDER THE PLAN SHEET SHOWS — "Free · Verified → Supplier Plus adds → Pro adds → Ultra adds" (prototype v16 `LADDER`,
  * the shape of `for-suppliers/_components/vendor-tier-deltas.tsx`: each plan says what it ADDS, once). Every number
  * is read from `TIER_CAPS`; Free's reach is Verified's (Free is not searchable until verified). No peso anywhere.
  */
@@ -160,7 +160,7 @@ export function whatEachPlanHolds(): {
  * ② v19 — "BEFORE YOU CONTINUE" IN TWO COLUMNS (owner 7 Nov: *"a better explanation and simpler to show what is deemed
  * free, and the others will be part of pro. Your first booking is free so you can experience our app."*; prototype v19
  * `planSheetBody` · `holderPlan` · `capLine`). THEIR picks, split: what stays Free (`TIER_CAPS.free` — the main service)
- * and the plan that holds the rest — the first of Solo · Pro · Ultra that holds EVERY pick (usually Pro); past Ultra,
+ * and the plan that holds the rest — the first of Supplier Plus · Pro · Ultra that holds EVERY pick (usually Pro); past Ultra,
  * Ultra with "you choose which". Every number is `TIER_CAPS`'; the four-plan ladder lives in the ⓘ.
  */
 export function planSplit(list: readonly MeterService[]): {

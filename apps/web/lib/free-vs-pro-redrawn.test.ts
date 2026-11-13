@@ -67,7 +67,7 @@ const grows = (c: string) => c === 'add' || c === 'change';
 
 /* ── 1 · the two lists name every field, once ─────────────────────────────── */
 
-/* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO ◆":
+/* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT PRO ◆":
    *"all animate, effects, styles, accents are pro"* — everything in Style is Pro: colour, size, font …). A PART's
    colour · size · font · weight · B/I/U · alignment · width · spacing went back under Pro beside its motion; only its
    Show, its own words and its date's format stay free. The page's own colours (background, button) are NOT a part's
@@ -221,7 +221,7 @@ test('💎 the button colour is free on every side: gate, Apply, guest render, p
 
 /* ── 5 · the Maker's marks sit only on the Pro rows ───────────────────────── */
 
-/* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO ◆":
+/* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT PRO ◆":
    *"all animate, effects, styles, accents are pro"*). This test pinned Font ▾ as FREE (no mark, never hidden — the
    2026-10-06 rule). Font is Style, so it is Pro again and held at Apply — and the older part sheet's Font ▾ now WEARS
    the sheet's one mark (the node Animate wears) and is hidden in the store shell like every Pro row. Still never the

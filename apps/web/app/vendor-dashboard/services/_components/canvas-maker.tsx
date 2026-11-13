@@ -1457,8 +1457,10 @@ export function CanvasMaker({
                       </div>
                       {/* ⚖ The supplier's own number — inside the plan's bookings per date per card (owner 2026-11-06:
                           Solo 1 · Pro 3 · Ultra 5, Ultra may add more). Free · Verified: not ruled, no plan cap. */}
+                      {/* 🔢 THE DAILY LIMIT IS PER SERVICE (owner 13 Nov 2026, DECISION_LOG d8ec0922) — this card's own
+                          `vendor_services.daily_capacity`; Today no longer asks one number for the whole shop. */}
                       <Field
-                        label="How many a day · this card"
+                        label="How many events a day can this service take?"
                         htmlFor="daily_capacity"
                         help={
                           (editing?.slots.length ?? 0) > 0

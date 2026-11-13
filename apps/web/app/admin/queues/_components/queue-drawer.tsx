@@ -144,7 +144,7 @@ export function QueueDrawer({
                   className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
                   style={
                     it.light === 'green'
-                      ? { background: 'var(--sn-success-soft)', color: 'var(--sn-success)' }
+                      ? { background: 'var(--sn-success-soft)', color: 'var(--sn-success-deep)' }
                       : { background: 'var(--sn-warning-soft)', color: 'var(--sn-warning-deep)' }
                   }
                 >

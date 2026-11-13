@@ -8,6 +8,7 @@ import {
   type CompletionCandidate,
 } from '@/lib/admin/completions-stuck';
 import { ACTIVE_STATUSES, BUNDLE_CHILD_SKUS } from '@/lib/entitlements';
+import { formatCount } from '@/lib/format-number';
 import { FAILED_DELIVERY_EVENTS, SUMMARY_WINDOW_MS } from '@/lib/email-delivery-log';
 
 /**
@@ -714,7 +715,7 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: null,
     filter: (q) => q.eq('status', 'open'),
     digest: countRepostWatch,
-    digestLine: { label: 'Repost watch', say: (n) => `${n} flagged ${n === 1 ? 'picture' : 'pictures'} to look at` },
+    digestLine: { label: 'Repost watch', say: (n) => `${formatCount(n)} flagged ${n === 1 ? 'picture' : 'pictures'} to look at` },
   },
   {
     // The fraud runner's reversible auto-suspend (lib/fraud-enforcement-runner.ts
@@ -726,7 +727,7 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: null,
     filter: (q) => q.not('fraud_suspended_at', 'is', null).is('fraud_banned_at', null),
     tsCol: 'fraud_suspended_at',
-    digestLine: { label: 'Fraud queue', say: (n) => `${n} auto-suspended, ${n === 1 ? 'needs' : 'need'} your look` },
+    digestLine: { label: 'Fraud queue', say: (n) => `${formatCount(n)} auto-suspended, ${n === 1 ? 'needs' : 'need'} your look` },
   },
   {
     // /admin/editorial-review's "Needs review" list. It BLOCKS the couple: their
@@ -737,7 +738,7 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: null,
     filter: (q) => q.eq('scan_status', 'flagged'),
     tsCol: 'scan_completed_at',
-    digestLine: { label: 'Editorial review', say: (n) => `${n} flagged ${n === 1 ? 'editorial' : 'editorials'} waiting — the couple is blocked` },
+    digestLine: { label: 'Editorial review', say: (n) => `${formatCount(n)} flagged ${n === 1 ? 'editorial' : 'editorials'} waiting — the couple is blocked` },
   },
   {
     // A read-only TRAIL (/admin/pax-changes: "HQ only observes"), so its count
@@ -749,7 +750,7 @@ const QUEUE_DEFS: QueueDef[] = [
     watchOnly: true,
     filter: (q, { nowIso }) =>
       q.gte('created_at', new Date(Date.parse(nowIso) - WATCH_WINDOW_MS).toISOString()),
-    digestLine: { label: 'Pax changes', say: (n) => `${n} guest-count cost ${n === 1 ? 'change' : 'changes'} this week` },
+    digestLine: { label: 'Pax changes', say: (n) => `${formatCount(n)} guest-count cost ${n === 1 ? 'change' : 'changes'} this week` },
   },
   {
     // Failed auto-posts + take-downs owed — see countSocialQueue.
@@ -759,7 +760,7 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: null,
     filter: (q) => q.eq('status', 'failed'),
     digest: countSocialQueue,
-    digestLine: { label: 'Social queue', say: (n) => `${n} ${n === 1 ? 'post needs' : 'posts need'} you (failed or to take down)` },
+    digestLine: { label: 'Social queue', say: (n) => `${formatCount(n)} ${n === 1 ? 'post needs' : 'posts need'} you (failed or to take down)` },
   },
   {
     // Songs still to write — see countMusicMakerToWrite. Key stays `pakanta`
@@ -770,7 +771,7 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: null,
     filter: (q) => q.in('service_key', ['PAKANTA']).in('status', Array.from(ACTIVE_STATUSES)),
     digest: countMusicMakerToWrite,
-    digestLine: { label: 'Music Maker', say: (n) => `${n} ${n === 1 ? 'song' : 'songs'} to write` },
+    digestLine: { label: 'Music Maker', say: (n) => `${formatCount(n)} ${n === 1 ? 'song' : 'songs'} to write` },
   },
   {
     // Refunds suppliers RECORDED giving their clients — no money moves through
@@ -782,7 +783,7 @@ const QUEUE_DEFS: QueueDef[] = [
     watchOnly: true,
     filter: (q, { nowIso }) =>
       q.is('removed_at', null).gte('created_at', new Date(Date.parse(nowIso) - WATCH_WINDOW_MS).toISOString()),
-    digestLine: { label: 'Supplier refunds', say: (n) => `${n} ${n === 1 ? 'refund' : 'refunds'} recorded this week` },
+    digestLine: { label: 'Supplier refunds', say: (n) => `${formatCount(n)} ${n === 1 ? 'refund' : 'refunds'} recorded this week` },
   },
   {
     // A service we do not list yet — /admin/categories/requests, status pending.
@@ -791,7 +792,7 @@ const QUEUE_DEFS: QueueDef[] = [
     lane: 'growth',
     slaHours: null,
     filter: (q) => q.eq('status', 'pending'),
-    digestLine: { label: 'Service requests', say: (n) => `${n} ${n === 1 ? 'request' : 'requests'} for a service we don't list` },
+    digestLine: { label: 'Service requests', say: (n) => `${formatCount(n)} ${n === 1 ? 'request' : 'requests'} for a service we don't list` },
   },
   {
     // Problems — the grouped fault list (lib/telemetry/fault-issues.server.ts),
@@ -803,7 +804,7 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: null,
     filter: (q) => q.eq('status', 'open'),
     tsCol: 'first_seen',
-    digestLine: { label: 'Problems', say: (n) => `${n} ${n === 1 ? 'thing is' : 'things are'} failing in the app` },
+    digestLine: { label: 'Problems', say: (n) => `${formatCount(n)} ${n === 1 ? 'thing is' : 'things are'} failing in the app` },
   },
   {
     // Emails of the last week that will not arrive — see countEmailBounces.
@@ -813,7 +814,7 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: null,
     filter: (q) => q.eq('outcome', 'send_failed'),
     digest: countEmailBounces,
-    digestLine: { label: 'Email bounces', say: (n) => `${n} ${n === 1 ? 'email' : 'emails'} this week did not arrive` },
+    digestLine: { label: 'Email bounces', say: (n) => `${formatCount(n)} ${n === 1 ? 'email' : 'emails'} this week did not arrive` },
   },
 ];
 

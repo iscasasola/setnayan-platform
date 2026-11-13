@@ -54,7 +54,7 @@ export function PlanningExample() {
             layout="poster"
             coverTone="dark"
             index={i}
-            cover={<EventPoster poster={samplePoster(e)} markText={e.name.slice(0, 1)} />}
+            cover={<EventPoster poster={samplePoster(e)} markText={e.name.slice(0, 1)} nameOnly />}
             kicker={[e.badge]}
             title={e.name}
             meta={e.meta}

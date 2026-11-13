@@ -44,7 +44,9 @@ export function SupplierChats({ read, viewerId }: { read: SupplierChatsRead; vie
       <PageMasthead title="Chats" />
       <header className="mb-1 flex items-center gap-1">
         <BackButton route="/vendor-dashboard/messages" variant="chat" className="-ml-2" />
-        <h2 aria-hidden className="font-display text-[30px] font-semibold leading-tight text-ink">
+        {/* Rule 1 — a full-screen page has no pinned row, so its name sits in its own top bar: the body font, not a
+            serif heading. */}
+        <h2 aria-hidden className="text-[17px] font-semibold leading-tight text-ink">
           Chats
         </h2>
       </header>
@@ -55,13 +57,13 @@ export function SupplierChats({ read, viewerId }: { read: SupplierChatsRead; vie
         </TimelineReadProblem>
       ) : read.rows.length === 0 && read.complete ? (
         // Empty is one line and nothing else — no filters, no search, over nothing.
-        <p className="py-10 text-center text-sm text-ink/60" data-supplier-chats-empty="">
+        <p className="py-10 text-center text-[14px] text-[color:var(--m-slate-2)]" data-supplier-chats-empty="">
           No chats yet — a customer&rsquo;s first message lands here.
         </p>
       ) : (
         <>
           {read.complete ? null : (
-            <p role="status" className="mb-2 text-[13px] text-ink/70" data-supplier-chats-incomplete="">
+            <p role="status" className="mb-2 text-[13px] text-[color:var(--m-slate-2)]" data-supplier-chats-incomplete="">
               Showing your newest chats — some older ones didn’t load. Reload to see them all.
             </p>
           )}
@@ -71,7 +73,7 @@ export function SupplierChats({ read, viewerId }: { read: SupplierChatsRead; vie
             unreadMeasured={read.unreadMeasured}
             peerFilter={null}
             dock="foot"
-            empty={<p className="py-10 text-center text-sm text-ink/60">No chats loaded.</p>}
+            empty={<p className="py-10 text-center text-[14px] text-[color:var(--m-slate-2)]">No chats loaded.</p>}
           />
         </>
       )}

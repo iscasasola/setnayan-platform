@@ -1,8 +1,15 @@
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ListChecks, Search } from 'lucide-react';
 
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { ShopCard, ShopNotice } from '@/app/vendor-dashboard/_components/kit';
+import {
+  TEMPLATE_SUBLINE,
+  TemplateFail,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 import { RequestNameForm } from './name-fields';
 import { proposeCategoryRequested, SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import { othersPlace, SERVICE_REQUEST_NEW_HREF, SERVICE_REQUESTS_HREF } from '@/lib/service-requests';
@@ -23,28 +30,27 @@ export function TellUsWhatYouDoView({ tree, sp }: { tree: RequestTree | null; sp
       : null;
 
   const backToCard = fromMaker ? (
-    <Link href={SERVICE_MAKER_HREF} className="mb-3 flex w-fit text-xs font-medium text-ink/70 underline underline-offset-2">
-      ← Back to your card
+    <Link href={SERVICE_MAKER_HREF} className={actionButtonClass('neutral', { quiet: true })} data-tone="neutral">
+      <ArrowLeft aria-hidden strokeWidth={1.9} />
+      <span>Back to your card</span>
     </Link>
   ) : null;
   const error = sp.error ? (
-    <ShopNotice tone="danger" role="alert" className="mb-4">
+    <p role="alert" className="py-2 text-[14px] font-semibold" style={{ color: 'rgb(var(--color-danger))' }}>
       {sp.error}
-    </ShopNotice>
+    </p>
   ) : null;
 
   if (!tree) {
     return (
-      <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mx-auto w-full max-w-3xl space-y-2 px-4 py-4 sm:px-6">
         {backToCard}
         <PageMasthead title="Where does it belong?" />
-        <h2 aria-hidden className="mb-3 text-xl font-semibold tracking-tight text-ink">Where does it belong?</h2>
-        <ShopNotice tone="danger" role="alert">
-          <strong>Couldn&rsquo;t load the categories.</strong> Nothing was sent.{' '}
-          <Link href={step1Href} className="font-semibold underline underline-offset-2">
-            Try again
-          </Link>
-        </ShopNotice>
+        <TemplateSection label="Where does it belong?" first>
+          <TemplateFail data="request-tree" retryHref={step1Href}>
+            <strong>Couldn&rsquo;t load the categories.</strong> Nothing was sent.
+          </TemplateFail>
+        </TemplateSection>
       </div>
     );
   }
@@ -52,48 +58,46 @@ export function TellUsWhatYouDoView({ tree, sp }: { tree: RequestTree | null; sp
   // ── Step 3 · Name your service ─────────────────────────────────────────────
   if (tile && group) {
     return (
-      <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-10" data-request-step="name">
+      <div className="mx-auto w-full max-w-3xl space-y-2 px-4 py-4 sm:px-6" data-request-step="name">
         {backToCard}
-        <p className="sn-eye">Step 3 of 3</p>
         <PageMasthead title="Name your service" />
-        <h2 aria-hidden className="mb-3 text-xl font-semibold tracking-tight text-ink">Name your service</h2>
-        {error}
-        <RequestNameForm
-          tileId={tile.tileId}
-          fromMaker={fromMaker}
-          before={
-            <div>
-            <p className="mb-1 text-[13px] font-medium text-ink/75">Category</p>
-            <Link
-              href={`${SERVICE_REQUEST_NEW_HREF}?group=${encodeURIComponent(group.id)}${carry}`}
-              className="flex min-h-11 items-center justify-between rounded-full border border-ink/20 px-4 text-sm text-ink"
-              aria-label="Change category"
-            >
-              <span>
-                {group.label} › {tile.label}
-              </span>
-              <span aria-hidden className="text-terracotta-700">▾</span>
-            </Link>
-            <p className="mt-1 text-[12.5px] text-ink/60">Tap to change.</p>
-          </div>
-          }
-          after={
-          <ShopCard pad="tight">
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
-              <dt className="font-semibold text-ink">Now</dt>
-              <dd className="text-ink/75">
-                You go under <b>{othersPlace(tile.label)}</b>. Make your cards today — they file under
-                Miscellaneous until we place your service, and stay online while you wait.
-              </dd>
-              <dt className="font-semibold text-ink">Then</dt>
-              <dd className="text-ink/75">
-                We add your service, move it to one we have, or keep it for your shop. Your cards move with it. You get
-                a notice either way.
-              </dd>
-            </dl>
-          </ShopCard>
-          }
-        />
+        <TemplateSection label="Name your service" first right="Step 3 of 3">
+          {error}
+          <RequestNameForm
+            tileId={tile.tileId}
+            fromMaker={fromMaker}
+            before={
+              <div>
+                <p className="mb-1 text-[13px] font-semibold text-ink">Category</p>
+                <Link
+                  href={`${SERVICE_REQUEST_NEW_HREF}?group=${encodeURIComponent(group.id)}${carry}`}
+                  className="sn-press flex min-h-11 items-center justify-between rounded-full border border-[color:var(--m-line)] px-4 text-[14px] text-ink"
+                  aria-label="Change category"
+                >
+                  <span>
+                    {group.label} › {tile.label}
+                  </span>
+                  <span aria-hidden className="text-mulberry">▾</span>
+                </Link>
+                <p className={`mt-1 ${TEMPLATE_SUBLINE}`}>Tap to change.</p>
+              </div>
+            }
+            after={
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 border-y border-[color:var(--m-line)] py-3 text-[14px]">
+                <dt className="font-semibold text-ink">Now</dt>
+                <dd className="text-[color:var(--m-slate-2)]">
+                  You go under <b className="text-ink">{othersPlace(tile.label)}</b>. Make your cards today — they file
+                  under Miscellaneous until we place your service, and stay online while you wait.
+                </dd>
+                <dt className="font-semibold text-ink">Then</dt>
+                <dd className="text-[color:var(--m-slate-2)]">
+                  We add your service, move it to one we have, or keep it for your shop. Your cards move with it. You
+                  get a notice either way.
+                </dd>
+              </dl>
+            }
+          />
+        </TemplateSection>
       </div>
     );
   }
@@ -101,76 +105,65 @@ export function TellUsWhatYouDoView({ tree, sp }: { tree: RequestTree | null; sp
   // ── Step 2 · Pick a category ───────────────────────────────────────────────
   if (group) {
     return (
-      <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-10" data-request-step="category">
+      <div className="mx-auto w-full max-w-3xl space-y-2 px-4 py-4 sm:px-6" data-request-step="category">
         {backToCard}
-        <p className="sn-eye">Step 2 of 3</p>
         <PageMasthead title="Pick a category" />
-        <h2 aria-hidden className="mb-3 text-xl font-semibold tracking-tight text-ink">Pick a category</h2>
-        {error}
-        <p className="mb-4 text-sm text-ink/65">Your service will sit here until we place it exactly.</p>
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl bg-white shadow-sm">
-          {group.categories.map((c) => (
-            <li key={c.tileId}>
-              <Link
-                href={`${SERVICE_REQUEST_NEW_HREF}?tile=${encodeURIComponent(c.tileId)}${carry}`}
-                className="flex min-h-12 items-center gap-3 px-4 py-3 hover:bg-ink/[0.03]"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-medium text-ink">{c.label}</span>
-                  <span className="block text-[12.5px] text-ink/60">
-                    {group.label} › {c.label} › <b>Others</b>
-                  </span>
-                </span>
-                <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
-              </Link>
-            </li>
-          ))}
-        </ul>
-        <Link
-          href={step1Href}
-          className="mt-4 inline-flex min-h-11 items-center rounded-full border border-ink/15 px-5 text-sm font-medium text-ink"
+        <TemplateSection
+          label="Pick a category"
+          first
+          tip="Your service will sit here until we place it exactly."
+          right="Step 2 of 3"
         >
-          ‹ Other groups
-        </Link>
+          {error}
+          <TemplateRows label="Categories">
+            {group.categories.map((c) => (
+              <TemplateRow
+                key={c.tileId}
+                href={`${SERVICE_REQUEST_NEW_HREF}?tile=${encodeURIComponent(c.tileId)}${carry}`}
+                title={c.label}
+                line={
+                  <>
+                    {group.label} › {c.label} › <b>Others</b>
+                  </>
+                }
+              />
+            ))}
+          </TemplateRows>
+        </TemplateSection>
+        <div className="pt-2">
+          <ActionButton tone="neutral" icon={<ChevronLeft aria-hidden />} label="Other groups" href={step1Href} />
+        </div>
       </div>
     );
   }
 
   // ── Step 1 · Pick a group ──────────────────────────────────────────────────
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-10" data-request-step="group">
+    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 py-4 sm:px-6" data-request-step="group">
       {backToCard}
-      <p className="sn-eye">Step 1 of 3</p>
       <PageMasthead title="Where does it belong?" />
-        <h2 aria-hidden className="mb-3 text-xl font-semibold tracking-tight text-ink">Where does it belong?</h2>
-      {error}
-      <p className="mb-4 text-sm text-ink/65">
-        The same list couples browse. Open the group closest to what you do.{' '}
-        <Link href={SERVICE_MAKER_HREF} className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
-          Search again
-        </Link>
-      </p>
-      <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl bg-white shadow-sm">
-        {tree.groups.map((g) => (
-          <li key={g.id}>
-            <Link
+      <TemplateSection
+        label="Where does it belong?"
+        first
+        tip="The same list couples browse. Open the group closest to what you do."
+        right="Step 1 of 3"
+      >
+        {error}
+        <TemplateRows label="Groups">
+          {tree.groups.map((g) => (
+            <TemplateRow
+              key={g.id}
               href={`${SERVICE_REQUEST_NEW_HREF}?group=${encodeURIComponent(g.id)}${carry}`}
-              className="flex min-h-12 items-center gap-3 px-4 py-3 hover:bg-ink/[0.03]"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-medium text-ink">{g.label}</span>
-                <span className="block text-[12.5px] text-ink/60">
-                  {g.categories.length} {g.categories.length === 1 ? 'category' : 'categories'}
-                </span>
-              </span>
-              <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
-            </Link>
-          </li>
-        ))}
-      </ul>
-      <Link href={SERVICE_REQUESTS_HREF} className="mt-4 inline-flex min-h-11 items-center text-sm font-medium text-ink/70 underline underline-offset-2">
-        Your requests
-      </Link>
+              title={g.label}
+              line={`${g.categories.length} ${g.categories.length === 1 ? 'category' : 'categories'}`}
+            />
+          ))}
+        </TemplateRows>
+      </TemplateSection>
+      <div className="flex flex-wrap gap-2 pt-2">
+        <ActionButton tone="info" icon={<Search aria-hidden />} label="Search again" href={SERVICE_MAKER_HREF} />
+        <ActionButton tone="neutral" icon={<ListChecks aria-hidden />} label="Your requests" href={SERVICE_REQUESTS_HREF} />
+      </div>
     </div>
   );
 }

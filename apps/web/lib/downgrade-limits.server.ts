@@ -7,6 +7,7 @@ import { fetchVendorTeam } from '@/lib/vendor-team';
 import { fetchExtraAgentSeats } from '@/lib/vendor-seats';
 import { teamSeats } from '@/lib/vendor-free-helper';
 import type { DowngradeFacts, FitCard } from '@/lib/downgrade-limits';
+import { readStoredBytes } from '@/lib/supplier-storage.server';
 
 /**
  * downgrade-limits.server.ts — THE READS behind the limits sheet (`lib/downgrade-limits.ts` is the rule).
@@ -15,25 +16,23 @@ import type { DowngradeFacts, FitCard } from '@/lib/downgrade-limits';
  * "Couldn't read …" for that limit — never "fits". The cards come from `readStayOn`, the SAME read "Which services stay
  * on" uses, so the sheet and the picker count the same cards.
  *
- * Storage: no plan storage allowance exists yet (see `STORAGE_ALLOWANCE_BYTES`), so what the shop stores is not read —
- * the floor row is not drawn until an allowance is ruled.
+ * Storage: the plan's allowance is `TIER_CAPS[plan].storageBytes` (owner 2026-11-13); what the shop stores is
+ * `readStoredBytes` — the same read the Plan's "Storage" row and `/api/upload` use, so the sheet, the row and the refusal
+ * count the same bytes.
  */
 
-/**
- * The storage a plan holds, in bytes. NO PLAN HAS ONE YET: the storage rows in `vendor_billing_catalog` are priced and
- * inactive (migration 20271308555594 §2b, "There is no storage purchase or quota in the app yet"). Null = no floor
- * drawn. Never type a number here without the owner's ruling — the floor tells a supplier to delete their work.
- */
-export function storageAllowanceBytes(_plan: string): number | null {
-  return null;
-}
+/** The storage a plan holds — `TIER_CAPS[plan].storageBytes` (lib/supplier-storage.ts holds the rule). */
+export { storageAllowanceBytes } from '@/lib/supplier-storage';
+
+/** The usage read (lib/supplier-storage.server.ts) — re-exported so the Plan reads it from where it reads the sheet. */
+export { readStoredBytes, type StoredBytesRead } from '@/lib/supplier-storage.server';
 
 export async function readDowngradeFacts(
   supabase: SupabaseClient,
   admin: SupabaseClient,
   vendorProfileId: string,
 ): Promise<DowngradeFacts> {
-  const [stay, daily, branches, team, extraSeats, shop] = await Promise.all([
+  const [stay, daily, branches, team, extraSeats, shop, stored] = await Promise.all([
     readStayOn(supabase, admin, vendorProfileId),
     supabase
       .from('vendor_services')
@@ -66,6 +65,7 @@ export async function readDowngradeFacts(
         (r) => r,
         () => ({ data: null, error: { message: 'threw' } }),
       ),
+    readStoredBytes(admin, vendorProfileId),
   ]);
 
   let cards: FitCard[] | null = null;
@@ -93,7 +93,7 @@ export async function readDowngradeFacts(
     seats: team && owner ? teamSeats(team, owner) : null,
     extraSeats,
     reachKm: typeof reach === 'number' && Number.isFinite(reach) ? reach : null,
-    storedBytes: null,
+    storedBytes: stored.status === 'ok' ? stored.bytes : null,
     badge: row ? { verification_state: row.verification_state, next_renewal_due_at: row.next_renewal_due_at } : null,
   };
 }

@@ -22,6 +22,7 @@ import {
 } from './event-date-options';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 
 test('the stepper is capped by the type’s max_days — 1 … max, and a 1-day type is never asked', () => {
   assert.equal(clampDays(9, 7), 7, 'a birthday (max 7) cannot reach 9');
@@ -63,7 +64,7 @@ test('owner addition 2 — options SIDE BY SIDE are allowed; only a SHARED day i
     assert.doesNotMatch(line, /touch/i, `"${line}" says touch — touching options are allowed`);
   }
   for (const f of [join(__dirname, 'event-date-options.ts'), join(__dirname, '..', 'app', 'onboarding', '_shared', 'date-calendar.tsx')]) {
-    const code = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    const code = stripComments(readFileSync(f, 'utf8'));
     assert.doesNotMatch(code, /don.t touch/i, `${f} still says "don't touch"`);
   }
 });

@@ -85,7 +85,7 @@ test('an N-day option is ONE joined bar — start, filled middle, end — and is
 });
 
 test('owner addition 3 — an option’s middle days are FILLED dark, never the pale busy-day shade', () => {
-  const css = readFileSync(join(APP, 'app', 'onboarding', '_shared', 'date-calendar.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = stripComments(readFileSync(join(APP, 'app', 'onboarding', '_shared', 'date-calendar.css'), 'utf8'));
   const rule = css.match(/\.sn-datecal \.calday\.inrange\{[^}]*\}/g)?.pop() ?? '';
   assert.match(rule, /color-mix\(in srgb,var\(--cal-mulberry\) 72%,var\(--cal-surface\)\)/, 'the middle days are not ink ~72%');
   assert.match(rule, /color:var\(--cal-paper\)/);

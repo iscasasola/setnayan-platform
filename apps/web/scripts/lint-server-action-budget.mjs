@@ -126,7 +126,12 @@ import { fileURLToPath } from 'node:url';
 // `app/samahan/chat/actions.ts` — send · add · leave · rejoin · create) instead of the five exports it would have been.
 // No unimported export was found to retire. No fresh `vercel build` count for this +1 — the SUM is gated by
 // check-vercel-route-count.mjs on this PR's production build; read that job before merging.
-export const CEILING = 1245;
+// 1245 → 1246 (2026-11-12, Admin › Colours wave 1, owner 12 Nov "Yes, start wave 1"; merged after the two +1s above):
+// ONE export, `saveAppColours` in app/admin/colours/actions.ts — Save AND "Reset to current" share it (an `op` field
+// picks the mode), so the page costs +1, not +2. Unimported exports re-scanned: the same four as 11 Nov
+// (`setGuestPlusOneCount`, held by extra-seats-are-chairs, and three Papic purchase actions — money) — left alone. No
+// fresh `vercel build` count; the SUM is gated by check-vercel-route-count.mjs on this PR's production build.
+export const CEILING = 1246;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

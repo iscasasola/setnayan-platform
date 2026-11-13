@@ -201,7 +201,7 @@ export async function OneAnalyticsSection({
       <VendorTierGate
         feature="Analytics"
         requiredTier="solo"
-        blurb="See how your shop is doing — every graph, each with what we recommend you do next. Analytics starts with Solo."
+        blurb="See how your shop is doing — every graph, each with what we recommend you do next. Analytics starts with Supplier Plus."
         icon={<Gauge aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
       />
     );

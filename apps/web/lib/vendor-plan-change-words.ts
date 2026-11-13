@@ -16,17 +16,17 @@
  * person experiences, and a screen is a reply.
  */
 
-export type PlanWord = 'Free' | 'Free · Verified' | 'Solo' | 'Pro' | 'Ultra';
+export type PlanWord = 'Free' | 'Free · Verified' | 'Supplier Plus' | 'Supplier Pro' | 'Supplier Ultra';
 
 /** The plan names a supplier actually reads. */
 export function planWord(tier: string | null | undefined): PlanWord {
   switch (tier) {
     case 'enterprise':
-      return 'Ultra';
+      return 'Supplier Ultra';
     case 'pro':
-      return 'Pro';
+      return 'Supplier Pro';
     case 'solo':
-      return 'Solo';
+      return 'Supplier Plus';
     case 'verified':
       return 'Free · Verified';
     default:

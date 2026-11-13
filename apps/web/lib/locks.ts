@@ -130,7 +130,7 @@ export const LOCKS = {
   // 🔒 Solo · Pro · Ultra open once Verified (2026-11-04) — refused by `create_vendor_subscription` (NOT_VERIFIED),
   // which `startSubscriptionPurchase` calls and words.
   plans: {
-    name: 'Solo · Pro · Ultra',
+    name: 'Supplier Plus · Supplier Pro · Supplier Ultra',
     problem: 'Your plan caps how many cards, dates and helpers you can take on.',
     solution: 'A bigger plan takes more of each — it opens once Setnayan approves your shop.',
     opens: 'verified',

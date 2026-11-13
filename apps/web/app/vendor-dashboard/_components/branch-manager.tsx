@@ -350,8 +350,8 @@ function AddBranchForm({
           </SubmitButton>
           <p className="text-center text-[11px] text-ink/45">
             {includedTotal > 0
-              ? `Your plan’s ${formatCount(includedTotal)} included branches are in use — more branches are part of Ultra.`
-              : 'Branches come with Pro and Ultra.'}
+              ? `Your plan’s ${formatCount(includedTotal)} included branches are in use — more branches are part of Supplier Ultra.`
+              : 'Branches come with Supplier Pro and Supplier Ultra.'}
           </p>
         </>
       ) : openRails.length > 0 ? (

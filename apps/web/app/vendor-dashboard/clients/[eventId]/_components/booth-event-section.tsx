@@ -104,7 +104,7 @@ export async function BoothEventSection({
       ) : !tierOk ? (
         <p className="mt-1 text-xs text-ink/55">
           Right now the couple sees a plain booth with your name. Branding it — your logo and poster — comes
-          with a paid plan (Solo, Pro or Ultra).{' '}
+          with a paid plan (Supplier Plus, Supplier Pro or Supplier Ultra).{' '}
           <Link href="/vendor-dashboard/subscription" className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
             See plans
           </Link>

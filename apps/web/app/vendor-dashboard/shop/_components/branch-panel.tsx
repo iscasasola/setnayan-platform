@@ -138,13 +138,13 @@ export async function BranchPanel({
             <p className="flex flex-wrap items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate)' }}>
               <PaidMark
                 state="try"
-                label="Extra branches are sold with Ultra only"
+                label="Extra branches are sold with Supplier Ultra only"
                 text="ENTERPRISE"
                 size="xs"
               />
               {includedTotal > 0
-                ? `Your plan’s ${formatCount(includedTotal)} branches are in use. More branches are part of Ultra — plan one here; adding it asks for the plan.`
-                : 'Branches come with Pro and Ultra — each gets its own team and calendar. Plan one here; adding it asks for the plan.'}
+                ? `Your plan’s ${formatCount(includedTotal)} branches are in use. More branches are part of Supplier Ultra — plan one here; adding it asks for the plan.`
+                : 'Branches come with Supplier Pro and Supplier Ultra — each gets its own team and calendar. Plan one here; adding it asks for the plan.'}
             </p>
           ) : null}
           <BranchManager

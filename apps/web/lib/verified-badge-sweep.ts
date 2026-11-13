@@ -161,13 +161,15 @@ export async function runVerifiedBadgeDeadlineSweep(
     for (const r of (said ?? []) as Array<{
       action: string;
       target_id: string | null;
-      metadata: { deadline?: unknown } | null;
+      metadata: { deadline?: unknown; stage?: unknown } | null;
     }>) {
       const raw = typeof r.metadata?.deadline === 'string' ? r.metadata.deadline : null;
       const ms = raw ? Date.parse(raw) : NaN;
       if (!r.target_id || !Number.isFinite(ms)) continue;
       const kind = r.action === AUDIT_REMIND ? 'remind' : 'lapse';
-      done.add(sweepKey(kind, r.target_id, new Date(ms).toISOString()));
+      // A reminder written before the 30/7-day stages existed was the 60-day one.
+      const stage = typeof r.metadata?.stage === 'number' ? r.metadata.stage : undefined;
+      done.add(sweepKey(kind, r.target_id, new Date(ms).toISOString(), stage));
     }
 
     // Why each deadline exists — decides the words only.
@@ -233,7 +235,7 @@ export async function runVerifiedBadgeDeadlineSweep(
             deadline: action.deadlineIso,
             reason,
             notified: Boolean(userId),
-            ...(action.kind === 'remind' ? { days_left: action.daysLeft } : {}),
+            ...(action.kind === 'remind' ? { days_left: action.daysLeft, stage: action.stage } : {}),
           },
         });
         if (action.kind === 'remind') reminded += 1;

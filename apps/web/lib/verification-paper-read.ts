@@ -86,6 +86,7 @@ Reply with ONE JSON object and nothing else, with exactly these keys:
   "rdo": the BIR Revenue District Office code, or null,
   "address": the business address as printed, or null,
   "city": the city or municipality that issued or is named on the paper, or null,
+  "barangay": the barangay in the business address, as printed (without the word "Barangay"), or null,
   "tin": the Taxpayer Identification Number wherever it is printed on this paper, as printed, or null,
   "expiration_date": the date the document expires or is valid until, as YYYY-MM-DD, or null,
   "read_as": one short plain sentence saying what this paper is, e.g. "Read as a DTI business name certificate for ICASA ENTERPRISE.",
@@ -108,6 +109,8 @@ export type ModelPaperRead = {
   rdo: string | null;
   address: string | null;
   city: string | null;
+  /** The barangay of the business address, as printed. */
+  barangay: string | null;
   /** ISO `YYYY-MM-DD`, only when it is a real calendar date. */
   expirationDate: string | null;
   readAs: string | null;
@@ -179,6 +182,7 @@ export function parseModelPaperJson(text: string): ModelPaperRead | null {
     rdo: r.rdo,
     address: r.address,
     city: r.city,
+    barangay: r.barangay,
     expiration_date: r.expiration_date,
   };
   const conf =
@@ -198,6 +202,7 @@ export function parseModelPaperJson(text: string): ModelPaperRead | null {
     rdo: cleanValue(r.rdo, 20),
     address: cleanValue(r.address, 400),
     city: cleanValue(r.city, 120),
+    barangay: cleanValue(r.barangay, 120),
     expirationDate: strictIsoDate(r.expiration_date),
     readAs: cleanValue(r.read_as, 400),
     couldNotRead,

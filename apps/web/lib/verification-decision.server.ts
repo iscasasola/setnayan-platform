@@ -100,6 +100,8 @@ export async function applyApplicationDecision(
       // bookability never read this column.
       approveSideEffects = {
         last_verified_at: now,
+        // The renewal day is 30 March (owner 12 Nov · "THE RENEWAL DAY IS 30 MARCH") for EVERY approval,
+        // admin or automatic — never the permit's printed date (controller correction 2026-11-14).
         next_renewal_due_at: deadlineAtApproval(new Date(now)),
         public_visibility: 'verified',
       };

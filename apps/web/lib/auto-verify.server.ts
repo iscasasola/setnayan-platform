@@ -6,6 +6,7 @@ import {
   digitsOnly,
   maskTin,
   officialQrLink,
+  tinParts,
   type AutoVerifyDecision,
   type PaperEvidence,
 } from '@/lib/auto-verify';
@@ -79,9 +80,15 @@ async function duplicateLookups(
         .ilike('tin_number', pattern)
         .neq('vendor_profile_id', vendorProfileId)
         .limit(50);
-      tin = error
+      // Same base AND same branch code is a duplicate; the same base with a
+      // different branch code is another branch of one business (owner 2026-11-14).
+      const mine = tinParts(tinRaw);
+      tin = error || !mine
         ? null
-        : (data ?? []).some((r) => digitsOnly(String((r as { tin_number: string | null }).tin_number ?? '')).slice(0, 9) === base);
+        : (data ?? []).some((r) => {
+            const theirs = tinParts(String((r as { tin_number: string | null }).tin_number ?? ''));
+            return theirs !== null && theirs.base === mine.base && theirs.branch === mine.branch;
+          });
     }
   } catch {
     tin = null;

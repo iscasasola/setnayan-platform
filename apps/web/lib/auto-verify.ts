@@ -75,7 +75,8 @@ export type CheckKey =
   | 'nothing_expired'
   | 'qr_official'
   | 'not_on_another_shop'
-  | 'reader_confident';
+  | 'reader_confident'
+  | 'bir_matches_permit';
 
 export type AutoCheck = {
   key: CheckKey;
@@ -99,6 +100,7 @@ export const CHECK_LABELS: Record<CheckKey, string> = {
   qr_official: 'The DTI/SEC QR is official and carries the same number',
   not_on_another_shop: 'The number and TIN are on no other shop',
   reader_confident: 'The reader was confident',
+  bir_matches_permit: 'The BIR 2303 and the permit match',
 };
 
 const PAPER_NAME: Record<ReadableSlotKey, string> = {
@@ -182,14 +184,44 @@ export function digitsOnly(s: string): string {
 }
 
 /**
- * The TIN, if it is one: digits after stripping dashes and spaces, 9–12 long.
- * Any other character (a letter, a slash) and it is not a TIN we accept.
+ * The TIN, if it is one: digits after stripping dashes and spaces — the 9-digit
+ * base, alone or with its 3- or 5-digit branch code (123-456-789-00001). Any
+ * other length or character (a letter, a slash) and it is not a TIN we accept.
  */
 export function tinDigits(raw: string | null): string | null {
   if (!raw) return null;
   const stripped = raw.replace(/[\s-]+/g, '');
-  if (!/^\d{9,12}$/.test(stripped)) return null;
+  if (!/^(\d{9}|\d{12}|\d{14})$/.test(stripped)) return null;
   return stripped;
+}
+
+/** "Brgy.", "Bgy" and "Barangay" are one word; "City of Pasig" is "Pasig City" is "Pasig". */
+export function foldPlace(s: string | null): string {
+  if (!s) return '';
+  return s
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\b(brgy|bgy|barangay)\b\.?/g, ' ')
+    .replace(/\bcity of\b/g, ' ')
+    .replace(/\b(city|municipality|municipality of)\b/g, ' ')
+    .replace(/\bsto\b\.?/g, 'santo')
+    .replace(/\bsta\b\.?/g, 'santa')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * A TIN split into its base (first 9 digits) and its branch code (the rest,
+ * as a number — "000", "00000" and none are all the head office, 0). Owner
+ * 2026-11-14: the same base with a DIFFERENT branch code is a different branch,
+ * not a duplicate shop.
+ */
+export function tinParts(raw: string | null): { base: string; branch: number } | null {
+  const d = tinDigits(raw);
+  if (!d) return null;
+  const rest = d.slice(9);
+  return { base: d.slice(0, 9), branch: rest ? Number(rest) : 0 };
 }
 
 /** For logs: only the last three digits survive. */
@@ -372,7 +404,7 @@ export function decideAutoVerify(input: AutoVerifyInput): AutoVerifyDecision {
   {
     const problems: string[] = [];
     const tin = tinDigits(bir?.registrationNumber ?? null);
-    if (!tin) problems.push('the TIN on the BIR 2303 is not 9–12 digits');
+    if (!tin) problems.push('the TIN on the BIR 2303 is not a 9-digit TIN (with its branch code if printed)');
     else {
       // The same TIN wherever it is printed (base = first 9 digits; the branch code may differ).
       for (const [m, where] of [[dti, 'DTI/SEC certificate'], [bir, 'BIR 2303'], [permit, "Mayor's Permit"]] as const) {
@@ -411,10 +443,35 @@ export function decideAutoVerify(input: AutoVerifyInput): AutoVerifyDecision {
     );
   }
 
+  // ── 7 · The BIR 2303 and the permit match ───────────────────────────────
+  // Owner 2026-11-14 ("THE BUSINESS PERMIT LEADS"): same registered or trade
+  // name, and the same address after folding — barangay AND city at minimum.
+  {
+    const birNames = new Set((bir ? namesOn(bir) : []).map(foldBusinessName));
+    const permitNames = (permit ? namesOn(permit) : []).map(foldBusinessName);
+    const sameName = permitNames.some((n) => birNames.has(n));
+    const birBrgy = foldPlace(bir?.barangay ?? null);
+    const permitBrgy = foldPlace(permit?.barangay ?? null);
+    const birCity = foldPlace(bir?.city ?? null);
+    const permitCity = foldPlace(permit?.city ?? null);
+    const sameBrgy = birBrgy.length > 0 && birBrgy === permitBrgy;
+    const sameCity = birCity.length > 0 && birCity === permitCity;
+    const where = (m: ModelPaperRead | null) =>
+      [m?.address, m?.barangay ? `Brgy. ${m.barangay}` : null, m?.city].filter(Boolean).join(', ') || 'no address read';
+    if (sameName && sameBrgy && sameCity) {
+      push('bir_matches_permit', true, `Same name and same barangay + city (${permit?.barangay}, ${permit?.city})`);
+    } else {
+      const why: string[] = [];
+      if (!sameName) why.push('the names differ');
+      if (!sameBrgy || !sameCity) why.push(`the addresses differ — BIR 2303: "${where(bir)}" · permit: "${where(permit)}"`);
+      push('bir_matches_permit', false, `The BIR 2303 and the permit don't match: ${why.join('; ')}.`);
+    }
+  }
+
   const failed = checks.find((c) => !c.pass);
   return {
     decision: failed ? 'to_admin' : 'verify',
     checks,
-    reason: failed ? failed.detail : 'All six checks passed.',
+    reason: failed ? failed.detail : `All ${checks.length} checks passed.`,
   };
 }

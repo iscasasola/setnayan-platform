@@ -39,6 +39,20 @@ import { nextYearsPapersDue, papersDueIn } from '@/lib/papers-due';
 export const BADGE_REMINDER_DAYS = 60;
 
 /**
+ * The reminder stages, widest first (owner 2026-11-14, "THE BUSINESS PERMIT
+ * LEADS": reminders at 30 and 7 days, next to the 60-day one). Each stage is
+ * said ONCE per deadline; a shop that enters late gets only the nearest stage.
+ */
+export const BADGE_REMINDER_STAGES: readonly number[] = [BADGE_REMINDER_DAYS, 30, 7];
+
+/** The stage a shop with `daysLeft` is in: the smallest stage it has reached. */
+export function reminderStage(daysLeft: number): number {
+  let stage = BADGE_REMINDER_STAGES[0]!;
+  for (const s of BADGE_REMINDER_STAGES) if (daysLeft <= s) stage = s;
+  return stage;
+}
+
+/**
  * A permit date further out than this is a typo, not a permit. A Philippine
  * Mayor's (business) Permit runs for the calendar year and is renewed each
  * January, so no genuine one is valid for much more than twelve months from
@@ -197,11 +211,18 @@ export type SweepCandidate = {
 };
 
 export type SweepAction =
-  | { kind: 'remind'; vendorProfileId: string; deadlineIso: string; daysLeft: number }
+  | { kind: 'remind'; vendorProfileId: string; deadlineIso: string; daysLeft: number; stage: number }
   | { kind: 'lapse'; vendorProfileId: string; deadlineIso: string };
 
 /** The dedupe key: one reminder and one lapse note per shop PER DEADLINE. */
-export function sweepKey(kind: SweepAction['kind'], vendorProfileId: string, deadlineIso: string): string {
+export function sweepKey(
+  kind: SweepAction['kind'],
+  vendorProfileId: string,
+  deadlineIso: string,
+  /** Reminders only. The 60-day stage keeps the key it always had, so reminders already sent stay counted. */
+  stage: number = BADGE_REMINDER_DAYS,
+): string {
+  if (kind === 'remind' && stage !== BADGE_REMINDER_DAYS) return `remind${stage}:${vendorProfileId}:${deadlineIso}`;
   return `${kind}:${vendorProfileId}:${deadlineIso}`;
 }
 
@@ -236,12 +257,14 @@ export function planBadgeDeadlineSweep(
         out.push({ kind: 'lapse', vendorProfileId: c.vendorProfileId, deadlineIso });
       }
     } else if (state.kind === 'reminder') {
-      if (!alreadyDone.has(sweepKey('remind', c.vendorProfileId, deadlineIso))) {
+      const stage = reminderStage(state.daysLeft);
+      if (!alreadyDone.has(sweepKey('remind', c.vendorProfileId, deadlineIso, stage))) {
         out.push({
           kind: 'remind',
           vendorProfileId: c.vendorProfileId,
           deadlineIso,
           daysLeft: state.daysLeft,
+          stage,
         });
       }
     }

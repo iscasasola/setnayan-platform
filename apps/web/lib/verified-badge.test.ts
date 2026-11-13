@@ -182,7 +182,8 @@ test('the pass reminds inside 60 days, notes a lapse, and ignores everything els
 });
 
 test('🔑 the pass never says the same thing twice about the same deadline', () => {
-  const near = inDays(30);
+  // 45 days: inside the 60-day stage only (the 30- and 7-day stages are their own reminders, below).
+  const near = inDays(45);
   const gone = inDays(-1);
   const done = new Set([sweepKey('remind', 'near', near), sweepKey('lapse', 'gone', gone)]);
   assert.deepEqual(planBadgeDeadlineSweep([shop('near', near), shop('gone', gone)], done, NOW), []);
@@ -193,6 +194,19 @@ test('🔑 a renewed deadline earns a fresh reminder — the key is the DEADLINE
   const plan = planBadgeDeadlineSweep([shop('near', inDays(30))], done, NOW);
   assert.equal(plan.length, 1);
   assert.equal(plan[0]!.kind, 'remind');
+});
+
+test('🔔 reminders at 60, 30 and 7 days — each said once per deadline; a late arrival gets only the nearest', () => {
+  const d = inDays(25);
+  const first = planBadgeDeadlineSweep([shop('s', d)], new Set([sweepKey('remind', 's', d)]), NOW);
+  assert.equal(first.length, 1, 'the 30-day stage is a new reminder even after the 60-day one');
+  assert.equal(first[0]!.kind === 'remind' && first[0]!.stage, 30);
+  assert.deepEqual(planBadgeDeadlineSweep([shop('s', d)], new Set([sweepKey('remind', 's', d, 30)]), NOW), []);
+  const week = inDays(5);
+  const late = planBadgeDeadlineSweep([shop('w', week)], new Set(), NOW);
+  assert.equal(late.length, 1, 'never three reminders at once');
+  assert.equal(late[0]!.kind === 'remind' && late[0]!.stage, 7);
+  assert.equal(sweepKey('remind', 'x', 'D'), 'remind:x:D', 'the 60-day key is unchanged, so reminders already sent stay counted');
 });
 
 test('⚠ a lapse is never preceded, in the same pass, by a "days left" reminder', () => {

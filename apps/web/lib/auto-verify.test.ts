@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   decideAutoVerify,
+  tinParts,
   foldBusinessName,
   maskTin,
   nameSimilarity,
@@ -30,7 +31,8 @@ const model = (over: Partial<ModelPaperRead>): ModelPaperRead => ({
   registrationNumber: '5512034',
   rdo: null,
   address: null,
-  city: null,
+  city: 'Pasig',
+  barangay: 'San Antonio',
   expirationDate: null,
   readAs: null,
   couldNotRead: [],
@@ -78,10 +80,10 @@ function onlyFails(i: AutoVerifyInput, key: string) {
   return d;
 }
 
-test('clean papers → verify, six of six', () => {
+test('clean papers → verify, seven of seven', () => {
   const d = decideAutoVerify(clean());
   assert.equal(d.decision, 'verify', d.reason);
-  assert.equal(d.checks.length, 6);
+  assert.equal(d.checks.length, 7);
   assert.ok(d.checks.every((c) => c.pass));
   assert.deepEqual(
     d.checks.map((c) => c.label),
@@ -92,8 +94,49 @@ test('clean papers → verify, six of six', () => {
       'The DTI/SEC QR is official and carries the same number',
       'The number and TIN are on no other shop',
       'The reader was confident',
+      'The BIR 2303 and the permit match',
     ],
   );
+});
+
+/* 7 */
+test('7 fails alone — the BIR 2303 and the permit name different barangays; both addresses are shown', () => {
+  const i = clean();
+  paper(i, 'mayors_permit').model = { ...paper(i, 'mayors_permit').model!, barangay: 'Kapitolyo', address: '9 Other St' };
+  const d = onlyFails(i, 'bir_matches_permit');
+  assert.match(d.reason, /BIR 2303: ".*San Antonio.*" · permit: ".*Kapitolyo.*"/);
+});
+test('7 fails alone — a different city, or no barangay read', () => {
+  const i = clean();
+  paper(i, 'bir_2303').model = { ...paper(i, 'bir_2303').model!, city: 'Makati' };
+  onlyFails(i, 'bir_matches_permit');
+  const j = clean();
+  paper(j, 'mayors_permit').model = { ...paper(j, 'mayors_permit').model!, barangay: null };
+  onlyFails(j, 'bir_matches_permit');
+});
+test('7 — "Brgy. Sto. Niño, City of Pasig" and "Barangay Santo Nino, Pasig City" are one place', () => {
+  const i = clean();
+  paper(i, 'bir_2303').model = { ...paper(i, 'bir_2303').model!, barangay: 'Brgy. Sto. Niño', city: 'City of Pasig' };
+  paper(i, 'mayors_permit').model = { ...paper(i, 'mayors_permit').model!, barangay: 'Santo Nino', city: 'Pasig City' };
+  assert.equal(decideAutoVerify(i).decision, 'verify');
+});
+
+test('THE SHOP NAME IS FREE — a shop name different from the DTI name still auto-verifies', () => {
+  // The decision is never even given the shop name: only the papers' registered names.
+  const i = clean() as AutoVerifyInput & { businessName?: string };
+  i.businessName = 'BLOOMS BY JUAN — A COMPLETELY DIFFERENT SHOP NAME';
+  assert.equal(decideAutoVerify(i).decision, 'verify');
+  const src = readFileSync(join(WEB, 'lib', 'auto-verify.ts'), 'utf8');
+  assert.ok(!/business_name|businessName/.test(stripComments(src)), 'the automatic name check reads the shop name');
+});
+
+test('TIN branch codes: 9, 12 or 14 digits; same base + different branch is not the same TIN', () => {
+  assert.equal(tinParts('123-456-789-00001')?.branch, 1);
+  assert.equal(tinParts('123-456-789-000')?.branch, 0);
+  assert.equal(tinParts('123456789')?.branch, 0);
+  assert.equal(tinParts('123-456-789-0000'), null, 'a 13-digit TIN is not one');
+  assert.notDeepEqual(tinParts('123-456-789-00001'), tinParts('123-456-789-00002'));
+  assert.deepEqual(tinParts('123-456-789-000'), tinParts('123-456-789-00000'), 'the head office either way');
 });
 
 /* 1 */
@@ -129,9 +172,10 @@ test('TYPED VALUES NEVER AUTO-VERIFY — a manual slot goes to a person even whe
 /* 2 */
 test('2 fails alone — a different name; "similar" never passes', () => {
   const i = clean();
-  paper(i, 'bir_2303').model = { ...paper(i, 'bir_2303').model!, accountName: 'SAMPLE BLOOM EVENT STYLING', ownerName: 'JUAN DELA CRUS' };
+  // The DTI paper differs (the BIR ↔ permit pair is check 7's, so it is left matching).
+  paper(i, 'dti_certificate').model = { ...paper(i, 'dti_certificate').model!, accountName: 'SAMPLE BLOOM EVENT STYLING', ownerName: 'JUAN DELA CRUS' };
   const d = onlyFails(i, 'name_agrees');
-  assert.match(d.reason, /SAMPLE BLOOMS EVENT STYLING/);
+  assert.match(d.reason, /SAMPLE BLOOM EVENT STYLING/);
   assert.match(d.reason, /% alike/);
 });
 test('names fold case, punctuation, &/and and legal suffixes — then must match EXACTLY', () => {
@@ -239,6 +283,7 @@ test('5 fails alone — a TIN that is not 9–12 digits, or differs where it is 
   assert.equal(tinDigits('210-334-871'), '210334871');
   assert.equal(tinDigits('21033487'), null);
   assert.equal(tinDigits('210-334-871-0000A'), null);
+  assert.equal(tinDigits('210-334-871-00001'), '21033487100001', 'a 5-digit branch code is a TIN');
   assert.equal(maskTin('210-334-871-000'), '•••••••••000');
 });
 

@@ -64,7 +64,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 /** Ask the model for the words. Null on ANY failure (logged, never thrown). */
-async function transcribe(bytes: Uint8Array): Promise<string | null> {
+export async function transcribe(bytes: Uint8Array, timeoutMs: number = READ_TIMEOUT_MS): Promise<string | null> {
   let block: ModelBlock;
   try {
     block = await paperToModelBlock(bytes);
@@ -80,7 +80,7 @@ async function transcribe(bytes: Uint8Array): Promise<string | null> {
         max_tokens: 1024,
         messages: [{ role: 'user', content: [block, { type: 'text', text: PAPER_READ_PROMPT }] }],
       }),
-      READ_TIMEOUT_MS,
+      timeoutMs,
     );
     return res.content
       .filter((b): b is { type: 'text'; text: string } & typeof b => b.type === 'text')

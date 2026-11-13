@@ -41,7 +41,7 @@ import {
 import { formatLongDate } from '@/lib/format-date';
 
 /** What the reader may say a paper is. `bank` is deliberately absent — it is not read. */
-export type ReadRegistry = 'dti' | 'sec' | 'bir' | 'lgu' | 'unreadable';
+export type ReadRegistry = 'dti' | 'sec' | 'bir' | 'lgu' | 'other' | 'unreadable';
 
 /** The slots this reader reads. The bank proof is not one of them. */
 export type ReadableSlotKey = 'dti_certificate' | 'bir_2303' | 'mayors_permit';
@@ -74,11 +74,12 @@ Say which document it is:
 - "sec": an SEC Certificate of Incorporation / Registration
 - "bir": a BIR Certificate of Registration (Form 2303)
 - "lgu": a Mayor's Permit / Business Permit from a city or municipality
-- "unreadable": anything else, or you cannot tell
+- "other": a real document, but none of the four above (an ID, a receipt, a contract…)
+- "unreadable": you cannot tell what it is
 
 Reply with ONE JSON object and nothing else, with exactly these keys:
 {
-  "registry": "dti" | "sec" | "bir" | "lgu" | "unreadable",
+  "registry": "dti" | "sec" | "bir" | "lgu" | "other" | "unreadable",
   "account_name": the registered business name as printed (for a sole proprietor with no business name, the owner's name), or null,
   "owner_name": the owner / proprietor / taxpayer's personal name as printed, or null,
   "registration_number": the DTI business name no., the SEC registration no., the BIR TIN (with branch code if printed), or the permit no. — as printed, or null,
@@ -121,7 +122,7 @@ export type ModelPaperRead = {
   unsure: readonly string[];
 };
 
-const REGISTRY_SET: ReadonlySet<string> = new Set(['dti', 'sec', 'bir', 'lgu', 'unreadable']);
+const REGISTRY_SET: ReadonlySet<string> = new Set(['dti', 'sec', 'bir', 'lgu', 'other', 'unreadable']);
 
 function cleanValue(v: unknown, max = 200): string | null {
   if (typeof v !== 'string') return null;
@@ -208,6 +209,7 @@ const REGISTRY_NOUN: Record<ReadRegistry, string> = {
   sec: 'an SEC certificate of registration',
   bir: 'a BIR Certificate of Registration (Form 2303)',
   lgu: "a Mayor's / Business Permit",
+  other: '',
   unreadable: '',
 };
 
@@ -218,8 +220,10 @@ const REGISTRY_NOUN: Record<ReadRegistry, string> = {
  */
 export function readAsSentence(model: Pick<ModelPaperRead, 'registry' | 'readAs'>): string {
   const fallback =
-    model.registry === 'unreadable'
-      ? 'We could not tell what this paper is — a person at Setnayan will look at it.'
+    model.registry === 'unreadable' || model.registry === 'other'
+      ? model.registry === 'other'
+        ? 'This is not one of the three papers.'
+        : 'We could not tell what this paper is — a person at Setnayan will look at it.'
       : `Read as ${REGISTRY_NOUN[model.registry]}.`;
   const s = model.readAs;
   if (!s) return fallback;
@@ -305,7 +309,8 @@ export function toPaperRead(
     : pair.fields.map((f) => f.key);
 
   return {
-    registry: model.registry,
+    // The stored block keeps the four registries; "other" is said in readAs.
+    registry: model.registry === 'other' ? 'unreadable' : model.registry,
     readAs: readAsSentence(model),
     notes,
     values,

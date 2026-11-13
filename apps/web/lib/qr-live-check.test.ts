@@ -6,8 +6,11 @@ import CjsModuleRaw from 'node:module';
 import { ipIsPublic, liveCheckAllowed, readRegistryPage } from './qr-live-check';
 
 // `server-only` throws outside a React server build; stub it, as the repo's other .server tests do.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CjsModule = CjsModuleRaw as any;
+const CjsModule = CjsModuleRaw as unknown as {
+  new (id: string): { filename: string; loaded: boolean; exports: unknown; paths: string[] };
+  _cache: Record<string, unknown>;
+  _resolveFilename: (request: string, ...rest: unknown[]) => string;
+};
 const STUB = path.join(process.cwd(), '__server_only_stub_qr_live_check__.js');
 {
   const stub = new CjsModule(STUB);

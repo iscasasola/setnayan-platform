@@ -344,13 +344,15 @@ test('a paper with no readable QR — unreadable, never an error', async () => {
   assert.deepEqual(await readPaperQr(Buffer.from('not a paper at all, just words')), { qrText: null, qrTexts: [], qrUnreadable: true });
 });
 
-test('THE SERVER NEVER FETCHES THE DECODED LINK', () => {
+test('THE PAPER READERS NEVER FETCH THE DECODED LINK — only the allowlisted live check may (qr-live-check.server.ts)', () => {
   for (const f of [
     SERVER,
     join(WEB, 'lib', 'verification-paper-file.ts'),
     join(WEB, 'lib', 'pdf-embedded-images.ts'),
     join(WEB, 'lib', 'verification-paper-read.ts'),
     join(WEB, 'lib', 'qr-decode.ts'),
+    join(WEB, 'lib', 'paper-intake.ts'),
+    join(WEB, 'lib', 'auto-verify.ts'),
   ]) {
     const s = src(f);
     for (const banned of [/\bfetch\(/, /from 'node:https?'/, /from 'https?'/, /axios|undici|got\(/]) {

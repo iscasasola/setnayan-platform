@@ -256,3 +256,61 @@ test('THE MODEL BEING DOWN → to_admin, never a refusal', () => {
   assert.equal(d.decision, 'to_admin');
   assert.ok(['verify', 'to_admin'].includes(d.decision));
 });
+
+/* ── NO CLIENT PATH CAN VERIFY ───────────────────────────────────────────── */
+
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from './strip-comments';
+
+const WEB = join(new URL('.', import.meta.url).pathname, '..');
+
+function walk(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name === '.next' || name.startsWith('.')) continue;
+    const p = join(dir, name);
+    const st = statSync(p);
+    if (st.isDirectory()) walk(p, out);
+    else if (/\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(p);
+  }
+  return out;
+}
+const SOURCES = [...walk(join(WEB, 'app')), ...walk(join(WEB, 'lib'))];
+const rel = (p: string) => p.slice(WEB.length + 1);
+
+test('the decision engine lives in a plain server module, never a "use server" file', () => {
+  const engine = stripComments(readFileSync(join(WEB, 'lib', 'verification-decision.server.ts'), 'utf8'));
+  assert.ok(!/^\s*['"]use server['"]/m.test(engine), 'the engine became a server-action route');
+  assert.match(engine, /^import 'server-only';/m);
+});
+
+test('only the admin actions and the automatic path call the engine', () => {
+  const callers = SOURCES.filter((f) => /\bapplyApplicationDecision\s*\(/.test(stripComments(readFileSync(f, 'utf8')))).map(rel).sort();
+  assert.deepEqual(callers, ['app/admin/verify/actions.ts', 'lib/auto-verify.server.ts', 'lib/verification-decision.server.ts']);
+});
+
+test('the automatic path is reached only from Submit, and nothing from the form reaches it', () => {
+  const callers = SOURCES.filter((f) => /\brunAutoVerifyOnSubmit\s*\(/.test(stripComments(readFileSync(f, 'utf8')))).map(rel).sort();
+  assert.deepEqual(callers, ['app/vendor-dashboard/shop/inline-docs-actions.ts', 'lib/auto-verify.server.ts']);
+  const src = stripComments(readFileSync(join(WEB, 'app', 'vendor-dashboard', 'shop', 'inline-docs-actions.ts'), 'utf8'));
+  const call = src.slice(src.indexOf('runAutoVerifyOnSubmit({'), src.indexOf('runAutoVerifyOnSubmit({') + 260);
+  assert.ok(!/formData|_formData/.test(call), 'the form reaches the automatic decision');
+  assert.match(call, /applicationId: app\.application_id/);
+  assert.match(call, /vendorProfileId: auth\.vendorProfileId/);
+  // …and it runs only after the application has moved to pending_review.
+  assert.ok(src.indexOf("status: 'pending_review'") < src.indexOf('runAutoVerifyOnSubmit({'));
+});
+
+test('the automatic decision reads only SEALED slots', () => {
+  const s = stripComments(readFileSync(join(WEB, 'lib', 'auto-verify.server.ts'), 'utf8'));
+  assert.match(s, /openSealedSlot\(k, row\.doc_uploads\?\.\[k\], key\)/);
+  assert.ok(!/parsePaperRead|\.read\b(?!\()/.test(s.replace(/readFile|\.read\(\)/g, '')), 'the decision reads the unsealed display block');
+  assert.match(s, /actor: \{ user_id: null \},\s*automatic:/);
+});
+
+test('verification_state is written by the engine alone in the automatic path', () => {
+  for (const f of ['lib/auto-verify.server.ts', 'lib/auto-verify.ts', 'lib/paper-intake.ts', 'lib/paper-intake.server.ts', 'lib/qr-live-check.server.ts']) {
+    const s = stripComments(readFileSync(join(WEB, f), 'utf8'));
+    assert.ok(!/verification_state|public_visibility|\.from\('vendor_profiles'\)\s*\.update/.test(s), `${f} writes the badge itself`);
+  }
+});

@@ -43,3 +43,15 @@ APPROVED").
   draw the board name-only.
 
 SPEC IMPACT: None. The corpus already carries both rulings.
+
+## 2026-11-13 · fix(covers): poster chips never cover the mark; lab fixtures stop posing as one event
+
+- `CollectionCard` (poster layout) sets `--chip-room` (3.75rem, the two-row chip stack) when it has
+  kicker chips; the deep poster's mark, logo and words start below it (`event-poster.module.css`).
+  Unset elsewhere → unchanged. Note: `posterFor` no longer produces `deep` in production (2026-09-26);
+  the overlap was seen on the `/dev/home-lab` fixture. Guard: `lib/event-poster.test.ts`, evaluated
+  across 128–300 px card widths; sabotage-checked.
+- `/dev/shop-card-lab`: the paper fixture is now "Cale & Ice" (it was a second, unrelated "Maria & Jose"
+  fixture), and both fixtures are plain facts, so `posterFor` keeps exactly one caller.
+
+SPEC IMPACT: None.

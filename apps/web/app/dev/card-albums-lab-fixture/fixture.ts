@@ -17,7 +17,7 @@ import {
   type ListedFileRow,
   type PageNoticeRow,
 } from '@/lib/card-portfolio-albums';
-import type { TheirWorkAlbumView } from '@/app/vendor-dashboard/services/their-work/their-work-list';
+import type { TheirOwnUploadsView, TheirWorkAlbumView } from '@/app/vendor-dashboard/services/their-work/their-work-list';
 
 const NOW = new Date('2026-11-13T00:00:00Z');
 const daysAgo = (d: number) => new Date(NOW.getTime() - d * 86_400_000).toISOString();
@@ -87,3 +87,10 @@ export const LAB_THEIR_WORK: TheirWorkAlbumView[] = WORK.map((a) => {
     bookedOn: rows.map((r) => ({ ...r, href: '/dev/card-maker-lab?s=edit' })),
   };
 });
+
+/** Their own uploads (frame 78's last row). */
+export const LAB_THEIR_OWN: TheirOwnUploadsView = {
+  count: 6,
+  urls: ['/event-types/celebration.webp', '/event-types/anniversary.webp', '/event-types/gala_night.webp', '/event-types/birthday.webp'],
+  from: ['Full-day wedding coverage', 'Half-day coverage'],
+};

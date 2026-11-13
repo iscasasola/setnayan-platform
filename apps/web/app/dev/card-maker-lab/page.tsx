@@ -34,7 +34,7 @@
 import { LAB_FAIR_WORDS } from '../lab-fair-words';
 import { CardPortfolioSection } from '@/app/_components/card-portfolio-section';
 import { TheirWorkList } from '@/app/vendor-dashboard/services/their-work/their-work-list';
-import { LAB_CARD_ALBUMS, LAB_CARD_SUMMARY, LAB_THEIR_WORK } from '../card-albums-lab-fixture/fixture';
+import { LAB_CARD_ALBUMS, LAB_CARD_SUMMARY, LAB_THEIR_OWN, LAB_THEIR_WORK } from '../card-albums-lab-fixture/fixture';
 import { notFound } from 'next/navigation';
 import type { CoverageParent } from '@/lib/vendor-coverages';
 import { liveKindGroups } from '@/lib/service-card-kind-groups';
@@ -345,7 +345,7 @@ export default async function CardMakerLabPage({
         </div>
         <h1 className="text-[22px] font-semibold text-ink">Their work</h1>
         <p className="mt-1 text-[14px] text-ink/60">One album per event · newest first · type · venue · month · no names</p>
-        <TheirWorkList albums={sp.work === 'unread' ? null : LAB_THEIR_WORK} retryHref="/dev/card-maker-lab?work=1" />
+        <TheirWorkList albums={sp.work === 'unread' ? null : LAB_THEIR_WORK} own={LAB_THEIR_OWN} retryHref="/dev/card-maker-lab?work=1" />
       </div>
     );
   }

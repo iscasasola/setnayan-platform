@@ -230,7 +230,7 @@ export default async function VendorOnTheDayPage({
   // per (event, date).
   const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
 
-  // ONE ROW PER DAY YOU ARE ON, never one per celebration. The rule (and the bug
+  // ONE ROW PER DAY YOU ARE ON, never one per event. The rule (and the bug
   // it replaces) lives in `lib/vendor-day-picker.ts`, pure and tested; this file
   // only supplies today.
   const pickerBookings = collapseToPickerDays(bookings, today).map((b) => ({
@@ -260,7 +260,7 @@ export default async function VendorOnTheDayPage({
     }),
   );
 
-  // 🗓 THE HUB'S ONE LIST — booked days + events you run, one row per celebration (`lib/hub-events.ts`).
+  // 🗓 THE HUB'S ONE LIST — booked days + events you run, one row per event (`lib/hub-events.ts`).
   const [{ events: runEvents }, announceOn] = await Promise.all([eventsYouRunP, announceOnP]);
   const hub = hubEvents({
     days: pickerBookings,
@@ -300,7 +300,7 @@ export default async function VendorOnTheDayPage({
     );
   }
 
-  // Which of the celebration's days this shop works (the shipped rule) — null for an event only run, not booked.
+  // Which of the event's days this shop works (the shipped rule) — null for an event only run, not booked.
   const booking = selected.booked ? pickConfigureDay(bookings, selected.eventId, today) : null;
   const isToday = selected.when === 'today';
   const open = booking != null && selected.lock == null;

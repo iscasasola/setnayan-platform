@@ -135,6 +135,20 @@ function railBadge(rail: RailIdentity): { badge: string; badgeClass: string } {
   return { badge: initials || '₱', badgeClass: 'bg-ink text-cream' };
 }
 
+/**
+ * A rail's card words — its title and the line under it. ONE spelling, shared by the cards here and by any "Pay by ▾"
+ * dropdown that lists the same rails (`settle-pay-by.tsx`), so a choice reads the same wherever it is offered.
+ */
+export function railCardWords(r: Pick<RailIdentity, 'kind' | 'label'>): { title: string; desc: string } {
+  return {
+    title: r.kind === 'bank' ? `Bank Transfer — ${r.label}` : r.label,
+    desc:
+      r.kind === 'bank'
+        ? `Scan our ${r.label} QR, or transfer to the account`
+        : `Scan our ${r.label} QR, or send to our number`,
+  };
+}
+
 export function ChannelToggle({
   channel,
   onChange,
@@ -165,12 +179,7 @@ export function ChannelToggle({
             selected={channel === r.id}
             onSelect={() => onChange(r.id)}
             {...railBadge(r)}
-            title={r.kind === 'bank' ? `Bank Transfer — ${r.label}` : r.label}
-            desc={
-              r.kind === 'bank'
-                ? `Scan our ${r.label} QR, or transfer to the account`
-                : `Scan our ${r.label} QR, or send to our number`
-            }
+            {...railCardWords(r)}
           />
         ))}
       </div>
@@ -448,7 +457,8 @@ export function PaymentDetailsBlock({
               <span className="block text-[11px] text-ink/50">
                 {wallet ? `${label} name` : 'Account name'}
               </span>
-              <span className="block truncate font-mono text-[13px] text-ink">
+              {/* WRAPS, never cut (owner 2026-11-13): a long account name is copied, so every letter must be seen. */}
+              <span className="block break-words font-mono text-[13px] text-ink">
                 {name}
               </span>
             </span>
@@ -460,7 +470,7 @@ export function PaymentDetailsBlock({
             <span className="block text-[11px] text-ink/50">
               {wallet ? `${label} number` : 'Account number'}
             </span>
-            <span className="block truncate font-mono text-[13px] text-ink">
+            <span className="block break-all font-mono text-[13px] text-ink">
               {number}
             </span>
           </span>

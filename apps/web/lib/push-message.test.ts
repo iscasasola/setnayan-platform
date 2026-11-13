@@ -3,7 +3,8 @@
  *
  * Owner, 2026-10-31: "Also fix the way how the notification messages the phones".
  * Runs the ONE template (`lib/push-message.ts`) — properties, not phrasing:
- *   1 · the title is who it is about: the event, the shop, or "Setnayan";
+ *   1 · the title is the place line: "<event> · You organise" / "· Invited", "<shop> · Your shop",
+ *       "Setnayan HQ · Admin", "Setnayan · Your account" (owner 2026-11-13);
  *   2 · no internal words reach the phone (uuid, S89 id, snake_case, a link),
  *       and "celebration" reads "event";
  *   3 · ~40 / ~110 characters, cut at a word — never through a name;
@@ -34,10 +35,15 @@ const EV = '11111111-2222-4333-8444-555555555555';
 test('1 · the title is who it is about', () => {
   const m = (subject: Parameters<typeof pushMessage>[0]['subject']) =>
     pushMessage({ subject, sentence: 'x', url: '/dashboard', collapseKey: 'k:1', level: 'normal' }).title;
-  assert.equal(m({ kind: 'event', name: 'Indalecio & Claire' }), 'Indalecio & Claire');
-  assert.equal(m({ kind: 'shop', name: 'Luz Photography' }), 'Luz Photography');
-  assert.equal(m({ kind: 'account' }), 'Setnayan');
-  assert.equal(m({ kind: 'event', name: null }), 'Setnayan', 'a refused name read must not print a blank title');
+  // 📍 2026-11-13: the title is the bell row's PLACE LINE — name · stance (lib/notification-place.ts).
+  assert.equal(m({ kind: 'event', name: 'Indalecio & Claire', stance: 'You organise' }), 'Indalecio & Claire · You organise');
+  assert.equal(m({ kind: 'event', name: 'Indalecio & Claire', stance: 'Invited' }), 'Indalecio & Claire · Invited');
+  assert.equal(m({ kind: 'event', name: 'Indalecio & Claire' }), 'Indalecio & Claire', 'no seat → no guessed stance');
+  assert.equal(m({ kind: 'shop', name: 'Luz Photography' }), 'Luz Photography · Your shop');
+  assert.equal(m({ kind: 'shop', name: null }), 'Setnayan · Your shop', 'an unknowable shop still says the part, never a guessed shop');
+  assert.equal(m({ kind: 'hq' }), 'Setnayan HQ · Admin');
+  assert.equal(m({ kind: 'account' }), 'Setnayan · Your account');
+  assert.equal(m({ kind: 'event', name: null, stance: 'You organise' }), 'Setnayan', 'a refused name read must not print a blank title');
 });
 
 test('2 · no internal words reach the phone', () => {

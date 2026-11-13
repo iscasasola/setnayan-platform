@@ -16,6 +16,8 @@
  *   ?screen=logo   the "Add your logo" screen (A2; its autosave answers from a stand-in that writes nothing) · &framed=1 with a public image already in, so the align + zoom
  *                  control shows (an upload needs R2, which a dummy env does not have)
  *   ?screen=claim  the claim door on the prototype's couple record · &signed=1 signed in · &way=email the Email way
+ *                  &basis=fixed|per_pax|per_hour — price basis v2's samples (₱80,000 one price · ₱162,000 for 120
+ *                  guests agreed · ₱30,000 for 5 hours agreed), with how to pay them as recorded (fake numbers)
  *                  chosen · &taken=1 / &check_inbox=<email> its two refusals · &from=setnayan Setnayan's personal invite
  *                  (a staged shop + "Your offer") · &start=account opens on the account slide
  */
@@ -25,6 +27,7 @@ import { notFound } from 'next/navigation';
 
 import { OpenShopWizard } from '@/app/open-shop/_components/open-shop-wizard';
 import { ClaimDoor } from '@/app/open-shop/_components/claim-door';
+import { renderUrlQrSvg } from '@/lib/qr';
 import type { ClaimDoorRecord } from '@/lib/claim-door';
 import type { PickerParentView } from '@/app/_components/service-picker';
 import type { SpecialtyField } from '@/app/open-shop/_components/service-cards';
@@ -207,7 +210,7 @@ const LAB_TEAM_RECORD: ClaimDoorRecord = {
 export default async function OpenShopLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string; signed?: string; way?: string; from?: string; start?: string }>;
+  searchParams: Promise<{ basis?: string; step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string; signed?: string; way?: string; from?: string; start?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -227,9 +230,27 @@ export default async function OpenShopLabPage({
   }
   if (q.screen === 'claim') {
     // 🔗 The claim door on the PROTOTYPE's record (v21 `REC` · `COUPLE`) — never a real token. `?signed=1` = signed in.
+    const basis = q.basis === 'per_pax' || q.basis === 'per_hour' || q.basis === 'fixed' ? q.basis : null;
+    const sample = basis === 'per_pax' ? { price: 162_000, count: 120 } : basis === 'per_hour' ? { price: 30_000, count: 5 } : { price: 80_000, count: null };
+    const qr = `data:image/svg+xml;utf8,${encodeURIComponent(await renderUrlQrSvg('https://example.test/lab-sample-qr'))}`;
+    const record: ClaimDoorRecord = basis
+      ? {
+          ...LAB_CLAIM_RECORD,
+          business: 'Rosa’s Kitchen',
+          services: [{ category: 'catering', tileId: 'catering', label: 'Catering', price: sample.price, inclusions: ['Tasting for 4', 'Crew meals'] }],
+          price: sample.price,
+          inclusions: ['Tasting for 4', 'Crew meals'],
+          plan: [],
+          priceBasis: basis,
+          agreedCount: sample.count,
+          // Test values only — obviously fake numbers.
+          payWays: [{ provider: 'GCash', accountName: 'Rosa Dizon', accountNumber: '0900 000 0000', qrUrl: qr, details: null }],
+        }
+      : LAB_CLAIM_RECORD;
     return (
       <ClaimDoor
-        record={q.from === 'setnayan' ? LAB_TEAM_RECORD : LAB_CLAIM_RECORD}
+        key={basis ?? 'shipped'}
+        record={q.from === 'setnayan' ? LAB_TEAM_RECORD : record}
         tree={fixtureTree()}
         specialties={LAB_SPECIALTIES}
         signedInAs={q.signed === '1' ? 'ana@banaweflorals.ph' : null}

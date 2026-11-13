@@ -42,6 +42,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
+import { afterClaim, agreedSuffix, type SelfAddedPriceLines } from '@/lib/self-added-price-basis';
 import {
   Search,
   ChevronDown,
@@ -673,6 +674,8 @@ html.dark .slcat .bench-search{background:#232019}
 html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
 html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
+.slcat .vc [data-price-basis-line]{margin-top:auto;padding-top:4px}
+.slcat .vc [data-price-basis-line] .price{margin-top:0;padding-top:0}
 .slcat .vc .incl{font-size:11px;font-weight:600;color:#2e7d4f;margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the suppliers) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
@@ -1341,6 +1344,9 @@ const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
  * failed read must not look like "no link was ever sent".
  */
 const InviteStatusCtx = createContext<InviteStatusByVendorId | undefined>(undefined);
+/** 🧾 A self-added supplier's price basis (v2, owner 2026-11-13) — "₱162,000 · 120 guests agreed" and its "After they
+ *  claim" line. Absent / null (a refused read) → every card draws its price as shipped. */
+const PriceLineCtx = createContext<SelfAddedPriceLines | null | undefined>(undefined);
 
 /**
  * THE SERVICE CARD A BENCH CARD WEARS (owner 2026-10-07 · PR2). On the
@@ -1455,9 +1461,15 @@ function VendorCard({
   const sheetDoor = useContext(SheetDoorCtx);
   const payHrefs = useContext(PayDueCtx);
   const inviteStatuses = useContext(InviteStatusCtx);
+  const priceLines = useContext(PriceLineCtx);
+  // Only for the couple's own record — a Setnayan shop's card never reads this.
+  const basisLine = selfAdded ? (priceLines?.[v.vendorId] ?? null) : null;
   const look = useContext(ServiceCardCtx);
   const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
   const hasRecordedPrice = v.totalCostPhp != null && v.totalCostPhp > 0;
+  // The recorded price, drawn ONCE (the-bench-card-keeps-everything pins it to one span) — bare as shipped, or
+  // inside the price-basis line when an agreed count follows it.
+  const priceEl = hasRecordedPrice ? <span className="price">{formatPhp(v.totalCostPhp)}</span> : null;
   const router = useRouter();
   const [detailsLoading, startDetails] = useTransition();
   const [details, setDetails] = useState<SelfAddedSupplierPrefill | null>(null);
@@ -1604,8 +1616,23 @@ function VendorCard({
           </span>
         ) : null}
         <FitBadges v={v} />
-        {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
-          <span className="price">{formatPhp(v.totalCostPhp)}</span>
+        {/* v2 (owner 2026-11-13): the card's own total, then what was agreed — "₱162,000 · 120 guests agreed" /
+            "₱30,000 · 5 hours agreed". One price span, so the bench card still draws the number exactly once. */}
+        {hasRecordedPrice ? (
+          agreedSuffix(basisLine) ? (
+            <span data-price-basis-line="">
+              {priceEl}{' '}
+              <span className="sc-price">· {agreedSuffix(basisLine)}</span>
+            </span>
+          ) : (
+            priceEl
+          )
+        ) : null}
+        {/* The decided after-claim line (owner 13 Nov: "Yes, follow it") — only while it is still the couple's record. */}
+        {basisLine && hasRecordedPrice ? (
+          <span className="sc-rec" data-price-basis-after={basisLine.basis}>
+            {afterClaim(basisLine.basis).line}
+          </span>
         ) : null}
         {/* No price recorded with THIS couple yet → the service card's own
             "from ₱X". Withheld by the shop, or never set → "Price on request",
@@ -2829,6 +2856,7 @@ export function ShortlistCategories({
   starterTiles,
   payHrefByVendorId = NO_PAY_DUE,
   inviteStatusByVendorId,
+  selfAddedPriceLines,
   serviceCardByVendorId = null,
   convergence = null,
   buildWindow = null,
@@ -2927,6 +2955,8 @@ export function ShortlistCategories({
   /** vendorId → where a self-added supplier's claim link stands
    *  (`InviteStatusCtx`). Absent → no link line; `null` → the read failed. */
   inviteStatusByVendorId?: InviteStatusByVendorId;
+  /** 🧾 The per guest / per hour line of each self-added card (`readSelfAddedPriceLines`). Absent / null → as shipped. */
+  selfAddedPriceLines?: SelfAddedPriceLines | null;
   /** Pick id → the supplier's own service card. `null` = the read failed (or
    *  the pre-replan bench, which draws none). */
   serviceCardByVendorId?: Readonly<Record<string, BenchServiceCard>> | null;
@@ -4035,6 +4065,7 @@ export function ShortlistCategories({
     <UnreadCtx.Provider value={benchUnread}>
     <PayDueCtx.Provider value={payHrefByVendorId}>
     <InviteStatusCtx.Provider value={inviteStatusByVendorId}>
+    <PriceLineCtx.Provider value={selfAddedPriceLines}>
     <ServiceCardCtx.Provider value={serviceLook}>
     <div className="slcat" ref={benchRef}>
       <style>{SLCAT_CSS}</style>
@@ -5197,6 +5228,7 @@ export function ShortlistCategories({
       ) : null}
     </div>
     </ServiceCardCtx.Provider>
+    </PriceLineCtx.Provider>
     </InviteStatusCtx.Provider>
     </PayDueCtx.Provider>
     </UnreadCtx.Provider>

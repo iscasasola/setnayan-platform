@@ -40,6 +40,13 @@ import { themeSeedPalette } from '@/lib/mood-board-palette-set';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { shopCardChoices } from '@/lib/inspiration-card-link.server';
+import {
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 
 export const metadata = { title: 'Mood Board · Supplier' };
 
@@ -330,9 +337,9 @@ export default async function VendorMoodBoardPage({ params }: Props) {
     <div className="space-y-6">
       <Link
         href={`/vendor-dashboard/clients/${eventId}?tab=details`}
-        className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta-700"
+        className="inline-flex min-h-11 items-center gap-1.5 text-[14px] font-medium text-[color:var(--m-slate-2)] hover:text-ink"
       >
-        <ArrowLeft className="h-3.5 w-3.5" />
+        <ArrowLeft aria-hidden className="h-4 w-4" />
         Back to event brief
       </Link>
 
@@ -372,12 +379,12 @@ export default async function VendorMoodBoardPage({ params }: Props) {
             <div className="pt-1">
               <p className="text-xl font-semibold text-ink">{board.theme_name}</p>
               {board.theme_description ? (
-                <p className="max-w-prose text-sm text-ink/60">{board.theme_description}</p>
+                <p className={`max-w-prose ${TEMPLATE_SUBLINE}`}>{board.theme_description}</p>
               ) : null}
             </div>
           ) : null}
           {board.mood_board_updated_at ? (
-            <p className="text-xs text-ink/40">
+            <p className={TEMPLATE_SUBLINE}>
               Last updated by the couple{' '}
               {new Date(board.mood_board_updated_at).toLocaleDateString('en-PH', {
                 dateStyle: 'medium',
@@ -388,46 +395,45 @@ export default async function VendorMoodBoardPage({ params }: Props) {
       ) : null}
 
       {nothingYet ? (
-        <div className="sn-tile px-6 py-10 text-center">
-          <p className="text-base text-ink/55">
-            The couple hasn&rsquo;t set their mood board yet. Check back once they&rsquo;ve saved
-            their palette.
-          </p>
-        </div>
+        <TemplateEmpty data="mood-board">
+          The couple hasn&rsquo;t set their mood board yet. Check back once they&rsquo;ve saved
+          their palette.
+        </TemplateEmpty>
       ) : (
-        <div className="space-y-8">
+        <div>
           {/* Palette */}
           {hasPalette ? (
-            <section className="sn-tile p-5 sm:p-6">
-              <h2 className="mb-4 text-lg font-semibold">Palette</h2>
-              <ul className="space-y-3">
+            <TemplateSection label="Palette" first>
+              <TemplateRows label="Palette">
                 {paletteRows.map(({ key, label, colors }) => (
-                  <li key={key} className="flex items-center justify-between gap-4">
-                    <span className="text-sm text-ink/70">{label}</span>
-                    <span className="flex flex-wrap justify-end gap-1.5">
-                      {colors.map((hex, i) => (
-                        <span
-                          key={`${hex}-${i}`}
-                          title={hex}
-                          className="h-7 w-7 rounded-full border border-ink/15 shadow-sm"
-                          style={{ backgroundColor: hex }}
-                        />
-                      ))}
-                    </span>
-                  </li>
+                  <TemplateRow
+                    key={key}
+                    data={key}
+                    title={label}
+                    right={
+                      <span className="flex flex-wrap justify-end gap-1.5">
+                        {colors.map((hex, i) => (
+                          <span
+                            key={`${hex}-${i}`}
+                            title={hex}
+                            className="h-7 w-7 rounded-full border border-[color:var(--m-line)]"
+                            style={{ backgroundColor: hex }}
+                          />
+                        ))}
+                      </span>
+                    }
+                  />
                 ))}
-              </ul>
-            </section>
+              </TemplateRows>
+            </TemplateSection>
           ) : null}
 
           {/* Reception scene — read-only SVG render */}
           {hasReception ? (
-            <section className="sn-tile p-5 sm:p-6">
-              <h2 className="mb-1 text-lg font-semibold">Reception design</h2>
-              <p className="mb-4 text-sm text-ink/55">
-                The couple&rsquo;s chosen materials and treatments — ceiling, backdrop, stage,
-                tables, entrance — rendered in their palette.
-              </p>
+            <TemplateSection
+              label="Reception design"
+              tip="The couple’s chosen materials and treatments — ceiling, backdrop, stage, tables, entrance — in their palette."
+            >
               <div className="relative overflow-hidden rounded-xl">
                 <div dangerouslySetInnerHTML={{ __html: receptionSvg }} />
                 {/* AI decor-image layer pilot — composited on top of the flat
@@ -456,22 +462,20 @@ export default async function VendorMoodBoardPage({ params }: Props) {
                   },
                 )}
               </div>
-            </section>
+            </TemplateSection>
           ) : null}
 
           {/* Inspiration photos */}
           {hasInspiration ? (
-            <section className="sn-tile p-5 sm:p-6">
-              <h2 className="mb-1 text-lg font-semibold">More inspirations</h2>
-              <p className="mb-4 text-sm text-ink/55">
-                Reference images the couple uploaded — venues, backdrops, florals, styling
-                they love.
-              </p>
+            <TemplateSection
+              label="More inspirations"
+              tip="Reference images the couple uploaded — venues, backdrops, florals, styling they love."
+            >
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {otherInspirations.map((item) => (
                   <div
                     key={`${item.slot_key}-${item.slot_position}`}
-                    className="aspect-square overflow-hidden rounded-xl bg-ink/5"
+                    className="aspect-square overflow-hidden rounded-xl bg-[color:var(--m-paper-2)]"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -483,7 +487,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
                   </div>
                 ))}
               </div>
-            </section>
+            </TemplateSection>
           ) : null}
         </div>
       )}

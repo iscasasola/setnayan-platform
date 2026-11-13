@@ -13,7 +13,6 @@ import {
   VERIFIED_WITHOUT_PAPERS_BANNER,
   deriveCheck,
   pairFieldLockedKey,
-  parsePaperRead,
   tallyChecks,
   type CheckState,
   type PairField,
@@ -168,7 +167,12 @@ export function VerifyPairs({
       VERIFICATION_PAIRS.map((pair) => {
         const entry = (payload.docMap[pair.slotKey] ?? null) as DocUpload | null;
         const paperPresent = isSlotComplete(pair.slotKey, entry);
-        const read = parsePaperRead(entry);
+        // 🔒 THE READ IS AN ADMIN AID ONLY (owner ruling "VERIFICATION IS THREE
+        // PAPERS AND ONE SUBMIT"). The reader now writes `doc_uploads[slot].read`
+        // (lib/verification-paper-read.server.ts), and this screen must not turn
+        // it into a supplier mismatch, a pick, or a "Read as …" line — so the
+        // supplier side never parses it. Every sent line stays "with a person".
+        const read: PaperRead | null = null;
         const states = pair.fields.map((f) =>
           deriveCheck({
             field: f,

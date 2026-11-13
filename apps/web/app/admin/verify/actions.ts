@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -1343,6 +1344,22 @@ export async function openApplicationDocument(formData: FormData) {
   const keyOwner = /^vendors\/([^/]+)\//.exec(where.key)?.[1] ?? null;
   if (keyOwner !== null && keyOwner !== app.vendor_profile_id) {
     redirect('/admin/verify?error=That+file+is+filed+under+a+different+shop');
+  }
+
+  // 📄 "READ IT AGAIN" (owner 2026-11-14) — the twin of Admin › Payments'
+  // button. It rides THIS action rather than a new export because the
+  // server-action ceiling has no headroom, and because every check above
+  // (admin · the file is on this application · filed under this shop) is
+  // exactly the check a re-read needs. The reader writes only
+  // `doc_uploads[slot].read`; it never approves, refuses or edits the profile.
+  // `after()`, as in payments: the new read shows on the next refresh.
+  if (readFormString(formData, 'intent') === 'read') {
+    after(async () => {
+      const { readVerificationPaper } = await import('@/lib/verification-paper-read.server');
+      await readVerificationPaper({ admin, applicationId, slotKey });
+    });
+    revalidatePath('/admin/verify');
+    redirect('/admin/verify?reread=1');
   }
 
   const url = await r2SignedGet({

@@ -47,6 +47,9 @@ const read = (over: Partial<PaperRead> = {}): PaperRead => ({
   unreadable: [],
   registryOutcome: 'agreed',
   readAt: '2026-09-09T06:12:00.000Z',
+  expiresOn: null,
+  qrText: null,
+  qrUnreadable: false,
   ...over,
 });
 

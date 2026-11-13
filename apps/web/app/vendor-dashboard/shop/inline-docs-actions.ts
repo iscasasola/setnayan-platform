@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -45,6 +46,7 @@ import {
 import { DOC_SLOT_KEYS, buildSlotValue } from '@/lib/vendor-verification-slots';
 import { parseRegistrationNumber, UNIQUE_VIOLATION } from '@/lib/vendor-registration-number';
 import { PAIR_COLUMNS } from '@/lib/verification-pairs';
+import { isReadableSlotKey, slotR2Key } from '@/lib/verification-paper-read';
 import {
   LOCKED_IDENTITY_FIELD_KEYS,
   VERIFIED_LOCK_ERROR,
@@ -503,19 +505,31 @@ export async function updateDocUploadInline(
     return { ok: false, error: 'That file reference isn’t valid — re-upload and try again.' };
   }
   const safePortfolioRefs = portfolioRefs.filter(refIsOwned);
+  // buildSlotValue now stores the FULL array for portfolio/client_references
+  // (the inline flow previously persisted only val[0] — silently dropping
+  // every ref past the first). Single-object slots are unchanged.
+  let nextSlot = buildSlotValue(slotKey, {
+    r2Ref: r2Ref || null,
+    url: url || null,
+    scheduledAt: null,
+    references,
+    social,
+    portfolioRefs: safePortfolioRefs,
+  });
+  // 📄 THE PAPER READER (owner 2026-11-14). A re-save of the SAME file keeps the
+  // read already made of it; a NEW file starts with none, so a read of the old
+  // paper can never be shown beside the new one.
+  const storedRead =
+    storedSlot && typeof storedSlot === 'object' && !Array.isArray(storedSlot) && 'read' in storedSlot
+      ? (storedSlot as { read?: unknown }).read
+      : undefined;
+  const sameFile = Boolean(r2Ref) && slotR2Key(currentUploads, slotKey) === r2Ref;
+  if (sameFile && storedRead && nextSlot && typeof nextSlot === 'object' && !Array.isArray(nextSlot)) {
+    nextSlot = { ...nextSlot, read: storedRead } as unknown as typeof nextSlot;
+  }
   const nextUploads: DocUploadMap = {
     ...currentUploads,
-    // buildSlotValue now stores the FULL array for portfolio/client_references
-    // (the inline flow previously persisted only val[0] — silently dropping
-    // every ref past the first). Single-object slots are unchanged.
-    [slotKey]: buildSlotValue(slotKey, {
-      r2Ref: r2Ref || null,
-      url: url || null,
-      scheduledAt: null,
-      references,
-      social,
-      portfolioRefs: safePortfolioRefs,
-    }),
+    [slotKey]: nextSlot,
   };
   const completeCount = countCompleteSlots(nextUploads);
 
@@ -528,6 +542,18 @@ export async function updateDocUploadInline(
     })
     .eq('application_id', draft.applicationId);
   if (updErr) return { ok: false, error: updErr.message };
+
+  // 📄 Read the paper AFTER the response — the upload above has already
+  // succeeded, so a slow, failed or unconfigured read costs the supplier
+  // nothing and the line simply stays "with a person at Setnayan". The reader
+  // writes ONLY `doc_uploads[slot].read` (lib/verification-paper-read.server.ts).
+  if (r2Ref && isReadableSlotKey(slotKey) && !(sameFile && storedRead)) {
+    const applicationId = draft.applicationId;
+    after(async () => {
+      const { readVerificationPaper } = await import('@/lib/verification-paper-read.server');
+      await readVerificationPaper({ admin: createAdminClient(), applicationId, slotKey });
+    });
+  }
 
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard/verify');

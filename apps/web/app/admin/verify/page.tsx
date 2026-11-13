@@ -113,6 +113,14 @@ import {
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
+import { formatLongDate } from '@/lib/format-date';
+import { VERIFICATION_PAIRS, parsePaperRead } from '@/lib/verification-pairs';
+import {
+  classifyPaperQr,
+  isReadableSlotKey,
+  slotR2Key,
+  type QrVerdict,
+} from '@/lib/verification-paper-read';
 export const metadata = { title: 'Verification queue · Admin' };
 
 /**
@@ -151,6 +159,7 @@ type Props = {
     in_review?: string;
     contact_marked?: string;
     deep_search?: string;
+    reread?: string;
     error?: string;
   }>;
 };
@@ -336,6 +345,13 @@ function FlashBanner({
     return (
       <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
         VALIDATE message marked as received.
+      </p>
+    );
+  }
+  if (search.reread === '1') {
+    return (
+      <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
+        Reading the paper again — the new reading shows when you refresh. It is evidence only; you still decide.
       </p>
     );
   }
@@ -1072,6 +1088,7 @@ function ApplicationCard({
                   documents={checks?.documents ?? []}
                 />
                 <SlotDetail slotKey={slot.key} value={v} />
+                <SlotRead applicationId={application.application_id} slotKey={slot.key} value={v} />
               </li>
             );
           })}
@@ -1667,6 +1684,103 @@ function SlotDetail({ slotKey, value }: { slotKey: string; value: DocUpload }) {
   return null;
 }
 
+/**
+ * 📄 WHAT THE READER SAW ON THIS PAPER (owner 2026-11-14) — in plain words,
+ * never the raw block. Evidence for the reviewer, beside the Open button; it
+ * decides nothing. "Read it again" rides `openApplicationDocument` with
+ * `intent=read` (the server-action ceiling has no headroom for a new export).
+ */
+function SlotRead({
+  applicationId,
+  slotKey,
+  value,
+}: {
+  applicationId: string;
+  slotKey: string;
+  value: DocUpload;
+}) {
+  if (!isReadableSlotKey(slotKey)) return null;
+  const r2Key = slotR2Key(value, slotKey);
+  if (!r2Key) return null;
+  const read = parsePaperRead(value);
+  const pair = VERIFICATION_PAIRS.find((p) => p.slotKey === slotKey);
+  const labelOf = (k: string) => pair?.fields.find((f) => f.key === k)?.label ?? k;
+  return (
+    <div className="ml-7 space-y-1 rounded-md border border-ink/10 bg-ink/[0.02] px-2 py-1.5 text-[11px] text-ink/75">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium text-ink">
+          {read
+            ? (read.readAs ?? 'The words on this paper were not read — open it and check.')
+            : 'Nobody has read this paper yet.'}
+        </span>
+        <form action={openApplicationDocument} className="ml-auto">
+          <input type="hidden" name="application_id" value={applicationId} />
+          <input type="hidden" name="slot_key" value={slotKey} />
+          <input type="hidden" name="r2_key" value={r2Key} />
+          <input type="hidden" name="intent" value="read" />
+          <SubmitButton
+            pendingLabel="Reading…"
+            className="rounded px-2 py-0.5 text-[11px] font-semibold underline underline-offset-2 hover:opacity-80"
+          >
+            {read ? 'Read it again' : 'Read it'}
+          </SubmitButton>
+        </form>
+      </div>
+      <PaperQrLine verdict={classifyPaperQr(read)} />
+      {read ? (
+        <ul className="space-y-0.5">
+          {Object.entries(read.values).map(([k, v]) => (
+            <li key={k}>
+              {labelOf(k)}: <span className="font-mono text-ink">{v}</span>
+            </li>
+          ))}
+          {read.notes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+          {read.unreadable.map((k) => (
+            <li key={`u-${k}`} className="text-warn-700">
+              {labelOf(k)}: could not make it out — check the paper.
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * 🔳 THE QR'S LINK, FOR THE REVIEWER ONLY. One tap opens it in a new tab; the
+ * server never fetches it. The label is decided by `classifyPaperQr` — a strict
+ * host check, so a look-alike reads "⚠ Not a government site".
+ */
+function PaperQrLine({ verdict }: { verdict: QrVerdict }) {
+  if (verdict.kind === 'none') return null;
+  if (verdict.kind === 'unreadable') {
+    return <p className="text-warn-700">{verdict.label}</p>;
+  }
+  if (verdict.kind === 'text') {
+    return (
+      <p>
+        {verdict.label}: <span className="break-all font-mono text-ink">{verdict.text.slice(0, 200)}</span>
+      </p>
+    );
+  }
+  return (
+    <p className={verdict.kind === 'official' ? 'text-success-700' : 'text-warn-700'}>
+      QR:{' '}
+      <a
+        href={verdict.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-semibold underline underline-offset-2"
+      >
+        {verdict.label}
+      </a>{' '}
+      <span className="break-all font-mono text-[10px] text-ink/60">{verdict.href.slice(0, 200)}</span>
+    </p>
+  );
+}
+
 /** What every grant does to the shop, said the same way wherever it is offered. */
 const GRANT_CONSEQUENCE =
   'Approving flips this supplier to Verified — their public listing goes live, the verified badge appears, Supplier Pro/Supplier Ultra unlock, and they are notified.';
@@ -1703,6 +1817,8 @@ function ActionRow({
   checks: VerificationChecksReport | null;
 }) {
   const approveMessage = grantDialogMessage(checks);
+  // 📄 Offered, never written: the reviewer types the date themselves.
+  const permitReadExpiry = parsePaperRead(application.doc_uploads?.mayors_permit)?.expiresOn ?? null;
   const isPendingOrReview =
     application.status === 'pending_review' ||
     application.status === 'in_review';
@@ -1753,6 +1869,11 @@ function ActionRow({
               31 December because a Mayor's Permit runs for the calendar year;
               the label tells the reviewer to read the paper. Blank = the
               one-year renewal. Validated server-side (`permitDeadlineFrom`). */}
+          {permitReadExpiry ? (
+            <p className="w-full text-xs text-ink/70">
+              The permit reads: valid until <span className="font-medium text-ink">{formatLongDate(permitReadExpiry)}</span> — check it against the paper before you enter it below.
+            </p>
+          ) : null}
           <label className="flex items-center gap-2 text-xs text-ink/70">
             <span>Mayor&rsquo;s Permit valid until (as printed) · recorded — the badge renews on {deadlineLabel(deadlineAtApproval(new Date()))}</span>
             <input

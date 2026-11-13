@@ -5,6 +5,7 @@ import { InlineCheckoutDrawer, type InlineCheckoutDrawerProps } from '@/app/dash
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import {
+  EVENT_PLUS_SKU,
   FULL_PRO_SKU,
   HUB_PARTS,
   HUB_PARTS_ORDER_KEY,
@@ -15,6 +16,7 @@ import {
   type HubOwnershipView,
   type HubPartId,
 } from '@/lib/hub-parts';
+import { PlanOffer, proCreditsLine, type PlanOfferFacts } from './plan-offer';
 
 /**
  * 💎 THE PARTS PAGE'S BODY (owner 2026-10-22, prototype `pro_part_by_part_2026-10-22.html` frame 4) — everything it
@@ -40,9 +42,11 @@ export type ProPartsBodyProps = {
   buy: string | undefined;
   settings: InlineCheckoutDrawerProps['settings'];
   vatRatePct: number;
+  /** 💰 Free · Event Plus above Event Pro, each read from the catalogue (F-W2-29). Absent in the lab → not drawn. */
+  plans?: PlanOfferFacts;
 };
 
-export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active, owned, partPricePhp, fullPhp, buy, settings, vatRatePct }: ProPartsBodyProps) {
+export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active, owned, partPricePhp, fullPhp, buy, settings, vatRatePct, plans }: ProPartsBodyProps) {
   const HERO = { label: title };
   const has = (o: HubOwnershipView | null, id: HubPartId) => Boolean(o && (o.full || o.parts.includes(id)));
   /* Everything you pay for parts counts toward everything — the rest, never below zero (the cap). */
@@ -107,6 +111,15 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
         </p>
       </header>
 
+      {/* ── 💰 THE PLANS — Free · Event Plus, then Event Pro (the card below). Read, never typed. ── */}
+      {plans ? (
+        <PlanOffer
+          facts={plans}
+          proHeld={Boolean(active?.full || owned?.full)}
+          plusDrawer={(php) => drawer({ serviceKey: EVENT_PLUS_SKU, name: 'Event Plus', php, label: 'Get Event Plus' })}
+        />
+      ) : null}
+
       {/* ── EVERYTHING — one tap, on top. ── */}
       {active?.full ? (
         <div className="rounded-3xl bg-ink/[0.04] p-5" data-pro-everything="yours">
@@ -149,6 +162,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
               : partsOnSale
                 ? `All ${HUB_PARTS.length} parts, and the "Powered by Setnayan" footer comes off your Hub, invite, prints and story.`
                 : `Everything below, and the "Powered by Setnayan" footer comes off your Hub, invite, prints and story.`}
+            {plans && proCreditsLine(plans.proCredits) ? ` ${proCreditsLine(plans.proCredits)}` : ''}
           </p>
           <div className="mt-3">
             {drawer({

@@ -18,3 +18,12 @@ Eight `*_FALLBACK_PHP` figures reached a supplier's screen whenever their catalo
 - Supplier day-of Papic blurb no longer types 50/70 credits or "token".
 
 Guards: `brand-your-booth-at-one-wedding.test.ts` now pins NO fallback and executes the null reader (was: pins one fallback); `the-free-credit-promise-is-true.test.ts` unknown → silence; `fallback-prices-match-the-catalog.db.test.ts` floors follow the three deleted pairs (pairs 5→4, compared 4→2) and gain two derived checks — a loose count of numeric fallbacks must equal the strict scan (sabotage-checked with `: number = 1_490`), and every paired code must exist in a catalogue.
+
+### The in-app plan offer matches /pricing (Controller F-W2-29, same day)
+
+Inside the app no Event Plus was offered anywhere and no plan showed its Papic credits, while /pricing offers Free · Event Plus · Event Pro. The plan screen every in-app "Unlock Pro" door already lands on (`/dashboard/[eventId]/studio/website-pro`, reached from Hub settings, the Maker, Details, Our Story, prints, save-the-date…) now draws **Free · Event Plus** above its Event Pro card:
+- Prices and included credits are READ from `platform_retail_catalog_v2` through the front door's own helpers, moved to `lib/event-plans.ts` (`planPricesFrom`, `planCreditsFrom`; the front door re-exports them) — one place, where Event Ultra lands after #7601.
+- Event Plus is bought with the page's existing checkout drawer at its catalogue price (`EVENT_PLUS`, already priced server-side by `order-charge-authority`); once paid it counts toward Event Pro (the Pro card then asks "₱X more", from `eventHubOwnership`). Held Pro hides Plus. An unread row shows no price and no count.
+- The Event Pro card adds "N Papic credits included." from its row.
+- New test `app/dashboard/[eventId]/studio/website-pro/the-app-offers-the-plans-pricing-offers.test.ts` renders the real component.
+- Wording ("Event Hub Pro" → "Event Pro") is left to PR #7605.

@@ -1,6 +1,6 @@
 ## 2026-11-13 · fix(help): public Help says only what is live today
 
-Every article in `apps/web/lib/help.ts` was fact-checked against `origin/main`; 30 were rewritten and 3 added.
+Every article in `apps/web/lib/help.ts` was fact-checked against `origin/main`; 33 were rewritten and 3 added (95 → 98).
 
 - **Plans:** couples see Free · Event Plus · Event Pro. "Event Hub Pro" / "Event Hub PRO" is gone from Help; Setnayan AI is described as coming inside Event Plus and Event Pro (not sold on its own since 2026-11-04). Supplier plan names are not printed (the upcoming rename is not live). No price or credit number is typed.
 - **Places:** the account bar is Home · Discover (Events, People, Memories, Shop are Home's sections); the event bar is Today · Guests · Suppliers · Memories · Hub; Studio is gone — Papic is the card in Memories (Add more), Live Watch opens from the Live stream card on Today (Open controller), Budget is on Today; Appearance is in the account menu; New QR is on the guest's ticket; Guests settings (⚙) holds the one join link.

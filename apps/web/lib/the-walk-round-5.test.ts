@@ -109,3 +109,12 @@ test('RW-48 · a bill that is no longer due drops its "up for verification" clau
   assert.equal(feeOrderDescriptionNow(d, 'paid'), 'Setnayan booking fee (5% to ₱100,000)');
   assert.equal(feeOrderDescriptionNow(d, 'submitted'), d, 'still due: the waiting words are true');
 });
+
+test('RW-43 · before Agree, a quote carrying the Setnayan gift says fee + gift = the bill', async () => {
+  const { withGiftOnTheBill } = await import('./booking-fee-disclosure');
+  const f = withGiftOnTheBill({ tone: 'info', headline: 'Booking fee ₱1,337.50 — payable when they book.', detail: 'Your 2nd booking.' }, 133_750, 48_140);
+  assert.match(f.detail, /agreeing bills you ₱1,337\.50 booking fee \+ ₱481\.40 gift = ₱1,818\.90\./);
+  const srv = code('lib/booking-fee-disclosure.server.ts');
+  assert.match(srv, /standing\.kind === 'billable' &&\s*!standing\.badgeReward/, 'only where a fee is billed');
+  assert.match(srv, /quoteSetnayanGift\(admin, \{[\s\S]*?quoteSwitch: null,/, 'the accepted quote’s own switch, priced like the quote screen');
+});

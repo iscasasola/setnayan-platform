@@ -34,6 +34,10 @@
   - **RW-45 (money)** The admin booking-fees page summed the fee alone ("₱2,675 owed") while the bill was ₱1,818.90
     (fee + Papic gift). Owed is now the bill's own total, shown as "fee + gift" where a gift rides on it; "has proof" is
     now "any logged row", not whichever row the read returned last.
+  - **RW-43** Before Agree, a quote that carries the Setnayan gift now says the whole bill beside the button —
+    "agreeing bills you ₱1,337.50 booking fee + ₱481.40 gift = ₱1,818.90" — priced by the same function the quote screen
+    uses, and only where a fee is actually billed (never a free, promo or badge-reward booking).
+  - **RW-49 is ON HOLD** (controller, 13 Nov: the owner's new ruling on what the gift is). No gift label changed.
   - **RW-48** A paid bill kept saying "up for verification, confirmation within 24 hrs" (the minted description). The
     screen drops that clause once the bill is no longer due; the stored text is untouched.
 - Guard: `lib/the-walk-round-5.test.ts`.

@@ -203,8 +203,7 @@ export function PortfolioImportForm({
             <button
               type="button"
               onClick={importVideo}
-              className="sn-press inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold"
-              style={{ background: 'var(--m-slate-1)', color: 'var(--m-bg, #fff)' }}
+              className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-sm font-semibold text-cream transition hover:bg-ink/90"
             >
               Import
             </button>

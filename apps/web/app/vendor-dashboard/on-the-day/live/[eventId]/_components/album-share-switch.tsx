@@ -108,7 +108,7 @@ export function AlbumShareSwitch({
             It fills your own scene. You can switch it off any time.
           </p>
           <div className="mt-2 flex gap-2">
-            <button type="button" disabled={pending} onClick={() => send(true)} className="sn-press inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold" style={{ background: 'var(--m-slate-1)', color: 'var(--m-bg, #fff)' }}>
+            <button type="button" disabled={pending} onClick={() => send(true)} className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-sm font-semibold text-cream transition hover:bg-ink/90">
               Share
             </button>
             <button type="button" disabled={pending} onClick={() => send(false)} className="sn-press inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold" style={{ color: 'var(--m-slate-1)' }}>

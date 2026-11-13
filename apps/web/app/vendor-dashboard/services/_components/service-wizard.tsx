@@ -2,7 +2,10 @@
 
 import { giftLimitPctOrDefault } from '@/lib/setnayan-gift';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Circle, FileText, Lock } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { Field } from '@/app/_components/forms/field';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -77,6 +80,7 @@ export function ServiceWizard({
   /** The supplier's whole say over the Setnayan gift: yes or no. */
   const [giftOn, setGiftOn] = useState(false);
   const [linkCount, setLinkCount] = useState(0);
+  const [coverageId, setCoverageId] = useState('');
   const [photoKey, setPhotoKey] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
   const [hasPrice, setHasPrice] = useState(false);
@@ -187,12 +191,13 @@ export function ServiceWizard({
         {steps.map((s, i) => (
           <li
             key={s.id}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+            aria-current={i === clamped ? 'step' : undefined}
+            className={`rounded-full px-2.5 py-1 text-[13px] font-medium ${
               i === clamped
                 ? 'bg-ink text-cream'
                 : i < clamped
-                  ? 'bg-ink/10 text-ink/70'
-                  : 'bg-ink/[0.04] text-ink/45'
+                  ? 'bg-ink/10 text-ink'
+                  : 'bg-[color:var(--m-paper-2)] text-[color:var(--m-slate-2)]'
             }`}
           >
             {i + 1}. {s.label}
@@ -209,12 +214,12 @@ export function ServiceWizard({
       {/* 1 · What you offer — category + cover photo + title */}
       <section {...show('what')} className="space-y-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.12em] text-ink/45">Category</p>
+          <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Category</p>
           <p className="mt-1 flex items-center gap-2 text-lg font-medium text-ink">
-            <Lock aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
+            <Lock aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={1.75} />
             {categoryLabel}
           </p>
-          <p className="mt-1 text-sm text-ink/55">This is what you&rsquo;re listing. Pick a different one from the Services page if it&rsquo;s wrong.</p>
+          <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">This is what you&rsquo;re listing. Pick a different one from the Services page if it&rsquo;s wrong.</p>
         </div>
         <Field
           label="Cover photo"
@@ -257,14 +262,16 @@ export function ServiceWizard({
       <section {...show('price')} className="space-y-3">
         {coverages.length > 0 ? (
           <Field label="Coverage (optional)" htmlFor="coverage_id">
-            <select id="coverage_id" name="coverage_id" defaultValue="" className="input-field cursor-pointer">
-              <option value="">— not assigned —</option>
-              {coverages.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+            {/* One dropdown — PickMenu, never a raw <select>; the value rides a hidden input. */}
+            <input type="hidden" id="coverage_id" name="coverage_id" value={coverageId} />
+            <PickMenu
+              label="Coverage"
+              value={coverageId}
+              options={[{ key: '', label: '— not assigned —' }, ...coverages.map((c) => ({ key: String(c.id), label: c.label }))]}
+              onPick={setCoverageId}
+              dataAttr="data-wizard-coverage"
+              className="min-h-11"
+            />
           </Field>
         ) : null}
         {/* Wizard parity (2026-07-03): the same pricing surface the inline
@@ -287,7 +294,7 @@ export function ServiceWizard({
           }}
           fixedExtra={<PriceBracketsEditor initial={[]} />}
         />
-        <p className="text-xs text-ink/55">A &ldquo;from&rdquo; anchor. The real number is quoted in each couple&rsquo;s inquiry.</p>
+        <p className="text-[13px] text-[color:var(--m-slate-2)]">A &ldquo;from&rdquo; anchor. The real number is quoted in each couple&rsquo;s inquiry.</p>
         <Field label="Crew size (optional)" htmlFor="crew_size">
           <input id="crew_size" name="crew_size" type="number" min={0} step={1} className="input-field" />
         </Field>
@@ -300,10 +307,10 @@ export function ServiceWizard({
           category={categoryValue}
           defaults={{ crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
         />
-        <details className="rounded-lg border border-ink/10 p-3">
-          <summary className="cursor-pointer text-sm font-medium text-ink/75">Pricing rules (advanced) — optional</summary>
-          <div className="mt-3 space-y-3">
-            <p className="text-xs text-ink/55">
+        <details className="border-t border-[color:var(--m-line)] pt-2">
+          <summary className="flex min-h-11 cursor-pointer items-center text-[15px] font-semibold text-ink">Pricing rules (advanced) — optional</summary>
+          <div className="mt-2 space-y-3">
+            <p className="text-[13px] text-[color:var(--m-slate-2)]">
               Starting points the platform uses — the real numbers are set in each couple&rsquo;s inquiry. Skip these and you can still publish.
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -330,28 +337,30 @@ export function ServiceWizard({
           still promising through it. "No" has to travel as a real value.
         */}
         <input type="hidden" name="includes_setnayan_gift" value={giftOn ? 'on' : 'off'} />
-        <p className="text-sm font-medium text-ink">Include a Setnayan gift?</p>
-        <div className="flex gap-2" role="group" aria-label="Include a Setnayan gift">
+        <InfoTip
+          label="Include a Setnayan gift?"
+          labelAs="p"
+          labelClassName="text-[15px] font-semibold text-ink"
+          align="start"
+        >
+          Free Papic photos for every couple who books this card, in your name — worked out from your booking fee.
+        </InfoTip>
+        <div className="grid grid-cols-2 gap-2 [&_.ab]:w-full" role="group" aria-label="Include a Setnayan gift">
           {[
             { on: true, label: 'Yes, include it' },
             { on: false, label: 'No, not on this card' },
           ].map((opt) => (
-            <button
+            <ActionButton
               key={opt.label}
-              type="button"
-              onClick={() => setGiftOn(opt.on)}
+              tone={giftOn === opt.on ? 'brand' : 'neutral'}
+              icon={giftOn === opt.on ? Check : Circle}
+              label={opt.label}
               aria-pressed={giftOn === opt.on}
-              className={`min-h-[44px] flex-1 rounded-xl border px-3 py-2 text-sm font-medium ${
-                giftOn === opt.on
-                  ? 'border-ink/30 bg-ink/5 text-ink'
-                  : 'border-ink/15 bg-white/70 text-ink/60'
-              }`}
-            >
-              {opt.label}
-            </button>
+              onClick={() => setGiftOn(opt.on)}
+            />
           ))}
         </div>
-        <p className="text-sm text-ink/55">
+        <p className="text-[13px] text-[color:var(--m-slate-2)]">
           Say yes and every couple who books this card gets{' '}
           <span className="font-medium text-ink">free Papic photos</span> for their event,
           given in your name. How many is worked out from your booking fee and shown on the quote —
@@ -365,7 +374,7 @@ export function ServiceWizard({
           optional, replace-all on save). */}
       <section {...show('extras')} className="space-y-3">
         <p className="text-sm font-medium text-ink">Make the card sell itself</p>
-        <p className="text-sm text-ink/55">
+        <p className="text-[13px] text-[color:var(--m-slate-2)]">
           All optional — free items bundled into your price, discounts couples can qualify for, and real photos or a short clip of your work.
         </p>
         <InclusionsEditor initial={[]} />
@@ -389,16 +398,16 @@ export function ServiceWizard({
       {otherCategories.length > 0 ? (
         <section {...show('links')} className="space-y-2">
           <p className="text-sm font-medium text-ink">What&rsquo;s included with this service?</p>
-          <p className="text-sm text-ink/55">Pick other things you offer that come bundled — couples see &ldquo;comes with&rdquo; on your card. Up to 6.</p>
+          <p className="text-[13px] text-[color:var(--m-slate-2)]">Pick other things you offer that come bundled — couples see &ldquo;comes with&rdquo; on your card. Up to 6.</p>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {otherCategories.map((c) => (
-              <label key={c.value} className="flex items-center gap-2 rounded-lg border border-ink/10 px-3 py-2 text-sm text-ink/80">
+              <label key={c.value} className="flex min-h-11 items-center gap-2 border-b border-[color:var(--m-line)] py-2 text-[15px] text-ink">
                 <input
                   type="checkbox"
                   name="linked"
                   value={c.value}
                   onChange={(e) => setLinkCount((n) => n + (e.target.checked ? 1 : -1))}
-                  className="h-4 w-4 accent-terracotta"
+                  className="h-5 w-5 accent-mulberry"
                 />
                 {c.label}
               </label>
@@ -410,7 +419,7 @@ export function ServiceWizard({
       {/* 5 · Review & publish */}
       <section {...show('review')} className="space-y-3">
         <p className="text-sm font-medium text-ink">Review</p>
-        <dl className="space-y-1.5 rounded-lg border border-ink/10 bg-white/70 p-4 text-sm">
+        <dl className="border-y border-[color:var(--m-line)] text-[15px] [&>div+div]:border-t [&>div+div]:border-[color:var(--m-line)]">
           <Recap k="Category" v={categoryLabel} />
           <Recap k="Cover photo" v={hasPhoto ? 'Added' : '— none yet (required to publish)'} />
           {title ? <Recap k="Title" v={title} /> : null}
@@ -420,7 +429,7 @@ export function ServiceWizard({
           <Recap k="Setnayan gift" v={giftOn ? 'Included' : '— not included'} />
           {linkCount > 0 ? <Recap k="Comes with" v={`${formatCount(linkCount)} service${linkCount === 1 ? '' : 's'}`} /> : null}
         </dl>
-        <p className="text-xs text-ink/55">
+        <p className="text-[13px] text-[color:var(--m-slate-2)]">
           Availability is set on your <span className="font-medium text-ink">Calendar</span>, and payment terms are agreed in each couple&rsquo;s inquiry — so this listing stays simple.
         </p>
         {/* The refusal NAMES EVERY missing thing, one line each. The old copy
@@ -430,7 +439,7 @@ export function ServiceWizard({
             publish. Saving a draft is offered in the same breath — it is the
             escape, and it is never refused. */}
         {!canPublish ? (
-          <div className="space-y-1 rounded-md bg-warn-50 px-3 py-2 text-xs text-warn-900">
+          <div role="status" className="space-y-1 text-[14px] font-semibold" style={{ color: 'rgb(var(--color-warn))' }}>
             {unmetToPublish.map((requirement) => (
               <p key={requirement}>{PUBLISH_COACH_MESSAGE[requirement]}</p>
             ))}
@@ -442,19 +451,20 @@ export function ServiceWizard({
             name="publish"
             value="true"
             disabled={!canPublish}
-            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-terracotta-700 px-5 py-2.5 text-sm font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-50"
+            className={actionButtonClass('brand', { main: true })}
             pendingLabel="Publishing…"
           >
-            <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Publish service
+            <Check aria-hidden strokeWidth={2} />
+            <span className="lbl">Publish service</span>
           </SubmitButton>
           <SubmitButton
             name="publish"
             value="false"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-ink/20 px-5 py-2.5 text-sm font-medium text-ink/75 hover:bg-ink/5"
+            className={actionButtonClass('neutral')}
             pendingLabel="Saving…"
           >
-            Save as draft
+            <FileText aria-hidden strokeWidth={1.9} />
+            <span className="lbl">Save as draft</span>
           </SubmitButton>
         </div>
         {/* § 2.10 — the reassurance a vendor needs before pressing Publish for
@@ -470,31 +480,29 @@ export function ServiceWizard({
           *
           *  What IS true: hiding flips `is_active` and touches nothing else, so
           *  the card returns byte-identical. That is what this says. */}
-        <p className="text-xs text-ink/55">
+        <p className="text-[13px] text-[color:var(--m-slate-2)]">
           You can hide a card any time — it comes back exactly as you left it.
         </p>
       </section>
 
       {/* Nav chrome (hidden on the final step, which has its own submit buttons) */}
       {!isLast ? (
-        <div className="flex items-center justify-between border-t border-ink/10 pt-4">
-          <button
-            type="button"
-            onClick={() => setStep((s) => Math.max(0, s - 1))}
+        <div className="flex items-center justify-between border-t border-[color:var(--m-line)] pt-4">
+          <ActionButton
+            tone="neutral"
+            quiet
+            icon={ArrowLeft}
+            label="Back"
             disabled={clamped === 0}
-            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-ink/60 hover:bg-ink/5 disabled:opacity-40"
-          >
-            <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Back
-          </button>
-          <button
-            type="button"
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+          />
+          <ActionButton
+            tone="brand"
+            main
+            icon={ArrowRight}
+            label="Continue"
             onClick={() => setStep((s) => Math.min(steps.length - 1, s + 1))}
-            className="inline-flex items-center gap-1.5 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-cream hover:bg-ink/90"
-          >
-            Continue
-            <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </button>
+          />
         </div>
       ) : null}
     </form>
@@ -503,8 +511,8 @@ export function ServiceWizard({
 
 function Recap({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex justify-between gap-3">
-      <dt className="text-ink/55">{k}</dt>
+    <div className="flex min-h-11 items-center justify-between gap-3 py-2">
+      <dt className="text-[color:var(--m-slate-2)]">{k}</dt>
       <dd className="text-right font-medium text-ink">{v}</dd>
     </div>
   );

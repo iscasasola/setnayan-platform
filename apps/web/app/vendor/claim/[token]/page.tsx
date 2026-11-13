@@ -1,13 +1,13 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
-import { Mail, Phone, X } from 'lucide-react';
+import { LogIn, Mail, Phone, UserPlus, X } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { fetchClaimLandingByToken, readInviteOffer } from '@/lib/vendor-invites';
 import { doorOffer, offerFromInvite } from '@/lib/personal-invite-offer';
 import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
 import { VENDOR_CATEGORY_LABEL, displayServiceLabel, type VendorCategory } from '@/lib/vendors';
-import { ActionButton } from '@/components/action-button';
+import Link from 'next/link';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { supplierCommissionShort } from '@/lib/commission-promise';
@@ -207,7 +207,7 @@ export default async function VendorClaimPage({ params }: Props) {
           {/* The reassurance that used to be carried by a green eyebrow now
               lives here, where it can be a whole sentence instead of two
               words — and the eyebrow stays the one doorway colour. */}
-          <div className="rounded-lg bg-success-50 p-4 text-sm text-ink/75 ring-1 ring-inset ring-success-200">
+          <div className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4 text-[14px] text-ink">
             <p className="leading-relaxed">
               On connect, this engagement appears in your Clients pipeline at the Inquiry
               stage. Chat unlocks immediately. <strong>No duplicate profile created.</strong>
@@ -215,11 +215,9 @@ export default async function VendorClaimPage({ params }: Props) {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Link
-              href={signInUrl}
-              className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
-            >
-              Sign in &amp; connect
+            <Link href={signInUrl} className={actionButtonClass('brand', { main: true })} data-tone="brand" data-main="">
+              <LogIn aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+              <span className="lbl">Sign in &amp; connect</span>
             </Link>
             <DeclineForm token={invite.claim_token} />
           </div>
@@ -257,11 +255,11 @@ export default async function VendorClaimPage({ params }: Props) {
         {/* Identity snapshot — IDENTITY ONLY per the 2026-05-19 privacy lock.
             No package, inclusions, milestones, or meetings. Vendor sees those
             the moment they finish signup. */}
-        <section className="rounded-xl bg-cream p-5 ring-1 ring-inset ring-ink/10">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+        <section>
+          <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             What they&rsquo;ve recorded
           </p>
-          <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <dl className="mt-2 divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)]">
             <SnapshotField
               label="Business"
               value={parentVendor?.vendor_name ?? invite.business_name}
@@ -283,17 +281,17 @@ export default async function VendorClaimPage({ params }: Props) {
               />
             ) : null}
           </dl>
-          <p className="mt-4 border-t border-dashed border-ink/10 pt-3 text-xs italic text-ink/55">
+          <p className="mt-2 text-[13px] text-[color:var(--m-slate-2)]">
             Package &amp; payment details stay private until you finish signup.
           </p>
         </section>
 
         {/* Why-claim strip — vendor-value pitch. */}
         <section className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             What you get
           </p>
-          <ul className="divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
+          <ul className="divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)] text-[15px] text-ink">
             <Perk>Free supplier profile + marketplace listing</Perk>
             <Perk>Chat with {inviterName} in-app</Perk>
             <Perk>Payment + contract tracking pre-filled</Perk>
@@ -304,15 +302,13 @@ export default async function VendorClaimPage({ params }: Props) {
 
         {/* CTAs */}
         <div className="flex flex-wrap gap-3">
-          <Link
-            href={signupUrl}
-            className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
-          >
-            Claim &amp; sign up
+          <Link href={signupUrl} className={actionButtonClass('brand', { main: true })} data-tone="brand" data-main="">
+            <UserPlus aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+            <span className="lbl">Claim &amp; sign up</span>
           </Link>
           <DeclineForm token={invite.claim_token} />
         </div>
-        <p className="text-xs text-ink/50">
+        <p className="text-[13px] text-[color:var(--m-slate-2)]">
           Not the right supplier? Just ignore this page — we won&rsquo;t follow up.
         </p>
       </article>

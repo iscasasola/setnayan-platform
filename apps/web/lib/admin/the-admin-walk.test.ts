@@ -87,3 +87,10 @@ test('F-A-15 · admin pages name event types from the admin-managed list, never 
     assert.doesNotMatch(src, /\{\(?e?v?\.?event_type as string \| null\)? \?\? '—'\}/, `${rel} draws a raw event_type`);
   }
 });
+
+test('F-A-10 · Payouts says one true thing about itself, and offers no old percentage split', () => {
+  const page = code('app/admin/payouts/page.tsx');
+  assert.match(page, /Couples pay their suppliers directly, so Setnayan makes no new payouts\./);
+  assert.doesNotMatch(page, /Payouts land here the moment an admin reconciles/);
+  assert.doesNotMatch(page, /PAYOUT_STAGE_PCT/);
+});

@@ -24,5 +24,8 @@
 - **F-A-15** Event types read their admin-managed names ("Get-together", not "simple event") on Intelligence,
   Payments, an account's card, an event's card and Gifts — one reader, `readEventTypeNames()`, over the shipped
   `getEventTypeVocab`.
+- **F-A-10** Payouts describes itself once, truly: couples pay suppliers directly, so this is the record of older
+  bookings paid through Setnayan. The stage filters no longer advertise the old 20/60/20 split (each older row keeps
+  its own share).
 
 SPEC IMPACT: None.

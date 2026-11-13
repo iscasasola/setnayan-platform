@@ -84,7 +84,7 @@ export function ShopWalletSheet({ data, closeHref }: { data: ShopWalletSheetData
           Shop wallet
         </h2>
         {data.balance == null ? (
-          <p className="mt-2 text-[14px] text-ink/70" role="status" data-shop-wallet-unread="">
+          <p className="mt-2 text-[15px] text-ink/70" role="status" data-shop-wallet-unread="">
             <b className="font-semibold text-ink">Couldn&rsquo;t read your shop wallet.</b> Nothing was spent — close and
             open it again to retry.
           </p>
@@ -92,9 +92,9 @@ export function ShopWalletSheet({ data, closeHref }: { data: ShopWalletSheetData
           <>
             <p className="mt-1 flex items-baseline gap-2" data-shop-wallet-balance="">
               <span className="text-[40px] font-bold leading-none tabular-nums text-ink">{count(data.balance)}</span>
-              <span className="text-[15px] text-ink/55">Papic credits</span>
+              <span className="text-[15px] text-[color:var(--m-slate-2)]">Papic credits</span>
             </p>
-            <p className="mt-2 text-[13.5px] text-ink/60">
+            <p className="mt-2 text-[13px] text-[color:var(--m-slate-2)]">
               Spend them on your portfolio or on any event you&rsquo;re booked on. Each event spends its own credits
               first.
             </p>
@@ -108,7 +108,7 @@ export function ShopWalletSheet({ data, closeHref }: { data: ShopWalletSheetData
             <DatesRow key={l.key} data="wallet-line" title={l.title} line={l.sub} />
           ))}
           {data.balance != null && data.lines.length === 0 && !data.pending ? (
-            <p className="py-2 text-[13.5px] text-ink/60" data-shop-wallet-empty="">
+            <p className="py-2 text-[13px] text-[color:var(--m-slate-2)]" data-shop-wallet-empty="">
               Nothing yet — a pack lands here when its payment is approved.
             </p>
           ) : null}
@@ -117,11 +117,11 @@ export function ShopWalletSheet({ data, closeHref }: { data: ShopWalletSheetData
         <p className="home-k2 mt-5">Your events&rsquo; own credits</p>
         <div data-shop-wallet-pots="">
           {data.pots == null ? (
-            <p className="py-2 text-[13.5px] text-ink/70" role="status">
+            <p className="py-2 text-[13px] text-ink/70" role="status">
               Couldn&rsquo;t read your events&rsquo; own credits right now.
             </p>
           ) : data.pots.length === 0 ? (
-            <p className="py-2 text-[13.5px] text-ink/60">No booked event yet — each one brings its own credits.</p>
+            <p className="py-2 text-[13px] text-[color:var(--m-slate-2)]">No booked event yet — each one brings its own credits.</p>
           ) : (
             data.pots.map((p) => <DatesRow key={p.key} data="wallet-pot" title={p.title} line={p.sub} href={p.href} />)
           )}
@@ -170,7 +170,7 @@ function BuyAPack({
     <div className="mt-5" data-shop-wallet-buy="">
       <p className="home-k2">Buy a pack</p>
       {pack ? (
-        <p className="mt-1 text-[13.5px] text-ink/60">
+        <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">
           {pack.title} · {count(pack.credits)} credits · {peso(pack.pricePhp)} · lands in this wallet when the payment is
           approved · never expires while your shop exists.
         </p>
@@ -182,7 +182,7 @@ function BuyAPack({
           <div className="mt-3">
             <ActionButton tone="brand" main disabled icon={ShoppingBag} label="Pack unavailable" />
           </div>
-          <p className="mt-2 text-[13.5px] text-danger-700" role="status" data-shop-wallet-pack-unavailable="">
+          <p className="mt-2 text-[13px] text-danger-700" role="status" data-shop-wallet-pack-unavailable="">
             The Papic credit pack is temporarily unavailable. Your {count(balance)} credits are safe; try again later.
           </p>
         </>

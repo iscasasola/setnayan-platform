@@ -46,7 +46,7 @@ export function CustomersSettings({ body }: { body: ReactNode | null }) {
     <MenuSettingsButton menu="customers" open={open} onOpenChange={go} tour="customers-gear">
       <div className="px-4 pb-6 pt-2" data-customers-settings="">
         {body ?? (
-          <p role="status" className="py-4 text-[13.5px] text-ink/60" data-customers-settings-loading="">
+          <p role="status" className="py-4 text-[13px] text-[color:var(--m-slate-2)]" data-customers-settings-loading="">
             Opening your settings…
           </p>
         )}

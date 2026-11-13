@@ -3231,6 +3231,49 @@
         "WriteResult"
       ]
     },
+    "/admin/categories/requests": {
+      "files": [
+        "admin/categories/requests/_components/admin-request-bits.tsx",
+        "admin/categories/requests/_components/decision-form.tsx",
+        "admin/categories/requests/_components/list-view.tsx",
+        "admin/categories/requests/_components/request-view.tsx",
+        "admin/categories/requests/loading.tsx",
+        "admin/categories/requests/page.tsx"
+      ],
+      "destinations": [
+        "/admin/categories"
+      ],
+      "actions": [
+        "decideServiceRequest"
+      ],
+      "blocks": [
+        "AdminRow",
+        "AdminStatusPill",
+        "DecisionChoice",
+        "DecisionForm",
+        "FormRows",
+        "Link",
+        "ListPageSkeleton",
+        "PageMasthead",
+        "PickMenu",
+        "RequestDraftNotes",
+        "Row",
+        "ServiceRequestsListView",
+        "SubmitButton",
+        "TypedRow"
+      ]
+    },
+    "/admin/categories/requests/[requestId]": {
+      "files": [
+        "admin/categories/requests/[requestId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "ServiceRequestAdminView"
+      ]
+    },
     "/admin/chat-flags": {
       "files": [
         "admin/chat-flags/actions.ts",
@@ -6369,6 +6412,7 @@
         "dashboard/[eventId]/_components/pay-ways-editor.tsx",
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
+        "dashboard/[eventId]/_components/price-basis-rows.tsx",
         "dashboard/[eventId]/_components/read-refused-notice.tsx",
         "dashboard/[eventId]/_components/record-card-folds.tsx",
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
@@ -6481,6 +6525,7 @@
         "AutoPreloadOnEventDay",
         "B",
         "BankBody",
+        "BasisRow",
         "Blob",
         "BoothTemplatePick",
         "BottomDock",
@@ -6715,10 +6760,12 @@
         "PlanningTick",
         "PostSaveStep",
         "PreviewConflictsResult",
+        "PriceBasisRows",
         "PriceSourceChip",
         "ProfileShareButton",
         "ProgressRing",
         "PromoFreeWindowBanner",
+        "ProviderRow",
         "PutAwayCard",
         "QrActions",
         "QrBody",
@@ -6754,6 +6801,7 @@
         "ScheduleUnread",
         "Screen",
         "SearchHead",
+        "SelfAddedBasis",
         "SendBroadcastResult",
         "ServiceGlanceRow",
         "ServiceLines",
@@ -10982,6 +11030,7 @@
         "PlanBudgetAccordion",
         "PlanRows",
         "PlansRowPick",
+        "PriceLineCtx.Provider",
         "PriceSummary",
         "QuoteFillRow",
         "RenamePlanRequest",
@@ -11006,6 +11055,7 @@
         "SearchMarketplaceVendorsResult",
         "SectionStub",
         "SelfAddedPrice",
+        "SelfAddedPriceLines",
         "SelfAddedSupplierPrefill",
         "Service",
         "ServiceCardCtx.Provider",
@@ -11045,6 +11095,7 @@
         "SwitchRow",
         "SwitchTrack",
         "T",
+        "TakenOnCtx.Provider",
         "TeamCandidateSwipe",
         "TeamClearCandidates",
         "TeamDecisionDoorway",
@@ -13334,6 +13385,21 @@
         "VendorServiceRow"
       ]
     },
+    "/dev/service-requests-lab": {
+      "files": [
+        "dev/service-requests-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "RequestDetailView",
+        "RequestRow",
+        "ServiceRequestAdminView",
+        "ServiceRequestsListView",
+        "TellUsWhatYouDoView",
+        "YourRequestsView"
+      ]
+    },
     "/dev/shop-back-lab": {
       "files": [
         "dev/shop-back-lab/page.tsx"
@@ -14420,6 +14486,7 @@
         "AddressPreview",
         "Box",
         "Card",
+        "CardPricing",
         "CityPin",
         "ClaimDoor",
         "Count",
@@ -14452,6 +14519,7 @@
         "OpenShopWizard",
         "Page2",
         "PasswordField",
+        "PayDraft",
         "PhoneField",
         "PickMenu",
         "PlanBody",
@@ -17887,7 +17955,6 @@
         "deleteCoverage",
         "deleteVendorService",
         "pickServicesThatStayOn",
-        "proposeCategory",
         "saveAudience",
         "saveServiceRefinements",
         "setServiceAddons",
@@ -17921,6 +17988,7 @@
         "CoverageServesResult",
         "Crumb",
         "CustomizationStep",
+        "DecisionNotice",
         "DiscountBadge",
         "DiscountDraft",
         "DiscountRow",
@@ -17971,7 +18039,7 @@
         "Recap",
         "RefinementsEditor",
         "ReportCardPhotoResult",
-        "RequestStatusBadge",
+        "RequestStatusPill",
         "Row",
         "RowIcon",
         "RowRemove",
@@ -18068,6 +18136,68 @@
         "Link",
         "RefinementsEditor",
         "ServiceWizard"
+      ]
+    },
+    "/vendor-dashboard/services/requests": {
+      "files": [
+        "vendor-dashboard/services/requests/_components/card-pick.tsx",
+        "vendor-dashboard/services/requests/_components/name-fields.tsx",
+        "vendor-dashboard/services/requests/_components/request-bits.tsx",
+        "vendor-dashboard/services/requests/_components/request-detail-view.tsx",
+        "vendor-dashboard/services/requests/_components/tell-us-view.tsx",
+        "vendor-dashboard/services/requests/_components/your-requests-view.tsx",
+        "vendor-dashboard/services/requests/actions.ts",
+        "vendor-dashboard/services/requests/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/services/requests",
+        "/vendor-dashboard/shop"
+      ],
+      "actions": [
+        "proposeCategory",
+        "putCardUnderRequest"
+      ],
+      "blocks": [
+        "CardPick",
+        "DecisionNotice",
+        "FormRows",
+        "Link",
+        "MyRequest",
+        "PageMasthead",
+        "PickMenu",
+        "RequestNameForm",
+        "RequestRowLink",
+        "RequestStatusPill",
+        "ShopCard",
+        "ShopEmpty",
+        "ShopNotice",
+        "ShopPill",
+        "StayForm",
+        "SubmitButton",
+        "TypedRow",
+        "YourRequestsView"
+      ]
+    },
+    "/vendor-dashboard/services/requests/[requestId]": {
+      "files": [
+        "vendor-dashboard/services/requests/[requestId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "RequestDetailSearch",
+        "RequestDetailView"
+      ]
+    },
+    "/vendor-dashboard/services/requests/new": {
+      "files": [
+        "vendor-dashboard/services/requests/new/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "TellUsSearch",
+        "TellUsWhatYouDoView"
       ]
     },
     "/vendor-dashboard/settings": {

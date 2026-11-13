@@ -22,6 +22,7 @@ import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { SUPPLIER_CHATS_HREF } from './customers/anchors';
@@ -504,6 +505,7 @@ export default async function VendorDashboardLayout({
         href="/vendor-dashboard/notifications"
         ariaBaseLabel="Notifications"
         ariaUnreadSuffix="unread"
+        who={placeWhoFromSwitcher(switcherData)}
       />
       {/* The SHOP's name, not the person's (the redesign's shell: "SETNAYAN ·
           shop name"). The person is the avatar beside it. */}

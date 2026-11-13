@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7774
+# facts: 7776
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     632
-#   col       5599
+#   col       5601
 #   policy    1136
 #   view      10
 #   func      393
@@ -4651,6 +4651,7 @@ col	public.taxonomy_category_requests.resolution_note	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.reviewed_at	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.reviewed_by_admin_id	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.status	anon=- authenticated=SIU
+col	public.taxonomy_category_requests.supplier_seen_at	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.tile_id	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.updated_at	anon=- authenticated=SIU
 col	public.thread_calls.call_id	anon=SIU authenticated=SIU
@@ -5993,6 +5994,7 @@ col	public.vendor_services.added_pax_price_php	anon=S authenticated=SIU
 col	public.vendor_services.base_pax	anon=S authenticated=SIU
 col	public.vendor_services.branch_id	anon=S authenticated=SIU
 col	public.vendor_services.category	anon=S authenticated=SIU
+col	public.vendor_services.category_request_id	anon=S authenticated=SIU
 col	public.vendor_services.coverage_id	anon=S authenticated=SIU
 col	public.vendor_services.created_at	anon=S authenticated=SIU
 col	public.vendor_services.credit_price_centavos	anon=S authenticated=SIU

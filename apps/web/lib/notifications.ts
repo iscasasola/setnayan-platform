@@ -1041,6 +1041,12 @@ export type NotificationRow = {
   related_url: string | null;
   read_at: string | null;
   created_at: string;
+  /**
+   * The event the notice is about (migration 20271238868040, derived from `related_url` by the writer). Null for an
+   * account / shop / HQ notice — and for an event notice whose event was removed (ON DELETE SET NULL). Optional so a
+   * lab's hand-written row may leave it out; `lib/notification-place.ts` reads a missing one as null.
+   */
+  event_id?: string | null;
 };
 
 export async function fetchOwnNotifications(
@@ -1050,7 +1056,7 @@ export async function fetchOwnNotifications(
 ): Promise<NotificationRow[]> {
   const { data, error } = await supabase
     .from('notifications')
-    .select('notification_id,user_id,type,title,body,related_url,read_at,created_at')
+    .select('notification_id,user_id,type,title,body,related_url,read_at,created_at,event_id')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);

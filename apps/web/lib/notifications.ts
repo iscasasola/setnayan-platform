@@ -5,6 +5,7 @@ import {
   logQueryError,
 } from '@/lib/supabase/error-detect';
 import type { EventPlaceFact } from '@/lib/notification-place';
+import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 
 export type NotificationType =
   // Account auto-surface (#7b, gap G6) — the RA 10173 "you were added" notice.
@@ -1114,9 +1115,7 @@ export async function fetchNotificationEventPlaces(
     const [eventsRes, seatsRes] = await Promise.all([
       supabase
         .from('events')
-        .select(
-          'event_id, display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg',
-        )
+        .select(`event_id, ${HERO_MONOGRAM_COLUMNS}`)
         .in('event_id', ids),
       supabase.from('event_members').select('event_id, member_type').eq('user_id', userId).in('event_id', ids),
     ]);

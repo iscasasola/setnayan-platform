@@ -197,7 +197,7 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
           label="Load times by page"
           reads="the load times"
           rows={rowsUnread ? null : data.pages}
-          readError={rowsUnread ? { message: 'app_load_timings read refused (see the earlier log line)' } : null}
+          readError={rowsUnread ? { message: 'The load times could not be read (the server log says why).' } : null}
           rowKey={(p) => p.route}
           readPermitted
           minWidth="20rem"

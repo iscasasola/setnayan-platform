@@ -121,7 +121,7 @@ async function shell(): Promise<string> {
 }
 
 test('2a · ✕ Exit is GONE — the app’s nav is the way out (owner 2026-10-30); the row ends with ⚙', async () => {
-  /* 🧭 AMENDED 30 Oct — DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV STAYS", call (1), *"yes"*: the Hub
+  /* 🧭 AMENDED 30 Oct — DECISION_LOG "EVENT PRO (look redesign) — THE APP'S NAV STAYS", call (1), *"yes"*: the Hub
      keeps the app's top bar and bottom nav, so the Maker's red ✕ (25 Oct: a link to this event's dashboard) is
      dropped — Home on the bottom nav (or the rail) is that same way out. Nothing stands in its place; the row is
      [Stage ▾ | Studio ▾] · ↺ · ✓ · ⚙. */

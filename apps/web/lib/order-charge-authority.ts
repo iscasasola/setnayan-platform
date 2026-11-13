@@ -63,9 +63,10 @@ import {
   sealServerResolvedTotal,
   type OrderChargeAuthority,
 } from '@/lib/order-charge-math';
+import { EVENT_ULTRA_SKU, ultraUpgradeCharge, type UltraUpgradeCharge } from '@/lib/event-ultra';
 import { EVENT_PLUS_SKU, FULL_PRO_SKU, HUB_PARTS_ORDER_KEY, hubPart, hubPartOfSku, hubPartsCharge, type HubPartId } from '@/lib/hub-parts';
 import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuLinesFor, orderStatusConfersOwnership } from '@/lib/entitlements';
 
 export {
   chargeOverchargesDisplayedPrice,
@@ -202,6 +203,28 @@ export async function resolveOrderChargeCentavos(
       return { ok: false, refusal: 'read_error', detail: e instanceof Error ? e.message : String(e) };
     }
     if (holds[0].full || holds[1]) return { ok: false, refusal: 'already_owned', detail: serviceKey };
+  }
+
+  // ── (1e) 💎 Event Ultra (owner 2026-11-13) — once per event ─────────────────
+  // Ultra already confers Pro, Live Watch and Patiktok (`SKU_OWNERSHIP_ALIASES`), so a second Ultra would charge twice
+  // for one unlock. 💳 An event that already PAID for Plus or Pro pays THE DIFFERENCE (DECISION_LOG 2026-11-13 "EVENT
+  // ULTRA UPGRADE — PAY THE DIFFERENCE"): `readUltraUpgradeCharge`, every figure a catalogue read. An event that paid
+  // toward no plan falls through to the row's price below, exactly as before.
+  if (serviceKey === EVENT_ULTRA_SKU) {
+    if (!eventId) return { ok: false, refusal: 'no_price_source', detail: 'Event Ultra is sold for an event only' };
+    let owned;
+    try {
+      owned = await eventOwnsSku(admin, eventId, EVENT_ULTRA_SKU);
+    } catch (e) {
+      return { ok: false, refusal: 'read_error', detail: e instanceof Error ? e.message : String(e) };
+    }
+    if (owned) return { ok: false, refusal: 'already_owned', detail: serviceKey };
+    const upgrade = await readUltraUpgradeCharge(admin, eventId);
+    if (upgrade.status === 'error') return { ok: false, refusal: 'read_error', detail: upgrade.message };
+    if (upgrade.charge) {
+      if (!upgrade.charge.ok) return { ok: false, refusal: 'read_error', detail: 'a plan price was not read' };
+      return sealServerResolvedTotal(upgrade.charge.php * 100, 'event_ultra_upgrade');
+    }
   }
 
   // ── (2) The retail catalog ────────────────────────────────────────────────
@@ -368,4 +391,48 @@ async function resolveHubProCharge(
     return { ok: false, refusal: 'no_price_source', detail: 'no part named' };
   }
   return sealServerResolvedTotal(charge.php * 100, 'hub_parts');
+}
+
+/**
+ * 💳 What THIS event pays for Event Ultra as an upgrade (owner 2026-11-13, "Pay the difference") — the ONE reader, called
+ * by the charge above and by the checkout drawer's quote (`applyVoucherAction`, intent `welcome_quote`), so the screen
+ * and the bill can never disagree. `charge: null` = the event paid toward no plan (Ultra's row price applies).
+ *
+ * Reads, all existing: the Pro ownership the Plus → Pro upgrade already prices from (`eventHubOwnership`, 'owned' —
+ * the buy-surface rule), the plan prices (`hubPartPrices` — Pro and Plus rows), and the Plus / Pro order lines (orders +
+ * basket, never a comp: a gift was not paid). Ultra's own row is read only when there is a credit to take off it.
+ */
+export async function readUltraUpgradeCharge(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<{ status: 'error'; message: string } | { status: 'ok'; charge: UltraUpgradeCharge | null }> {
+  let own;
+  let prices;
+  let lines;
+  try {
+    [own, prices, lines] = await Promise.all([
+      eventHubOwnership(admin, eventId, 'owned'),
+      hubPartPrices(admin),
+      eventSkuLinesFor(admin, eventId, [FULL_PRO_SKU, EVENT_PLUS_SKU]),
+    ]);
+  } catch (e) {
+    return { status: 'error', message: e instanceof Error ? e.message : String(e) };
+  }
+  const paid = (sku: string) => lines.some((r) => r.service_key === sku && orderStatusConfersOwnership(r.status));
+  const proPaid = paid(FULL_PRO_SKU);
+  const plusPaid = paid(EVENT_PLUS_SKU);
+  if (!proPaid && !plusPaid && !(own.paidPhp > 0)) return { status: 'ok', charge: null };
+  const ultraRow = await resolveRetailChargeCentavos(eventId, EVENT_ULTRA_SKU);
+  if (ultraRow.status === 'error') return { status: 'error', message: ultraRow.message };
+  return {
+    status: 'ok',
+    charge: ultraUpgradeCharge({
+      ultraPhp: ultraRow.status === 'resolved' ? ultraRow.centavos / 100 : null,
+      proPaid,
+      proPhp: prices.full,
+      plusPaid,
+      plusPhp: prices.parts.get(EVENT_PLUS_SKU) ?? null,
+      paidTowardProPhp: own.paidPhp,
+    }),
+  };
 }

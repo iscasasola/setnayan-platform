@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { paymentWasLogged } from '@/lib/payment-logged';
 import { computeVatFromBase } from '@/lib/receipts';
 
 export type OrderStatus =
@@ -237,8 +238,9 @@ export function computeOrderTotals(
   const matched = payments
     .filter((p) => p.status === 'matched')
     .reduce((acc, p) => acc + Number(p.amount_php), 0);
+  // 🧾 RW-37: the bill's own placeholder row (no reference, no screenshot) is not a payment awaiting review.
   const pending = payments
-    .filter((p) => p.status === 'pending')
+    .filter((p) => p.status === 'pending' && paymentWasLogged(p))
     .reduce((acc, p) => acc + Number(p.amount_php), 0);
   const base = Number(order.confirmed_total_php ?? order.requested_total_php);
   const { preVat, vat, gross, rate } = computeVatFromBase(base, vatRatePct);

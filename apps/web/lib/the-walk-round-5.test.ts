@@ -46,3 +46,34 @@ test('RW-30 · the Plan page says every date one way, the Manila day', () => {
   assert.match(screen, /return offerDayWords\(manilaDay\);/);
   assert.equal(offerDayWords('2026-12-12'), '12 Dec 2026');
 });
+
+test('RW-37 · a bill’s own placeholder payment row (no reference, no screenshot) is not a payment', async () => {
+  const { paymentWasLogged } = await import('./payment-logged');
+  assert.equal(paymentWasLogged({ status: 'pending', reference_number: null, screenshot_url: null }), false);
+  assert.equal(paymentWasLogged({ status: 'pending', reference_number: '  ', screenshot_url: null }), false);
+  assert.equal(paymentWasLogged({ status: 'pending', reference_number: 'GC123', screenshot_url: null }), true);
+  assert.equal(paymentWasLogged({ status: 'pending', reference_number: null, screenshot_url: 'r2://x' }), true);
+  assert.equal(paymentWasLogged({ status: 'matched', reference_number: null, screenshot_url: null }), true, 'money an admin matched is received');
+  const { computeOrderTotals } = await import('./orders');
+  const order = { requested_total_php: 1337.5, confirmed_total_php: null } as never;
+  const t = computeOrderTotals(order, [{ status: 'pending', amount_php: 1337.5, reference_number: null, screenshot_url: null }] as never, 0);
+  assert.equal(t.pending, 0, 'the placeholder is not "pending review"');
+  assert.match(code('app/vendor-dashboard/booking-fees/[orderId]/page.tsx'), /const loggedPayments = payments\.filter\(paymentWasLogged\);/);
+  assert.match(code('app/admin/payments/page.tsx'), /paymentWasLogged\(p\) \? p\.paid_at : 'Nothing logged yet'/);
+});
+
+test('RW-38 · the supplier is told the booking stands for the couple; a gate is named only when it is on', async () => {
+  const { lockAgreeNotice } = await import('./lock-answer-notice');
+  const off = lockAgreeNotice('ok', { feeHeld: true })!.text;
+  assert.doesNotMatch(off, /tell the couple/);
+  assert.match(off, /it stands for the couple whatever happens/);
+  assert.doesNotMatch(off, /open this event/, 'no gate claimed while the gate is off');
+  assert.match(lockAgreeNotice('ok', { feeHeld: true, feeLocksEvent: true })!.text, /Pay it to open this event’s details and day-of tools\./);
+});
+
+test('RW-39 · a Setnayan-sourced booking’s chip reads From Setnayan, never In-house', () => {
+  const page = code('app/vendor-dashboard/clients/[eventId]/page.tsx');
+  assert.match(page, /bookingFeeAttribution\(completion\.source\) === 'sourced' \|\| SETNAYAN_SAVE_SOURCES\.has\(completion\.source\)/);
+  assert.match(page, /isFromSetnayan \?/);
+  assert.match(page, /\/> From Setnayan/);
+});

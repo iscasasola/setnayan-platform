@@ -231,6 +231,8 @@ export default async function VendorOverviewPage({
     lockAgreeNotice(search.lock_agree, {
       competing: Number.isFinite(competing) ? competing : null,
       feeHeld: lockAgreeFeeHeld(search.fee),
+      // RW-38: the live gate, so the notice claims a gate only when there is one.
+      feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false,
       halls: lockAgreeHalls(search.taken, search.free),
     }) ?? lockDeclineNotice(search.lock_decline);
   // ⚡ The layout already asked the auth server who this is (`getCurrentUser`,

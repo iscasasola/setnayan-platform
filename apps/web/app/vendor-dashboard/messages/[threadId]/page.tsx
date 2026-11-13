@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { readWordsOnlyTopUp } from '@/lib/booking-fee-top-up.server';
 import { TOP_UP_WORDS } from '@/lib/booking-fee-top-up';
 import { manilaToday as manilaTodayYmd } from '@/lib/std-views';
@@ -302,6 +303,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     lockAgreeNotice(sp?.lock_agree, {
       competing: Number.isFinite(lockCompeting) ? lockCompeting : null,
       feeHeld: lockAgreeFeeHeld(sp?.fee),
+      // RW-38: the live gate, so the notice claims a gate only when there is one.
+      feeLocksEvent: lockAgreeFeeHeld(sp?.fee) ? await resolveFeeEnforcement() : false,
       halls: lockAgreeHalls(sp?.taken, sp?.free),
     }) ?? lockDeclineNotice(sp?.lock_decline);
   const supabase = await createClient();

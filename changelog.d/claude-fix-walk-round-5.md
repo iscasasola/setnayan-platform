@@ -13,6 +13,18 @@
   in the chat reads "Bookings open soon" before the press, with the shared closed-bookings sentence.
 - **RW-30** The supplier Plan page said "12 Dec 2026" (the gift) and "Dec 11, 2026" (the plan's end, in UTC) for the
   same moment. Every date there is now the Manila day, in the gift's phrasing.
+- **RW-37 (money)** Minting a bill also writes a `payments` row on purpose — a placeholder (no reference, no
+  screenshot) so the bill reaches /admin/payments and the approve → settle bridge has a row to flip. Nine order kinds
+  do it (the booking fee, team seats, the add-ons). Read as a payment, it told a supplier who had paid nothing
+  "₱1,337.50 · manual · PAID 2026-11-13 · PENDING REVIEW". One rule now (`paymentWasLogged`): a pending row with neither
+  a reference nor a screenshot is NOT a payment. The fee page's log says "Nothing logged yet", the order totals no
+  longer count it as pending review, and the admin payments card says "Nothing logged yet" in place of a paid date.
+  Admin Money already counted only matched money.
+- **RW-38** The supplier was told "Pay the booking fee and we'll tell the couple their booking is confirmed". It now
+  says the booking stands for the couple whatever happens and the fee is due — and names the gate ("pay it to open this
+  event's details and day-of tools") only when the live gate (`resolveFeeEnforcement`) is on.
+- **RW-39** A Setnayan-sourced booking's chip read "In-house" beside "fee due". It reads **From Setnayan** now — the same
+  sources the fee counts as sourced.
 - Guard: `lib/the-walk-round-5.test.ts`.
 
 SPEC IMPACT: None.

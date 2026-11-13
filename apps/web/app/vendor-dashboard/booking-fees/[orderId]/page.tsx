@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { namesPhrase, openAccounts } from '@/lib/payment-channels';
+import { paymentWasLogged } from '@/lib/payment-logged';
 import { PaymentChannelName } from '@/app/_components/payment/payment-channel-name';
 import { payPath } from '@/lib/pay-path';
 import { notFound, redirect } from 'next/navigation';
@@ -95,6 +96,7 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
   // Fee orders are `vendor_`-prefixed → VAT-INCLUSIVE: the stored total IS the
   // gross the vendor pays. Pass vatRatePct=0 so no VAT line is added on top.
   const totals = computeOrderTotals(order, payments, 0);
+  const loggedPayments = payments.filter(paymentWasLogged);
   const payable = isFeeOrderPayable(order.status);
 
   /**
@@ -406,13 +408,14 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
 
       <section className="sn-tile space-y-3 p-5">
         <h2 className="sn-eye">Payment log</h2>
-        {payments.length === 0 ? (
+        {/* 🧾 RW-37: the bill's own placeholder row is not a payment — it used to read "PAID <today> · PENDING REVIEW". */}
+        {loggedPayments.length === 0 ? (
           <p className="sn-row border-dashed p-4 text-center text-xs text-ink/55">
             Nothing logged yet.
           </p>
         ) : (
           <ul className="space-y-2">
-            {payments.map((p) => (
+            {loggedPayments.map((p) => (
               <li
                 key={p.payment_id}
                 className="flex flex-col gap-1 rounded-md bg-ink/[0.03] p-3 sm:flex-row sm:items-center sm:justify-between"

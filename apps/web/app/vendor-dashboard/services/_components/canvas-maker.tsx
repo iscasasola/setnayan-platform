@@ -34,8 +34,9 @@ import {
 import Link from 'next/link';
 
 import { Field } from '@/app/_components/forms/field';
+import { ChosenRow, FormRow, FormRows, OpensRow, TypedRow } from '@/app/_components/form-row';
+import { FormCounter } from '@/app/_components/form-counter';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { FileUpload } from '@/app/_components/file-upload';
 import { Fold } from '@/app/_components/fold';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SWITCH_BUTTON, SWITCH_TRACK, SwitchTrack } from '@/app/_components/switch-track';
@@ -88,7 +89,9 @@ import {
   DiscountsEditor,
   PriceBracketsEditor,
 } from './service-list-editors';
-import { ShowcaseMediaFields } from './showcase-media-fields';
+import { ShowcaseClipField } from './showcase-media-fields';
+import { CARD_PHOTOS_FULL_TIP, CARD_PHOTOS_TIP, CardPhotoGallery } from './card-photo-gallery';
+import { CARD_MAX_PHOTOS } from '@/lib/card-photos';
 import { CustomizationStep } from './customization-step';
 import { AddonsEditor, type AddonDraft } from './addons-editor';
 import { PaymentScheduleEditor } from './payment-schedule-editor';
@@ -103,6 +106,7 @@ import {
   type CoverageServesResult,
 } from '../coverage-actions';
 import { formatCount } from '@/lib/format-number';
+import { DAILY_CAPACITY_MAX } from '@/lib/vendor-tier-caps';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { markReturnAsNext, returnMovesOn } from '@/lib/return-moves-on';
 import { revealFold } from '@/lib/reveal-sweep';
@@ -594,6 +598,10 @@ export function CanvasMaker({
     [otherCategories, category],
   );
   const [title, setTitle] = useState(initial?.title ?? '');
+  /** What the Name row's open field holds while it is typed — the face and the head follow it; `null` once kept. */
+  const [typingTitle, setTypingTitle] = useState<string | null>(null);
+  useEffect(() => setTypingTitle(null), [title]);
+  const shownTitle = typingTitle ?? title;
   /**
    * 🎁 THE CARD'S ONE GIFT — No gift · Setnayan gift · one of the shop's own packs (owner 7 Nov 2026: the shipped
    * Setnayan-gift switch becomes one Gift dropdown that also offers the shop's gifts). The Setnayan gift is still the
@@ -851,8 +859,6 @@ export function CanvasMaker({
     ask: photoCheck,
   });
   const moveTrade = checks.mismatch ? (tradeOptions.find((t) => t.key === checks.mismatch?.says.key) ?? null) : null;
-  // A blocked photo under "More photos" opens that fold, so the photo it names is on screen.
-  const showcaseBlocked = checks.photos.some((p) => p.where === 'showcase' && (p.verdict === 'another_shop' || p.verdict === 'this_shop'));
   const saveBlocked = unread.length > 0 || liveNeedsPrice || checks.open > 0;
   /**
    * 🎞 THE FIRST OPEN OF "MORE SETTINGS" SHOWS WHAT IS INSIDE (owner 2026-11-04: "when i opened more settings. we want
@@ -915,17 +921,7 @@ export function CanvasMaker({
 
   // ── The one page of fields (makers prototype 7 Nov 2026 § 3) ──────────────
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [specOpen, setSpecOpen] = useState(false);
-  const [priceMoreOpen, setPriceMoreOpen] = useState(false);
-  // Copied options open, so they are checked before saving (the copied-from note asks for exactly that).
-  const [optionsOpen, setOptionsOpen] = useState(initial?.customization.status === 'copied');
   const [incMissing, setIncMissing] = useState(false);
-  const [showcaseOpen, setShowcaseOpen] = useState(
-    Boolean(initial?.showcaseVideoR2Key) || (initial?.showcasePhotoR2Keys.length ?? 0) > 0,
-  );
-  useEffect(() => {
-    if (showcaseBlocked) setShowcaseOpen(true);
-  }, [showcaseBlocked]);
   /** The basis dropdown, its hint under it — the shipped words (`PRICING_BASIS_OPTIONS`), the maker's labels. */
   const basisOptions = PRICING_BASIS_OPTIONS.map((o) => ({
     key: o.key,
@@ -935,7 +931,7 @@ export function CanvasMaker({
   const cancelTo = cancelHref ?? (isEdit ? '/vendor-dashboard/shop' : '/vendor-dashboard/services');
   /** What the couple reads for a shop pack on this card — never a count (lib/gift-pick.ts). */
   const packLine = giftPick && giftPick !== GIFT_SETNAYAN ? coupleCardPackLine(giftPick, shopName) : null;
-  const faceName = title.trim() || activeCategoryLabel || 'Your service';
+  const faceName = shownTitle.trim() || activeCategoryLabel || 'Your service';
   const cardFace = face ? (
     <ServiceCardFace
       snap={{ ...face, name: faceName }}
@@ -1110,128 +1106,123 @@ export function CanvasMaker({
             ) : null}
 
             <header data-maker-head="">
-              <h2 className="text-[20px] font-semibold leading-tight tracking-tight text-ink">{title.trim() || activeCategoryLabel || 'Your service card'}</h2>
+              <h2 className="text-[20px] font-semibold leading-tight tracking-tight text-ink">{shownTitle.trim() || activeCategoryLabel || 'Your service card'}</h2>
               <p className="mt-0.5 text-[14px] text-ink/65">Your service card — price it and say what’s in it.</p>
             </header>
 
-            {/* ── Name — written for them, theirs to change (Q2: editable on an existing card too) · Specialties. ── */}
-            {category || isEdit ? (
-              <div data-maker-row="name">
-                <label htmlFor="title" className={LAB}>Name</label>
-                <input
-                  id="title"
-                  name="title"
-                  value={title}
-                  onChange={(e) => {
-                    titleTouched.current = true;
-                    setTitle(e.target.value);
-                  }}
-                  maxLength={80}
-                  aria-label="Service name"
-                  placeholder={activeCategoryLabel || 'Service name'}
-                  className={BOX}
-                />
-                <p className={HINT}>Written for you · change it if you like</p>
-                <FairNote hits={checks.fair} field="card_name" />
-                <ServiceMismatchNote
-                  mismatch={checks.mismatch}
-                  categoryLabel={activeCategoryLabel}
-                  onMove={canChooseKind && moveTrade ? (key) => pickCategory(key) : null}
-                  moveWhy={moveTrade?.standing === 'locked' ? (moveTrade.why ?? 'Your plan doesn’t include that service yet.') : null}
-                />
-                {/* Specialties (optional) — the kind's chip details (was "More settings › Details"), posting with the card. */}
-                <div className="mt-2" data-maker-row="specialties">
-                  <ActionButton
-                    tone="neutral"
-                    icon={specOpen ? ChevronUp : Plus}
-                    label={specOpen ? 'Specialties' : 'Specialties (optional)'}
-                    onClick={() => setSpecOpen((v) => !v)}
-                    aria-expanded={specOpen}
+            {/* ═══ ONE FORM (ruling 6058, prototype `card_maker_one_form_2026-11-11`, owner 11 Nov 2026: "line and menus take up
+                too many rows… not feel like a singluar form. We have a design template, use it"). Every fact is ONE Form row
+                (app/_components/form-row.tsx): its name on the left, its answer in the list's pill on the right (150 px here,
+                120 px on the included and extras lists), one thin line between rows; a section is a mono label over one
+                divider; every hint is in an ⓘ. Same fields, same names, same order. ═══ */}
+            <FormRows width="short" data="maker-main">
+              {/* ── Name — written for them, theirs to change (Q2: editable on an existing card too) · Specialties. ── */}
+              {category || isEdit ? (
+                <div data-maker-row="name">
+                  <TypedRow
+                    name="Name"
+                    about={{ title: 'Name', words: 'Written for you · change it if you like.' }}
+                    value={title}
+                    empty={activeCategoryLabel || 'Service name'}
+                    placeholder={activeCategoryLabel || 'Service name'}
+                    maxLength={80}
+                    onType={setTypingTitle}
+                    onKeep={(t) => {
+                      titleTouched.current = true;
+                      setTypingTitle(null);
+                      setTitle(t);
+                    }}
+                    data="title"
+                    pillAttrs={{ 'data-maker-name': '' }}
                   />
-                  <div hidden={!specOpen} className="pt-3">
-                    {detailsSlot && detailsKind === category ? (
-                      detailsSlot
-                    ) : (
-                      <p className="text-[14px] text-ink/65">
-                        {category ? `Specialties for ${activeCategoryLabel} open on the card once it is created.` : 'Pick what you offer first.'}{' '}
-                        <Link href="/vendor-dashboard/attributes" className="font-semibold text-sn-accent">All details ›</Link>
-                      </p>
-                    )}
+                  {/* The kept name, posted under its shipped field name (the live read picks it up on its next tick). */}
+                  <input type="hidden" name="title" value={title} />
+                  <FairNote hits={checks.fair} field="card_name" />
+                  <ServiceMismatchNote
+                    mismatch={checks.mismatch}
+                    categoryLabel={activeCategoryLabel}
+                    onMove={canChooseKind && moveTrade ? (key) => pickCategory(key) : null}
+                    moveWhy={moveTrade?.standing === 'locked' ? (moveTrade.why ?? 'Your plan doesn’t include that service yet.') : null}
+                  />
+                  {/* Specialties (optional) — the kind's chip details, posting with the card (mounted while shut). */}
+                  <div data-maker-row="specialties">
+                    <OpensRow name="Specialties (optional)" answer="" empty="Add" data="specialties">
+                      <div className="pb-3 pt-1">
+                        {detailsSlot && detailsKind === category ? (
+                          detailsSlot
+                        ) : (
+                          <p className="text-[14px] text-ink/65">
+                            {category ? `Specialties for ${activeCategoryLabel} open on the card once it is created.` : 'Pick what you offer first.'}{' '}
+                            <Link href="/vendor-dashboard/attributes" className="font-semibold text-sn-accent">All details ›</Link>
+                          </p>
+                        )}
+                      </div>
+                    </OpensRow>
                   </div>
                 </div>
-              </div>
-            ) : null}
-
-            {/* ── Price — shown as "from": the basis dropdown, its hint, the ₱ box, then "Price · more". ── */}
-            <div className={TOPIC} data-maker-row="price" data-price-waits={priceWaits ?? undefined}>
-              <div className={LAB}>
-                <span>Price <span className={SMALL}>shown as “from”</span></span>
-                {/* The price the form holds now — the couple's recorded figure too, while its box waits. */}
-                {snap.hasPrice ? <span className="ml-auto text-[15px] font-semibold text-ink" data-maker-price-now="">{snap.priceLine.split(' · ')[0]}</span> : null}
-              </div>
-              <PickMenu
-                label="How the price works"
-                value={basis}
-                options={basisOptions}
-                onPick={(k) => {
-                  basisTouched.current = true;
-                  setBasis(k as Basis);
-                }}
-                dataAttr="data-maker-basis"
-                className={`${BOX} flex items-center justify-between gap-2 text-left`}
-                trigger={
-                  <>
-                    <span className="truncate">{basisOptions.find((o) => o.key === basis)?.label}</span>
-                    <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
-                  </>
-                }
-              />
-              <p className={HINT} data-basis-hint="">{basisOptions.find((o) => o.key === basis)?.hint}</p>
-              {editing && bookedNow !== undefined && saysBookedPriceStays(bookedNow) ? (
-                <p className={HINT} data-booked-price-stays="">
-                  {BOOKED_PRICE_STAYS_SUPPLIER}
-                </p>
               ) : null}
-              <div className="mt-3">
-                {priceWaits ? <p className="text-[14px] text-ink/70" data-maker-price-waits="">{priceWaitsLine(priceFacts)}</p> : null}
-                {/* The box waits on a couple-seeded card; it stays MOUNTED, so the couple's recorded price still posts. */}
+
+              {/* ── Price — shown as "from": the ₱ row, How the price works, Price · more, and how many on one day. ── */}
+              <div data-maker-row="price" data-price-waits={priceWaits ?? undefined}>
+                {/* While the row waits, the price the couple recorded is still shown on it (it still posts, below). */}
+                {priceWaits ? (
+                  <FormRow name="Price" data="price-waits">
+                    {snap.hasPrice ? <span className="flex-none text-[15px] font-semibold text-ink" data-maker-price-now="">{snap.priceLine.split(' · ')[0]}</span> : null}
+                  </FormRow>
+                ) : null}
+                {priceWaits ? <p className="-mt-1 pb-2.5 text-[13px] leading-snug text-ink/70" data-maker-price-waits="">{priceWaitsLine(priceFacts)}</p> : null}
+                {/* The row waits on a couple-seeded card; it stays MOUNTED, so the couple's recorded price still posts. */}
                 <div hidden={Boolean(priceWaits)}>
                   <PricingBasisEditor
                     idPrefix="canvas"
                     category={category}
                     basis={basis}
-                    part="main"
+                    part="row"
                     defaults={initial?.pricing ?? EMPTY_PRICING}
                   />
                 </div>
-              </div>
-              <div className="mt-2" data-maker-price-more="">
-                <ActionButton
-                  tone="neutral"
-                  icon={priceMoreOpen ? ChevronUp : SlidersHorizontal}
-                  label={priceMoreOpen ? 'Fewer settings' : 'Price · more'}
-                  onClick={() => setPriceMoreOpen((v) => !v)}
-                  aria-expanded={priceMoreOpen}
+                {editing && bookedNow !== undefined && saysBookedPriceStays(bookedNow) ? (
+                  <p className={HINT} data-booked-price-stays="">
+                    {BOOKED_PRICE_STAYS_SUPPLIER}
+                  </p>
+                ) : null}
+                <ChosenRow
+                  name="How the price works"
+                  about={{ title: 'How the price works', words: <span data-basis-hint="">{basisOptions.find((o) => o.key === basis)?.hint}</span> }}
+                  value={basis}
+                  options={basisOptions}
+                  onPick={(k) => {
+                    basisTouched.current = true;
+                    setBasis(k as Basis);
+                  }}
+                  dataAttr="data-maker-basis"
+                  data="basis"
                 />
-                {/* Mounted while shut, so its boxes post with the card either way (was "More settings › Price · more"). */}
-                <div hidden={!priceMoreOpen} className="pt-3">
-                  <PricingBasisEditor
-                    idPrefix="canvas"
-                    category={category}
-                    basis={basis}
-                    part="more"
-                    defaults={initial?.pricing ?? EMPTY_PRICING}
-                    fixedExtra={<PriceBracketsEditor initial={initial?.brackets ?? []} />}
-                  />
+                {/* Mounted while shut, so its boxes post with the card either way. */}
+                <div data-maker-price-more="">
+                  <OpensRow name="Price · more" answer="" empty="Not set" data="price-more">
+                    <div className="pb-3 pt-1">
+                      <PricingBasisEditor
+                        idPrefix="canvas"
+                        category={category}
+                        basis={basis}
+                        part="more"
+                        defaults={initial?.pricing ?? EMPTY_PRICING}
+                        fixedExtra={<PriceBracketsEditor initial={initial?.brackets ?? []} />}
+                      />
+                    </div>
+                  </OpensRow>
                 </div>
               </div>
-            </div>
+            </FormRows>
 
             {/* ── What's included — at least one line; a line leaves by its swipe, with Undo. ── */}
-            <div className={TOPIC} data-maker-row="included">
-              <div className={LAB}>
-                <span>What’s included <span className={SMALL}>{snap.inclusionLabels.length ? `${formatCount(snap.inclusionLabels.length)} line${snap.inclusionLabels.length === 1 ? '' : 's'}` : 'at least one line'}</span></span>
-              </div>
+            <div data-maker-row="included">
+              <MakerSection
+                label="What’s included"
+                aside={snap.inclusionLabels.length ? `${formatCount(snap.inclusionLabels.length)} line${snap.inclusionLabels.length === 1 ? '' : 's'}` : 'at least one line'}
+                tip="Every line is part of the price · swipe a line left to remove it."
+              />
               <InclusionsEditor initial={initial?.inclusions ?? []} bare />
               {incMissing && !inclusionsAreSet(snap.inclusionLabels) ? (
                 <p role="alert" className="mt-1.5 text-[13px] font-medium" style={{ color: 'rgb(var(--color-danger))' }} data-maker-inc-error="">
@@ -1242,92 +1233,80 @@ export function CanvasMaker({
               {/* ★ Options on each line (always · optional · they pick) — CREATE-ONLY in the save (one run mints one
                   package), so it stays reachable while the card is made; the saved card points to Your packages. */}
               {customizationEnabled && !isEdit ? (
-                <div className="mt-2" data-maker-options="">
-                  <ActionButton
-                    tone="neutral"
-                    icon={optionsOpen ? ChevronUp : ListChecks}
-                    label={optionsOpen ? 'Fewer options' : 'Options on each line'}
-                    onClick={() => setOptionsOpen((v) => !v)}
-                    aria-expanded={optionsOpen}
-                  />
-                  <div hidden={!optionsOpen} className="pt-3">
-                    <CustomizationStep
-                      categoryValue={category}
-                      categoryLabel={activeCategoryLabel}
-                      initialItems={initial?.customization.status === 'copied' ? initial.customization.items : undefined}
-                    />
+                <FormRows width="short">
+                  <div data-maker-options="">
+                    <OpensRow name="Options on each line" answer="" empty="None yet" defaultOpen={initial?.customization.status === 'copied'} data="options">
+                      <div className="pb-3 pt-1">
+                        <CustomizationStep
+                          categoryValue={category}
+                          categoryLabel={activeCategoryLabel}
+                          initialItems={initial?.customization.status === 'copied' ? initial.customization.items : undefined}
+                        />
+                      </div>
+                    </OpensRow>
                   </div>
-                </div>
+                </FormRows>
               ) : null}
             </div>
 
-            {/* ── Extras — priced add-ons (was "More settings › Add-ons"); a line leaves by its swipe. ── */}
-            <div className={TOPIC} data-maker-row="extras">
-              <div className={LAB}>
-                <span>Extras <span className={SMALL}>priced add-ons · optional</span></span>
-                {/* Centred: this ⓘ sits mid-row at 390, and a start-aligned 288 px body ran past the screen edge. */}
-                <InfoTip label="" ariaLabel="About extras">
-                  <span className="block font-semibold">Add-ons</span>
-                  <span className="mt-1 block">Priced extras · “from ₱” each · up to 12. A couple adds them to this card when they ask for a quote.</span>
-                </InfoTip>
-              </div>
+            {/* ── Extras — priced add-ons; a line leaves by its swipe. ── */}
+            <div data-maker-row="extras">
+              <MakerSection
+                label="Extras"
+                aside="priced add-ons · optional"
+                tip="Add-ons: priced extras · “from ₱” each · up to 12. A couple adds them to this card when they ask for a quote."
+              />
               <AddonsEditor serviceId={editing?.serviceId ?? ''} initial={editing?.addons ?? []} bare />
               <FairNote hits={checks.fair} field="extras" />
             </div>
 
-            {/* ── Gift — the shipped Setnayan-gift switch (was "More settings › Setnayan gift"), now ONE dropdown that
-                also offers the shop's own gift packs. app/_components/gift-pick.tsx · lib/gift-pick.ts ── */}
-            <div className={TOPIC} data-maker-row="gift">
-              <GiftPickRow host="card" value={giftPick} onPick={setGiftPick} packs={giftPacks} free={giftFree} dataAttr="data-maker-gift" />
+            {/* ── Gift — ONE dropdown (No gift · Setnayan gift · the shop's packs). app/_components/gift-pick.tsx ── */}
+            <div data-maker-row="gift">
+              <MakerSection label="Gift" aside="optional" />
+              <FormRows width="short">
+                <GiftPickRow host="card" value={giftPick} onPick={setGiftPick} packs={giftPacks} free={giftFree} dataAttr="data-maker-gift" row />
+              </FormRows>
             </div>
 
-            {/* ── Photos — one cover is enough. ── */}
-            <div className={TOPIC} data-maker-row="photos">
-              <div className={LAB}>
-                <span>Photos <span className={SMALL}>one cover is enough{snap.hasClip ? ` · ▶ ${clipPillLabel(clipSeconds)}` : ''}</span></span>
+            {/* ── Photos — ONE gallery (owner 2026-11-13, `card_maker_gallery_upload_2026-11-13`): the primary first, the
+                rest after, the add tile last (gone at 6); every help line in the section's ⓘ (T17). The clip stays its
+                own row under it. ── */}
+            <div data-maker-row="photos">
+              <MakerSection
+                label="Photos"
+                aside={snap.hasCover ? `${formatCount(CARD_MAX_PHOTOS)} at most` : 'one is enough'}
+                tip={(snap.hasCover ? 1 : 0) + snap.photoCount >= CARD_MAX_PHOTOS ? CARD_PHOTOS_FULL_TIP : CARD_PHOTOS_TIP}
+              />
+              <div className="pt-2.5" data-maker-gallery="">
+                <CardPhotoGallery
+                  vendorProfileId={vendorProfileId}
+                  primaryCurrent={editing?.coverKey ?? initial?.coverPhotoR2Key ?? null}
+                  showcaseCurrent={initial?.showcasePhotoR2Keys}
+                  displayUrls={initial?.mediaDisplayUrls}
+                />
               </div>
-              <div className="space-y-3">
-                <Field label="Cover photo" htmlFor="primary_photo_r2_key" help="The first thing couples see. PNG, JPEG or WebP up to 5 MB.">
-                  <FileUpload
-                    bucket="media"
-                    pathPrefix={`vendors/${vendorProfileId}/services`}
-                    name="primary_photo_r2_key"
-                    unsavedHint={isEdit ? 'press Save below' : 'press Create below'}
-                    maxSizeMB={5}
-                    acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-                    mark="supplier"
-                    frame="square"
-                    previews="service-card"
-                    compressImage
-                    variant="square"
-                    thumb={{ add: 'Add a cover', replace: 'Replace' }}
-                    qrGuard
-                    currentValue={editing?.coverKey ?? initial?.coverPhotoR2Key ?? null}
-                    initialDisplayUrls={initial?.mediaDisplayUrls}
-                  />
-                </Field>
-                {/* "One cover is enough" (prototype § 3): the showcase photos and the clip sit behind one press, MOUNTED
-                    while shut so what they hold still posts — opened by itself when the card already has some. */}
+              <FormRows width="short">
+                {/* The clip — its own row, unchanged (the shipped uploader, mounted while shut so it still posts). */}
                 <div data-maker-showcase="">
-                  <ActionButton
-                    tone="neutral"
-                    icon={showcaseOpen ? ChevronUp : Images}
-                    label={showcaseOpen ? 'Fewer photos' : `More photos · a clip${snap.photoCount || snap.hasClip ? '' : ' (optional)'}`}
-                    onClick={() => setShowcaseOpen((v) => !v)}
-                    aria-expanded={showcaseOpen}
-                  />
-                  <div hidden={!showcaseOpen} className="pt-3">
-                    <ShowcaseMediaFields
-                      vendorProfileId={vendorProfileId}
-                      unsavedHint={isEdit ? 'press Save below' : 'press Create below'}
-                      onClipDurationSeconds={onClipDurationSeconds}
-                      videoCurrent={initial?.showcaseVideoR2Key ?? null}
-                      photosCurrent={initial?.showcasePhotoR2Keys}
-                      displayUrls={initial?.mediaDisplayUrls}
-                    />
-                  </div>
+                  <OpensRow
+                    name="Clip"
+                    answer={snap.hasClip ? `▶ ${clipPillLabel(clipSeconds)}` : ''}
+                    empty="None yet"
+                    defaultOpen={Boolean(initial?.showcaseVideoR2Key)}
+                    data="showcase"
+                  >
+                    <div className="pb-3 pt-1">
+                      <ShowcaseClipField
+                        vendorProfileId={vendorProfileId}
+                        unsavedHint={isEdit ? 'press Save below' : 'press Create below'}
+                        onClipDurationSeconds={onClipDurationSeconds}
+                        videoCurrent={initial?.showcaseVideoR2Key ?? null}
+                        displayUrls={initial?.mediaDisplayUrls}
+                      />
+                    </div>
+                  </OpensRow>
                 </div>
-              </div>
+              </FormRows>
               <PhotoCheckNotes checks={checks} serviceId={editing?.serviceId ?? null} showcaseRefs={checkInput.showcaseRefs} />
             </div>
 
@@ -1455,31 +1434,14 @@ export function CanvasMaker({
                           <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} className="input-field" />
                         </Field>
                       </div>
-                      {/* ⚖ The supplier's own number — inside the plan's bookings per date per card (owner 2026-11-06:
-                          Solo 1 · Pro 3 · Ultra 5, Ultra may add more). Free · Verified: not ruled, no plan cap. */}
-                      <Field
-                        label="How many a day · this card"
-                        htmlFor="daily_capacity"
-                        help={
-                          (editing?.slots.length ?? 0) > 0
-                            ? 'Time slots below set how many at once instead.'
-                            : bookingsPerDate?.help
-                              ? `Blank = up to your plan's number. ${bookingsPerDate.help}`
-                              : 'Blank = the schedule decides.'
-                        }
-                      >
-                        <input
-                          id="daily_capacity"
-                          name="daily_capacity"
-                          type="number"
-                          min={1}
-                          max={bookingsPerDate?.cap != null && Number.isFinite(bookingsPerDate.cap) ? Math.max(bookingsPerDate.cap, Number(editing?.dailyCapacity) || 0) : undefined}
-                          step={1}
-                          defaultValue={editing?.dailyCapacity ?? ''}
-                          disabled={(editing?.slots.length ?? 0) > 0}
-                          className="input-field disabled:cursor-not-allowed disabled:opacity-50"
-                        />
-                      </Field>
+                      {/* ⚖ SAME-DAY CAPACITY IS PER SERVICE CARD (`vendor_services.daily_capacity`) — asked as a whole question
+                          with a −/＋ stepper from 1, inside the plan's bookings per date per card (owner 2026-11-06: Solo 1 ·
+                          Pro 3 · Ultra 5). It lives HERE under More settings, not on the first page — DECISION_LOG 2026-11-13
+                          "CARD MAKER SAME-DAY ROW → MORE SETTINGS" (owner: "more settings."). The fold stays mounted while
+                          shut (inert), so it still posts. Time slots set it instead when the card has some. */}
+                      <FormRows data="same-day-rows">
+                        <SameDayRow editing={editing} bookingsPerDate={bookingsPerDate} />
+                      </FormRows>
                       <SlotRows existing={editing?.slots ?? []} />
                     </div>
                   </Fold>
@@ -1980,6 +1942,77 @@ function RowIcon({ children }: { children: ReactNode }) {
 /** The smaller mark a More-settings fold leads with. */
 function SubIcon({ children }: { children: ReactNode }) {
   return <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full text-ink/70">{children}</span>;
+}
+
+/**
+ * 📐 A SECTION OF THE ONE FORM (prototype `card_maker_one_form_2026-11-11`): a mono label — its small count beside it — over
+ * ONE divider, the section's hint in its ⓘ. Nothing is boxed but what you press.
+ */
+function MakerSection({ label, aside, tip }: { label: string; aside?: string; tip?: string }) {
+  return (
+    <div data-maker-section="" className="flex min-h-[44px] items-end gap-2 border-b border-ink/10 pb-1.5">
+      <span className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-ink/60">
+        {label}
+        {aside ? <small className="ml-2 font-sans text-[12px] font-normal normal-case tracking-normal text-ink/50">{aside}</small> : null}
+      </span>
+      {tip ? (
+        <InfoTip label="" ariaLabel={`About ${label}`}>
+          <span className="block font-semibold">{label}</span>
+          <span className="mt-1 block">{tip}</span>
+        </InfoTip>
+      ) : null}
+    </div>
+  );
+}
+
+/** The question, verbatim as ruled (6058): "How many a day" read as confusing. */
+export const SAME_DAY_QUESTION = 'How many events can you serve on the same day?';
+
+/**
+ * ⚖ SAME-DAY CAPACITY — PER SERVICE CARD (`vendor_services.daily_capacity`, posted as `daily_capacity`). A −/＋ stepper from
+ * 1, never past the plan's bookings per date per card (owner 2026-11-06; the save refuses past it too).
+ *   · a NEW card posts 1 unless they change it (owner: default 1);
+ *   · a saved card with a number shows and posts its number;
+ *   · a saved card stored BLANK ("up to your plan's number") shows that number and posts blank until a person taps −/＋ —
+ *     opening and saving never writes a figure nobody chose;
+ *   · a card with time slots: the slots set how many at once — said, and the stored number posts unchanged.
+ */
+function SameDayRow({
+  editing,
+  bookingsPerDate,
+}: {
+  editing: MakerEditing | null;
+  bookingsPerDate: { cap: number | null; help: string | null } | null;
+}) {
+  const stored = editing && editing.dailyCapacity.trim() !== '' ? Number(editing.dailyCapacity) : null;
+  const cap = bookingsPerDate?.cap != null && Number.isFinite(bookingsPerDate.cap) ? bookingsPerDate.cap : null;
+  const max = Math.max(cap ?? DAILY_CAPACITY_MAX, stored ?? 0, 1);
+  const slots = (editing?.slots.length ?? 0) > 0;
+  const blankStored = editing !== null && stored === null;
+  const shown = stored ?? (blankStored && cap !== null ? cap : 1);
+  const about = slots
+    ? 'Time slots set how many at once instead — change them under More settings · Booking terms.'
+    : [`A couple can book this card for an event on a date while fewer than this many events are booked on it.`, bookingsPerDate?.help ?? null]
+        .filter(Boolean)
+        .join(' ');
+  return (
+    <div data-maker-row="same-day">
+      <FormRow name={SAME_DAY_QUESTION} about={{ title: 'Events on the same day', words: about }} data="same-day">
+        {slots ? (
+          <>
+            <input type="hidden" name="daily_capacity" value={editing?.dailyCapacity ?? ''} />
+            <span className="flex-none text-[14px] text-ink/60" data-maker-same-day-slots="">
+              Set by time slots
+            </span>
+          </>
+        ) : (
+          <span className="flex flex-none" data-maker-same-day="">
+            <FormCounter name="daily_capacity" value={shown} min={1} max={max} label="Events on the same day" data="same-day" blankUntilTouched={blankStored} />
+          </span>
+        )}
+      </FormRow>
+    </div>
+  );
 }
 
 /**

@@ -57,6 +57,7 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/open-shop/_components/claim-door.tsx', 'editor field — an inclusion line’s input and a picked service inside the claim door’s edit slide, written only on “Claim it” (A6)'],
   ['app/open-shop/_components/service-cards.tsx', 'editor — ONLY the opened specialties’ own Remove (prototype v19 fit row ⌃ Specialties · Remove · ✓ Done, owner 7 Nov “Remove also inside”); every service ROW is on the swipe, with Undo'],
   ['app/dashboard/[eventId]/launch/_components/rsvp-line-list.tsx', 'editor field — the Maker Edit row’s Earlier · Later · Group · Remove for the picked line'],
+  ['app/vendor-dashboard/services/_components/card-photo-gallery.tsx', 'tile — a card photo’s own sheet: Delete photo, opened by tapping the photo tile, with Undo (owner 13 Nov, the approved gallery upload)'],
   ['app/_components/proposal-maker.tsx', 'editor field — a payment’s ✕ removes a draft installment inside the quote editor (a quote LINE is on the swipe since 8 Nov: swipe left drops it, with Undo and “Put back”)'],
   ['app/_components/amendment-builder.tsx', 'editor field — a draft change item (type, words, ₱) inside the amendment form, written on Send'],
   ['app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx', 'tile — a booth / sign piece on the drag-to-place cocktail floor plan'],

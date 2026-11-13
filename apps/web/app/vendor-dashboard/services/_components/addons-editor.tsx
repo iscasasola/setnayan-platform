@@ -4,7 +4,8 @@ import { useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
-import { ActionButton } from '@/components/action-button';
+import { FormRows } from '@/app/_components/form-row';
+import { AddLineRow, LineRow } from '@/app/_components/form-row-line';
 import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import { setServiceAddons } from '../addon-actions';
 import { StayForm } from '@/app/_components/stay-form';
@@ -62,52 +63,40 @@ export function AddonsEditor({
     };
     const patch = (key: number, next: Partial<AddonDraft>) =>
       setRows((cur) => cur.map((r) => (r.key === key ? { ...r, ...next } : r)));
+    /* 📐 ONE FORM (ruling 6058, prototype `card_maker_one_form_2026-11-11`): an extra is ONE row — its words where a row's
+       name stands, its "from ₱" in the list's 120 px pill (`LineRow`) — and "Add an extra" is the list's last row. */
     return (
-      <div className="space-y-2" data-addons-bare="">
+      <div data-addons-bare="">
         <input type="hidden" name="addons_present" value="1" />
-        {rows.length > 0 ? (
-          <ul className="divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/15" /* no-card-ok: the frame of each row's two text <input>s (what · ₱) — one field you type in, as prototype § 3 draws it */>
-            {rows.map((r, i) => (
-              <SwipeToDelete
-                key={r.key}
-                as="li"
-                label={`Remove ${r.label.trim() || `extra ${i + 1}`}`}
-                word="Remove"
-                radiusClass="rounded-none"
-                surfaceClass="bg-raised"
-                onDelete={() => swipeOut(r)}
-              >
-                <div className="grid grid-cols-[minmax(0,1fr)_7.5rem]" data-addon-line="">
-                  <input
-                    name="addon_label"
-                    value={r.label}
-                    onChange={(e) => patch(r.key, { label: e.target.value })}
-                    maxLength={80}
-                    aria-label={`Extra ${i + 1}`}
-                    placeholder="e.g. Extra hour of coverage"
-                    className="h-12 min-w-0 bg-transparent px-4 text-[15px] text-ink placeholder:text-ink/40 focus:outline-none"
-                  />
-                  <input
-                    name="addon_price"
-                    value={r.price}
-                    onChange={(e) => patch(r.key, { price: e.target.value.replace(/[^0-9]/g, '') })}
-                    type="text" // field-ok: an amount (₱) — the §6 number exception, typed as text + inputMode numeric so it carries no spinner
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    autoComplete="off"
-                    aria-label="From (PHP)"
-                    placeholder="from ₱"
-                    className="h-12 min-w-0 border-l border-ink/10 bg-transparent px-4 text-[14px] text-ink placeholder:text-ink/40 focus:outline-none"
-                  />
-                </div>
-              </SwipeToDelete>
-            ))}
-          </ul>
-        ) : null}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2" data-addon-add="">
-          {rows.length < 12 ? <ActionButton tone="neutral" icon={Plus} label="Add an extra" onClick={add} /> : null}
-          {rows.length > 0 ? <span className="text-[12px] text-ink/55">Swipe an extra left to remove it.</span> : null}
-        </div>
+        <FormRows width="narrow">
+          {rows.map((r, i) => (
+            <SwipeToDelete
+              key={r.key}
+              label={`Remove ${r.label.trim() || `extra ${i + 1}`}`}
+              word="Remove"
+              radiusClass="rounded-none"
+              surfaceClass="bg-cream"
+              onDelete={() => swipeOut(r)}
+            >
+              <div data-addon-line="">
+                <LineRow
+                  words={r.label}
+                  wordsName={`Extra ${i + 1}`}
+                  wordsField="addon_label"
+                  wordsMax={80}
+                  onKeepWords={(t) => patch(r.key, { label: t })}
+                  amount={{ value: r.price, name: 'From (PHP)', empty: 'from ₱', field: 'addon_price', onKeep: (d) => patch(r.key, { price: d }) }}
+                  data="addon-line"
+                />
+              </div>
+            </SwipeToDelete>
+          ))}
+          {rows.length < 12 ? (
+            <div data-addon-add="">
+              <AddLineRow label="Add an extra" onAdd={add} data="addon-add" />
+            </div>
+          ) : null}
+        </FormRows>
       </div>
     );
   }

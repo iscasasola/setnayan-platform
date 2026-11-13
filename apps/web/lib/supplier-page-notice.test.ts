@@ -102,7 +102,8 @@ test('5 · an event-album photo cannot be ADDED to the page by a save, nor put o
   assert.ok(noticed < save.indexOf("rpc('shop_portfolio_commit'"), 'the album filter runs after the commit (or not on its input)');
   const cards = src('app/vendor-dashboard/services/actions.ts');
   assert.match(cards, /withoutAlbumRefs\(\[raw\.trim\(\)\]\)/, 'a card cover can carry an event-album photo');
-  assert.match(cards, /const showcase_photo_r2_keys = withoutAlbumRefs\(/, 'a card showcase can carry an event-album photo');
+  // The cover and the showcase are read as ONE list since 2026-11-13 (`parseCardPhotos`); the album filter runs on both.
+  assert.match(cards, /const showcase = withoutAlbumRefs\(/, 'a card showcase can carry an event-album photo');
   // The shop-photo picker (inspiration library, another couple's board) never offers one.
   assert.match(src('lib/shop-own-photos.server.ts'), /if \(isFromAlbumPageRef\(ref\)\) return;/, 'an event-album photo can travel on from the page');
 });

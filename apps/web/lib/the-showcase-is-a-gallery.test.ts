@@ -72,6 +72,9 @@ test('🔑 NOTHING ELSE opted in — the other uploader surfaces are untouched',
     /* 📖 Studio › Love Story's photo slots (2026-10-08, the Timeline row): a moment's PHOTOS — the picture is the
        subject there too, three squares with ✕, exactly what the gallery layout is for. Opted in on purpose. */
     .filter((f) => !f.endsWith('website/our-story/_components/moment-order-cards.tsx'))
+    /* 🖼 The Card Maker's photos (owner 2026-11-13, `card_maker_gallery_upload_2026-11-13`): the primary + the showcase
+       photos as ONE grid of squares — a supplier's own showcase again, the picture is the subject. Opted in on purpose. */
+    .filter((f) => !f.endsWith('vendor-dashboard/services/_components/card-photo-gallery.tsx'))
     .filter((f) => /variant="gallery"/.test(stripComments(readFileSync(f, 'utf8'))))
     .map((f) => f.slice(APP.length + 1));
   assert.deepEqual(

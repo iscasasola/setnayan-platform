@@ -157,7 +157,8 @@ test('the clip crop is whole even pixels inside the clip', () => {
 
 test('SABOTAGE-PROVEN: every supplier photo upload opens the Frame step (square); the logo is NOT framed here', () => {
   const sites: Array<[string, string, number]> = [
-    ['app/vendor-dashboard/services/_components/canvas-maker.tsx', 'service-card', 1],
+    // the Card Maker's photos — the cover + the showcase as one gallery since 2026-11-13
+    ['app/vendor-dashboard/services/_components/card-photo-gallery.tsx', 'service-card', 1],
     ['app/vendor-dashboard/services/_components/services-manager.tsx', 'service-card', 1],
     ['app/vendor-dashboard/services/_components/service-wizard.tsx', 'service-card', 1],
     ['app/vendor-dashboard/shop/_components/portfolio-form.tsx', 'portfolio', 1],

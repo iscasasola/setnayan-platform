@@ -182,11 +182,7 @@ export async function PortfolioAlbumSection({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
                 ) : null}
-                {photo.isVideo ? (
-                  <span aria-label="Video" className="absolute bottom-1.5 left-1.5 rounded-full bg-ink/70 px-1.5 text-xs text-cream">
-                    ▶
-                  </span>
-                ) : null}
+                {photo.isVideo ? <span aria-label="Video" className="absolute bottom-1.5 left-1.5 rounded-full bg-ink/70 px-1.5 text-xs text-cream">▶</span> : null}
               </div>
               {/* One tap puts THIS photo on your page (owner 2026-10-15, "SIX OWNER ANSWERS" (3)) — after the guests'
                   7-day notice (owner 2026-10-03); a copy in your page's gallery, the album keeps its private one. */}

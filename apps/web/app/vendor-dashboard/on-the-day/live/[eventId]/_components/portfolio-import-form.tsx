@@ -20,8 +20,8 @@ import { extractClipPosterBytes } from '@/lib/clip-poster';
  *
  * 🎬 A VIDEO (owner 2026-11-13: the album holds photos AND videos; owner 2026-11-14: it costs "x3 of the video based
  * on their seconds as compared to papic" — `albumVideoCredits`). The video is too large for the import request, so
- * it goes to the shop's OWN album folder through /api/upload, and the import carries its screened still (the NSFW
- * screen reads stills — lib/clip-poster.ts). Its cost is SHOWN before anything uploads and confirmed by the supplier;
+ * the same route first signs a PUT into the album's own folder (`step=sign`), and the import then carries its screened
+ * still (the NSFW screen reads stills — lib/clip-poster.ts). Its cost is SHOWN before anything uploads and confirmed by the supplier;
  * the server then measures the length itself and charges from the same formula, so the shown and charged cost agree.
  */
 export function PortfolioImportForm({
@@ -34,7 +34,7 @@ export function PortfolioImportForm({
   canImport: boolean;
   /** null = unlimited; a number is what's left — a video that costs more is refused before it uploads. */
   creditsLeft?: number | null;
-  /** The shop whose album folder a video uploads into. Absent = photos only. */
+  /** Set (to the shop) when this album takes videos — Supplier Ultra. Absent = photos only. */
   vendorProfileId?: string | null;
 }) {
   const router = useRouter();
@@ -115,20 +115,15 @@ export function PortfolioImportForm({
         setError('We couldn’t read a picture from that video. Save it as an MP4 or MOV and try again.');
         return;
       }
-      const sign = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bucket: 'media',
-          pathPrefix: `vendors/${vendorProfileId}/album/${eventId}`,
-          filename: file.name || 'video.mp4',
-          contentType: file.type || 'video/mp4',
-          sizeBytes: file.size,
-        }),
-      });
-      const signed = (await sign.json().catch(() => null)) as { uploadUrl?: string; r2Ref?: string; error?: string } | null;
-      if (!sign.ok || !signed?.uploadUrl || !signed.r2Ref) {
-        setError(signed?.error ?? 'Could not upload that video. Please try again.');
+      const ask = new FormData();
+      ask.set('event_id', eventId);
+      ask.set('step', 'sign');
+      ask.set('content_type', file.type || 'video/mp4');
+      ask.set('size_bytes', String(file.size));
+      const sign = await fetch('/api/vendor/papic-portfolio-import', { method: 'POST', body: ask });
+      const signed = (await sign.json().catch(() => null)) as { uploadUrl?: string; videoRef?: string; message?: string } | null;
+      if (!sign.ok || !signed?.uploadUrl || !signed.videoRef) {
+        setError(signed?.message ?? 'Could not upload that video. Please try again.');
         return;
       }
       const put = await fetch(signed.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type || 'video/mp4' }, body: file });
@@ -139,7 +134,7 @@ export function PortfolioImportForm({
       const form = new FormData();
       form.set('event_id', eventId);
       form.set('file', new File([new Uint8Array(still)], 'still.jpg', { type: 'image/jpeg' }));
-      form.set('video_ref', signed.r2Ref);
+      form.set('video_ref', signed.videoRef);
       await post(form);
     } catch {
       setError('Could not import that video — check your connection and retry.');
@@ -180,7 +175,7 @@ export function PortfolioImportForm({
         </label>
         {vendorProfileId ? (
           <label
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium" // no-card-ok: a pressable file picker (<label> + <input>), twin of the photo picker
             style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate-1)' }}
           >
             <Film aria-hidden className="h-4 w-4" strokeWidth={1.75} />

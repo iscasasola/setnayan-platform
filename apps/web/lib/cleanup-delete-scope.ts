@@ -205,6 +205,22 @@ export function papicVendorCaptureScope(vendorProfileId: unknown, eventId: unkno
 }
 
 /**
+ * 🎬 A supplier's PRIVATE event album (`vendor_papic_portfolio_photos`, owner 2026-11-13: photos AND videos) — its own
+ * lane, `papic/vendor-<shop>/portfolio/<event>/`, beside the capture lane above and never the shop's public page. The
+ * album import removes a video it uploaded and then refused (no credits, no room, a row it could not write).
+ */
+export function vendorPortfolioAlbumScope(vendorProfileId: unknown, eventId: unknown): CleanupScope {
+  const v = safeId(vendorProfileId);
+  const e = safeId(eventId);
+  if (!v || !e) return emptyScope('vendor_papic_portfolio_photos');
+  return mintScope(
+    `vendor_papic_portfolio_photos:${v}:${e}`,
+    [papicFolder(`papic/vendor-${v}/portfolio/${e}/`)],
+    MEDIA,
+  );
+}
+
+/**
  * An event's own website media on the `events` row — hero image and film, site
  * music, the delivered Pakanta song, `our_photos`. Every writer files under
  * `events/<event_id>/` (site music, Pakanta `events/<id>/pakanta-song/`, the

@@ -6,7 +6,11 @@ import { checkSupplierStorage } from '@/lib/supplier-storage.server';
 import { STORAGE_CHECK_FAILED, STORAGE_FULL_CODE, STORAGE_UPGRADE_HREF } from '@/lib/supplier-storage';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isR2Configured, r2Delete, r2Head, r2Upload, R2_BUCKETS } from '@/lib/r2';
+import { isR2Configured, r2Head, r2Upload, R2_BUCKETS } from '@/lib/r2';
+import { presignUploadUrl } from '@/lib/uploads';
+import { cleanupDelete } from '@/lib/cleanup-delete';
+import { vendorPortfolioAlbumScope } from '@/lib/cleanup-delete-scope';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { classifyImageBytes, decideNsfw } from '@/lib/nsfw-screen';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
@@ -36,6 +40,13 @@ import { revalidateShopPage } from '@/lib/shop-page-cache';
 export const runtime = 'nodejs';
 
 const MAX_PHOTO_BYTES = 12_000_000; // 12 MB — matches the capture route's cap
+
+/** The album's own lane for one (shop, event) — photos and videos alike, never the shop's public page. */
+function albumFolder(vendorProfileId: string, eventId: string): string {
+  return `papic/vendor-${vendorProfileId}/portfolio/${eventId}/`;
+}
+/** The video types an album takes — the ones whose length the server can read (`probeMp4DurationMs`). */
+const ALBUM_VIDEO_TYPES: Record<string, string> = { 'video/mp4': 'mp4', 'video/quicktime': 'mov' };
 
 /** A video's length could not be read from the file — said, never priced by a guess. */
 const VIDEO_LENGTH_UNREAD = 'We couldn’t read how long that video is, so nothing was charged. Save it as an MP4 or MOV and try again.';
@@ -70,15 +81,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'no_event' }, { status: 400 });
   }
 
+  // The sign step (a video's first step, below) carries no file — only its type and size.
+  const signing = form.get('step') === 'sign';
   const file = form.get('file');
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'no_file' }, { status: 400 });
-  }
-  if (!file.type.startsWith('image/')) {
-    return NextResponse.json({ error: 'bad_type' }, { status: 415 });
-  }
-  if (file.size > MAX_PHOTO_BYTES) {
-    return NextResponse.json({ error: 'too_large' }, { status: 413 });
+  if (!signing) {
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: 'no_file' }, { status: 400 });
+    }
+    if (!file.type.startsWith('image/')) {
+      return NextResponse.json({ error: 'bad_type' }, { status: 415 });
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      return NextResponse.json({ error: 'too_large' }, { status: 413 });
+    }
   }
 
   if (!isR2Configured()) {
@@ -92,36 +107,54 @@ export async function POST(req: Request) {
   }
   const vendorProfileId = profile.vendor_profile_id;
 
-  // 3b. 🎬 A VIDEO (owner 2026-11-13: the Ultra album holds photos AND videos). The phone uploaded the MP4 to the shop's
-  // OWN album folder and sends its screened still as `file` (the still is what the NSFW screen reads — same posture as
-  // every Papic clip, lib/clip-poster.ts). The SERVER measures the video's size and length itself; the length prices it
-  // (owner 2026-11-14: "x3 of the video based on their seconds as compared to papic" — `albumVideoCredits`). A video
-  // whose length cannot be read is refused, never priced by a guess.
+  // 3b. 🎬 A VIDEO (owner 2026-11-13: the Ultra album holds photos AND videos). Too large for this request, so it goes
+  // in two steps, both through THIS route — the album's own lane:
+  //   · `step=sign`: the phone names the type and size; the route checks the booking and the plan's storage, then signs
+  //     a PUT to a key IT derives in the album folder. Nothing is charged yet.
+  //   · the import: `video_ref` + the video's screened still as `file` (the NSFW screen reads stills — lib/clip-poster.ts).
+  //     The SERVER measures the video's size and length itself; the length prices it (owner 2026-11-14: "x3 of the video
+  //     based on their seconds as compared to papic" — `albumVideoCredits`). A length it cannot read is refused, never
+  //     priced by a guess. Any refusal removes the uploaded video through the cleanup choke point.
+  const albumScope = vendorPortfolioAlbumScope(vendorProfileId, eventId);
+  if (signing) {
+    const type = String(form.get('content_type') ?? '');
+    const size = Number(form.get('size_bytes'));
+    const ext = ALBUM_VIDEO_TYPES[type];
+    if (!ext || !Number.isFinite(size) || size <= 0) return NextResponse.json({ error: 'bad_type' }, { status: 415 });
+    const booked = (await fetchVendorRoomEvents(supabase, vendorProfileId)).some((b) => b.eventId === eventId);
+    if (!booked) return NextResponse.json({ error: 'not_allowed' }, { status: 403 });
+    const roomForVideo = await checkSupplierStorage(createAdminClient(), vendorProfileId, size);
+    if (roomForVideo.kind === 'full') {
+      return NextResponse.json({ error: STORAGE_FULL_CODE, message: roomForVideo.message, href: STORAGE_UPGRADE_HREF }, { status: 413 });
+    }
+    if (roomForVideo.kind === 'unavailable') {
+      return NextResponse.json({ error: 'storage_unchecked', message: STORAGE_CHECK_FAILED }, { status: 503 });
+    }
+    const videoKey = `${albumFolder(vendorProfileId, eventId)}${crypto.randomUUID()}.${ext}`;
+    const uploadUrl = await presignUploadUrl({ bucket: R2_BUCKETS.media, key: videoKey, contentType: type, sizeBytes: size });
+    return NextResponse.json({ ok: true, uploadUrl, videoRef: `r2://${R2_BUCKETS.media}/${videoKey}` });
+  }
   const videoRefRaw = form.get('video_ref');
   let video: { ref: string; bytes: number } | null = null;
   let credits = 1;
+  const dropVideo = async () => {
+    if (video) await cleanupDelete(video.ref, albumScope).catch(() => 'refused');
+  };
   if (typeof videoRefRaw === 'string' && videoRefRaw) {
-    const at = parseClientRef(videoRefRaw, { bucket: R2_BUCKETS.media, prefixes: [`vendors/${vendorProfileId}/album/${eventId}/`] });
+    const at = parseClientRef(videoRefRaw, { bucket: R2_BUCKETS.media, prefixes: [albumFolder(vendorProfileId, eventId)] });
     if (!at) return NextResponse.json({ error: 'bad_video' }, { status: 400 });
     const head = await r2Head({ bucket: at.bucket, key: at.key });
     if (!head || !Number.isFinite(head.size) || head.size <= 0) return NextResponse.json({ error: 'bad_video' }, { status: 400 });
-    const ref = `r2://${at.bucket}/${at.key}`;
-    const measuredMs = await probeMp4DurationMs(ref, head.size);
+    video = { ref: `r2://${at.bucket}/${at.key}`, bytes: head.size };
+    const measuredMs = await probeMp4DurationMs(video.ref, head.size);
     const priced = albumVideoCredits(measuredMs);
     if (priced === null) {
-      await r2Delete({ bucket: at.bucket, key: at.key }).catch(() => undefined);
+      await dropVideo();
       return NextResponse.json({ error: 'video_length_unread', message: VIDEO_LENGTH_UNREAD }, { status: 422 });
     }
-    video = { ref, bytes: head.size };
     credits = priced;
   }
-  // Nothing new is stored on a refusal below — a video that was uploaded first is removed again.
-  const dropVideo = async () => {
-    if (video) {
-      const at = parseClientRef(video.ref, { bucket: R2_BUCKETS.media, prefixes: [`vendors/${vendorProfileId}/album/${eventId}/`] });
-      if (at) await r2Delete({ bucket: at.bucket, key: at.key }).catch(() => undefined);
-    }
-  };
+  if (!(file instanceof File)) return NextResponse.json({ error: 'no_file' }, { status: 400 });
 
   // 4. THE CREDIT CHECK. One meter per (vendor, event) — the same "left" the
   // supplier's own readout shows, already reduced by both doors (on-the-day
@@ -153,7 +186,7 @@ export async function POST(req: Request) {
   // distinct from both the host gallery and papic/vendor-{id}/event-{id}/cap-…
   // (the on-the-day capture lane).
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const key = `papic/vendor-${vendorProfileId}/portfolio/${eventId}/${crypto.randomUUID()}.jpg`;
+  const key = `${albumFolder(vendorProfileId, eventId)}${crypto.randomUUID()}.jpg`;
   try {
     await r2Upload({
       bucket: R2_BUCKETS.media,

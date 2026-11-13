@@ -264,6 +264,7 @@ import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
 import type { HubPartId } from '@/lib/hub-parts';
 import { cameraDressTintOfEvent } from '@/lib/camera-dress-of-event';
 import { EventMonogram } from '@/app/_components/event-monogram';
+import { STORY_LATER_WORDS } from '../_lib/story-later';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -417,6 +418,8 @@ type SiteBodyProps = {
   dayOfPhase: DayOfPhase;
   /** The host's Papic switch — the gate for the menu's camera slot, on ANY day. */
   hostCameraOpen?: boolean;
+  /** 📖 The visitor came by `/{slug}/recap` (`?story=later`): until the story is the page, one plain line says so. */
+  storyAsked?: boolean;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
   // `phasesEnabled` is false (the default), NONE of the phase gating below
   // changes — the page renders exactly as today. `lifecyclePhase` is only
@@ -645,6 +648,7 @@ export async function SiteBody({
   bespokeSvg,
   dayOfPhase,
   hostCameraOpen = false,
+  storyAsked = false,
   songRequestDoor = null,
   phasesEnabled,
   lifecyclePhase,
@@ -2129,7 +2133,12 @@ export async function SiteBody({
        booked supplier, the canvas seen as someone else) gets the RSVP button to the shipped reply door in its place
        (`coverRsvpOf`, the reply page asks a visitor without a key for the passcode first). With no cover drawn the
        door keeps its row below, as before. Held by `the-cover-always-has-a-way-on.test.ts`. */
-    const coverHoldsDoor = plan.anonymousHeroBanner || !hasHeroMedia;
+    /* 📖 AFTER THE DAY THE STORY REPLACES THE INVITATION (owner 2026-11-13, "SIX CALLS SETTLED"; F-W2-53, the live walk
+       after #7596): the story's Front Page is the cover, so the invitation's text cover — its "Swipe up" foot — and
+       "Find your seat" are not drawn under it. The rest of the page below the story stays (the 2026-08-05 ruling in
+       `phasedBody`): the door keeps its own row, the guest's photos and their notice stay reachable. */
+    const storyLeads = plan.body === 'editorial';
+    const coverHoldsDoor = !storyLeads && (plan.anonymousHeroBanner || !hasHeroMedia);
     const footDoor = coverHoldsDoor && doorShown ? strangerDoor(true) : null;
     /* 🧭 …AND THE HOST'S OWN PAGE HAS ITS RSVP PART (owner 2026-10-17, *"confirm attendance is not doing anything?"* —
        on cale-ice, signed in as its host). The host holds no guest pass, so the reply page sent them straight back to
@@ -2281,11 +2290,11 @@ export async function SiteBody({
                   door is the page's action row, so the block after it arrives with it (owner: *"Together."*).
                   🔒 Not wrapped unless the cover leaves: every page today is drawn exactly as before. */}
               <HubCoverHold
-                leaves={coverStoredToLeave && !hasHeroMedia}
+                leaves={coverStoredToLeave && !hasHeroMedia && !storyLeads}
                 boxes={ticketUrl || coverHoldsDoor ? STRANGER_TEXT_COVER_BOXES : STRANGER_TEXT_COVER_BOXES_DOOR_FIRST}
                 cover={<>
-              {!hasHeroMedia ? makerMark('f:hero') : null}
-              {!hasHeroMedia ? (
+              {!hasHeroMedia && !storyLeads ? makerMark('f:hero') : null}
+              {!hasHeroMedia && !storyLeads ? (
                 /* Pahina masthead, text-only variant (wave A PR-2). */
                 <PahinaMasthead
                   eyebrow={mastheadEyebrow(clientWords)}
@@ -2375,7 +2384,7 @@ export async function SiteBody({
                 📱 For a reader whose bar has a Me the finder is Me's (owner 2026-10-08; prototype: Me · seats);
                 the Stages canvas keeps it where it drew it. */}
             {pageStage === 'event' ? group('home', <div id={SITE_WELCOME_ANCHOR} aria-hidden className="scroll-mt-6" />, { quiet: true }) : null}
-            {group(stagesPages ? 'home' : readerAt('f:find_your_seat', 'home'), <>{insideAllowed && doorwayFacts?.seatingSurfaceEnabled && doorwayFacts?.seatingPublished ? (
+            {group(stagesPages ? 'home' : readerAt('f:find_your_seat', 'home'), <>{insideAllowed && !storyLeads && doorwayFacts?.seatingSurfaceEnabled && doorwayFacts?.seatingPublished ? (
             <div className="mt-8 text-center">
               <Link
                 href={`/${event.slug}/find-seat`}
@@ -4586,6 +4595,14 @@ export async function SiteBody({
           desk={supplierDesk ?? null}
           words={clientWords}
         />
+      ) : null}
+      {/* 📖 THE STORY OPENS AFTER THE DAY (the live walk after #7596): `/{slug}/recap` sent a visitor here
+          before the day with nothing said. The page's own body is the one answer — the story shows once it is the
+          page (`plan.body === 'editorial'`), and until then this one line says so. Never on the Maker's canvas. */}
+      {storyAsked && plan.body !== 'editorial' && !isEditorCanvas ? (
+        <p role="status" data-story-later="" className="mx-auto mt-4 max-w-prose px-4 text-center text-sm text-ink/75">
+          {STORY_LATER_WORDS}
+        </p>
       ) : null}
       {identity.kind === 'anonymous' ? anonymousTree(identity) : guestTree(identity)}
       {/* THE GUEST DOORWAY STRIP — two finished pages and one sentence about the

@@ -1,6 +1,6 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 222,
+  "total": 220,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
@@ -148,10 +148,8 @@
     "app/pay/[reference]/_components/pay-panel.tsx · white on ink": 1,
     "app/pay/[reference]/page.tsx · white on ink": 1,
     "app/proposals/[publicId]/page.tsx · white on success-700": 1,
-    "app/vendor-dashboard/_components/event-locked-by-fee.tsx · ink on white": 1,
     "app/vendor-dashboard/activities/page.tsx · ink on white": 4,
     "app/vendor-dashboard/activities/questions-section.tsx · ink on white": 3,
-    "app/vendor-dashboard/clients/[eventId]/_components/booth-event-buy-form.tsx · ink on white": 1,
     "app/vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx · ink on white": 2,
     "app/vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx · ink on white": 1,
     "app/vendor-dashboard/clients/[eventId]/_components/vendor-part-signoff.tsx · white on ink": 1,

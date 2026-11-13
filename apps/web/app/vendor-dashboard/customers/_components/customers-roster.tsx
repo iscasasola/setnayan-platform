@@ -71,6 +71,8 @@ export type RosterRow = PipelineCustomer & {
   kind: string | null;
   /** A quote is out with them (sent or viewed) — "Quoted", not "Talking". */
   quoted: boolean;
+  /** 👥 RW-08: a claimed per-guest booking's own figure ("₱4,000 · 4 guests") — said instead of "no quote yet". */
+  perGuestNote?: string | null;
   /** They booked this shop before (`chat_threads.is_returning`). */
   returning: boolean;
   /** No day set yet → the couple's candidate date(s) / window (`eventDateOptionWords`), else null. */
@@ -180,6 +182,8 @@ export function rowLine(r: RosterRow, nowMs: number): { text: string; tone: 'qui
     // its age and is not worth crashing a page over.
     return r.quietDays === null ? null : { text: `quiet ${formatCount(r.quietDays)} days`, tone: 'quiet' };
   }
+  // 👥 RW-08: a claimed per-guest booking HAS a figure — the couple's own, following their guest list.
+  if (r.lane === 'talking' && r.perGuestNote) return { text: r.perGuestNote, tone: 'quiet' };
   if (r.lane === 'talking') return { text: r.quoted ? 'quote pending' : 'no quote yet', tone: 'quiet' };
   return r.note;
 }

@@ -16,8 +16,10 @@
 // data-load. Self-gates on papicGamesEnabled(); renders null when the flag is
 // off. Mounted after BoothPosterCard (booked-only) on the client-event card.
 
+import { Badge, type BadgeTone } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import Link from 'next/link';
-import { Trophy, Check, ImageIcon } from 'lucide-react';
+import { Trophy, ImageIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchVendorChallenges } from '@/lib/papic-games';
@@ -39,10 +41,10 @@ import { ShopCard } from '../../../_components/kit';
 import { formatCount } from '@/lib/format-number';
 import { StayForm } from '@/app/_components/stay-form';
 
-const STATUS_BADGE: Record<VendorChallengeStatus, { label: string; cls: string }> = {
-  pending: { label: 'Awaiting couple', cls: 'bg-mulberry/15 text-mulberry' },
-  live: { label: 'Live', cls: 'bg-terracotta/15 text-terracotta-700' },
-  rejected: { label: 'Declined', cls: 'bg-ink/10 text-ink/55' },
+const STATUS_BADGE: Record<VendorChallengeStatus, { label: string; tone: BadgeTone }> = {
+  pending: { label: 'Awaiting couple', tone: 'wait' },
+  live: { label: 'Live', tone: 'ok' },
+  rejected: { label: 'Declined', tone: 'no' },
 };
 
 export async function VendorChallengeSection({
@@ -79,37 +81,31 @@ export async function VendorChallengeSection({
         <Trophy aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         Papic Challenges
         {entitled ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[11px] font-semibold text-terracotta-700">
-            <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
-            On
-          </span>
+          <Badge tone="ok" data="challenges-on">On</Badge>
         ) : null}
       </h3>
-      <p className="mt-1 text-xs text-ink/55">
-        Set a guest photo mission at this event — ask guests to photograph your
-        service (your signature dish, the booth, the pour). It&rsquo;s free and fun for
-        every guest; each challenge needs the couple&rsquo;s okay before it goes live.
-      </p>
+      <div className="mt-1 text-[13px] text-ink/70">
+        <InfoTip label="Set a guest photo mission at this event" align="start">
+          Ask guests to photograph your service (your signature dish, the booth, the pour). It&rsquo;s free and fun for
+          every guest; each challenge needs the couple&rsquo;s okay before it goes live.
+        </InfoTip>
+      </div>
 
       {challenges.length > 0 ? (
-        <ul className="mt-4 space-y-2">
+        <ul className="mt-3">
           {challenges.map((c) => {
             const badge = STATUS_BADGE[vendorChallengeStatus(c)];
             return (
               <li
                 key={c.mission_id}
-                className="rounded-xl border border-ink/10 bg-white px-3 py-2.5"
+                className="min-h-14 border-b border-ink/10 py-2"
               >
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-sm text-ink/90">{displayChallengePrompt(c.prompt)}</p>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.cls}`}
-                  >
-                    {badge.label}
-                  </span>
+                  <Badge tone={badge.tone} data="challenge-status">{badge.label}</Badge>
                 </div>
                 {vendorChallengeStatus(c) === 'live' ? (
-                  <p className="mt-1 text-xs text-ink/50">
+                  <p className="mt-1 text-xs text-ink/70">
                     {formatCount(c.completions)} guest{c.completions === 1 ? '' : 's'} completed
                   </p>
                 ) : null}
@@ -118,7 +114,7 @@ export async function VendorChallengeSection({
           })}
         </ul>
       ) : ready.ok ? (
-        <p className="mt-4 text-sm text-ink/50">No challenges yet — write your first one below.</p>
+        <p className="mt-4 text-sm text-ink/70">No challenges yet — write your first one below.</p>
       ) : null}
 
       {ready.ok ? (

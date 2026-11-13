@@ -11,6 +11,10 @@
  *   &outer=N                              the shop's own declared furthest distance (clamped to the plan)
  *   &branches=N                           how many branches the fixture shop has (default 2 where the plan includes
  *                                         them, clamped to `branchesIncluded`) — drawn by the shipped `ShopBranchesLine`
+ *
+ * Since 13 Nov 2026 (DECISION_LOG "THREE PUBLIC PAGES APPROVED — AND THE FRONT PAGES FOLLOW") the drawing is the shop
+ * page's two looks — the verified hero + calling card, or the calm unverified column — at the phone width the plan
+ * cards show it at, so the lab is a 430 px column.
  */
 import { notFound } from 'next/navigation';
 import {
@@ -34,11 +38,11 @@ export default async function ShopPlanLabPage({
   const branchCount = Math.max(0, Math.min(Number.isFinite(asked) ? asked : 0, caps.branchesIncluded));
   const branchCities = SAMPLE_BRANCH_CITIES.slice(0, branchCount);
   return (
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
       <p className="sr-only" data-lab-plan={plan}>
         Lab · {plan}
       </p>
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-[430px]">
         <SampleShopPage plan={plan} declaredOuterKm={sp.outer ? Number(sp.outer) : null} branchCities={branchCities} />
       </div>
     </main>

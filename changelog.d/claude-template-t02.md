@@ -16,10 +16,13 @@ motion speed, server action or migration.
 - **Shop › Makers:** "Open <tool>" is the shared `ActionButton`, not a hand-made pill.
 - **Failed reads (rule 6):** "Couldn't load …" lines are amber and short (shop parts, couple photos, the shop wallet).
 - **Services, empty (rules 2 · 6):** no box around the empty part — the label, one plain line, New service.
+- **Your details rows (`editable-row`, rules 3 · 13 · 15):** once #7613 merged, these became free. Edit / Add / Close,
+  Cancel, Ask to change, Send and Find on map are the shared `ActionButton` (Send and Find on map use its `waiting`
+  state); the hand-drawn spinners are gone ("Saving…" says it); the map pin's coordinates leave the typewriter font.
+- **Profile checklist (rule 15):** the bar's sweep uses the family speed (`--sn-pill-dur`, `--sn-ease-rise`), not 500 ms.
 
-Skipped (another open PR edits them): `shop/page.tsx` (#7627, #7613) · `editable-row`, `profile-checklist-editor`
-(#7613) · `docs-body`, `verify-pairs`, `verify-section` (#7624, #7627) · `shop-cover`, `shop-settings-body`,
-`shop-settings-rows` (#7627) · `verify-pairs` (#7544).
+Skipped (another open PR edits them): `shop/page.tsx` (#7627) · `docs-body`, `verify-pairs`, `verify-section` (#7624,
+#7627) · `shop-cover`, `shop-settings-body`, `shop-settings-rows` (#7627) · `verify-pairs` (#7544).
 
 Shots (390 and 1280, Now beside Proposed): `build-sessions/shots-template-t02/`.
 

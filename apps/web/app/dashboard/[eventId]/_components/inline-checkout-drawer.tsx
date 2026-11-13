@@ -96,6 +96,7 @@ import {
   type SubmitOrderResult,
 } from '@/app/dashboard/[eventId]/checkout/actions';
 import { computeVatFromBase } from '@/lib/receipts';
+import { ultraUpgradeLine, type UltraUpgradeFrom } from '@/lib/event-ultra';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /** 📵 The voucher check never answered. The action's own words for "could not check" — nothing is redeemed by a check. */
@@ -346,6 +347,9 @@ export function InlineCheckoutDrawer({
   // (the trigger is an inert chip), and the effect refuses `isNativeApp` before
   // it calls anything. Held by `the-welcome-price-never-reaches-the-app.test.ts`.
   const [welcomeQuote, setWelcomeQuote] = useState<{ welcomeCentavos: string; pct: number } | null>(null);
+  // 💳 Event Ultra for an event that already paid for Plus or Pro (owner 2026-11-13, "Pay the difference"): the server's
+  // upgrade price, answered by the same quote call — the same reader the charge uses, so the screen and the bill agree.
+  const [upgradeQuote, setUpgradeQuote] = useState<{ centavos: string; from: UltraUpgradeFrom } | null>(null);
   useEffect(() => {
     if (isNativeApp || !open) return;
     let live = true;
@@ -356,12 +360,18 @@ export function InlineCheckoutDrawer({
     if (hubParts) fd.set('hub_parts', hubParts);
     applyVoucherAction(null, fd)
       .then((r) => {
-        if (live) setWelcomeQuote(r.welcome ?? null);
+        if (live) {
+          setWelcomeQuote(r.welcome ?? null);
+          setUpgradeQuote(r.upgrade ?? null);
+        }
       })
       // A quote that never answered shows the regular price — the server then
       // charges the regular price too, because the drawer did not claim one.
       .catch(() => {
-        if (live) setWelcomeQuote(null);
+        if (live) {
+          setWelcomeQuote(null);
+          setUpgradeQuote(null);
+        }
       });
     return () => {
       live = false;
@@ -371,18 +381,21 @@ export function InlineCheckoutDrawer({
   // Compute final price displayed in the drawer header. A voucher REPLACES the
   // welcome price (they never stack — the server decides the same way).
   const voucherApplied = voucherResult?.applied === true && voucherResult.code !== null;
+  // The price this line starts from: the upgrade price when the server quoted one, else the row price the page passed.
+  const upgradeShown = !isNativeApp && upgradeQuote !== null;
+  const basePriceCentavos = upgradeShown ? upgradeQuote.centavos : originalPriceCentavos;
   const welcomeShown = !isNativeApp && welcomeQuote !== null && !voucherApplied;
   const finalPriceStr =
     voucherResult?.applied && voucherResult.code
       ? voucherResult.final_centavos
       : welcomeShown
         ? welcomeQuote.welcomeCentavos
-        : originalPriceCentavos;
+        : basePriceCentavos;
   const finalPesoDisplay = formatPesoCentavos(finalPriceStr);
-  const originalPesoDisplay = formatPesoCentavos(originalPriceCentavos);
+  const originalPesoDisplay = formatPesoCentavos(basePriceCentavos);
   // VAT-inclusive gross = what the couple actually pays (the server charges this).
   const finalGrossDisplay = formatGrossCentavos(finalPriceStr, vatRatePct);
-  const originalGrossDisplay = formatGrossCentavos(originalPriceCentavos, vatRatePct);
+  const originalGrossDisplay = formatGrossCentavos(basePriceCentavos, vatRatePct);
   // The same gross as a NUMBER — this is what gets minted into the payment QR,
   // so it must come from the identical computation the display uses. If these
   // two ever diverge the couple scans one figure and reads another.
@@ -502,6 +515,11 @@ export function InlineCheckoutDrawer({
                   finalGrossDisplay
                 )}
               </p>
+              {upgradeShown ? (
+                <p className="text-xs font-medium text-terracotta">
+                  {ultraUpgradeLine(originalGrossDisplay, upgradeQuote.from)}
+                </p>
+              ) : null}
               {welcomeShown ? (
                 <p className="text-xs font-medium text-terracotta">
                   Welcome price · {welcomeQuote.pct}% off your first purchase
@@ -588,7 +606,7 @@ export function InlineCheckoutDrawer({
                       const fd = new FormData();
                       fd.set('code', voucherInput);
                       fd.set('service_key', serviceKey);
-                      fd.set('original_centavos', originalPriceCentavos);
+                      fd.set('original_centavos', basePriceCentavos);
                       /* 📵 A check that never answered (no signal, a 5xx) is the same answer the action gives when it
                          cannot check — said under the box, the code still typed. Thrown into this transition it
                          replaced the whole page with the app's error screen, mid-payment. Nothing is redeemed by
@@ -597,7 +615,7 @@ export function InlineCheckoutDrawer({
                       try {
                         result = await applyVoucherAction(null, fd);
                       } catch {
-                        result = { applied: false, code: null, discount_centavos: '0', final_centavos: originalPriceCentavos, discount_php: '', final_php: '', reason: VOUCHER_NOT_CHECKED };
+                        result = { applied: false, code: null, discount_centavos: '0', final_centavos: basePriceCentavos, discount_php: '', final_php: '', reason: VOUCHER_NOT_CHECKED };
                       }
                       setVoucherResult(result);
                       if (result.applied) {
@@ -670,7 +688,7 @@ export function InlineCheckoutDrawer({
                     fd.set('service_key', serviceKey);
                     if (hubParts) fd.set('hub_parts', hubParts);
                     fd.set('display_name', displayName);
-                    fd.set('original_centavos', originalPriceCentavos);
+                    fd.set('original_centavos', basePriceCentavos);
                     fd.set('channel', channel);
                     fd.set('screenshot_ref', screenshotRef);
                     fd.set('client_idempotency_key', idempotencyKey);

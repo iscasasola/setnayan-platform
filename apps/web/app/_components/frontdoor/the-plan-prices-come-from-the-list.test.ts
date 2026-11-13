@@ -16,8 +16,8 @@ import { PLAN_PRICE_CODES, planPricesFrom } from './front-door-landing';
 
 const HERE = import.meta.dirname;
 
-test('Event Pro is Event Hub Pro, and Event Plus is EVENT_PLUS', () => {
-  assert.deepEqual(PLAN_PRICE_CODES, { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO' });
+test('Event Pro is Event Hub Pro, Event Plus is EVENT_PLUS, Event Ultra is EVENT_ULTRA', () => {
+  assert.deepEqual(PLAN_PRICE_CODES, { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO', ultra: 'EVENT_ULTRA' });
 });
 
 test('a row on sale gives its price; a missing, empty or zero row gives none — never a fallback figure', () => {
@@ -25,17 +25,19 @@ test('a row on sale gives its price; a missing, empty or zero row gives none —
     planPricesFrom([
       { service_code: 'COUPLE_WEBSITE_PRO', retail_price_php: 5690 },
       { service_code: 'EVENT_PLUS', retail_price_php: 2990 },
+      { service_code: 'EVENT_ULTRA', retail_price_php: 9990 },
     ]),
-    { plus: 2990, pro: 5690 },
+    { plus: 2990, pro: 5690, ultra: 9990 },
   );
-  assert.deepEqual(planPricesFrom([{ service_code: 'COUPLE_WEBSITE_PRO', retail_price_php: 5690 }]), { plus: null, pro: 5690 });
-  assert.deepEqual(planPricesFrom([]), { plus: null, pro: null });
+  assert.deepEqual(planPricesFrom([{ service_code: 'COUPLE_WEBSITE_PRO', retail_price_php: 5690 }]), { plus: null, pro: 5690, ultra: null });
+  assert.deepEqual(planPricesFrom([]), { plus: null, pro: null, ultra: null });
   assert.deepEqual(
     planPricesFrom([
       { service_code: 'EVENT_PLUS', retail_price_php: 0 },
       { service_code: 'COUPLE_WEBSITE_PRO', retail_price_php: null },
+      { service_code: 'EVENT_ULTRA', retail_price_php: 0 },
     ]),
-    { plus: null, pro: null },
+    { plus: null, pro: null, ultra: null },
   );
 });
 

@@ -71,6 +71,8 @@ const DENIED_COLUMNS = [
   // price is shown to that supplier from the server, never read by a browser session.
   'gift_price_php',
   'included_papic_credits',
+  // 2026-11-13 Event Ultra: read only inside the SECURITY DEFINER papic_events_past_fullres_clock (service role).
+  'fullres_extra_keep_days',
 ] as const;
 
 /** The column this whole file exists for. */

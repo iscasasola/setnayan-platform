@@ -491,7 +491,10 @@ export function SwitcherPanelBody({
             {(shopRows ?? []).map((r) => {
               const Icon = SHOP_ROW_ICON[r.key] ?? ChevronRight;
               return (
-                <Link key={r.key} href={r.href} onClick={close} data-switcher-shop-row={r.key} className={ROW_SM}>
+                // ⤴ Inside the supplier dashboard a row's page RISES over the page you are on (`@rise/(.)<page>`,
+                // build-sessions/RISE-AUDIT-2026-11-13.md § H): the sheet stays open under it — stepped aside — so ✕
+                // falls back into this row. Anywhere else the row is a page jump and closes the sheet as before.
+                <Link key={r.key} href={r.href} onClick={supplierSheet ? undefined : close} data-switcher-shop-row={r.key} data-rise-from={supplierSheet ? '' : undefined} className={ROW_SM}>
                   <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--m-ivory)] text-ink">
                     <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
                   </span>
@@ -846,7 +849,7 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, a
       {/* ── Backdrop + Panel (portaled to body) ───────────────── */}
       {open && mounted && typeof document !== 'undefined'
         ? createPortal(
-            <>
+            <div data-account-sheet-layer="">
               {/* Backdrop */}
               <OverlayBackdrop onClose={close} label="Close account switcher" className="z-[51]" />
               <style>{`
@@ -856,7 +859,7 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, a
                 }
               `}</style>
               {renderPanel()}
-            </>,
+            </div>,
             document.body,
           )
         : null}
@@ -1023,7 +1026,7 @@ export function SwitcherPlaqueTrigger({
 
       {open && mounted && typeof document !== 'undefined'
         ? createPortal(
-            <>
+            <div data-account-sheet-layer="">
               <OverlayBackdrop onClose={close} label="Close account menu" className="z-[51]" />
               <style>{`
                 @keyframes sn-switcher-backdrop { from { opacity:0; } to { opacity:1; } }
@@ -1039,7 +1042,7 @@ export function SwitcherPlaqueTrigger({
               >
                 <SwitcherPanelBody data={data} close={close} />
               </div>
-            </>,
+            </div>,
             document.body,
           )
         : null}

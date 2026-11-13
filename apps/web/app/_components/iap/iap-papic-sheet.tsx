@@ -1,10 +1,9 @@
 'use client';
 
 import { useCallback, useId, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Check, Plus, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { Sheet } from '@/app/_components/sheet';
+import { RiseScreen, WithRiseClose } from '@/app/_components/rise/rise-screen';
 import { InfoTip } from '@/app/_components/info-tip';
 import { CreditStepper, ladderEnds, type StepperRung } from '@/app/dashboard/[eventId]/studio/papic/_components/credit-stepper';
 import { IAP_PAPIC_PRODUCTS } from '@/lib/iap/products';
@@ -71,14 +70,13 @@ export function IapPapicSheet({
       setScreen(s);
     });
   };
-  const close = () => {
-    if (buying) return;
+  const closed = () => {
     setOpen(false);
     setScreen(null);
   };
   const credits = (n: number) => `${n.toLocaleString('en-PH')} credits`;
 
-  const body =
+  const bodyFor = (close: () => void) =>
     screen?.kind === 'on' ? (
       <PapicCreditsAdded headingId={headingId} what={bought ? credits(bought) : null} onDone={close} />
     ) : screen?.kind === 'pending' ? (
@@ -143,8 +141,12 @@ export function IapPapicSheet({
       </>
     );
 
+  // ⤴ RISE FULL SCREEN (owner 2026-11-10 "fullscreen everything"; build-sessions/RISE-AUDIT-2026-11-13.md batch 2): it
+  // rises out of the door you tapped and falls back into it; every inner close steps out the same way; while Apple is
+  // answering (`buying`) every way out waits.
   const sheet = open ? (
-    <Sheet open onClose={close} labelledById={headingId} rise>
+    <RiseScreen labelledById={headingId} onClose={closed} busy={buying} data="iap-papic">
+      <WithRiseClose fallback={closed}>{(close) => (
       <div className="px-4 pb-4 pt-3.5" data-iap-papic-sheet="">
         {/* The title and its ONE ⓘ; the sheet's own ✕ closes it (no "Not now" — owner 2026-10-24). On success the
             success block carries the heading instead. */}
@@ -165,9 +167,10 @@ export function IapPapicSheet({
             {left !== null ? `You have ${left.toLocaleString('en-PH')} credits` : 'Credits land once Apple confirms.'}
           </p>
         )}
-        {body}
+        {bodyFor(close)}
       </div>
-    </Sheet>
+      )}</WithRiseClose>
+    </RiseScreen>
   ) : null;
 
   return (
@@ -182,7 +185,7 @@ export function IapPapicSheet({
         aria-expanded={open}
         data-testid="iap-papic-buy-more"
       />
-      {sheet && typeof document !== 'undefined' ? createPortal(sheet, document.body) : null}
+      {sheet}
     </>
   );
 }

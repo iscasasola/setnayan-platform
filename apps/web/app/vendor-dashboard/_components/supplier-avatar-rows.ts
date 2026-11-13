@@ -30,3 +30,13 @@ export function supplierAvatarRows(opts: { storeShell?: boolean } = {}): ShopRow
 export function scopedMemberAvatarRows(): ShopRow[] {
   return [{ key: 'settings', href: '/vendor-dashboard/settings', label: 'Settings', sub: 'Notifications · help' }];
 }
+
+/**
+ * ⤴ A row's own words, for the page it RISES into (`@rise/(.)<page>`, build-sessions/RISE-AUDIT-2026-11-13.md § H):
+ * the risen screen is headed by the same label and line the row wears — never a second copy of either.
+ */
+export function avatarRowWords(key: string): { label: string; sub: string } {
+  const row = supplierAvatarRows().find((r) => r.key === key);
+  if (!row) throw new Error(`avatarRowWords: no avatar row "${key}"`);
+  return { label: row.label, sub: row.sub };
+}

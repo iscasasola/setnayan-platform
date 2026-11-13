@@ -11,3 +11,16 @@ Step 1 of the Maker Edit shell. The toolbar's four tabs (Edit · Style · Backgr
 Guards: new `lib/a-locked-tab-says-problem-then-solution.test.ts`; re-aimed (claim unchanged — a grey tool's tap answers with its line and sets no tool) `a-tool-with-nothing-to-do-says-so`, `a-fixed-block-has-its-own-motion`, `the-preview-only-selects`; the anchor and the word "lock" registered in `spotlight-anchors-exist` and `the-couple-books-never-locks` (a locked tab is not a booking).
 
 SPEC IMPACT: None (implements the approved prototype; DECISION_LOG 2026-11-13 rows "Maker Edit shell approved" and "Maker — Camera style" already record it).
+
+## 2026-11-13 · feat(maker): the Edit shell — the Countdown and the cover's Date show the event date and open the date sheet in place
+
+Step 2 (prototype frames 1 and 4; DECISION_LOG 2026-11-13 "MAKER › COUNTDOWN EDIT = THE EVENT DATE, NOT 'OPEN INFO'"). The Countdown's Edit was a door to Info and the cover's Date a link out to Suppliers. Both now show **Event date** — "Sat, 12 December 2026 · Final · 29 days to go", or "Not final yet" with the dates being weighed — and ONE button, "Change date" / "Pick your final date", that opens the SHIPPED date sheet (`FactSheet which="date"`, #7583) over the Maker. One writer (`updateEventDate`); no new date write was added. Row 4: "Suppliers and Home use this date too." The date is the sheet's own read, asked when the part is picked; a failed read says so with Try again.
+
+- `stage-panel/date-edit.tsx` (the rows), `lib/maker-date-edit.ts` (the words, pure), `makerPartEditsTheDate` in `lib/maker-parts.ts`.
+- `/dev/maker-lab` now answers the date sheet from the Suppliers lab's fixtures (`LabFactSheets`), so the lab opens the real sheet.
+- help answer `maker-event-date`.
+- Guard: `lib/the-date-part-edits-the-date-in-place.test.ts`.
+
+Not in this step (still to build from the same prototype): the countdown's own line typed in Edit (it has no stored field today — "Until we say 'I do'" is drawn by `countdown.tsx`), RSVP's reply settings as rows on every stage, E-Gifts' settings in the shell, the March/Seats headings, the Event name field + mark styles, Style sketches, Background tiles, Animate rows, the stage switcher on the caption line, the new styles and the eleven art kits.
+
+SPEC IMPACT: None (implements the approved prototype frames; no corpus change).

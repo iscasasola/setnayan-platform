@@ -593,6 +593,17 @@ export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool):
 }
 
 /**
+ * 📅 THE PARTS WHOSE EDIT IS THE EVENT DATE (Maker Edit shell v3, owner-approved 2026-11-13; DECISION_LOG 2026-11-13
+ * "MAKER › COUNTDOWN EDIT = THE EVENT DATE"): the Countdown and every part whose words are the date (`supplier:date` —
+ * the cover's Date). Their Edit shows the date and one button into the shipped date sheet, in place; it was a door out
+ * ("Open Info", "Change it in Suppliers"). Held by `lib/the-date-part-edits-the-date-in-place.test.ts`.
+ */
+export function makerPartEditsTheDate(key: MakerPartKey | null): boolean {
+  if (!key) return false;
+  return key === 'countdown' || MAKER_PARTS[key].source === 'supplier:date';
+}
+
+/**
  * 🔒 A LOCKED TAB SAYS PROBLEM → SOLUTION, IN THE ROWS (Maker Edit shell v3, owner-approved 2026-11-13, "maker shell
  * approved"; prototype `prototypes/approved_2026-11-13/maker-toolbar-fable.html` frame 5: *"A tab with nothing shows 🔒
  * and opens Problem → Solution."*). The PROBLEM is the part's one line (`makerPartToolWhy`, unchanged); the SOLUTION

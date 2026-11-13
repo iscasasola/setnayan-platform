@@ -11,6 +11,11 @@ import { HUB_DRAFT_BAR_FIELD, requestMakerRefresh } from '@/lib/maker-refresh';
 import { offerScrubOutInTheLab } from '@/lib/scrub-out-offered';
 import { setStudioDraftDoor } from '@/app/dashboard/[eventId]/launch/_components/studio-info';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
+import { LabFactSheets } from '../suppliers-lab/lab-fact-sheets';
+import type { LabFactOptions } from '../suppliers-lab/fact-sheet-fixtures';
+
+/** The date sheet's lab answers: booked venues, a calendar that reads, no open change. */
+const LAB_FACT_OPTIONS: LabFactOptions = { help: 'ok', notSet: false, change: false, venues: 'booked' };
 import { previewRoleOptions } from '@/lib/preview-role';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 
@@ -435,6 +440,9 @@ export function MakerLabShell({
   return (
     /* 🧪 Studio pages' writes (E-Gifts…) stand in locally — a lab press never reaches the database; "Accept gifts?" drafts into this lab's own counter. */
     <LabStudioActions draft={labDraft as never}>
+    {/* 📅 The date sheet's one read and its writes answered from the Suppliers lab's fixtures — the Maker's date Edit
+        (`stage-panel/date-edit.tsx`) opens the REAL sheet here with no session and no database. */}
+    <LabFactSheets options={LAB_FACT_OPTIONS} open={null}>
     <MakerShell
       eventId={eventId}
       /* The lab's own guest page stands in for /maria-and-jose (Preview's "Preview the stage"). */
@@ -583,6 +591,7 @@ export function MakerLabShell({
         }}
       />
     </MakerShell>
+    </LabFactSheets>
     </LabStudioActions>
   );
 }

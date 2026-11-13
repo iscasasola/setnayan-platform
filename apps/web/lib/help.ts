@@ -541,6 +541,13 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'In the Event Hub Maker every part has the same four tabs: Edit, Style, Background and Animate. A tab with a 🔒 has nothing to set on that part. Tap it anyway: the rows say the problem and where it is set instead — a line on the cover takes its background from the Cover Scene, and one tap selects it. The camera keeps one style for every guest, so its Style is locked too.',
       },
       {
+        // 📅 The Maker's date Edit (Maker Edit shell, owner-approved 2026-11-13).
+        slug: 'maker-event-date',
+        title: 'Change the event date from the Maker',
+        appBody: HELP_NOT_IN_THE_APP,
+        body: 'In the Event Hub Maker, tap the Countdown or the date on the cover. Edit shows your event date — or "Not final yet" and the dates you are weighing. Change date (or Pick your final date) opens the same date sheet as Suppliers, so your suppliers and Home follow the one date.',
+      },
+      {
         slug: 'monogram',
         title: 'Customize the QR monogram',
         appBody: 'Every guest’s QR code carries a mark in its centre and opens their own invitation. You will find it in Hub, under Event Details › QR Code.',

@@ -52,7 +52,7 @@ export function StoryProgress() {
       ref={ref}
       data-story-progress=""
       aria-hidden
-      className="pointer-events-none sticky top-0 z-30 flex gap-[3px] px-3 pb-1 pt-2"
+      className="pointer-events-none sticky top-0 z-30 flex gap-[3px] px-3 pb-1 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]"
     >
       {Array.from({ length: total }, (_, i) => (
         <i key={i} className={`block h-[2.5px] flex-1 rounded-full ${i <= at ? 'bg-ink' : 'bg-ink/15'}`} />

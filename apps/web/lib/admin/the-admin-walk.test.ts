@@ -25,3 +25,16 @@ test('F-A-23 · the booking-fees empty state reads the real switch', () => {
   assert.match(page, /feesMinting === true\s*\?\s*'Nobody owes a booking fee right now\. The booking fee is on/);
   assert.doesNotMatch(page, /fees are only charged once the\s+booking fee is switched on/);
 });
+
+test('F-A-09 · the shop’s admin page: Manila dates, and no claim that customers pay through Setnayan', () => {
+  const page = code('app/admin/vendors/[vendorProfileId]/page.tsx');
+  assert.match(page, /toLocaleDateString\('en-PH', \{ year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia\/Manila' \}\)/);
+  assert.doesNotMatch(page, /once a customer pays this supplier through Setnayan/);
+});
+
+test('F-A-08 · a verification document is titled by its paper, with a Manila date', () => {
+  const page = code('app/admin/verification-docs/page.tsx');
+  assert.match(page, /\{paperName\(d\.slot\) \? \(/);
+  assert.match(page, /uploaded \$\{manilaDay\(d\.lastModified\)\}/);
+  assert.doesNotMatch(page, /lastModified\.slice\(0, 10\)\}/);
+});

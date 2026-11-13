@@ -22,7 +22,7 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
       tl: 'Libreng QR codes para sa card, booth at mesa mo: shortlist, pagtingin ng petsa, page mo, reviews, isang-gamit na booking code at crew code.',
     },
     answer: {
-      en: 'Setnayan gives every supplier a set of free QR codes, each for one moment. Shortlist puts you on a new couple’s event when they sign up. Check a date shows your free days. My page opens your page, and Reviews asks guests for a review at the table. Booked is a one-use code for one client, and Crew lets your team join an event.',
+      en: 'Setnayan gives every supplier a set of free QR codes, each for one moment. Shortlist puts you on a new couple’s event when they sign up. Check a date shows your free days. My page opens your page, and Reviews asks guests for a review at the table. Booked is a one-use code for one client, and Crew lets your own crew join an event.',
       tl: 'Binibigyan ng Setnayan ang bawat supplier ng libreng QR codes, bawat isa para sa isang sandali. Inilalagay ka ng Shortlist sa event ng bagong couple pag nag-sign up sila. Ipinapakita ng Check a date ang bakante mong araw. Binubuksan ng My page ang page mo, at humihingi ng review ang Reviews sa mesa. Ang Booked ay isang-gamit na code para sa isang kliyente, at pinapasali ng Crew ang team mo sa event.',
     },
     forWho: {

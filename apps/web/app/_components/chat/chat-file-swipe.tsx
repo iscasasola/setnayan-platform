@@ -20,6 +20,8 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { Sheet } from '@/app/_components/sheet';
+import { ActionButton } from '@/components/action-button';
+import { EyeOff, Trash2, X } from 'lucide-react';
 import {
   CHAT_FILE_BOOKING_LINE,
   CHAT_FILE_DELETE_EVERYONE,
@@ -148,35 +150,32 @@ export function ChatFileRemoveSheet({
         <p className="mb-3 mt-0.5 text-[13px] text-ink/70" data-chat-file-remove-why="">
           {line}
         </p>
-        {everyone > 0 ? (
-          <button
-            type="button"
-            onClick={() => onChoose('everyone')}
+        {/* T19 · THE BUTTON RULE: Delete for everyone is the house DANGER pill (destructive, red, filled — the main
+            verb); Delete for me and Cancel are neutral. */}
+        <div className="flex flex-col gap-2">
+          {everyone > 0 ? (
+            <ActionButton
+              tone="danger"
+              main
+              icon={Trash2}
+              label={busy === 'everyone' ? 'Deleting…' : `${CHAT_FILE_DELETE_EVERYONE} · ${everyone} min left`}
+              onClick={() => onChoose('everyone')}
+              disabled={busy !== null}
+              data-chat-file-remove="everyone"
+              className="w-full"
+            />
+          ) : null}
+          <ActionButton
+            tone="neutral"
+            icon={EyeOff}
+            label={busy === 'me' ? 'Deleting…' : CHAT_FILE_DELETE_ME}
+            onClick={() => onChoose('me')}
             disabled={busy !== null}
-            data-chat-file-remove="everyone"
-            className="mt-2 flex min-h-12 w-full items-center justify-center rounded-full border-[1.5px] border-danger-600 bg-danger-600 text-[14.5px] font-semibold text-white dark:border-danger-400 dark:bg-danger-400 disabled:opacity-60"
-          >
-            {busy === 'everyone' ? 'Deleting…' : CHAT_FILE_DELETE_EVERYONE}
-            {busy === 'everyone' ? null : <small className="ml-1.5 font-medium opacity-85">· {everyone} min left</small>}
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => onChoose('me')}
-          disabled={busy !== null}
-          data-chat-file-remove="me"
-          className="mt-2 flex min-h-12 w-full items-center justify-center rounded-full border-[1.5px] border-transparent bg-danger-600/10 text-[14.5px] font-semibold text-danger-700 disabled:opacity-60 dark:text-danger-200"
-        >
-          {busy === 'me' ? 'Deleting…' : CHAT_FILE_DELETE_ME}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          data-chat-file-remove="cancel"
-          className="mt-2 flex min-h-12 w-full items-center justify-center rounded-full border-[1.5px] border-ink/20 text-[14.5px] font-semibold text-ink"
-        >
-          Cancel
-        </button>
+            data-chat-file-remove="me"
+            className="w-full"
+          />
+          <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} data-chat-file-remove="cancel" className="w-full" />
+        </div>
       </div>
     </Sheet>
   );

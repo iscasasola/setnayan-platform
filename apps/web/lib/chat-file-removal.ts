@@ -52,3 +52,23 @@ export function refusalFromError(message: string | null | undefined): ChatFileRe
   if (/WINDOW_CLOSED/.test(m)) return 'window';
   return 'refused';
 }
+
+// ── the OTHER side, live (controller audit 13 Nov: "deleted at once for both") ──────────────────────────────────
+
+type FileCols = { message_id: string; attachment_r2_key?: string | null; attachment_url?: string | null };
+
+/** An UPDATE where the file left the message (its sender removed it): re-read the removal lines. */
+export function fileLeftMessage(before: FileCols | undefined, after: FileCols): boolean {
+  return !!before && !!(before.attachment_r2_key || before.attachment_url) && !after.attachment_r2_key && !after.attachment_url;
+}
+
+/**
+ * A realtime DELETE (the ring's undo of a file sent with no words). Postgres Changes cannot filter a DELETE by thread
+ * and sends only the primary key, so the stream drops the id ONLY if it is one of its own messages — an id from another
+ * chat changes nothing (and the same array comes back, so nothing re-renders).
+ */
+export function withoutDeletedMessage<T extends { message_id: string }>(prev: T[], old: { message_id?: unknown } | null | undefined): T[] {
+  const id = typeof old?.message_id === 'string' ? old.message_id : null;
+  if (!id || !prev.some((m) => m.message_id === id)) return prev;
+  return prev.filter((m) => m.message_id !== id);
+}

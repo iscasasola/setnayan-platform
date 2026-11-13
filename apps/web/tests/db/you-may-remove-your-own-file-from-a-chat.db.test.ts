@@ -9,7 +9,8 @@
  *   3. words stay — undo and Delete for everyone clear only the attachment columns;
  *   4. Delete for everyone inside 5 min → the file goes, a for-everyone line both sides can read; after → refused;
  *   5. Delete for me → hidden for the caller only: the other side still reads the file and cannot read the hide;
- *   6. booking files (filed to a decision · an order on the event) refuse undo and everyone; Delete for me still works;
+ *   6. booking files (filed to a decision · an order with THIS shop · the shop confirmed · a dispute between them)
+ *      refuse undo and everyone; Delete for me still works; the couple's own purchase alone is not a booking;
  *   7. the other side's file, a words-only message and an outsider are refused, answered as before;
  *   8. still no DELETE policy on chat_messages.
  *
@@ -24,7 +25,15 @@ import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrat
 let replay: ReplayResult;
 let db: PGlite;
 
-const F = { couple: '', vendorUser: '', outsider: '', vendorId: '', eventId: '', threadId: '', orderEventId: '', orderThreadId: '' };
+type Chat = { eventId: string; threadId: string };
+const F = { couple: '', vendorUser: '', outsider: '', vendorId: '', eventId: '', threadId: '' };
+/** Chats whose couple and shop have (or do not have) a booking. */
+const C: Record<'orderWithShop' | 'ownPurchaseOnly' | 'confirmed' | 'disputed', Chat> = {
+  orderWithShop: { eventId: '', threadId: '' },
+  ownPurchaseOnly: { eventId: '', threadId: '' },
+  confirmed: { eventId: '', threadId: '' },
+  disputed: { eventId: '', threadId: '' },
+};
 
 async function setAuthRole(role: string | null): Promise<void> {
   await db.query(`SELECT set_config('request.jwt.claim.role', $1, false)`, [role ?? '']);
@@ -55,10 +64,10 @@ async function createUser(email: string, accountType: 'customer' | 'vendor'): Pr
 async function send(
   asUid: string,
   body: string,
-  opts: { file?: boolean; agoSeconds?: number; thread?: 'main' | 'order' } = {},
+  opts: { file?: boolean; agoSeconds?: number; chat?: Chat } = {},
 ): Promise<string> {
-  const threadId = opts.thread === 'order' ? F.orderThreadId : F.threadId;
-  const eventId = opts.thread === 'order' ? F.orderEventId : F.eventId;
+  const threadId = opts.chat?.threadId ?? F.threadId;
+  const eventId = opts.chat?.eventId ?? F.eventId;
   await asUser(asUid);
   const r = await db.query<{ message_id: string }>(
     `INSERT INTO public.chat_messages (thread_id, event_id, vendor_profile_id, body) VALUES ($1, $2, $3, $4) RETURNING message_id`,
@@ -162,13 +171,32 @@ before(async () => {
   const main = await mkEvent('Remove Test Event');
   F.eventId = main.eventId;
   F.threadId = main.threadId;
-  // A second event that HAS an order — the legal hold makes every file in its chat a booking file.
-  const held = await mkEvent('Remove Test Event With An Order');
-  F.orderEventId = held.eventId;
-  F.orderThreadId = held.threadId;
+  const order = (chat: Chat, ref: string, shop: string | null) =>
+    db.query<{ order_id: string }>(
+      `INSERT INTO public.orders (user_id, event_id, vendor_profile_id, description, requested_total_php, reference_code)
+       VALUES ($1, $2, $3, 'Test order', 1499, $4) RETURNING order_id`,
+      [F.couple, chat.eventId, shop, ref],
+    );
+  // An order WITH this chat's shop → a booking.
+  C.orderWithShop = await mkEvent('Remove Test · order with the shop');
+  await order(C.orderWithShop, 'RMFILE01', F.vendorId);
+  // The couple's own Setnayan purchase, no shop on it → NOT a booking with this supplier.
+  C.ownPurchaseOnly = await mkEvent('Remove Test · own purchase only');
+  await order(C.ownPurchaseOnly, 'RMFILE02', null);
+  // The shop confirmed on the event (contracted) → a booking.
+  C.confirmed = await mkEvent('Remove Test · shop confirmed');
   await db.query(
-    `INSERT INTO public.orders (user_id, event_id, description, requested_total_php, reference_code) VALUES ($1, $2, 'Papic pack', 1499, 'RMFILE01')`,
-    [F.couple, F.orderEventId],
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, linked_vendor_profile_id)
+     VALUES ($1, 'photographer', 'Remove Test Studio', 'contracted'::vendor_status, $2)`,
+    [C.confirmed.eventId, F.vendorId],
+  );
+  // A dispute between this couple and this shop (on an order that does not itself name the shop) → a booking.
+  C.disputed = await mkEvent('Remove Test · disputed');
+  const disputed = await order(C.disputed, 'RMFILE03', null);
+  await db.query(
+    `INSERT INTO public.vendor_disputes (vendor_profile_id, order_id, opened_by_user_id, category, description)
+     VALUES ($1, $2, $3, 'no_show', 'They did not come')`,
+    [F.vendorId, disputed.rows[0]!.order_id, F.couple],
   );
 });
 after(async () => {
@@ -300,13 +328,29 @@ test('6 · a file filed to a decision is a booking file — undo and everyone re
   assert.equal(me.row.outcome, 'hidden_for_me');
 });
 
-test('6b · a file in a chat whose event has an order is a booking file — even the ring cannot delete it', async () => {
-  const mine = await send(F.couple, ' ', { file: true, agoSeconds: 1, thread: 'order' });
-  assert.equal((await options(F.couple, mine)).is_booking, true);
+for (const [name, why] of [
+  ['orderWithShop', 'an order with this shop on the event'],
+  ['confirmed', 'the shop confirmed on the event'],
+  ['disputed', 'a dispute between this couple and this shop'],
+] as const) {
+  test(`6b · ${why} makes the chat's files booking files — even the ring cannot delete them`, async () => {
+    const mine = await send(F.couple, ' ', { file: true, agoSeconds: 1, chat: C[name] });
+    assert.equal((await options(F.couple, mine)).is_booking, true);
+    for (const mode of ['undo', 'everyone'] as const) {
+      const r = await remove(F.couple, mine, mode);
+      assert.equal(r.ok, false, `${mode} went through on a booking file`);
+      assert.match(r.ok ? '' : r.message, /BOOKING_FILE/);
+    }
+    assert.ok((await row(mine))?.attachment_r2_key, 'a booking file was removed');
+  });
+}
+
+test('6c · the couple’s own purchase on the event is NOT a booking with this supplier — undo still deletes', async () => {
+  const mine = await send(F.couple, ' ', { file: true, agoSeconds: 1, chat: C.ownPurchaseOnly });
+  assert.equal((await options(F.couple, mine)).is_booking, false);
   const r = await remove(F.couple, mine, 'undo');
-  assert.equal(r.ok, false);
-  assert.match(r.ok ? '' : r.message, /BOOKING_FILE/);
-  assert.ok(await row(mine), 'the ring hard-deleted a booking file');
+  assert.ok(r.ok, r.ok ? '' : r.message);
+  assert.equal(r.row.outcome, 'deleted');
 });
 
 // ── who may ─────────────────────────────────────────────────────────────────

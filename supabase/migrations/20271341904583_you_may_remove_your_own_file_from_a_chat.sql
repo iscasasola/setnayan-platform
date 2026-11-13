@@ -74,8 +74,11 @@ COMMENT ON TABLE public.chat_file_removals IS
 
 -- ── §2 · a booking file — the keeping rule, in one place ────────────────────
 -- The shipped keeping rule (`lib/chat-file-rules.ts` CHAT_KEPT_FOREVER_COLUMNS + the sweep's proof/contract read),
--- plus a filing to a decision or to "This booking", plus the order legal hold (`purge_expired_chat`: an event with an
--- order). A dispute always names an order (vendor_disputes → orders), so the order arm covers it.
+-- plus a filing to a decision or to "This booking", plus a BOOKING BETWEEN THIS COUPLE AND THIS CHAT'S SHOP: an order
+-- naming the shop on this event, the shop confirmed on the event (event_vendors.linked_vendor_profile_id at contracted
+-- or later), or a dispute between them. Deliberately NOT "any order on the event" (controller audit, 13 Nov): a
+-- couple's own Setnayan purchase is not a booking with this supplier, and would have closed Delete for everyone on
+-- nearly every paying couple's chats.
 CREATE OR REPLACE FUNCTION public.chat_message_is_booking_file(p_message_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -98,14 +101,22 @@ AS $$
          OR (m.attachment_r2_key IS NOT NULL AND (
                 EXISTS (SELECT 1 FROM public.event_vendor_payments p WHERE p.proof_r2_key = m.attachment_r2_key)
              OR EXISTS (SELECT 1 FROM public.vendor_contracts c WHERE c.file_url = m.attachment_r2_key)))
-         OR EXISTS (SELECT 1 FROM public.orders o WHERE o.event_id = COALESCE(t.event_id, m.event_id))
+         -- A booking between THIS couple and THIS chat's shop: an order with the shop on this event, a confirmed
+         -- booking of the shop (event_vendors at contracted or later — the CONFIRMED statuses), or a dispute on it.
+         OR EXISTS (SELECT 1 FROM public.orders o
+                     WHERE o.event_id = t.event_id AND o.vendor_profile_id = t.vendor_profile_id)
+         OR EXISTS (SELECT 1 FROM public.event_vendors ev
+                     WHERE ev.event_id = t.event_id AND ev.linked_vendor_profile_id = t.vendor_profile_id
+                       AND ev.status IN ('contracted', 'deposit_paid', 'delivered', 'complete'))
+         OR EXISTS (SELECT 1 FROM public.vendor_disputes d JOIN public.orders o ON o.order_id = d.order_id
+                     WHERE d.vendor_profile_id = t.vendor_profile_id AND o.event_id = t.event_id)
        )
   );
 $$;
 -- Internal: only the two functions below call it.
 REVOKE ALL ON FUNCTION public.chat_message_is_booking_file(UUID) FROM PUBLIC, anon, authenticated;
 COMMENT ON FUNCTION public.chat_message_is_booking_file(UUID) IS
-  'TRUE when a chat message''s file is part of the booking: pinned to a decision (quote · meeting · adjustment · service card, or filed under a decision topic), filed to "This booking", named by a payment proof or a contract, or in a chat whose event has an order (the legal hold; a dispute always names an order). Such a file never gets Delete for everyone or the undo ring''s instant delete. Migration 20271341904583.';
+  'TRUE when a chat message''s file is part of the booking: pinned to a decision (quote · meeting · adjustment · service card, or filed under a decision topic), filed to "This booking", named by a payment proof or a contract, or in a chat whose couple and shop have a booking (an order with the shop on this event, the shop confirmed on the event, or a dispute between them). Such a file never gets Delete for everyone or the undo ring''s instant delete. Migration 20271341904583.';
 
 -- ── §3 · what the sheet may offer — read before it opens ────────────────────
 CREATE OR REPLACE FUNCTION public.chat_file_removal_options(p_message_id UUID)

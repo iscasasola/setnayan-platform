@@ -12,11 +12,15 @@ AT ONCE ON SEND…" + "CHAT FILE UNDO DRAWING APPROVED"), replacing the PR's ear
   Try again."
 - **Server** (migration `20271341904583`, edited in place — never on main): `remove_my_chat_file(message_id, mode)`
   enforces undo ≤10 s (+5 s grace), everyone ≤5 min (+30 s grace) on the row's created_at, refuses booking files
-  (`chat_message_is_booking_file`: decision cards/filings, "This booking" filings, payment proofs, contracts, an order
-  on the event) for undo and everyone, and keeps the words (only the attachment columns clear). New
+  (`chat_message_is_booking_file`: decision cards/filings, "This booking" filings, payment proofs, contracts, or a
+  booking between THIS couple and THIS chat's shop — an order naming the shop, the shop confirmed on the event, or a
+  dispute between them; the couple's own purchase alone is not one) for undo and everyone, and keeps the words (only the attachment columns clear). New
   `chat_file_removals` (RLS at create; own rows + for-everyone rows to whoever reads the message) carries "… removed a
   file · time" and the per-viewer hide. `chat_file_removal_options` feeds the sheet. Route
   `DELETE /api/chat/attachment/[id]?mode=…` · `GET …?removal=options`. Exposure baseline regenerated.
+- **Live on the other side**: the stream drops a message whose row is deleted (an unfiltered DELETE listener matched
+  against its own ids — Postgres Changes cannot filter a DELETE) and re-reads the removal line when an UPDATE clears a
+  file. Delete for everyone is the house DANGER pill (`ActionButton tone="danger"`); Delete for me and Cancel neutral.
 - Lab: `/dev/chat-lab/t/<id>?file=ring|sheet|late|booking`.
 
 SPEC IMPACT: None — the corpus already carries the 2026-11-13 rows.

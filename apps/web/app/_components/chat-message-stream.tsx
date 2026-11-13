@@ -131,7 +131,9 @@ import { MaybeChatFileSwipe, routeRemoveIO, type ChatFileRemoveIO, type ChatFile
 import {
   CHAT_FILE_REMOVED_FOR_ME,
   CHAT_FILE_REMOVED_UNKNOWN,
+  fileLeftMessage,
   removedForEveryoneLine,
+  withoutDeletedMessage,
 } from '@/lib/chat-file-removal';
 import { loadOpenFilings, type Filing, type OpenDecisionTopic } from '@/lib/chat-decisions';
 import { ChatPinnedStack } from './chat/chat-pinned-stack';
@@ -1333,14 +1335,21 @@ export function ChatMessageStream({
               return;
             }
             const row = payload.new as ChatMessageRow;
-            // 👈 A file just left a message (its sender removed it) → re-read who removed it, for the line.
-            const before = messagesRef.current.find((m) => m.message_id === row.message_id);
-            if (before && (before.attachment_r2_key || before.attachment_url) && !row.attachment_r2_key && !row.attachment_url)
-              void refetchRemovals();
+            // 👈 A file just left a message (its sender removed it, for everyone or by undo with words): the bubble loses
+            // it with this row, and the line saying who comes from a re-read of the removals.
+            if (fileLeftMessage(messagesRef.current.find((m) => m.message_id === row.message_id), row)) void refetchRemovals();
             setMessages((prev) =>
               prev.map((m) => (m.message_id === row.message_id ? row : m)),
             );
           },
+        )
+        // 👈 THE RING'S UNDO, LIVE ON THE OTHER SIDE (2026-11-13 "deleted at once for both"): a file sent with no words is
+        // deleted outright. Postgres Changes cannot filter a DELETE and sends only the primary key, so this listens
+        // unfiltered and drops the id only if it is one of THIS stream's messages (`withoutDeletedMessage`).
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'chat_messages' },
+          (payload) => setMessages((prev) => withoutDeletedMessage(prev, payload.old as { message_id?: unknown })),
         )
         // ♥ THE SECOND .on() — hearts on this thread, on the SAME channel (THE ONE BUILD; no new connection).
         .on(

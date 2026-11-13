@@ -47,7 +47,8 @@ test('(a) the chrome steps away (the bar below 1024, the top below 701) — 0.32
 
 test('(b) a re-tap on the ACTIVE tab tells the page; a handled one skips the tab’s own navigation', () => {
   assert.equal(TAB_RESELECT_EVENT, 'sn:tab-reselect');
-  assert.match(NAV, /if \(active && dispatchTabReselect\(\{ key: item\.key, href: item\.href \}\)\) e\.preventDefault\(\);/);
+  assert.match(NAV, /if \(active\) onReselect\(e\);/);
+  assert.match(NAV, /if \(dispatchTabReselect\(\{ key: it\.key, href: it\.href \}\)\) \{\s*e\.preventDefault\(\);\s*return;/);
   assert.match(HOOK, /new CustomEvent<TabReselectDetail>\(TAB_RESELECT_EVENT, \{ detail, cancelable: true \}\)/);
   // On the server (no window) nothing is dispatched and nothing is cancelled.
   assert.equal(dispatchTabReselect({ key: 'customers', href: '/vendor-dashboard/customers' }), false);

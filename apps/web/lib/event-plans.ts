@@ -4,7 +4,7 @@
  * `fetchV2CustomerCatalog` (`platform_retail_catalog_v2`, ACTIVE rows only), so the front door, /pricing and the
  * in-app plan screen cannot disagree about the same row.
  *
- * Free · Event Plus · Event Pro · Event Ultra. Event Pro IS Event Hub Pro (`COUPLE_WEBSITE_PRO`). A missing, inactive, unread or
+ * Free · Event Plus · Event Pro · Event Ultra. Event Pro IS `COUPLE_WEBSITE_PRO`. A missing, inactive, unread or
  * non-positive row is null — the card then names no price and no credit count, never a remembered one.
  *
  * 💎 Event Ultra (`EVENT_ULTRA`, PR #7601): upgrading to it from Plus or Pro pays the difference (owner 13 Nov).

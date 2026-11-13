@@ -46,7 +46,7 @@ test('Door 1 offers the lowest plan above the shop that takes the number', () =>
   const plan = lowestPlanAllowing('solo', 'bookingsPerDate', want, true);
   assert.ok(plan);
   assert.ok(TIER_CAPS[plan].bookingsPerDatePerService >= want);
-  // Nothing between Solo and that plan takes it.
+  // Nothing between Supplier Plus and that plan takes it.
   const ladder = ['solo', 'pro', 'enterprise'] as const;
   for (const t of ladder.slice(1, ladder.indexOf(plan as 'pro' | 'enterprise'))) {
     assert.ok(TIER_CAPS[t].bookingsPerDatePerService < want, `${t} already takes ${want}`);

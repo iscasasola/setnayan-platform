@@ -438,7 +438,7 @@ function CreditLadderRow({
             </span>
           </span>
           <span className="mt-1 block text-[13px] text-ink/60">
-            Every size tops up the celebration&apos;s shared pot. Edited as a ladder on its
+            Every size tops up the event&apos;s shared pot. Edited as a ladder on its
             own tab; opened here so nothing is hidden.
           </span>
         </span>
@@ -853,7 +853,7 @@ function SaveSection({ row }: { row: PriceRowProp }) {
                 className="input-field h-9 w-full text-sm"
               >
                 <option value="one_time">Once</option>
-                <option value="per_day">Per day of the celebration</option>
+                <option value="per_day">Per day of the event</option>
                 <option value="per_year">Per year</option>
                 <option value="per_28d">Every 28 days</option>
               </select>
@@ -916,7 +916,7 @@ function SaveSection({ row }: { row: PriceRowProp }) {
             What it costs us
           </h4>
           <div className="max-w-[230px]">
-            <FieldLabel>Our cost per celebration</FieldLabel>
+            <FieldLabel>Our cost per event</FieldLabel>
             <MoneyField name="cost" defaultValue={cost} placeholder="blank" onChange={setCost} />
           </div>
           <p className="mt-2 text-[13px] text-ink/60">

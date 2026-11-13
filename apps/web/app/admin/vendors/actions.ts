@@ -415,7 +415,7 @@ function parseCsvList(raw: FormDataEntryValue | null): string[] {
 }
 
 // 🚨 WAS A PRIVATE FOUR-VALUE LIST that silently disagreed with the six-option
-// dropdowns posting to it — picking Solo threw `Invalid tier.` as an unhandled
+// dropdowns posting to it — picking Supplier Plus threw `Invalid tier.` as an unhandled
 // error. Now the ONE list, shared with every `<select>` that posts here, so the
 // offered set and the accepted set cannot drift apart again. See its docblock.
 const VENDOR_TIER_VALUES = VENDOR_TIER_SETTABLE;

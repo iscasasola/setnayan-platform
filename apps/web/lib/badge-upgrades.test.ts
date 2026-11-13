@@ -3,7 +3,7 @@
  *
  *   • the table IS the ruling: Verified → Papic Challenges · first booking → 3D Booth · 5 reviews → AI Chatbot ·
  *     Top Pick / Most Booked → any of the three; Rising gives none;
- *   • below Solo the booth becomes Papic Challenges, decided at Start (sabotage: return `choices` unchanged → red);
+ *   • below Supplier Plus the booth becomes Papic Challenges, decided at Start (sabotage: return `choices` unchanged → red);
  *   • nothing is owed for an unread badge, and one award per month gives one upgrade;
  *   • the products and periods are the paid activation's own constants, never typed;
  *   • the booth floor here equals the booth's own floor in lib/seating-3d.ts.
@@ -93,7 +93,7 @@ describe('what a shop is owed', () => {
   });
 });
 
-describe('below Solo the 3D Booth becomes Papic Challenges', () => {
+describe('below Supplier Plus the 3D Booth becomes Papic Challenges', () => {
   it('first booking', () => {
     assert.deepEqual(startableChoices(['3d_booth'], 'free'), ['photo_challenge']);
     assert.deepEqual(startableChoices(['3d_booth'], 'verified'), ['photo_challenge']);
@@ -101,7 +101,7 @@ describe('below Solo the 3D Booth becomes Papic Challenges', () => {
     assert.deepEqual(startableChoices(['3d_booth'], 'solo'), ['3d_booth']);
     assert.deepEqual(startableChoices(['3d_booth'], 'enterprise'), ['3d_booth']);
   });
-  it('an award’s choice hides the booth below Solo, without a duplicate', () => {
+  it('an award’s choice hides the booth below Supplier Plus, without a duplicate', () => {
     assert.deepEqual(startableChoices(['photo_challenge', '3d_booth', 'ai_chatbot'], 'verified'), ['photo_challenge', 'ai_chatbot']);
     assert.deepEqual(startableChoices(['photo_challenge', '3d_booth', 'ai_chatbot'], 'pro'), ['photo_challenge', '3d_booth', 'ai_chatbot']);
   });

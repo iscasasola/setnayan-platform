@@ -137,11 +137,11 @@ function labSheet(
 }
 
 /**
- * 📉 `?s=plan&who=studio&limits=1` — the LIMITS SHEET (ruling 5683) on a Pro shop with more than Solo holds: five
+ * 📉 `?s=plan&who=studio&limits=1` — the LIMITS SHEET (ruling 5683) on a Pro shop with more than Supplier Plus holds: five
  * services over three categories, one taking three bookings a day, four counted seats, three included branches, a
  * 100 km reach and a Verified badge on the 30 March renewal day. `&floor=1` adds the storage floor with a LAB-ONLY
  * allowance (the lab's own number, so the floor draws on any plan; the real one is `storageAllowanceBytes`, read from
- * TIER_CAPS — Solo 5 GB · Pro 10 GB · Ultra 15 GB since 2026-11-13).
+ * TIER_CAPS — Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB since 2026-11-13).
  */
 const labCard = (id: string, name: string, kind: string, family: string, daily: number | null) => ({
   id,
@@ -593,6 +593,7 @@ function giftsFixture(unverified: boolean, fail: boolean, inApp = false) {
               papic: { balance: 2150, held: 1150 },
               event_plus: { balance: 3, held: 1 },
               event_pro: { balance: 1, held: 0 },
+              event_ultra: { balance: 0, held: 0 },
             },
         packs: LAB_GIFT_PACKS,
         paysGiftPrice: !unverified,
@@ -611,7 +612,7 @@ function giftsFixture(unverified: boolean, fail: boolean, inApp = false) {
         canBuy: !inApp,
         // 🏅 Badge rewards (2026-11-05): some of the stock is badge reward, a free booking fee used and one waiting.
         rewards: {
-          left: fail ? null : { papic: 300, event_plus: 1, event_pro: 0 },
+          left: fail ? null : { papic: 300, event_plus: 1, event_pro: 0, event_ultra: 0 },
           granted: fail
             ? null
             : [
@@ -623,7 +624,7 @@ function giftsFixture(unverified: boolean, fail: boolean, inApp = false) {
                 labReward('events:50', 'event_plus', 1, '2026-10-02T02:00:00Z'),
                 labReward('events:10', 'event_plus', 1, '2026-09-14T02:00:00Z'),
               ],
-          names: { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro' },
+          names: { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro', event_ultra: 'Event Ultra' },
         },
       }}
     />
@@ -639,6 +640,6 @@ const LAB_GIFT_LEDGER = [
   { entryId: 'e1', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, giftKind: 'papic' as const, unlocksSku: null, delta: 150, eventId: null, eventName: null, orderReference: 'SN-6PLM', landed: false, createdAt: '2026-10-30T05:00:00Z' },
 ];
 const LAB_GIFT_HOLDS = [
-  { proposalId: 'p1', shopName: 'Saysay Catering', eventName: 'Bea & Carlo', status: 'sent', credits: 1000, plus: 1, pro: 0 },
-  { proposalId: 'p2', shopName: 'Saysay Catering', eventName: 'Rina’s 18th', status: 'accepted', credits: 150, plus: 0, pro: 0 },
+  { proposalId: 'p1', shopName: 'Saysay Catering', eventName: 'Bea & Carlo', status: 'sent', credits: 1000, plus: 1, pro: 0, ultra: 0 },
+  { proposalId: 'p2', shopName: 'Saysay Catering', eventName: 'Rina’s 18th', status: 'accepted', credits: 150, plus: 0, pro: 0, ultra: 0 },
 ];

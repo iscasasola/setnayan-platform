@@ -11,7 +11,7 @@
  *   2 · its Style is ONE Accent ◆ ▾ offering only None · Oval frame — the same row and the same `scene_accents` map;
  *   3 · None draws NO oval, and still draws "See you soon." and the band on a kit look; the oval's photo is grey;
  *   4 · it is Pro: turning the oval on is Pro (◆ on the pill, priced at Apply), turning it off is free, and a guest
- *       without Event Hub Pro is drawn no kit at all.
+ *       without Event Pro is drawn no kit at all.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -175,6 +175,6 @@ test('4 · the Oval frame is Pro — on is priced, off is free, and a guest with
   assert.equal(eventItemIsPro('style_preferences', { scene_accents: { 'sign-off': ACCENT_NONE } }, 'change', { scene_accents: { 'sign-off': 'oval' } }), false, 'the draft prices None');
   assert.equal(artKitView({ theme: 'house', accents: { 'sign-off': 'oval' }, ownsPro: false, tryOn: false, isPro: true }), null, 'a guest without Pro is drawn the oval');
   assert.ok(artKitView({ theme: 'house', accents: { 'sign-off': 'oval' }, ownsPro: false, tryOn: true, isPro: true })?.pieces.closing, 'the Maker cannot try the oval on');
-  /* The pill wears ◆ while the couple has not got Event Hub Pro. */
+  /* The pill wears ◆ while the couple has not got Event Pro. */
   assert.match(code('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx'), /tryPro=\{ART_KIT_IS_PRO && !ownsPro\}/);
 });

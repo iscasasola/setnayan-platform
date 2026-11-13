@@ -31,7 +31,7 @@ export const MAKER_PHONE_BAR_PX = 52;
 
 /*
  * 🧭 THE HUB KEEPS THE APP'S NAV (owner 2026-10-30, verbatim: *"i was thinking having the bottom nav still and the
- * bottom toolbar to show and hide when not needed?"* — DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV
+ * bottom toolbar to show and hide when not needed?"* — DECISION_LOG "EVENT PRO (look redesign) — THE APP'S NAV
  * STAYS"; reverses 2026-10-01 "EVENT HUB IS FULL SCREEN WITH ONE EXIT" for the Hub tab, as the 2026-10-27 "THE EVENT
  * HUB JOINS THE SAME SHAPE AS HOME · GUESTS · SUPPLIERS" row asked).
  *

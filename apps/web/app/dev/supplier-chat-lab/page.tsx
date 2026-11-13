@@ -289,7 +289,7 @@ export default async function SupplierChatLabPage({
                 ]),
                 schedule: BOOKING_FEE,
                 limitPct: GIFT_LIMIT_PCT_DEFAULT,
-                free: { papic: sp.gifts === 'short' ? 400 : 2150, event_plus: 2, event_pro: 1 },
+                free: { papic: sp.gifts === 'short' ? 400 : 2150, event_plus: 2, event_pro: 1, event_ultra: 0 },
                 eventHas: sp.gifts === 'plus' ? 'plus' : sp.gifts === 'pro' ? 'pro' : 'none',
               }
             : null

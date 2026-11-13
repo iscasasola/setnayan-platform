@@ -8,7 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * cycle (one-time per account). When active, the vendor's booth renders BRANDED
  * (logo + poster) inside their couples' PUBLISHED 3D Plans; without it a
  * Pro/Enterprise vendor keeps the existing GENERIC (unbranded) booth. It is
- * Pro+ (not Solo+ like the AI add-on) because booth branding is already a
+ * Pro+ (not Supplier Plus and up like the AI add-on) because booth branding is already a
  * Pro/Enterprise perk (lib/seating-3d.ts boothCanBrand).
  *
  * The price DECISION is a PURE function (no I/O, no clock, never a hardcoded

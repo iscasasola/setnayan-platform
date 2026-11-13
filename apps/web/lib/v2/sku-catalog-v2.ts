@@ -88,7 +88,7 @@ export const V2_SKU_CODES = [
   // codes stay listed here for historical order rows but go is_active=false in
   // the catalog (hidden from /pricing).
   'COUPLE_WEBSITE_PRO',
-  // 💎 Event Hub Pro, part by part (owner 2026-10-22, migration 20271282742262) —
+  // 💎 Event Pro, part by part (owner 2026-10-22, migration 20271282742262) —
   // one catalogue row per part; `lib/hub-parts.ts` names them. Never a price here.
   'COUPLE_HUB_PART_REVEAL',
   'COUPLE_HUB_PART_BACKGROUND',

@@ -50,6 +50,7 @@ export function SupplierTodayScreen({
   eventsYouRun = [],
   setup = null,
   hero = null,
+  earned = null,
 }: {
   view: SupplierTodayView;
   outcome: TodayOutcome | null;
@@ -72,6 +73,13 @@ export function SupplierTodayScreen({
   setup?: ReactNode;
   /** 🖼 The shared hero's picture (Lane E item 11) — read by the page; the lab draws the placeholder. */
   hero?: Parameters<typeof TodayCover>[0]['hero'];
+  /**
+   * 🏅 The "You earned …" line (`<BadgeEarnedLine />`) — drawn UNDER the Today photo, never above it (owner 13 Nov,
+   * live shot: the line sat between the top bar and the photo and made the header look cut; *"Under the Today
+   * photo"*). A new shop has no photo, so it sits above the six steps instead.
+   * 🔒 app/vendor-dashboard/_components/the-earned-line-sits-under-the-photo.test.ts
+   */
+  earned?: ReactNode;
 }) {
   /*
     📌 ONE PINNED ROW, AND IT IS "NEEDS YOU TODAY" (owner 10 Nov on the Supplier Menu Plan, Today scrolled: *"Needs you
@@ -100,7 +108,12 @@ export function SupplierTodayScreen({
   return (
     <TodayGearRide>
       <SupplierTodayFirstScreen
-        cover={top}
+        cover={
+          <>
+            {top}
+            {earned}
+          </>
+        }
         gear={setup ? null : <TodayGearSlot at="pin" />}
         nextEvents={nextEvents}
         stats={statsTop}
@@ -113,7 +126,14 @@ export function SupplierTodayScreen({
         shop={view.shop}
         business={view.business}
         library={library}
-        setup={setup}
+        setup={
+          setup ? (
+            <>
+              {earned}
+              {setup}
+            </>
+          ) : null
+        }
         thumb={thumb}
         // WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its own Pay (owner 2026-09-20: "i never saw the
         // payment screen to pay us"), as rows of Needs you today, and the lock said once under them. Renders nothing

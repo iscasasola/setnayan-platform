@@ -369,6 +369,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   setnayan_pay_methods: 'Platform payment configuration — Setnayan’s own rails, not subject data.',
   hub_tools: 'Setnayan-authored Hub tool library; updated_by is an internal admin editor, not a data subject.',
   category_hub_settings: 'Setnayan per-category configuration; updated_by is an internal admin editor, not a data subject.',
+  vendor_plan_contents: 'Setnayan supplier-plan configuration (owner 2026-11-13); changed_by/confirmed_by are internal admins who approved a change, not a data subject.',
+  vendor_plan_content_changes: 'History of Setnayan plan configuration; the user ids are the approving internal admins, not a data subject.',
   platform_settings:
     'Platform configuration; platform_settings.ig_user_id is Setnayan’s OWN IG account, not a user’s.',
   vendor_verifications: 'Admin decision record — the uid on it is a staff actor, not the subject.',

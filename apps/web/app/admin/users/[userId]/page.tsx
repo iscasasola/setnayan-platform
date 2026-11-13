@@ -39,6 +39,7 @@ import {
 } from './_components/account-card-nav';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { AccountHoldSection } from './_components/account-hold-section';
 import { formatCount } from '@/lib/format-number';
 export const metadata = { title: 'Account · Admin' };
 
@@ -47,7 +48,10 @@ export const metadata = { title: 'Account · Admin' };
  * Customer Card respine · owner-approved 2026-07-03). Reachable by clicking a
  * user's email/name on /admin/users. Supersedes draft PR #2051.
  *
- * VIEW-ONLY by design — no write actions of any kind. Every account mutation
+ * ⏸ ONE EXCEPTION since 2026-11-13: the Account hold section (Suspend / Unsuspend, owner "Yes, add both"), placed
+ * here by the approved prototype (people.html › Person › Actions) — _components/account-hold-section.tsx.
+ *
+ * Otherwise VIEW-ONLY by design — no write actions of any kind. Every account mutation
  * (confirm email · reset password · blacklist · delete · issue/revoke comp)
  * stays on the per-user action rows on /admin/users. This page only READS, so
  * an admin can see everything the platform has gathered about an account in one
@@ -126,13 +130,22 @@ function surfaceWord(surface: string | null): string {
 
 type Props = {
   params: Promise<{ userId: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    // ⏸ Account suspend (owner 2026-11-13) — the outcome of the last Suspend / Unsuspend press.
+    suspended?: string;
+    unsuspended?: string;
+    undo_reason?: string;
+    undo_until?: string;
+    suspend_error?: string;
+  }>;
 };
 
 export default async function AdminAccountCardPage({ params, searchParams }: Props) {
   await requireAdmin();
   const { userId } = await params;
-  const { tab: rawTab } = await searchParams;
+  const sp = await searchParams;
+  const rawTab = sp.tab;
   const tab = normalizeAccountTab(rawTab);
   const admin = createAdminClient();
 
@@ -140,7 +153,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
   const { data: user, error: userError } = await admin
     .from('users')
     .select(
-      'user_id, public_id, email, display_name, account_type, is_internal, is_team_member, marketing_opt_in, last_login_at, deleted_at, tour_completed_at, tour_seen_keys, created_at',
+      'user_id, public_id, email, display_name, account_type, is_internal, is_team_member, marketing_opt_in, last_login_at, deleted_at, tour_completed_at, tour_seen_keys, created_at, suspended_at, suspended_until, suspended_reason',
     )
     .eq('user_id', userId)
     .maybeSingle();
@@ -442,7 +455,11 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                 </span>
               ) : null}
               {/* Account status */}
-              {user.deleted_at ? (
+              {user.suspended_at && !user.deleted_at ? (
+                <span className="rounded-md bg-[var(--sn-warning-soft)] px-2 py-1 text-xs font-medium text-ink">
+                  ⏸ Suspended
+                </span>
+              ) : user.deleted_at ? (
                 <span className="rounded-md bg-mulberry/10 px-2 py-1 text-xs font-medium text-mulberry">
                   Deleted {fmtDate(user.deleted_at as string)}
                 </span>
@@ -474,6 +491,24 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
       <div className="mt-6 space-y-6">
         {tab === 'overview' ? (
           <>
+            {/* ⏸ Account hold (owner 2026-11-13 — prototype people.html cfm-suspend-person · cfm-unsuspend-person) */}
+            {!user.deleted_at ? (
+              <AccountHoldSection
+                userId={userId}
+                name={displayName}
+                isInternal={Boolean(user.is_internal)}
+                suspendedAt={(user.suspended_at as string | null) ?? null}
+                suspendedUntil={(user.suspended_until as string | null) ?? null}
+                suspendedReason={(user.suspended_reason as string | null) ?? null}
+                flash={{
+                  suspended: sp.suspended === '1',
+                  unsuspended: sp.unsuspended === '1',
+                  undoReason: sp.undo_reason ?? null,
+                  undoUntil: sp.undo_until ?? null,
+                  error: sp.suspend_error ?? null,
+                }}
+              />
+            ) : null}
             {/* Profile & flags */}
             <section className="sn-tile p-5">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">

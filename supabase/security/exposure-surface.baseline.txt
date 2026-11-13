@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7787
+# facts: 7805
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     633
-#   col       5608
-#   policy    1139
+#   tpriv     634
+#   col       5623
+#   policy    1141
 #   view      10
 #   func      393
 #
@@ -569,6 +569,7 @@ tpriv	public.vendor_partnerships|authenticated	SIUD
 tpriv	public.vendor_payment_asks|authenticated	SI
 tpriv	public.vendor_payment_methods|authenticated	SD
 tpriv	public.vendor_payouts|authenticated	SIUD
+tpriv	public.vendor_plan_content_changes|authenticated	S
 tpriv	public.vendor_portfolio_photo_views|authenticated	S
 tpriv	public.vendor_portion_rules|authenticated	SIUD
 tpriv	public.vendor_profile_views|anon	SIUD
@@ -4796,6 +4797,9 @@ col	public.users.sex	anon=S authenticated=SU
 col	public.users.sex_consent_at	anon=S authenticated=SU
 col	public.users.share_profile_photo_with_hosts	anon=S authenticated=SU
 col	public.users.slug	anon=S authenticated=SU
+col	public.users.suspended_at	anon=S authenticated=SU
+col	public.users.suspended_reason	anon=S authenticated=SU
+col	public.users.suspended_until	anon=S authenticated=SU
 col	public.users.terms_accepted_at	anon=S authenticated=SU
 col	public.users.terms_version	anon=S authenticated=SU
 col	public.users.theme_preference	anon=S authenticated=SU
@@ -5537,6 +5541,18 @@ col	public.vendor_payouts.trigger_type	anon=- authenticated=SIU
 col	public.vendor_payouts.updated_at	anon=- authenticated=SIU
 col	public.vendor_payouts.vendor_net_centavos	anon=- authenticated=SIU
 col	public.vendor_payouts.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_plan_content_changes.approval_id	anon=- authenticated=S
+col	public.vendor_plan_content_changes.change_id	anon=- authenticated=S
+col	public.vendor_plan_content_changes.changed_at	anon=- authenticated=S
+col	public.vendor_plan_content_changes.changed_by	anon=- authenticated=S
+col	public.vendor_plan_content_changes.confirmed_by	anon=- authenticated=S
+col	public.vendor_plan_content_changes.key	anon=- authenticated=S
+col	public.vendor_plan_content_changes.new_value	anon=- authenticated=S
+col	public.vendor_plan_content_changes.old_value	anon=- authenticated=S
+col	public.vendor_plan_content_changes.plan	anon=- authenticated=S
+col	public.vendor_plan_contents.key	anon=S authenticated=S
+col	public.vendor_plan_contents.plan	anon=S authenticated=S
+col	public.vendor_plan_contents.value	anon=S authenticated=S
 col	public.vendor_portfolio_photo_views.last_viewed_at	anon=- authenticated=S
 col	public.vendor_portfolio_photo_views.photo_key	anon=- authenticated=S
 col	public.vendor_portfolio_photo_views.vendor_profile_id	anon=- authenticated=S
@@ -7270,6 +7286,8 @@ policy	public.vendor_payment_methods|vendor_payment_methods_owner	mode=PERMISSIV
 policy	public.vendor_payment_methods|vendor_payment_methods_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_payouts|vendor_payouts_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_payouts.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) check=NULL
 policy	public.vendor_payouts|vendor_payouts_team_admin	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
+policy	public.vendor_plan_content_changes|vendor_plan_content_changes_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.vendor_plan_contents|vendor_plan_contents_public_read	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.vendor_portfolio_photo_views|vendor_portfolio_photo_views_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.vendor_portfolio_photo_views|vendor_portfolio_photo_views_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.vendor_portion_rules|vendor_portion_rules_org_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))

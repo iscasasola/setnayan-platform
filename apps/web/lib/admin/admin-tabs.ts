@@ -57,6 +57,8 @@ export type AdminView = {
   queue?: string;
   /** One-line hint, for the ⓘ. */
   tip?: string;
+  /** A heading in the open View ▾ list; consecutive views with the same group share it. */
+  group?: string;
 };
 
 export type AdminTab = {
@@ -95,31 +97,32 @@ export const ADMIN_TABS: readonly AdminTab[] = [
     views: [
       {
         key: 'work',
-        label: 'Work',
+        // The drawing's word for the landing (start.html VIEWS: "All").
+        label: 'All',
         href: '/admin',
         // `/admin/more` and `/admin/queues` are retired hubs (the five tabs and
         // View ▾ replace them) — they still answer, and they light Work.
         match: ['/admin$', '/admin/work', '/admin/queues', '/admin/more'],
         tip: 'Everything waiting on you, most urgent first.',
       },
-      { key: 'approvals', label: 'Approvals', href: '/admin/approvals', queue: 'approvals' },
-      { key: 'messages', label: 'Messages', href: '/admin/help', queue: 'help' },
-      { key: 'account-deletions', label: 'Account deletions', href: '/admin/account-deletions', queue: 'account-deletions' },
-      { key: 'event-removals', label: 'Event removals', href: '/admin/event-deletions', queue: 'event-deletions' },
-      { key: 'disputes', label: 'Disputes', href: '/admin/disputes', queue: 'disputes' },
-      { key: 'force-majeure', label: 'Force majeure', href: '/admin/force-majeure', queue: 'force-majeure' },
-      { key: 'user-reports', label: 'User reports', href: '/admin/user-reports', queue: 'user-reports' },
-      { key: 'fraud', label: 'Fraud queue', href: '/admin/fraud' },
-      { key: 'ai-abuse', label: 'Setnayan AI abuse', href: '/admin/concierge-abuse', queue: 'concierge-abuse' },
-      { key: 'integrity', label: 'Integrity watch', href: '/admin/integrity-watch', queue: 'integrity-watch' },
-      { key: 'repost', label: 'Repost watch', href: '/admin/repost-watch' },
-      { key: 'chat-flags', label: 'Chat contact flags', href: '/admin/chat-flags', queue: 'chat-flags' },
-      { key: 'reviews', label: 'Review moderation', href: '/admin/reviews', queue: 'reviews' },
-      { key: 'editorial', label: 'Editorial review', href: '/admin/editorial-review' },
-      { key: 'completions', label: 'Completions', href: '/admin/completions', queue: 'completions' },
-      { key: 'corrections', label: 'Profile corrections', href: '/admin/corrections', queue: 'corrections' },
-      { key: 'pax', label: 'Pax changes', href: '/admin/pax-changes' },
-      { key: 'music-maker', label: 'Music Maker queue', href: '/admin/pakanta' },
+      { key: 'approvals', label: 'Approvals', group: 'Every shipped queue', href: '/admin/approvals', queue: 'approvals' },
+      { key: 'messages', label: 'Messages', group: 'Every shipped queue', href: '/admin/help', queue: 'help' },
+      { key: 'account-deletions', label: 'Account deletions', group: 'Every shipped queue', href: '/admin/account-deletions', queue: 'account-deletions' },
+      { key: 'event-removals', label: 'Event removals', group: 'Every shipped queue', href: '/admin/event-deletions', queue: 'event-deletions' },
+      { key: 'disputes', label: 'Disputes', group: 'Every shipped queue', href: '/admin/disputes', queue: 'disputes' },
+      { key: 'force-majeure', label: 'Force majeure', group: 'Every shipped queue', href: '/admin/force-majeure', queue: 'force-majeure' },
+      { key: 'user-reports', label: 'User reports', group: 'Every shipped queue', href: '/admin/user-reports', queue: 'user-reports' },
+      { key: 'fraud', label: 'Fraud queue', group: 'Every shipped queue', href: '/admin/fraud' },
+      { key: 'ai-abuse', label: 'Setnayan AI abuse', group: 'Every shipped queue', href: '/admin/concierge-abuse', queue: 'concierge-abuse' },
+      { key: 'integrity', label: 'Integrity watch', group: 'Every shipped queue', href: '/admin/integrity-watch', queue: 'integrity-watch' },
+      { key: 'repost', label: 'Repost watch', group: 'Every shipped queue', href: '/admin/repost-watch' },
+      { key: 'chat-flags', label: 'Chat contact flags', group: 'Every shipped queue', href: '/admin/chat-flags', queue: 'chat-flags' },
+      { key: 'reviews', label: 'Review moderation', group: 'Every shipped queue', href: '/admin/reviews', queue: 'reviews' },
+      { key: 'editorial', label: 'Editorial review', group: 'Every shipped queue', href: '/admin/editorial-review' },
+      { key: 'completions', label: 'Completions', group: 'Every shipped queue', href: '/admin/completions', queue: 'completions' },
+      { key: 'corrections', label: 'Profile corrections', group: 'Every shipped queue', href: '/admin/corrections', queue: 'corrections' },
+      { key: 'pax', label: 'Pax changes', group: 'Every shipped queue', href: '/admin/pax-changes' },
+      { key: 'music-maker', label: 'Music Maker queue', group: 'Every shipped queue', href: '/admin/pakanta' },
     ],
     settings: [],
   },

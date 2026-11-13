@@ -47,7 +47,6 @@
  */
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
 
 import type { NavBadgeTone } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
@@ -56,6 +55,7 @@ import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import { ADMIN_TABS, activeAdminTabKey } from '@/lib/admin/admin-tabs';
 
 import { ADMIN_TAB_ICON, workBadge } from './admin-bottom-nav';
+import { useAdminAddress } from './admin-tab-rows';
 import { formatCount } from '@/lib/format-number';
 
 /** The rail's own count colours. Neutral is the rail's meta ink; amber and red
@@ -74,22 +74,24 @@ export function AdminRailContext({
   overdue = 0,
   dueSoon = 0,
   unreadable = 0,
+  at,
 }: {
   navSlots?: Record<string, NavSlotLite>;
   queueCounts?: AdminQueueCounts;
+  /** Lab only — an address drawn on fixtures. */
+  at?: string;
   overdue?: number;
   dueSoon?: number;
   unreadable?: number;
 }) {
-  const pathname = usePathname() ?? '/admin';
   /*
     QUERY-AWARE, because the admin's own routes are: `/admin/studio?tab=referrals`
     is Money while `/admin/studio` is Catalogue. `useSearchParams()` returns null
     on the first static paint, which the matcher reads as "no params" — it
     resolves on hydration.
   */
-  const searchParams = useSearchParams();
-  const activeKey = activeAdminTabKey(pathname, searchParams);
+  const { pathname, params } = useAdminAddress(at);
+  const activeKey = activeAdminTabKey(pathname, params);
   const badge = workBadge(queueCounts, overdue, dueSoon, unreadable);
 
   return (

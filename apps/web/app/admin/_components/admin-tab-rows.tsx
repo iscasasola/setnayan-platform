@@ -64,14 +64,22 @@ function viewTrail(view: AdminView, counts: AdminQueueCounts | undefined): PickO
   return { text: formatCount(n), tone: 'left', label: `${formatCount(n)} waiting` };
 }
 
-function useAdminPlace(): AdminPlace | null {
+/** Where the page is: the real address — or `at`, an address a dev lab draws on fixtures (`/dev/admin-shell-lab`). */
+export function useAdminAddress(at?: string): { pathname: string; params: { get(k: string): string | null } | null } {
   const pathname = usePathname() ?? '/admin';
   const params = useSearchParams();
+  if (at === undefined) return { pathname, params };
+  const [p, q] = at.split('?');
+  return { pathname: p!, params: new URLSearchParams(q ?? '') };
+}
+
+function useAdminPlace(at?: string): AdminPlace | null {
+  const { pathname, params } = useAdminAddress(at);
   return adminPlaceFor(pathname, params);
 }
 
-export function AdminPinnedRow({ queueCounts }: { queueCounts?: AdminQueueCounts }) {
-  const place = useAdminPlace();
+export function AdminPinnedRow({ queueCounts, at }: { queueCounts?: AdminQueueCounts; /** Lab only. */ at?: string }) {
+  const place = useAdminPlace(at);
   const router = useRouter();
   const [gearOpen, setGearOpen] = useState(false);
   if (!place) return null;
@@ -108,7 +116,7 @@ export function AdminPinnedRow({ queueCounts }: { queueCounts?: AdminQueueCounts
           label: `${tab.label} view`,
           value: isSetting ? '' : view.key,
           buttonText: isSetting ? `${tab.label} · ⚙ ${view.label}` : `${tab.label} · ${view.label}`,
-          options: tab.views.map((v) => ({ key: v.key, label: v.label, trail: viewTrail(v, queueCounts) })),
+          options: tab.views.map((v) => ({ key: v.key, label: v.label, group: v.group, trail: viewTrail(v, queueCounts) })),
           onPick: (key) => {
             const v = tab.views.find((x) => x.key === key);
             if (v) router.push(v.href);
@@ -159,8 +167,8 @@ function TabSettingsRows({ tab, current, onGo }: { tab: AdminTab; current: strin
   );
 }
 
-export function AdminThumbRow() {
-  const place = useAdminPlace();
+export function AdminThumbRow({ at }: { /** Lab only. */ at?: string } = {}) {
+  const place = useAdminPlace(at);
   if (!place || place.kind !== 'tab') return null;
   const { tab } = place;
   return (

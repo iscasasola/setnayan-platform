@@ -28,7 +28,6 @@
  */
 
 import { Banknote, Inbox, LayoutGrid, LineChart, Users, type LucideIcon } from 'lucide-react';
-import { usePathname, useSearchParams } from 'next/navigation';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -36,6 +35,8 @@ import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
 import { ADMIN_TABS, activeAdminTabKey, type AdminTab } from '@/lib/admin/admin-tabs';
 import { formatCount } from '@/lib/format-number';
+import { usePathname } from 'next/navigation';
+import { useAdminAddress } from './admin-tab-rows';
 
 export const ADMIN_TAB_ICON: Record<AdminTab['icon'], LucideIcon> = {
   Inbox,
@@ -85,9 +86,12 @@ export function AdminBottomNav({
   overdue = 0,
   dueSoon = 0,
   unreadable = 0,
+  at,
 }: {
   navSlots?: Record<string, NavSlotLite>;
   queueCounts?: AdminQueueCounts;
+  /** Lab only — an address drawn on fixtures. */
+  at?: string;
   /** Count of queues past SLA — turns the Work badge red. */
   overdue?: number;
   /** Count of queues approaching SLA — turns it amber. */
@@ -95,9 +99,10 @@ export function AdminBottomNav({
   /** Count of queues whose count could not be read. */
   unreadable?: number;
 }) {
-  const pathname = usePathname() ?? '/admin';
-  const params = useSearchParams();
+  const { pathname, params } = useAdminAddress(at);
   const active = activeAdminTabKey(pathname, params);
+  // The shared bar lights a tab by the URL it is actually on, so the winner is handed THAT address.
+  const here = usePathname() ?? pathname;
   const badge = workBadge(queueCounts, overdue, dueSoon, unreadable);
 
   const items = ADMIN_BOTTOM_NAV_ITEMS.flatMap((item): BottomNavItem[] => {
@@ -109,7 +114,7 @@ export function AdminBottomNav({
       {
         ...named,
         // The one winner lights by its exact current address; every other tab matches nothing.
-        activeMatch: item.key === active ? [pathname] : [],
+        activeMatch: item.key === active ? [here] : [],
         ...(item.key === 'work' && badge ? { badge } : {}),
       },
     ];

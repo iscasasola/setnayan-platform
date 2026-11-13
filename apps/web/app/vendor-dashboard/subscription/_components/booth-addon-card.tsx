@@ -168,7 +168,7 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
           {paidButUnverified ? (
             <span>Get your shop verified to unlock 3D Booth — it&rsquo;s a verified-only add-on.</span>
           ) : (
-            <span>3D Booth is available on the Pro and Ultra plans. Upgrade above to add it.</span>
+            <span>3D Booth is available on the Supplier Pro and Supplier Ultra plans. Upgrade above to add it.</span>
           )}
         </div>
       ) : (

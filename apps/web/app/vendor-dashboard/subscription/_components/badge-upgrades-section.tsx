@@ -47,7 +47,7 @@ export function BadgeUpgradesSection({ data }: { data: BadgeUpgradesSectionData 
     <section id="upgrades" className="mt-8 scroll-mt-24" data-badge-upgrades="" aria-labelledby={headingId}>
       <InfoTip label="Your upgrades" labelAs="h2" labelClassName="sn-sec" labelId={headingId} align="start">
         Some badges give your own shop four weeks of an add-on: Verified → Papic Challenges · your first booking → 3D Booth
-        (Papic Challenges below Solo, where the booth can&rsquo;t show your logo) · 5 reviews → AI Chatbot · Top Pick or
+        (Papic Challenges below Supplier Plus, where the booth can&rsquo;t show your logo) · 5 reviews → AI Chatbot · Top Pick or
         Most Booked of the month → the one you choose. Each waits here until you tap Start — it never expires unused.
       </InfoTip>
       <div className="mt-2">

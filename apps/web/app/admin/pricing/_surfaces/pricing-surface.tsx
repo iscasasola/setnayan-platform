@@ -121,17 +121,17 @@ const VENDOR_OFFERING_LABEL: Record<VendorOfferingType, string> = {
   subscription_monthly: 'Subscription · monthly',
   subscription_annual: 'Subscription · annual',
   token_pack: 'Token pack',
-  branch: 'Add-on · +1 branch (Ultra)',
-  seat: 'Add-on · +1 team seat (Ultra)',
+  branch: 'Add-on · +1 branch (Supplier Ultra)',
+  seat: 'Add-on · +1 team seat (Supplier Ultra)',
   custom_addon: 'Custom plan part',
   vendor_addon_recurring: 'Add-on · every 4 weeks',
   vendor_addon_per_event: 'Add-on · per celebration',
   vendor_addon_metered: 'Add-on · per use',
   // Ultra add-ons, owner 2026-11-06 ("ULTRA ADD-ON PRICES").
-  category: 'Add-on · +1 category (Ultra)',
-  service_card: 'Add-on · +1 service card (Ultra)',
-  waitlist: 'Add-on · +1 wait list (Ultra)',
-  booking_per_date: 'Add-on · +1 booking per date (Ultra)',
+  category: 'Add-on · +1 category (Supplier Ultra)',
+  service_card: 'Add-on · +1 service card (Supplier Ultra)',
+  waitlist: 'Add-on · +1 wait list (Supplier Ultra)',
+  booking_per_date: 'Add-on · +1 booking per date (Supplier Ultra)',
 };
 
 export async function PricingSurface(_props: Props) {

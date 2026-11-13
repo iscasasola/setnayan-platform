@@ -47,6 +47,11 @@ type LabelTag = 'span' | 'p' | 'h2' | 'h3' | 'h4';
 export type InfoTipProps = {
   /** The VISIBLE label the `(i)` sits beside. Printed by this component. */
   label: string;
+  /**
+   * The same label with its own emphasis (a bold name, a coloured stance — the notification's place line, owner
+   * 2026-11-13). Printed INSTEAD of `label`'s text; `label` stays required and still names the `(i)`. Never empty.
+   */
+  labelNode?: ReactNode;
   /** What the popover says. Short — a sentence or two, never a manual. */
   children: ReactNode;
   /** Element the label renders as. A heading makes the label the section title. */
@@ -63,6 +68,7 @@ export type InfoTipProps = {
 
 export function InfoTip({
   label,
+  labelNode,
   children,
   labelAs = 'span',
   labelClassName,
@@ -135,7 +141,7 @@ export function InfoTip({
       onPointerLeave={(e) => dispatch({ type: 'pointerleave', pointerType: e.pointerType })}
     >
       <Label id={labelId} className={labelClassName}>
-        {label}
+        {labelNode ?? label}
       </Label>
       <button
         ref={btnRef}

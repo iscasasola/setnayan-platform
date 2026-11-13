@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { fetchOwnNotifications } from '@/lib/notifications';
+import { fetchNotificationEventPlaces, fetchOwnNotifications } from '@/lib/notifications';
+import { placeWhoFromSwitcher } from '@/lib/notification-place';
+import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { NotificationsHead, NotificationsList } from '@/app/_components/notifications/notifications-list';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 
@@ -14,7 +16,10 @@ export default async function CoupleNotificationsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const items = await fetchOwnNotifications(supabase, user.id);
+  // 📍 Each row's PLACE (owner 2026-11-13): the rows' events in one batch, and the account menu's facts — the layout
+  // already read them (`getSwitcherData` is `cache()`d per request, so this costs no second read).
+  const [items, switcherData] = await Promise.all([fetchOwnNotifications(supabase, user.id), getSwitcherData(user.id)]);
+  const events = await fetchNotificationEventPlaces(supabase, user.id, items);
   const unreadCount = items.filter((n) => !n.read_at).length;
   const returnTo = '/dashboard/notifications';
 
@@ -30,6 +35,7 @@ export default async function CoupleNotificationsPage() {
 
       <NotificationsList
         items={items}
+        places={{ events, who: placeWhoFromSwitcher(switcherData) }}
         returnTo={returnTo}
         emptyState={{
           title: 'No notifications yet.',

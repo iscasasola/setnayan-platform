@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { fetchOwnNotifications } from '@/lib/notifications';
+import { fetchNotificationEventPlaces, fetchOwnNotifications } from '@/lib/notifications';
+import { placeWhoFromSwitcher } from '@/lib/notification-place';
+import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { NotificationsView } from './notifications-view';
 
 export const metadata = { title: 'Notifications · Supplier' };
@@ -19,8 +21,10 @@ export default async function VendorNotificationsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const items = await fetchOwnNotifications(supabase, user.id);
+  // 📍 Each row's PLACE: one batch for the rows' events, and the account menu's facts the layout already read.
+  const [items, switcherData] = await Promise.all([fetchOwnNotifications(supabase, user.id), getSwitcherData(user.id)]);
+  const events = await fetchNotificationEventPlaces(supabase, user.id, items);
   const returnTo = '/vendor-dashboard/notifications';
 
-  return <NotificationsView items={items} returnTo={returnTo} />;
+  return <NotificationsView items={items} places={{ events, who: placeWhoFromSwitcher(switcherData) }} returnTo={returnTo} />;
 }

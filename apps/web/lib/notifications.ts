@@ -4,6 +4,7 @@ import {
   isMissingRelationError,
   logQueryError,
 } from '@/lib/supabase/error-detect';
+import type { EventPlaceFact } from '@/lib/notification-place';
 
 export type NotificationType =
   // Account auto-surface (#7b, gap G6) — the RA 10173 "you were added" notice.
@@ -1041,6 +1042,12 @@ export type NotificationRow = {
   related_url: string | null;
   read_at: string | null;
   created_at: string;
+  /**
+   * The event the notice is about (migration 20271238868040, derived from `related_url` by the writer). Null for an
+   * account / shop / HQ notice — and for an event notice whose event was removed (ON DELETE SET NULL). Optional so a
+   * lab's hand-written row may leave it out; `lib/notification-place.ts` reads a missing one as null.
+   */
+  event_id?: string | null;
 };
 
 export async function fetchOwnNotifications(
@@ -1050,7 +1057,7 @@ export async function fetchOwnNotifications(
 ): Promise<NotificationRow[]> {
   const { data, error } = await supabase
     .from('notifications')
-    .select('notification_id,user_id,type,title,body,related_url,read_at,created_at')
+    .select('notification_id,user_id,type,title,body,related_url,read_at,created_at,event_id')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -1084,6 +1091,62 @@ export async function fetchOwnNotifications(
     throw new Error(`fetchOwnNotifications failed: ${error.message}`);
   }
   return (data ?? []) as NotificationRow[];
+}
+
+/**
+ * WHICH EVENT EACH ROW IS FROM, AND WHICH SIDE OF IT YOU ARE ON — one batch beside `fetchOwnNotifications`, never a
+ * read per row (owner 2026-11-13, the notification place; `lib/notification-place.ts`).
+ *
+ * Two reads, side by side, for the DISTINCT `event_id`s of the rows: `events` (the name + the EventMonogram columns)
+ * and this login's own `event_members` seats. RLS scopes both. 🔒 HONEST: either read refused → `null`, and the list
+ * then says "Place didn't load" on every event row — never an empty map, which would read as "these events are gone".
+ * An event the read does not return (removed, or not this login's to see) is simply absent: that row says it too.
+ */
+export async function fetchNotificationEventPlaces(
+  supabase: SupabaseClient,
+  userId: string,
+  rows: ReadonlyArray<Pick<NotificationRow, 'event_id'>>,
+): Promise<Map<string, EventPlaceFact> | null> {
+  const ids = [...new Set(rows.map((r) => r.event_id).filter((id): id is string => typeof id === 'string' && id.length > 0))];
+  const out = new Map<string, EventPlaceFact>();
+  if (ids.length === 0) return out;
+  try {
+    const [eventsRes, seatsRes] = await Promise.all([
+      supabase
+        .from('events')
+        .select(
+          'event_id, display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg',
+        )
+        .in('event_id', ids),
+      supabase.from('event_members').select('event_id, member_type').eq('user_id', userId).in('event_id', ids),
+    ]);
+    if (eventsRes.error || seatsRes.error) {
+      logQueryError(
+        'fetchNotificationEventPlaces',
+        eventsRes.error ?? seatsRes.error,
+        { user_id: userId, events: ids.length },
+        'graceful_degrade',
+      );
+      return null;
+    }
+    const seat = new Map<string, string>();
+    for (const m of (seatsRes.data ?? []) as Array<{ event_id: string; member_type: string }>) {
+      // A couple seat outranks any other seat this login holds on the same event.
+      if (!seat.has(m.event_id) || m.member_type === 'couple') seat.set(m.event_id, m.member_type);
+    }
+    for (const e of (eventsRes.data ?? []) as Array<Omit<EventPlaceFact, 'member_type'>>) {
+      out.set(e.event_id, { ...e, member_type: seat.get(e.event_id) ?? null });
+    }
+    return out;
+  } catch (caught) {
+    logQueryError(
+      'fetchNotificationEventPlaces (threw)',
+      caught instanceof Error ? caught : new Error(String(caught)),
+      { user_id: userId },
+      'graceful_degrade',
+    );
+    return null;
+  }
 }
 
 // Wrapped in React `cache()` so the dashboard chrome's unread-bell badge

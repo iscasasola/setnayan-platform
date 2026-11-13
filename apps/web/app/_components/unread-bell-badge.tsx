@@ -35,6 +35,7 @@ import { usePathname, useRouter } from 'next/navigation';
 // a static import was one of the three edges that put the whole client in the Maker's first load
 // (`scripts/check-maker-js-budget.mjs`, 2026-11-04). Nothing it draws waits on it.
 import type { NotificationRow, NotificationType } from '@/lib/notifications';
+import type { EventPlaceFact, NotificationPlaceFacts, PlaceWho } from '@/lib/notification-place';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import dynamic from 'next/dynamic';
@@ -89,6 +90,14 @@ type Props = {
   pulse?: boolean;
   /** DEV LABS ONLY (`/dev/notifications-lab`, no sign-in): the rows the pop-over draws instead of reading them. */
   labRows?: NotificationRow[];
+  /** DEV LABS ONLY: the rows' events, instead of reading them. */
+  labEvents?: ReadonlyMap<string, EventPlaceFact>;
+  /**
+   * 📍 Who is reading — the account menu's picture and shops (`placeWhoFromSwitcher(switcherData)`), so each row can
+   * name its PLACE (owner 2026-11-13). Absent → shop rows say "Place didn't load"; your-account rows draw an initial-less
+   * circle.
+   */
+  who?: PlaceWho | null;
 };
 
 export function UnreadBellBadge({
@@ -99,6 +108,8 @@ export function UnreadBellBadge({
   ariaUnreadSuffix,
   pulse = false,
   labRows,
+  labEvents,
+  who = null,
 }: Props) {
   const [unread, setUnread] = useState(initialUnread);
   const router = useRouter();
@@ -145,6 +156,8 @@ export function UnreadBellBadge({
   const [mounted, setMounted] = useState(false);
   /** undefined = not read yet · null = could not read · rows = the latest eight. */
   const [rows, setRows] = useState<NotificationRow[] | null | undefined>(undefined);
+  /** The rows' events (one batch read). null = that read failed → those rows say "Place didn't load". */
+  const [events, setEvents] = useState<ReadonlyMap<string, EventPlaceFact> | null>(null);
   const [here, setHere] = useState('/');
   const panelRef = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
@@ -167,6 +180,7 @@ export function UnreadBellBadge({
     let live = true;
     setHere(`${window.location.pathname}${window.location.search}`);
     if (labRows) {
+      setEvents(labEvents ?? null);
       setRows(labRows);
       return;
     }
@@ -177,12 +191,19 @@ export function UnreadBellBadge({
     */
     void (async () => {
       try {
-        const [{ fetchOwnNotifications }, { createClient }] = await Promise.all([
+        const [{ fetchOwnNotifications, fetchNotificationEventPlaces }, { createClient }] = await Promise.all([
           import('@/lib/notifications'),
           import('@/lib/supabase/client'),
         ]);
-        const r = await fetchOwnNotifications(createClient(), userId, 8);
-        if (live) setRows(r);
+        const supabase = createClient();
+        const r = await fetchOwnNotifications(supabase, userId, 8);
+        // 📍 Their places in ONE batch beside the rows — never a read per row. Drawn together, so a row never
+        // flashes "Place didn't load" before its event arrives.
+        const ev = await fetchNotificationEventPlaces(supabase, userId, r);
+        if (live) {
+          setEvents(ev);
+          setRows(r);
+        }
       } catch {
         if (live) setRows(null);
       }
@@ -190,7 +211,7 @@ export function UnreadBellBadge({
     return () => {
       live = false;
     };
-  }, [open, labRows, userId]);
+  }, [open, labRows, labEvents, userId]);
 
   function markedRead(id: string) {
     const at = new Date().toISOString();
@@ -205,6 +226,7 @@ export function UnreadBellBadge({
   }
 
   const label = unread > 0 ? `${ariaBaseLabel} · ${unread} ${ariaUnreadSuffix}` : ariaBaseLabel;
+  const places: NotificationPlaceFacts = { events, who };
   // The badge's count covers notices older than the eight drawn, so either one keeps "Mark all read" on show.
   const rowsUnread = rows ? Math.max(unread, rows.filter((r) => !r.read_at).length) : 0;
 
@@ -257,6 +279,7 @@ export function UnreadBellBadge({
           ) : (
             <NotificationsList
               items={rows}
+              places={places}
               returnTo={here}
               onRead={markedRead}
               inset="popover"

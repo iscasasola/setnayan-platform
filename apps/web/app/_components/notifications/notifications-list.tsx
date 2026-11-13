@@ -17,6 +17,7 @@ import {
   Star,
   UserCheck,
   UserPlus,
+  UserRound,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -31,6 +32,20 @@ import { markAllNotificationsRead, markNotificationRead } from '@/lib/notificati
 import { SubmitButton } from '@/app/_components/submit-button';
 import { brandWords } from '@/lib/brand-words';
 import { whereNoticeTarget } from '@/lib/supplier-where';
+import {
+  eventWasRemoved,
+  opensWords,
+  placeLineText,
+  placeLineWords,
+  resolveNotificationPlace,
+  type NotificationPlace,
+  type NotificationPlaceFacts,
+} from '@/lib/notification-place';
+import { pictureFrameStyle } from '@/lib/picture-frame';
+import { InfoTip } from '@/app/_components/info-tip';
+import { EventMonogram } from '@/app/_components/event-monogram';
+import { VendorAvatar, deriveVendorInitials } from '@/app/_components/vendor-avatar';
+import { LogoMark } from '@/app/_components/brand-marks';
 import { WhereNoticeOk } from './where-notice-ok';
 
 /**
@@ -52,6 +67,18 @@ import { WhereNoticeOk } from './where-notice-ok';
  *   one-item menu. No coloured type pill, no "Open" / "Mark read" buttons, no frame per row — the type's short name is
  *   the icon's accessible name.
  *   Rows are grouped Today (the last 24 hours) / Earlier, each group one filled surface with hairlines between rows.
+ *
+ * 📍 EVERY ROW SAYS WHICH PART IT IS FROM (owner 2026-11-13, *"how do we identify if it is from an event they are
+ *   making or an event they are invited to or a user notification"*; approved drawing
+ *   `Setnayan/prototypes/notifications_place_2026-11-13/index.html`, Option A). The 38px circle is the PLACE's own mark
+ *   — the event's monogram tile, the shop's `VendorAvatar`, your picture, or the Setnayan `LogoMark` for HQ — with the
+ *   type's icon as an 18px corner badge that keeps the type's short name. One quiet line above the title:
+ *   **name** · stance ("Maria & Jose · You organise"). Where the press lands ("Opens … ›") lives in the ⓘ only.
+ *   The place is `lib/notification-place.ts` — the rule the phone push uses too. A place that cannot be said is the
+ *   words "Place didn't load" with the type icon kept in a dashed ivory circle: never a blank tile, never a guess.
+ *   ⚖ The ⓘ cannot sit INSIDE the row's one submit button (a button in a button), so it rides a pointer-transparent
+ *   copy of the row's layout laid over it (`data-notice-place-tip`): the same boxes, invisible, with the ⓘ the only
+ *   thing that takes a press — it lands exactly after the visible place line at every width.
  *
  * ⚖ THE MESSAGE STILL GETS ITS OWN LINE (owner, live iPhone review 2026-10-04): the title and the message stack in
  *   one column; the time sits in its own narrow column at the end, never a pill beside the message.
@@ -81,11 +108,17 @@ type Props = {
   onRead?: (notificationId: string) => void;
   /** Card side margin: the pop-over's 12px or the page's 16px (the drawing's two insets). */
   inset?: 'popover' | 'page';
+  /**
+   * What each row's PLACE is made from — the one batched event read (`fetchNotificationEventPlaces`) and the account
+   * menu's facts (`placeWhoFromSwitcher`). Absent or null → the rows that need it say "Place didn't load".
+   */
+  places?: NotificationPlaceFacts | null;
 };
 
 /** The hairline between rows starts after the icon (12px pad + 38px circle + 12px gap). */
 const LIST_CSS = `
 .sn-notice-card>li+li::before{content:"";position:absolute;left:62px;right:0;top:0;height:1px;background:var(--m-line);pointer-events:none;z-index:2}
+.sn-notice-tip button{pointer-events:auto}
 `;
 
 const ICONS: Record<NotificationIcon, LucideIcon> = {
@@ -104,7 +137,7 @@ const ICONS: Record<NotificationIcon, LucideIcon> = {
   gift: Gift,
 };
 
-export function NotificationsList({ items, returnTo, emptyState, onRead, inset = 'page' }: Props) {
+export function NotificationsList({ items, returnTo, emptyState, onRead, inset = 'page', places = null }: Props) {
   if (items.length === 0) {
     return (
       <div className="px-5 pb-6 pt-7 text-center" data-notice-empty="">
@@ -141,7 +174,14 @@ export function NotificationsList({ items, returnTo, emptyState, onRead, inset =
             </h3>
             <ul className={`sn-notice-card ${cardMargin} rounded-tile bg-[var(--m-paper)]`}>
               {group.rows.map((n) => (
-                <NotificationItem key={n.notification_id} item={n} returnTo={returnTo} onRead={onRead} now={now} />
+                <NotificationItem
+                  key={n.notification_id}
+                  item={n}
+                  place={resolveNotificationPlace(n, places)}
+                  returnTo={returnTo}
+                  onRead={onRead}
+                  now={now}
+                />
               ))}
             </ul>
           </section>
@@ -160,13 +200,25 @@ const TEAM_TYPED_BODY: ReadonlySet<NotificationRow['type']> = new Set(['event_de
 /** How far a swipe opens: the one quiet "Mark read" behind the row. */
 const REVEAL = 96;
 
+/** The title's two looks — shared by the row and its invisible copy under the ⓘ, so both wrap alike. */
+function titleClass(unread: boolean): string {
+  return `line-clamp-2 text-[15px] leading-[1.2] ${unread ? 'font-semibold text-ink' : 'font-medium text-[var(--m-slate-2)]'}`;
+}
+
+/** The place line's box — shared by the row and the ⓘ's copy, so the ⓘ lands right after the words. */
+const PLACE_LINE = 'inline-flex max-w-full items-center gap-1.5 align-top';
+const PLACE_WORDS = 'min-w-0 truncate text-[11.5px] leading-[1.2] tracking-[0.01em]';
+
 function NotificationItem({
   item: n,
+  place,
   returnTo,
   onRead,
   now,
 }: {
   item: NotificationRow;
+  /** Which part this notice is from, or null when it cannot be said (drawn as "Place didn't load"). */
+  place: NotificationPlace | null;
   returnTo: string;
   onRead?: (notificationId: string) => void;
   now: Date;
@@ -194,6 +246,13 @@ function NotificationItem({
   }, [menu]);
 
   const open = shift <= -REVEAL / 2;
+  const words = placeLineWords(place);
+  // A notice whose event was removed marks read and stays here — its link is dead (the drawing's § 6).
+  const lands = eventWasRemoved(n.related_url, n.event_id) ? null : n.related_url;
+  const rowStyle = {
+    transform: shift ? `translateX(${shift}px)` : undefined,
+    transition: dragging ? 'none' : 'transform 0.2s ease',
+  };
   // 📍 A supplier's Where pick is OK'd right here (owner 2026-11-04) — the same action as the Requests sheet's OK.
   const whereOk = unread ? whereNoticeTarget(n.type, n.related_url) : null;
 
@@ -221,11 +280,7 @@ function NotificationItem({
 
         <div
           className="relative z-[1] flex items-center bg-[var(--m-paper)] group-hover:bg-[var(--m-paper-2)]"
-          style={{
-            transform: shift ? `translateX(${shift}px)` : undefined,
-            transition: dragging ? 'none' : 'transform 0.2s ease',
-            touchAction: 'pan-y',
-          }}
+          style={{ ...rowStyle, touchAction: 'pan-y' }}
           onTouchStart={(e) => {
             if (!unread) return;
             const t = e.touches[0];
@@ -258,7 +313,7 @@ function NotificationItem({
             className="min-w-0 flex-1"
           >
             <input type="hidden" name="notification_id" value={n.notification_id} />
-            <input type="hidden" name="return_to" value={n.related_url ?? returnTo} />
+            <input type="hidden" name="return_to" value={lands ?? returnTo} />
             <RowButton
               onClickCapture={(e) => {
                 // A swipe is not a press, and a press on an opened row closes it.
@@ -272,19 +327,45 @@ function NotificationItem({
               }}
             >
               <span
-                role="img"
-                aria-label={label}
-                className="inline-flex h-[38px] w-[38px] flex-none items-center justify-center rounded-full bg-[var(--m-ivory)] text-ink"
+                className="relative inline-flex h-[38px] w-[38px] flex-none items-center justify-center"
                 data-notice-icon=""
+                data-notice-place-mark={place ? place.part : 'none'}
               >
-                <Icon aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                {place ? (
+                  <>
+                    <PlaceFace place={place} />
+                    <span
+                      role="img"
+                      aria-label={label}
+                      className={`absolute -bottom-[5px] -right-[5px] inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-[var(--m-paper)] shadow-sm ${
+                        unread ? 'bg-ink text-cream' : 'bg-[var(--m-paper)] text-ink'
+                      }`}
+                      data-notice-type-badge=""
+                    >
+                      <Icon aria-hidden className="h-[11px] w-[11px]" strokeWidth={2} />
+                    </span>
+                  </>
+                ) : (
+                  <span
+                    role="img"
+                    aria-label={label}
+                    className="inline-flex h-full w-full items-center justify-center rounded-full border border-dashed border-[var(--m-slate-3)] bg-[var(--m-ivory)] text-[var(--m-slate-3)]"
+                  >
+                    <Icon aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                  </span>
+                )}
               </span>
               <span className="min-w-0 flex-1" data-notice-message="">
-                <span
-                  className={`line-clamp-2 text-[15px] leading-[1.2] ${
-                    unread ? 'font-semibold text-ink' : 'font-medium text-[var(--m-slate-2)]'
-                  }`}
-                >
+                <span className="mb-0.5 block" data-notice-place="">
+                  <span className={PLACE_LINE}>
+                    <span className={PLACE_WORDS}>
+                      <PlaceWords words={words} unread={unread} />
+                    </span>
+                    {/* The room the ⓘ (laid over this row, below) is drawn in. */}
+                    <span aria-hidden className="h-4 w-4 flex-none" />
+                  </span>
+                </span>
+                <span className={titleClass(unread)}>
                   {n.title}
                 </span>
                 {n.body ? (
@@ -327,6 +408,57 @@ function NotificationItem({
             </button>
           ) : null}
         </div>
+      </div>
+
+      {/*
+        THE ⓘ — "Opens … ›" (T17: the detail lives in the ⓘ). A pointer-transparent copy of the row's layout, laid
+        over it and moved with the swipe: every box is the row's own, invisible, so the ⓘ lands right after the
+        visible place line; only the ⓘ takes a press. Outside the row's overflow, so the tip is never clipped.
+      */}
+      <div
+        className="sn-notice-tip pointer-events-none absolute inset-x-0 top-0 z-[2] flex items-center"
+        style={rowStyle}
+        data-notice-place-tip=""
+      >
+        <div className="flex min-h-[62px] min-w-0 flex-1 items-center gap-3 py-[9px] pl-3 pr-3.5">
+          <span aria-hidden className="h-[38px] w-[38px] flex-none" />
+          <span className="min-w-0 flex-1">
+            <span className="mb-0.5 block">
+              <InfoTip
+                label={placeLineText(place)}
+                labelNode={<PlaceWords words={words} unread={unread} />}
+                labelClassName={`${PLACE_WORDS} invisible`}
+                ariaLabel="Where this opens"
+                align="start"
+                className={PLACE_LINE}
+              >
+                {opensWords(place, n)}
+              </InfoTip>
+            </span>
+            <span aria-hidden className={`invisible ${titleClass(unread)}`}>
+              {n.title}
+            </span>
+            {n.body ? (
+              <span aria-hidden className="invisible mt-0.5 block truncate text-[13px]">
+                {TEAM_TYPED_BODY.has(n.type) ? brandWords(n.body) : n.body}
+              </span>
+            ) : null}
+          </span>
+          <span aria-hidden className="invisible flex min-w-[28px] flex-none flex-col items-end gap-1.5">
+            <span className="text-[12px] leading-none" suppressHydrationWarning>
+              {relativeTimeShort(n.created_at, now)}
+            </span>
+            <span className="h-2 w-2" />
+          </span>
+        </div>
+        {unread ? (
+          <span
+            aria-hidden
+            className={`-my-1 ml-0.5 mr-1.5 hidden h-9 w-9 flex-none ${
+              menu ? 'lg:inline-flex' : 'lg:group-focus-within:inline-flex lg:group-hover:inline-flex'
+            }`}
+          />
+        ) : null}
       </div>
 
       {whereOk ? (
@@ -383,6 +515,74 @@ function RowButton({
       {children}
     </button>
   );
+}
+
+/** The place line's words: **name** · stance — or "Place didn't load", quiet and in italics. Never blank. */
+function PlaceWords({ words, unread }: { words: ReturnType<typeof placeLineWords>; unread: boolean }) {
+  if (words.missing) {
+    return (
+      <span className="italic text-[var(--m-slate-3)]" data-notice-place-missing="">
+        {words.name}
+      </span>
+    );
+  }
+  return (
+    <span className="text-[var(--m-slate-2)]">
+      <b className={`font-semibold ${unread ? 'text-ink' : 'text-[var(--m-slate-2)]'}`}>{words.name}</b>
+      {words.stance ? (
+        <>
+          {' · '}
+          <span className={`font-semibold ${unread ? 'text-[var(--m-nav-active)]' : 'text-[var(--m-slate-3)]'}`}>{words.stance}</span>
+        </>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * The place's own mark, at 38px — drawn as the side menu draws each: the event's monogram tile, the shop's
+ * `VendorAvatar` (logo, else the dark initials tile), your picture (else your initial), the Setnayan mark for HQ.
+ * Decorative: the place line beside it says the same in words.
+ */
+function PlaceFace({ place }: { place: NotificationPlace }) {
+  switch (place.part) {
+    case 'event':
+      return (
+        <span
+          aria-hidden
+          className="inline-flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-paper-2)]"
+        >
+          <EventMonogram event={place.event} size="sm" place="notice-place" />
+        </span>
+      );
+    case 'shop':
+      return (
+        <VendorAvatar
+          logoUrl={place.logoUrl}
+          initials={deriveVendorInitials(place.name)}
+          className="inline-flex h-full w-full items-center justify-center rounded-md text-[12px] font-semibold tracking-[0.02em]"
+        />
+      );
+    case 'account':
+      return (
+        <span aria-hidden className="inline-flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-ink text-[14px] font-semibold text-cream">
+          {place.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- presigned profile picture (the account menu's)
+            <img src={place.photoUrl} alt="" className="h-full w-full object-cover" style={pictureFrameStyle(place.photoFrame)} />
+          ) : place.initial ? (
+            place.initial
+          ) : (
+            <UserRound className="h-[18px] w-[18px]" strokeWidth={1.75} />
+          )}
+        </span>
+      );
+    case 'hq':
+      return (
+        <span aria-hidden className="inline-flex h-full w-full items-center justify-center rounded-md border border-[var(--m-line)] bg-[var(--m-paper-2)]">
+          <LogoMark size={24} className="rounded-sm" />
+        </span>
+      );
+  }
 }
 
 /**

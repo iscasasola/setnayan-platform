@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { NotificationRow } from '@/lib/notifications';
+import type { EventPlaceFact, NotificationPlaceFacts, PlaceWho } from '@/lib/notification-place';
 import { formatPhp } from '@/lib/php';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { NotificationsHead, NotificationsList } from '@/app/_components/notifications/notifications-list';
@@ -17,6 +18,7 @@ import { correctionsNotice, supplierCorrections } from '@/lib/supplier-correctio
  *   ?view=all     "View all": the couple's notifications page body
  *   ?empty=1      nothing at all: "You're all caught up" in the pop-over, the page's own empty words on View all
  *   ?fail=1       the pop-over's read fails (a lab cannot read): it says so, never "all caught up"
+ *   ?noplaces=1   📍 the places' read failed: every event and shop row says "Place didn't load" (never a blank tile)
  *   ?corrected=1  ✏️ on top: the couple's notice that a supplier who joined from their link corrected their details
  *                 (DECISION_LOG 2026-11-07) — the REAL words (`correctionsNotice`); the phone is said, never shown
  */
@@ -31,6 +33,23 @@ function ago(hours: number, now: number): string {
 /** The prototype's sample order amount — formatted, never typed (`public-price-literals.test.ts`). */
 const SAMPLE_ORDER = formatPhp(2500);
 
+/*
+  📍 THE PLACES (owner 2026-11-13, `prototypes/notifications_place_2026-11-13` Option A): the drawing's mix — an event
+  you organise, your shop, your account, an event you are invited to, Setnayan HQ, and an event that was removed (its
+  `event_id` SET NULL), which says "Place didn't load".
+*/
+const EV_OURS = '11111111-1111-4111-8111-111111111111';
+const EV_ANA = '22222222-2222-4222-8222-222222222222';
+const EV_GONE = '33333333-3333-4333-8333-333333333333';
+const THREAD = '44444444-4444-4444-8444-444444444444';
+
+const mono = { monogram_color: null, monogram_font_key: null, monogram_style: null, monogram_frame_key: null, monogram_custom_svg: null, monogram_uploaded_svg: null };
+const LAB_EVENTS: ReadonlyMap<string, EventPlaceFact> = new Map([
+  [EV_OURS, { event_id: EV_OURS, display_name: 'Cale & Ice', member_type: 'couple', monogram_text: 'C & I', ...mono }],
+  [EV_ANA, { event_id: EV_ANA, display_name: 'Ana\u2019s 30th', member_type: 'guest', monogram_text: 'A', ...mono }],
+]);
+const LAB_WHO: PlaceWho = { photoUrl: null, initial: 'A', shops: [{ name: 'SetnaProd', logoUrl: null }] };
+
 function notices(now: number): NotificationRow[] {
   const n = (
     id: string,
@@ -40,6 +59,7 @@ function notices(now: number): NotificationRow[] {
     title: string,
     body: string,
     related_url: string | null,
+    event_id: string | null = null,
   ): NotificationRow => ({
     notification_id: id,
     user_id: ME,
@@ -47,10 +67,17 @@ function notices(now: number): NotificationRow[] {
     title,
     body,
     related_url,
+    event_id,
     read_at: unread ? null : ago(hours - 1, now),
     created_at: ago(hours, now),
   });
   return [
+    n('p1', 'rsvp_received', 2, true, "Gabriel dela Pe\u00f1a RSVP'd: Attending", 'Meal preference: fish.', `/dashboard/${EV_OURS}/guests`, EV_OURS),
+    n('p2', 'vendor_inquiry_received', 9, true, 'New booking inquiry \u2014 from a Setnayan founder', 'Indalecio & Claire \u00b7 18 Dec 2026 \u00b7 Tagaytay', `/vendor-dashboard/messages/${THREAD}`),
+    n('p3', 'guest_claim_pending', 12, true, 'Someone asked to join your guest list', 'Ana Reyes asked to join.', '/dashboard?seg=people'),
+    n('p4', 'schedule_released', 30, false, 'Ana\u2019s schedule is out', 'Dinner starts 6pm \u00b7 Tagaytay Highlands', '/ana-30th', EV_ANA),
+    n('p5', 'payment_matched', 60, false, `Payment of ${SAMPLE_ORDER} matched`, 'The Setnayan team confirmed your payment.', `/dashboard/${EV_GONE}/orders`, null),
+    n('p6', 'order_awaiting_reconciliation', 120, false, `Someone logged a payment \u00b7 ${SAMPLE_ORDER} GCash`, 'Match it in Payments.', '/admin/payments'),
     n('n1', 'rsvp_received', 18, true, "Maria Santos RSVP'd: Attending", 'Meal preference: Fish. They left you a note.', '/dev/notifications-lab?view=all'),
     n('n2', 'chat_message', 2, true, 'New message from Lumina Photo Co.', 'Yes to the 3pm slot — sending the contract tonight.', '/dev/notifications-lab?view=all'),
     n('n3', 'guest_claim_pending', 5, true, 'Someone asked to join your guest list', 'Ana Reyes asked to join. They are not inside yet — Keep, Link or Remove them in Requests.', null),
@@ -90,6 +117,8 @@ export default async function NotificationsLabPage({
   ];
   const view = sp.view === 'all' ? 'all' : 'page';
   const unread = all.filter((x) => !x.read_at).length;
+  const noPlaces = sp.noplaces === '1';
+  const places: NotificationPlaceFacts = noPlaces ? { events: null, who: null } : { events: LAB_EVENTS, who: LAB_WHO };
   const returnTo = view === 'all' ? '/dev/notifications-lab?view=all' : '/dev/notifications-lab';
 
   return (
@@ -97,6 +126,8 @@ export default async function NotificationsLabPage({
       eventId="lab"
       gutter={false}
       notices={sp.fail === '1' ? undefined : all.slice(0, 8)}
+      noticeEvents={places.events ?? undefined}
+      noticeWho={places.who}
       bellUnread={sp.empty === '1' ? 0 : 12}
     >
       {view === 'all' ? (
@@ -104,6 +135,7 @@ export default async function NotificationsLabPage({
           <NotificationsHead unreadCount={unread} returnTo={returnTo} level="page" />
           <NotificationsList
             items={all}
+            places={places}
             returnTo={returnTo}
             emptyState={{
               title: 'No notifications yet.',

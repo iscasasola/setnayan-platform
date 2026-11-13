@@ -8,6 +8,7 @@ import {
   type SwitcherData,
 } from '@/app/_components/account-switcher/get-switcher-data';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { AccountBarSlot } from './_components/account-bar-slot';
@@ -128,6 +129,7 @@ export default async function LauncherLayout({
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
               pulse
+              who={placeWhoFromSwitcher(switcherData)}
             />
             <AccountSwitcher data={switcherData} />
           </>

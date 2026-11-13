@@ -60,6 +60,8 @@ export type OurPrices = {
   pro: TwoPrices | null;
   /** Event Plus — EVENT_PLUS (Setnayan AI + Papic credits, owner 2026-11-04). Absent until its row is on sale. */
   plus: number | null;
+  /** 💎 Event Ultra — EVENT_ULTRA (owner 2026-11-13). Absent until its row is on sale. */
+  ultra: number | null;
   /** The Event Pro parts that have an active, priced row, in `HUB_PARTS` order. */
   hubParts: Array<{ id: string; name: string; php: number }>;
   /** Papic credit rungs (PAPIC_GUEST*), cheapest first — the label is the row's own words ("add 100 credits"). */
@@ -137,6 +139,7 @@ export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: re
   return {
     pro: twoPrices(row('COUPLE_WEBSITE_PRO') ?? null),
     plus: php('EVENT_PLUS'),
+    ultra: php('EVENT_ULTRA'),
     hubParts,
     papicRungs,
     liveWatch: php('LIVE_STUDIO'),

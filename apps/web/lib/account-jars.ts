@@ -157,7 +157,6 @@ export function accountCookiesOnSignOut(
   return out;
 }
 
-/** Where "Sign out of all accounts" posts: with nobody else on the phone it is the plain sign-out, unchanged. */
-export function signOutAllAction(others: readonly ParkedAccount[] | null | undefined): '/auth/sign-out' | '/auth/accounts/sign-out-all' {
-  return others && others.length > 0 ? '/auth/accounts/sign-out-all' : '/auth/sign-out';
-}
+// Where "Sign out of all accounts" posts — lives in a Buffer-free module so the browser can import it alone
+// (lib/account-sign-out-path.ts says why). Re-exported here so every existing import holds.
+export { signOutAllAction } from './account-sign-out-path';

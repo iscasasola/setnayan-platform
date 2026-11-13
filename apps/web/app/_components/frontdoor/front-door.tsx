@@ -9,7 +9,8 @@
 import 'server-only';
 
 import { loadFrontDoorData } from './data';
-import { FrontDoorShell } from './front-door-shell';
+// ⚡ The front page's own reference to the shell (not the (shell) layout's) — see front-door-shell-for-home.tsx.
+import { FrontDoorShell } from './front-door-shell-for-home';
 import { FrontDoorAnchor } from './front-door-anchor';
 import { FrontDoorFeed } from './front-door-feed';
 import { FrontDoorResults } from './front-door-results';
@@ -19,7 +20,8 @@ import { MiniTour } from '@/app/_components/mini-tour';
 import { SignedInCluster } from './signed-in-cluster';
 import { FrontDoorAccountBar } from './front-door-account-bar';
 import { resolveCommandItems } from './command-data';
-import { DiscoverThumbRow } from './shell-thumb-rows';
+// ⚡ Signed in only — loaded only when drawn (front-door-lazy.tsx).
+import { DiscoverThumbRow } from './front-door-lazy';
 // The account resolver and the Studio group moved out 2026-08-13 so the
 // signed-in surfaces render the SAME rail from the SAME source. Behaviour is
 // byte-identical; see `rail-data.ts` for why one copy matters here.

@@ -75,6 +75,8 @@ export type IapProductKind =
   | 'event-hub-pro'
   /** 💰 Event Plus (owner 2026-11-04): one per event; never sold to an event that already has Pro. */
   | 'event-plus'
+  /** 💎 Event Ultra (owner 2026-11-13): one per event; everything in Pro + Live Watch + Patiktok + canvas + 12-month originals. */
+  | 'event-ultra'
   | 'live-watch'
   | 'papic-credits'
   /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice (Music Maker · Patiktok; Setnayan AI and Thank You retired). */
@@ -152,6 +154,17 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
     kind: 'event-hub-pro',
     appleType: 'consumable',
     appStoreName: 'Event Pro',
+    credits: null,
+  },
+  /* 💎 Event Ultra (owner 2026-11-13, DECISION_LOG "EVENT ULTRA APPROVED — BUILD IT"). ⚠ The OWNER must create
+     `com.setnayan.app.event_ultra` (consumable, "Event Ultra") in App Store Connect at the price point equal to the
+     EVENT_ULTRA catalogue row; until he does, StoreKit returns no price and the app offers nothing (`storeSilent`). */
+  {
+    productId: `${PREFIX}event_ultra`,
+    serviceKey: 'EVENT_ULTRA',
+    kind: 'event-ultra',
+    appleType: 'consumable',
+    appStoreName: 'Event Ultra',
     credits: null,
   },
   {

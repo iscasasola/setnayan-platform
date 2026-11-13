@@ -45,9 +45,11 @@ import {
   FREE_PEEK,
   PLUS_MORE,
   PRO_PEEK,
+  ULTRA_PEEK,
   freeGroups,
   plusPeek,
   proMore,
+  ultraMore,
   type PlanFacts,
   SOLVES,
   SOLVES_SHOWN_FIRST,
@@ -131,11 +133,11 @@ export function frontPageSample(now: Date): FrontPageSample | null {
 
 /* ─── The two plan prices, from the price list ─────────────────────────────────────────────────────── */
 
-/** Event Plus and Event Pro, in pesos — null when the row is not on sale or could not be read. */
-export type PlanPrices = { plus: number | null; pro: number | null };
+/** Event Plus, Event Pro and Event Ultra, in pesos — null when the row is not on sale or could not be read. */
+export type PlanPrices = { plus: number | null; pro: number | null; ultra: number | null };
 
-/** The service codes the plan cards read. Event Pro IS `COUPLE_WEBSITE_PRO`. */
-export const PLAN_PRICE_CODES = { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO' } as const;
+/** The service codes the plan cards read. Event Pro IS `COUPLE_WEBSITE_PRO`. 💎 Event Ultra: owner 2026-11-13. */
+export const PLAN_PRICE_CODES = { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO', ultra: 'EVENT_ULTRA' } as const;
 
 /**
  * Picks the two prices out of the customer catalogue (`fetchV2CustomerCatalog`, active rows only). Never a
@@ -148,7 +150,7 @@ export function planPricesFrom(
     const v = Number(rows.find((r) => r.service_code === code)?.retail_price_php);
     return Number.isFinite(v) && v > 0 ? v : null;
   };
-  return { plus: php(PLAN_PRICE_CODES.plus), pro: php(PLAN_PRICE_CODES.pro) };
+  return { plus: php(PLAN_PRICE_CODES.plus), pro: php(PLAN_PRICE_CODES.pro), ultra: php(PLAN_PRICE_CODES.ultra) };
 }
 
 /**
@@ -157,12 +159,12 @@ export function planPricesFrom(
  */
 export function planCreditsFrom(
   rows: ReadonlyArray<{ service_code: string; included_papic_credits?: number | null }>,
-): Pick<PlanFacts, 'plusCredits' | 'proCredits'> {
+): Pick<PlanFacts, 'plusCredits' | 'proCredits' | 'ultraCredits'> {
   const n = (code: string): number | null => {
     const v = Number(rows.find((r) => r.service_code === code)?.included_papic_credits);
     return Number.isFinite(v) && v > 0 ? v : null;
   };
-  return { plusCredits: n(PLAN_PRICE_CODES.plus), proCredits: n(PLAN_PRICE_CODES.pro) };
+  return { plusCredits: n(PLAN_PRICE_CODES.plus), proCredits: n(PLAN_PRICE_CODES.pro), ultraCredits: n(PLAN_PRICE_CODES.ultra) };
 }
 
 function PlanPrice({ php }: { php: number | null }) {
@@ -288,6 +290,9 @@ export function FrontDoorLanding({
   const plusItems = [...PLUS_PEEK, ...PLUS_MORE];
   const plusCount = plusItems.length + freeItems.length;
   const proCount = PRO_PEEK.length + PRO_MORE.length + plusCount;
+  const ULTRA_MORE = ultraMore(planFacts);
+  const proItems = [...PRO_PEEK, ...PRO_MORE];
+  const ultraCount = ULTRA_PEEK.length + ULTRA_MORE.length + proCount;
 
   const total = SOLVES.length;
 
@@ -504,7 +509,7 @@ export function FrontDoorLanding({
         <Head
           kicker="What you get"
           id="h-plans"
-          title="Free is complete. Plus and Pro are for more."
+          title="Free is complete. Plus, Pro and Ultra are for more."
           lede="One price for the whole event — it unlocks for everyone on it."
         />
         <div className="fl-plans">
@@ -584,6 +589,39 @@ export function FrontDoorLanding({
               Start free, upgrade any time
             </Link>
           </Expandable>
+
+          {/* 💎 Event Ultra (owner 2026-11-13) — the Pro card's own shape, one rung up. Drawn only while its row is on sale. */}
+          {planPrices.ultra !== null ? (
+            <Expandable as="article" className="fl-plan">
+              <div className="fl-plan-name">
+                <h3>Event Ultra</h3>
+                <PlanPrice php={planPrices.ultra} />
+              </div>
+              <p className="fl-plan-one">Everything in Pro, and your day shared live and kept.</p>
+              <Dots items={ULTRA_PEEK} />
+              <div className="fl-pmore">
+                <div>
+                  <PlainList items={ULTRA_MORE} />
+                  <div className="fl-pg">
+                    <p className="fl-fg">And everything in Pro</p>
+                    <PlainList items={proItems} />
+                  </div>
+                  <div className="fl-pg">
+                    <p className="fl-fg">And everything in Plus</p>
+                    <PlainList items={plusItems} />
+                  </div>
+                  <div className="fl-pg">
+                    <p className="fl-fg">And everything in Free</p>
+                    <PlainList items={freeItems} />
+                  </div>
+                </div>
+              </div>
+              <ExpandButton className="fl-ptoggle" more={`See all ${formatCount(ultraCount)} features`} less="Show less" chevron />
+              <Link className="fl-btn fl-btn-line" href="/start">
+                Start free, upgrade any time
+              </Link>
+            </Expandable>
+          ) : null}
         </div>
 
         <div className="fl-addons">

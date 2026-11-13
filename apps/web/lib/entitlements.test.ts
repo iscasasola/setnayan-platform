@@ -606,7 +606,7 @@ test('alias query shape: EDITORIAL_PRO filters over itself + COUPLE_WEBSITE_PRO'
   const skuIn = calls
     .filter((c) => c.method === 'in')
     .find((c) => (c.args[0] as string) === 'service_key');
-  assert.deepEqual(skuIn?.args[1], ['EDITORIAL_PRO', 'COUPLE_WEBSITE_PRO']);
+  assert.deepEqual(skuIn?.args[1], ['EDITORIAL_PRO', 'COUPLE_WEBSITE_PRO', 'EVENT_ULTRA']);
 });
 
 test('alias query shape: STD_PREMIUM_OPENINGS filters over itself + COUPLE_WEBSITE_PRO', async () => {
@@ -615,7 +615,7 @@ test('alias query shape: STD_PREMIUM_OPENINGS filters over itself + COUPLE_WEBSI
   const skuIn = calls
     .filter((c) => c.method === 'in')
     .find((c) => (c.args[0] as string) === 'service_key');
-  assert.deepEqual(skuIn?.args[1], ['STD_PREMIUM_OPENINGS', 'COUPLE_WEBSITE_PRO']);
+  assert.deepEqual(skuIn?.args[1], ['STD_PREMIUM_OPENINGS', 'COUPLE_WEBSITE_PRO', 'EVENT_ULTRA']);
 });
 
 test('umbrella: a COUPLE_WEBSITE_PRO order confers EDITORIAL_PRO ownership', async () => {
@@ -775,17 +775,23 @@ test('SKU_OWNERSHIP_ALIASES: exactly the owner-locked bundle-only grants', () =>
   assert.deepEqual(Object.keys(SKU_OWNERSHIP_ALIASES).sort(), [
     'ANIMATED_MONOGRAM',
     'COUPLE_HUB_PART_LOGO_QR',
+    // 💎 Event Ultra (owner 2026-11-13): an Ultra order confers Event Pro and Patiktok (and Live Watch, below).
+    'COUPLE_WEBSITE_PRO',
     'EDITORIAL_PRO',
     'LIVE_STUDIO',
+    'PATIKTOK_COMPILER',
     'STD_PREMIUM_OPENINGS',
   ]);
-  assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['COUPLE_WEBSITE_PRO']);
-  assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO']);
-  assert.deepEqual(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM, ['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM, ['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR', 'EVENT_ULTRA']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.COUPLE_WEBSITE_PRO, ['EVENT_ULTRA']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.PATIKTOK_COMPILER, ['EVENT_ULTRA']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.COUPLE_HUB_PART_LOGO_QR, ['ANIMATED_MONOGRAM']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.LIVE_STUDIO, [
     'PANOOD_SYSTEM',
     'PANOOD_SYSTEM_MOBILE',
+    'EVENT_ULTRA',
   ]);
 });
 
@@ -863,6 +869,8 @@ test('GRANDFATHER — the alias query asks for BOTH Cast codes alongside LIVE_ST
     'LIVE_STUDIO',
     'PANOOD_SYSTEM',
     'PANOOD_SYSTEM_MOBILE',
+    // 💎 Event Ultra (owner 2026-11-13) includes Live Watch.
+    'EVENT_ULTRA',
   ]);
 });
 

@@ -465,6 +465,12 @@ test('all nine cron-free sweeps still ride on this layout', () => {
       fills and nothing says why.
     */
     'maybeRunSupplierPagePublish',
+    /*
+      💸 The booking-fee top-up unlist (owner 2026-11-12). The day a held top-up becomes overdue, that event's review
+      must stop counting in the public stars — and nothing in the database marks that day. Drop it and the review keeps
+      counting until some unrelated review happens to refresh the stars.
+    */
+    'maybeRunTopUpUnlist',
   ]) {
     assert.ok(
       new RegExp(`\\b${sweep}\\b`).test(src),
@@ -485,7 +491,8 @@ test('all nine cron-free sweeps still ride on this layout', () => {
     // 11 since 2026-10-12: `maybeCatchUpHandshakesWithoutFee` (the fee is made
     // at the yes; named in the list above).
     // 12 since 2026-10-28: `maybeRunSupplierPagePublish` (the 7-day guest notice; named above).
-    12,
+    // 13 since 2026-11-12: `maybeRunTopUpUnlist` (the booking-fee top-up unlist; named above).
+    13,
     'the count of post-response jobs changed',
   );
 });

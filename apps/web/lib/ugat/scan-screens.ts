@@ -117,6 +117,23 @@ function parseSegs(route: string): Seg[] {
 const isGroup = (s: string) => s.startsWith('(') && s.endsWith(')') && !/^\(\.{1,3}\)/.test(s);
 const isIntercept = (s: string) => /^\(\.{1,3}\)/.test(s);
 
+/** True for a `page.tsx` inside a parallel-route slot whose whole body is `return null`. */
+export function isSlotReset(relDir: string, appRoot: string): boolean {
+  if (!relDir.split(/[\\/]/).some((s) => s.startsWith('@'))) return false;
+  let src = '';
+  try {
+    src = stripComments(readFileSync(join(appRoot, relDir, 'page.tsx'), 'utf8'));
+  } catch {
+    return false;
+  }
+  return slotPageDrawsNothing(src);
+}
+
+/** A page whose only output is `return null` — no JSX, no import of a component. */
+export function slotPageDrawsNothing(src: string): boolean {
+  return /\breturn null;/.test(src) && !/<[A-Za-z]/.test(src) && !/\bexport \{ default \}/.test(src);
+}
+
 /** Folder (relative to app/) → URL. `null` for an intercepting route. */
 export function urlForAppDir(relDir: string): string | null {
   const parts = relDir.split(/[\\/]/).filter(Boolean);
@@ -585,6 +602,10 @@ export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
   for (const dir of tree.pageDirs) {
     const route = urlForAppDir(dir);
     if (route === null) continue;
+    // A slot's reset page — a `page.tsx` under `@slot/` that draws nothing (`return null`), there so a soft navigation
+    // clears the slot (the rise slot, build-sessions/RISE-AUDIT-2026-11-13.md § H.2) — is not a screen: its URL is the
+    // children page's (or a catch-all of them), and counting it would shadow that page's own sections.
+    if (isSlotReset(dir, appRoot)) continue;
     const isAdmin = route === '/admin' || route.startsWith('/admin/');
     patterns.push({ route, segs: parseSegs(route), kind: isAdmin ? 'admin' : 'screen' });
     if (!isAdmin) screenDirs.push({ dir, route });

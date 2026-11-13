@@ -11,14 +11,19 @@
  *     (`ask_for_a_change`, migration 20271332041210).
  *   · `ChangeAskCard` — drawn under the system line the ask posts. The supplier answers Revise (opens the Change quote
  *     card — the new version IS the revision) or Decline; the hosts see where it stands.
+ *
+ * ✋ AN ASK STARTS FROM THE PART (owner, ruling 6076). The (+) no longer carries a blank "Ask for a change" row. On the
+ * live quote the door IS the quote's lines (`QuoteCardLines` with `onAsk`) and a Payment plan row: tapping one opens
+ * the steps already attached to it — only "What should change?" is left to say — and the part travels in the ask
+ * (`askNoteWithPart`). Under a sent form the door is attached to that form (`formId`, its title as the part).
  */
 import { useCallback, useEffect, useId, useState } from 'react';
-import { Check, MessageCircleQuestion, PencilLine, X } from 'lucide-react';
+import { Check, ChevronRight, MessageCircleQuestion, PencilLine, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { TypedRow } from '@/app/_components/form-row';
 import { patchPlus } from '@/lib/chat-plus-store';
-import { askForAChange, ASK_SUBJECT_WORD, type AskSubject } from '@/lib/chat-cards';
+import { askForAChange, askNoteWithPart, askPartWords, ASK_SUBJECT_WORD, type AskPart, type AskSubject } from '@/lib/chat-cards';
+import { QuoteCardLines, type QuoteCardLine } from '@/app/_components/quote-card-lines';
 import { ChatCardShell, ChatStepCard, type ChatCardStep } from '../chat-step-card';
 import { answerChangeAskFromChat, askForAChangeFromChat, loadChangeAsks, type ChangeAskRow } from './card-calls';
 import { CouldNotLoad, EqualRow, Loading, Problem, type Read } from './card-bits';
@@ -28,6 +33,8 @@ export function AskChangeDoor({
   supplierName,
   proposalId = null,
   formId = null,
+  formTitle = null,
+  lines,
   locks,
   returnPath,
 }: {
@@ -35,34 +42,82 @@ export function AskChangeDoor({
   supplierName: string;
   proposalId?: string | null;
   formId?: string | null;
+  /** The sent form's title — the part a form ask carries. */
+  formTitle?: string | null;
+  /** The live quote's lines: each one is a door to an ask about THAT line (ruling 6076). */
+  lines?: readonly QuoteCardLine[];
   /** Which subjects are final now. */
   locks: Partial<Record<AskSubject, boolean>>;
   returnPath: string;
 }) {
   const offered: AskSubject[] = (formId ? ['form'] : ['quote', 'plan']).filter((s) => askForAChange({ readerIsSupplier: false, locked: locks[s as AskSubject] === true, supplierName }).show) as AskSubject[];
-  const [open, setOpen] = useState(false);
+  const [part, setPart] = useState<AskPart | null>(null);
   const [sent, setSent] = useState(false);
+  const quoteOpen = offered.includes('quote');
+  const planOpen = offered.includes('plan');
+  // The quote's lines are drawn HERE on the hosts' live quote (the stream hands them over instead of drawing them).
+  const lineList = lines ? <QuoteCardLines items={lines} onAsk={quoteOpen && !part && !sent ? (name) => setPart({ subject: 'quote', name }) : undefined} /> : null;
   if (offered.length === 0) {
     return (
-      <p className="mt-2 text-[13px] text-ink/60" data-ask-change="locked">
-        {formId ? `${supplierName} made this form final` : `${supplierName}'s price is final`}
-      </p>
+      <>
+        {lineList}
+        <p className="mt-2 text-[13px] text-ink/60" data-ask-change="locked">
+          {formId ? `${supplierName} made this form final` : `${supplierName}'s price is final`}
+        </p>
+      </>
     );
   }
-  if (sent) return <p className="mt-2 text-[13px] text-ink/60" role="status">Asked · waiting for {supplierName}</p>;
-  if (!open) {
+  if (sent) {
     return (
-      <div className="mt-2 flex" data-ask-change="door">
-        <ActionButton tone="info" icon={MessageCircleQuestion} label="Ask for a change" onClick={() => setOpen(true)} />
-      </div>
+      <>
+        {lineList}
+        <p className="mt-2 text-[13px] text-ink/60" role="status">Asked · waiting for {supplierName}</p>
+      </>
     );
   }
-  return <AskSteps {...{ threadId, offered, proposalId, formId, returnPath }} onClose={() => setOpen(false)} onSent={() => setSent(true)} />;
+  if (part) {
+    return (
+      <>
+        {lineList}
+        <AskSteps {...{ threadId, part, proposalId, formId, returnPath }} onClose={() => setPart(null)} onSent={() => setSent(true)} />
+      </>
+    );
+  }
+  return (
+    <>
+      {lineList}
+      {formId ? (
+        <div className="mt-2 flex" data-ask-change="door">
+          <ActionButton tone="info" icon={MessageCircleQuestion} label="Ask for a change" onClick={() => setPart({ subject: 'form', name: formTitle })} />
+        </div>
+      ) : (
+        <>
+          {planOpen ? (
+            <button
+              type="button"
+              onClick={() => setPart({ subject: 'plan', name: null })}
+              aria-label="Ask for a change: Payment plan"
+              className="mt-1 flex min-h-9 w-full items-center justify-between gap-3 border-t border-terracotta/20 text-left text-xs text-ink/70 hover:bg-terracotta/[0.08]"
+              data-ask-part="plan"
+            >
+              <span>{ASK_SUBJECT_WORD.plan}</span>
+              <MessageCircleQuestion aria-hidden className="h-3.5 w-3.5 shrink-0 text-mulberry" />
+            </button>
+          ) : null}
+          <p className="mt-1 flex items-center gap-1 text-[12px] text-ink/55" data-ask-change="door">
+            <MessageCircleQuestion aria-hidden className="h-3.5 w-3.5 text-mulberry" />
+            {quoteOpen ? 'Tap a line or the payment plan to ask for a change' : 'Tap the payment plan to ask for a change'}
+            <ChevronRight aria-hidden className="h-3 w-3" />
+          </p>
+        </>
+      )}
+    </>
+  );
 }
 
 function AskSteps({
   threadId,
-  offered,
+  part,
   proposalId,
   formId,
   returnPath,
@@ -70,7 +125,8 @@ function AskSteps({
   onSent,
 }: {
   threadId: string;
-  offered: AskSubject[];
+  /** The part this ask started from — already attached, never picked again. */
+  part: AskPart;
   proposalId: string | null;
   formId: string | null;
   returnPath: string;
@@ -78,31 +134,25 @@ function AskSteps({
   onSent: () => void;
 }) {
   const id = useId();
-  const [subject, setSubject] = useState<AskSubject | null>(offered.length === 1 ? offered[0]! : null);
   const [note, setNote] = useState('');
-  const [step, setStep] = useState(offered.length === 1 ? 0 : 0);
+  const [step, setStep] = useState(0);
   const [sending, setSending] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const steps: ChatCardStep[] = [];
-  if (offered.length > 1) {
-    steps.push({
+  const steps: ChatCardStep[] = [
+    {
       title: 'What should change?',
       body: (
-        <PickMenu label="What should change?" value={subject} options={offered.map((s) => ({ key: s, label: ASK_SUBJECT_WORD[s] }))} onPick={(k) => setSubject(k as AskSubject)} buttonText={subject ? undefined : 'Pick one'} dataAttr="data-ask-subject" />
+        <div className="grid gap-2">
+          <p className="text-[13px] text-ink/60" data-ask-part-attached={part.subject}>
+            About · {askPartWords(part)}
+          </p>
+          <TypedRow name="Note" long value={note} empty="Add" placeholder="A short note" maxLength={900} openAsk={1} onType={setNote} onKeep={(v) => setNote(v)} />
+          <Problem text={problem} />
+        </div>
       ),
-      ok: !!subject,
-    });
-  }
-  steps.push({
-    title: offered.length > 1 ? 'A short note' : 'What should change?',
-    body: (
-      <div className="grid gap-2">
-        <TypedRow name="Note" long value={note} empty="Add" placeholder="A short note" maxLength={1000} openAsk={1} onType={setNote} onKeep={(v) => setNote(v)} />
-        <Problem text={problem} />
-      </div>
-    ),
-    ok: note.trim().length > 0 && !!subject,
-  });
+      ok: note.trim().length > 0,
+    },
+  ];
   return (
     <form
       id={id}
@@ -116,12 +166,12 @@ function AskSteps({
       }}
     >
       <input type="hidden" name="thread_id" value={threadId} />
-      <input type="hidden" name="subject" value={subject ?? ''} />
-      <input type="hidden" name="note" value={note} />
+      <input type="hidden" name="subject" value={part.subject} />
+      <input type="hidden" name="note" value={askNoteWithPart(part, note)} />
       <input type="hidden" name="proposal_id" value={proposalId ?? ''} />
       <input type="hidden" name="form_id" value={formId ?? ''} />
       <input type="hidden" name="return_to" value={returnPath} />
-      <ChatStepCard topic={subject === 'form' ? 'forms' : 'quote'} kicker="You · not sent yet" title="Ask for a change" steps={steps} step={step} onStep={setStep} sending={sending} onClose={onClose} submitForm={id} />
+      <ChatStepCard topic={part.subject === 'form' ? 'forms' : 'quote'} kicker="You · not sent yet" title="Ask for a change" steps={steps} step={step} onStep={setStep} sending={sending} onClose={onClose} submitForm={id} />
     </form>
   );
 }

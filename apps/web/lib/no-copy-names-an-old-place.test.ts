@@ -17,7 +17,7 @@
  *     technically is gone since the pages there will be inside the different scenes it covers"*): Logo, Palette + Dress
  *     Code, Love Story, Schedule, E-Gifts, Info and Look are their scenes' editors, Prints is a row of the Hub's ⚙. The
  *     Maker's part doors say "Open <page>" (`makerSceneDoorWords`). The More menu's products (Papic, Live Studio, the
- *     Event Hub Pro page) are another "Studio" and are not named here.
+ *     Event Pro page) are another "Studio" and are not named here.
  *
  * Sabotage (2026-11-06, each seen red, then restored): `OUTFIT_SET_IN` back to "Mood Board & Dress Code" → red · the
  * venue-pin answer back to "Studio › Info › Venues" → red · the menu tour back to "Four places" → red.

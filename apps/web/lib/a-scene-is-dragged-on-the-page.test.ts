@@ -308,7 +308,7 @@ test('(3) the gap: the scenes change places in the slots scenes take, nothing ov
 /** What Apply writes: each stage place, onto the live row — as the Apply action does (`hub-draft-actions.ts`). */
 function publish(published: InvitationWidgetRow[], draft: HubDraft): InvitationWidgetRow[] {
   const plan = planHubDraftApply(draft, { events: {}, widgets: published }, false);
-  assert.equal(plan.refused.length, 0, 'arranging a page is never Event Hub Pro');
+  assert.equal(plan.refused.length, 0, 'arranging a page is never Event Pro');
   const items = plan.apply.filter((i): i is Extract<typeof i, { kind: 'widget' }> => i.kind === 'widget');
   assert.ok(items.length > 0, 'Apply would write nothing for a drop');
   for (const i of items) assert.equal(i.field, 'stage_order', `a drop wrote ${i.field}`);

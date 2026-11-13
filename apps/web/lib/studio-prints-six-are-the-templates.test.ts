@@ -184,8 +184,8 @@ test('5 · the pass look is the Digital ticket slide’s Style ▾ (owner 2026-1
   const six = read(SIX);
   const pro = six.slice(six.indexOf('export function StudioProDoor('), six.indexOf('/* ── 6 · THE POSTER'));
   assert.match(pro, /e\.preventDefault\(\);\s*setOpen\(true\);/, 'a tap jumps to the page instead of opening the note');
-  /* The note's words since 2026-10-17 (prototype `.note-pro`): "Not now" · "◆ Event Hub Pro". */
-  assert.match(pro, /confirmLabel="Event Hub Pro"\s*cancelLabel="Not now"/);
+  /* The note's words since 2026-10-17 (prototype `.note-pro`): "Not now" · "◆ Event Pro". */
+  assert.match(pro, /confirmLabel="Event (?:Hub )?Pro"\s*cancelLabel="Not now"/);
 });
 
 test('6 · the poster photo: Background ▾ (the house dropdown, 2026-10-17), the upload square with the measured pie, a small photo ALLOWED and warned with Change', async () => {

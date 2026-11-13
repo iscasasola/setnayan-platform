@@ -14,7 +14,7 @@
  *
  * 🗂 EXCEPT THE ALL-GUESTS FILES (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾ ON
  * GUEST PRINTS, ALL GUESTS ◆, EVERYTHING ◆": *"the Guest QR sheet and the place-card pack become Pro as all-guest files, while a
- * single guest stays free"*). Every guest's QR in one PDF and the whole place-card pack ask the event's Event Hub Pro — on the page
+ * single guest stays free"*). Every guest's QR in one PDF and the whole place-card pack ask the event's Event Pro — on the page
  * (the zip's ◆ pattern, `allInOneFile`) and at their routes, AFTER their free answers (the pictures, the chart, one guest's card).
  * Everything else here stays exactly as it was: free, reachable, shown in the store shell.
  */

@@ -7,9 +7,9 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1869
+# ledger: 1871
 # tables: 501
-# columns: 6082
+# columns: 6083
 # notnull: 3669
 [ledger]
 20260512000000
@@ -1881,6 +1881,8 @@
 20271344065097
 20271344452857
 20271344488042
+20271344860040
+20271345227050
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -5627,6 +5629,7 @@ platform_package_catalog.updated_by_admin_id
 platform_retail_catalog_v2.billing_period
 platform_retail_catalog_v2.created_at
 platform_retail_catalog_v2.description
+platform_retail_catalog_v2.fullres_extra_keep_days
 platform_retail_catalog_v2.gift_price_php
 platform_retail_catalog_v2.included_papic_credits
 platform_retail_catalog_v2.is_active

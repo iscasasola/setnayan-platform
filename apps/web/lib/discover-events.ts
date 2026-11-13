@@ -92,7 +92,7 @@ import {
  * `lib/home-public-reads.ts` and are remembered for 60 s: the world's candidate
  * rows, the listed events' hosts, the rows a cover is drawn from, the public
  * profiles, the event types' public rows — and, with the cover rows, the two
- * FACTS a cover's look can turn on (does the event own Event Hub Pro, is its
+ * FACTS a cover's look can turn on (does the event own Event Pro, is its
  * logo animation on), read once for everybody instead of card by card on every
  * view. Every decision still runs here, per view, over them: the public gate,
  * the layers, whether a host's name may be shown, the cover itself

@@ -61,7 +61,7 @@ test('the claim door’s finish asks BEFORE it writes anything (A6)', () => {
   }
 });
 
-test('the token wallet is retired: the claim no longer burns a token', () => {
+test('the token balance is retired: the claim no longer burns a token', () => {
   const actions = stripComments(readFileSync('lib/vendor-invite-actions.ts', 'utf8'));
   assert.doesNotMatch(actions, /claim_unlock_vendor_event/);
 });

@@ -67,7 +67,6 @@ import {
   Info,
   MessageCircle,
   Package as PackageIcon,
-  PiggyBank,
   Sparkles,
   UserCheck,
   Upload,
@@ -118,6 +117,15 @@ import {
   type SnapshotChargeLine,
 } from '@/lib/package-pricing-snapshot';
 import { DepositReservation } from './_components/deposit-reservation';
+import {
+  TEMPLATE_MONEY,
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateFail,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { ColourAccessCard } from './_components/colour-access-card';
@@ -1816,297 +1824,213 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </section>
       ) : null;
 
+  // 📐 THE PAYMENT PAGE THROUGH THE DESIGN TEMPLATE (owner-approved 2026-11-14,
+  // `design_template_sheet_2026-11-14_fable.html` › "Supplier Payment · now → after"; owner: "the pages do not present
+  // properly", "it looks dull and pale"). It opens on what the couple came to do — the amount, big, on the warm
+  // surface, with ONE terracotta Pay and "Record payment" as the second button (`DepositReservation`). Then the
+  // schedule as plain rows with bold, normal-font money; progress as one line; and each other part (refunds, terms,
+  // changes, handover, shot list, itemization) as its own section of plain rows, in the same order, when it exists.
+  // No card inside a card; no typewriter money; no 11 px words at half strength. Every fact and action is kept.
+  const scheduleTotalCentavos =
+    scheduleSource === 'quote' && acceptedQuote
+      ? acceptedQuote.schedule.reduce((sum, r) => sum + r.amountCentavos, 0)
+      : null;
   const statusSection = (
-      <section aria-labelledby="status-heading" className="space-y-3">
-        <h2
-          id="status-heading"
-          className="font-mono text-xs uppercase tracking-[0.18em] text-ink/65"
-        >
-          Order &amp; payment status
-        </h2>
+      <section id="payments" aria-label="Payment" className="space-y-1">
+        <PaymentAsksCard
+          vendorName={displayName}
+          measured={paymentAsks.measured}
+          asks={paymentAsks.rows.map((a) => ({
+            askId: a.ask_id,
+            // PostgREST returns NUMERIC as a STRING, and `Number(null)` is 0 —
+            // which would print "₱0", a real-looking figure for a value we do
+            // not have. Unreadable becomes null and renders an em dash.
+            amountPhp:
+              a.amount_php == null || Number.isNaN(Number(a.amount_php))
+                ? null
+                : Number(a.amount_php),
+            note: a.note,
+            dueDate: a.due_date,
+            createdAt: a.created_at,
+          }))}
+        />
+        <DepositReservation
+          eventId={eventId}
+          vendorId={ev.vendor_id}
+          vendorName={displayName}
+          depositRecordedAt={ev.deposit_recorded_at}
+          depositAcknowledgedAt={ev.deposit_acknowledged_at}
+          depositProofUrl={depositProofUrl}
+          depositDeclinedAt={depositRefusal?.declinedAt ?? null}
+          depositDeclineReason={depositRefusal?.reason ?? null}
+          depositDisputeNote={depositRefusal?.settlementNote ?? null}
+          payMethods={directPayMethods}
+          payMethodsState={directPayState}
+          requestedFirstPaymentCentavos={acceptedQuote?.firstPaymentCentavos ?? null}
+          requestedFirstPaymentSentence={firstPaymentSentence(acceptedQuote)}
+          requestedTermsUnreadable={acceptedQuoteUnreadable}
+          step={bookedMoney.step}
+          history={bookedMoney.history}
+          logInSheet
+        />
 
-        <ol className="grid grid-cols-3 gap-1 sm:gap-2" role="list">
-          {STAGE_ORDER.map((s, idx) => {
-            const reached = stage !== null && STAGE_ORDER.indexOf(stage) >= idx;
-            const isCurrent = stage === s;
-            const Icon = reached ? CheckCircle2 : Circle;
-            return (
-              <li
-                key={s}
-                className="flex flex-col items-center gap-1.5 text-center"
-                aria-current={isCurrent ? 'step' : undefined}
-              >
-                <div
-                  className={[
-                    'grid h-7 w-7 place-items-center rounded-full border transition-colors',
-                    reached
-                      ? 'border-success-400 bg-success-50 text-success-700'
-                      : 'border-ink/15 bg-cream text-ink/30',
-                    isCurrent ? 'ring-2 ring-success-300/60 ring-offset-2' : '',
-                  ].join(' ')}
-                >
-                  <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                </div>
-                <span
-                  className={[
-                    'text-[11px] leading-tight sm:text-xs',
-                    reached ? 'text-ink/85' : 'text-ink/45',
-                    isCurrent ? 'font-semibold' : '',
-                  ].join(' ')}
-                >
-                  {STAGE_LABEL[s]}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-
-        {stage === null ? (
-          <p className="text-xs text-ink/55">
-            No payment progress recorded yet. Log a payment below as money moves.
-          </p>
+        {/*
+          THE ACCEPTED QUOTE'S SCHEDULE — what is owed and when, from the quote the couple accepted. Drawn only when
+          no real per-booking plan exists (`paymentScheduleSource`), so one booking never shows two schedules with two
+          different amounts.
+        */}
+        {scheduleSource === 'quote' && acceptedQuote ? (
+          <TemplateSection
+            label="Schedule"
+            right={scheduleTotalCentavos !== null ? <b className={TEMPLATE_MONEY}>Total {pesoFromCentavos(scheduleTotalCentavos)}</b> : undefined}
+            tip={`From the quote you accepted. Pay ${displayName} directly; they confirm each payment as received.`}
+            data="schedule"
+          >
+            <TemplateRows label="Payment schedule">
+              {acceptedQuote.schedule.map((row, i) => (
+                <TemplateRow
+                  key={`${i}-${row.label}`}
+                  title={row.label}
+                  line={`Due ${row.dueText}`}
+                  right={<b className={`text-[15px] ${TEMPLATE_MONEY}`}>{pesoFromCentavos(row.amountCentavos)}</b>}
+                />
+              ))}
+              {acceptedQuote.publicId ? (
+                <TemplateRow href={`/proposals/${acceptedQuote.publicId}`} title="The quote you accepted" data="accepted-quote" />
+              ) : null}
+            </TemplateRows>
+          </TemplateSection>
         ) : null}
 
-        {/* Payments — embeds the same itemization card the budget page uses. */}
-        <div
-          id="payments"
-          className="space-y-3 rounded-xl border border-ink/10 bg-cream/60 p-5"
-        >
-          <header className="flex items-center justify-between gap-3">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
-              <PiggyBank aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-              Payments
-            </h3>
-          </header>
+        {/*
+          Payment plan PROGRESS STEPPER (Phase 2 PR-D). When the booked service carried a payment schedule,
+          finalizeVendor froze it into a per-booking plan at lock; the stepper folds those installments with the
+          couple's logged payments into per-installment states (due → pending → paid) and crowns the list with a
+          "cleared" banner once the vendor settles the whole plan. A locked-but-no-schedule booking ([] steps) still
+          renders the banner once cleared.
+        */}
+        {scheduleSource !== 'quote' &&
+        planProgress.steps !== null &&
+        (planProgress.steps.length > 0 || planProgress.clearedAt) ? (
+          <TemplateSection
+            label={`Payment plan${planProgress.isDefaultSeeded ? ' (estimated)' : ''}`}
+            tip={
+              planProgress.steps.length > 0
+                ? planProgress.isDefaultSeeded
+                  ? `${displayName} hasn’t set payment terms yet, so this is a typical 50/50 estimate. Confirm the amounts and dates with ${displayName} before paying.`
+                  : `${displayName} set up this plan. Pay each payment using the methods above; ${displayName} confirms each as received.`
+                : undefined
+            }
+            data="plan"
+          >
+            <PaymentPlanStepper steps={planProgress.steps} clearedAt={planProgress.clearedAt} />
+          </TemplateSection>
+        ) : null}
 
-          {/*
-            Payment plan PROGRESS STEPPER (Phase 2 PR-D — replaces the flat
-            PR-B installment list). When the booked service carried a payment
-            schedule, finalizeVendor froze it into a per-booking plan at lock.
-            The stepper folds those installments with the couple's logged
-            payments into per-installment states (due → pending → paid) and
-            crowns the list with a "cleared" banner once the vendor settles the
-            whole plan. When there's no plan yet (not locked / pre-PR-B) the
-            stepper is omitted and the existing direct-pay UI below carries the
-            "pay the vendor directly" guidance, unchanged. A locked-but-no-
-            schedule booking ([] steps) still renders the banner once cleared.
-          */}
-          {scheduleSource !== 'quote' &&
-          planProgress.steps !== null &&
-          (planProgress.steps.length > 0 || planProgress.clearedAt) ? (
-            <div className="space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4">
-              <p className="text-xs font-semibold text-ink">
-                Payment plan{planProgress.isDefaultSeeded ? ' (estimated)' : ''}
-              </p>
-              {planProgress.steps.length > 0 ? (
-                planProgress.isDefaultSeeded ? (
-                  <p className="text-[11px] text-ink/55">
-                    {displayName} hasn&apos;t set payment terms yet, so this is a
-                    typical 50/50 estimate. Confirm the amounts and dates with
-                    {' '}
-                    {displayName} before paying.
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-ink/55">
-                    {displayName} set up this plan. Pay each payment using the
-                    methods below; {displayName} confirms each as received.
-                  </p>
-                )
-              ) : null}
-              <PaymentPlanStepper
-                steps={planProgress.steps}
-                clearedAt={planProgress.clearedAt}
-              />
-            </div>
+        {/* Order & payment status — 3 truthful stages, as ONE line (the frame's "Progress"). */}
+        <TemplateSection label="Progress" data="progress">
+          <ol aria-label="Order and payment status" className="flex min-h-11 flex-wrap items-center gap-x-1.5 text-[14px]">
+            {STAGE_ORDER.map((st, idx) => {
+              const reached = stage !== null && STAGE_ORDER.indexOf(stage) >= idx;
+              return (
+                <li
+                  key={st}
+                  aria-current={stage === st ? 'step' : undefined}
+                  className={reached ? 'font-semibold text-ink' : 'text-[color:var(--m-slate-2)]'}
+                >
+                  {idx > 0 ? <span aria-hidden className="mr-1.5 text-[color:var(--m-slate-2)]">—</span> : null}
+                  {reached ? <CheckCircle2 aria-hidden className="mr-1 inline h-4 w-4 align-[-3px]" style={{ color: 'rgb(var(--color-ok))' }} strokeWidth={2} /> : null}
+                  {STAGE_LABEL[st]}
+                </li>
+              );
+            })}
+          </ol>
+          {stage === null ? (
+            <p className={TEMPLATE_SUBLINE}>No payment progress recorded yet. Log a payment above as money moves.</p>
           ) : null}
+        </TemplateSection>
 
-          {/* 💸 B2-E: refunds this supplier recorded giving you — beside your payments, in their words. */}
-          {!supplierRefunds.measured ? (
-            <p role="status" className="text-[12.5px] text-ink/60" data-workspace-refunds-unread="">
-              Refunds from {displayName} couldn&rsquo;t load just now. Refresh to try again.
-            </p>
-          ) : supplierRefunds.rows.length > 0 ? (
-            <div className="space-y-1.5 border-t border-ink/10 pt-3" data-workspace-refunds={supplierRefunds.rows.length}>
-              <p className="text-xs font-semibold text-ink">
-                Refunds from {displayName} · ₱{refundedTotalPhp(supplierRefunds.rows).toLocaleString('en-PH')}
-              </p>
-              <ul className="divide-y divide-ink/10">
+        {/* 💸 B2-E: refunds this supplier recorded giving you — beside your payments, in their words. */}
+        {!supplierRefunds.measured ? (
+          <TemplateFail data="workspace-refunds-unread">
+            <span data-workspace-refunds-unread="">Refunds from {displayName} couldn&rsquo;t load just now. Refresh to try again.</span>
+          </TemplateFail>
+        ) : supplierRefunds.rows.length > 0 ? (
+          <TemplateSection
+            label={`Refunds from ${displayName}`}
+            right={<b className={TEMPLATE_MONEY}>₱{refundedTotalPhp(supplierRefunds.rows).toLocaleString('en-PH')}</b>}
+            tip={`${displayName} recorded giving this back to you. Paid amounts above are what you sent; this is what came back.`}
+            data="refunds"
+          >
+            <div data-workspace-refunds={supplierRefunds.rows.length}>
+              <TemplateRows label="Refunds">
                 {supplierRefunds.rows.map((r) => (
-                  <li key={r.refundId} className="py-1.5 text-[13px] text-ink" data-workspace-refund={r.refundId}>
-                    <span className="font-semibold tabular-nums">₱{r.amountPhp.toLocaleString('en-PH')}</span>
-                    <span className="text-ink/55"> · {refundDayWords(r.refundedOn)} · </span>
-                    {r.reason}
-                  </li>
+                  <TemplateRow
+                    key={r.refundId}
+                    data={`workspace-refund-${r.refundId}`}
+                    title={r.reason}
+                    line={refundDayWords(r.refundedOn)}
+                    right={<b className={`text-[15px] ${TEMPLATE_MONEY}`}>₱{r.amountPhp.toLocaleString('en-PH')}</b>}
+                  />
                 ))}
-              </ul>
-              <p className="text-[11px] text-ink/55">{displayName} recorded giving this back to you. Paid amounts above are what you sent; this is what came back.</p>
+              </TemplateRows>
             </div>
-          ) : null}
+          </TemplateSection>
+        ) : null}
 
-          {/*
-            No-Show Downpayment Protection — the frozen reservation terms the
-            couple acknowledged at lock, rendered read-only beside the plan. The
-            snapshot is immutable evidence (a later vendor policy edit can't
-            rewrite it). Only shows when the booking locked under a protected
-            downpayment policy.
-          */}
-          {/*
-            THE ACCEPTED QUOTE'S SCHEDULE — what is owed and when, from the
-            quote the couple accepted. Drawn only when no real per-booking plan
-            exists (`paymentScheduleSource`), so one booking never shows two
-            schedules with two different amounts.
-          */}
-          {scheduleSource === 'quote' && acceptedQuote ? (
-            <div className="space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4">
-              <p className="text-xs font-semibold text-ink">Payment schedule</p>
-              <p className="text-[11px] text-ink/55">
-                From the quote you accepted
-                {acceptedQuote.publicId ? (
-                  <>
-                    {' '}
-                    (
-                    <Link
-                      href={`/proposals/${acceptedQuote.publicId}`}
-                      className="text-terracotta-700 underline-offset-2 hover:underline"
-                    >
-                      view it
-                    </Link>
-                    )
-                  </>
-                ) : null}
-                . Pay {displayName} directly; they confirm each payment as received.
-              </p>
-              <ol className="space-y-1.5">
-                {acceptedQuote.schedule.map((row, i) => (
-                  <li
-                    key={`${i}-${row.label}`}
-                    className="flex items-start justify-between gap-3 rounded-md bg-ink/[0.03] px-3 py-2 text-sm"
-                  >
-                    <span className="min-w-0">
-                      <span className="block font-medium text-ink">{row.label}</span>
-                      <span className="block text-xs text-ink/60">Due {row.dueText}</span>
-                    </span>
-                    <span className="shrink-0 font-mono text-sm font-semibold text-ink">
-                      {pesoFromCentavos(row.amountCentavos)}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-              <p className="flex items-center justify-between border-t border-ink/10 pt-2 text-xs text-ink/70">
-                <span>Total</span>
-                <span className="font-mono font-semibold text-ink">
-                  {pesoFromCentavos(
-                    acceptedQuote.schedule.reduce((sum, r) => sum + r.amountCentavos, 0),
-                  )}
-                </span>
-              </p>
-            </div>
-          ) : null}
+        {/*
+          No-Show Downpayment Protection — the frozen reservation terms the couple acknowledged at lock, rendered
+          read-only beside the plan. Only shows when the booking locked under a protected downpayment policy.
+        */}
+        {policyAck ? <ReservationTermsAck ack={policyAck} vendorName={displayName} /> : null}
 
-          {policyAck ? <ReservationTermsAck ack={policyAck} vendorName={displayName} /> : null}
+        <ChangeOrderTrail
+          eventId={eventId}
+          vendorId={ev.vendor_id}
+          vendorName={displayName}
+          changeOrders={changeOrders}
+          readFailed={Boolean(changeOrderRowsError)}
+        />
 
-          {/*
-            Deposit Reservation Lock-Free — record a deposit to HOLD the date
-            the instant it's logged, distinct from a cleared payment, with a
-            vendor-acknowledgement handshake. Setnayan never holds the money;
-            recording does not change the order status (orthogonal markers).
-          */}
-          {/*
-            ABOVE the deposit card on purpose: "they are waiting for ₱18,000" is
-            the reason a couple would reach for "Record deposit", so it has to
-            come first in the reading order.
-          */}
-          <PaymentAsksCard
-            vendorName={displayName}
-            measured={paymentAsks.measured}
-            asks={paymentAsks.rows.map((a) => ({
-              askId: a.ask_id,
-              // PostgREST returns NUMERIC as a STRING, and `Number(null)` is 0 —
-              // which would print "₱0", a real-looking figure for a value we do
-              // not have. Unreadable becomes null and renders an em dash.
-              amountPhp:
-                a.amount_php == null || Number.isNaN(Number(a.amount_php))
-                  ? null
-                  : Number(a.amount_php),
-              note: a.note,
-              dueDate: a.due_date,
-              createdAt: a.created_at,
-            }))}
-          />
+        {/*
+          Delivery Handover — the vendor posted finished work (gallery link /
+          proof image / note / sign-off); the couple confirms receipt here.
+          Acknowledge is a single-winner RPC; confirming can also mark the
+          booking delivered (reuses the existing review-request emit).
+        */}
+        <HandoverInbox
+          eventId={eventId}
+          vendorId={ev.vendor_id}
+          vendorName={displayName}
+          handovers={handovers}
+          canAdvanceToDelivered={canAdvanceToDelivered}
+        />
 
-          <DepositReservation
+        {/*
+          DAY-10 · Shot list — the supplier's must-get shots from their day-of
+          console, read-only, with what has been captured so far.
+        */}
+        {shotList ? (
+          <ShotListCard vendorName={displayName} category={ev.category} list={shotList} />
+        ) : null}
+
+        {vendorBudgetSummary ? (
+          <VendorItemizationCard
+            summary={vendorBudgetSummary}
             eventId={eventId}
-            vendorId={ev.vendor_id}
-            vendorName={displayName}
-            depositRecordedAt={ev.deposit_recorded_at}
-            depositAcknowledgedAt={ev.deposit_acknowledged_at}
-            depositProofUrl={depositProofUrl}
-            depositDeclinedAt={depositRefusal?.declinedAt ?? null}
-            depositDeclineReason={depositRefusal?.reason ?? null}
-            depositDisputeNote={depositRefusal?.settlementNote ?? null}
-            payMethods={directPayMethods}
-            payMethodsState={directPayState}
-            requestedFirstPaymentCentavos={acceptedQuote?.firstPaymentCentavos ?? null}
-            requestedFirstPaymentSentence={firstPaymentSentence(acceptedQuote)}
-            requestedTermsUnreadable={acceptedQuoteUnreadable}
-            step={bookedMoney.step}
-            history={bookedMoney.history}
+            variant="embed"
+            directPayMethods={directPayMethods}
+            installments={paymentPlan}
+            acceptedQuoteLines={acceptedQuote?.lines ?? null}
+            acceptedQuoteTotalCentavos={acceptedQuote?.totalCentavos ?? null}
+            paymentDoor={itemizationDoor}
           />
-
-          {/*
-            Change-Order Trail — the both-acknowledged add-on/removal log. The
-            couple raises a change order; the vendor accepts/declines on their
-            client page. On accept the delta settles into the budget ledger.
-            Setnayan never holds the money — the amount is the couple's record.
-          */}
-          <ChangeOrderTrail
-            eventId={eventId}
-            vendorId={ev.vendor_id}
-            vendorName={displayName}
-            changeOrders={changeOrders}
-            readFailed={Boolean(changeOrderRowsError)}
-          />
-
-          {/*
-            Delivery Handover — the vendor posted finished work (gallery link /
-            proof image / note / sign-off); the couple confirms receipt here.
-            Acknowledge is a single-winner RPC; confirming can also mark the
-            booking delivered (reuses the existing review-request emit).
-          */}
-          <HandoverInbox
-            eventId={eventId}
-            vendorId={ev.vendor_id}
-            vendorName={displayName}
-            handovers={handovers}
-            canAdvanceToDelivered={canAdvanceToDelivered}
-          />
-
-          {/*
-            DAY-10 · Shot list — the supplier's must-get shots from their day-of
-            console, read-only, with what has been captured so far.
-          */}
-          {shotList ? (
-            <ShotListCard vendorName={displayName} category={ev.category} list={shotList} />
-          ) : null}
-
-          {vendorBudgetSummary ? (
-            <VendorItemizationCard
-              summary={vendorBudgetSummary}
-              eventId={eventId}
-              variant="embed"
-              directPayMethods={directPayMethods}
-              installments={paymentPlan}
-              acceptedQuoteLines={acceptedQuote?.lines ?? null}
-              acceptedQuoteTotalCentavos={acceptedQuote?.totalCentavos ?? null}
-              paymentDoor={itemizationDoor}
-            />
-          ) : (
-            <p className="text-xs text-ink/55">
-              No payment milestones added yet. Add a line item or log a payment
-              as money moves to {displayName}.
-            </p>
-          )}
-        </div>
+        ) : (
+          <TemplateEmpty data="milestones">
+            No payment milestones added yet. Add a line item or log a payment as money moves to {displayName}.
+          </TemplateEmpty>
+        )}
+      </div>
       </section>
   );
 

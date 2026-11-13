@@ -41,8 +41,12 @@
 // never holds funds. Recording does NOT change the order status (orthogonal).
 // ==========================================================================
 
-import { useState, useTransition } from 'react';
-import { AlertTriangle, CalendarCheck, CheckCircle2, Clock, FileText, Loader2 } from 'lucide-react';
+import { useId, useState, useTransition } from 'react';
+import { CalendarCheck, FileText, Loader2, X } from 'lucide-react';
+import { ActionButton, EqualRow } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
+import { Sheet } from '@/app/_components/sheet';
 import { recordDeposit } from '../../../actions';
 import { logScheduledPayment } from '@/app/dashboard/[eventId]/budget/actions';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -110,6 +114,12 @@ type Props = {
   history?: PaymentHistory | null;
   /** Compact chrome for the chat quote card (no anchor id, no outer border). */
   compact?: boolean;
+  /**
+   * 📐 The log form RISES AS A SHEET (design template 2026-11-14, "Supplier Payment · after · logging") — the
+   * workspace's Payment page only. Off where this card is itself inside a sheet (the Suppliers pay sheet) or a
+   * chat bubble, where a sheet over a sheet would trap the couple: there it opens in place, as before.
+   */
+  logInSheet?: boolean;
 };
 
 function fmtDate(iso: string | null): string {
@@ -144,6 +154,7 @@ export function DepositReservation({
   step = null,
   history = null,
   compact = false,
+  logInSheet = false,
 }: Props) {
   const minimumPhp =
     requestedFirstPaymentCentavos && requestedFirstPaymentCentavos > 0
@@ -153,6 +164,7 @@ export function DepositReservation({
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const save = useSaveLoader();
+  const logTitleId = useId();
 
   const recorded = Boolean(depositRecordedAt);
   const acked = Boolean(depositAcknowledgedAt);
@@ -205,67 +217,180 @@ export function DepositReservation({
     });
   }
 
+  // The amount the top of the card shows big — what is due now, or the installment that is coming.
+  const heroCentavos: number | null =
+    later?.amountCentavos ??
+    notDueYet?.amountCentavos ??
+    (owed && firstPaymentOffered && requestedFirstPaymentCentavos ? requestedFirstPaymentCentavos : null);
+
+  // ONE log form — in place, or in a sheet on the workspace's Payment page (`logInSheet`).
+  const logForm = (
+        <form onSubmit={handleSubmit} className="space-y-3 pt-1">
+          <div className="space-y-1">
+            <p className="text-[15px] font-semibold text-ink">{firstLabel}</p>
+            <label htmlFor="deposit_php" className="block text-[13px] font-medium text-[color:var(--m-slate-2)]">
+              Amount to pay (₱)
+            </label>
+            <input
+              id="deposit_php"
+              name="deposit_php"
+              type="number"
+              min={minimumPhp ?? 1}
+              step="0.01"
+              required
+              inputMode="decimal"
+              defaultValue={minimumPhp ?? undefined}
+              placeholder={minimumPhp ? undefined : 'e.g. 10000'}
+              aria-describedby={minimumPhp ? 'deposit_php_min' : undefined}
+              className="sn-input min-h-12 w-full"
+            />
+            {minimumPhp ? (
+              <p id="deposit_php_min" className="text-[13px] text-[color:var(--m-slate-2)]">
+                At least ₱{minimumPhp.toLocaleString('en-PH', { maximumFractionDigits: 2 })} — the
+                first payment {vendorName} asked for. You may pay more.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label htmlFor="method" className="block text-[13px] font-medium text-[color:var(--m-slate-2)]">
+                Method <span className="text-[color:var(--m-slate-2)]">(optional)</span>
+              </label>
+              <input
+                id="method"
+                name="method"
+                type="text"
+                maxLength={48}
+                placeholder="GCash / BDO / cash"
+                className="sn-input min-h-12 w-full"
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="reference" className="block text-[13px] font-medium text-[color:var(--m-slate-2)]">
+                Reference <span className="text-[color:var(--m-slate-2)]">(optional)</span>
+              </label>
+              <input
+                id="reference"
+                name="reference"
+                type="text"
+                maxLength={64}
+                placeholder="Txn ref"
+                className="sn-input min-h-12 w-full"
+              />
+            </div>
+          </div>
+
+          {/* The same `<input type="file" name="proof">`, still read by
+              `recordDeposit` out of this form's own FormData — with the picture
+              you just chose shown at a size you can actually check, its name and
+              size, and a Remove that clears the INPUT and not just the preview.
+              See app/_components/chosen-proof-field.tsx. */}
+          <ChosenProofField
+            id="proof"
+            name="proof"
+            label={
+              <>
+                Proof of payment{' '}
+                <span className="text-[color:var(--m-slate-2)]">(optional — screenshot/receipt)</span>
+              </>
+            }
+          />
+
+          {errorMsg ? (
+            <p role="alert" className="text-[13px] font-medium" style={{ color: 'rgb(var(--color-danger))' }}>
+              {errorMsg}
+            </p>
+          ) : null}
+
+          <EqualRow>
+            <ActionButton
+              tone="neutral"
+              icon={X}
+              label="Cancel"
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                setOpen(false);
+                setErrorMsg(null);
+              }}
+            />
+            <ActionButton
+              tone="brand"
+              main
+              icon={pending ? Loader2 : CalendarCheck}
+              label="Record payment"
+              type="submit"
+              disabled={pending}
+            />
+          </EqualRow>
+        </form>
+  );
+
   return (
     <div
       id={DEPOSIT_ANCHOR_ID}
       className={
         compact
           ? 'space-y-2 pt-1'
-          : 'scroll-mt-24 space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4'
+          : 'scroll-mt-24 space-y-3 rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4'
       }
     >
+      {/* 📐 THE TOP OF THE PAGE (design template 2026-11-14, rule 13 "strength, not pale"): the one thing that
+          matters now, on the warm surface — its label with the explaining behind ⓘ (rule 7), the amount BIG in full
+          ink, what it is, and a chip for where it stands (rule 5). */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-2 text-xs font-semibold text-ink">
-          <CalendarCheck aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Amount to pay
-        </p>
+        <InfoTip
+          label={recorded && !declined && !later && !notDueYet ? 'You logged' : 'Amount to pay'}
+          labelClassName="text-[13px] font-bold uppercase tracking-[0.08em] text-[color:var(--m-slate-2)]"
+          align="start"
+        >
+          {recorded
+            ? `First payment recorded ${fmtDate(depositRecordedAt)} — your date is held on ${vendorName}’s schedule.`
+            : `Pay ${vendorName} directly, then record it here to hold your date on their schedule while they confirm. Setnayan never holds your money — this is your own record.`}
+        </InfoTip>
 
         {acked ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-success-400 bg-success-50 px-2.5 py-1 text-[11px] font-semibold text-success-700">
-            <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Confirmed by supplier
-          </span>
+          <Badge tone="ok">Confirmed by supplier</Badge>
         ) : declined ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-danger-300 bg-danger-50 px-2.5 py-1 text-[11px] font-semibold text-danger-700">
-            <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            {vendorName} says it hasn&rsquo;t reached them
-          </span>
+          <Badge tone="no">Hasn&rsquo;t reached them</Badge>
         ) : recorded ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-warn-300 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold text-warn-900">
-            <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Date held · awaiting supplier confirmation
-          </span>
+          <Badge tone="wait">Waiting to confirm</Badge>
         ) : null}
       </div>
 
+      {heroCentavos !== null ? (
+        <p className="text-[34px] font-extrabold leading-none tabular-nums text-ink" data-amount-to-pay={heroCentavos}>
+          {pesoFromCentavos(heroCentavos)}
+        </p>
+      ) : null}
+
       {recorded ? (
-        <p className="text-[11px] text-ink/60">
-          First payment recorded {fmtDate(depositRecordedAt)} — your date is held on{' '}
-          {vendorName}&rsquo;s schedule.{' '}
+        <p className="text-[13px] leading-snug text-[color:var(--m-slate-2)]">
+          <b className="block text-[15px] font-semibold text-ink">First payment · your date is held</b>
           {acked
             ? `Confirmed by ${vendorName} on ${fmtDate(depositAcknowledgedAt)}.`
             : declined
               ? `On ${fmtDate(depositDeclinedAt)} they said it hadn’t reached them. Your record here is kept — a transfer can be slow, or arrive under a different name.`
-              : `${vendorName} will confirm they received it.`}
+              : `Logged ${fmtDate(depositRecordedAt)} · waiting for ${vendorName} to confirm.`}
         </p>
-      ) : (
-        <p className="text-[11px] text-ink/60">
-          Pay {vendorName} directly, then record it here to hold your date on
-          their schedule while they confirm. Setnayan never holds your money —
-          this is your own record.
+      ) : owed && firstPaymentOffered ? (
+        <p className="text-[13px] leading-snug text-[color:var(--m-slate-2)]">
+          <b className="block text-[15px] font-semibold text-ink">{firstLabel}</b>
+          Holds your date on {vendorName}&rsquo;s schedule
         </p>
-      )}
+      ) : null}
 
       {/* THE REQUESTED FIRST PAYMENT (owner, 2026-09-19: "i do not see the
           3350 downpayment"). From the accepted quote's schedule; it is the
           minimum the form below accepts. */}
       {owed && firstPaymentOffered && requestedFirstPaymentSentence ? (
-        <p className="rounded-md border border-terracotta/25 bg-terracotta/[0.05] px-2.5 py-1.5 text-xs font-medium text-ink">
+        <p className="text-[13px] leading-snug text-[color:var(--m-slate-2)]">
           {requestedFirstPaymentSentence}
         </p>
       ) : null}
       {owed && firstPaymentOffered && requestedTermsUnreadable ? (
-        <p role="status" className="rounded-md border border-ink/10 bg-ink/[0.03] px-2.5 py-1.5 text-[11px] text-ink/70">
+        <p role="status" className="text-[13px] leading-snug" style={{ color: 'rgb(var(--color-warn))' }}>
           We couldn&rsquo;t load the payment terms from your accepted quote, so the
           first payment {vendorName} asked for isn&rsquo;t shown. Refresh to try again.
         </p>
@@ -275,14 +400,11 @@ export function DepositReservation({
           reading order, only while a deposit is still owed. The disclosure
           rides inside VendorDirectPay (always-on line + the sheet's locked copy). */}
       {payDue ? (
-        <div className="space-y-1.5 pt-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
-            1 · Pay {vendorName}
-          </p>
+        <div className="space-y-2 pt-1">
           {ownWaysShown ? (
-            <p className="text-[12px] text-ink/70">Pay them one of the ways above, then record it here.</p>
+            <p className="text-[13px] text-[color:var(--m-slate-2)]">Pay them one of the ways above, then record it here.</p>
           ) : noMethods ? (
-            <p role="note" className="rounded-md border border-ink/10 bg-ink/[0.03] px-2.5 py-1.5 text-[11px] text-ink/70">
+            <p role="note" className="text-[13px] text-[color:var(--m-slate-2)]">
               {noMethods}
             </p>
           ) : (
@@ -298,14 +420,11 @@ export function DepositReservation({
               amountPhp={minimumPhp}
             />
           )}
-          <p className="pt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
-            2 · Record it here
-          </p>
         </div>
       ) : null}
 
       {declined && depositDeclineReason ? (
-        <p className="rounded-md border border-danger-200 bg-danger-50 px-2.5 py-1.5 text-[11px] text-ink/75">
+        <p className="text-[13px] leading-snug" style={{ color: 'rgb(var(--color-danger))' }}>
           {vendorName}&rsquo;s words: &ldquo;{depositDeclineReason}&rdquo;
         </p>
       ) : null}
@@ -315,7 +434,7 @@ export function DepositReservation({
           when the team finds the payment DID arrive the refusal is lifted and
           this card reads as confirmed, which says it better than a sentence. */}
       {declined && depositDisputeNote ? (
-        <p className="rounded-md border border-ink/15 bg-ink/[0.03] px-2.5 py-1.5 text-[11px] text-ink/75">
+        <p className="text-[13px] leading-snug text-[color:var(--m-slate-2)]">
           Setnayan checked this: &ldquo;{depositDisputeNote}&rdquo; Your record is still on
           file — send it to {vendorName} again below.
         </p>
@@ -332,7 +451,7 @@ export function DepositReservation({
           signs it through `depositProofDisplayUrl` — so nothing here is public. */}
       {depositProofUrl ? (
         <div className="space-y-1">
-          <p className="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink/70">
+          <p className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink">
             <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             The proof you sent
           </p>
@@ -347,121 +466,31 @@ export function DepositReservation({
           fix nobody can reach. Sending again clears the refusal and puts the
           question back in front of the supplier. */}
       {(!recorded || declined) && !open && firstPaymentOffered ? (
-        <button
+        // 📐 The SECOND button (rule 3): outlined, under the one terracotta Pay. A refusal makes it the main one.
+        <ActionButton
+          tone="brand"
+          main={declined || !payDue || noMethods !== null}
+          icon={CalendarCheck}
+          label={declined ? 'Send it again' : 'Record payment'}
+          name={declined ? `Send it again to ${vendorName}` : 'I already paid — record it'}
           type="button"
+          aria-haspopup={logInSheet ? 'dialog' : undefined}
           onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800"
-        >
-          <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          {declined ? 'Send it again' : 'Record payment'}
-        </button>
+          className="w-full"
+        />
       ) : null}
 
-      {open ? (
-        <form onSubmit={handleSubmit} className="space-y-3 pt-1">
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold text-ink">{firstLabel}</p>
-            <label htmlFor="deposit_php" className="block text-[11px] font-medium text-ink/70">
-              Amount to pay (₱)
-            </label>
-            <input
-              id="deposit_php"
-              name="deposit_php"
-              type="number"
-              min={minimumPhp ?? 1}
-              step="0.01"
-              required
-              inputMode="decimal"
-              defaultValue={minimumPhp ?? undefined}
-              placeholder={minimumPhp ? undefined : 'e.g. 10000'}
-              aria-describedby={minimumPhp ? 'deposit_php_min' : undefined}
-              className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
-            />
-            {minimumPhp ? (
-              <p id="deposit_php_min" className="text-[11px] text-ink/55">
-                At least ₱{minimumPhp.toLocaleString('en-PH', { maximumFractionDigits: 2 })} — the
-                first payment {vendorName} asked for. You may pay more.
-              </p>
-            ) : null}
+      {open && logInSheet ? (
+        <Sheet open onClose={() => setOpen(false)} labelledById={logTitleId} rise>
+          <div className="px-4 pb-5 pt-1">
+            <h2 id={logTitleId} className="mb-2 text-[19px] font-extrabold text-ink">
+              Log your payment
+            </h2>
+            {logForm}
           </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <label htmlFor="method" className="block text-[11px] font-medium text-ink/70">
-                Method <span className="text-ink/40">(optional)</span>
-              </label>
-              <input
-                id="method"
-                name="method"
-                type="text"
-                maxLength={48}
-                placeholder="GCash / BDO / cash"
-                className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
-              />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="reference" className="block text-[11px] font-medium text-ink/70">
-                Reference <span className="text-ink/40">(optional)</span>
-              </label>
-              <input
-                id="reference"
-                name="reference"
-                type="text"
-                maxLength={64}
-                placeholder="Txn ref"
-                className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
-              />
-            </div>
-          </div>
-
-          {/* The same `<input type="file" name="proof">`, still read by
-              `recordDeposit` out of this form's own FormData — with the picture
-              you just chose shown at a size you can actually check, its name and
-              size, and a Remove that clears the INPUT and not just the preview.
-              See app/_components/chosen-proof-field.tsx. */}
-          <ChosenProofField
-            id="proof"
-            name="proof"
-            label={
-              <>
-                Proof of payment{' '}
-                <span className="text-ink/40">(optional — screenshot/receipt)</span>
-              </>
-            }
-          />
-
-          {errorMsg ? (
-            <p role="alert" className="text-[11px] font-medium text-danger-600">
-              {errorMsg}
-            </p>
-          ) : null}
-
-          <div className="flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={pending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
-            >
-              {pending ? (
-                <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-              ) : (
-                <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              )}
-              Record payment
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                setErrorMsg(null);
-              }}
-              disabled={pending}
-              className="rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+        </Sheet>
+      ) : open ? (
+        logForm
       ) : null}
 
       {/* THE NEXT INSTALLMENT — after the first payment is confirmed (or when
@@ -498,7 +527,7 @@ export function DepositReservation({
       ) : null}
 
       {paidInFull ? (
-        <p className="rounded-md border border-success-300 bg-success-50 px-2.5 py-1.5 text-xs font-medium text-success-800">
+        <p className="text-[15px] font-semibold" style={{ color: 'rgb(var(--color-ok))' }}>
           Paid in full — {pesoFromCentavos(paidInFull.paidCentavos)} per the quote you accepted.
         </p>
       ) : null}
@@ -506,14 +535,14 @@ export function DepositReservation({
       {/* THE PAYMENTS COULD NOT BE READ. Said out loud, because "unknown" and
           "nothing owed" would otherwise render as the same blank card. */}
       {step && step.kind === 'unknown' && stepLine ? (
-        <p role="status" className="rounded-md border border-ink/10 bg-ink/[0.03] px-2.5 py-1.5 text-[11px] text-ink/70">
+        <p role="status" className="text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
           {stepLine}
         </p>
       ) : null}
 
       {/* WHAT HAS ALREADY BEEN PAID — one mount, so the Payments tab and the
           chat quote card (which mounts this card) show the same history. */}
-      <PaymentHistoryList history={history} className="border-t border-ink/10 pt-2" />
+      <PaymentHistoryList history={history} className="border-t border-[color:var(--m-line)] pt-2" />
     </div>
   );
 }
@@ -575,15 +604,10 @@ function LaterInstallment({
   }
 
   return (
-    <div className="space-y-2 border-t border-ink/10 pt-2">
+    <div className="space-y-2 border-t border-[color:var(--m-line)] pt-2">
       <p
-        className={
-          notDueYet
-            ? 'rounded-md border border-ink/10 bg-ink/[0.03] px-2.5 py-1.5 text-xs font-medium text-ink/75'
-            : overdue
-              ? 'rounded-md border border-warn-300 bg-warn-50 px-2.5 py-1.5 text-xs font-medium text-warn-900'
-              : 'rounded-md border border-terracotta/25 bg-terracotta/[0.05] px-2.5 py-1.5 text-xs font-medium text-ink'
-        }
+        className="text-[13px] font-medium leading-snug text-[color:var(--m-slate-2)]"
+        style={overdue && !notDueYet ? { color: 'rgb(var(--color-warn))' } : undefined}
       >
         {line ?? `${label}${amountCentavos !== null ? ` · ${pesoFromCentavos(amountCentavos)}` : ''}`}
       </p>
@@ -592,28 +616,14 @@ function LaterInstallment({
         notDueYet ? (
           // QUIETER ON PURPOSE: nothing is owed today, so this is an offer, not
           // an instruction. It opens the identical form below.
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream"
-          >
-            <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Pay early
-          </button>
+          <ActionButton tone="neutral" icon={CalendarCheck} label="Pay early" type="button" onClick={() => setOpen(true)} />
         ) : (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800"
-          >
-            <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Record payment
-          </button>
+          <ActionButton tone="brand" icon={CalendarCheck} label="Record payment" type="button" onClick={() => setOpen(true)} className="w-full" />
         )
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3 pt-1">
           <div className="space-y-1">
-            <label htmlFor="later_amount_php" className="block text-[11px] font-medium text-ink/70">
+            <label htmlFor="later_amount_php" className="block text-[13px] font-medium text-[color:var(--m-slate-2)]">
               Amount to pay (₱)
             </label>
             <input
@@ -625,9 +635,9 @@ function LaterInstallment({
               required
               inputMode="decimal"
               defaultValue={amountCentavos !== null ? amountCentavos / 100 : undefined}
-              className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+              className="sn-input min-h-12 w-full"
             />
-            <p className="text-[11px] text-ink/55">
+            <p className="text-[13px] text-[color:var(--m-slate-2)]">
               Paying part of it? Enter what you paid — the rest stays due.
             </p>
           </div>
@@ -637,14 +647,14 @@ function LaterInstallment({
               maxLength={48}
               aria-label="Method (optional)"
               placeholder="Method (GCash / BDO / cash)"
-              className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+              className="sn-input min-h-12 w-full"
             />
             <input
               name="reference"
               maxLength={64}
               aria-label="Reference (optional)"
               placeholder="Reference #"
-              className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+              className="sn-input min-h-12 w-full"
             />
           </div>
           {/* The same private receipt upload the payment log uses — logPayment
@@ -663,35 +673,24 @@ function LaterInstallment({
             bigPreview
           />
           {errorMsg ? (
-            <p role="alert" className="text-[11px] font-medium text-danger-600">
+            <p role="alert" className="text-[13px] font-medium" style={{ color: 'rgb(var(--color-danger))' }}>
               {errorMsg}
             </p>
           ) : null}
-          <div className="flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={pending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
-            >
-              {pending ? (
-                <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-              ) : (
-                <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              )}
-              Record payment
-            </button>
-            <button
+          <EqualRow>
+            <ActionButton
+              tone="neutral"
+              icon={X}
+              label="Cancel"
               type="button"
+              disabled={pending}
               onClick={() => {
                 setOpen(false);
                 setErrorMsg(null);
               }}
-              disabled={pending}
-              className="rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
-            >
-              Cancel
-            </button>
-          </div>
+            />
+            <ActionButton tone="brand" main icon={pending ? Loader2 : CalendarCheck} label="Record payment" type="submit" disabled={pending} />
+          </EqualRow>
         </form>
       )}
     </div>

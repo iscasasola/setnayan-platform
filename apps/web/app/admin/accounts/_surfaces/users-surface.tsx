@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Search, ShieldCheck, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronDown, ChevronUp, XCircle, LogOut } from 'lucide-react';
+import { Search, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronRight, XCircle, LogOut } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -33,6 +34,18 @@ import {
   fetchV2VendorCatalog,
 } from '@/lib/v2-catalog';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { Badge } from '@/app/_components/badge';
+import {
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateFail,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { PersonMore } from '../_components/person-more';
+import { PeopleFilterChips } from '../_components/people-filter-chips';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { COMP_GRANT_CO_REVIEW_PESOS } from '@/lib/rule-constants';
 import { formatCount } from '@/lib/format-number';
@@ -302,7 +315,8 @@ export async function UsersSurface({
   }
 
   return (
-    <div>
+    // 📐 One column, never wider than 760 (template rule 12) — the People frame at 1280.
+    <div className="mx-auto w-full max-w-[760px]">
       <PageMasthead
         title="Users"
       />
@@ -374,38 +388,26 @@ export async function UsersSurface({
         </section>
       ) : null}
 
-      <form className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center" method="get" action="/admin/accounts">
+      {/* 📐 The People frame (owner-approved 2026-11-14): the filters are soft chips, the search one field — Enter
+          searches, keeping the chip picked. Same `?q` + `?filter` as before. */}
+      <PeopleFilterChips filter={filter} q={q} />
+      <form className="mb-1" method="get" action="/admin/accounts" role="search">
         <input type="hidden" name="tab" value="users" />
-        <div className="relative flex-1">
+        {filter !== 'all' ? <input type="hidden" name="filter" value={filter} /> : null}
+        <label className="relative block">
+          <span className="sr-only">Search name, email or ID</span>
           <Search
             aria-hidden
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--m-slate-2)]"
             strokeWidth={1.75}
           />
           <input
             name="q"
             defaultValue={q}
-            placeholder={
-              filter === 'blacklisted'
-                ? 'email substring'
-                : 'email · display name · S89U-…'
-            }
-            className="input-field pl-9"
+            placeholder={filter === 'blacklisted' ? 'Search blocked emails' : 'Search name, email or ID'}
+            className="input-field min-h-12 pl-9"
           />
-        </div>
-        <select
-          name="filter"
-          defaultValue={filter}
-          className="input-field min-w-[12rem]"
-        >
-          <option value="all">All</option>
-          <option value="customer">Couples (customer)</option>
-          <option value="vendor">Suppliers</option>
-          <option value="internal">🟣 Internal (§ 10a)</option>
-          <option value="suspended">⏸ Suspended</option>
-          <option value="blacklisted">🚫 Blacklisted</option>
-        </select>
-        <button type="submit" className="button-secondary">Apply</button>
+        </label>
       </form>
 
       {/* The raw-message error banner is GONE. It said the true thing and then
@@ -454,6 +456,179 @@ function buildToggleHref(opts: {
   return `/admin/accounts?${qs}#u-${opts.rowUserId}`;
 }
 
+/** Couple · Supplier · Admin — the word rule (template rule 14): say supplier, never "VENDOR". */
+function kindWord(t: UserRow['account_type']): string {
+  return t === 'customer' ? 'Couple' : t === 'vendor' ? 'Supplier' : 'Admin';
+}
+
+/** "14 Nov" — and the year only when it is not this year, so an old account never reads as a new one. */
+function joinedWords(iso: string): string {
+  const d = new Date(iso);
+  const sameYear = d.getUTCFullYear() === new Date().getUTCFullYear();
+  return d.toLocaleDateString('en-PH', {
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' }),
+    timeZone: 'Asia/Manila',
+  });
+}
+
+/** "GC" for Golden Catering; the email's first letters when there is no name. */
+function initialsFor(u: UserRow): string {
+  const src = (u.display_name ?? u.email ?? '?').replace(/@.*/, '');
+  const words = src.split(/[\s._-]+/).filter(Boolean);
+  return (words.slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?').slice(0, 2);
+}
+
+/** The ONE chip a row carries — On hold wins, then Internal, then Team (frame "Everything kept"). */
+function personChip(u: UserRow): ReactNode {
+  if (u.suspended_at) return <Badge tone="wait">On hold</Badge>;
+  if (u.is_internal) return <Badge tone="quiet">Internal</Badge>;
+  if (u.is_team_member) return <Badge tone="ok">Team</Badge>;
+  return null;
+}
+
+/** A row of the ⋯ list — the template's 56 row: the whole row is the button. */
+const MENU_ROW =
+  'sn-press flex min-h-14 w-full items-center gap-3 border-t border-[color:var(--m-line)] py-2 text-left text-[15px] font-semibold text-ink disabled:opacity-60';
+
+/**
+ * The ⋯ list for one person (frame "After · ⋯ opened"): every action of today's row in plain words, the everyday ones
+ * first, then the three that cannot be undone under their own red label — each one still behind the SAME
+ * `ConfirmForm`, title and message as before. Server-rendered: the forms post the same server actions.
+ */
+function PersonActions({
+  u,
+  waiting,
+  grantsHref,
+  grantsOpen,
+}: {
+  u: UserRow;
+  waiting: boolean;
+  grantsHref: string;
+  grantsOpen: boolean;
+}) {
+  const go = <ChevronRight aria-hidden className="ml-auto h-4 w-4 flex-none text-mulberry" strokeWidth={2.2} />;
+  return (
+    <div className="[&>*:first-child]:border-t-0">
+      <Link href={`/admin/users/${u.user_id}`} className={MENU_ROW}>
+        Open account {go}
+      </Link>
+      {u.is_internal ? (
+        <p className={`flex min-h-14 items-center border-t border-[color:var(--m-line)] py-2 ${TEMPLATE_SUBLINE}`}>
+          Locked (internal) — no actions here.
+        </p>
+      ) : (
+        <>
+          {waiting ? (
+            <Link href="/admin/approvals" className={MENU_ROW}>
+              Team · waiting on 2nd admin {go}
+            </Link>
+          ) : (
+            <form action={toggleTeamMember}>
+              <input type="hidden" name="user_id" value={u.user_id} />
+              <input type="hidden" name="desired" value={u.is_team_member ? 'false' : 'true'} />
+              <SubmitButton className={MENU_ROW} pendingLabel="…">
+                <Sparkle aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
+                {u.is_team_member ? 'Remove from team' : 'Add to team'}
+              </SubmitButton>
+            </form>
+          )}
+          <form action={confirmUserEmail}>
+            <input type="hidden" name="user_id" value={u.user_id} />
+            <SubmitButton
+              title="Force-confirm this user's email (idempotent — useful when Supabase email doesn't arrive)"
+              className={MENU_ROW}
+              pendingLabel="…"
+            >
+              <MailCheck aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
+              Confirm email
+            </SubmitButton>
+          </form>
+          <form action={resetUserPassword}>
+            <input type="hidden" name="user_id" value={u.user_id} />
+            <SubmitButton
+              title="Generate a temporary password to share with this user. Shown once at the top of the page."
+              className={MENU_ROW}
+              pendingLabel="Generating…"
+            >
+              <KeyRound aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
+              Reset password
+            </SubmitButton>
+          </form>
+          <Link
+            href={grantsHref}
+            className={MENU_ROW}
+            aria-expanded={grantsOpen}
+            aria-controls={`grants-${u.user_id}`}
+          >
+            <Gift aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
+            {grantsOpen ? 'Hide comp grants' : 'Comp grants'} {go}
+          </Link>
+
+          <p
+            className="mt-[18px] pb-1 text-[11.5px] font-bold uppercase tracking-[0.1em]"
+            style={{ color: 'rgb(var(--color-danger))' }}
+          >
+            Danger · each asks you first
+          </p>
+          <ConfirmForm
+            action={forceSignOutUser}
+            title="Revoke all sessions?"
+            confirmLabel="Sign out everywhere"
+            message={`Force sign-out ${u.email ?? 'this user'}? They are signed out on EVERY device immediately — use for compromised accounts. Their data is untouched; they can log back in.`}
+          >
+            <input type="hidden" name="user_id" value={u.user_id} />
+            <SubmitButton
+              title="Revoke every session for this user (compromised-account remedy). Audit-logged."
+              className={`${MENU_ROW} border-t-0`}
+              style={{ color: 'rgb(var(--color-danger))' }}
+              pendingLabel="Signing out…"
+            >
+              <LogOut aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
+              Sign out everywhere
+            </SubmitButton>
+          </ConfirmForm>
+          <ConfirmForm
+            action={deleteUser}
+            title="Hard-delete this account?"
+            confirmLabel="Delete permanently"
+            message={`Hard-delete ${u.email ?? 'this user'}? Their auth identity is gone; all related data cascade-deletes; the EMAIL is freed for re-signup (e.g., switching from supplier to customer). Not reversible from this page.`}
+          >
+            <input type="hidden" name="user_id" value={u.user_id} />
+            <SubmitButton
+              title="Delete the user. The email is freed for re-signup."
+              className={MENU_ROW}
+              style={{ color: 'rgb(var(--color-danger))' }}
+              pendingLabel="Deleting…"
+            >
+              <Trash2 aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
+              Delete account
+            </SubmitButton>
+          </ConfirmForm>
+          <ConfirmForm
+            action={blacklistUser}
+            title="Blacklist this email?"
+            confirmLabel="Blacklist & delete"
+            message={`Blacklist ${u.email ?? 'this user'}? The user is hard-deleted AND the email is permanently blocked from signing up again. Reverse via the Blacklisted filter → Unblacklist.`}
+          >
+            <input type="hidden" name="user_id" value={u.user_id} />
+            <SubmitButton
+              title="Delete the user AND permanently block this email from re-registering."
+              className={MENU_ROW}
+              style={{ color: 'rgb(var(--color-danger))' }}
+              pendingLabel="…"
+            >
+              <Ban aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
+              Delete and block this email
+            </SubmitButton>
+          </ConfirmForm>
+        </>
+      )}
+    </div>
+  );
+}
+
 function UsersTable({
   rows,
   readError,
@@ -473,269 +648,111 @@ function UsersTable({
   services: ServiceOption[] | null;
   pendingTeamGrants: Set<string> | null;
 }) {
-  // The one expanded user, resolved BEFORE the table renders — the grants panel
-  // is a sibling of the table now, not a row inside it. See the file docblock:
-  // ConsoleTable renders exactly one row per row, and that is the property that
-  // makes every state on it uniform.
+  // The one expanded user, resolved BEFORE the list renders — the grants panel is a sibling of the list.
   const expanded = (rows ?? []).find((u) => u.user_id === expandUserId) ?? null;
+  // 🪤 A refused read is never "no accounts" (T28/T29): the amber line names it, and the refusal's own words go to
+  // the log, never to the screen. `rows === null` with no error is NOT MEASURED, which is the same answer.
+  const unread = Boolean(readError) || rows === null;
+  if (readError) logQueryError('admin/accounts (the account list)', readError);
+  const list = rows ?? [];
+  const capped = list.length >= ACCOUNT_ROW_LIMIT;
 
   return (
     <>
-      <ConsoleTable
-        rows={rows}
-        readPermitted
-        readError={readError}
-        reads="the account list"
-        cap={ACCOUNT_ROW_LIMIT}
-        label="Users"
-        rowKey={(u) => u.user_id}
-        empty={{
-          Icon: Search,
-          title: q ? 'No account matches that search' : 'No accounts in this filter',
-          blurb: q
-            ? 'The read went through and matched nothing. Clear the search, or widen the filter, to see every account.'
-            : 'The read went through and this filter holds no accounts. Switch to "All" to see everyone.',
-          verifiedNote: 'Verified: read permitted · 0 accounts matched',
-        }}
-        columns={[
-          {
-            header: 'Email',
-            cell: (u) => (
-              <>
-                {/* The `#u-<id>` anchor buildToggleHref points at lives on this
-                    span now — ConsoleTable's <tr> carries no id, and losing the
-                    anchor would mean expanding a row scrolled you nowhere. */}
-                <span id={`u-${u.user_id}`}>
-                  <Link
-                    href={`/admin/users/${u.user_id}`}
-                    className="font-medium text-ink underline-offset-2 hover:text-link hover:underline"
-                  >
-                    {u.email ?? '—'}
-                  </Link>
-                </span>
-                {u.display_name ? (
-                  <p className="text-xs text-ink/70">{u.display_name}</p>
-                ) : null}
-              </>
-            ),
-          },
-          {
-            header: 'Type',
-            hideBelow: 'md',
-            cell: (u) => (
-              <span
-                className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                  u.account_type === 'vendor'
-                    ? 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]'
-                    : u.account_type === 'admin'
-                      ? 'bg-ink/15 text-ink'
-                      : 'bg-success-100 text-success-800'
-                }`}
-              >
-                {u.account_type === 'customer' ? 'Couple' : u.account_type}
-              </span>
-            ),
-          },
-          {
-            header: 'Account ID',
-            hideBelow: 'lg',
-            mono: true,
-            cell: (u) => <span className="text-ink/70">{u.public_id}</span>,
-          },
-          {
-            header: 'Created',
-            hideBelow: 'lg',
-            mono: true,
-            cell: (u) => <span className="text-ink/70">{u.created_at.slice(0, 10)}</span>,
-          },
-          {
-            header: 'Flags',
-            hideBelow: 'md',
-            cell: (u) => (
-              <div className="flex flex-wrap gap-1">
-                {u.is_internal ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--sn-info-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-info)]">
-                    <ShieldCheck className="h-3 w-3" strokeWidth={2} />
-                    Internal
-                  </span>
-                ) : null}
-                {u.is_team_member ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-success-800">
-                    <Sparkle className="h-3 w-3" strokeWidth={2} />
-                    Team
-                  </span>
-                ) : null}
-                {u.suspended_at ? (
-                  <Link
-                    href={`/admin/users/${u.user_id}`}
-                    title={u.suspended_reason ?? undefined}
-                    className="inline-flex items-center gap-1 rounded-full bg-[var(--sn-warning-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-ink"
-                  >
-                    ⏸ Suspended {u.suspended_until ? `until ${holdDateWords(u.suspended_until)}` : '· until lifted'}
-                  </Link>
-                ) : null}
-              </div>
-            ),
-          },
-          {
-            header: 'Actions',
-            cell: (u) => {
-              const isExpanded = expandUserId === u.user_id;
-              return (
-                <div className="flex flex-wrap items-center gap-1.5">
-                    {u.is_internal ? (
-                      <span className="text-xs text-ink/55">Locked (internal)</span>
-                    ) : (
+      <TemplateSection label={q ? 'Matching · newest first' : 'Newest first'} first data="people">
+        {unread ? (
+          <TemplateFail retryHref="/admin/accounts?tab=users" data="people">
+            Couldn&rsquo;t read the account list &mdash; not the same as nobody signed up.
+          </TemplateFail>
+        ) : list.length === 0 ? (
+          <TemplateEmpty data="people">
+            {q ? 'No account matches that search.' : 'No accounts in this filter.'}
+          </TemplateEmpty>
+        ) : (
+          <>
+            {/* 1280 column heads — the frame's "Name · Kind · Joined"; a phone carries the same facts in the grey line. */}
+            <div
+              aria-hidden
+              className="hidden items-center gap-2.5 pb-1 pl-[50px] pr-[52px] text-[12px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)] md:flex"
+            >
+              <span className="flex-1">Name</span>
+              <span className="w-24">Kind</span>
+              <span className="w-24">Joined</span>
+              <span className="w-[84px]" />
+            </div>
+            <TemplateRows label="People">
+              {list.map((u) => {
+                const name = u.display_name?.trim() || u.email || 'No name';
+                const waiting = !u.is_team_member && !u.is_internal && Boolean(pendingTeamGrants?.has(u.user_id));
+                const held = u.suspended_at
+                  ? u.suspended_until
+                    ? `on hold until ${holdDateWords(u.suspended_until)}`
+                    : 'on hold until lifted'
+                  : null;
+                const phoneLine = [
+                  kindWord(u.account_type),
+                  held ?? `joined ${joinedWords(u.created_at)}`,
+                  waiting ? 'team · waiting on 2nd admin' : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+                const wideLine = [u.email ?? '—', held, waiting ? 'team · waiting on 2nd admin' : null]
+                  .filter(Boolean)
+                  .join(' · ');
+                return (
+                  <TemplateRow
+                    key={u.user_id}
+                    data={u.user_id}
+                    edge={u.suspended_at ? 'due' : undefined}
+                    lead={
+                      // The `#u-<id>` anchor buildToggleHref points at lives here.
+                      <span
+                        id={`u-${u.user_id}`}
+                        aria-hidden
+                        className="sn-initials grid h-10 w-10 place-items-center rounded-full text-[13px] font-semibold"
+                      >
+                        {initialsFor(u)}
+                      </span>
+                    }
+                    title={name}
+                    line={
                       <>
-                        {!u.is_team_member && pendingTeamGrants?.has(u.user_id) ? (
-                          <Link
-                            href="/admin/approvals"
-                            className="rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10"
-                          >
-                            Team · waiting on 2nd admin
-                          </Link>
-                        ) : (
-                        <form action={toggleTeamMember}>
-                          <input type="hidden" name="user_id" value={u.user_id} />
-                          <input
-                            type="hidden"
-                            name="desired"
-                            value={u.is_team_member ? 'false' : 'true'}
-                          />
-                          <SubmitButton
-                            className={`rounded-md px-2 py-1 text-xs font-medium disabled:opacity-60 ${
-                              u.is_team_member
-                                ? 'bg-success-100 text-success-900 hover:bg-success-200'
-                                : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-                            }`}
-                            pendingLabel="…"
-                          >
-                            {u.is_team_member ? 'Remove from team' : 'Add to team'}
-                          </SubmitButton>
-                        </form>
-                        )}
-                        <form action={confirmUserEmail}>
-                          <input type="hidden" name="user_id" value={u.user_id} />
-                          <SubmitButton
-                            title="Force-confirm this user's email (idempotent — useful when Supabase email doesn't arrive)"
-                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10 disabled:opacity-60"
-                            pendingLabel="…"
-                          >
-                            <MailCheck className="h-3 w-3" strokeWidth={2} />
-                            Confirm email
-                          </SubmitButton>
-                        </form>
-                        <form action={resetUserPassword}>
-                          <input type="hidden" name="user_id" value={u.user_id} />
-                          <SubmitButton
-                            title="Generate a temporary password to share with this user. Shown once at the top of the page."
-                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-warn-100 hover:text-warn-900 disabled:opacity-60"
-                            pendingLabel="Generating…"
-                          >
-                            <KeyRound className="h-3 w-3" strokeWidth={2} />
-                            Reset password
-                          </SubmitButton>
-                        </form>
-                        {/* Irreversible/destructive ops live behind a collapsed
-                            "Danger zone" so they can't be fired by a stray click
-                            next to the safe everyday actions. Each still confirms
-                            with a specific title + consequence. */}
-                        <details className="group/danger">
-                          <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-md bg-danger-100 px-2 py-1 text-xs font-medium text-danger-900 hover:bg-danger-200">
-                            Danger zone
-                            <ChevronDown className="h-3 w-3" strokeWidth={2} />
-                          </summary>
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                            <ConfirmForm
-                              action={forceSignOutUser}
-                              title="Revoke all sessions?"
-                              confirmLabel="Sign out everywhere"
-                              message={`Force sign-out ${u.email ?? 'this user'}? They are signed out on EVERY device immediately — use for compromised accounts. Their data is untouched; they can log back in.`}
-                            >
-                              <input type="hidden" name="user_id" value={u.user_id} />
-                              <SubmitButton
-                                title="Revoke every session for this user (compromised-account remedy). Audit-logged."
-                                className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-warn-100 hover:text-warn-900 disabled:opacity-60"
-                                pendingLabel="Signing out…"
-                              >
-                                <LogOut className="h-3 w-3" strokeWidth={2} />
-                                Force sign-out
-                              </SubmitButton>
-                            </ConfirmForm>
-                            <ConfirmForm
-                              action={deleteUser}
-                              title="Hard-delete this account?"
-                              confirmLabel="Delete permanently"
-                              message={`Hard-delete ${u.email ?? 'this user'}? Their auth identity is gone; all related data cascade-deletes; the EMAIL is freed for re-signup (e.g., switching from supplier to customer). Not reversible from this page.`}
-                            >
-                              <input type="hidden" name="user_id" value={u.user_id} />
-                              <SubmitButton
-                                title="Delete the user. The email is freed for re-signup."
-                                className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-danger-100 hover:text-danger-900 disabled:opacity-60"
-                                pendingLabel="Deleting…"
-                              >
-                                <Trash2 className="h-3 w-3" strokeWidth={2} />
-                                Delete
-                              </SubmitButton>
-                            </ConfirmForm>
-                            <ConfirmForm
-                              action={blacklistUser}
-                              title="Blacklist this email?"
-                              confirmLabel="Blacklist & delete"
-                              message={`Blacklist ${u.email ?? 'this user'}? The user is hard-deleted AND the email is permanently blocked from signing up again. Reverse via the Blacklisted filter → Unblacklist.`}
-                            >
-                              <input type="hidden" name="user_id" value={u.user_id} />
-                              <SubmitButton
-                                title="Delete the user AND permanently block this email from re-registering."
-                                className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-danger-200 hover:text-danger-900 disabled:opacity-60"
-                                pendingLabel="…"
-                              >
-                                <Ban className="h-3 w-3" strokeWidth={2} />
-                                Blacklist
-                              </SubmitButton>
-                            </ConfirmForm>
-                          </div>
-                        </details>
-                        <Link
-                          href={buildToggleHref({
-                            q,
-                            filter,
-                            expandUserId,
-                            rowUserId: u.user_id,
-                          })}
-                          title={
-                            isExpanded
-                              ? 'Hide comp grants'
-                              : 'View + issue comp grants for this user'
-                          }
-                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                            isExpanded
-                              ? 'bg-terracotta/10 text-terracotta-700 hover:bg-terracotta/15'
-                              : 'bg-ink/5 text-ink/70 hover:bg-terracotta/10 hover:text-terracotta-700'
-                          }`}
-                          aria-expanded={isExpanded}
-                          aria-controls={`grants-${u.user_id}`}
-                        >
-                          <Gift className="h-3 w-3" strokeWidth={2} />
-                          Comp grants
-                          {isExpanded ? (
-                            <ChevronUp className="h-3 w-3" strokeWidth={2} />
-                          ) : (
-                            <ChevronDown className="h-3 w-3" strokeWidth={2} />
-                          )}
-                        </Link>
+                        <span className="md:hidden">{phoneLine}</span>
+                        <span className="hidden md:inline">{wideLine}</span>
                       </>
-                    )}
-                </div>
-              );
-            },
-          },
-        ]}
-      />
+                    }
+                    right={
+                      <>
+                        <span className="hidden w-24 text-[14px] text-ink md:inline">{kindWord(u.account_type)}</span>
+                        <span className="hidden w-24 text-[14px] tabular-nums text-ink md:inline">
+                          {joinedWords(u.created_at)}
+                        </span>
+                        <span className="flex justify-end md:w-[84px]">{personChip(u)}</span>
+                        <PersonMore name={name} head={`${kindWord(u.account_type)} · ${u.email ?? '—'} · ${u.public_id}`}>
+                          <PersonActions
+                            u={u}
+                            waiting={waiting}
+                            grantsHref={buildToggleHref({ q, filter, expandUserId, rowUserId: u.user_id })}
+                            grantsOpen={expandUserId === u.user_id}
+                          />
+                        </PersonMore>
+                      </>
+                    }
+                  />
+                );
+              })}
+            </TemplateRows>
+            {capped ? (
+              <p className={`py-2 ${TEMPLATE_SUBLINE}`}>
+                Showing the first {ACCOUNT_ROW_LIMIT.toLocaleString()}. There are more — this is not the whole list.
+              </p>
+            ) : null}
+          </>
+        )}
+      </TemplateSection>
 
-      {/* The comp-grants panel — a SIBLING of the table, not a row in it. It
-          keeps the `grants-<id>` id the row's aria-controls points at, and only
-          one account can be expanded at a time, so there is only ever one. */}
+      {/* The comp-grants panel — a SIBLING of the list. It keeps the `grants-<id>` id the ⋯ list's Comp grants row
+          points at, and only one account can be expanded at a time, so there is only ever one. */}
       {expanded && !expanded.is_internal ? (
         <section
           id={`grants-${expanded.user_id}`}

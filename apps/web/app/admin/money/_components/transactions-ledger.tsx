@@ -32,14 +32,13 @@
  */
 
 import Link from 'next/link';
-import { ArrowRight, Coins, ReceiptText } from 'lucide-react';
+import { Coins, ReceiptText } from 'lucide-react';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import {
   ORDER_STATUS_LABEL,
-  ORDER_STATUS_TONE,
   formatPhp,
   isVatInclusiveServiceKey,
   orderGrossOwed,
@@ -53,7 +52,18 @@ import {
 import { BASE_ROWS } from '@/lib/admin/work-rows';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { LEDGER_REFERENCE_COLUMN } from './ledger-reference-column';
-import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
+import { Badge, type BadgeTone } from '@/app/_components/badge';
+import {
+  TEMPLATE_MONEY,
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateFail,
+  TemplateNums,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
+import { LedgerPhoneRow } from './ledger-phone-row';
 import { formatCount } from '@/lib/format-number';
 
 /** One number, read by the query AND disclosed by the table. Never two copies. */
@@ -85,6 +95,21 @@ type Row = LedgerOrder & {
   chargedPhp: number;
   receivedPhp: number | null;
   receiptId: string | null;
+};
+
+/**
+ * Where an order stands, as the template's soft chip (rule 5): green done · amber waiting · grey nothing to do. The
+ * WORD still comes from the shared `ORDER_STATUS_LABEL`; only the colour family is chosen here.
+ */
+const STATUS_BADGE: Readonly<Record<OrderStatus, BadgeTone>> = {
+  draft: 'quiet',
+  submitted: 'wait',
+  awaiting_payment: 'wait',
+  paid: 'ok',
+  fulfilled: 'ok',
+  lapsed: 'quiet',
+  cancelled: 'quiet',
+  refunded: 'quiet',
 };
 
 /** Manila-local day, so a sale at 9pm PH does not file itself under tomorrow. */
@@ -207,165 +232,170 @@ export async function TransactionsLedger() {
   const waitingTotal = waitingKnown.reduce((sum, q) => sum + (q.count ?? 0), 0);
   const anyUnmeasured = moneyQueues.some((q) => q.count == null);
 
+  const buyerWords = (r: Row): string =>
+    r.buyerName ?? r.buyerEmail ?? (buyersFailed ? 'Couldn’t read buyer' : 'Unknown buyer');
+  const buyerChip = (r: Row) =>
+    buyersFailed ? (
+      // Unread is not "not ours": without the buyer we cannot tell a test purchase from real revenue, so say that.
+      <Badge tone="wait">ours? unknown</Badge>
+    ) : r.buyerInternal ? (
+      // 🪤 Our own test purchases look exactly like real revenue in a total. Say so on the row rather than
+      // filtering them out, so the ledger stays complete and still honest.
+      <Badge tone="quiet">ours</Badge>
+    ) : null;
+  const statusChip = (r: Row) => (
+    // The English word, from the shared map — never the stored value.
+    <Badge tone={STATUS_BADGE[r.status] ?? 'quiet'}>{ORDER_STATUS_LABEL[r.status] ?? r.status}</Badge>
+  );
+
+  // 📐 THE DESIGN TEMPLATE (owner-approved 2026-11-14, "Admin · Money, everything"). The page is named in the
+  // layout's pinned row ("Money · Everything ▾"); the paragraph and the card of queue chips go — each queue is
+  // already a ▾ view with its count. The three numbers sit between hairlines, not in cards. On a phone each
+  // purchase is ONE row (who · what · when · amount + chip) and a tap opens the rest; on a computer the table
+  // stays a table, inside the one 760 column.
   return (
-    <section className="mx-auto w-full max-w-5xl px-4 pt-8 sm:px-6 lg:px-8 lg:pt-10">
-      <h2 className="text-lg font-semibold text-ink">Money</h2>
-      <p className="mt-1 max-w-2xl text-sm text-ink/70">
-        Every transaction Setnayan has taken, newest first — including the ones
-        already settled. What still needs you is at the top.
+    <section className="mx-auto w-full max-w-[760px] px-4 pt-2 sm:px-6">
+      {/* One honest line in place of the queue card: what needs you, or that it could not be checked. */}
+      <p className={`py-1 ${TEMPLATE_SUBLINE}`} data-money-waiting="">
+        {anyUnmeasured
+          ? 'Some money queues couldn’t be checked just now — not the same as none'
+          : waitingTotal === 0
+            ? 'Nothing is waiting for you'
+            : `${formatCount(waitingTotal)} ${waitingTotal === 1 ? 'thing needs' : 'things need'} you`}
       </p>
 
-      {/* ── What needs you now ─────────────────────────────────────────── */}
-      <div className="mt-5 rounded-xl border border-ink/10 bg-paper p-4">
-        <p className="text-sm font-medium text-ink">
-          {anyUnmeasured
-            ? 'Some money queues could not be checked just now'
-            : waitingTotal === 0
-              ? 'Nothing is waiting for you'
-              : `${formatCount(waitingTotal)} ${waitingTotal === 1 ? 'thing needs' : 'things need'} you`}
-        </p>
-        <ul className="mt-3 flex flex-wrap gap-2">
-          {moneyQueues.map((q) => (
-            <li key={q.key}>
-              <Link
-                href={q.href}
-                className="inline-flex items-center gap-2 rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink hover:border-ink/25"
-              >
-                <span>{q.label}</span>
-                <span
-                  className={`font-mono text-[11px] ${
-                    q.count == null
-                      ? 'text-ink/45'
-                      : q.count > 0
-                        ? 'font-semibold text-mulberry'
-                        : 'text-ink/45'
-                  }`}
-                >
-                  {/* Em-dash = not measured. Never a confident 0. */}
-                  {q.count == null ? '—' : formatCount(q.count)}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <TemplateNums
+        items={[
+          { label: 'Received', value: (received == null ? null : formatPhp(received)) ?? '—' },
+          { label: 'Waiting', value: (outstanding == null ? null : formatPhp(outstanding)) ?? '—' },
+          { label: 'Purchases', value: rows ? formatCount(rows.length) : '—' },
+        ]}
+      />
+      {paidFailed ? (
+        <TemplateFail retryHref="/admin/money" data="payments">
+          Couldn&rsquo;t read payments just now &mdash; Received is not shown rather than guessed.
+        </TemplateFail>
+      ) : null}
 
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <KpiStatCard
-          label="Received"
-          value={received == null ? null : formatPhp(received)}
-          hint={paidFailed ? 'Couldn’t read payments just now' : 'Settled and kept'}
-        />
-        <KpiStatCard
-          label="Waiting on payment"
-          value={outstanding == null ? null : formatPhp(outstanding)}
-          hint="Asked for, not yet paid"
-        />
-        <KpiStatCard label="Transactions" value={rows ? rows.length : null} />
-      </div>
+      <TemplateSection label="Every purchase · newest first" data="ledger">
+        {/* PHONE — one row per purchase; the tap sheet holds reference, email and receipt. */}
+        <div className="sm:hidden">
+          {orderError || !rows ? (
+            <TemplateFail retryHref="/admin/money" data="ledger">
+              Couldn&rsquo;t read the transaction ledger &mdash; not the same as no purchases.
+            </TemplateFail>
+          ) : rows.length === 0 ? (
+            <TemplateEmpty data="ledger">Nobody has bought anything yet.</TemplateEmpty>
+          ) : (
+            <ul aria-label="Every transaction" className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
+              {rows.map((r) => (
+                <LedgerPhoneRow
+                  key={r.order_id}
+                  title={
+                    <>
+                      {buyerWords(r)} {buyerChip(r)}
+                    </>
+                  }
+                  line={`${r.description} · ${manilaDay(r.created_at)}`}
+                  amount={formatPhp(r.chargedPhp)}
+                  chip={statusChip(r)}
+                  receiptHref={r.receiptId ? `/receipts/${r.receiptId}` : null}
+                  facts={[
+                    { label: 'What they bought', value: r.description },
+                    { label: 'When', value: manilaDay(r.created_at) },
+                    { label: 'Reference', value: LEDGER_REFERENCE_COLUMN.cell(r) },
+                    { label: 'Email', value: r.buyerEmail ?? (buyersFailed ? 'Couldn’t read' : '—') },
+                    { label: 'Where it stands', value: statusChip(r) },
+                    ...(r.receiptId
+                      ? []
+                      : [{ label: 'Receipt', value: receiptsFailed ? 'Couldn’t read' : 'None yet' }]),
+                  ]}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
 
-      <div className="mt-5">
-        <ConsoleTable
-          rows={rows}
-          readPermitted
-          readError={orderError}
-          reads="the transaction ledger"
-          cap={ROW_LIMIT}
-          label="Every transaction"
-          rowKey={(r) => r.order_id}
-          empty={{
-            Icon: Coins,
-            title: 'No transactions yet',
-            blurb:
-              'Nobody has bought anything. The first purchase will appear here the moment it is placed — before it is paid, not after.',
-          }}
-          columns={[
-            {
-              header: 'When',
-              mono: true,
-              cell: (r) => manilaDay(r.created_at),
-            },
-            LEDGER_REFERENCE_COLUMN,
-            {
-              header: 'Who',
-              cell: (r) => (
-                <>
-                  <p className="text-sm text-ink">
-                    {r.buyerName ?? r.buyerEmail ?? (buyersFailed ? 'Couldn’t read buyer' : 'Unknown buyer')}
-                    {buyersFailed ? (
-                      // Unread is not "not ours": without the buyer we cannot
-                      // tell a test purchase from real revenue, so say that.
-                      <span className="ml-2 rounded bg-warn-50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-warn-900">
-                        ours? unknown
-                      </span>
-                    ) : r.buyerInternal ? (
-                      // 🪤 Our own test purchases look exactly like real revenue
-                      // in a total. Say so on the row rather than filtering them
-                      // out, so the ledger stays complete and still honest.
-                      <span className="ml-2 rounded bg-ink/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/70">
-                        ours
-                      </span>
+        {/* COMPUTER — the table stays a table, never wider than the column. */}
+        <div className="hidden sm:block">
+          <ConsoleTable
+            rows={rows}
+            readPermitted
+            readError={orderError}
+            reads="the transaction ledger"
+            cap={ROW_LIMIT}
+            label="Every transaction"
+            minWidth="44rem"
+            rowKey={(r) => r.order_id}
+            empty={{
+              Icon: Coins,
+              title: 'No transactions yet',
+              blurb:
+                'Nobody has bought anything. The first purchase will appear here the moment it is placed — before it is paid, not after.',
+            }}
+            columns={[
+              {
+                header: 'When',
+                cell: (r) => <span className="whitespace-nowrap tabular-nums">{manilaDay(r.created_at)}</span>,
+              },
+              LEDGER_REFERENCE_COLUMN,
+              {
+                header: 'Who',
+                cell: (r) => (
+                  <>
+                    <span className="flex items-center gap-1.5 text-sm text-ink">
+                      {buyerWords(r)}
+                      {buyerChip(r)}
+                    </span>
+                    {r.buyerName && r.buyerEmail ? (
+                      <span className={`block ${TEMPLATE_SUBLINE}`}>{r.buyerEmail}</span>
                     ) : null}
-                  </p>
-                  {r.buyerName && r.buyerEmail ? (
-                    <p className="text-xs text-ink/70">{r.buyerEmail}</p>
-                  ) : null}
-                </>
-              ),
-            },
-            {
-              header: 'What they bought',
-              cell: (r) => <span className="text-sm text-ink">{r.description}</span>,
-            },
-            {
-              header: 'Amount',
-              mono: true,
-              align: 'right',
-              cell: (r) => <span className="font-semibold">{formatPhp(r.chargedPhp)}</span>,
-            },
-            {
-              header: 'Where it stands',
-              cell: (r) => (
-                <span
-                  className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs ${
-                    ORDER_STATUS_TONE[r.status] ?? 'bg-ink/10 text-ink/70'
-                  }`}
-                >
-                  {/* The English word, from the shared map — never the stored value. */}
-                  {ORDER_STATUS_LABEL[r.status] ?? r.status}
-                </span>
-              ),
-            },
-            {
-              header: 'Receipt',
-              align: 'right',
-              cell: (r) =>
-                r.receiptId ? (
-                  <Link
-                    href={`/receipts/${r.receiptId}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-link hover:underline"
-                  >
-                    <ReceiptText aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-                    View
-                  </Link>
-                ) : receiptsFailed ? (
-                  <span className="text-xs text-warn-900">Couldn&rsquo;t read</span>
-                ) : (
-                  <span className="text-xs text-ink/45">—</span>
+                  </>
                 ),
-            },
-          ]}
-        />
-      </div>
+              },
+              {
+                header: 'What they bought',
+                cell: (r) => <span className="text-sm text-ink">{r.description}</span>,
+              },
+              {
+                header: 'Amount',
+                align: 'right',
+                cell: (r) => <span className={`whitespace-nowrap ${TEMPLATE_MONEY}`}>{formatPhp(r.chargedPhp)}</span>,
+              },
+              {
+                header: 'Where it stands',
+                cell: (r) => statusChip(r),
+              },
+              {
+                header: 'Receipt',
+                align: 'right',
+                cell: (r) =>
+                  r.receiptId ? (
+                    <Link
+                      href={`/receipts/${r.receiptId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-11 items-center gap-1 text-sm text-link hover:underline"
+                    >
+                      <ReceiptText aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                      View
+                    </Link>
+                  ) : receiptsFailed ? (
+                    <span className="text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
+                      Couldn&rsquo;t read
+                    </span>
+                  ) : (
+                    <span className={TEMPLATE_SUBLINE}>—</span>
+                  ),
+              },
+            ]}
+          />
+        </div>
 
-      <p className="mt-3 text-sm text-ink/70">
-        <Link href="/admin/receipts" className="text-link hover:underline">
-          Receipts for the tax file
-          <ArrowRight aria-hidden className="ml-1 inline h-3 w-3" strokeWidth={1.75} />
-        </Link>
-      </p>
+        <TemplateRows label="More">
+          <TemplateRow href="/admin/receipts" title="Receipts for the tax file" data="receipts" />
+        </TemplateRows>
+      </TemplateSection>
     </section>
   );
 }

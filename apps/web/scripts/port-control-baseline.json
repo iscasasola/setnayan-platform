@@ -5,6 +5,7 @@
         "error.tsx",
         "global-error.tsx",
         "layout.tsx",
+        "not-found-links.tsx",
         "not-found.tsx",
         "page.tsx",
         "providers.tsx",
@@ -38,6 +39,7 @@
         "NavProgress",
         "NavSlideController",
         "NfcTestSwitch",
+        "NotFoundLinks",
         "OfflineDaemonMount",
         "PersistQueryClientProvider",
         "PressFeel",
@@ -2672,6 +2674,8 @@
     },
     "/admin/accounts": {
       "files": [
+        "admin/accounts/_components/people-filter-chips.tsx",
+        "admin/accounts/_components/person-more.tsx",
         "admin/accounts/_surfaces/demo-vendors-surface.tsx",
         "admin/accounts/_surfaces/events-surface.tsx",
         "admin/accounts/_surfaces/users-surface.tsx",
@@ -2686,6 +2690,7 @@
         "/?browse=1&demo=1&category=catering",
         "/?browse=1&demo=1&category=photography",
         "/?browse=1&demo=1&category=wedding_coordination",
+        "/admin/accounts?[seg]",
         "/admin/approvals",
         "/admin/demo-vendors/inquiries",
         "/admin/events/[seg]",
@@ -2714,7 +2719,9 @@
         "unblacklistEmail"
       ],
       "blocks": [
+        "ActionButton",
         "Avatar",
+        "Badge",
         "BlacklistTable",
         "CompGrantsPanel",
         "ConfirmForm",
@@ -2723,14 +2730,22 @@
         "DemoVendorsSurface",
         "EventsSurface",
         "GrantCard",
-        "Icon",
         "Image",
         "InviteVendorForm",
         "KpiStatCard",
         "Link",
         "MiniTour",
         "PageMasthead",
+        "PeopleFilterChips",
+        "PersonActions",
+        "PersonMore",
+        "Sheet",
         "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "UsersSurface",
         "UsersTable",
         "VendorCardTitle",
@@ -2781,7 +2796,6 @@
       ],
       "destinations": [
         "/admin/[seg]",
-        "/admin/app-performance?tab=[seg]",
         "/admin/app-performance?tab=slow-loads"
       ],
       "actions": [
@@ -2909,22 +2923,36 @@
       "files": [
         "admin/booking-fees/actions.ts",
         "admin/booking-fees/bookings-open-form.tsx",
+        "admin/booking-fees/fee-row-more.tsx",
         "admin/booking-fees/page.tsx",
         "admin/booking-fees/review-min-form.tsx"
       ],
       "destinations": [
-        "/admin/payments?filter=all&q=[seg]"
+        "/admin/vendors/[seg]"
       ],
       "actions": [
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "BookingsOpenForm",
         "BookingsOpenState",
-        "Link",
-        "PageMasthead",
+        "Counter",
+        "EqualRow",
+        "FeeRowMore",
+        "HTMLFormElement",
+        "InfoTip",
+        "PickMenu",
         "ReviewMinForm",
-        "ReviewMinState"
+        "ReviewMinState",
+        "SaveState",
+        "Sheet",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/brain": {
@@ -4062,6 +4090,7 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/ledger-phone-row.tsx",
         "admin/money/_components/ledger-reference-column.tsx",
         "admin/money/_components/revenue-summary.tsx",
         "admin/money/_components/transactions-ledger.tsx",
@@ -4075,14 +4104,24 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "ConsoleTable",
-        "KpiStatCard",
+        "EqualRow",
+        "LedgerPhoneRow",
         "Link",
         "MobileLandingGrid",
         "RevenueSummary",
         "Row",
+        "Sheet",
         "Suspense",
         "TablePageSkeleton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TransactionsLedger"
       ]
     },
@@ -11246,6 +11285,7 @@
         "ActionButton",
         "AnswerField",
         "AppointmentsSection",
+        "Badge",
         "CancelBookingButton",
         "ChangeAccessLink",
         "ChangeOrderTrail",
@@ -11264,6 +11304,7 @@
         "DepositReservation",
         "DetailPageSkeleton",
         "DisputeLinkButton",
+        "EqualRow",
         "FileUpload",
         "FindInspirationRow",
         "FindInspirationStrip",
@@ -11314,6 +11355,11 @@
         "Suspense",
         "SwipeToDelete",
         "SwitchTrack",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TrustedCircleBadge",
         "TypedRow",
         "UndoToastHost",

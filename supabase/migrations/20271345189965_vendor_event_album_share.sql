@@ -48,7 +48,7 @@ CREATE POLICY vendor_event_album_shares_vendor_read
   FOR SELECT TO authenticated
   USING (
     vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
-    OR public.is_admin()
+    OR (SELECT public.is_admin())   -- once per statement, not per row (policies-ask-once-per-query)
   );
 
 DROP POLICY IF EXISTS vendor_event_album_shares_vendor_insert ON public.vendor_event_album_shares;

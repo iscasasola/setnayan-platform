@@ -477,3 +477,44 @@ export function BeforeAfterScene({
     </div>
   );
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   🎁 THANK YOU FOR YOUR GIFT (owner 2026-11-13, DECISION_LOG "POST EVENT = A
+   STORY (ONE SCENE PER SCREEN) — SIX CALLS SETTLED" (2)) — the couple's ONE
+   line for every giver. One look (`one-line`); its one part is the line
+   (`sceneLooks.gifts.words.body`).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * 🔒 WHO MEETS IT IS THE CALLER'S, AND THE DATA'S: it is mounted for a guest only
+ * when `readOwnGiftThanks` said this reader has a gift record here, and it is
+ * handed nothing about any gift — no amount, no wish, no count. `firstName` is
+ * the reader's own (their guest row), shown back only to them. `placeholder` is
+ * the couple's own canvas, before they wrote the line.
+ */
+export function GiftThanksScene({
+  line,
+  firstName,
+  label,
+  placeholder,
+}: {
+  line: string | null;
+  firstName: string | null;
+  label: string | null;
+  placeholder: string | null;
+}): ReactElement {
+  return (
+    <div className="py-8" data-gift-thanks="">
+      <p className={EYEBROW}>{label ?? 'For your gift'}</p>
+      <h2 className={H2}>{firstName ? `Thank you, ${firstName}.` : 'Thank you.'}</h2>
+      {line ? (
+        <p className="mt-4 max-w-[34ch] whitespace-pre-line font-serif text-[1.35rem] leading-snug text-ink">{line}</p>
+      ) : placeholder ? (
+        <span data-post-event-waiting="" className="mt-4 block font-serif text-lg italic leading-snug text-ink/70">
+          {placeholder}
+        </span>
+      ) : null}
+      <span className="mt-5 inline-block rounded-full bg-ink/[0.06] px-3 py-1 text-xs font-semibold text-ink/70">Only you see this screen</span>
+    </div>
+  );
+}

@@ -86,7 +86,6 @@ test('SABOTAGE-PROVEN: every surface reads the plan — the Hub, its pages, prin
     ['app/[slug]/_components/kit-piece.tsx', 'markOrLegacy(setnayanMark, hideWatermark)'],
     ['app/[slug]/seat/page.tsx', '<EventSetnayanMarkLine eventId={eventId}'],
     ['app/[slug]/find-my-table/page.tsx', '<EventSetnayanMarkLine eventId={eventId}'],
-    ['app/[slug]/recap/page.tsx', '<EventSetnayanMarkLine eventId={eventId}'],
   ] as const) {
     assert.ok(code(file).includes(comp), `${file} no longer draws the plan's mark`);
   }
@@ -95,8 +94,7 @@ test('SABOTAGE-PROVEN: every surface reads the plan — the Hub, its pages, prin
     assert.match(code(file), /<EventHubHeaderBrand eventId=\{eventId\} \/>/);
     assert.doesNotMatch(code(file), /<Logo\b/, `${file} draws the Setnayan logo whatever the plan`);
   }
-  // Both recap footers are handed the event (the published one printed the watermark on Pro).
-  assert.equal((code('app/[slug]/recap/page.tsx').match(/<RecapFooter hideWatermark=\{hideWatermark\} eventId=\{event\.event_id\} \/>/g) ?? []).length, 2);
+  // (The recap page is gone — `/{slug}/recap` sends to the story, whose colophon draws the mark; 2026-11-13.)
   const print = code('lib/print-set.server.ts');
   assert.match(print, /brand: printBrandForMark\(planMark, printBrandOf\(worn\.look\)\)/);
   assert.match(print, /printPreviewVersion\(\{ event, inputs, qrLook, hub, setnayanMark \}\)/, 'a cached preview keeps the old mark');

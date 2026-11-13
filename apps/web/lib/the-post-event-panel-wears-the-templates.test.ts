@@ -64,7 +64,7 @@ async function paint(el: React.ReactElement): Promise<string> {
 }
 const seen = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
-const EMPTY: PostEventArrangement = { sections: {}, sectionOrder: null, sceneLooks: {}, customIds: [] };
+const EMPTY: PostEventArrangement = { sections: {}, sectionOrder: null, sceneLooks: {}, customIds: [], readAs: 'story' };
 type Tile = Record<string, unknown>;
 /** "What guests told you" — moves in the run, has its own switch, two word parts. */
 const WISHES: Tile = { kind: 'post-event', key: 'p:wishes', anchor: 'p:wishes', scene: 'wishes', label: 'Wishes', status: 'auto', hidden: false, drawn: true, position: 3, template: null, source: 'the wishes your guests left', note: null, open: false, pinned: false, switchKey: 'kwento', runKey: 'kwento' };

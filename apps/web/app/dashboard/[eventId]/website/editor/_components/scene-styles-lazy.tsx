@@ -56,6 +56,11 @@ export const PostEventScenePanel = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './post-event-scene-panel').then((m) => m.PostEventScenePanel),
   { loading: SlotRows },
 );
+/* 📖🎁 Post Event's "Reads as" and "Peek now" (owner 2026-11-13) — the same chunk, never the Maker's first load. */
+export const PostEventStoryControls = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './post-event-story-controls').then((m) => m.PostEventStoryControls),
+  { loading: SlotRows },
+);
 export const PostEventWordsField = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './post-event-scene-panel').then((m) => m.PostEventWordsField),
   { loading: SlotRows },

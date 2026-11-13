@@ -10808,6 +10808,28 @@ input[data-clearing]::-webkit-search-cancel-button { display: none; -webkit-appe
   box-shadow: 0 1px 0 var(--sn-hair);
 }
 
+/* ═══ 📖 POST EVENT READS AS A STORY — ONE SCENE PER SCREEN ═══════════════════════════════════════════════════════════
+   Owner 2026-11-13, DECISION_LOG "POST EVENT = A STORY (ONE SCENE PER SCREEN) — SIX CALLS SETTLED" (1): Story is the
+   default for every Post Event (`editorial-content.tsx` sets `data-reads-as`); Page (the couple's other choice under
+   "Reads as") is today's long page, untouched. Each screen is a scene the page drew — a styled scene's frame
+   (`data-post-event-look`) or a plain one (`data-story-screen`) — at least one screen tall, centred, snapped to on
+   scroll; the progress bars are `story-progress.tsx`. 🔑 ONLY HERE: the Event Hub's scenes everywhere else stay as tall
+   as their content (DECISION_LOG "A SCENE IS AS TALL AS ITS CONTENT") — this never touches a `.hub-*` scene. A scene
+   taller than the screen keeps its height and scrolls (proximity snap, never mandatory). Screen only — print is the
+   long page. */
+@media screen {
+  html:has([data-reads-as='story']) {
+    scroll-snap-type: y proximity;
+  }
+  [data-reads-as='story'] :is([data-post-event-look], [data-story-screen]):not(:is([data-post-event-look], [data-story-screen]) *) {
+    min-height: calc(100svh - 4.5rem);
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+}
+
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
    run completely normal. we only control the effect"*).

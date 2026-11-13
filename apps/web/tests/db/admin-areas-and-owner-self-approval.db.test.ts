@@ -1,7 +1,7 @@
 /**
  * ADMIN AREAS × LEVELS + THE OWNER APPROVES HIS OWN REQUEST (migrations replayed).
  * DECISION_LOG 2026-11-13, both rows. Migration
- * 20271343355752_admin_team_areas_levels_and_owner_self_approval.sql.
+ * 20271344663185_admin_team_areas_levels_and_owner_self_approval.sql.
  *
  * What the database itself must hold, whatever the app does:
  *

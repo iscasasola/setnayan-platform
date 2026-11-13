@@ -5,7 +5,7 @@
  *
  * Pure rules, shared by the approvals page, its actions and the tests. The
  * database enforces the same rule on its own clock
- * (`guard_owner_self_approval`, migration 20271343355752), so nothing here is
+ * (`guard_owner_self_approval`, migration 20271344663185), so nothing here is
  * the only thing standing between a click and an early run.
  *
  *   1. The owner raises a request (any two-admin action), as anyone would.

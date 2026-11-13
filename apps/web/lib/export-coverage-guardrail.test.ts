@@ -184,7 +184,7 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
-  // ── added 2026-11-13 (admin areas × levels, migration 20271343355752) ──
+  // ── added 2026-11-13 (admin areas × levels, migration 20271344663185) ──
   admin_scopes:
     'Staff console configuration: which admin areas an account may act in (granted_by is an actor stamp). Same kind of fact as the users.is_team_member flag, which the export already carries on the profile; no customer data.',
   work_escalations:
@@ -374,6 +374,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   setnayan_pay_methods: 'Platform payment configuration — Setnayan’s own rails, not subject data.',
   hub_tools: 'Setnayan-authored Hub tool library; updated_by is an internal admin editor, not a data subject.',
   category_hub_settings: 'Setnayan per-category configuration; updated_by is an internal admin editor, not a data subject.',
+  vendor_plan_contents: 'Setnayan supplier-plan configuration (owner 2026-11-13); changed_by/confirmed_by are internal admins who approved a change, not a data subject.',
+  vendor_plan_content_changes: 'History of Setnayan plan configuration; the user ids are the approving internal admins, not a data subject.',
   platform_settings:
     'Platform configuration; platform_settings.ig_user_id is Setnayan’s OWN IG account, not a user’s.',
   vendor_verifications: 'Admin decision record — the uid on it is a staff actor, not the subject.',

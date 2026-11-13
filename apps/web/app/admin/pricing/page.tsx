@@ -6,6 +6,7 @@ import {
   Gift,
   Sparkles,
   Camera,
+  Layers,
 } from 'lucide-react';
 import {
   TablePageSkeleton,
@@ -16,6 +17,7 @@ import { PricingSurface } from './_surfaces/pricing-surface';
 import { PriceBandsSurface } from './_surfaces/price-bands-surface';
 import { FreeWindowsSurface } from './_surfaces/free-windows-surface';
 import { AiPricesSurface } from './_surfaces/ai-prices-surface';
+import { PlanContentsSurface } from './_surfaces/plan-contents-surface';
 import { PapicLadderSurface } from './_surfaces/papic-ladder-surface';
 
 /**
@@ -62,6 +64,7 @@ const TABS = [
   'papic-shots',
   'price-bands',
   'free-windows',
+  'plan-contents',
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -88,6 +91,8 @@ const TAB_STRIP: { key: Tab; label: string; icon: typeof DollarSign }[] = [
   { key: 'papic-shots', label: 'Papic shot prices', icon: Camera },
   { key: 'price-bands', label: 'Market price bands', icon: Gauge },
   { key: 'free-windows', label: 'Free windows', icon: Gift },
+  // Owner 2026-11-13 ("Yes, add both") — what each supplier and event plan includes (approved catalogue.html › Plan contents).
+  { key: 'plan-contents', label: 'Plan contents', icon: Layers },
 ];
 
 const TAB_TITLE: Record<Tab, string> = {
@@ -96,6 +101,7 @@ const TAB_TITLE: Record<Tab, string> = {
   'papic-shots': 'Papic shot prices',
   'price-bands': 'Market price bands',
   'free-windows': 'Free windows',
+  'plan-contents': 'Plan contents',
 };
 
 function tabSkeleton(tab: Tab): ReactNode {
@@ -159,6 +165,16 @@ function activeSurface(
             saved: first(search.saved),
             deleted: first(search.deleted),
             createError: first(search.createError),
+            error: first(search.error),
+          })}
+        />
+      );
+    case 'plan-contents':
+      return (
+        <PlanContentsSurface
+          searchParams={Promise.resolve({
+            plan: first(search.plan),
+            saved: first(search.saved),
             error: first(search.error),
           })}
         />

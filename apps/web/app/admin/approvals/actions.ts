@@ -163,6 +163,7 @@ async function executeApproved(
   admin: AdminClient,
   row: {
     action_type: ApprovalActionType;
+    approval_id?: string | null;
     payload?: Record<string, unknown> | null;
     target_user_id: string | null;
     target_id: string | null;
@@ -310,6 +311,21 @@ async function executeApproved(
       payload: row.payload,
       initiatedByAdminId: row.initiated_by,
       confirmingAdminId: row.decided_by,
+    });
+    return;
+  }
+
+  // Owner 2026-11-13 — what a supplier plan includes, changed like a price. The number rides in the payload.
+  if (row.action_type === 'approve_plan_contents_change') {
+    if (!row.decided_by) throw new Error('Plan change has no confirming admin');
+    if (!row.initiated_by) throw new Error('Plan change has no initiating admin');
+    if (!row.payload) throw new Error('Plan change has no payload');
+    const { executePlanContentsChange } = await import('@/lib/plan-contents-execute.server');
+    await executePlanContentsChange(admin, {
+      payload: row.payload,
+      initiatedByAdminId: row.initiated_by,
+      confirmingAdminId: row.decided_by,
+      approvalId: row.approval_id ?? null,
     });
     return;
   }

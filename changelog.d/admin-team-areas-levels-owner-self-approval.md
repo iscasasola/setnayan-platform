@@ -6,7 +6,7 @@ approvals row, map.html builder panel `#builder-2026-11-13`). Two owner rulings,
 ACTIONS — TYPED + 24 H".
 
 **Areas × levels**
-- Migration `20271343355752`: `public.admin_areas()` (the 16 areas from the drawing's `admin.js`, one list for every
+- Migration `20271344663185`: `public.admin_areas()` (the 16 areas from the drawing's `admin.js`, one list for every
   CHECK) · `admin_scopes(user_id, area, level)` with RLS on at CREATE (admin-or-self read, service-role writes) ·
   `admin_audit_log.area` (CHECK-ed; NOT backfilled — the log is append-only, so old rows read their area from the
   action name) · `work_escalations` (Escalate ▸ with a note; one open per item).

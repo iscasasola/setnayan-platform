@@ -2529,11 +2529,11 @@
         "admin/_components/console-table.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/mobile-landing-grid.tsx",
+        "admin/_components/posted-field-row.tsx",
         "admin/_components/read-failed.tsx",
         "admin/_components/record-search.ts",
         "admin/_components/what-you-change.tsx",
         "admin/_email-delivery-strip.tsx",
-        "admin/_overview-tile.tsx",
         "admin/error.tsx",
         "admin/layout.tsx",
         "admin/loading.tsx",
@@ -2572,7 +2572,6 @@
         "/admin/disputes",
         "/admin/editorial-review",
         "/admin/event-deletions",
-        "/admin/events",
         "/admin/force-majeure",
         "/admin/founder-seats",
         "/admin/fraud",
@@ -2583,10 +2582,8 @@
         "/admin/integrity-watch",
         "/admin/launch-offer",
         "/admin/live-studio-channels",
-        "/admin/moodboard-library",
         "/admin/pakanta",
         "/admin/papic-storage",
-        "/admin/patiktok",
         "/admin/pax-changes",
         "/admin/payment-options",
         "/admin/payments",
@@ -2621,13 +2618,10 @@
         "/admin/ugat?tab=menus",
         "/admin/ugat?tab=onboarding",
         "/admin/user-reports",
-        "/admin/users",
         "/admin/vendor-partnerships",
         "/admin/vendor-recommendations",
-        "/admin/vendors",
         "/admin/verification-docs",
         "/admin/verify",
-        "/admin/website",
         "/admin/website-media",
         "/admin/work",
         "/dashboard",
@@ -2636,7 +2630,6 @@
       "actions": [],
       "blocks": [
         "AccountSwitcher",
-        "ActionQueueTile",
         "AdminBottomNav",
         "AdminCommandPalette",
         "AdminJob",
@@ -2645,18 +2638,15 @@
         "AdminSearchBox",
         "AdminThumbRow",
         "AppRailShell",
-        "AppleSecretReminder",
         "AskAnswer",
         "BottomNav",
         "CountUp",
-        "EmailDeliveryStrip",
         "EmptyState",
         "ErrorState",
         "GuidedTour",
         "HTMLDivElement",
         "HTMLInputElement",
         "Icon",
-        "KpiStatCard",
         "LandingCard",
         "Link",
         "MenuSettingsButton",
@@ -2664,18 +2654,15 @@
         "OverlayBackdrop",
         "PageMasthead",
         "PinnedRow",
-        "ProgressRing",
         "Row",
         "Screen",
         "Sk",
-        "Suspense",
         "TabSettingsRows",
         "TermsReacceptSheet",
         "ThumbDock",
         "ThumbRow",
-        "Tile",
-        "UnreadBellBadge",
-        "WhatYouChange"
+        "TypedRow",
+        "UnreadBellBadge"
       ]
     },
     "/admin/account-deletions": {
@@ -2800,6 +2787,7 @@
         "admin/app-performance/_components/fx.tsx",
         "admin/app-performance/_components/health-now.tsx",
         "admin/app-performance/_components/won-lost-admin-card.tsx",
+        "admin/app-performance/_surfaces/admin-totals-surface.tsx",
         "admin/app-performance/_surfaces/browser-blocks-surface.tsx",
         "admin/app-performance/_surfaces/connection-logs-surface.tsx",
         "admin/app-performance/_surfaces/funnels-surface.tsx",
@@ -2834,6 +2822,7 @@
       ],
       "blocks": [
         "ActionCenterZone",
+        "AdminTotalsSurface",
         "AiAnswerCheckRow",
         "AiAnswerLogResult",
         "BarListCard",
@@ -2905,6 +2894,7 @@
         "VendorPickerResult",
         "VisitsSurface",
         "VisitsView",
+        "WhatYouChange",
         "WiringNote",
         "WonLostAdminCard",
         "ZoneHeading"
@@ -4426,17 +4416,22 @@
         "admin/pricing/_surfaces/free-windows-copy.ts",
         "admin/pricing/_surfaces/free-windows-surface.tsx",
         "admin/pricing/_surfaces/papic-ladder-surface.tsx",
+        "admin/pricing/_surfaces/plan-contents-surface.tsx",
         "admin/pricing/_surfaces/price-bands-surface.tsx",
         "admin/pricing/_surfaces/pricing-surface.tsx",
         "admin/pricing/actions.ts",
         "admin/pricing/loading.tsx",
         "admin/pricing/page.tsx",
+        "admin/pricing/plan-contents-actions.ts",
         "admin/pricing/price-control-actions.ts"
       ],
       "destinations": [
         "/admin/addons/pricing-report",
         "/admin/gifts",
-        "/admin/pricing?tab=[seg]"
+        "/admin/pricing?tab=[seg]",
+        "/admin/pricing?tab=papic-shots",
+        "/admin/pricing?tab=plan-contents&plan=[seg]",
+        "/admin/pricing?tab=pricing"
       ],
       "actions": [
         "bandFormAction",
@@ -4449,6 +4444,7 @@
         "recomputeFunnelBands",
         "recomputePriceBands",
         "removeFormAction",
+        "requestPlanContentsChange",
         "retireFormAction",
         "save",
         "saveBookingFeeSchedule",
@@ -4467,6 +4463,7 @@
         "ConsoleTable",
         "CreditLadderRow",
         "EmptyState",
+        "EventPlan",
         "Family",
         "Field",
         "FieldLabel",
@@ -4485,6 +4482,8 @@
         "PapicTypeSizingEditor",
         "PillButton",
         "PillTrack",
+        "PlanContentsSurface",
+        "PostedFieldRow",
         "PriceBandsSurface",
         "PriceCatalogBrowser",
         "PricingSurface",
@@ -4502,6 +4501,7 @@
         "SignupDiscountCard",
         "Stat",
         "SubmitButton",
+        "SupplierPlan",
         "Suspense",
         "TablePageSkeleton",
         "Tag",
@@ -4523,6 +4523,7 @@
         "approvePaymentFromWorkList"
       ],
       "blocks": [
+        "ActionButton",
         "ConfirmForm",
         "GreenBatchAction",
         "Icon",
@@ -5114,7 +5115,8 @@
       "files": [
         "admin/users/actions.ts",
         "admin/users/loading.tsx",
-        "admin/users/page.tsx"
+        "admin/users/page.tsx",
+        "admin/users/suspend-actions.ts"
       ],
       "destinations": [],
       "actions": [],
@@ -5123,6 +5125,7 @@
     "/admin/users/[userId]": {
       "files": [
         "admin/users/[userId]/_components/account-card-nav.tsx",
+        "admin/users/[userId]/_components/account-hold-section.tsx",
         "admin/users/[userId]/page.tsx"
       ],
       "destinations": [
@@ -5135,13 +5138,18 @@
         "/admin/users",
         "/admin/users/[seg]/export"
       ],
-      "actions": [],
+      "actions": [
+        "accountHold"
+      ],
       "blocks": [
+        "AccountHoldSection",
         "AccountTabs",
         "ActivityTimeline",
+        "ConfirmForm",
         "LifecycleStrip",
         "Link",
         "PageMasthead",
+        "PostedFieldRow",
         "ReadFailed",
         "SupportSection"
       ]
@@ -5494,8 +5502,10 @@
       ],
       "blocks": [
         "ActionButton",
+        "AppleSecretReminder",
         "CardsBody",
         "DocsBody",
+        "EmailDeliveryStrip",
         "EventTypeNameRow",
         "Fact",
         "FormPick",
@@ -5512,6 +5522,7 @@
         "QueuesTriageFeed",
         "ReasonPick",
         "SupplierInbox",
+        "Suspense",
         "TypedRow",
         "TypesBody",
         "WorkRowHead"
@@ -12117,7 +12128,8 @@
         "AdminPinnedRow",
         "AdminRailContext",
         "AdminThumbRow",
-        "FrontDoorShell"
+        "FrontDoorShell",
+        "QueuesTriageFeed"
       ]
     },
     "/dev/admin-supplier-lab": {

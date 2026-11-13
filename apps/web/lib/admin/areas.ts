@@ -6,7 +6,7 @@
  * The list and its words are ported from the approved drawing
  * (Setnayan-specs `prototypes/admin_pub/admin.js` → `AREAS`), not invented.
  * Its SQL twin is `public.admin_areas()` (migration
- * 20271343355752_admin_team_areas_levels_and_owner_self_approval.sql); the test
+ * 20271344663185_admin_team_areas_levels_and_owner_self_approval.sql); the test
  * beside this file fails if the two disagree.
  *
  *   BASIC     = answering and simple, reversible steps that give nothing.
@@ -96,6 +96,7 @@ export const APPROVAL_ACTION_AREA = {
   approve_large_refund: 'refunds',
   approve_payment_account_change: 'receiving_accounts',
   approve_retail_price_change: 'prices_promos',
+  approve_plan_contents_change: 'prices_promos', // "like a price change" (owner 2026-11-13)
 } as const satisfies Record<string, AdminArea>;
 
 export function areaForApprovalAction(actionType: string): AdminArea | null {

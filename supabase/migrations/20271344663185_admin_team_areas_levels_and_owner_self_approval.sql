@@ -341,7 +341,8 @@ CREATE INDEX IF NOT EXISTS admin_approval_requests_due_idx
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 6 · grant_admin_escalated — giving an Escalated level is a two-admin act.
---     Vocabulary re-listed from 20271309260178 (the latest) + the new value.
+--     Vocabulary re-listed from 20271344452857 (the latest — admin slice 3 added
+--     approve_plan_contents_change) + the new value.
 -- ════════════════════════════════════════════════════════════════════════════
 ALTER TABLE public.admin_approval_requests
   DROP CONSTRAINT IF EXISTS admin_approval_requests_action_type_check;
@@ -360,6 +361,8 @@ ALTER TABLE public.admin_approval_requests
     'approve_payment_account_change',
     'approve_retail_price_change',
     'grant_team_member',
+    -- 2026-11-13 · what a supplier plan includes (admin slice 3, 20271344452857).
+    'approve_plan_contents_change',
     -- 2026-11-13 · giving an admin the Escalated level in one or more areas.
     'grant_admin_escalated'
   ));
@@ -373,5 +376,6 @@ COMMENT ON CONSTRAINT admin_approval_requests_action_type_check
   'approve_vendor_partnership, approve_fraud_wipe_ban, '
   'approve_journal_spotlight) and money actions (approve_comp_grant, '
   'approve_large_refund, approve_payment_account_change, '
-  'approve_retail_price_change). Re-list from pg_get_constraintdef on '
+  'approve_retail_price_change) and plan contents (approve_plan_contents_change, '
+  '2026-11-13). Re-list from pg_get_constraintdef on '
   'PRODUCTION when adding a value — the migration history is not the list.';

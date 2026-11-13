@@ -40,6 +40,9 @@ import { loadSupplierWork } from '@/lib/admin/supplier-work.server';
 import { coerceSupplierWorkKind } from '@/lib/admin/supplier-work';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SupplierInbox } from './_components/supplier-inbox';
+import { Suspense } from 'react';
+import { AppleSecretReminder } from '../_apple-secret-reminder';
+import { EmailDeliveryStrip } from '../_email-delivery-strip';
 import { readPaymentLights, type PaymentLightsRead } from '@/lib/admin/green-payments.server';
 import { withReceiptVerdicts } from '@/lib/admin/payment-verdicts.server';
 import type { GreenBatch } from '../queues/_components/green-batch';
@@ -204,6 +207,17 @@ export default async function AdminWorkLanding({
       basePath="/admin/work"
       openKey={openKey}
       lead={
+        <>
+        {/* ➕ "ALSO WAITING" (approved drawing, work.html) — the two engine-room
+            reminders that used to sit on the old /admin Overview. Each renders
+            ONLY when there is something to do (the Apple secret from Dec 8; an
+            email that did not arrive, an unreadable log, or email switched off),
+            so a healthy day draws nothing here. The email strip streams behind
+            its own Suspense so a slow log read never holds the list. */}
+        <AppleSecretReminder />
+        <Suspense fallback={null}>
+          <EmailDeliveryStrip />
+        </Suspense>
         <SupplierInbox
           read={supplierRead}
           kind={supplierKind}
@@ -212,6 +226,7 @@ export default async function AdminWorkLanding({
           eventTypes={((typesRead.data ?? []) as Array<{ event_type: string; label_en: string }>).map((t) => ({ key: t.event_type, label: t.label_en }))}
           nowMs={nowMs}
         />
+        </>
       }
     />
   );

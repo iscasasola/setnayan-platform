@@ -144,10 +144,14 @@ import { fileURLToPath } from 'node:url';
 // The four exports nothing but tests import (papic purchasePapicCameras / activatePapicLimited / purchasePapicExtras,
 // guests setGuestPlusOneCount) are pinned by their tests, so none was retired. No fresh `vercel build` count for this +2 —
 // the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
-// Admin team slice 2 (2026-11-13) holds the line at 1249: its ONE dispatcher (`adminTeamAct` in
-// app/admin/approvals/actions.ts, op=add|save|clear|confirm_own|withdraw|reject|escalate|resolve|run_due) absorbed the
-// page's own `rejectRequest`, so the eight ops it adds cost no route at all.
-export const CEILING = 1249;
+// 1249 → 1251 (2026-11-13, admin slice 3 — owner "Yes, add both": account suspend + editable plan contents): TWO
+// dispatchers, one per feature, instead of the five exports they would have been — `accountHold` (admin/users/
+// suspend-actions.ts, op=suspend|unsuspend|undo) and `requestPlanContentsChange` (admin/pricing/plan-contents-actions.ts,
+// kind=supplier|event). The plan-change EXECUTOR was kept out of 'use server' on purpose (lib/plan-contents-execute.server.ts),
+// so it is not a route at all. An unimported-export sweep of all 390 'use server' files found none to retire. No fresh
+// `vercel build` count for this +2 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build;
+// read that job before merging.
+export const CEILING = 1251;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

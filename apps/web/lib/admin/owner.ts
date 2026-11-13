@@ -7,7 +7,7 @@
  * (`guard_users_privilege_columns`), so neither half is enough alone.
  *
  * SQL twin: `public.is_platform_owner(uuid)` in migration
- * 20271343355752_admin_team_areas_levels_and_owner_self_approval.sql. The test
+ * 20271344663185_admin_team_areas_levels_and_owner_self_approval.sql. The test
  * beside this file reads that migration and fails if the address differs.
  *
  * The owner:

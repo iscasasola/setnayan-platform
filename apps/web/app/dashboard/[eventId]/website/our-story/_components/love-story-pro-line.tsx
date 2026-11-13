@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Sparkles } from 'lucide-react';
+import { NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { LOVE_STORY_PRO_CTA, LOVE_STORY_PRO_LINE } from '@/lib/love-story-moments';
 
 /**
@@ -29,15 +30,19 @@ export function LoveStoryProLine({
       </p>
     );
   }
+  // 🔔 Inventory #28 — Event Hub Pro: ONE offer line, used in three places (one notice system, owner approved 14 Nov
+  // 2026: #26–28 "Merge"). ◆, the catalog price, "Not now" (back after 30 days), drawn where it stands (InlineNotice), inside what it explains.
   return (
-    <p data-love-story-pro-line="web" className="mt-1 flex flex-wrap items-center gap-x-2 text-[14px] text-[color:var(--ls-muted)]">
-      <Sparkles aria-hidden className="h-3.5 w-3.5 text-[color:var(--ls-heading)]" strokeWidth={2} />
-      <span>{LOVE_STORY_PRO_LINE}</span>
-      <span aria-hidden>·</span>
-      <Link href={href} className="font-medium text-[color:var(--ls-heading)] underline decoration-1 underline-offset-4">
-        {LOVE_STORY_PRO_CTA}
-        {price ? ` · ${price}` : ''}
-      </Link>
-    </p>
+    <InlineNotice
+      kind="offer"
+      noticeKey="hub-pro:our-story"
+      title={LOVE_STORY_PRO_LINE}
+      actions={
+        <Link href={href} className={NOTICE_ACTION} data-love-story-pro-line="web">
+          {LOVE_STORY_PRO_CTA}
+          {price ? ` · ${price}` : ''}
+        </Link>
+      }
+    />
   );
 }

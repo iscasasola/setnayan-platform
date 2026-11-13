@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { formatPhp } from '@/lib/php';
 import { hubPart, type HubPartId } from '@/lib/hub-parts';
@@ -26,31 +27,24 @@ export function ProQuietLine({ part }: { part?: HubPartId }) {
   if (rest === 0) return null;
   const owned = line.owned.length > 0 || line.paidPhp > 0;
   const mine = part && line.owned.includes(part);
+  // 🔔 Inventory #27 — Event Hub Pro: ONE offer line, used in three places (one notice system, owner approved 14 Nov
+  // 2026: #26–28 "Merge"). ◆, the prices from the live catalog, "Not now" (back after 30 days), drawn where it stands (InlineNotice), inside what it explains.
+  const title = mine
+    ? `${hubPart(part!).name} is yours · ${formatPhp(rest)} more unlocks everything`
+    : line.paidPhp > 0
+      ? `${formatPhp(rest)} more unlocks everything · you’ve paid ${formatPhp(line.paidPhp)}`
+      : `Pro parts from ${formatPhp(line.fromPhp)} · everything ${formatPhp(line.fullPhp)}`;
   return (
-    <Link
-      href={line.href}
-      data-pro-quiet-line={mine ? 'yours' : line.paidPhp > 0 ? 'paid' : 'free'}
-      className="flex min-h-11 items-center gap-2 border-b border-ink/10 text-[12.5px] text-ink/60 hover:text-ink"
-    >
-      <PaidMark state={owned ? 'unlocked' : 'try'} bare label="Event Hub Pro" size="xs" />
-      <span className="min-w-0 flex-1 truncate">
-        {mine ? (
-          <>
-            {hubPart(part!).name} is yours · <strong className="font-semibold text-ink">{formatPhp(rest)}</strong> more unlocks everything
-          </>
-        ) : line.paidPhp > 0 ? (
-          <>
-            <strong className="font-semibold text-ink">{formatPhp(rest)}</strong> more unlocks everything · you&rsquo;ve paid{' '}
-            <strong className="font-semibold text-ink">{formatPhp(line.paidPhp)}</strong>
-          </>
-        ) : (
-          <>
-            Pro parts from <strong className="font-semibold text-ink">{formatPhp(line.fromPhp)}</strong> · everything{' '}
-            <strong className="font-semibold text-ink">{formatPhp(line.fullPhp)}</strong>
-          </>
-        )}
-      </span>
-      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 opacity-60" strokeWidth={2} />
-    </Link>
+    <InlineNotice
+      kind="offer"
+      noticeKey={`hub-pro:${part ?? 'sheet'}`}
+      mark={<PaidMark state={owned ? 'unlocked' : 'try'} bare label="Event Hub Pro" size="xs" />}
+      title={title}
+      actions={
+        <Link href={line.href} className={NOTICE_ACTION} data-pro-quiet-line={mine ? 'yours' : line.paidPhp > 0 ? 'paid' : 'free'}>
+          Event Hub Pro
+        </Link>
+      }
+    />
   );
 }

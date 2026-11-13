@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Radio, X } from 'lucide-react';
+import { Notice, NOTICE_ACTION } from '@/app/_components/notices/notices';
 import { formatRelativeMs } from '@/lib/day-of-mode';
 import { venueNowMs } from '@/lib/schedule';
 import { isTimeTba } from '@/lib/schedule-chapters';
@@ -23,8 +23,6 @@ type Props = {
   failed?: boolean;
 };
 
-const DISMISS_TTL_MS = 60 * 60 * 1000; // 1 hour
-const DISMISS_KEY = (eventId: string) => `setnayan:day-of-banner-dismissed:${eventId}`;
 
 type Position = {
   current: Block | null;
@@ -49,32 +47,13 @@ export function locatePosition(blocks: Block[], now: number): Position {
 }
 
 export function DayOfModeBanner({ eventId, blocks, failed = false }: Props) {
-  const [dismissed, setDismissed] = useState(false);
   const [tick, setTick] = useState(0);
-
-  // Hydrate dismiss state from localStorage, honouring the 1-hour TTL.
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(DISMISS_KEY(eventId));
-      if (!raw) return;
-      const ts = Number(raw);
-      if (!Number.isFinite(ts)) return;
-      if (Date.now() - ts < DISMISS_TTL_MS) {
-        setDismissed(true);
-      } else {
-        window.localStorage.removeItem(DISMISS_KEY(eventId));
-      }
-    } catch {
-      // localStorage unavailable (private mode); just render the banner.
-    }
-  }, [eventId]);
 
   // Tick every 30s so the countdown stays fresh.
   useEffect(() => {
-    if (dismissed) return;
     const id = window.setInterval(() => setTick((t) => t + 1), 30_000);
     return () => window.clearInterval(id);
-  }, [dismissed]);
+  }, []);
 
   // tick triggers re-renders so the countdown copy stays fresh; we always
   // pull a fresh venueNowMs() at render time below.
@@ -86,19 +65,7 @@ export function DayOfModeBanner({ eventId, blocks, failed = false }: Props) {
   // The venue's clock. `start_at` holds the venue's wall clock, so comparing it
   // against a real instant put this banner eight hours out on a Manila wedding
   // day — announcing hair and make-up as "next" during the ceremony itself.
-  // (The dismissal TTL above stays on real time: that is about the reader.)
   const now = venueNowMs();
-
-  if (dismissed) return null;
-
-  const handleDismiss = () => {
-    try {
-      window.localStorage.setItem(DISMISS_KEY(eventId), String(Date.now()));
-    } catch {
-      // swallow
-    }
-    setDismissed(true);
-  };
 
   // Build subdued copy.
   let subdued: string;
@@ -118,34 +85,20 @@ export function DayOfModeBanner({ eventId, blocks, failed = false }: Props) {
     subdued = 'No schedule blocks queued — everything looks wrapped.';
   }
 
+  // 🔔 Inventory #16 — a LIVE notice (one notice system, owner approved 14 Nov 2026): "Hide" works until the next day
+  // (the day is in its key). Where things stand is the line itself; a refused schedule read is said, never hidden.
   return (
-    <div
-      role="status"
-      className="flex items-start gap-3 rounded-xl border border-terracotta/40 bg-terracotta/10 px-4 py-3 sm:items-center sm:px-5"
-    >
-      <span
-        aria-hidden
-        className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-cream sm:mt-0"
-      >
-        <Radio className="h-4 w-4" strokeWidth={2} />
-      </span>
-      <div className="min-w-0 flex-1 space-y-0.5">
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
-          Live
-        </p>
-        <p className="text-base font-semibold text-ink sm:text-lg">
+    <Notice
+      kind="live"
+      tone="info"
+      noticeKey={`event-day:${eventId}:${new Date().toISOString().slice(0, 10)}`}
+      title={failed ? 'Event day mode is active' : `Event day mode is active · ${subdued}`}
+      titleNode={
+        <>
           Event day mode is active
-        </p>
-        {failed ? <ScheduleUnread /> : <p className="truncate text-sm text-ink/65">{subdued}</p>}
-      </div>
-      <button
-        type="button"
-        onClick={handleDismiss}
-        aria-label="Dismiss event day banner for 1 hour"
-        className="ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-terracotta/15 hover:text-ink"
-      >
-        <X className="h-4 w-4" strokeWidth={2} />
-      </button>
-    </div>
+          {failed ? <ScheduleUnread /> : <span className="block text-[13px] font-normal text-ink/70">{subdued}</span>}
+        </>
+      }
+    />
   );
 }

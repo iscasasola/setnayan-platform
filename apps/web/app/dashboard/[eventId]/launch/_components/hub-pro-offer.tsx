@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Sparkles } from 'lucide-react';
+import { NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import type { HubProOffer } from '@/lib/event-hub-pro';
 
 /**
@@ -55,58 +56,45 @@ export function HubProOffer({
   /** `/dashboard/<eventId>`. */
   base: string;
 }) {
+  // 🔔 Inventory #26 — Event Hub Pro: ONE offer line, used in three places (one notice system, owner approved 14 Nov
+  // 2026: #26–28 "Merge"), drawn where it stands in the Maker. The headline is the line; the price, the blurb and THE SEVEN (with the one they are standing
+  // on lit — one price seven times, not seven prices) are behind the ⓘ.
   return (
-    <section
-      aria-labelledby="hub-pro-offer-headline"
-      className="mt-4 rounded-xl border border-dashed border-terracotta/50 bg-terracotta/[0.05] p-4 sm:p-5"
-    >
-      <p className="sn-eye">
-        <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        {/* One unlock, one price, named once. The catalog's own title. */}
-        Event Hub Pro{priceLabel ? ` · ${priceLabel}` : ''} · one unlock
-      </p>
-      <h3
-        id="hub-pro-offer-headline"
-        className="mt-1 text-base font-semibold tracking-tight text-ink"
-      >
-        {offer.headline}
-      </h3>
-      <p className="mt-1 max-w-prose text-sm text-ink/60">{offer.blurb}</p>
-
-      {/* THE SEVEN, WITH THE ONE THEY ARE STANDING ON LIT. It is one price seven
-          times, not seven prices — the other six say what else the same unlock
-          opens, which is the whole reason there is no per-feature buy button. */}
-      <ul className="mt-3 flex flex-wrap gap-1.5">
-        {offer.chips.map((chip) => (
-          <li
-            key={chip.name}
-            className={
-              chip.here
-                ? 'rounded-full bg-terracotta-700 px-2.5 py-1 text-[11px] font-semibold text-cream'
-                : 'rounded-full border border-terracotta/40 px-2.5 py-1 text-[11px] text-ink/60'
-            }
-          >
-            {chip.name}
-            {chip.here && (
-              <span className="sr-only">
-                {' '}— the one missing from your {channelName ?? 'page'}
+    <InlineNotice
+      kind="offer"
+      noticeKey={`hub-pro:maker:${channelName ?? 'page'}`}
+      title={offer.headline}
+      detail={
+        <span className="block space-y-2" aria-labelledby="hub-pro-offer-headline">
+          <span id="hub-pro-offer-headline" className="block font-semibold">
+            Event Hub Pro{priceLabel ? ` · ${priceLabel}` : ''} · one unlock
+          </span>
+          <span className="block">{offer.blurb}</span>
+          <span className="flex flex-wrap gap-1.5">
+            {offer.chips.map((chip) => (
+              <span
+                key={chip.name}
+                className={
+                  chip.here
+                    ? 'rounded-full bg-terracotta-700 px-2.5 py-1 text-[11px] font-semibold text-cream'
+                    : 'rounded-full border border-terracotta/40 px-2.5 py-1 text-[11px] text-ink/60'
+                }
+              >
+                {chip.name}
+                {chip.here && <span className="sr-only"> — the one missing from your {channelName ?? 'page'}</span>}
               </span>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Link href={`${base}${offer.ctaPath}`} className="button-primary inline-flex">
+            ))}
+          </span>
+          <Link href={`${base}/website/editor`} className="block underline underline-offset-2">
+            What&rsquo;s included
+          </Link>
+        </span>
+      }
+      actions={
+        <Link href={`${base}${offer.ctaPath}`} className={NOTICE_ACTION}>
           {offer.ctaLabel}
         </Link>
-        <Link
-          href={`${base}/website/editor`}
-          className="inline-flex items-center rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink"
-        >
-          What&rsquo;s included
-        </Link>
-      </div>
-    </section>
+      }
+    />
   );
 }

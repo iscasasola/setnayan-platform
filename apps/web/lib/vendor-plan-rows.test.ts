@@ -25,7 +25,7 @@ test('what a plan gives is read from TIER_CAPS', () => {
   assert.equal(line('enterprise', 'reach'), 'Nationwide');
   // Owner 2026-11-04 ("SUPPLIER PLAN ALLOWANCES"): Pro reaches 100 km — NOT nationwide; Ultra does.
   assert.equal(line('pro', 'reach'), `${TIER_CAPS.pro.serviceRadiusKm} km around you`);
-  // Own web address from Solo up ("website applies to solo as well"); below it, the plan is named from the table.
+  // Own web address from Supplier Plus up ("website applies to solo as well"); below it, the plan is named from the table.
   assert.equal(line('solo', 'web'), 'Yes');
   assert.equal(line('verified', 'web'), 'Comes with Supplier Plus');
   // Branches (owner 2026-11-04, "branches 0,0,3,10"; only Ultra buys more).

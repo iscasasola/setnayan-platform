@@ -59,7 +59,15 @@ export function VerifySection({
   vendorProfileId,
   isVerified,
   verify,
+  papersAbove = null,
 }: {
+  /**
+   * 📄 THE PAPERS ARE ASKED ONCE (walk 13 Nov 2026, F-W1-11). On Today the three required papers are already a list of
+   * their own ("Send your documents", `SetupPapers`) right above this section; here the documents step then only
+   * points to it — the id of that list — instead of loading and asking for the same three again. Absent (Your
+   * details), the step is the full upload it always was.
+   */
+  papersAbove?: string | null;
   vendorProfileId: string;
   isVerified: boolean;
   verify: VerifySummary;
@@ -162,6 +170,7 @@ export function VerifySection({
             requiredIn={verify.requiredIn}
             vendorProfileId={vendorProfileId}
             isVerified={isVerified}
+            papersAbove={papersAbove}
           />
         </div>
 
@@ -280,7 +289,9 @@ function DocsStep({
   requiredIn,
   vendorProfileId,
   isVerified,
+  papersAbove = null,
 }: {
+  papersAbove?: string | null;
   n: number;
   done: boolean;
   open: boolean;
@@ -320,7 +331,7 @@ function DocsStep({
   // directly on the parent without routing through handleToggle. The per-ref R2
   // presigns still run only once the step actually opens, preserving laziness.
   useEffect(() => {
-    if (open && !payload && !loading && !failed) reload();
+    if (open && !papersAbove && !payload && !loading && !failed) reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, payload, loading, failed]);
 
@@ -340,7 +351,14 @@ function DocsStep({
       open={open}
       onToggle={handleToggle}
     >
-      {payload ? (
+      {papersAbove ? (
+        <p className="text-sm" style={{ color: 'var(--m-slate)' }} data-verify-papers-above="">
+          Your papers are in Send your documents, above.{' '}
+          <a href={`#${papersAbove}`} className="font-medium text-terracotta">
+            Go to your papers
+          </a>
+        </p>
+      ) : payload ? (
         <DocsBody
           payload={payload}
           vendorProfileId={vendorProfileId}

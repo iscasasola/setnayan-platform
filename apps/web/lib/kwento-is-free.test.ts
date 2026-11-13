@@ -180,7 +180,7 @@ test('the entitlement check is still asked, everywhere it was', () => {
   step in. This asserts the half that was missing.
 
   🔒 AND IT ASSERTS THE BOUNDARY IN BOTH DIRECTIONS. The no-watermark and every
-  other Event Hub PRO perk gate on a DIFFERENT helper reading COUPLE_WEBSITE_PRO.
+  other Event Pro perk gate on a DIFFERENT helper reading COUPLE_WEBSITE_PRO.
   Collapsing the two helpers into one would hand the watermark away for free
   with nothing thrown — so the separation is pinned here, not just described.
 */
@@ -194,7 +194,7 @@ test('Editorial authoring is free, and it does not take the watermark with it', 
   // no-watermark, and it is not this change's to give away.
   assert.ok(
     !FREE_FOR_ALL_SKUS.has('COUPLE_WEBSITE_PRO'),
-    'Event Hub PRO must not become free as a side effect.',
+    'Event Pro must not become free as a side effect.',
   );
   assert.ok(
     !FREE_FOR_ALL_SKUS.has('STD_PREMIUM_OPENINGS'),
@@ -236,12 +236,12 @@ test('Editorial authoring is free, and it does not take the watermark with it', 
   */
   const llms = code('lib/llms-txt.ts');
   assert.ok(
-    !/Event Hub PRO\*\* —[^\n]*Editorial PRO/.test(llms),
-    'llms.txt still says Event Hub PRO unlocks Editorial PRO, which is now free.',
+    !/Event Pro\*\* —[^\n]*Editorial PRO/.test(llms),
+    'llms.txt still says Event Pro unlocks Editorial PRO, which is now free.',
   );
   assert.ok(
     !/Editorial PRO — author your wedding/.test(code('app/dashboard/[eventId]/studio/website-pro/page.tsx')),
-    'the Event Hub PRO buy page still lists Editorial PRO as something it buys.',
+    'the Event Pro buy page still lists Editorial PRO as something it buys.',
   );
 });
 

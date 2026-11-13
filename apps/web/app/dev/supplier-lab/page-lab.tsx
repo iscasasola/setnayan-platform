@@ -15,6 +15,8 @@
  * Every editor posts its SHIPPED action; with no session each one refuses — nothing is written from here. The payment
  * surface reads the database itself, so the lab hands the fold a stand-in with the fixture's methods.
  */
+import { shopCategoryCount } from '@/lib/shop-category-count';
+import { fallbackSnapshot } from '@/lib/taxonomy-snapshot';
 import { LAB_FAIR_WORDS } from '../lab-fair-words';
 import { detailsProgress } from '@/lib/supplier-details';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
@@ -301,6 +303,8 @@ function detailsFixture(who: Who): DetailsData {
       logo_url: null,
       logoDisplayMap: {},
       services: f.services,
+      // F-W1-03: counted by the REAL helper over the lab's own services (never a typed number).
+      serviceCategoryCount: shopCategoryCount(f.services, fallbackSnapshot()),
       serviceLabels: f.labels,
       extraServiceLeaves: [],
       vendorProfileId: `lab-${who}`,
@@ -332,7 +336,7 @@ function detailsFixture(who: Who): DetailsData {
       tier: f.tier,
       hqLat: 14.5547,
       hqLng: 121.0244,
-      // The plan's own reach (Free 0 · Solo 30 · Pro 50) — the lab draws what the shop's plan really allows.
+      // The plan's own reach (Free 0 · Supplier Plus 30 · Pro 50) — the lab draws what the shop's plan really allows.
       reachKm: tierCaps(f.tier).serviceRadiusKm,
       innerRadiusKm: f.outerKm ? 10 : null,
       outerRadiusKm: f.outerKm,

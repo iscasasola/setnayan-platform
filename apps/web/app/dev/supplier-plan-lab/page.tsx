@@ -138,11 +138,11 @@ function labSheet(
 }
 
 /**
- * 📉 `?s=plan&who=studio&limits=1` — the LIMITS SHEET (ruling 5683) on a Pro shop with more than Solo holds: five
+ * 📉 `?s=plan&who=studio&limits=1` — the LIMITS SHEET (ruling 5683) on a Pro shop with more than Supplier Plus holds: five
  * services over three categories, one taking three bookings a day, four counted seats, three included branches, a
  * 100 km reach and a Verified badge on the 30 March renewal day. `&floor=1` adds the storage floor with a LAB-ONLY
  * allowance (the lab's own number, so the floor draws on any plan; the real one is `storageAllowanceBytes`, read from
- * TIER_CAPS — Solo 5 GB · Pro 10 GB · Ultra 15 GB since 2026-11-13).
+ * TIER_CAPS — Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB since 2026-11-13).
  */
 const labCard = (id: string, name: string, kind: string, family: string, daily: number | null) => ({
   id,

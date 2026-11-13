@@ -108,7 +108,7 @@ export const EVERY_PRINT_ITEM: EveryPrintItemKey = 'every-print';
 /**
  * 🎫 THE DIGITAL TICKET (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾…"): the PNG each
  * guest saves, a row of its own under the Event pass — View as ▾, Download (that guest's ticket, free), All guests ◆ (the zip, Event
- * Hub Pro). It was "The ticket guests save" block under the pass; its look (Ticket style) moved into Print settings. Present only in
+ * Pro). It was "The ticket guests save" block under the pass; its look (Ticket style) moved into Print settings. Present only in
  * the new Maker's Studio, like "On every print".
  */
 export type DigitalTicketItemKey = 'digital-ticket';

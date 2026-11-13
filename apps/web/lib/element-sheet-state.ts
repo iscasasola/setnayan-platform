@@ -177,7 +177,7 @@ export function isCanvasTapOutside(data: unknown): boolean {
 
 /**
  * 🫥 ON THE STAGES SIDE OF A PHONE'S MAKER, A TAP ON NOTHING PUTS THE TOOLBAR AWAY — it closes nothing (owner 2026-10-30,
- * DECISION_LOG "EVENT HUB PRO (look redesign) — … THE EDITING TOOLBAR SHOWS AND HIDES": "hides on a tap on empty page").
+ * DECISION_LOG "EVENT PRO (look redesign) — … THE EDITING TOOLBAR SHOWS AND HIDES": "hides on a tap on empty page").
  * The Stages toolbar stows with the part still picked and its tool as it was (`stage-tools.tsx`); a sheet that closed on
  * the same tap would let the part go under it. True where that toolbar is on screen below the desk (1024), where it stows.
  */

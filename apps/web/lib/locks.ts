@@ -127,7 +127,7 @@ export const LOCKS = {
     opens: 'verified',
     server: null,
   },
-  // 🔒 Solo · Pro · Ultra open once Verified (2026-11-04) — refused by `create_vendor_subscription` (NOT_VERIFIED),
+  // 🔒 Supplier Plus · Pro · Ultra open once Verified (2026-11-04) — refused by `create_vendor_subscription` (NOT_VERIFIED),
   // which `startSubscriptionPurchase` calls and words.
   plans: {
     name: 'Supplier Plus · Supplier Pro · Supplier Ultra',

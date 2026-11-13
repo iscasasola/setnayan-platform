@@ -373,7 +373,7 @@ export function vendorDealWindowsFor(
 
 /**
  * The HIGHEST paid tier any window grants this vendor at `nowMs` (by tier
- * rank), or null. Two overlapping deals (Solo + Pro) → the vendor gets the
+ * rank), or null. Two overlapping deals (Supplier Plus + Pro) → the vendor gets the
  * better one. Pure.
  */
 export function resolveVendorDealTier(

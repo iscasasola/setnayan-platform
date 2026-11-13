@@ -83,7 +83,7 @@ test('(1) the lab’s chain, through the real renderer, is the prototype’s min
   /* …and the note stands still while the Dress code hands over: it opens that hand-over's stage ("the page stands
      still" — `scrub-is-a-held-hand-over` (7)). */
   assert.match(html, /class="hub-stage"><div class="hub-scene hub-scroll"[^>]*><section data-scene="special_message"><\/section><\/div><div class="hub-below"><div class="hub-scene hub-scroll"[^>]*><section data-scene="dress_code">/);
-  /* Without Event Hub Pro nothing is held — the lab passes it (below). */
+  /* Without Event Pro nothing is held — the lab passes it (below). */
   assert.doesNotMatch(renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed: false, scrubOut: true }, ...nodes)), /hub-cell/);
 });
 

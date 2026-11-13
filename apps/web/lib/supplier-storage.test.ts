@@ -1,6 +1,6 @@
 /**
  * supplier-storage.test.ts — THE PLAN HOLDS STORAGE (owner 2026-11-13, specs DECISION_LOG ce2d0a8 "plan storage":
- * Solo 5 GB · Pro 10 GB · Ultra 15 GB; Free and Free · Verified keep what they had — no allowance).
+ * Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB; Free and Free · Verified keep what they had — no allowance).
  *
  *   1 · the per-plan numbers, read from TIER_CAPS — and `storageAllowanceBytes` asks TIER_CAPS, not a typed number;
  *   2 · the refusal: a file past the allowance is refused with the plan's number and the way up, before any bytes move
@@ -46,7 +46,7 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const GB = 1_000_000_000;
 
 // ── 1 · the numbers ────────────────────────────────────────────────────────
-test('the owner’s numbers: Solo 5 GB · Pro 10 GB · Ultra 15 GB · Free and Verified no allowance', () => {
+test('the owner’s numbers: Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB · Free and Verified no allowance', () => {
   assert.equal(STORAGE_GB, GB, 'a storage GB is the decimal GB the supplier reads');
   assert.equal(TIER_CAPS.solo.storageBytes, 5 * GB);
   assert.equal(TIER_CAPS.pro.storageBytes, 10 * GB);
@@ -134,7 +134,7 @@ function stub(opts: { tier?: string | null; tierError?: boolean; used?: unknown;
   } as unknown as Parameters<typeof server.readStoredBytes>[0];
 }
 
-test('checkSupplierStorage: a Solo shop at 4.9 GB is refused a 200 MB file, with the sentence the supplier reads', async () => {
+test('checkSupplierStorage: a Supplier Plus shop at 4.9 GB is refused a 200 MB file, with the sentence the supplier reads', async () => {
   const r = await server.checkSupplierStorage(stub({ tier: 'solo', used: 4.9 * GB }), 'shop', 200_000_000);
   assert.equal(r.kind, 'full');
   assert.equal(r.kind === 'full' && r.message, storageFullMessage('solo', 4.9 * GB, 200_000_000));
@@ -208,7 +208,7 @@ test('the Plan screen draws the row from the honest read, and the limits sheet r
   assert.match(facts, /storedBytes: stored\.status === 'ok' \? stored\.bytes : null/);
 });
 
-test('the limits sheet: Pro → Solo over 5 GB waits for room; an unread store says so, never “fits”', () => {
+test('the limits sheet: Pro → Supplier Plus over 5 GB waits for room; an unread store says so, never “fits”', () => {
   const facts: DowngradeFacts = {
     founder: false,
     cards: [],

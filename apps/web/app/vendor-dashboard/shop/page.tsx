@@ -493,6 +493,8 @@ function logoFieldData(profile: VendorProfileRow, logoUrl: string | null): Profi
     logoFrame: readLogoFrame(profile),
     logoDisplayMap: profile.logo_url && logoUrl ? { [profile.logo_url]: logoUrl } : {},
     services: (profile.services ?? []) as string[],
+    // Only the logo row reads this data here — the "Services covered" row is never drawn from it.
+    serviceCategoryCount: 0,
     extraServiceLeaves: [],
     vendorProfileId: profile.vendor_profile_id,
   };

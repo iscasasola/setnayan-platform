@@ -6890,10 +6890,10 @@ policy	public.moodboard_theme_templates|moodboard_theme_templates_admin_all	mode
 policy	public.moodboard_theme_templates|moodboard_theme_templates_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.nav_slot_override|nav_slot_override_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.nav_slot_override|nav_slot_override_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
-policy	public.notice_closes|notice_closes_owner_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(user_id = auth.uid()) check=NULL
-policy	public.notice_closes|notice_closes_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(user_id = auth.uid())
-policy	public.notice_closes|notice_closes_owner_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = auth.uid()) check=NULL
-policy	public.notice_closes|notice_closes_owner_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(user_id = auth.uid()) check=(user_id = auth.uid())
+policy	public.notice_closes|notice_closes_owner_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
+policy	public.notice_closes|notice_closes_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(user_id = ( SELECT auth.uid() AS uid))
+policy	public.notice_closes|notice_closes_owner_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
+policy	public.notice_closes|notice_closes_owner_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.notifications|notifications_recipient_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
 policy	public.notifications|notifications_recipient_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.npc_filing_tasks|npc_filing_tasks_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL

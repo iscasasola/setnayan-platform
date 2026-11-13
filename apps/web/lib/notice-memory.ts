@@ -66,7 +66,12 @@ export async function loadCloses(keys: readonly string[]): Promise<Map<string, C
       .select('notice_key, closed_at, close_count')
       .eq('user_id', userId)
       .in('notice_key', keys.map(safeKey));
-    if (error || !data) return out;
+    if (error) {
+      // A refused read falls back to this browser's memory — said, never silent.
+      console.warn('[notice-memory] account closes unreadable; using this browser only', error.message);
+      return out;
+    }
+    if (!data) return out;
     const byKey = new Map<string, CloseRecord>();
     for (const r of data as { notice_key: string; closed_at: string; close_count: number }[]) {
       const at = Date.parse(r.closed_at);

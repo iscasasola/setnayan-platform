@@ -16,6 +16,7 @@ import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fe
 import { maybeCatchUpAcknowledgedDeposits } from '@/lib/deposit-acknowledged-effects.server';
 import { maybeCatchUpHandshakesWithoutFee } from '@/lib/booking-fee-mint.server';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
+import { maybeRunTopUpUnlist } from '@/lib/booking-fee-top-up.server';
 import { maybeRunSupplierPagePublish } from '@/lib/supplier-page-notice.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { countUnread } from '@/lib/notifications';
@@ -410,6 +411,7 @@ export default async function VendorDashboardLayout({
   // billed has been told nothing is owed and has no reason to open this page,
   // so a per-visitor sweep would reach everyone except the shops it is for.
   after(() => maybeRunUnbilledFeeRepair().catch(() => {}));
+  after(() => maybeRunTopUpUnlist().catch(() => {}));
   // CTRL-B3 build 5. Dual-mounted like the repair above, and for the same
   // reason: the meter this feeds belongs to SUPPLIERS, so it must not depend
   // on an admin opening one particular screen. `claim_periodic_job` makes the

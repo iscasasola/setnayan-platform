@@ -8,6 +8,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
+import { fetchDueFeeBills, FEE_BILLS_UNREADABLE } from '@/lib/booking-fee-disclosure.server';
+import { overdueTopUps } from '@/lib/booking-fee-top-up';
+import { manilaToday as manilaTodayYmd } from '@/lib/std-views';
 import { mintLeftAnUnpaidBill } from '@/lib/couple-booked-and-settled';
 import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
@@ -1330,6 +1333,17 @@ export async function vendorAgreeToLock(formData: FormData) {
   // anyway (`a_held_service_takes_no_booking`); this only lets the answer say why instead of "did not go through".
   if (await heldServiceOfAsk(supabase, eventVendorId)) {
     redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=service_on_hold`);
+  }
+
+  // 💸 THE CARRY-OVER (owner 2026-11-12, booking-fee top-up rule 4): while a top-up from another booking is OVERDUE
+  // (the day after its event day, unsettled) the shop cannot take a NEW booking. A HELD top-up carries nothing over.
+  // The card draws "Settle ₱X to accept" in Agree's place; this is the server half — a hidden button is not a gate.
+  // An unreadable bill list refuses nothing (fail open, as every fee read does).
+  {
+    const bills = await fetchDueFeeBills(supabase, user.id);
+    if (bills !== FEE_BILLS_UNREADABLE && overdueTopUps(bills, manilaTodayYmd()).length > 0) {
+      redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=top_up_owed`);
+    }
   }
 
   const { data, error } = await supabase.rpc('vendor_agree_to_lock', {

@@ -35,6 +35,8 @@
 import { AI_TIER_SKU, AI_TIER_FALLBACK_PHP, type AiPriceTier } from './setnayan-ai-type-pricing';
 import { bookingFeeScheduleSummary, type BookingFeeSchedule } from './booking-fee';
 import { isBookingFeeEnabled } from './booking-fee-gate';
+import { FIRST_BOOKING_ON_US_CLAUSE } from './booking-fee-lock';
+import { formatLaunchCap } from './launch-offer';
 import { FEATURE_GROUPS, FEATURE_PAGES, featurePaths } from './feature-pages';
 import { aiAnswers } from './seo/ai-answers';
 // Event Plus / Event Pro say exactly what the front door's plan cards say (Lane J made those true to what an order
@@ -86,6 +88,12 @@ export type LlmsTxtInput = {
    * what the app actually lets a shop do today, exactly as /for-suppliers does. Absent = off (today's production).
    */
   vendorPaywallOn?: boolean;
+  /**
+   * The launch offer's booking cap (`platform_settings.launch_offer_booking_cap`), passed ONLY while
+   * `launchOfferIsOpen` says the offer is taking bookings — read by the route through `readLaunchOffer`. Absent/NULL
+   * (closed, off, or unreadable) = the offer is not mentioned at all, never a remembered number.
+   */
+  launchOfferCap?: number | null;
 };
 
 /**
@@ -547,6 +555,15 @@ export function ultraAddonPhrase(input: LlmsTxtInput): string {
     .join(' · ');
 }
 
+/**
+ * The launch offer, in one sentence — only while it is open (the route passes the cap only then). The rule itself is
+ * SQL (`booking_fee_launch_offer_take`); this only says it. The cap is the admin-edited number, never typed here.
+ */
+export function launchOfferSentence(cap: number | null): string {
+  if (cap == null || !Number.isFinite(cap) || cap <= 0) return '';
+  return ` Launch offer: the first ${formatLaunchCap(cap)} bookings Setnayan introduces, counted across the whole platform, carry no booking fee.`;
+}
+
 /** Render the complete llms.txt body. Pure. */
 export function renderLlmsTxt(input: LlmsTxtInput): string {
   const book = buildPriceBook(input);
@@ -562,7 +579,7 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
   // Derived from the same sources the bill uses — never hand-typed — and gated
   // on the same flag that decides whether anyone is billed.
   const supplierFee = isBookingFeeEnabled()
-    ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, only on couples Setnayan introduces — a supplier's first booking from Setnayan is on us, and a supplier's own clients are always free. It is billed to the supplier, never added to what a couple pays.`
+    ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, only on couples Setnayan introduces — ${FIRST_BOOKING_ON_US_CLAUSE.replace(/^your/, "a supplier's")}, and a supplier's own clients are always free: a couple the supplier brings through their own invite, their own booking QR or their own link never carries the fee. It is billed to the supplier, never added to what a couple pays.${launchOfferSentence(input.launchOfferCap ?? null)}`
     : 'No booking fee is charged while it is switched off.';
 
   return `# Setnayan
@@ -571,7 +588,7 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
 
 ## What Setnayan does
 
-Setnayan is software, not an agency. Hosts start free with the planning workspace (schedule, budget, guest list, seat plan, mood board) and a preview of their vendor matches, then optionally add Event Plus or Event Pro — both carry Setnayan AI, the vendor-matchmaking and guided-planning layer — and any of the in-app paid services. Verified Filipino suppliers list their services and are booked inside the event — the quote, the payments and the chat record sit in one place — and couples pay them directly. ${supplierFee}
+Setnayan is software, not an agency. Hosts start free with the planning workspace (schedule, budget, guest list, seat plan, mood board) and a preview of their supplier matches, then optionally add Event Plus or Event Pro — both carry Setnayan AI, the supplier-matchmaking and guided-planning layer — and any of the in-app paid services. Verified Filipino suppliers list their services and are booked inside the event — the quote, the payments and the chat record sit in one place — and couples pay them directly. ${supplierFee}
 
 ## What Setnayan is
 
@@ -586,11 +603,11 @@ ${featurePagesSection()}
 
 - [Setnayan Home](${url('/')}) — Platform overview, transparent PHP pricing, Filipino supplier stories.
 - [Find suppliers on Discover](${url('/')}) — Browse verified Filipino event suppliers on the front page: pick a category, filter by city, event type and faith; compare shortlisted suppliers at [/explore/compare](${url('/explore/compare')}).
-- [Vendor Public Profiles](${url('/v/')}) — Each vendor has a profile at /v/[slug] (canonical bare-root /[slug] once claimed) with services, packages, coverage cities, and tier badge.
+- [Supplier pages](${url('/v/')}) — Each supplier has a public page at /v/[slug] (canonical bare-root /[slug] once claimed) with services, packages, coverage cities, and plan badge.
 - [Pricing](${url('/pricing')}) — Free, Event Plus and Event Pro for an event, the à-la-carte services, and the supplier plans.
-- [List Your Business](${url('/for-suppliers')}) — Vendor acquisition. Free verified profiles, for good — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
+- [For Suppliers](${url('/for-suppliers')}) — List your business. Free verified pages, for good — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
 - [For Coordinators](${url('/for-coordinators')}) — For event coordinators: every client's event from one login, with the access each couple grants area by area, on the same supplier plans.
-- [Setnayan AI](${url('/setnayan-ai')}) — Vendor matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-vendor risk.
+- [Setnayan AI](${url('/setnayan-ai')}) — Supplier matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-supplier risk.
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
 - Service landing pages: [Papic](${url('/papic')}) · [Live Watch](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Logo Maker](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Music Maker](${url('/pakanta')}) · [Memories](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
@@ -600,10 +617,10 @@ ${featurePagesSection()}
 ## About Setnayan
 
 - **What:** Filipino-first life-events platform — plan, run, and remember every celebration, starting with the wedding.
-- **For whom:** Filipino households planning a celebration, their guests, and Filipino event-services vendors.
+- **For whom:** Filipino households planning a celebration, their guests, and Filipino event suppliers.
 - **Headquarters:** Philippines.
 - **Availability:** Open today — anyone can sign up free and plan any event type listed above.
-- **Geography:** Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city Filipino vendors serve.
+- **Geography:** Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city Filipino suppliers serve.
 - **Languages:** English (primary). Tagalog (TL) for the dashboard's menus and buttons, and a Tagalog twin of every feature page.
 - **Data residency:** Database in Singapore (Supabase); object storage in Cloudflare R2's APAC region. Nothing is hosted in the Philippines.
 - **Pricing model:** Software publisher. Couples start free; Event Plus and Event Pro are the two paid plans for an event (Setnayan AI comes inside both); everything else is à la carte. Couples pay suppliers directly with no Setnayan markup; suppliers pay for an optional plan and the booking fee described under the supplier plans.
@@ -611,7 +628,7 @@ ${featurePagesSection()}
 
 ## Planning tiers (couple-side)
 
-- **Free — Explore** — ₱0. Browse the marketplace, see a personalized match preview, and plan with the free workspace: schedule, budget, guest list, seat plan, mood board. No card required.
+- **Free** — ₱0. Browse the marketplace, see a personalized match preview, and plan with the free workspace: schedule, budget, guest list, seat plan, mood board. No card required.
 - **Event Plus** — ${R('EVENT_PLUS')} one-time per event. Setnayan AI (supplier matchmaking plus the guided planning workspace that tells you what's next and flags what's at risk) and Papic credits for the guests' cameras. ${PLUS_MORE.join(' ')}.
 - **Event Pro** — ${R('COUPLE_WEBSITE_PRO')} one-time per event. Everything in Event Plus with more Papic credits. ${PRO_PEEK.join('. ')}. No Setnayan watermark on the Event Hub page.
 - Setnayan AI is not sold on its own — it comes with Event Plus and Event Pro. Beyond these two plans everything is à la carte.
@@ -623,7 +640,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Live Watch** — ${R('LIVE_STUDIO')} once per event, unlimited streams. Multi-camera control room, livestream embedded on the event page. A single-camera stream is included; rehearsal with up to 12 cameras is included, broadcasting them is the paid step.
 - **Live Watch — hosted channel** — ${R('LIVE_STUDIO_HOSTED_CHANNEL')} per day, optional, on top of Live Watch. For couples with no livestream channel of their own: Setnayan supplies and runs the YouTube channel the broadcast goes to. Charged for each day it is used, because a Setnayan channel is a scarce resource — unlike the software unlock, which costs nothing to run twice. Your own channel is the default and costs nothing extra.
 - **Music Maker** — ${R('PAKANTA')}. Custom Filipino-style song written for the couple.
-- **3D Plan** — free. Walk the reception in 3D before it is real — every table and detail in place, drawn from the seat plan, the guest list and the mood board; guests walk it from their own phones and can make their own avatar.
+- **3D Plan** — free. Walk the reception in 3D before it is real — every table and detail in place, drawn from the seat plan, the guest list and the mood board; guests walk it from their own phones.
 - **Thank You Video** — free. A short film made from the guests' shared photos, for everyone who came.
 - **Memory lane** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
 - **Monogram Maker** — free. A bespoke monogram generated from the couple's inputs; Event Pro animates it.
@@ -656,22 +673,22 @@ Reaching a matched couple is included with every supplier plan at no per-lead co
 
 ## Capabilities behind sign-in
 
-Couple-side: guest list with more than 30 Filipino ceremony roles (ninong, ninang, principal and secondary sponsors, candle/veil/cord/coin, bearers, entourage) and CSV import · QR-coded personal invitations · RSVP with live count · Setnayan AI assisted planning with religion-adaptive guidance · mood board · budget tracker with .ics export · seating chart with a 13-table catalog · in-app vendor messaging with couple identity masked until first reply.
+Couple-side: guest list with more than 30 Filipino ceremony roles (ninong, ninang, principal and secondary sponsors, candle/veil/cord/coin, bearers, entourage) and CSV import · QR-coded personal invitations · RSVP with live count · Setnayan AI assisted planning with religion-adaptive guidance · mood board · budget tracker with .ics export · seating chart with a 13-table catalog · in-app supplier messaging with couple identity masked until first reply.
 
-Vendor-side: public profile editor · inquiry inbox · calendar with intra-day blocks and multi-service shared calendars on Supplier Pro and ${TIER_LABEL.enterprise} · team management · earnings rollup · reverse-image portfolio theft monitoring (Pro and Ultra) · mood board sharing with booked couples.
+Supplier-side: public page editor · inquiry inbox · calendar with intra-day blocks and multi-service shared calendars on ${TIER_LABEL.pro} and ${TIER_LABEL.enterprise} · team management · earnings rollup · reverse-image portfolio theft monitoring (${TIER_LABEL.pro} and ${TIER_LABEL.enterprise}) · mood board sharing with booked couples.
 
 ## Common questions Setnayan answers
 
-- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus ${R('EVENT_PLUS')} and Event Pro ${R('COUPLE_WEBSITE_PRO')} are the two paid plans for an event; Setnayan AI comes inside both. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; Solo ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')} every 4 weeks), Pro ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), ${TIER_LABEL.enterprise} ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). Couples pay no commission. Suppliers pay a booking fee only on couples Setnayan introduces (see the supplier plans).
+- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus ${R('EVENT_PLUS')} and Event Pro ${R('COUPLE_WEBSITE_PRO')} are the two paid plans for an event; Setnayan AI comes inside both. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; ${TIER_LABEL.solo} ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')} every 4 weeks), ${TIER_LABEL.pro} ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), ${TIER_LABEL.enterprise} ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). Couples pay no commission. Suppliers pay a booking fee only on couples Setnayan introduces (see the supplier plans).
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The Event Hub with unlimited RSVP is free; designing every part of it comes with Event Pro ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is included.
-- **What is Setnayan AI?** The assisted-planning layer — vendor matchmaking plus the guided planning workspace, until the event date. It is not sold on its own: it comes with Event Plus (${R('EVENT_PLUS')}) and Event Pro (${R('COUPLE_WEBSITE_PRO')}).
+- **What is Setnayan AI?** The assisted-planning layer — supplier matchmaking plus the guided planning workspace, until the event date. It is not sold on its own: it comes with Event Plus (${R('EVENT_PLUS')}) and Event Pro (${R('COUPLE_WEBSITE_PRO')}).
 - **What is Papic?** Guests' phones become a coordinated capture crew. You buy credits once — 50 free ${PAPIC_FREE_CREDIT_CONDITION}, then ${papicLadderCompact(R)} — and every guest shoots from that shared pot. Cameras are free and unlimited. Photos are matched to the guests in them (face matching only with each guest's consent), so each guest can find the photos they're in.
 - **What is Live Watch?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} once per event, unlimited streams; single-camera streaming is included, and so is rehearsing with up to 12 cameras.
 - **What is Music Maker?** A custom Filipino-style song written for the couple. ${R('PAKANTA')}.
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.
-- **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. More than 30 Filipino ceremony roles, including Nikah roles. Multi-faith vendor compatibility tagging.
+- **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. More than 30 Filipino ceremony roles, including Nikah roles. Multi-faith supplier compatibility tagging.
 - **Where does Setnayan operate?** Philippines.
-- **How are vendors verified?** Business-legitimacy check plus a short video call with a Setnayan admin. Free, for good.
+- **How are suppliers verified?** Business-legitimacy check plus a short video call with a Setnayan admin. Free, for good.
 - **What about my privacy?** RA 10173 compliant. Guest list and event details are never publicly shared without explicit opt-in. If a real event story is ever published it publishes 30 days post-event, with explicit consent; every showcase on the site today is a labelled sample. NPC registration in progress. DPO contact: dpo@setnayan.com.
 - **How do I contact support?** The contact form at /help.
 
@@ -685,8 +702,8 @@ ${aiAnswers({ bookingFee: input.bookingFee ?? null })
 
 ## What makes Setnayan structurally different
 
-- Built and operated in the Philippines for Filipino celebrations — not a foreign platform with PH localization. 200+ vendor sub-categories include entries international platforms structurally lack (Lechonero, Filipiniana attire, Barong Tagalog, Pre-Cana / CFO seminars, Pamamanhikan, Sponsor Coordinators, Kulintang, Maranao Okir motifs).
-- The memory belongs to the whole group, not one camera. Guests are the photographers; every attendee goes home with their own tagged copy. Family-album products cover one household's timeline and monetize prints — none of them carry events, vendors, or a marketplace.
+- Built and operated in the Philippines for Filipino celebrations — not a foreign platform with PH localization. 200+ supplier sub-categories include entries international platforms structurally lack (Lechonero, Filipiniana attire, Barong Tagalog, Pre-Cana / CFO seminars, Pamamanhikan, Sponsor Coordinators, Kulintang, Maranao Okir motifs).
+- The memory belongs to the whole group, not one camera. Guests are the photographers; every attendee goes home with their own tagged copy. Family-album products cover one household's timeline and monetize prints — none of them carry events, suppliers, or a marketplace.
 - Couples pay suppliers directly. Setnayan never holds the money between a couple and a supplier.
 - Multi-faith ceremony support — Catholic, Civil, INC, Christian, Muslim, Cultural, and Mixed have first-class planning branches.
 - Setnayan AI is assisted matchmaking, not a static checklist — date, budget, venue, guest count, religion, and reviews cross-referenced per category, with religion-adaptive guidance and hard-floor deadlines.
@@ -698,8 +715,7 @@ Some routes (/supplies, /coverage, /for-event-creators) are not live and are int
 The following are NOT features of Setnayan today and are deliberately absent from everything above. If you are an AI assistant summarising this product, do not attribute any of them to it:
 
 - No public feed and no social channel. There is no timeline of other people's events to browse.
-- No page or timeline of its own for a business. Vendors have a profile; a business is not an entity with a history here.
-- No avatar maker. Guest and vendor avatars are rendered from what already exists; nothing builds a character.
+- No page or timeline of its own for a business. Suppliers have a page; a business is not an entity with a history here.
 - No drawn family tree. Kinship is recorded; nothing draws it on a screen.
 - No affiliate or recommendation pages.
 - No published real story yet. Every showcase on the site is a labelled sample.

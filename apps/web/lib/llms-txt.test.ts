@@ -313,8 +313,9 @@ test('with the fee on, every supplier-facing "0% commission" is followed by the 
     supplierSection(body).includes(schedule),
     'the vendor tier section says 0% commission and never states the booking fee',
   );
-  const listLine = body.split('\n').find((l) => l.includes('[List Your Business]'));
-  assert.ok(listLine, 'the List Your Business line is gone — re-point this guard');
+  // Re-pointed 2026-11-13: the link reads "[For Suppliers]" (the page's own name), the check is unchanged.
+  const listLine = body.split('\n').find((l) => l.includes('[For Suppliers]'));
+  assert.ok(listLine, 'the For Suppliers line is gone — re-point this guard');
   assert.ok(
     listLine.includes(schedule),
     `the supplier acquisition line promises no commission without the fee: ${listLine}`,
@@ -336,3 +337,22 @@ test('an unlisted-until-proven product is never named to answer engines', () => 
   assert.equal((LINKED_ROUTES as readonly string[]).includes('/patiktok'), false);
 });
 
+
+// ⚖ THE LAUNCH OFFER IS SAID ONLY WHILE IT IS OPEN (truth sweep 2026-11-13). The route passes the admin-edited cap
+// only when `launchOfferIsOpen` is true; with no cap the sentence must be absent, never a remembered "2,000".
+// SABOTAGE: print the sentence unconditionally, or type the number → RED.
+test('the launch offer is named from the passed cap only, and absent when the offer is closed', () => {
+  const open = withFeeFlag('true', () => renderLlmsTxt({ ...INPUT, launchOfferCap: 1234 }));
+  assert.match(open, /Launch offer: the first 1,234 bookings Setnayan introduces/);
+  const closed = withFeeFlag('true', () => renderLlmsTxt({ ...INPUT, launchOfferCap: null }));
+  assert.doesNotMatch(closed, /Launch offer/);
+  const feeOff = withFeeFlag(undefined, () => renderLlmsTxt({ ...INPUT, launchOfferCap: 1234 }));
+  assert.doesNotMatch(feeOff, /Launch offer/, 'no fee is billed while it is switched off, so no waiver is promised');
+});
+
+// The supplier's own clients — brought through their own invite, booking QR or link — never carry the fee
+// (`SUPPLIER_BROUGHT_SOURCES` in lib/booking-fee-gate.ts). SABOTAGE: drop the clause → RED.
+test('llms.txt says a supplier-brought couple (own QR, invite or link) carries no fee', () => {
+  const body = withFeeFlag('true', () => renderLlmsTxt(INPUT));
+  assert.match(body, /their own invite, their own booking QR or their own link never carries the fee/);
+});

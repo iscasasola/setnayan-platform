@@ -7,6 +7,10 @@
  *   3 · Every door into People or Memories lands on Home's section — the old pages forward with every parameter,
  *       and no code links the old addresses (except the matchers that light Home on the pages still under them).
  *   4 · One header: the public `/u/[slug]` and Home draw the same `ProfileHeader`.
+ *   5 · ONE ROW OF SECTIONS (owner 13 Nov 2026: "the buttons and the menu events people memories are dupes. we want
+ *       them to be simple and just 1"): Home passes no pill doors to the header — the tabs are the one row — and the
+ *       People tab carries the "N asking" number the doors used to.
+ *   (Home's "last view" — the section and the scroll — is the shared bar's: app/_components/nav/every-tab-keeps-its-last-view.test.ts)
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -148,3 +152,24 @@ test('4 · one header: the public page and Home draw the same ProfileHeader', ()
   assert.match(home, /<ProfileHeader\b[\s\S]*?layout="home"/, 'Home no longer draws the shared header');
   assert.match(pub, /\$\{PROFILE_HEADER_CSS\}/, 'the public page lost the header\'s styles');
 });
+
+test('5 · one row of sections: Home draws no pill doors, and the People tab carries "N asking"', () => {
+  const home = src('app/dashboard/(launcher)/_components/home-profile.tsx');
+  const header = home.match(/<ProfileHeader\b[\s\S]*?\/>/)?.[0] ?? '';
+  assert.ok(header, 'Home no longer draws the shared header');
+  assert.ok(!/\bdoors=/.test(header), 'Home passes doors to the header again — the same four places drawn twice (owner: "dupes")');
+  assert.ok(!/data-home-door|HomeDoorsInView/.test(home), 'Home grew a door row beside its tabs again');
+  assert.match(home, /data-home-create=""/, 'Home lost "＋ Create an event"');
+  assert.match(home, /\.\.\.\(asking \? \{ people: asking \} : \{\}\)/, 'the People tab no longer carries the asking count');
+  assert.match(home, /<HomeTabs [^>]*hot=\{hot\}/, 'the asking count is no longer drawn as the number that waits on you');
+
+  // The tab draws the hot number in the brand colour with its word read aloud (the HomeTabs source — its CSS module
+  // cannot load under node, so the guard reads the drawing rather than rendering it).
+  const bar = src('app/dashboard/(launcher)/_components/home-segment-bar.tsx');
+  assert.match(bar, /data-hot=\{hot\[s\] \? '' : undefined\}/, 'the tab no longer marks a number that waits on you');
+  assert.match(bar, /<span className="sr-only"> \{hot\[s\]\}<\/span>/, 'the hot number lost its word ("asking") for a screen reader');
+  const css = readFileSync(join(WEB, 'app/dashboard/(launcher)/_components/home-profile.module.css'), 'utf8');
+  assert.match(css, /\.n\[data-hot\]\s*\{[^}]*--color-mulberry-700/, 'the hot number is not in the brand colour');
+  assert.ok(!/^\.door\b/m.test(css), 'the pill door styles came back');
+});
+

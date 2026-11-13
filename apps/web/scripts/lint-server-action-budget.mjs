@@ -144,12 +144,10 @@ import { fileURLToPath } from 'node:url';
 // The four exports nothing but tests import (papic purchasePapicCameras / activatePapicLimited / purchasePapicExtras,
 // guests setGuestPlusOneCount) are pinned by their tests, so none was retired. No fresh `vercel build` count for this +2 —
 // the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
-// 1249 → 1250 (2026-11-13, merged on top of the service-requests +2 above — admin team slice 2 — areas × levels + owner self-approval, DECISION_LOG 2026-11-13): ONE
-// dispatcher (`adminTeamAct` in app/admin/approvals/actions.ts, op=add|save|clear|confirm_own|withdraw|escalate|
-// resolve|run_due) instead of the eight exports it would have been; the Team and escalation ops live in server-only
-// modules (`team/team-ops.server.ts`, `approvals/escalation-ops.server.ts`) that are NOT routes. No fresh `vercel
-// build` count for this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build.
-export const CEILING = 1250;
+// Admin team slice 2 (2026-11-13) holds the line at 1249: its ONE dispatcher (`adminTeamAct` in
+// app/admin/approvals/actions.ts, op=add|save|clear|confirm_own|withdraw|reject|escalate|resolve|run_due) absorbed the
+// page's own `rejectRequest`, so the eight ops it adds cost no route at all.
+export const CEILING = 1249;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

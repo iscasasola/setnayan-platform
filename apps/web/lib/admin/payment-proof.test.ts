@@ -24,12 +24,17 @@ import { join } from 'node:path';
  */
 
 const SRC = readFileSync(join(process.cwd(), 'lib/admin/queue-peek.ts'), 'utf8');
+/* Since 2026-11-13 (admin slice 4, "Approve all N green") the payments peek's
+   rows come from `readPaymentLights`, which selects the columns and decides
+   `hasProof`; the peek still gates its button and its note on it. Both files
+   are read so each assertion below finds its line where it now lives. */
+const LIGHTS = readFileSync(join(process.cwd(), 'lib/admin/green-payments.server.ts'), 'utf8');
 
 test('the payments peek reads both proof columns', () => {
   // If either column stops being selected, `hasProof` silently reads undefined
   // and every row looks unproven — or worse, a later edit drops the check
   // entirely because the data is not there to check.
-  const select = SRC.match(/open\('payment_id[^']*'\)/);
+  const select = LIGHTS.match(/PAYMENT_COLS =[\s\S]*?;/);
   assert.ok(select, 'the payments peek select could not be found');
   assert.match(select[0], /reference_number/, 'reference_number must be selected');
   assert.match(select[0], /screenshot_url/, 'screenshot_url must be selected');
@@ -59,12 +64,12 @@ test('proof means non-empty, not merely non-null', () => {
   // A blank string is what an empty form field posts. Treating '' as proof
   // would reopen the hole with an extra step, and would look correct in review.
   assert.match(
-    SRC,
+    LIGHTS,
     /reference_number\.trim\(\) !== ''/,
     'reference_number must be trimmed-checked, not just null-checked',
   );
   assert.match(
-    SRC,
+    LIGHTS,
     /screenshot_url\.trim\(\) !== ''/,
     'screenshot_url must be trimmed-checked, not just null-checked',
   );

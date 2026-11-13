@@ -476,8 +476,11 @@ export async function approveRequest(formData: FormData) {
   revalidatePath('/admin');
 }
 
-/** Reject a pending request (second admin). No execution. */
-export async function rejectRequest(formData: FormData) {
+/**
+ * Reject a pending request (second admin). No execution. Reached through
+ * `adminTeamAct` (op=reject) so the slice adds no route over the action ceiling.
+ */
+async function rejectRequest(formData: FormData) {
   const approvalId = formData.get('approval_id');
   const reason = formData.get('reason');
   if (typeof approvalId !== 'string' || !approvalId) throw new Error('Invalid request');
@@ -686,6 +689,8 @@ export async function adminTeamAct(formData: FormData): Promise<void> {
       return confirmOwnRequest(formData);
     case 'withdraw':
       return withdrawRequest(formData);
+    case 'reject':
+      return rejectRequest(formData);
     case 'add': {
       const { addAdminOp } = await import('@/app/admin/team/team-ops.server');
       return addAdminOp(formData);

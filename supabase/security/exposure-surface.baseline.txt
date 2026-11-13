@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7810
+# facts: 7812
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     635
-#   col       5625
+#   col       5627
 #   policy    1141
 #   view      10
 #   func      395
@@ -231,8 +231,8 @@ tpriv	public.event_vendor_preferences|authenticated	SIUD
 tpriv	public.event_vendor_refunds|authenticated	S
 tpriv	public.event_vendor_working_notes|anon	SIUD
 tpriv	public.event_vendor_working_notes|authenticated	SIUD
-tpriv	public.event_vendors|anon	SIUD
-tpriv	public.event_vendors|authenticated	SIUD
+tpriv	public.event_vendors|anon	IUD
+tpriv	public.event_vendors|authenticated	IUD
 tpriv	public.event_walkthrough_zones|authenticated	SIUD
 tpriv	public.event_wish_items|authenticated	SIUD
 tpriv	public.faith_vocab|anon	SIUD
@@ -2198,6 +2198,7 @@ col	public.event_type_profiles.guest_word	anon=SIU authenticated=SIU
 col	public.event_type_profiles.layer_mode	anon=SIU authenticated=SIU
 col	public.event_type_profiles.look_set	anon=SIU authenticated=SIU
 col	public.event_type_profiles.marketplace_enabled	anon=SIU authenticated=SIU
+col	public.event_type_profiles.max_days	anon=SIU authenticated=SIU
 col	public.event_type_profiles.monogram_set_key	anon=SIU authenticated=SIU
 col	public.event_type_profiles.multi_day	anon=SIU authenticated=SIU
 col	public.event_type_profiles.onboarding_flow_key	anon=SIU authenticated=SIU
@@ -2380,7 +2381,7 @@ col	public.event_vendors.deposit_dispute_settled_at	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_dispute_settled_by_user_id	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_method_id	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_method_label	anon=SIU authenticated=SIU
-col	public.event_vendors.deposit_paid_php	anon=SIU authenticated=SIU
+col	public.event_vendors.deposit_paid_php	anon=IU authenticated=IU
 col	public.event_vendors.deposit_proof_url	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_recorded_at	anon=SIU authenticated=SIU
 col	public.event_vendors.event_date_at_delete	anon=SIU authenticated=SIU
@@ -2388,7 +2389,7 @@ col	public.event_vendors.event_id	anon=SIU authenticated=SIU
 col	public.event_vendors.event_type_at_delete	anon=SIU authenticated=SIU
 col	public.event_vendors.event_vendor_package_id	anon=SIU authenticated=SIU
 col	public.event_vendors.excluded_from_market_median	anon=SIU authenticated=SIU
-col	public.event_vendors.food_allowance_php	anon=SIU authenticated=SIU
+col	public.event_vendors.food_allowance_php	anon=IU authenticated=IU
 col	public.event_vendors.hard_single_group	anon=SIU authenticated=SIU
 col	public.event_vendors.host_inclusions	anon=SIU authenticated=SIU
 col	public.event_vendors.linked_vendor_profile_id	anon=SIU authenticated=SIU
@@ -2409,7 +2410,7 @@ col	public.event_vendors.package_item_id	anon=SIU authenticated=SIU
 col	public.event_vendors.package_role	anon=SIU authenticated=SIU
 col	public.event_vendors.papic_captures_hidden	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
-col	public.event_vendors.pax_surcharge_php	anon=SIU authenticated=SIU
+col	public.event_vendors.pax_surcharge_php	anon=IU authenticated=IU
 col	public.event_vendors.pricing_basis	anon=SIU authenticated=SIU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
@@ -2427,8 +2428,8 @@ col	public.event_vendors.source	anon=SIU authenticated=SIU
 col	public.event_vendors.source_category	anon=SIU authenticated=SIU
 col	public.event_vendors.source_venue_directory_id	anon=SIU authenticated=SIU
 col	public.event_vendors.status	anon=SIU authenticated=SIU
-col	public.event_vendors.total_cost_php	anon=SIU authenticated=SIU
-col	public.event_vendors.transport_php	anon=SIU authenticated=SIU
+col	public.event_vendors.total_cost_php	anon=IU authenticated=IU
+col	public.event_vendors.transport_php	anon=IU authenticated=IU
 col	public.event_vendors.updated_at	anon=SIU authenticated=SIU
 col	public.event_vendors.vendor_id	anon=SIU authenticated=SIU
 col	public.event_vendors.vendor_name	anon=SIU authenticated=SIU
@@ -2507,6 +2508,7 @@ col	public.events.estimated_budget_centavos	anon=IU authenticated=IU
 col	public.events.estimated_pax	anon=SIU authenticated=SIU
 col	public.events.event_date	anon=SIU authenticated=SIU
 col	public.events.event_date_precision	anon=SIU authenticated=SIU
+col	public.events.event_days	anon=- authenticated=SU
 col	public.events.event_end_date	anon=SIU authenticated=SIU
 col	public.events.event_id	anon=S authenticated=S
 col	public.events.event_type	anon=SIU authenticated=SIU

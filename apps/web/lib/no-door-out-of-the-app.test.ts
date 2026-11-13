@@ -322,6 +322,16 @@ const BOOKED_HANDOFF_BILL: ReadonlyMap<string, { count: number; why: string; gat
 
 const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [
+    'app/admin/fraud/actions.ts',
+    {
+      count: 1,
+      why:
+        'Staff only. It is in the scanned set because the home page\'s cron-free runner (lib/admin/self-approval-runner.ts, ' +
+        'DECISION_LOG 2026-11-13) imports the admin approvals dispatcher, which executes an owner-confirmed fraud wipe-ban; ' +
+        'the read is the banned shop\'s appeal address for the ban notice, server-side, never returned to any page.',
+    },
+  ],
+  [
     'app/dashboard/[eventId]/access-requests/actions.ts',
     {
       count: 1,
@@ -544,7 +554,7 @@ test('the surfaces that carried the exits are IN the scanned set (derived, not a
     'app/v/[slug]/page.tsx', // the public shop page
     'app/[slug]/page.tsx', // the bare-root address that renders it too
     'app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx', // the couple's supplier card
-    'app/v/[slug]/_components/anon-inquiry-composer.tsx', // the signed-out door
+    'app/v/[slug]/_components/inquire-sheet.tsx', // the one Inquire pop-up (13 Nov 2026: replaced the inline composers)
     'app/v/[slug]/_components/service-details-sheet.tsx',
     'app/v/[slug]/booth/page.tsx', // the shop's walk-in booth
     'app/(shell)/explore/_lib/marketplace-view.tsx', // the marketplace

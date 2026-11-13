@@ -41,7 +41,7 @@ test('the effective (lapse-collapsed) tier is computed once and threaded to ever
     /boothTierCanBrand\(effectiveTierState\)/,
     /tierCaps\(effectiveTierState\)/,
     /micrositeCan\(effectiveTierState\)\.canPersonalize/,
-    /micrositeCan\(effectiveTierState\)\.isEnterprise/,
+    // `.isEnterprise` left the page 13 Nov 2026: the verified look is every verified shop, not Ultra's.
     /isTrueNameTier\(effectiveTierState\)/,
   ]) {
     assert.match(src, call, `${call} must read the collapsed tier, not the raw column`);

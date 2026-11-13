@@ -37,9 +37,11 @@ export type GuestsFilterSheetProps = {
   /** 📥 "Asking to join · N" inside Show (the couple, R4 slice 11) — null when it is not offered. */
   asking: { label: string; on: boolean; onPick: () => void } | null;
   /** 🍽 One row per PER-HEAD service — "Catering ▾ Everyone · Counted · Not counted" (owner 2026-11-12,
-      `lib/guest-pax-filter.ts`). Null when the event has none (no topic is drawn). `count` = the guests a pick shows. */
+      `lib/guest-pax-filter.ts`). With no services the topic is drawn GREYED (owner 2026-11-13), never hidden;
+      `refused` = the read failed, said as such. `count` = the guests a pick shows. */
   pax: {
     services: readonly PaxListService[];
+    refused?: boolean;
     value: PaxPick | null;
     count: (pick: PaxPick) => number;
     onPick: (next: PaxPick | null) => void;

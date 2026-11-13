@@ -5,7 +5,7 @@ import {
   approvalActionBadge,
   approvalActionLabel,
 } from '@/lib/admin-approvals';
-import { requestPrivilegedGrant, approveRequest, rejectRequest, adminTeamAct } from './actions';
+import { requestPrivilegedGrant, approveRequest, adminTeamAct } from './actions';
 import { NoteField } from '@/app/admin/team/_components/team-fields';
 import { after } from 'next/server';
 import { getAdminPowersFor } from '@/lib/admin/can.server';
@@ -441,7 +441,9 @@ export default async function AdminApprovalsPage() {
                                   className="w-44 rounded-md border border-ink/15 bg-white px-2 py-1 text-xs disabled:opacity-40"
                                 />
                                 <SubmitButton
-                                  formAction={rejectRequest}
+                                  formAction={adminTeamAct}
+                                  name="op"
+                                  value="reject"
                                   disabled={!canDecide}
                                   pendingLabel="Rejecting…"
                                   className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50 disabled:cursor-not-allowed disabled:opacity-40"

@@ -167,7 +167,8 @@ test('(a) the date · place line: the page’s own facts, each opening its sheet
   // The words come from the one pure module, from facts the page already read (the drafted date is planned on).
   const facts = PAGE.slice(PAGE.indexOf('const shellFacts'), PAGE.indexOf('const buildSlot'));
   assert.ok(facts.length > 0, 'shellFacts moved — re-anchor');
-  assert.match(facts, /suppliersDateFact\(planDate, planPrecision\)/);
+  // 📅 2026-11-13: the same event date, with its own last day and options (`event_dates_edit_2026-11-13`).
+  assert.match(facts, /suppliersDateFact\(planDate, planPrecision, \{\s*endDate: ev\.event_end_date/);
   assert.match(facts, /pickVenueBookingRows\(venueRows\)/, 'the venue is no longer picked by the Event Hub’s own rule');
   assert.doesNotMatch(facts, /await |\.from\(/, 'the line grew a read of its own');
 });

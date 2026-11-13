@@ -21,6 +21,9 @@ import { safeNext } from '@/lib/safe-next';
 import { pickedReason, redirectRefusal, workBackHref } from '@/lib/admin/supplier-work';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { approvePaymentCore } from '@/app/admin/payments/actions';
+import { after } from 'next/server';
+import { readPaymentLights } from '@/lib/admin/green-payments.server';
+import { greenIds } from '@/lib/admin/green-payments';
 import { overridePublishReview } from '@/app/admin/reviews/actions';
 import { markPayoutPaidAction } from '@/app/admin/payouts/actions';
 import { approveRequest } from '@/app/admin/approvals/actions';
@@ -59,8 +62,16 @@ import { approveRequest } from '@/app/admin/approvals/actions';
 export async function approvePaymentFromWorkList(formData: FormData): Promise<void> {
   const { userId } = await requireAdmin();
 
-  const paymentId = formData.get('payment_id');
   const back = safeNext(formData.get('back'), '/admin/work');
+  // ➕ "APPROVE ALL N GREEN" (admin slice 4, 2026-11-13) — an intent branch, not
+  // a new exported action: the server-action budget sits at its ceiling
+  // (scripts/lint-server-action-budget.mjs).
+  if (formData.get('intent') === 'approve-green') {
+    await approveGreenPayments(formData, userId, back);
+    return;
+  }
+
+  const paymentId = formData.get('payment_id');
   if (typeof paymentId !== 'string' || paymentId.length === 0) {
     redirect(`${back}${back.includes('?') ? '&' : '?'}settle=missing`);
   }
@@ -106,6 +117,70 @@ export async function approvePaymentFromWorkList(formData: FormData): Promise<vo
   revalidatePath('/admin/work');
   revalidatePath('/admin');
   revalidatePath('/admin/payments');
+}
+
+/**
+ * Approve every GREEN payment the admin confirmed on the Work row, in one press.
+ *
+ * SAFETY — the same model as the desk's `batchApprovePayments`, plus its
+ * duplicate check:
+ *   • the ids came from the confirm list the admin just read; none is trusted —
+ *     each is RE-SORTED here with the same rule that drew it green
+ *     (`readPaymentLights`: isDecisivePaymentMatch AND no counted duplicate);
+ *     a row that is no longer green is skipped, never forced;
+ *   • approval runs through `approvePaymentCore`, the single money path, with
+ *     no `acknowledgeDuplicate` — a duplicate can never clear in a batch;
+ *   • the receipt read is not consulted (an AI may not approve money);
+ *   • one bad row never stops the rest, and every outcome is SAID on return.
+ */
+async function approveGreenPayments(formData: FormData, userId: string, back: string): Promise<never> {
+  const sep = back.includes('?') ? '&' : '?';
+  const ids = Array.from(
+    new Set(
+      formData.getAll('batch_payment_ids').filter((v): v is string => typeof v === 'string' && v.length > 0),
+    ),
+  );
+  if (ids.length === 0) redirect(`${back}${sep}settle=missing`);
+
+  const admin = createAdminClient();
+  const read = await readPaymentLights(admin, { paymentIds: ids });
+  if (!read.ok) {
+    redirect(
+      `${back}${sep}settle=refused&why=${encodeURIComponent('Couldn’t re-check the payments, so none were approved. Try again.')}`,
+    );
+  }
+  const stillGreen = new Set(greenIds(read.rows));
+
+  let approved = 0;
+  let skipped = 0;
+  let failed = 0;
+  for (const id of ids) {
+    if (!stillGreen.has(id)) {
+      skipped += 1;
+      continue;
+    }
+    try {
+      const outcome = await approvePaymentCore({ admin, userId, paymentId: id, adminNotes: null, promoteOrder: true });
+      if (outcome.ok) approved += 1;
+      else failed += 1;
+    } catch (e) {
+      console.error('approveGreenPayments row failed (non-fatal to batch):', id, e);
+      failed += 1;
+    }
+  }
+
+  revalidatePath('/admin/work');
+  revalidatePath('/admin');
+  revalidatePath('/admin/payments');
+  revalidatePath('/admin/payouts');
+  after(() => revalidatePath('/dashboard', 'layout'));
+
+  const parts = [`${approved} approved`];
+  if (skipped > 0) parts.push(`${skipped} no longer green — left for you to open`);
+  if (failed > 0) parts.push(`${failed} could not be approved — open them one by one`);
+  redirect(
+    `${back}${sep}settle=${skipped > 0 || failed > 0 ? 'batch-partial' : 'batch'}&why=${encodeURIComponent(parts.join(' · '))}`,
+  );
 }
 
 

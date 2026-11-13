@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1857
-# tables: 497
-# columns: 6049
-# notnull: 3648
+# ledger: 1862
+# tables: 498
+# columns: 6055
+# notnull: 3654
 [ledger]
 20260512000000
 20260513000000
@@ -1867,8 +1867,13 @@
 20271341658320
 20271342032145
 20271342335343
+20271342673075
 20271342770993
 20271342818285
+20271342883073
+20271343002292
+20271343328401
+20271343340931
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -3525,6 +3530,7 @@ event_type_profiles.guest_word
 event_type_profiles.layer_mode
 event_type_profiles.look_set
 event_type_profiles.marketplace_enabled
+event_type_profiles.max_days
 event_type_profiles.monogram_set_key
 event_type_profiles.multi_day
 event_type_profiles.onboarding_flow_key
@@ -3849,6 +3855,7 @@ events.estimated_budget_centavos
 events.estimated_pax
 events.event_date
 events.event_date_precision
+events.event_days
 events.event_end_date
 events.event_id
 events.event_type
@@ -7545,6 +7552,10 @@ vendor_service_attributes.meets_visibility_minimum
 vendor_service_attributes.schema_version_at_fill
 vendor_service_attributes.updated_at
 vendor_service_attributes.vendor_profile_id
+vendor_service_card_hides.hidden_at
+vendor_service_card_hides.item_key
+vendor_service_card_hides.item_kind
+vendor_service_card_hides.vendor_service_id
 vendor_service_card_view_days.vendor_profile_id
 vendor_service_card_view_days.vendor_service_id
 vendor_service_card_view_days.viewed_on
@@ -8950,6 +8961,7 @@ event_type_profiles.event_class
 event_type_profiles.event_type
 event_type_profiles.layer_mode
 event_type_profiles.marketplace_enabled
+event_type_profiles.max_days
 event_type_profiles.multi_day
 event_type_profiles.terminology
 event_type_profiles.updated_at
@@ -9089,6 +9101,7 @@ events.dismissed_room_suggestions
 events.display_name
 events.dress_code_config
 events.event_date_precision
+events.event_days
 events.event_id
 events.event_type
 events.experience_axes
@@ -11351,6 +11364,10 @@ vendor_service_attributes.meets_visibility_minimum
 vendor_service_attributes.schema_version_at_fill
 vendor_service_attributes.updated_at
 vendor_service_attributes.vendor_profile_id
+vendor_service_card_hides.hidden_at
+vendor_service_card_hides.item_key
+vendor_service_card_hides.item_kind
+vendor_service_card_hides.vendor_service_id
 vendor_service_card_view_days.vendor_profile_id
 vendor_service_card_view_days.vendor_service_id
 vendor_service_card_view_days.viewed_on

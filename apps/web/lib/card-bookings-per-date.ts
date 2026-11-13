@@ -10,7 +10,7 @@ import {
  * date/service"*. Free and Verified: 1 each, like Supplier Plus (owner click 2026-11-06, "BOOKINGS PER DATE PER SERVICE — FREE
  * AND VERIFIED"), so every plan has a cap and every plan's editor shows it.
  *
- * The card editor's number (`vendor_services.daily_capacity`, "How many a day · this card") may be LOWER than the
+ * The card editor's number (`vendor_services.daily_capacity`, "How many events a day can this service take?") may be LOWER than the
  * plan's, never higher. The DATABASE is the gate that counts (`service_card_daily_limit`, read by every day check);
  * this is the editor's half, so a supplier is never shown a number their plan will not honour.
  *

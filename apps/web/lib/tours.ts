@@ -772,6 +772,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         body: 'After the day your guests move through the story with <b>Recap · Film · Suppliers · Memories · Me</b>. A slot with nothing behind it is simply not there, and the camera is put away &mdash; yours stays.',
       },
       {
+        // Owner 2026-11-13 (specs DECISION_LOG "every booked supplier is tappable" · "Supplier Ultra scenes").
+        Icon: Users,
+        title: 'The people who made it',
+        body: 'Every supplier booked on Setnayan is in your story, ordered by their plan &mdash; <b>See all</b> lists them all, with a search when there are many. Tap one to open their shop; Supplier Pro and Supplier Ultra open a card first. A supplier you added yourself is named, with no link. Each Supplier Ultra that shares its album from your day gets its own scene.',
+      },
+      {
         Icon: Wand2,
         title: 'Add scenes made for after the day',
         body: 'Press <b>+ Add a scene</b> on Post Event for twelve scenes made for the story after the day &mdash; The Toast, Before &amp; After, By Our Count, Since Then and more. Each is &#9670; Event Hub Pro: try one in your draft now, and Pro is asked for when you press <b>Apply</b>. A Pro theme, a part&rsquo;s own font and your own photos come with Pro too.',

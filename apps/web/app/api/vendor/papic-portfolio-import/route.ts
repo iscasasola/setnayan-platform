@@ -1,4 +1,6 @@
 import { NextResponse, after } from 'next/server';
+import { checkSupplierStorage } from '@/lib/supplier-storage.server';
+import { STORAGE_CHECK_FAILED, STORAGE_FULL_CODE, STORAGE_UPGRADE_HREF } from '@/lib/supplier-storage';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
@@ -95,6 +97,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'out_of_credits', left }, { status: 409 });
   }
 
+  // 4b. 💾 THE PLAN'S STORAGE (owner 2026-11-13: the album is "counted in the supplier's plan storage"). Asked BEFORE
+  // the bytes move, the same question /api/upload asks (`checkSupplierStorage`); a check that could not be made refuses
+  // (a cap that waves uploads through when blind is no cap). Nothing is spent or stored on a refusal.
+  const room = await checkSupplierStorage(admin, vendorProfileId, file.size);
+  if (room.kind === 'full') {
+    return NextResponse.json({ error: STORAGE_FULL_CODE, message: room.message, href: STORAGE_UPGRADE_HREF }, { status: 413 });
+  }
+  if (room.kind === 'unavailable') {
+    return NextResponse.json({ error: 'storage_unchecked', message: STORAGE_CHECK_FAILED }, { status: 503 });
+  }
+
   // 5. Upload to R2 — the key prefix is server-derived so the caller can never
   // write outside their own vendor+event space, and it is its OWN lane,
   // distinct from both the host gallery and papic/vendor-{id}/event-{id}/cap-…
@@ -126,6 +139,8 @@ export async function POST(req: Request) {
       r2_object_key: r2Ref,
       credits_spent: 1,
       nsfw_checked: false,
+      // 💾 Counted in the plan's storage (`vendor_storage_used_bytes`) — the bytes actually stored, measured here.
+      size_bytes: bytes.byteLength,
     })
     .select('photo_id')
     .maybeSingle();

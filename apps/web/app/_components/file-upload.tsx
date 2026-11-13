@@ -79,6 +79,12 @@ type FileUploadBaseProps = {
   pathPrefix: string;
   /** Allow multiple files. Defaults to single. */
   multiple?: boolean;
+  /**
+   * 📸 A list that grows ONE pick at a time (owner 2026-11-13: a Free couple adds event photos to the story one at a
+   * time; Event Plus and up add many at once). Keeps `multiple`'s list and its `maxFiles`, but the picker takes one file
+   * and a drop of several keeps the first, saying so.
+   */
+  pickOneAtATime?: boolean;
   /** Hard upper bound on number of files when `multiple` is true. */
   maxFiles?: number;
   /**
@@ -557,6 +563,7 @@ export function FileUpload({
   bucket,
   pathPrefix,
   multiple = false,
+  pickOneAtATime = false,
   maxFiles,
   limitMessage,
   maxSizeMB = 5,
@@ -839,9 +846,11 @@ export function FileUpload({
         setError('Still preparing your last file — give it a moment, then add the next.');
         return;
       }
-      const files = Array.from(selected);
-      if (files.length === 0) return;
+      const picked = Array.from(selected);
+      if (picked.length === 0) return;
       setError(null);
+      const files = pickOneAtATime ? picked.slice(0, 1) : picked;
+      if (pickOneAtATime && picked.length > 1) setError('One at a time — the first one was added. Event Plus adds many at once.');
 
       // 🖼 `pills` / `thumb`: a single picture is REPLACED by the next one (it lands as `[completed]`), so it takes no slot.
       const currentCount = (pillMode || thumbMode ? 0 : items.length) + inFlight.length;
@@ -967,6 +976,7 @@ export function FileUpload({
       maxBytes,
       maxSizeMB,
       multiple,
+      pickOneAtATime,
       validateFile,
       qrGuard,
       audioGuard,
@@ -1428,7 +1438,7 @@ export function FileUpload({
       id={inputId}
       type="file"
       accept={acceptAttr}
-      multiple={multiple}
+      multiple={multiple && !pickOneAtATime}
       disabled={disabled}
       /* ⚡ The picker is opening: fetch the upload run NOW (`lib/upload-send.ts`), while the person chooses a
          file — so the first upload never waits on it. Not with the page: most pages that show an uploader

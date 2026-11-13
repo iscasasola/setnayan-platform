@@ -42,11 +42,14 @@ export function PortfolioImportForm({
         body: form,
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        const body = (await res.json().catch(() => null)) as { error?: string; message?: string } | null;
         setError(
           body?.error === 'out_of_credits'
             ? 'Out of Papic credits for this event.'
-            : 'Could not import that photo. Please try again.',
+            : // 💾 Past the plan's storage, or the check could not be made — the server's own sentence (owner 2026-11-13).
+              body?.message && (res.status === 413 || res.status === 503)
+              ? body.message
+              : 'Could not import that photo. Please try again.',
         );
       } else {
         // one-render: keep (fetch) — it follows a `fetch()` upload; no server action answered with a render.

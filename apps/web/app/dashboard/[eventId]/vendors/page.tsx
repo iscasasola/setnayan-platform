@@ -48,7 +48,7 @@ import type { BookedFacts } from '@/lib/booked-rows';
 import { coveredKeyOf } from '@/lib/supplier-where';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { buildTally, suppliersDateFact, suppliersPlaceFact, type LiveTallyBase } from '@/lib/suppliers-shell';
-import { dateFitOf, type DateFit } from '@/lib/calendar-truth';
+import { dateFitOf, takenOnWords, type DateFit } from '@/lib/calendar-truth';
 import { readCalendarTruth } from '@/lib/calendar-truth.server';
 import { readOpenDateChange } from '@/lib/date-change.server';
 import { buildLinesOf, buildMoneyOf, buildSnapshotOf, buildViewOf, type BuildCardFree } from '@/lib/suppliers-build';
@@ -2342,6 +2342,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         nearOptions={nearRows(await nearAnchorsRead)}
         onePerEventGroups={[...onePerEventGroups]}
         inspiration={findInspiration}
+        // Owner 13 Nov 2026 — a supplier taken on the committed day reads "Taken on Dec 12" (the prototype's words).
+        takenOnLabel={planPrecision === 'day' ? takenOnWords(planDate) : null}
         // Pairs, not a Map — this component's own `teamCalendar` prop states the
         // rule: a Set/Map "crosses to the client as an array and is rebuilt there
         // rather than trusted to survive the boundary".

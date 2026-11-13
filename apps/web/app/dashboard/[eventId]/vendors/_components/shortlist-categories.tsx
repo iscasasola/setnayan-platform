@@ -1336,6 +1336,9 @@ const UnreadCtx = createContext<BenchUnread>(UNREAD_UNKNOWN);
  * that something is owed. Empty → no card offers Pay (it offers "Payments").
  */
 const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
+/** "Taken on Dec 12" — the couple's committed day, worded on the server (`takenOnWords`, lib/calendar-truth.ts).
+ *  Null → no committed day: a taken card keeps "Booked that day". */
+const TakenOnCtx = createContext<string | null>(null);
 /**
  * vendorId → where the couple's claim link stands, for a supplier they added
  * themselves (`lib/supplier-invite-status.ts`). `undefined` = this bench was
@@ -1840,6 +1843,8 @@ function VendorCard({
  * computed batched upstream (page.tsx, one calendar query for the whole bench).
  */
 function FitBadges({ v }: { v: ShortlistVendor }) {
+  // "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026); null → "Booked that day".
+  const takenOn = useContext(TakenOnCtx);
   // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · spec §17). When the vendor
   // has DECLARED both rings, their own word replaces the tier-derived reach
   // read with a three-state, money-shaped answer:
@@ -1895,7 +1900,7 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
         ? {
             cls: 'warn',
             icon: <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />,
-            text: 'Booked that day',
+            text: takenOn ?? 'Booked that day',
           }
         : v.dateFit === 'not_set'
           ? {
@@ -2867,6 +2872,7 @@ export function ShortlistCategories({
   findPanel = null,
   onePerEventGroups = [],
   inspiration = null,
+  takenOnLabel = null,
 }: {
   /**
    * Unread messages per chat thread for this event, and whether we know them.
@@ -3008,6 +3014,9 @@ export function ShortlistCategories({
    * read on the server (`readFindInspiration`). Null → not read for this viewer: no row, no strips.
    */
   inspiration?: FindInspiration | null;
+  /** "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026) — the badge on a supplier whose calendar
+   *  shows it taken. Null/absent → "Booked that day", as before. */
+  takenOnLabel?: string | null;
   /**
    * The plan groups that are ONE PER EVENT — the categories' switch (`service_categories.one_per_event`, owner
    * 2026-10-29), read on the server (lib/one-per-event.ts). An array: it crosses to the client. Absent → none, so
@@ -4064,6 +4073,7 @@ export function ShortlistCategories({
     <SheetDoorCtx.Provider value={replan ? sheetDoor : null}>
     <UnreadCtx.Provider value={benchUnread}>
     <PayDueCtx.Provider value={payHrefByVendorId}>
+    <TakenOnCtx.Provider value={takenOnLabel}>
     <InviteStatusCtx.Provider value={inviteStatusByVendorId}>
     <PriceLineCtx.Provider value={selfAddedPriceLines}>
     <ServiceCardCtx.Provider value={serviceLook}>
@@ -5230,6 +5240,7 @@ export function ShortlistCategories({
     </ServiceCardCtx.Provider>
     </PriceLineCtx.Provider>
     </InviteStatusCtx.Provider>
+    </TakenOnCtx.Provider>
     </PayDueCtx.Provider>
     </UnreadCtx.Provider>
     </SheetDoorCtx.Provider>

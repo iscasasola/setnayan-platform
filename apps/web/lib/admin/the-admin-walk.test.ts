@@ -130,3 +130,17 @@ test('F-A-20 · every admin page title reads "Name · Admin", in sentence case',
   walk(join(WEB, 'app/admin'));
   assert.deepEqual(bad, [], 'an admin page title does not end " · Admin"');
 });
+
+test('F-A-03/04/05 · one count of waiting work everywhere; a queue with no set time is never "on pace"', async () => {
+  const layout = code('app/admin/layout.tsx');
+  assert.equal(layout.split('workTotal={urgency.totalOpen}').length - 1, 2, 'the rail and the bottom bar both take the Work total');
+  const { workBadge } = await import('@/app/admin/_components/admin-bottom-nav');
+  const badge = workBadge({ payments: 3, 'pax-changes': 570 } as never, 0, 0, 0, 3);
+  assert.equal(badge?.count, 3, 'the badge counts work waiting, never the watch-only trails');
+  const ac = code('app/admin/app-performance/_components/action-center.tsx');
+  assert.match(ac, /const urgency = deriveQueueUrgency\(digest, nowMs\);/);
+  assert.match(ac, /\{workLine\(urgency\)\}/);
+  const feed = code('app/admin/queues/_components/queues-triage-feed.tsx');
+  assert.match(feed, /else if \(i\.noPromise\) noPromise \+= n;\s*else onPace \+= n;/);
+  assert.match(code('app/admin/work/page.tsx'), /noPromise: meta\?\.slaHours === null,/);
+});

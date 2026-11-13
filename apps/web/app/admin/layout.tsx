@@ -454,6 +454,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             overdue={urgency.overdue}
             dueSoon={urgency.dueSoon}
             unreadable={urgency.unknownCount}
+            workTotal={urgency.totalOpen}
           />
         }
         topBarSlot={topBar}
@@ -502,6 +503,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         overdue={urgency.overdue}
         dueSoon={urgency.dueSoon}
         unreadable={urgency.unknownCount}
+        workTotal={urgency.totalOpen}
       />
       {/* T6 — the thumb row: this tab's search (the console's one search panel) and its ＋, phone only.
           The Payment-requests FAB that sat here is retired with the old strip (Place map: "the Next card is the

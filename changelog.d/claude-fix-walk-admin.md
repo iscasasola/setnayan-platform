@@ -32,5 +32,11 @@
 - **F-A-20** Every admin page title reads "Name · Admin" in sentence case (ten were "… HQ", Title Case, or had no
   " · Admin").
 - **F-A-24** The admin's name is said once in the header — by the account pill; the loose name beside it is gone.
+- **F-A-03** The Work badge (rail and bottom bar) counts the Work page's own total (`deriveQueueUrgency().totalOpen`,
+  work waiting) — it summed every queue, the watch-only trails included, and read 624 against the page's 53.
+- **F-A-04** Insights' Action Center line states the same numbers as Work ("53 waiting · … — the same as Work"), not its
+  own 15-card subset ("15 of 15 queues clear").
+- **F-A-05** A queue with no set time (Social) is its own bucket in the Work strip ("no set time") and its row says
+  "Oldest 150 days · no set time" — it was counted "on pace" beside "0 past promise".
 
 SPEC IMPACT: None.

@@ -116,6 +116,8 @@ export default async function AdminWorkLanding({
     if (meta?.watchOnly) ageLabel = 'In the last 7 days — you only watch these';
     else if (age && dueState === 'overdue') ageLabel = `Oldest ${age} · past SLA`;
     else if (age && dueState === 'due-soon') ageLabel = `Oldest ${age} · due soon`;
+    // ⏳ F-A-05: a queue with no promise says so — its oldest item is not "on pace", it has no clock at all.
+    else if (age && dueState === 'ok' && meta?.slaHours === null) ageLabel = `Oldest ${age} · no set time`;
     else if (age && dueState === 'ok') ageLabel = `Oldest ${age}`;
 
     return {
@@ -125,6 +127,7 @@ export default async function AdminWorkLanding({
       dueState,
       ageLabel,
       watchOnly: meta?.watchOnly === true,
+      noPromise: meta?.slaHours === null,
       // ➕ "Approve all N green" lives on the payments row itself (admin slice 4).
       greenBatch: base.key === 'payments' && (d.count ?? 0) > 0 ? greenBatch : undefined,
       _index: index,

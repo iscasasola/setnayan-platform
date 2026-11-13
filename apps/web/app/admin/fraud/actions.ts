@@ -27,6 +27,7 @@
  *   which bypasses RLS. The table RLS (is_admin()) is defense-in-depth.
  */
 
+import { requireAdminCan } from '@/lib/admin/can.server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import * as Sentry from '@sentry/nextjs';
@@ -58,6 +59,8 @@ function requireVendorId(formData: FormData): string {
  */
 export async function dismissVendorSignals(formData: FormData) {
   const { userId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): fraud · basic.
+  await requireAdminCan('fraud', 'basic');
   const vendorProfileId = requireVendorId(formData);
   const reasonRaw = formData.get('reason');
   const reason = typeof reasonRaw === 'string' ? reasonRaw.trim().slice(0, 2000) : '';
@@ -145,6 +148,8 @@ export async function dismissVendorSignals(formData: FormData) {
  */
 export async function unsuspendVendor(formData: FormData) {
   const { userId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): fraud · escalated.
+  await requireAdminCan('fraud', 'escalated');
   const vendorProfileId = requireVendorId(formData);
   const reasonRaw = formData.get('reason');
   const reason = typeof reasonRaw === 'string' ? reasonRaw.trim().slice(0, 2000) : '';
@@ -192,6 +197,8 @@ export async function unsuspendVendor(formData: FormData) {
  */
 export async function initiateFraudWipeBan(formData: FormData) {
   const { userId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): fraud · escalated.
+  await requireAdminCan('fraud', 'escalated');
   const vendorProfileId = requireVendorId(formData);
   const typedName = String(formData.get('confirm_name') ?? '').trim();
   const rationaleRaw = formData.get('rationale');

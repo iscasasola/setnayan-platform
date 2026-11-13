@@ -529,7 +529,7 @@ export async function rejectRequest(formData: FormData) {
  * time and sets run_after = now + 24 h (guard_owner_self_approval) — the value
  * sent here is only a "please start", never the clock. He is emailed.
  */
-export async function confirmOwnRequest(formData: FormData) {
+async function confirmOwnRequest(formData: FormData) {
   const { userId } = await requireAdmin();
   const approvalId = formData.get('approval_id');
   if (typeof approvalId !== 'string' || !approvalId) throw new Error('Invalid request');
@@ -542,7 +542,7 @@ export async function confirmOwnRequest(formData: FormData) {
 }
 
 /** Cancel = withdraw. The requester only; any time before it is decided. */
-export async function withdrawRequest(formData: FormData) {
+async function withdrawRequest(formData: FormData) {
   const { userId } = await requireAdmin();
   const approvalId = formData.get('approval_id');
   if (typeof approvalId !== 'string' || !approvalId) throw new Error('Invalid request');
@@ -584,7 +584,7 @@ export async function withdrawRequest(formData: FormData) {
  * A failed run is closed as `expired` with the reason (and the owner emailed)
  * rather than retried forever in the background.
  */
-export async function runDueOwnerApprovals(): Promise<{ ran: number; failed: number }> {
+async function runDueOwnerApprovals(): Promise<{ ran: number; failed: number }> {
   const admin = createAdminClient();
   const nowIso = new Date().toISOString();
   const { data: due, error } = await admin
@@ -660,4 +660,50 @@ export async function runDueOwnerApprovals(): Promise<{ ran: number; failed: num
     revalidatePath('/admin');
   }
   return { ran, failed };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ONE DISPATCHER for everything the 2026-11-13 admin-team slice adds.
+// Every exported "use server" function is a Vercel route under a hard ceiling
+// (scripts/lint-server-action-budget.mjs) — so the Team screen, the owner's
+// typed word, Cancel, Escalate ▸ / Mark handled and the runner share ONE
+// export instead of eight. Each op runs its own gate from the SESSION; nothing
+// here passes an identity in.
+// ════════════════════════════════════════════════════════════════════════════
+export async function adminTeamAct(formData: FormData): Promise<void> {
+  const op = formData.get('op');
+  switch (op) {
+    case 'confirm_own':
+      return confirmOwnRequest(formData);
+    case 'withdraw':
+      return withdrawRequest(formData);
+    case 'add': {
+      const { addAdminOp } = await import('@/app/admin/team/team-ops.server');
+      return addAdminOp(formData);
+    }
+    case 'save': {
+      const { saveAdminAreasOp } = await import('@/app/admin/team/team-ops.server');
+      return saveAdminAreasOp(formData);
+    }
+    case 'clear': {
+      const { takeAllAreasAwayOp } = await import('@/app/admin/team/team-ops.server');
+      return takeAllAreasAwayOp(formData);
+    }
+    case 'escalate': {
+      const { escalateItemOp } = await import('./escalation-ops.server');
+      return escalateItemOp(formData);
+    }
+    case 'resolve': {
+      const { resolveEscalationOp } = await import('./escalation-ops.server');
+      return resolveEscalationOp(formData);
+    }
+    case 'run_due':
+      // Takes no input and can only run rows the OWNER confirmed whose wait the
+      // DATABASE agrees has passed (guard_owner_self_approval refuses anything
+      // else), so it is safe for the cron-free runner to fire from any traffic.
+      await runDueOwnerApprovals();
+      return;
+    default:
+      throw new Error('Unknown admin team action');
+  }
 }

@@ -76,7 +76,7 @@ test('ANCHOR — the migration was found and read', () => {
 test('TypeScript ADMIN_AREAS === SQL public.admin_areas(), in order', () => {
   const body = /FUNCTION public\.admin_areas\(\)[\s\S]*?ARRAY\[([\s\S]*?)\]::TEXT\[\]/.exec(SQL);
   assert.ok(body, 'could not find the admin_areas() array in the migration');
-  const sqlAreas = [...body[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+  const sqlAreas = [...(body[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((m) => m[1] ?? '');
   assert.deepEqual(sqlAreas, [...ADMIN_AREAS]);
   assert.equal(sqlAreas.length, 16);
 });
@@ -84,13 +84,13 @@ test('TypeScript ADMIN_AREAS === SQL public.admin_areas(), in order', () => {
 test('the owner address in TypeScript === the one in is_platform_owner()', () => {
   const m = /FUNCTION public\.is_platform_owner[\s\S]*?lower\(u\.email\) = '([^']+)'/.exec(SQL);
   assert.ok(m, 'could not find the owner address in the migration');
-  assert.equal(m[1], OWNER_EMAIL);
+  assert.equal(m?.[1], OWNER_EMAIL);
 });
 
 test('every action type the database allows has an area — nobody-may-decide is never silent', () => {
   const check = /ADD CONSTRAINT admin_approval_requests_action_type_check\s*CHECK \(action_type IN \(([\s\S]*?)\)\);/.exec(SQL);
   assert.ok(check, 'could not find the action-type CHECK in the migration');
-  const types = [...check[1].replace(/--.*$/gm, '').matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+  const types = [...(check[1] ?? '').replace(/--.*$/gm, '').matchAll(/'([a-z_]+)'/g)].map((m) => m[1] ?? '');
   assert.ok(types.length >= 12, `read only ${types.length} action types`);
   for (const t of types) {
     assert.ok(areaForApprovalAction(t), `action type ${t} has no area in APPROVAL_ACTION_AREA`);

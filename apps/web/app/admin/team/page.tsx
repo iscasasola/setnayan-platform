@@ -12,7 +12,8 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ErrorState } from '@/app/_components/states/error-state';
-import { addAdmin, saveAdminAreas, takeAllAreasAway } from './actions';
+import { adminTeamAct } from '@/app/admin/approvals/actions';
+import { NoteField } from './_components/team-fields';
 
 export const metadata = { title: 'Team · Admin' };
 
@@ -52,7 +53,7 @@ function AreaGrid({
   disabled: boolean;
 }) {
   return (
-    <div className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-white">
+    <div className="divide-y divide-ink/10">
       {ADMIN_AREA_LIST.map((a) => (
         <div key={a.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
           <InfoTip label={a.label} labelClassName="text-sm font-semibold text-ink" align="start">
@@ -95,24 +96,23 @@ function AreaGrid({
   );
 }
 
-function TypedField({ show }: { show: boolean }) {
+function TypedField({ show, data }: { show: boolean; data: string }) {
   if (!show) return null;
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="font-semibold text-ink">
-        Type {SELF_APPROVAL_WORD} to start the 24-hour wait now (optional)
-      </span>
-      <input
-        name="typed"
-        autoComplete="off"
+    <div className="grid gap-1">
+      <NoteField
+        fieldName="typed"
+        name={`Type ${SELF_APPROVAL_WORD} to start the 24-hour wait now (optional)`}
+        empty={SELF_APPROVAL_WORD}
         placeholder={SELF_APPROVAL_WORD}
-        className="w-48 rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+        maxLength={20}
+        data={data}
       />
-      <span className="text-xs text-ink/55">
+      <span className="text-xs text-ink/60">
         Giving Escalated waits 24 hours, then runs — you are emailed at the start and when it runs, and can cancel on
         Approvals. Leave it empty to send it to another Escalated admin instead.
       </span>
-    </label>
+    </div>
   );
 }
 
@@ -151,7 +151,7 @@ export default async function AdminTeamPage() {
       </div>
 
       {/* ADD AN ADMIN */}
-      <section className="mb-10 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+      <section className="mb-10">
         <h2 className="mb-1 sn-eye">Add an admin</h2>
         <p className="mb-4 text-xs text-ink/60">
           Name, email, then what they may do. They need a Setnayan account already. Making someone an admin waits for a
@@ -165,34 +165,36 @@ export default async function AdminTeamPage() {
             </InfoTip>
           </p>
         ) : null}
-        <form action={addAdmin} className="grid gap-4">
-          <fieldset disabled={!canManage} className="grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-semibold text-ink">Their name</span>
-              <input name="name" autoComplete="off" className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm" />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-semibold text-ink">Their account email</span>
-              <input
-                name="email"
-                type="email"
-                required
-                autoComplete="off"
-                className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-              />
-            </label>
+        <form action={adminTeamAct} className="grid gap-4">
+          <input type="hidden" name="op" value="add" />
+          <fieldset disabled={!canManage} className="grid gap-2">
+            <NoteField fieldName="name" name="Their name" empty="Their name" placeholder="Ana Reyes" maxLength={120} data="team-add-name" />
+            <NoteField
+              fieldName="email"
+              name="Their account email"
+              empty="Their email"
+              placeholder="ana@example.com"
+              required
+              maxLength={254}
+              data="team-add-email"
+            />
           </fieldset>
           <AreaGrid prefix="new" has={() => false} disabled={!canManage} />
           <fieldset disabled={!canManage} className="grid gap-4">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-semibold text-ink">Why (recorded in the Admin log)</span>
-              <textarea name="why" required minLength={3} rows={2} className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm" />
-            </label>
-            <TypedField show={powers.isOwner} />
+            <NoteField
+              fieldName="why"
+              name="Why (recorded in the Admin log)"
+              empty="Say why"
+              placeholder="Ana runs support on weekends."
+              required
+              long
+              data="team-add-why"
+            />
+            <TypedField show={powers.isOwner} data="team-add-typed" />
             <div>
               <SubmitButton
                 pendingLabel="Adding…"
-                className="rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:text-cream"
               >
                 Add
               </SubmitButton>
@@ -251,29 +253,25 @@ export default async function AdminTeamPage() {
                     {owner ? (
                       <p className="mt-3 text-xs text-ink/55">🔒 Owner · everything. Nothing here can narrow the owner.</p>
                     ) : (
-                      <form action={saveAdminAreas} className="mt-3 grid gap-3">
+                      <form action={adminTeamAct} className="mt-3 grid gap-3">
+                        <input type="hidden" name="op" value="save" />
                         <input type="hidden" name="user_id" value={p.user_id} />
                         <AreaGrid prefix={p.user_id} has={has} disabled={!editable} />
                         {editable ? (
                           <>
-                            <label className="flex flex-col gap-1 text-sm">
-                              <span className="font-semibold text-ink">Why (recorded in the Admin log)</span>
-                              <input name="why" autoComplete="off" className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm" />
-                            </label>
-                            <TypedField show={powers.isOwner} />
+                            <NoteField
+                              fieldName="why"
+                              name="Why (recorded in the Admin log)"
+                              empty="Say why (optional)"
+                              data={`team-why-${p.user_id}`}
+                            />
+                            <TypedField show={powers.isOwner} data={`team-typed-${p.user_id}`} />
                             <div className="flex flex-wrap gap-2">
                               <SubmitButton
                                 pendingLabel="Saving…"
-                                className="rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-white"
+                                className="rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-white dark:text-cream"
                               >
                                 Save
-                              </SubmitButton>
-                              <SubmitButton
-                                formAction={takeAllAreasAway}
-                                pendingLabel="Taking away…"
-                                className="rounded-md border border-ink/20 bg-white px-4 py-2 text-sm font-semibold text-ink"
-                              >
-                                Take all away
                               </SubmitButton>
                             </div>
                           </>
@@ -289,6 +287,18 @@ export default async function AdminTeamPage() {
                         )}
                       </form>
                     )}
+                    {!owner && canManage && !isMe && scopes !== null ? (
+                      <form action={adminTeamAct} className="mt-2">
+                        <input type="hidden" name="op" value="clear" />
+                        <input type="hidden" name="user_id" value={p.user_id} />
+                        <SubmitButton
+                          pendingLabel="Taking away…"
+                          className="rounded-md border border-ink/20 bg-raised px-4 py-2 text-sm font-semibold text-ink"
+                        >
+                          Take all away
+                        </SubmitButton>
+                      </form>
+                    ) : null}
                     <p className="mt-3 text-xs">
                       <a className="text-link underline" href={`/admin/admin-log?person=${p.user_id}`}>
                         Their actions

@@ -1,4 +1,4 @@
-'use server';
+import 'server-only';
 
 /**
  * Escalate ▸ (DECISION_LOG 2026-11-13). A Basic admin sends an item up to an
@@ -10,6 +10,9 @@
  *   resolve   → can(area, 'escalated')
  *
  * Both are written to admin_audit_log with the area and the actor.
+ *
+ * Not a "use server" file: reached through the ONE dispatcher `adminTeamAct`
+ * (app/admin/approvals/actions.ts). Each function runs its own session gate.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -17,7 +20,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminCan } from '@/lib/admin/can.server';
 import { isAdminArea } from '@/lib/admin/areas';
 
-export async function escalateItem(formData: FormData) {
+export async function escalateItemOp(formData: FormData) {
   const area = formData.get('area');
   if (!isAdminArea(area)) throw new Error('Unknown area');
   const { userId } = await requireAdminCan(area, 'basic');
@@ -62,7 +65,7 @@ export async function escalateItem(formData: FormData) {
   revalidatePath('/admin/approvals');
 }
 
-export async function resolveEscalation(formData: FormData) {
+export async function resolveEscalationOp(formData: FormData) {
   const escalationId = String(formData.get('escalation_id') ?? '');
   if (!escalationId) throw new Error('Invalid escalation');
   const admin = createAdminClient();

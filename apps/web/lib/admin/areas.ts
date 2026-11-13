@@ -131,7 +131,7 @@ export function areaForAuditAction(action: string | null | undefined): AdminArea
   if (!action) return null;
   const a = action.toLowerCase();
   const approval = /^approval_[a-z_]+:(.+)$/.exec(a);
-  if (approval) return areaForApprovalAction(approval[1]) ?? 'team';
+  if (approval) return areaForApprovalAction(approval[1] ?? '') ?? 'team';
   for (const [re, area] of AUDIT_ACTION_AREA) {
     if (re.test(a)) return area;
   }

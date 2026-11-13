@@ -1,4 +1,4 @@
-'use server';
+import 'server-only';
 
 /**
  * /admin/team — areas × levels (DECISION_LOG 2026-11-13, "ADMIN TEAM: AREAS ×
@@ -19,6 +19,12 @@
  *     edits their own areas.
  *
  * Every write lands in admin_audit_log with area = 'team' and the actor.
+ *
+ * NOT a "use server" file on purpose: every exported server action is a
+ * Vercel route under a hard ceiling (scripts/lint-server-action-budget.mjs).
+ * These are reached through ONE dispatcher, `adminTeamAct` in
+ * app/admin/approvals/actions.ts. Each function still runs its own gate
+ * (requireAdminCan reads the SESSION) — the dispatcher passes no identity in.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -118,7 +124,7 @@ async function raiseEscalatedRequest(
  * making someone an admin already takes two admins). Already an admin ⇒ the
  * same as saving their areas.
  */
-export async function addAdmin(formData: FormData) {
+export async function addAdminOp(formData: FormData) {
   const { userId, powers } = await requireAdminCan('team', 'escalated');
   const admin = createAdminClient();
 
@@ -241,7 +247,7 @@ async function applyAreas(
 }
 
 /** Save one admin's areas × levels. */
-export async function saveAdminAreas(formData: FormData) {
+export async function saveAdminAreasOp(formData: FormData) {
   const { userId, powers } = await requireAdminCan('team', 'escalated');
   const admin = createAdminClient();
   const targetUserId = String(formData.get('user_id') ?? '');
@@ -260,7 +266,7 @@ export async function saveAdminAreas(formData: FormData) {
 }
 
 /** Take every area away. Immediate; they keep their account (and /admin opens to nothing). */
-export async function takeAllAreasAway(formData: FormData) {
+export async function takeAllAreasAwayOp(formData: FormData) {
   const { userId } = await requireAdminCan('team', 'escalated');
   const admin = createAdminClient();
   const targetUserId = String(formData.get('user_id') ?? '');

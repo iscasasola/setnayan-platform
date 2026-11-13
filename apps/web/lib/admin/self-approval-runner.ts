@@ -20,8 +20,10 @@ export async function maybeRunOwnerApprovals(opts: { force?: boolean } = {}): Pr
   if (!opts.force && nowMs - lastCheckMs < CHECK_THROTTLE_MS) return;
   lastCheckMs = nowMs;
   try {
-    const { runDueOwnerApprovals } = await import('@/app/admin/approvals/actions');
-    await runDueOwnerApprovals();
+    const { adminTeamAct } = await import('@/app/admin/approvals/actions');
+    const fd = new FormData();
+    fd.set('op', 'run_due');
+    await adminTeamAct(fd);
   } catch (e) {
     console.error('[owner self-approval] runner failed', e instanceof Error ? e.message : e);
   }

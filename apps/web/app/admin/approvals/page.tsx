@@ -5,14 +5,8 @@ import {
   approvalActionBadge,
   approvalActionLabel,
 } from '@/lib/admin-approvals';
-import {
-  requestPrivilegedGrant,
-  approveRequest,
-  rejectRequest,
-  confirmOwnRequest,
-  withdrawRequest,
-} from './actions';
-import { escalateItem, resolveEscalation } from './escalations';
+import { requestPrivilegedGrant, approveRequest, rejectRequest, adminTeamAct } from './actions';
+import { NoteField } from '@/app/admin/team/_components/team-fields';
 import { after } from 'next/server';
 import { getAdminPowersFor } from '@/lib/admin/can.server';
 import { canWith, refusalFor } from '@/lib/admin/can';
@@ -358,22 +352,21 @@ export default async function AdminApprovalsPage() {
                             return (
                               <>
                                 {st.kind === 'not_started' ? (
-                                  <form action={confirmOwnRequest} className="flex flex-col items-end gap-1.5">
+                                  <form action={adminTeamAct} className="flex w-64 flex-col items-end gap-1.5">
+                                    <input type="hidden" name="op" value="confirm_own" />
                                     <input type="hidden" name="approval_id" value={r.approval_id} />
-                                    <label className="flex flex-col items-end gap-1 text-xs text-ink/70">
-                                      <span>
-                                        Type <strong>{SELF_APPROVAL_WORD}</strong> · runs in 24 h
-                                      </span>
-                                      <input
-                                        name="typed"
-                                        autoComplete="off"
-                                        placeholder={SELF_APPROVAL_WORD}
-                                        className="w-40 rounded-md border border-ink/15 bg-white px-2 py-1 text-xs"
-                                      />
-                                    </label>
+                                    <NoteField
+                                      fieldName="typed"
+                                      name={`Type ${SELF_APPROVAL_WORD} · runs in 24 h`}
+                                      empty={SELF_APPROVAL_WORD}
+                                      placeholder={SELF_APPROVAL_WORD}
+                                      required
+                                      maxLength={20}
+                                      data={`self-approve-${r.approval_id}`}
+                                    />
                                     <SubmitButton
                                       pendingLabel="Starting…"
-                                      className="rounded-md bg-mulberry px-3 py-1.5 text-xs font-bold text-white"
+                                      className="rounded-md bg-mulberry px-3 py-1.5 text-xs font-bold text-white dark:text-cream"
                                     >
                                       Approve my own request
                                     </SubmitButton>
@@ -390,11 +383,12 @@ export default async function AdminApprovalsPage() {
                                     <span className="text-ink/55">You were emailed when it started waiting and will be when it runs.</span>
                                   </p>
                                 )}
-                                <form action={withdrawRequest}>
+                                <form action={adminTeamAct}>
+                                  <input type="hidden" name="op" value="withdraw" />
                                   <input type="hidden" name="approval_id" value={r.approval_id} />
                                   <SubmitButton
                                     pendingLabel="Cancelling…"
-                                    className="rounded-md border border-danger-700/30 bg-white px-3 py-1.5 text-xs font-bold text-danger-700"
+                                    className="rounded-md border border-danger-700/30 bg-raised px-3 py-1.5 text-xs font-bold text-danger-700 dark:text-danger-300"
                                   >
                                     Cancel
                                   </SubmitButton>
@@ -407,11 +401,12 @@ export default async function AdminApprovalsPage() {
                             <p className="max-w-[200px] text-right text-xs text-terracotta-700">
                               You initiated this — a different admin must decide it.
                             </p>
-                            <form action={withdrawRequest}>
+                            <form action={adminTeamAct}>
+                              <input type="hidden" name="op" value="withdraw" />
                               <input type="hidden" name="approval_id" value={r.approval_id} />
                               <SubmitButton
                                 pendingLabel="Withdrawing…"
-                                className="rounded-md border border-ink/20 bg-white px-3 py-1.5 text-xs font-bold text-ink"
+                                className="rounded-md border border-ink/20 bg-raised px-3 py-1.5 text-xs font-bold text-ink"
                               >
                                 Withdraw
                               </SubmitButton>
@@ -468,7 +463,8 @@ export default async function AdminApprovalsPage() {
                                   {timeAgo(esc.created_at)} — “{esc.note}”
                                 </p>
                               ) : !canDecide && area && canWith(powers, area, 'basic') ? (
-                                <form action={escalateItem} className="flex flex-col items-end gap-1">
+                                <form action={adminTeamAct} className="flex w-64 flex-col items-end gap-1">
+                                  <input type="hidden" name="op" value="escalate" />
                                   <input type="hidden" name="area" value={area} />
                                   <input type="hidden" name="item_kind" value="approval" />
                                   <input type="hidden" name="item_id" value={r.approval_id} />
@@ -477,16 +473,17 @@ export default async function AdminApprovalsPage() {
                                     name="item_label"
                                     value={`${approvalActionLabel(r.action_type)} → ${targetLabel(r)}`}
                                   />
-                                  <input
-                                    name="note"
+                                  <NoteField
+                                    fieldName="note"
+                                    name="Note for them"
+                                    empty="What you saw, what you suggest"
                                     required
-                                    minLength={3}
-                                    placeholder="Note — what you saw, what you suggest"
-                                    className="w-56 rounded-md border border-ink/15 bg-white px-2 py-1 text-xs"
+                                    long
+                                    data={`escalate-${r.approval_id}`}
                                   />
                                   <SubmitButton
                                     pendingLabel="Escalating…"
-                                    className="rounded-md border border-ink/20 bg-white px-3 py-1 text-xs font-bold text-ink"
+                                    className="rounded-md border border-ink/20 bg-raised px-3 py-1 text-xs font-bold text-ink"
                                   >
                                     Escalate ▸
                                   </SubmitButton>
@@ -531,18 +528,21 @@ export default async function AdminApprovalsPage() {
                       </p>
                       <p className="mt-1 text-sm text-ink/80">“{e.note}”</p>
                     </div>
-                    <form action={resolveEscalation} className="flex shrink-0 flex-col items-end gap-1.5">
+                    <form action={adminTeamAct} className="flex w-64 shrink-0 flex-col items-end gap-1.5">
+                      <input type="hidden" name="op" value="resolve" />
                       <input type="hidden" name="escalation_id" value={e.escalation_id} />
-                      <input
-                        name="note"
-                        disabled={!canResolve}
-                        placeholder="What you decided (optional)"
-                        className="w-52 rounded-md border border-ink/15 bg-white px-2 py-1 text-xs disabled:opacity-40"
-                      />
+                      {canResolve ? (
+                        <NoteField
+                          fieldName="note"
+                          name="What you decided"
+                          empty="Optional"
+                          data={`resolve-${e.escalation_id}`}
+                        />
+                      ) : null}
                       <SubmitButton
                         disabled={!canResolve}
                         pendingLabel="Marking…"
-                        className="rounded-md bg-ink px-3 py-1.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        className="rounded-md bg-mulberry px-3 py-1.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:text-cream"
                       >
                         Mark handled
                       </SubmitButton>

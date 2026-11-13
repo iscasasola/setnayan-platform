@@ -5,6 +5,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ErrorState } from '@/app/_components/states/error-state';
+import { NoteField, PickField } from '@/app/admin/team/_components/team-fields';
 
 export const metadata = { title: 'Admin log · Admin' };
 
@@ -61,7 +62,7 @@ export default async function AdminLogPage({
   await requireAdmin();
   const sp = await searchParams;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : '');
-  const person = one('person');
+  const person = one('person') === 'all' ? '' : one('person');
   const area = isAdminArea(one('area')) ? one('area') : '';
   const action = one('action').trim().slice(0, 80);
   const day = DAY_OPTIONS.find((d) => d.key === one('day')) ?? DAY_OPTIONS[0];
@@ -105,51 +106,41 @@ export default async function AdminLogPage({
 
   const shown = (rows ?? []).filter((r) => !area || auditRowArea(r) === area);
 
-  const select = 'rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm';
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead title="Admin log" />
 
-      <form method="get" className="mb-6 grid gap-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:grid-cols-4">
-        <label className="flex flex-col gap-1 text-xs font-semibold text-ink">
-          Person
-          <select name="person" defaultValue={person} className={select}>
-            <option value="">Everyone</option>
-            {[...names.entries()].map(([id, n]) => (
-              <option key={id} value={id}>
-                {n}
-              </option>
-            ))}
-            <option value="system">System</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold text-ink">
-          Area
-          <select name="area" defaultValue={area} className={select}>
-            <option value="">Every area</option>
-            {ADMIN_AREA_LIST.map((a) => (
-              <option key={a.key} value={a.key}>
-                {a.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold text-ink">
-          Action
-          <input name="action" defaultValue={action} placeholder="All actions" className={select} />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold text-ink">
-          Day
-          <select name="day" defaultValue={day.key} className={select}>
-            {DAY_OPTIONS.map((d) => (
-              <option key={d.key} value={d.key}>
-                {d.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="sm:col-span-4">
-          <button type="submit" className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">
+      <form method="get" className="mb-6 grid gap-3 sm:grid-cols-3">
+        <PickField
+          fieldName="person"
+          label="Person"
+          initial={person || 'all'}
+          data="admin-log-person"
+          options={[
+            { key: 'all', label: 'Everyone' },
+            ...[...names.entries()].map(([id, n]) => ({ key: id, label: n })),
+            { key: 'system', label: 'System' },
+          ]}
+        />
+        <PickField
+          fieldName="area"
+          label="Area"
+          initial={area || 'all'}
+          data="admin-log-area"
+          options={[{ key: 'all', label: 'Every area' }, ...ADMIN_AREA_LIST.map((a) => ({ key: a.key, label: a.label }))]}
+        />
+        <PickField
+          fieldName="day"
+          label="Day"
+          initial={day.key}
+          data="admin-log-day"
+          options={DAY_OPTIONS.map((d) => ({ key: d.key, label: d.label }))}
+        />
+        <div className="sm:col-span-3">
+          <NoteField fieldName="action" name="Action" empty="All actions" placeholder="refund" maxLength={80} initial={action} data="admin-log-action" />
+        </div>
+        <div className="sm:col-span-3">
+          <button type="submit" className="rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-white dark:text-cream">
             Show
           </button>
         </div>

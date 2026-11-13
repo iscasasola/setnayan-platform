@@ -47,6 +47,8 @@ import {
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
+import { shopPerGuestNote } from '@/lib/claimed-per-guest-follow';
 import { buildCustomerCalendarMonth, computeEventMoneyPositions, type EventMoneyPosition } from '@/lib/vendor-customers';
 import {
   customerLaneOf,
@@ -567,6 +569,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     if (t && (t.archived || t.archived_at != null)) archivedOff.add(r.eventId);
   }
   const listed = derived.filter((r) => !archivedOff.has(r.eventId));
+  /* 👥 RW-08: this shop's claimed per-guest bookings — the figure and count the couple reads ("₱4,000 · 4 guests").
+     A refused read leaves the rows as shipped ("no quote yet"), never a guessed figure. */
+  const perGuest = await readShopPerGuest(rosterAdmin, vendorProfileId, listed.map((r) => r.eventId));
 
   /*
     ⇅ SHOW & SORT (v113; spec §9 #7) — Service · Status · Client · Handled by narrow EVERY event before the lists are
@@ -703,6 +708,10 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       note: moneyNote(r, moneyByEvent.get(r.eventId) ?? null, paydayIncomplete),
       kind: type && type !== 'unspecified' ? eventTypeLabel(type) : null,
       quoted: false,
+      perGuestNote: (() => {
+        const p = perGuest?.get(r.eventId);
+        return p ? shopPerGuestNote(p) : null;
+      })(),
       returning: Boolean(t?.is_returning),
       dateOptions: dateOptionsByEvent.get(r.eventId) ?? null,
     };

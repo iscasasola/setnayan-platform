@@ -42,7 +42,7 @@ import {
 } from './badge-rewards';
 import { badgeTracker, type TrackerFacts } from './shop-badges';
 
-const NAMES: RewardNames = { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro' };
+const NAMES: RewardNames = { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro', event_ultra: 'Event Ultra' };
 
 const NONE: BadgeRewardFacts = {
   verified: null,

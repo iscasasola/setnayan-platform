@@ -43,6 +43,15 @@ function walk(dir: string, out: string[] = []): string[] {
 
 const NULLS = /monogram_uploaded_svg\s*:\s*null/g;
 
+/**
+ * Files whose `monogram_uploaded_svg: null` is an in-memory READ fixture, not a write. Each says why;
+ * a file here must never call update/upsert on events. Keep this list short.
+ */
+const READ_FIXTURES: Record<string, string> = {
+  'app/dev/notifications-lab/page.tsx':
+    'dev lab: a sample events row (plain lettering, no upload) handed to the notification list — it writes nothing',
+};
+
 test('only "Remove upload" writes monogram_uploaded_svg to null', () => {
   const files = ['app', 'lib'].flatMap((r) => walk(r));
   const offenders: string[] = [];
@@ -53,6 +62,10 @@ test('only "Remove upload" writes monogram_uploaded_svg to null', () => {
     if (!hits) continue;
     if (f === ALLOWED.file) {
       allowedHits += hits;
+      continue;
+    }
+    if (f in READ_FIXTURES) {
+      assert.ok(!/\.(update|upsert)\(/.test(src), `${f} is listed as a read fixture but writes — remove it from READ_FIXTURES`);
       continue;
     }
     offenders.push(`${f} (${hits})`);

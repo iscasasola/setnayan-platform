@@ -35,3 +35,9 @@ Tests: `lib/the-post-event-walk-is-fixed.test.ts` (one block per item) plus the 
 
 SPEC IMPACT: None — each fix follows an approved ruling (DECISION_LOG "POST EVENT = A STORY (ONE SCENE PER SCREEN) —
 SIX CALLS SETTLED"; "NEVER AN EMPTY SCENE").
+
+CI follow-ups: `story` joins `HUB_LIVE_PARAMS` (`lib/hub-view-key.ts`), so a cached Event Hub copy never answers
+`?story=later`. The recorded stage pages (`every-stage-is-todays-page.golden.json`) are re-recorded with
+`UPDATE_GOLDEN=1` for the six Post Event pages ONLY, after a dump diff against `origin/main` showed exactly the two
+intended changes: the guest bar's Recap tab is now `aria-current="page"` (F-W2-54), and the stranger's page no longer
+draws the invitation's cover under the story, while its door keeps its own row (F-W2-53).

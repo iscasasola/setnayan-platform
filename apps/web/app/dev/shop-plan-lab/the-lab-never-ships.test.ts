@@ -17,11 +17,13 @@ import {
   SAMPLE_SHOP_PLAN_TIER,
   SAMPLE_SHOP_PLANS,
   samplePlanBranchCities,
-} from '@/app/v/[slug]/_components/sample-shop-page';
+} from '@/app/v/[slug]/_components/sample-shop-plan';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LAB = stripComments(readFileSync(join(HERE, 'page.lab.tsx'), 'utf8'));
 const DRAWING = stripComments(readFileSync(join(HERE, '../../v/[slug]/_components/sample-shop-page.tsx'), 'utf8'));
+/** The drawing's pure plan rules (split out 13 Nov 2026 so tests read them without the page's CSS). */
+const RULES = stripComments(readFileSync(join(HERE, '../../v/[slug]/_components/sample-shop-plan.ts'), 'utf8'));
 
 test('the shop plan lab calls notFound() in production, before anything else', () => {
   const page = LAB.slice(LAB.indexOf('export default async function ShopPlanLabPage('));
@@ -41,8 +43,9 @@ test('the drawing mounts the real plan pieces and the real rules', () => {
   assert.match(DRAWING, /from '\.\/shop-addresses';/);
   assert.match(DRAWING, /from '\.\/shop-branches-line';/);
   assert.match(DRAWING, /from '\.\/pinned-review-card';/);
-  assert.match(DRAWING, /from '@\/lib\/shop-page-plan';/);
-  assert.match(DRAWING, /from '@\/lib\/vendor-tier-caps';/);
+  assert.match(DRAWING, /from '\.\/sample-shop-plan';/);
+  assert.match(RULES, /from '@\/lib\/shop-page-plan';/);
+  assert.match(RULES, /from '@\/lib\/vendor-tier-caps';/);
   assert.match(DRAWING, /<ShopReachMap reach=\{d\.reach\}/);
   assert.match(DRAWING, /<ShopAddresses setnayanAddress=/);
 });

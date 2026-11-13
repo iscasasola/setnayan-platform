@@ -4,7 +4,8 @@
  * `public.remove_my_chat_file(message_id, mode)` · `public.chat_file_removal_options(message_id)` ·
  * `public.chat_file_removals`.
  *
- *   1. undo inside 10 s, no words → the row is gone for both, its hearts with it, no line; the stored ref comes back;
+ *   1. undo inside 10 s → a SOFT removal: the row stays (hearts too), its file is cleared and `file_removed_at` set, so
+ *      the other side reads the change (a thread-filtered realtime UPDATE, RLS applied); no line; the ref comes back;
  *   2. undo after the window → WINDOW_CLOSED, the file stays;
  *   3. words stay — undo and Delete for everyone clear only the attachment columns;
  *   4. Delete for everyone inside 5 min → the file goes, a for-everyone line both sides can read; after → refused;
@@ -114,8 +115,8 @@ async function options(asUid: string, messageId: string) {
   }
 }
 async function row(messageId: string) {
-  const r = await db.query<{ body: string; attachment_r2_key: string | null; attachment_name: string | null }>(
-    `SELECT body, attachment_r2_key, attachment_name FROM public.chat_messages WHERE message_id = $1`,
+  const r = await db.query<{ body: string; attachment_r2_key: string | null; attachment_name: string | null; file_removed_at: string | null }>(
+    `SELECT body, attachment_r2_key, attachment_name, file_removed_at FROM public.chat_messages WHERE message_id = $1`,
     [messageId],
   );
   return r.rows[0] ?? null;
@@ -133,11 +134,11 @@ async function removalsSeenBy(asUid: string, messageId: string) {
     await reset();
   }
 }
-async function readableBy(asUid: string, messageId: string): Promise<{ attachment_r2_key: string | null } | null> {
+async function readableBy(asUid: string, messageId: string): Promise<{ attachment_r2_key: string | null; file_removed_at: string | null } | null> {
   await asUser(asUid);
   try {
-    const r = await db.query<{ attachment_r2_key: string | null }>(
-      `SELECT attachment_r2_key FROM public.chat_messages WHERE message_id = $1`,
+    const r = await db.query<{ attachment_r2_key: string | null; file_removed_at: string | null }>(
+      `SELECT attachment_r2_key, file_removed_at FROM public.chat_messages WHERE message_id = $1`,
       [messageId],
     );
     return r.rows[0] ?? null;
@@ -207,19 +208,27 @@ beforeEach(reset);
 
 // ── the 10-second undo ──────────────────────────────────────────────────────
 
-test('1 · undo inside 10 s, nothing said with it — the row and its hearts are gone for both, no line', async () => {
+test('1 · undo inside 10 s — a soft removal: the row stays, the file is cleared and marked, the other side reads it, no line', async () => {
   const mine = await send(F.couple, ' ', { file: true, agoSeconds: 3 });
   await asUser(F.vendorUser);
   await db.query(`INSERT INTO public.chat_message_hearts (message_id) VALUES ($1)`, [mine]);
   await reset();
   const r = await remove(F.couple, mine, 'undo');
   assert.ok(r.ok, r.ok ? '' : r.message);
-  assert.equal(r.row.outcome, 'deleted');
+  assert.equal(r.row.outcome, 'file_removed');
   assert.equal(r.row.thread_id, F.threadId);
   assert.equal(r.row.stored_ref, `r2://setnayan-thread-files/chat/${F.threadId}/${mine}.jpg`);
-  assert.equal(await row(mine), null, 'the file message is still there');
+  const after = await row(mine);
+  assert.ok(after, 'undo hard-deleted the row — the other side would never hear of it');
+  assert.equal(after.attachment_r2_key, null);
+  assert.equal(after.attachment_name, null);
+  assert.ok(after.file_removed_at, 'no removed marker');
+  // The other side reads the cleared, marked row through its own RLS — what its realtime UPDATE carries.
+  const seen = await readableBy(F.vendorUser, mine);
+  assert.equal(seen?.attachment_r2_key, null);
+  assert.ok(seen?.file_removed_at, 'the other side cannot read the marker');
   const h = await db.query(`SELECT 1 FROM public.chat_message_hearts WHERE message_id = $1`, [mine]);
-  assert.equal(h.rows.length, 0, 'its hearts outlived it');
+  assert.equal(h.rows.length, 1, 'a soft removal took the hearts');
   const lines = await db.query(`SELECT 1 FROM public.chat_file_removals WHERE message_id = $1`, [mine]);
   assert.equal(lines.rows.length, 0, 'undo left a line');
 });
@@ -239,6 +248,7 @@ test('3 · words stay — undo with words clears only the file, and leaves no li
   assert.equal(r.row.outcome, 'file_removed');
   const after = await row(mine);
   assert.equal(after?.body, 'Here is the floor plan', 'the words went with the file');
+  assert.ok(after?.file_removed_at);
   assert.equal(after?.attachment_r2_key, null);
   assert.equal(after?.attachment_name, null);
 });
@@ -254,6 +264,7 @@ test('4 · Delete for everyone inside 5 min — the file goes, the words stay, b
   const after = await row(mine);
   assert.equal(after?.body, 'The moodboard');
   assert.equal(after?.attachment_r2_key, null);
+  assert.ok(after?.file_removed_at);
   assert.deepEqual(await removalsSeenBy(F.vendorUser, mine), [{ user_id: F.couple, for_everyone: true }]);
   assert.deepEqual(await removalsSeenBy(F.couple, mine), [{ user_id: F.couple, for_everyone: true }]);
   assert.deepEqual(await removalsSeenBy(F.outsider, mine), [], 'an outsider reads the line');
@@ -350,7 +361,8 @@ test('6c · the couple’s own purchase on the event is NOT a booking with this 
   assert.equal((await options(F.couple, mine)).is_booking, false);
   const r = await remove(F.couple, mine, 'undo');
   assert.ok(r.ok, r.ok ? '' : r.message);
-  assert.equal(r.row.outcome, 'deleted');
+  assert.equal(r.row.outcome, 'file_removed');
+  assert.ok((await row(mine))?.file_removed_at);
 });
 
 // ── who may ─────────────────────────────────────────────────────────────────
@@ -369,7 +381,7 @@ test('7b · the supplier removes their own file too', async () => {
   const theirs = await send(F.vendorUser, ' ', { file: true, agoSeconds: 4 });
   const r = await remove(F.vendorUser, theirs, 'undo');
   assert.ok(r.ok, r.ok ? '' : r.message);
-  assert.equal(await row(theirs), null);
+  assert.equal((await row(theirs))?.attachment_r2_key, null);
 });
 
 test('7c · words are never removed this way', async () => {
@@ -387,6 +399,22 @@ test('7d · an outsider is answered as "not yours" — neither function confirms
   assert.match(r.ok ? '' : r.message, /NOT_YOURS/);
   await assert.rejects(() => options(F.outsider, mine), /NOT_YOURS/);
   assert.ok(await row(mine));
+});
+
+test('7e · nobody sets the marker by hand — a member cannot UPDATE chat_messages', async () => {
+  const mine = await send(F.couple, ' ', { file: true });
+  await asUser(F.couple);
+  await db.query(`UPDATE public.chat_messages SET file_removed_at = NOW(), attachment_r2_key = NULL WHERE message_id = $1`, [mine]).catch(() => undefined);
+  await reset();
+  const after = await row(mine);
+  assert.ok(after?.attachment_r2_key, 'a member cleared a file past the writer');
+  assert.equal(after?.file_removed_at, null);
+});
+
+test('7f · no mode ever deletes a row', async () => {
+  const src = await db.query<{ src: string }>(`SELECT prosrc AS src FROM pg_proc WHERE proname = 'remove_my_chat_file'`);
+  assert.equal(src.rows.length, 1);
+  assert.doesNotMatch(src.rows[0]!.src, /DELETE\s+FROM/i);
 });
 
 test('8 · still no DELETE policy — a plain DELETE removes nothing, even your own file', async () => {

@@ -26,20 +26,28 @@
 --     nothing.
 --
 -- THREE MODES, every window measured HERE against the row's own created_at (never the phone's clock):
---   undo      ≤ 10 s after sending (+5 s grace) — the ↺ ring. No words: the row is deleted, no line is left. Words:
---             only the attachment columns are cleared, the words stay.
---   everyone  ≤ 5 min after sending (+30 s grace) — the swipe's red choice. The attachment columns are cleared (the
---             words stay) and a chat_file_removals row (for_everyone) lets both sides draw "… removed a file · time".
+--   undo      ≤ 10 s after sending (+5 s grace) — the ↺ ring. The attachment columns are cleared and
+--             `file_removed_at` is set; the words, if any, stay. The row is KEPT (a soft removal, never a hard delete),
+--             so the change reaches the other side as a thread-filtered, RLS-checked realtime UPDATE (controller audit
+--             13 Nov). A row with the marker and no for-everyone line draws nothing — the approved "no line".
+--   everyone  ≤ 5 min after sending (+30 s grace) — the swipe's red choice. Cleared and marked the same way, and a
+--             chat_file_removals row (for_everyone) lets both sides draw "… removed a file · time".
 --   me        any time — a chat_file_removals row for the caller only. The other person and Setnayan keep the file.
 -- A BOOKING FILE (`chat_message_is_booking_file`) refuses undo and everyone alike (BOOKING_FILE); only `me` is open.
 --
--- What leaves with a deleted row (undo, no words): its hearts and decision filings CASCADE; a supplier's filed copy
--- (`event_supplier_files.chat_message_id`) SET NULLs — but a file filed to "This booking" is a booking file and is
--- never deleted here. The route drops the R2 object best-effort after the row (the row is what the read route
--- re-proves, so a lingering object is unreachable through the app).
+-- No row is ever deleted here, so hearts, filings and links stay as they were. The route drops the R2 object
+-- best-effort after the row is cleared (the row is what the read route re-proves, so a lingering object is
+-- unreachable through the app).
 -- ════════════════════════════════════════════════════════════════════════════
 
 BEGIN;
+
+-- ── §0 · the removed marker on the message itself ───────────────────────────
+-- Set by remove_my_chat_file() only (undo or everyone), with the attachment columns cleared in the same UPDATE. Read
+-- by the stream through the table's existing SELECT (RLS: the member read) and its thread-filtered realtime UPDATE.
+ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS file_removed_at TIMESTAMPTZ;
+COMMENT ON COLUMN public.chat_messages.file_removed_at IS
+  'When the sender removed this message''s file (undo ring or Delete for everyone — DECISION_LOG 2026-11-13). The attachment columns are cleared in the same write; the words stay. Written only by remove_my_chat_file(). Migration 20271341904583.';
 
 -- ── §1 · who removed which file, and for whom ───────────────────────────────
 -- No per-viewer hide existed on chat messages (searched 2026-11-13: chat_message_flags is the admin contact-info
@@ -167,7 +175,6 @@ DECLARE
   v_uid UUID := auth.uid();
   v_msg public.chat_messages%ROWTYPE;
   v_age INTERVAL;
-  v_has_words BOOLEAN;
   v_now TIMESTAMPTZ := NOW();
 BEGIN
   IF v_uid IS NULL THEN
@@ -219,19 +226,11 @@ BEGIN
   END IF;
 
   stored_ref := COALESCE(v_msg.attachment_r2_key, v_msg.attachment_url);
-  v_has_words := btrim(COALESCE(v_msg.body, '')) <> '';
 
-  IF p_mode = 'undo' AND NOT v_has_words THEN
-    -- Undo, nothing said with it: gone for both, no line.
-    DELETE FROM public.chat_messages m WHERE m.message_id = v_msg.message_id;
-    outcome := 'deleted';
-    RETURN NEXT;
-    RETURN;
-  END IF;
-
-  -- The words stay; only the file goes.
+  -- A soft removal: the file goes, the words (if any) stay, the row is kept and marked.
   UPDATE public.chat_messages m
-     SET attachment_r2_key = NULL,
+     SET file_removed_at = v_now,
+         attachment_r2_key = NULL,
          attachment_url = NULL,
          attachment_name = NULL,
          attachment_mime = NULL,
@@ -253,6 +252,6 @@ $$;
 REVOKE ALL ON FUNCTION public.remove_my_chat_file(UUID, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.remove_my_chat_file(UUID, TEXT) TO authenticated;
 COMMENT ON FUNCTION public.remove_my_chat_file(UUID, TEXT) IS
-  'Removing your OWN file in a chat (DECISION_LOG 2026-11-13 "CHAT FILE: UNDO RING…" + "CHAT FILE UNDO DRAWING APPROVED"). undo (≤10 s +5 s grace): no words → the row is deleted, words → only the file goes, no line. everyone (≤5 min +30 s grace): the file goes, the words stay, a chat_file_removals row draws "… removed a file". me: hidden for the caller only. A booking file refuses undo and everyone (BOOKING_FILE). Refuses NOT_YOURS · NO_FILE · WINDOW_CLOSED · BAD_MODE. Returns the stored ref so the route drops the R2 object (never for me). The only member path that changes a message — there is still no DELETE or UPDATE policy. Migration 20271341904583.';
+  'Removing your OWN file in a chat (DECISION_LOG 2026-11-13 "CHAT FILE: UNDO RING…" + "CHAT FILE UNDO DRAWING APPROVED"). undo (≤10 s +5 s grace): the file goes, file_removed_at is set, the words stay, no line. everyone (≤5 min +30 s grace): the same, plus a chat_file_removals row draws "… removed a file". Never deletes a row. me: hidden for the caller only. A booking file refuses undo and everyone (BOOKING_FILE). Refuses NOT_YOURS · NO_FILE · WINDOW_CLOSED · BAD_MODE. Returns the stored ref so the route drops the R2 object (never for me). The only member path that changes a message — there is still no DELETE or UPDATE policy. Migration 20271341904583.';
 
 COMMIT;

@@ -15,7 +15,6 @@ import {
   everyoneMinutesLeft,
   fileLeftMessage,
   refusalFromError,
-  withoutDeletedMessage,
   removedForEveryoneLine,
   undoSecondsLeft,
 } from '@/lib/chat-file-removal';
@@ -124,26 +123,21 @@ test('the route lets the DATABASE decide, then drops only an object under the ca
   assert.match(get, /supabase\.rpc\('chat_file_removal_options', \{ p_message_id: messageId \}\)/);
 });
 
-test('the OTHER side sees it go live — a DELETE drops only this chat’s message, an UPDATE that clears the file re-reads the line', () => {
-  const msgs = [{ message_id: 'a' }, { message_id: 'b' }];
-  assert.deepEqual(withoutDeletedMessage(msgs, { message_id: 'a' }), [{ message_id: 'b' }]);
-  assert.equal(withoutDeletedMessage(msgs, { message_id: 'from-another-chat' }), msgs, 'another chat’s delete re-rendered this one');
-  assert.equal(withoutDeletedMessage(msgs, null), msgs);
+test('the OTHER side sees it go live — on THIS thread’s filtered UPDATE, never an unfiltered DELETE feed', () => {
   const withFile = { message_id: 'a', attachment_r2_key: 'r2://x' };
   assert.equal(fileLeftMessage(withFile, { message_id: 'a', attachment_r2_key: null }), true);
   assert.equal(fileLeftMessage({ message_id: 'a' }, { message_id: 'a' }), false, 'a words-only update is not a removal');
   assert.equal(fileLeftMessage(undefined, { message_id: 'a' }), false);
 
   const s = read('app/_components/chat-message-stream.tsx');
-  assert.match(
-    s,
-    /\{ event: 'DELETE', schema: 'public', table: 'chat_messages' \},\s*\(payload\) => setMessages\(\(prev\) => withoutDeletedMessage\(prev, payload\.old/,
-    'the stream stopped dropping a message its sender undid',
-  );
-  const update = s.slice(s.indexOf("event: 'UPDATE',"), s.indexOf("event: 'DELETE'"));
-  assert.match(update, /table: 'chat_messages'/);
+  // No DELETE subscription on chat_messages at all: it would send every client other chats' ids (controller, 13 Nov).
+  assert.doesNotMatch(s, /event: 'DELETE'[^}]*table: 'chat_messages'/);
+  const update = s.slice(s.indexOf("event: 'UPDATE',"), s.indexOf('// ♥ THE SECOND .on()'));
+  assert.match(update, /table: 'chat_messages',\s*filter: `thread_id=eq\.\$\{threadId\}`/, 'the UPDATE listener is no longer per thread');
   assert.match(update, /fileLeftMessage\(messagesRef\.current\.find\(.*\), row\)\) void refetchRemovals\(\)/);
   assert.match(update, /prev\.map\(\(m\) => \(m\.message_id === row\.message_id \? row : m\)\)/, 'the cleared row stopped replacing the bubble');
+  // The ring's undo is marked and drawn as nothing (the approved "no line"); a for-everyone line still draws.
+  assert.match(s, /if \(!hasWords && m\.file_removed_at && !removedLine\) return null;/);
 });
 
 test('Delete for everyone is the house DANGER pill; Delete for me and Cancel are neutral (T19)', () => {

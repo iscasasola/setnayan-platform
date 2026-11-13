@@ -214,6 +214,12 @@ export type ChatMessageRow = {
   attachment_mime?: string | null;
   attachment_size_bytes?: number | null;
   /**
+   * 👈 When the sender removed this message's file (the undo ring or Delete for everyone — 2026-11-13, migration
+   * 20271341904583). The attachment columns are already cleared; the words stay. Optional so a read before the
+   * migration degrades to "never removed".
+   */
+  file_removed_at?: string | null;
+  /**
    * 🔒 Set on a PRIVATE message (DECISION_LOG 2026-11-09 🔒): the one person, besides its sender, who can read it — RLS
    * on `chat_messages` returns it to nobody else. NULL = everyone in the thread. The column name lives in ONE place,
    * `CHAT_PRIVATE_RECIPIENT_COLUMN` (lib/chat-private.ts).
@@ -685,7 +691,7 @@ export async function fetchMessages(
   const withSeveral = await supabase
     .from('chat_messages')
     .select(
-      `${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id,${CHAT_PRIVATE_RECIPIENT_COLUMN},${CHAT_PRIVATE_RECIPIENTS_COLUMN}`,
+      `${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id,${CHAT_PRIVATE_RECIPIENT_COLUMN},${CHAT_PRIVATE_RECIPIENTS_COLUMN},file_removed_at`,
     )
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });
@@ -725,7 +731,7 @@ export async function fetchMessages(
 export async function fetchMessagesMasked(supabase: SupabaseClient, threadId: string): Promise<ChatMessageRow[]> {
   const { data, error } = await supabase
     .rpc('chat_thread_messages_read', { p_thread_id: threadId })
-    .select(`${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id`);
+    .select(`${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id,file_removed_at`);
   if (error) throw new Error(`fetchMessagesMasked failed: ${error.message}`);
   return (data ?? []) as ChatMessageRow[];
 }

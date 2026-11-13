@@ -133,7 +133,6 @@ import {
   CHAT_FILE_REMOVED_UNKNOWN,
   fileLeftMessage,
   removedForEveryoneLine,
-  withoutDeletedMessage,
 } from '@/lib/chat-file-removal';
 import { loadOpenFilings, type Filing, type OpenDecisionTopic } from '@/lib/chat-decisions';
 import { ChatPinnedStack } from './chat/chat-pinned-stack';
@@ -635,7 +634,7 @@ export function ChatMessageStream({
             async remove(_id, mode) {
               await new Promise((r) => setTimeout(r, 400));
               if (labFileRemove.booking && mode !== 'me') return { ok: false, reason: 'booking' };
-              return { ok: true, outcome: mode === 'me' ? 'hidden_for_me' : mode === 'everyone' ? 'removed_for_everyone' : 'deleted', removedAt: new Date().toISOString() };
+              return { ok: true, outcome: mode === 'me' ? 'hidden_for_me' : mode === 'everyone' ? 'removed_for_everyone' : 'file_removed', removedAt: new Date().toISOString() };
             },
           }
         : routeRemoveIO,
@@ -650,8 +649,8 @@ export function ChatMessageStream({
         attachment_name: null,
         attachment_mime: null,
         attachment_size_bytes: null,
+        file_removed_at: done.removedAt,
       });
-      if (done.outcome === 'deleted') setMessages((prev) => prev.filter((m) => m.message_id !== messageId));
       if (done.outcome === 'file_removed' || done.outcome === 'removed_for_everyone')
         setMessages((prev) => prev.map((m) => (m.message_id === messageId ? strip(m) : m)));
       if (done.outcome === 'removed_for_everyone' || done.outcome === 'hidden_for_me')
@@ -1335,21 +1334,14 @@ export function ChatMessageStream({
               return;
             }
             const row = payload.new as ChatMessageRow;
-            // 👈 A file just left a message (its sender removed it, for everyone or by undo with words): the bubble loses
-            // it with this row, and the line saying who comes from a re-read of the removals.
+            // 👈 A file just left a message (its sender removed it — the undo ring and Delete for everyone are both a SOFT
+            // removal, so it arrives here, filtered to this thread and checked by RLS): the bubble loses it with this row,
+            // and the line saying who comes from a re-read of the removals.
             if (fileLeftMessage(messagesRef.current.find((m) => m.message_id === row.message_id), row)) void refetchRemovals();
             setMessages((prev) =>
               prev.map((m) => (m.message_id === row.message_id ? row : m)),
             );
           },
-        )
-        // 👈 THE RING'S UNDO, LIVE ON THE OTHER SIDE (2026-11-13 "deleted at once for both"): a file sent with no words is
-        // deleted outright. Postgres Changes cannot filter a DELETE and sends only the primary key, so this listens
-        // unfiltered and drops the id only if it is one of THIS stream's messages (`withoutDeletedMessage`).
-        .on(
-          'postgres_changes',
-          { event: 'DELETE', schema: 'public', table: 'chat_messages' },
-          (payload) => setMessages((prev) => withoutDeletedMessage(prev, payload.old as { message_id?: unknown })),
         )
         // ♥ THE SECOND .on() — hearts on this thread, on the SAME channel (THE ONE BUILD; no new connection).
         .on(
@@ -2361,6 +2353,9 @@ export function ChatMessageStream({
           const hasWords = (m.body ?? '').trim() !== '';
           const hasFile = !hiddenForMe && !!(m.attachment_r2_key || m.attachment_url);
           const ownFile = mine && privateWith === null && hasFile;
+          // The ring's undo (marked, no for-everyone line): nothing is drawn — the approved "no line". With words, the
+          // words stay as an ordinary bubble.
+          if (!hasWords && m.file_removed_at && !removedLine) return null;
           if (!hasWords && (removedLine || (!m.attachment_r2_key && !m.attachment_url && !m.attachment_name))) {
             return (
               <li key={m.message_id} className="flex justify-center py-1">

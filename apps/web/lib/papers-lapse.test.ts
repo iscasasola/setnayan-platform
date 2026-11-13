@@ -62,3 +62,26 @@ test('the supplier is told in the owner’s words', () => {
   const sweep = stripComments(readFileSync(join(WEB, 'lib', 'verified-badge-sweep.ts'), 'utf8'));
   assert.match(sweep, /await stampLapsedPapers\(admin, now\)/, 'the daily pass does not run the lapse');
 });
+
+/* ── THE BADGE STAYS UNTIL THE END OF 30 MARCH (owner, "seven open questions ruled") ── */
+
+import { hasVerifiedBadge } from './verified-badge';
+
+test('a permit printed "valid until 31 Dec" never takes the badge off on 1 January', () => {
+  // Every approval writes the 30 March day — never the permit's printed date.
+  const engine = stripComments(readFileSync(join(WEB, 'lib', 'verification-decision.server.ts'), 'utf8'));
+  const approve = engine.slice(engine.indexOf("case 'approved':"), engine.indexOf("case 'rejected':"));
+  assert.match(approve, /next_renewal_due_at: deadlineAtApproval\(new Date\(now\)\)/);
+  assert.ok(!/next_renewal_due_at:[^,\n]*permit/i.test(engine), 'the badge day was tied to the permit date');
+  // So on 1 January the badge (which reads next_renewal_due_at alone) is still on…
+  const facts = { verification_state: 'verified', next_renewal_due_at: DUE };
+  assert.equal(hasVerifiedBadge(facts, new Date('2027-01-01T00:00:01+08:00')), true);
+  assert.equal(hasVerifiedBadge(facts, new Date('2027-03-30T23:59:00+08:00')), true);
+  // …and it comes off only once 30 March has ended.
+  assert.equal(hasVerifiedBadge(facts, new Date('2027-03-31T00:00:01+08:00')), false);
+  // The paper's own expiry is read only for papers being submitted now (upload + Submit), never by the badge.
+  for (const f of ['lib/verified-badge.ts', 'lib/verified-badge-sweep.ts', 'lib/papers-lapse.server.ts']) {
+    const src = stripComments(readFileSync(join(WEB, f), 'utf8'));
+    assert.ok(!/expirationDate|expiresOn|permit_valid_until/.test(src), `${f} reads a paper's printed expiry`);
+  }
+});

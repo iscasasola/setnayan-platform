@@ -119,6 +119,7 @@ const ANCHORS: Record<string, RegExp> = {
   event_moderators: eqUid('user_id'), // the role holder — never the inviter
   founder_seats: eqUid('user_id'),
   guest_saved_vendors: eqUid('user_id'),
+  notice_closes: eqUid('user_id'),
   help_messages: eqUid('user_id'),
   referral_codes: eqUid('owner_user_id'),
   user_face_profiles: eqUid('user_id'),

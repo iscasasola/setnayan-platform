@@ -37,6 +37,8 @@ const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 
 function fmtDateTime(s: string) {
   return new Date(s).toLocaleString('en-PH', {
+      // 🕐 Manila, not the server's UTC (walk 13 Nov 2026, F-W1-61) — the same wall clock on the server and the phone.
+      timeZone: 'Asia/Manila',
     year: 'numeric',
     month: 'short',
     day: 'numeric',

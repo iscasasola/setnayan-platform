@@ -5,7 +5,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readShopBadgeFacts } from '@/lib/shop-badges.server';
 import { badgesForPrint } from '@/lib/shop-badges';
 import { siteOrigin } from '@/lib/site-origin';
-import { myPageUrl } from '@/lib/supplier-qr-codes';
+import { ownPageUrl } from '@/lib/supplier-qr-codes';
 import { checkADateUrl } from '@/lib/check-a-date';
 import { doorStickerCodeOf, doorStickerFileName, doorStickerFormatOf, doorStickerSizeOf } from '@/lib/door-sticker';
 import { doorStickerPdf, doorStickerSvg } from '@/lib/door-sticker-print';
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const code = doorStickerCodeOf(sp.get('code'));
   const size = doorStickerSizeOf(sp.get('size'));
   const format = doorStickerFormatOf(sp.get('format'));
-  const url = code === 'dates' ? checkADateUrl(siteOrigin(), slug) : myPageUrl(siteOrigin(), slug);
+  const url = code === 'dates' ? checkADateUrl(siteOrigin(), slug) : ownPageUrl(siteOrigin(), slug); // 💳 ?src=own
   const shopName = (profile as { business_name?: string | null }).business_name?.trim() || 'Our shop';
 
   const facts = await readShopBadgeFacts(createAdminClient(), (profile as { vendor_profile_id: string }).vendor_profile_id);

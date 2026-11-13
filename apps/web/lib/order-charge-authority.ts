@@ -63,6 +63,7 @@ import {
   sealServerResolvedTotal,
   type OrderChargeAuthority,
 } from '@/lib/order-charge-math';
+import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
 import { EVENT_PLUS_SKU, FULL_PRO_SKU, HUB_PARTS_ORDER_KEY, hubPart, hubPartOfSku, hubPartsCharge, type HubPartId } from '@/lib/hub-parts';
 import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
 import { eventOwnsSku } from '@/lib/entitlements';
@@ -202,6 +203,21 @@ export async function resolveOrderChargeCentavos(
       return { ok: false, refusal: 'read_error', detail: e instanceof Error ? e.message : String(e) };
     }
     if (holds[0].full || holds[1]) return { ok: false, refusal: 'already_owned', detail: serviceKey };
+  }
+
+  // ── (1e) 💎 Event Ultra (owner 2026-11-13) — once per event ─────────────────
+  // Ultra already confers Pro, Live Watch and Patiktok (`SKU_OWNERSHIP_ALIASES`), so a second Ultra would charge twice
+  // for one unlock. Charged at its catalogue row below. ⚖ What an event that already PAID for Plus or Pro pays for Ultra
+  // ("the difference", as Plus → Pro) is the owner's call and is not ruled yet — today it is the row's price.
+  if (serviceKey === EVENT_ULTRA_SKU) {
+    if (!eventId) return { ok: false, refusal: 'no_price_source', detail: 'Event Ultra is sold for an event only' };
+    let owned;
+    try {
+      owned = await eventOwnsSku(admin, eventId, EVENT_ULTRA_SKU);
+    } catch (e) {
+      return { ok: false, refusal: 'read_error', detail: e instanceof Error ? e.message : String(e) };
+    }
+    if (owned) return { ok: false, refusal: 'already_owned', detail: serviceKey };
   }
 
   // ── (2) The retail catalog ────────────────────────────────────────────────

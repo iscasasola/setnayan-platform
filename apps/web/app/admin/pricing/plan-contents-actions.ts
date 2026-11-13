@@ -45,7 +45,10 @@ async function countShopsOver(admin: AdminClient, plan: VendorTier, def: PlanCon
     .from('vendor_profiles')
     .select('vendor_profile_id')
     .eq('tier_state', plan);
-  if (error) return null;
+  if (error) {
+    console.error('[plan-contents] shops on the plan unread — the over-count is not measured', error.message);
+    return null;
+  }
   const ids = (shops ?? []).map((s) => s.vendor_profile_id as string);
   if (ids.length === 0) return 0;
 
@@ -55,7 +58,10 @@ async function countShopsOver(admin: AdminClient, plan: VendorTier, def: PlanCon
       .select('vendor_profile_id, category')
       .in('vendor_profile_id', ids)
       .eq('is_active', true);
-    if (e) return null;
+    if (e) {
+      console.error('[plan-contents] over-count unread — the request says "not counted"', e.message);
+      return null;
+    }
     const perKind = new Map<string, number>();
     for (const r of data ?? []) {
       const k = `${r.vendor_profile_id as string}|${r.category as string}`;
@@ -67,7 +73,10 @@ async function countShopsOver(admin: AdminClient, plan: VendorTier, def: PlanCon
   }
   if (def.key === 'agent_accounts') {
     const { data, error: e } = await admin.from('vendor_team_members').select('vendor_profile_id').in('vendor_profile_id', ids);
-    if (e) return null;
+    if (e) {
+      console.error('[plan-contents] over-count unread — the request says "not counted"', e.message);
+      return null;
+    }
     const per = new Map<string, number>();
     for (const r of data ?? []) per.set(r.vendor_profile_id as string, (per.get(r.vendor_profile_id as string) ?? 0) + 1);
     // The founding admin is not a seat (team/actions.ts) — a shop is over when its OTHER members exceed the cap.
@@ -82,7 +91,10 @@ async function countShopsOver(admin: AdminClient, plan: VendorTier, def: PlanCon
       .in('parent_vendor_profile_id', ids)
       .eq('included_in_plan', true)
       .is('cancelled_at', null);
-    if (e) return null;
+    if (e) {
+      console.error('[plan-contents] over-count unread — the request says "not counted"', e.message);
+      return null;
+    }
     const per = new Map<string, number>();
     for (const r of data ?? []) {
       const id = r.parent_vendor_profile_id as string;

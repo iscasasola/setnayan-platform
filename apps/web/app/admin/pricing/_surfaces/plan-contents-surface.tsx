@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ReadFailed } from '@/app/admin/_components/read-failed';
-import { TypedRow } from '@/app/_components/form-row';
+import { PostedFieldRow } from '@/app/admin/_components/posted-field-row';
+import { formatCount } from '@/lib/format-number';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -76,29 +77,36 @@ export async function PlanContentsSurface({ searchParams }: Props) {
           a price. Lowering a number never takes anything from a shop: shops over it keep what they have and can&rsquo;t
           add more.
         </p>
-        <form method="get" action="/admin/pricing" className="flex flex-wrap items-center gap-2">
-          <input type="hidden" name="tab" value="plan-contents" />
-          <label htmlFor="plan-pick" className="text-sm font-medium text-ink">
-            Which plan
-          </label>
-          <select id="plan-pick" name="plan" defaultValue={view} className="input-field min-w-[14rem]">
-            <optgroup label="Supplier plans">
-              {VENDOR_TIERS.map((t) => (
-                <option key={t} value={t}>
-                  {planWords(t)}
-                </option>
+        {/* The plan picker (prototype `plan-pick`): one chip per plan — links, so it needs no client code. */}
+        <nav aria-label="Which plan" className="space-y-2">
+          {[
+            { group: 'Supplier plans', items: VENDOR_TIERS.map((t) => ({ key: t as View, label: planWords(t) })) },
+            {
+              group: 'Event plans',
+              items: [
+                { key: 'ev-free' as View, label: 'Free' },
+                { key: 'ev-plus' as View, label: 'Event Plus' },
+                { key: 'ev-pro' as View, label: 'Event Pro' },
+              ],
+            },
+          ].map((g) => (
+            <div key={g.group} className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-xs text-ink/55">{g.group}</span>
+              {g.items.map((it) => (
+                <Link
+                  key={it.key}
+                  href={`/admin/pricing?tab=plan-contents&plan=${it.key}`}
+                  aria-current={it.key === view ? 'page' : undefined}
+                  className={`inline-flex min-h-[36px] items-center rounded-full px-3 text-sm ${
+                    it.key === view ? 'bg-ink text-cream' : 'bg-ink/[0.05] text-ink hover:bg-ink/10'
+                  }`}
+                >
+                  {it.label}
+                </Link>
               ))}
-            </optgroup>
-            <optgroup label="Event plans">
-              <option value="ev-free">Free</option>
-              <option value="ev-plus">Event Plus</option>
-              <option value="ev-pro">Event Pro</option>
-            </optgroup>
-          </select>
-          <button type="submit" className="button-secondary">
-            Show
-          </button>
-        </form>
+            </div>
+          ))}
+        </nav>
       </header>
 
       {saved ? (
@@ -188,9 +196,8 @@ async function SupplierPlan({ plan, admin }: { plan: VendorTier; admin: ReturnTy
                       <input type="hidden" name="plan" value={plan} />
                       <input type="hidden" name="key" value={def.key} />
                       <div className="min-w-[14rem] flex-1">
-                        <TypedRow
+                        <PostedFieldRow
                           name={`New number · ${def.label}`}
-                          value=""
                           empty={stored === null ? 'No limit' : String(stored)}
                           fieldName="value"
                           inputMode="numeric"
@@ -322,7 +329,10 @@ async function EventPlan({
             <p className="text-sm text-ink">
               Free Papic credits on every event:{' '}
               <span className="font-mono">
-                {(poolRes?.data as { free_grant_points?: number } | null)?.free_grant_points ?? '—'}
+                {(() => {
+                  const n = (poolRes?.data as { free_grant_points?: number } | null)?.free_grant_points;
+                  return typeof n === 'number' ? formatCount(n) : '—';
+                })()}
               </span>{' '}
               <Link href="/admin/pricing?tab=papic-shots" className="text-xs underline">
                 edited on Papic shot prices
@@ -344,7 +354,7 @@ async function EventPlan({
               <p className="text-sm text-ink">
                 Papic credits included:{' '}
                 <span className="font-mono">
-                  {row.included_papic_credits === null ? 'None' : Number(row.included_papic_credits).toLocaleString('en-PH')}
+                  {row.included_papic_credits === null ? 'None' : formatCount(Number(row.included_papic_credits))}
                 </span>
               </p>
               {pendingRes?.data ? (
@@ -356,9 +366,8 @@ async function EventPlan({
                   <input type="hidden" name="kind" value="event" />
                   <input type="hidden" name="service_code" value={code ?? ''} />
                   <div className="min-w-[14rem] flex-1">
-                    <TypedRow
+                    <PostedFieldRow
                       name="New number · Papic credits included"
-                      value=""
                       empty={String(row.included_papic_credits ?? 0)}
                       fieldName="value"
                       inputMode="numeric"

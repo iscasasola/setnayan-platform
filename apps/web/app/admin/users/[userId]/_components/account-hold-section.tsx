@@ -1,6 +1,6 @@
 import { PauseCircle, Undo2 } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
-import { TypedRow } from '@/app/_components/form-row';
+import { PostedFieldRow } from '@/app/admin/_components/posted-field-row';
 import {
   SUSPEND_DURATIONS,
   SUSPEND_REASONS,
@@ -147,31 +147,36 @@ export function AccountHoldSection({
             <input type="hidden" name="op" value="suspend" />
             <input type="hidden" name="user_id" value={userId} />
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-sm">
-                <span className="mb-1 block text-xs text-ink/60">Reason</span>
-                <select name="reason" required defaultValue="" className="input-field w-full">
-                  <option value="" disabled>
-                    Choose a reason…
-                  </option>
-                  {SUSPEND_REASONS.map((r) => (
-                    <option key={r} value={r}>
+              <fieldset className="text-sm sm:col-span-2">
+                <legend className="mb-1 text-xs text-ink/60">Reason</legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {SUSPEND_REASONS.map((r, i) => (
+                    <label
+                      key={r}
+                      className="inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-full bg-ink/[0.05] px-3 has-[:checked]:bg-ink has-[:checked]:text-cream"
+                    >
+                      <input type="radio" name="reason" value={r} required={i === 0} className="sr-only" />
                       {r}
-                    </option>
+                    </label>
                   ))}
-                </select>
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1 block text-xs text-ink/60">Until</span>
-                <select name="duration" required defaultValue="30d" className="input-field w-full">
+                </div>
+              </fieldset>
+              <fieldset className="text-sm sm:col-span-2">
+                <legend className="mb-1 text-xs text-ink/60">Until</legend>
+                <div className="flex flex-wrap gap-1.5">
                   {SUSPEND_DURATIONS.map((d) => (
-                    <option key={d.key} value={d.key}>
+                    <label
+                      key={d.key}
+                      className="inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-full bg-ink/[0.05] px-3 has-[:checked]:bg-ink has-[:checked]:text-cream"
+                    >
+                      <input type="radio" name="duration" value={d.key} defaultChecked={d.key === '30d'} className="sr-only" />
                       {d.label}
-                    </option>
+                    </label>
                   ))}
-                </select>
-              </label>
+                </div>
+              </fieldset>
               <div className="sm:col-span-2">
-                <TypedRow name="Note for admins (they don’t see this)" value="" fieldName="note" long maxLength={2000} />
+                <PostedFieldRow name="Note for admins (they don’t see this)" fieldName="note" long maxLength={2000} />
               </div>
             </div>
             <button

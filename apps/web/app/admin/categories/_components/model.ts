@@ -128,6 +128,10 @@ export type RequestDraft = {
   closestExisting: { canonical: string; label: string } | null;
   nearMatches: Array<{ canonical: string; label: string; whyNot: string }>;
   draftedBy: string;
+  /** 2026-11-13 — the AI's fuller draft for a truly new service (empty until the drafter writes them). */
+  description?: string | null;
+  searchWords?: string[];
+  inspirations?: string[];
 };
 
 export type SupplierRequest = {

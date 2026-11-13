@@ -137,7 +137,14 @@ import { fileURLToPath } from 'node:url';
 // writer `apply_dropped_offer` — a browser-callable writer would let a session name its own discount. The drop itself
 // is the supplier's own insert (no action). No unimported export was found to retire. No fresh `vercel build` count for
 // this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
-export const CEILING = 1247;
+// 1247 → 1249 (2026-11-13, merged on top of the offer card's +1 above and Admin › Colours' +1, service requests — owner rulings 13 Nov): TWO new exports, one per side, which cannot be one
+// dispatcher without moving the leaf mint out of admin/categories/actions.ts (category-proposal-mints-nothing.test.ts pins
+// it there): `decideServiceRequest` (admin, admin/categories/actions.ts — the ONE Decision that moves every shop's cards)
+// and `putCardUnderRequest` (supplier, vendor-dashboard/services/requests/actions.ts — a card joins its waiting request).
+// The four exports nothing but tests import (papic purchasePapicCameras / activatePapicLimited / purchasePapicExtras,
+// guests setGuestPlusOneCount) are pinned by their tests, so none was retired. No fresh `vercel build` count for this +2 —
+// the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+export const CEILING = 1249;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

@@ -71,6 +71,7 @@ import type { PinFact } from '@/lib/chat-pins';
 import { readChatPinFacts, type ChatPinRead } from '@/lib/chat-pin-facts.server';
 import { BLOCKER_OF, firstBlocker } from '@/lib/chat-pin-facts';
 import { decisionPinBodies } from '@/app/_components/chat/decision-pin-bodies';
+import { schedulePinBodies } from '@/app/_components/chat/schedule-pin-bodies';
 import { ActionButton } from '@/components/action-button';
 import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
 import { threadDecisionFacts, type DecisionCards, type DecisionQuoteCard } from '@/lib/thread-decisions';
@@ -2295,7 +2296,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             // quote expired · decisions); the oldest blocking one the supplier can answer takes the screen.
             extraPins={pinFacts}
             blocker={chatBlocker}
-            pinBodies={decisionPinBodies(chatPins.facts)}
+            pinBodies={Object.assign(decisionPinBodies(chatPins.facts), schedulePinBodies(chatPins.facts, threadId))}
             plus={{
               eventId: thread.event_id,
               returnPath: embedded ? `/vendor-dashboard/clients/${thread.event_id}?tab=chat` : `/vendor-dashboard/messages/${threadId}`,

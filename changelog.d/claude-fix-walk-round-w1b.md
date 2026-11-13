@@ -16,5 +16,9 @@
   workspace — one shared shell) now writes `?tab=` with a `null` history state, so Next's router adopts the address.
   It used to pass the router's own state, which Next lets through without telling the router, so the next refresh
   (a chat poll, a save) wrote the old `?tab=` back and a reload opened the wrong page.
+- **F-W1-69** "Send link" (and the other handover forms) answers each press once: a second press while the first is
+  still sending is ignored, and a save that lands says "Handover sent — the couple will confirm receipt." under the
+  form (`StayForm sayNote`, the door's own news line). A press that stays on the page never reached the page's
+  `?handover=sent` banner, so a successful send said nothing.
 
 SPEC IMPACT: None.

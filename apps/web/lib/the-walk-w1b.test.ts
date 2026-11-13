@@ -40,7 +40,8 @@ test('F-W1-71 · the handover sits in Files, once, and its notice opens Files', 
   const status = page.slice(page.indexOf('const statusSection = ('), page.indexOf('const documentsSection = ('));
   assert.doesNotMatch(status, /<HandoverInbox/, 'the handover is no longer under Payment');
   const send = code('app/vendor-dashboard/clients/[eventId]/actions.ts');
-  assert.match(send, /title: `\$\{vendorName\} delivered your handover`,[\s\S]{0,200}relatedUrl: `\/dashboard\/\$\{eventId\}\/vendors\/\$\{eventVendorId\}\/workspace\?tab=files`/);
+  // The notice's link (its `related` URL) opens Files.
+  assert.match(send, /title: `\$\{vendorName\} delivered your handover`,[\s\S]{0,200}\/vendors\/\$\{eventVendorId\}\/workspace\?tab=files`/);
   assert.match(code('app/dashboard/[eventId]/_components/event-dashboard.tsx'), /\/vendors\/\$\{latestHandover\.event_vendor_id\}\/workspace\?tab=files`/);
 });
 
@@ -49,4 +50,17 @@ test('F-W1-67/73 · a tab switch on the picked screen is written so the router k
   const writes = [...shell.matchAll(/window\.history\.replaceState\(([^,]+),/g)].map((m) => m[1]!.trim());
   assert.ok(writes.length >= 2, `the picked shell writes its page into the address (${writes.length} writes)`);
   for (const w of writes) assert.equal(w, 'null', 'a write with window.history.state is ignored by Next’s router, which then writes the old ?tab= back');
+});
+
+test('F-W1-69 · "Send link" sends once per press and says it was sent', () => {
+  const stay = code('app/_components/stay-form.tsx');
+  assert.match(stay, /if \(inFlight\.current\) return;\s*inFlight\.current = true;/, 'a second press while sending is ignored');
+  assert.match(stay, /finally \{\s*inFlight\.current = false;/);
+  assert.match(stay, /if \(r\.note\) setNote\(r\.note\);/);
+  assert.match(stay, /\{sayNote \? stay\.saved : null\}/);
+  assert.match(code('app/_actions/stay-registry/supClients.ts'), /note: \(q\) => \(q\.get\('handover'\) === 'sent' \? HANDOVER_SENT : null\)/);
+  const page = code('app/vendor-dashboard/clients/[eventId]/page.tsx');
+  const forms = [...page.matchAll(/<StayForm door="supClients\.vendorPostHandover"[^>]*>/g)].map((m) => m[0]);
+  assert.ok(forms.length >= 3, `the handover forms (${forms.length})`);
+  for (const f of forms) assert.match(f, /\bsayNote\b/, 'a handover form that does not say "sent"');
 });

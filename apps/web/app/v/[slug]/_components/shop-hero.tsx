@@ -39,7 +39,7 @@ export function ShopHero({
   return (
     <header
       data-shop-hero=""
-      className="relative isolate h-[560px] w-full overflow-hidden bg-[#17160F] text-[#FBFAF7] lg:h-[640px]"
+      className="relative isolate h-[560px] w-full overflow-hidden bg-[var(--sn-ob-page)] text-[var(--sn-ob-text)] lg:h-[640px]"
     >
       <div className={`absolute inset-x-0 -bottom-[6%] -top-[6%] -z-20 ${m.heroDrift}`}>
         <div className={`absolute inset-0 ${m.heroPhoto}`}>
@@ -58,13 +58,13 @@ export function ShopHero({
         className={`absolute inset-x-0 bottom-0 mx-auto grid max-w-screen-2xl gap-3 px-5 pb-16 sm:px-8 lg:gap-4 lg:px-10 lg:pb-28 ${m.heroBody}`}
       >
         {kicker ? (
-          <p className={`font-mono text-[0.66rem] font-bold uppercase tracking-[0.3em] text-[#F1EDE4] ${m.kicker}`}>
+          <p className={`font-mono text-[0.66rem] font-bold uppercase tracking-[0.3em] text-[var(--sn-ob-text)] ${m.kicker}`}>
             {kicker}
           </p>
         ) : null}
         <h1
           aria-label={name}
-          className="font-serif text-[clamp(3.1rem,11vw,7rem)] font-normal italic leading-[0.94] tracking-[-0.02em] text-[#FBFAF7]"
+          className="font-serif text-[clamp(3.1rem,11vw,7rem)] font-normal italic leading-[0.94] tracking-[-0.02em] text-[var(--sn-ob-text)]"
         >
           {words.map((w, i) => (
             <span key={`${w}-${i}`} aria-hidden="true">
@@ -76,7 +76,7 @@ export function ShopHero({
           ))}
         </h1>
         {marker ? <div>{marker}</div> : null}
-        {tagline ? <p className={`max-w-[30em] text-[1.05rem] text-[#F1EDE4] lg:text-xl ${m.tagline}`}>{tagline}</p> : null}
+        {tagline ? <p className={`max-w-[30em] text-[1.05rem] text-[var(--sn-ob-text)] lg:text-xl ${m.tagline}`}>{tagline}</p> : null}
         {badges}
       </div>
     </header>
@@ -86,7 +86,7 @@ export function ShopHero({
 /** The seal's caption beside the circular Verified badge on the photo. */
 export function SealCaption() {
   return (
-    <span className="mr-1.5 font-mono text-[0.66rem] font-bold uppercase leading-tight tracking-[0.14em] text-[#FBFAF7]">
+    <span className="mr-1.5 font-mono text-[0.66rem] font-bold uppercase leading-tight tracking-[0.14em] text-[var(--sn-ob-text)]">
       Setnayan
       <br />
       Verified

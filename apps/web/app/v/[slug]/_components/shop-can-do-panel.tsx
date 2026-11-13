@@ -4,8 +4,8 @@
  * three quiet lines; prototype `public_pages_three_2026-11-13`, `.cando`).
  *
  *   Check a date — the ONE door here (the shipped `CheckADateLink`, to `/v/[slug]/dates`);
- *   the chat · Add to your event · Lock a package — supporting copy, NOT buttons. Each says what that step does, and the
- *   real control lives where it belongs: Inquire + Add in the calling card, Lock on each package card next to its price.
+ *   the chat · Add to your event · Book a package — supporting copy, NOT buttons. Each says what that step does, and the
+ *   real control lives where it belongs: Inquire + Add in the calling card, Book on each package card next to its price.
  *   The chat line never says "Inquire" (owner 13 Nov, "Yes, only one": one Inquire label on the page, the button).
  *
  * Verified shops only — the caller gates it on the same `bookable` gate as every booking door, so an unverified shop
@@ -44,7 +44,7 @@ export function ShopCanDoPanel({ checkHref, hasPackages }: { checkHref: string; 
           <li className="flex items-start gap-2.5">
             <Package aria-hidden className="mt-[3px] h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
             <span>
-              <b className="font-semibold text-ink">Lock a package</b> below at its price, held for your date.
+              <b className="font-semibold text-ink">Book a package</b> below at its price, held for your date.
             </span>
           </li>
         ) : null}

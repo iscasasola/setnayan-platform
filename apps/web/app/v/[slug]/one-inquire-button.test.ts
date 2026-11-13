@@ -125,5 +125,7 @@ test('the word "Inquire" is ONE visible control across everything the shop page 
   const card = strip(readFileSync(join(WEB, 'lib', 'service-card-view-model.ts'), 'utf8'));
   assert.doesNotMatch(card, /'Inquire'/, 'a card with no price says "Inquire" — a second Inquire on the page');
   const sheet = strip(readFileSync(join(HERE, '_components', 'service-details-sheet.tsx'), 'utf8'));
-  assert.equal((sheet.match(/Choose this service/g) ?? []).length, 2, 'the details sheet button no longer reads "Choose this service"');
+  // Three: the couple's two doors ('focus' button · 'anchor' link) and the shop's own Preview of that same button
+  // (added on main by #7554 as "Inquire about this · Preview" — a preview of the couple's button reads what it reads).
+  assert.equal((sheet.match(/Choose this service/g) ?? []).length, 3, 'the details sheet button no longer reads "Choose this service"');
 });

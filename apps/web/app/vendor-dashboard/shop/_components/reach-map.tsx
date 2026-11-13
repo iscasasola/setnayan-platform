@@ -32,6 +32,8 @@ import { useEffect, useRef, useState } from 'react';
 
 const TILE = 256;
 const HEIGHT = 240;
+/** The reach ring's colour — its fill, its stroke and its "N km" tag share this one value. */
+const RING_COLOUR = 'var(--m-terracotta, #b65d3c)';
 /** Equatorial metres-per-pixel at zoom 0 (Web-Mercator, 256px tiles). */
 const MPP_Z0 = 156543.03392;
 
@@ -204,8 +206,8 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
               cx={W / 2}
               cy={H / 2}
               r={ringPx}
-              style={{ fill: 'var(--m-terracotta, #b65d3c)', fillOpacity: 0.14 }}
-              stroke="var(--m-terracotta, #b65d3c)"
+              style={{ fill: RING_COLOUR, fillOpacity: 0.14 }}
+              stroke={RING_COLOUR}
               strokeWidth={2}
               strokeOpacity={0.9}
               pathLength={1}
@@ -230,7 +232,7 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
                 y={Math.max(8, H / 2 - ringPx * 0.7 - 22) + 15}
                 textAnchor="middle"
                 className="text-[11px] font-semibold"
-                style={{ fill: 'var(--m-terracotta, #b65d3c)' }}
+                style={{ fill: RING_COLOUR }}
               >
                 {`${radiusKm} km`}
               </text>

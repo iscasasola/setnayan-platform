@@ -87,7 +87,8 @@ test('Lock lives only on the package cards', () => {
   // No page-level Lock door: the panel says what Lock does in words, it is not a button.
   assert.doesNotMatch(PANEL, /<button|<Link|LockPackageModal/, 'the panel grew a Lock door');
   const modal = stripComments(readFileSync(join(HERE, '../../_components/vendor-packages/lock-modal.tsx'), 'utf8'));
-  assert.match(modal, /<PackageIcon[^>]*\/>\s*\{\s*\}\s*Lock this package/);
+  // The prototype's "Lock" reads "Book" to a couple (owner d19, lib/the-couple-books-never-locks.test.ts).
+  assert.match(modal, /<PackageIcon[^>]*\/>\s*\{\s*\}\s*Book this package/);
 });
 
 test('the section bar: verified About · Services · Portfolio · Reviews; unverified Services · Reviews · Where (no Inquire tab)', () => {

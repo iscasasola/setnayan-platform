@@ -770,12 +770,13 @@ export function ServiceDetailsSheet({
             <button
               type="button"
               onClick={() => setTold('This is the couple’s button. On your own card it is a preview — it opens no chat.')}
-              aria-label="Inquire about this · Preview"
+              // The couple's button reads "Choose this service" on this redesign (one Inquire per shop page), so its
+              // preview reads the same; the visible "Preview" pill names it, so no aria-label repeats the words.
               className={actionButtonClass('brand', { main: true, extra: 'w-full' })}
               data-grown-inquire-preview=""
             >
               <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              <span>Inquire about this</span>
+              <span>Choose this service</span>
               <span className="ml-1 rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-medium">Preview</span>
             </button>
           </div>

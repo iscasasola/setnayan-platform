@@ -56,3 +56,9 @@ prototype's portfolio mosaic / albums / story-card and review-bar redraws (the s
 grouping); the Ultra "nationwide" ripple and the ring growing on a plan change (no plan switch on a public page).
 
 SPEC IMPACT: None — matches the approved prototype.
+
+**CI fix-up (2026-11-13):** the hero's raw hex → the obsidian tokens (`--sn-ob-page` / `--sn-ob-text`); the badge pop and
+reach-pin drop read the family speed `--sn-pill-dur` (no `520ms` literal); the package card's button and the "can do"
+panel say **Book**, not Lock (owner d19 — couples read "book"); the details sheet's shop-only Preview button (from main,
+#7554) reads "Choose this service" like the couple's button it previews; the reach ring's colour is one constant.
+SPEC IMPACT: None — the prototype's "Lock" word yields to the standing d19 rule; flagged to the owner in the PR.

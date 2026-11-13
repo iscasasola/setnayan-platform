@@ -49,7 +49,7 @@
   animation: stamp var(--sn-pill-dur) var(--sn-ease-rise) 760ms both;
 }
 .verified :global([data-shop-hero-badges]) > * {
-  animation: pop 520ms var(--sn-ease-rise) both;
+  animation: pop var(--sn-pill-dur) var(--sn-ease-rise) both;
   animation-delay: 1050ms;
 }
 .verified :global([data-shop-hero-badges]) > *:nth-child(2) { animation-delay: 1140ms; }
@@ -74,7 +74,7 @@
   animation: fadeIn 500ms ease-out 1300ms both;
 }
 .verified :global([data-reach-pin]) {
-  animation: pinDrop 520ms var(--sn-ease-rise) 120ms both;
+  animation: pinDrop var(--sn-pill-dur) var(--sn-ease-rise) 120ms both;
 }
 /* Tablet+ only: on a phone the card holds the floating Inquire, and an animating transform would become its
    containing block and drag it off the bottom of the screen. */

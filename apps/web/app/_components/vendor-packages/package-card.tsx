@@ -30,7 +30,7 @@ export function PackageCard({
   ctaSlot?: React.ReactNode;
   /**
    * 🔒 THE LOCK BESIDE ITS PRICE (prototype public_pages_three_2026-11-13, owner-approved 13 Nov): on the public shop
-   * page the package's one action sits in the price row — price left, "Lock this package" right, wrapping under it on
+   * page the package's one action sits in the price row — price left, "Book this package" right, wrapping under it on
    * a narrow card — instead of at the card's foot. Off (the default) ⇒ the dashboard callers keep the foot slot.
    */
   ctaBesidePrice?: boolean;

@@ -25,6 +25,7 @@
  * Pure and dependency-free: the server page, the client check-a-date calendar and the guard all ask it.
  * 🔒 lib/shop-back.test.ts
  */
+import { coldWayBack } from './discover-way-back';
 
 /** The arrival tags a door into a shop page may carry. Free text on the view row; these are the ones with a back. */
 export const SHOP_ARRIVAL_SRC = {
@@ -74,6 +75,22 @@ export function shopBackDoor({ src, eventId }: ShopArrival): ShopBackDoor {
   }
   if (eventId) return { href: `/dashboard/${encodeURIComponent(eventId)}/vendors`, label: 'Back to suppliers', back: true };
   return SHOP_BACK_COLD;
+}
+
+/**
+ * ‹ THE TOP-LEFT BACK (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"; owner: *"when we enter
+ * a shop, event or anything, we should be able to go back to home"*). The shop page draws the shipped `BackButton`
+ * at the top left for EVERYONE, and it returns in place (`inPlace` — the browser's back when the visit came from a
+ * page of ours in this tab, so Discover comes back with its filters and scroll). Its fallback address is the SAME
+ * place the arrival names (`shopBackDoor`) — so the top and the foot never disagree — and, with no arrival, "home":
+ * Discover signed out, Home signed in (`coldWayBack`, lib/discover-way-back.ts). The label is the place's name
+ * ("Discover", "Suppliers", "Saved suppliers"), the way every `BackButton` reads.
+ */
+export function shopTopBack(arrival: ShopArrival, signedIn: boolean): { href: string; label: string } {
+  const door = shopBackDoor(arrival);
+  if (!door.back) return coldWayBack(signedIn);
+  const name = door.label.replace(/^Back to\s+/, '');
+  return { href: door.href, label: name.charAt(0).toUpperCase() + name.slice(1) };
 }
 
 /** A tidy arrival from a URL's raw values (the event still UNCHECKED — the caller checks it). */

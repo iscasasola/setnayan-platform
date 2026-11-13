@@ -114,3 +114,45 @@ export const TOP_UP_WORDS = {
 export function topUpPayLabel(dueOn: string | null | undefined, todayPh: string): string {
   return topUpStage(dueOn, todayPh) === 'held' ? TOP_UP_WORDS.settleEarly : TOP_UP_WORDS.settle;
 }
+
+/**
+ * RULE 5 · WHO THE FEE SWEEP MAY EMAIL — an ALLOW-list, never a deny-list (audit hold, 13 Nov).
+ *
+ * The sweep used to read the top-ups and email everything NOT in that set — so a refused read (an empty set) emailed
+ * every due order, top-ups included, exactly what rule 5 forbids. Now an order is emailed only when its own charge was
+ * READ and is not a top-up:
+ *   · `charges === null` (the read failed) → nobody;
+ *   · an empty read → nobody;
+ *   · an order whose charge is missing from the read, or names no charge → not emailed.
+ */
+export function feeOrdersToEmail<T extends { chargeId: string | null }>(
+  orders: readonly T[],
+  charges: ReadonlyArray<{ charge_id: string; kind: string | null }> | null,
+): T[] {
+  if (charges === null || charges.length === 0) return [];
+  const ordinary = new Set(
+    charges.filter((c) => typeof c.kind === 'string' && c.kind !== TOP_UP_CHARGE_KIND).map((c) => c.charge_id),
+  );
+  return orders.filter((o) => o.chargeId !== null && ordinary.has(o.chargeId));
+}
+
+/**
+ * WORDS ONLY — ON A NEW INQUIRY, NEVER ON A BOOKED CLIENT (audit hold, 13 Nov; prototype "New inquiry · text only",
+ * "Text replies only until you settle ₱X booking fee … booked clients are unaffected").
+ *
+ * The shop's OVERDUE top-ups — from ANY of its events — narrow the message box to words on a thread where the shop is
+ * NOT booked. A booked thread (the couple who owes the top-up included) keeps files. `booked === null` (the booked read
+ * failed) or `charges === null` (the top-up read failed) narrows nothing — the chat is one of the always-open three,
+ * and a refused read must not read as "this client is unbooked". Returns the pesos owed, or null.
+ */
+export function wordsOnlyTopUpPhp(input: {
+  booked: boolean | null;
+  charges: ReadonlyArray<{ amount_charged_centavos: number | string | null; expires_at: string | null }> | null;
+  todayPh: string;
+}): number | null {
+  if (input.booked !== false || input.charges === null) return null;
+  const centavos = input.charges
+    .filter((r) => topUpStage(r.expires_at, input.todayPh) === 'overdue')
+    .reduce((sum, r) => sum + Math.max(0, Number(r.amount_charged_centavos ?? 0) || 0), 0);
+  return centavos > 0 ? centavos / 100 : null;
+}

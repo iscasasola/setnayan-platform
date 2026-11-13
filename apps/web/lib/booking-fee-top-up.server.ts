@@ -1,49 +1,66 @@
 import 'server-only';
 
 /**
- * 💸 THE OVERDUE TOP-UP OF ONE (SHOP × EVENT) — the read behind "words only" in the supplier's chat (owner 2026-11-12,
- * booking-fee top-up rules; prototype "New inquiry · text only").
+ * 💸 WORDS ONLY ON A NEW INQUIRY — the read behind the supplier's narrowed message box (owner 2026-11-12, booking-fee
+ * top-up rules; prototype "New inquiry · text only": "Text replies only until you settle ₱X booking fee … booked
+ * clients are unaffected").
+ *
+ * WHO: a thread where this shop is NOT booked (`event_vendors.status` in `CONFIRMED_VENDOR_STATUSES`, the same set
+ * `shopIsBookedOnEvent` reads), while the shop has an OVERDUE top-up on ANY of its events. A booked client — the couple
+ * who owes the top-up included — keeps files (audit hold, 13 Nov: it used to narrow the booked event that owed it).
  *
  * 🔑 NOT THE EVENT GATE. The conversation is one of the always-open three (`ALWAYS_OPEN_SURFACES`): a locked supplier
  * must always be able to TALK, and the thread page is held never to read `resolveEventFeeGate`
- * (`the-fee-unlocks-the-event.test.ts`). This narrows nothing about talking — it only says the message box keeps
- * WORDS while this event's top-up is past its event day and unsettled. Same switch as the gate
- * (`resolveFeeEnforcement`): with the lock off, nothing narrows.
+ * (`the-fee-unlocks-the-event.test.ts`). This narrows only files. Same switch as the gate (`resolveFeeEnforcement`).
  *
- * Fails open: a refused read returns null (words AND files, exactly as shipped) and is logged.
+ * A refused read (either one) narrows nothing and is logged — the decision is `wordsOnlyTopUpPhp`, which never reads
+ * a failed booked read as "unbooked".
  */
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
-import { TOP_UP_CHARGE_KIND, topUpStage } from '@/lib/booking-fee-top-up';
+import { TOP_UP_CHARGE_KIND, topUpStage, wordsOnlyTopUpPhp } from '@/lib/booking-fee-top-up';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { runClaimedJob } from '@/lib/periodic-jobs';
 import { DAILY_GAP_MS } from '@/lib/periodic-job-registry';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
-export async function readOverdueTopUpForEvent(
+export async function readWordsOnlyTopUp(
   vendorProfileId: string,
   eventId: string,
   todayPh: string,
 ): Promise<{ amountPhp: number } | null> {
+  const ctx = { vendor_profile_id: vendorProfileId, event_id: eventId };
   try {
     if (!(await resolveFeeEnforcement())) return null;
-    const { data, error } = await createAdminClient()
-      .from('booking_fee_charges')
-      .select('amount_charged_centavos, expires_at')
-      .eq('vendor_profile_id', vendorProfileId)
-      .eq('event_id', eventId)
-      .eq('kind', TOP_UP_CHARGE_KIND)
-      .in('status', ['pending', 'failed']);
-    if (error) {
-      logQueryError('booking-fee-top-up: overdue for event', error, { vendor_profile_id: vendorProfileId, event_id: eventId });
-      return null;
-    }
-    const overdue = ((data ?? []) as Array<{ amount_charged_centavos: number | string | null; expires_at: string | null }>)
-      .filter((r) => topUpStage(r.expires_at, todayPh) === 'overdue')
-      .reduce((sum, r) => sum + Math.max(0, Number(r.amount_charged_centavos ?? 0)), 0);
-    return overdue > 0 ? { amountPhp: overdue / 100 } : null;
+    const admin = createAdminClient();
+    const [bookedRes, chargesRes] = await Promise.all([
+      admin
+        .from('event_vendors')
+        .select('vendor_id')
+        .eq('event_id', eventId)
+        .eq('marketplace_vendor_id', vendorProfileId)
+        .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
+        .limit(1),
+      admin
+        .from('booking_fee_charges')
+        .select('amount_charged_centavos, expires_at')
+        .eq('vendor_profile_id', vendorProfileId)
+        .eq('kind', TOP_UP_CHARGE_KIND)
+        .in('status', ['pending', 'failed']),
+    ]);
+    if (bookedRes.error) logQueryError('booking-fee-top-up: words-only booked read', bookedRes.error, ctx);
+    if (chargesRes.error) logQueryError('booking-fee-top-up: words-only top-ups', chargesRes.error, ctx);
+    const amountPhp = wordsOnlyTopUpPhp({
+      booked: bookedRes.error ? null : (bookedRes.data ?? []).length > 0,
+      charges: chargesRes.error
+        ? null
+        : ((chargesRes.data ?? []) as Array<{ amount_charged_centavos: number | string | null; expires_at: string | null }>),
+      todayPh,
+    });
+    return amountPhp === null ? null : { amountPhp };
   } catch (err) {
-    logQueryError('booking-fee-top-up: overdue for event', err, { vendor_profile_id: vendorProfileId, event_id: eventId });
+    logQueryError('booking-fee-top-up: words-only', err, ctx);
     return null;
   }
 }

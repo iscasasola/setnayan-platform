@@ -125,7 +125,11 @@ import { readDayCheck } from '@/lib/day-check.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
 import type { CarryOverTopUp } from './_components/top-up-carry-over';
-import { overdueTopUps, topUpOwedPhp } from '@/lib/booking-fee-top-up';
+import { overdueTopUps, topUpOwedPhp, topUpStage } from '@/lib/booking-fee-top-up';
+import { readSettlePay } from '@/lib/booking-fee-settle-pay.server';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import type { SettlePay } from '@/app/_components/payment/settle-pay-by';
+import { TopUpSettleSheet } from '@/app/_components/top-up-settle-sheet';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
@@ -951,6 +955,24 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     lockRequest && clientFeeBillsRead !== FEE_BILLS_UNREADABLE
       ? overdueTopUps(clientFeeBillsRead, manilaToday()).filter((b) => b.eventId !== eventId)
       : [];
+  // 💸 WHERE TO PAY (owner 13 Nov, "how can they settle if they do not have the QR Code"): each top-up's settle sheet,
+  // and the carry-over's, shows the shipped pay block — the bill read as /pay reads it, its codes minted HERE. Only
+  // ONE overdue bill elsewhere gets it: a code carries one bill's figure, never a sum of several (that sheet keeps its
+  // shipped door to the bills). A failed read → null → the shipped door, never an empty sheet.
+  const settleBills = [
+    ...clientFeeBills.filter((b) => b.topUp),
+    ...(overdueElsewhere.length === 1 ? overdueElsewhere : []),
+  ];
+  const settlePays = new Map<string, SettlePay>();
+  if (settleBills.length > 0) {
+    const paySettings = await fetchPlatformSettings(supabase);
+    await Promise.all(
+      settleBills.map(async (b) => {
+        const pay = await readSettlePay(supabase, paySettings, b.referenceCode, user.id);
+        if (pay) settlePays.set(b.orderId, pay);
+      }),
+    );
+  }
   const carryOver: CarryOverTopUp | null =
     overdueElsewhere.length > 0
       ? {
@@ -959,6 +981,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           coupleName: overdueElsewhere[0]!.coupleName,
           dueOn: overdueElsewhere[0]!.dueOn,
           payHref: vendorBookingFeePayPath(overdueElsewhere[0]!.orderId),
+          pay: overdueElsewhere.length === 1 ? (settlePays.get(overdueElsewhere[0]!.orderId) ?? null) : null,
         }
       : null;
   // …and the WAIVED charge for this booking, if it was one of the free five.
@@ -1842,6 +1865,25 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       <BookingFeeBills
         bills={clientFeeBills}
         copyFor={(b) => feeDueCopy(b, manilaToday(), feeEnforced)}
+        payDoorFor={(b) => {
+          // 💸 A top-up's door opens its settle sheet, with WHERE to pay in it (owner 13 Nov).
+          const pay = b.topUp ? settlePays.get(b.orderId) : undefined;
+          if (!pay) return null;
+          const copy = feeDueCopy(b, manilaToday(), feeEnforced);
+          return function topUpSettleDoor(accent: string) {
+            return (
+            <TopUpSettleSheet
+              orderId={b.orderId}
+              label={copy.payLabel ?? 'Settle'}
+              accent={accent}
+              stage={topUpStage(b.dueOn, manilaToday())}
+              dueOn={b.dueOn}
+              coupleName={b.coupleName}
+              pay={pay}
+            />
+            );
+          };
+        }}
       />
       <WaivedFeeRows charges={clientWaived} />
     </>

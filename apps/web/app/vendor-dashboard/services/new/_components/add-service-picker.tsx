@@ -89,7 +89,16 @@ export function AddServicePicker({
         {words}
       </p>
       <span>
-        <ActionButton tone="neutral" icon={RotateCw} label="Try again" onClick={() => router.refresh()} data-testid="add-service-try-again" />
+        <ActionButton
+          tone="neutral"
+          icon={RotateCw}
+          label="Try again"
+          onClick={() =>
+            // one-render: keep (retry) — nothing was written here; a read failed and Try again re-asks for it.
+            router.refresh()
+          }
+          data-testid="add-service-try-again"
+        />
       </span>
       {blankCard}
     </div>

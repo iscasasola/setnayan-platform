@@ -18,6 +18,8 @@
  */
 import { asVendorTier, tierRank, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
+import { storyTapHref } from './a-tap-from-the-story';
+import { inquireResumeHref } from './shop-inquire';
 
 /** The scene shows this many, then "See all N". */
 export const STORY_SUPPLIERS_TOP = 8;
@@ -32,6 +34,9 @@ export type StorySupplierLike = {
   tier: VendorTier | null;
   slug: string | null;
 };
+
+/** What ordering and grouping need — the plan only (a view, a credit or a row all qualify). */
+export type StorySupplierRanked = { name: string; tier: VendorTier | null };
 
 /** A tap on a supplier: a full card first, the shop straight away, or nothing (a plain name). */
 export type StorySupplierTap = 'card' | 'shop' | 'none';
@@ -64,7 +69,7 @@ export function storySupplierGroupName(tier: VendorTier): string {
  * The story's order: by the supplier's plan (Ultra first), self-added last; within one plan the couple's own order
  * (the order the list arrived in). Stable — never reorders two suppliers on one plan.
  */
-export function orderStorySuppliers<T extends StorySupplierLike>(list: readonly T[]): T[] {
+export function orderStorySuppliers<T extends StorySupplierRanked>(list: readonly T[]): T[] {
   return list
     .map((s, i) => ({ s, i }))
     .sort((a, b) => {
@@ -76,15 +81,15 @@ export function orderStorySuppliers<T extends StorySupplierLike>(list: readonly 
 }
 
 /** The scene's lead: the top 8 by plan, and how many more the "See all N" opens. */
-export function storySuppliersLead<T extends StorySupplierLike>(list: readonly T[]): { shown: T[]; more: number; total: number } {
+export function storySuppliersLead<T extends StorySupplierRanked>(list: readonly T[]): { shown: T[]; more: number; total: number } {
   const ordered = orderStorySuppliers(list);
   const shown = ordered.slice(0, STORY_SUPPLIERS_TOP);
   return { shown, more: ordered.length - shown.length, total: ordered.length };
 }
 
 export type StorySupplierGroup<T> = {
-  /** A plan, or `couple` for the suppliers the couple added themselves. */
-  key: VendorTier | 'couple';
+  /** A plan, or `couple` for the suppliers the hosts added themselves. */
+  key: VendorTier | 'own';
   label: string;
   items: T[];
   /** Free is folded under "Show" when the sheet is grouped. */
@@ -93,9 +98,9 @@ export type StorySupplierGroup<T> = {
 
 /**
  * The full sheet, grouped by plan with counts. Empty groups are left out. The couple's own come last as "Added by the
- * couple". `folded` is set on Free only when there is more than one group to read first.
+ * hosts". `folded` is set on Free only when there is more than one group to read first.
  */
-export function groupStorySuppliers<T extends StorySupplierLike>(list: readonly T[]): StorySupplierGroup<T>[] {
+export function groupStorySuppliers<T extends StorySupplierRanked>(list: readonly T[]): StorySupplierGroup<T>[] {
   const ordered = orderStorySuppliers(list);
   const tiers: VendorTier[] = ['enterprise', 'pro', 'solo', 'verified', 'free'];
   const groups: StorySupplierGroup<T>[] = [];
@@ -104,7 +109,7 @@ export function groupStorySuppliers<T extends StorySupplierLike>(list: readonly 
     if (items.length) groups.push({ key: t, label: storySupplierGroupName(t), items, folded: false });
   }
   const own = ordered.filter((s) => s.tier === null);
-  if (own.length) groups.push({ key: 'couple', label: 'Added by the couple', items: own, folded: false });
+  if (own.length) groups.push({ key: 'own', label: 'Added by the hosts', items: own, folded: false });
   if (groups.length > 1) for (const g of groups) if (g.key === 'free') g.folded = true;
   return groups;
 }
@@ -115,7 +120,7 @@ export function storySuppliersSearchable(total: number): boolean {
 }
 
 /** Search by name or service, case- and accent-blind. An empty query keeps everything. */
-export function searchStorySuppliers<T extends StorySupplierLike & { category?: string | null }>(list: readonly T[], query: string): T[] {
+export function searchStorySuppliers<T extends { name: string; category?: string | null }>(list: readonly T[], query: string): T[] {
   const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
   const q = fold(query);
   if (!q) return [...list];
@@ -123,19 +128,75 @@ export function searchStorySuppliers<T extends StorySupplierLike & { category?: 
 }
 
 /** A moment's tags: at most 3, by plan, then "+N". */
-export function storySupplierTags<T extends StorySupplierLike>(list: readonly T[]): { shown: T[]; more: number } {
+export function storySupplierTags<T extends StorySupplierRanked>(list: readonly T[]): { shown: T[]; more: number } {
   const ordered = orderStorySuppliers(list);
   return { shown: ordered.slice(0, STORY_SUPPLIER_TAGS_MAX), more: Math.max(0, ordered.length - STORY_SUPPLIER_TAGS_MAX) };
 }
 
 /** Every Supplier Ultra on the event, in the story's order — each one gets its own scene. */
-export function ultraSuppliers<T extends StorySupplierLike>(list: readonly T[]): T[] {
+export function ultraSuppliers<T extends StorySupplierRanked>(list: readonly T[]): T[] {
   return orderStorySuppliers(list).filter((s) => s.tier === 'enterprise');
 }
 
 /** The two letters a supplier's round mark carries when there is no logo ("Talulot Florals" → "TF"). */
 export function supplierInitials(name: string): string {
   const words = name.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
-  const letters = (words.length > 1 ? [words[0], words[1]] : words.slice(0, 1)).map((w) => w[0]!.toUpperCase());
+  const letters = (words.length > 1 ? [words[0]!, words[1]!] : words.slice(0, 1)).map((w) => w[0]!.toUpperCase());
   return letters.join('') || '·';
+}
+
+/** The rich card's facts (every one READ — see lib/story-suppliers.server.ts). */
+export type StorySupplierCardView = { coverUrl: string | null; bestWork: string[]; rating: number | null; reviews: number };
+
+/**
+ * One supplier as the client components draw it — plain, serialisable, every link already decided on the server so a
+ * component cannot invent one.
+ */
+export type StorySupplierView = {
+  key: string;
+  name: string;
+  /** The service, in words ("Photo & film" stays as the couple wrote it; `photo_film` reads "photo film"). */
+  service: string | null;
+  tier: VendorTier | null;
+  badge: string | null;
+  /** Supplier Ultra / Pro / Plus · Verified · Free — the card's line. */
+  planName: string | null;
+  initials: string;
+  logoUrl: string | null;
+  tap: StorySupplierTap;
+  /** The shop, attributed to this story. Null for a self-added supplier. */
+  shopHref: string | null;
+  /** The shop's own Inquire pop-up (`?inquire=1`) — the card's Book. */
+  bookHref: string | null;
+  card: StorySupplierCardView | null;
+};
+
+/** The service words a list shows: the couple's category with underscores read as spaces. */
+export function supplierServiceWords(category: string | null | undefined): string | null {
+  const c = (category ?? '').replace(/_/g, ' ').trim();
+  return c ? c.charAt(0).toUpperCase() + c.slice(1) : null;
+}
+
+export function toStorySupplierViews(
+  list: readonly (StorySupplierLike & { category: string | null; logoUrl: string | null; card?: StorySupplierCardView | null })[],
+  eventSlug: string | null,
+): StorySupplierView[] {
+  return orderStorySuppliers(list).map((s, i) => {
+    const tap = storySupplierTap(s);
+    const shopHref = tap === 'none' ? null : storyTapHref(s.slug, eventSlug);
+    return {
+      key: `${i}-${s.name}`,
+      name: s.name,
+      service: supplierServiceWords(s.category),
+      tier: s.tier,
+      badge: storySupplierBadge(s.tier),
+      planName: s.tier === null ? null : storySupplierGroupName(s.tier),
+      initials: supplierInitials(s.name),
+      logoUrl: s.logoUrl,
+      tap,
+      shopHref,
+      bookHref: shopHref ? inquireResumeHref(shopHref, []) : null,
+      card: tap === 'card' ? (s.card ?? null) : null,
+    };
+  });
 }

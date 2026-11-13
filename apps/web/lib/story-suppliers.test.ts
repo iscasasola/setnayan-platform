@@ -97,7 +97,7 @@ describe('a small story', () => {
     const g = groupStorySuppliers([s('a', 'free'), s('own', null)]);
     assert.deepEqual(g.map((x) => [x.key, x.folded]), [
       ['free', true],
-      ['couple', false],
+      ['own', false],
     ]);
     assert.equal(groupStorySuppliers([s('a', 'free')])[0]!.folded, false);
   });
@@ -106,5 +106,27 @@ describe('a small story', () => {
     assert.equal(supplierInitials('The Ridge, Tagaytay'), 'TR');
     assert.equal(supplierInitials('Tita Baby’s Cakes'), 'TB');
     assert.equal(supplierInitials('Emcee'), 'E');
+  });
+});
+
+describe('the views carry the links, decided on the server', () => {
+  it('a Pro card opens the shop attributed to the story, Book opens its Inquire pop-up; a self-added one links nowhere', async () => {
+    const { toStorySupplierViews } = await import('./story-suppliers');
+    const views = toStorySupplierViews(
+      [
+        { name: 'Own cake', tier: null, slug: null, category: 'cake', logoUrl: null },
+        { name: 'Liwanag Studio', tier: 'pro', slug: 'liwanag', category: 'photo_film', logoUrl: null, card: { coverUrl: null, bestWork: [], rating: 4.9, reviews: 41 } },
+      ],
+      'maria-jose',
+    );
+    assert.equal(views[0]!.name, 'Liwanag Studio');
+    assert.equal(views[0]!.tap, 'card');
+    assert.equal(views[0]!.service, 'Photo film');
+    assert.match(views[0]!.shopHref!, /^\/v\/liwanag\?src=/);
+    assert.match(views[0]!.bookHref!, /inquire=1/);
+    assert.equal(views[0]!.planName, 'Supplier Pro');
+    assert.equal(views[1]!.shopHref, null);
+    assert.equal(views[1]!.bookHref, null);
+    assert.equal(views[1]!.card, null);
   });
 });

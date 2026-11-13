@@ -57,23 +57,28 @@ test('nothing in the reach copy promises identity', () => {
 });
 
 /**
- * 🔒 THE TIER BOUNDARY THE OWNER LOCKED: paying changes HOW RICHLY a supplier is
- * credited, never WHETHER. The story credits every supplier by name; only the
- * paid tiers carry a LINK out. This guard exists because the obvious "improve"
- * — making every credit clickable — would quietly move that line, and it would
- * look like a kindness.
+ * 🔒 THE BOUNDARY THE OWNER MOVED ON 2026-11-13 (specs DECISION_LOG "every booked supplier is tappable; Supplier Pro /
+ * Ultra get a rich card", amending "Supplier Free, Verified and Solo … not tappable"). Owner: *"or we keep everything
+ * tappable?"* → *"okay do that."* Paying now changes WHAT A TAP OPENS, never WHETHER a booked supplier is reachable:
+ *   · Supplier Pro / Ultra → the rich card first, then their shop;
+ *   · Supplier Plus · Verified · Free → their shop directly;
+ *   · a supplier the couple added themselves (no Setnayan shop) → a plain name, NEVER a link.
+ * The last line is the one that must not move: a link to nowhere, or to a shop the couple did not book, is a lie.
  */
-test('the story does not link every credit — only the tiers that already carried one', () => {
-  const src = readFileSync(
-    join(process.cwd(), 'app/[slug]/_components/editorial/editorial-content.tsx'),
-    'utf8',
-  );
-  // ONE comment stripper in this repo, and `lint-one-comment-stripper` caught
-  // this file growing a second. A hand-rolled one disagrees with the shared one
-  // at exactly the edges that matter — a `*/` inside a string, a URL's `//`.
-  const stripped = stripComments(src);
-  assert.ok(
-    /featured\s*&&\s*tapHref\s*\?/.test(stripped),
-    'the link must stay gated on the tier predicate AND on having an href',
-  );
+test('every booked supplier is tappable by its plan — and a supplier with no shop never links', async () => {
+  const { storySupplierTap, toStorySupplierViews } = await import('./story-suppliers');
+  assert.equal(storySupplierTap({ name: 'x', tier: 'enterprise', slug: 'x' }), 'card');
+  assert.equal(storySupplierTap({ name: 'x', tier: 'pro', slug: 'x' }), 'card');
+  for (const tier of ['solo', 'verified', 'free'] as const) assert.equal(storySupplierTap({ name: 'x', tier, slug: 'x' }), 'shop');
+  assert.equal(storySupplierTap({ name: 'x', tier: null, slug: null }), 'none');
+  assert.equal(storySupplierTap({ name: 'x', tier: 'pro', slug: null }), 'none');
+  const [own] = toStorySupplierViews([{ name: 'Own cake', tier: null, slug: 'ignored', category: null, logoUrl: null }], 'e');
+  assert.equal(own!.shopHref, null, 'a self-added supplier must carry no link');
+
+  // The page draws every link through the one tap, which renders a plain <span> when there is no shop.
+  const ui = stripComments(readFileSync(join(process.cwd(), 'app/[slug]/_components/story/story-suppliers.tsx'), 'utf8'));
+  assert.ok(/s\.tap\s*===\s*'shop'\s*&&\s*s\.shopHref/.test(ui), 'a shop link must stay gated on the tap AND on having an href');
+  assert.ok(/return\s*<span className=\{className\}>/.test(ui), 'a supplier with no shop must render as a plain name');
+  const page = stripComments(readFileSync(join(process.cwd(), 'app/[slug]/_components/editorial/editorial-content.tsx'), 'utf8'));
+  assert.ok(/toStorySupplierViews\(data\.vendors/.test(page), 'the story must take its supplier links from toStorySupplierViews, the one place they are decided');
 });

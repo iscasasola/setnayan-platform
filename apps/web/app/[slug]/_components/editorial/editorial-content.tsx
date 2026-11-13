@@ -58,7 +58,8 @@ import {
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { StorySpine } from '../story/story-spine';
 import { BackCoverBlock } from '../story/back-cover';
-import { storyTapHref } from '@/lib/a-tap-from-the-story';
+import { toStorySupplierViews } from '@/lib/story-suppliers';
+import { PeopleWhoMadeIt, UltraSupplierScene } from '../story/story-suppliers';
 import { loadBackCover } from '../../_lib/back-cover.server';
 import { loadPreviousEdition, type PreviousEdition } from '../../_lib/previous-edition.server';
 import type { BackCover } from '@/lib/the-back-cover';
@@ -764,6 +765,28 @@ export async function EditorialContent({
   const supplierStoriesDrawn =
     postEventSupplierStoriesDrawn({ sections: data.sections, vendorMedia: data.vendorMedia.length, teamVendors: data.vendors.length }) &&
     styleOf('vendors') !== null;
+  /* 🤝 WHO MADE THE DAY (owner 2026-11-13, `story-suppliers-fable.html` v6): every booked supplier, ordered by THEIR
+     plan, tappable the way that plan says; and one scene per Supplier Ultra that shared its album to this story. */
+  const supplierViews = toStorySupplierViews(data.vendors, data.slug);
+  const supplierDateLine = [data.eventDateFormatted, data.venueCity].filter(Boolean).join(' · ') || null;
+  const ultraAlbums = data.ultraAlbums ?? [];
+  const peopleWhoMadeIt =
+    isOn('team') && supplierViews.length ? (
+      <div data-story-screen="">
+        <PeopleWhoMadeIt suppliers={supplierViews} names={data.firstNames} dateLine={supplierDateLine} />
+      </div>
+    ) : null;
+  const ultraScenes = ultraAlbums.map((album, i) => (
+    <div key={`ultra-${album.vendorProfileId}`} data-story-screen="">
+      <UltraSupplierScene
+        album={album}
+        supplier={supplierViews.find((v) => v.tier === 'enterprise' && v.name === album.name) ?? null}
+        index={i + 1}
+        of={ultraAlbums.length}
+        names={data.firstNames}
+      />
+    </div>
+  ));
   /* 🎥 The replay's chapters, each at its place in the recording (`filmTimecode`
      — the spine's own arithmetic, never a second one). */
   const filmHighlights = data.dayChapters
@@ -977,7 +1000,8 @@ export async function EditorialContent({
             />
             {isOn('team') && data.vendors.length && !supplierStoriesDrawn ? (
               <div {...suppliersId('team')}>
-                <TeamBehindTheDay vendors={data.vendors} eventSlug={data.slug} />
+                {peopleWhoMadeIt}
+                {ultraScenes}
               </div>
             ) : null}
           </div>
@@ -1127,8 +1151,8 @@ export async function EditorialContent({
             // 🤝 SUPPLIER STORIES — the booked team and their own frames from the
             // day, in its style; ♥ for the ones the couple would book again.
             fromVendors: supplierStoriesDrawn ? (
+              <Fragment key="fromVendors">
               <PostEventSceneFrame
-                key="fromVendors"
                 scene="vendors"
                 style={styleOf('vendors')!}
                 css={cssOf('vendors')} fx={fxOf('vendors')}
@@ -1142,6 +1166,9 @@ export async function EditorialContent({
                   words={wordsOf('vendors')}
                 />
               </PostEventSceneFrame>
+              {peopleWhoMadeIt}
+              {ultraScenes}
+              </Fragment>
             ) : (
               waitingScene('vendors', 'Supplier stories', isOn('fromVendors'), 'fromVendors')
             ),
@@ -1543,125 +1570,6 @@ function LeadArticle({
         <p className="my-2 break-inside-avoid border-y border-ink/15 border-t-2 border-t-ink py-3 font-display text-lg font-medium italic leading-tight text-ink">
           &ldquo;{pullQuote}&rdquo;
         </p>
-      ) : null}
-    </div>
-  );
-}
-
-/** A vendor is "tagged" when it carries a tag worth featuring: a Pro/Enterprise
- *  tier badge OR a #1-match label. Tagged vendors show by default; the rest
- *  (plain credits) collapse under a native "Show more" disclosure. */
-function isTaggedVendor(v: EditorialData['vendors'][number]): boolean {
-  // Pro-or-higher get the featured editorial
-  // treatment; Solo/Verified render as plain credits.
-  return v.tier === 'pro' || v.tier === 'enterprise' || v.isFirstPick;
-}
-
-function VendorRow({
-  v,
-  eventSlug,
-}: {
-  v: EditorialData['vendors'][number];
-  /** The story this credit sits on — carried so a tap is attributable to it.
-   *  Null on a curated sample, which has no event row. */
-  eventSlug: string | null;
-}): ReactElement {
-  // §3 tier-aware showcase: Pro/Enterprise get their real logo + a tier badge +
-  // a link to their marketplace profile; others render as a plain credit.
-  // (Free vendors are already filtered out in data.ts.)
-  const featured = (v.tier === 'pro' || v.tier === 'enterprise') && !!v.slug;
-  // One href, derived once: null when this supplier has no marketplace profile,
-  // and the link is then not rendered at all rather than pointing nowhere.
-  const tapHref = storyTapHref(v.slug, eventSlug);
-  return (
-    <li className="flex items-center gap-2 border-b border-dotted border-ink/15 py-1.5 last:border-b-0">
-      {v.logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={v.logoUrl}
-          alt=""
-          aria-hidden
-          className="h-7 w-7 shrink-0 rounded-sm object-cover"
-        />
-      ) : (
-        <span
-          aria-hidden
-          className="h-7 w-7 shrink-0 rounded-sm bg-gradient-to-br from-terracotta-100 to-terracotta-300"
-        />
-      )}
-      <span className="min-w-0 flex-1">
-        {featured && tapHref ? (
-          <a
-            href={tapHref}
-            className="block truncate font-serif text-sm font-semibold leading-tight text-ink underline-offset-2 hover:underline"
-          >
-            {v.name}
-          </a>
-        ) : (
-          <span className="block truncate font-serif text-sm font-semibold leading-tight">
-            {v.name}
-          </span>
-        )}
-        {v.category ? (
-          <span className="block font-mono text-xs uppercase tracking-[0.06em] text-ink/70">
-            {prettyCategory(v.category)}
-          </span>
-        ) : null}
-      </span>
-      {/* #1 MATCH credit — the vendor the couple chose was Setnayan's top
-          recommendation for that category (selection_match_rank = 1). A subtle
-          mulberry pill keeps it editorial, distinct from the terracotta tier
-          badge. Replaces the old inline "· #1 match" caption so the credit
-          reads as a proper badge instead of buried metadata. */}
-      {v.isFirstPick ? (
-        <span className="shrink-0 rounded-full border border-mulberry/40 bg-mulberry/5 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-mulberry-600">
-          #1 Match
-        </span>
-      ) : null}
-      {v.tier === 'pro' || v.tier === 'enterprise' ? (
-        <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-terracotta-700">
-          {v.tier}
-        </span>
-      ) : null}
-    </li>
-  );
-}
-
-function TeamBehindTheDay({
-  vendors,
-  eventSlug,
-}: {
-  vendors: EditorialData['vendors'];
-  eventSlug: string | null;
-}): ReactElement {
-  const tagged = vendors.filter(isTaggedVendor);
-  const rest = vendors.filter((v) => !isTaggedVendor(v));
-  // If nothing is tagged (no badges/#1-matches), fall back to showing the
-  // first few so the section is never empty.
-  const shown = (tagged.length ? tagged : vendors.slice(0, 4)).slice(0, 10);
-  const collapsed = (tagged.length ? rest : vendors.slice(4)).slice(0, 20);
-
-  return (
-    <div className="mt-5 border-t border-ink/15 pt-3">
-      <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
-        The Team Behind the Day
-      </p>
-      <ul className="m-0 list-none p-0">
-        {shown.map((v, i) => (
-          <VendorRow key={`t-${i}`} v={v} eventSlug={eventSlug} />
-        ))}
-      </ul>
-      {collapsed.length ? (
-        <details className="mt-2">
-          <summary className="cursor-pointer list-none font-mono text-xs uppercase tracking-[0.16em] text-terracotta-700 hover:text-ink">
-            + {collapsed.length} more {collapsed.length === 1 ? 'supplier' : 'suppliers'}
-          </summary>
-          <ul className="m-0 mt-1 list-none p-0">
-            {collapsed.map((v, i) => (
-              <VendorRow key={`c-${i}`} v={v} eventSlug={eventSlug} />
-            ))}
-          </ul>
-        </details>
       ) : null}
     </div>
   );
@@ -2157,6 +2065,3 @@ function fmt(n: number): string {
   }
 }
 
-function prettyCategory(category: string): string {
-  return category.replace(/_/g, ' ');
-}

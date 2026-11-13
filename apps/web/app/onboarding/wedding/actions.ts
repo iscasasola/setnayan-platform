@@ -1,6 +1,7 @@
 'use server';
 
 import { onePickedPlaceName } from '@/lib/onboarding/one-picked-place';
+import { singlePickedWeddingDate } from '@/lib/event-anchor';
 import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { eventDatesFloorRefusal } from '@/lib/event-date-floor';
 import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
@@ -539,6 +540,7 @@ export async function commitOnboardingWedding(
       : [];
   const windowStart = dateMode === 'window' ? payload.windowStart : null;
   const windowEnd = dateMode === 'window' ? payload.windowEnd : null;
+  const weddingDate = singlePickedWeddingDate(candidates);
   // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts) — refused
   // before anything is written; the client walks back to the date and says the owner's words.
   if (eventDatesFloorRefusal([...candidates, windowStart, windowEnd], await eventDateFloorExempt(null))) {
@@ -571,7 +573,9 @@ export async function commitOnboardingWedding(
     .insert({
       event_type: 'wedding',
       display_name: displayName,
-      event_date: null,
+      // 💍 ONE PICKED DATE IS THE DATE (owner 14 Nov 2026, F-W2-01): day precision, no candidates; 2+ picks stay options.
+      event_date: weddingDate,
+      ...(weddingDate ? { event_date_precision: 'day' } : {}),
       venue_name: setup?.venue_name ?? null,
       ...(setup ? { invite_theme: setup.invite_theme } : {}),
       ...(setup?.rsvp_ask_config ? { rsvp_ask_config: setup.rsvp_ask_config } : {}),
@@ -608,7 +612,7 @@ export async function commitOnboardingWedding(
       venue_latitude: payload.venueLatitude,
       venue_longitude: payload.venueLongitude,
       date_mode: dateMode,
-      date_candidates: candidates.length ? candidates : null,
+      date_candidates: weddingDate || !candidates.length ? null : candidates,
       date_window_start: windowStart,
       date_window_end: windowEnd,
       budget_band: budgetBand,

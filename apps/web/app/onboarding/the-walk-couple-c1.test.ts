@@ -43,3 +43,23 @@ test('F-W2-01 · Home’s schedule says no invented day for an event with no dat
   assert.match(code('app/dashboard/[eventId]/page.tsx'), /undated: !\(event as \{ event_date\?: string \| null \}\)\.event_date/);
   assert.match(code('lib/home-schedule.server.ts'), /undated: opts\.undated/);
 });
+
+test('F-W2-01 · owner 14 Nov "Yes, save it": ONE picked wedding date is the event date; two or more stay options', async () => {
+  const { singlePickedWeddingDate } = await import('@/lib/event-anchor');
+  assert.equal(singlePickedWeddingDate(['2027-06-19']), '2027-06-19', 'one pick must be the date');
+  assert.equal(singlePickedWeddingDate(['2027-06-19', '2027-06-26']), null, 'two picks are options, not a date');
+  assert.equal(singlePickedWeddingDate([]), null);
+  assert.equal(singlePickedWeddingDate(null), null);
+  assert.equal(singlePickedWeddingDate(['June 19']), null, 'only a well-formed day');
+
+  const commit = code('app/onboarding/wedding/actions.ts');
+  assert.match(commit, /const weddingDate = singlePickedWeddingDate\(candidates\);/);
+  assert.match(commit, /event_date: weddingDate,\s*\.\.\.\(weddingDate \? \{ event_date_precision: 'day' \} : \{\}\),/);
+  assert.match(commit, /date_candidates: weddingDate \|\| !candidates\.length \? null : candidates,/, 'a saved date must not also sit as a candidate');
+  assert.doesNotMatch(commit, /event_type: 'wedding',\s*display_name: displayName,\s*event_date: null,/, 'the wedding commit drops the date again');
+});
+
+test('F-W2-32 · Papic switches on from event_date — the window is read from it', () => {
+  const papic = code('app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx');
+  assert.match(papic, /eventDate: \(ev\.event_date as string \| null\) \?\? null/, 'Papic no longer reads the event date for its window');
+});

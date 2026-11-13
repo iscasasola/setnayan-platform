@@ -10,7 +10,9 @@ From the controller's 390 px couple walkthrough (couple testnayan3, event wanda-
   two picks stay two regions.
 - **F-W2-01 (part)** With no event date, Home's schedule says the clock only — its blocks sit on a seeded placeholder
   day (`anchorIso`: six months from seeding), which it printed as "Thu, May 13".
-- **F-W2-01 (core) / F-W2-32** NOT changed: owner ruling 2026-11-13 ("ONE MAIN DATE SPAN… candidates are options until
-  a venue is booked") keeps a wedding's picked date as a candidate. Question on the PR.
+- **F-W2-01 (core) / F-W2-32** Owner ruling 14 Nov 2026 (specs DECISION_LOG 16f7e76a, "Yes, save it"): a wedding
+  whose couple picks exactly ONE date at sign-up saves it as `event_date` (day precision; the existing
+  `sync_event_date_status` trigger locks the status); two or more picks stay `date_candidates` until a venue is booked
+  (`singlePickedWeddingDate`). Papic's window is read from `event_date`, so it switches on for the one-pick case.
 
-SPEC IMPACT: None (no ruling changed; one question on the PR).
+SPEC IMPACT: Implements the owner's 14 Nov ruling already in the corpus (DECISION_LOG 16f7e76a); nothing new to write.

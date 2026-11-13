@@ -140,13 +140,21 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
         appBody: 'Planning in the Setnayan app is free: schedule, budget, guest list, seat plan, mood board, RSVP with a QR code for every guest, and marketplace browse with a match preview. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout.',
-        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. Setnayan AI (a one-time purchase, with access through your event date) and each optional service are priced on setnayan.com/pricing. Couples pay 0% commission on supplier bookings — they pay suppliers directly. Suppliers: Verified is free, for good, with Solo, Pro and Ultra plans — see setnayan.com/for-suppliers.',
+        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. For an event there are two optional paid plans, Event Plus and Event Pro — Setnayan AI comes inside both — and each other service is priced on its own; current rates are on setnayan.com/pricing. Couples pay 0% commission on supplier bookings — they pay suppliers directly. Suppliers: Verified is free, for good, and optional paid plans add reach — see setnayan.com/for-suppliers.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
         appBody: 'Yes. Planning in the app is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches.',
-        body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid software — Setnayan AI (a one-time purchase with access through your event date), the Live Watch multi-camera control room, Papic top-ups, Event Hub PRO and more — is priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
+        body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid plans and services — Event Plus and Event Pro (both include Setnayan AI), the Live Watch multi-camera control room, Papic credit packs and more — are priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
+      },
+      {
+        // NEW 2026-11-13 — the two paid plans had no article. Words from what an order unlocks today:
+        // front-door-landing-data.ts plusPeek / PLUS_MORE / PRO_PEEK / proMore, setnayan-mark-by-plan.ts. No figure.
+        slug: 'event-plus-and-event-pro',
+        title: 'What do Event Plus and Event Pro add?',
+        appBody: HELP_NOT_IN_THE_APP,
+        body: 'They are the two optional paid plans for one event; planning stays free without them. Event Plus adds Setnayan AI — it tells you what is next and flags what is at risk — and Papic credits for your guests’ cameras, and the Setnayan watermark gives way to one small “Made with Setnayan”. Event Pro is everything in Event Plus with more Papic credits, and lets you design every part of your Event Hub: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your address. It takes the Setnayan watermark off your Event Hub. What you pay for Event Plus counts toward Event Pro. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
@@ -156,23 +164,23 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         // supplier's fee. This topic is shown to couples, so the fee sentence
         // moved to the supplier-only "Fees & plans" topic below — word for
         // word — rather than being deleted.
-        body: 'No. Couples pay 0% commission on every booking — they pay their suppliers directly, and Setnayan never touches that money. Setnayan earns from the optional software couples choose to buy (Setnayan AI, Papic, Live Watch, Event Hub PRO and more) and from its services to suppliers. Current rates are on setnayan.com/pricing.',
+        body: 'No. Couples pay 0% commission on every booking — they pay their suppliers directly, and Setnayan never touches that money. Setnayan earns from the optional plans and services couples choose to buy (Event Plus, Event Pro, Papic, Live Watch and more) and from its services to suppliers. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Setnayan\'s assisted planner — a one-time purchase that unlocks the full planner through your event date (current rate on setnayan.com/pricing). It matches suppliers to your date, budget, venue, guest count, religion and reviews, and walks you through each decision, from the venue to thank-you cards, with faith-specific steps and deadlines (for a Filipino wedding: Pre-Cana, marriage licence windows, sponsors).',
+        body: 'Setnayan\'s assisted planner. It is not sold on its own: it comes with Event Plus and Event Pro, through your event date (current rates on setnayan.com/pricing). It matches suppliers to your date, budget, venue, guest count, religion and reviews, and walks you through each decision, from the venue to thank-you cards, with faith-specific steps and deadlines (for a Filipino wedding: Pre-Cana, marriage licence windows, sponsors).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',
         title: 'Does Setnayan support Filipino wedding customs?',
-        body: 'Yes. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). More than 30 Filipino ceremony roles in the guest list, including principal sponsors, candle/veil/cord/coin sponsors, ninang, ninong, bearers, and Nikah roles. Multi-faith supplier compatibility tagging across a deep tree of supplier sub-categories.',
+        body: 'Yes. Ceremony types include Catholic, Civil, INC, Christian, Muslim, cultural and mixed ceremonies, among others. You set where the ceremony is — a church, chapel, mosque, temple, the civil registrar and more — and the reception’s setting: banquet hall, events place, restaurant, garden, beach, destination, heritage or outdoor tent. More than 30 Filipino ceremony roles in the guest list, including principal sponsors, candle/veil/cord/coin sponsors, ninang, ninong, bearers, and Nikah roles. Multi-faith supplier compatibility tagging across a deep tree of supplier sub-categories.',
       },
       {
         slug: 'what-languages-does-setnayan-support',
         title: 'What languages does Setnayan support?',
-        body: 'English is the main language. The dashboard’s menus and buttons are also available in Tagalog, and the feature pages have Tagalog versions.',
+        body: 'Setnayan is in English. The feature pages also have Tagalog versions.',
       },
       {
         slug: 'where-does-setnayan-operate',
@@ -196,7 +204,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'what-is-pakanta',
         title: 'What is Music Maker?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'A custom Filipino-style song written for the couple — a one-time per-event purchase (current price on setnayan.com/pricing). Setnayan\'s music team writes original lyrics around the couple\'s love story, records the track, and delivers it for the ceremony or reception.',
+        body: 'A custom Filipino-style song made for the couple — written from what you already told us about your story, and yours to keep for the ceremony or reception. A one-time per-event purchase (current price on setnayan.com/pricing).',
       },
       {
         slug: 'what-is-papic',
@@ -223,7 +231,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-to-contact-support',
         title: 'How do I contact Setnayan support?',
-        body: 'Send a message with the contact form at the bottom of setnayan.com/help — pick what it is about (couple, supplier, guest, billing, a bug) and we\'ll route it to the right team. Response within 24 hours during business days. Privacy-related requests reach the DPO directly at dpo@setnayan.com.',
+        body: 'Send a message with the contact form at the bottom of setnayan.com/help — pick what it is about (couple, supplier, guest, billing, a bug, an idea or something else) and it reaches the Setnayan team. Privacy-related requests reach the DPO directly at dpo@setnayan.com.',
       },
       {
         slug: 'when-does-setnayan-launch',
@@ -247,7 +255,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'best-free-filipino-wedding-planner-app',
         title: 'What is the best free Filipino wedding planner app?',
         appBody: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly.',
-        body: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly. Optional upgrades — guest photo capture, livestream, an AI planner — are priced individually at setnayan.com/pricing.',
+        body: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly. Optional paid plans — Event Plus and Event Pro, both with the Setnayan AI planner — and services like the livestream are priced at setnayan.com/pricing.',
       },
       {
         slug: 'guest-list-with-ninongs-and-ninangs',
@@ -274,12 +282,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'free-alternative-to-wedding-website-builders',
         title: 'What is a free alternative to paid wedding website builders in the Philippines?',
         appBody: 'Setnayan’s Event Hub is free with unlimited RSVP. It holds your save-the-date, your RSVP, the day’s details — when, where, dress code, directions — and your love story, laid out like a magazine feature instead of a form. Guests RSVP with one tap and you see the count in real time beside your guest list and seat plan.',
-        body: 'Setnayan’s Event Hub is free with unlimited RSVP. It holds your save-the-date, your RSVP, the day’s details — when, where, dress code, directions — and your love story, laid out like a magazine feature instead of a form. Guests RSVP with one tap and you see the count in real time beside your guest list and seat plan. The same Event Hub later carries your Memories and your livestream. An optional PRO upgrade removes the Setnayan watermark and adds a cinematic save-the-date reveal.',
+        body: 'Setnayan’s Event Hub is free with unlimited RSVP. It holds your save-the-date, your RSVP, the day’s details — when, where, dress code, directions — and your love story, laid out like a magazine feature instead of a form. Guests RSVP with one tap and you see the count in real time beside your guest list and seat plan. The same Event Hub later carries your Memories and your livestream. With Event Plus, an optional paid plan, the watermark gives way to one small “Made with Setnayan”; Event Pro takes the Setnayan mark off entirely and adds a cinematic save-the-date reveal.',
       },
       {
         slug: 'plan-a-debut-christening-or-other-event',
         title: 'Can I use Setnayan for a debut, christening or other event?',
-        body: 'Yes. The same free planning tools run every event type Setnayan offers — weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, gala nights, wakes and more. And for the people you celebrate with again and again, a group gives your barkada, clan or parish its own space: short stories that disappear after 24 hours, one group chat, and the events you plan together.',
+        body: 'Yes. The same free planning tools run every event type Setnayan offers — weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, gala nights, wakes and more. And for the people you gather with again and again, a group gives your barkada, clan or parish its own space: short stories that disappear after 24 hours, one group chat, and the events you plan together.',
       },
       // ─── THE WORRIES AN ANSWER ENGINE RAISES (2026-09-28) ────────────────
       // Asked of ChatGPT/Gemini, "Setnayan's weaknesses" came back as four
@@ -347,14 +355,14 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'the-bar-at-the-bottom',
         title: 'What are the tabs at the bottom of the screen?',
         appBody:
-          'On your account screens the bar is Events, People and Memories — with Shop after People if you own one. Events holds every event you host or are invited to, People is everyone you are connected to, and Memories keeps the photos and stories from all of them. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers, Hub and Memories.',
-        body: 'On your account screens the bar is Events, People, Memories and Discover — with Shop after People if you own one. Events holds every event you host or are invited to, People is everyone you are connected to, Memories keeps the photos and stories from all of them, and Discover shows public events from people you follow. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers, Hub and Memories. On a laptop the same places run down the side.',
+          'On your account screens the bar is Home and Discover. Home holds your Events, People and Memories — and your Shop, if you own one — as sections at the top. Events is every event you host or are invited to, People is everyone you are connected to, and Memories keeps the photos and stories from all of them. Discover shows public events from people you follow. Inside an event the bar changes to that event’s own: Today, Guests, Suppliers, Memories and Hub, once your Event Hub is on.',
+        body: 'On your account screens the bar is Home and Discover. Home holds your Events, People and Memories — and your Shop, if you own one — as sections at the top. Events is every event you host or are invited to, People is everyone you are connected to, and Memories keeps the photos and stories from all of them. Discover shows public events from people you follow. Inside an event the bar changes to that event’s own: Today, Guests, Suppliers, Memories and Hub, once your Event Hub is on.',
       },
       {
         // Owner 2026-10-22: "In shop they do not create events, but them as a user, they can create their events".
         slug: 'one-account-shop-and-events',
         title: 'Can I plan my own events if I have a shop?',
-        body: 'Yes. One account can run a shop and plan events. Create an event from Events, as anyone does. A shop you open or claim is also one of your loved ones in People, so you can make an event for your shop as well as for yourself.',
+        body: 'Yes. One account can run a shop and plan events. Create an event from Events on Home, as anyone does. A shop you open or claim is also one of your loved ones in People, so you can make an event for your shop as well as for yourself.',
       },
       {
         // The avatar sheet, Direction 2 (owner 2026-10-22, #6783) — one Switch to card, a row per shop (#6802).
@@ -366,8 +374,8 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         // Search stays in the shell (#6782): a signed-in search answers on the account's own results page.
         slug: 'what-search-finds',
         title: 'What does search find?',
-        appBody: 'Your events, the suppliers on them — marked On your event — and our stories and guides. The results open inside your account.',
-        body: 'Your events, the suppliers on them — marked On your event — the shops on Setnayan, and our stories and guides. The results open inside your account.',
+        appBody: 'Your events, the suppliers on them — marked On your event — the shops on Setnayan, people you know or could ask to connect, and our stories and guides. The results open inside your account.',
+        body: 'Your events, the suppliers on them — marked On your event — the shops on Setnayan, people you know or could ask to connect, and our stories and guides. The results open inside your account.',
       },
       {
         // The supplier bar (owner 2026-11-08 one build: Today · Clients · Shop · Portfolio; the Hub opens from Clients; More left the bar 2026-10-21).
@@ -392,17 +400,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'people-page',
         title: 'What is People?',
-        body: 'People is everyone you are connected to on Setnayan. The counts at the top — connected, waiting for them, asking you — each show just those people when you tap them. Type a name in the field at the bottom to find someone, or to invite them if they are not on Setnayan yet. ≡ opens Groups, Following and Followers. Nobody is connected until they say yes.',
+        body: 'People, a section of Home, is everyone you are connected to on Setnayan. The counts at the top — connected, waiting for them, asking you — each show just those people when you tap them. Type a name in the field at the bottom to find someone, or to invite them if they are not on Setnayan yet. ≡ opens Groups, Following and Followers, and the other sections of Home. Nobody is connected until they say yes.',
       },
       {
         slug: 'loved-ones',
         title: 'What are loved ones?',
-        body: 'Loved ones are the people and things you plan events for — a child, a lola, a pet. Add one in People, under Loved ones. A shop you open or claim is added there too, so you can make an event for your shop. An event made for a loved one or your shop says who it is for — on its card, and under its name on Home.',
+        body: 'Loved ones are the people and things you plan events for — a child, a lola, a pet. Add one in People on Home, under Loved ones. A shop you open or claim is added there too, so you can make an event for your shop. An event made for a loved one or your shop says who it is for — on its card, and under its name on Home.',
       },
       {
         slug: 'memories',
         title: 'What is Memories?',
-        body: 'Memories keeps the photos and stories from every event you hosted or went to, in one place. Open it from Memories in the bar at the bottom.',
+        body: 'Memories keeps the photos and stories from every event you hosted or went to, in one place. Open it from the Memories section of Home. Inside an event, the Memories tab holds that event’s own.',
       },
     ],
   },
@@ -511,7 +519,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'share-invite-link',
         title: 'Share an invite link',
-        body: 'Each guest has their own invitation link and QR. On Guests, tap a guest’s Invite to copy their link or a ready message, or to share the message with their ticket. For people not on your list yet, Guests › Setup has one link anyone can use to ask to join.',
+        body: 'Each guest has their own invitation link and QR. On Guests, tap a guest’s Invite to copy their link or a ready message, or to share the message with their ticket. For people not on your list yet, the ⚙ on Guests opens Guests settings, where one link lets anyone ask to join.',
       },
     ],
   },
@@ -526,18 +534,18 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'Your Event Hub is the page at setnayan.com/your-slug where every invitation leads. Guests land there when they tap their personal link or scan their QR. It shows your event details, an RSVP form, a countdown, the venue map, the dress code, and more.',
       },
       {
-        // Event Hub Pro part by part (owner 2026-10-22, #6775/#6780). Web only — the app shows none of it. No figure
-        // here: prices are the catalogue's (platform_retail_catalog_v2), named on the Pricing page.
+        // The slug stays (an indexed URL). Parts left sale 2026-10-26 (lib/event-hub-pro-is-sold-whole.test.ts) and the
+        // whole is Event Pro (COUPLE_WEBSITE_PRO). The Apply sheet is apply-pro-sheet.tsx; free themes are FREE_THEMES.
         slug: 'event-hub-pro-parts',
-        title: 'Can I get only part of Event Hub Pro?',
+        title: 'How do Pro effects work on my Event Hub?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Yes. Event Hub Pro comes part by part — Style, Background, Motion, Music, Photos, Logo & QR, Prints, a custom address and more — or everything at once. Try any Pro effect in your draft: at Apply, the sheet names the parts it needs. What you pay for parts counts toward everything. Each part shows its price on the Event Hub Pro page in Studio.',
+        body: 'Classic, Modern and Cyber Neon are free themes; every other theme, and every effect marked ◆, comes with Event Pro. Try any of them in your draft — only you see it. When you press Apply, the sheet lists each Pro effect and where it is: tap one to open it, or × to take it off. Unlock Pro and Apply puts everything live with Event Pro; Apply without the Pro effects puts the rest live and keeps the Pro ones in your draft. Event Pro comes whole, not part by part, and what you paid for Event Plus counts toward it. Its price is on setnayan.com/pricing.',
       },
       {
         slug: 'monogram',
         title: 'Customize the QR monogram',
-        appBody: 'Every guest’s QR code carries a mark in its centre and opens their own invitation. You will find it in Hub, under Event Details › QR Code.',
-        body: 'Every guest’s QR has a mark in its centre: the Setnayan mark on a free event, your own logo with Event Hub Pro. The QR’s shape, pattern and colour are in Hub, under Event Details › QR Code. Guests see a change once you press Apply.',
+        appBody: 'Every guest’s QR code carries a mark in its centre and opens their own invitation. You will find it in Hub, under Event Details › QR code.',
+        body: 'Every guest’s QR has a mark in its centre: the Setnayan mark, or your own logo with Event Pro, which also lets you pick the QR’s shape, pattern and colour. Find it in Hub, under Event Details › QR code. Guests see a change once you press Apply.',
       },
       {
         slug: 'print-qr-sheet',
@@ -547,7 +555,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'reissue-qr',
         title: "Re-issue a guest's QR code",
-        body: 'If a guest loses their link or shares it, make them a new one. On Guests, open the guest’s card, tap ⋯ › New QR, then Make a new QR. Their old QR and link stop working right away, and the new one can be sent.',
+        body: 'If a guest loses their link or shares it, make them a new one. On Guests, open the guest’s card, tap New QR on their ticket, then Make a new QR. Their old QR and link stop working right away, and the new one can be sent.',
       },
     ],
   },
@@ -559,7 +567,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'track-vendor',
         title: 'Track a supplier',
-        body: 'On Suppliers, open Build and find the category — the caterer, the photographer and so on. Tap Add manually to add a supplier you found yourself, with their contact, what they cover and what you agreed to pay. Once you have paid them, they show as Booked.',
+        body: 'On Suppliers, open the category — the caterer, the photographer and so on. Tap Add manually to add a supplier you found yourself, with their contact, what they cover and what you agreed to pay. Once the booking is locked in, they show as Booked, with what is next — like paying the deposit.',
       },
       {
         // A manual venue's pin is set where the venue is (Suppliers' date-and-place line, `fact-sheets.tsx`); a shop's
@@ -570,14 +578,21 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'On Suppliers, tap your place in the date and place line at the top. A venue you added yourself gets a pin you can move to the door. A venue booked from a shop on Setnayan follows the shop’s own pin — if the shop has not pinned its place yet, the map says so.',
       },
       {
+        // NEW 2026-11-13 — the Suppliers page's date sheet: fact-sheets.tsx ("I have a date | Help me choose"),
+        // lib/help-me-choose.ts (daysFreeForPricedPicks · noDayWords).
+        slug: 'help-me-choose-a-date',
+        title: 'Can Setnayan help us pick a date?',
+        body: 'Yes. On Suppliers, tap your date in the date and place line at the top and choose Help me choose. Pick the month you are considering: its Saturdays appear, ranked by how many of your suppliers are free, with the best match marked. Once suppliers are in your build, only the days all of them can take are offered; a supplier who has not set a calendar does not rule a day out. Choose a Must-have supplier to put their free days first, then tap Use and the day to set it.',
+      },
+      {
         slug: 'budget-line-items',
         title: 'Budget line items',
-        body: 'Your budget is in Suppliers › Budget. The top shows Target, Agreed, Paid and Owed. Below it: your booked suppliers, your Setnayan services, and your own expenses — ＋ Add expense for anything paid outside Setnayan. A supplier’s line items and payments are on that supplier’s own card.',
+        body: 'Your budget is on your event’s Today: open Budget. The top shows Target, Agreed, Paid and Owed. Below it: your booked suppliers, your Setnayan services, and your own expenses — ＋ Add expense for anything paid outside Setnayan. A supplier’s line items and payments are on that supplier’s own card.',
       },
       {
         slug: 'export-calendar',
         title: 'Export budget due dates to your calendar',
-        body: 'In Suppliers › Budget, tap Export upcoming dates (.ics). You get a calendar file with one entry for each payment still due. Open it in Google Calendar, Apple Calendar or Outlook.',
+        body: 'On your event’s Today, open Budget and tap Upcoming dates (.ics). You get a calendar file with one entry for each payment still due. Open it in Google Calendar, Apple Calendar or Outlook.',
       },
     ],
   },
@@ -634,7 +649,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'how-to-order',
         title: 'How to order a Setnayan service',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Open the service you want — Setnayan AI, Papic, Live Watch and the rest — and tap Add this service. Pay by BDO or GCash, add a screenshot and the reference number, and send. Each service has one fixed price, shown on its page.',
+        body: 'Open the plan or service you want — Event Plus, Event Pro, Papic credits, Live Watch, Music Maker and the rest — and add it to your event. Pay by BDO or GCash, add a screenshot and the reference number, and send. Each has one fixed price, shown on its page.',
       },
       {
         slug: 'payment-instructions',
@@ -665,7 +680,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'theme',
         title: 'Change your Event Hub’s theme',
-        body: 'Your Event Hub has its own theme: choose it in Hub › Look › Theme. Guests see a new theme once you press Apply. Your own screens can be light or dark: choose Appearance in Profile › Preferences.',
+        body: 'Your Event Hub has its own theme: choose it in Hub › Look › Theme. Guests see a new theme once you press Apply. Your own screens can be light or dark: tap your picture at the top and choose Appearance.',
       },
       {
         slug: 'cookies',
@@ -699,6 +714,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'rsvp-from-link',
         title: 'How to RSVP',
         body: 'Open your invitation and tap Reply on the Will you join us? card. Pick your answer, name your plus-ones if you may bring any, and send. You can change your reply with Change my reply until the couple’s reply-by date.',
+      },
+      {
+        // NEW 2026-11-13 — the guest's own ticket: app/[slug]/_components/guest-ticket.tsx, apple-wallet-button.tsx.
+        slug: 'your-ticket',
+        title: 'Where is my ticket?',
+        body: 'Open your invitation and tap Save my ticket. It carries your own QR code — show this at the door. On an iPhone you can also tap Add to Apple Wallet to keep it there.',
       },
       {
         slug: 'meal-preference',
@@ -758,7 +779,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'turn-on-papic',
         title: 'How do I turn on Papic and hand out cameras?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Open your dashboard → Studio → Papic — it is already on.\n1. For guests: share your event QR. Any phone that scans it shoots from your shared credits.\n2. For one person: hand them a camera's own link or QR from the same page. It shoots from the same credits.\nCameras are free and unlimited; every photo uses credits. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, so there is nothing to buy before you try it. Top up any time — prices are on setnayan.com/pricing.`,
+        body: `Papic is the Papic card in your event’s Memories. It switches on when your event’s date is set.\n1. For guests: share your event QR. Any phone that scans it shoots from your shared credits.\n2. For one person: hand them a camera’s own link or QR from the same card. It shoots from the same credits.\nCameras are free and unlimited; every photo uses credits. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, so there is nothing to buy before you try it. Add more any time with Add more on the card — prices are on setnayan.com/pricing.`,
       },
       {
         slug: 'how-papic-tagging-works',
@@ -770,19 +791,19 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'find-download-papic-photos',
         title: 'Where do I find and download all my Papic photos?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "Dashboard → Studio → Papic → Memories. Every candid from your crew and guests is there — filter by 'Photos of us', videos, or untagged. Save any photo to your phone with one tap, or use 'Download all' to pull all your Memories as a zip. You can also connect Google Drive to auto-sync everything to your own Drive.",
+        body: "Open Memories in your event. Every candid from your crew and guests is there — search by who took it, a challenge or a place on your Event Hub. Save any photo to your phone with one tap, or use Download all to pull all your Memories as zip files.",
       },
       {
         slug: 'papic-guest-camera',
         title: 'Guest: how do I take candid photos for the couple?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "If the couple turned on guest cameras, open your invitation link and tap 'Be a candid camera'. Point and shoot — every photo lands in the couple's Memories as you take it. No sign-in, no app. You have a set number of shots; the counter shows how many you have left. After a shot you can also tell the couple the story behind it.",
+        body: "If the couple turned on guest cameras, open your invitation link and tap 'Be a candid camera'. Point and shoot — every photo lands in the couple's Memories as you take it. No sign-in, no app. The counter shows how many shots are left for everyone — or how many are left for you, if the couple set one for each guest. After a shot you can also tell the couple the story behind it.",
       },
       {
         slug: 'add-your-face',
         title: 'Guest: how do I make sure I get my photos? (add your face)',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "When you RSVP, tap 'Add your photo' and take one selfie (you'll be asked to agree first — it's optional). That lets the candid photos of you find their way to you automatically, under 'Memories of you' on your page. On the day you can also add it from the 'Add your face' card if you skipped it. No selfie? You'll still get any photo where the crew scans your invitation QR.",
+        body: "When you reply, say yes to Want to be tagged in the photos? — it's optional. On the day, the camera asks you to Add your face so your photos find you: take one selfie, and the candid photos of you find their way to you under 'Memories of you' on your page. No selfie? You'll still get any photo where the crew scans your invitation QR.",
       },
       {
         slug: 'photos-of-you',
@@ -810,13 +831,13 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         // Rewritten again 2026-10-25: setting credits aside for one camera was
         // retired (owner 2026-09-16 "no dedicated shots individually", built in
         // #5905). The worry stays real, so the answer is what ships now.
-        body: "Keep your shared credits topped up. Every camera — yours, your crew's and your guests' — shoots from one pot, so nobody can hold shots back for one person. Give the people you count on, like your maid of honor or the cousin who frames every photo, a camera of their own from your Papic page, and watch the shared balance there. When it runs low, add credits to the pot from the Papic card in Memories; top-ups stack on what your event already holds. Cameras are free and you can make as many as you like.",
+        body: "Keep your shared credits topped up. Every camera — yours, your crew's and your guests' — shoots from one pot, so nobody can hold shots back for one person. Give the people you count on, like your maid of honor or the cousin who frames every photo, a camera of their own from the Papic card in Memories, and watch the shared balance there. You can also cap how many credits each guest may spend, naming the few who should have more. When it runs low, add credits to the pot from the Papic card in Memories with Add more; top-ups stack on what your event already holds. Cameras are free and you can make as many as you like.",
       },
       {
         slug: 'how-papic-shots-work',
         title: 'How do shots work, and how do I add more?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Cameras are unlimited. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}. When it runs low, top it up from your dashboard → Studio → Papic: add to the shared pool for the whole event. Top-ups stack on whatever your event already holds — they never replace it — and current prices are on setnayan.com/pricing. Guests can also top up the pool or their own camera themselves from the camera screen, if you'd rather not.`,
+        body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Cameras are unlimited. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}. When it runs low, tap Add more on the Papic card in Memories: it adds to the shared pool for the whole event. What you add stacks on whatever your event already holds — it never replaces it — and current prices are on setnayan.com/pricing.`,
       },
     ],
   },
@@ -855,7 +876,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
           '6. You now see two things you need to keep apart:\n' +
           '   - The STREAM URL and STREAM KEY. These go into your streaming software. The stream key is a password for your channel — never share it, never paste it into Setnayan or anywhere else.\n' +
           '   - The WATCH LINK, from the Share button. It looks like youtube.com/watch?v=... This is the one you paste into Setnayan.\n' +
-          '7. Open your dashboard, go to Studio, then Live Watch, and paste the watch link into the "How guests watch" box. Your Event Hub will show a Watch Live player during the day.\n\n' +
+          '7. On your event’s Today, open the Live stream card and tap Open controller, then paste the watch link into the "How guests watch" box. Your Event Hub will show a Watch Live player during the day.\n\n' +
           'The short version: the stream key goes to your streaming software, and the watch link goes to Setnayan. Getting those two the wrong way round is the one mistake worth being careful about.',
       },
       {
@@ -895,7 +916,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
 // it in the same edit when an article body materially changes.
 // ───────────────────────────────────────────────────────────────────────────
 
-export const HELP_LASTMOD = '2026-10-25';
+export const HELP_LASTMOD = '2026-11-13';
 
 export type HelpArticleWithTopic = {
   article: HelpArticle;

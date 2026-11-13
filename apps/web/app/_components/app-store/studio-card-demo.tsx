@@ -760,7 +760,7 @@ const LANDING_PAGE_SCENES: RichFrame[] = [
     hint: 'Tap Customize to make it yours.',
     scene: (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
-        <span className="font-mono text-[8px] uppercase tracking-[0.22em]" style={{ color: GOLD }}>Your website</span>
+        <span className="font-mono text-[8px] uppercase tracking-[0.22em]" style={{ color: GOLD }}>Your Event Hub</span>
         <span className="mt-1 text-2xl italic" style={{ fontFamily: SERIF }}>Maria & Juan</span>
         <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-[8px] text-ink/70">
           <Globe aria-hidden className="h-2.5 w-2.5 text-emerald-600" strokeWidth={2} /> setnayan.com/maria-juan

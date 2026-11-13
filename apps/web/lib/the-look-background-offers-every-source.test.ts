@@ -4,7 +4,7 @@
  * Owner, on his phone in the app 2026-10-26: *"i cannot see the different background options. upload, color,
  * videos, etc"*. His Look › Background showed Pattern · Focus · Blur · Shade and the page colour — the store shell's
  * fallback rows — because the editor page built the main-background row (`MainBackgroundPanel`: Source ▾ Colour ·
- * Scene ◆ · Video ◆ · Upload ◆ and its picture cards) only when `!storeShell`. His event owns Event Hub Pro.
+ * Scene ◆ · Video ◆ · Upload ◆ and its picture cards) only when `!storeShell`. His event owns Event Pro.
  *
  *   (1) the rule: the web always; the app's shell for an event that owns Pro; never a free event in the shell;
  *   (2) the editor page asks THAT rule for the row (no bare `storeShell ? []` in front of it again), and the lab asks

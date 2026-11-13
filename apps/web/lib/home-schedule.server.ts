@@ -37,7 +37,7 @@ export function venueToday(nowMs: number, tz: string): string {
 export async function readHomeSchedule(
   supabase: SupabaseClient,
   eventId: string,
-  opts: { show: boolean; tz: string | null; nowMs?: number },
+  opts: { show: boolean; tz: string | null; nowMs?: number; undated?: boolean },
 ): Promise<HomeScheduleFacts | 'unread' | null> {
   if (!opts.show) return null;
   const [blocksRes, tasksRes, requestsRes, vendorsRes] = await Promise.all([
@@ -81,5 +81,6 @@ export async function readHomeSchedule(
     nowMs,
     tz,
     today: venueToday(nowMs, tz),
+    undated: opts.undated,
   });
 }

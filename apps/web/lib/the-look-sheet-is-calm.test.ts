@@ -210,7 +210,7 @@ test('(5) Art direction is ONE dropdown, with the ◆ beside the name — never 
     // ◆ beside the name, before its dropdown.
     const label = colours.slice(colours.lastIndexOf('<p class=', colours.indexOf(attr)), colours.indexOf(attr));
     assert.match(label, new RegExp(`${what}<`), `${what} lost its label`);
-    assert.match(label, /data-paid-mark|aria-label="[^"]*Event Hub Pro/i, `${what} lost its ◆`);
+    assert.match(label, /data-paid-mark|aria-label="[^"]*Event Pro/i, `${what} lost its ◆`);
   }
 });
 

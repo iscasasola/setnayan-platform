@@ -32,6 +32,8 @@ const HANDOVER_REFUSED: Readonly<Record<string, string>> = {
   empty: 'Add a note before sending.',
   upload: 'That image couldn’t upload — try a PNG/JPEG under 6 MB.',
 };
+/** The page's own sentence for `?handover=sent` (`clients/[eventId]/page.tsx`). */
+export const HANDOVER_SENT = 'Handover sent — the couple will confirm receipt.';
 const ASK_REFUSED: Readonly<Record<string, string>> = {
   amount: 'Put in an amount above zero.',
   notbooked: 'You can only ask a customer who has booked you.',
@@ -52,6 +54,9 @@ const SUP_CLIENT_CARD_WORDS: StayWords = {
     if (ask && ASK_REFUSED[ask]) return ASK_REFUSED[ask];
     return null;
   },
+  // ✅ The handover's own "sent" banner, said under the form that sent it (F-W1-69) — a saved press stays on the page,
+  // so the `?handover=sent` banner the page draws is never reached.
+  note: (q) => (q.get('handover') === 'sent' ? HANDOVER_SENT : null),
 };
 const supClientCard = kind(SUP_CLIENT_CARD_WORDS, false);
 

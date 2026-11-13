@@ -84,7 +84,7 @@ export type SceneStyle = {
    */
   stageNames?: Partial<Record<HubStage, { name: string; line: string }>>;
   /**
-   * 💎 Event Hub Pro ◆ — set by `sceneStylesOn` from `lib/scene-style-pro.ts` (the ONE list the Apply gate asks),
+   * 💎 Event Pro ◆ — set by `sceneStylesOn` from `lib/scene-style-pro.ts` (the ONE list the Apply gate asks),
    * never written in a set. Absent = free.
    */
   pro?: boolean;

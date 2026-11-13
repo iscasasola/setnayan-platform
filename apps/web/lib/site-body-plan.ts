@@ -509,7 +509,7 @@ export function resolveSiteBodyPlan(input: {
     // ABOVE the floating speaker (z-50), so the control is simply hidden until
     // the veil lifts — and background music never autoplays (it starts only on
     // a tap), so there is no soundtrack playing underneath a closed veil.
-    // Widening this to the reveal would silence a paid Event Hub PRO feature
+    // Widening this to the reveal would silence a paid Event Pro feature
     // for the whole invitation phase.
     backgroundMusic: hasBgMusic && !showSaveTheDate,
     stdShowTextHero: identity === 'anonymous' && !hasHeroMedia,

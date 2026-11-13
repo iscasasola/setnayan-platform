@@ -18,7 +18,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  * 0002 unified QR lifecycle lock (CLAUDE.md 2026-05-22 row 11).
  *
  * THE LOOK (owner 2026-09-27, lib/qr-look.ts): a free event's code carries the
- * SETNAYAN mark in the centre; an Event Hub Pro event's carries the couple's
+ * SETNAYAN mark in the centre; an Event Pro event's carries the couple's
  * own logo, in their chosen shape, pattern and palette ink. Resolved by
  * `resolveEventQrLook` — the one place that reads Pro for a QR.
  *

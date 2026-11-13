@@ -22,7 +22,24 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { RISE_EASE, RISE_MS, RISE_REDUCED_MS, riseFromRect } from '@/lib/rise-motion';
 import s from './supplier-front.module.css';
 
-export function PlanPagePreview({ plan, label, caption, children }: { plan: string; label: string; caption: string; children: ReactNode }) {
+export function PlanPagePreview({
+  plan,
+  label,
+  caption,
+  ownTokens = false,
+  children,
+}: {
+  plan: string;
+  label: string;
+  caption: string;
+  /**
+   * The row reads /for-suppliers' `--sf-*` colours from that page's root. Another page (/for-coordinators, owner 13 Nov
+   * 2026 "also adapt the frontpages … where the websites are presented") sets this so the row carries them itself — the
+   * way the shared plan comparison card (`.cmpCard`) does.
+   */
+  ownTokens?: boolean;
+  children: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const thumb = useRef<HTMLDivElement>(null);
   /** True while this sheet owns a history entry the browser's back should pop. */
@@ -40,7 +57,7 @@ export function PlanPagePreview({ plan, label, caption, children }: { plan: stri
   const onClosed = useCallback(() => setOpen(false), []);
 
   return (
-    <div className={s.mini} data-plan-preview={plan}>
+    <div className={ownTokens ? `${s.mini} ${s.miniOwnTokens}` : s.mini} data-plan-preview={plan}>
       <div ref={thumb} className={s.miniThumb} aria-hidden="true" inert>
         <div className={s.miniPage}>{children}</div>
       </div>

@@ -12,7 +12,7 @@ import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { resolveCadence } from '@/lib/event-anchor';
 import { eventSpanDays, eventSpanRefusal, isCelebrantShape, resolveProfileByEvent } from '@/lib/event-type-profile';
-import { dateOptionsRefusal, dateOptionsSavedWords, isIsoDay } from '@/lib/event-date-options';
+import { dateOptionsRefusal, dateOptionsSavedWords, eventSpanDayList, isIsoDay } from '@/lib/event-date-options';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -178,23 +178,29 @@ export async function updateEventDate(formData: FormData): Promise<EventDateSave
   if (floorRefusal) return { ok: false, error: floorRefusal };
 
   // 2 · A day or month a booked supplier cannot do is refused AT THE PICK, with who (owner 2026-10-01).
+  //   A first + last day is asked EVERY day of the span (`eventSpanDayList`), one `datePickClash` per day — the same
+  //   rule, never a second check. The first day that clashes refuses, with who; a Move answered for this start clears
+  //   it exactly as today (`clashStillOpen` is keyed on the start the couple asked to move to).
   if (eventDate) {
-    let picked;
-    try {
-      picked = await datePickClash({
-        supabase,
-        admin: createAdminClient(),
-        eventId,
-        date: eventDate,
-        precision: newPrecision,
-        live: prior,
-        failClosed: true,
-      });
-    } catch {
-      return { ok: false, error: 'We could not check your suppliers’ calendars. Nothing changed — please try again.' };
+    const admin = createAdminClient();
+    for (const day of eventSpanDayList(eventDate, newPrecision === 'day' ? eventEndDate : null)) {
+      let picked;
+      try {
+        picked = await datePickClash({
+          supabase,
+          admin,
+          eventId,
+          date: day,
+          precision: newPrecision,
+          live: prior,
+          failClosed: true,
+        });
+      } catch {
+        return { ok: false, error: 'We could not check your suppliers’ calendars. Nothing changed — please try again.' };
+      }
+      const asked = await clashStillOpen(supabase, eventId, { date: eventDate, precision: newPrecision }, picked);
+      if (asked) return { ok: false, error: asked.reason, clash: asked.clash };
     }
-    const asked = await clashStillOpen(supabase, eventId, { date: eventDate, precision: newPrecision }, picked);
-    if (asked) return { ok: false, error: asked.reason, clash: asked.clash };
   }
 
   // 3 · ONE rule for the rest (`eventDateRefusal`, lib/events.ts). The booked count is read fail-CLOSED.

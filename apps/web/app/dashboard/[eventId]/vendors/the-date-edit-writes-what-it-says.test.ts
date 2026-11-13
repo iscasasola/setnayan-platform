@@ -206,3 +206,47 @@ test('the onboarding insert writes the day count, clamped to the type’s cap', 
   const oneDayType = buildGenericEventInsert(payload as never, opts as never);
   assert.equal(oneDayType.event_days, 1, 'without a cap the event is one day');
 });
+
+test('gap 2 — a first + last day is clash-checked on EVERY day of the span, by the same rule, before the write', async () => {
+  const { eventSpanDayList } = await import('@/lib/event-date-options');
+  assert.deepEqual(eventSpanDayList('2026-12-19', '2026-12-21'), ['2026-12-19', '2026-12-20', '2026-12-21']);
+  assert.deepEqual(eventSpanDayList('2026-12-31', '2027-01-01'), ['2026-12-31', '2027-01-01'], 'a span across the year');
+  assert.deepEqual(eventSpanDayList('2026-12-19', null), ['2026-12-19'], 'one day = just that day');
+  assert.deepEqual(eventSpanDayList('2026-12-19', '2026-12-19'), ['2026-12-19']);
+  assert.deepEqual(eventSpanDayList('2026-12-19', '2026-12-18'), ['2026-12-19'], 'a last day before the first is not a span');
+  assert.equal(eventSpanDayList('2026-12-19', '2028-12-19').length, 30, 'bounded — a bad post never fans out');
+
+  const a = src('app', 'dashboard', '[eventId]', 'actions.ts');
+  const body = a.slice(a.indexOf('export async function updateEventDate('), a.indexOf('export async function updateEventDateOptions'));
+  const loop = body.indexOf("for (const day of eventSpanDayList(eventDate, newPrecision === 'day' ? eventEndDate : null))");
+  assert.ok(loop > 0, 'the clash check no longer walks every day of the span');
+  const inLoop = body.slice(loop, body.indexOf('// 3 ·', loop));
+  // The SAME rule as the one day: datePickClash, fail-closed, then clashStillOpen — refused with who, exactly as today.
+  assert.match(inLoop, /datePickClash\(\{[\s\S]*?date: day,[\s\S]*?failClosed: true,/, 'each day is not asked with the shipped check');
+  assert.match(inLoop, /clashStillOpen\(supabase, eventId, \{ date: eventDate, precision: newPrecision \}, picked\)/);
+  assert.match(inLoop, /if \(asked\) return \{ ok: false, error: asked\.reason, clash: asked\.clash \};/, 'a clashing day is not refused with who');
+  assert.equal((body.match(/datePickClash\(/g) ?? []).length, 1, 'a second, competing clash check appeared');
+  assert.ok(loop < body.indexOf('.update({'), 'the span is clash-checked after the write');
+});
+
+test('gap 4 — the Suppliers calendar says the floor in the owner’s own words when a floor day is in view', async () => {
+  const { EVENT_DATE_FLOOR_MESSAGE, FIRST_EVENT_DAY } = await import('@/lib/event-date-floor');
+  const today = new Date().toISOString().slice(0, 10);
+  const floorAhead = today < FIRST_EVENT_DAY && Number(FIRST_EVENT_DAY.slice(8)) > 1;
+  const esc = (t: string) => renderEsc(t);
+  const said = await cal({ dateExempt: false, sayFloor: true });
+  if (floorAhead) assert.ok(said.includes(esc(EVENT_DATE_FLOOR_MESSAGE)), 'the floor month opens with its days greyed and no reason');
+  // Not for the founders' account, and not for a caller that did not ask (onboarding says it at Continue).
+  assert.ok(!(await cal({ dateExempt: true, sayFloor: true })).includes('data-event-date-floor'));
+  assert.ok(!(await cal({ dateExempt: false })).includes('data-event-date-floor'));
+  // The ONE copy constant — never a second wording of the floor.
+  const c = src('app', 'onboarding', '_shared', 'date-calendar.tsx');
+  assert.match(c, /\{EVENT_DATE_FLOOR_MESSAGE\}/);
+  assert.doesNotMatch(c, /Events start from/, 'the floor copy was retyped instead of reused');
+  const f = src('app', 'dashboard', '[eventId]', 'vendors', '_components', 'fact-sheets.tsx');
+  assert.match(f, /maxDays=\{maxDays\}\s*sayFloor\s/, 'the A few dates calendar does not ask for the floor note');
+});
+
+function renderEsc(t: string): string {
+  return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
+}

@@ -60,6 +60,17 @@ export function daysBetweenIso(a: string, b: string): number {
   return x === null || y === null ? Number.NaN : Math.round((y - x) / DAY_MS);
 }
 
+/**
+ * Every day of an exact span, first to last — the days the booking-clash check asks one by one. No last day (or one
+ * not after the first, or unreadable) = just the first day. Bounded by MAX_EVENT_DAYS, so a bad post can never fan
+ * out into hundreds of calendar reads.
+ */
+export function eventSpanDayList(first: string, last: string | null | undefined): string[] {
+  const n = last && isIsoDay(first) && isIsoDay(last) ? daysBetweenIso(first, last) : 0;
+  const span = Number.isFinite(n) && n > 0 ? Math.min(n, MAX_EVENT_DAYS - 1) : 0;
+  return Array.from({ length: span + 1 }, (_, i) => addDaysIso(first, i));
+}
+
 /** The last day of an N-day option that starts on `start`. */
 export function optionEnd(start: string, days: number): string {
   return addDaysIso(start, Math.max(1, days) - 1);

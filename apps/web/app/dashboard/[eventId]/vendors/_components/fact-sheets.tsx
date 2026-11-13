@@ -497,6 +497,7 @@ function FewDates({
         windowEnd={w.windowEnd}
         days={w.days}
         maxDays={maxDays}
+        sayFloor
         onChange={(p) => {
           setError(null);
           setW((s) => ({

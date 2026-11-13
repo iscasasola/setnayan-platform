@@ -41,7 +41,7 @@
  */
 'use client';
 
-import { eventDateMinFor } from '@/lib/event-date-floor';
+import { EVENT_DATE_FLOOR_MESSAGE, FIRST_EVENT_DAY, eventDateMinFor } from '@/lib/event-date-floor';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import './date-calendar.css';
 import { CalendarRange, ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide-react';
@@ -129,6 +129,7 @@ export function DateCalendar({
   undecided = false,
   days = 1,
   maxDays = 1,
+  sayFloor = false,
 }: {
   mode: 'specific' | 'window';
   candidates: string[];
@@ -165,6 +166,12 @@ export function DateCalendar({
    * above the calendar (− N +, 1 … maxDays); at 1 (the default) there is no step and the calendar is exactly as before.
    */
   maxDays?: number;
+  /**
+   * 💍 Say WHY the days before December 19, 2026 cannot be tapped — the owner's own words (`EVENT_DATE_FLOOR_MESSAGE`,
+   * the line every other date door already renders) — whenever the month in view holds a day the floor disabled.
+   * Opt-in, so the onboarding flows (which say it at Continue) are unchanged; the Suppliers "A few dates" sheet asks.
+   */
+  sayFloor?: boolean;
 }) {
   const [notYet, setNotYet] = useState(false);
   /* N — 1 unless the type asks "How many days?" (a 1-day type, or a caller that does not ask, is today's calendar). */
@@ -238,6 +245,10 @@ export function DateCalendar({
 
   const clampMax = (d: Date) => (d > maxD ? new Date(maxD) : d);
   const atMin = view.y === minD.getFullYear() && view.m === minD.getMonth();
+  /* The floor disabled a day in view: a normal account, the floor still ahead of today, and the floor's own month on
+     screen past its 1st (months before it cannot be reached — Previous stops at `atMin`). */
+  const floorInView =
+    sayFloor && !dateExempt && toISO(minD) === FIRST_EVENT_DAY && atMin && minD.getDate() > 1;
   const atMax = view.y === maxD.getFullYear() && view.m === maxD.getMonth();
 
   /* push captured values up (persist + Phase-4 commit). */
@@ -557,6 +568,11 @@ export function DateCalendar({
         </div>
       ) : null}
       <div className={hint}>{setRangeMsg}</div>
+      {floorInView ? (
+        <p className="floornote" data-event-date-floor="">
+          {EVENT_DATE_FLOOR_MESSAGE}
+        </p>
+      ) : null}
       {/* 🔘 ONE DROPDOWN, never two hand-drawn toggles (Lane P slice 5 — owner 10 Nov: "the rule or uniform buttons and
           design templates is not followed yet"; any set of choices is ONE PickMenu). */}
       <div className="calmode-pick" data-datecal-mode="">

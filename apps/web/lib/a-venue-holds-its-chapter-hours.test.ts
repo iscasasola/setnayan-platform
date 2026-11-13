@@ -81,8 +81,9 @@ test('3 · a held chapter: "Hours from <venue> 🔒", the ask on its own, and fa
   assert.match(ask, /\{bare && mine\.length === 0 \? null : \(/, 'a held chapter’s ask still carries the "Asked of suppliers" heading');
   const sheet = code(`${SCHED}chapter-sheets.tsx`);
   assert.match(sheet, /\{heldBy \? \(\s*<FactRow\s*name="Hours"/, 'a held chapter’s hours are not a fact row');
+  // Ends is a ▾ of quarter hours since 2026-11-13 (schedules (b) prototype); the held rule is the same either way.
   for (const row of ['Ends', 'Ingress from', 'Egress until']) {
-    assert.match(sheet, new RegExp(`\\{c\\.time_tba \\|\\| heldBy \\? null : \\(\\s*<TimeRow\\s*name="${row}"`), `${row} is still a field on a held chapter`);
+    assert.match(sheet, new RegExp(`\\{c\\.time_tba \\|\\| heldBy \\? null : \\(\\s*<(?:TimeRow|ChosenRow)\\s*name="${row}"`), `${row} is still a field on a held chapter`);
   }
 });
 

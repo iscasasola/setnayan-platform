@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { readWordsOnlyTopUp } from '@/lib/booking-fee-top-up.server';
+import { TOP_UP_WORDS } from '@/lib/booking-fee-top-up';
+import { manilaToday as manilaTodayYmd } from '@/lib/std-views';
 import { notFound, redirect } from 'next/navigation';
 import { CalendarDays, Send, Wallet } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -71,6 +74,7 @@ import type { PinFact } from '@/lib/chat-pins';
 import { readChatPinFacts, type ChatPinRead } from '@/lib/chat-pin-facts.server';
 import { BLOCKER_OF, firstBlocker } from '@/lib/chat-pin-facts';
 import { decisionPinBodies } from '@/app/_components/chat/decision-pin-bodies';
+import { schedulePinBodies } from '@/app/_components/chat/schedule-pin-bodies';
 import { ActionButton } from '@/components/action-button';
 import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
 import { threadDecisionFacts, type DecisionCards, type DecisionQuoteCard } from '@/lib/thread-decisions';
@@ -360,6 +364,14 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   // composers so the supplier prices the job knowing what Setnayan takes.
   // Unlike the gift basis this is resolved even on a FREE booking: "free, 3 of
   // your first 5 left" is the disclosure, and silence would be the old defect.
+  // 💸 WORDS ONLY ON A NEW INQUIRY WHILE A TOP-UP IS OVERDUE (owner 2026-11-12, booking-fee top-up rules; prototype
+  // "New inquiry · text only … booked clients are unaffected"): this shop is not booked here and one of its top-ups is
+  // past its event day and unsettled. Talking is never narrowed (the chat is one
+  // of the always-open three, and this page never reads the event gate) — only files. A held top-up, or a failed
+  // read, narrows nothing.
+  const feeWordsOnlyRead = readWordsOnlyTopUp(profile.vendor_profile_id, thread.event_id, manilaTodayYmd()).then((o) =>
+    o ? TOP_UP_WORDS.toolGated(o.amountPhp) : null,
+  );
   const composerFeeStandingRead = resolveBookingFeeStanding(createAdminClient(), {
     vendorProfileId: profile.vendor_profile_id,
     eventId: thread.event_id,
@@ -2075,6 +2087,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   userId={user.id}
                   // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.
                   sentAs="vendor"
+                  wordsOnly={await feeWordsOnlyRead}
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
@@ -2295,7 +2308,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             // quote expired · decisions); the oldest blocking one the supplier can answer takes the screen.
             extraPins={pinFacts}
             blocker={chatBlocker}
-            pinBodies={decisionPinBodies(chatPins.facts)}
+            pinBodies={Object.assign(decisionPinBodies(chatPins.facts), schedulePinBodies(chatPins.facts, threadId))}
             plus={{
               eventId: thread.event_id,
               returnPath: embedded ? `/vendor-dashboard/clients/${thread.event_id}?tab=chat` : `/vendor-dashboard/messages/${threadId}`,

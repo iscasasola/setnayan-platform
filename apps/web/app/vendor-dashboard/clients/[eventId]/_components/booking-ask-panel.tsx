@@ -41,6 +41,7 @@ import { DeclineReasonFields } from '@/app/_components/decline-reason-fields';
 import type { DayCheckRead } from '@/lib/day-check';
 import { DayCheckLine } from './day-check-line';
 import { WaitlistForm } from './waitlist-form';
+import { TopUpCarryOver, type CarryOverTopUp } from './top-up-carry-over';
 
 type FormAction = (formData: FormData) => void | Promise<void>;
 
@@ -72,6 +73,7 @@ export function LockRequestAnswer({
   heldService = null,
   now = new Date(),
   layout = 'panel',
+  carryOver = null,
 }: {
   eventVendorId: string;
   expiresAt: string | null;
@@ -102,6 +104,12 @@ export function LockRequestAnswer({
   heldService?: string | null;
   /** The render instant (the lab pins it). */
   now?: Date;
+  /**
+   * 💸 THE CARRY-OVER (owner 2026-11-12, booking-fee top-up rule 4): a top-up from another booking is OVERDUE, so
+   * Agree gives way to "Settle ₱X to accept" and its sheet (`top-up-carry-over.tsx`). Null → Agree as always — and a
+   * HELD top-up is always null here (`overdueTopUps`). The server refuses the yes too (`top_up_owed`).
+   */
+  carryOver?: CarryOverTopUp | null;
   /**
    * 🚦 `blocker` — drawn inside the chat's full-screen blocker (Build 3, prototype v8.3): the ordinary yes and no become
    * ONE row of equal widths, **Turn down | Agree and book** (`BlockerAskRow`, the same two actions). A full day and a
@@ -136,7 +144,7 @@ export function LockRequestAnswer({
       <BookingFeeNotice disclosure={feeForecast} />
       {/* The day under the ask — ABOVE the button, like the fee: a full day is known before the tap, never after. */}
       <DayCheckLine read={dayCheck} />
-      {layout === 'blocker' && !heldService && !(dayFull && waitlistAsk) ? (
+      {layout === 'blocker' && !heldService && !(dayFull && waitlistAsk) && !carryOver ? (
         <BlockerAskRow eventVendorId={eventVendorId} returnTo={returnTo} agreeLock={agreeLock} declineLock={declineLock} />
       ) : (
         <>
@@ -154,6 +162,11 @@ export function LockRequestAnswer({
           />
         ) : (
           <>
+        {carryOver ? (
+          // 💸 An overdue top-up elsewhere: the one door is to settle it (the yes would be refused — `top_up_owed`).
+          <TopUpCarryOver owed={carryOver} thisBookingFee={feeForecast?.headline ?? null} />
+        ) : (
+          <>
         {dayFull && waitlistAsk ? (
           // A FULL day (the verdict the yes itself would refuse with): Agree is not offered — "Waiting list" is.
           <WaitlistForm eventVendorId={eventVendorId} returnTo={returnTo} action={waitlistAsk} />
@@ -163,6 +176,8 @@ export function LockRequestAnswer({
             <input type="hidden" name="return_to" value={returnTo} />
             <AskSubmit tone="brand" main icon={<Check {...ico} />} label="Agree to this booking" pendingLabel="Agreeing…" />
           </form>
+        )}
+          </>
         )}
           </>
         )}

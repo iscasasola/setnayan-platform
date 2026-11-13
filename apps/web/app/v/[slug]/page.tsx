@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { readOverdueTopUpEventIds, readPageRefsFromEvents } from '@/lib/booking-fee-top-up.server';
+import { manilaToday } from '@/lib/std-views';
 import { logoFrameStyle, readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
@@ -117,7 +119,8 @@ import {
 } from '@/lib/vendor-packages';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { ShareButton } from './_components/share-button';
-import { arrivalParams, shopBackDoor, withShopArrival } from '@/lib/shop-back';
+import { arrivalParams, shopBackDoor, shopTopBack, withShopArrival } from '@/lib/shop-back';
+import { BackButton } from '@/app/_components/back-button';
 import {
   SHOP_ARTICLE_WIDTH,
   SHOP_CARD_COLUMN_CLASS,
@@ -149,6 +152,7 @@ import {
 } from '@/lib/integration-config';
 import { DirectionsMenu } from '@/app/_components/nav-links';
 import { ShopReachLine, ShopReachMap } from './_components/shop-reach';
+import { ShopBranchesLine } from './_components/shop-branches-line';
 import { ShopAddresses } from './_components/shop-addresses';
 import { PinnedReviewCard } from './_components/pinned-review-card';
 import {
@@ -1023,6 +1027,11 @@ export async function renderVendorBySlug({
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
+  // 💸 UNLISTED AND UNCOUNTED (owner 2026-11-12): events whose booking-fee top-up is past its event day and unsettled.
+  // Their review, the photos put on this page from them and their featured story are left out until it is settled
+  // (the stars are uncounted in SQL). Empty with the fee lock off, and on a refused read.
+  const unlistedEvents = await readOverdueTopUpEventIds(vendor.vendor_profile_id, manilaToday());
+  const unlistedPageRefs = await readPageRefsFromEvents(vendor.vendor_profile_id, unlistedEvents);
   // ⭐ FROM GUESTS (owner, 6 Nov) — the guests' own reviews, read beside everything below. Three states: a refused read
   // is SAID under the hosts' list, never turned into "no guest reviews". It never feeds the overall (option A).
   const guestReviewsPromise: Promise<GuestReviewsRead> = readGuestReviewsForVendor(admin, vendor.vendor_profile_id, {
@@ -1040,7 +1049,7 @@ export async function renderVendorBySlug({
     // `reviewStats` above still backs the per-star histogram bars + the review
     // LIST pagination (`hasMore`), which stay as-is.
     fetchTrustedReviewStats(admin, vendor.vendor_profile_id),
-    fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0 }),
+    fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents] }),
     fetchVendorServices(admin, vendor.vendor_profile_id),
     // Vendor packages (owner directive 2026-05-22) — bundled multi-category
     // wedding offerings. Public-read via RLS when is_active=TRUE. The fetch
@@ -1380,7 +1389,7 @@ export async function renderVendorBySlug({
   // Per-category attribute details + portfolio gallery (iteration 0044).
   const [attributeDetails, portfolioPhotos, microsite, igMedia, repertoire] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
-    resolvePortfolioPhotos(vendor.portfolio_r2_keys),
+    resolvePortfolioPhotos((vendor.portfolio_r2_keys ?? []).filter((k: string) => !unlistedPageRefs.has(k))),
     // Microsite curation (My Shop → Website editor). Defensive read — an
     // un-curated vendor / not-yet-applied migration degrades to the
     // auto-composed baseline.
@@ -1441,7 +1450,9 @@ export async function renderVendorBySlug({
   // Pro hero override — a chosen portfolio photo leads the page as a banner.
   const heroPhotoUrl =
     proPicksRender && microsite.heroPhotoKey
-      ? (await resolvePortfolioUrls([microsite.heroPhotoKey]))[0] ?? null
+      ? unlistedPageRefs.has(microsite.heroPhotoKey)
+        ? null
+        : ((await resolvePortfolioUrls([microsite.heroPhotoKey]))[0] ?? null)
       : null;
   // Solo accent — retint the microsite's accent ramp (undefined = default).
   const accentVars = canPersonalizePage
@@ -1463,6 +1474,8 @@ export async function renderVendorBySlug({
         vendor.vendor_profile_id,
         pinnedReviewId,
       );
+      // 💸 A pinned review from an unlisted event (overdue top-up) is not shown either.
+      if (pinnedOutsideWindow?.event_id && unlistedEvents.has(pinnedOutsideWindow.event_id)) pinnedOutsideWindow = null;
     } catch (err) {
       logQueryError(
         'PublicVendorPage.pinnedReview',
@@ -1557,7 +1570,9 @@ export async function renderVendorBySlug({
       // those here would tell the world about weddings the couple has not paid a
       // downpayment on. A public claim needs the pool row, not the handshake.
       const bookings = await fetchVendorPoolBookings(admin, vendor.vendor_profile_id);
-      const stories = await loadVendorFeaturedStories(bookings.map((b) => b.eventId));
+      const stories = await loadVendorFeaturedStories(
+        bookings.map((b) => b.eventId).filter((id) => !unlistedEvents.has(id)),
+      );
       const byId = new Map(stories.map((s) => [s.eventId, s]));
       featuredEditorials = orderFeaturedFirst(
         stories.map((s) => s.eventId),
@@ -1654,10 +1669,15 @@ export async function renderVendorBySlug({
   // unpaid and cancelled branch with its street address and coordinates. Only
   // the name and the city come back, and only for branches whose fee is paid
   // and whose 28-day window is live.
+  // A read that fails shows NO branch line and no "Also here" list — never a guessed city — and says so in the logs
+  // (owner 2026-11-13, "Show the branches as needed": the line exists only when the shop really has branches).
   const publicBranches = await fetchPublicVendorBranches(
     admin,
     vendor.vendor_profile_id,
-  ).catch(() => []);
+  ).catch((err: unknown) => {
+    console.error('[supabase-error] v/[slug] · public branches read failed — no branch line shown', err);
+    return [];
+  });
 
   // Resolve viewer state for the FollowGate (iteration 0019 § Gate). Public
   // page so the supabase client may have no user; that's fine — the gate
@@ -1844,6 +1864,9 @@ export async function renderVendorBySlug({
     so the read above is not repeated), and it is read for anyone signed in, not only when a composer renders.
   */
   const viewerSignedIn = user !== null && !(user.is_anonymous ?? false);
+  /* ‹ THE TOP-LEFT BACK (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): where the arrival
+     came from, returned to in place; cold, Discover signed out and Home signed in (lib/shop-back.ts `shopTopBack`). */
+  const shopTop = shopTopBack(shopArrival, viewerSignedIn);
   const inquireEventState = bookable && viewerSignedIn ? (shopEventPicker ?? (await resolveAddShopToEvent(slug))) : null;
   const inquireEvents: InquireEvent[] =
     inquireEventState?.signedIn === true
@@ -2439,7 +2462,7 @@ export async function renderVendorBySlug({
   const countViewInBrowser = cachedCopy && !isDemoVendor && teamPreview === null;
 
   return (
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
       {countViewInBrowser ? <ShopViewBeacon vendorProfileId={vendor.vendor_profile_id} /> : null}
       <script
         type="application/ld+json"
@@ -2457,9 +2480,15 @@ export async function renderVendorBySlug({
               /vendors, and all dashboard chromes after V2 cutover Phase B
               (PRs #560-#564 + #572-#580). Matches the marketplace overlay
               pattern from PR #580. */}
-          <Link href="/" className="flex items-center text-ink">
-            <Wordmark size={22} />
-          </Link>
+          <div className="flex items-center gap-3">
+            {/* ‹ ONE WAY BACK, AT THE TOP LEFT, FOR EVERYONE (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS —
+                PROTOTYPE APPROVED"; owner: "when we enter a shop, event or anything, we should be able to go back to
+                home"). The shipped BackButton, returning in place; the page itself is not redrawn. */}
+            <BackButton href={shopTop.href} label={shopTop.label} className="mb-0" inPlace />
+            <Link href="/" className="flex items-center text-ink">
+              <Wordmark size={22} />
+            </Link>
+          </div>
           {/* 🚫 "PLAN WITH SETNAYAN" IS RETIRED ON SHOP PAGES (owner 2026-11-07). It sent a person who came to ask THIS
               shop to /signup, away from the shop. Inquire is the one ask; signed out, it opens the sign-in sheet first. */}
           {user ? (
@@ -2808,6 +2837,12 @@ export async function renderVendorBySlug({
                   door out. `lib/no-door-out-of-the-app.test.ts` fails if a
                   website href reaches any couple-facing or public surface. */}
             </div>
+            {/* 🏬 "Also in Lipa · Batangas City" — the shop's other paid, live branches, under the reach line (owner
+                2026-11-13, "Show the branches as needed"). Nothing at all when it has none. */}
+            <ShopBranchesLine
+              cities={publicBranches.map((b) => b.branchCity)}
+              hqCity={vendor.location_city ?? null}
+            />
             {/* The shop previewing itself learns WHY its email and phone are not
                 here, instead of reading their absence as a broken page. Only the
                 owning account ever renders this line; the values stay in My Shop
@@ -3642,10 +3677,15 @@ export async function renderVendorBySlug({
             ) : null}
             {/* 🧭 BACK GOES WHERE YOU CAME FROM (owner 2026-11-07: "back to suppliers? it went to a wrong shell"). This
                 was a fixed `/explore` for every arrival — Discover, an event's Suppliers, a saved supplier. The door
-                is now `shopBackDoor` (lib/shop-back.ts); with no arrival it says "See more suppliers", never "Back". */}
-            <Link href={shopBack.href} className="button-secondary" data-shop-back={shopBack.back ? 'back' : 'cold'}>
-              {shopBack.label}
-            </Link>
+                is now `shopBackDoor` (lib/shop-back.ts); with no arrival it says "See more suppliers", never "Back".
+                2026-11-12 ("DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED": "The low button stays for cold arrivals"):
+                with an arrival the top-left ‹ IS the way back, so this foot door is drawn only cold — never two
+                "Back"s on one page. */}
+            {!shopBack.back ? (
+              <Link href={shopBack.href} className="button-secondary" data-shop-back="cold">
+                {shopBack.label}
+              </Link>
+            ) : null}
           </div>
         </section>
           </div>

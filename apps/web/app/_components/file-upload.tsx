@@ -2021,7 +2021,7 @@ export function FileUpload({
                   data-upload-tile-open=""
                   type="button"
                   onClick={() => tiles!.onTap(item.r2Ref)}
-                  aria-label={`${idx === 0 ? `${tiles!.leadTag} photo` : `Photo ${formatCount(idx + 1)}`} — open`}
+                  aria-label={idx === 0 ? [tiles!.leadTag, 'photo — open'].join(' ') : `Photo ${formatCount(idx + 1)} — open`}
                   className="relative block h-full w-full overflow-hidden rounded-xl bg-cream" // no-card-ok: the tile is a <button> (tap opens the photo's sheet)
                 >
                   {isImage(item.contentType) && item.displayUrl ? (

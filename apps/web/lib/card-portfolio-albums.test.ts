@@ -30,10 +30,11 @@ import {
   type ListedFileRow,
   type PageNoticeRow,
 } from './card-portfolio-albums';
+import { stripComments } from './strip-comments';
 
 const WEB = join(__dirname, '..');
 const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
-const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const strip = stripComments;
 
 const NOW = new Date('2026-11-13T00:00:00Z');
 const DAY = 24 * 60 * 60 * 1000;

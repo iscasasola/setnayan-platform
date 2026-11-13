@@ -439,10 +439,10 @@ export function MakerLabShell({
   };
   return (
     /* 🧪 Studio pages' writes (E-Gifts…) stand in locally — a lab press never reaches the database; "Accept gifts?" drafts into this lab's own counter. */
-    <LabStudioActions draft={labDraft as never}>
-    {/* 📅 The date sheet's one read and its writes answered from the Suppliers lab's fixtures — the Maker's date Edit
-        (`stage-panel/date-edit.tsx`) opens the REAL sheet here with no session and no database. */}
+    /* 📅 The date sheet's one read and its writes answered from the Suppliers lab's fixtures — the Maker's date Edit
+       (`stage-panel/date-edit.tsx`) opens the REAL sheet here with no session and no database. */
     <LabFactSheets options={LAB_FACT_OPTIONS} open={null}>
+    <LabStudioActions draft={labDraft as never}>
     <MakerShell
       eventId={eventId}
       /* The lab's own guest page stands in for /maria-and-jose (Preview's "Preview the stage"). */
@@ -591,7 +591,7 @@ export function MakerLabShell({
         }}
       />
     </MakerShell>
-    </LabFactSheets>
     </LabStudioActions>
+    </LabFactSheets>
   );
 }

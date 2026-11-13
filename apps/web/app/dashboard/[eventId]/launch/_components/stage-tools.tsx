@@ -101,7 +101,7 @@ import { BlockGroundRows } from './stage-panel/block-background';
 import { CameraPage } from './stage-panel/camera-page';
 import { CameraPartNote } from './stage-panel/camera-face';
 import { ToolLock } from './stage-panel/tool-lock';
-import { DateEdit } from './stage-panel/date-edit';
+import { DateEdit } from './stage-panel/date-edit-lazy';
 import { keepPostEventWords, postEventAbout, postEventSceneNow } from './stage-panel/post-event-edit';
 import { PostEventShown } from './stage-panel/post-event-shown';
 import { POST_EVENT_ABOUT } from '../../website/editor/_components/post-event-scene-panel';
@@ -1342,9 +1342,6 @@ export function StageTools({
        this card's Edit (rows 1–3), the two answers' words are their lines' Edit, the Celebration is the When-yes
        card's Style. (The When-yes and When-no cards keep the door: their Edit has nothing else.) */
     if (rsvpCardEdits) quiet = null;
-    /* 📅 The Countdown and the cover's Date: their Edit IS the date, with one button into the date sheet, in place
-       (Maker Edit shell v3, owner-approved 2026-11-13) — never a door out of the Maker. */
-    if (!rsvpOpen && makerEventId && makerPartEditsTheDate(picked)) quiet = null;
     const f = fixedHere ? fixedScenePanel(fixedHere) : null;
     /* 🎞 A Post Event scene: what it is, behind the one ⓘ — the scene panel's own sentences (`POST_EVENT_ABOUT`). */
     const story = !rsvpOpen && picked && canvasOfScene ? postEventAbout(postEventSceneNow(canvasOfScene), POST_EVENT_ABOUT) : null;

@@ -45,6 +45,9 @@ test('(2) the Countdown and the cover’s Date edit the date in place — no doo
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /<DateEdit eventId=\{makerEventId\} \/>/, 'the toolbar does not draw the date in Edit');
   assert.match(tools, /makerPartEditsTheDate\(picked\)/);
+  /* Loaded on first pick — never in the Maker's first load. */
+  assert.match(tools, /import \{ DateEdit \} from '.\/stage-panel\/date-edit-lazy';/);
+  assert.match(read(`${L}/stage-panel/date-edit-lazy.tsx`), /dynamic\(\(\) => import\([^)]*'.\/date-edit'\)/);
   const edit = read(`${L}/stage-panel/date-edit.tsx`);
   assert.match(edit, /<FactSheet\s+eventId=\{eventId\}\s+which="date"/, 'the button does not open the shipped date sheet');
   assert.doesNotMatch(edit, /updateEventDate\(|hubDraftAction\(|FormData/, 'a second date writer was born in the Maker');

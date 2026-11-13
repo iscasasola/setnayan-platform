@@ -342,7 +342,8 @@ test('another account on the phone never opens the copies — a signed-in page e
   await w.dispatch('install');
   await w.saveFor(ANA, E1, [HOME, DESK]);
   await w.post({ type: 'OFFLINE_VIEWER', viewer: BEN });
-  assert.deepEqual(w.kept(), [], `Ben's first signed-in page left ${w.kept()}`);
+  // (the registry itself remains — it now names Ben, and holds no page)
+  assert.deepEqual(w.kept().filter((k) => !k.startsWith('/__setnayan-sw')), [], `Ben's first signed-in page left ${w.kept()}`);
   w.server.down = true;
   const r = await w.nav(HOME);
   assert.ok(!r.body?.includes(ANA) && !r.copy, `Ben opened Ana's copy: ${r.body}`);
@@ -712,4 +713,33 @@ test('a guest’s sign-out erases their day-of pages too — the next person, wi
   await visit(r);
   await r.nav('/dashboard/sign-out', { method: 'POST' });
   assert.ok(paths(r, DAYOF).includes(`/${SLUG}/find-my-table`));
+});
+
+test('F-W1-82 · an account switch erases the day-of Event Hub pages too — not only the saved copies', async () => {
+  const DAYOF = 'setnayan-dayof-v4';
+  const paths = (w: ReturnType<typeof boot>) =>
+    [...(w.stores.get(DAYOF)?.keys() ?? [])].map((u) => new URL(u).pathname + new URL(u).search).sort();
+  const w = boot();
+  await w.dispatch('install');
+  w.server.viewer = GUEST;
+  for (const p of [`/${SLUG}`, `/${SLUG}/find-my-table`]) await w.nav(p);
+  assert.ok(paths(w).includes(`/${SLUG}`), `the walk kept nothing to erase: ${paths(w)}`);
+  // A signed-in page, nobody on record yet: the pages of an unknown viewer are not kept for this one.
+  await w.post({ type: 'OFFLINE_VIEWER', viewer: ANA });
+  assert.deepEqual(paths(w), [], `the first signed-in account inherited earlier pages: ${paths(w)}`);
+  assert.equal((await w.registry()).viewer, ANA, 'the viewer is not on record after a page that saved nothing');
+  // Ana browses; then Ben signs in on the same phone.
+  w.server.viewer = ANA;
+  await w.nav(`/${SLUG}`);
+  assert.ok(paths(w).includes(`/${SLUG}`));
+  await w.post({ type: 'OFFLINE_VIEWER', viewer: BEN });
+  assert.deepEqual(paths(w), [], `Ben inherited Ana's day-of pages: ${paths(w)}`);
+  // The same account again: nothing goes.
+  w.server.viewer = BEN;
+  await w.nav(`/${SLUG}`);
+  await w.post({ type: 'OFFLINE_VIEWER', viewer: BEN });
+  assert.ok(paths(w).includes(`/${SLUG}`), 'the same account lost its own pages');
+  // A signed-out page's wipe (OFFLINE_FORGET) takes the day-of pages as well.
+  await w.post({ type: 'OFFLINE_FORGET' });
+  assert.deepEqual(paths(w), [], `the signed-out wipe left day-of pages: ${paths(w)}`);
 });

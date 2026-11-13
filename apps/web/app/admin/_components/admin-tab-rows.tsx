@@ -22,7 +22,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Plus, Search } from 'lucide-react';
 
 import { PinnedRow } from '@/app/_components/pinned-row/pinned-row';
@@ -41,6 +41,7 @@ import {
 } from '@/lib/admin/admin-tabs';
 
 import { ADMIN_SEARCH_OPEN_EVENT } from './admin-search-open-event';
+import { useAdminAddress } from './admin-address';
 import css from './admin-tab-rows.module.css';
 
 /** A read that failed is never a 0. */
@@ -62,15 +63,6 @@ function viewTrail(view: AdminView, counts: AdminQueueCounts | undefined): PickO
   if (n === null || n === undefined) return { text: '—', tone: 'muted', label: COUNT_REFUSED };
   if (n === 0) return undefined;
   return { text: formatCount(n), tone: 'left', label: `${formatCount(n)} waiting` };
-}
-
-/** Where the page is: the real address — or `at`, an address a dev lab draws on fixtures (`/dev/admin-shell-lab`). */
-export function useAdminAddress(at?: string): { pathname: string; params: { get(k: string): string | null } | null } {
-  const pathname = usePathname() ?? '/admin';
-  const params = useSearchParams();
-  if (at === undefined) return { pathname, params };
-  const [p, q] = at.split('?');
-  return { pathname: p!, params: new URLSearchParams(q ?? '') };
 }
 
 function useAdminPlace(at?: string): AdminPlace | null {

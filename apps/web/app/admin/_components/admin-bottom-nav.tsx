@@ -36,7 +36,7 @@ import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
 import { ADMIN_TABS, activeAdminTabKey, type AdminTab } from '@/lib/admin/admin-tabs';
 import { formatCount } from '@/lib/format-number';
 import { usePathname } from 'next/navigation';
-import { useAdminAddress } from './admin-tab-rows';
+import { useAdminAddress } from './admin-address';
 
 export const ADMIN_TAB_ICON: Record<AdminTab['icon'], LucideIcon> = {
   Inbox,

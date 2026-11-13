@@ -76,7 +76,6 @@ apps/web/app/admin/the-console-can-reach-your-phone.test.ts
 apps/web/app/admin/the-console-speaks-english.test.ts
 apps/web/app/admin/the-home-shows-what-you-change.test.ts
 apps/web/app/admin/the-overview-shows-what-it-counts.test.ts
-apps/web/app/admin/the-phone-answers-it-does-not-edit.test.ts
 apps/web/app/api/guest/qr/guest-can-keep-their-code.test.ts
 apps/web/app/blog/[slug]/_components/journal-partner-credit.test.ts
 apps/web/app/dashboard/(account)/creator/your-story-is-a-chronicle.test.ts

@@ -19,10 +19,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { ADMIN_TABS } from '@/lib/admin/admin-tabs';
+import { stripComments } from '@/lib/strip-comments';
 
 const ADMIN = join(process.cwd(), 'app/admin');
 const read = (rel: string) => readFileSync(join(ADMIN, rel), 'utf8');
-const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const code = stripComments;
 
 const bar = code(read('_components/admin-bottom-nav.tsx'));
 const layout = code(read('layout.tsx'));

@@ -55,7 +55,7 @@ import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import { ADMIN_TABS, activeAdminTabKey } from '@/lib/admin/admin-tabs';
 
 import { ADMIN_TAB_ICON, workBadge } from './admin-bottom-nav';
-import { useAdminAddress } from './admin-tab-rows';
+import { useAdminAddress } from './admin-address';
 import { formatCount } from '@/lib/format-number';
 
 /** The rail's own count colours. Neutral is the rail's meta ink; amber and red

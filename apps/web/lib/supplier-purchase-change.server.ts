@@ -145,7 +145,10 @@ export async function stagePurchaseChange(
     .maybeSingle();
   if (error || !data) {
     console.error('[supabase-error] lib/supplier-purchase-change.server.ts · from:proposal_amendments.insert', error?.message);
-    if (quoteId) await admin.from('vendor_proposals').delete().eq('proposal_id', quoteId).eq('status', 'draft');
+    if (quoteId) {
+      const { error: undoErr } = await admin.from('vendor_proposals').delete().eq('proposal_id', quoteId).eq('status', 'draft');
+      if (undoErr) console.error('[supabase-error] lib/supplier-purchase-change.server.ts · from:vendor_proposals.delete (undo draft)', undoErr.message);
+    }
     return { staged: false, quoted: false };
   }
   const amendmentId = (data as { amendment_id: string }).amendment_id;
@@ -180,20 +183,28 @@ export async function acceptClaimChangeQuote(
   admin: Admin,
   args: { amendmentId: string; eventId: string; shopId: string; coupleUserId: string },
 ): Promise<{ accepted: boolean }> {
-  const { data: am } = await admin
+  const { data: am, error: amErr } = await admin
     .from('proposal_amendments')
     .select('base_proposal_id, event_id, vendor_profile_id, raised_by, status')
     .eq('amendment_id', args.amendmentId)
     .maybeSingle();
+  if (amErr) {
+    console.error('[supabase-error] lib/supplier-purchase-change.server.ts · accept: amendment read', amErr.message);
+    return { accepted: false };
+  }
   const row = am as { base_proposal_id: string | null; event_id: string; vendor_profile_id: string; raised_by: string; status: string } | null;
   if (!row?.base_proposal_id || row.status !== 'accepted' || row.raised_by !== 'vendor') return { accepted: false };
   if (row.event_id !== args.eventId || row.vendor_profile_id !== args.shopId) return { accepted: false };
 
-  const { data: q } = await admin
+  const { data: q, error: qErr } = await admin
     .from('vendor_proposals')
     .select('proposal_id, status, event_id, vendor_profile_id, merge_snapshot')
     .eq('proposal_id', row.base_proposal_id)
     .maybeSingle();
+  if (qErr) {
+    console.error('[supabase-error] lib/supplier-purchase-change.server.ts · accept: quote read', qErr.message);
+    return { accepted: false };
+  }
   const quote = q as { proposal_id: string; status: string; event_id: string; vendor_profile_id: string; merge_snapshot: { source?: string } | null } | null;
   if (!quote || quote.status !== 'draft' || quote.merge_snapshot?.source !== CLAIM_QUOTE_SOURCE) return { accepted: false };
   if (quote.event_id !== args.eventId || quote.vendor_profile_id !== args.shopId) return { accepted: false };

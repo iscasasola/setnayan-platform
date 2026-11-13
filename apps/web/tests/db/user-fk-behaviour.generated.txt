@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 281 single-column FKs onto auth.users / public.users
-# CASCADE=75  RESTRICT=1  SET NULL=205
+# 285 single-column FKs onto auth.users / public.users
+# CASCADE=76  RESTRICT=1  SET NULL=208
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -22,6 +22,8 @@ admin_approval_requests.target_user_id                    CASCADE      nullable 
 admin_audit_log.actor_user_id                             SET NULL     nullable  -> users
 admin_data_access_log.accessed_user_id                    SET NULL     nullable  -> users
 admin_data_access_log.admin_user_id                       SET NULL     nullable  -> users
+admin_scopes.granted_by                                   SET NULL     nullable  -> users
+admin_scopes.user_id                                      CASCADE      NOT NULL  -> users
 api_keys.user_id                                          CASCADE      NOT NULL  -> users
 app_store_purchases.user_id                               CASCADE      NOT NULL  -> users
 apple_sign_in_tokens.user_id                              CASCADE      NOT NULL  -> users
@@ -295,3 +297,5 @@ vendor_verification_applications.admin_user_id            SET NULL     nullable 
 vendor_verification_bypasses.granted_by                   SET NULL     nullable  -> auth.users
 vendor_verifications.approved_by_admin_user_id            SET NULL     nullable  -> users
 vendor_web_dossiers.requested_by                          SET NULL     nullable  -> users
+work_escalations.escalated_by                             SET NULL     nullable  -> users
+work_escalations.resolved_by                              SET NULL     nullable  -> users

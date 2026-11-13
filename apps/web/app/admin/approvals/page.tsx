@@ -5,7 +5,15 @@ import {
   approvalActionBadge,
   approvalActionLabel,
 } from '@/lib/admin-approvals';
-import { requestPrivilegedGrant, approveRequest, rejectRequest } from './actions';
+import { requestPrivilegedGrant, approveRequest, adminTeamAct } from './actions';
+import { NoteField } from '@/app/admin/team/_components/team-fields';
+import { after } from 'next/server';
+import { getAdminPowersFor } from '@/lib/admin/can.server';
+import { canWith, refusalFor } from '@/lib/admin/can';
+import { adminAreaLabel, areaForApprovalAction } from '@/lib/admin/areas';
+import { SELF_APPROVAL_WORD, selfApprovalState, waitWords } from '@/lib/admin/self-approval';
+import { maybeRunOwnerApprovals } from '@/lib/admin/self-approval-runner';
+import { InfoTip } from '@/app/_components/info-tip';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ShieldCheck } from 'lucide-react';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -34,6 +42,20 @@ type RequestRow = {
   created_at: string;
   decided_at: string | null;
   expires_at: string;
+  /** Owner self-approval (2026-11-13): when he typed the word, and when it runs. */
+  self_confirmed_at: string | null;
+  run_after: string | null;
+};
+
+type EscalationRow = {
+  escalation_id: string;
+  area: string;
+  item_kind: string;
+  item_id: string;
+  item_label: string | null;
+  note: string;
+  escalated_by: string | null;
+  created_at: string;
 };
 
 function timeAgo(iso: string): string {
@@ -48,6 +70,8 @@ function timeAgo(iso: string): string {
 
 export default async function AdminApprovalsPage() {
   await requireAdmin();
+  // The owner's own requests run 24 h after he types the word — carried here too.
+  after(() => maybeRunOwnerApprovals().catch(() => {}));
   const supabase = await createClient();
   const {
     data: { user },
@@ -57,7 +81,10 @@ export default async function AdminApprovalsPage() {
   const admin = createAdminClient();
   const nowIso = new Date().toISOString();
 
-  const [pendingRes, decidedRes, adminCountRes] = await Promise.all([
+  const powers = meId ? await getAdminPowersFor(meId) : { userId: '', isOwner: false, scopes: null };
+  const nowMs = Date.now();
+
+  const [pendingRes, decidedRes, adminCountRes, escalationsRes] = await Promise.all([
     admin
       .from('admin_approval_requests')
       .select('*')
@@ -74,7 +101,16 @@ export default async function AdminApprovalsPage() {
       .from('users')
       .select('*', { count: 'exact', head: true })
       .or('account_type.eq.admin,is_internal.eq.true,is_team_member.eq.true'),
+    admin
+      .from('work_escalations')
+      .select('escalation_id, area, item_kind, item_id, item_label, note, escalated_by, created_at')
+      .is('resolved_at', null)
+      .order('created_at', { ascending: true }),
   ]);
+  if (escalationsRes.error) logQueryError('AdminApprovalsPage.escalations', escalationsRes.error, {}, 'graceful_degrade');
+  const escalations = escalationsRes.error ? null : ((escalationsRes.data ?? []) as EscalationRow[]);
+  const escalationFor = (approvalId: string) =>
+    (escalations ?? []).find((e) => e.item_kind === 'approval' && e.item_id === approvalId) ?? null;
 
   // ⚠ NEITHER READ BOUND ITS ERROR. Supabase resolves with `{ error }`, so a
   // refused read arrived as null, `?? []` made it an empty array, and this page
@@ -95,6 +131,9 @@ export default async function AdminApprovalsPage() {
 
   // Resolve display names for target / initiator / decider in one round trip.
   const ids = new Set<string>();
+  (escalations ?? []).forEach((e) => {
+    if (e.escalated_by) ids.add(e.escalated_by);
+  });
   [...listedPending, ...listedDecided].forEach((r) => {
     if (r.target_user_id) ids.add(r.target_user_id);
     if (r.initiated_by) ids.add(r.initiated_by);
@@ -162,7 +201,8 @@ export default async function AdminApprovalsPage() {
           the platform. The first additional admin is provisioned outside this
           queue (owner bootstrap · §4.1); once two admins exist, this queue
           governs every further grant — and no admin can approve their own
-          request.
+          request, except the owner: he types {SELF_APPROVAL_WORD} on his own
+          request and it runs after a 24-hour wait.
         </div>
       ) : null}
 
@@ -173,7 +213,8 @@ export default async function AdminApprovalsPage() {
         </h2>
         <p className="mb-4 text-xs text-ink/55">
           Proposes a privileged-role grant. It stays pending until a different
-          admin approves it.
+          admin with Escalated in Team approves it — or, on the owner&rsquo;s own
+          request, until he types {SELF_APPROVAL_WORD} and 24 hours pass.
         </p>
         <form action={requestPrivilegedGrant} className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm">
@@ -302,36 +343,219 @@ export default async function AdminApprovalsPage() {
                       <p className="mt-2 text-sm text-ink/80">{r.rationale}</p>
                     </div>
 
-                    <form className="flex shrink-0 flex-col items-end gap-2">
-                      <input type="hidden" name="approval_id" value={r.approval_id} />
+                    <div className="flex shrink-0 flex-col items-end gap-2">
                       {mine ? (
-                        <p className="max-w-[200px] text-right text-xs text-terracotta-700">
-                          You initiated this — a different admin must decide it.
-                        </p>
+                        powers.isOwner ? (
+                          (() => {
+                            // THE OWNER'S OWN REQUEST — typed + 24 h (DECISION_LOG 2026-11-13).
+                            const st = selfApprovalState(r, nowMs);
+                            return (
+                              <>
+                                {st.kind === 'not_started' ? (
+                                  <form action={adminTeamAct} className="flex w-64 flex-col items-end gap-1.5">
+                                    <input type="hidden" name="op" value="confirm_own" />
+                                    <input type="hidden" name="approval_id" value={r.approval_id} />
+                                    <NoteField
+                                      fieldName="typed"
+                                      name={`Type ${SELF_APPROVAL_WORD} · runs in 24 h`}
+                                      empty={SELF_APPROVAL_WORD}
+                                      placeholder={SELF_APPROVAL_WORD}
+                                      required
+                                      maxLength={20}
+                                      data={`self-approve-${r.approval_id}`}
+                                    />
+                                    <SubmitButton
+                                      pendingLabel="Starting…"
+                                      className="rounded-md bg-mulberry px-3 py-1.5 text-xs font-bold text-white dark:text-cream"
+                                    >
+                                      Approve my own request
+                                    </SubmitButton>
+                                    <span className="max-w-[220px] text-right text-[11px] text-ink/55">
+                                      Or a different admin can decide it now.
+                                    </span>
+                                  </form>
+                                ) : (
+                                  <p className="max-w-[220px] text-right text-xs text-ink/70">
+                                    {st.kind === 'waiting'
+                                      ? `Typed by you · runs in ${waitWords(st.msLeft)}`
+                                      : 'Its 24 hours have passed · runs on the next visit'}
+                                    <br />
+                                    <span className="text-ink/55">You were emailed when it started waiting and will be when it runs.</span>
+                                  </p>
+                                )}
+                                <form action={adminTeamAct}>
+                                  <input type="hidden" name="op" value="withdraw" />
+                                  <input type="hidden" name="approval_id" value={r.approval_id} />
+                                  <SubmitButton
+                                    pendingLabel="Cancelling…"
+                                    className="rounded-md border border-danger-700/30 bg-raised px-3 py-1.5 text-xs font-bold text-danger-700"
+                                  >
+                                    Cancel
+                                  </SubmitButton>
+                                </form>
+                              </>
+                            );
+                          })()
+                        ) : (
+                          <>
+                            <p className="max-w-[200px] text-right text-xs text-terracotta-700">
+                              You initiated this — a different admin must decide it.
+                            </p>
+                            <form action={adminTeamAct}>
+                              <input type="hidden" name="op" value="withdraw" />
+                              <input type="hidden" name="approval_id" value={r.approval_id} />
+                              <SubmitButton
+                                pendingLabel="Withdrawing…"
+                                className="rounded-md border border-ink/20 bg-raised px-3 py-1.5 text-xs font-bold text-ink"
+                              >
+                                Withdraw
+                              </SubmitButton>
+                            </form>
+                          </>
+                        )
                       ) : (
-                        <>
-                          <SubmitButton
-                            formAction={approveRequest}
-                            pendingLabel="Approving…"
-                            className="rounded-md bg-success-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-success-700"
-                          >
-                            ✓ Approve &amp; execute
-                          </SubmitButton>
-                          <input
-                            type="text"
-                            name="reason"
-                            placeholder="reason (for reject)"
-                            className="w-44 rounded-md border border-ink/15 bg-white px-2 py-1 text-xs"
-                          />
-                          <SubmitButton
-                            formAction={rejectRequest}
-                            pendingLabel="Rejecting…"
-                            className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
-                          >
-                            Reject
-                          </SubmitButton>
-                        </>
+                        (() => {
+                          const area = areaForApprovalAction(r.action_type);
+                          const canDecide = area ? canWith(powers, area, 'escalated') : false;
+                          const why = area
+                            ? refusalFor(powers, area, 'escalated')
+                            : 'This kind of request has no area yet, so nobody can decide it.';
+                          const esc = escalationFor(r.approval_id);
+                          return (
+                            <>
+                              <form className="flex flex-col items-end gap-2">
+                                <input type="hidden" name="approval_id" value={r.approval_id} />
+                                <SubmitButton
+                                  formAction={approveRequest}
+                                  disabled={!canDecide}
+                                  pendingLabel="Approving…"
+                                  className="rounded-md bg-success-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-success-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  ✓ Approve &amp; execute
+                                </SubmitButton>
+                                <input
+                                  type="text"
+                                  name="reason"
+                                  disabled={!canDecide}
+                                  placeholder="reason (for reject)"
+                                  className="w-44 rounded-md border border-ink/15 bg-white px-2 py-1 text-xs disabled:opacity-40"
+                                />
+                                <SubmitButton
+                                  formAction={adminTeamAct}
+                                  name="op"
+                                  value="reject"
+                                  disabled={!canDecide}
+                                  pendingLabel="Rejecting…"
+                                  className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  Reject
+                                </SubmitButton>
+                              </form>
+                              {!canDecide ? (
+                                <p className="flex items-center gap-1 text-[11px] text-ink/60">
+                                  <span>Escalated in {adminAreaLabel(area)}</span>
+                                  <InfoTip label="" ariaLabel="Why it is greyed" align="end">
+                                    {why}
+                                  </InfoTip>
+                                </p>
+                              ) : null}
+                              {esc ? (
+                                <p className="max-w-[220px] text-right text-[11px] text-ink/65">
+                                  Waiting for an Escalated admin · escalated by {nameOf(esc.escalated_by)} ·{' '}
+                                  {timeAgo(esc.created_at)} — “{esc.note}”
+                                </p>
+                              ) : !canDecide && area && canWith(powers, area, 'basic') ? (
+                                <form action={adminTeamAct} className="flex w-64 flex-col items-end gap-1">
+                                  <input type="hidden" name="op" value="escalate" />
+                                  <input type="hidden" name="area" value={area} />
+                                  <input type="hidden" name="item_kind" value="approval" />
+                                  <input type="hidden" name="item_id" value={r.approval_id} />
+                                  <input
+                                    type="hidden"
+                                    name="item_label"
+                                    value={`${approvalActionLabel(r.action_type)} → ${targetLabel(r)}`}
+                                  />
+                                  <NoteField
+                                    fieldName="note"
+                                    name="Note for them"
+                                    empty="What you saw, what you suggest"
+                                    required
+                                    long
+                                    data={`escalate-${r.approval_id}`}
+                                  />
+                                  <SubmitButton
+                                    pendingLabel="Escalating…"
+                                    className="rounded-md border border-ink/20 bg-raised px-3 py-1 text-xs font-bold text-ink"
+                                  >
+                                    Escalate ▸
+                                  </SubmitButton>
+                                </form>
+                              ) : null}
+                            </>
+                          );
+                        })()
                       )}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      {/* ESCALATED — waiting for an Escalated admin (DECISION_LOG 2026-11-13) */}
+      <section className="mb-10">
+        <h2 className="mb-3 sn-eye">
+          Waiting for an Escalated admin ({escalations === null ? '—' : escalations.length})
+        </h2>
+        {escalations === null ? (
+          <p role="alert" className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70">
+            <strong className="text-ink">Escalations could not be read.</strong> This is not “nothing escalated” — reload.
+          </p>
+        ) : escalations.length === 0 ? (
+          <p className="text-xs text-ink/55">Nothing has been sent up.</p>
+        ) : (
+          <ul className="space-y-2">
+            {escalations.map((e) => {
+              const canResolve = canWith(powers, e.area, 'escalated');
+              return (
+                <li key={e.escalation_id} className="sn-row p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink">{e.item_label || `${e.item_kind} · ${e.item_id}`}</p>
+                      <p className="mt-1 text-xs text-ink/60">
+                        {adminAreaLabel(e.area)} · escalated by{' '}
+                        <strong className="text-ink/80">{nameOf(e.escalated_by)}</strong> · {timeAgo(e.created_at)}
+                      </p>
+                      <p className="mt-1 text-sm text-ink/80">“{e.note}”</p>
+                    </div>
+                    <form action={adminTeamAct} className="flex w-64 shrink-0 flex-col items-end gap-1.5">
+                      <input type="hidden" name="op" value="resolve" />
+                      <input type="hidden" name="escalation_id" value={e.escalation_id} />
+                      {canResolve ? (
+                        <NoteField
+                          fieldName="note"
+                          name="What you decided"
+                          empty="Optional"
+                          data={`resolve-${e.escalation_id}`}
+                        />
+                      ) : null}
+                      <SubmitButton
+                        disabled={!canResolve}
+                        pendingLabel="Marking…"
+                        className="rounded-md bg-mulberry px-3 py-1.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:text-cream"
+                      >
+                        Mark handled
+                      </SubmitButton>
+                      {!canResolve ? (
+                        <span className="flex items-center gap-1 text-[11px] text-ink/60">
+                          Escalated in {adminAreaLabel(e.area)}
+                          <InfoTip label="" ariaLabel="Why it is greyed" align="end">
+                            {refusalFor(powers, e.area, 'escalated')}
+                          </InfoTip>
+                        </span>
+                      ) : null}
                     </form>
                   </div>
                 </li>
@@ -384,17 +608,17 @@ export default async function AdminApprovalsPage() {
               ),
             },
             {
+              // "by <name> · time" on every acted row (DECISION_LOG 2026-11-13).
               header: 'By',
-              hideBelow: 'md',
-              cell: (r) => <span className="text-ink/70">{nameOf(r.decided_by)}</span>,
-            },
-            {
-              header: 'When',
-              mono: true,
-              align: 'right',
               cell: (r) => (
                 <span className="text-ink/70">
-                  {r.decided_at ? timeAgo(r.decided_at) : '—'}
+                  by {nameOf(r.decided_by)}
+                  {r.decided_by && r.decided_by === r.initiated_by
+                    ? r.status === 'withdrawn'
+                      ? ' (cancelled own request)'
+                      : ' (own request · after 24 h)'
+                    : ''}{' '}
+                  · {r.decided_at ? timeAgo(r.decided_at) : '—'}
                 </span>
               ),
             },

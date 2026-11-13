@@ -380,10 +380,10 @@ export const ADMIN_TABS: readonly AdminTab[] = [
 
 /** Admin-of-admin — under the avatar, never a tab (owner 2026-11-13). */
 export const ADMIN_AVATAR_ROWS: readonly AdminAvatarRow[] = [
-  // Areas × Basic/Escalated is being built in the Team slice; its page sets href.
-  { key: 'team', label: 'Team & permissions', href: null, slice: 'admin-team-areas-levels' },
+  // Areas × Basic/Escalated — the Team slice's page (2026-11-13).
+  { key: 'team', label: 'Team & permissions', href: '/admin/team', slice: 'admin-team-areas-levels' },
   // A page over admin_audit_log, built with the Team slice (who-did-it).
-  { key: 'admin-log', label: 'Admin log', href: null, slice: 'admin-team-areas-levels' },
+  { key: 'admin-log', label: 'Admin log', href: '/admin/admin-log', slice: 'admin-team-areas-levels' },
   {
     key: 'secrets',
     label: 'Secrets & integrations',

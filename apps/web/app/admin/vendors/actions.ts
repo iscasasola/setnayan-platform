@@ -1,5 +1,6 @@
 'use server';
 
+import { requireAdminCan } from '@/lib/admin/can.server';
 import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -444,6 +445,8 @@ function wantsGiftsReturn(formData: FormData): boolean {
  */
 export async function setVendorTier(formData: FormData): Promise<void> {
   const { adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): plans · escalated.
+  await requireAdminCan('plans', 'escalated');
   const vendorId = String(formData.get('vendor_id') ?? '').trim();
   const tier = String(formData.get('tier_state') ?? '').trim();
   if (vendorId.length === 0) throw new Error('Missing vendor_id.');
@@ -600,6 +603,8 @@ type VendorCompableSku = keyof typeof VENDOR_COMPABLE_SKUS;
  */
 export async function issueVendorSkuComp(formData: FormData): Promise<void> {
   const { adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): gifts_comps · escalated.
+  await requireAdminCan('gifts_comps', 'escalated');
   const vendorId = String(formData.get('vendor_id') ?? '').trim();
   const sku = String(formData.get('sku') ?? '').trim();
   if (vendorId.length === 0) throw new Error('Missing vendor_id.');
@@ -786,6 +791,8 @@ export async function executeVendorSkuComp(
  */
 export async function setVendorFoundingSupplier(formData: FormData): Promise<void> {
   const { adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): gifts_comps · escalated.
+  await requireAdminCan('gifts_comps', 'escalated');
   const vendorId = String(formData.get('vendor_id') ?? '').trim();
   const raw = String(formData.get('is_founder') ?? '').trim();
   if (vendorId.length === 0) throw new Error('Missing vendor_id.');

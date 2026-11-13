@@ -1,5 +1,6 @@
 'use server';
 
+import { requireAdminCan } from '@/lib/admin/can.server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
@@ -102,6 +103,8 @@ async function requireAdmin() {
  */
 export async function toggleTeamMember(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): team · escalated.
+  await requireAdminCan('team', 'escalated');
   const targetUserId = formData.get('user_id');
   const desiredRaw = formData.get('desired');
   if (typeof targetUserId !== 'string' || typeof desiredRaw !== 'string') {
@@ -233,6 +236,8 @@ async function requestTeamMemberGrant(
  */
 export async function forceSignOutUser(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): fraud · escalated.
+  await requireAdminCan('fraud', 'escalated');
   const targetUserId = formData.get('user_id');
   if (typeof targetUserId !== 'string' || targetUserId.length === 0) {
     throw new Error('Invalid input');
@@ -298,6 +303,8 @@ export async function forceSignOutUser(formData: FormData) {
  */
 export async function deleteUser(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): deletions · escalated.
+  await requireAdminCan('deletions', 'escalated');
   const targetUserId = formData.get('user_id');
   if (typeof targetUserId !== 'string') throw new Error('Invalid input');
   if (targetUserId === adminUserId) {
@@ -337,6 +344,8 @@ export async function deleteUser(formData: FormData) {
  */
 export async function blacklistUser(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): fraud · escalated.
+  await requireAdminCan('fraud', 'escalated');
   const targetUserId = formData.get('user_id');
   const reasonRaw = formData.get('reason');
   if (typeof targetUserId !== 'string') throw new Error('Invalid input');
@@ -390,6 +399,8 @@ export async function blacklistUser(formData: FormData) {
  */
 export async function unblacklistEmail(formData: FormData) {
   await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): fraud · escalated.
+  await requireAdminCan('fraud', 'escalated');
   const blacklistId = formData.get('blacklist_id');
   if (typeof blacklistId !== 'string') throw new Error('Invalid input');
 
@@ -414,6 +425,8 @@ export async function unblacklistEmail(formData: FormData) {
  */
 export async function resetUserPassword(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): help · basic.
+  await requireAdminCan('help', 'basic');
   const targetUserId = formData.get('user_id');
   if (typeof targetUserId !== 'string') {
     throw new Error('Invalid input');
@@ -496,6 +509,8 @@ function generateTempPassword(): string {
  */
 export async function confirmUserEmail(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): help · basic.
+  await requireAdminCan('help', 'basic');
   const targetUserId = formData.get('user_id');
   if (typeof targetUserId !== 'string') {
     throw new Error('Invalid input');
@@ -595,6 +610,8 @@ function wantsGiftsReturn(formData: FormData): boolean {
  */
 export async function issueCompGrant(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): gifts_comps · escalated.
+  await requireAdminCan('gifts_comps', 'escalated');
 
   const targetUserId = formData.get('user_id');
   // Optional (2026-09-05, migration 20271205612762): scope the grant to ONE
@@ -843,6 +860,8 @@ export async function issueCompGrant(formData: FormData) {
  */
 export async function revokeCompGrant(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): gifts_comps · escalated.
+  await requireAdminCan('gifts_comps', 'escalated');
 
   const grantId = formData.get('grant_id');
   const reasonRaw = formData.get('reason');

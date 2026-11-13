@@ -1,5 +1,6 @@
 'use server';
 
+import { requireAdminCan } from '@/lib/admin/can.server';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import jsQR from 'jsqr';
@@ -499,6 +500,8 @@ async function saveReceivingAccount(
 
 export async function savePaymentInstruments(formData: FormData) {
   const { userId: adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): receiving_accounts · escalated.
+  await requireAdminCan('receiving_accounts', 'escalated');
 
   const intent = formData.get('intent');
   if (
@@ -622,6 +625,8 @@ async function decodeMerchantQrPayload(file: File): Promise<string | null> {
 
 export async function uploadMerchantQr(formData: FormData) {
   const { userId: adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): receiving_accounts · escalated.
+  await requireAdminCan('receiving_accounts', 'escalated');
   // `kind` is the receiving account's id (the list, owner 2026-10-01). It must
   // name an account Setnayan has — a QR for nothing is refused, not stored.
   const kind = nullIfBlank(formData.get('kind'));
@@ -714,6 +719,8 @@ export async function uploadMerchantQr(formData: FormData) {
 
 export async function removeMerchantQr(formData: FormData) {
   await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): receiving_accounts · escalated.
+  await requireAdminCan('receiving_accounts', 'escalated');
   const kind = nullIfBlank(formData.get('kind'));
   if (!kind) throw new Error('Invalid QR kind');
 

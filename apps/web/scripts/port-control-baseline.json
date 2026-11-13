@@ -2562,7 +2562,6 @@
         "/admin/booking-fees",
         "/admin/budget-planner",
         "/admin/categories",
-        "/admin/categories?show=requests",
         "/admin/chat-flags",
         "/admin/colours",
         "/admin/completions",
@@ -4496,19 +4495,25 @@
     },
     "/admin/queues": {
       "files": [
+        "admin/queues/_components/green-batch.tsx",
         "admin/queues/_components/queue-drawer.tsx",
         "admin/queues/_components/queues-triage-feed.tsx",
         "admin/queues/loading.tsx",
         "admin/queues/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "approvePaymentFromWorkList"
+      ],
       "blocks": [
+        "ConfirmForm",
+        "GreenBatchAction",
         "Icon",
         "LaneChips",
         "Link",
         "PageMasthead",
         "QueueDrawer",
+        "SubmitButton",
         "TriageRow",
         "TriageStrip"
       ]
@@ -5459,6 +5464,7 @@
         "Link",
         "MsgsBody",
         "NamesBody",
+        "PaymentLightsRead",
         "PickMenu",
         "Preview",
         "QueuesTriageFeed",

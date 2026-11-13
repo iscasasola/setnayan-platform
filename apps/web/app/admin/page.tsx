@@ -15,7 +15,6 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   getAdminQueueDigest,
   deriveQueueUrgency,
-  computeDueState,
   compareQueuePriority,
   ageShort,
   ADMIN_QUEUE_META,
@@ -41,6 +40,8 @@ type LaneTile = {
   oldestAt?: string | null;
   /** `null` = this queue has no clock (the admin is not who clears it). */
   slaHours?: number | null;
+  /** A trail to watch — its tile shows the week's number; the lane total leaves it out. */
+  watchOnly?: boolean;
 };
 
 export default async function AdminOverview() {
@@ -51,9 +52,8 @@ export default async function AdminOverview() {
   const admin = createAdminClient();
 
   const head = { count: 'exact', head: true } as const;
-  // Stats + the one Action-queue NOT in the shared digest (taxonomy requests is
-  // a Data-Structure governance queue, not a Work-nav queue), fetched alongside
-  // the shared queue digest. Every OTHER queue count + its urgency now comes
+  // Stats, fetched alongside the shared queue digest. Every queue count + its
+  // urgency comes
   // from the ONE source (lib/admin/queue-counts.ts) — same numbers as the nav
   // badges + the /admin/work command center, by construction. This removes the
   // 3rd hand-maintained copy of the per-queue filters (which had drifted before).
@@ -67,7 +67,6 @@ export default async function AdminOverview() {
       threadsRes,
       internalRes,
       teamPoolRes,
-      taxonomyReqRes,
     ],
     digest,
   ] = await Promise.all([
@@ -81,11 +80,9 @@ export default async function AdminOverview() {
       admin.from('chat_threads').select('*', head),
       admin.from('users').select('*', head).eq('is_internal', true),
       admin.from('users').select('*', head).eq('is_team_member', true),
-      // Taxonomy requests — vendor category/refinement proposals awaiting review.
-      admin
-        .from('taxonomy_category_requests')
-        .select('*', head)
-        .eq('status', 'pending'),
+      // Category requests USED TO be read here as the one queue outside the
+      // shared digest. Since 2026-11-13 it counts there (`service-requests`),
+      // so the tile below reads the same number as Work and the nav.
     ]),
     // Degrades to an empty digest on failure (council fix #3) — cache()
     // memoizes a REJECTED promise, so without this catch one bad fetch would
@@ -106,9 +103,7 @@ export default async function AdminOverview() {
 
   // Per-queue tile builder — count + urgency + the oldest-open timestamp and
   // SLA window from the shared digest (council fix #11: a tile can now say HOW
-  // late a queue is, not just that it has work). Taxonomy stays standalone —
-  // it's a Data-Structure governance queue with no digest row / SLA clock.
-  const taxonomy = take(taxonomyReqRes.count);
+  // late a queue is, not just that it has work).
   const queueTile = (
     k: string,
     label: string,
@@ -122,6 +117,7 @@ export default async function AdminOverview() {
     state: urgency.states[k],
     oldestAt: digest[k]?.oldestAt ?? null,
     slaHours: ADMIN_QUEUE_META[k]?.slaHours,
+    watchOnly: ADMIN_QUEUE_META[k]?.watchOnly === true,
   });
 
   // Lanes — the overview's OWN curated consequence grouping (Trust & supply /
@@ -141,19 +137,14 @@ export default async function AdminOverview() {
           'Supplier-to-supplier claims to verify',
           '/admin/vendor-partnerships',
         ),
-        {
-          label: 'Category requests',
-          value: taxonomy,
-          // Taxonomy is the one tile with no digest row and no SLA clock, so it
-          // carried NO urgency state at all — which the shared comparator would
-          // read as `unknown` and sink below every queue that merely has work.
-          // Its honest state is the existing no-clock rule (count > 0 ⇒ 'ok',
-          // empty ⇒ 'clear', unavailable ⇒ 'unknown'). Render-neutral: the tile
-          // paints identically for 'ok' and for no state at all.
-          state: computeDueState({ count: taxonomy, oldestAt: null }, null, nowMs),
-          sub: 'Suppliers asking for a category we do not have',
-          href: '/admin/categories?show=requests',
-        },
+        // Category requests — in the shared digest since 2026-11-13 (`service-requests`,
+        // no clock), so it carries the same count + state as every other tile.
+        queueTile(
+          'service-requests',
+          'Category requests',
+          'Suppliers asking for a category we do not have',
+          '/admin/categories/requests',
+        ),
         queueTile(
           'payment-options',
           'Payment options',
@@ -171,6 +162,11 @@ export default async function AdminOverview() {
           'Booked work neither side has signed off',
           '/admin/completions',
         ),
+        /* ADDED 2026-11-13 — the silent queues got counts (admin slice 4) and
+           leave the count-less "More queues" list below. */
+        queueTile('fraud', 'Fraud queue', 'Auto-suspended suppliers to look at', '/admin/fraud'),
+        queueTile('repost-watch', 'Repost watch', 'Reposted pictures + QR codes in media', '/admin/repost-watch'),
+        queueTile('editorial-review', 'Editorial review', 'Flagged editorials — the couple waits', '/admin/editorial-review'),
       ],
     },
     {
@@ -238,16 +234,22 @@ export default async function AdminOverview() {
         ),
         queueTile('help', 'Help tickets', 'Open · 24-hr SLA', '/admin/help'),
         queueTile('corrections', 'Profile corrections', 'Shops asking to fix a locked detail', '/admin/corrections'),
+        /* ADDED 2026-11-13 — the silent queues (admin slice 4). */
+        queueTile('pakanta', 'Music Maker queue', 'Paid songs still to write', '/admin/pakanta'),
+        queueTile('social-queue', 'Social queue', 'Failed auto-posts + take-downs owed', '/admin/studio?tab=social-queue'),
+        queueTile('problems', 'Problems', 'Things failing in the app', '/admin/app-performance?tab=connection-logs'),
+        queueTile('email-bounces', 'Email bounces', 'Emails this week that did not arrive', '/admin/settings?tab=notifications'),
+        queueTile('pax-changes', 'Pax changes', 'Guest-count cost changes this week', '/admin/pax-changes'),
+        queueTile('supplier-refunds', 'Supplier refunds', 'Refunds suppliers recorded this week', '/admin/payments/supplier-refunds'),
       ],
     },
   ];
 
   // Tell "genuinely empty" from "read failed": a null count (degraded query)
-  // must NOT render a reassuring all-clear. taxonomy is the standalone queue, so
-  // a null there counts as unavailable too.
-  const anyUnavailable = urgency.unknownCount > 0 || taxonomy === null;
+  // must NOT render a reassuring all-clear.
+  const anyUnavailable = urgency.unknownCount > 0;
   // Cleared-queues share for the KPI ring (council fix #10) — queues whose
-  // dueState is 'clear' over every canonical queue (taxonomy excluded: no SLA).
+  // dueState is 'clear' over every canonical queue.
   const queueTotal = Object.keys(ADMIN_QUEUE_META).length;
   const clearedQueues = Object.values(urgency.states).filter((st) => st === 'clear').length;
   const clearedPct = queueTotal > 0 ? (clearedQueues / queueTotal) * 100 : 0;
@@ -586,15 +588,9 @@ export default async function AdminOverview() {
         })}
       </div>
 
-      {/* MORE QUEUES · the act-now queues whose open count is COMPUTED per item
-       *  (cross-table joins / severity from a jsonb array / a JS "stuck" cut)
-       *  rather than a single-table head-count — so they deliberately carry NO
-       *  badge in the shared digest (see lib/admin/queue-counts.ts). Without a
-       *  landing entry they were undiscoverable once the Overview sidebar
-       *  section defaults collapsed; these count-less tiles restore the
-       *  "reachable via the page tiles" contract. No fabricated numbers —
-       *  each is a plain destination. Several are time-sensitive (fraud /
-       *  corrections / repost watch). */}
+      {/* MORE QUEUES · once the count-less queues; since 2026-11-13 every one of
+       *  them counts in the shared digest (lib/admin/queue-counts.ts) and has a
+       *  tile above. What is left here is a checklist, not a queue. */}
       <section aria-label="More queues" className="mb-8">
         <h2 className="sn-sec">More queues</h2>
         {/* ⚠ THIS CAPTION WAS FALSE FOR TWO OF ITS OWN TILES. It said "these
@@ -602,11 +598,11 @@ export default async function AdminOverview() {
             counted badge since 2026-08-19 — which is the sentence that told
             every reader, including the owner, not to expect a number from the
             one desk that had work in it. Both now have counted tiles above and
-            are gone from this list. */}
+            are gone from this list. ✅ 2026-11-13: fraud, repost watch, pax
+            changes, Music Maker and editorial review followed them (admin slice
+            4) — each has a counted tile above now. */}
         <p className="mb-4 mt-0.5 text-sm text-[color:var(--sn-ink-500)]">
-          These carry no live count — their open work is worked out per item, so
-          open each to see what&rsquo;s waiting. Fraud and repost watch are
-          time-sensitive.
+          This one carries no live count — it is a checklist, not a queue.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Tile
@@ -614,36 +610,6 @@ export default async function AdminOverview() {
             icon="shield-check"
             title="Data Privacy & NPC Filing"
             body="Approve privacy-sensitive capabilities, track filing coverage, and work down the NPC pre-filing checklist — one hub (RA 10173)."
-          />
-          <Tile
-            href="/admin/fraud"
-            icon="shield-check"
-            title="Fraud queue"
-            body="Supplier fraud signals + enforcement to review."
-          />
-          <Tile
-            href="/admin/repost-watch"
-            icon="shield-check"
-            title="Repost watch"
-            body="Possible reposted / ghost listings + QR-media flags."
-          />
-          <Tile
-            href="/admin/pax-changes"
-            icon="users"
-            title="Pax changes"
-            body="Guest-count-driven supplier cost changes to review."
-          />
-          <Tile
-            href="/admin/pakanta"
-            icon="camera"
-            title="Music Maker queue"
-            body="Custom-song writing + delivery to move along."
-          />
-          <Tile
-            href="/admin/editorial-review"
-            icon="message-square"
-            title="Editorial review"
-            body="Flagged editorial content awaiting a decision."
           />
         </div>
       </section>
@@ -798,6 +764,8 @@ function laneRollup(tiles: LaneTile[]): {
   let overdue = false;
   let dueSoon = false;
   for (const t of tiles) {
+    // A trail to watch shows its own number on its tile, never in "N open".
+    if (t.watchOnly) continue;
     if (t.value === null || t.value === undefined) {
       unavailable = true;
       continue;

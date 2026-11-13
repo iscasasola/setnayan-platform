@@ -3,7 +3,7 @@ import { keepLineStructure, lineStructureOf } from '@/lib/quote-line-structure';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_QUOTE_NOTE_TAIL } from './accepted-quote-terms';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { demoBookingRefusal } from '@/lib/demo-scope';
+import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
 import { fetchOwnVendorProfile, type VendorProfileRow } from '@/lib/vendor-profile';
 import { fetchThreadById, type ChatThreadRow } from '@/lib/chat';
 import { notifyOtherParty } from '@/lib/chat-actions';
@@ -66,6 +66,9 @@ export type SendProposalError =
   | 'lock_requested'
   // 🎁 the shop's own gifts on the quote did not fit (over the limit, short in stock, off sale) — re-judged on send.
   | 'gift_refused'
+  // 🧪 the demo rule (lib/demo-scope.ts): a demo shop on a real event, or a real shop on a demo event. `message` is the
+  // sentence that says which — the senders show it instead of "please try again", because trying again never works.
+  | 'demo_scope'
   | 'failed';
 
 export type SendProposalResult =
@@ -97,6 +100,17 @@ export interface SendProposalInput {
 /* ──────────────────────────────────────────────────────────────────────── */
 /* Shared gating + card-post (identical under both send paths)              */
 /* ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The draft INSERT failed. The trigger `refuse_demo_cross_booking` is the backstop for the demo rule — its refusal gets
+ * its own sentence; anything else is logged with its Postgres code (the generic notice alone hid the cause, 13 Nov).
+ */
+function insertRefusal(insErr: { code?: string; message?: string } | null): { ok: false; code: SendProposalError; message: string } {
+  const demo = demoRefusalFromDbError(insErr);
+  if (demo) return { ok: false, code: 'demo_scope', message: demo };
+  console.error('[proposal-send] draft insert refused:', insErr?.code ?? 'no row', insErr?.message ?? '');
+  return { ok: false, code: 'failed', message: 'Couldn’t send that quote. Please try again.' };
+}
 
 type ThreadGate =
   | { ok: true; user: { id: string }; profile: VendorProfileRow; thread: ChatThreadRow }
@@ -143,7 +157,7 @@ async function gateVendorProposalThread(
       eventId: thread.event_id,
       vendorProfileId: profile.vendor_profile_id,
     });
-    if (demoRefusal) return { ok: false, code: 'failed', message: demoRefusal };
+    if (demoRefusal) return { ok: false, code: 'demo_scope', message: demoRefusal };
   }
 
   // ── S5 · MAY THIS SUPPLIER RE-QUOTE? ──────────────────────────────────────
@@ -395,7 +409,7 @@ export async function sendProposalCore(
     })
     .select('proposal_id, public_id')
     .single();
-  if (insErr || !inserted) return { ok: false, code: 'failed', message: 'Couldn’t send that quote. Please try again.' };
+  if (insErr || !inserted) return insertRefusal(insErr);
 
   // 5b · Booking-fee prepaid SEND-gate RETIRED 2026-07-24 — the fee TRIGGER moved
   // to the LOCK (finalizeVendor → collectBookingFeeAtLock; base = the couple-
@@ -416,6 +430,7 @@ export async function sendProposalCore(
       .delete()
       .eq('proposal_id', inserted.proposal_id)
       .eq('status', 'draft');
+    console.error('[proposal-send] draft→sent flip refused:', sendErr.code, sendErr.message);
     return { ok: false, code: 'failed', message: 'Couldn’t send that quote. Please try again.' };
   }
 
@@ -739,7 +754,7 @@ export async function sendCustomProposalCore(
     })
     .select('proposal_id, public_id')
     .single();
-  if (insErr || !inserted) return { ok: false, code: 'failed', message: 'Couldn’t send that quote. Please try again.' };
+  if (insErr || !inserted) return insertRefusal(insErr);
 
   // Booking-fee prepaid SEND-gate RETIRED 2026-07-24 (see sendProposalCore) — the
   // fee TRIGGER moved to the LOCK. Retired to keep a single trigger; inert today.
@@ -780,6 +795,7 @@ export async function sendCustomProposalCore(
       .delete()
       .eq('proposal_id', inserted.proposal_id)
       .eq('status', 'draft');
+    console.error('[proposal-send] draft→sent flip refused:', sendErr.code, sendErr.message);
     return { ok: false, code: 'failed', message: 'Couldn’t send that quote. Please try again.' };
   }
 

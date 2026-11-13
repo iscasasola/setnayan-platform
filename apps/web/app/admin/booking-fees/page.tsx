@@ -326,7 +326,7 @@ export default async function AdminBookingFeesPage() {
                       ) : billingUnread ? (
                         <Badge tone="wait">Status unknown</Badge>
                       ) : pay?.hasProof && paymentHref ? (
-                        <ActionButton tone="ok" icon={Receipt} label="Check payment" href={paymentHref} />
+                        <ActionButton tone="ok" icon={<Receipt aria-hidden strokeWidth={1.9} />} label="Check payment" href={paymentHref} />
                       ) : (
                         <Badge tone="quiet">Billed — nothing sent yet</Badge>
                       )}

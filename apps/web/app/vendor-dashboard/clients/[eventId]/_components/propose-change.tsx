@@ -11,7 +11,8 @@
  * the typed value clears. The database decides what can be proposed (`change_request_payload_ok`) and who accepts.
  */
 import { useState, useTransition } from 'react';
-import { Loader2, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { TypedRow } from '@/app/_components/form-row';
 import { changeRequestAction } from '@/app/_actions/change-request-actions';
@@ -124,7 +125,7 @@ export function ProposeChange({
   return (
     <div className="space-y-1 py-1" data-propose-change="">
       <p className="text-sm font-medium text-ink">Propose a change</p>
-      <p className="mt-1 text-xs text-ink/60">The host or the coordinator accepts it. Nothing changes until they do.</p>
+      <p className="mt-1 text-xs text-ink/70">The host or the coordinator accepts it. Nothing changes until they do.</p>
 
       {!measured ? (
         <p className="mt-2 text-sm text-terracotta-700" data-propose-change-refused="">
@@ -208,20 +209,19 @@ export function ProposeChange({
         <TypedRow name="Why" value={note} maxLength={240} empty="Optional" onKeep={(t) => setNote(t)} data="propose-note" />
 
         {error ? (
-          <p role="alert" className="rounded-lg bg-warn-600/10 px-3 py-2 text-sm text-warn-600">
+          <p role="alert" className="text-[13px] font-semibold text-danger-700">
             {error}
           </p>
         ) : null}
 
-        <button
+        <ActionButton
           type="button"
+          tone="brand"
+          icon={Send}
+          label={pending ? 'Sending…' : 'Send to the host'}
           onClick={send}
           disabled={pending}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-sm font-medium text-cream transition hover:bg-ink/90 disabled:opacity-40"
-        >
-          {pending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-          Send to the host
-        </button>
+        />
       </div>
 
       {shown.length > 0 ? (
@@ -229,10 +229,10 @@ export function ProposeChange({
           {shown.map((m) => (
             <li key={m.changeId} className="text-sm">
               <span className="text-ink/80">{m.summary}</span>{' '}
-              <span className={m.status === 'open' ? 'text-ink/50' : m.status === 'accepted' ? 'text-success-700' : 'text-ink/50'}>
+              <span className={m.status === 'open' ? 'text-ink/70' : m.status === 'accepted' ? 'text-success-700' : 'text-ink/70'}>
                 · {changeStatusWords(m.status)}
               </span>
-              {m.answerNote ? <span className="block text-xs text-ink/55">“{m.answerNote}”</span> : null}
+              {m.answerNote ? <span className="block text-xs text-ink/70">“{m.answerNote}”</span> : null}
             </li>
           ))}
         </ul>

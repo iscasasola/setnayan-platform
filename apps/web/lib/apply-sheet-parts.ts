@@ -6,7 +6,7 @@
  * parts' own order, each group priced from the catalogue figure the bar loader read; the subtotal, the rest to
  * everything and the two buttons follow the ONE rule in `hubApplyOffer`. No second list of what is Pro, no price typed.
  *
- * ⛔ PARTS ARE OFF SALE (owner 2026-10-26, "just have the upgrade event hub pro"): no part has an active catalogue row,
+ * ⛔ PARTS ARE OFF SALE (owner 2026-10-26, "just have the upgrade Event Pro"): no part has an active catalogue row,
  * so the bar hands no part price, `pricing` is null and the sheet is the one-unlock sheet. This stays only as the
  * reader of the catalogue's switch — the iPhone app never sells parts (its Apple products are not attached).
  */

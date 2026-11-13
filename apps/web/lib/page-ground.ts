@@ -27,11 +27,11 @@
  *      and never over an ombré (an ombré is a background; decoding a video to
  *      hide it behind a gradient costs a guest's phone for nothing).
  *   3. HERO ON TOP — the couple's hero photo/video as the page background.
- *      Their own media is EVENT HUB PRO, so it shows on a Pro theme (whose
+ *      Their own media is EVENT PRO, so it shows on a Pro theme (whose
  *      resolution already required the unlock) and — owner 2026-09-29, "yes"
  *      (DECISION_LOG "A PRO COUPLE KEEPS THEIR OWN PHOTO/VIDEO BACKGROUND ON
  *      EVERY THEME") — on a FREE theme (Modern, Cyber Neon) when the event
- *      OWNS Event Hub Pro right now. A free or lapsed couple on a free theme
+ *      OWNS Event Pro right now. A free or lapsed couple on a free theme
  *      gets the theme's own loop (layer 2). Classic NEVER shows it, owner or
  *      not (*"classic has no photo or video"*) — whatever the Maker stored.
  *      The door photo (`resolveHubLook`) and the print still (`loadPrintSet`)
@@ -44,14 +44,14 @@ import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 /**
  * May the couple's own hero photo/video be laid under this theme?
  *
- *   · Classic — like any free theme: only when the event OWNS Event Hub Pro
+ *   · Classic — like any free theme: only when the event OWNS Event Pro
  *     (owner 2026-10-06, DECISION_LOG "EVENT DETAILS IS REBUILT": the old
  *     Classic "no photo or video" rule is DROPPED — own photo/video ◆ for everyone);
  *   · a PRO theme — yes: the caller hands the theme `resolveInviteTheme`
  *     answered, which is only ever a Pro theme when the unlock is held (or the
  *     host is trying it on), so ownership is already decided;
  *   · a FREE theme with a loop (Modern, Cyber Neon) — only when the event OWNS
- *     Event Hub Pro right now (`ownsPro`, measured by the caller through the
+ *     Event Pro right now (`ownsPro`, measured by the caller through the
  *     entitlement resolver AS VIEWED — "view as a free couple" sees the loop).
  *
  * `ownsPro` is REQUIRED: a default of `true` would hand a free couple Pro media
@@ -87,7 +87,7 @@ export type PageGroundFacts = {
   /** A Main background exists for this event (`resolveMainGround` answered). */
   heroGround: boolean;
   /**
-   * The event owns Event Hub Pro right now, as viewed. Only read on a free
+   * The event owns Event Pro right now, as viewed. Only read on a free
    * theme with a loop; absent = not owned (fail closed). The two client
    * callers pass `heroGround: false`, where it cannot matter.
    */

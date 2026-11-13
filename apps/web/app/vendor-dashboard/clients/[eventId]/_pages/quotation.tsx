@@ -31,7 +31,7 @@ export function QuotationPage({ ctx }: PickedPageProps) {
   return (
     <Suspense
       fallback={
-        <p className="px-4 py-6 text-sm text-ink/55" role="status" data-picked-client-page="quotation">
+        <p className="px-4 py-6 text-sm text-ink/70" role="status" data-picked-client-page="quotation">
           Loading the quote…
         </p>
       }

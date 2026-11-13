@@ -1,5 +1,5 @@
 /**
- * buying-pro-part-by-part.test.ts — 💎 PR 2 of "Event Hub Pro, part by part" (owner 2026-10-22; prototype
+ * buying-pro-part-by-part.test.ts — 💎 PR 2 of "Event Pro, part by part" (owner 2026-10-22; prototype
  * `prototypes/pro_part_by_part_2026-10-22.html` frames 1–5).
  *
  * Properties:
@@ -9,7 +9,7 @@
  *       the prototype's own numbers; no figure invented when one is unread (`apply-sheet-parts.ts`).
  *   (C) THE DOORS — the sheet has no "Go to ↗" (owner: no go-edit-elsewhere links; the row is the press); the rename
  *       asks for the Custom address part before it writes; the Maker's Apply renames through the ONE rename; the charge
- *       authority prices every Event Hub Pro key; no price typed in the new surfaces.
+ *       authority prices every Event Pro key; no price typed in the new surfaces.
  *
  * Sabotage (recorded in the PR): `sum > rest` → `sum >= rest + 1` in `hubPartsCharge` → (A) red; the sheet's lead rule
  * flipped → (B) red; a "Go to" put back → (C) red; the address gate removed from `updateEventSlug` → (C) red.
@@ -154,7 +154,7 @@ test('(C) the Maker’s Apply puts a drafted address live through the ONE rename
   assert.doesNotMatch(action, /eventsPatch\.slug|eventsPatch\['slug'\]/, 'the address reached the plain events update');
 });
 
-test('(C) the charge authority prices every Event Hub Pro key — parts, several parts, the rest', () => {
+test('(C) the charge authority prices every Event Pro key — parts, several parts, the rest', () => {
   const auth = code('lib/order-charge-authority.ts');
   // Every Pro key reaches the Pro resolver: Full Pro, one part, several parts (2026-10-26: a part key is first named
   // once, `partKey`, so it can also be refused with no event — never priced by the retail catalogue).

@@ -1,9 +1,9 @@
 /**
  * HYBRID tier feature gate — FLAG-DARK (owner 2026-07-01).
  *
- * The full-catalog audit found most Solo/Pro benefits were BUILT but ungated,
+ * The full-catalog audit found most Supplier Plus/Pro benefits were BUILT but ungated,
  * so a free vendor already got them. The owner chose HYBRID: gate the premium
- * few (Demand Radar + Theft Watch → Pro · funnel time-series → Solo) and keep
+ * few (Demand Radar + Theft Watch → Pro · funnel time-series → Supplier Plus) and keep
  * the ops spine free. The caps live in `vendor-tier-caps.ts`
  * (marketIntel / theftWatch / performanceTrends) with `canSee*` helpers.
  *

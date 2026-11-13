@@ -666,7 +666,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'Five stories are free',
-        body: 'Tell up to five stories in your words for free. More stories and your own photos come with Event Hub Pro.',
+        body: 'Tell up to five stories in your words for free. More stories and your own photos come with Event Pro.',
         sells: true,
       },
     ],
@@ -685,7 +685,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   /*
     THE MAKER'S TOUR, SHORT (owner 2026-10-02, "SIMPLIFY FIRST, THEN TOUR";
     FIRST_TIMER_TEST fix 6 — the 5-slide welcome that opened before the first
-    tap and ended on "What Event Hub Pro adds" scored the invitation HARD).
+    tap and ended on "What Event Pro adds" scored the invitation HARD).
     It no longer opens on a first visit at all: the Maker shows one quiet line,
     "Tap anything to change it", and this plays only from ⋯ › About the Maker.
     No Pro slide — Pro is met where it is tried (◆ PRO on the thing, Apply asks).
@@ -731,8 +731,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Sparkles,
-        title: 'Try it now, keep it with Event Hub Pro',
-        body: 'Try it in your draft &mdash; only you see it. It goes live for your guests when you Apply with Event Hub Pro.',
+        title: 'Try it now, keep it with Event Pro',
+        body: 'Try it in your draft &mdash; only you see it. It goes live for your guests when you Apply with Event Pro.',
         sells: true,
       },
     ],
@@ -774,7 +774,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Wand2,
         title: 'Add scenes made for after the day',
-        body: 'Press <b>+ Add a scene</b> on Post Event for twelve scenes made for the story after the day &mdash; The Toast, Before &amp; After, By Our Count, Since Then and more. Each is &#9670; Event Hub Pro: try one in your draft now, and Pro is asked for when you press <b>Apply</b>. A Pro theme, a part&rsquo;s own font and your own photos come with Pro too.',
+        body: 'Press <b>+ Add a scene</b> on Post Event for twelve scenes made for the story after the day &mdash; The Toast, Before &amp; After, By Our Count, Since Then and more. Each is &#9670; Event Pro: try one in your draft now, and Pro is asked for when you press <b>Apply</b>. A Pro theme, a part&rsquo;s own font and your own photos come with Pro too.',
         sells: true,
       },
     ],
@@ -835,7 +835,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_pro_qr_v1: {
     key: 'customer_pro_qr_v1',
     label: 'Your QR code',
-    blurb: 'First visit to the Details page: what the QR carries, and what Event Hub Pro lets you change.',
+    blurb: 'First visit to the Details page: what the QR carries, and what Event Pro lets you change.',
     slides: [
       {
         Icon: QrCode,
@@ -847,7 +847,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         title: 'Your logo in the centre',
         // A pitch: dropped in the app-store shell, price never written here.
         sells: true,
-        body: 'Free codes carry the Setnayan mark. With <strong>Event Hub Pro</strong> the centre carries your own logo, and you pick the shape (square or circle), the pattern and a colour from your Mood Board.',
+        body: 'Free codes carry the Setnayan mark. With <strong>Event Pro</strong> the centre carries your own logo, and you pick the shape (square or circle), the pattern and a colour from your Mood Board.',
       },
       {
         Icon: CheckCircle2,
@@ -885,7 +885,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         sells: true,
         // Tried free, paid at Apply (owner 2026-09-28, PR #6091): a Pro theme is
         // picked like any other and waits in the draft — no padlock, no detour.
-        body: 'The others are marked <strong>&#9670; PRO</strong>. Try one on your page for free &mdash; it waits in your draft, and <strong>Event Hub Pro</strong> puts it live when you press Apply.',
+        body: 'The others are marked <strong>&#9670; PRO</strong>. Try one on your page for free &mdash; it waits in your draft, and <strong>Event Pro</strong> puts it live when you press Apply.',
       },
     ],
   },
@@ -1318,14 +1318,14 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     slides: [
       {
         Icon: Sparkles,
-        title: 'You tried Event Hub Pro',
+        title: 'You tried Event Pro',
         body: 'Everything marked &#9670; PRO in the Maker works before you pay &mdash; it waits in your draft. This list names each Pro effect you chose, and where it is.',
         sells: true,
       },
       {
         Icon: MousePointerClick,
         title: 'Keep it, change it, or take it off',
-        body: 'Tap Go to to see an effect in the Maker, or &times; to take it off your draft. Unlock Event Hub Pro to put them all live &mdash; or apply the rest now; the Pro ones stay in your draft.',
+        body: 'Tap Go to to see an effect in the Maker, or &times; to take it off your draft. Unlock Event Pro to put them all live &mdash; or apply the rest now; the Pro ones stay in your draft.',
         sells: true,
       },
     ],

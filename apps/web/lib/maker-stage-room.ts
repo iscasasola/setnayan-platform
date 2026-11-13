@@ -96,7 +96,7 @@ export function stageBarGridPx(viewportH: number): number {
 }
 /**
  * 🫥 THE TOOLBAR SHOWS AND HIDES (owner 2026-10-30, verbatim: *"i was thinking having the bottom nav still and the
- * bottom toolbar to show and hide when not needed?"* — DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV
+ * bottom toolbar to show and hide when not needed?"* — DECISION_LOG "EVENT PRO (look redesign) — THE APP'S NAV
  * STAYS; THE EDITING TOOLBAR SHOWS AND HIDES"). Stowed, the toolbar keeps only its own top strip — the handle and the
  * "You're editing · … ▴" line — so the slim handle IS the toolbar's head, never a second bar: a tap on it brings the
  * four rows back — 44 px, a whole tap target. A phone's (and a tablet's) only; a desktop's tools column never stows.

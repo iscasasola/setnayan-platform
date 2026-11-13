@@ -81,8 +81,12 @@ export type MakerContext = {
   leaves: LeafIndex;
   /** A covered kind the shop has exactly one of — the maker pre-picks it. */
   onlyKind: string | null;
-  /** ➕ Every kind that already has a card on this shop, once each — the Add-a-service picker's "On your shop" rows. */
-  ownKinds: string[];
+  /**
+   * ➕ Every kind that already has a card on this shop, once each — the Add-a-service picker's "On your shop" rows.
+   * 🔒 `null` = the read was REFUSED, never `[]`: an empty list would offer to add what may already be on the shop as if
+   * nothing were there. The picker says so and offers nothing (`AddServicePicker`).
+   */
+  ownKinds: string[] | null;
   /**
    * A card's bookings per date, inside the plan (owner 2026-11-06): `cap` = the plan's number plus any bought
    * "+1 booking per date"; `help` = the words beside the field. Set on every plan (Free · Verified 1, owner 2026-11-06);
@@ -326,7 +330,7 @@ export async function loadMakerContext(
     branches,
     leaves,
     onlyKind: coveredChoices.length === 1 ? (coveredChoices[0]?.value ?? null) : null,
-    ownKinds: Array.from(new Set(ownCategories)),
+    ownKinds: ownRowsRes.error ? null : Array.from(new Set(ownCategories)),
     bookingsPerDate,
     kindLabel,
     giftPacks,

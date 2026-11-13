@@ -5,7 +5,16 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { servicesReturnBase } from '@/lib/vendor-services-return';
 import { QUOTE_RETURN_FIELD, QUOTE_RETURN_PARAM, quoteReturnPath, quoteReturnWithCard } from '@/lib/quote-card-return';
-import { CARD_QUEUE_FIELD, CARD_QUEUE_PARAM, cardMakerQueueHref, parseCardQueue } from '@/lib/card-queue';
+import {
+  CARD_QUEUE_FIELD,
+  CARD_QUEUE_PARAM,
+  CARD_SPECIALTIES_FIELD,
+  CARD_SPECIALTIES_PARAM,
+  cardMakerQueueHref,
+  encodeCardSpecialties,
+  parseCardQueue,
+  parseCardSpecialties,
+} from '@/lib/card-queue';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -1536,10 +1545,16 @@ export async function commitVendorService(formData: FormData) {
   // ➕ MAKE N CARDS (ruling 5820): the services still to make after this one — checked (`parseCardQueue`), only on a
   // CREATE. A refusal keeps them on the card's address; a made card opens the next one's maker (below).
   const cardQueue = isCreate ? parseCardQueue(formData.get(CARD_QUEUE_FIELD)) : [];
+  // 🏷 …and each queued service's own specialties, carried to its card (pre-ticked there, saved only with that card).
+  const queuedSpecialties = parseCardSpecialties(formData.get(CARD_SPECIALTIES_FIELD), cardQueue);
   const back = async (msg: string) => {
     if (returnTo && !(isCreate && claimToken)) {
       const keepQuote = quoteReturn ? `&${QUOTE_RETURN_PARAM}=${encodeURIComponent(quoteReturn)}` : '';
-      const keepQueue = cardQueue.length > 0 ? `&${CARD_QUEUE_PARAM}=${cardQueue.join(',')}` : '';
+      const keepSp = encodeCardSpecialties(queuedSpecialties, cardQueue);
+      const keepQueue =
+        cardQueue.length > 0
+          ? `&${CARD_QUEUE_PARAM}=${cardQueue.join(',')}${keepSp ? `&${CARD_SPECIALTIES_PARAM}=${encodeURIComponent(keepSp)}` : ''}`
+          : '';
       return redirect(`${returnTo}?error=${encodeURIComponent(msg)}${keepQuote}${keepQueue}`);
     }
     if (isCreate && claimToken && formCategory) {
@@ -2328,7 +2343,7 @@ export async function commitVendorService(formData: FormData) {
   const backToQuote = isCreate && typeof savedId === 'string' && quoteReturn ? quoteReturnWithCard(quoteReturn, savedId) : null;
   if (backToQuote) redirect(backToQuote);
   // ➕ MAKE N CARDS (ruling 5820): this card is made — the next queued service's maker opens, the rest behind it.
-  const nextCard = isCreate && typeof savedId === 'string' ? cardMakerQueueHref(cardQueue) : null;
+  const nextCard = isCreate && typeof savedId === 'string' ? cardMakerQueueHref(cardQueue, queuedSpecialties) : null;
   if (nextCard) redirect(nextCard);
   // Blank names are auto-named, never refused — so the save REPORTS how many
   // it filled in (the placeholder showed the same names before the save).

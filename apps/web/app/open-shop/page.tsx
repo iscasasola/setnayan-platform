@@ -5,10 +5,8 @@ import { shopConsolePath } from '@/lib/shop-console-path';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { fetchCategoryChipRefinementsMany } from '@/lib/vendor-service-attributes';
-import type { SpecialtyField } from './_components/service-cards';
 import { OpenShopWizard } from './_components/open-shop-wizard';
-import { getServicePickerTree } from '@/lib/service-picker-tree.server';
+import { getServicePickerSpecialties, getServicePickerTree } from '@/lib/service-picker-tree.server';
 import { readBookingFeeJoinSchedule } from '@/lib/booking-fee-disclosure.server';
 import { bookingFeeJoinDisclosure } from '@/lib/booking-fee-disclosure';
 import { getOAuthGate } from '@/lib/request-platform';
@@ -161,33 +159,9 @@ export default async function OpenShopPage({
   // 5820: the dashboard's "Add a service" draws the same picker). First-party Setnayan SKUs are stripped inside —
   // picking one would make the shop invisible on /explore. Fail-soft: [] makes the wizard fall back to its flat select.
   const serviceTree = await getServicePickerTree();
-  // ③ Each service's specialties — the CHIP-shaped refinements of its own schema (`canonical_service_schemas`, readable
-  // signed out), the same read the services manager makes (`fetchCategoryChipRefinementsMany`). An `enum` keeps one
-  // value; a `boolean` is one chip. Fail-soft: no schema = no "+ Specialties" on that service.
-  const specialties: Record<string, SpecialtyField[]> = {};
-  try {
-    const refinements = await fetchCategoryChipRefinementsMany(
-      supabase,
-      serviceTree.flatMap((p) => p.branches.flatMap((b) => b.leaves.map((l) => l.canonicalService))),
-    );
-    const words = (v: string) => v.replaceAll('_', ' ');
-    for (const [svc, r] of refinements) {
-      specialties[svc] = Object.entries(r.fields).map(([key, def]) => {
-        const label = def.label ?? words(key);
-        return def.type === 'boolean'
-          ? { key, label, options: [{ value: 'true', label }], single: true }
-          : {
-              key,
-              label,
-              options: (def.options ?? []).map((o) => ({ value: o, label: words(o) })),
-              single: def.type === 'enum',
-            };
-      }).filter((f) => f.options.length > 0);
-      if (!specialties[svc]!.length) delete specialties[svc];
-    }
-  } catch {
-    // A refused read leaves the specialties out — they are optional and never block opening a shop.
-  }
+  // ③ Each service's specialties — the CHIP-shaped refinements of its own schema, through the ONE read every door into
+  // the Add-a-service picker shares (`getServicePickerSpecialties`, ruling 5820). Fail-soft: no schema = no chips.
+  const specialties = await getServicePickerSpecialties(supabase, serviceTree);
   // The signed-in account's own name — shown read-only on step 4 rather than
   // asked (owner 2026-08-10). Fail-soft: null keeps the field editable, which is
   // the right behaviour for an account that has no display name yet.

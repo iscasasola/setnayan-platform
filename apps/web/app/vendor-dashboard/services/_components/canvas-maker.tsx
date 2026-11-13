@@ -257,6 +257,7 @@ export function CanvasMaker({
   returnTo,
   quoteReturn = null,
   cardQueue = [],
+  cardSpecialties = '',
   unread = [],
   giftPacks = null,
   giftFree = null,
@@ -345,6 +346,8 @@ export function CanvasMaker({
    * the page), posted as `card_queue` (= `CARD_QUEUE_FIELD`). A new card's save opens the next one's maker.
    */
   cardQueue?: readonly string[];
+  /** 🏷 The queued services' specialties, already checked and encoded by the page (`encodeCardSpecialties`). */
+  cardSpecialties?: string;
   /**
    * Parts of an existing card that could not be read. The save REPLACES these lists, so saving over an unread one
    * would erase it — Save waits, and the card says what could not be read (never "none").
@@ -1083,6 +1086,7 @@ export function CanvasMaker({
           {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
           {quoteReturn ? <input type="hidden" name="quote_return" value={quoteReturn} /> : null}
           {cardQueue.length > 0 ? <input type="hidden" name="card_queue" value={cardQueue.join(',')} /> : null}
+          {cardQueue.length > 0 && cardSpecialties ? <input type="hidden" name="card_specialties" value={cardSpecialties} /> : null}
 
           {/* ═══ ONE PAGE OF FIELDS — Name · Specialties · Price · What's included · Extras · Gift · Photos ═══
               The prototype's one rhythm: a label · its 48 px box · a quiet hint; a topic after the first opens with a

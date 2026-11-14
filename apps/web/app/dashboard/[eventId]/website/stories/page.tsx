@@ -143,8 +143,8 @@ export default async function EventStoriesPage({
           publishes their side of the day, it will appear here for you to add.
         </p>
       ) : (
-        {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 13): one hairline row per story, no bordered tile; the press is the
-            shared pill; no pale ink. */}
+        /* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 13): one hairline row per story, no bordered tile; the press is the
+           shared pill; no pale ink. */
         <ul className="divide-y divide-ink/10">
           {chapters.map((c) => {
             const author = authors.get(c.user_id);

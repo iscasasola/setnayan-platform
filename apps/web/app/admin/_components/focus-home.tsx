@@ -35,6 +35,7 @@ import { RequestCardView } from '../queues/_components/request-card-view';
 import { SETTLE_NOTICES } from '../queues/_components/queues-triage-feed';
 import { AdminAskPill } from './admin-ask-pill';
 import { FocusCardSheet } from './focus-card-sheet';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 type FocusRow = {
   key: string;
@@ -132,11 +133,12 @@ export async function FocusHome({
 
   return (
     <div className="mx-auto flex w-full max-w-[760px] flex-col pb-36 lg:pb-12" data-admin-focus>
+      <PageMasthead title="Focus" />
       <header className="px-4 pb-1.5 pt-5 lg:pt-7">
         <p className="text-[13px] text-[color:var(--sn-ink-500)]">{todayWords(nowMs)}</p>
-        <h1 className="mt-0.5 text-[26px] font-bold leading-tight tracking-tight text-[color:var(--sn-ink-900)]">
+        <p className="mt-0.5 text-[26px] font-bold leading-tight tracking-tight text-[color:var(--sn-ink-900)]">
           {unread.length > 0 && total === 0 ? 'Couldn’t count everything' : needsYouLine(total)}
-        </h1>
+        </p>
       </header>
 
       <div className="hidden px-4 py-2.5 lg:block">
@@ -211,7 +213,7 @@ export async function FocusHome({
       ))}
 
       {/* The phone's ask box — in the thumb zone, above the home indicator. */}
-      <div className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+14px)] z-30 lg:hidden">
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+14px)] left-[calc(var(--sn-safe-l)+0.75rem)] right-[calc(var(--sn-safe-r)+0.75rem)] z-30 lg:hidden">
         <AdminAskPill place="thumb" />
       </div>
 

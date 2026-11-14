@@ -28,6 +28,7 @@ export function AdminModeToggle({ mode }: { mode: AdminMode }) {
       /* A refused cookie only means the choice is not remembered; the link below still lands. */
     }
     router.push('/admin');
+    // one-render: keep (navigation) — it follows a cookie written in the browser and a push to /admin; no server action answered with a render.
     router.refresh();
   };
   return (

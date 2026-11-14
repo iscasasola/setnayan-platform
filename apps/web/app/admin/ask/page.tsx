@@ -10,6 +10,7 @@
  */
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PrintButton } from './print-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'What can I ask? · Admin' };
 
@@ -26,24 +27,22 @@ export default async function AdminAskPage() {
   await requireAdmin();
   return (
     <div className="mx-auto w-full max-w-[760px] px-4 py-5 print:max-w-none print:p-0" data-admin-ask-sheet>
-      <h1 className="text-[22px] font-bold tracking-tight text-[color:var(--sn-ink-900)] print:hidden">What can I ask?</h1>
+      <PageMasthead title="What can I ask?" />
 
-      <table className="mt-3 w-full text-left text-[14.5px] print:hidden">
-        <thead>
-          <tr className="text-[12px] uppercase tracking-wider text-[color:var(--sn-ink-500)]">
-            <th className="py-2 pr-3 font-semibold">You type</th>
-            <th className="py-2 font-semibold">You get</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ROWS.map((r) => (
-            <tr key={r.type} className="border-t" style={{ borderColor: 'var(--sn-line)' }}>
-              <td className="py-2.5 pr-3 text-[color:var(--sn-ink-900)]">{r.type}</td>
-              <td className="py-2.5 font-semibold text-[color:var(--sn-ink-900)]">{r.get}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <dl className="mt-3 grid grid-cols-[1fr_auto] text-[14.5px] print:hidden">
+        <dt className="py-2 pr-3 text-[12px] font-semibold uppercase tracking-wider text-[color:var(--sn-ink-500)]">You type</dt>
+        <dd className="py-2 text-[12px] font-semibold uppercase tracking-wider text-[color:var(--sn-ink-500)]">You get</dd>
+        {ROWS.map((r) => (
+          <div key={r.type} className="contents">
+            <dt className="border-t py-2.5 pr-3 text-[color:var(--sn-ink-900)]" style={{ borderColor: 'var(--sn-line)' }}>
+              {r.type}
+            </dt>
+            <dd className="border-t py-2.5 font-semibold text-[color:var(--sn-ink-900)]" style={{ borderColor: 'var(--sn-line)' }}>
+              {r.get}
+            </dd>
+          </div>
+        ))}
+      </dl>
 
       <div className="mt-4 print:hidden">
         <PrintButton />
@@ -57,16 +56,14 @@ export default async function AdminAskPage() {
           <li>Go to a page. Type its name: refunds, prices, disputes.</li>
           <li>Look something up. A name, a shop, an email, an order code.</li>
         </ol>
-        <table className="mt-2 w-full text-left text-[12.5px]">
-          <tbody>
-            {ROWS.map((r) => (
-              <tr key={r.type} className="border-t">
-                <td className="py-1.5 pr-3">{r.type}</td>
-                <td className="py-1.5 font-semibold">{r.get}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <dl className="mt-2 grid grid-cols-[1fr_auto] text-[12.5px]">
+          {ROWS.map((r) => (
+            <div key={r.type} className="contents">
+              <dt className="border-t py-1.5 pr-3">{r.type}</dt>
+              <dd className="border-t py-1.5 font-semibold">{r.get}</dd>
+            </div>
+          ))}
+        </dl>
         <p className="mt-6 text-[10px]">One A4 page · prints as is</p>
       </section>
     </div>

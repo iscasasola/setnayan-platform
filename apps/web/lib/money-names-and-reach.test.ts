@@ -38,6 +38,7 @@ import { PaymentDetailsBlock, QR_PH_LINE } from '@/app/_components/payment/payme
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { LEDGER_REFERENCE_COLUMN } from '@/app/admin/money/_components/ledger-reference-column';
 import { VendorCardTitle } from '@/app/admin/accounts/_surfaces/vendor-card-title';
+import { publicHelpSourceText } from '@/lib/help-sources.test-helper';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -157,8 +158,9 @@ test('no customer or supplier surface hard-codes "BDO or GCash" any more', () =>
 });
 
 test('the help article names no fixed account either (the § 9.1 clause quote is the published text, left alone)', () => {
-  assert.doesNotMatch(src('lib/help.ts'), /Send the amount via BDO or GCash/);
-  assert.match(src('lib/help.ts'), /any bank or e-wallet app/);
+  // help split 2026-11-14: the prose lives in lib/help/*.ts — read every file, never lib/help.ts alone.
+  assert.doesNotMatch(publicHelpSourceText(), /Send the amount via BDO or GCash/);
+  assert.match(publicHelpSourceText(), /any bank or e-wallet app/);
 });
 
 test('the surfaces that hold the open rails SAY their names', () => {

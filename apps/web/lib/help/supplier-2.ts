@@ -2,7 +2,7 @@
  * HELP SLOT H2 — supplier areas S10–S21.
  *
  * Owned by ONE answer-writing session (H2); no other session edits this file.
- * Covers: Clients · inquiries · quotes and proposals · the negotiation chat · bookings · deposits and getting paid · schedules and the calendar · files and contracts · portfolio and albums · QR · reviews · team and crew · storage.
+ * Covers: Clients · inquiries · quotes and proposals · the negotiation chat · bookings · payments and getting paid · schedules and the calendar · files and contracts · portfolio and albums · QR · reviews · team and crew · storage.
  * Where those live in the app: app/vendor-dashboard (clients, customers, proposals, offers, messages, bookings, payday, earnings, payment-options, calendar, on-the-day, contracts, forms, real-stories, recaps, locked-qr, reviews, team, manpower, branches).
  *
  * Rules every answer here obeys (each is held by a guard that reads this file):

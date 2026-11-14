@@ -21,13 +21,13 @@ async function scan(svg: string): Promise<string | null> {
   return hit?.data ?? null;
 }
 
-test('the Check-a-date code scans back to https://<site>/v/<slug>/dates exactly', async () => {
+test('the Check-a-date code scans back to https://<site>/v/<slug>/dates?src=own exactly (RW-19: the supplier’s own code)', async () => {
   for (const [origin, slug] of [
     ['https://www.setnayan.com', 'tita-nenas-catering'],
     ['https://setnayan.com/', 'setnaprod'],
   ] as const) {
     const { url, svg } = await checkADateQr(slug, origin);
-    assert.equal(url, `${origin.replace(/\/+$/, '')}/v/${slug}/dates`);
+    assert.equal(url, `${origin.replace(/\/+$/, '')}/v/${slug}/dates?src=own`);
     assert.ok(svg && svg.startsWith('<svg'), 'no code was drawn');
     assert.equal(await scan(svg), url, `the code for ${slug} did not scan to its page`);
   }

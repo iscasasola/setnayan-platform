@@ -181,7 +181,7 @@ export function PaymentScheduleEditor({
                   {i === 0 ? 'First payment' : `Payment ${i}`}
                 </span>
                 <div className="flex items-center gap-1">
-                  <ActionButton tone="neutral" quiet iconOnly icon={ArrowUp} label="Move up" onClick={() => move(i, -1)} disabled={i === 0} />
+                  <ActionButton tone="neutral" quiet iconOnly icon={ArrowUp} label="Move up" onClick={() => move(i, -1)} disabled={i === 0} className="!h-11 !w-11" />
                   <ActionButton
                     tone="neutral"
                     quiet
@@ -189,9 +189,8 @@ export function PaymentScheduleEditor({
                     icon={ArrowDown}
                     label="Move down"
                     onClick={() => move(i, 1)}
-                    disabled={i === rows.length - 1}
-                  />
-                  <ActionButton tone="danger" quiet iconOnly icon={Trash2} label="Remove payment" onClick={() => remove(i)} />
+                    disabled={i === rows.length - 1} className="!h-11 !w-11" />
+                  <ActionButton tone="danger" quiet iconOnly icon={Trash2} label="Remove payment" onClick={() => remove(i)} className="!h-11 !w-11" />
                 </div>
               </div>
 
@@ -384,8 +383,7 @@ export function PaymentScheduleEditor({
           icon={Plus}
           label={rows.length === 0 ? 'Add first payment' : 'Add payment'}
           onClick={add}
-          disabled={rows.length >= MAX_SCHEDULE_ITEMS}
-        />
+          disabled={rows.length >= MAX_SCHEDULE_ITEMS} className="!h-11" />
         {bare ? null : (
           <SupplierSubmit tone="brand" icon={<Check aria-hidden strokeWidth={1.9} />} label="Save schedule" pendingLabel="Saving…" />
         )}

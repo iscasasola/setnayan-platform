@@ -244,7 +244,7 @@ export default async function AdminIntegrationsPage({
             <>
               <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">Last tested</dt>
               <dd className="text-ink/80">
-                {new Date(lastVerifiedAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
+                {new Date(lastVerifiedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' })}
               </dd>
             </>
           ) : null}

@@ -52,19 +52,20 @@ test('2 · it rises after a delay, from an effect that never prompts', () => {
   assert.ok(!/requestPermission|subscribeThisDevice/.test(effect), 'the effect asks the browser — a prompt on paint');
 });
 
-test('3 · Yes is the profile switch\'s path, and both answers are remembered', () => {
+test('3 · Yes is the profile switch\'s path, and both answers are remembered by the ONE notice memory', () => {
   const yes = fnBody(ASK, /async function yes\(\)/);
   assert.match(yes, /await subscribeThisDevice\(\)/);
-  assert.match(yes, /rememberAnswer\(/, 'a Yes is not remembered — a failed Yes would ask again tomorrow');
-  const close = fnBody(ASK, /const close = \(\) =>/);
-  assert.match(close, /rememberAnswer\(/, 'Not now is not remembered — the ask would return on every visit');
-  assert.match(ASK, /<ReplyAskSheet mode=\{mode\} busy=\{busy\} onYes=\{yes\} onClose=\{close\} \/>/, 'the sheet is not wired to the remembering handlers');
-  assert.match(ASK, /label=\{REPLY_ASK_COPY\.notNow\}[\s\S]*?onClick=\{onClose\}/);
+  assert.match(yes, /closeNotice\(\{ id: KEY, key: KEY, kind: 'todo', ask: true/, 'a Yes is not remembered — a failed Yes would ask again tomorrow');
+  // "Not now" is the notice's own close word (one notice system, 14 Nov 2026); the old answer is honoured as legacy.
+  assert.match(ASK, /<Notice\s+kind="todo"\s+ask\s+noticeKey=\{KEY\}/, 'the ask no longer registers with the one notice system');
+  assert.match(ASK, /legacy=\{[\s\S]*?readLastAnswer\(storage\(\)\)/);
+  assert.ok(!/rememberAnswer|setItem/.test(ASK), 'a hand-written store is written again');
 });
 
-test('4 · it is the house sheet, its detail in an ⓘ', () => {
-  assert.match(ASK, /<Sheet open onClose=\{onClose\} labelledById=\{headingId\} rise>/);
-  assert.match(ASK, /<InfoTip[\s\S]*?label=\{REPLY_ASK_COPY\.title\}/);
+test('4 · it is a line in the one notice system, its detail in an ⓘ — never a sheet that rises by itself', () => {
+  assert.match(ASK, /title=\{REPLY_ASK_COPY\.title\}/);
+  assert.match(ASK, /detail=\{ios \?/);
+  assert.ok(!/<Sheet\b/.test(ASK), 'the ask pops up as a sheet again — nothing pops up by itself');
 });
 
 test('5 · the couple only — Web Push on the web, APNs in the app — told from counts already drawn', () => {

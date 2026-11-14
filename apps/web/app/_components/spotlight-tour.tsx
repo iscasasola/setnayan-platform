@@ -296,6 +296,15 @@ export function SpotlightTour({
     insets.current = safeInsets();
   }, []);
 
+  // 🔔 One notice system (owner approved 14 Nov 2026): while a tour step is lit, the page's top notices wait, so a tour
+  // and a notice never show together (`html[data-tour-running] [data-notice-slot='top']` in globals.css).
+  const lit = !!box && !done;
+  useEffect(() => {
+    if (!lit) return;
+    document.documentElement.setAttribute('data-tour-running', '');
+    return () => document.documentElement.removeAttribute('data-tour-running');
+  }, [lit]);
+
   const finish = useCallback(() => {
     setBox(null);
     setDone(true);

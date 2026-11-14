@@ -49,7 +49,7 @@ export function ShopServicesHead({ line, compact, serviceHref, bundlesOn }: { li
       >
         <div className="flex min-h-11 items-center gap-3">
           <div className="min-w-0 flex-1">
-            <h2 id="shop-services-h" className="sn-eye truncate">
+            <h2 id="shop-services-h" className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)] truncate">
               Your bundles and services
               <span
                 className="font-sans normal-case tracking-normal text-ink/70"

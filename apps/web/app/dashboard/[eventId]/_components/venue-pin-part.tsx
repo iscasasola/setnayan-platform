@@ -33,7 +33,7 @@ const PIN_SAVE_MS = 900;
 /** A shop's venue: whose pin guests follow — or that the shop has not pinned yet. */
 export function ShopPinNote({ shop, pinned }: { shop: string; pinned: boolean }) {
   return (
-    <p className={`flex items-center gap-1 text-[12px] ${pinned ? 'text-ink/55' : 'text-warn-800'}`} data-venue-shop-pin={pinned ? 'pinned' : 'unpinned'}>
+    <p className={`flex items-center gap-1 text-[12px] ${pinned ? 'text-ink/75' : 'text-warn-800'}`} data-venue-shop-pin={pinned ? 'pinned' : 'unpinned'}>
       <MapPin aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.9} />
       {shopPinLine(shop, pinned)}
     </p>
@@ -98,7 +98,7 @@ export function ManualVenuePin({
           {error}
         </p>
       ) : saved ? (
-        <p className="text-[11.5px] text-ink/55" data-venue-manual-saved="">
+        <p className="text-[12px] text-ink/75" data-venue-manual-saved="">
           {MANUAL_PIN_SAVED}
         </p>
       ) : null}

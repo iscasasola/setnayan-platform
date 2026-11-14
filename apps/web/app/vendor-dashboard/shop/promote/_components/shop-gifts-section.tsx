@@ -147,7 +147,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
           strong={stock ? formatCount(stock.papic.balance) : null}
           badge={stock ? rewardChip(rewards?.left, 'papic') : null}
         />
-        {(['event_plus', 'event_pro'] as const).map((k) => {
+        {(['event_plus', 'event_pro', 'event_ultra'] as const).map((k) => {
           const pack = packs.find((p) => p.kind === k);
           const s = stock?.[k] ?? null;
           // A count is shown once the product is on sale or the shop holds some — never a row for nothing.
@@ -157,7 +157,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
               key={k}
               data={`shop-gifts-${k.replace('_', '-')}`}
               lead={icUnlock}
-              title={pack?.title ?? (k === 'event_plus' ? 'Event Plus' : 'Event Pro')}
+              title={pack?.title ?? (k === 'event_plus' ? 'Event Plus' : k === 'event_ultra' ? 'Event Ultra' : 'Event Pro')}
               line={stockSubline(s)}
               strong={stock ? formatCount(s?.balance ?? 0) : null}
               badge={stock ? rewardChip(rewards?.left, k) : null}

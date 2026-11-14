@@ -5,7 +5,9 @@ import type { ShopGiftHoldRow, ShopGiftLedgerRow } from '@/lib/shop-gifts.server
 
 /** The gift a row moved: "1,000 credits" for Papic, "1 Event Plus" for an unlock (slice 2). */
 const giftWord = (kind: ShopGiftLedgerRow['giftKind'], n: number) =>
-  kind === 'papic' ? `${formatCount(n)} credits` : `${formatCount(n)} ${kind === 'event_plus' ? 'Event Plus' : 'Event Pro'}`;
+  kind === 'papic'
+    ? `${formatCount(n)} credits`
+    : `${formatCount(n)} ${kind === 'event_plus' ? 'Event Plus' : kind === 'event_ultra' ? 'Event Ultra' : 'Event Pro'}`;
 
 const fmtDay = (iso: string) =>
   new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
@@ -107,6 +109,7 @@ export function ShopGiftsLedger({
                 h.credits > 0 ? giftWord('papic', h.credits) : null,
                 h.plus > 0 ? giftWord('event_plus', h.plus) : null,
                 h.pro > 0 ? giftWord('event_pro', h.pro) : null,
+                h.ultra > 0 ? giftWord('event_ultra', h.ultra) : null,
               ]
                 .filter(Boolean)
                 .join(' · '),

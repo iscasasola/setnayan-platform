@@ -25,7 +25,7 @@
  * is actually on, which is what brings an OAuth round trip back to the shop
  * they were reading instead of dropping them on the account board.
  */
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
@@ -38,6 +38,10 @@ import { recallTypedEmail, rememberTypedEmail } from '@/lib/sign-in-typed-email'
 import { GUEST_SIGN_IN_WORDS } from '@/lib/sign-in-for-a-guest';
 import dynamic from 'next/dynamic';
 import { PasswordField } from '@/app/_components/password-field';
+import { earlyGoogleFold, EARLY_FOLD_GIVE_BACK_MS } from '@/lib/google-address';
+import { envFlagEnabled } from '@/lib/env-flag';
+
+const GOOGLE_DOOR_ON = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED);
 
 /*
   Loaded after the card, never with it: this card ships inside the root layout's
@@ -134,6 +138,26 @@ export function SignInCard({
   // The address typed above — tracked live, and carried across the route's
   // full-page redirect on a failed attempt, so the button needs no second input.
   const [typed, setTyped] = useState(prefilledEmail);
+  // 🚪 The fold before the door has loaded (`earlyGoogleFold`): a gmail address folds the password at once, so Tab
+  // never lands in it while the door's chunk is still on its way.
+  const formRef = useRef<HTMLFormElement>(null);
+  const giveBack = useRef<number | null>(null);
+  const foldEarly = (email: string) => {
+    const r = earlyGoogleFold(formRef.current, email, Boolean(showOAuth) && GOOGLE_DOOR_ON);
+    if (giveBack.current !== null) window.clearTimeout(giveBack.current);
+    giveBack.current =
+      r === 'folded'
+        ? window.setTimeout(() => {
+            if (formRef.current?.getAttribute('data-google-address') === 'early') earlyGoogleFold(formRef.current, '', false);
+          }, EARLY_FOLD_GIVE_BACK_MS)
+        : null;
+  };
+  useEffect(
+    () => () => {
+      if (giveBack.current !== null) window.clearTimeout(giveBack.current);
+    },
+    [],
+  );
   useEffect(() => {
     const back = recallTypedEmail();
     if (back) setTyped(back);
@@ -258,6 +282,7 @@ export function SignInCard({
       ) : null}
 
       <form
+        ref={formRef}
         action={inPlace ? submitInPlace : signInWithPassword}
         className="hr-si-form"
         onSubmit={(e) => {
@@ -281,7 +306,10 @@ export function SignInCard({
             inputMode="email"
             placeholder="you@email.com"
             defaultValue={prefilledEmail}
-            onChange={(e) => setTyped(e.target.value)}
+            onChange={(e) => {
+              setTyped(e.target.value);
+              foldEarly(e.target.value);
+            }}
             required
             className="hr-si-input"
           />

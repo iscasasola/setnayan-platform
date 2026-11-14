@@ -44,6 +44,13 @@
   - RW-276: the chat opens on the newest line and stays there while it settles (the box is re-fitted and collages load
     after mount); scrolling up is left alone. The ＋ beside the composer drew blank — its bare icon was hidden by the
     row's own menu rule; it is wrapped as the row's ＋ face is.
+- **Sign-in, a typed Google address (live fault, owner-seen)** A gmail address + Tab could land in the password box. The
+  sign-in card (/login, the sign-in pop-up, the side pane) loads the Google-address door AFTER the card; typed before it
+  arrived, nothing folded. The card now folds the password itself, on every keystroke and with no network, for an address
+  Google owns by name — hidden and disabled, so Tab cannot land there — and hands over to the door once it loads
+  (`earlyGoogleFold`). A door that never loads gives the password back after 4 s. Workspace domains still wait for the
+  door's server check. /signup and onboarding already import the door directly. Measured in a browser with the door's
+  code held back 4 s: before, the password box stayed shown and reachable; after, it is folded before Tab.
 - Guard: `apps/web/lib/the-walk-round-9.test.ts`, `apps/web/lib/admin/supplier-work.test.ts`.
 
 SPEC IMPACT: None.

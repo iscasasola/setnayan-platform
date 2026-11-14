@@ -189,3 +189,25 @@ test('RW-276 · the group chat opens on the newest line and stays there while it
   const css = readFileSync(join(process.cwd(), 'components/thumb-row.module.css'), 'utf8');
   assert.match(css, /\.menu :global\(button\[aria-haspopup='listbox'\]\) > svg \{ display: none; \}/, 'the rule the wrapper answers');
 });
+
+test('a gmail address folds the password at once on the sign-in card — before the Google door has loaded (live fault 14 Nov)', async () => {
+  const lib = code('lib/google-address.ts');
+  // Folds hidden AND disabled (Tab cannot land there; a hidden required box cannot block the form)…
+  assert.match(lib, /p\.style\.display = fold \? 'none' : '';/);
+  assert.match(lib, /for \(const i of inputs\) i\.disabled = fold;/);
+  // …only for a name Google owns (no network in the card), and hands over to the door once it is mounted.
+  assert.match(lib, /const fold = enabled && isGoogleNamedDomain\(emailDomain\(email\)\);/);
+  assert.match(lib, /if \(form\.querySelector\('\[data-google-address-door\]'\)\) return 'door';/);
+  const { EARLY_FOLD_GIVE_BACK_MS } = await import('./google-address');
+  assert.ok(EARLY_FOLD_GIVE_BACK_MS > 0 && EARLY_FOLD_GIVE_BACK_MS <= 10_000, 'a door that never loads gives the password back');
+  const card = code('app/login/_components/sign-in-card.tsx');
+  assert.match(card, /onChange=\{\(e\) => \{\s*setTyped\(e\.target\.value\);\s*foldEarly\(e\.target\.value\);\s*\}\}/);
+  assert.match(card, /earlyGoogleFold\(formRef\.current, email, Boolean\(showOAuth\) && GOOGLE_DOOR_ON\)/);
+  assert.match(card, /<form\s+ref=\{formRef\}/);
+  // The door stays the one owner once it loads: /signup and onboarding import it directly (no load window).
+  assert.match(code('app/signup/page.tsx'), /import \{ GoogleAddressDoor \} from '@\/app\/_components\/auth\/google-address-door';/);
+  assert.match(
+    code('app/onboarding/wedding/_components/onboarding-shell.tsx'),
+    /import \{ GoogleAddressDoor \} from '@\/app\/_components\/auth\/google-address-door';/,
+  );
+});

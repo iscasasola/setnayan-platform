@@ -117,3 +117,32 @@ export type GoogleDoorShell = 'web' | 'desktop' | 'native';
 export function googleDoorShell(desktopOAuth: boolean, nativeOAuth: boolean): GoogleDoorShell {
   return desktopOAuth ? 'desktop' : nativeOAuth ? 'native' : 'web';
 }
+
+/** How long an early fold waits for the door before giving the password back (a door that never loads must not strand). */
+export const EARLY_FOLD_GIVE_BACK_MS = 4000;
+
+/**
+ * 🚪 THE FOLD BEFORE THE DOOR HAS LOADED (live fault 14 Nov, owner-seen: a gmail address + Tab landed in the password
+ * box). The sign-in card loads `GoogleAddressDoor` AFTER the card (it ships in the root layout's sign-in pop-up, so the
+ * door is a separate chunk); typed before that chunk arrived, nothing folded and Tab went on to a visible password box.
+ * This runs IN the card, on every keystroke, with no network: an address Google owns BY NAME (gmail / googlemail) folds
+ * every `data-password-only` part at once — hidden AND disabled, so Tab cannot land there and a hidden `required` box
+ * cannot block the form. The door, once mounted, owns the fold from then on (it clears `early` and decides, with
+ * "Use a password instead" and Workspace domains). If the door never mounts, the password comes back after
+ * `EARLY_FOLD_GIVE_BACK_MS` — never a form with no way through. Workspace domains need the server's MX answer, so they
+ * still wait for the door.
+ */
+export function earlyGoogleFold(form: HTMLFormElement | null, email: string, enabled: boolean): 'folded' | 'unfolded' | 'door' {
+  if (!form) return 'unfolded';
+  if (form.querySelector('[data-google-address-door]')) return 'door';
+  const fold = enabled && isGoogleNamedDomain(emailDomain(email));
+  const parts = Array.from(form.querySelectorAll<HTMLElement>('[data-password-only]'));
+  for (const p of parts) {
+    p.style.display = fold ? 'none' : '';
+    const inputs = p.matches('input, button') ? [p as HTMLInputElement] : Array.from(p.querySelectorAll<HTMLInputElement>('input, button'));
+    for (const i of inputs) i.disabled = fold;
+  }
+  if (fold) form.setAttribute('data-google-address', 'early');
+  else if (form.getAttribute('data-google-address') === 'early') form.removeAttribute('data-google-address');
+  return fold ? 'folded' : 'unfolded';
+}

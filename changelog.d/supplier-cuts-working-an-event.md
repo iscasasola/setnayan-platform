@@ -21,3 +21,18 @@ Owner-approved supplier cut 7 (same DECISION_LOG row; prototype § 7). The walk:
 - Guards: new `lib/supplier-cuts-make-a-quote.test.ts`; re-aimed `lib/chat-plus-sends-a-quote-first.test.ts` (claim kept: a no-quote chat never drops a dead card; the builder keeps its name and door).
 
 SPEC IMPACT: None.
+
+## 2026-11-14 · feat(supplier): cut 5 — a supplier sets their own times before the hosts' program exists
+
+Owner-approved supplier cut 5 (same DECISION_LOG row; prototype § 5). The walk: both test events' Schedule tab said "The hosts haven't made their chapters yet" with **0 controls**, while the chat pinned "DUE NOW · Set your call time on their Schedule" — a supplier's times could only be sent as a request against a chapter the host made.
+
+- **Before the program:** the Schedule tab shows **Your times · 12 Dec** — Call time ("Your crew meets"), Arrive at the venue, Done by — three time rows that save in place ("✓ Saved"), and the line "The hosts haven't built their program yet. Your times slot in once they do."
+- **Once the program exists:** the arrival and finish slot into the first chapter the supplier is linked to as the same "<shop> arrives" / "<shop> is done" requests My times already files (the host OKs them, or Auto-agree puts them in; the host can still move them). Once — `filed_at` records it. This runs when the supplier next opens their Schedule (a client effect posting the shipped action), never as a write during a page read.
+- **The chat pin:** a call time kept here counts as set, so "Set your call time on their Schedule" turns done (`callTimeIsSet` beside the shipped `chat_call_time_for` read, in `lib/chat-pin-facts.server.ts`).
+- **Schema (ADD-ONLY):** migration `20271346335702_supplier_own_times_before_the_program.sql` — one new table `supplier_own_times` (one row per booked shop per event; three `HH:MM` wall clocks, CHECKed; `filed_at`). RLS at create; grants revoked then SELECT/INSERT/UPDATE only (no DELETE policy, no DELETE grant); the booked shop (owner or team) reads and writes its own row signed as itself; the event's people read; anon nothing. Nothing existing is altered.
+- **No new server action:** the shipped `suggestScheduleChange` takes `request: 'own_times'`.
+- `lib/supplier-own-times.ts` (pure), the `OwnTimesForm` in `supplier-schedule.tsx`, the read on the client page, lab state `/dev/supplier-lab?s=schedule&state=noprogram`.
+- Help answer `set-your-times`; a sentence on the client tour's chat stop; ⓘ on Your times.
+- Guards: `lib/supplier-cuts-own-times.test.ts`; DB `tests/db/a-supplier-keeps-own-times-before-the-program.db.test.ts` (the booked supplier writes with no program; the couple reads; the couple, another supplier, an unbooked shop and a write signed as someone else are refused with the row unchanged; non-HH:MM clocks refused; no DELETE; anon nothing).
+
+SPEC IMPACT: None (implements the approved prototype; schema is add-only).

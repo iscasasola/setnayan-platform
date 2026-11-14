@@ -443,6 +443,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
     roles: ['vendor'],
     articles: [
       {
+        // 🕕 Your times before the program exists (cut 5, 2026-11-14).
+        slug: 'set-your-times',
+        title: 'Set your call time before the hosts build their program',
+        body: 'Open the event and go to Schedule. Before the hosts build their program, it shows Your times: your call time (when your crew meets), when you arrive at the venue and when you’re done. Each saves as you set it. Once the hosts build their program, your arrival and finish slot in as moments in it — they OK them, as with any of your times — and the chat’s “Set your call time” turns done.',
+      },
+      {
         slug: 'post-an-update',
         title: 'Post an update for an event',
         body: 'Open the event in your Hub and tap Post an update at the top. Pick On site, Setup done, Ready to start, Packed up, Running late or Need help, add a note if you like, and tap Post. The couple sees it on their Event Hub; Running late and Need help also go to their coordinator as something to act on. What you posted shows under the button.',

@@ -79,7 +79,7 @@ before(async () => {
     if (booked) {
       await db.query(
         `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id)
-         VALUES ($1,'florals',$2,'contracted',100000,$3)`,
+         VALUES ($1,'catering',$2,'contracted',100000,$3)`,
         [F.eventId, `Shop ${key}`, vp],
       );
     }

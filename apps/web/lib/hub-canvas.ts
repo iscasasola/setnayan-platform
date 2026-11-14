@@ -392,7 +392,7 @@ export type HubSectionCanvas = {
    * 🎞 A POST EVENT PRESET SCENE (`lib/post-event-presets.ts`) — which of Post
    * Event's twelve presets seeded this scene of the couple's own. NOT `preset`,
    * which is the scene's motion. Its presence puts the scene on Post Event only
-   * (`widgetsGuestsMeet`) and makes showing it Event Hub Pro at Apply (E3).
+   * (`widgetsGuestsMeet`) and makes showing it Event Pro at Apply (E3).
    */
   postEventPreset?: PostEventPresetId;
   /**
@@ -459,7 +459,7 @@ export type HubSectionCanvas = {
   /**
    * 🎬 THE COVER SCENE'S ONE ENTRANCE — the hero row's only (owner-approved 2026-10-16, `lib/cover-entrance.ts`): ONE
    * value, resolved at read time onto every word that stores no Build in of its own (`resolveCoverEntrance`). Absent =
-   * The theme's own. Motion, so Event Hub Pro at Apply like a part's own motion (`HUB_CANVAS_LOOK_KEYS`).
+   * The theme's own. Motion, so Event Pro at Apply like a part's own motion (`HUB_CANVAS_LOOK_KEYS`).
    */
   entrance?: HubCoverEntrance;
 };
@@ -1661,9 +1661,9 @@ export type HubMainPattern = HubMainFx & { ground: 'pattern'; pattern: HubMainPa
  * GLOBAL SETTINGS": *"we already have the background and will just add the
  * animated background as an additional option"*). `loop` names the shipped
  * theme whose loop it is (`INVITE_THEMES[loop].media`) — ONLY the loop: the
- * fonts and colours stay the couple's own. Event Hub Pro (◆, *"pick our
+ * fonts and colours stay the couple's own. Event Pro (◆, *"pick our
  * animated loop background"* is paid): tried free in the draft, asked at Apply,
- * drawn for guests only while the event owns Event Hub Pro.
+ * drawn for guests only while the event owns Event Pro.
  */
 export type HubMainLoop = HubMainLook & HubMainFx & { ground: 'loop'; loop: InviteThemeId };
 

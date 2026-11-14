@@ -11,6 +11,11 @@ import { HUB_DRAFT_BAR_FIELD, requestMakerRefresh } from '@/lib/maker-refresh';
 import { offerScrubOutInTheLab } from '@/lib/scrub-out-offered';
 import { setStudioDraftDoor } from '@/app/dashboard/[eventId]/launch/_components/studio-info';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
+import { LabFactSheets } from '../suppliers-lab/lab-fact-sheets';
+import type { LabFactOptions } from '../suppliers-lab/fact-sheet-fixtures';
+
+/** The date sheet's lab answers: booked venues, a calendar that reads, no open change. */
+const LAB_FACT_OPTIONS: LabFactOptions = { help: 'ok', notSet: false, change: false, venues: 'booked' };
 import { previewRoleOptions } from '@/lib/preview-role';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 
@@ -147,7 +152,7 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   /* 🖼 The lab's scene of their own (`lab_own`), so the save is merged against a live state that holds it. */
   const own = labOwnKind(document.cookie.split('; ').find((c) => c.startsWith('lab_own='))?.slice('lab_own='.length));
   const scrub = labScrubOn();
-  /* 💎 `?pro=1` (`pro` below) — the lab's event owns Event Hub Pro: Apply holds nothing, as the real gate does for an unlocked event. */
+  /* 💎 `?pro=1` (`pro` below) — the lab's event owns Event Pro: Apply holds nothing, as the real gate does for an unlocked event. */
   const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD), expect: fd.get('expect'), pro: new URLSearchParams(window.location.search).get('pro') === '1', base: fd.get('base'), as: new URLSearchParams(window.location.search).get('as'), to: fd.get('to'), stamp: fd.get('stamp') }, scrub, readLabPublished(scrub), own);
   if (result.ok) {
     try {
@@ -203,7 +208,7 @@ export function MakerLabShell({
 }: {
   /** 🖨 `?prints=1` — the Prints page (R8): the shell draws Prints alone, as `/dashboard/<id>/prints` does. */
   printsPage?: boolean;
-  /** 💎 `?pro=1` — the ✓ bar of an event that owns Event Hub Pro (no Pro list at Apply). */
+  /** 💎 `?pro=1` — the ✓ bar of an event that owns Event Pro (no Pro list at Apply). */
   ownsPro?: boolean;
   /** 🍎 `?shell=1` — the app-store shell, as the real editor page builds Look for it (`lib/main-background-offered.ts`). */
   storeShellLab?: boolean;
@@ -434,6 +439,9 @@ export function MakerLabShell({
   };
   return (
     /* 🧪 Studio pages' writes (E-Gifts…) stand in locally — a lab press never reaches the database; "Accept gifts?" drafts into this lab's own counter. */
+    /* 📅 The date sheet's one read and its writes answered from the Suppliers lab's fixtures — the Maker's date Edit
+       (`stage-panel/date-edit.tsx`) opens the REAL sheet here with no session and no database. */
+    <LabFactSheets options={LAB_FACT_OPTIONS} open={null}>
     <LabStudioActions draft={labDraft as never}>
     <MakerShell
       eventId={eventId}
@@ -584,5 +592,6 @@ export function MakerLabShell({
       />
     </MakerShell>
     </LabStudioActions>
+    </LabFactSheets>
   );
 }

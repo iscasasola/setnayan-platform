@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { hidePlaceholdersBesideLogged, paymentWasLogged } from '@/lib/payment-logged';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 import { paymentProofPolicy } from '@/lib/r2-client-ref';
@@ -33,7 +34,7 @@ import {
   type DeskBillLine,
   type DeskDuplicate,
 } from '@/lib/admin-payment-desk';
-import { eventTypeLabel } from '@/lib/demand-radar';
+import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
 import { formatEventDate } from '@/lib/events';
 import {
   approvePayment,
@@ -286,7 +287,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
         logQueryError('admin/payments: payment queue', queueError);
         readFailed = 'queue';
       }
-      payments = (data ?? []) as unknown as PaymentJoined[];
+      payments = hidePlaceholdersBesideLogged((data ?? []) as unknown as PaymentJoined[]);
     }
   }
 
@@ -469,6 +470,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
         />
       ) : (
         <PaymentsList
+          typeName={await readEventTypeNames()}
           payments={payments}
           screenshotUrlMap={screenshotUrlMap}
           sameDayOrderIds={sameDayOrderIds}
@@ -684,7 +686,10 @@ function PaymentsList({
   channelSettings,
   readFailed,
   query,
+  typeName,
 }: {
+  /** 🏷 F-A-15: an event type's admin-managed name. */
+  typeName: EventTypeName;
   /** Convert-to-credits / move-to-next-event state per paid order — see readRemedyDesk. */
   remedyDesk: RemedyDesk;
   /** The receiving-accounts list, so a payment's channel id prints as its NAME. */
@@ -694,7 +699,7 @@ function PaymentsList({
   /** The search term as typed, for the no-match line. */
   query: string;
   payments: PaymentJoined[];
-  /** Which celebration each order belongs to — see fetchOrderEventInfo. */
+  /** Which event each order belongs to — see fetchOrderEventInfo. */
   eventInfo: OrderEventInfoResult;
   /** Itemised bill per order_id — see fetchDeskBills. */
   deskBills: Map<string, DeskBill>;
@@ -893,6 +898,7 @@ function PaymentsList({
               eventId={p.order?.event_id ?? null}
               info={p.order?.event_id ? (eventInfo.byEventId.get(p.order.event_id) ?? null) : null}
               readFailed={eventInfo.failed}
+              typeName={typeName}
             />
 
             {p.order ? (
@@ -917,7 +923,8 @@ function PaymentsList({
                 }
               />
               <Stat label="Reference" value={p.reference_number ?? '—'} mono />
-              <Stat label="Paid" value={p.paid_at} mono />
+              {/* 🧾 RW-37: a bill's own placeholder row (no reference, no screenshot) is not a payment — say so. */}
+              <Stat label="Paid" value={paymentWasLogged(p) ? p.paid_at : 'Nothing logged yet'} mono />
             </div>
 
             {p.order ? (
@@ -1451,7 +1458,7 @@ type OrderEventInfoResult = {
 /**
  * The event behind each order on screen — name, type, date — in one batched
  * read. `orders.event_id` was already selected on this page and used only to
- * ring same-day rows; nothing ever rendered WHICH celebration the money was
+ * ring same-day rows; nothing ever rendered WHICH event the money was
  * for.
  *
  * Distinct from fetchSameDayOrderIds on purpose: that one degrades to an empty
@@ -1491,16 +1498,18 @@ async function fetchOrderEventInfo(
 }
 
 /**
- * One line saying which celebration this money is for — or saying, plainly,
+ * One line saying which event this money is for — or saying, plainly,
  * why there isn't one. Three states that must never look alike (the same
  * principle as buyerLabel above): not event-scoped is INTENT, a failed read is
- * a fault, and a missing row means the celebration was removed.
+ * a fault, and a missing row means the event was removed.
  */
 function CelebrationLine({
   eventId,
   info,
   readFailed,
+  typeName,
 }: {
+  typeName: EventTypeName;
   eventId: string | null;
   info: OrderEventInfo | null;
   readFailed: boolean;
@@ -1509,7 +1518,7 @@ function CelebrationLine({
     return (
       <p className="text-xs text-ink/55">
         <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">For</span>{' '}
-        Not tied to a celebration — an account-level purchase.
+        Not tied to an event — an account-level purchase.
       </p>
     );
   }
@@ -1518,8 +1527,8 @@ function CelebrationLine({
       <p className="text-xs text-[color:var(--sn-warning-deep)]">
         <span className="font-mono text-[10px] uppercase tracking-[0.15em]">For</span>{' '}
         {readFailed
-          ? 'Could not read which celebration this is for — reload before approving.'
-          : 'The celebration on this bill no longer exists.'}
+          ? 'Could not read which event this is for — reload before approving.'
+          : 'The event on this bill no longer exists.'}
       </p>
     );
   }
@@ -1527,7 +1536,7 @@ function CelebrationLine({
     <p className="text-xs text-ink/65">
       <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">For</span>{' '}
       <span className="font-medium text-ink">{info.displayName}</span>
-      {info.eventType ? <> · {eventTypeLabel(info.eventType)}</> : null}
+      {info.eventType ? <> · {typeName(info.eventType)}</> : null}
       {' · '}
       {/* A NULL date must read as intent, never as a blank or a dash that looks
           like a broken join — same rule as buyerLabel. */}
@@ -2144,3 +2153,4 @@ function RecordPaymentCard({ record, query }: { record: RecordTarget; query: str
     </section>
   );
 }
+

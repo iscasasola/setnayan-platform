@@ -1005,6 +1005,28 @@ export function MakerWork({
     setEventBar?.(publicLandingUrl ? { on: guestBars, toggle: () => toggleRef.current() } : null);
   }, [setEventBar, guestBars, publicLandingUrl]);
   useEffect(() => () => setEventBar?.(null), [setEventBar]);
+  /* 📖🎁 "Reads as" (Story · Page) and, before Post Event opens, "Peek now" — the story-wide controls (owner
+     2026-11-13, "SIX CALLS SETTLED" (1)(6)). REGISTERED WITH THE MAKER, drawn by the stage toolbar while nothing is
+     picked (`stage-tools.tsx`, `data-stage-post-event-story`): they stood in this file's scenes column, which the
+     new Maker hides at every width (`maker-desk.tsx` on a desktop; the phone's navigator slot under the toolbar), so
+     no couple could reach them (F-W2-43, the live walk after #7596). */
+  const setPostEventStory = maker?.setPostEventStory;
+  const storyPostEvent = stage === 'editorial' && navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent : null;
+  const storyDraftAction = elementEditing?.draftAction ?? null;
+  useEffect(() => {
+    setPostEventStory?.(
+      storyPostEvent && storyDraftAction ? (
+        <PostEventStoryControls
+          eventId={eventId}
+          arrangement={storyPostEvent.arrangement}
+          chaptersPeek={storyPostEvent.chaptersPeek}
+          dayHappened={storyPostEvent.dayHappened}
+          draftAction={storyDraftAction}
+        />
+      ) : null,
+    );
+  }, [setPostEventStory, storyPostEvent, storyDraftAction, eventId]);
+  useEffect(() => () => setPostEventStory?.(null), [setPostEventStory]);
   /* 👁 SEE AS ▾ (PR-10) — the SAME canvas address, drawn as a sample guest:
      `?as=<state>` (lib/see-as.ts `SEE_AS_PARAM`). The draft, the
      bridge and the stage are unchanged; only who the page is drawn for. */
@@ -2606,19 +2628,6 @@ export function MakerWork({
                   A scene with nothing in it is skipped, never shown empty. The written story is free.
                 </InfoTip>
               )}
-            </li>
-          ) : null}
-          {/* 📖🎁 "Reads as" (Story · Page) and, before Post Event opens, "Peek now" — the story-wide controls, above
-              its scenes (owner 2026-11-13, "SIX CALLS SETTLED" (1)(6)). */}
-          {stage === 'editorial' && navigator.postEvent && navigator.postEvent !== 'unreadable' && elementEditing ? (
-            <li className="w-[min(20rem,80vw)] shrink-0 self-center px-1 lg:mb-2 lg:w-auto lg:self-stretch" data-maker-post-event-story="">
-              <PostEventStoryControls
-                eventId={eventId}
-                arrangement={navigator.postEvent.arrangement}
-                chaptersPeek={navigator.postEvent.chaptersPeek}
-                dayHappened={navigator.postEvent.dayHappened}
-                draftAction={elementEditing.draftAction}
-              />
             </li>
           ) : null}
           {/* 🧭 THE STAGE'S OWN LIST — what the canvas draws, in the order it

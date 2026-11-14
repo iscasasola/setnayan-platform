@@ -251,7 +251,7 @@ export function VisitsView({ stats, range }: { stats: VisitStats; range: GrowthR
           label="Top pages"
           reads="visits"
           rows={summary ? summary.pages : null}
-        readError={summary ? null : { message: 'site_visit_summary read refused (see the earlier log line)' }}
+        readError={summary ? null : { message: 'The visits could not be read (the server log says why).' }}
           rowKey={(p) => p.path}
           readPermitted
           minWidth="18rem"

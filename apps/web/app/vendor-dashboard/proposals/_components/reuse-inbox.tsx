@@ -13,18 +13,18 @@ export async function VendorReuseInbox() {
   if (!enabled || rows.length === 0) return null;
 
   return (
-    <div className="sn-tile p-4 sm:p-6">
-      <h2 className="flex items-center gap-2 text-lg font-semibold">
+    <section className="border-t border-[color:var(--m-line)] pt-4">
+      <h2 className="flex items-center gap-2 text-[15px] font-semibold text-ink">
         <RefreshCw aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} /> Re-booking requests
       </h2>
-      <p className="mt-1 text-sm text-ink/60">
+      <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">
         A past client wants to book you again for a new event. Set a fresh price, or decline if you
         no longer offer this.
       </p>
       <ul className="mt-3 space-y-3">
         {rows.map((r) => (
           <li key={r.requestId} className="rounded-lg border border-ink/10 bg-white/70 p-3">
-            <div className="text-xs font-medium uppercase tracking-wide text-ink/50">
+            <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--m-slate-2)]">
               {r.category ?? 'service'} · {r.status}
             </div>
             {r.scope.length > 0 ? (
@@ -32,12 +32,12 @@ export async function VendorReuseInbox() {
                 {r.scope.map((s, i) => (
                   <li key={i}>
                     {s.label}
-                    {s.detail ? <span className="text-ink/50"> — {s.detail}</span> : null}
+                    {s.detail ? <span className="text-[color:var(--m-slate-2)]"> — {s.detail}</span> : null}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-1 text-sm text-ink/50">No saved inclusions — quote from scratch.</p>
+              <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">No saved inclusions — quote from scratch.</p>
             )}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <form action={vendorQuoteReuseForm} className="flex items-center gap-2">
@@ -69,6 +69,6 @@ export async function VendorReuseInbox() {
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }

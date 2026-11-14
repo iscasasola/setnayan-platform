@@ -4,7 +4,7 @@
  * Owner, 2026-09-25 (DECISION_LOG "ADAPTIVE THEME"): *"if they follow a theme and
  * decide to change the background video to their own, how can we adapt everything
  * else to it. is that possible?"* → *"we can do this at no cost"*. And, on the
- * Event Hub Pro list: *"Adaptive theme is for PRO – i like this"*.
+ * Event Pro list: *"Adaptive theme is for PRO – i like this"*.
  *
  * So when the page behind every scene is the couple's OWN media instead of their
  * theme's loop — by default their HERO (owner 2026-09-25: "whatever they make on

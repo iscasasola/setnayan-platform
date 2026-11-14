@@ -77,6 +77,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
     category: 'culture',
     author: 'Setnayan Editorial',
     publishedAt: '2026-07-27',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -127,7 +128,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
         type: 'cta',
         text: 'Looking for styling and catering teams who get the season? Browse the marketplace.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -136,12 +137,13 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
     cover: '/blog/christmas.webp',
     coverAlt:
       'A warm, candlelit December wedding reception with festive touches',
-    title: 'The holiday booking crunch: securing vendors in Q4',
+    title: 'The holiday booking crunch: securing suppliers in Q4',
     excerpt:
       'The fourth quarter is when the best wedding suppliers fill up fast. Here is how to lock yours before everyone else.',
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-08-14',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -192,7 +194,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
         type: 'cta',
         text: 'Compare available suppliers side by side and book before the rush.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -396,16 +398,17 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
     cover: '/blog/news.webp',
     coverAlt:
       'A couple planning their wedding together over a laptop and a checklist',
-    title: 'What 0% commission means for couples and vendors',
+    title: 'What 0% commission means for couples and suppliers',
     excerpt:
       'Many platforms quietly take a cut of every booking. Here is what 0% commission really changes for both sides.',
     category: 'news',
     author: 'Setnayan Editorial',
     publishedAt: '2026-10-28',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
-        text: 'When you book a wedding supplier through a platform, it is fair to assume the platform makes its money somewhere. Often, that somewhere is a commission — a percentage taken from every booking. It is easy to miss because you rarely see it on the invoice, but it shapes prices all the same. We do something different: zero commission on vendor bookings. To understand why that matters, it helps to see exactly how a commission works, and who quietly ends up paying for it.',
+        text: 'When you book a wedding supplier through a platform, it is fair to assume the platform makes its money somewhere. Often, that somewhere is a commission — a percentage taken from every booking. It is easy to miss because you rarely see it on the invoice, but it shapes prices all the same. We do something different: no commission on your bookings. To understand why that matters, it helps to see exactly how a commission works, and who quietly ends up paying for it.',
       },
       {
         type: 'h2',
@@ -425,12 +428,12 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'With 0% commission, that whole layer simply disappears. We do not take a percentage of what you book, which means the supplier keeps their full fee and has no reason to inflate their price to cover a cut. The number you discuss with a vendor is the number between the two of you. Both sides come out ahead in a way that is easy to state plainly.',
+        text: 'With 0% commission, that whole layer simply disappears. We do not take a percentage of what you book, which means nothing is skimmed off the price you agree and the supplier has no reason to inflate it to cover a cut. The number you discuss with a supplier is the number between the two of you. Both sides come out ahead in a way that is easy to state plainly.',
       },
       {
         type: 'ul',
         items: [
-          'Vendors keep 100% of their booking fee — nothing is skimmed off the top.',
+          'Couples pay suppliers directly, to their GCash or bank — the money never passes through Setnayan.',
           'Couples pay no hidden platform markup folded into the supplier’s price.',
           'The quoted price is the real price, set by the supplier and agreed with you.',
           'Suppliers can price competitively without padding for a commission they would otherwise lose.',
@@ -445,14 +448,22 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
         text: 'A wedding economy works best when the couple and the supplier deal directly and fairly, with no invisible hand taking a slice in the middle. Suppliers — many of them small, family-run teams — keep what they earn, which lets them invest in their craft instead of in covering a fee. Couples get honest pricing they can actually compare, instead of numbers quietly inflated by a markup they cannot see. We earn our keep in other, transparent ways, so the booking itself can stay clean. It is a simpler arrangement, and a fairer one. It also keeps the relationship where it belongs — between you and the people actually doing the work. When no one is taking a cut of the deal, there is no pressure to route your payment a certain way or to nudge you toward whoever pays the platform the most. You choose the supplier you trust, and you settle on a price that is honest on both ends.',
       },
       {
+        type: 'h2',
+        text: 'What suppliers do pay',
+      },
+      {
         type: 'p',
-        text: 'Zero commission is not a discount or a promo — it is a structural choice. By refusing to take a cut of your bookings, we keep the supplier’s full fee with the supplier and the hidden markup out of your price. What you negotiate is what you pay.',
+        text: 'No commission does not mean suppliers pay nothing, and we would rather say so plainly. Setnayan bills a supplier a booking fee, only on the couples Setnayan introduces to them: a supplier’s first booking from Setnayan is on us, and the clients a supplier brings themselves — through their own invite, their own booking QR code or their own link — never carry a fee. The fee is charged to the supplier and is never added to what a couple pays. Suppliers can also choose an optional plan for more reach. The current rate is on the For Suppliers page.',
+      },
+      {
+        type: 'p',
+        text: 'Zero commission is not a discount or a promo — it is a structural choice. By refusing to take a cut of your bookings, we keep the hidden markup out of your price. What you negotiate is what you pay.',
       },
       {
         type: 'cta',
         text: 'Browse suppliers and talk price directly, with no platform cut in the middle.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -461,16 +472,16 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
     cover: '/blog/news.webp',
     coverAlt:
       'A couple planning their wedding together over a laptop and a checklist',
-    title: 'A free wedding website: how it actually helps you',
+    title: 'A free Event Hub: how it actually helps you',
     excerpt:
-      'Every couple gets a free wedding website with online RSVP. Here is the real, day-to-day work it quietly does for you.',
+      'Every couple gets a free Event Hub with online RSVP. Here is the real, day-to-day work it quietly does for you.',
     category: 'news',
     author: 'Setnayan Editorial',
     publishedAt: '2026-11-16',
     blocks: [
       {
         type: 'p',
-        text: 'A wedding website can sound like a nice-to-have — a pretty page with your photo and the date. In practice, it is one of the hardest-working tools a Filipino couple has, because it quietly solves the most tedious parts of planning: telling everyone the details, collecting who is actually coming, and stopping the same questions from filling your inbox. Every couple on our platform gets one for free, with online RSVP built in, and it earns its place long before the wedding day. Here is the real work it does for you.',
+        text: 'An Event Hub can sound like a nice-to-have — a pretty page with your photo and the date. In practice, it is one of the hardest-working tools a Filipino couple has, because it quietly solves the most tedious parts of planning: telling everyone the details, collecting who is actually coming, and stopping the same questions from filling your inbox. Every couple on our platform gets one for free, with online RSVP built in, and it earns its place long before the wedding day. Here is the real work it does for you.',
       },
       {
         type: 'h2',
@@ -478,11 +489,11 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Without a website, the details of your wedding live in your head and get retyped a hundred times — the venue, the time, how to get there, what to wear, where to park. A single shareable link puts all of it in one place that every guest can check whenever they need to, day or night. You update it once and everyone has the latest version, so the lola who forgot the church name and the cousin asking about the dress code both find their answer without messaging you. That alone is worth setting one up. It also saves you from the most stressful version of this problem: a detail changing late — a new reception venue, a shifted call time — and you having to chase down everyone you have already told. With a link, you change it in one place and the correction reaches every guest the moment they next look.',
+        text: 'Without an Event Hub, the details of your wedding live in your head and get retyped a hundred times — the venue, the time, how to get there, what to wear, where to park. A single shareable link puts all of it in one place that every guest can check whenever they need to, day or night. You update it once and everyone has the latest version, so the lola who forgot the church name and the cousin asking about the dress code both find their answer without messaging you. That alone is worth setting one up. It also saves you from the most stressful version of this problem: a detail changing late — a new reception venue, a shifted call time — and you having to chase down everyone you have already told. With a link, you change it in one place and the correction reaches every guest the moment they next look.',
       },
       {
         type: 'quote',
-        text: 'A wedding website does not just look nice — it answers the questions you would otherwise answer one guest at a time.',
+        text: 'An Event Hub does not just look nice — it answers the questions you would otherwise answer one guest at a time.',
       },
       {
         type: 'h2',
@@ -490,7 +501,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Chasing RSVPs by text is the part of planning couples dread most, and it is exactly what an online RSVP fixes. Guests confirm directly on your website, and the count updates on its own. No tally sheet, no "did Tito reply yet," no guessing your final headcount the week before. You can see at a glance who has replied and who still needs a gentle follow-up, instead of scrolling back through scattered chat threads to reconstruct the list. A clear, current count is not just convenient — it is the number your caterer and venue need to set the final billing, so getting it right protects your budget as much as your sanity.',
+        text: 'Chasing RSVPs by text is the part of planning couples dread most, and it is exactly what an online RSVP fixes. Guests confirm directly on your Event Hub, and the count updates on its own. No tally sheet, no "did Tito reply yet," no guessing your final headcount the week before. You can see at a glance who has replied and who still needs a gentle follow-up, instead of scrolling back through scattered chat threads to reconstruct the list. A clear, current count is not just convenient — it is the number your caterer and venue need to set the final billing, so getting it right protects your budget as much as your sanity.',
       },
       {
         type: 'ul',
@@ -507,15 +518,15 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A good wedding website meets your guests where they are. The tech-comfortable cousin RSVPs in seconds on their phone; the relative who is less online still gets a simple page they can read without an account or an app. Because it is free and built in, there is no reason to skip it and no premium tier holding the useful parts hostage. You get a real, working website and a real RSVP system as the default, not as an upsell. And because it lives next to the rest of your planning, the headcount it gathers is the same number your guest list, your budget, and your seating chart all draw from — no copying figures between apps, no version that is quietly out of date.',
+        text: 'A good Event Hub meets your guests where they are. The tech-comfortable cousin RSVPs in seconds on their phone; the relative who is less online still gets a simple page they can read without an account or an app. Because it is free and built in, there is no reason to skip it and no premium tier holding the useful parts hostage. You get a real, working Event Hub and a real RSVP system as the default, not as an upsell. And because it lives next to the rest of your planning, the headcount it gathers is the same number your guest list, your budget, and your seating chart all draw from — no copying figures between apps, no version that is quietly out of date.',
       },
       {
         type: 'p',
-        text: 'A free wedding website with online RSVP is not a vanity page — it is the quiet engine that keeps your guest communication and your headcount under control. Share one link, let the RSVPs count themselves, and reclaim the hours you would have spent answering the same questions over and over.',
+        text: 'A free Event Hub with online RSVP is not a vanity page — it is the quiet engine that keeps your guest communication and your headcount under control. Share one link, let the RSVPs count themselves, and reclaim the hours you would have spent answering the same questions over and over.',
       },
       {
         type: 'cta',
-        text: 'Create your free wedding website and turn on RSVPs in minutes.',
+        text: 'Create your free Event Hub and turn on RSVPs in minutes.',
         href: '/signup',
         label: 'Start planning free',
       },

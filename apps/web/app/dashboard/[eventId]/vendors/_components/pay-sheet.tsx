@@ -44,7 +44,7 @@ import { BookedStandInCtx } from './booked-stand-ins';
 import { OwnPayWays } from './own-pay-ways';
 import { formatPhp } from '@/lib/php';
 
-const K2 = 'text-[11px] uppercase tracking-[0.14em] text-ink/55';
+const K2 = 'text-[12px] uppercase tracking-[0.14em] text-ink/55';
 const MUTE = 'text-[13px] leading-snug text-ink/60';
 
 type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'not_booked' } | { kind: 'ok'; data: PaySheetData };
@@ -94,7 +94,7 @@ export function PaySheet({
   return createPortal(
     <Sheet open onClose={onClose} labelledById={titleId} rise>
       <div className="space-y-4 px-5 pb-6 pt-5" data-pay-sheet={vendorId} data-pay-state={state.kind}>
-        <h2 id={titleId} className="pr-10 font-display text-[22px] leading-tight text-ink">
+        <h2 id={titleId} className="pr-10 text-[17px] font-semibold leading-snug text-ink">
           Payments · {vendorName}
         </h2>
 

@@ -1,10 +1,11 @@
 'use client';
 
 import { PictureFrameControl } from '@/app/_components/picture-frame-control';
-import { DEFAULT_LOGO_FRAME, logoFrameStyle, type LogoFrame } from '@/lib/open-shop-logo';
+import { DEFAULT_LOGO_FRAME, logoFrameStyle, SHOP_LOGO_UPLOAD, shopLogoLimitsWords, type LogoFrame } from '@/lib/open-shop-logo';
 import { useActionState, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Check, ChevronDown, Loader2, MapPin, Pencil, Plus } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, MapPin, Pencil, Plus, Send, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import 'leaflet/dist/leaflet.css';
 
 import { Field } from '@/app/_components/forms/field';
@@ -54,6 +55,8 @@ export type ProfileFieldData = {
   logoFrame?: LogoFrame;
   logoDisplayMap: Record<string, string>;
   services: string[];
+  /** 🔢 Categories the shop runs, counted as sign-up counts them (`shopCategoryCount`) — never `services.length` (F-W1-03). */
+  serviceCategoryCount: number;
   serviceLabels?: Record<string, string>;
   extraServiceLeaves: { key: string; label: string }[];
   vendorProfileId: string;
@@ -250,10 +253,7 @@ export function EditableRow({
               aria-live="polite"
             >
               {isPending ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden />
-                  Saving…
-                </>
+                'Saving…'
               ) : null}
             </span>
           </div>
@@ -321,10 +321,12 @@ export function EditableRow({
           </span>
           <RowPreview itemKey={item.key} data={data} />
         </span>
-        <button
+        {/* Design template rule 3: the shared pill button (34 in a row, presses as 44), not a hand-made link-button. */}
+        <ActionButton
           ref={triggerRef}
-          type="button"
-          data-edit-field={item.key}
+          tone={isOpen ? 'neutral' : 'brand'}
+          icon={isOpen ? <ChevronDown className="rotate-180" strokeWidth={2} aria-hidden /> : item.ok ? Pencil : Plus}
+          label={isOpen ? 'Close' : item.ok ? 'Edit' : 'Add'}
           onClick={() => {
             if (isOpen) {
               selfCollapse.current = true;
@@ -334,25 +336,9 @@ export function EditableRow({
             }
           }}
           aria-expanded={isOpen}
-          className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta-700 transition-colors hover:bg-[color:var(--m-orange-4)]"
-        >
-          {isOpen ? (
-            <>
-              Close
-              <ChevronDown className="h-3.5 w-3.5 rotate-180" strokeWidth={2} aria-hidden />
-            </>
-          ) : item.ok ? (
-            <>
-              <Pencil className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-              Edit
-            </>
-          ) : (
-            <>
-              <Plus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-              Add
-            </>
-          )}
-        </button>
+          className="shrink-0"
+          data-edit-field={item.key}
+        />
       </div>
 
       <Collapsible open={isOpen}>
@@ -383,21 +369,12 @@ export function EditableRow({
                 aria-live="polite"
               >
                 {isPending ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden />
-                    Saving…
-                  </>
+                  'Saving…'
                 ) : (
                   'Saves automatically when you close.'
                 )}
               </span>
-              <button
-                type="button"
-                onClick={cancel}
-                className="rounded-md px-3 py-1.5 text-sm font-medium text-ink/60 hover:bg-ink/5"
-              >
-                Cancel
-              </button>
+              <ActionButton tone="neutral" icon={X} label="Cancel" onClick={cancel} />
             </div>
           </form>
         </div>
@@ -535,14 +512,14 @@ export function RequestOnlyRow({
             Change asked · waiting
           </span>
         ) : (
-          <button
-            type="button"
+          <ActionButton
+            tone={open ? 'neutral' : 'brand'}
+            icon={open ? X : Pencil}
+            label={open ? 'Close' : 'Ask to change'}
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
-            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta-700 transition-colors hover:bg-[color:var(--m-orange-4)]"
-          >
-            {open ? 'Close' : 'Ask to change'}
-          </button>
+            className="shrink-0"
+          />
         )}
       </div>
       <Collapsible open={open && !pending}>
@@ -564,15 +541,7 @@ export function RequestOnlyRow({
               }}
               className="input-field min-w-0 flex-1 text-sm"
             />
-            <button
-              type="button"
-              onClick={() => void send()}
-              disabled={sending}
-              className="button-primary inline-flex min-h-11 items-center gap-1.5 px-3 text-sm disabled:opacity-50"
-            >
-              {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden /> : null}
-              Send
-            </button>
+            <ActionButton tone="brand" icon={Send} label="Send" onClick={() => void send()} waiting={sending} disabled={sending} />
           </div>
         </div>
       </Collapsible>
@@ -693,10 +662,10 @@ function LogoRowControl({ data, onDirty, pickedFiles = null }: { data: ProfileFi
         unsavedHint="it saves when you close this row"
         currentValue={data.logo_url}
         initialDisplayUrls={data.logoDisplayMap}
-        maxSizeMB={2}
+        maxSizeMB={SHOP_LOGO_UPLOAD.maxSizeMB}
         // 🗜 Compressed in the browser before it is sent (owner rule 2026-09-25; THE ONE BUILD A3 W16).
         compressImage
-        acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+        acceptedTypes={[...SHOP_LOGO_UPLOAD.acceptedTypes]}
         variant="square"
         roundPreview
         pills={{ replace: 'Replace photo' }}
@@ -743,7 +712,8 @@ function FieldControl({
           label="Logo"
           htmlFor="logo_url"
           required
-          help="PNG, JPEG, or WebP up to 2 MB. Couples see this on every supplier card."
+          // 📏 Written from the one logo rule (F-W1-09) — never a size or a type list typed here.
+          help={`${shopLogoLimitsWords()}. Couples see this on every supplier card.`}
         >
           <LogoRowControl data={data} onDirty={onDirty} pickedFiles={pickedFiles} />
         </Field>
@@ -811,7 +781,7 @@ function FieldControl({
           help="The rectangle that best fits your function room, in metres. A couple who books you gets their seating plan sized to it instead of guessing."
         >
           <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-xs text-ink/60">
+            <label className="flex flex-col gap-1 text-xs text-ink/70">
               Width (m)
               <input
                 type="number"
@@ -826,7 +796,7 @@ function FieldControl({
                 className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs text-ink/60">
+            <label className="flex flex-col gap-1 text-xs text-ink/70">
               Length (m)
               <input
                 type="number"
@@ -840,7 +810,7 @@ function FieldControl({
                 className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs text-ink/60">
+            <label className="flex flex-col gap-1 text-xs text-ink/70">
               Seats from
               <input
                 type="number"
@@ -852,7 +822,7 @@ function FieldControl({
                 className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs text-ink/60">
+            <label className="flex flex-col gap-1 text-xs text-ink/70">
               up to
               <input
                 type="number"
@@ -865,7 +835,7 @@ function FieldControl({
               />
             </label>
           </div>
-          <p className="mt-2 text-xs text-ink/50">
+          <p className="mt-2 text-xs text-ink/70">
             Leave the size blank if your space has no fixed room. Both width and
             length, or neither.
           </p>
@@ -1214,22 +1184,9 @@ function HqAddressControl({ data, onDirty }: { data: ProfileFieldData; onDirty: 
         className="input-field"
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => void findOnMap()}
-          disabled={searching}
-          className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-[color:var(--m-orange-4)] disabled:opacity-60"
-          style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)' }}
-        >
-          {searching ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
-          ) : (
-            <MapPin className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-          )}
-          Find on map
-        </button>
+        <ActionButton tone="neutral" icon={MapPin} label="Find on map" onClick={() => void findOnMap()} waiting={searching} disabled={searching} />
         {pin ? (
-          <span className="font-mono text-[11px] tabular-nums" style={{ color: 'var(--m-slate-3)' }}>
+          <span className="text-xs tabular-nums" style={{ color: 'var(--m-slate-3)' }}>
             {pin.lat.toFixed(6)}, {pin.lng.toFixed(6)}
           </span>
         ) : null}

@@ -258,7 +258,7 @@ export async function SeoSurface() {
             title="Couldn't read the AI answer log"
             broke={`The read was refused: ${aiRes.error?.message ?? 'unknown error'}`}
             survived="The saved questions are still listed, but when each was last asked is unknown — not 'never'."
-            todo="Reload. If it repeats, check the seo_suggestions table and its policy."
+            todo="Reload. If it repeats, the saved questions are refusing reads — check who may read them."
           />
         ) : null}
         {aiRows && aiRows.length >= AI_ANSWER_ROWS_READ ? (

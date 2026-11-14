@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -870,7 +871,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     isBooked || lockRequest ? null : supplierAskOutcomeOf(completionRow, isLockHandshakeEnabled());
   // The answer to Agree / Decline pressed HERE lands back here (`return_to`).
   const lockNotice =
-    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), halls: lockAgreeHalls(search.taken, search.free) }) ??
+    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false, halls: lockAgreeHalls(search.taken, search.free) }) ??
     lockDeclineNotice(search.lock_decline);
   // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
   // a short-lived link scoped to THIS event's deposit folder — never the stored
@@ -883,10 +884,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       }
     : null;
 
-  // Source badge: event_vendors.source = 'vendor_invite' → Imported (they came in
-  // through the vendor's own invite QR); anything else (host_manual, cascade,
-  // legacy NULL) → In-house.
-  const isImported = completion?.source === 'vendor_invite';
+  // Source badge: the supplier brought them → Imported — their own invite QR, Locked QR or a reused booking
+  // (`SUPPLIER_BROUGHT_SOURCES`), or an inquiry through the supplier's own link (`website`, RW-22: the record now
+  // carries its thread's source); anything else (a Setnayan surface, host_manual, cascade, legacy NULL) → In-house.
+  const isImported =
+    (completion?.source != null && SUPPLIER_BROUGHT_SOURCES.has(completion.source)) || completion?.source === 'website';
+  // RW-39: the sources the fee counts as Setnayan's — a sourced inquiry stamp (`shop_page`, `explore`, …) or a Find save.
+  const isFromSetnayan =
+    !isImported &&
+    completion?.source != null &&
+    (bookingFeeAttribution(completion.source) === 'sourced' || SETNAYAN_SAVE_SOURCES.has(completion.source));
 
   const depositRecorded = Boolean(completion?.deposit_recorded_at);
   const depositAcked = Boolean(completion?.deposit_acknowledged_at);
@@ -1909,6 +1916,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         {isImported ? (
           <>
             <UserRound aria-hidden className="h-3 w-3" /> Imported
+          </>
+        ) : isFromSetnayan ? (
+          // RW-39 (walk 13 Nov 2026): a couple Setnayan brought — the same sources the fee counts as sourced. It read
+          // "In-house" beside "fee due", which a supplier reads as "my own client".
+          <>
+            <Sparkles aria-hidden className="h-3 w-3" /> From Setnayan
           </>
         ) : (
           <>
@@ -3772,7 +3785,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Share an album link
               </summary>
-              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="gallery_link" />
                 <input type="text" name="label" maxLength={200} placeholder="e.g. Full wedding album" className={shopInputClass} />
@@ -3788,7 +3801,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <FileText aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Upload a sample/proof
               </summary>
-              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="file" />
                 <input type="text" name="label" maxLength={200} placeholder="e.g. Edited preview" className={shopInputClass} />
@@ -3804,7 +3817,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <MessageSquarePlus aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Leave a note
               </summary>
-              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="note" />
                 <input type="text" name="label" maxLength={200} placeholder="Subject (optional)" className={shopInputClass} />
@@ -3819,7 +3832,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <PackageCheck aria-hidden className="h-3.5 w-3.5 text-ink/55" /> All delivered (sign-off)
               </summary>
-              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="signoff" />
                 <textarea name="payload" maxLength={4000} rows={2} placeholder="Closing note (optional) — e.g. Everything’s been delivered. Thank you!" className={shopInputClass} />

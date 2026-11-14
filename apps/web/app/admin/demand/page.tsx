@@ -11,7 +11,7 @@ import {
 import { DemandRadarCard } from '@/app/vendor-dashboard/demand/_components/demand-radar-card';
 import { runDemandRadarRefresh } from './actions';
 
-export const metadata = { title: 'Demand Radar · Admin' };
+export const metadata = { title: 'Demand radar · Admin' };
 
 /**
  * /admin/demand — Demand Radar (admin console view).

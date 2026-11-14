@@ -51,7 +51,7 @@ test('🚨 the EXISTING-ROW path sets the service link, not just the requested l
   // It must READ the column before it can know whether to fill it.
   assert.match(
     src,
-    /\.select\('vendor_id, requested_service_ids, service_id'\)/,
+    /\.select\('vendor_id, requested_service_ids, service_id(?:, source)?'\)/, // RW-22 reads `source` too
     'the existing-row lookup does not read service_id, so it cannot tell whether it is missing',
   );
 

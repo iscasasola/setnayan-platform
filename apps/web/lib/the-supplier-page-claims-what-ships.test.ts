@@ -54,7 +54,7 @@ test('verification reads the required-papers count, and says the video call', ()
   assert.match(code('app/_components/home/vendor-benefits.ts'), /\$\{formatCount\(REQUIRED_DOC_COUNT\)\} required papers/, 'the count is typed, not read');
 });
 
-test('the 3D seat-plan logo opens from Solo, with the 3D Booth add-on', () => {
+test('the 3D seat-plan logo opens from Supplier Plus, with the 3D Booth add-on', () => {
   const tiersWith3d = VENDOR_TIER_SECTIONS.filter((s) =>
     s.groups.some((g) => g.items.some((i) => /3D seat plan/.test(i.n))),
   ).map((s) => s.tier);

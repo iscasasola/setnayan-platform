@@ -2,6 +2,7 @@
 // re-homed here (2026-07-10) so the App Performance menu is ONE tabbed
 // studio. Its actions/_components stay under /admin/app-performance; the legacy
 // route is now a redirect into /admin/app-performance?tab={tab}.
+import { manilaDayLabel, manilaStampLabel } from '@/lib/admin/manila-stamp';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
@@ -266,7 +267,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           Apply
         </button>
         <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Since {perf.sinceIso.slice(0, 10)} · deltas vs the previous equal window
+          Since {manilaDayLabel(perf.sinceIso)} · deltas vs the previous equal window
         </span>
       </form>
 
@@ -351,7 +352,7 @@ export async function CockpitSurface({ searchParams }: Props) {
               key={c.key}
               title={c.label}
               pill="live"
-              source={`${c.key} · created_at per bucket`}
+              source={`${c.label.replace(/^New /, '')} added, per period`}
             >
               <p
                 className="mb-2 text-2xl font-semibold tabular-nums"
@@ -375,7 +376,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           <ChartCard
             title="Sales — split three ways"
             pill="live"
-            source="orders (paid/fulfilled) + vendor_subscriptions + vendor_token_purchases · pesos"
+            source="paid orders + supplier plans · pesos"
           >
             <div className="mb-2 flex flex-wrap items-baseline gap-2">
               <p
@@ -487,7 +488,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           </ChartCard>
 
           {/* G6 — reviews */}
-          <ChartCard title="Reviews" pill="live" source="vendor_reviews · event-bound">
+          <ChartCard title="Reviews" pill="live" source="supplier reviews from real events">
             <div className="mb-2 flex flex-wrap items-baseline gap-2">
               <p
                 className="text-2xl font-semibold tabular-nums"
@@ -514,7 +515,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           <ChartCard
             title="Events by type"
             pill="live"
-            source="events.event_type · current snapshot"
+            source="every event by its type · today"
           >
             {growth.breakdowns.eventsByType.length === 0 ? (
               <p className="text-sm" style={{ color: 'var(--sn-ink-500)' }}>
@@ -634,7 +635,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           <ChartCard
             title="Abuse reports"
             pill="live"
-            source="user_reports by status · rising = worse"
+            source="abuse reports by status · rising = worse"
           >
             <div className="mb-2 flex flex-wrap items-baseline gap-2">
               <p
@@ -755,7 +756,7 @@ export async function CockpitSurface({ searchParams }: Props) {
         style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink-500)' }}
       >
         Live charts compute from the platform&apos;s own tables at{' '}
-        {perf.generatedAtIso.slice(0, 16).replace('T', ' ')} UTC
+        {manilaStampLabel(perf.generatedAtIso)}
         {sampled ? ' · some window reads hit their row cap — those counts are a floor, not exact' : ''}
         . Needs-wiring cards name their missing instrumentation — nothing here is
         simulated. All three zones of the plan are live: Action Center · Expenses &amp;

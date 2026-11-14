@@ -495,7 +495,6 @@ function UsersTable({
           blurb: q
             ? 'The read went through and matched nothing. Clear the search, or widen the filter, to see every account.'
             : 'The read went through and this filter holds no accounts. Switch to "All" to see everyone.',
-          verifiedNote: 'Verified: read permitted · 0 accounts matched',
         }}
         columns={[
           {
@@ -792,7 +791,6 @@ function BlacklistTable({
         title: 'No blocked emails',
         blurb:
           'Nothing is on the blacklist. Blacklisting happens from the account list — it deletes the account and permanently blocks the address from signing up again.',
-        verifiedNote: 'Verified: read permitted · 0 addresses blocked',
       }}
       columns={[
         {

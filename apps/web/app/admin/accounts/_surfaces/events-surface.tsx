@@ -379,7 +379,6 @@ export async function EventsSurface({
             : showArchived
               ? 'Nothing has been created on the platform yet — archived events included.'
               : 'No active events. Tick "Include archived" if you are looking for one that was put away.',
-          verifiedNote: 'Verified: read permitted · 0 events matched',
         }}
         columns={[
           {

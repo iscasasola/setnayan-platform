@@ -91,7 +91,7 @@ export async function eventAnimatedMonogramActive(
 }
 
 /**
- * ⭐ EVENT HUB PRO INCLUDES THE ANIMATION (owner ruling 2026-09-24, "A then").
+ * ⭐ EVENT PRO INCLUDES THE ANIMATION (owner ruling 2026-09-24, "A then").
  *
  * `COUPLE_WEBSITE_PRO` confers ANIMATED_MONOGRAM through SKU_OWNERSHIP_ALIASES
  * (lib/entitlements.ts), so the two readers above already say "owned" for a
@@ -105,7 +105,7 @@ export async function eventAnimatedMonogramActive(
  */
 export const HUB_PRO_SERVICE_KEY = 'COUPLE_WEBSITE_PRO';
 
-export const INCLUDED_WITH_HUB_PRO = 'Included with Event Hub Pro';
+export const INCLUDED_WITH_HUB_PRO = 'Included with Event Pro';
 
 export async function eventGetsAnimatedMonogramFromHubPro(
   supabase: SupabaseClient,

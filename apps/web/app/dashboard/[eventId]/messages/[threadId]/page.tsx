@@ -63,6 +63,7 @@ import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { formatCount } from '@/lib/format-number';
 import { MarkReadWhenShown } from '@/app/vendor-dashboard/messages/[threadId]/_components/mark-read-when-shown';
 import { displayLogoUrl } from '@/lib/uploads';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 
 export const metadata = { title: 'Thread' };
 
@@ -953,6 +954,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             counterHref={`?compose=deal`}
             // S5 · an accepted quote mounts the ONE action that books.
             lockTarget={quoteLockTarget}
+            // 🚦 RW-26: the live switch, so a closed booking door says so before the press.
+            bookingsOpen={quoteLockTarget ? await areBookingsOpen() : true}
             threadId={threadId}
             initialMessages={streamMessages}
             moneyHidden={chatPins.streamMasked}

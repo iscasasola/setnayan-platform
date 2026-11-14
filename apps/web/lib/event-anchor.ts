@@ -680,6 +680,22 @@ export function singlePickedDate(
 }
 
 /**
+ * 💍 A WEDDING'S ONE PICKED DATE IS ITS DATE (owner ruling 14 Nov 2026, specs DECISION_LOG 16f7e76a — *"Yes, save it"*;
+ * walk F-W2-01). A wedding is `dateModel: 'output'` (its date comes from the venue booking), so `singlePickedDate`
+ * never applies to it — and a couple who picked exactly ONE day at sign-up was left with `event_date` NULL, "No date
+ * yet" on Home and Papic waiting for a date. Now: exactly one well-formed picked day → that day is the event date
+ * (day precision; the `sync_event_date_status` trigger marks it locked). Two or more picks stay OPTIONS
+ * (`date_candidates`) until a venue is booked; a booked venue's day still becomes the main date later.
+ */
+export function singlePickedWeddingDate(
+  candidates: readonly (string | null | undefined)[] | null | undefined,
+): string | null {
+  if (!Array.isArray(candidates) || candidates.length !== 1) return null;
+  const only = candidates[0];
+  return typeof only === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(only) ? only : null;
+}
+
+/**
  * The reader half, for events created before the write was fixed: the stored
  * `event_date`, else the one picked date of a fixed-date type. Same answer the
  * write now stores, so an old event reads exactly like a new one.

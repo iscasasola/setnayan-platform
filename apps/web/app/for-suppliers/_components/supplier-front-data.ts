@@ -152,7 +152,7 @@ export function growLines(t: GrowTier): GrowLine[] {
 }
 
 /** The papers Verified asks for, as the step says them. `REQUIRED_DOC_COUNT` holds the count (see the test). */
-export const VERIFIED_PAPERS = ['DTI or SEC', 'BIR 2303', 'Permit', 'Bank proof'] as const;
+export const VERIFIED_PAPERS = ['DTI or SEC', 'BIR 2303', 'Permit'] as const;
 
 /* ───────────────────────── reach, the free base, the badges ───────────────────────── */
 

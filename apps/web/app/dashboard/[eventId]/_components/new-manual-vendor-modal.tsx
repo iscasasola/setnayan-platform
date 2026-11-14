@@ -669,7 +669,7 @@ export function NewManualVendorModal({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={photoPreviewUrl} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <Camera aria-hidden className="h-5 w-5 text-ink/40 transition-colors group-hover:text-sn-accent" strokeWidth={1.75} />
+                      <Camera aria-hidden className="h-5 w-5 text-ink/70 transition-colors group-hover:text-sn-accent" strokeWidth={1.75} />
                     )}
                   </button>
                   <div className="flex flex-col gap-1 text-xs text-ink/65">
@@ -679,7 +679,7 @@ export function NewManualVendorModal({
                       label={photoPreviewUrl ? 'Replace photo' : 'Add photo'}
                       onClick={() => fileInputRef.current?.click()}
                     />
-                    <span className="text-[12px] text-ink/50">Optional — JPEG, PNG, WebP, or HEIC up to 6 MB.</span>
+                    <span className="text-xs text-ink/70">Optional — JPEG, PNG, WebP, or HEIC up to 6 MB.</span>
                   </div>
                   <input
                     ref={fileInputRef}
@@ -925,7 +925,7 @@ export function NewManualVendorModal({
 
 /** A section's label on the add sheet — the prototype's `.f .lab` (14px · 500, sentence case) and its muted note. */
 const SECTION_LABEL_CLASS = 'block text-[14px] font-medium text-ink';
-const SECTION_NOTE_CLASS = 'ml-1.5 text-[12px] font-normal text-ink/50';
+const SECTION_NOTE_CLASS = 'ml-1.5 text-xs font-normal text-ink/70';
 
 /** The add's two starting payment lines (makers-match § 1) — named, undated, no amount: a line with no amount is
  *  no payment, so leaving them as they are asks nothing of the save (`addManualSupplier`). */
@@ -1012,7 +1012,7 @@ function InclusionLines({ disabled }: { disabled?: boolean }) {
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <ActionButton tone="neutral" icon={Plus} label="Add a line" onClick={add} disabled={disabled} />
-        <span className="text-[12.5px] text-ink/55">One per line.</span>
+        <span className="text-[12.5px] text-ink/70">One per line.</span>
       </div>
       {toast ? (
         <PeekToast key={toast.n} tone="ok" data="inclusion-removed" onGone={() => setToast((t) => (t?.n === toast.n ? null : t))} action={{ label: 'Undo', onPress: toast.undo }}>
@@ -1064,7 +1064,7 @@ function RecordLinkBlock({
   }, [eventId, vendorId, attempt, makeLink]);
   if (state.kind === 'making') {
     return (
-      <p className="py-2 text-xs text-ink/55" aria-live="polite" data-record-link="making">
+      <p className="py-2 text-xs text-ink/70" aria-live="polite" data-record-link="making">
         Getting their link ready…
       </p>
     );
@@ -1195,7 +1195,7 @@ function MarketplaceAutocomplete({
         aria-label="Marketplace supplier matches"
         className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-ink/15 bg-cream p-3 shadow-lg"
       >
-        <p className="flex items-center gap-2 text-[12px] text-ink/55">
+        <p className="flex items-center gap-2 text-xs text-ink/70">
           <span
             aria-hidden
             className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta"
@@ -1225,7 +1225,7 @@ function MarketplaceAutocomplete({
           type="button"
           onClick={onDismiss}
           aria-label="Close suggestions"
-          className="text-[12px] uppercase tracking-[0.1em] text-ink/45 transition-colors hover:text-ink/75"
+          className="text-xs uppercase tracking-[0.06em] text-ink/70 transition-colors hover:text-ink/75"
         >
           Hide
         </button>
@@ -1297,14 +1297,14 @@ function SuggestionRow({
             {vendor.business_name}
           </span>
           {vendor.city ? (
-            <span className="inline-flex items-center gap-0.5 text-[12px] text-ink/55">
+            <span className="inline-flex items-center gap-0.5 text-xs text-ink/70">
               <MapPin aria-hidden className="h-2.5 w-2.5" strokeWidth={1.75} />
               {vendor.city}
             </span>
           ) : null}
         </div>
         {isCrossCategory ? (
-          <p className="text-[12px] leading-snug text-warn-800 dark:text-warn-200">
+          <p className="text-xs leading-snug text-warn-800 dark:text-warn-200">
             {categoriesPretty.length > 0 ? (
               <>
                 <strong className="font-semibold">{vendor.business_name}</strong>{' '}
@@ -1322,7 +1322,7 @@ function SuggestionRow({
             )}
           </p>
         ) : (
-          <span className="text-[12px] text-ink/55">
+          <span className="text-xs text-ink/70">
             Pick this supplier for {currentCategoryLabel}
           </span>
         )}
@@ -1367,13 +1367,13 @@ function LinkedVendorConfirmation({
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <p className="text-base font-semibold text-ink">{vendor.business_name}</p>
             {vendor.city ? (
-              <p className="flex items-center gap-0.5 text-[12px] text-ink/55">
+              <p className="flex items-center gap-0.5 text-xs text-ink/70">
                 <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 {vendor.city}
               </p>
             ) : null}
             {vendor.categories.length > 0 ? (
-              <p className="text-[12px] text-ink/65">
+              <p className="text-xs text-ink/65">
                 Offers{' '}
                 <span className="font-medium text-ink/80">
                   {vendor.categories
@@ -1388,7 +1388,7 @@ function LinkedVendorConfirmation({
         </div>
       </div>
       {isCrossCategory ? (
-        <p role="note" className="flex items-start gap-1.5 text-[12px] leading-snug text-warn-800 dark:text-warn-200">
+        <p role="note" className="flex items-start gap-1.5 text-xs leading-snug text-warn-800 dark:text-warn-200">
           <AlertCircle
             aria-hidden
             className="mt-px h-3.5 w-3.5 shrink-0"
@@ -1408,7 +1408,7 @@ function LinkedVendorConfirmation({
           </span>
         </p>
       ) : (
-        <p className="text-[12px] text-ink/65">
+        <p className="text-xs text-ink/65">
           Adding to your <span className="font-medium">{currentCategoryLabel}</span>{' '}
           card as a considering pick. You can book or remove them anytime.
         </p>
@@ -1466,7 +1466,7 @@ function VendorLogo({
     <span
       aria-hidden
       className={`inline-flex shrink-0 items-center justify-center rounded-full bg-sn-accent/15 font-mono ${
-        large ? 'text-sm' : 'text-[12px]'
+        large ? 'text-sm' : 'text-xs'
       } font-semibold text-sn-accent`}
       style={{ width: size, height: size }}
     >

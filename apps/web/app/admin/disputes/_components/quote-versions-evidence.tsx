@@ -80,25 +80,25 @@ export function QuoteVersionsEvidence({
   groups: QuoteVersionGroup[] | undefined | null;
 }) {
   if (groups === null) {
-    return <p className="mt-2 text-[11px] text-danger-700">Couldn&rsquo;t read this supplier&rsquo;s quote versions.</p>;
+    return <p className="mt-2 text-[12px] text-danger-700">Couldn&rsquo;t read this supplier&rsquo;s quote versions.</p>;
   }
   if (!groups || groups.length === 0) return null;
   const total = groups.reduce((n, g) => n + g.versions.length, 0);
   return (
     <details className="mt-2" data-admin-quote-versions="">
-      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-mulberry">
+      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[12px] font-medium text-mulberry">
         <FileText aria-hidden className="h-3 w-3" strokeWidth={2} />
         Quote versions ({formatCount(total)})
       </summary>
       <div className="mt-2 space-y-3">
         {groups.map((g) => (
           <div key={g.eventId}>
-            <p className="text-[11px] font-medium text-ink">{g.eventName} · newest first</p>
+            <p className="text-[12px] font-medium text-ink">{g.eventName} · newest first</p>
             <ul className="mt-1 space-y-1.5">
               {g.versions.map((v, i) => {
                 const changes = changesSincePrevious(v);
                 return (
-                  <li key={v.proposalId} className="border-b border-ink/10 py-2 text-[11px] text-ink/80">
+                  <li key={v.proposalId} className="border-b border-ink/10 py-2 text-[12px] text-ink/80">
                     <details>
                       <summary className="flex cursor-pointer select-none items-baseline gap-2">
                         <span className="flex-1">
@@ -107,7 +107,7 @@ export function QuoteVersionsEvidence({
                             {i === 0 && v.status !== 'superseded' ? ' · current' : ''}
                           </b>{' '}
                           · {statusOf(v.status)}
-                          <span className="block font-mono text-[10px] text-ink/60">
+                          <span className="block text-[12px] text-ink/60 tabular-nums">
                             Sent {versionExactTime(v.at)} · {v.publicId}
                           </span>
                         </span>

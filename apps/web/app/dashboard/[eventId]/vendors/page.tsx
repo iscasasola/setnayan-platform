@@ -394,9 +394,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return (
       <section className="sn-col space-y-4">
         <PageMasthead title="Suppliers" />
-        <p aria-hidden className="font-display text-[28px] leading-none text-ink">
-          Suppliers
-        </p>
+        {/* 📐 Design template rule 1: no visible title that restates the menu — the masthead names the page. */}
         <BookedBody
           eventId={eventId}
           state={{ kind: 'unreadable', retryHref: `/dashboard/${eventId}/vendors` }}
@@ -2061,7 +2059,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const findRead = findListRead ? await findListRead.catch(() => null) : undefined;
   const findPanel =
     findRead === undefined ? null : findRead === null ? (
-      <p role="alert" className="pt-4 text-[13px] text-ink/60">
+      <p role="alert" className="pt-4 text-[13px] text-ink/70">
         We couldn&rsquo;t load the categories — reload in a moment.
       </p>
     ) : (
@@ -3099,7 +3097,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       {/* 💡 C · "Your inspiration board", whole — the shipped board in the house sheet, over Find (reorg R5). */}
       {sp.board === '1' ? (
         <InspirationBoardSheet>
-          <Suspense fallback={<p className="py-6 text-sm text-ink/60">Opening your board…</p>}>
+          <Suspense fallback={<p className="py-6 text-sm text-ink/70">Opening your board…</p>}>
             <InspirationBoardBody eventId={eventId} />
           </Suspense>
         </InspirationBoardSheet>

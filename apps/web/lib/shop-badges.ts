@@ -114,7 +114,8 @@ export function stepName(t: number): string | null {
   return tierForStep(t)?.name ?? null;
 }
 
-function milestoneBadge(t: number): ShopBadge {
+/** One milestone step as its pill — also the gift moment's old → new badge (`lib/gift-moment.ts`). */
+export function milestoneBadge(t: number): ShopBadge {
   const name = stepName(t);
   return {
     key: `milestone:${t}`,

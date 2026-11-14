@@ -20,6 +20,12 @@ export type NoticeView = {
   actions?: ReactNode;
   /** Replaces the kind's mark (a badge pill, for instance). */
   mark?: ReactNode;
+  /**
+   * Also listed in the bell's "Waiting on this page" group while it sits at the top — for a line that must be findable
+   * from the bell too (a gift waiting to be claimed, owner 14 Nov 2026: "plus the bell"). It still draws ONCE on the
+   * page; the bell repeats it, and its dot is on while it waits.
+   */
+  bell?: boolean;
 };
 
 export type NoticeEntry = NoticeFacts &

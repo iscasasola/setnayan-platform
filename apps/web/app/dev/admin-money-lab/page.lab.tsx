@@ -145,7 +145,7 @@ const READS: Record<string, ReceiptReadRow> = {
     amount_matches: true,
     seen_references: ['S89O3PQ1-0032'],
     seen_amounts: [147],
-    summary: 'Sent ₱147.00 to SETNAYAN · reference S89O3PQ1-0032.',
+    summary: 'Sent 147.00 PHP to SETNAYAN · reference S89O3PQ1-0032.',
     error: null,
     created_at: HOURS(1),
   },
@@ -153,7 +153,7 @@ const READS: Record<string, ReceiptReadRow> = {
 const REMEDIES: RemedyDesk = {
   failed: false,
   byOrderId: new Map([
-    ['order-p-paid', { done: [], converted: false, nextEvent: { id: 'e-next', name: 'Dela Cruz anniversary' }, paidPhp: 2499, credits: 24, pack: '₱999 = 3,000 credits' }],
+    ['order-p-paid', { done: [], converted: false, nextEvent: { id: 'e-next', name: 'Dela Cruz anniversary' }, paidPhp: 2499, credits: 24, pack: null }],
   ]),
 };
 const QUOTES: OrderJoined[] = [
@@ -172,7 +172,7 @@ const QUOTES: OrderJoined[] = [
   },
 ];
 const SUPPLIER_REFUNDS: SupplierRefundRow[] = [
-  { refund_id: 'r1', event_id: 'ev1', vendor_profile_id: 'v1', amount_php: 5000, refunded_on: '2026-11-08', reason: 'Date moved, deposit returned', proof_r2_key: 'x', created_at: '2026-11-08T03:00:00Z', removed_at: null },
+  { refund_id: 'r1', event_id: 'ev1', vendor_profile_id: 'v1', amount_php: 5000, refunded_on: '2026-11-08', reason: 'Date moved, first payment returned', proof_r2_key: 'x', created_at: '2026-11-08T03:00:00Z', removed_at: null },
   { refund_id: 'r2', event_id: 'ev2', vendor_profile_id: 'v2', amount_php: 1000, refunded_on: '2026-11-02', reason: 'Overcharged', proof_r2_key: null, created_at: '2026-11-02T03:00:00Z', removed_at: '2026-11-03T03:00:00Z' },
 ];
 
@@ -240,7 +240,7 @@ export default async function AdminMoneyLab({ searchParams }: { searchParams: Pr
       ) : null}
       {v === 'record' ? (
         <RecordPaymentCard
-          record={{ kind: 'order', orderId: 'order-p-today', publicId: 'S89O-3PQ1', referenceCode: 'S89O3PQ1', description: 'Papic credits', totalPhp: 147, status: 'awaiting_payment', accounts: [{ id: 'gcash', label: 'GCash · Setnayan', enabled: true }, { id: 'bdo', label: 'BDO · Setnayan', enabled: true }, { id: 'maribank-7k2q', label: 'Maribank', enabled: false }] as never }}
+          record={{ kind: 'order', orderId: 'order-p-today', publicId: 'S89O-3PQ1', referenceCode: 'S89O3PQ1', description: 'Papic credits', totalPhp: PAYMENTS[0]!.amount_php, status: 'awaiting_payment', accounts: [{ id: 'gcash', label: 'GCash · Setnayan', enabled: true }, { id: 'bdo', label: 'BDO · Setnayan', enabled: true }, { id: 'maribank-7k2q', label: 'Maribank', enabled: false }] as never }}
           query={here.q}
         />
       ) : null}

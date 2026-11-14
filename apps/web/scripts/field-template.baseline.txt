@@ -3,7 +3,7 @@
 # GENERATED — never hand-edit, never hand-merge (on a conflict take either side, then):
 #   node apps/web/scripts/lint-field-template.mjs --update-baseline
 # A RATCHET BOTH WAYS: a count may not rise, and a fall must be written here in the same PR.
-# 318 files · 751 boxes
+# 317 files · 749 boxes
 2 apps/web/app/_components/amendment-builder.tsx
 3 apps/web/app/_components/appointments-section.tsx
 1 apps/web/app/_components/chat-send-form.tsx
@@ -86,8 +86,8 @@
 2 apps/web/app/admin/menus/_components/menu-registry-editor.tsx
 1 apps/web/app/admin/moodboard-library/_components/color-range-manipulator.tsx
 3 apps/web/app/admin/moodboard-library/_components/library-editor.tsx
+9 apps/web/app/admin/payments/_components/desk.tsx
 1 apps/web/app/admin/payments/_components/inbox-matcher.tsx
-9 apps/web/app/admin/payments/page.tsx
 4 apps/web/app/admin/payouts/page.tsx
 3 apps/web/app/admin/pricing/_components/catalog-editor.tsx
 6 apps/web/app/admin/pricing/_surfaces/free-windows-surface.tsx

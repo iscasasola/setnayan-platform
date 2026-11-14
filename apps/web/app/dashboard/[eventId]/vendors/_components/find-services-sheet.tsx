@@ -76,11 +76,11 @@ export function FindServicesSheet({
         <h2 id={titleId} className="pr-12 text-[17px] font-semibold text-ink">
           {category}
         </h2>
-        <p className="mt-0.5 text-[13px] text-ink/60">What to show</p>
+        <p className="mt-0.5 text-[13px] text-ink/70">What to show</p>
         {listed.length > 4 ? (
           // A long list is searched, never scrolled through blind. Short ones need no box.
           <label className="mt-3 flex h-11 items-center gap-2 rounded-full border border-ink/15 bg-cream px-3.5">
-            <Search aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.9} />
+            <Search aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.9} />
             <input
               type="search"
               value={find}
@@ -119,7 +119,7 @@ export function FindServicesSheet({
                 />
                 <label htmlFor={id} className="flex min-w-0 flex-1 cursor-pointer items-baseline justify-between gap-3 py-3">
                   <span className="text-[15px] font-medium text-ink">{service.label}</span>
-                  <span className="shrink-0 text-[13px] text-ink/55">{cardsWord(count)}</span>
+                  <span className="shrink-0 text-[13px] text-ink/70">{cardsWord(count)}</span>
                 </label>
                 {/* 💡 Its looks — the parts this service supplies that hold the couple's photos, greyed while the service
                     is unticked (v4.11, owner 2026-10-29: *"combine the services and inspiration to 1 popup"*). */}

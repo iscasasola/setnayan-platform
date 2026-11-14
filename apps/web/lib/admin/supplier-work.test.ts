@@ -92,3 +92,22 @@ test('a group covers a type only when EVERY one of its categories serves it (NUL
     { groupId: 'b', label: 'B', covered: false },
   ]);
 });
+
+test('a press on a request somebody already settled is said as that, never as Approved / Declined (live walk 14 Nov)', async () => {
+  const { ALREADY_SETTLED } = await import('./supplier-work');
+  assert.equal(redirectRefusal('NEXT_REDIRECT;replace;/admin/corrections?already_resolved=1;307;'), ALREADY_SETTLED);
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { stripComments } = await import('../strip-comments');
+  const actions = stripComments(readFileSync(join(process.cwd(), 'app/admin/corrections/actions.ts'), 'utf8'));
+  assert.match(actions, /if \(!row\) redirect\('\/admin\/corrections\?already_resolved=1'\);/, 'a decline that claimed no row');
+  // A decline reason never sits on an approval. Since the request cards (#7697, owner-approved 14 Nov) the Work drawer
+  // draws the correction as a card whose Decline is its OWN button that then asks for a reason — the card carries no
+  // reason picker beside Apply, so nothing can read as already chosen (the live-walk defect of 14 Nov).
+  const peek = stripComments(readFileSync(join(process.cwd(), 'lib/admin/queue-peek.ts'), 'utf8'));
+  const card = peek.slice(peek.indexOf('async function correctionCard'), peek.indexOf('function paymentCard'));
+  assert.ok(card.length > 0, 'the correction card builder moved — re-point this guard');
+  assert.match(card, /reasons: correctionDecline\(/, 'a decline no longer asks for its own reason');
+  assert.doesNotMatch(card, /name: 'reason'/, 'a reason picker sits on the card beside Apply again');
+  assert.equal(pickedReason('names', ''), null, 'the empty reason is no reason — a decline with it is refused on screen');
+});

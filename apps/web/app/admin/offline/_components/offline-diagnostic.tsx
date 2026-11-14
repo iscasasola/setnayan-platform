@@ -20,6 +20,8 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2, Inbox, RefreshCw, XCircle, Zap } from 'lucide-react';
 
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { Badge, Row, Rows, Sec } from '@/app/admin/app-performance/_components/insights-parts';
+import { ActionButton } from '@/components/action-button';
 import { getOfflineQueueStats } from '@/lib/offline/db';
 import { triggerSyncNow } from '@/lib/offline/sync-daemon';
 import {
@@ -131,86 +133,75 @@ export default function OfflineDiagnostic() {
     }
   }
 
-  function StatusPill({ ok, label }: { ok: boolean; label: string }) {
+  /** One status line: a hairline row with ✓ or ✕ at the right (approved drawing, insights.html › Offline daemon). */
+  function StatusRow({ ok, title, sub }: { ok: boolean; title: string; sub?: string }) {
     return (
-      <div className="flex items-center gap-2">
-        {ok ? (
-          <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden />
-        ) : (
-          <XCircle className="h-4 w-4 text-ink-soft" aria-hidden />
-        )}
-        <span className="text-sm text-ink">{label}</span>
-      </div>
+      <Row
+        data="offline-status"
+        title={title}
+        sub={sub}
+        trail={
+          <Badge tone={ok ? 'ok' : undefined}>
+            {ok ? (
+              <CheckCircle2 className="h-3.5 w-3.5" aria-label="yes" />
+            ) : (
+              <XCircle className="h-3.5 w-3.5" aria-label="no" />
+            )}
+          </Badge>
+        }
+      />
     );
   }
 
   return (
-    <div className="space-y-6">
-      <section className="m-card p-6">
-        <header className="mb-4 flex items-center justify-between">
-          <div>
-            <p className="m-eyebrow">Status</p>
-            <p className="mt-1 text-sm text-ink-soft">
-              Daemon health on this device.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setRefreshKey((k) => k + 1)}
-            className="m-btn inline-flex items-center gap-2 text-sm"
-            aria-label="Refresh status"
-          >
-            <RefreshCw className="h-4 w-4" aria-hidden />
-            Refresh
-          </button>
-        </header>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <StatusPill
+    <div>
+      <section aria-label="Status">
+        <Sec
+          title="Status"
+          about="Daemon health on this device."
+          right={
+            <ActionButton
+              tone="neutral"
+              icon={<RefreshCw />}
+              label="Refresh"
+              name="Refresh status"
+              className="min-h-11"
+              onClick={() => setRefreshKey((k) => k + 1)}
+            />
+          }
+        />
+        <Rows label="Daemon health on this device" data="offline-status">
+          <StatusRow
             ok={status.daemonEnabled}
-            label={
-              status.daemonEnabled
-                ? 'Daemon enabled (env flag on)'
-                : 'Daemon disabled (env flag off · default for pilot)'
-            }
+            title={status.daemonEnabled ? 'Daemon enabled' : 'Daemon disabled'}
+            sub={status.daemonEnabled ? 'env flag on' : 'env flag off · default for pilot'}
           />
-          <StatusPill
+          <StatusRow
             ok={status.swRegistered}
-            label={
-              status.swRegistered
-                ? 'Service worker registered'
-                : 'Service worker not registered'
-            }
+            title={status.swRegistered ? 'Service worker registered' : 'Service worker not registered'}
           />
-          <StatusPill
+          <StatusRow
             ok={status.idbAvailable}
-            label={
-              status.idbAvailable
-                ? 'IndexedDB available'
-                : 'IndexedDB not available'
-            }
+            title={status.idbAvailable ? 'IndexedDB available' : 'IndexedDB not available'}
           />
-        </div>
+        </Rows>
       </section>
 
-      <section className="m-card p-6">
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="m-eyebrow">Queue counts</p>
-            <p className="mt-1 text-sm text-ink-soft">
-              Items waiting to upload. Empty during pilot until V1.x
-              handlers ship.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleTriggerSync}
-            disabled={busy}
-            className="m-btn inline-flex items-center gap-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Zap className="h-4 w-4" aria-hidden />
-            {busy ? 'Syncing…' : 'Trigger sync now'}
-          </button>
-        </header>
+      <section aria-label="Queue counts">
+        <Sec
+          title="Queue counts"
+          about="Items waiting to upload. Empty during pilot until V1.x handlers ship."
+          right={
+            <ActionButton
+              tone="neutral"
+              icon={<Zap />}
+              label={busy ? 'Syncing…' : 'Trigger sync now'}
+              className="min-h-11"
+              onClick={handleTriggerSync}
+              disabled={busy}
+            />
+          }
+        />
 
         {/* `readPermitted` is honestly `true` here for a different reason than
             on the Supabase surfaces: this reads the browser's own IndexedDB, so
@@ -223,7 +214,7 @@ export default function OfflineDiagnostic() {
           readError={loadError ? { message: loadError } : null}
           reads="the offline queue on this device"
           label="Offline queue counts"
-          minWidth="34rem"
+          minWidth="18rem"
           rowKey={(row) => row.service}
           empty={{
             Icon: Inbox,

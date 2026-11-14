@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { formatCount } from '@/lib/format-number';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { answerIncomingRequest, muteInviter } from '../incoming-request-actions';
@@ -61,7 +62,7 @@ export async function IncomingRequests({
         >
           Incoming requests
         </h2>
-        <span className="text-xs text-[color:var(--sn-ink-400)]">{rows.length}</span>
+        <span className="text-[13px] tabular-nums text-[color:var(--sn-ink-500)]">{formatCount(rows.length)}</span>
       </div>
       <ul className="space-y-3">
         {rows.map((r) => {
@@ -94,7 +95,7 @@ export async function IncomingRequests({
               />
               <StayForm door="accLauncher.muteInviter" action={muteInviter} className="mt-1 text-right">
                 <input type="hidden" name="inviter_user_id" value={r.owner_user_id} />
-                <button type="submit" className="text-xs text-ink/45 underline-offset-2 hover:underline">
+                <button type="submit" className="min-h-11 text-[13px] text-ink/70 underline-offset-2 hover:underline">
                   Don&apos;t show me invites from {ownerFirst}
                 </button>
               </StayForm>

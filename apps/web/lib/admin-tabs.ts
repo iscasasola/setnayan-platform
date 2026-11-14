@@ -210,6 +210,7 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
 
   // ── AVATAR — running admin itself ─────────────────────────────────────────
   { route: '/admin/secrets', tab: 'avatar', note: 'Secrets & integrations.' },
+  { route: '/admin/ask', tab: 'avatar', note: 'What can I ask? — the ask box cheat sheet + its A4 download (Focus | Full, 14 Nov).' },
   { route: '/admin/integrations', tab: 'avatar', note: 'Secrets & integrations.' },
   {
     route: '/admin/live-studio-channels',

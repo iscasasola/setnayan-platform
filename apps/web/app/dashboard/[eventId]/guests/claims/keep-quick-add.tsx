@@ -13,6 +13,7 @@
  */
 import { useRoleNames } from '../_components/role-names-context';
 import { useMemo, useState } from 'react';
+import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { guestRoleLabel, guestRolePickLabel, SIDE_LABELS, type GuestRole } from '@/lib/guests';
 import { readKeepLine } from '@/lib/unlisted-guests';
 import { formatCount } from '@/lib/format-number';
@@ -58,7 +59,7 @@ export function KeepQuickAdd({
         className="input-field h-10 w-full py-1 text-sm"
         autoComplete="off"
       />
-      <p className="text-[11px] text-ink/50">
+      <p className="text-xs text-ink/70">
         Like the guest list&rsquo;s quick add: name, then{' '}
         {hasSides ? (
           <>
@@ -93,21 +94,25 @@ export function KeepQuickAdd({
         )}
       </div>
 
-      <label className="flex flex-wrap items-center gap-2 text-sm">
+      {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 4): the ▾ picker, posting the same `role` field. */}
+      <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="text-ink/70">Role</span>
-        <select name="role" value={role} onChange={(e) => setRole(e.target.value)} className="input-field h-9 py-1 text-sm">
-          <option value="">From the line (or Guest)</option>
-          {pickable.map((r) => (
-            <option key={r} value={r}>
-              {guestRolePickLabel(r, roleNames)}
-            </option>
-          ))}
-        </select>
-      </label>
+        <input type="hidden" name="role" value={role} />
+        <PickMenu
+          label="Role"
+          value={role}
+          options={[
+            { key: '', label: 'From the line (or Guest)' },
+            ...pickable.map((r) => ({ key: r, label: guestRolePickLabel(r, roleNames) })),
+          ]}
+          onPick={setRole}
+          dataAttr="data-keep-role"
+        />
+      </div>
     </div>
   );
 }
 
 function Chip({ children }: { children: React.ReactNode }) {
-  return <span className="rounded-full border border-ink/15 bg-white px-2 py-0.5 text-ink/80">{children}</span>;
+  return <span className="rounded-full bg-ink/5 px-2 py-0.5 text-ink">{children}</span>;
 }

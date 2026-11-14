@@ -24,8 +24,10 @@
 --      held equal to the app's by the db test.
 -- Function bodies are copied from their latest definitions (20271319497337,
 -- 20271323363853); the ONLY changes are the Ultra arms marked above.
---   6. `papic_events_past_fullres_clock` also honours a gifted / comped plan's
---      `fullres_extra_keep_days` (owner 15 Nov: a gifted Ultra is FULL Ultra).
+--   6. `papic_events_past_fullres_clock` also honours a SUPPLIER-GIFTED plan's
+--      `fullres_extra_keep_days` (owner 15 Nov: a gifted Ultra is FULL Ultra) —
+--      the delivered gift rows only; an admin comp keeps the plain 3 months
+--      (owner 15 Nov: "keep them at 3 months").
 --      Canvas prints need no SQL: lib/event-ultra-gates.ts asks
 --      eventSkuActive(EVENT_ULTRA), which reads event_has_comp_for_sku.
 -- Not here: selling Ultra to shops as a bought gift — its catalogue row has no
@@ -619,14 +621,18 @@ AS $$
                 WHERE o.event_id = e.event_id
                   AND o.status IN ('paid', 'fulfilled')
              ), 0),
-             -- 🎁 …or holds it as a GIFT (owner 2026-11-15: a gifted Event Ultra is FULL Ultra). The same
-             -- gifted-access path every gate reads — event_has_comp_for_sku — over the products that carry an
-             -- extra hold; the days are still the catalogue row's, never typed.
+             -- 🎁 …or a SUPPLIER GAVE it (owner 2026-11-15: a gifted Event Ultra is FULL Ultra). ONLY the
+             -- shop-gift delivery source — a 'given' row carrying `unlocks_sku`, written by
+             -- shop_gift_deliver_unlocks_for_booking at the couple's first payment. An admin comp (all-services
+             -- or per-SKU) does NOT extend the hold (owner 2026-11-15: "keep them at 3 months"), so this reads
+             -- the given rows, never event_has_comp_for_sku. The days are still the catalogue row's.
              COALESCE((
                SELECT MAX(GREATEST(c.fullres_extra_keep_days, 0))
-                 FROM public.platform_retail_catalog_v2 c
-                WHERE c.fullres_extra_keep_days > 0
-                  AND public.event_has_comp_for_sku(e.event_id, c.service_code)
+                 FROM public.shop_gift_stock_entries g
+                 JOIN public.platform_retail_catalog_v2 c ON c.service_code = g.unlocks_sku
+                WHERE g.event_id = e.event_id
+                  AND g.kind = 'given'
+                  AND g.unlocks_sku IS NOT NULL
              ), 0)
            ) AS extra_keep_days
       FROM public.events e
@@ -643,7 +649,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.papic_events_past_fullres_clock(INTEGER, INTEGER) IS
-  'Events whose full-res originals may be replaced by their compressed copy: never sooner than N days after the event''s LAST day (event_end_date when the celebration spans several days, else event_date), plus the largest fullres_extra_keep_days of any product the event holds in a paid/fulfilled order OR as a gift/comp (event_has_comp_for_sku — a supplier-gifted Event Ultra is full Ultra, owner 2026-11-15) (Event Ultra: 12 months in all, owner 2026-11-13). The extra term can only keep files longer.';
+  'Events whose full-res originals may be replaced by their compressed copy: never sooner than N days after the event''s LAST day (event_end_date when the celebration spans several days, else event_date), plus the largest fullres_extra_keep_days of any product the event holds in a paid/fulfilled order OR as a SUPPLIER GIFT delivered to it (a given shop_gift_stock_entries row''s unlocks_sku — a supplier-gifted Event Ultra is full Ultra; admin comps keep the plain hold, owner 2026-11-15) (Event Ultra: 12 months in all, owner 2026-11-13). The extra term can only keep files longer.';
 
 REVOKE ALL ON FUNCTION public.papic_events_past_fullres_clock(INTEGER, INTEGER)
   FROM PUBLIC, anon, authenticated;

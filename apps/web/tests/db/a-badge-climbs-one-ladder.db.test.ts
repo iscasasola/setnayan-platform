@@ -303,7 +303,7 @@ test('4 · the five-star count follows the public stars: booked 5★ only, never
   }
 });
 
-test('5 · 💎 a GIFTED Ultra is FULL Ultra: 12-month originals and canvas; a gifted Pro gets neither', async () => {
+test('5 · 💎 a GIFTED Ultra is FULL Ultra: 12-month originals and canvas; a gifted Pro gets neither, an admin comp keeps 3 months', async () => {
   const DAY = 86_400_000;
   const GRACE = 92; // FULL_RES_POST_EVENT_GRACE_DAYS (lib/papic-fullres-drop-core.ts), as event-ultra-keeps-originals does
   const giftUser = await newUser('ladder-full-ultra@test.test', 'vendor');
@@ -381,6 +381,42 @@ test('5 · 💎 a GIFTED Ultra is FULL Ultra: 12-month originals and canvas; a g
   assert.ok(after.has(pro.eventId), 'a gifted Pro held originals past three months — only Ultra holds longer');
   assert.equal(await holdsUltra(ultra.eventId), true, 'a gifted Ultra does not open canvas prints');
   assert.equal(await holdsUltra(pro.eventId), false, 'a gifted Pro opened canvas prints');
+
+  // 🛑 An ADMIN comp keeps the plain 3 months (owner 15 Nov: "keep them at 3 months") — all-services, or Ultra by name.
+  // Canvas is untouched by this ruling: an admin comp of Ultra is a deliberate full-plan grant at every gate.
+  async function compedEvent(label: string, skus: string[] | null) {
+    n += 1;
+    const host = await newUser(`ladder-comp-${n}@test.test`, 'customer');
+    const eventId = await one<string>(
+      `INSERT INTO public.events (display_name, event_type, event_date) VALUES ($1, 'birthday', $2::date) RETURNING event_id AS v`,
+      [label, new Date(Date.now() - 100 * DAY).toISOString().slice(0, 10)],
+    );
+    await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`, [eventId, host]);
+    const guestId = await one<string>(
+      `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category)
+       VALUES ($1, 'Comp', 'Clock', 'both', 'friends') RETURNING guest_id AS v`,
+      [eventId],
+    );
+    await db.query(
+      `INSERT INTO public.papic_guest_captures (event_id, guest_id, r2_object_key, display_r2_key, media_type, captured_at)
+       VALUES ($1, $2, $3, $3, 'photo', $4)`,
+      [eventId, guestId, `r2://setnayan-media/papic/${eventId}.jpg`, new Date(Date.now() - 900 * DAY).toISOString()],
+    );
+    await db.query(
+      `INSERT INTO public.comp_grants (user_id, event_id, source, scope, scoped_skus, rationale)
+       VALUES ($1, $2, 'external_promo', $3, $4, 'test: admin comp keeps three months')`,
+      [host, eventId, skus ? 'specific_skus' : 'all_services', skus],
+    );
+    return eventId;
+  }
+  const allServices = await compedEvent('all-services comp', null);
+  const ultraComp = await compedEvent('Ultra comp', ['EVENT_ULTRA']);
+  assert.equal(await holdsUltra(allServices), true, 'precondition: the comp reader sees the all-services comp');
+  assert.equal(await holdsUltra(ultraComp), true, 'precondition: the comp reader sees the Ultra comp');
+  const afterComps = await released();
+  assert.ok(afterComps.has(allServices), 'an admin ALL-SERVICES comp held originals past three months');
+  assert.ok(afterComps.has(ultraComp), 'an admin comp of Ultra held originals past three months');
+  assert.ok(!afterComps.has(ultra.eventId), 'the supplier-gifted Ultra lost its hold');
 
   // The hold still lets go after the catalogue row's 12 months.
   const extra = Number(

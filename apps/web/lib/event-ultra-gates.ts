@@ -8,7 +8,8 @@ import { CANVAS_LEFT_PRO_AT, EVENT_ULTRA_SKU, canvasPrintsUnlockedFrom, type Pla
  * Pro, Live Watch and Patiktok need no gate here: their existing gates (`eventCoupleWebsiteProActive`,
  * `eventSkuActive(LIVE_STUDIO)`, `patiktokSaveUnlocked`) already answer yes for an Ultra event through
  * `SKU_OWNERSHIP_ALIASES` (a gifted Ultra: through `event_has_comp_for_sku`). The 12-month originals need none either:
- * `papic_events_past_fullres_clock` reads the row, for an order or a gift/comp (20271348181787).
+ * `papic_events_past_fullres_clock` reads the row, for a paid order or a SUPPLIER-GIFTED plan (20271348181787) — an admin
+ * comp keeps the plain 3 months (owner 2026-11-15, "keep them at 3 months"); canvas, by contrast, follows any held Ultra.
  */
 
 /** Is Event Ultra ACTIVE (admin-approved) on this event? The feature gate — a pending order confers nothing. */

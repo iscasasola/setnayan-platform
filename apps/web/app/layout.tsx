@@ -768,6 +768,15 @@ export default async function RootLayout({
           visitors make no request and see nothing. (Perf sweep 2026-07-02.)
         */}
         <DemoModeBanner />
+        {/* 🔑 A TAB OLDER THAN THE SITE SHOULD SAY SO — at the very TOP (a live notice, one notice system 2026-11-14). We deploy every 15–25
+            minutes and a page left open can break in a way that throws NOTHING
+            — no exception, so no error boundary and no stale-bundle reload,
+            just a blank screen that reads as an outage (it did, to the owner,
+            on 2026-09-20). Mounted at the ROOT so it covers a couple's
+            dashboard, a supplier's workspace AND a guest on an invitation; it
+            renders null unless two different real build versions are known.
+            See lib/build-version.ts. */}
+        <StaleTabNotice />
         {/* SiteChrome = the ONE persistent marketing top nav, mounted once
             here so it survives page navigations (the body swaps, the nav
             stays). It self-gates to public marketing routes and renders null
@@ -811,15 +820,6 @@ export default async function RootLayout({
             only — sign-in, security, a guest's pass, the person's own Appearance
             choice — so there is nothing optional to ask about. The guard is
             app/_components/essential-cookies-only.test.ts. */}
-        {/* 🔑 A TAB OLDER THAN THE SITE SHOULD SAY SO. We deploy every 15–25
-            minutes and a page left open can break in a way that throws NOTHING
-            — no exception, so no error boundary and no stale-bundle reload,
-            just a blank screen that reads as an outage (it did, to the owner,
-            on 2026-09-20). Mounted at the ROOT so it covers a couple's
-            dashboard, a supplier's workspace AND a guest on an invitation; it
-            renders null unless two different real build versions are known.
-            See lib/build-version.ts. */}
-        <StaleTabNotice />
         {/*
           V2 Cutover Phase G — offline daemon mount (IndexedDB + SW for
           7 media services). Default OFF for pilot per CLAUDE.md

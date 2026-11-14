@@ -11,7 +11,6 @@ app/_components/report-page-button.tsx
 app/_components/requirements-modal.tsx
 app/admin/fraud/_components/wipe-ban-dialog.tsx
 app/dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx
-app/dashboard/[eventId]/_components/cohost-welcome.tsx
 app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
 app/dashboard/[eventId]/_components/vendor-direct-pay.tsx
 app/dashboard/[eventId]/invitation/_components/guest-invite-modal.tsx

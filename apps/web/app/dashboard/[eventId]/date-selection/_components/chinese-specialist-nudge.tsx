@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { ArrowRight, Compass } from 'lucide-react';
+import { Compass } from 'lucide-react';
+import { Notice } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 
 /**
  * Advisory nudge shown on the date-selection surfaces for Chinese (Tsinoy)
@@ -14,40 +16,23 @@ import { ArrowRight, Compass } from 'lucide-react';
  * leaf via the same `/explore?category=…` target the /paperwork guide uses,
  * so both Chinese surfaces route the couple to the same real specialist.
  */
+/**
+ * 🔔 Inventory #25 — an OFFER (one notice system, owner approved 14 Nov 2026): ◆ "Consult a date specialist ⓘ · Find a
+ * specialist · Not now", at the end of the page. The Four Pillars note is behind the ⓘ.
+ */
 export function ChineseSpecialistNudge() {
   return (
-    <div className="rounded-xl border border-terracotta/20 bg-terracotta/[0.04] p-5">
-      <div className="flex items-start gap-3">
-        <Compass
-          aria-hidden
-          className="mt-0.5 h-4 w-4 flex-shrink-0 text-terracotta"
-          strokeWidth={1.75}
-        />
-        <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-            A note for your Chinese tradition
-          </p>
-          <p className="text-sm leading-relaxed text-ink/75">
-            Many Tsinoy families settle the date with a Four Pillars (BaZi) reading,
-            which weighs each partner&apos;s birth date and time of birth. It is a
-            blessing a Chinese-almanac or feng-shui specialist gives, not something we
-            calculate for you — gather both birth details if you would like that reading
-            on your date.
-          </p>
-          <p className="text-xs text-ink/55">
-            Consult a date specialist — a Chinese-almanac reader or feng-shui
-            consultant whose families you trust can give that reading.
-          </p>
-          <Link
-            href="/explore?category=date_fengshui_consultant"
-            className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-700-800"
-          >
-            <Compass className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
-            Find a date / feng-shui specialist
-            <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-          </Link>
-        </div>
-      </div>
-    </div>
+    <Notice
+      kind="offer"
+      noticeKey="date-specialist"
+      title="Consult a date specialist"
+      detail="A note for your Chinese tradition: many Tsinoy families settle the date with a Four Pillars (BaZi) reading, which weighs each partner's birth date and time of birth. It is a blessing a Chinese-almanac or feng-shui specialist gives, not something we calculate for you — gather both birth details if you would like that reading on your date."
+      actions={
+        <Link href="/explore?category=date_fengshui_consultant" className={NOTICE_ACTION}>
+          <Compass className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+          Find a date / feng-shui specialist
+        </Link>
+      }
+    />
   );
 }

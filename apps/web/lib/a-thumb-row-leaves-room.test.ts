@@ -106,7 +106,7 @@ test('4 · the account, launcher, Discover and supplier columns pad by the row a
   const cols: [string, RegExp][] = [
     ['app/dashboard/(account)/layout.tsx', /<main\s+className="([^"]+)"/],
     ['app/dashboard/(launcher)/layout.tsx', /<main\s+className="([^"]+)"/],
-    ['app/vendor-dashboard/layout.tsx', /<div className="(pb-\[[^"]+)">\s*\{\/\* Live vendor deal/],
+    ['app/vendor-dashboard/layout.tsx', /<div className="(pb-\[[^"]+)">\s*\{\/\* 🔔 The supplier pages' TOP for notices/],
     ['app/_components/frontdoor/front-door.tsx', /\? '(sn-vt-page pb-\[[^']+)'/],
   ];
   for (const [file, re] of cols) {

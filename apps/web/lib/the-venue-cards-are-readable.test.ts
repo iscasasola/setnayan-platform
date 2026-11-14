@@ -19,11 +19,14 @@
  *   · the name             `text-ink`     on the plate  (alpha 1)
  *   · the address          `text-ink/80`  on the plate  (was /65: 4.13–4.44 : 1
  *                                                         on house · galeriya · regency)
- *   · "Directions ▾" and its Google Maps · Waze · Apple Maps rows `text-ink` on `bg-cream`
- *                                          (`DirectionsMenu`, one dropdown since 2026-10-21 —
- *                                          three `text-ink/75` chips before), which the card
- *                                          re-grounds to the plate paper (it was the PAGE
- *                                          ground: 1.0 : 1 wherever page and plate differ)
+ *   · "Get directions"     `text-cream` on `bg-ink` (`DirectionsMenu` → `GetDirections`, one
+ *                                          button since 2026-11-14 — the "Directions ▾" dropdown's
+ *                                          `text-ink` on `bg-cream` before, three `text-ink/75`
+ *                                          chips before that): the SAME two tokens, swapped, so the
+ *                                          same measured pair; the card re-grounds cream to the
+ *                                          plate paper (it was the PAGE ground: 1.0 : 1 wherever
+ *                                          page and plate differ), so the button is plate paper on
+ *                                          the plate's ink
  *   · the withheld line    `text-ink/80`  on the page ground
  *
  * for EVERY theme the Event Hub ships × every colour source a couple can set
@@ -52,6 +55,7 @@ const CSS = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
 const LOADERS = readFileSync(join(WEB, 'app/[slug]/_lib/loaders.ts'), 'utf8');
 const WIDGET = readFileSync(join(WEB, 'app/[slug]/_components/venue-widget.tsx'), 'utf8');
 const DIRECTIONS = readFileSync(join(WEB, 'app/_components/nav-links.tsx'), 'utf8');
+const GET_DIRECTIONS = readFileSync(join(WEB, 'app/_components/get-directions.tsx'), 'utf8');
 
 /** Every block for `selector` (top level or inside `@layer`), merged in source order (later wins). */
 function cssVars(selector: string): Record<string, string> {
@@ -180,15 +184,16 @@ test('the venue card and its buttons paint with the tokens measured above', () =
   assert.match(WIDGET, /text-ink\/80">\{venue\.address\}/);
   assert.match(WIDGET, /tracking-\[0\.28em\] text-ink\/80">\s*\{VENUE_ROLE_LABEL\[venue\.role\]\}/);
   assert.match(WIDGET, /text-ink\/80">\{VENUE_WITHHELD_LINE\}/);
-  // The directions are ONE dropdown on the plate (`DirectionsMenu`, app/_components/nav-links.tsx), never the three-chip row.
+  // The directions are ONE button on the plate (`DirectionsMenu`, app/_components/nav-links.tsx), never the three-chip row.
   assert.match(WIDGET, /<DirectionsMenu venue=\{venue\} \/>/);
   assert.doesNotMatch(WIDGET, /<NavLinksRow(?![A-Za-z0-9_])/, 'the plain card is back to three map chips');
   // The chips' ground is the plate, not the page.
   assert.match(WIDGET, /VENUE_CHIP_GROUND[^;]*'--color-cream': 'var\(--color-paper-deep\)'/);
   assert.match(WIDGET, /className="pahina-plate[^"]*" style=\{VENUE_CHIP_GROUND\}/);
   assert.match(WIDGET, /font-pahina text-2xl[^"]*text-ink">\s*\{venue\.name\}/);
-  // The dropdown's summary and its rows: `bg-cream` + `text-ink` (alpha 1, measured above).
-  const menu = DIRECTIONS.slice(DIRECTIONS.indexOf('export function DirectionsMenu('));
-  assert.match(menu.slice(0, menu.indexOf('\n}\n')), /<summary className="[^"]*bg-cream[^"]*text-ink [^"]*"/);
-  assert.match(menu.slice(0, menu.indexOf('\n}\n')), /<ul className="[^"]*bg-cream"[\s\S]*?className="[^"]*text-ink"/);
+  // The button: the couple's look paints `bg-ink` + `text-cream` (alpha 1 both — the pair measured above, swapped).
+  assert.match(DIRECTIONS, /look \?\? \('venue' in props \? 'couple' : 'template'\)/, 'a venue card no longer gets the couple look');
+  const button = /look === 'template' \?[\s\S]*?<button[\s\S]*?className=\{`([^`]*)`\}/.exec(GET_DIRECTIONS)?.[1] ?? '';
+  assert.match(button, /(^|\s)bg-ink(\s|$)/, 'the couple-look button paints the plate ink');
+  assert.match(button, /(^|\s)text-cream(\s|$)/, 'the couple-look button words are the (re-grounded) cream');
 });

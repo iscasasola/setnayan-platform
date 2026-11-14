@@ -1,3 +1,4 @@
+import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import {
@@ -219,13 +220,7 @@ export async function RealStoriesSurface({
       <PageMasthead
         title="Real Stories"
         actions={
-          <Link
-            href="/realstories"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/10"
-          >
-            <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />
-            View the public page
-          </Link>
+          <ActionButton tone="info" href="/realstories" icon={<Sparkles aria-hidden />} label="View the public page" />
         }
         className="mb-6"
       />

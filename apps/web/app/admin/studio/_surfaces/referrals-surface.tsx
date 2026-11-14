@@ -187,7 +187,7 @@ export async function ReferralsSurface() {
           this form over a refused read offers to switch the whole program off
           from a state nobody read. */}
       {settingsKnown ? (
-        <form action={setReferralProgramEnabled} className="sn-tile p-5">
+        <form action={setReferralProgramEnabled} className="py-5 border-t border-ink/10">
           <label className="flex items-start gap-3">
             {/* 🎨 `text-mulberry`, not `text-terracotta`. On a checkbox that
                 class paints the TICK, and the tick is the only thing on this
@@ -239,7 +239,7 @@ export async function ReferralsSurface() {
       )}
 
       {/* Admin-managed reward amount. */}
-      <section className="sn-tile p-4">
+      <section className="py-4 border-t border-ink/10">
         <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Reward per side</p>
         <p className="mt-1 text-lg font-semibold text-ink">
           {rewardPhp === null ? '—' : `₱${rewardPhp.toLocaleString('en-PH')}`}

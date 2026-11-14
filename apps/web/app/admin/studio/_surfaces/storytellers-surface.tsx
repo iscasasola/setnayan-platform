@@ -1,3 +1,4 @@
+import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
 import { BookOpen, TrendingUp } from 'lucide-react';
 import {
@@ -282,13 +283,7 @@ export async function StorytellersSurface({
       <PageMasthead
         title="Storytellers"
         actions={
-          <Link
-            href="/realstories#storytellers"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/10"
-          >
-            <BookOpen aria-hidden className="h-4 w-4" strokeWidth={2} />
-            View the shelf
-          </Link>
+          <ActionButton tone="info" href="/realstories#storytellers" icon={<BookOpen aria-hidden />} label="View the shelf" />
         }
         className="mb-6"
       />

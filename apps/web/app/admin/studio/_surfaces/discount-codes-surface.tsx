@@ -1,3 +1,4 @@
+import { ActionButton } from '@/components/action-button';
 /**
  * DiscountCodesSurface — the voucher list body, inside the tabbed /admin/studio
  * studio (Studio Studio slice 3 · Marketing lane).
@@ -278,14 +279,7 @@ export async function DiscountCodesSurface({
       cell: (row) => (
         <div className="flex flex-wrap items-center gap-2">
           {row.is_active && (
-            <Link
-              href={`/admin/discount-codes/${row.discount_code_id}/edit`}
-              className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-orange-4)]"
-              style={{ color: 'var(--m-orange-2)', borderColor: 'var(--m-orange-3)' }}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Edit
-            </Link>
+            <ActionButton tone="info" href={`/admin/discount-codes/${row.discount_code_id}/edit`} icon={<Pencil aria-hidden />} label="Edit" />
           )}
           {row.is_active ? (
             <ConfirmForm

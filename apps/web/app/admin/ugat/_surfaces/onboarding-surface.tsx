@@ -79,7 +79,7 @@ export async function OnboardingSurface({ searchParams }: Props) {
       ) : null}
 
       {/* ── WEDDING ONBOARDING ─────────────────────────────────────────── */}
-      <section className="sn-tile p-5 sm:p-6">
+      <section className="py-5 sm:py-6 border-t border-ink/10">
         <header className="mb-4 flex items-center gap-2">
           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-mulberry/10 text-mulberry">
             <Heart className="h-5 w-5" strokeWidth={1.75} aria-hidden />
@@ -203,7 +203,7 @@ function RelatedLink({
   return (
     <Link
       href={href}
-      className="group flex items-start gap-2 rounded-lg border border-ink/10 bg-white p-3 hover:border-terracotta/30 hover:bg-terracotta/5"
+      className="group flex min-h-[56px] items-start gap-2 border-t border-ink/10 py-3 hover:bg-ink/5"
     >
       <span className="mt-0.5 text-terracotta">{icon}</span>
       <span className="min-w-0 flex-1">

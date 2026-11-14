@@ -640,7 +640,7 @@ export async function SocialQueueSurface({
         loadFailed={Boolean(publishedErr)}
         empty="Nothing auto-published yet — successful dispatches land here."
       >
-        <ul className="sn-tile !p-0 divide-y divide-ink/10">
+        <ul className="divide-y divide-ink/10 border-y border-ink/10">
           {publishedPosts.map((p) => {
             const fb = platformResult(p.platform_results, 'facebook');
             const ig = platformResult(p.platform_results, 'instagram');
@@ -699,7 +699,7 @@ export async function SocialQueueSurface({
             Hand-written post — queues at the next governor slot, no hold window.
           </p>
         </div>
-        <article className="space-y-4 sn-tile p-5">
+        <article className="space-y-4 py-5 border-t border-ink/10">
           {changelogSuggestions.length > 0 ? (
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-ink/70">
@@ -891,7 +891,7 @@ export async function SocialQueueSurface({
               c.artifact_type === 'monogram' ? resolveEventMonogramSvg(ev ?? null) : null;
             return (
               <li key={c.consent_id}>
-                <article className="space-y-3 sn-tile p-4">
+                <article className="space-y-3 py-4 border-t border-ink/10">
                   <header className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-0.5">
                       <p className="text-sm font-semibold text-ink">
@@ -949,7 +949,7 @@ export async function SocialQueueSurface({
         loadFailed={Boolean(pendingErr) || consentEventsFailed}
         empty="Nothing waiting — every live consent is already postable."
       >
-        <ul className="sn-tile !p-0 divide-y divide-ink/10">
+        <ul className="divide-y divide-ink/10 border-y border-ink/10">
           {waitingOnGate.map((c) => {
             const ev = eventMap[c.event_id];
             const postableFrom = shareConsentPostableFrom(ev?.event_date ?? null);
@@ -1006,7 +1006,7 @@ export async function SocialQueueSurface({
             });
             return (
               <li key={v.vendor_profile_id}>
-                <article className="space-y-3 sn-tile p-4">
+                <article className="space-y-3 py-4 border-t border-ink/10">
                   <header className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-0.5">
                       <p className="truncate text-sm font-semibold text-ink">
@@ -1067,7 +1067,7 @@ export async function SocialQueueSurface({
         <ul className="grid gap-3 sm:grid-cols-2">
           {birthdays.map((u) => (
             <li key={`bday-${u.user_id}`}>
-              <article className="space-y-2 sn-tile p-4">
+              <article className="space-y-2 py-4 border-t border-ink/10">
                 <p className="text-sm font-semibold text-ink">
                   🎂 {u.display_name || 'A Setnayan member'}
                 </p>
@@ -1082,7 +1082,7 @@ export async function SocialQueueSurface({
           ))}
           {anniversaries.map((e) => (
             <li key={`anniv-${e.event_id}`}>
-              <article className="space-y-2 sn-tile p-4">
+              <article className="space-y-2 py-4 border-t border-ink/10">
                 <p className="text-sm font-semibold text-ink">
                   💍 {e.display_name || 'A Setnayan couple'}
                 </p>
@@ -1138,7 +1138,7 @@ function AutopilotStrip({
       : { label: 'TikTok · assisted (audit pending)', tone: 'bg-warn-100 text-warn-900' };
 
   return (
-    <section id="autopilot" className="mb-8 space-y-4 sn-tile p-5">
+    <section id="autopilot" className="mb-8 space-y-4 py-5 border-t border-ink/10">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-0.5">
           <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
@@ -1323,7 +1323,7 @@ function TikTokManualPanel({ posts }: { posts: SocialPostRow[] }) {
         <ul className="grid gap-3 sm:grid-cols-2">
           {items.map((p) => (
             <li key={p.post_id}>
-              <article className="space-y-3 sn-tile p-4">
+              <article className="space-y-3 py-4 border-t border-ink/10">
                 <header className="flex items-start gap-3">
                   {/* 9:16 STORY card preview — the exact image to attach. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1395,7 +1395,7 @@ function ScheduledPostCard({
   const holdHours = holdFuture ? Math.max(1, Math.ceil((holdAt - now) / 3_600_000)) : 0;
 
   return (
-    <article className="space-y-3 sn-tile p-4">
+    <article className="space-y-3 py-4 border-t border-ink/10">
       <header className="flex items-start gap-3">
         <CardPreview postId={post.post_id} />
         <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">

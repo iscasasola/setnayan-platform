@@ -1,3 +1,5 @@
+import { FieldPick } from '@/app/admin/_components/field-pick';
+import { ActionButton } from '@/components/action-button';
 /**
  * SpotlightAwardsSurface — the Spotlight Awards curation body, re-homed
  * byte-identical from app/admin/spotlight-awards/page.tsx into the tabbed
@@ -29,7 +31,7 @@
  * (defense in depth). Reads use the RLS-scoped server client (public-read).
  */
 
-import { Trophy, Star, TrendingUp, BarChart3, Info } from 'lucide-react';
+import { BarChart3, Info, Plus, Star, TrendingUp, Trophy } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
   fetchSpotlightAwards,
@@ -124,7 +126,7 @@ export async function SpotlightAwardsSurface({
       </div>
 
       {/* Recompute + stat row */}
-      <section className="mb-6 flex flex-col gap-4 sn-tile p-5 sm:flex-row sm:items-center sm:justify-between">
+      <section className="mb-6 flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between border-t border-ink/10">
         <div className="grid grid-cols-3 gap-4">
           <Stat label="Total awards" value={rows.length} />
           <Stat label="Auto-picked" value={autoCount} />
@@ -193,7 +195,7 @@ export async function SpotlightAwardsSurface({
       )}
 
       {/* Add-by-hand */}
-      <section className="mt-8 sn-tile p-5">
+      <section className="mt-8 py-5 border-t border-ink/10">
         <h2 className="text-base font-semibold text-ink">Add an award by hand</h2>
         <p className="mt-1 text-sm text-ink/60">
           Award a supplier directly — useful for the <strong>Rising Star</strong>{' '}
@@ -235,22 +237,18 @@ function ManualAddForm({ period }: { period: string }) {
       </label>
       <label className="text-sm">
         <span className="mb-1 block font-medium text-ink/80">Award</span>
-        <select
+        <FieldPick
           name="award_type"
+          label="Award"
           defaultValue="rising"
-          className="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-terracotta"
-        >
-          <option value="rising">Rising Star</option>
-          <option value="top_pick">Setnayan&apos;s Top Pick</option>
-          <option value="most_booked">Most Booked</option>
-        </select>
+          options={[
+            { key: 'rising', label: 'Rising Star' },
+            { key: 'top_pick', label: 'Setnayan’s Top Pick' },
+            { key: 'most_booked', label: 'Most Booked' },
+          ]}
+        />
       </label>
-      <button
-        type="submit"
-        className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-ink/90"
-      >
-        Add award
-      </button>
+      <ActionButton tone="brand" main icon={<Plus aria-hidden />} label="Add award" type="submit" />
     </form>
   );
 }

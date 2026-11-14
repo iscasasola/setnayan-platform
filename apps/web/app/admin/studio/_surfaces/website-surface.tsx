@@ -1,3 +1,6 @@
+import { FieldPick } from '@/app/admin/_components/field-pick';
+import { ArrowUpRight } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -76,25 +79,8 @@ function PageSelector({ currentPage }: { currentPage: SiteWidgetPage }) {
       // Inline submit on change for a single dropdown.
     >
       <input type="hidden" name="tab" value="website" />
-      <select
-        name="page"
-        defaultValue={currentPage}
-        className="input-field min-w-[10rem]"
-        // SSR-only — no `onChange` (client form would require 'use client').
-        // Admin can hit Enter or use the Apply button.
-      >
-        {SITE_WIDGET_PAGES.map((p) => (
-          <option key={p.key} value={p.key}>
-            {p.label}
-          </option>
-        ))}
-      </select>
-      <button
-        type="submit"
-        className="ml-2 inline-flex h-11 items-center rounded-md border border-ink/20 bg-white/70 px-3 text-xs text-ink/75 hover:bg-ink/5"
-      >
-        Open
-      </button>
+      <FieldPick name="page" label="Page" defaultValue={currentPage} className="min-h-11 min-w-[10rem]" options={SITE_WIDGET_PAGES.map((p) => ({ key: p.key, label: p.label }))} />
+      <ActionButton tone="neutral" icon={<ArrowUpRight aria-hidden />} label="Open" type="submit" />
     </form>
   );
 }

@@ -260,7 +260,7 @@ export async function BrainSurface() {
           <details
             key={topic.filename}
             open={isOpen}
-            className="mb-4 overflow-hidden sn-tile"
+            className="mb-4 overflow-hidden border-t border-ink/10"
           >
             <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-terracotta/[0.04]">
               <div className="min-w-0 flex-1 space-y-1">

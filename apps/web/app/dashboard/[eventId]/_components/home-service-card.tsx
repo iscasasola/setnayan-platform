@@ -147,7 +147,7 @@ export function HomeServiceCard({
           /* › turns to ⌄ as the card grows in place — the one card shape, as Papic's (owner 2026-10-24). */
           <ChevronRight
             aria-hidden
-            className={`sg-arrow h-[18px] w-[18px] transition-transform duration-[var(--sn-dur-elem)] ease-[var(--sn-ease)] motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
+            className={`sg-arrow h-[18px] w-[18px] transition-transform duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
             strokeWidth={1.9}
           />
         ) : (
@@ -230,7 +230,7 @@ export function HomeServiceCard({
             aria-label={`${name} settings`}
             inert={!open}
             data-home-card-settings={open ? 'open' : 'closed'}
-            className={`grid transition-[grid-template-rows,opacity] duration-[var(--sn-dur-elem)] ease-[var(--sn-ease)] motion-reduce:transition-none ${
+            className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${
               open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
             }`}
           >

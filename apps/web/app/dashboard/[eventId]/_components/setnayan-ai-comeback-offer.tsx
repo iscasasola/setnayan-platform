@@ -126,7 +126,7 @@ export function SetnayanAiComebackOffer({
     // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 13 · 14): the offer is the one framed next step on the warm surface
     // (no tinted bordered box); its eyebrow is grey capitals, not a typewriter; the price and the countdown are in the
     // words' own font, bold, with even digits; the buy is the one main terracotta pill (`ab ab-brand ab-main`).
-    <div className="mt-4 rounded-[18px] bg-[var(--m-paper-2)] px-4 py-4">
+    <div className="mt-4 rounded-card bg-[var(--m-paper-2)] px-4 py-4">
       <div className="flex items-start gap-3">
         <Sparkles aria-hidden className="mt-1 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
         <div className="min-w-0 flex-1">

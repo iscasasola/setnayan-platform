@@ -84,7 +84,7 @@ export function PapicReadyNudge({ eventId }: Props) {
   // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 5 · 7 · 13): no bordered tinted card — the warm surface; "Already on" is
   // the soft chip (not a typewriter caption); the how-it-works lines sit behind the title's ⓘ; the close presses at 44.
   return (
-    <div role="status" className="mt-4 flex items-start gap-3 rounded-[18px] bg-[var(--m-paper-2)] px-4 py-3">
+    <div role="status" className="mt-4 flex items-start gap-3 rounded-card bg-[var(--m-paper-2)] px-4 py-3">
       <Camera aria-hidden className="mt-1 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">

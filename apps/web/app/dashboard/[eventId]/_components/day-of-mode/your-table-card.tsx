@@ -34,7 +34,6 @@ const LABEL = 'inline-flex items-center gap-1.5 text-xs font-semibold uppercase 
 
 export function YourTableCard({ eventId, headTable, nearbyTables, tablesFailed = false }: Props) {
   if (!tablesFailed && !eventHasSeatPlan(headTable, nearbyTables)) return null;
-  const plan = `/dashboard/${eventId}/seating`;
   return (
     <section aria-labelledby="day-of-head-table" className="space-y-1">
       <header className="flex min-h-11 items-center justify-between gap-2">
@@ -43,7 +42,7 @@ export function YourTableCard({ eventId, headTable, nearbyTables, tablesFailed =
           Head table
         </h2>
         <Link
-          href={plan}
+          href={`/dashboard/${eventId}/seating`}
           className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-terracotta-700 hover:underline"
         >
           Plan <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -53,7 +52,7 @@ export function YourTableCard({ eventId, headTable, nearbyTables, tablesFailed =
       {tablesFailed ? (
         <p role="status" className="py-2 text-sm text-warn-800">
           Couldn’t load your tables — not the same as none.{' '}
-          <Link href={plan} className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
+          <Link href={`/dashboard/${eventId}/seating`} className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
             Open seating
           </Link>
         </p>
@@ -80,7 +79,7 @@ export function YourTableCard({ eventId, headTable, nearbyTables, tablesFailed =
       ) : (
         <p className="py-2 text-sm text-ink/75">
           No head table set up yet.{' '}
-          <Link href={plan} className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
+          <Link href={`/dashboard/${eventId}/seating`} className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
             Open seating
           </Link>
         </p>

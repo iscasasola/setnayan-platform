@@ -125,7 +125,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary, 
           card, through a chip". It is the one thing here that is WORK still
           waiting, so it is the one part that wears a frame (template rule 2: only the next step is framed), on the
           warm surface, with the one main button. */}
-      <div className="space-y-2 rounded-[18px] bg-[var(--m-paper-2)] p-4" data-tour="post-story">
+      <div className="space-y-2 rounded-card bg-[var(--m-paper-2)] p-4" data-tour="post-story">
         <span className="flex items-center gap-2">
           <Newspaper aria-hidden className="h-4 w-4 flex-none text-terracotta" strokeWidth={1.75} />
           <span className="text-[13px] font-semibold uppercase tracking-[0.06em] text-ink/70">Editorial maker</span>

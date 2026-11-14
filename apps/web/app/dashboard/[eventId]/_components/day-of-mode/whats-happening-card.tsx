@@ -119,7 +119,7 @@ export function WhatsHappeningCard({ blocks, runStateTrigger = false, failed = f
     // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 13 · 14 · 2): the day's ONE thing that matters now — the top of the page on
     // the warm surface (`--m-paper-2`, which flips in dark), its name big in full ink; no dark tile with typed colour
     // codes, no 10 px typewriter captions. The live dot stays the house gold (an edge/icon, never words).
-    <article className="space-y-2 rounded-[18px] bg-[var(--m-paper-2)] p-4">
+    <article className="space-y-2 rounded-card bg-[var(--m-paper-2)] p-4">
       <header className="flex items-center justify-between">
         <h2 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           <Activity aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />

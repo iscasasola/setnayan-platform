@@ -17051,6 +17051,7 @@
         "vendor-dashboard/invite/_components/qr-codes.tsx",
         "vendor-dashboard/invite/actions.ts",
         "vendor-dashboard/invite/date-status-actions.ts",
+        "vendor-dashboard/invite/loading.tsx",
         "vendor-dashboard/invite/page.tsx"
       ],
       "destinations": [
@@ -17072,7 +17073,9 @@
         "Icon",
         "InfoTip",
         "Link",
+        "ListPageSkeleton",
         "LockedQrGenerator",
+        "PickMenu",
         "PutOnRow",
         "QrCard",
         "QrCodeList",
@@ -17082,6 +17085,8 @@
         "Sheet",
         "SubmitButton",
         "SwipeToDelete",
+        "TemplateEmpty",
+        "TemplateFail",
         "TypedRow",
         "UndoToastHost"
       ]
@@ -17344,6 +17349,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ArrayBuffer",
         "DatesRow",
         "ListPageSkeleton",
@@ -18652,7 +18658,8 @@
         "ShopPrintsSection",
         "ShopSegments",
         "SupplierSubmit",
-        "SwitchTrack"
+        "SwitchTrack",
+        "TemplateEmpty"
       ]
     },
     "/vendor-dashboard/subscription": {
@@ -18855,6 +18862,7 @@
         "GuestReplies",
         "GuestReviewsRead",
         "HostReplies",
+        "InfoTip",
         "OwnRow",
         "PageData",
         "PageDraft",
@@ -18878,6 +18886,8 @@
         "SwipeToDelete",
         "SwitchRow",
         "SwitchTrack",
+        "TemplateEmpty",
+        "TemplateFail",
         "ThumbRow",
         "TypedRow",
         "UndoToastHost",

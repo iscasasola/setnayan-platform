@@ -102,7 +102,7 @@ export function TodayPinnedRow({
         {greetingLine(now).replace(/,$/, '')}
         {shop ? `, ${shop}` : ''}
       </span>
-      <span className="ml-auto shrink-0 text-[13px] text-ink/60">{pinnedCountsLine(tasks, todayIso)}</span>
+      <span className="ml-auto shrink-0 text-[13px] text-[color:var(--m-slate-2)]">{pinnedCountsLine(tasks, todayIso)}</span>
     </span>
   );
 }

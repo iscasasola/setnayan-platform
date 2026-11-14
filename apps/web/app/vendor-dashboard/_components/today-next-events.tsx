@@ -66,10 +66,10 @@ function EventCard({ card }: { card: NextEventCard }) {
       </span>
       <span className="block px-4 pb-4 pt-3">
         <span className="block truncate text-[17px] font-semibold leading-tight text-ink">{card.title}</span>
-        <span className="mt-1 block truncate text-[13.5px] text-ink/65">{card.dateLine}</span>
+        <span className="mt-1 block truncate text-[13.5px] text-[color:var(--m-slate-2)]">{card.dateLine}</span>
         {card.timeLine ? (
           <span
-            className={`mt-0.5 block truncate text-[13.5px] ${card.timeUnread ? 'text-[rgb(var(--color-danger))]' : 'text-ink/65'}`}
+            className={`mt-0.5 block truncate text-[13.5px] ${card.timeUnread ? 'text-[rgb(var(--color-danger))]' : 'text-[color:var(--m-slate-2)]'}`}
             data-today-next-time={card.timeUnread ? 'unread' : ''}
           >
             {card.timeLine}

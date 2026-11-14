@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { DaysToGo } from '@/lib/countdown-target';
 import { notFound, redirect } from 'next/navigation';
 import { EventScene } from '@/app/dashboard/(launcher)/_components/event-scene';
+import { WatchFold } from './watch-fold';
 import { resolveEventPoster } from '@/lib/event-poster.server';
 import { sceneCoverFor } from '@/lib/event-poster';
 import { getEventTypeVocab } from '@/lib/event-types-db';
@@ -2433,13 +2434,11 @@ export async function EventDashboard({
                 *  digest is the job. Open by default when anything is a `guard`, so a
                 *  real warning is never hidden behind a tap.
                 *
-                *  ⚠ TWO BRANCHES, NOT ONE ELEMENT NEUTRALISED BY CSS. Forcing a single
-                *  <details> open at ≥lg leaves its <summary> clickable and focusable
-                *  while doing nothing visible — a dead control, which this repo treats
-                *  as a defect. Two branches is also the pattern already used for the
-                *  sidebar/bottom-nav split. `watchItems` is capped at 4, so the cost is
-                *  at most four rows of duplicate markup and no duplicate DOM ids —
-                *  `inspectId` is a query param, not an id. */}
+                *  👁 ONE ELEMENT, NOT TWO (lane 4, D4 2026-11-13). This was two branches — an
+                *  `lg:hidden` fold and a `hidden lg:block` copy of the same rows — because one
+                *  <details> forced open by CSS leaves a summary that does nothing. `WatchFold` is
+                *  one real disclosure at every width instead: it opens on arrival from the `tab:`
+                *  line and its summary still folds it, so nothing is drawn twice and nothing is dead. */}
               {aiActive && watchItems.length > 0 ? (
                 <>
                   <div
@@ -2448,12 +2447,18 @@ export async function EventDashboard({
                       background: focalDark ? 'rgba(255,255,255,.12)' : 'rgba(30,26,18,.08)',
                     }}
                   />
-                  {/* Phone — a real disclosure. */}
-                  <details className="lg:hidden" open={watchHasGuard}>
-                    <summary className="sn-eye cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                      <Sparkles aria-hidden strokeWidth={1.75} />
-                      Setnayan AI · The Watch · {watchItems.length}
-                    </summary>
+                  {/* 👁 ONE element at every width (lane 4, D4 2026-11-13): shut on a phone unless a row is a guard,
+                      open from the `tab:` line — and its summary still folds it there (`watch-fold.tsx`). */}
+                  <WatchFold
+                    guard={watchHasGuard}
+                    summary={
+                      <>
+                        <Sparkles aria-hidden strokeWidth={1.75} />
+                        {/* A literal, so the store-shell scan still reads the paid name (the-app-names-no-paid-service). */}
+                        {'Setnayan AI · The Watch'} · {watchItems.length}
+                      </>
+                    }
+                  >
                   <div className="mt-1">
                     {watchItems.map(({ intervention, copy }) => {
                       const watchColor =
@@ -2497,58 +2502,7 @@ export async function EventDashboard({
                   >
                     Sai fires a few alerts a week at most — deduped, most-urgent first.
                   </p>
-                  </details>
-
-                  {/* Laptop — never folds. */}
-                  <div className="hidden lg:block">
-                  <p className="sn-eye">
-                    <Sparkles aria-hidden strokeWidth={1.75} />
-                    Setnayan AI · The Watch
-                  </p>
-                  <div className="mt-1">
-                    {watchItems.map(({ intervention, copy }) => {
-                      const watchColor =
-                        intervention.category === 'guard'
-                          ? 'var(--sn-info)'
-                          : 'var(--sn-gold-600)';
-                      return (
-                        <InspectorTrigger
-                          key={intervention.dedupeKey}
-                          inspectId={`w:${intervention.dedupeKey}`}
-                          className="mt-2 flex w-full gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
-                        >
-                          <span
-                            aria-hidden
-                            className="mt-1.5 h-2 w-2 flex-none rounded-full"
-                            style={{ background: focalDark ? 'var(--sn-gold-300)' : watchColor }}
-                          />
-                          <span className="min-w-0">
-                            <span
-                              className="block text-[10px] font-bold uppercase tracking-[0.13em]"
-                              style={{ color: focalDark ? 'var(--sn-gold-300)' : watchColor }}
-                            >
-                              {intervention.category === 'guard' ? 'Guard' : 'Secretary'}
-                            </span>
-                            <span
-                              className="mt-0.5 block whitespace-pre-line text-[12.5px] leading-snug"
-                              style={{
-                                color: focalDark ? 'rgba(243,236,223,.82)' : 'var(--sn-ink-700)',
-                              }}
-                            >
-                              {copy}
-                            </span>
-                          </span>
-                        </InspectorTrigger>
-                      );
-                    })}
-                  </div>
-                  <p
-                    className="mt-3 text-[10.5px]"
-                    style={{ color: focalDark ? 'rgba(243,236,223,.5)' : 'var(--sn-ink-500)' }}
-                  >
-                    Sai fires a few alerts a week at most — deduped, most-urgent first.
-                  </p>
-                  </div>
+                  </WatchFold>
                 </>
               ) : null}
             </div>

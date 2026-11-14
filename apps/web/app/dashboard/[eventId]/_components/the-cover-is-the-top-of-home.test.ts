@@ -11,8 +11,8 @@
  * Properties:
  *   1 · Home's first screen opens on the cover: `<HomeCoverBand` is the section's FIRST element, and the asks slot
  *       sits after it and before the Today line.
- *   2 · Home's page draws nothing visible before the phase branches except what has no box (tours, the preloader) or
- *       what only the day-of console draws (it has no cover); the four prompts live ONLY in `todayAsks`, which is
+ *   2 · Home's page draws nothing visible before the phase branches except what has no box (tours, spotlights);
+ *       the day-of console sits inside its branch (it has no cover); the four prompts live ONLY in `todayAsks`, which is
  *       handed to the first screen and otherwise drawn only where there is no cover.
  *   3 · Each prompt IS a Today line (`HomeTodayItem` / `TodaySheetItem`), never a tile of its own.
  *   4 · The coordinator's line names the SHOP that joined — never the bare word "coordinator" — and the name is
@@ -40,9 +40,6 @@ const NO_BOX_OR_NO_COVER: Readonly<Record<string, string>> = {
   MiniTour: 'a first-visit tour — an overlay, no box in the flow',
   Spotlight: 'a spotlight tour — an overlay, no box in the flow',
   AutoPreloadOnEventDay: 'renders null (a background pre-load)',
-  ReadyForNoSignal: 'the event-day console only (gated on dayOfActive) — that view has no cover',
-  DayOfModeGrid: 'the event-day console only (gated on dayOfActive) — that view has no cover',
-  DayPapicRow: 'a prop of DayOfModeGrid',
 };
 
 test('1 · the first screen opens on the cover; Now rides it; the asks sit under it', () => {
@@ -66,16 +63,21 @@ test('1 · the first screen opens on the cover; Now rides it; the asks sit under
 test('2 · Home draws nothing above the cover; the four prompts live only in todayAsks', () => {
   const page = src('app/dashboard/[eventId]/page.tsx');
   const ret = page.slice(page.indexOf('<LastSeenCapture page="home"'));
-  const branch = ret.indexOf('{dayOfActive ? (\n        <>');
+  // 🖥 The phase branch opens on the day's large-screen wrapper (tablet/desktop lane 4, 2026-11-13): the day-of console
+  // and its asks moved INSIDE the branch, so they sit in the wide column — still the views with no cover.
+  const branch = ret.indexOf('{dayOfActive ? (\n        <div data-home-day="on"');
   assert.ok(branch > 0, 'the phase branch moved — re-aim this guard at it');
   const before = ret.slice(0, branch);
+  const dayOf = ret.slice(branch, ret.indexOf(') : afterActive && afterSummary ? (', branch));
+  const after = ret.slice(ret.indexOf(') : afterActive && afterSummary ? (', branch), ret.indexOf('{homeFirstScreen}', branch));
   for (const m of before.matchAll(/<([A-Z]\w*)/g)) {
     const tag = m[1]!;
     if (tag === 'LastSeenCapture') continue;
     assert.ok(tag in NO_BOX_OR_NO_COVER, `<${tag}> renders above Home's cover — make it a Today line (HomeTodayItem) instead`);
   }
   for (const tag of ['ReadyForNoSignal', 'DayOfModeGrid']) {
-    assert.match(before, new RegExp(`\\{dayOfActive \\? \\(\\s*<${tag}`), `<${tag}> is no longer the day-of console's alone`);
+    assert.equal(ret.split(`<${tag}`).length - 1, 1, `<${tag}> is drawn more than once`);
+    assert.ok(dayOf.includes(`<${tag}`), `<${tag}> is no longer the day-of console's alone`);
   }
   // The asks: in the todayAsks block, handed to the first screen, otherwise only where there is no cover.
   const block = page.slice(page.indexOf('const todayAsks = ('), page.indexOf('const homeFirstScreen = ('));
@@ -85,8 +87,13 @@ test('2 · Home draws nothing above the cover; the four prompts live only in tod
   }
   assert.ok(block.indexOf('<CoordinatorLevelCard ') < block.indexOf('<AccessRequestsDoorway '), 'the coordinator’s access is not first');
   assert.match(page, /asks=\{todayAsks\}/, 'the Today asks are not handed to the first screen');
-  assert.match(before, /\{dayOfActive \|\| afterActive \? todayAsks : null\}/, 'the Today asks render above the cover');
-  assert.equal(page.split('todayAsks').length - 1, 3, 'todayAsks is drawn somewhere else');
+  // Drawn where there is no cover: the day-of console, the after summary, and (as before lane 4) an After phase whose
+  // summary could not be read — never ahead of the phase branch.
+  assert.doesNotMatch(before, /todayAsks/, 'the Today asks render above the phase branch');
+  assert.match(dayOf, /<div data-home-day-now="" [^>]*>\s*\{todayAsks\}/, 'the day-of console no longer leads with the Today asks');
+  assert.match(after, /<div data-home-day-now="" [^>]*>\s*\{todayAsks\}/, 'the after summary no longer leads with the Today asks');
+  assert.match(ret, /\{afterActive \? todayAsks : null\}\s*<AutoPreloadOnEventDay[^>]*\/>\s*\{homeFirstScreen\}/, 'the unread-summary After lost its asks');
+  assert.equal(page.split('todayAsks').length - 1, 5, 'todayAsks is drawn somewhere else');
 });
 
 test('3 · each prompt IS a Today line, never a tile of its own', () => {

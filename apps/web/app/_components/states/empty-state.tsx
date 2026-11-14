@@ -22,8 +22,6 @@ type Props = {
    * branching on a bare `count === 0`.
    */
   readPermitted: true;
-  /** Overrides the "Verified: read permitted · 0 rows" audit line. */
-  verifiedNote?: string;
   /**
    * 👻 THE GREYED-OUT EXAMPLE (owner 2026-11-09, DECISION_LOG 🧱👻 ×2; Build 5 Lane H): the REAL component of this
    * surface with sample rows, drawn faded and inert UNDER the line and the door. Omit = as shipped. It can only ever
@@ -35,7 +33,7 @@ type Props = {
 // State 03 · EMPTY — centred, warm, teaching. Nothing exists yet AND the read
 // was permitted. Must never be mistakable for Denied (left-anchored slate) or
 // Locked (ghosted feature under a gold lock): different geometry on purpose.
-export function EmptyState({ Icon, title, blurb, action, verifiedNote, preview }: Props) {
+export function EmptyState({ Icon, title, blurb, action, preview }: Props) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
       <span className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full border border-terracotta/30 bg-terracotta/10 text-terracotta">
@@ -44,14 +42,8 @@ export function EmptyState({ Icon, title, blurb, action, verifiedNote, preview }
       <h3 className="text-lg font-extrabold tracking-tight text-ink">{title}</h3>
       <p className="mt-2 max-w-sm text-sm text-ink/65">{blurb}</p>
       {action ? <div className="mt-5">{action}</div> : null}
-      {/* ink/70, not ink/45 — measured on the cream page, ink/45 is 2.62:1 in
-          the light theme, a hard AA fail for text at 9px (no large-text
-          exception applies). ink/70 measures 5.29:1 light / 8.93:1 dark.
-          Corrected 2026-08-17 when the admin console table became this
-          component's first consumer; it had shipped unmounted until then. */}
-      <span className="mt-6 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-ink/70">
-        {verifiedNote ?? 'Verified: read permitted · 0 rows'}
-      </span>
+      {/* ✂ F-A-01 (admin walk 13 Nov 2026): no "Verified: read permitted · 0 rows" stamp under the line — engineering
+          words on a screen a person reads. The read is still proven before Empty draws (`readPermitted: true`). */}
       {preview ? <ExamplePreview className="mt-6 w-full text-left">{preview}</ExamplePreview> : null}
     </div>
   );

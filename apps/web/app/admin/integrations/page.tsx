@@ -38,7 +38,7 @@ import { PasswordField } from '@/app/_components/password-field';
 // registry of "simple secret" integrations (OpenAI first; more follow).
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Integrations HQ' };
+export const metadata = { title: 'Integrations · Admin' };
 
 export default async function AdminIntegrationsPage({
   searchParams,

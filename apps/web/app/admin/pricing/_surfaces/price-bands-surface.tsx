@@ -206,7 +206,6 @@ export async function PriceBandsSurface({
           title: 'No bands to show yet',
           blurb:
             'Either no recompute has run, or every category × region × bucket is still below the min-N sample floor. As more suppliers publish prices, recompute and the bands appear here.',
-          verifiedNote: 'Verified: read permitted · 0 bands above the floor',
         }}
         columns={[
           {

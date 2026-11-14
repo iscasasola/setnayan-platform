@@ -176,7 +176,7 @@ export function HomeSettingsGear({
     >
       <MenuSettingsButton menu="home" open={open} onOpenChange={setOpen} cover line={helper ? HOME_HELPER_SHEET : undefined}>
         {got === null ? (
-          <p className="px-4 py-6 text-sm text-ink/60" role="status" data-event-settings-opening="">
+          <p className="px-4 py-6 text-sm text-ink/75" role="status" data-event-settings-opening="">
             {helper ? 'Opening your access…' : 'Opening your event’s details…'}
           </p>
         ) : 'reason' in got ? (

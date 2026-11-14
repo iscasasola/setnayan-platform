@@ -1,4 +1,5 @@
 import { CalendarClock } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
 
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -66,23 +67,27 @@ export async function DateChangeDoorway({ eventId }: { eventId: string }) {
       title="Date change"
       dataAttr={['data-date-change-home', '']}
     >
+      {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 7 · 13): the explaining line is behind the ⓘ, each supplier is one
+          hairline row, the presses are the shared pills (grey Keep waiting · red Drop · the one terracotta Use), no pale ink. */}
       <section className="flex flex-col gap-3" aria-label="Date change">
         <div className="flex items-start gap-3">
           <CalendarClock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.75} />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-ink">{dateChangeHomeLine(view)}</p>
-            <p className="mt-0.5 text-xs text-ink/60">
-              Moving from {from} to {to}. Your date stays as it is until every supplier answers — guests see nothing.
+            <InfoTip label={dateChangeHomeLine(view)} labelAs="p" labelClassName="text-[15px] font-semibold text-ink" align="start">
+              Your date stays as it is until every supplier answers — guests see nothing.
+            </InfoTip>
+            <p className="mt-0.5 text-[13px] text-ink/75">
+              Moving from {from} to {to}.
             </p>
           </div>
         </div>
 
-        <ul className="flex flex-col gap-2">
+        <ul className="divide-y divide-ink/10">
           {view.suppliers.map((s) => (
-            <li key={s.vendorProfileId} className="py-1">
+            <li key={s.vendorProfileId} className="min-h-14 py-2.5">
               <p className="text-sm text-ink">
                 <span className="font-semibold">{s.name}</span>
-                <span className="text-ink/60"> · {dateChangeAnswerLine(s, now)}</span>
+                <span className="text-ink/75"> · {dateChangeAnswerLine(s, now)}</span>
               </p>
               {s.overdue ? (
                 <div className="mt-2 flex flex-wrap gap-2" data-date-change-overdue={s.vendorProfileId}>
@@ -92,7 +97,7 @@ export async function DateChangeDoorway({ eventId }: { eventId: string }) {
                     <input type="hidden" name="event_vendor_id" value={s.eventVendorIds[0]} />
                     <SubmitButton
                       pendingLabel="Saving…"
-                      className="inline-flex min-h-11 items-center rounded-full border border-ink/20 px-4 text-sm font-semibold text-ink"
+                      className="ab ab-neutral"
                     >
                       Keep waiting
                     </SubmitButton>
@@ -103,7 +108,7 @@ export async function DateChangeDoorway({ eventId }: { eventId: string }) {
                     <input type="hidden" name="event_vendor_id" value={s.eventVendorIds[0]} />
                     <SubmitButton
                       pendingLabel="Releasing…"
-                      className="inline-flex min-h-11 items-center rounded-full border border-terracotta/40 px-4 text-sm font-semibold text-terracotta-700"
+                      className="ab ab-danger"
                     >
                       Drop {s.name}
                     </SubmitButton>
@@ -114,7 +119,7 @@ export async function DateChangeDoorway({ eventId }: { eventId: string }) {
           ))}
         </ul>
         {view.suppliers.some((s) => s.overdue) ? (
-          <p className="text-xs text-ink/60">
+          <p className="text-[13px] text-ink/75">
             Dropping a supplier releases their booking; any payment is settled by the cancellation terms on that
             booking, never by Setnayan.
           </p>
@@ -127,7 +132,7 @@ export async function DateChangeDoorway({ eventId }: { eventId: string }) {
             <input type="hidden" name="precision" value={view.proposedPrecision} />
             <SubmitButton
               pendingLabel="Saving your date…"
-              className="sn-press inline-flex min-h-11 w-full items-center justify-center rounded-full bg-ink px-5 text-sm font-semibold text-cream"
+              className="ab ab-brand ab-main w-full"
               data-date-change-ready=""
             >
               Every supplier answered — use {to}
@@ -140,7 +145,7 @@ export async function DateChangeDoorway({ eventId }: { eventId: string }) {
           <input type="hidden" name="action" value="withdraw" />
           <SubmitButton
             pendingLabel="Withdrawing…"
-            className="inline-flex min-h-11 items-center text-sm font-semibold text-ink/70 underline underline-offset-2"
+            className="inline-flex min-h-11 items-center text-sm font-semibold text-ink/75 underline underline-offset-2"
           >
             {view.suppliers.some((s) => s.overdue) ? 'Cancel the change — keep my date' : 'Withdraw — keep my date'}
           </SubmitButton>

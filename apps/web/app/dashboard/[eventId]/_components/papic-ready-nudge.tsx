@@ -47,6 +47,8 @@
 import { papicCardHref } from '@/lib/papic-home-href';
 import { useEffect, useState } from 'react';
 import { Camera, ChevronRight, X } from 'lucide-react';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 
 type Props = {
   eventId: string;
@@ -79,43 +81,32 @@ export function PapicReadyNudge({ eventId }: Props) {
     setDismissed(true);
   };
 
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 5 · 7 · 13): no bordered tinted card — the warm surface; "Already on" is
+  // the soft chip (not a typewriter caption); the how-it-works lines sit behind the title's ⓘ; the close presses at 44.
   return (
-    <div
-      role="status"
-      className="mt-4 flex items-start gap-3 rounded-2xl border border-terracotta/35 bg-terracotta/[0.07] px-4 py-3.5 sm:items-center sm:px-5"
-    >
-      <span
-        aria-hidden
-        className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-cream sm:mt-0"
-      >
-        <Camera className="h-4 w-4" strokeWidth={2} />
-      </span>
-      <div className="min-w-0 flex-1 space-y-0.5">
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
-          Already on
-        </p>
-        <p className="text-base font-semibold text-ink">Papic is ready</p>
-        <p className="text-sm text-ink/65">
-          Guests shoot from your event’s QR — no app, and no limit on cameras. Every
-          photo uses your event’s credits, and each one lands in your Memories.
-        </p>
+    <div role="status" className="mt-4 flex items-start gap-3 rounded-[18px] bg-[var(--m-paper-2)] px-4 py-3">
+      <Camera aria-hidden className="mt-1 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <InfoTip label="Papic is ready" labelAs="p" labelClassName="text-base font-semibold text-ink" align="start">
+            Guests shoot from your event’s QR — no app, and no limit on cameras. Every photo uses your event’s credits,
+            and each one lands in your Memories.
+          </InfoTip>
+          <Badge tone="ok">Already on</Badge>
+        </div>
         <a
           href={papicCardHref(eventId)}
-          className="group mt-1.5 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-terracotta-700 hover:underline"
         >
           Open Papic
-          <ChevronRight
-            aria-hidden
-            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-            strokeWidth={2}
-          />
+          <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </a>
       </div>
       <button
         type="button"
         onClick={handleDismiss}
         aria-label="Dismiss the Papic reminder"
-        className="ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-terracotta/15 hover:text-ink"
+        className="-mr-2 -mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/75 hover:text-ink"
       >
         <X className="h-4 w-4" strokeWidth={2} />
       </button>

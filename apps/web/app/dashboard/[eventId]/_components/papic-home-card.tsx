@@ -155,7 +155,7 @@ export function PapicHomeCard({
               {/* › turns to ⌄ as the card grows in place (owner 2026-10-24). */}
               <ChevronRight
                 aria-hidden
-                className={`sg-arrow h-[18px] w-[18px] transition-transform duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
+                className={`sg-arrow h-[18px] w-[18px] transition-transform duration-[var(--sn-dur-elem)] ease-[var(--sn-ease)] motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
                 strokeWidth={1.9}
               />
             </span>
@@ -190,7 +190,7 @@ export function PapicHomeCard({
             aria-label="Papic settings"
             inert={!open}
             data-papic-home-settings={open ? 'open' : 'closed'}
-            className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${
+            className={`grid transition-[grid-template-rows,opacity] duration-[var(--sn-dur-elem)] ease-[var(--sn-ease)] motion-reduce:transition-none ${
               open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
             }`}
           >
@@ -216,13 +216,13 @@ function PapicCounts({ total, left }: { total: number | null; left: number | nul
   const words = papicCountsWords(total, left);
   if (!words) {
     return (
-      <p role="status" className="text-[13px] text-ink/60" data-papic-card-counts="unread">
+      <p role="status" className="text-[13px] text-ink/75" data-papic-card-counts="unread">
         Credits · Couldn&rsquo;t check
       </p>
     );
   }
   return (
-    <dl className="flex items-baseline gap-3 text-[13px] text-ink/65" data-papic-card-counts="">
+    <dl className="flex items-baseline gap-3 text-[13px] text-ink/75" data-papic-card-counts="">
       {words.map(([k, v]) => (
         <div key={k} className="flex items-baseline gap-1">
           <dt>{k}</dt>

@@ -121,11 +121,11 @@ export function HomeServiceCard({
         <div className="sg-acts">
           <ActionButton
             tone="neutral"
-            icon={<RotateCw aria-hidden="true" strokeWidth={1.9} className={reloading ? 'animate-spin' : undefined} />}
+            icon={<RotateCw aria-hidden="true" strokeWidth={1.9} />}
             label="Reload"
             // one-render: keep (retry) — the person's Reload on a card whose read failed; no write came before it.
             onClick={() => startReload(() => router.refresh())}
-            disabled={reloading}
+            waiting={reloading}
           />
         </div>
       </div>
@@ -147,7 +147,7 @@ export function HomeServiceCard({
           /* › turns to ⌄ as the card grows in place — the one card shape, as Papic's (owner 2026-10-24). */
           <ChevronRight
             aria-hidden
-            className={`sg-arrow h-[18px] w-[18px] transition-transform duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
+            className={`sg-arrow h-[18px] w-[18px] transition-transform duration-[var(--sn-dur-elem)] ease-[var(--sn-ease)] motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
             strokeWidth={1.9}
           />
         ) : (
@@ -230,14 +230,14 @@ export function HomeServiceCard({
             aria-label={`${name} settings`}
             inert={!open}
             data-home-card-settings={open ? 'open' : 'closed'}
-            className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${
+            className={`grid transition-[grid-template-rows,opacity] duration-[var(--sn-dur-elem)] ease-[var(--sn-ease)] motion-reduce:transition-none ${
               open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
             }`}
           >
             <div className="min-h-0 overflow-hidden">
               <div className="mt-3 flex flex-col gap-4 border-t border-ink/10 pt-2">
                 <div className="divide-y divide-ink/10">{settings}</div>
-                <Link href={door.href} className="inline-flex w-fit items-center gap-1 text-[13px] font-medium text-ink/65 hover:text-ink" data-home-card-door="">
+                <Link href={door.href} className="inline-flex w-fit items-center gap-1 text-[13px] font-medium text-ink/75 hover:text-ink" data-home-card-door="">
                   {door.label}
                   <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={1.9} />
                 </Link>
@@ -284,7 +284,7 @@ export function HomeCardRow({ label, hint, control, marker }: { label: string; h
     <div className="flex items-center gap-3 py-3" data-home-card-row={marker ?? ''}>
       <span className="min-w-0 flex-1">
         <span className="block text-[14px] font-medium">{label}</span>
-        {hint ? <span className="block text-[12.5px] text-ink/60">{hint}</span> : null}
+        {hint ? <span className="block text-[12.5px] text-ink/75">{hint}</span> : null}
       </span>
       {control}
     </div>

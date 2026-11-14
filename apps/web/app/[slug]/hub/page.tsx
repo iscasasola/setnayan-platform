@@ -395,7 +395,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       slug,
       qrToken: guest.qr_token,
       // The event's look (lib/qr-look.ts): the Setnayan mark, or the couple's
-      // own logo · shape · pattern · ink on Event Hub Pro.
+      // own logo · shape · pattern · ink on Event Pro.
       look: await qrLookAhead,
       ownerSlug,
     });

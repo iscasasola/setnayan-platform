@@ -1,3 +1,4 @@
+import { distinctShopServices } from '@/lib/distinct-shop-services';
 import Link from 'next/link';
 import { arrivalInquirySourceOf } from '@/lib/supplier-qr-codes';
 import { readOverdueTopUpEventIds, readPageRefsFromEvents } from '@/lib/booking-fee-top-up.server';
@@ -28,6 +29,7 @@ import { createClient } from '@/lib/supabase/server';
 import {
   SERVICE_GROUPS,
   displayServiceLabel,
+  isCanonicalService,
   resolveVendorDisplayName,
   serviceGroupOf,
   VENDOR_PLACEHOLDER_PHOTO,
@@ -151,7 +153,7 @@ import { buildCardReviews } from '@/lib/card-reviews';
 import { cardWithoutHidden, pairPhotoRefs, withCardHides, type CardHidesRead } from '@/lib/service-card-hides';
 import { readCardHides, viewerRunsShop } from '@/lib/service-card-hides.server';
 import { resolveGuestReviewPhotoUrls } from '@/lib/guest-review-photos.server';
-import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
+import { ownWebAddress, pinnedQuote, shopHasWhere, shopReach } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
@@ -1443,8 +1445,15 @@ export async function renderVendorBySlug({
   const portfolioUrls = portfolioPhotos.map((p) => p.url);
   const showPortfolio = isSectionVisible(pageSections, 'portfolio');
   const showTrustedBy = isSectionVisible(pageSections, 'trusted_by');
-  const orderedServices = orderFeaturedFirst(
+  // 🧹 RW-267 (re-walk 14 Nov 2026): one chip per service — "Lights & Sound" was listed twice, the second the shop's
+  // own service under an older key spelling. The key the category list knows wins (`distinctShopServices`, RW-167).
+  const distinctServiceKeys = distinctShopServices(
     vendor.services,
+    Object.fromEntries(vendor.services.filter(isCanonicalService).map((k) => [k, displayServiceLabel(k)])),
+    displayServiceLabel,
+  ).map((s) => s.key);
+  const orderedServices = orderFeaturedFirst(
+    distinctServiceKeys,
     canPersonalizePage ? microsite.featuredServiceIds : [],
   );
   // Pro hero override — a chosen portfolio photo leads the page as a banner.
@@ -2305,6 +2314,13 @@ export async function renderVendorBySlug({
     (showEditorials && (featuredEditorials.length > 0 || featuredChapterCredits.length > 0)) ||
     inspirationTiles.length > 0 ||
     hasPhotosByService;
+  // 📍 No pin, no address, no city → no Where tab and no Where section (`shopHasWhere`, re-walk 2026-11-14).
+  const hasWhere = shopHasWhere({
+    latitude: vendor.hq_latitude,
+    longitude: vendor.hq_longitude,
+    address: vendor.hq_address,
+    city: vendor.location_city,
+  });
   const shopSectionTabs: ShopSectionTab[] = cinematicHero
     ? [
         { id: 'shop-about', label: 'About' },
@@ -2315,7 +2331,7 @@ export async function renderVendorBySlug({
     : [
         { id: 'shop-services', label: 'Services' },
         { id: 'shop-reviews', label: 'Reviews' },
-        { id: 'shop-where', label: 'Where' },
+        ...(hasWhere ? [{ id: 'shop-where', label: 'Where' }] : []),
       ];
 
   // 🏅 THE BADGE ROW, drawn ONCE in source and placed by the look: on the hero photo for a verified shop (the seal
@@ -2501,7 +2517,10 @@ export async function renderVendorBySlug({
           >
         <section className={SHOP_CARD_SECTION_CLASS}>
           <Logo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />
-          <div className="min-w-0 space-y-2">
+          {/* 📐 RW-270 (owner-seen 14 Nov, 390 px): `w-full`, as the sample card (`SampleShopPage`) — in the phone's
+              column flex (`items-start`) a fit-content column grew to its widest line and dragged the map and the
+              Directions row past the right gutter, cutting the map's credit. Pinned to the card's width, they fit. */}
+          <div className="w-full min-w-0 space-y-2">
             {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
                 system + /tmp/setnayan-keynote-template/components/vendor-
                 microsite.jsx hero typography. Italic-serif headline matches
@@ -2850,7 +2869,6 @@ export async function renderVendorBySlug({
 
         {cinematicHero && bookable ? (
           <ShopCanDoPanel
-            checkHref={checkDateHref}
             hasPackages={vendorPackages.length > 0}
           />
         ) : null}
@@ -3301,7 +3319,7 @@ export async function renderVendorBySlug({
 
         {/* 📍 WHERE — the unverified shop's map has its own section (prototype: Services · Reviews · Where · Inquire), a
             pin only: no reach ring before verification, the reach line says "distance search opens once verified". */}
-        {cinematicHero ? null : (
+        {cinematicHero || !hasWhere ? null : (
           <div id="shop-where" data-shop-section="" className="scroll-mt-14">
             <section className="space-y-3 border-b border-ink/10 py-8">
               <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Where</h2>

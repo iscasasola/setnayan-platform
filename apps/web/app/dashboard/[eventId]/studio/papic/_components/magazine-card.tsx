@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * Kwento Magazine — Variant A card (0012 § Kwento Magazine): the FREE,
  * couple-private A4 keepsake. Renders once the event has any Papic photos;
@@ -59,27 +60,27 @@ export async function MagazineCard({ eventId, state }: { eventId: string; state?
   if (photos === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+    <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
       <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
         <BookHeart aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
         Photo Notes Magazine
       </h2>
-      <p className="mt-1 text-sm text-ink/60">
-        Your day as a keepsake magazine — {formatCount(photos)} {photos === 1 ? 'photo' : 'photos'}
+      <InfoTip labelAs="p" label="Your day as a keepsake magazine" labelClassName="text-sm text-ink/70" className="mt-1" align="start">
+        {formatCount(photos)} {photos === 1 ? 'photo' : 'photos'}
         {kwentos ? ` and ${kwentos} ${kwentos === 1 ? 'kwento' : 'kwentos'} from your guests` : ''},
         in the order it all happened. Free, just for the two of you.
-      </p>
+      </InfoTip>
       <a
         href={`/dashboard/${eventId}/studio/papic/magazine`}
-        className="mt-4 inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600"
+        className="ab ab-brand ab-main mt-4"
       >
         <BookHeart aria-hidden className="h-4 w-4" strokeWidth={2} />
         Download your magazine (PDF)
       </a>
-      <p className="mt-2 text-xs text-ink/45">
-        Para sa inyo lang — this private edition shows your photos unblurred. A
+      <InfoTip labelAs="p" label="Para sa inyo lang" labelClassName="text-xs text-ink/70" className="mt-2" align="start">
+        this private edition shows your photos unblurred. A
         shareable edition arrives with the privacy-screened pipeline.
-      </p>
+      </InfoTip>
     </section>
   );
 }

@@ -169,7 +169,7 @@ export function SceneTemplatePicker({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-ink/25 px-3 text-[0.7rem] font-medium text-ink/75 transition-colors duration-sn-control ease-sn hover:border-ink/45"
+        className="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-ink/25 px-3 text-[12px] font-medium text-ink/75 transition-colors duration-sn-control ease-sn hover:border-ink/45"
       >
         {triggerLabel}
       </button>
@@ -215,7 +215,7 @@ export function SceneTemplatePicker({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="inline-flex h-8 items-center rounded-full px-3 text-[0.7rem] font-semibold text-ink/70 hover:bg-ink/5"
+                className="inline-flex h-8 items-center rounded-full px-3 text-[12px] font-semibold text-ink/70 hover:bg-ink/5"
               >
                 Close
               </button>
@@ -234,14 +234,14 @@ export function SceneTemplatePicker({
           ) : null}
           {presets ? null : (
           <>
-          <p className="mt-1 text-[0.62rem] text-ink/50">
+          <p className="mt-1 text-[12px] text-ink/75">
             ★ the four approved arrangements · shown{' '}
             {view === 'desktop' ? 'as on a desktop' : view === 'phone' ? 'as on a phone' : 'desktop · phone'} · each
             comes with its own effect, and you can change it
           </p>
           {SCENE_FAMILIES.map((family) => (
             <div key={family} className="mt-3">
-              <p className="mb-1.5 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                 {SCENE_FAMILY_LABEL[family]}
               </p>
               <div
@@ -280,7 +280,7 @@ export function SceneTemplatePicker({
                           <Thumb boxes={t.thumb.phone} shape="phone" hideMedia={hideMediaSlots} word={realWord(t, facts)} />
                         ) : null}
                       </span>
-                      <span className="text-[0.62rem] leading-tight text-ink/75">
+                      <span className="text-[12px] leading-tight text-ink/75">
                         {label(t)}
                       </span>
                     </button>

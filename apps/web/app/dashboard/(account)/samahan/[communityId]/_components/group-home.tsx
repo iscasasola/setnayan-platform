@@ -39,7 +39,7 @@ export type EventMemberType = EventWithRole['member_type'];
 
 /** A section's quiet action, at the right of its title (the prototype's `.q`): 44 px tall, never a frame. */
 export const QUIET_ACTION =
-  '-mr-1.5 inline-flex min-h-11 items-center gap-1 rounded-md px-1.5 text-[13px] font-semibold text-[color:var(--m-nav-active)] hover:opacity-80';
+  '-mr-1.5 inline-flex min-h-11 items-center gap-1 rounded-md px-1.5 text-[13px] font-semibold text-sn-accent hover:opacity-80';
 
 /** Title + one short line; the details live in the ⓘ (owner rule, 2026-10-23). */
 export function GroupSectionHead({
@@ -62,7 +62,7 @@ export function GroupSectionHead({
         <span className="flex-1" />
         {action}
       </div>
-      <p className="mb-1.5 text-[13px] text-ink/60">{line}</p>
+      <p className="mb-1.5 text-[13px] text-ink/75">{line}</p>
     </>
   );
 }
@@ -185,26 +185,26 @@ export function GroupEventRow({ event: e, memberType }: { event: CommunityEventR
         {day ? (
           <>
             <b className="block text-[17px] font-semibold leading-none text-ink">{day.getDate()}</b>
-            <small className="mt-0.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/50">
+            <small className="mt-0.5 block text-xs font-semibold uppercase text-[color:var(--sn-ink-500)]">
               {day.toLocaleDateString('en-US', { month: 'short' })}
             </small>
           </>
         ) : (
-          <b className="block font-mono text-xs font-medium tracking-[0.06em] text-ink/60">TBD</b>
+          <b className="block text-xs font-semibold text-ink/75">TBD</b>
         )}
       </span>
       <span className="min-w-0 flex-1">
-        <span className={`block truncate text-[15px] ${href ? 'font-semibold text-ink' : 'font-medium text-ink/70'}`}>
+        <span className={`block truncate text-[15px] ${href ? 'font-semibold text-ink' : 'font-medium text-ink/75'}`}>
           {e.display_name}
         </span>
-        <span className="mt-0.5 block truncate text-xs text-ink/55">
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">{eventTypeBadge(e.event_type)}</span>
+        <span className="mt-0.5 block truncate text-xs text-ink/75">
+          <span className="font-semibold uppercase text-[color:var(--sn-ink-500)]">{eventTypeBadge(e.event_type)}</span>
           {' · '}
           {longDate(e.event_date) ?? 'Date to be set'}
           {!href ? ` · ${closedReason}` : ''}
         </span>
       </span>
-      {href ? <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> : null}
+      {href ? <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" /> : null}
     </>
   );
   return (
@@ -212,12 +212,12 @@ export function GroupEventRow({ event: e, memberType }: { event: CommunityEventR
       {href ? (
         <Link
           href={href}
-          className="flex min-h-[54px] items-center gap-3 rounded-xl border border-ink/10 bg-white/60 px-3 py-1.5 transition-colors hover:bg-ink/[0.03] dark:bg-raised" // no-card-ok: the whole row is the press into the event
+          className="flex min-h-14 items-center gap-3 py-1.5 transition-colors hover:bg-ink/[0.03]"
         >
           {inner}
         </Link>
       ) : (
-        <div className="flex min-h-[54px] items-center gap-3 rounded-xl border border-dashed border-ink/15 px-3 py-1.5" /* no-card-ok: dashed — a row you may not open, said in words */>
+        <div className="flex min-h-14 items-center gap-3 py-1.5">
           {inner}
         </div>
       )}

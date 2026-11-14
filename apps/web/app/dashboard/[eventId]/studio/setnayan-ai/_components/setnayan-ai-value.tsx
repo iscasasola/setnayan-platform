@@ -74,7 +74,7 @@ export function SetnayanAiValue({
           behind it. Only in live mode; the preview state shows no numbers at
           all rather than plausible-looking ones. */}
       {live && activity ? (
-        <div className="sn-tile space-y-3 p-5">
+        <div className="border-t border-ink/10 space-y-3 py-5">
           <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-mulberry">
             <ShieldCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
             Working right now

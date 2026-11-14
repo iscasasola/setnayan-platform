@@ -172,7 +172,7 @@ export default async function SamahanSpacePage({
         </p>
       ) : null}
       {errorMessage ? (
-        <p role="alert" className="mt-2 text-sm text-terracotta-700">
+        <p role="alert" className="mt-2 text-sm text-[rgb(var(--color-danger))]">
           {errorMessage}
         </p>
       ) : null}
@@ -220,7 +220,7 @@ export default async function SamahanSpacePage({
             initial={initial}
             metaLine={
               community.description ? (
-                <p className="mt-0.5 text-sm leading-snug text-ink/65">{community.description}</p>
+                <p className="mt-0.5 text-sm leading-snug text-ink/75">{community.description}</p>
               ) : null
             }
           />
@@ -282,7 +282,7 @@ function MembersTab({
 
   return (
     <div>
-      <p className="mb-2 text-[13px] text-ink/60">
+      <p className="mb-2 text-[13px] text-ink/75">
         {memberCount === null
           ? 'Anyone in the group can rename it or change its photo.'
           : `${formatCount(memberCount)} ${memberCount === 1 ? 'member' : 'members'} · anyone can rename the group or change its photo.`}
@@ -296,11 +296,11 @@ function MembersTab({
             <div className="min-w-0 flex-1">
               <p className="truncate text-[15px] font-medium text-ink">
                 {m.display_name}
-                {m.is_self ? <span className="ml-1 text-xs font-normal text-ink/45">(you)</span> : null}
+                {m.is_self ? <span className="ml-1 text-xs font-normal text-ink/70">(you)</span> : null}
               </p>
-              <p className="mt-0.5 text-xs text-ink/50">
+              <p className="mt-0.5 text-xs text-ink/75">
                 {m.role === 'organizer' ? (
-                  <span className="font-semibold text-gold-deep">Organizer · </span>
+                  <span className="font-semibold text-ink">Organizer · </span>
                 ) : null}
                 Joined{' '}
                 {new Date(m.joined_at).toLocaleDateString('en-PH', {
@@ -316,7 +316,7 @@ function MembersTab({
                   <SubmitButton
                     overlay={false}
                     pendingLabel="Leaving…"
-                    className="min-h-11 rounded-md px-2 text-[13px] font-medium text-ink/55 hover:text-terracotta-700"
+                    className="min-h-11 rounded-md px-2 text-[13px] font-medium text-[rgb(var(--color-danger))]"
                   >
                     Leave group
                   </SubmitButton>
@@ -355,11 +355,11 @@ function MembersTab({
           />
           {inviteUrl ? (
             <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate py-2.5 font-mono text-xs text-ink/70">{inviteUrl}</code>
+              <span className="min-w-0 flex-1 truncate py-2.5 text-sm text-ink/75">{inviteUrl}</span>
               <CopyButton value={inviteUrl} label="Copy" />
             </div>
           ) : (
-            <p className="text-sm text-ink/55">No active link — rotate to mint a fresh one.</p>
+            <p className="text-sm text-ink/75">No active link — rotate to mint a fresh one.</p>
           )}
           {/* F-W3-11: opens People ready to pick (select mode) — "Ask N into group" sends. */}
           <Link href={`/dashboard?seg=people&ask=${encodeURIComponent(communityId)}`} className={QUIET_ACTION}>
@@ -370,9 +370,9 @@ function MembersTab({
 
       {/* Owner 2026-08-24: closing is not a button. The samahan ends when the last person leaves, so a sentence sits
           where the control was — silence here would read as an unfinished feature. */}
-      <p className="mt-5 border-t border-ink/10 pt-3 text-xs leading-relaxed text-ink/55">
+      <p className="mt-5 border-t border-ink/10 pt-3 text-xs leading-relaxed text-ink/75">
         A group lives for as long as one person is still in it. It closes on its own when the last member leaves.
-        <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">{publicId}</span>
+        <span className="mt-1 block text-xs text-[color:var(--sn-ink-500)]">{publicId}</span>
       </p>
     </div>
   );
@@ -395,14 +395,14 @@ function EventsTab({
 
   return (
     <div>
-      <p className="mb-2 text-[13px] text-ink/60">What this group is going to.</p>
+      <p className="mb-2 text-[13px] text-ink/75">What this group is going to.</p>
       {events.length === 0 ? (
         <div className="py-2">
           <p className="text-sm font-semibold text-ink">Walang event pa.</p>
-          <p className="text-[13px] text-ink/60">When an organizer plans a reunion or outing, it shows up here.</p>
+          <p className="text-[13px] text-ink/75">When an organizer plans a reunion or outing, it shows up here.</p>
         </div>
       ) : (
-        <ul className="space-y-1.5" role="list">
+        <ul className="divide-y divide-ink/10" role="list">
           {events.map((e) => (
             <GroupEventRow key={e.event_id} event={e} memberType={viewerMemberships.get(e.event_id) ?? null} />
           ))}
@@ -411,14 +411,14 @@ function EventsTab({
       {isOrganizer ? (
         <Link
           href={planHref}
-          className="mt-1.5 flex min-h-[52px] items-center gap-3 rounded-xl border border-dashed border-ink/20 px-3 py-1.5 text-ink/70 hover:bg-ink/[0.03]" // no-card-ok: the whole row is the press into Plan an event
+          className="mt-1.5 flex min-h-14 items-center gap-3 border-t border-ink/10 py-1.5 text-sn-accent hover:bg-ink/[0.03]"
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-ink/25">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-mulberry/10">
             <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-medium">Plan an event</span>
-            <span className="block truncate text-xs text-ink/55">
+            <span className="block text-[15px] font-semibold">Plan an event</span>
+            <span className="block truncate text-xs text-ink/75">
               A reunion, an outing, a tournament or a party — every member finds it here.
             </span>
           </span>

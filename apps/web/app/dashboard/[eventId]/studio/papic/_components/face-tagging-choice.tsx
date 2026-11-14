@@ -76,14 +76,14 @@ export async function FaceTaggingChoice({
           value="Couldn't load"
           sheetTitle="Finding people in photos"
         >
-          <p className="mb-4 text-sm text-ink/65">{unreadable}</p>
+          <p className="mb-4 text-sm text-ink/70">{unreadable}</p>
         </SettingRow>
       );
     }
     return (
-      <section className="space-y-1 sn-tile p-5 sm:p-6">
+      <section className="border-t border-ink/10 space-y-1 py-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <ScanFace aria-hidden className="h-5 w-5 text-ink/55" strokeWidth={1.75} />
+          <ScanFace aria-hidden className="h-5 w-5 text-ink/70" strokeWidth={1.75} />
           Finding people in photos
         </h2>
         <p className="max-w-prose text-sm text-terracotta-700">{unreadable}</p>
@@ -146,7 +146,7 @@ export async function FaceTaggingChoice({
           <InfoTip label="Face tagging" labelClassName="text-[15px] font-semibold text-ink" align="start">
             {explanation}
           </InfoTip>
-          <span className="block text-[12.5px] text-ink/60">
+          <span className="block text-[12.5px] text-ink/70">
             {declined ? 'Off' : 'On'} · {subLine}
           </span>
         </span>
@@ -184,19 +184,19 @@ export async function FaceTaggingChoice({
         sheetTitle="Face tagging"
         switchControl={control}
       >
-        <p className="mb-4 text-sm text-ink/65">{explanation}</p>
+        <p className="mb-4 text-sm text-ink/70">{explanation}</p>
       </SettingRow>
     );
   }
 
   return (
-    <section className="space-y-3 sn-tile p-5 sm:p-6">
+    <section className="border-t border-ink/10 space-y-3 py-5 sm:p-6">
       <div className="space-y-1">
         <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <ScanFace aria-hidden className="h-5 w-5 text-ink/55" strokeWidth={1.75} />
+          <ScanFace aria-hidden className="h-5 w-5 text-ink/70" strokeWidth={1.75} />
           Finding people in photos
         </h2>
-        <p className="max-w-prose text-sm text-ink/60">{explanation}</p>
+        <p className="max-w-prose text-sm text-ink/70">{explanation}</p>
       </div>
 
       {control}

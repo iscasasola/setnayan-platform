@@ -39,6 +39,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Check, Search, Users, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { GuestPopup } from './guest-popup';
 import { plainRefusal } from './plain-refusal';
 import {
@@ -268,7 +269,7 @@ export function AddFromPeopleSheet({
           <h2 id="add-from-people-title" className="text-lg font-extrabold tracking-tight text-ink">
             Add from your people
           </h2>
-          <p className="mt-1 text-sm text-ink/60">
+          <p className="mt-1 text-sm text-ink/70">
             The people you are connected to — your people, your beloved, and
             your group.
           </p>
@@ -277,7 +278,7 @@ export function AddFromPeopleSheet({
       </div>
 
       <div className="mt-4 flex items-center gap-2">
-        <Search aria-hidden className="h-4 w-4 shrink-0 text-ink/35" strokeWidth={2} />
+        <Search aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={2} />
         <input
           ref={searchRef}
           value={query}
@@ -291,7 +292,7 @@ export function AddFromPeopleSheet({
 
       {samahanGroups.length > 0 ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+          <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             Groups
           </span>
           {samahanGroups.map((g) => {
@@ -315,7 +316,7 @@ export function AddFromPeopleSheet({
         /* ⚖ A set of choices is ONE dropdown, never a pill row (owner). Hidden
            entirely on an event with no sides: a birthday is never asked. */
         <div className="mt-3 flex items-center gap-2">
-          <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+          <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             Side
           </span>
           <PickMenu
@@ -346,33 +347,36 @@ export function AddFromPeopleSheet({
             }}
           />
           {pickedKeys.length > 0 ? (
-            <span className="text-[11px] text-ink/55">{pickedKeys.length} chosen</span>
+            <span className="text-xs text-ink/70">{pickedKeys.length} chosen</span>
           ) : null}
         </div>
       ) : null}
 
       <div className="mt-4 space-y-1">
-        {loading ? <p className="py-6 text-center text-sm text-ink/55">Looking…</p> : null}
+        {loading ? <p className="py-6 text-center text-sm text-ink/70">Looking…</p> : null}
 
         {!loading && readFailed ? (
-          <p className="rounded-lg border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/75">
-            We couldn’t reach your people just now. Nothing is lost — close this
-            and try again, or type the name in the add row.
+          /* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 6 · 7): a failed read is one amber line, no box; the rest behind ⓘ. */
+          <p role="status" className="py-2 text-sm text-warn-800">
+            <InfoTip label="We couldn’t reach your people just now." labelAs="span" labelClassName="text-warn-800" align="start">
+              Nothing is lost — close this and try again, or type the name in the add row.
+            </InfoTip>
           </p>
         ) : null}
 
         {!loading && !readFailed && (rows ?? []).length === 0 ? (
           /* NOT AN ERROR AND NOT A FAILURE — it is simply the first event. The
              sentence says what would put names here, so the door is not blank. */
-          <p className="py-6 text-center text-sm text-ink/60">
-            No one to pick yet. People show up here once you have invited them to
-            another of your events, added them on your People page, or joined a
-            group with them.
-          </p>
+          <div className="py-6 text-center text-sm text-ink/70">
+            <InfoTip label="No one to pick yet." labelAs="span" labelClassName="text-ink/70">
+              People show up here once you have invited them to another of your events, added them on your People page, or
+              joined a group with them.
+            </InfoTip>
+          </div>
         ) : null}
 
         {!loading && (rows ?? []).length > 0 && visible.length === 0 ? (
-          <p className="py-6 text-center text-sm text-ink/60">
+          <p className="py-6 text-center text-sm text-ink/70">
             {activeGroup && !query.trim()
               ? `Everybody in ${activeGroup} is already on your list.`
               : activeGroup
@@ -397,18 +401,18 @@ export function AddFromPeopleSheet({
                   onChange={(e) =>
                     setPicked((p) => ({ ...p, [r.key]: e.target.checked }))
                   }
-                  className="h-4 w-4 shrink-0 accent-[var(--sn-mulberry,#C24E25)]"
+                  className="h-4 w-4 shrink-0 accent-mulberry"
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-ink">
                     {r.name}
                   </span>
-                  <span className="block truncate text-xs text-ink/55">
+                  <span className="block truncate text-xs text-ink/70">
                     {r.alreadyHere ? 'Already here' : r.from}
                   </span>
                 </span>
                 {r.source === 'people' ? (
-                  <Users aria-hidden className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} />
+                  <Users aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
                 ) : null}
               </label>
             </div>
@@ -417,7 +421,7 @@ export function AddFromPeopleSheet({
       </div>
 
       {partial && !readFailed ? (
-        <p className="mt-3 text-xs text-ink/55">
+        <p className="mt-3 text-xs text-ink/70">
           Part of your people couldn’t be loaded, so this list may be short.
         </p>
       ) : null}
@@ -429,7 +433,7 @@ export function AddFromPeopleSheet({
       ) : null}
 
       <div className="mt-5 flex items-center justify-between gap-3">
-        <span className="text-sm text-ink/55">
+        <span className="text-sm text-ink/70">
           {pickedKeys.length === 0 ? 'Nobody picked' : `${pickedKeys.length} picked`}
         </span>
         <ActionButton

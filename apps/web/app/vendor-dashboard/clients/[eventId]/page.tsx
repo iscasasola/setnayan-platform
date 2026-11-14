@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { hubDayWords } from '@/lib/hub-events';
+import { weekdayDateWithYear } from '@/lib/format-date';
 import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
@@ -759,6 +759,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     returningFlags,
     myTasksRes,
     myMarksRes,
+    myOwnTimesRes,
     myScheduleFacts,
     myContactsRes,
     headcountRule,
@@ -834,6 +835,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_supplier_schedule_marks')
         .select(SCHEDULE_MARK_COLUMNS)
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle(),
+      // 🕕 Your times (cut 5, 2026-11-14) — their own call time, arrival and finish, kept before the hosts' program
+      // exists (own row, RLS `supplier_own_times_shop_read`). A refused read is said on the view, never drawn as blank.
+      supabase
+        .from('supplier_own_times')
+        .select('call_clock, arrive_clock, done_clock, filed_at')
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle(),
@@ -1242,13 +1251,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     const { data: chatFileRows, error: chatFileRowsError } = await supabase
       .from('chat_messages')
       .select(
-        'message_id,sender_role,created_at,attachment_name,attachment_mime,attachment_size_bytes,attachment_url',
+        // 📎 CHAT-02 (live, 14 Nov): `attachment_r2_key` is WHERE every chat file has been stored since 2026-09-09
+        // (`attachment_url` is legacy and nothing writes it). Read without it, every file arrived with no reference
+        // and was listed "File expired", unlinked — `chatAttachmentHref` needs either column.
+        'message_id,sender_role,created_at,attachment_name,attachment_mime,attachment_size_bytes,attachment_r2_key,attachment_url',
       )
       .eq('thread_id', threadId)
       // A row counts as a file if EITHER the stored reference or the filename
       // survived — a name with no reference still tells the supplier the file
       // exists, and listing it unlinked beats pretending it never arrived.
-      .or('attachment_url.not.is.null,attachment_name.not.is.null')
+      .or('attachment_r2_key.not.is.null,attachment_url.not.is.null,attachment_name.not.is.null')
       .order('created_at', { ascending: false })
       .limit(200);
     if (chatFileRowsError) {
@@ -1608,6 +1620,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     asked: askedOfThem,
     where: ownWhere,
     elsewhere: crewElsewhere,
+    // 🕕 null = could not be read (said on the view); undefined row = none kept yet.
+    ownTimes: myOwnTimesRes.error
+      ? null
+      : (() => {
+          const r = myOwnTimesRes.data as { call_clock: string | null; arrive_clock: string | null; done_clock: string | null; filed_at: string | null } | null;
+          return { call: r?.call_clock ?? null, arrive: r?.arrive_clock ?? null, done: r?.done_clock ?? null, filedAt: r?.filed_at ?? null };
+        })(),
+    eventDate: factsRow?.event_date ?? null,
   };
   // The couple's invitation to arrange the cocktail area is a WORKING control
   // (ruling item 7): its own page is gated, so the door to it is too — a link
@@ -3720,7 +3740,7 @@ function ScheduleTab(props: {
               // RW-87: before the event's day the Now box says when it starts, never "Not started yet".
               startsOnWords={
                 props.brief.event.event_date && props.brief.event.event_date.slice(0, 10) > manilaToday()
-                  ? hubDayWords(props.brief.event.event_date)
+                  ? weekdayDateWithYear(props.brief.event.event_date)
                   : null
               }
             />

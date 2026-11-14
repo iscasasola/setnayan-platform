@@ -71,6 +71,14 @@ export function DirectionsMenu(props: ({ venue: EventVenue } | Place) & { look?:
 
   return (
     <div data-venue-directions="">
+      {/* 📍 THE PLACE UNDER THE MAP (map card approved 2026-11-14, supplier page): the address the sheet searches, said
+          once above its button. A venue card prints its own name and address already, so only the template look draws
+          it. The supplier's NAME is not handed in here (the page passes a place, never the name — the name-reveal rule). */}
+      {look === 'template' && addressText ? (
+        <p data-place-address="" className="pt-3 text-[14px] leading-snug text-ink/70">
+          {addressText}
+        </p>
+      ) : null}
       <GetDirections
         title={title}
         address={addressText && addressText !== title ? addressText : null}

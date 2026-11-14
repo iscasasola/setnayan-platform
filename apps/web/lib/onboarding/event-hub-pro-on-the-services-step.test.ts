@@ -152,7 +152,7 @@ test('the card reaches the render: label, price, (i), and an OFF tick', async ()
   assert.match(html, new RegExp(PRO_COPY.label));
   assert.match(html, /₱700/);
   assert.match(html, /What Pro adds/, 'what it adds sits behind the house (i)');
-  assert.match(html, /role="switch" aria-checked="false"[^>]*>[\s\S]*?Add Event Hub/);
+  assert.match(html, /role="switch" aria-checked="false"[^>]*>[\s\S]*?Add Event Pro/);
   assert.match(html, /₱300 off while you/, 'the saving is stated when there is one');
   assert.match(html, /Not added/, 'the total names Pro on its own line');
 });

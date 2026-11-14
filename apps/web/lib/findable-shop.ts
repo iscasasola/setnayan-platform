@@ -48,25 +48,34 @@ import { parseVisibility } from './vendor-visibility';
 export const FINDABLE_COLUMN = 'is_findable' as const;
 
 /**
+ * 📄 …and the papers stamp beside it (migration 20271345631375, owner 2026-11-14
+ * "Keep them, block new" — answer B). A shop whose renewal day passed with no
+ * renewed papers stays `verified` (so the couples who already booked it still see
+ * it) but leaves every list: `papers_current` is generated `papers_lapsed_at IS NULL`.
+ */
+export const PAPERS_CURRENT_COLUMN = 'papers_current' as const;
+
+/**
  * For `.match()` on `vendor_profiles` or `vendor_market_stats`.
  *
  * `.match()` and not a `<T extends Builder>(q: T) => T` helper for the reason
  * `lib/live-shops.ts` records: that generic makes tsc give up with "Type
  * instantiation is excessively deep" on postgrest-js's builder types.
  */
-export const FINDABLE_SHOP_GATE = { [FINDABLE_COLUMN]: true } as const;
+export const FINDABLE_SHOP_GATE = { [FINDABLE_COLUMN]: true, [PAPERS_CURRENT_COLUMN]: true } as const;
 
 /**
  * The same gate on an EMBEDDED shop — `vendor_services` → `vendor_profiles!inner`
  * reads it as `{ 'vendor_profiles.is_findable': true }`.
  */
 export function findableShopGate(embeddedAs?: string): Record<string, true> {
-  return { [embeddedAs ? `${embeddedAs}.${FINDABLE_COLUMN}` : FINDABLE_COLUMN]: true };
+  const at = (c: string) => (embeddedAs ? `${embeddedAs}.${c}` : c);
+  return { [at(FINDABLE_COLUMN)]: true, [at(PAPERS_CURRENT_COLUMN)]: true };
 }
 
 /** The columns {@link isShopFindable} reads, for a `.select()`. */
 export const FINDABLE_INPUT_COLUMNS =
-  'public_visibility, verification_state, find_locked_at, fraud_suspended_at, fraud_banned_at, fraud_tombstoned' as const;
+  'public_visibility, verification_state, find_locked_at, fraud_suspended_at, fraud_banned_at, fraud_tombstoned, papers_current' as const;
 
 export type FindableInput = {
   public_visibility?: unknown;
@@ -75,6 +84,8 @@ export type FindableInput = {
   fraud_suspended_at?: unknown;
   fraud_banned_at?: unknown;
   fraud_tombstoned?: unknown;
+  /** False once the shop's papers lapsed (the 30 March renewal passed unrenewed). */
+  papers_current?: unknown;
 };
 
 const UNDECIDED = new Set(['unverified', 'pending_review']);
@@ -87,6 +98,9 @@ const present = (v: unknown) => v !== null && v !== undefined && v !== '';
  */
 export function isShopFindable(row: FindableInput | null | undefined): boolean {
   if (!row) return false;
+  // A lapsed shop leaves every list, verified or not. Only an explicit `false`
+  // refuses here — the database gate (`FINDABLE_SHOP_GATE`) is the strict half.
+  if (row.papers_current === false) return false;
   const visibility = parseVisibility(row.public_visibility);
   const state = typeof row.verification_state === 'string' ? row.verification_state : null;
   if (visibility === 'verified' && state === 'verified') return true;

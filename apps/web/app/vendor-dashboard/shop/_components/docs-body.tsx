@@ -26,7 +26,7 @@ import {
   updateDocUploadInline,
   type InlineDocsPayload,
 } from '../inline-docs-actions';
-import { VerifyPairs } from './verify-pairs';
+import { PaperUploadPlace } from './paper-upload-place';
 import { PAIR_SLOT_KEYS } from '@/lib/verification-pairs';
 import { REGISTRATION_NUMBER_TAKEN_MESSAGE } from '@/lib/vendor-registration-number';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -79,12 +79,10 @@ export function DocsBody({
           here is GONE — it is the same column as the number beside the
           registration certificate, and two boxes for one number is the drift
           the pairs exist to remove. Its uniqueness claim is unchanged. */}
-      <VerifyPairs
-        payload={payload}
-        vendorProfileId={vendorProfileId}
-        isVerified={isVerified}
-        onSaved={onSaved}
-      />
+      {/* ── THE ONE UPLOAD PLACE (owner-approved design v10, 2026-11-14) — replaces
+          the papers-beside-the-fields pairs: one button, the app tells which paper
+          each file is, what it read is filled in read-only. */}
+      <PaperUploadPlace payload={payload} vendorProfileId={vendorProfileId} isVerified={isVerified} onSaved={onSaved} />
 
       {/* ── The three OPTIONAL items — untouched, still today's cards. ── */}
       <div className="space-y-2">

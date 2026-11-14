@@ -170,7 +170,8 @@ test('B4 · the upload is the shipped one — the same bucket, folder and save a
   assert.match(c, /tone="danger" icon=\{<Trash2 [^\n]*?\/>\} label="Remove"/);
   assert.match(c, /pathPrefix=\{`vendors\/\$\{vendorProfileId\}\/verification\/\$\{p\.key\}`\}/);
   assert.match(c, /const run = queue\.then\(\(\) => updateDocUploadInline\(null, fd\)\);/, 'two first saves can race to make two drafts');
-  const shipped = code('app/vendor-dashboard/shop/_components/verify-pairs.tsx');
+  // The shipped papers' upload moved to the one upload place (design v10, 2026-11-14) — same bucket and folder.
+  const shipped = code('app/vendor-dashboard/shop/_components/paper-upload-place.tsx');
   assert.match(shipped, /bucket="vendor-verification"/, 'the shipped papers moved bucket — move this with them');
   // No founding-supplier deadline line: there is no ruling for it.
   assert.doesNotMatch(c, /Founding|31 Jan 2027/);

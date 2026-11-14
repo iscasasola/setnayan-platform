@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -45,6 +46,12 @@ import {
 import { DOC_SLOT_KEYS, buildSlotValue } from '@/lib/vendor-verification-slots';
 import { parseRegistrationNumber, UNIQUE_VIOLATION } from '@/lib/vendor-registration-number';
 import { PAIR_COLUMNS } from '@/lib/verification-pairs';
+import { isReadableSlotKey, slotR2Key } from '@/lib/verification-paper-read';
+import { fileTypedValues, openSealedSlot, type IntakeReport, type IntakeSlot } from '@/lib/paper-intake';
+import { MAX_FILES_PER_INTAKE, intakePapers, paperSealKey } from '@/lib/paper-intake.server';
+import { runAutoVerifyOnSubmit } from '@/lib/auto-verify.server';
+import { haversineKm } from '@/lib/geo';
+import { renewalUploadOpen } from '@/lib/verified-badge';
 import {
   LOCKED_IDENTITY_FIELD_KEYS,
   VERIFIED_LOCK_ERROR,
@@ -130,7 +137,14 @@ async function fetchRegistrationNumberState(
 }
 
 export type DocSlotSaveResult =
-  | { ok: true; vendorComplete: number; vendorTotal: number; allComplete: boolean }
+  | {
+      ok: true;
+      vendorComplete: number;
+      vendorTotal: number;
+      allComplete: boolean;
+      /** One upload place (intent=intake): what happened to each file / page. */
+      reports?: IntakeReport[];
+    }
   | { ok: false; error: string };
 
 async function requireVendorId(): Promise<{
@@ -294,6 +308,20 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
   };
 }
 
+/** The shop's badge deadline is within the reminder window or past — or the badge is already gone. */
+async function renewalIsOpen(_supabase: SupabaseClient, vendorProfileId: string): Promise<boolean> {
+  // Service role, scoped by the session-proved shop id: the deadline is a trust column.
+  const { data, error } = await createAdminClient()
+    .from('vendor_profiles')
+    .select('verification_state,next_renewal_due_at')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (error) logQueryError('inline-docs-actions.ts: renewalIsOpen vendor_profiles', error, { vendor_profile_id: vendorProfileId });
+  if (error || !data) return false;
+  const row = data as { verification_state: string | null; next_renewal_due_at: string | null };
+  return row.verification_state !== 'verified' || renewalUploadOpen(row.next_renewal_due_at);
+}
+
 /**
  * Find the vendor's editable draft, or create a fresh one. A submitted/approved
  * application blocks edits (they continue on /verify). rejected/withdrawn/none
@@ -309,7 +337,12 @@ async function resolveEditableDraft(
   if (status === 'draft' && app) {
     return { ok: true, applicationId: app.application_id };
   }
-  if (status != null && LOCKED_STATUSES.has(status)) {
+  // 🔁 RENEWAL (owner 2026-11-14): an APPROVED shop may start a fresh draft —
+  // an `annual_renewal` — once its badge deadline is near or past, so the
+  // renewed papers go into the same upload place and through the same Submit.
+  if (status === 'approved' && (await renewalIsOpen(supabase, vendorProfileId))) {
+    // falls through to the new-draft insert below
+  } else if (status != null && LOCKED_STATUSES.has(status)) {
     return {
       ok: false,
       error: 'Your verification is already submitted — continue on the verification page.',
@@ -420,6 +453,96 @@ function parsePortfolioField(raw: FormDataEntryValue | null): string[] {
 }
 
 /**
+ * 📄 ONE UPLOAD PLACE (owner 2026-11-14, "THE APP TELLS WHICH PAPER IT IS") and
+ * the typed form after three tries. Two INTENTS of the existing upload action —
+ * not new exports: the server-action ceiling has no headroom.
+ *
+ *   intent=intake · r2_refs=[…1–3 refs]   → read each file IN THE REQUEST,
+ *       file it under the paper it is, delete what is not kept, and answer with
+ *       one report per file / page (`lib/paper-intake.ts`).
+ *   intent=typed · slot_key · typed_json  → after the third unclear try only:
+ *       store the supplier's typed details beside the kept file. The slot stays
+ *       MANUAL: typed values never verify anything.
+ *
+ * Writes `doc_uploads` only (through the service role, AFTER this signed-in
+ * supplier's own editable draft was found) — never a profile column.
+ */
+async function paperIntakeIntent(
+  auth: NonNullable<Awaited<ReturnType<typeof requireVendorId>>>,
+  intent: 'intake' | 'typed',
+  formData: FormData,
+): Promise<DocSlotSaveResult> {
+  const draft = await resolveEditableDraft(auth.supabase, auth.vendorProfileId);
+  if (!draft.ok) return { ok: false, error: draft.error };
+  const admin = createAdminClient();
+
+  if (intent === 'intake') {
+    let refs: string[] = [];
+    try {
+      const parsed = JSON.parse(String(formData.get('r2_refs') ?? '[]'));
+      if (Array.isArray(parsed)) refs = parsed.filter((r): r is string => typeof r === 'string' && r.trim().length > 0);
+    } catch {
+      refs = [];
+    }
+    if (refs.length === 0) return { ok: false, error: 'Choose a paper to upload.' };
+    if (refs.length > MAX_FILES_PER_INTAKE) return { ok: false, error: 'Upload up to three papers at a time.' };
+    const res = await intakePapers({
+      admin,
+      applicationId: draft.applicationId,
+      vendorProfileId: auth.vendorProfileId,
+      r2Refs: refs,
+    });
+    if (!res.ok) return { ok: false, error: res.error };
+    return { ...(await countsFor(admin, draft.applicationId)), ok: true, reports: res.reports };
+  }
+
+  // intent === 'typed'
+  const slot = String(formData.get('slot_key') ?? '').trim();
+  if (!isReadableSlotKey(slot)) return { ok: false, error: 'Unknown paper.' };
+  const key = paperSealKey();
+  if (!key) return { ok: false, error: 'This can’t be saved just now. Try again in a minute.' };
+  let typed: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(String(formData.get('typed_json') ?? '{}'));
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) typed = parsed as Record<string, string>;
+  } catch {
+    typed = {};
+  }
+  const { data: app, error } = await admin
+    .from('vendor_verification_applications')
+    .select('doc_uploads,status,vendor_profile_id')
+    .eq('application_id', draft.applicationId)
+    .maybeSingle();
+  if (error || !app || (app as { status: string }).status !== 'draft' || (app as { vendor_profile_id: string }).vendor_profile_id !== auth.vendorProfileId) {
+    return { ok: false, error: 'This application can no longer be edited.' };
+  }
+  const next = fileTypedValues((app as { doc_uploads: unknown }).doc_uploads, slot, typed, key);
+  if (!next.ok) return { ok: false, error: next.error };
+  const { error: updErr } = await admin
+    .from('vendor_verification_applications')
+    .update({ doc_uploads: next.next, updated_at: new Date().toISOString() })
+    .eq('application_id', draft.applicationId)
+    .eq('status', 'draft');
+  if (updErr) return { ok: false, error: 'Your details could not be saved — try again.' };
+  return { ...(await countsFor(admin, draft.applicationId)), ok: true };
+}
+
+async function countsFor(admin: SupabaseClient, applicationId: string) {
+  const { data } = await admin
+    .from('vendor_verification_applications')
+    .select('doc_uploads')
+    .eq('application_id', applicationId)
+    .maybeSingle();
+  const map = ((data as { doc_uploads?: DocUploadMap } | null)?.doc_uploads ?? {}) as DocUploadMap;
+  revalidatePath('/vendor-dashboard/shop');
+  return {
+    vendorComplete: countCompleteVendorSlots(map),
+    vendorTotal: VENDOR_TOTAL,
+    allComplete: countCompleteSlots(map) >= DOC_SLOTS.length,
+  };
+}
+
+/**
  * Non-redirecting per-slot save for the inline Documents row (for `useActionState`).
  * Only vendor-actionable slots (uploads + the social URL) — the 4 Setnayan-run
  * slots are rejected server-side too. Creates the draft on the first save.
@@ -430,6 +553,11 @@ export async function updateDocUploadInline(
 ): Promise<DocSlotSaveResult> {
   const auth = await requireVendorId();
   if (!auth) return { ok: false, error: 'Please sign in again.' };
+
+  const intent = String(formData.get('intent') ?? '').trim();
+  if (intent === 'intake' || intent === 'typed') {
+    return paperIntakeIntent(auth, intent, formData);
+  }
 
   const slotKey = String(formData.get('slot_key') ?? '').trim();
   if (!DOC_SLOT_KEYS.has(slotKey)) return { ok: false, error: 'Unknown document.' };
@@ -503,19 +631,31 @@ export async function updateDocUploadInline(
     return { ok: false, error: 'That file reference isn’t valid — re-upload and try again.' };
   }
   const safePortfolioRefs = portfolioRefs.filter(refIsOwned);
+  // buildSlotValue now stores the FULL array for portfolio/client_references
+  // (the inline flow previously persisted only val[0] — silently dropping
+  // every ref past the first). Single-object slots are unchanged.
+  let nextSlot = buildSlotValue(slotKey, {
+    r2Ref: r2Ref || null,
+    url: url || null,
+    scheduledAt: null,
+    references,
+    social,
+    portfolioRefs: safePortfolioRefs,
+  });
+  // 📄 THE PAPER READER (owner 2026-11-14). A re-save of the SAME file keeps the
+  // read already made of it; a NEW file starts with none, so a read of the old
+  // paper can never be shown beside the new one.
+  const storedRead =
+    storedSlot && typeof storedSlot === 'object' && !Array.isArray(storedSlot) && 'read' in storedSlot
+      ? (storedSlot as { read?: unknown }).read
+      : undefined;
+  const sameFile = Boolean(r2Ref) && slotR2Key(currentUploads, slotKey) === r2Ref;
+  if (sameFile && storedRead && nextSlot && typeof nextSlot === 'object' && !Array.isArray(nextSlot)) {
+    nextSlot = { ...nextSlot, read: storedRead } as unknown as typeof nextSlot;
+  }
   const nextUploads: DocUploadMap = {
     ...currentUploads,
-    // buildSlotValue now stores the FULL array for portfolio/client_references
-    // (the inline flow previously persisted only val[0] — silently dropping
-    // every ref past the first). Single-object slots are unchanged.
-    [slotKey]: buildSlotValue(slotKey, {
-      r2Ref: r2Ref || null,
-      url: url || null,
-      scheduledAt: null,
-      references,
-      social,
-      portfolioRefs: safePortfolioRefs,
-    }),
+    [slotKey]: nextSlot,
   };
   const completeCount = countCompleteSlots(nextUploads);
 
@@ -528,6 +668,18 @@ export async function updateDocUploadInline(
     })
     .eq('application_id', draft.applicationId);
   if (updErr) return { ok: false, error: updErr.message };
+
+  // 📄 Read the paper AFTER the response — the upload above has already
+  // succeeded, so a slow, failed or unconfigured read costs the supplier
+  // nothing and the line simply stays "with a person at Setnayan". The reader
+  // writes ONLY `doc_uploads[slot].read` (lib/verification-paper-read.server.ts).
+  if (r2Ref && isReadableSlotKey(slotKey) && !(sameFile && storedRead)) {
+    const applicationId = draft.applicationId;
+    after(async () => {
+      const { readVerificationPaper } = await import('@/lib/verification-paper-read.server');
+      await readVerificationPaper({ admin: createAdminClient(), applicationId, slotKey });
+    });
+  }
 
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard/verify');
@@ -635,7 +787,8 @@ export async function saveRegistrationNumberInline(
   return { ok: true, needsReview: true };
 }
 
-export type SubmitResult = { ok: true } | { ok: false; error: string };
+/** `verified` — the shop was verified on the spot by clean papers; false = waiting for Setnayan. */
+export type SubmitResult = { ok: true; verified?: boolean } | { ok: false; error: string };
 
 /**
  * Submit the vendor's draft application for review, INLINE (owner 2026-07-03:
@@ -743,9 +896,20 @@ export async function submitInlineForReview(
     applicationType: app.application_type as string | null | undefined,
   }).catch(() => undefined);
 
+  // ✅ CLEAN PAPERS VERIFY THE SHOP ON SUBMIT (owner, "by the time they save
+  // it, they can be verified right there"). The decision is made on the SERVER
+  // from sealed reads, the allowlisted registry page and the other-shop
+  // lookups — nothing from this request's form reaches it. `to_admin` changes
+  // nothing: the application waits for a person, as it always has.
+  const auto = await runAutoVerifyOnSubmit({
+    admin: createAdminClient(),
+    applicationId: app.application_id,
+    vendorProfileId: auth.vendorProfileId,
+  }).catch(() => null);
+
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/admin/verify');
-  return { ok: true };
+  return { ok: true, verified: auto?.decision === 'verify' };
 }
 
 // ---------------------------------------------------------------------------
@@ -795,6 +959,10 @@ export async function saveVerificationIdentityField(
 ): Promise<IdentityFieldSaveResult> {
   const auth = await requireVendorId();
   if (!auth) return { ok: false, error: 'Please sign in again.' };
+
+  if (String(formData.get('intent') ?? '') === 'confirm_permit_pin') {
+    return confirmPermitPin(auth, formData);
+  }
 
   const column = String(formData.get('column') ?? '').trim();
   if (!IDENTITY_FIELD_WRITABLE.has(column)) {
@@ -879,4 +1047,57 @@ async function loadVerificationIdentityFields(): Promise<{
   } catch {
     return empty;
   }
+}
+
+/**
+ * 📍 THE PERMIT LOCATES THE SHOP (owner 2026-11-14). The permit's address was
+ * geocoded at upload into a PROPOSAL inside the permit's sealed slot. Only
+ * here — the supplier pressing confirm, optionally after nudging the pin — are
+ * `registered_address` and the shop's pin written. A nudge further than
+ * {@link PIN_NUDGE_MAX_KM} from the proposal is refused: that is a different
+ * place, not a nudge, and belongs to the shop's own pin editor.
+ */
+const PIN_NUDGE_MAX_KM = 2;
+
+async function confirmPermitPin(
+  auth: NonNullable<Awaited<ReturnType<typeof requireVendorId>>>,
+  formData: FormData,
+): Promise<IdentityFieldSaveResult> {
+  // The shipped pin card posts `location_confirmed=yes` once "Yes, that's right" is pressed.
+  if (String(formData.get('confirm') ?? formData.get('location_confirmed') ?? '') !== 'yes') {
+    return { ok: false, error: 'Confirm the pin first.' };
+  }
+  const key = paperSealKey();
+  if (!key) return { ok: false, error: 'This can’t be saved just now. Try again in a minute.' };
+  const app = await fetchLatestApplication(auth.supabase, auth.vendorProfileId).catch(() => null);
+  const permit = app ? openSealedSlot('mayors_permit', (app.doc_uploads as Record<string, unknown> | null)?.mayors_permit, key) : null;
+  const proposal = (app?.doc_uploads as Record<string, IntakeSlot | undefined> | null)?.mayors_permit?.pin_proposal ?? null;
+  if (!permit || !proposal) return { ok: false, error: 'There is no address from your permit to confirm.' };
+
+  const lat = Number(formData.get('hq_latitude') ?? formData.get('lat') ?? proposal.lat);
+  const lng = Number(formData.get('hq_longitude') ?? formData.get('lng') ?? proposal.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    return { ok: false, error: 'That pin is not a place.' };
+  }
+  if (haversineKm(proposal.lat, proposal.lng, lat, lng) > PIN_NUDGE_MAX_KM) {
+    return { ok: false, error: 'That is far from the address on your permit — move the pin closer, or change your shop’s location instead.' };
+  }
+  if (await fetchVerifiedLock(auth.supabase, auth.vendorProfileId)) {
+    return { ok: false, error: VERIFIED_LOCK_ERROR, locked: true };
+  }
+  const address = (permit.evidence?.model?.address ?? proposal.address).slice(0, IDENTITY_FIELD_MAX.registered_address ?? 512);
+  const { error } = await auth.supabase
+    .from('vendor_profiles')
+    .update({
+      registered_address: address,
+      hq_address: address,
+      hq_latitude: lat,
+      hq_longitude: lng,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('vendor_profile_id', auth.vendorProfileId);
+  if (error) return { ok: false, error: 'Your pin could not be saved — try again.' };
+  revalidateShopPage(auth.vendorProfileId);
+  revalidatePath('/vendor-dashboard/shop');
+  return { ok: true };
 }

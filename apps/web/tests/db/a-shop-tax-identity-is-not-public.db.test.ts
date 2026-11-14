@@ -488,7 +488,7 @@ test('vendor_profiles_self is READ-ONLY — a definer view that is auto-updatabl
 
 /* ── 4. anon IS UNTOUCHED ───────────────────────────────────────────────── */
 
-test('anon’s column surface is 21 columns, none of the eleven (20 after 20271221366210 took contact_email; 21 since 20271320303985 added is_findable)', async () => {
+test('anon’s column surface is 22 columns, none of the eleven (20 after 20271221366210 took contact_email; 21 since 20271320303985 added is_findable; 22 since 20271345631375 added papers_current)', async () => {
   const n = await db.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM information_schema.columns
       WHERE table_schema='public' AND table_name='vendor_profiles'
@@ -496,14 +496,21 @@ test('anon’s column surface is 21 columns, none of the eleven (20 after 202712
   );
   assert.equal(
     n.rows[0]!.n,
-    21,
+    22,
     'anon’s surface moved — 20271217955839 must not name anon; 20271221366210 takes exactly contact_email (21 → 20); ' +
-      '20271320303985 adds exactly is_findable (20 → 21), the marketplace view names it and is security_invoker',
+      '20271320303985 adds exactly is_findable (20 → 21), the marketplace view names it and is security_invoker; ' +
+      '20271345631375 adds exactly papers_current (21 → 22), for the same view',
   );
   const findable = await db.query<{ ok: boolean }>(
     `SELECT has_column_privilege('anon','public.vendor_profiles','is_findable','SELECT') AS ok`,
   );
   assert.equal(findable.rows[0]!.ok, true, 'the 21st anon column must be is_findable and nothing else');
+  const current = await db.query<{ ok: boolean; lapsed: boolean }>(
+    `SELECT has_column_privilege('anon','public.vendor_profiles','papers_current','SELECT') AS ok,
+            has_column_privilege('anon','public.vendor_profiles','papers_lapsed_at','SELECT') AS lapsed`,
+  );
+  assert.equal(current.rows[0]!.ok, true, 'the 22nd anon column must be papers_current and nothing else');
+  assert.equal(current.rows[0]!.lapsed, false, 'anon must not read when a shop’s papers lapsed');
 
   await asAnon();
   const err = await tryQuery(`SELECT tin_number FROM public.vendor_profiles`);

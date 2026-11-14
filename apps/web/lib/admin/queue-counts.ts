@@ -570,7 +570,10 @@ const QUEUE_DEFS: QueueDef[] = [
         .neq('order.status', 'paid')
         .order('created_at', { ascending: true })
         .limit(1);
-      if (r.error) return { count: null, oldestAt: null };
+      if (r.error) {
+        logQueryError('queue-counts.payments (pending, order not paid)', r.error, {}, 'graceful_degrade');
+        return { count: null, oldestAt: null };
+      }
       const rows = r.data as Array<{ created_at: string | null }> | null;
       return { count: num(r.count), oldestAt: rows?.[0]?.created_at ?? null };
     },

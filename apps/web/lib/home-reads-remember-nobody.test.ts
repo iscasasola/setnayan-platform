@@ -42,6 +42,8 @@ const REMEMBERED_MODULES = [
   'lib/event-poster-given.ts',
   // The published showcases (2026-10-20, fewer-reads): one remembered list for every visitor.
   'lib/showcase-db.ts',
+  // The shop page's "More <kind of work> near <area>" (2026-11-14): one remembered read per kind of work.
+  'lib/similar-shops.server.ts',
 ];
 
 /** A module that can see who is looking. */

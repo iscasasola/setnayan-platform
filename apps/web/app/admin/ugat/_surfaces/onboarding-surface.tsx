@@ -1,4 +1,3 @@
-import { InfoTip } from '@/app/_components/info-tip';
 // Ugat Studio surface — the body of the former onboarding page,
 // re-homed 2026-07-10. actions/_components stay in /admin/onboarding; the legacy
 // route is now a redirect into /admin/ugat?tab=.
@@ -101,16 +100,14 @@ export async function OnboardingSurface({ searchParams }: Props) {
               Background music
             </h3>
           </div>
-          <div className="mb-3">
-            <InfoTip label="About the onboarding music" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
-              A soft, low-volume soundtrack while couples go through the wedding
+          <p className="mb-3 text-[13px] text-ink/70">
+            A soft, low-volume soundtrack while couples go through the wedding
             onboarding. It never blasts on — it starts quietly on the first tap
             and each couple can mute it. Upload an{' '}
             <strong>owned / AI-generated</strong> track only (e.g. your Suno
             instrumental) — Setnayan serves the file, so it must be music you own
             the rights to. Leave empty for no music.
-            </InfoTip>
-          </div>
+          </p>
 
           {settingsReadFailed ? (
             <div role="alert" className="mb-3 rounded-card bg-[var(--sn-warning-soft)] p-4 text-sm text-ink">

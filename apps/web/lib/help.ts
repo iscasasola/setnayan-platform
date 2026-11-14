@@ -436,6 +436,20 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
     ],
   },
   {
+    // 🧰 Working a booked event (owner-approved supplier cuts 5–7, 2026-11-14 — DECISION_LOG "THE SEVEN SUPPLIER CUTS
+    // ARE APPROVED"). Each cut ships its own answer here.
+    key: 'supplier-working-an-event',
+    label: 'Working an event',
+    roles: ['vendor'],
+    articles: [
+      {
+        slug: 'post-an-update',
+        title: 'Post an update for an event',
+        body: 'Open the event in your Hub and tap Post an update at the top. Pick On site, Setup done, Ready to start, Packed up, Running late or Need help, add a note if you like, and tap Post. The couple sees it on their Event Hub; Running late and Need help also go to their coordinator as something to act on. What you posted shows under the button.',
+      },
+    ],
+  },
+  {
     key: 'getting-verified',
     label: 'Getting verified',
     roles: ['vendor'],
@@ -587,6 +601,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'track-vendor',
         title: 'Track a supplier',
         body: 'On Suppliers, open the category — the caterer, the photographer and so on. Tap Add manually to add a supplier you found yourself, with their contact, what they cover and what you agreed to pay. Once you have booked them, they show as Booked, with what is next — like your first payment.',
+      },
+      {
+        // 📣 Supplier updates on the day (cut 6, 2026-11-14).
+        slug: 'supplier-updates-on-the-day',
+        title: 'See what your suppliers post on the day',
+        body: 'On your event’s day, Home shows a From your suppliers card. Your booked suppliers post there when they arrive, finish setting up, are ready to start or have packed up, with a note if they add one. Running late and Need help also go to your coordinator.',
       },
       {
         // A manual venue's pin is set where the venue is (Suppliers' date-and-place line, `fact-sheets.tsx`); a shop's

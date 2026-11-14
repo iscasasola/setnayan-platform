@@ -465,20 +465,23 @@ export async function getDayRequestsView(eventId: string): Promise<DayRequestsVi
 /**
  * §10 #2 — the one-tap vendor status preset.
  *
- * The body and kind come from the server-side catalogue keyed by `presetKey`,
- * never from the client: a caller cannot post arbitrary text through this door,
- * and "Running late" always files as an issue while "On site" always files as a
- * status ping.
+ * The KIND comes from the server-side catalogue keyed by `presetKey`, never
+ * from the client: "Running late" always files as an issue while "On site"
+ * always files as a status ping. 📣 Since "Post an update" (cut 6, 2026-11-14)
+ * the supplier may add their own note, which becomes the body — the same
+ * author-entered text `submitDayRequest` has always taken on this lane, now on
+ * the one row with its status instead of a second loose row.
  */
 export async function submitVendorStatusPreset(
   eventId: string,
   presetKey: string,
+  note?: string | null,
 ): Promise<DayRequestActionResult> {
   if (!(await isDataPrivacyControlActive('coordinator_requests_inbox'))) {
     return { ok: false, gated: true };
   }
 
-  const draft = buildVendorStatusDraft(presetKey);
+  const draft = buildVendorStatusDraft(presetKey, typeof note === 'string' ? note : null);
   if (!draft) return { ok: false, error: 'Unknown status.' };
 
   const ctx = await requireBookedVendor(eventId);
@@ -497,6 +500,8 @@ export async function submitVendorStatusPreset(
 
   revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
   revalidatePath('/vendor-dashboard/on-the-day');
+  // 📣 The couple reads it on their day (Home's day-of grid, "From your suppliers").
+  revalidatePath(`/dashboard/${eventId}`);
   return { ok: true };
 }
 

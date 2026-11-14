@@ -1539,6 +1539,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'Open the Event Hub runs today’s event: scan, schedule, shot list, headcount.',
         },
         {
+          // 📣 Post an update (cut 6, 2026-11-14) — on top of each booked event's page.
+          anchor: 'hub-post-update',
+          title: 'Post an update',
+          body: 'Tell the couple where you are — On site, Setup done, Running late. Need help also reaches their coordinator.',
+        },
+        {
           anchor: 'hub-setup',
           title: 'Your day-of tools',
           body: 'What you can run on the day. Set them up per event; Crew picks who can open them.',

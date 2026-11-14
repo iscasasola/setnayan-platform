@@ -29,6 +29,9 @@ import { liveStudioControlPath } from '@/lib/live-studio-control';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { supplierUpdatesForCouple, updateTimeLabel, type DayRequestRow } from '@/lib/day-requests';
+import type { SupplierUpdateCardLine } from './_components/day-of-mode/supplier-updates-card';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { sweepExpiredConcierge } from '@/lib/concierge';
 import { fetchGuestsByEventMeasured, unmeasuredGuests } from '@/lib/guests';
@@ -416,6 +419,7 @@ export default async function EventHomePage({
     // Fails closed: any read error leaves this false and the card simply hides.
     let dayOfLiveWallActive = false;
     let dayOfBroadcast: BroadcastCardData | undefined;
+    let dayOfSupplierUpdates: SupplierUpdateCardLine[] | null | undefined;
     if (dayOfActive) {
       // The schedule is read ONCE and shared: the grid shows it, and the P3
       // call-time count below derives from it, so that count waits on this
@@ -482,7 +486,34 @@ export default async function EventHomePage({
         return undefined;
       })();
 
-      const [blocksRes, tablesRes, sameDayRes, liveWallRes, broadcastRes] = await Promise.all([
+      // 📣 "From your suppliers" (cut 6, 2026-11-14) — what booked suppliers posted with Post an update. Read through the
+      // couple's OWN session (RLS: the event side reads its event's stream), never the service role. Dark control → no
+      // card (undefined); a refused read → null, so the card says it could not load instead of "No updates yet".
+      const supplierUpdatesRead = (async (): Promise<SupplierUpdateCardLine[] | null | undefined> => {
+        if (!(await isDataPrivacyControlActive('coordinator_requests_inbox'))) return undefined;
+        const [rowsRes, namesRes] = await Promise.all([
+          supabase
+            .from('event_day_requests')
+            .select('request_id, origin, kind, status, body, preset_key, author_user_id, author_vendor_profile_id, created_at')
+            .eq('event_id', eventId)
+            .eq('origin', 'vendor')
+            .order('created_at', { ascending: false })
+            .limit(8),
+          supabase.from('event_vendors').select('linked_vendor_profile_id, vendor_name').eq('event_id', eventId).not('linked_vendor_profile_id', 'is', null),
+        ]);
+        if (rowsRes.error) {
+          logQueryError('dashboard/day-of.supplier-updates', rowsRes.error);
+          return null;
+        }
+        const names = new Map<string, string>();
+        for (const v of (namesRes.data ?? []) as { linked_vendor_profile_id: string | null; vendor_name: string | null }[]) {
+          if (v.linked_vendor_profile_id && v.vendor_name) names.set(v.linked_vendor_profile_id, v.vendor_name);
+        }
+        const tz = (event as { timezone?: string | null }).timezone ?? null;
+        return supplierUpdatesForCouple((rowsRes.data ?? []) as DayRequestRow[], names).map((l) => ({ ...l, time: updateTimeLabel(l.at, tz) }));
+      })().catch(() => null);
+
+      const [blocksRes, tablesRes, sameDayRes, liveWallRes, broadcastRes, supplierUpdatesRes] = await Promise.all([
         blocksRead,
         measuredOr(fetchTables(supabase, eventId), [] as EventTableRow[], (e) =>
           logQueryError('dashboard/day-of.tables', e),
@@ -506,7 +537,9 @@ export default async function EventHomePage({
           .catch(() => [] as SameDayVendor[]),
         liveWallRead,
         broadcastCardRead,
+        supplierUpdatesRead,
       ]);
+      dayOfSupplierUpdates = supplierUpdatesRes;
       dayOfBlocks = blocksRes;
       dayOfSameDayVendors = sameDayRes;
       const tables = tablesRes.value;
@@ -530,6 +563,7 @@ export default async function EventHomePage({
       dayOfSameDayVendors,
       dayOfLiveWallActive,
       dayOfBroadcast,
+      dayOfSupplierUpdates,
     };
   })();
 
@@ -844,6 +878,7 @@ export default async function EventHomePage({
       dayOfSameDayVendors,
       dayOfLiveWallActive,
       dayOfBroadcast,
+      dayOfSupplierUpdates,
     },
     { nikahImamBooked },
     { canViewPapicCounts, viewerMemberType },
@@ -1422,6 +1457,7 @@ export default async function EventHomePage({
           // 🍎 A web-bought Live Photo Wall opens nothing in the iPhone app (3.1.3(b)).
           liveWallActive={dayOfLiveWallActive && !storeShell}
           broadcast={dayOfBroadcast}
+          supplierUpdates={dayOfSupplierUpdates}
           papic={
             <DayPapicRow
               eventId={eventId}

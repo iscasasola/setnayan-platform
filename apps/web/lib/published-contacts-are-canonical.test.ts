@@ -35,6 +35,7 @@ import { dirname, join, resolve } from 'node:path';
 
 import { DPO_EMAIL, isPersonalMailbox, PERSONAL_MAIL_DOMAINS } from './contact-addresses';
 import { stripComments } from './strip-comments';
+import { PUBLIC_HELP_SOURCES } from '@/lib/help-sources.test-helper';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
@@ -53,9 +54,9 @@ const PUBLISHED_ROOTS = [
 
 const PUBLISHED_FILES = [
   'app/layout.tsx',
-  'lib/help.ts',
+  ...PUBLIC_HELP_SOURCES, // help split 2026-11-14: lib/help.ts + every lib/help/*.ts
   'lib/llms-txt.ts',
-] as const;
+];
 
 const SOURCE_EXT = /\.(ts|tsx)$/;
 

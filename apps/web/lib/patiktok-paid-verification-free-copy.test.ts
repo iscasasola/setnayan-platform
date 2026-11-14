@@ -18,6 +18,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
 import { DAY_MEMORIES_FEATURES } from './feature-pages/day-memories';
+import { PUBLIC_HELP_SOURCES } from '@/lib/help-sources.test-helper';
 
 const WEB = dirname(dirname(fileURLToPath(import.meta.url)));
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -44,7 +45,7 @@ test('Patiktok on /pricing reads its per-day price from the row', () => {
 });
 
 test('supplier verification is free for good — never "during launch"', () => {
-  for (const f of ['lib/help.ts', 'lib/llms-txt.ts', 'app/_components/home/HomeOverlays.tsx', 'app/(shell)/pricing/page.tsx']) {
+  for (const f of [...PUBLIC_HELP_SOURCES, 'lib/llms-txt.ts', 'app/_components/home/HomeOverlays.tsx', 'app/(shell)/pricing/page.tsx']) {
     const src = code(f);
     const hit = src.match(/(?:verif|free)[^.\n]{0,60}\b(?:during launch|while we launch|at launch)\b/i);
     assert.equal(hit, null, `${f} still says verification is free only for the launch: ${hit?.[0]}`);

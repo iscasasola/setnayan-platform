@@ -26,6 +26,8 @@ const STATUS_BY_CODE: Record<SendProposalError, number> = {
   plan_not_in_full: 422,
   // 🧪 the demo rule refused the pairing — a retry never changes it.
   demo_scope: 422,
+  // 🧾 a "first N couples" offer on the quote is already used up (OWN-01) — nothing was sent.
+  offer_taken: 409,
   failed: 500,
 };
 

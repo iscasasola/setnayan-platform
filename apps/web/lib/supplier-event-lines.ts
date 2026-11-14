@@ -21,6 +21,7 @@ import { familiesForServices, type DayOfFamily } from '@/lib/vendor-dayof-module
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { guestRoleLabel, ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { isHonoreeRole } from '@/lib/role-groups';
+import { realNameOrNull } from '@/lib/no-name';
 import type { RoleNames } from '@/lib/role-names';
 
 /** Where the event stands with THIS shop (the roster's lanes, folded to the four words a row says). */
@@ -262,9 +263,12 @@ export function eventCelebrantWords(input: {
   const sig = input.signatureDetails && typeof input.signatureDetails === 'object' ? (input.signatureDetails as Record<string, unknown>) : null;
   for (const key of ['celebrant_name', 'celebrant_names']) {
     const v = sig?.[key];
-    if (typeof v === 'string' && v.trim()) return v.replace(/\s+/g, ' ').trim();
+    // 👤 OWN-03 (live 14 Nov): a STAND-IN is no name — "Someone —" was saved as an event's celebrant and read back here
+    // as if it were one (the RW-64 rule, `realNameOrNull`).
+    const named = typeof v === 'string' ? realNameOrNull(v.replace(/\s+/g, ' ').trim()) : null;
+    if (named) return named;
   }
-  return (input.honoreeLabel ?? '').replace(/\s+/g, ' ').trim() || null;
+  return realNameOrNull((input.honoreeLabel ?? '').replace(/\s+/g, ' ').trim());
 }
 
 /** One `thread_service_interests` row, as the requested line reads it. */

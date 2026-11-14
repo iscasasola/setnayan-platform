@@ -8,6 +8,7 @@ import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { startServiceInquiry, type StartServiceInquiryResult } from '@/app/v/[slug]/inquiry-actions';
+import { forgetKnownEvents, newlyMadeEvent, readKnownEvents, rememberKnownEvents } from '@/lib/inquire-new-event';
 import {
   INQUIRE_UNDO_MS,
   inquireClearedHref,
@@ -140,6 +141,10 @@ export function InquireSheet({
     if (!ask) return;
     // Picks already made → straight back to the event step; otherwise from the top.
     open(ask.serviceIds.length > 0 || general ? 'event' : 'services', ask.serviceIds);
+    // 🆕 OWN-02: back from "Start a new event", the event they just made is the one picked.
+    const made = newlyMadeEvent(readKnownEvents(), events.map((e) => e.eventId));
+    if (made) setEventId(made);
+    forgetKnownEvents();
     // Once, on arrival — not again when the page refreshes its props.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -166,6 +171,13 @@ export function InquireSheet({
   const close = () => {
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
+    // 📨 OWN-02 (live 14 Nov): closing during "Sending in N s…" used to drop the ask in silence — the timer was
+    // cleared, nothing was sent, and the sheet's last words were "Sending". Undo is the one way not to send; closing
+    // SENDS NOW and the sheet stays to say whether it went.
+    if (step === 'sending') {
+      void fire();
+      return;
+    }
     setStep(null);
     setNote(null);
     const cleared = inquireClearedHref(window.location.href);
@@ -314,6 +326,7 @@ export function InquireSheet({
                     icon={Plus}
                     label="Start a new event"
                     href={createHref}
+                    onClick={() => rememberKnownEvents(events.map((e) => e.eventId))}
                     className={MAIN}
                     data-testid="inquire-start-event"
                   />

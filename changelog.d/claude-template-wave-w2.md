@@ -31,3 +31,5 @@ them (#7605 · #7610 · #7545 · #7684). Style only: same words, same data, same
   - `make-it-yours` (its own CSS-module studio).
 
 SPEC IMPACT: None — implements the approved design template (Setnayan-specs `prototypes/design_template_sheet_2026-11-14_fable.html`); no decision changed.
+
+**Ratchet (14 Nov, after #7704 landed):** `lib/template-score.baseline.json` is lowered for W2's four pages only.

@@ -1,5 +1,9 @@
 import Link from 'next/link';
-import { ArrowRight, Camera, Play, Plus, Sparkles } from 'lucide-react';
+import { ArrowRight, Camera, ChevronRight, Play, Plus, Sparkles } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { EmptyState } from '@/app/_components/states/empty-state';
+import { InfoTip } from '@/app/_components/info-tip';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { getPhotosAlbums, type Album } from '../_data/photos-albums';
 import { stanceClosedReason } from '@/lib/event-board';
@@ -14,7 +18,7 @@ import { formatCount } from '@/lib/format-number';
 // Reuses: lib/papic-gallery.ts (owned visibility filter),
 // lib/guest-live-gallery.ts (attended tagged+clean privacy gate),
 // getSwitcherData (event list + monograms + role), EventMonogram, and the
-// rounded-2xl border-ink/10 card shell from
+// rounded-2xl border-ink/10 card shell (2026-11-14: unframed, design template rule 2) from
 // app/dashboard/[eventId]/galleries/page.tsx.
 //
 // ── LENSES (2026-07-31) ─────────────────────────────────────────────────────
@@ -65,12 +69,9 @@ export async function PhotosTab({
     // hosting an event yet" to a host "would be a lie" — a refused read makes
     // it exactly that lie, for every lens at once.
     return (
-      <div role="status" className="mt-6 rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center">
-        <p className="text-base font-semibold text-ink">We couldn’t load your albums.</p>
-        <p className="mt-2 text-sm text-ink/70">
-          Nothing has changed — your photos are safe. Refresh to try again.
-        </p>
-      </div>
+      <p role="status" className="mt-6 text-sm text-[rgb(var(--color-warn))]">
+        We couldn’t load your albums — your photos are safe, nothing changed. Refresh to try again.
+      </p>
     );
   }
 
@@ -95,20 +96,17 @@ export async function PhotosTab({
             };
 
     return (
-      <div className="rounded-2xl border border-dashed border-ink/15 p-10 text-center">
-        <Camera aria-hidden className="mx-auto h-8 w-8 text-ink/30" strokeWidth={1.5} />
-        <p className="mt-3 text-sm font-medium text-ink">{empty.title}</p>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">{empty.body}</p>
-        {lens === 'attended' ? null : (
-          <Link
-            href="/dashboard/create-event"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
-          >
-            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Create an event
-          </Link>
-        )}
-      </div>
+      <EmptyState
+        Icon={Camera}
+        title={empty.title}
+        blurb={empty.body}
+        readPermitted
+        action={
+          lens === 'attended' ? undefined : (
+            <ActionButton tone="brand" main icon={<Plus aria-hidden />} label="Create an event" href="/dashboard/create-event" />
+          )
+        }
+      />
     );
   }
 
@@ -160,12 +158,12 @@ export async function PhotosTab({
     <div className="space-y-6">
       {/* "On this day" — anniversary nostalgia hook (the memory home reaching out) */}
       {lens === 'recent' && anniversaries.length > 0 ? (
-        <div className="space-y-2">
+        <div className="divide-y divide-ink/10">
           {anniversaries.map(({ album, yearsAgo }) => (
             <Link
               key={album.event.event_id}
               href={`/dashboard/${album.event.event_id}/memories`}
-              className="flex items-center gap-3 rounded-2xl border border-terracotta/20 bg-terracotta/5 p-4 transition-colors hover:bg-terracotta/10"
+              className="flex min-h-14 items-center gap-3 py-2"
             >
               <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/15 text-terracotta">
                 <Sparkles aria-hidden className="h-5 w-5" strokeWidth={1.75} />
@@ -174,11 +172,11 @@ export async function PhotosTab({
                 <p className="text-sm font-semibold text-ink">
                   {yearsAgo} {yearsAgo === 1 ? 'year' : 'years'} ago today
                 </p>
-                <p className="truncate text-xs text-ink/60">
+                <p className="truncate text-xs text-ink/70">
                   {album.event.display_name} — relive the day
                 </p>
               </div>
-              <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+              <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={1.75} />
             </Link>
           ))}
         </div>
@@ -187,33 +185,30 @@ export async function PhotosTab({
       {/* Facebook helper card — Recent only. On a narrowed lens the albums are
           the answer; a sharing utility on top of them is noise. */}
       {lens === 'recent' ? (
-        <div className="rounded-2xl border border-ink/10 bg-white dark:bg-raised p-4 shadow-sm sm:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1877F2]/10 text-[#1877F2]">
-                <FacebookGlyph className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-ink">Share to Facebook</h2>
-                <p className="mt-0.5 text-xs text-ink/55">
-                  To make a Facebook album: open an event below, Download all, then use
-                  Facebook&rsquo;s Create Album to upload.
-                </p>
-              </div>
+        <section className="border-b border-ink/10 pb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <InfoTip
+                label="Share to Facebook"
+                labelAs="h2"
+                labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
+                align="start"
+              >
+                To make a Facebook album: open an event below, Download all, then use
+                Facebook&rsquo;s Create Album to upload.
+              </InfoTip>
             </div>
             {fbShareUrl ? (
-              <a
+              <ActionButton
+                tone="info"
+                icon={<FacebookGlyph className="h-4 w-4" />}
+                label="Share the Memories link"
                 href={fbShareUrl}
                 target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#1877F2] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1666d4]"
-              >
-                <FacebookGlyph className="h-4 w-4" />
-                Share the Memories link
-              </a>
+              />
             ) : null}
           </div>
-        </div>
+        </section>
       ) : null}
 
       {/* Albums — grouped by year (a timeline) once events span multiple years */}
@@ -222,7 +217,7 @@ export async function PhotosTab({
           {years.map((y) => (
             <section key={y}>
               <div className="mb-3 flex items-center gap-3">
-                <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/45">
+                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   {y}
                 </span>
                 <span className="h-px flex-1 bg-ink/10" />
@@ -287,7 +282,7 @@ function AlbumCard({ album }: { album: Album }) {
                   className="flex aspect-square items-center justify-center bg-cream"
                 >
                   {i === 0 ? (
-                    <Camera aria-hidden className="h-5 w-5 text-ink/20" strokeWidth={1.5} />
+                    <Camera aria-hidden className="h-5 w-5 text-[color:var(--sn-ink-300)]" strokeWidth={1.5} />
                   ) : null}
                 </div>
               ))}
@@ -295,18 +290,18 @@ function AlbumCard({ album }: { album: Album }) {
   );
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white dark:bg-raised shadow-sm">
+    <article className="flex flex-col">
       {/* Thumbnail strip — linked only when this person has somewhere to go. */}
       {href ? (
-        <Link href={href} className="block">
+        <Link href={href} className="block overflow-hidden rounded-lg">
           {thumbStrip}
         </Link>
       ) : (
-        thumbStrip
+        <div className="overflow-hidden rounded-lg">{thumbStrip}</div>
       )}
 
       {/* Card body */}
-      <div className="flex flex-1 flex-col gap-3 p-4">
+      <div className="flex flex-1 flex-col gap-3 pt-3">
         <div className="flex items-start gap-3">
           <EventMonogram event={event} size="lg" plays={album.markPlays} place="album-card" />
           <div className="min-w-0 flex-1">
@@ -314,17 +309,9 @@ function AlbumCard({ album }: { album: Album }) {
               <h3 className="truncate text-sm font-semibold text-ink">
                 {event.display_name}
               </h3>
-              <span
-                className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                  hosting
-                    ? 'bg-terracotta/10 text-terracotta'
-                    : 'bg-ink/5 text-ink/60'
-                }`}
-              >
-                {hosting ? 'Hosting' : 'Attended'}
-              </span>
+              <Badge tone="quiet">{hosting ? 'Hosting' : 'Attended'}</Badge>
             </div>
-            <p className="mt-0.5 text-xs text-ink/55">
+            <p className="mt-0.5 text-xs text-ink/70">
               {hasMedia
                 ? `${formatCount(count)} ${count === 1 ? 'photo or clip' : 'photos & clips'}`
                 : 'Collecting…'}
@@ -333,15 +320,15 @@ function AlbumCard({ album }: { album: Album }) {
         </div>
 
         {href ? (
-          <Link
+          <ActionButton
+            tone="brand"
+            icon={<ArrowRight aria-hidden />}
+            label={hasMedia ? 'View & download' : 'Open album'}
             href={href}
-            className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
-          >
-            {hasMedia ? 'View & download' : 'Open album'}
-            <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </Link>
+            className="mt-auto"
+          />
         ) : (
-          <p className="mt-auto rounded-xl bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
+          <p className="mt-auto text-xs text-ink/70">
             {stanceClosedReason(role)}
           </p>
         )}

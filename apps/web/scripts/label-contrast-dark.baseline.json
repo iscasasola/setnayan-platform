@@ -1,6 +1,6 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 220,
+  "total": 218,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
@@ -70,7 +70,6 @@
     "app/creators/_components/creator-story-sections.tsx · m-ink on m-orange-3": 1,
     "app/creators/_components/creator-story-sections.tsx · m-orange-3 on m-ink": 1,
     "app/dashboard/(launcher)/_components/event-card-menu.tsx · ink on white": 3,
-    "app/dashboard/(launcher)/page.tsx · white on ink": 2,
     "app/dashboard/[eventId]/alaala/assignments/_components/assignment-controls.tsx · #fff on m-mulberry": 1,
     "app/dashboard/[eventId]/alaala/page.tsx · #fff on m-mulberry": 2,
     "app/dashboard/[eventId]/date-selection/_components/date-picker.tsx · ink on white": 1,

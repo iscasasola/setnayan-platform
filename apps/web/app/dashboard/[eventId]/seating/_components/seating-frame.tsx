@@ -20,7 +20,9 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { AlertTriangle, Check, ChevronDown, Loader2, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, type LucideIcon } from 'lucide-react';
+import { Badge } from '@/app/_components/badge';
+import { useCloseOutside } from './close-outside';
 import { formatCount } from '@/lib/format-number';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
@@ -91,7 +93,7 @@ export function SeatingFrame({ children, fill = false }: { children: ReactNode; 
 }
 
 /**
- * Row 1 — the command bar. 52px, one row, never wraps, the page's single
+ * Row 1 — the command bar. 56px, one row, never wraps, the page's single
  * backdrop-blur surface. `overflow-visible` so the menu popovers escape below
  * it. On very narrow widths controls can run past the edge (the mobile condensed
  * bar + `⋯` overflow sheet is a later PR); on desktop the six targets fit.
@@ -99,11 +101,12 @@ export function SeatingFrame({ children, fill = false }: { children: ReactNode; 
 export function CommandBar({ children }: { children: ReactNode }) {
   return (
     <div
-      className="relative z-30 flex h-[52px] shrink-0 items-center gap-2 overflow-visible border-b border-ink/10 px-3"
+      className="relative z-30 flex h-14 shrink-0 items-center gap-2 overflow-visible border-b border-ink/10 px-3"
+      /* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 14): the house glass tokens — they follow light and dark — never a typed white. */
       style={{
-        background: 'rgba(255,255,255,.55)',
-        backdropFilter: 'blur(18px) saturate(1.4)',
-        WebkitBackdropFilter: 'blur(18px) saturate(1.4)',
+        background: 'var(--sn-glass-bg)',
+        backdropFilter: 'var(--sn-glass-blur)',
+        WebkitBackdropFilter: 'var(--sn-glass-blur)',
       }}
     >
       {children}
@@ -176,9 +179,11 @@ export function BarMenu({
   // One open at a time (lib/one-open.ts): another menu opening closes this one;
   // anything that opens INSIDE it is its child and leaves it open.
   const oneOpenId = useOneOpen(open, set);
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rule 9): a press outside (or Esc) closes it — no invisible full-page catcher.
+  const holdRef = useCloseOutside<HTMLDivElement>(open, () => set(false));
   return (
     <OneOpenScope id={oneOpenId}>
-      <div className="relative shrink-0">
+      <div ref={holdRef} className="relative shrink-0">
         <button
           type="button"
           onClick={() => set(!open)}
@@ -187,24 +192,17 @@ export function BarMenu({
           title={title}
           aria-haspopup="menu"
           aria-expanded={open}
-          className="relative inline-flex h-9 items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 text-xs font-medium text-ink transition-colors hover:border-terracotta disabled:cursor-not-allowed disabled:opacity-50"
+          className="relative inline-flex h-11 items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-4 text-sm font-medium text-ink transition-colors hover:border-terracotta disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
           <span className="whitespace-nowrap">{label}</span>
-          <ChevronDown className="h-3 w-3 text-ink/40" />
+          <ChevronDown className="h-3 w-3 text-ink/70" />
           {stateBadge ? (
             <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-cream bg-terracotta" />
           ) : null}
         </button>
         {open ? (
           <>
-            <button
-              type="button"
-              aria-hidden
-              tabIndex={-1}
-              onClick={() => set(false)}
-              className="fixed inset-0 z-30 cursor-default"
-            />
             <div
               role="menu"
               // Verdict §5.1 — close ONLY on a leaf action (an element flagged
@@ -217,7 +215,7 @@ export function BarMenu({
               }}
               className={`absolute ${
                 align === 'right' ? 'right-0' : 'left-0'
-              } z-40 mt-1 ${width} max-h-[60dvh] overflow-y-auto overscroll-contain rounded-xl border border-ink/10 bg-cream p-1 shadow-lg`}
+              } z-40 mt-1 ${width} max-h-[60dvh] overflow-y-auto overscroll-contain rounded-2xl bg-cream p-1 shadow-lg ring-1 ring-ink/10`}
             >
               {children}
             </div>
@@ -231,7 +229,7 @@ export function BarMenu({
 /** A section caption inside a BarMenu popover. */
 export function MenuCaption({ children }: { children: ReactNode }) {
   return (
-    <p className="px-3 pb-1 pt-2 text-[10px] font-medium uppercase tracking-[0.14em] text-ink/45">
+    <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
       {children}
     </p>
   );
@@ -275,18 +273,16 @@ export function MenuRow({
   const inner = (
     <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
       <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
-        <Icon className={`h-4 w-4 shrink-0 ${emphasized ? 'text-terracotta' : 'text-ink/55'}`} strokeWidth={1.75} />
+        <Icon className={`h-4 w-4 shrink-0 ${emphasized ? 'text-terracotta' : 'text-ink/70'}`} strokeWidth={1.75} />
         <span className="min-w-0 flex-1 truncate">{label}</span>
         {badge ? (
-          <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 font-mono text-[9px] text-ink/50">
-            {badge}
-          </span>
+          <Badge tone="quiet">{badge}</Badge>
         ) : null}
       </span>
-      {hint ? <span className="pl-[22px] text-[11px] leading-snug text-ink/55">{hint}</span> : null}
+      {hint ? <span className="pl-[22px] text-xs leading-snug text-ink/70">{hint}</span> : null}
     </span>
   );
-  const cls = `flex w-full items-start gap-2.5 rounded-lg px-3 py-2 hover:bg-ink/[0.04] disabled:cursor-not-allowed disabled:opacity-40 ${
+  const cls = `flex min-h-11 w-full items-start gap-2.5 rounded-lg px-3 py-2 hover:bg-ink/[0.04] disabled:cursor-not-allowed disabled:opacity-40 ${
     emphasized ? 'bg-terracotta/[0.06]' : ''
   }`;
   const closeAttr = keepOpen ? {} : { 'data-close': '' };
@@ -344,23 +340,24 @@ export function SaveStatusChip({
             ? `Saved · ${savedAt}`
             : 'Saved';
   // Verdict §5.6 — tiered, permanent. Saved is quiet muted text; "N unsaved" is
-  // ink/70 + a dot (calm, NOT the terracotta loud state); Saving shows a
-  // spinner; Retry is the ONLY warm/loud state. Gold stays on Auto Arrange.
+  // ink/70 + a dot (calm, NOT the terracotta loud state); Saving says "Saving…"
+  // beside a still dot (📐 design template, 14 Nov 2026, rule 15: never a
+  // spinner); Retry is the ONLY warm/loud state. Gold stays on Auto Arrange.
   const tone =
     state === 'error'
       ? 'cursor-pointer border-warn-400/60 bg-warn-50 text-warn-800 hover:border-warn-500'
       : state === 'dirty'
         ? 'cursor-pointer border-ink/20 bg-cream text-ink/70 hover:border-ink/35'
-        : 'border-ink/12 bg-cream text-ink/55';
+        : 'border-ink/12 bg-cream text-ink/70';
   const leading =
     state === 'saving' ? (
-      <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+      <span className="h-1.5 w-1.5 rounded-full bg-ink/70" aria-hidden />
     ) : state === 'error' ? (
       <AlertTriangle className="h-3 w-3" aria-hidden />
     ) : state === 'dirty' ? (
       <span className="h-1.5 w-1.5 rounded-full bg-ink/60" aria-hidden />
     ) : (
-      <Check className="h-3 w-3 text-ink/40" aria-hidden />
+      <Check className="h-3 w-3 text-ink/70" aria-hidden />
     );
   return (
     <button
@@ -372,7 +369,7 @@ export function SaveStatusChip({
       }
       aria-label={label}
       aria-live="polite"
-      className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 font-mono text-[11px] transition-colors sm:px-3 ${tone} disabled:cursor-default`}
+      className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors sm:px-4 ${tone} disabled:cursor-default`}
     >
       {leading}
       {/* Phone: condense to the leading glyph/dot; the label re-appears at sm+. */}

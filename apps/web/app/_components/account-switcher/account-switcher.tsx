@@ -266,7 +266,9 @@ export function SwitcherPanelBody({
   /* 🤝 Refer a couple has no tile any more (owner 7 Nov 2026, "NO NEED") — its door stays reachable inside Help (spec
      §S3: "their destinations stay reachable inside Help"): on an event whose programme is on, Help names this event. */
   const referEvent = referHref ? /^\/dashboard\/([A-Za-z0-9-]{1,64})\/refer$/.exec(referHref)?.[1] ?? null : null;
-  const helpHref = supplierSheet ? '/vendor-dashboard/help' : referEvent ? `/help?refer=${referEvent}` : '/help';
+  // ❓ The help for the ACTIVE account (owner 13 Nov 2026, "Help coverage = active account" · "Three helps"): Setnayan
+  // HQ's sheet opens the team's help, a shop's sheet the shop's, every other sheet the user's.
+  const helpHref = here === 'admin' ? '/admin/help/guides' : supplierSheet ? '/help?for=shop' : referEvent ? `/help?refer=${referEvent}` : '/help';
   const me = data.photoUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={data.photoUrl} alt="" width={56} height={56} className="h-full w-full object-cover" style={pictureFrameStyle(data.photoFrame)} />

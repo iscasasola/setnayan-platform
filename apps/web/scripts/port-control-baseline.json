@@ -470,19 +470,24 @@
       "destinations": [
         "/dashboard/[seg]/refer",
         "/dashboard/creator",
-        "/help",
-        "/help/[seg]"
+        "/help?[seg] : {}), q: w }).toString()}",
+        "/login?next=/help"
       ],
       "actions": [
         "submitHelpMessage"
       ],
       "blocks": [
+        "AnswerRows",
+        "AnswerWays",
+        "BestAnswer",
         "Field",
+        "HelpAskCoverage",
         "HowSearchField",
         "HowSearchResults",
-        "Icon",
         "Link",
+        "NoAnswer",
         "SubmitButton",
+        "TopicTiles",
         "VendorTier"
       ]
     },
@@ -3929,6 +3934,23 @@
         "HelpMessenger",
         "Link",
         "PageMasthead"
+      ]
+    },
+    "/admin/help/guides": {
+      "files": [
+        "admin/help/guides/page.tsx"
+      ],
+      "destinations": [
+        "/admin/help"
+      ],
+      "actions": [],
+      "blocks": [
+        "AnswerRows",
+        "AskBox",
+        "BestAnswer",
+        "Link",
+        "NoAnswer",
+        "TopicTiles"
       ]
     },
     "/admin/hub-music": {
@@ -16380,8 +16402,8 @@
       "destinations": [
         "/dashboard/profile",
         "/dashboard?hub=1",
-        "/help",
         "/help/what-do-suppliers-pay-setnayan",
+        "/help?for=shop",
         "/vendor-dashboard/deep-search",
         "/vendor-dashboard/disputes",
         "/vendor-dashboard/notifications",

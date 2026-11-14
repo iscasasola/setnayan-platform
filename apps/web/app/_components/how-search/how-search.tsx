@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 import type { HowHit } from '@/lib/how-search-core';
 import { HOW_SEARCH_PLACEHOLDER } from '@/lib/how-search-words';
 import { HowSearchRow } from './how-search-row';
+import { AskBox } from '@/app/_components/help-ask/ask-box';
 
 /**
  * ONE SEARCH FOR "HOW DOES SETNAYAN WORK" — /help and /features both mount
@@ -29,13 +30,24 @@ export function HowSearchField({
   q,
   action,
   keep = {},
+  at = 'foot',
+  clearHref,
 }: {
   q: string;
   /** This page's own path — the words stay on it (the no-script form). */
   action: string;
-  /** Other parameters the page keeps (the /help role tile). */
+  /** Other parameters the page keeps (the /help account). */
   keep?: Record<string, string | undefined>;
+  /**
+   * ❓ WHERE THE FIELD STANDS. `foot` (default — /features): the bottom thumb row, as above. `top` (/help only): the
+   * ask box under the page's head — the approved ask-first Help (owner "help approved", 13 Nov 2026, prototype v5:
+   * "Ask anything · Type it your way" over the box), which replaced the docked row on that page. Same `?q=`, same page.
+   */
+  at?: 'foot' | 'top';
+  /** `top` only: this page without the words (the box's ✕). */
+  clearHref?: string;
 }) {
+  if (at === 'top') return <AskBox q={q} action={action} keep={keep} clearHref={clearHref ?? action} />;
   return (
     <>
       <HowSearchRow key={q} q={q} />
@@ -68,6 +80,7 @@ export function HowSearchResults({
   storiesFailed,
   clearHref,
   askHref,
+  title,
 }: {
   q: string;
   hits: ReadonlyArray<HowHit>;
@@ -76,7 +89,28 @@ export function HowSearchResults({
   clearHref: string;
   /** The contact form. */
   askHref: string;
+  /**
+   * ❓ ONE SECTION OF A BIGGER ANSWER (/help ask-first, approved 13 Nov 2026): the rows under a heading, after the
+   * help's own best answer — no count, no "Nothing matched" (the help already said what it found), nothing at all
+   * when there is no row. Absent: exactly the list it always was (/features).
+   */
+  title?: string;
 }) {
+  if (title) {
+    if (hits.length === 0) return null;
+    return (
+      <section aria-label={title} data-how-results="" data-search-results="">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{title}</p>
+        <ul className="mt-1 divide-y divide-ink/10">
+          {hits.map((h) => (
+            <li key={`${h.kind}:${h.href}`} data-how-kind={h.kind}>
+              {h.kind === 'help' ? <HelpAnswerRow hit={h} /> : <LinkRow hit={h} />}
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
   if (hits.length === 0) {
     return (
       <div data-how-results="" data-search-none="" className="py-4">

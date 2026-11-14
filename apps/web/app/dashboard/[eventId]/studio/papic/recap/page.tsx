@@ -20,6 +20,8 @@ import { getDriveOAuthConfig } from '@/lib/papic-drive';
 import { publishRecap, unpublishRecap } from './actions';
 import { RecapDriveNudge } from './_components/recap-drive-nudge';
 import { RecapSocialFeatureToggle } from './_components/recap-social-feature-toggle';
+import { GuestPhoneReview, PublishRecapForm } from './_components/guest-phone-review';
+import { readWaitingPhoneUploads } from '@/lib/papic-phone-uploads.server';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
 
@@ -61,6 +63,8 @@ export default async function CoupleRecapPage({
   }
 
   const summary = await loadRecapCoupleSummary(eventId);
+  // 📲 Guests' phone photos still waiting for the couple's check (guest upload v2). Null = unread — said, never "none".
+  const phoneWaiting = await readWaitingPhoneUploads(eventId);
   const isPublished = summary.status === 'published';
   const publicUrl = summary.slug ? `${SITE_URL}/${summary.slug}/recap` : null;
   const shareImage = summary.slug ? `${SITE_URL}/api/og/recap/${summary.slug}` : undefined;
@@ -132,6 +136,13 @@ export default async function CoupleRecapPage({
         )}
       </section>
 
+      {/* 📲 From your guests' phones — the couple's check before it goes public (guest upload v2). */}
+      {phoneWaiting === null ? (
+        <ReadRefusedNotice what="the photos your guests added from their phones" />
+      ) : phoneWaiting.length > 0 ? (
+        <GuestPhoneReview eventId={eventId} waiting={phoneWaiting} />
+      ) : null}
+
       {/* Publish state */}
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <div className="flex items-start gap-3">
@@ -174,8 +185,11 @@ export default async function CoupleRecapPage({
               </div>
             ) : null}
 
+            {!isPublished ? (
+              <PublishRecapForm eventId={eventId} action={publishRecap} unchecked={phoneWaiting?.length ?? 0} />
+            ) : (
             <form
-              action={isPublished ? unpublishRecap : publishRecap}
+              action={unpublishRecap}
               className="mt-4"
             >
               <input type="hidden" name="eventId" value={eventId} />
@@ -200,6 +214,7 @@ export default async function CoupleRecapPage({
                 )}
               </SubmitButton>
             </form>
+            )}
           </div>
         </div>
       </section>

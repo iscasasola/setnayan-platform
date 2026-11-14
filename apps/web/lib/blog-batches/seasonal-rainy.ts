@@ -157,6 +157,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
     category: 'planning',
     author: 'Setnayan Editorial',
     publishedAt: '2026-08-12',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -215,7 +216,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
         type: 'cta',
         text: 'Browse verified Philippine venues and ask each one your power and wet-weather questions before you commit.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -300,6 +301,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
     category: 'planning',
     author: 'Setnayan Editorial',
     publishedAt: '2026-09-18',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -359,7 +361,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
         type: 'cta',
         text: 'Compare verified Filipino wedding suppliers by city and category before the ber-month calendars fill up.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -591,7 +593,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
         items: [
           'Wider availability — the venues and single-event-a-day suppliers that vanish in peak season open right back up.',
           'Gentler rates — many suppliers offer off-peak and weekday pricing, and there is far more room to negotiate.',
-          'A more relaxed feel — fewer competing events means more attentive vendors and a noticeably calmer day.',
+          'A more relaxed feel — fewer competing events means more attentive suppliers and a noticeably calmer day.',
           'Easier shortlisting — you can actually compare your top choices instead of grabbing whoever happens to be left.',
         ],
       },
@@ -628,7 +630,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
         type: 'cta',
         text: 'Compare verified Philippine venues and suppliers by date and see what off-peak availability really looks like.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -636,7 +638,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
     slug: 'typhoon-season-wedding-vendor-questions',
     cover: '/blog/rainy.webp',
     coverAlt: 'An elegant tented wedding reception during the rainy season',
-    title: 'Typhoon season: the questions to ask every vendor',
+    title: 'Typhoon season: the questions to ask every supplier',
     excerpt:
       'Marrying in typhoon season? These are the exact questions to ask each supplier so weather never blindsides your day.',
     category: 'vendors',
@@ -699,13 +701,13 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Once you have asked, the last step is to keep what you learn. Asking is only half the job — capturing the answers cleanly is the other half, and the half couples most often skip. Note each supplier\'s wet-weather plan and reschedule terms alongside their booking, so that if a date ever has to move, you already know in an instant who needs what and by when. A planning workspace that re-dates every deadline around your wedding turns a reschedule from a frantic scramble into a single, calm adjustment. Done well, this whole exercise also does something beyond logistics: it tells you which suppliers you actually want. A vendor who answers thoughtfully, has a real plan, and writes it into the contract has just shown you exactly how they will treat you when something goes wrong — and that is worth as much as any portfolio. Typhoon season, in the end, is not a reason to fear your date; it is a reason to choose suppliers who plan well. Ask the questions, write down the answers, keep them where you can reach them, and you will have built the only kind of weather insurance that genuinely works.',
+        text: 'Once you have asked, the last step is to keep what you learn. Asking is only half the job — capturing the answers cleanly is the other half, and the half couples most often skip. Note each supplier\'s wet-weather plan and reschedule terms alongside their booking, so that if a date ever has to move, you already know in an instant who needs what and by when. A planning workspace that re-dates every deadline around your wedding turns a reschedule from a frantic scramble into a single, calm adjustment. Done well, this whole exercise also does something beyond logistics: it tells you which suppliers you actually want. A supplier who answers thoughtfully, has a real plan, and writes it into the contract has just shown you exactly how they will treat you when something goes wrong — and that is worth as much as any portfolio. Typhoon season, in the end, is not a reason to fear your date; it is a reason to choose suppliers who plan well. Ask the questions, write down the answers, keep them where you can reach them, and you will have built the only kind of weather insurance that genuinely works.',
       },
       {
         type: 'cta',
         text: 'Browse verified Filipino suppliers and put these questions to each one before you commit.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },

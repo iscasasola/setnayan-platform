@@ -71,7 +71,7 @@ const BOOKED_CSS =
   '[data-booked-body] .bk-verbs:has(.bk-said){margin-bottom:22px}' +
   '@media (prefers-reduced-motion:reduce){[data-booked-body] .bk-exp{transition:none}}';
 
-const H2 = 'font-display text-[21px] font-medium leading-tight text-ink';
+const H2 = 'text-[17px] font-semibold leading-snug text-ink';
 const SUB = 'mt-0.5 text-[14px] text-ink/60';
 
 export type BookedBodyState =

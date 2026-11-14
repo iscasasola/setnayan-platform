@@ -3,7 +3,9 @@
 // The one form on BoothEventSection: pick a channel, submit, land on the ONE
 // payment page (payPath). Client component only because useActionState needs
 // it; the section around it is a server component.
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { actionButtonClass } from '@/components/action-button';
 import { buyBoothBrandingForEvent, type BoothEventActionState } from '../booth-event-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { type OpenRail } from '@/lib/payment-channels';
@@ -23,33 +25,29 @@ export function BoothEventBuyForm({
   const [state, action] = useActionState<BoothEventActionState, FormData>(buyBoothBrandingForEvent, {
     status: 'idle',
   });
+  const [channel, setChannel] = useState<string>(openRails[0]?.id ?? '');
   if (openRails.length === 0) return <PaymentsPausedNote className="mt-3" />;
   return (
     <form action={action} className="mt-3 flex flex-wrap items-center gap-2">
       <input type="hidden" name="event_id" value={eventId} />
-      <label className="sr-only" htmlFor="booth-event-channel">
-        Pay with
-      </label>
-      <select
-        id="booth-event-channel"
-        name="channel"
-        className="h-11 rounded-md border border-ink/15 bg-white px-3 text-sm text-ink"
-      >
-        {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
-        {openRails.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.label}
-            </option>
-          ))}
-      </select>
+      {/* Only the rails the owner has left open (lib/payment-channels.ts) — one ▾ picker (design template rule 4). */}
+      <input type="hidden" name="channel" value={channel} />
+      <PickMenu
+        label="Pay with"
+        value={channel}
+        buttonText={`Pay with · ${openRails.find((r) => r.id === channel)?.label ?? ''}`}
+        options={openRails.map((r) => ({ key: r.id, label: r.label }))}
+        onPick={setChannel}
+        dataAttr="data-booth-event-channel"
+      />
       <SubmitButton
         pendingLabel="Starting your order"
-        className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+        className={actionButtonClass('brand', { main: true, extra: '!h-11 !min-h-11' })}
       >
         Brand my booth here — ₱{pricePhp.toLocaleString('en-PH')}
       </SubmitButton>
       {state.status === 'error' ? (
-        <p role="alert" className="basis-full text-xs text-terracotta-700">
+        <p role="alert" className="basis-full text-[13px] font-semibold text-danger-700">
           {state.message}
         </p>
       ) : null}

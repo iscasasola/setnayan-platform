@@ -58,36 +58,51 @@ test('1 · every sentence the line can say is one short line — the reason is i
   assert.ok(seen >= 1 + MILESTONE_THRESHOLDS.length + 3, `anti-vacuity: only ${seen} badges checked`);
 });
 
-/** The opening tag that carries `attr`, and its className. */
+/*
+ * 🔔 Since the ONE NOTICE SYSTEM (owner approved 14 Nov 2026) the line is DRAWN by the one notice look (`NoticeLine` in
+ * `app/_components/notices/notices.tsx`); the earned line only registers what it says. So the phone layout is held
+ * where it is now drawn, for every notice — and the earned line is held to registering the sentence as the ⓘ label,
+ * the detail behind it, and Save to print as its action.
+ */
+const LOOK = stripComments(readFileSync(join(import.meta.dirname, '..', '..', '_components', 'notices', 'notices.tsx'), 'utf8'));
+
+/** The opening tag that carries `attr`, and its className (static, or the LINE_ROOT constant). */
 function tagWith(attr: string): { at: number; cls: string } {
-  const at = SRC.indexOf(attr);
-  assert.ok(at > 0, `${attr} is gone from the earned line`);
-  const open = SRC.lastIndexOf('<', at);
-  const tag = SRC.slice(open, SRC.indexOf('>', at) + 1);
-  const cls = /className="([^"]*)"/.exec(tag)?.[1];
-  assert.ok(cls !== undefined, `${attr}: no static className to read`);
+  const at = LOOK.indexOf(attr);
+  assert.ok(at > 0, `${attr} is gone from the notice look`);
+  const open = LOOK.lastIndexOf('<', at);
+  const tag = LOOK.slice(open, LOOK.indexOf('>', at) + 1);
+  const cls = /className="([^"]*)"/.exec(tag)?.[1] ?? (/\bLINE_ROOT\b/.test(tag) ? /LINE_ROOT = '([^']*)'/.exec(LOOK)?.[1] : undefined);
+  assert.ok(cls !== undefined, `${attr}: no className to read`);
   return { at: open, cls };
 }
 
-test('2 · below 768 the actions sit on their own row, under the pill and the sentence', () => {
-  const root = tagWith('data-badge-earned={');
+test('2 · below 768 the actions sit on their own row, under the mark and the sentence', () => {
+  const root = tagWith('data-notice-key={');
   const bare = root.cls.split(/\s+/).filter((c) => /^(flex|inline-flex|grid|inline-grid|flex-row|flex-nowrap)$/.test(c));
   assert.deepEqual(bare, [], `the line's root is laid out as one row on a phone (${bare.join(' ')}) — the sentence gets squeezed`);
   assert.match(root.cls, /\bmd:flex\b/, 'from 768 the line no longer shares one row');
 
-  const head = tagWith('data-badge-earned-head');
-  const actions = tagWith('data-badge-earned-actions');
+  const head = tagWith('data-notice-head');
+  const actions = tagWith('data-notice-actions');
   assert.ok(head.at < actions.at, 'the actions come before the sentence');
   // A sibling, not a child: every <div opened from the head row up to the actions row is closed again.
-  const between = SRC.slice(head.at, actions.at);
+  const between = LOOK.slice(head.at, actions.at);
   const opened = (between.match(/<div\b/g) ?? []).length;
   const closed = (between.match(/<\/div>/g) ?? []).length;
   assert.equal(opened, closed, 'the actions are inside the sentence row — on a phone they would crush it again');
   assert.match(actions.cls, /\bjustify-end\b/, 'the actions row is no longer right-aligned');
 
-  // 3 · both actions live in the actions row; the sentence is the ⓘ's label, the detail its body.
-  const tail = SRC.slice(actions.at);
-  assert.ok(tail.includes('data-badge-earned-save') && tail.includes('data-badge-earned-dismiss'), 'Save to print or Got it left the actions row');
-  const headRow = SRC.slice(head.at, actions.at);
-  assert.match(headRow, /<InfoTip\b[^>]*label=\{n\.sentence\}[^>]*>\s*\{n\.detail\}\s*<\/InfoTip>/, 'the sentence is not the ⓘ label with the detail behind it');
+  // 3 · the action and the close word live in the actions row; the title is the ⓘ's label, the detail its body.
+  const tail = LOOK.slice(actions.at);
+  assert.ok(tail.includes('{entry.actions}') && tail.includes('data-notice-close'), 'the action or the close word left the actions row');
+  const headRow = LOOK.slice(head.at, actions.at);
+  assert.match(headRow, /<InfoTip\b[^>]*label=\{entry\.title\}[\s\S]*?>\s*\{entry\.detail\}\s*<\/InfoTip>/, 'the title is not the ⓘ label with the detail behind it');
+
+  // The earned line registers its sentence as the title, its reason as the detail, Save to print as its action,
+  // and is NEWS (so its close word is Got it).
+  assert.match(SRC, /<Notice\b[\s\S]*?kind="news"/, 'the earned line is no longer a news notice');
+  assert.match(SRC, /title=\{news\.n\.sentence\}/, 'the sentence is not the notice title');
+  assert.match(SRC, /detail=\{news\.n\.detail\}/, 'the reason is not behind the ⓘ');
+  assert.ok(SRC.includes('data-badge-earned-save'), 'Save to print left the earned line');
 });

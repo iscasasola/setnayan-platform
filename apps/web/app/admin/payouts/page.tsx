@@ -8,7 +8,6 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
   BIR_WITHHOLDING_BPS,
   PAYOUT_STAGE_LABEL,
-  PAYOUT_STAGE_PCT,
   PAYOUT_STAGE_TONE,
   formatCentavosPhp,
   type PayoutStage,
@@ -84,9 +83,11 @@ const FILTER_TABS: Array<{ key: FilterKey; label: string }> = [
 const STAGE_TABS: Array<{ key: StageFilter; label: string }> = [
   { key: 'all', label: 'All stages' },
   { key: 'immediate_full', label: 'Immediate (verified)' },
-  { key: 'stage_1_confirm', label: `Stage 1 · ${PAYOUT_STAGE_PCT.stage_1_confirm}%` },
-  { key: 'stage_2_event_start', label: `Stage 2 · ${PAYOUT_STAGE_PCT.stage_2_event_start}%` },
-  { key: 'stage_3_event_end', label: `Stage 3 · ${PAYOUT_STAGE_PCT.stage_3_event_end}%` },
+  // F-A-10 (admin walk 13 Nov 2026): the old split is not offered as a rule any more — each older row still shows
+  // its own share ("Stage N% of net"); the filters only name when the stage fell.
+  { key: 'stage_1_confirm', label: 'Stage 1 · at confirmation' },
+  { key: 'stage_2_event_start', label: 'Stage 2 · at the event start' },
+  { key: 'stage_3_event_end', label: 'Stage 3 · after the event' },
 ];
 
 export default async function AdminPayoutsPage({ searchParams }: Props) {
@@ -180,6 +181,11 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
       <PageMasthead
         title="Supplier payouts"
       />
+      {/* 🧾 ONE DESCRIPTION (F-A-10): couples pay suppliers directly (apply-then-pay), so Setnayan makes no new payouts. */}
+      <p className="mb-4 max-w-prose text-sm text-ink/70" data-payouts-what="">
+        Couples pay their suppliers directly, so Setnayan makes no new payouts. This is the record of payouts from older
+        bookings that were paid through Setnayan.
+      </p>
 
       <FlashBanner flash={search.flash} error={search.error} />
 
@@ -226,8 +232,7 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
           <Wallet aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
           <p className="text-sm font-medium text-ink">{supplierNote ?? 'No payouts match this filter.'}</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
-            Payouts land here the moment an admin reconciles a couple&rsquo;s
-            payment in <Link className="text-mulberry hover:underline" href="/admin/payments">Payments</Link>.
+            Only an older booking paid through Setnayan has a payout. New bookings are paid to the supplier directly.
           </p>
         </div>
       ) : (

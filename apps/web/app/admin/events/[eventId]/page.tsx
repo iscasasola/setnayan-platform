@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
 import { ArrowLeft, ScanFace } from 'lucide-react';
@@ -89,6 +90,8 @@ type FaceRow = {
 };
 
 export default async function AdminEventPage({ params, searchParams }: Props) {
+  // 🏷 F-A-15: event types by their admin-managed names.
+  const typeName = await readEventTypeNames();
   const { userId: adminUserId } = await requireAdmin();
   const { eventId: rawId } = await params;
   const sp = await searchParams;
@@ -336,7 +339,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
         <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
           <div>
             <dt className="text-xs text-ink/60">Type</dt>
-            <dd className="text-ink">{(ev.event_type as string | null) ?? '—'}</dd>
+            <dd className="text-ink">{typeName(ev.event_type as string | null)}</dd>
           </div>
           <div>
             <dt className="text-xs text-ink/60">Date</dt>
@@ -549,7 +552,6 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
               Icon: ScanFace,
               title: 'No guests yet',
               blurb: 'The read went through and this event has no guests on its list.',
-              verifiedNote: 'Verified: read permitted · nobody on the list',
             }}
             columns={[
               { header: 'Guest', cell: (g) => <span className="text-ink">{g.name}</span> },

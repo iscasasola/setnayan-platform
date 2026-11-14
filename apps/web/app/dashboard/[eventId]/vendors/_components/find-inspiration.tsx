@@ -116,7 +116,7 @@ export function FindInspirationStrip({
   return (
     <div className="mb-3" data-find-inspiration-strip={tile}>
       <div className="mb-1.5 flex items-baseline justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">{head}</p>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">{head}</p>
         {parts.length > 0 ? (
           <Link href={href} scroll={false} className="inline-flex min-h-11 items-center px-1 text-[13px] font-medium text-terracotta-700">
             {more} ›
@@ -133,13 +133,13 @@ export function FindInspirationStrip({
                   <img src={p.cover} alt="" loading="lazy" className="h-full w-full object-cover" />
                 ) : null}
                 {p.onList ? (
-                  <span className="absolute left-1.5 top-1.5 rounded-full bg-cream px-1.5 py-0.5 text-[10px] font-semibold text-success-900" data-find-inspiration-onlist="">
+                  <span className="absolute left-1.5 top-1.5 rounded-full bg-cream px-1.5 py-0.5 text-[12px] font-semibold text-success-900" data-find-inspiration-onlist="">
                     {W.onList}
                   </span>
                 ) : null}
               </span>
               <span className="mt-1 block truncate text-[13px] font-medium text-ink">{p.label}</span>
-              <span className="block text-[11.5px] text-ink/55">{partCountLine(p.count)}</span>
+              <span className="block text-[12px] text-ink/55">{partCountLine(p.count)}</span>
             </Link>
           </li>
         ))}
@@ -189,7 +189,7 @@ export function FindLikedIdeas({
   const ask = cardVerbWords('ask');
   return (
     <div className="mb-3" data-find-liked={tile}>
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
+      <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">
         {W.likedHead}
         {liked.length > 0 ? ` · ${formatCount(liked.length)}` : ''}
       </p>

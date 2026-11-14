@@ -2873,7 +2873,7 @@ export async function EventDashboard({
               }}
             >
               <Link
-                href={`${base}/vendors/${latestHandover.event_vendor_id}/workspace?tab=payments`}
+                href={`${base}/vendors/${latestHandover.event_vendor_id}/workspace?tab=files`}
                 className="flex min-h-[44px] items-center gap-3"
               >
                 <span

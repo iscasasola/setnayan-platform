@@ -79,6 +79,8 @@ export function ChangeTheSchedule({
   const lockedShop = ask && part ? (lockedBy?.[part.block_id] ?? null) : null;
   const alreadyAsked = ask && part ? (asked ?? []).includes(part.block_id) : false;
   const canSkip = skippableHere && !lockedShop && !alreadyAsked;
+  const skipLine = (p: ChangeablePart) =>
+    `${ask ? 'Ask to skip' : 'Skip'}: ${skipLead(p)}${ask ? ' Nothing changes until the coordinator approves it.' : ''}`;
 
   const show = () => {
     setPartId(first?.block_id ?? null);
@@ -117,7 +119,7 @@ export function ChangeTheSchedule({
   const sheet = (
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
       <div className="px-5 pb-5 pt-5" data-change-the-schedule="">
-        <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
+        <h2 id={headingId} className="pr-12 text-lg font-semibold text-ink">
           Change the schedule
         </h2>
         <FormRows width="wide">
@@ -157,28 +159,27 @@ export function ChangeTheSchedule({
           />
         </FormRows>
         {part ? (
-          <p className="mt-3 text-[13.5px] leading-snug text-ink/70" data-change-lead="">
+          <p className="mt-3 text-sm leading-snug text-[color:var(--m-slate-2)]" data-change-lead="">
             {ask ? requestLead(part, signed, following) : moveLead(part, signed, following)}
           </p>
         ) : null}
         {part && canSkip ? (
-          <p className="mt-1.5 text-[12.5px] leading-snug text-ink/55" data-change-skip-lead="">
-            {ask ? 'Ask to skip' : 'Skip'}: {skipLead(part)}
-            {ask ? ' Nothing changes until the coordinator approves it.' : ''}
+          <p className="mt-1.5 text-sm leading-snug text-[color:var(--m-slate-2)]" data-change-skip-lead="">
+            {skipLine(part)}
           </p>
         ) : null}
         {part && skippableHere && lockedShop ? (
-          <p className="mt-1.5 text-[12.5px] leading-snug text-ink/55" data-change-skip-locked="">
+          <p className="mt-1.5 text-sm leading-snug text-[color:var(--m-slate-2)]" data-change-skip-locked="">
             {lockedHead(lockedShop)}
           </p>
         ) : null}
         {part && skippableHere && !lockedShop && alreadyAsked ? (
-          <p className="mt-1.5 text-[12.5px] leading-snug text-ink/55" data-change-skip-asked="">
+          <p className="mt-1.5 text-sm leading-snug text-[color:var(--m-slate-2)]" data-change-skip-asked="">
             Skip asked — waiting for the coordinator.
           </p>
         ) : null}
         {error ? (
-          <p role="alert" className="mt-3 text-[13px] font-semibold text-danger-700 dark:text-danger-300" data-change-error="">
+          <p role="alert" className="mt-3 text-sm font-semibold text-danger-700" data-change-error="">
             {error}
           </p>
         ) : null}

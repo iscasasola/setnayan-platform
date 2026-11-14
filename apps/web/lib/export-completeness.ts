@@ -129,6 +129,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'event_stage_notes', decision: 'exported', as: 'stage_notes_sent' },
   { table: 'founder_seats', decision: 'exported', as: 'founder_seat' },
   { table: 'guest_saved_vendors', decision: 'exported', as: 'saved_suppliers' },
+  { table: 'notice_closes', decision: 'exported', as: 'notices_closed' },
   { table: 'help_messages', decision: 'exported', as: 'help_messages_sent' },
   { table: 'referral_codes', decision: 'exported', as: 'referral_codes' },
   { table: 'service_slot_reservations', decision: 'exported', as: 'reservations_made' },

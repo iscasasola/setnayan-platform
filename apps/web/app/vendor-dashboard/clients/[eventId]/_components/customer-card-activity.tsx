@@ -42,7 +42,7 @@ const TONES: Record<ActivityEvent['kind'], string> = {
   handshake: 'text-ink/70 bg-ink/5',
   schedule: 'text-terracotta-700 bg-terracotta/10',
   deposit: 'text-success-700 bg-success-50',
-  import: 'text-ink/60 bg-ink/5',
+  import: 'text-ink/70 bg-ink/5',
 };
 
 function fmtWhen(iso: string | null): string {
@@ -70,11 +70,11 @@ export function ActivityFeed({
   return (
     <div className="space-y-6">
       <div>
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
           History · newest first
         </p>
         {ordered.length === 0 ? (
-          <p className="text-sm text-ink/55">Nothing has happened on this booking yet.</p>
+          <p className="text-sm text-ink/70">Nothing has happened on this booking yet.</p>
         ) : (
           <ul className="space-y-3">
             {ordered.map((e) => {
@@ -88,9 +88,9 @@ export function ActivityFeed({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-ink">{e.title}</p>
-                    {e.detail ? <p className="text-xs text-ink/55">{e.detail}</p> : null}
+                    {e.detail ? <p className="text-xs text-ink/70">{e.detail}</p> : null}
                   </div>
-                  <span className="shrink-0 text-[11px] text-ink/45">{fmtWhen(e.at)}</span>
+                  <span className="shrink-0 text-xs text-ink/70">{fmtWhen(e.at)}</span>
                 </li>
               );
             })}
@@ -99,7 +99,7 @@ export function ActivityFeed({
       </div>
 
       <div>
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
           Private notes · only your team
         </p>
         <ClientNotes eventId={eventId} notes={notes} failed={noteFailed} />

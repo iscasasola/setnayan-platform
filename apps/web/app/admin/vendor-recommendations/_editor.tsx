@@ -58,7 +58,7 @@ export type FeedbackRow = {
 export function RecommendationRow({ row }: { row: MapRow }) {
   return (
     <div
-      className={`rounded-2xl border border-ink/10 p-4 ${row.is_active ? 'bg-paper' : 'bg-ink/3'}`}
+      className={`border-t border-ink/10 py-4 ${row.is_active ? '' : 'opacity-70'}`}
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <code className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">

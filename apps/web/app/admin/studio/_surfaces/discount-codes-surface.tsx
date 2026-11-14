@@ -1,3 +1,4 @@
+import { BADGE_CLASS, badgeStyle } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 /**
  * DiscountCodesSurface — the voucher list body, inside the tabbed /admin/studio
@@ -501,21 +502,9 @@ function StatusPill({
   tone: 'emerald' | 'amber' | 'slate';
   children: React.ReactNode;
 }) {
-  const styles =
-    tone === 'emerald'
-      ? { background: '#ECFDF5', color: '#047857', border: '1px solid #6EE7B7' }
-      : tone === 'amber'
-        ? { background: '#FFFBEB', color: '#B45309', border: '1px solid #FCD34D' }
-        : {
-            background: 'var(--m-paper-2)',
-            color: 'var(--m-slate)',
-            border: '1px solid var(--m-line)',
-          };
+  // 📐 The shared status chip (design template rule 5): soft fill, no outline, tokens only.
   return (
-    <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-      style={styles}
-    >
+    <span className={BADGE_CLASS} style={badgeStyle(tone === 'emerald' ? 'ok' : tone === 'amber' ? 'wait' : 'quiet')}>
       {children}
     </span>
   );
@@ -528,10 +517,8 @@ function Banner({
   tone: 'emerald' | 'amber';
   children: React.ReactNode;
 }) {
-  const styles =
-    tone === 'emerald'
-      ? { background: '#ECFDF5', color: '#047857', border: '1px solid #6EE7B7' }
-      : { background: '#FFFBEB', color: '#B45309', border: '1px solid #FCD34D' };
+  // The banner reads the same tokens as the chip, so it follows dark mode.
+  const styles = badgeStyle(tone === 'emerald' ? 'ok' : 'wait');
   return (
     <div className="rounded-md px-4 py-3 text-sm" style={styles}>
       {children}

@@ -15,6 +15,11 @@ import {
   type DependentKind,
 } from '@/lib/dependent-people';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Trash2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PostedPick } from '@/app/dashboard/[eventId]/_components/posted-pick';
 import { CopyButton } from '@/app/dashboard/[eventId]/studio/papic/crew/_components/copy-button';
 import {
   deleteDependent,
@@ -145,7 +150,7 @@ export async function DependentsSection() {
     <section aria-label="Loved ones">
 
       {dependents.length > 0 ? (
-        <ul className="mb-6 space-y-2.5">
+        <ul className="mb-6 divide-y divide-ink/10 border-b border-ink/10">
           {dependents.map((d) => {
             // Fence band, milestones + godparents are the PERSON case only — a
             // pet's birthday is never a "debut". Legacy rows (null kind) = person.
@@ -169,10 +174,7 @@ export async function DependentsSection() {
               new Date(d.claim_token_expires_at) > new Date();
             const gps = godparentsByDependent.get(d.dependent_id) ?? [];
             return (
-              <li
-                key={d.dependent_id}
-                className="rounded-xl border border-ink/10 bg-ink/[0.015] px-4 py-3"
-              >
+              <li key={d.dependent_id} className="py-3">
                 <div className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
                     {/* THE NAME IS THE DOOR. Until 2026-08-31 there was no route
@@ -181,11 +183,11 @@ export async function DependentsSection() {
                         anyone reaches it. */}
                     <Link
                       href={`/dashboard/people/${d.dependent_id}`}
-                      className="font-medium text-ink underline-offset-2 hover:underline"
+                      className="inline-flex min-h-11 items-center font-semibold text-ink underline-offset-2 hover:underline"
                     >
                       {d.name}
                     </Link>
-                    <p className="truncate text-xs text-ink/55">
+                    <p className="truncate text-[13px] text-ink/70">
                       {claimedByMe
                         ? 'You'
                         : d.dependent_kind && d.dependent_kind !== 'person'
@@ -201,7 +203,7 @@ export async function DependentsSection() {
                     {isPersonRow && !handedOver && next && next.age === (d.sex === 'male' ? 21 : 18) ? (
                       <Link
                         href="/onboarding/debut"
-                        className="mt-1 inline-block text-xs font-medium text-gold-deep underline-offset-2 hover:underline"
+                        className="ab ab-brand mt-1 inline-flex min-h-11 items-center justify-center gap-1.5"
                       >
                         Plan {d.name}&rsquo;s debut →
                       </Link>
@@ -209,11 +211,11 @@ export async function DependentsSection() {
                   </div>
                   {handedOver ? (
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className="rounded-full border border-gold/30 bg-gold/[0.08] px-2.5 py-1 text-[0.7rem] font-medium text-gold-deep">
+                      <Badge tone={claimedByMe ? 'ok' : 'quiet'}>
                         {claimedByMe
                           ? 'Your own profile'
                           : `Their own account since ${fmt(d.handed_over_at!.slice(0, 10))}`}
-                      </span>
+                      </Badge>
                       {claimedByMe ? (
                         // The claimant owns the record now — RA 10173 erasure
                         // is theirs to exercise (the former guardian cannot).
@@ -225,12 +227,7 @@ export async function DependentsSection() {
                           confirmLabel="Erase"
                         >
                           <input type="hidden" name="dependent_id" value={d.dependent_id} />
-                          <button
-                            type="submit"
-                            className="rounded-md px-2 py-1 text-xs font-medium text-ink/45 transition-colors hover:text-terracotta"
-                          >
-                            Erase
-                          </button>
+                          <ActionButton type="submit" tone="danger" icon={<Trash2 aria-hidden />} label="Erase" />
                         </StayConfirmForm>
                       ) : null}
                     </div>
@@ -244,17 +241,10 @@ export async function DependentsSection() {
                       className="shrink-0"
                     >
                       <input type="hidden" name="dependent_id" value={d.dependent_id} />
-                      <button
-                        type="submit"
-                        className="rounded-md px-2 py-1 text-xs font-medium text-ink/45 transition-colors hover:text-terracotta"
-                      >
-                        Remove
-                      </button>
+                      <ActionButton type="submit" tone="danger" icon={<Trash2 aria-hidden />} label="Remove" />
                     </StayConfirmForm>
                   ) : (
-                    <span className="shrink-0 rounded-full border border-gold/30 bg-gold/[0.08] px-2.5 py-1 text-[0.7rem] font-medium text-gold-deep">
-                      Shared by your spouse
-                    </span>
+                    <Badge tone="quiet">Shared by your spouse</Badge>
                   )}
                 </div>
 
@@ -269,13 +259,13 @@ export async function DependentsSection() {
                           value={`${appUrl}/claim/${d.claim_token}`}
                           label={isPersonRow ? 'Copy hand-over link' : 'Copy transfer link'}
                         />
-                        <span className="text-[0.7rem] text-ink/45">
+                        <span className="text-xs text-[color:var(--sn-ink-500)]">
                           expires {fmt(d.claim_token_expires_at!.slice(0, 10))}
                         </span>
                         <StayForm door="accPeople.revokeHandoverLink" action={revokeHandoverLink}>
                           <input type="hidden" name="dependent_id" value={d.dependent_id} />
                           <SubmitButton
-                            className="text-xs font-medium text-ink/55 underline-offset-2 transition-colors hover:text-terracotta hover:underline"
+                            className="ab ab-danger inline-flex min-h-11 items-center justify-center gap-1.5"
                             pendingLabel="Revoking…"
                           >
                             Revoke
@@ -290,10 +280,10 @@ export async function DependentsSection() {
                             required
                             placeholder={isPersonRow ? `${d.name}'s email` : "New keeper's email"}
                             aria-label={`Email the ${isPersonRow ? 'hand-over' : 'transfer'} link for ${d.name}`}
-                            className="input-field h-8 flex-1 py-1 text-xs sm:max-w-[13rem]"
+                            className="input-field h-11 flex-1 py-1 text-sm sm:max-w-[13rem]"
                           />
                           <SubmitButton
-                            className="button-secondary h-8 px-3 py-1 text-xs"
+                            className="ab ab-info inline-flex min-h-11 items-center justify-center gap-1.5"
                             pendingLabel="Sending…"
                           >
                             Email it
@@ -304,7 +294,7 @@ export async function DependentsSection() {
                       <StayForm door="accPeople.createHandoverLink" action={createHandoverLink}>
                         <input type="hidden" name="dependent_id" value={d.dependent_id} />
                         <SubmitButton
-                          className="text-xs font-medium text-ink/55 underline-offset-2 transition-colors hover:text-ink hover:underline"
+                          className="ab ab-neutral inline-flex min-h-11 items-center justify-center gap-1.5"
                           pendingLabel="Creating…"
                         >
                           {isPersonRow
@@ -322,7 +312,7 @@ export async function DependentsSection() {
                     <input type="hidden" name="dependent_id" value={d.dependent_id} />
                     <input type="hidden" name="share" value={d.shared_with_spouse ? '0' : '1'} />
                     <SubmitButton
-                      className="text-xs font-medium text-ink/55 underline-offset-2 transition-colors hover:text-ink hover:underline"
+                      className="ab ab-neutral inline-flex min-h-11 items-center justify-center gap-1.5"
                       pendingLabel="Saving…"
                     >
                       {d.shared_with_spouse
@@ -337,19 +327,16 @@ export async function DependentsSection() {
                     own baptismal record, via godparents_subject_read RLS). */}
                 {band === 'child' || (claimedByMe && gps.length > 0) ? (
                   <div className="mt-3 border-t border-ink/10 pt-3">
-                    <p className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-ink/40">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]">
                       Ninong &amp; ninang
                     </p>
                     {gps.length > 0 ? (
                       <ul className="mt-2 flex flex-wrap gap-2">
                         {gps.map((g) => (
-                          <li
-                            key={g.godparent_id}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/60 dark:bg-raised py-1 pl-3 pr-1.5 text-xs text-ink/70"
-                          >
+                          <li key={g.godparent_id} className="inline-flex min-h-8 items-center gap-1 rounded-full bg-ink/[0.06] py-0.5 pl-3 pr-0.5 text-[13px] text-ink">
                             <span>
                               {g.godparent_name}
-                              {g.role ? <span className="text-ink/40"> · {g.role}</span> : null}
+                              {g.role ? <span className="text-ink/70"> · {g.role}</span> : null}
                             </span>
                             {mine && band === 'child' ? (
                               <StayConfirmForm
@@ -363,9 +350,9 @@ export async function DependentsSection() {
                                 <button
                                   type="submit"
                                   aria-label={`Remove ${g.godparent_name}`}
-                                  className="rounded-full px-1.5 text-ink/40 transition-colors hover:text-terracotta"
+                                  className="relative grid h-7 w-7 place-items-center rounded-full text-ink/70 transition-colors before:absolute before:-inset-2 before:content-[''] hover:text-danger"
                                 >
-                                  ×
+                                  <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
                                 </button>
                               </StayConfirmForm>
                             ) : null}
@@ -378,35 +365,34 @@ export async function DependentsSection() {
                         <input type="hidden" name="dependent_id" value={d.dependent_id} />
                         <input
                           name="godparent_name"
-                          className="input-field h-9 flex-1 py-1 text-sm sm:max-w-[12rem]"
+                          className="input-field h-11 flex-1 py-1 text-sm sm:max-w-[12rem]"
                           placeholder="Add a ninong or ninang"
                           aria-label={`Godparent name for ${d.name}`}
                           required
                         />
-                        <select
+                        <PostedPick
                           name="role"
-                          defaultValue=""
-                          aria-label="Role"
-                          className="input-field h-9 w-auto py-1 text-sm"
-                        >
-                          <option value="">Role</option>
-                          <option value="ninong">Ninong</option>
-                          <option value="ninang">Ninang</option>
-                        </select>
+                          label="Role"
+                          className="block w-36"
+                          options={[
+                            { key: 'ninong', label: 'Ninong' },
+                            { key: 'ninang', label: 'Ninang' },
+                          ]}
+                        />
                         <input
                           autoComplete="off"
                           name="godparent_email"
                           type="email"
-                          className="input-field h-9 flex-1 py-1 text-sm sm:max-w-[13rem]"
+                          className="input-field h-11 flex-1 py-1 text-sm sm:max-w-[13rem]"
                           placeholder="Email (optional — for reminders)"
                           aria-label={`Godparent email for ${d.name}`}
                         />
-                        <SubmitButton className="button-secondary h-9 px-3 py-1 text-sm" pendingLabel="Adding…">
+                        <SubmitButton className="ab ab-ok inline-flex min-h-11 items-center justify-center gap-1.5" pendingLabel="Adding…">
                           Add
                         </SubmitButton>
                       </StayForm>
                     ) : gps.length === 0 ? (
-                      <p className="mt-1 text-xs text-ink/40">No godparents added.</p>
+                      <p className="mt-1 text-[13px] text-ink/70">No godparents added.</p>
                     ) : null}
                   </div>
                 ) : null}
@@ -421,10 +407,12 @@ export async function DependentsSection() {
            I get one" with silence. Samahan, in the same column, has always
            answered its own empty state with a sentence and a way in; the two
            sections disagreed about what an empty list looks like. */
-        <p className="mb-4 rounded-lg bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
-          No loved ones yet. Add a child, an elder, a pet, or anything else you look
-          after — their profile lives inside yours until they take it over.
-        </p>
+        <div className="mb-4">
+          <InfoTip label="No loved ones yet." labelClassName="text-sm text-ink/70" align="start">
+            Add a child, an elder, a pet, or anything else you look after — their profile lives inside yours until they
+            take it over.
+          </InfoTip>
+        </div>
       )}
 
       {/* THE ADD BUTTON LIVES AT THE HEAD OF THE ALAGA VIEW, ONCE (owner

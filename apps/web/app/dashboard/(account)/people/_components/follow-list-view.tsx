@@ -9,6 +9,9 @@ import { setFollowByPublicId } from '../actions';
 import { PeopleThumb } from './people-thumb';
 import type { PeoplePickerProps } from './people-roster-view';
 import { PersonAvatar } from './person-avatar';
+import { UserMinus, UserPlus } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
 import { PEOPLE_SECTION_HEADING } from './people-roster-view';
 
 /**
@@ -84,21 +87,21 @@ export function FollowListView({
           Only you can see this list. Anyone else sees the count on your public page.
         </p>
       ) : null}
-      <p className="text-xs text-ink/55">{copy.intro}</p>
+      <p className="text-[13px] text-ink/70">{copy.intro}</p>
 
       {list.unavailable ? (
-        <p role="status" className="py-6 text-sm text-ink/60" data-follow-refused>
+        <p role="status" className="py-6 text-sm text-warn" data-follow-refused>
           {copy.refused}
         </p>
       ) : list.rows.length === 0 ? (
-        <p className="py-6 text-sm text-ink/55" data-follow-empty>
+        <p className="py-6 text-sm text-ink/70" data-follow-empty>
           {copy.empty}
         </p>
       ) : (
         <section aria-label={which === 'following' ? 'People you follow' : 'People who follow you'}>
           <h2 className={`mb-1.5 ${PEOPLE_SECTION_HEADING}`}>
             {which === 'following' ? 'Following' : 'Followers'}{' '}
-            <span className="tabular-nums text-ink/35">{formatCount(total ?? list.rows.length)}</span>
+            <span className="tabular-nums text-ink/70">{formatCount(total ?? list.rows.length)}</span>
           </h2>
           <ul className="flex list-none flex-col divide-y divide-ink/[0.07]">
             {list.rows.map((r) => (
@@ -106,7 +109,7 @@ export function FollowListView({
             ))}
           </ul>
           {more > 0 ? (
-            <p className="mt-2 text-xs text-ink/50">
+            <p className="mt-2 text-[13px] text-ink/70">
               And {formatCount(more)} more — the most recent are shown first.
             </p>
           ) : null}
@@ -155,7 +158,7 @@ function FollowRowItem({ row, which }: { row: FollowRow; which: 'following' | 'f
       <PersonAvatar name={row.name} photoUrl={row.photoUrl} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-medium text-ink">{row.name}</span>
-        <span className="truncate text-[11.5px] text-ink/55">{why}</span>
+        <span className="truncate text-xs text-ink/70">{why}</span>
       </span>
     </>
   );
@@ -175,60 +178,28 @@ function FollowRowItem({ row, which }: { row: FollowRow; which: 'following' | 'f
         ) : (
           <span className="flex min-h-11 min-w-0 items-center gap-3">{who}</span>
         )}
-        {error ? <span className="text-[11.5px] text-red-700 dark:text-red-300">{error}</span> : null}
+        {error ? <span className="text-xs text-danger">{error}</span> : null}
       </span>
       <span className="flex shrink-0 items-center gap-2">
         {which === 'following' ? (
           iFollow ? (
             row.connected ? (
               <>
-                <span className="rounded-full bg-success-100 px-2.5 py-1 text-[11px] font-medium text-success-800">
-                  Connected
-                </span>
-                <button
-                  type="button"
-                  onClick={() => set(false)}
-                  disabled={pending}
-                  className="min-h-11 px-1 text-xs text-ink/45 underline underline-offset-2 hover:text-ink disabled:opacity-50"
-                >
-                  Unfollow
-                </button>
+                <Badge tone="ok">Connected</Badge>
+                <ActionButton tone="neutral" quiet icon={UserMinus} label="Unfollow" onClick={() => set(false)} disabled={pending} />
               </>
             ) : (
-              <button
-                type="button"
-                onClick={() => set(false)}
-                disabled={pending}
-                className="button-secondary min-h-11 text-xs disabled:opacity-50"
-              >
-                Unfollow
-              </button>
+              <ActionButton tone="neutral" icon={UserMinus} label="Unfollow" onClick={() => set(false)} disabled={pending} />
             )
           ) : row.publicProfile ? (
-            <button
-              type="button"
-              onClick={() => set(true)}
-              disabled={pending}
-              className="button-secondary min-h-11 text-xs disabled:opacity-50"
-            >
-              Follow again
-            </button>
+            <ActionButton tone="info" icon={UserPlus} label="Follow again" onClick={() => set(true)} disabled={pending} />
           ) : (
-            <span className="text-[11.5px] text-ink/45">Unfollowed</span>
+            <Badge tone="quiet">Unfollowed</Badge>
           )
         ) : iFollow ? (
-          <span className="rounded-full bg-ink/[0.06] px-2.5 py-1 text-[11px] font-medium text-ink/60">
-            You follow each other
-          </span>
+          <Badge tone="quiet">You follow each other</Badge>
         ) : row.publicProfile ? (
-          <button
-            type="button"
-            onClick={() => set(true)}
-            disabled={pending}
-            className="button-secondary min-h-11 text-xs disabled:opacity-50"
-          >
-            Follow back
-          </button>
+          <ActionButton tone="info" icon={UserPlus} label="Follow back" onClick={() => set(true)} disabled={pending} />
         ) : null}
       </span>
     </li>

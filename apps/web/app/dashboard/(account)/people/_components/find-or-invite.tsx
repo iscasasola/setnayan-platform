@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } from 'react';
-import { Check, Clock, Search, X } from 'lucide-react';
+import { Check, Clock, Search } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
-import { GuestPopup } from '@/app/dashboard/[eventId]/guests/_components/guest-popup';
+import { Sheet } from '@/app/_components/sheet';
+import { ClearButton } from '@/components/clear-field';
 import { ThumbField } from '../../_components/account-thumb-row';
 import { ActionButton } from '@/components/action-button';
 import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.module.css';
@@ -200,20 +201,16 @@ export function FindField({ f, inputRef }: { f: FindOrInviteState; inputRef?: Re
         autoComplete="off"
         data-find-field=""
         data-tour="people-find"
-        className="h-full min-h-0 min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink/55"
+        className="h-full min-h-0 min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-[color:var(--sn-ink-500)]"
       />
       {f.line ? (
-        <button
-          type="button"
-          aria-label="Clear"
-          onClick={() => {
+        <ClearButton
+          onClear={() => {
             f.setLine('');
             f.inputRef.current?.focus();
           }}
-          className="grid h-8 min-h-0 w-8 shrink-0 place-items-center rounded-full text-ink/55"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full"
+        />
       ) : null}
     </ThumbField>
   );
@@ -227,51 +224,45 @@ export function FindField({ f, inputRef }: { f: FindOrInviteState; inputRef?: Re
 export function InviteSheet({ f, open, onClose }: { f: FindOrInviteState; open: boolean; onClose: () => void }) {
   if (!open) return null;
   return (
-        <GuestPopup
-          onClose={onClose}
-          rootClassName="fixed inset-0 z-[80]"
-          panelClassName="gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-paper px-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-4 shadow-xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
-          label="Invite someone"
-          focusFirstInput
-          panelData={{ 'data-invite-sheet': '' }}
-        >
-          <p className="text-[19px] font-semibold text-ink">Invite someone</p>
-          <input
-            value={f.draft.email ? f.draft.name : f.line}
-            onChange={(e) => f.setLine(e.target.value)}
-            placeholder="Their name"
-            aria-label="Their name"
-            className="mt-3 block h-11 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40" // no-card-ok: the name field, not a container
-          />
-          <input
-            type="email"
-            autoComplete="off"
-            inputMode="email"
-            value={f.draft.email || f.email}
-            onChange={(e) => f.setEmail(e.target.value)}
-            placeholder="their@email.com"
-            aria-label="Their email"
-            className="mt-2.5 block h-11 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40" // no-card-ok: the email field, not a container
-          />
-          <p className="mt-2.5 text-[12.5px] leading-snug text-ink/60">
-            They get an email either way. If they aren’t on Setnayan yet it invites them to join — add them again once
-            they’re in. You set what they are to you <em className="not-italic font-medium text-ink/80">after</em> they’re
-            on your list.
+    <Sheet open={open} onClose={onClose} labelledById="invite-someone-title" rise>
+      <div data-invite-sheet="">
+        <InfoTip label="Invite someone" labelAs="h2" labelId="invite-someone-title" labelClassName="text-lg font-semibold text-ink" align="start">
+          They get an email either way. If they aren’t on Setnayan yet it invites them to join — add them again once
+          they’re in. You set what they are to you after they’re on your list.
+        </InfoTip>
+        <input
+          value={f.draft.email ? f.draft.name : f.line}
+          onChange={(e) => f.setLine(e.target.value)}
+          placeholder="Their name"
+          aria-label="Their name"
+          className="mt-3 block h-12 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-[color:var(--sn-ink-500)]" // no-card-ok: the name field, not a container
+        />
+        <input
+          type="email"
+          autoComplete="off"
+          inputMode="email"
+          value={f.draft.email || f.email}
+          onChange={(e) => f.setEmail(e.target.value)}
+          placeholder="their@email.com"
+          aria-label="Their email"
+          className="mt-2 block h-12 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-[color:var(--sn-ink-500)]" // no-card-ok: the email field, not a container
+        />
+        <p className="mt-2 text-[13px] leading-snug text-ink/70">They get an email either way.</p>
+        {f.error ? (
+          <p role="alert" className="mt-2 text-sm text-danger">
+            {f.error}
           </p>
-          {f.error ? (
-            <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">
-              {f.error}
-            </p>
-          ) : null}
-          {f.notice ? (
-            <p role="status" className="mt-2 text-sm text-mulberry-600">
-              {f.notice}
-            </p>
-          ) : null}
-          <div className="mt-3 flex justify-end">
-            <ActionButton tone="brand" main icon={Check} label={f.pending ? 'Inviting…' : 'Invite'} onClick={f.submitAdd} disabled={f.pending || !f.canAdd} />
-          </div>
-        </GuestPopup>
+        ) : null}
+        {f.notice ? (
+          <p role="status" className="mt-2 text-sm text-mulberry-600">
+            {f.notice}
+          </p>
+        ) : null}
+        <div className="mt-4 grid">
+          <ActionButton tone="brand" main icon={Check} label={f.pending ? 'Inviting…' : 'Invite'} onClick={f.submitAdd} disabled={f.pending || !f.canAdd} className="w-full !min-h-12" />
+        </div>
+      </div>
+    </Sheet>
   );
 }
 
@@ -292,10 +283,10 @@ export function InviteCard({ f }: { f: FindOrInviteState }) {
         If they aren’t on Setnayan yet it invites them to join — add them again once they’re in. You set what they are
         to you after they’re on your list.
       </InfoTip>
-      <p className="mt-0.5 text-[12.5px] leading-snug text-ink/60">They get an email either way.</p>
+      <p className="mt-0.5 text-[13px] leading-snug text-ink/70">They get an email either way.</p>
       <div className="mt-2 flex items-center gap-2.5">
         {typedAnAddress ? (
-          <span className="min-w-0 flex-1 truncate text-[14px] text-ink/70">{f.draft.email}</span>
+          <span className="min-w-0 flex-1 truncate text-sm text-ink/70">{f.draft.email}</span>
         ) : (
           <input
             type="email"
@@ -311,7 +302,7 @@ export function InviteCard({ f }: { f: FindOrInviteState }) {
             }}
             placeholder="their@email.com"
             aria-label="Their email"
-            className="block h-11 min-w-0 flex-1 rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40 focus-visible:ring-2 focus-visible:ring-terracotta" // no-card-ok: the email field, not a container
+            className="block h-11 min-w-0 flex-1 rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-[color:var(--sn-ink-500)] focus-visible:ring-2 focus-visible:ring-terracotta" // no-card-ok: the email field, not a container
           />
         )}
         <ActionButton
@@ -413,7 +404,7 @@ export function FindNotes({ f }: { f: FindOrInviteState }) {
   return (
     <div data-find-notes="">
       {f.error ? (
-        <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">
+        <p role="alert" className="mt-2 text-sm text-danger">
           {f.error}
         </p>
       ) : null}

@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { LifeBuoy, ArrowRight, MapPin } from 'lucide-react';
+import { LifeBuoy, ChevronRight, MapPin } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { formatDistanceKm } from '@/lib/geo';
 import type { SameDayVendor } from '@/lib/same-day-vendors';
 
@@ -20,23 +22,29 @@ import type { SameDayVendor } from '@/lib/same-day-vendors';
 export function GetHelpCard({ sameDayVendors = [] }: { sameDayVendors?: SameDayVendor[] }) {
   const hasShortlist = sameDayVendors.length > 0;
 
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 7 · 13): no box — grey capitals; the explaining line sits behind the
+  // ⓘ; each same-day supplier is one hairline row with a terracotta › (no bordered tiles); the door is the shared pill.
   return (
-    <article className="space-y-3 rounded-2xl border border-ink/10 bg-white p-5 shadow-sm">
-      <header className="flex items-center justify-between">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
-          <LifeBuoy aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Get help
-        </p>
-      </header>
+    <section aria-labelledby="day-of-get-help" className="space-y-2">
+      <h2 id="day-of-get-help" className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
+        <LifeBuoy aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={2} />
+        Get help
+      </h2>
 
-      <h3 className="text-base font-semibold tracking-tight text-ink">Something not right?</h3>
+      <InfoTip
+        label="Something not right?"
+        labelAs="h3"
+        labelClassName="text-base font-semibold tracking-tight text-ink"
+        align="start"
+      >
+        {hasShortlist
+          ? 'Need someone today? These verified suppliers take same-day work — nearest you first.'
+          : 'If a supplier is a no-show or you need a hand on the day, reach your coordinator or the Setnayan team — we will help you sort it.'}
+      </InfoTip>
 
       {hasShortlist ? (
         <>
-          <p className="text-sm text-ink/55">
-            Need someone today? These verified suppliers take same-day work — nearest you first.
-          </p>
-          <ul className="space-y-2">
+          <ul className="divide-y divide-ink/10">
             {sameDayVendors.map((v) => {
               const where =
                 v.distanceKm != null
@@ -48,9 +56,9 @@ export function GetHelpCard({ sameDayVendors = [] }: { sameDayVendors?: SameDayV
               const inner = (
                 <>
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-ink">{v.name}</span>
+                    <span className="block truncate text-[15px] font-semibold text-ink">{v.name}</span>
                     {meta ? (
-                      <span className="flex items-center gap-1 text-xs text-ink/50">
+                      <span className="flex items-center gap-1 text-[13px] text-ink/75">
                         {v.distanceKm != null ? (
                           <MapPin aria-hidden className="h-3 w-3" strokeWidth={2} />
                         ) : null}
@@ -59,50 +67,35 @@ export function GetHelpCard({ sameDayVendors = [] }: { sameDayVendors?: SameDayV
                     ) : null}
                   </span>
                   {href ? (
-                    <ArrowRight
-                      aria-hidden
-                      className="h-4 w-4 shrink-0 text-ink/40"
-                      strokeWidth={2}
-                    />
+                    <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
                   ) : null}
                 </>
               );
               return (
                 <li key={v.vendorProfileId}>
                   {href ? (
-                    <Link
-                      href={href}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 px-3 py-2 transition-colors hover:border-terracotta/40 hover:bg-terracotta/[0.03]"
-                    >
+                    <Link href={href} className="flex min-h-14 items-center justify-between gap-3 py-2">
                       {inner}
                     </Link>
                   ) : (
-                    <div className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 px-3 py-2">
-                      {inner}
-                    </div>
+                    <div className="flex min-h-14 items-center justify-between gap-3 py-2">{inner}</div>
                   )}
                 </li>
               );
             })}
           </ul>
-          <p className="text-xs text-ink/45">
+          <p className="text-[13px] text-ink/75">
             Still stuck? Reach your coordinator or the Setnayan team.
           </p>
         </>
-      ) : (
-        <p className="text-sm text-ink/55">
-          If a supplier is a no-show or you need a hand on the day, reach your coordinator or the
-          Setnayan team — we will help you sort it.
-        </p>
-      )}
+      ) : null}
 
-      <Link
+      <ActionButton
+        tone="info"
         href="/help"
-        className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-3 py-1.5 text-xs font-medium text-terracotta-700 transition-colors hover:bg-terracotta/20"
-      >
-        Get help
-        <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-      </Link>
-    </article>
+        icon={<LifeBuoy aria-hidden strokeWidth={1.9} />}
+        label="Get help"
+      />
+    </section>
   );
 }

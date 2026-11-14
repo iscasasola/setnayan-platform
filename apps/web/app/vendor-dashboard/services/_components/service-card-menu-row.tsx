@@ -69,7 +69,7 @@ export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, 
 
   return (
     <div data-card-menu={vendorServiceId}>
-      <div className="flex items-center gap-2 [&>.ab]:h-10 [&>.ab]:min-h-10 [&>.ab]:w-10" data-card-menu-line="">
+      <div className="flex items-center gap-2 [&>.ab]:h-11 [&>.ab]:min-h-11 [&>.ab]:w-11" data-card-menu-line="">
         <ActionButton tone="neutral" icon={Pencil} iconOnly label="Edit" name="Edit" title={`Edit ${cardName}`} href={editHref} data-card-edit={vendorServiceId} />
         <ActionButton
           tone="info"

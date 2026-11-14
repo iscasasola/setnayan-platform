@@ -228,7 +228,10 @@ test('a guest who has replied sees BOTH venues, labelled, each with directions',
   assert.ok(html.includes(HOTEL));
   assert.match(html, /The venues/);
   assert.ok(html.indexOf('>Ceremony<') < html.indexOf('>Reception<'), 'ceremony first — the order a guest goes');
-  assert.ok((html.match(/google\.com\/maps/g) ?? []).length >= 2, 'a maps link for each venue');
+  // 🧭 Since the map card (approved 2026-11-14) each venue's directions are ONE "Get directions" button; its sheet
+  // builds the map-app list from the device at the press, so the links are not in this markup
+  // (`lib/map-directions.test.ts` holds the list per device).
+  assert.ok((html.match(/data-get-directions=""/g) ?? []).length >= 2, 'a Get directions button for each venue');
   assert.doesNotMatch(html, /Add your venue|Venue to be confirmed/);
 });
 

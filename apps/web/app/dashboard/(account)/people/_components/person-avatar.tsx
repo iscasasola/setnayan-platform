@@ -41,8 +41,8 @@ export function PersonAvatar({
   return (
     <span
       aria-hidden
-      className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${
-        tone === 'alaga' ? 'bg-success-100 text-success-800' : 'bg-ink/[0.06] text-ink/60'
+      className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-semibold ${
+        tone === 'alaga' ? 'bg-success-100 text-success-800' : 'bg-ink/[0.06] text-ink/70'
       }`}
     >
       {initials || '·'}

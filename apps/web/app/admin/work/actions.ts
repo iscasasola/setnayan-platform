@@ -18,15 +18,15 @@ import {
 } from '@/app/admin/payment-options/actions';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { safeNext } from '@/lib/safe-next';
-import { pickedReason, redirectRefusal, workBackHref } from '@/lib/admin/supplier-work';
+import { pickedCorrectionReason, pickedReason, redirectRefusal, workBackHref } from '@/lib/admin/supplier-work';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { approvePaymentCore } from '@/app/admin/payments/actions';
+import { approvePaymentCore, requestPaymentResubmit } from '@/app/admin/payments/actions';
 import { after } from 'next/server';
 import { readPaymentLights } from '@/lib/admin/green-payments.server';
 import { greenIds } from '@/lib/admin/green-payments';
-import { overridePublishReview } from '@/app/admin/reviews/actions';
+import { overridePublishReview, rejectAppeal } from '@/app/admin/reviews/actions';
 import { markPayoutPaidAction } from '@/app/admin/payouts/actions';
-import { approveRequest } from '@/app/admin/approvals/actions';
+import { approveRequest, rejectRequest } from '@/app/admin/approvals/actions';
 
 /**
  * Settle a queue item FROM THE WORK LIST, without leaving it.
@@ -69,6 +69,25 @@ export async function approvePaymentFromWorkList(formData: FormData): Promise<vo
   if (formData.get('intent') === 'approve-green') {
     await approveGreenPayments(formData, userId, back);
     return;
+  }
+  // ➕ "ASK FOR A CLEARER PHOTO" (admin request cards, owner 2026-11-14) — a payment is never just declined. Runs the
+  // desk's own `requestPaymentResubmit` (the couple is emailed and the upload form reopens); the notice is one of the
+  // list's own words, never typed. An intent branch, not a new action (the server-action ceiling).
+  if (formData.get('intent') === 'resubmit') {
+    const notice = pickedReason('proof', formData.get('reason'));
+    if (!notice) redirect(workBackHref(back, 'refused', 'Pick what the couple should fix.'));
+    const fd = new FormData();
+    fd.set('payment_id', String(formData.get('payment_id') ?? ''));
+    fd.set('admin_resubmit_notice', notice);
+    try {
+      await requestPaymentResubmit(fd);
+    } catch (e) {
+      // A refusal ("already resolved", "not found") is shown on Work in the desk's own words — never a silent redraw.
+      redirect(workBackHref(back, 'refused', e instanceof Error ? e.message : 'That could not be done.'));
+    }
+    revalidatePath('/admin/work');
+    revalidatePath('/admin/payments');
+    redirect(workBackHref(back, 'asked'));
   }
 
   const paymentId = formData.get('payment_id');
@@ -202,6 +221,24 @@ async function approveGreenPayments(formData: FormData, userId: string, back: st
  */
 export async function agreeToRequestFromWorkList(formData: FormData): Promise<void> {
   await requireAdmin();
+  // ➕ "I DON'T" (admin request cards, owner 2026-11-14) — the page's own `rejectRequest`, with a reason from the list
+  // the colleague reads. An intent branch, not a new action (the server-action ceiling).
+  if (formData.get('intent') === 'reject') {
+    const back = safeNext(formData.get('back'), '/admin/work');
+    const reason = pickedReason('approval', formData.get('reason'));
+    if (!reason) redirect(workBackHref(back, 'refused', 'Pick the reason your colleague will see.'));
+    const fd = new FormData();
+    fd.set('approval_id', String(formData.get('approval_id') ?? ''));
+    fd.set('reason', reason);
+    try {
+      await rejectRequest(fd);
+    } catch (e) {
+      redirect(workBackHref(back, 'refused', e instanceof Error ? e.message : 'That could not be done.'));
+    }
+    revalidatePath('/admin/work');
+    revalidatePath('/admin/approvals');
+    redirect(workBackHref(back, 'declined-request'));
+  }
   await approveRequest(formData);
   revalidatePath('/admin/work');
   revalidatePath('/admin/approvals');
@@ -222,6 +259,16 @@ export async function publishReviewFromWorkList(formData: FormData): Promise<voi
   await requireAdmin();
 
   const back = safeNext(formData.get('back'), '/admin/work');
+
+  // ➕ ADMIN REQUEST CARDS (owner 2026-11-14): "Publish" and "Keep it held" each take a reason from a list, never
+  // typed. Keep-it-held is the page's own `rejectAppeal` — an intent branch, not a new action (the ceiling).
+  const keep = formData.get('intent') === 'keep';
+  const picked = pickedReason(keep ? 'held' : 'publish', formData.get('reason'));
+  if (!picked) redirect(workBackHref(back, 'refused', 'Pick the reason for the record.'));
+  if (keep) {
+    await settleViaRedirectingAction(() => rejectAppeal(formData), ['/admin/work', '/admin/reviews'], back, 'kept');
+    return;
+  }
 
   // The page's own action ends in redirect('/admin/reviews?override=1') — right
   // for that page, and the exact page-jump the owner asked to remove when the
@@ -337,7 +384,7 @@ export async function settleCorrectionFromWorkList(formData: FormData): Promise<
   }
   // 🔑 A DECLINE WITHOUT A REASON FROM THE LIST IS REFUSED (admin supplier slice, owner 2026-10-28: "Decline with a
   // reason"). The shop is told why; a bare "declined" tells them nothing they can act on. The admin stays on Work.
-  if (decision === 'decline' && !pickedReason('names', formData.get('reason'))) {
+  if (decision === 'decline' && !pickedCorrectionReason(formData.get('reason'))) {
     redirect(workBackHref(backOf(formData), 'refused', 'Pick the reason the shop will see.'));
   }
   await settleViaRedirectingAction(
@@ -357,6 +404,13 @@ export async function settleSubscriptionFromWorkList(formData: FormData): Promis
   const decision = formData.get('decision');
   if (decision !== 'approve' && decision !== 'reject') {
     throw new Error('Choose approve or reject.');
+  }
+  // ➕ A declined plan payment tells the shop WHY, in the list's own words (admin request cards, owner 2026-11-14) —
+  // without one the page action would send its default "Payment not received", which may not be true.
+  if (decision === 'reject') {
+    const reason = pickedReason('plan', formData.get('reason'));
+    if (!reason) redirect(workBackHref(backOf(formData), 'refused', 'Pick the reason the shop will see.'));
+    formData.set('reason', reason);
   }
   await settleViaRedirectingAction(
     () =>

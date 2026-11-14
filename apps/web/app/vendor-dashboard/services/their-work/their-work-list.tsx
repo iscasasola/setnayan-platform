@@ -11,7 +11,12 @@ export type TheirWorkAlbumView = {
   urls: string[];
   more: number;
   bookedOn: { serviceId: string; name: string; retired: boolean; href: string }[];
+  /** 🏷 Frame 7: the inspirations this album's photos are in (names only). Empty → no row. */
+  inspirations?: string[];
 };
+
+/** 🏷 Where "In inspiration ›" goes: the supplier's own inspiration library, where every tag is listed. */
+const INSPIRATION_LIBRARY = '/vendor-dashboard/moodboard-library';
 
 /** The LAST row (frame 78): the cards' own cover + showcase photos — the supplier's own, never from an event. */
 export type TheirOwnUploadsView = { count: number; urls: string[]; from: string[] };
@@ -71,6 +76,19 @@ export function TheirWorkList({
                 </span>
               </Link>
             ))}
+            {a.inspirations && a.inspirations.length > 0 ? (
+              <Link
+                href={INSPIRATION_LIBRARY}
+                className="sn-press mt-1 flex min-h-11 items-center justify-between gap-3"
+                data-their-work-in-inspiration=""
+              >
+                <span className="min-w-0">
+                  <span className="block text-[15px] text-ink">In inspiration</span>
+                  <span className="block truncate text-[13px] text-ink/60">{a.inspirations.join(' · ')}</span>
+                </span>
+                <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
+              </Link>
+            ) : null}
           </div>
         </Fold>
       ))}

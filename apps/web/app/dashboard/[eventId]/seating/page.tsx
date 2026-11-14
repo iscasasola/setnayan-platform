@@ -339,7 +339,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
      request); its code loads only when it is first opened (`SeatingLabLoader`'s own dynamic import). */
   const lab =
     (inGuests || seatParam === '3d') && process.env.NEXT_PUBLIC_SEATING_3D !== 'false' ? (
-      <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening the 3D room…</p>}>
+      <Suspense fallback={<p className="p-6 text-sm text-ink/70">Opening the 3D room…</p>}>
         <SeatingLabPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ maker: '1' })} />
       </Suspense>
     ) : null;

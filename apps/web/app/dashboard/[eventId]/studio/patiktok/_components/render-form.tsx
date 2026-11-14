@@ -6,6 +6,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPatiktokRender } from '../actions';
 import { StayForm } from '@/app/_components/stay-form';
 
+import { InfoTip } from '@/app/_components/info-tip';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 // Iteration 0017 Phase 5 — Patiktok render-form with music selection.
 //
 // Builds on Phase 2 (real server action + queue) by adding the music-track
@@ -78,7 +80,7 @@ export function RenderForm({
           className="flex items-baseline justify-between gap-2 text-sm font-medium text-ink"
         >
           <span>Mimic duration</span>
-          <span className="font-mono text-xs text-ink/60">{duration}s</span>
+          <span className="text-[13px] tabular-nums text-ink/70">{duration}s</span>
         </label>
         <input
           id="duration"
@@ -90,43 +92,35 @@ export function RenderForm({
           onChange={(e) => setDuration(Number(e.target.value))}
           className="w-full accent-terracotta"
         />
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           Spec range: 1–30 seconds per clip. Default tracks the template&rsquo;s
           choreographed beat length.
         </p>
       </div>
 
       <div className="space-y-2">
-        <label
-          htmlFor="music-track"
-          className="block text-sm font-medium text-ink"
-        >
-          Music track
-        </label>
-        <select
-          id="music-track"
+        <span className="block text-sm font-medium text-ink">Music track</span>
+        <PickMenu
+          label="Music track"
           value={musicTrackSlug}
-          onChange={(e) => setMusicTrackSlug(e.target.value)}
-          className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none"
-        >
-          <option value="">Auto-pick from template vibe</option>
-          {Object.entries(grouped).map(([category, tracks]) => (
-            <optgroup
-              key={category}
-              label={CATEGORY_LABELS[category] ?? category}
-            >
-              {tracks.map((t) => (
-                <option key={t.track_slug} value={t.track_slug}>
-                  {t.display_name} · {t.bpm} BPM · {t.duration_sec}s loop
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <p className="text-xs text-ink/55">
-          All tracks are Setnayan-owned AI compositions — safe to download
+          onPick={setMusicTrackSlug}
+          dataAttr="data-music-track"
+          className="w-full !min-h-12"
+          options={[
+            { key: '', label: 'Auto-pick from template vibe' },
+            ...Object.entries(grouped).flatMap(([category, tracks]) =>
+              tracks.map((t) => ({
+                key: t.track_slug,
+                label: `${t.display_name} · ${t.bpm} BPM · ${t.duration_sec}s loop`,
+                group: CATEGORY_LABELS[category] ?? category,
+              })),
+            ),
+          ]}
+        />
+        <InfoTip labelAs="p" label="All tracks are Setnayan-owned AI compositions" labelClassName="text-xs text-ink/70" align="start">
+          safe to download
           and share. Loops seamlessly across the full compilation.
-        </p>
+        </InfoTip>
       </div>
 
       <SubmitButton
@@ -150,11 +144,11 @@ export function RenderForm({
           and tracked server-side; only the RENDER happens in the browser. Saying
           less is what makes this true — describe where the work happens, never
           what does or does not exist on the server. */}
-      <p className="text-[11px] text-ink/55">
-        Your reel renders in your browser on the next screen. Keep that tab open
+      <InfoTip labelAs="p" label="Your reel renders in your browser on the next screen." labelClassName="text-[12px] text-ink/70" align="start">
+        Keep that tab open
         while it works — then download it, and a copy is saved to your
         Memories.
-      </p>
+      </InfoTip>
     </StayForm>
   );
 }

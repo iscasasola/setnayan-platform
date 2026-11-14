@@ -6,6 +6,7 @@ import { eventPapicActive } from '@/lib/papic-seats';
 import { PoolGalleryToggle } from './pool-gallery-toggle';
 import { WhoSeesWhatPick } from './who-sees-what-pick';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * Shared Pool Gallery — the couple's control card on the Papic studio page
  * (OnTheDay build ⑥), rendered beside the LiveWallCard. Server component:
@@ -44,15 +45,15 @@ export async function PoolGalleryCard({ eventId, variant = 'card' }: { eventId: 
   // couple's only way to close it, silently (S41b).
   if (error) {
     return (
-      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+      <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
           <Images aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
           Shared Memories
         </h2>
-        <p className="mt-1 text-sm text-terracotta-700">
-          We couldn&rsquo;t check whether your shared Memories are open just now. Refresh the
+        <InfoTip labelAs="p" label="We couldn&rsquo;t check whether your shared Memories are open just now." labelClassName="text-sm text-terracotta-700" className="mt-1" align="start">
+          Refresh the
           page to see it and change it.
-        </p>
+        </InfoTip>
       </section>
     );
   }
@@ -67,18 +68,16 @@ export async function PoolGalleryCard({ eventId, variant = 'card' }: { eventId: 
   }
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+    <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
       <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
         <Images aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
         Shared Memories
       </h2>
-      <p className="mt-1 text-sm text-ink/60">
-        Let your guests browse <span className="font-medium text-ink/75">every</span>{' '}
-        clean-screened photo and clip in your Papic library (web copies only) and tag
-        themselves into photos they&rsquo;re in — tagged photos join their personal
+      <InfoTip labelAs="p" label="Let your guests browse every clean-screened photo and clip in your Papic library (web copies only) and tag themselves into photos they&rsquo;re in" labelNode={<>Let your guests browse <span className="font-medium text-ink/75">every</span>{' '} clean-screened photo and clip in your Papic library (web copies only) and tag themselves into photos they&rsquo;re in</>} labelClassName="text-sm text-ink/70" className="mt-1" align="start">
+        tagged photos join their personal
         Memories and download. Off by default; turning it off later closes the
         shared Memories for everyone immediately.
-      </p>
+      </InfoTip>
       <div className="mt-4">
         <PoolGalleryToggle eventId={eventId} initialOpen={open} />
       </div>

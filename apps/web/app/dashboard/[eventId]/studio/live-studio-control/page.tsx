@@ -43,6 +43,7 @@ import {
 import { setYoutubeLiveReadyAck } from './actions';
 import { formatCount } from '@/lib/format-number';
 
+import { InfoTip } from '@/app/_components/info-tip';
 // UNIFIED Live Studio — one switching-based product that merges Cast (the directed
 // single feed) + Roam (guests pick their view) into a directed Main Stage plus
 // switchable guest cameras (owner 2026-07-25; Live_Studio_Unified_Spec_2026-07-25.md).
@@ -257,7 +258,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       {stateCtx.state !== 'launch' ? (
         <Link
           href={controllerHref}
-          className="inline-flex items-center gap-2 rounded-full border border-terracotta bg-cream px-5 py-2 text-sm font-semibold text-terracotta-700 transition-colors hover:bg-terracotta/10"
+          className="ab ab-neutral"
         >
           Open the controller — go live with one camera, included
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -488,7 +489,7 @@ function HostedChannelUpsell({
   return (
     <section
       aria-labelledby="hosted-channel-heading"
-      className="sn-tile space-y-3 p-5 sm:p-6"
+      className="border-t border-ink/10 space-y-3 py-5 sm:p-6"
     >
       <div className="space-y-1">
         <p className="sn-eye">Optional</p>
@@ -499,14 +500,14 @@ function HostedChannelUpsell({
           <Tv aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
           Have Setnayan run the channel
         </h2>
-        <p className="max-w-prose text-sm text-ink/65">
-          By default your broadcast goes out on your own YouTube — paste your watch
+        <InfoTip labelAs="p" label="By default your broadcast goes out on your own YouTube" labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+          paste your watch
           link, or start your own broadcast, right in the controller. If you don&rsquo;t
           have live-stream access, or would rather not set it up yourself, add this and
           Setnayan supplies and runs the channel for you instead. It only changes which
           channel your broadcast goes to — everything else about Live Watch (cameras,
           cutting, guest-pick) is unaffected either way.
-        </p>
+        </InfoTip>
         {/* 🚨 THE ONE THING A BUYER CANNOT WORK OUT FOR THEMSELVES, and the reason it
             sits INSIDE the add-on section rather than in the footnote: the risk this
             option carries is not the buyer's, it is every OTHER couple's. A Setnayan
@@ -516,7 +517,7 @@ function HostedChannelUpsell({
             know their music choice reaches strangers' films.
             One constant, shared with /admin/live-studio-channels, so the buyer and
             the admin who places the event can never be told different stories. */}
-        <p className="max-w-prose text-sm text-ink/65">{POOL_CHANNEL_SHARED_STRIKE_NOTICE}</p>
+        <p className="max-w-prose text-sm text-ink/70">{POOL_CHANNEL_SHARED_STRIKE_NOTICE}</p>
       </div>
 
       {owns ? (
@@ -585,7 +586,7 @@ function YoutubeChannelPanel({
   return (
     <section
       aria-labelledby="live-studio-youtube-heading"
-      className="sn-tile space-y-4 p-5 sm:p-6"
+      className="border-t border-ink/10 space-y-4 py-5 sm:p-6"
     >
       <div className="space-y-1">
         <p className="sn-eye">Your channel</p>
@@ -596,12 +597,12 @@ function YoutubeChannelPanel({
           <Tv aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
           Your YouTube channel
         </h2>
-        <p className="max-w-prose text-sm text-ink/65">
-          Connect a channel and your broadcast goes out on <em>your</em> YouTube — the
+        <InfoTip labelAs="p" label="Connect a channel and your broadcast goes out on your YouTube" labelNode={<>Connect a channel and your broadcast goes out on <em>your</em> YouTube</>} labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+          the
           watch link and the recording stay yours. We ask for one permission, the
           narrowest one that can start a live broadcast: no upload access, and nothing
           about your email, profile, other videos, subscribers or comments.
-        </p>
+        </InfoTip>
       </div>
 
 
@@ -630,17 +631,17 @@ function YoutubeChannelPanel({
           <div className="flex items-start gap-3">
             <span
               aria-hidden
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-ink/5 text-ink/55"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-ink/5 text-ink/70"
             >
               <Lock className="h-4 w-4" strokeWidth={1.75} />
             </span>
             <div className="space-y-1">
               <p className="text-sm font-semibold text-ink/85">Not available yet</p>
-              <p className="max-w-prose text-xs text-ink/60">
-                Setnayan&rsquo;s YouTube app review is still with Google. We&rsquo;ll email
+              <InfoTip labelAs="p" label="Setnayan&rsquo;s YouTube app review is still with Google." labelClassName="text-xs text-ink/70" className="max-w-prose" align="start">
+                We&rsquo;ll email
                 you the moment the Connect button lights up — everything else on this page
                 works in the meantime.
-              </p>
+              </InfoTip>
             </div>
           </div>
         </div>
@@ -659,7 +660,7 @@ function YoutubeChannelPanel({
                   Connected to YouTube:{' '}
                   {grant.external_account_display ?? 'Connected channel'}
                 </p>
-                <p className="font-mono text-[11px] text-ink/55">
+                <p className="text-[13px] text-ink/70">
                   {grant.external_account_id ? `Channel id ${grant.external_account_id} · ` : ''}
                   Connected {grantedDate}
                 </p>
@@ -679,30 +680,29 @@ function YoutubeChannelPanel({
               </SubmitButton>
             </form>
           </div>
-          <p className="text-xs text-ink/65">
-            Disconnecting stops Setnayan using this channel and deletes the key we hold
-            for it, and we ask Google to cancel our access. That last step is
+          <InfoTip labelAs="p" label="Disconnecting stops Setnayan using this channel and deletes the key we hold for it, and we ask Google to cancel our access." labelClassName="text-xs text-ink/70" align="start">
+            That last step is
             best-effort — remove Setnayan from your Google account permissions if you
             want to be certain.{' '}
             <Link href="/privacy" className="text-terracotta hover:underline">
-              How we handle Google data
+            How we handle Google data
             </Link>
             .
-          </p>
+          </InfoTip>
         </div>
       ) : (
-        <div className="space-y-2 rounded-xl border border-terracotta/30 bg-cream/80 p-5">
+        <div className="border-t border-ink/10 space-y-2 py-5">
           <a
             href={`/api/oauth/youtube/start?event_id=${eventId}`}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+            className="ab ab-brand ab-main"
           >
             <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Connect YouTube
           </a>
-          <p className="text-xs text-ink/55">
-            You&rsquo;ll go to Google to grant access, then come straight back here. About
+          <InfoTip labelAs="p" label="You&rsquo;ll go to Google to grant access, then come straight back here." labelClassName="text-xs text-ink/70" align="start">
+            About
             20 seconds — and you can disconnect from this page any time.
-          </p>
+          </InfoTip>
         </div>
       )}
     </section>

@@ -63,12 +63,12 @@ export function PhoneUploadsHeldPicker({ eventId, held: heldAtOpen }: { eventId:
         {pill(false, 'Right away')}
         {pill(true, 'After I check')}
       </div>
-      <p className="text-sm text-ink/65">
+      <p className="text-sm text-ink/70">
         {held
           ? 'A guest’s photo waits, out of sight, until you check it. You check them when you publish your Recap — keep each one, or leave it out. Nothing from a guest’s phone shows before that.'
           : 'A guest’s photo lands in your Memories the moment it’s sent, like a camera shot. You can still take one down later.'}
       </p>
-      <p className="text-[13px] text-ink/55">Your guests’ camera shots are not changed by this.</p>
+      <p className="text-[13px] text-ink/70">Your guests’ camera shots are not changed by this.</p>
       {error ? (
         <p className="text-sm text-danger-700" role="alert">
           {error}

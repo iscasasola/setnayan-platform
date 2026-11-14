@@ -85,7 +85,7 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple =
       }}
       className="space-y-4 rounded-xl border border-ink/10 bg-white p-5 shadow-sm"
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink/70">
         A few music notes
       </p>
 
@@ -152,7 +152,7 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple =
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-white hover:bg-mulberry/90 disabled:opacity-50"
+            className="ab ab-brand ab-main"
           >
             {pending ? (
               <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
@@ -201,7 +201,7 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple =
             <button
               type="submit"
               disabled={pending}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-white hover:bg-mulberry/90 disabled:opacity-50"
+              className="ab ab-brand ab-main"
             >
               {pending ? (
                 <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
@@ -241,7 +241,7 @@ function Field({
     <label className="block">
       <span className="text-sm font-medium text-ink/80">
         {label}
-        {optional ? <span className="ml-1 text-xs text-ink/40">(optional)</span> : null}
+        {optional ? <span className="ml-1 text-xs text-ink/70">(optional)</span> : null}
       </span>
       {textarea ? (
         <textarea

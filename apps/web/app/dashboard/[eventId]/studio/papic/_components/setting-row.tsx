@@ -96,14 +96,14 @@ export function SettingRow({
           }
           data-setting-row={bare ? 'bare' : undefined}
         >
-          {icon ? <span className="shrink-0 text-ink/45">{icon}</span> : null}
+          {icon ? <span className="shrink-0 text-ink/70">{icon}</span> : null}
           <span className={bare ? 'min-w-0 truncate border-b border-dashed border-ink/25 text-[15px] text-ink' : 'min-w-0 flex-1 truncate text-sm text-ink'}>{label}</span>
           {/* With a switch on the row the switch IS the answer, so repeating
               "On" beside it is the same fact written twice. */}
           {switchControl || bare ? null : (
-            <span className="shrink-0 font-mono text-[11.5px] text-ink/55">{value}</span>
+            <span className="shrink-0 text-[13px] tabular-nums text-ink/70">{value}</span>
           )}
-          {bare ? null : <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} />}
+          {bare ? null : <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />}
         </button>
         {switchControl ? <div className="shrink-0 pr-4">{switchControl}</div> : null}
       </div>

@@ -1,6 +1,6 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 220,
+  "total": 216,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
@@ -109,11 +109,8 @@
     "app/dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx · ink on white": 1,
     "app/dashboard/[eventId]/studio/mood-board/_components/printable-pdf-button.tsx · ink on white": 1,
     "app/dashboard/[eventId]/studio/mood-board/_components/role-attire-field.tsx · ink on white": 1,
-    "app/dashboard/[eventId]/studio/pakanta/_components/pakanta-music-form.tsx · white on mulberry": 2,
-    "app/dashboard/[eventId]/studio/pakanta/_components/use-song-button.tsx · white on mulberry": 1,
     "app/dashboard/[eventId]/studio/panood/setup/page.tsx · ink on white": 1,
     "app/dashboard/[eventId]/studio/papic/crew/poster/page.tsx · ink on white": 1,
-    "app/dashboard/[eventId]/studio/papic/run-of-show/page.tsx · white on ink": 1,
     "app/dashboard/[eventId]/website/editor/_components/background-fade-bar.tsx · ink on white": 1,
     "app/dashboard/[eventId]/website/editor/_components/details-bound-field.tsx · ink on white": 2,
     "app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx · ink on white": 1,

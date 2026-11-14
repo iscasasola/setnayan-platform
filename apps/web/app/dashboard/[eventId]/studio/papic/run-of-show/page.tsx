@@ -53,6 +53,7 @@ import {
 } from '../actions';
 import { StayForm } from '@/app/_components/stay-form';
 
+import { InfoTip } from '@/app/_components/info-tip';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
@@ -119,10 +120,10 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
       </Link>
 
       <h1 className="mt-4 text-xl font-semibold text-ink">Run of show</h1>
-      <p className="mt-1 text-sm text-ink/70">
-        The day in order. Put a challenge at each moment now, then start it when
+      <InfoTip labelAs="p" label="The day in order." labelClassName="text-sm text-ink/70" className="mt-1" align="start">
+        Put a challenge at each moment now, then start it when
         the moment arrives &mdash; each one runs until you start the next.
-      </p>
+      </InfoTip>
 
       {/* 🔑 A GUARD THAT REFUSES IN SILENCE IS INDISTINGUISHABLE FROM ONE THAT
           PASSED. The server action refuses an over-the-ceiling add and an
@@ -131,17 +132,17 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
           celebration with a paid supplier mission genuinely cannot fit a full
           sequence — that has to be said, not silently truncated. */}
       {search.add === 'full' ? (
-        <p className="mt-4 rounded-lg bg-ink/5 px-3 py-2 text-sm text-ink/75">
-          That one didn&rsquo;t go on &mdash; your board is already full. Take a
+        <InfoTip labelAs="p" label="That one didn&rsquo;t go on &mdash; your board is already full." labelClassName="rounded-lg bg-ink/5 px-3 py-2 text-sm text-ink/75" className="mt-4" align="start">
+          Take a
           challenge off a moment below, or remove one from your challenge list,
           and it will fit.
-        </p>
+        </InfoTip>
       ) : null}
       {search.add === 'unavailable' ? (
-        <p className="mt-4 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
-          We couldn&rsquo;t check your board just now, so nothing was added. Try
+        <InfoTip labelAs="p" label="We couldn&rsquo;t check your board just now, so nothing was added." labelClassName="rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700" className="mt-4" align="start">
+          Try
           again in a moment &mdash; nothing has changed.
-        </p>
+        </InfoTip>
       ) : null}
 
       {/* ⏱ WHAT THE ROOM IS BEING ASKED, STATED ONCE. Three sentences for three
@@ -149,11 +150,11 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
           are NOT the same thing — collapsing them tells a coordinator
           mid-reception that nothing is running when something is. */}
       {!armedReading.measured ? (
-        <p className="mt-4 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
-          We couldn&rsquo;t check which challenge is being asked just now. Refresh
+        <InfoTip labelAs="p" label="We couldn&rsquo;t check which challenge is being asked just now." labelClassName="rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700" className="mt-4" align="start">
+          Refresh
           in a moment &mdash; nothing has stopped, and your guests can still take
           photos either way.
-        </p>
+        </InfoTip>
       ) : armedReading.armed ? (
         <p className="mt-4 flex items-start gap-1.5 text-sm text-ink/70">
           <Radio aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-mulberry" strokeWidth={2} />
@@ -165,7 +166,7 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
           </span>
         </p>
       ) : (
-        <p className="mt-4 text-sm text-ink/45">
+        <p className="mt-4 text-sm text-ink/70">
           No challenge is being asked yet. Start one when the moment comes.
         </p>
       )}
@@ -178,12 +179,12 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
           🔴 The camera is untouched either way, and that is worth saying ON the
           control: a coordinator who thinks Pause stops the photos will never
           use it during the one moment it is for. */}
-      <div className="mt-4 rounded-xl border border-ink/10 bg-white/60 p-3">
+      <div className="border-t border-ink/10 mt-4 py-3">
         {!pauseReading.measured ? (
-          <p className="text-sm text-terracotta-700">
-            We couldn&rsquo;t check whether challenges are paused. Refresh in a
+          <InfoTip labelAs="p" label="We couldn&rsquo;t check whether challenges are paused." labelClassName="text-sm text-terracotta-700" align="start">
+            Refresh in a
             moment &mdash; nothing has changed either way.
-          </p>
+          </InfoTip>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-ink/75">
@@ -231,11 +232,10 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
       </div>
 
       {!runOfShow.measured ? (
-        <p className="mt-4 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
-          We couldn&rsquo;t read your run of show just now, so the moments below
-          are shown empty. That is what we could not see, not what you have set
+        <InfoTip labelAs="p" label="We couldn&rsquo;t read your run of show just now, so the moments below are shown empty." labelClassName="rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700" className="mt-4" align="start">
+          That is what we could not see, not what you have set
           up &mdash; refresh before changing anything.
-        </p>
+        </InfoTip>
       ) : null}
 
       <ol className="mt-5 space-y-3">
@@ -251,12 +251,12 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
           return (
             <li
               key={moment.key}
-              className="rounded-xl border border-ink/10 bg-white/60 p-3 sm:p-4"
+              className="border-t border-ink/10 py-3 sm:p-4"
             >
               <div className="flex items-baseline gap-2">
-                <span className="text-xs tabular-nums text-ink/40">{i + 1}</span>
+                <span className="text-xs tabular-nums text-ink/70">{i + 1}</span>
                 <div>
-                  <p className="text-[0.7rem] uppercase tracking-wide text-ink/45">
+                  <p className="text-[0.7rem] uppercase tracking-wide text-ink/70">
                     {moment.eyebrow}
                   </p>
                   <h2 className="text-sm font-semibold text-ink">{moment.label}</h2>
@@ -292,7 +292,7 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
                         <input type="hidden" name="return_to" value="run-of-show" />
                         <button
                           type="submit"
-                          className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white"
+                          className="ab ab-neutral"
                         >
                           <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                           This is happening now
@@ -305,7 +305,7 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
                       <input type="hidden" name="mission_id" value={placed.missionId} />
                       <button
                         type="submit"
-                        className="inline-flex items-center gap-1 text-xs text-ink/55 underline-offset-2 hover:underline"
+                        className="inline-flex items-center gap-1 text-xs text-ink/70 underline-offset-2 hover:underline"
                       >
                         <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                         Take off this moment
@@ -327,7 +327,7 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
         })}
       </ol>
 
-      <p className="mt-5 text-xs text-ink/50">
+      <p className="mt-5 text-xs text-ink/70">
         Every moment&rsquo;s challenge sits on the same board your guests see.{' '}
         <Link
           href={`/dashboard/${eventId}/studio/papic/challenges`}
@@ -370,16 +370,16 @@ function MomentShelf({
   // full, is the failure this build order is named after.
   if (!readable || !shelf) {
     return (
-      <p className="mt-2 text-xs text-terracotta-700">
-        We couldn&rsquo;t load suggestions for this moment. Refresh in a moment
+      <InfoTip labelAs="p" label="We couldn&rsquo;t load suggestions for this moment." labelClassName="text-xs text-terracotta-700" className="mt-2" align="start">
+        Refresh in a moment
         &mdash; nothing is wrong with your setup.
-      </p>
+      </InfoTip>
     );
   }
 
   return (
     <div className="mt-2">
-      <p className="text-xs text-ink/50">
+      <p className="text-xs text-ink/70">
         {shelf.basis === 'sequence'
           ? 'Made for this moment:'
           : 'We haven’t written prompts for this moment at an event like yours — here are strong ones from the whole library:'}
@@ -397,7 +397,7 @@ function MomentShelf({
               <input type="hidden" name="return_to" value="run-of-show" />
               <button
                 type="submit"
-                className="rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink hover:bg-ink/5"
+                className="ab ab-neutral"
               >
                 Use this
               </button>

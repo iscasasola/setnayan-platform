@@ -28,8 +28,8 @@ export type ColumnRow = {
 const STATUS_BADGE: Record<ColumnRow['status'], { label: string; className: string }> = {
   pending: { label: 'Awaiting review', className: 'bg-terracotta/10 text-terracotta' },
   approved: { label: 'Published', className: 'bg-mulberry/10 text-mulberry' },
-  rejected: { label: 'Returned to guest', className: 'bg-ink/5 text-ink/60' },
-  user_deleted: { label: 'Withdrawn by guest', className: 'bg-ink/5 text-ink/50' },
+  rejected: { label: 'Returned to guest', className: 'bg-ink/5 text-ink/70' },
+  user_deleted: { label: 'Withdrawn by guest', className: 'bg-ink/5 text-ink/70' },
 };
 
 export function ColumnQueueControls({ eventId, rows }: { eventId: string; rows: ColumnRow[] }) {
@@ -54,16 +54,16 @@ export function ColumnQueueControls({ eventId, rows }: { eventId: string; rows: 
     <div className="mt-4 space-y-3">
       {error ? <p className="text-xs text-terracotta">{error}</p> : null}
       {rows.map((row) => (
-        <div key={row.columnId} className="rounded-xl border border-ink/10 bg-cream/40 p-4">
+        <div key={row.columnId} className="border-t border-ink/10 py-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-ink">{row.author}</span>
             <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_BADGE[row.status].className}`}
+              className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${STATUS_BADGE[row.status].className}`}
             >
               {STATUS_BADGE[row.status].label}
             </span>
             {row.edited ? (
-              <span className="text-[11px] text-terracotta">· changed after you saw it</span>
+              <span className="text-[12px] text-terracotta">· changed after you saw it</span>
             ) : null}
           </div>
           {row.moderation === 'flagged' ? (
@@ -75,7 +75,7 @@ export function ColumnQueueControls({ eventId, rows }: { eventId: string; rows: 
           <p className="mt-2 font-display text-base font-medium italic text-ink">{row.title}</p>
           <p className="mt-1 break-words text-sm text-ink/80">{row.body}</p>
           {row.status === 'rejected' && row.declineNote ? (
-            <p className="mt-1.5 text-xs text-ink/50">
+            <p className="mt-1.5 text-xs text-ink/70">
               Your note to the guest: <span className="italic">&ldquo;{row.declineNote}&rdquo;</span>
             </p>
           ) : null}
@@ -112,7 +112,7 @@ export function ColumnQueueControls({ eventId, rows }: { eventId: string; rows: 
                       setNoteFor(null);
                       setNote('');
                     }}
-                    className="text-xs text-ink/50 hover:text-ink/80"
+                    className="text-xs text-ink/70 hover:text-ink/80"
                   >
                     Cancel
                   </button>

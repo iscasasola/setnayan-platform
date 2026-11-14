@@ -12,6 +12,7 @@ import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { ColumnQueueControls, type ColumnRow } from './_components/column-queue-controls';
 import { formatCount } from '@/lib/format-number';
 
+import { InfoTip } from '@/app/_components/info-tip';
 export const metadata = { title: 'Guest columns · Studio' };
 export const dynamic = 'force-dynamic';
 
@@ -138,21 +139,21 @@ export default async function GuestColumnsQueuePage({
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
       <Link
         href={`/dashboard/${eventId}/launch`}
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
+        className="inline-flex items-center gap-1.5 text-sm text-ink/70 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} /> Back to your page
       </Link>
 
-      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+      <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
         <h1 className="flex items-center gap-2 text-base font-semibold text-ink">
           <Newspaper aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
           Guest columns — the paper
         </h1>
-        <p className="mt-1 text-sm text-ink/60">
-          Short columns your guests wrote for your paper. Approve to publish on your
+        <InfoTip labelAs="p" label="Short columns your guests wrote for your paper." labelClassName="text-sm text-ink/70" className="mt-1" align="start">
+          Approve to publish on your
           page (and in your editorial after the day); return one to its writer with a
           note if it needs another pass. Held columns stay hidden until you decide.
-        </p>
+        </InfoTip>
         {rows.length === 0 ? (
           /* NO ACTION, deliberately. Only a guest can write a column, from
              their own invitation page — a button here would be one the host

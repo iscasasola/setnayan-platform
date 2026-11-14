@@ -68,7 +68,7 @@ export function GuestPhoneReview({ eventId, waiting }: { eventId: string; waitin
           out — kept ones go into your Memories and your Recap. A kept photo uses the credits already spent; nothing
           more. Leaving one out does not refund it.
         </InfoTip>
-        <span className="shrink-0 text-[13px] text-ink/60">
+        <span className="shrink-0 text-[13px] text-ink/70">
           {undecided.length ? `${formatCount(undecided.length)} to check` : 'all checked'}
         </span>
       </div>
@@ -107,13 +107,13 @@ export function GuestPhoneReview({ eventId, waiting }: { eventId: string; waitin
                   <img src={w.url} alt="" loading="lazy" className="h-full w-full object-cover" />
                 ) : null}
                 {w.media === 'clip' && w.durationMs ? (
-                  <span className="absolute bottom-1.5 right-1.5 rounded bg-black/55 px-1.5 py-px text-[10px] font-semibold text-white">
+                  <span className="absolute bottom-1.5 right-1.5 rounded bg-black/55 px-1.5 py-px text-[12px] font-semibold text-white">
                     0:{String(Math.round(w.durationMs / 1000)).padStart(2, '0')}
                   </span>
                 ) : null}
               </div>
               <p className="mt-1.5 truncate text-[13px] text-ink">
-                <span className="font-semibold">{w.who}</span> <span className="text-ink/55">{w.at}</span>
+                <span className="font-semibold">{w.who}</span> <span className="text-ink/70">{w.at}</span>
               </p>
               <div className="mt-1.5 flex gap-1.5">
                 <button
@@ -140,7 +140,7 @@ export function GuestPhoneReview({ eventId, waiting }: { eventId: string; waitin
         })}
       </ul>
       {kept || out ? (
-        <p className="mt-3 text-[13px] text-ink/65">
+        <p className="mt-3 text-[13px] text-ink/70">
           <b>{formatCount(kept)}</b> kept · <b>{formatCount(out)}</b> left out · <b>{formatCount(undecided.length)}</b> not checked.
         </p>
       ) : null}
@@ -192,7 +192,7 @@ export function PublishRecapForm({
           <p id={`${formId}-ask`} className="text-[15px] text-ink">
             {formatCount(unchecked)} {unchecked === 1 ? 'photo' : 'photos'} from your guests’ phones {unchecked === 1 ? 'is' : 'are'} not checked yet.
           </p>
-          <p className="mt-2 text-sm text-ink/65">Unchecked photos stay out of the Recap and out of your Memories until you keep them.</p>
+          <p className="mt-2 text-sm text-ink/70">Unchecked photos stay out of the Recap and out of your Memories until you keep them.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <ActionButton tone="neutral" icon={X} label="Check them first" onClick={() => setAsking(false)} />
             <button

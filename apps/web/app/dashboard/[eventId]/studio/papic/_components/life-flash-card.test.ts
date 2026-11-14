@@ -84,7 +84,8 @@ test('the count uses the graph\'s filters, not the gallery\'s', () => {
 test('the CTA is not painted in the gold slot', () => {
   // In this repo `terracotta` IS the atelier gold #A9834B — 3.37:1 on cream,
   // under the 4.5:1 AA floor. Fine on an icon (3:1 bar), never on text.
-  assert.ok(/bg-mulberry/.test(CARD), 'the action uses the CTA colour');
+  // The shared pill's filled main verb (design template 14 Nov 2026, rule 3) IS the CTA colour.
+  assert.ok(/bg-mulberry|\bab-brand ab-main\b/.test(CARD), 'the action uses the CTA colour');
   assert.equal(/text-terracotta[^-]/.test(CARD.replace(/className="[^"]*h-4[^"]*text-terracotta[^"]*"/g, '')), false,
     'gold may tint the icon, never the words');
 });

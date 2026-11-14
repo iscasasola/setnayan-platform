@@ -61,9 +61,9 @@ export async function ServiceParts({
     >
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-ink">{door.name}</span>
-        <span className="block text-[13px] text-ink/60">{door.line}</span>
+        <span className="block text-[13px] text-ink/70">{door.line}</span>
       </span>
-      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
+      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
     </Link>
   );
 }

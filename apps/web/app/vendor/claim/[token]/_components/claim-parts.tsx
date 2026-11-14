@@ -10,6 +10,7 @@ import { LogIn, Phone, Sparkles, UserPlus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
 import { DoorShell } from '@/app/_components/door/door-shell';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * The door on a couple's own link (`vendor_invites.source = 'auto_share_link'`
@@ -89,7 +90,7 @@ export function CoupleLinkDoor({
           the one ActionButton (a link and the page's own decline form). */}
       <article className="space-y-6" data-claim-door="own-link">
         <section>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             What they&rsquo;ve recorded
           </p>
           <dl className="mt-2 divide-y divide-ink/10 border-y border-ink/10">
@@ -115,7 +116,7 @@ export function CoupleLinkDoor({
         </section>
 
         <section>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             What you get
           </p>
           <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
@@ -146,9 +147,11 @@ export function CoupleLinkDoor({
           />
           {decline}
         </div>
-        <p className="text-xs text-ink/50">
-          Already on Setnayan? Sign in with your supplier account to claim it.
-          Not the right supplier? Just ignore this page — we won&rsquo;t follow up.
+        <p className="text-sm text-ink/70">
+          Already on Setnayan? Sign in with your supplier account to claim it.{' '}
+          <InfoTip label="" ariaLabel="Not the right supplier?" align="start">
+            Not the right supplier? Just ignore this page — we won&rsquo;t follow up.
+          </InfoTip>
         </p>
       </article>
     </DoorShell>
@@ -216,7 +219,7 @@ export function TeamInviteDoor({
       <article className="space-y-6" data-claim-door="team">
         {offer ? (
           <section data-claim-offer="">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Your offer</p>
+            <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Your offer</p>
             <dl className="mt-2 divide-y divide-ink/10 border-y border-ink/10">
               {offer.plan ? (
                 <div className="flex items-baseline justify-between gap-4 py-2.5" data-claim-offer-row="plan">
@@ -241,7 +244,7 @@ export function TeamInviteDoor({
         ) : null}
 
         <section>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">What you get</p>
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">What you get</p>
           <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
             <Perk>Free supplier profile + marketplace listing</Perk>
             <Perk>Chat with couples in-app</Perk>

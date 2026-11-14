@@ -43,16 +43,12 @@ import {
   type SVGProps,
 } from 'react';
 
-export type ActionTone = 'brand' | 'ok' | 'info' | 'warn' | 'danger' | 'neutral';
-
-export const ACTION_TONES: readonly ActionTone[] = [
-  'brand',
-  'ok',
-  'info',
-  'warn',
-  'danger',
-  'neutral',
-] as const;
+// The tone list and the class builder live in a plain module so a SERVER component can call them: a function exported
+// from this 'use client' file cannot be invoked on the server ("Attempted to call actionButtonClass() from the
+// server"). Re-exported here so every existing import keeps working. 🛡 lib/a-server-file-calls-the-plain-class.test.ts.
+import { ACTION_TONES, actionButtonClass, type ActionTone } from './action-button-class';
+export { ACTION_TONES, actionButtonClass };
+export type { ActionTone };
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { strokeWidth?: number | string }>;
 
@@ -131,24 +127,6 @@ type AsLink = Common & {
 
 export type ActionButtonProps = AsButton | AsLink;
 
-/** The class list — exported so a guard can assert the shape without a DOM. */
-export function actionButtonClass(
-  tone: ActionTone,
-  opts: { main?: boolean; quiet?: boolean; iconOnly?: boolean; filled?: boolean; extra?: string } = {},
-): string {
-  const { main, quiet, iconOnly, filled, extra } = opts;
-  return [
-    'ab',
-    `ab-${tone}`,
-    main ? 'ab-main' : '',
-    filled && !main ? 'ab-fill' : '',
-    quiet && !main && !filled ? 'quiet' : '',
-    iconOnly ? 'icon-only' : '',
-    extra ?? '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-}
 
 /** The caller's extra `data-*` hooks (every one but `data-testid`, which is drawn by name). */
 function extraData(props: object): Record<string, string> {

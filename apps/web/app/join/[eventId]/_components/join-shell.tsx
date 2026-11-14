@@ -17,6 +17,7 @@
 import Link from 'next/link';
 import { DoorShell, type DoorSkin, type DoorStep } from '@/app/_components/door/door-shell';
 import { joinDoorMeta } from '@/lib/join-door-meta';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export type JoinShellEvent = {
   display_name: string;
@@ -73,7 +74,7 @@ export function InvalidTokenScreen() {
       title="This invite link isn't valid."
       sub="It might have been revoked, or the address got cut off when it was shared. Ask whoever invited you for a fresh link."
     >
-      <Link className="button-secondary" href="/">
+      <Link className={actionButtonClass('neutral', { extra: '!h-11' })} href="/">
         Back home
       </Link>
     </DoorShell>

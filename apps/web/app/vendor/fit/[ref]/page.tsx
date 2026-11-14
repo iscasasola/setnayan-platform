@@ -28,6 +28,7 @@ import { formatPhpRounded } from '@/lib/php';
 import { computeVendorFit, type FitCheck } from '@/lib/vendor-fit-qr';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { addVendorFromFit } from './actions';
+import { actionButtonClass } from '@/components/action-button-class';
 
 type Props = {
   params: Promise<{ ref: string }>;
@@ -179,7 +180,7 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6">
       {/* Vendor identity */}
-      <div className="rounded-3xl border border-ink/10 bg-cream p-6 text-center">
+      <div className="rounded-3xl bg-[color:var(--m-paper-2)] p-6 text-center">
         {logoUrl ? (
           <Image
             src={logoUrl}
@@ -193,7 +194,7 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
             <Store className="h-8 w-8 text-ink/40" strokeWidth={1.5} />
           </div>
         )}
-        <p className="mt-4 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
+        <p className="mt-4 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           <Sparkles className="h-3 w-3" strokeWidth={2} /> Fit check
         </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{displayName}</h1>
@@ -212,12 +213,12 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
           ) : null}
         </div>
         {startingPricePhp != null ? (
-          <p className="mt-2 font-mono text-xs text-ink/70">Starts at {formatPhpRounded(startingPricePhp)}</p>
+          <p className="mt-2 text-sm font-semibold tabular-nums text-ink/70">Starts at {formatPhpRounded(startingPricePhp)}</p>
         ) : null}
       </div>
 
       {err ? (
-        <p role="alert" className="mt-4 rounded-xl border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+        <p role="alert" className="mt-4 rounded-xl bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
           Couldn’t add them to that event. Please try again.
         </p>
       ) : null}
@@ -225,13 +226,13 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
       {/* Action zone */}
       <div className="mt-6">
         {!user ? (
-          <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
+          <div className="rounded-2xl p-5 text-center">
             <p className="text-sm text-ink/70">
               Sign in to check whether {displayName} fits your event’s date, venue, and budget — and add them to your shortlist.
             </p>
             <Link
               href={`/signup?as=couple&next=${encodeURIComponent(nextPath)}`}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
+              className={actionButtonClass('brand', { main: true, extra: 'mt-4 w-full !h-11' })}
             >
               Sign up free & check the fit
             </Link>
@@ -243,18 +244,18 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
             </Link>
           </div>
         ) : hostEvents.length === 0 ? (
-          <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
+          <div className="rounded-2xl p-5 text-center">
             <p className="text-sm text-ink/70">Create your event first, then we’ll check the fit.</p>
             <Link
               href={`/dashboard/create-event?next=${encodeURIComponent(nextPath)}`}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
+              className={actionButtonClass('brand', { main: true, extra: 'mt-4 w-full !h-11' })}
             >
               Set up your event
             </Link>
           </div>
         ) : (
-          <div className="rounded-2xl border border-ink/10 bg-white/60 p-5">
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+          <div className="rounded-2xl p-5">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
               Check against your event
             </p>
             <div className="flex flex-wrap gap-2">
@@ -264,9 +265,8 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
                   <Link
                     key={e.event_id}
                     href={`${nextPath}?event=${encodeURIComponent(e.event_id)}`}
-                    className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                      on ? 'border-transparent bg-ink text-cream' : 'border-ink/15 text-ink/70 hover:bg-ink/5'
-                    }`}
+                    className={actionButtonClass(on ? 'brand' : 'neutral', { filled: on, extra: '!h-11' })}
+                    aria-current={on ? 'true' : undefined}
                   >
                     {e.display_name ?? 'Your event'}
                   </Link>

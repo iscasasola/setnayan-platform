@@ -31,6 +31,7 @@ import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { REUSE_FACE_FIELD } from '@/lib/face-selfie-lifetime';
 import { hostsToAsk } from '@/lib/guest-connects-hosts.server';
 import { ConnectHostsTick } from '@/app/[slug]/_components/connect-hosts-tick';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = { title: 'Save this invitation?' };
 
@@ -87,12 +88,12 @@ export default async function ConfirmSeatLinkPage({ params, searchParams }: Prop
   const notMe =
     seat.via === 'cookie' && slug ? (
       <form action={`/${slug}/sign-out`} method="post">
-        <button type="submit" className="button-secondary w-full">
+        <button type="submit" className={actionButtonClass('neutral', { extra: 'w-full !h-11' })}>
           Not me
         </button>
       </form>
     ) : (
-      <Link href="/" className="button-secondary">
+      <Link href="/" className={actionButtonClass('neutral', { extra: '!h-11' })}>
         Not me
       </Link>
     );

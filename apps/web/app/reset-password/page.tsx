@@ -25,6 +25,7 @@ import { DoorShell, DoorNotice, DoorActions } from '@/app/_components/door/door-
 import { completePasswordReset } from './actions';
 import { PasswordField } from '@/app/_components/password-field';
 import { LEAKED_PASSWORD_MESSAGE } from '@/lib/password-strength';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata: Metadata = {
   title: 'Choose a new password',
@@ -60,10 +61,10 @@ export default async function ResetPasswordPage({
         sub="Reset links work once and expire after a short while. Request a fresh one and you’ll be back in shortly."
       >
         <DoorActions>
-          <Link href="/forgot-password" className="button-primary">
+          <Link href="/forgot-password" className={actionButtonClass('brand', { main: true, extra: '!h-11' })}>
             Send me a new link
           </Link>
-          <Link href="/login" className="button-secondary">
+          <Link href="/login" className={actionButtonClass('neutral', { extra: '!h-11' })}>
             Back to sign in
           </Link>
         </DoorActions>

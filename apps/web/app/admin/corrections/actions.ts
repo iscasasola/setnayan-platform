@@ -7,7 +7,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { geocodeNominatim } from '@/lib/geo';
 import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { tellShopRequestAnswered } from '@/lib/supplier-request-notify';
-import { pickedReason } from '@/lib/admin/supplier-work';
+import { pickedCorrectionReason } from '@/lib/admin/supplier-work';
 import {
   isLockedIdentityFieldKey,
   type LockedIdentityFieldKey,
@@ -386,7 +386,10 @@ export async function declineCorrectionRequest(formData: FormData) {
 
   // ➕ The reason the shop reads (admin supplier slice, owner 2026-10-28) — only ever one of the list's own words;
   // anything else stores nothing. The work list refuses a decline without one before it gets here.
-  const reason = pickedReason('names', formData.get('reason'));
+  // ➕ ADMIN REQUEST CARDS (owner 2026-11-14): the list is the one that FITS the field — a logo decline is checked
+  // against the logo reasons, never the shop-name ones. The row is read first so the field is known.
+  const open = await loadOpenRequest(requestId);
+  const reason = pickedCorrectionReason(formData.get('reason'), open?.field_key ?? null);
 
   const admin = createAdminClient();
   const { data: declined, error } = await admin

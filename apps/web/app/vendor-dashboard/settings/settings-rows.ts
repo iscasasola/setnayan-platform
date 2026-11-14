@@ -41,7 +41,7 @@ export const SUPPLIER_HELP_ROWS: readonly { key: string; title: string; line: st
     key: 'booking',
     title: 'How booking works',
     line: 'They ask · you agree · the fee · they are told',
-    href: '/help',
+    href: '/help?for=shop',
   },
   {
     key: 'paid',
@@ -59,6 +59,6 @@ export const SUPPLIER_HELP_ROWS: readonly { key: string; title: string; line: st
     key: 'talk',
     title: 'Talk to Setnayan',
     line: 'Send us a message — we answer within a business day',
-    href: '/help#contact',
+    href: '/help?for=shop#contact',
   },
 ];

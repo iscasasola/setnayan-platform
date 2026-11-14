@@ -92,6 +92,14 @@ test('1 · ONE SEARCH BAR, AT THE BOTTOM, ON BOTH PAGES — signed in AND signed
   const css = readFileSync(join(WEB, 'components/thumb-row.module.css'), 'utf8');
   assert.match(css, /\.dockNoBar \{ bottom: var\(--sn-ride-h, var\(--sn-bottomdock-h, env\(safe-area-inset-bottom, 0px\)\)\); \}/, 'no-bar docking floats');
   assert.match(code('components/thumb-dock.tsx'), /noBar \? `\$\{styles\.dock\} \$\{styles\.dockNoBar\}`/);
+  // ❓ 13 Nov 2026 (owner "help approved", ask-first prototype v5): on /help the SAME field stands at the top, under
+  // "Ask anything" — `at="top"`, a plain GET form to the same `?q=`. /features keeps the bottom row. Held both ways.
+  assert.match(code(PAGES.help).match(/<HowSearchField[^>]*>/)?.[0] ?? '', /\bat="top"/, '/help: the ask box is not at the top');
+  assert.doesNotMatch(code(PAGES.features).match(/<HowSearchField[^>]*>/)?.[0] ?? '', /\bat=/, '/features: the field left the bottom row');
+  assert.match(fn, /if \(at === 'top'\) return <AskBox\b/, 'the top field is not the one ask box');
+  const top = renderToStaticMarkup(React.createElement(HowSearchField, { q: 'seating', action: '/help', at: 'top', clearHref: '/help' }));
+  assert.match(top, /<form[^>]*role="search"[^>]*action="\/help"[^>]*method="get"/, 'the ask box is not a plain GET form to /help');
+  assert.match(top, /name="q"[^>]*value="seating"/, 'the ask box does not carry the words');
   // Neither page decides the search by session any more.
   for (const [name, rel] of Object.entries(PAGES)) {
     assert.doesNotMatch(code(rel).match(/<HowSearchField[^>]*>/)?.[0] ?? '', /signedIn/, `${name}: the search forks on who is looking`);

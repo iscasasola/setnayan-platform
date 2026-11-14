@@ -155,7 +155,7 @@ test('Refer a couple is reached inside Help: the couple Help tile names the even
   const odd = await sheet('events', [CLAIRE], 'https://evil.example/dashboard/x/refer');
   assert.match(odd, /data-sheet-tile="help"[^>]* href="\/help"/);
   const supplier = await sheet('shop', [CLAIRE], '/dashboard/S89E-ABCDEFGHJK/refer');
-  assert.match(supplier, /data-sheet-tile="help"[^>]* href="\/vendor-dashboard\/help"/);
+  assert.match(supplier, /data-sheet-tile="help"[^>]* href="\/help\?for=shop"/);
   const help = stripComments(readFileSync(join(WEB, 'app/(shell)/help/page.tsx'), 'utf8'));
   assert.match(help, /referEvent && \(await isReferralProgramEnabled\(\)[\s\S]*?href=\{`\/dashboard\/\$\{referEvent\}\/refer`\}[\s\S]*?Refer a couple/, 'the help centre does not draw the Refer a couple door');
 });
@@ -166,5 +166,5 @@ test('the couple sheet is unchanged: no You are in card, the quiet "Sign out of 
   assert.match(html, /data-sheet-sign-out-all=""/);
   assert.match(html, /data-sheet-tile="help"[^>]* href="\/help"/, 'the couple’s Help tile opens the help centre');
   const supplier = await sheet('shop');
-  assert.match(supplier, /data-sheet-tile="help"[^>]* href="\/vendor-dashboard\/help"/, 'the supplier’s Help tile opens supplier help');
+  assert.match(supplier, /data-sheet-tile="help"[^>]* href="\/help\?for=shop"/, 'the supplier’s Help tile opens supplier help — the ask-first Help with the shop’s coverage (owner 13 Nov 2026, "Help coverage = active account")');
 });

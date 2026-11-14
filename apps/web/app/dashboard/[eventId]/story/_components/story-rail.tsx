@@ -81,7 +81,7 @@ export function StoryRail({
               className={`min-h-[44px] whitespace-nowrap rounded-full border px-3.5 text-sm font-semibold transition ${
                 active === s.key
                   ? 'border-ink/25 bg-white text-ink shadow-sm'
-                  : 'border-ink/12 bg-cream/60 text-ink/60'
+                  : 'border-ink/12 bg-cream/60 text-ink/75'
               }`}
             >
               {s.label}
@@ -107,7 +107,7 @@ export function StoryRail({
                 className={`relative flex min-h-[44px] w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition ${
                   on
                     ? 'bg-white font-semibold text-ink shadow-sm before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r before:bg-mulberry-600'
-                    : 'text-ink/60 hover:text-ink'
+                    : 'text-ink/75 hover:text-ink'
                 }`}
               >
                 <span className="flex-1">{s.label}</span>

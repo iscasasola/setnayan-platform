@@ -211,7 +211,7 @@ export function ThemeStep({
                           className="h-9 w-9 shrink-0 rounded-md border border-ink/10"
                           style={{ background: hex }}
                         />
-                        <span className="min-w-0 truncate font-mono text-[10px] uppercase text-ink/75">
+                        <span className="min-w-0 truncate font-mono text-[12px] uppercase text-ink/75">
                           {hex}
                         </span>
                       </span>
@@ -226,7 +226,7 @@ export function ThemeStep({
                         {receptionSlotLabel(i)}
                       </span>
                     )}
-                    <span className="mt-0.5 block text-center text-[10.5px] leading-tight text-ink/75">
+                    <span className="mt-0.5 block text-center text-[12px] leading-tight text-ink/75">
                       {name}
                     </span>
                   </div>

@@ -123,7 +123,8 @@ test('2 · the grow: shape 360, three steps 40 ms apart, chrome last; the close 
 test('3 · every shared piece reads the system — and none keeps a number of its own', () => {
   // PressFeel — in on touch-down, out on lift, from the tokens.
   const press = code('app/_components/press-feel.tsx');
-  assert.match(press, /from '@\/lib\/grow-motion'/);
+  assert.match(press, /from '@\/lib\/motion-timing'/);
+  assert.doesNotMatch(press, /@\/lib\/grow-motion/, 'every page now loads the grow player through the press listener');
   assert.match(press, /token\('--sn-dur-press', TIMING\.pressMs\)/);
   assert.match(press, /token\('--sn-dur-release', TIMING\.releaseMs\)/);
   // RiseScreen — the grow both ways, through the one player.
@@ -189,7 +190,7 @@ test('4 · nobody keeps their own copy of the grow / the rise, and the 0.7 s num
   const offenders: string[] = [];
   for (const { rel, src } of files) {
     // (`lib/motion.ts` is the guest Event Hub's own three tokens — that page keeps its own motion — not this table.)
-    if (rel !== 'lib/grow-motion.ts' && /\b(?:openMs|releaseMs|rowOpenMs)\s*:\s*\d/.test(src)) offenders.push(`${rel}: a second timing table`);
+    if (rel !== 'lib/motion-timing.ts' && /\b(?:openMs|releaseMs|rowOpenMs)\s*:\s*\d/.test(src)) offenders.push(`${rel}: a second timing table`);
     if (rel !== 'lib/rise-motion.ts' && /\b(?:RISE_MS|PICKED_OPEN_MS)\s*=\s*\d/.test(src)) offenders.push(`${rel}: a numeric RISE_MS / PICKED_OPEN_MS`);
     if (rel !== 'app/globals.css' && /--sn-(?:dur-[a-z-]+|ease-emph)\s*:/.test(src)) offenders.push(`${rel}: redefines a motion token`);
     if (/\b520ms\b|\bduration:\s*520\b/.test(src)) offenders.push(`${rel}: the old 520-ms rise hard-coded`);

@@ -18,7 +18,7 @@
  * 🔒 lib/the-motion-system-is-shared.test.ts (one number, nobody keeps their own)
  */
 
-import { EASE_EMPH, TIMING } from '@/lib/grow-motion';
+import { EASE_EMPH, TIMING } from '@/lib/motion-timing';
 
 // 🎞 2026-11-13 "Motion system approved": the faster numbers REPLACE the 0.7 s rise — the shape opens in 360 ms on the
 // emphasized curve; the numbers live in `lib/grow-motion.ts` (mirroring `--sn-dur-open` / `--sn-ease-emph`).

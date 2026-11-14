@@ -74,8 +74,8 @@ test('(1) ONE listener plays the press — in on touch-down, held, out on lift (
   // No timer, no dependency, no state: a few hundred bytes in the root layout.
   assert.doesNotMatch(src, /setTimeout|setInterval|requestAnimationFrame|useState|framer-motion/);
   // + the one list of what a scrim is (owner 2026-10-29: a scrim is never dipped) — a string constant, no code — and the
-  // motion system's numbers (`lib/grow-motion.ts`, the timing table).
-  assert.deepEqual([...src.matchAll(/from '([^']+)'/g)].map((m) => m[1]), ['react', '@/lib/scrim', '@/lib/grow-motion']);
+  // motion system's numbers (`lib/motion-timing.ts`, the timing table — never the grow player).
+  assert.deepEqual([...src.matchAll(/from '([^']+)'/g)].map((m) => m[1]), ['react', '@/lib/scrim', '@/lib/motion-timing']);
   // Mounted ONCE, in the root layout — and nowhere else.
   const layout = read('app/layout.tsx');
   assert.equal((layout.match(/<PressFeel \/>/g) ?? []).length, 1);

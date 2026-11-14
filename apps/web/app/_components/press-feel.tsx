@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { SCRIM_SELECTOR } from '@/lib/scrim';
-import { EASE_SPRING, TIMING, pressScale } from '@/lib/grow-motion';
+import { EASE_SPRING, TIMING, pressScale } from '@/lib/motion-timing';
 
 /**
  * PressFeel — ONE press feel for every control the app owns, from ONE listener.

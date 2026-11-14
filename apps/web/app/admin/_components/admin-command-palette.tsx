@@ -694,10 +694,10 @@ export function AdminCommandPalette({
                 className="flex w-full items-start gap-2 rounded-md border px-2.5 py-2 text-left"
                 style={{
                   borderColor: 'var(--sn-line)',
-                  ...(sel === 0 ? { background: 'var(--sn-paper-2, #F5EEE1)' } : {}),
+                  ...(sel === 0 ? { background: 'var(--m-paper-2)' } : {}),
                 }}
               >
-                <Sparkles aria-hidden className="mt-0.5 h-3 w-3 shrink-0" style={{ color: 'var(--sn-gold, #A9834B)' }} strokeWidth={2} />
+                <Sparkles aria-hidden className="mt-0.5 h-3 w-3 shrink-0" style={{ color: 'var(--m-orange)' }} strokeWidth={2} />
                 <span className="min-w-0">
                   <span className="block font-mono text-[9.5px] font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--sn-ink-500)' }}>
                     Recommended
@@ -714,7 +714,7 @@ export function AdminCommandPalette({
           ) : null}
           {/* WHAT CAN I ASK? — the advertised sentences, each pinned to its first row by ask-keywords.test.ts. */}
           {!q.trim() ? (
-            <div className="mx-1.5 mb-1 mt-1 rounded-md px-2.5 py-2" data-palette-examples="" style={{ background: 'var(--sn-sunk, #F4F2EC)' }}>
+            <div className="mx-1.5 mb-1 mt-1 rounded-md px-2.5 py-2" data-palette-examples="" style={{ background: 'var(--m-paper-2)' }}>
               <p className="font-mono text-[9.5px] font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--sn-ink-500)' }}>
                 What can I ask?
               </p>
@@ -892,7 +892,7 @@ export function AdminCommandPalette({
                     >
                       <span>{d.label}</span>
                       {i === 0 && learnedHref === d.href ? (
-                        <span className="font-mono text-[10px] font-normal" style={{ color: 'var(--sn-gold, #A9834B)' }}>
+                        <span className="font-mono text-[10px] font-normal text-mulberry">
                           You picked this before
                         </span>
                       ) : null}

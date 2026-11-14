@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:phrases
 //
 // The ⌘K box's phrase bank: every phrase and the ONE place its first row must open.
-// 1675 phrases — 332 page names · 336 job phrasings · 992 keyword-table phrasings · 15 misspellings.
+// 1669 phrases — 332 page names · 336 job phrasings · 986 keyword-table phrasings · 15 misspellings.
 // ask-phrase-bank.test.ts fails if this drifts from buildPhraseBank(), and holds the box's accuracy over it.
 
 import { parsePhraseBank } from './ask-phrase-bank';
@@ -1482,8 +1482,6 @@ find the debuts	/admin/accounts?tab=events	keyword
 find the birthday	/admin/accounts?tab=events	keyword
 find the birthdays	/admin/accounts?tab=events	keyword
 find the christening	/admin/accounts?tab=events	keyword
-find the celebration	/admin/accounts?tab=events	keyword
-find the celebrations	/admin/accounts?tab=events	keyword
 change the event	/admin/accounts?tab=events	keyword
 edit the event	/admin/accounts?tab=events	keyword
 update the event	/admin/accounts?tab=events	keyword
@@ -1507,8 +1505,6 @@ change the debuts	/admin/accounts?tab=events	keyword
 change the birthday	/admin/accounts?tab=events	keyword
 change the birthdays	/admin/accounts?tab=events	keyword
 change the christening	/admin/accounts?tab=events	keyword
-change the celebration	/admin/accounts?tab=events	keyword
-change the celebrations	/admin/accounts?tab=events	keyword
 remove the event	/admin/accounts?tab=events	keyword
 delete the event	/admin/accounts?tab=events	keyword
 disable the event	/admin/accounts?tab=events	keyword
@@ -1527,8 +1523,6 @@ remove the debuts	/admin/accounts?tab=events	keyword
 remove the birthday	/admin/accounts?tab=events	keyword
 remove the birthdays	/admin/accounts?tab=events	keyword
 remove the christening	/admin/accounts?tab=events	keyword
-remove the celebration	/admin/accounts?tab=events	keyword
-remove the celebrations	/admin/accounts?tab=events	keyword
 add a new announcement	/admin/studio?tab=social-queue	keyword
 create a new announcement	/admin/studio?tab=social-queue	keyword
 new a new announcement	/admin/studio?tab=social-queue	keyword

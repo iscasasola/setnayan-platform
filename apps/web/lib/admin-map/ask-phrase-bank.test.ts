@@ -8,7 +8,7 @@
  *      would open is compared with the phrase's expected place. Top-1 accuracy is held to a MEASURED floor and every
  *      miss is printed, so a drop names the phrases it broke.
  *
- * Measured 14 Nov 2026 on this bank: the box as it was (the ranker alone) put the right place first for 64.1 % of
+ * Measured 14 Nov 2026 on this bank: the box as it was (the ranker alone) put the right place first for 64.7 % of
  * phrases; with the keyword table, job phrasing and page names it is 100 %. The floor is the measured value, not a
  * hope — raise it when the box gets better, never lower it to go green.
  */

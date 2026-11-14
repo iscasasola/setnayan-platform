@@ -167,7 +167,7 @@ export const ASK_PLACES: readonly AskPlace[] = [
   },
   {
     key: 'event',
-    nouns: ['event', 'events', 'wedding', 'weddings', 'debut', 'debuts', 'birthday', 'birthdays', 'christening', 'celebration', 'celebrations'],
+    nouns: ['event', 'events', 'wedding', 'weddings', 'debut', 'debuts', 'birthday', 'birthdays', 'christening'],
     href: '/admin/accounts?tab=events',
     say: { open: 'Open events', edit: 'Open events', remove: 'Open events' },
   },

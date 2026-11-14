@@ -141,21 +141,21 @@ export const PROFILE_HEADER_CSS = `
     border-radius: var(--m-r-full, 999px);
     overflow: hidden;
     background: var(--m-paper-2, #F4F2EC);
-    border: 1px solid var(--m-line, #E1DCD1);
+    border: 1px solid var(--m-line);
   }
   .uprof-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .uprof-avatar-initials {
     font-family: var(--font-display), Georgia, serif;
     font-size: 2rem;
     letter-spacing: .04em;
-    color: var(--m-orange, #A9834B);
+    color: var(--m-orange);
   }
   .uprof-head { text-align: center; margin-bottom: clamp(2.25rem, 5vw, 3.25rem); }
   .uprof-name {
     font-size: clamp(2.4rem, 7vw, 4rem);
     line-height: 1.04;
     margin: 0;
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
   }
   .uprof-badge-row {
     display: flex;
@@ -172,14 +172,14 @@ export const PROFILE_HEADER_CSS = `
   }
   .uprof-stat {
     font-size: 0.9rem;
-    color: var(--m-slate, #4F535B);
+    color: var(--m-slate);
   }
   .uprof-stat strong {
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
     font-weight: 600;
   }
   .uprof-stat-dot {
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
     opacity: 0.6;
   }
   .uprof-tier-chip {
@@ -190,9 +190,9 @@ export const PROFILE_HEADER_CSS = `
     display: inline-flex;
     align-items: center;
     padding: 0.34rem 0.95rem;
-    border: 1px solid var(--m-orange, #A9834B);
+    border: 1px solid var(--m-orange);
     border-radius: var(--m-r-full, 999px);
-    background: var(--m-orange, #A9834B);
+    background: var(--m-orange);
     color: #fff;
     font-size: 0.82rem;
     font-weight: 600;
@@ -203,8 +203,8 @@ export const PROFILE_HEADER_CSS = `
   .uprof-follow:disabled { opacity: 0.6; cursor: default; transform: none; }
   .uprof-follow[data-following='1'] {
     background: #fff;
-    color: var(--m-ink, #1B1A17);
-    border-color: var(--m-line, #E2DED4);
+    color: var(--m-ink);
+    border-color: var(--m-line);
   }
   /* E6 — the one-way promise. flex-basis:100% breaks it onto its own centered
      line inside the wrapping .uprof-audience row, so it never reads as a fourth
@@ -222,7 +222,7 @@ export const PROFILE_HEADER_CSS = `
     text-align: center;
     font-size: 0.78rem;
     line-height: 1.35;
-    color: var(--m-slate-2, #6E6A62);
+    color: var(--m-slate-2);
   }
 
   .uprof-rule {
@@ -230,12 +230,12 @@ export const PROFILE_HEADER_CSS = `
     width: 44px;
     height: 1px;
     margin: 1.25rem auto 0;
-    background: var(--m-orange, #A9834B);
+    background: var(--m-orange);
   }
   .uprof-sub {
     margin: 1rem 0 0;
     font-size: 0.98rem;
-    color: var(--m-slate, #4F535B);
+    color: var(--m-slate);
   }
 
   .uprof-relation {
@@ -243,11 +243,11 @@ export const PROFILE_HEADER_CSS = `
     align-items: center;
     margin: 0.5rem auto 0;
     padding: 0.2rem 0.7rem;
-    border: 1px solid var(--m-line, #E2DED4);
+    border: 1px solid var(--m-line);
     border-radius: var(--m-r-full, 999px);
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
   }
 
   /* ── 🏠 HOME'S LAYOUT (owner 11 Nov 2026, "One profile page approve" — v3): the same header, read as a profile row —

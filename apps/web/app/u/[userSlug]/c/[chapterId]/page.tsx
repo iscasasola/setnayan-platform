@@ -374,8 +374,8 @@ export default async function ChapterDetailPage({ params }: Props) {
 const UCHAP_CSS = `
   .uchap {
     min-height: 100dvh;
-    background: var(--m-paper, #FBFBFA);
-    color: var(--m-ink, #1B1A17);
+    background: var(--m-paper);
+    color: var(--m-ink);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -395,11 +395,11 @@ const UCHAP_CSS = `
     align-items: center;
     gap: 0.35rem;
     font-size: 0.9rem;
-    color: var(--m-slate, #4F535B);
+    color: var(--m-slate);
     text-decoration: none;
     transition: color .15s;
   }
-  .uchap-back:hover { color: var(--m-ink, #1B1A17); }
+  .uchap-back:hover { color: var(--m-ink); }
 
   .uchap-head { margin-bottom: clamp(1.5rem, 4vw, 2.25rem); }
   .uchap-kicker {
@@ -415,23 +415,23 @@ const UCHAP_CSS = `
     font-weight: 600;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--m-orange-2, #8A6B39);
+    color: var(--m-orange-2);
   }
   .uchap-provider, .uchap-date, .uchap-views {
     font-size: 0.8rem;
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
   }
   .uchap-title {
     font-size: clamp(1.9rem, 6vw, 3rem);
     line-height: 1.08;
     margin: 0;
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
   }
 
   .uchap-embed {
     border-radius: var(--m-r-lg, 22px);
     overflow: hidden;
-    border: 1px solid var(--m-line, #E2DED4);
+    border: 1px solid var(--m-line);
     box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
   }
 
@@ -439,7 +439,7 @@ const UCHAP_CSS = `
   .uchap-sub-head {
     font-size: clamp(1.3rem, 4vw, 1.7rem);
     margin: 0 0 1.25rem;
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
   }
   .uchap-block + .uchap-block { margin-top: 1.5rem; }
   .uchap-block-label {
@@ -449,7 +449,7 @@ const UCHAP_CSS = `
     font-weight: 600;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
   }
   /* THE STORY — reading typography, not metadata typography. Measure is capped
      so a long wedding write-up stays readable on a wide screen. */
@@ -462,13 +462,13 @@ const UCHAP_CSS = `
     white-space: pre-line;
     font-size: clamp(1.02rem, 2.4vw, 1.12rem);
     line-height: 1.75;
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
   }
   .uchap-para + .uchap-para { margin-top: 1.15em; }
   .uchap-note {
     margin: 0;
     font-size: 0.9rem;
-    color: var(--m-slate, #4F535B);
+    color: var(--m-slate);
   }
 
   .uchap-vendors {
@@ -489,7 +489,7 @@ const UCHAP_CSS = `
     height: 100%;
     padding: 0.9rem 1rem;
     background: #fff;
-    border: 1px solid var(--m-line, #E2DED4);
+    border: 1px solid var(--m-line);
     border-radius: var(--m-r-md, 14px);
     box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
     text-decoration: none;
@@ -498,7 +498,7 @@ const UCHAP_CSS = `
   }
   .uchap-vendor:hover {
     transform: translateY(-2px);
-    border-color: var(--m-orange, #A9834B);
+    border-color: var(--m-orange);
     box-shadow: 0 10px 30px -12px rgba(30,26,18,.18);
   }
   /* Plain-text (unlinked) supplier — a name the creator mentioned, with no
@@ -506,7 +506,7 @@ const UCHAP_CSS = `
   .uchap-vendor--text { cursor: default; }
   .uchap-vendor--text:hover {
     transform: none;
-    border-color: var(--m-line, #E2DED4);
+    border-color: var(--m-line);
     box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
   }
   .uchap-vendor-logo {
@@ -523,21 +523,21 @@ const UCHAP_CSS = `
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    color: var(--m-orange-2, #8A6B39);
+    color: var(--m-orange-2);
     text-transform: uppercase;
   }
   .uchap-vendor-body { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; flex: 1 1 auto; }
   .uchap-vendor-name {
     font-size: 0.95rem;
     font-weight: 600;
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .uchap-vendor-city {
     font-size: 0.78rem;
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -548,7 +548,7 @@ const UCHAP_CSS = `
     margin: 0;
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--m-orange-2, #8A6B39);
+    color: var(--m-orange-2);
   }
   .uchap-vendor-book-cta {
     align-self: flex-start;
@@ -556,8 +556,8 @@ const UCHAP_CSS = `
     align-items: center;
     padding: 0.45rem 0.9rem;
     border-radius: var(--m-r-full, 999px);
-    background: var(--m-ink, #1B1A17);
-    color: var(--m-paper, #FBFBFA);
+    background: var(--m-ink);
+    color: var(--m-paper);
     font-size: 0.8rem;
     font-weight: 600;
     text-decoration: none;
@@ -568,26 +568,26 @@ const UCHAP_CSS = `
     margin: 0;
     font-size: 0.72rem;
     line-height: 1.45;
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
   }
   .uchap-vendor-chev {
     flex: 0 0 auto;
     font-size: 1.3rem;
     line-height: 1;
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
     opacity: .5;
     transition: transform .18s cubic-bezier(.2,.7,.2,1), color .18s, opacity .18s;
   }
   .uchap-vendor:hover .uchap-vendor-chev {
     transform: translateX(3px);
-    color: var(--m-orange, #A9834B);
+    color: var(--m-orange);
     opacity: 1;
   }
 
   .uchap-actions {
     margin-top: clamp(2rem, 5vw, 3rem);
     padding-top: 1.25rem;
-    border-top: 1px solid var(--m-line, #E2DED4);
+    border-top: 1px solid var(--m-line);
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -599,10 +599,10 @@ const UCHAP_CSS = `
   .uchap-foot-link {
     font-size: 0.8rem;
     letter-spacing: 0.04em;
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
     text-decoration: none;
     border-bottom: 1px solid transparent;
     transition: color .15s, border-color .15s;
   }
-  .uchap-foot-link:hover { color: var(--m-ink, #1B1A17); border-color: var(--m-orange, #A9834B); }
+  .uchap-foot-link:hover { color: var(--m-ink); border-color: var(--m-orange); }
 `;

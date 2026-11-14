@@ -316,7 +316,7 @@ const SLCAT_CSS = `
 .slcat .slempty .se-t{font-size:15px;font-weight:600;color:rgb(var(--color-ink))}
 .slcat .slempty .se-s{margin-top:2px;font-size:13.5px;line-height:1.45;color:rgb(var(--color-ink)/.6)}
 
-.slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
+.slcat{--paper:var(--m-paper);--ink:var(--m-ink);--ink-soft:#4F535B;
   /* --ink-faint was USED SEVEN TIMES IN THIS STYLESHEET AND DEFINED NOWHERE
      (2026-09-09). An undefined custom property makes the declaration invalid at
      computed-value time, so every one of those rules fell back to INHERITED ink
@@ -325,7 +325,7 @@ const SLCAT_CSS = `
      Same family as the --font-serif and --sn-warn traps this repo has
      already paid for: rejected, not thrown, and the only symptom is an absence. */
   --ink-faint:#6B7079;
-  --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);
+  --gold:var(--m-orange);--gold-deep:var(--m-orange-2);
   /* THE ONLY GOLD THAT MAY CARRY TEXT. globals.css already worked this out and
      wrote the answer next to the token: #A9834B / #8A6B39 score 3.37:1 / 4.21:1
      on the pale gold wash — below the 4.5:1 AA floor — and #5C4726 clears it.
@@ -334,7 +334,7 @@ const SLCAT_CSS = `
      --gold-deep keeps its job as a FILL (white on it is fine); this is for
      letters. */
   --gold-text:var(--m-orange-deep,#5C4726);
-  --mulberry:var(--m-mulberry,#1B1A17);--line:var(--m-line,rgba(30,26,18,.12));
+  --mulberry:var(--m-mulberry);--line:var(--m-line,rgba(30,26,18,.12));
   --line-soft:rgba(30,26,18,.07);--card:#fff;
   /* Card EDGE + resting lift (visual parity 2026-07-28).
      The bench sits on the app-wide .sn-ambient ground. The original defect: the

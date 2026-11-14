@@ -69,8 +69,8 @@ async function newShop(): Promise<{ vpid: string; userId: string; sid: string }>
   if (!vpid) {
     const v = await db.query<{ vendor_profile_id: string }>(
       `INSERT INTO public.vendor_profiles
-         (user_id, business_name, location_city, services, verification_state, last_verified_at)
-       VALUES ($1,'Preserved Card Studio','Manila',ARRAY['photography']::text[],'verified',NOW())
+         (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+       VALUES ($1,'Preserved Card Studio','Manila',ARRAY['photography']::text[],'verified',NOW(), 'verified')
        RETURNING vendor_profile_id`,
       [userId],
     );
@@ -78,7 +78,7 @@ async function newShop(): Promise<{ vpid: string; userId: string; sid: string }>
   } else {
     await db.query(
       `UPDATE public.vendor_profiles
-          SET verification_state='verified', last_verified_at=NOW(),
+          SET verification_state='verified', public_visibility = 'verified', last_verified_at=NOW(),
               business_name='Preserved Card Studio'
         WHERE vendor_profile_id=$1`,
       [vpid],

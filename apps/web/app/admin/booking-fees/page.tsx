@@ -213,11 +213,15 @@ export default async function AdminBookingFeesPage() {
   // 🚪 The bookings switch, read fresh (not remembered) so this page shows what was just saved.
   const { data: switchRow, error: switchErr } = await admin
     .from('platform_settings')
-    .select('bookings_open')
+    .select('bookings_open, booking_fee_minting_live')
     .eq('id', 1)
     .maybeSingle();
   if (switchErr) logQueryError('admin/booking-fees.bookings_open', switchErr);
   const bookingsOpen = switchErr ? null : bookingsOpenFromSetting((switchRow as { bookings_open?: unknown } | null)?.bookings_open);
+  /* 💸 F-A-23 (admin walk 13 Nov 2026): the empty state said fees start "once the booking fee is switched on" while
+     `platform_settings.booking_fee_minting_live` was already true. It reads the real setting now; null = unread. */
+  const mintingRaw = (switchRow as { booking_fee_minting_live?: unknown } | null)?.booking_fee_minting_live;
+  const feesMinting: boolean | null = switchErr ? null : mintingRaw === true ? true : mintingRaw === false ? false : null;
 
   // 💳 RW-45 (walk 13 Nov 2026): what a supplier OWES is the bill — the fee plus the Papic gift on it — never the fee
   // alone (₱1,337.50 shown against a ₱1,818.90 bill). A charge with no bill yet owes its fee.
@@ -264,7 +268,6 @@ export default async function AdminBookingFeesPage() {
 
       <TemplateSection
         label="Fees owed"
-        tip="Fees are only charged once the booking fee is switched on — until then this list stays empty even when bookings are being locked."
         right={!unreadable && charges.length > 0 ? owedLabel : undefined}
         data="fees"
       >
@@ -296,8 +299,17 @@ export default async function AdminBookingFeesPage() {
           </p>
         ) : null}
 
+        {/* 💸 F-A-23 (admin walk 13 Nov 2026): the empty line reads the real fee switch — its words are the walk's. */}
         {!unreadable && charges.length === 0 ? (
-          <TemplateEmpty data="fees">Nobody owes a booking fee right now.</TemplateEmpty>
+          <TemplateEmpty data="fees">
+            <span data-fees-minting={String(feesMinting)}>
+              {feesMinting === true
+                ? 'Nobody owes a booking fee right now. The booking fee is on, so a booking that owes one shows here as soon as it is locked.'
+                : feesMinting === false
+                  ? 'Nobody owes a booking fee right now. The booking fee is off, so this page stays empty even when bookings are being locked.'
+                  : 'Nobody owes a booking fee right now. Whether the booking fee is on could not be read just now.'}
+            </span>
+          </TemplateEmpty>
         ) : null}
 
         {charges.length > 0 ? (

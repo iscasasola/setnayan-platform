@@ -83,6 +83,8 @@ export const RETAIL: RetailRow[] = [
   // both). Moves in the SAME PR as the catalogue migration — re-check with the select above.
   { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', retail_price_php: 5690, is_active: true },
   { service_code: 'EVENT_PLUS', title: 'Event Plus', retail_price_php: 2990, is_active: true },
+  // Mirrors migration 20271344860040_event_ultra_plan (the row's own INSERT); the db guard compares it to the replay.
+  { service_code: 'EVENT_ULTRA', title: 'Event Ultra', retail_price_php: 9990, is_active: true },
   // 💎 Event Hub Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; OFF SALE since 2026-10-26
   // (owner: "just have the upgrade event hub pro" — migration 20271290543004). Re-check with the select above.
   { service_code: 'COUPLE_HUB_PART_REVEAL', title: 'Event Hub Pro · Reveal', retail_price_php: 1000, is_active: false },

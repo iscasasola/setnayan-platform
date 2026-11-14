@@ -7,7 +7,10 @@ import { CanvasMaker } from '../_components/canvas-maker';
 import { RefinementsEditor } from '../_components/refinements-editor';
 import { CardRecordSection } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
-import { cardRecordHasSomethingToSayToTheShop, fetchServiceCardRecords, readCardBookedCount } from '@/lib/service-card-record';
+import { cardRecordHasSomethingToSayToTheShop, readCardBookedCount, readOneCardRecord } from '@/lib/service-card-record';
+import { CardPortfolioSection } from '@/app/_components/card-portfolio-section';
+import { cardPortfolioAlbums } from '@/lib/card-portfolio-albums.server';
+import { portfolioSummary, toAlbumViews, workAlbumAnchor } from '@/lib/card-portfolio-albums';
 import { loadCardForEdit, loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
 import { HallsUsesPick } from '../_components/halls-uses-pick';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -52,10 +55,14 @@ export default async function EditServiceCardPage({
   // Its own read, so a refused read (null) is never taken for "nobody booked" (0).
   // 🔒 The delete sheet's open bookings (owner 10 Nov on PR #7464) — the card is proved this shop's own just above
   // (`loadCardForEdit`), so the admin read names only its own couples' events.
-  const [ctx, details, records, hallsRes, bookedNow, cardBookings] = await Promise.all([
+  // 🃏📸 ONE ALBUM, TWO PLACES (DECISION_LOG 2026-10-08, frames 71–78) rides the card-record flag: OFF → the Record and
+  // Portfolio folds read and say exactly what they did before; ON → the record (or its refusal) and this card's albums.
+  const recordOn = cardRecordEnabled();
+  const [ctx, details, records, hallsRes, bookedNow, cardBookings, albums] = await Promise.all([
     loadMakerContext(supabase, profile.vendor_profile_id, { fixedCategory: card.category, withKindList: false }),
     loadKindDetails(supabase, profile.vendor_profile_id, card.category),
-    cardRecordEnabled() ? fetchServiceCardRecords(supabase, [serviceId]).catch(() => null) : Promise.resolve(null),
+    // 🃏 Flag ON: a refused record read is SAID (frame 75), never folded into "nobody booked it". Flag OFF: not read.
+    recordOn ? readOneCardRecord(supabase, serviceId).catch(() => null) : Promise.resolve(undefined),
     sellsVenue
       ? supabase
           .from('vendor_schedule_pools')
@@ -74,6 +81,10 @@ export default async function EditServiceCardPage({
       : Promise.resolve({ data: [] }),
     readCardBookedCount(supabase, serviceId),
     readCardBookings(createAdminClient(), [serviceId]),
+    // The card is proved this shop's own just above (`loadCardForEdit`).
+    recordOn
+      ? cardPortfolioAlbums(createAdminClient(), { vendorProfileId: profile.vendor_profile_id, serviceId }).catch(() => null)
+      : Promise.resolve(undefined),
   ]);
   const thisCardBookings = cardBookings?.get(serviceId) ?? null;
   const deleteGate = {
@@ -90,7 +101,17 @@ export default async function EditServiceCardPage({
   const hallUses = hallRows
     .filter((h) => (h.vendor_service_halls ?? []).some((l) => l.vendor_service_id === serviceId))
     .map((h) => h.pool_id);
-  const record = records?.get(serviceId) ?? null;
+  const record = records?.record ?? null;
+  const here = `/vendor-dashboard/services/${serviceId}`;
+  const ownPhotos = [card.initial.coverPhotoR2Key, ...card.initial.showcasePhotoR2Keys]
+    .map((k) => (k ? card.initial.mediaDisplayUrls[k] : undefined))
+    .filter((u): u is string => typeof u === 'string' && u.length > 0);
+  const recordSlot =
+    records === null ? (
+      <CardRecordUnread retryHref={here} />
+    ) : cardRecordHasSomethingToSayToTheShop(record) ? (
+      <CardRecordSection record={record} variant="vendor" />
+    ) : null;
   const kindName = ctx.kindLabel(card.category);
 
   return (
@@ -130,9 +151,18 @@ export default async function EditServiceCardPage({
             <RefinementsEditor canonicalService={card.category} refinements={details.refinements} initial={details.values} leafLabel={kindName} bare />
           ) : null
         }
-        recordSlot={
-          cardRecordHasSomethingToSayToTheShop(record) ? <CardRecordSection record={record} variant="vendor" /> : null
+        recordSlot={recordSlot}
+        portfolioSlot={
+          albums === undefined ? null : (
+            <CardPortfolioSection
+              work={albums ? toAlbumViews(albums, { href: (id) => `/vendor-dashboard/services/their-work#${workAlbumAnchor(id)}` }) : null}
+              own={ownPhotos}
+              variant="vendor"
+              retryHref={here}
+            />
+          )
         }
+        portfolioLine={albums === undefined ? null : portfolioSummary(albums)}
         initial={card.initial}
         editing={card.editing}
         bookedNow={bookedNow}
@@ -146,5 +176,17 @@ export default async function EditServiceCardPage({
         <HallsUsesPick serviceId={serviceId} halls={venueHalls} uses={hallUses} action={setServiceHalls} />
       ) : null}
     </div>
+  );
+}
+
+/** Frame 75: a refused record read, said in the Record row's own place — never drawn as an empty record. */
+function CardRecordUnread({ retryHref }: { retryHref: string }) {
+  return (
+    <p className="flex min-h-11 items-center justify-between gap-3 text-[14px] text-ink/75" role="status" data-card-record="unread">
+      <span>Couldn’t load this card’s record</span>
+      <Link href={retryHref} className="sn-press inline-flex min-h-11 items-center font-medium text-sn-accent">
+        Retry
+      </Link>
+    </p>
   );
 }

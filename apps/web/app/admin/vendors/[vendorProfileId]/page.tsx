@@ -62,7 +62,8 @@ function fmtDate(v: string | null | undefined): string {
   if (!v) return '—';
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return v;
-  return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+  // 🕗 F-A-09 (admin walk 13 Nov 2026): Manila time, never the server's UTC day.
+  return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
 }
 
 type Props = {
@@ -384,7 +385,8 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
           empty={{
             Icon: Wallet,
             title: 'No payouts yet',
-            blurb: 'A payout appears here once a customer pays this supplier through Setnayan.',
+            // F-A-09: apply-then-pay — couples pay suppliers directly; only a legacy booking ever paid through Setnayan.
+            blurb: 'Couples pay suppliers directly, so nothing is paid out here. Only an older booking paid through Setnayan would show.',
           }}
           columns={[
             {

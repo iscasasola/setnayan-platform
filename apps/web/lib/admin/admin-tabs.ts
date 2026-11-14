@@ -321,7 +321,7 @@ export const ADMIN_TABS: readonly AdminTab[] = [
         key: 'overview', group: 'How people use it',
         label: 'Overview',
         href: '/admin/app-performance',
-        match: ['/admin/app-performance', '/admin/app-performance?tab=overview'],
+        match: ['/admin/app-performance', '/admin/app-performance?tab=overview', '/admin/insights'],
       },
       { key: 'visits', group: 'How people use it', label: 'Visits', href: '/admin/app-performance?tab=visits' },
       {
@@ -341,7 +341,7 @@ export const ADMIN_TABS: readonly AdminTab[] = [
         key: 'intelligence', group: 'How people use it',
         label: 'Intelligence',
         href: '/admin/app-performance?tab=intelligence',
-        match: ['/admin/app-performance?tab=intelligence', '/admin/intelligence', '/admin/insights'],
+        match: ['/admin/app-performance?tab=intelligence', '/admin/intelligence'],
       },
       { key: 'seo', group: 'How people use it', label: 'SEO & GEO', href: '/admin/app-performance?tab=seo', match: ['/admin/app-performance?tab=seo', '/admin/seo'] },
       {

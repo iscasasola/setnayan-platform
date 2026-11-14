@@ -809,7 +809,6 @@ function BlacklistTable({
         title: 'No blocked emails',
         blurb:
           'Nothing is on the blacklist. Blacklisting happens from the account list — it deletes the account and permanently blocks the address from signing up again.',
-        verifiedNote: 'Verified: read permitted · 0 addresses blocked',
       }}
       columns={[
         {

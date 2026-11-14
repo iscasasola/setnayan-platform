@@ -74,8 +74,11 @@ export function AdminRailContext({
   overdue = 0,
   dueSoon = 0,
   unreadable = 0,
+  workTotal,
   at,
 }: {
+  /** The Work page's own total (`deriveQueueUrgency().totalOpen`) — F-A-03. */
+  workTotal?: number;
   navSlots?: Record<string, NavSlotLite>;
   queueCounts?: AdminQueueCounts;
   /** Lab only — an address drawn on fixtures. */
@@ -92,7 +95,7 @@ export function AdminRailContext({
   */
   const { pathname, params } = useAdminAddress(at);
   const activeKey = activeAdminTabKey(pathname, params);
-  const badge = workBadge(queueCounts, overdue, dueSoon, unreadable);
+  const badge = workBadge(queueCounts, overdue, dueSoon, unreadable, workTotal);
 
   return (
     <>

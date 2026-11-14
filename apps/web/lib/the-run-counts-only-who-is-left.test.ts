@@ -189,6 +189,6 @@ test('the run page hands the run who answered and whether it was opened on chose
   const page = read('app/dashboard/[eventId]/guests/send/page.tsx');
   assert.match(page, /replied: hasReplied\(g\),/);
   assert.match(page, /picked=\{picked\.length > 0\}/);
-  const lab = read('app/dev/guests-lab/page.tsx');
+  const lab = read('app/dev/guests-lab/page.lab.tsx');
   assert.match(lab, /replied: hasReplied\(g\),/, 'the lab’s run is not the real run’s data');
 });

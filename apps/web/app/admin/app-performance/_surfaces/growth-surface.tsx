@@ -2,6 +2,7 @@
 // re-homed here (2026-07-10) so the App Performance menu is ONE tabbed
 // studio. Its actions/_components stay under /admin/growth; the legacy
 // route is now a redirect into /admin/app-performance?tab={tab}.
+import { manilaDayLabel } from '@/lib/admin/manila-stamp';
 import { cookies } from 'next/headers';
 import { LineChart, Download } from 'lucide-react';
 import {
@@ -99,7 +100,7 @@ export async function GrowthSurface({ searchParams }: Props) {
           Apply
         </button>
         <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Since {stats.sinceIso.slice(0, 10)}
+          Since {manilaDayLabel(stats.sinceIso)}
         </span>
         <a
           href={exportHref}

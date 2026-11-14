@@ -1843,7 +1843,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'maker-tools',
           title: 'Page, Look and Event Details',
-          body: 'Page ▾ picks what you are looking at. Look dresses the whole Event Hub. Event Details holds the facts — names, date, places — shown on every page.',
+          /* 🔒 + the Maker Edit shell (owner-approved 2026-11-13): the four tabs, and what a locked one does. */
+          body: 'Page ▾ picks what you are looking at. Look dresses the whole Event Hub. Event Details holds the facts — names, date, places — shown on every page. Every part has the same four tabs; a tab with a 🔒 says why, and where it is set.',
         },
         {
           anchor: 'maker-apply',
@@ -1913,7 +1914,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           //  owner 2026-10-23, Papic is the camera. This page's last stop is the camera's own settings.)
           anchor: 'papic-settings',
           title: 'Your camera, your rules',
-          body: 'Pick the filter, set challenges and choose face tagging. The photos land in Memories, and each guest’s camera is on their guest card.',
+          // 📲 Guest upload v2 (2026-11-13): the "Photos from guests' phones" row sits in these settings.
+          body: 'Pick the filter, set challenges, choose face tagging, and whether photos from guests’ phones show right away or after you check. The photos land in Memories, and each guest’s camera is on their guest card.',
         },
       ],
       finale: {
@@ -2422,7 +2424,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'camera-shots',
           title: 'My shots',
-          body: 'Everything you took, right here.',
+          // 📲 Guest upload v2 (2026-11-13): My shots holds "Add from your phone".
+          body: 'Everything you took, right here — and Add from your phone, for photos you took on the day.',
         },
         {
           anchor: 'camera-shutter',

@@ -98,7 +98,9 @@ test('the payout stages pay by PAYOUT_STAGE_PCT — move the split and the money
   }
   assert.match(PAYOUT_STAGE_LABEL.stage_1_confirm, new RegExp(`\\(${before.stage_1_confirm}%\\)`), 'the label quotes the same split');
   const page = code('app/admin/payouts/page.tsx');
-  assert.match(page, /PAYOUT_STAGE_PCT\.stage_2_event_start/, 'the admin stage tabs quote the split');
+  // F-A-10 (admin walk, 13 Nov 2026): the admin page no longer shows the old 20/60/20 stage split — payouts are a
+  // legacy path (couples pay suppliers directly), so its tabs name the stage without quoting a percentage.
+  assert.doesNotMatch(page, /PAYOUT_STAGE_PCT/, 'the admin payouts page quotes no stage split (F-A-10)');
   assert.match(page, /BIR_WITHHOLDING_BPS \/ 100/, 'the BIR label is the rate the payout uses');
 });
 

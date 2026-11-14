@@ -1,4 +1,6 @@
 import { Suspense } from 'react';
+import { guestDisplayName } from '@/lib/guests';
+import { realNameOrNull } from '@/lib/no-name';
 import { readGuestChapterReplies, readInvitationChapters } from '@/lib/invitation-chapters.server';
 import { readGuestStandIn } from '@/lib/guest-proxy.server';
 import Link from 'next/link';
@@ -369,10 +371,16 @@ async function inviteReplyPage({ params, searchParams }: Props) {
   // locale. Both now come from the same function.
   const closesLabel = replyBy ? formatEventDateWithPrecision(replyBy.date, 'day') || null : null;
 
+  // 🪪 RW-64 (walk 13 Nov 2026): the guest's compact name (`guestDisplayName` — it drops a stored dash part), and never a
+  // stand-in ("Someone —") printed as a name: no real name reads "Your reply".
   const guestName =
-    (guest.display_name as string | null)?.trim() ||
-    `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() ||
-    'Your reply';
+    realNameOrNull(
+      guestDisplayName({
+        display_name: (guest.display_name as string | null) ?? null,
+        first_name: (guest.first_name as string | null) ?? '',
+        last_name: (guest.last_name as string | null) ?? '',
+      } as Parameters<typeof guestDisplayName>[0]),
+    ) ?? 'Your reply';
 
   /* 📐 ONE QUESTION PER SCREEN (owner 2026-09-29: "ask one question per screen
      is not neatly arranged. there are rules for like this, where the progress

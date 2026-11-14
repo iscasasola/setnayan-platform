@@ -19,23 +19,36 @@ export type MapPin = { latitude: number; longitude: number };
 export type TileImage = { key: string; src: string; leftPct: number; topPct: number; widthPct: number; heightPct: number };
 export type PinSpot = { leftPct: number; topPct: number };
 
-const TILE = 256;
+/** OSM raster tiles are 256 px square. Shared with the supplier's reach map (`reach-map.tsx`) — one Web-Mercator. */
+export const TILE = 256;
 const MIN_ZOOM = 3;
 const MAX_ZOOM = 16;
 
 const clampLat = (lat: number) => Math.max(-85.05112878, Math.min(85.05112878, lat));
 
-function worldX(lng: number, z: number): number {
+/** Longitude → absolute world-pixel X at zoom `z` (Web-Mercator, 256-px tiles). */
+export function worldX(lng: number, z: number): number {
   return ((lng + 180) / 360) * TILE * 2 ** z;
 }
 
-function worldY(lat: number, z: number): number {
+/** Latitude → absolute world-pixel Y at zoom `z` (Web-Mercator, clamped to the projection's ±85.05°). */
+export function worldY(lat: number, z: number): number {
   const s = Math.sin((clampLat(lat) * Math.PI) / 180);
   return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * TILE * 2 ** z;
 }
 
 export function tileUrl(z: number, x: number, y: number): string {
   return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+}
+
+/**
+ * 🔍 THE BIGGER MAP — the map card's round top-right button (map card approved 2026-11-14) opens openstreetmap.org
+ * where a guest can move and zoom, the same URL "View larger map →" opened before. `marker` puts OSM's own pin on the
+ * spot (one place); two or more places open the view that holds them, with no pin (OSM's URL takes one marker).
+ */
+export function openStreetMapUrl(lat: number, lng: number, zoom: number, marker = true): string {
+  const view = `#map=${zoom}/${lat}/${lng}`;
+  return marker ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}${view}` : `https://www.openstreetmap.org/${view}`;
 }
 
 /**
@@ -46,12 +59,17 @@ export function tileUrl(z: number, x: number, y: number): string {
  */
 export function mapFrame(
   pins: readonly MapPin[],
-  { width = 360, height = 220, pad = 36 }: { width?: number; height?: number; pad?: number } = {},
+  {
+    width = 360,
+    height = 220,
+    pad = 36,
+    maxZoom = MAX_ZOOM,
+  }: { width?: number; height?: number; pad?: number; /** The closest the frame may zoom — a one-place map stays a neighbourhood. */ maxZoom?: number } = {},
 ): { zoom: number; tiles: TileImage[]; spots: PinSpot[] } | null {
   const usable = pins.filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude));
   if (usable.length === 0 || usable.length !== pins.length) return null;
 
-  let zoom = MAX_ZOOM;
+  let zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, maxZoom));
   for (; zoom > MIN_ZOOM; zoom--) {
     const xs = usable.map((p) => worldX(p.longitude, zoom));
     const ys = usable.map((p) => worldY(p.latitude, zoom));

@@ -40,6 +40,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
 import { stripComments } from './strip-comments';
+import { adminHelpSourceText } from '@/lib/help-sources.test-helper';
 import {
   TWO_ADMIN_PROMISES,
   unimplementedPromises,
@@ -62,7 +63,7 @@ const WEB = resolve(HERE, '..');
  * itself is unchanged.
  */
 function publishedBody(): string {
-  const src = readFileSync(join(WEB, 'lib/help-admin.ts'), 'utf8');
+  const src = adminHelpSourceText(); // help split 2026-11-14: lib/help-admin.ts + every lib/help-admin/*.ts
   const at = src.indexOf("slug: 'what-needs-two-admins'");
   assert.ok(at > 0, 'the two-admin help article has moved or been renamed');
   const body = src.slice(at, src.indexOf('},', at));

@@ -384,7 +384,7 @@ const SLCAT_CSS = `
 .slcat .fold.flat .cat:not(.open)>.cat-collapse>.cat-body{padding-top:0;padding-bottom:0}
 .slcat .fold.flat .cat-l{gap:12px}
 .slcat .fold.flat .cat-ic{width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--m-r-full);background:rgba(169,131,75,.13)}
-.slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;flex:1 1 auto;min-width:6ch}
+.slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;flex:1 1 auto;min-width:0}
 .slcat .cat-yours{font-weight:400;font-size:15px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st{font-size:13px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st.ok{color:rgb(var(--color-ok))}
@@ -1668,7 +1668,10 @@ function VendorCard({
             <span>{svc.includesLine}</span>
           </span>
         ) : null}
-        {svc && svc.notIncluded.length > 0 ? (
+        {/* 🧾 CYC-15 (walk 13 Nov): the card's static "Not included" is the SERVICE CARD's word — once this couple has a
+            recorded price (a quote, a deal, a booking) the quote's own lines are the truth, and "Not included: crew meal"
+            beside a quote that charges it said the opposite of what they were billed. */}
+        {svc && svc.notIncluded.length > 0 && !hasRecordedPrice ? (
           <span className="sc-not">
             <AlertCircle size={12} strokeWidth={1.75} aria-hidden />
             <span>Not included: {svc.notIncluded.join(' · ')}</span>

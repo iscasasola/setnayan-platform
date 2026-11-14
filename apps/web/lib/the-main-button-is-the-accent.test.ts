@@ -82,6 +82,10 @@ const OFF = BOTH.flatMap((b) => [`${b}:disabled`, `${b}[aria-disabled='true']`])
 
 /* The `:root` tokens the second button and the grey state name, as the stylesheet declares them. */
 const hexOf = (name: string): [number, number, number] => {
+  // A token may point at its kit twin (`--sn-surface: var(--m-paper)`, the token layer 14 Nov 2026): follow
+  // the alias to the hex it resolves to, so the contrast below is still measured on the real colour.
+  const alias = new RegExp(`${name}:\\s*var\\((--[\\w-]+)\\)\\s*;`).exec(css);
+  if (alias) return hexOf(alias[1]!);
   const m = new RegExp(`${name}:\\s*#([0-9a-fA-F]{6})\\b`).exec(css);
   assert.ok(m, `${name} is not a hex in the stylesheet`);
   const n = parseInt(m[1]!, 16);

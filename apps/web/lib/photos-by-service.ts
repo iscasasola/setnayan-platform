@@ -25,7 +25,7 @@ export const SERVICE_PHOTOS_PER_CARD = 6;
 export type ServicePhoto = {
   key: string;
   url: string;
-  /** "Wedding · Dec 2025" · "Card photo". */
+  /** "Wedding · Dec 2025" · "Card photo" · '' (a couple's photo — its tag says it). */
   caption: string;
   /** "From the couple" / "Only you" (the shop's own view) — or none. */
   tag: 'couple' | 'only-you' | null;
@@ -69,7 +69,9 @@ export function cardServicePhotos(card: ServiceCard): ServiceCardPhotos {
     events.add(e.event);
     add({ key: `${card.id}:ev:${i}`, url: e.url, caption: e.caption, tag: null });
   }
-  for (const look of card.coupleLooks ?? []) add({ key: `${card.id}:cp:${look.id}`, url: look.url, caption: 'Card photo', tag: 'couple' });
+  // A couple's photo of the work: tagged "From the couple", and no caption — its only date sits beside the couple's
+  // names (their credit line), which never reach this view.
+  for (const look of card.coupleLooks ?? []) add({ key: `${card.id}:cp:${look.id}`, url: look.url, caption: '', tag: 'couple' });
   for (const [i, url] of card.photos.entries()) add({ key: `${card.id}:own:${i}`, url, caption: 'Card photo', tag: null });
   return { cardId: card.id, title: card.label, anchorId: card.anchorId ?? null, photos, events: events.size };
 }

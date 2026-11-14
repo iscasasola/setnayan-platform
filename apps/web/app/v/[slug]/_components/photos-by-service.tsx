@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, ChevronRight } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { couplePhotoShare } from '@/app/_actions/couple-photo-share-actions';
 import { PutOnMyPageButton } from '@/app/vendor-dashboard/collections/_components/put-on-my-page-button';
@@ -37,12 +37,17 @@ export function PhotosByServiceSheet({
   open,
   onClose,
   ownerShopId = null,
+  readPrivate = readPrivateAfterThePage,
+  putAction,
 }: {
   view: ServiceView | null;
   open: boolean;
   onClose: () => void;
   /** The shop's id when the viewer runs it (asked after the page) — turns on the "Only you" photos. */
   ownerShopId?: string | null;
+  /** Only `/dev/shop-preview-lab` passes these (fixtures, no session); the page uses the real reads. */
+  readPrivate?: (shopId: string, serviceKey: string) => Promise<ServicePrivatePhotos>;
+  putAction?: Parameters<typeof PutOnMyPageButton>[0]['action'];
 }) {
   const headingId = useId();
   const router = useRouter();
@@ -56,9 +61,9 @@ export function PhotosByServiceSheet({
     setMore({});
     if (!open || !view || !ownerShopId) return;
     let live = true;
-    couplePhotoShare({ op: 'service_private', vendorProfileId: ownerShopId, serviceKey: view.key })
+    readPrivate(ownerShopId, view.key)
       .then((r) => {
-        if (live && r.op === 'service_private') setMine(r.result);
+        if (live) setMine(r);
       })
       .catch(() => {
         if (live) setMine({ status: 'unread' });
@@ -66,7 +71,7 @@ export function PhotosByServiceSheet({
     return () => {
       live = false;
     };
-  }, [open, view, ownerShopId]);
+  }, [open, view, ownerShopId, readPrivate]);
 
   if (!view) return null;
   const own = mine?.status === 'ok' ? mine.byCard : null;
@@ -84,17 +89,35 @@ export function PhotosByServiceSheet({
   const onlyYou = cards.reduce((n, c) => n + c.photos.filter((p) => p.tag === 'only-you').length, 0);
   const total = view.photos + onlyYou;
   const ownerView = mine?.status === 'ok';
-  const line = ownerView ? `Your view · ${formatCount(total)} ${total === 1 ? 'photo' : 'photos'}` : serviceLine(view);
+  const line = ownerView
+    ? `Your view · ${formatCount(total)} ${total === 1 ? 'photo' : 'photos'} · ${formatCount(view.photos)} on your page`
+    : serviceLine(view);
 
   return (
-    <Sheet open={open} onClose={onClose} labelledById={headingId} title={view.label} rise>
-      <div className="pb-[calc(1.25rem+env(safe-area-inset-bottom))]" data-photos-by-service={view.key}>
-        <div className="px-4 pb-2 pt-1">
-          <h2 id={headingId} className="text-[17px] font-semibold text-ink">
-            {view.label}
-          </h2>
-          <p className="text-[13px] text-ink/60">{line}</p>
+    <Sheet
+      open={open}
+      onClose={onClose}
+      labelledById={headingId}
+      rise
+      head={
+        // The prototype's own top row: ‹ (back to where you tapped) · the service over its line · ✕.
+        <div className="flex min-h-14 items-center gap-1 border-b border-ink/10 px-2" data-photos-by-service-head="">
+          <button type="button" onClick={onClose} aria-label="Back" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink hover:bg-ink/5">
+            <ChevronLeft aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.75} />
+          </button>
+          <div className="min-w-0 flex-1 py-2">
+            <h2 id={headingId} className="truncate text-[16px] font-semibold leading-tight text-ink">
+              {view.label}
+            </h2>
+            <p className="truncate text-[13px] text-ink/60">{line}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink">
+            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </button>
         </div>
+      }
+    >
+      <div className="pb-[calc(1.25rem+env(safe-area-inset-bottom))]" data-photos-by-service={view.key}>
 
         {ownerView && onlyYou > 0 ? (
           <p className="mx-4 mt-1 rounded-2xl bg-[var(--m-orange-4)] px-3 py-2.5 text-[13.5px] text-ink" data-photos-by-service-note="">
@@ -172,7 +195,7 @@ export function PhotosByServiceSheet({
             {picked && picked.photoId ? (
               <div className="space-y-1">
                 <p className="text-[14px] font-medium text-ink">{picked.caption} · only you</p>
-                <PutOnMyPageButton photoId={picked.photoId} notice={picked.notice ?? null} />
+                <PutOnMyPageButton photoId={picked.photoId} notice={picked.notice ?? null} {...(putAction ? { action: putAction } : {})} />
                 <button type="button" onClick={() => setPicked(null)} className="sn-press min-h-11 text-[13.5px] text-ink/70">
                   Leave it in your album
                 </button>
@@ -189,11 +212,17 @@ export function PhotosByServiceSheet({
   );
 }
 
+/** The shop's own private photos of one service, asked once the sheet opens (never part of the cached page). */
+async function readPrivateAfterThePage(shopId: string, serviceKey: string): Promise<ServicePrivatePhotos> {
+  const r = await couplePhotoShare({ op: 'service_private', vendorProfileId: shopId, serviceKey });
+  return r.op === 'service_private' ? r.result : { status: 'unread' };
+}
+
 function Tile({ photo: p }: { photo: ServicePhoto }) {
   return (
     <>
       {/* eslint-disable-next-line @next/next/no-img-element -- an already-resolved display URL */}
-      <img src={p.url} alt={p.caption} className="absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />
+      <img src={p.url} alt={p.caption || (p.tag === 'couple' ? 'From the couple' : '')} className="absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />
       {p.tag ? (
         <span
           className={`absolute left-1 top-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
@@ -203,9 +232,11 @@ function Tile({ photo: p }: { photo: ServicePhoto }) {
           {p.tag === 'only-you' ? 'Only you' : 'From the couple'}
         </span>
       ) : null}
-      <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/60 to-transparent px-1.5 pb-1 pt-3 text-[11px] text-white">
-        {p.caption}
-      </span>
+      {p.caption ? (
+        <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/60 to-transparent px-1.5 pb-1 pt-3 text-[11px] text-white">
+          {p.caption}
+        </span>
+      ) : null}
     </>
   );
 }
@@ -250,7 +281,18 @@ function Failed({ words, onRetry }: { words: string; onRetry: () => void }) {
  * Ⓑ The Portfolio's "Photos by service" row: one tile per service that HAS a photo (a tile with none is not drawn —
  * the service name on its cards still opens the view). Each tile opens the same view.
  */
-export function PhotosByServiceRow({ views, ownerShopId = null }: { views: ServiceView[]; ownerShopId?: string | null }) {
+export function PhotosByServiceRow({
+  views,
+  ownerShopId = null,
+  readPrivate,
+  putAction,
+}: {
+  views: ServiceView[];
+  ownerShopId?: string | null;
+  /** Lab only — see `PhotosByServiceSheet`. */
+  readPrivate?: (shopId: string, serviceKey: string) => Promise<ServicePrivatePhotos>;
+  putAction?: Parameters<typeof PutOnMyPageButton>[0]['action'];
+}) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const tiles = photoTiles(views);
   if (tiles.length === 0) return null;
@@ -285,6 +327,8 @@ export function PhotosByServiceRow({ views, ownerShopId = null }: { views: Servi
         open={openKey !== null}
         onClose={() => setOpenKey(null)}
         ownerShopId={ownerShopId}
+        {...(readPrivate ? { readPrivate } : {})}
+        {...(putAction ? { putAction } : {})}
       />
     </div>
   );

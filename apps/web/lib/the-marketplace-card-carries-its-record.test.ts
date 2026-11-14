@@ -114,7 +114,9 @@ test('the records are read through the same flag and batched reader as the shop 
   const explore = read('app', '(shell)', 'explore', '_lib', 'marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   assert.match(explore, /cardRecordEnabled\(\)\s*\?\s*fetchServiceCardRecords\(/);
   const shop = read('app', 'v', '[slug]', 'page.tsx');
-  assert.match(shop, /cardRecordRating=\{cardRecordRatingFromTrusted\(/);
+  // The services section's props are one object since 2026-11-14 (photos by service reads the same cards), so the
+  // prop is written `cardRecordRating: …` — the same assignment, still from the one trusted-rating rule.
+  assert.match(shop, /cardRecordRating(?:=\{|: )cardRecordRatingFromTrusted\(/);
 });
 
 test('the shop-rating rule: nothing until a trusted review exists', () => {

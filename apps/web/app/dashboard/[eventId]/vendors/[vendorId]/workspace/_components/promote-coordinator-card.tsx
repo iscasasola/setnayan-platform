@@ -24,6 +24,7 @@ import {
 } from '@/app/dashboard/[eventId]/colour-access-actions';
 import { ConsentGatedInviteForm } from './consent-gated-invite-form';
 import { StayForm } from '@/app/_components/stay-form';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * "PROMOTE YOUR COORDINATOR" — on Your Team, the booked planner's own workspace.
@@ -223,63 +224,50 @@ export async function PromoteCoordinatorCard({
           : null;
 
   return (
-    <section
-      id="promote-coordinator"
-      aria-labelledby="promote-coordinator-heading"
-      className="sn-glass-bare space-y-4 rounded-xl p-5"
-    >
-      <div className="space-y-1">
-        <h2 id="promote-coordinator-heading" className="text-sm font-semibold text-ink">
-          Promote your coordinator
-        </h2>
-        <p className="max-w-prose text-xs text-ink/65">
-          Your booked coordinator can plan WITH you — edit the guest list, seat plan, schedule,
-          and supplier records, with every change logged. Publishing the seat plan and the first
-          invitation send always stay with you.
-        </p>
-      </div>
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 5 · 6 · 7 · 13): no glass card — the section's grey capitals with
+    // what a coordinator may do behind ⓘ, plain hairline rows for who is waiting and who plans with you, the shared
+    // pills (Invite the forward step, Message blue, Revoke red), notices as one coloured line with no box.
+    <section id="promote-coordinator" aria-labelledby="promote-coordinator-heading" className="space-y-3">
+      <h2 id="promote-coordinator-heading" className="mb-1 mt-[18px]">
+        <InfoTip label="Promote your coordinator" labelAs="span" labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70" align="start">
+          Your booked coordinator can plan WITH you — edit the guest list, seat plan, schedule, and supplier records,
+          with every change logged. Publishing the seat plan and the first invitation send always stay with you.
+        </InfoTip>
+      </h2>
 
       {promotePartlyRefused ? (
         <ReadRefusedNotice partial what="your coordinator's access" />
       ) : null}
 
       {justSent ? (
-        <div className="space-y-2 rounded-lg bg-success-50/70 p-3" role="status">
-          <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-success-950">
+        <div className="space-y-1" role="status">
+          <p className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-[rgb(var(--color-ok))]">
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Invitation saved.
           </p>
-          <p className="text-xs text-success-900/85">
+          <p className="text-[13px] text-ink/70">
             Share this link with your coordinator. They&apos;ll sign in, then accept.
           </p>
-          <code className="block break-all rounded-md bg-cream/80 px-2 py-1.5 font-mono text-[11px] text-success-950">
-            {justSent}
-          </code>
+          <p className="break-all text-sm text-ink">{justSent}</p>
         </div>
       ) : null}
 
       {saved ? (
-        <p
-          role="status"
-          className="inline-flex items-center gap-1.5 rounded-md bg-success-100/80 px-3 py-1.5 text-xs font-medium text-success-950"
-        >
-          <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <p role="status" className="inline-flex items-center gap-1.5 text-sm font-medium text-[rgb(var(--color-ok))]">
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {saved}
         </p>
       ) : null}
 
       {flash.invite_error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-3 py-2 text-xs text-terracotta-700"
-        >
+        <p role="alert" className="text-sm text-[rgb(var(--color-danger))]">
           Could not send invitation: {flash.invite_error}
         </p>
       ) : null}
 
       {canPromote && offPlatform ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="font-mono text-xs text-ink/55">{vendor.contact_email}</p>
+          <p className="text-sm text-ink/70">{vendor.contact_email}</p>
           <ConsentGatedInviteForm enabled={consentGateEnabled} forceCoordinator coordinatorLabel={vendor.vendor_name}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="vendor_id" value={vendor.vendor_id} />
@@ -289,7 +277,7 @@ export async function PromoteCoordinatorCard({
             <input type="hidden" name="display_label" value={vendor.vendor_name.slice(0, 80)} />
             <SubmitButton
               pendingLabel="Inviting…"
-              className="rounded-md bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream hover:bg-terracotta-800"
+              className="ab ab-brand inline-flex min-h-11 items-center justify-center"
             >
               Invite as delegate
             </SubmitButton>
@@ -299,13 +287,13 @@ export async function PromoteCoordinatorCard({
 
       {canPromote && !offPlatform ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="max-w-prose text-xs text-ink/65">
-            They&rsquo;re booked through Setnayan, so they&rsquo;re reachable right here — no need to
-            share their contact details.
+          <p className="min-w-0 flex-1 text-sm text-ink/70">
+            They&rsquo;re booked through Setnayan, so they&rsquo;re reachable right here — no need to share their
+            contact details.
           </p>
           <Link
             href={threadId ? routes.dashboard.messages.detail(eventId, threadId) : routes.dashboard.messages.index(eventId)}
-            className="rounded-md border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-ink/5"
+            className="ab ab-info inline-flex min-h-11 items-center justify-center"
           >
             Message them
           </Link>
@@ -315,22 +303,20 @@ export async function PromoteCoordinatorCard({
       {pending.length > 0 ? (
         <ul className="divide-y divide-ink/10" aria-label="Waiting to join">
           {pending.map((s) => (
-            <li key={s.moderator_id} className="flex flex-wrap items-start justify-between gap-3 py-3">
+            <li key={s.moderator_id} className="flex min-h-14 flex-wrap items-start justify-between gap-3 py-3">
               <div className="space-y-0.5">
-                <p className="text-sm font-medium text-ink">
+                <p className="text-[15px] font-semibold text-ink">
                   {roleWord(s)}
                   {s.display_label ? ` · ${s.display_label}` : ''} · waiting to join
                 </p>
-                <p className="inline-flex items-center gap-1.5 font-mono text-xs text-ink/55">
-                  <Mail aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                <p className="inline-flex items-center gap-1.5 text-[13px] text-ink/70">
+                  <Mail aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   {s.invitation_email ?? '—'}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 {s.invitation_token ? (
-                  <code className="rounded bg-ink/[0.05] px-2 py-1 font-mono text-[10px] text-ink/70">
-                    /host/accept/{s.invitation_token.slice(0, 12)}…
-                  </code>
+                  <span className="text-[13px] text-ink/70">/host/accept/{s.invitation_token.slice(0, 12)}…</span>
                 ) : null}
                 <StayForm door="hosts.revokeHostInvite" action={revokeHostInvite}>
                   <input type="hidden" name="event_id" value={eventId} />
@@ -338,9 +324,9 @@ export async function PromoteCoordinatorCard({
                   <input type="hidden" name="vendor_id" value={vendor.vendor_id} />
                   <SubmitButton
                     pendingLabel="Removing…"
-                    className="inline-flex items-center gap-1 rounded-md border border-terracotta/30 bg-cream px-2.5 py-1 text-xs text-terracotta-700 hover:bg-terracotta/10"
+                    className="ab ab-danger inline-flex min-h-11 items-center justify-center gap-1"
                   >
-                    <Trash2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                    <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                     Revoke
                   </SubmitButton>
                 </StayForm>
@@ -355,11 +341,11 @@ export async function PromoteCoordinatorCard({
           {accepted.map((s) => (
             <li
               key={s.moderator_id}
-              className="flex flex-wrap items-start justify-between gap-3 py-3"
+              className="flex min-h-14 flex-wrap items-start justify-between gap-3 py-3"
               data-seat="coordinator"
             >
               <div className="space-y-1.5">
-                <p className="text-sm font-medium text-ink">{nameOf(s)}</p>
+                <p className="text-[15px] font-semibold text-ink">{nameOf(s)}</p>
                 <p className="sn-eye">{roleWord(s)}</p>
                 <CoordinatorGrantChips permissions={s.permissions_json} />
               </div>
@@ -370,7 +356,7 @@ export async function PromoteCoordinatorCard({
       ) : null}
 
       {!canPromote && pending.length === 0 && accepted.length === 0 && !promotePartlyRefused ? (
-        <p className="text-xs text-ink/55">
+        <p className="py-2 text-sm text-ink/70">
           {BOOKED.has(vendor.status)
             ? `${vendor.vendor_name} has no email on this booking yet, so there is no one to invite.`
             : `Once ${vendor.vendor_name} is booked, you can invite them to plan with you here.`}

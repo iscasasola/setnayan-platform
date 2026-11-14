@@ -37,6 +37,12 @@ import { NearViewport } from '@/app/_components/near-viewport';
  */
 
 type Props = {
+  /**
+   * 🔗 RW-81 (walk 13 Nov 2026): "View larger map →" — `null` draws it as plain words with NO link, the way a sample
+   * page draws every door (`checkHref={null}`): the sample shop on /for-suppliers must lead nowhere. Absent = the
+   * OpenStreetMap link, as shipped.
+   */
+  mapHref?: null;
   /** Latitude in decimal degrees. NULL → render nothing. */
   latitude: number | null;
   /** Longitude in decimal degrees. NULL → render nothing. */
@@ -62,7 +68,7 @@ type Props = {
   flush?: boolean;
 };
 
-export function VendorLocationMap({ latitude, longitude, label, flush = false, deferUntilNear = false }: Props) {
+export function VendorLocationMap({ latitude, longitude, label, flush = false, deferUntilNear = false, mapHref }: Props) {
   if (latitude == null || longitude == null) return null;
 
   const lat = Number(latitude.toFixed(6));
@@ -100,14 +106,23 @@ export function VendorLocationMap({ latitude, longitude, label, flush = false, d
       ) : (
         iframe
       )}
-      <a
-        href={largerMap}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex min-h-[44px] items-center border-t border-ink/10 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink"
-      >
-        View larger map →
-      </a>
+      {mapHref === null ? (
+        <span
+          data-map-link="none"
+          className="flex min-h-[44px] items-center border-t border-ink/10 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+        >
+          View larger map →
+        </span>
+      ) : (
+        <a
+          href={largerMap}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex min-h-[44px] items-center border-t border-ink/10 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink"
+        >
+          View larger map →
+        </a>
+      )}
     </div>
   );
 }

@@ -182,7 +182,7 @@ test('(5) strangers see a still: only the guest page draws the cover layer; the 
     files.filter((f) => re.test(readFileSync(f, 'utf8'))).map((f) => relative(WEB, f)).sort();
   /* The cover layer (the only thing that turns `canvas.ground` into a playing clip) is drawn by the event's own guest
      page and the dev lab — never by /realstories, the editorial site, a discover card or an OG route. */
-  assert.deepEqual(importers(/from ['"][^'"]*_lib\/cover-scene-layer['"]/), ['app/[slug]/_components/cover-scene-ground.tsx', 'app/[slug]/_components/pahina-masthead.tsx', 'app/[slug]/_components/site-body.tsx', 'app/dev/maker-lab/guest/page.tsx'], 'a new surface draws the cover layer — is it one strangers see?');
+  assert.deepEqual(importers(/from ['"][^'"]*_lib\/cover-scene-layer['"]/), ['app/[slug]/_components/cover-scene-ground.tsx', 'app/[slug]/_components/pahina-masthead.tsx', 'app/[slug]/_components/site-body.tsx', 'app/dev/maker-lab/guest/page.lab.tsx'], 'a new surface draws the cover layer — is it one strangers see?');
   assert.deepEqual(importers(/\bcoverClipRefForGuests\b/), ['app/[slug]/_lib/cover-scene-layer.ts', 'lib/guest-hero-video.ts'], 'the cover clip gate is used outside the cover layer');
   for (const f of files.map((x) => relative(WEB, x)).filter((x) => /^app\/(\(shell\)\/)?realstories\/|^app\/\[slug\]\/_components\/editorial\/|^app\/api\/og\//.test(x))) {
     const src = readFileSync(join(WEB, f), 'utf8');

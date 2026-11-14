@@ -130,7 +130,7 @@ export async function AddOnDetailView({
   const cta = isPending ? (
     <Link
       href={`/dashboard/${eventId}/orders`}
-      className="inline-flex items-center gap-2 rounded-full border border-warn-300/70 bg-warn-50 px-5 py-2 text-sm font-semibold text-warn-900 hover:bg-warn-100"
+      className="ab ab-warn"
       title="We're checking your payment — this opens as soon as it's confirmed."
     >
       <Clock3 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -139,7 +139,7 @@ export async function AddOnDetailView({
   ) : isActive || isFree ? (
     <Link
       href={surfaceHref}
-      className="inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+      className="ab ab-brand ab-main"
     >
       <Rocket aria-hidden className="h-4 w-4" strokeWidth={2} />
       Open
@@ -147,7 +147,7 @@ export async function AddOnDetailView({
   ) : (
     <Link
       href={surfaceHref}
-      className="inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+      className="ab ab-brand ab-main"
     >
       {priceLabel ? `Get · ${priceLabel}` : 'Get'}
       <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -174,7 +174,7 @@ export async function AddOnDetailView({
           {p.glyph}
         </span>
         {p.sub ? (
-          <span className="mt-2 block text-[11px] text-ink/55">{p.sub}</span>
+          <span className="mt-2 block text-[12px] text-ink/70">{p.sub}</span>
         ) : null}
       </span>
     ),

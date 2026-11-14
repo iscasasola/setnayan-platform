@@ -15,6 +15,7 @@
  *   paid     → the agreed total now (total + accepted change lines) never goes under what is paid
  */
 import { formatCount } from './format-number';
+import { formatPhp } from './php';
 
 export type ClaimedPerGuestFacts = {
   /** The total agreed, ₱ (the anchor). */
@@ -87,4 +88,13 @@ export function followFromRows(
   const billed = Number(row?.billed_guests);
   if (row && Number(row.agreed_guests) === g && Number.isFinite(billed) && billed > 0) return { agreedGuests: g, billedGuests: billed };
   return { agreedGuests: g, billedGuests: g };
+}
+
+/**
+ * 👥 THE SUPPLIER'S LINE for a claimed per-guest booking (RW-08): the same total and count the couple reads —
+ * "₱4,000 · 4 guests". Without a readable total it says the count alone, never "₱0".
+ */
+export function shopPerGuestNote(p: { totalPhp: number | null; guests: number }): string {
+  const guests = `${formatCount(p.guests)} guest${p.guests === 1 ? '' : 's'}`;
+  return p.totalPhp != null && p.totalPhp > 0 ? `${formatPhp(p.totalPhp)} · ${guests}` : guests;
 }

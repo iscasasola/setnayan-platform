@@ -20,12 +20,9 @@ export function MerkadoGuardBanner({
   return (
     <section
       aria-label="Setnayan AI watch guard"
-      className={`rounded-2xl border p-4 ${
-        // A tint of the tone, not a fixed light fill — it reads in dark too (walked 2026-10-12).
-        hasIssues
-          ? 'border-warn-300/60 bg-[color-mix(in_srgb,rgb(var(--color-warn))_9%,transparent)]'
-          : 'border-success-200 bg-[color-mix(in_srgb,rgb(var(--color-ok))_9%,transparent)]'
-      }`}
+      // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 11 · 13): read-only, so no card — a coloured edge says how it stands
+      // (amber: something to review · green: all fits), the lines under it are plain rows on a hairline.
+      className={`border-l-2 py-1 pl-3 ${hasIssues ? 'border-[rgb(var(--color-warn))]' : 'border-[rgb(var(--color-ok))]'}`}
     >
       <div className="flex items-start gap-2.5">
         {hasIssues ? (
@@ -34,24 +31,21 @@ export function MerkadoGuardBanner({
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success-600" strokeWidth={2} aria-hidden />
         )}
         <div className="min-w-0 flex-1">
-          <p className={`text-sm font-medium ${hasIssues ? 'text-warn-900' : 'text-success-800'}`}>
+          <p className={`text-[15px] font-semibold ${hasIssues ? 'text-warn-900' : 'text-success-800'}`}>
             {hasIssues
               ? `${guard.issues.length} thing${guard.issues.length > 1 ? 's' : ''} to review`
               : 'Sai’s watching — your suppliers fit'}
           </p>
           {hasIssues ? (
-            <ul className="mt-2 space-y-1.5">
+            <ul className="mt-1 divide-y divide-ink/10">
               {guard.issues.map((i, idx) => (
-                <li
-                  key={`${i.kind}-${i.vendorId ?? idx}`}
-                  className="rounded-lg border border-warn-300/50 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/80"
-                >
+                <li key={`${i.kind}-${i.vendorId ?? idx}`} className="py-2 text-[14px] text-ink">
                   {i.text}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-0.5 text-xs text-ink/55">
+            <p className="mt-0.5 text-[13px] text-ink/70">
               Shares a date, stays in budget, and reaches your venue.
             </p>
           )}
@@ -61,7 +55,7 @@ export function MerkadoGuardBanner({
       {demand.length > 0 ? (
         <ul className="mt-3 space-y-1.5 border-t border-ink/10 pt-3">
           {demand.map((d) => (
-            <li key={d.name} className="flex items-start gap-2 text-xs text-ink/75">
+            <li key={d.name} className="flex items-start gap-2 text-[14px] text-ink">
               <Eye className="mt-0.5 h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
               <span>
                 Another couple is also considering{' '}

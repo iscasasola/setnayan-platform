@@ -255,8 +255,6 @@
   "app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx": 42,
   "app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx": 100,
   "app/dashboard/[eventId]/vendors/_components/supplier-sheet.tsx": 9,
-  "app/dashboard/[eventId]/vendors/_components/vendor-quickview-inspector.tsx": 2,
-  "app/dashboard/[eventId]/vendors/_components/waiting-for-quotes.tsx": 7,
   "app/dashboard/[eventId]/website/editor/_components/background-fade-bar.tsx": 1,
   "app/dashboard/[eventId]/website/editor/_components/colour-well.tsx": 10,
   "app/dashboard/[eventId]/website/editor/_components/palette-look-row.tsx": 5,
@@ -355,7 +353,6 @@
   "app/_components/proposal-maker.tsx": 2,
   "app/_components/thread-call-room.tsx": 3,
   "app/admin/_components/admin-rail-context.tsx": 1,
-  "app/admin/_email-delivery-strip.tsx": 4,
   "app/admin/accounts/_surfaces/vendors-surface.tsx": 3,
   "app/admin/app-performance/_surfaces/interconnections-surface.tsx": 18,
   "app/admin/app-performance/_surfaces/seo-surface.tsx": 5,
@@ -443,7 +440,6 @@
   "app/tour/budget/_components/tour-budget-planner.tsx": 5,
   "app/tour/budget/_components/tour-vendor-itemization.tsx": 6,
   "app/vendor-dashboard/_components/instagram-connect-card.tsx": 7,
-  "app/vendor-dashboard/_components/push-notification-registrar.tsx": 1,
   "app/vendor-dashboard/bookings/surface.tsx": 2,
   "app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx": 1,
   "app/vendor-dashboard/creators/page.tsx": 6,
@@ -538,7 +534,6 @@
   "app/dashboard/[eventId]/studio/patiktok/_components/render-form.tsx": 1,
   "app/dashboard/[eventId]/studio/playlist/_components/unsorted-tray.tsx": 1,
   "app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx": 1,
-  "app/dashboard/[eventId]/vendors/_components/reuse-bookings-panel.tsx": 2,
   "app/dashboard/[eventId]/website/editor/_components/media-panels.tsx": 1,
   "app/dashboard/[eventId]/website/our-story/_components/moment-sheet-studio.tsx": 1,
   "app/dashboard/[eventId]/website/our-story/_components/moment-sheet.tsx": 1,
@@ -553,7 +548,6 @@
   "app/vendor-dashboard/activities/page.tsx": 4,
   "app/vendor-dashboard/attributes/_components/attribute-field-renderer.tsx": 1,
   "app/vendor-dashboard/attributes/page.tsx": 1,
-  "app/vendor-dashboard/clients/[eventId]/_components/booth-event-buy-form.tsx": 1,
   "app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx": 2,
   "app/vendor-dashboard/invite/_components/locked-qr-generator.tsx": 2,
   "app/vendor-dashboard/lines/page.tsx": 1,
@@ -563,7 +557,6 @@
   "app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-credits-card.tsx": 1,
   "app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx": 3,
   "app/vendor-dashboard/partnerships/page.tsx": 2,
-  "app/vendor-dashboard/payment-options/_components/add-payment-method.tsx": 1,
   "app/vendor-dashboard/proposals/surface.tsx": 4,
   "app/vendor-dashboard/recommendations/_panel.tsx": 2,
   "app/vendor-dashboard/services/_components/canvas-maker.tsx": 1,
@@ -571,7 +564,6 @@
   "app/vendor-dashboard/services/_components/service-list-editors.tsx": 1,
   "app/vendor-dashboard/services/_components/service-wizard.tsx": 1,
   "app/vendor-dashboard/services/_components/services-manager.tsx": 1,
-  "app/vendor-dashboard/shop/_components/request-correction-card.tsx": 1,
-  "app/vendor-dashboard/shop/_components/voice-match-card.tsx": 3
+  "app/vendor-dashboard/shop/_components/request-correction-card.tsx": 1
  }
 }

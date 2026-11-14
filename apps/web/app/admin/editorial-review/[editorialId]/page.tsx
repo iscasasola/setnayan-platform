@@ -83,7 +83,7 @@ export default async function EditorialReviewDetailPage({
         <div className="rounded-lg border border-[--m-ink-border] bg-[--m-surface-raised] px-4 py-3 text-sm text-[--m-ink-secondary]">
           Unlocked for couple on{' '}
           {row.unlocked_for_couple_at
-            ? new Date(row.unlocked_for_couple_at).toLocaleString('en-PH')
+            ? new Date(row.unlocked_for_couple_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })
             : '—'}
         </div>
       ) : canUnlock ? (

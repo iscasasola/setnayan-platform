@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { OWN_LINK_SRC } from '@/lib/supplier-qr-codes';
+import { arrivalInquirySourceOf } from '@/lib/supplier-qr-codes';
 import { readOverdueTopUpEventIds, readPageRefsFromEvents } from '@/lib/booking-fee-top-up.server';
 import { manilaToday } from '@/lib/std-views';
 import { logoFrameStyle, readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
@@ -155,7 +155,9 @@ import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import { readShopWork } from '@/lib/card-portfolio-albums.server';
-import { cardAlbums, toAlbumViews, type AlbumView } from '@/lib/card-portfolio-albums';
+import { cardAlbums, eventPhotosOf, toAlbumViews, type AlbumView } from '@/lib/card-portfolio-albums';
+import { servicesFromCards } from '@/lib/photos-by-service';
+import { PhotosByServiceRow } from './_components/photos-by-service';
 import {
   cardRecordHasSomethingToSay,
   cardRecordRatingFromTrusted,
@@ -217,6 +219,7 @@ import { onTheCachedHub } from '@/lib/hub-request';
 import { PortfolioPhotoTiles } from './_components/portfolio-photo-tiles';
 // 🔗🖼 The shop's approved inspiration — its own section and inside each card (owner 2026-10-30, "connected four ways").
 import { fetchShopInspirationLooks, looksByCard, type ShopInspirationClient, type ShopInspirationLook } from '@/lib/shop-inspiration.server';
+import { listedFilesGate, readTagEventLines } from '@/lib/inspiration-tags.server';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { cardAnchorId, withInspirationLooks } from '@/lib/service-card-view-model';
 import { ShopInspirationSection, type InspirationTile } from './_components/shop-inspiration-section';
@@ -1246,7 +1249,8 @@ export async function renderVendorBySlug({
   // 🔗🖼 ONE batched, paged read of the shop's approved inspiration — started here so it runs beside the card batch
   // below. `null` = it could not be read to the end: no Inspiration section and no looks strip (never a partial one).
   const shopInspirationRead: Promise<ShopInspirationLook[] | null> = getInspirationParts()
-    .then((parts) => fetchShopInspirationLooks(admin as unknown as ShopInspirationClient, vendor.vendor_profile_id, parts))
+    // 🏷 A Files photo tagged to an inspiration shows only while that photo shows on the shop (DECISION_LOG 2026-11-14).
+    .then((parts) => fetchShopInspirationLooks(admin as unknown as ShopInspirationClient, vendor.vendor_profile_id, parts, listedFilesGate(admin)))
     .catch(() => null);
   // Coverage ids behind the active cards — drive the "Serves" line (event
   // types + faiths). Legacy services (coverage_id null) simply show no line.
@@ -1308,11 +1312,16 @@ export async function renderVendorBySlug({
   // booked on, read ONCE for the shop (the same albums the supplier's Their work holds). Rides the same flag: OFF → not
   // read, no card carries `albums`, the grown card is as before. A refused read → every card says "Couldn't load".
   // No ids reach the page: `toAlbumViews` without an href is labels and photo URLs only.
-  const albumsByService: Map<string, AlbumView[] | null> | null = cardRecordEnabled()
-    ? await readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds })
-        .catch(() => null)
-        .then((work) => new Map(activeServiceIds.map((id) => [id, work ? toAlbumViews(cardAlbums(work.albums, id)) : null])))
-    : null;
+  // 📸 …and the same read gives each card its event photos for PHOTOS BY SERVICE (owner 2026-11-14): one entry per
+  // photo, captioned kind · month, keyed to an opaque per-page event number — never the event id.
+  const shopWork = cardRecordEnabled()
+    ? await readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds }).catch(() => null)
+    : undefined;
+  const albumsByService: Map<string, AlbumView[] | null> | null =
+    shopWork === undefined
+      ? null
+      : new Map(activeServiceIds.map((id) => [id, shopWork ? toAlbumViews(cardAlbums(shopWork.albums, id)) : null]));
+  const eventPhotosByService = shopWork === undefined ? null : eventPhotosOf(shopWork, activeServiceIds);
 
   // Pre-format the per-service "Serves" line server-side so the client gallery
   // stays a dumb view (same contract as inclusions/discount labels).
@@ -1348,12 +1357,15 @@ export async function renderVendorBySlug({
   const liveCardById = new Map(activeServices.map((s) => [s.vendor_service_id, s]));
   const shownLooks = (shopInspiration ?? []).filter((l) => !l.vendorServiceId || liveCardById.has(l.vendorServiceId));
   const inspirationByService = shopInspiration === null ? null : looksByCard(shownLooks);
+  // 🏷 Ruling (4): a tagged Files photo names its event as type · venue · month — never a name, never an id.
+  const tagLines = await readTagEventLines(admin, shownLooks.filter((l) => l.fromEvent).map((l) => l.id));
   const inspirationTiles: InspirationTile[] = shownLooks.map((l) => {
     const s = l.vendorServiceId ? liveCardById.get(l.vendorServiceId) : undefined;
     return {
       id: l.id,
       url: l.url,
       part: l.part,
+      eventLine: tagLines.get(l.id)?.line ?? null,
       card: s
         ? { label: serviceLabel(s), priceLabel: servicePriceLabel(s), anchorId: cardAnchorId(s.public_id, s.vendor_service_id) }
         : null,
@@ -1802,18 +1814,7 @@ export async function renderVendorBySlug({
   // them"; walk F-W1-58). Every link the supplier hands out carries `?src=own` (`ownPageUrl`) → 'website', their own
   // client, an import. An arrival with NO tag found the shop on Setnayan → 'shop_page', SOURCED. It used to be null,
   // which is an import: a booking made wholly in the app read "This client did not come from Setnayan".
-  const arrivalInquirySource =
-    search.src === OWN_LINK_SRC
-      ? 'website'
-      : search.src === 'editorial'
-        ? 'editorial'
-        : search.src === 'favorites'
-          ? 'favorites'
-          : search.src === 'explore'
-            ? 'explore'
-            : search.src === 'search'
-              ? 'search'
-              : 'shop_page';
+  const arrivalInquirySource = arrivalInquirySourceOf(search.src);
   const arrivalChapter =
     typeof search.ref_chapter === 'string' && search.ref_chapter ? search.ref_chapter : null;
   // Head count for the package configurator's per-head option upgrades
@@ -2240,10 +2241,56 @@ export async function renderVendorBySlug({
   // 🧭 The section bar's tabs — only sections that render. Verified: About · Services · Portfolio · Reviews.
   // Unverified: Services · Reviews · Where. NO Inquire tab (owner 13 Nov, "Yes, only one"): the bar carries the ONE
   // Inquire as its button instead, so it stays in reach on a phone (`inquire` prop below).
+  // The service cards' inputs, ONCE: the Services section draws them and 📸 photos by service (owner 2026-11-14)
+  // gathers the same cards by their service for the Portfolio's "Photos by service" row.
+  const servicesProps: ServicesPricingProps = {
+            /* 📈 Each grown-card open counts for "Which card sells" — never on a demo shop or the team's own preview
+       (the same rule as the portfolio photo views above; the database also refuses the shop's own people). */
+    countOpensFor: !isDemoVendor && teamPreview === null ? vendor.vendor_profile_id : null,
+    services: activeServices,
+    businessName: displayLabel,
+    inclusionsByService: inclusionsByService,
+    discountsByService: discountsByService,
+    servesByService: servesByService,
+    showcaseByService: showcaseByService,
+    coverUrlByService: coverUrlByService,
+    tileByCardKind: tileByCardKind,
+    coarseSource: coarseSource,
+    hidePrices: hidePricesPublicly,
+    coupleEventDate: coupleEventDate,
+    cardRecordByService: cardRecordByService,
+    albumsByService: albumsByService,
+    eventPhotosByService: eventPhotosByService,
+    couplePhotosByService: couplePhotosByService,
+    cardHides: cardHidesByService,
+    viewerCuratesCards: viewerCuratesCards,
+    ownerCheckFor: viewerCuratesCards ? vendor.vendor_profile_id : null,
+    /* 👁 A signed-in viewer reads the NON-public couple photos they may see AFTER the page — never in this HTML. */
+    viewerSignedIn: user !== null,
+    /* Reuses the SAME trusted aggregate the hero stars read — the only
+       source the anti-fraud lock permits for a public rating number —
+       so the record block can never disagree with the top of the page,
+       and costs no extra query. Vendor-level by nature: reviews carry
+       no service dimension, which is why the badge says "shop rating". */
+    cardRecordRating: cardRecordRatingFromTrusted(trustedReviewStats),
+    /* The details sheet (flag-dark). OFF ⇒ every card renders as the
+       static div it does today and no sheet is mounted. */
+    detailsEnabled: detailsEnabled,
+    /* Whether the sheet's "Choose this service" can reach the Inquire
+       pop-up — decided here because only the server knows. */
+    inquireMode: canMessage ? 'anchor' : 'none',
+    openServicePublicId: openServicePublicId,
+    inspirationByService: inspirationByService,
+    reviewsByService: reviewsByService,
+
+  };
+  const photoServiceViews = activeServices.length > 0 ? servicesFromCards(buildServiceGroups(servicesProps).flatMap((g) => g.cards)) : [];
+  const hasPhotosByService = showPortfolio && photoServiceViews.some((v) => v.photos > 0);
   const hasPortfolioSection =
     (showPortfolio && (portfolioUrls.length > 0 || featuredVideos.length > 0 || igMedia.length > 0)) ||
     (showEditorials && (featuredEditorials.length > 0 || featuredChapterCredits.length > 0)) ||
-    inspirationTiles.length > 0;
+    inspirationTiles.length > 0 ||
+    hasPhotosByService;
   const shopSectionTabs: ShopSectionTab[] = cinematicHero
     ? [
         { id: 'shop-about', label: 'About' },
@@ -2338,6 +2385,7 @@ export async function renderVendorBySlug({
       ) : null}
       </div>
   );
+
   return (
     <main
       id="shop-top"
@@ -2962,43 +3010,12 @@ export async function renderVendorBySlug({
              the services section's section heading + per-service
              cards' "by {vendor}" copy don't leak the hidden name. */
           <ServicesPricingSection
-            /* 📈 Each grown-card open counts for "Which card sells" — never on a demo shop or the team's own preview
-               (the same rule as the portfolio photo views above; the database also refuses the shop's own people). */
-            countOpensFor={!isDemoVendor && teamPreview === null ? vendor.vendor_profile_id : null}
-            services={activeServices}
-            businessName={displayLabel}
-            inclusionsByService={inclusionsByService}
-            discountsByService={discountsByService}
-            servesByService={servesByService}
-            showcaseByService={showcaseByService}
-            coverUrlByService={coverUrlByService}
-            tileByCardKind={tileByCardKind}
-            coarseSource={coarseSource}
-            hidePrices={hidePricesPublicly}
-            coupleEventDate={coupleEventDate}
-            cardRecordByService={cardRecordByService}
-            albumsByService={albumsByService}
-            couplePhotosByService={couplePhotosByService}
-            cardHides={cardHidesByService}
-            viewerCuratesCards={viewerCuratesCards}
+            {...servicesProps}
+            /* Said again here, where the section is drawn, so the page's own guards read them in place
+               (the same values as in `servicesProps`, which photos by service reads). */
             ownerCheckFor={viewerCuratesCards ? vendor.vendor_profile_id : null}
-            /* 👁 A signed-in viewer reads the NON-public couple photos they may see AFTER the page — never in this HTML. */
-            viewerSignedIn={user !== null}
-            /* Reuses the SAME trusted aggregate the hero stars read — the only
-               source the anti-fraud lock permits for a public rating number —
-               so the record block can never disagree with the top of the page,
-               and costs no extra query. Vendor-level by nature: reviews carry
-               no service dimension, which is why the badge says "shop rating". */
-            cardRecordRating={cardRecordRatingFromTrusted(trustedReviewStats)}
-            /* The details sheet (flag-dark). OFF ⇒ every card renders as the
-               static div it does today and no sheet is mounted. */
-            detailsEnabled={detailsEnabled}
-            /* Whether the sheet's "Choose this service" can reach the Inquire
-               pop-up — decided here because only the server knows. */
             inquireMode={canMessage ? 'anchor' : 'none'}
-            openServicePublicId={openServicePublicId}
-            inspirationByService={inspirationByService}
-            reviewsByService={reviewsByService}
+            cardRecordRating={cardRecordRatingFromTrusted(trustedReviewStats)}
           />
         ) : null}
 
@@ -3069,14 +3086,19 @@ export async function renderVendorBySlug({
             renders here, embedded or not. Unparseable video entries are also
             dropped upstream. Governed by the vendor's Portfolio visibility
             toggle; auto-hidden when there's nothing to show. */}
-        {showPortfolio &&
+        {(showPortfolio &&
         (portfolioUrls.length > 0 ||
           featuredVideos.length > 0 ||
-          igMedia.length > 0) ? (
+          igMedia.length > 0)) || hasPhotosByService ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               Portfolio
             </h2>
+            {/* 📸 Ⓑ PHOTOS BY SERVICE (owner 2026-11-14, prototype "The way in"): one tile per service with a photo, each
+                opening that service's photos from every card — the same photos, by reference. */}
+            {hasPhotosByService ? (
+              <PhotosByServiceRow views={photoServiceViews} ownerShopId={viewerCuratesCards ? vendor.vendor_profile_id : null} />
+            ) : null}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {/* 👁 Each photo opens full size on a tap, and that open is ONE view of that photo (Lane E item 11) — the
                   shop's own people and admins never count (the RPC refuses them; a team preview counts nothing). */}
@@ -3541,33 +3563,7 @@ function Logo({ logoUrl, name, frame }: { logoUrl: string | null; name: string; 
   );
 }
 
-function ServicesPricingSection({
-  services,
-  businessName,
-  inclusionsByService,
-  discountsByService,
-  servesByService,
-  showcaseByService,
-  coverUrlByService,
-  tileByCardKind,
-  coarseSource,
-  hidePrices,
-  coupleEventDate,
-  cardRecordByService,
-  albumsByService,
-  couplePhotosByService,
-  viewerSignedIn,
-  cardRecordRating,
-  detailsEnabled,
-  inquireMode,
-  openServicePublicId,
-  inspirationByService,
-  reviewsByService,
-  countOpensFor,
-  cardHides,
-  viewerCuratesCards,
-  ownerCheckFor,
-}: {
+type ServicesPricingProps = {
   /** 🃏 A signed-in viewer → the gallery asks once whether they run this shop (hide per card · 👁 · opens). */
   ownerCheckFor: string | null;
   /** 🃏 What the shop hid on each card (`vendor_service_card_hides`), or `error` when that read failed. */
@@ -3608,6 +3604,8 @@ function ServicesPricingSection({
   cardRecordByService: Map<string, CompiledCardRecord>;
   /** 🃏📸 Each card's albums (flag on) — null = the flag is off, so no card carries any. */
   albumsByService: Map<string, AlbumView[] | null> | null;
+  /** 📸 Each card's event photos for photos by service (flag on) — null = the flag is off. */
+  eventPhotosByService: Map<string, { url: string; caption: string; event: string }[] | null> | null;
   /** 📸 Couples' approved photos per service id (`fetchServiceCardCouplePhotos`). Empty ⇒ cards as before. */
   couplePhotosByService: Map<string, CoupleLook[]>;
   /** A signed-in viewer → the gallery asks, after the page, for the non-public couple photos they are inside. */
@@ -3626,7 +3624,38 @@ function ServicesPricingSection({
   inspirationByService: Map<string, ShopInspirationLook[]> | null;
   /** ⭐ Each live card's own reviews (`buildCardReviews`) — absent for a card with none. */
   reviewsByService: ReadonlyMap<string, CardReviews>;
-}) {
+};
+
+/** The shop page's service cards, in their coverage groups — built ONCE per input, read by the gallery and by
+ *  📸 photos by service (owner 2026-11-14), so the two can never draw a different card. */
+function buildServiceGroups({
+  services,
+  businessName,
+  inclusionsByService,
+  discountsByService,
+  servesByService,
+  showcaseByService,
+  coverUrlByService,
+  tileByCardKind,
+  coarseSource,
+  hidePrices,
+  coupleEventDate,
+  cardRecordByService,
+  albumsByService,
+  eventPhotosByService,
+  couplePhotosByService,
+  viewerSignedIn,
+  cardRecordRating,
+  detailsEnabled,
+  inquireMode,
+  openServicePublicId,
+  inspirationByService,
+  reviewsByService,
+  countOpensFor,
+  cardHides,
+  viewerCuratesCards,
+  ownerCheckFor,
+}: ServicesPricingProps): ServiceGroup[] {
   /*
     ── SUP-14 · A CARD SITS UNDER ITS REAL TRADE ────────────────────────────
     Measured on the live shop 2026-09-15: the one published supplier's two
@@ -3706,6 +3735,7 @@ function ServicesPricingSection({
         .map((card) => withCardReviews(card, reviewsByService.get(card.id)))
         // 🃏📸 The card's event photos ride along only while the flag is on (`eventWork` absent otherwise).
         .map((card) => (albumsByService ? { ...card, eventWork: albumsByService.get(card.id) ?? null } : card))
+        .map((card) => (eventPhotosByService ? { ...card, eventPhotos: eventPhotosByService.get(card.id) ?? null } : card))
         // 🃏 Hide per card: the refs the supplier's tap names + what is hidden. Only where the grown card exists.
         .map((card) =>
           detailsEnabled
@@ -3738,6 +3768,12 @@ function ServicesPricingSection({
     }
   }
 
+  return groups;
+}
+
+function ServicesPricingSection(props: ServicesPricingProps) {
+  const groups = buildServiceGroups(props);
+  const { businessName, viewerSignedIn, detailsEnabled, inquireMode, openServicePublicId, countOpensFor, ownerCheckFor } = props;
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
       <header className="space-y-1">

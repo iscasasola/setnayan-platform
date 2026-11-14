@@ -187,7 +187,10 @@ test('the run prints that number (rendered: the real run) — and the Guests ⚙
   // Everyone invited → the run says so; it never opens on a declined guest instead.
   const done = await renderRun(ROSTER.map((r) => (TO_INVITE.includes(r.guest_id) ? { ...r, invitation_sent_at: SENT } : r)));
   assert.match(text(done), /\b0 more to invite/);
-  assert.match(text(done), /Everyone has their invite\./);
+  // ✉ F-W2-25: ben and cora answered with nothing sent — nobody is LEFT to invite, but "has their invite" is not true.
+  assert.match(text(done), /Nobody left to invite\./);
+  const allSent = await renderRun(ROSTER.map((r) => (r.role === 'bride' || r.role === 'groom' ? r : { ...r, invitation_sent_at: SENT })));
+  assert.match(text(allSent), /Everyone has their invite\./);
 });
 
 test('a refused read is unknown — never "0 to invite", never "everyone has theirs"', async () => {

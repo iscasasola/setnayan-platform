@@ -148,7 +148,7 @@ export function PayWaysEditor({
               />
             </FormRows>
             {w.details && !w.accountNumber ? (
-              <p className="pb-1 text-[12.5px] text-ink/60" data-pay-way-details="">
+              <p className="pb-1 text-[12.5px] text-ink/70" data-pay-way-details="">
                 {w.details}
               </p>
             ) : null}

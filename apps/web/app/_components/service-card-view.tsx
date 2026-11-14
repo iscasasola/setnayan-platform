@@ -60,6 +60,7 @@ export function ServiceCardView({
   detailsHref,
   shop,
   path = null,
+  pathLead = null,
   coverUrl = null,
 }: {
   card: ServiceCard;
@@ -72,6 +73,8 @@ export function ServiceCardView({
   shop?: ServiceCardShop;
   /** "Mobile Bar · Booths, carts & bars" — the card's category, said on the face. */
   path?: string | null;
+  /** 📸 The card's service, pressable — opens photos by service (`ServiceFace` `pathLead`). */
+  pathLead?: { label: string; onPress: () => void; ariaLabel: string } | null;
   /** The card's own cover (`primary_photo_r2_key`, resolved). Falls back to its first photo — Find's rule. */
   coverUrl?: string | null;
 }) {
@@ -92,6 +95,7 @@ export function ServiceCardView({
       photos={c.photos}
       discount={c.discountLabel}
       path={path}
+      pathLead={pathLead}
       shop={
         shop
           ? { name: shop.name, href: shop.href, logoUrl: shop.logoUrl, verified: shop.verified, isDemo: shop.isDemo }

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { displayAccountEmail } from '@/lib/erasure/display-email';
 import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
@@ -438,7 +439,8 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
 
   const isInternal = Boolean(user.is_internal);
   const isDeleted = Boolean(user.deleted_at);
-  const email = (user.email as string | null) ?? null;
+  // 🔒 F-W2 (#7677): an erased account's stored placeholder address is shown as words, never as the raw value.
+  const email = displayAccountEmail(user.email as string | null) ?? null;
   const openFold = FOLD_FOR_TAB[tab];
   const supportFailed = Boolean(helpError || disputesError || reportsError || abuseError);
   const supportCount =

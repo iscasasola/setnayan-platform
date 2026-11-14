@@ -75,7 +75,7 @@ function GrowthCard({ rec }: { rec: GrowthRec }) {
       </p>
       <Link
         href={rec.ctaHref}
-        className="group mt-3 inline-flex items-center gap-1.5 text-sm font-medium"
+        className="group mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium"
         style={{ color: 'var(--m-orange-2)' }}
       >
         {rec.ctaLabel}

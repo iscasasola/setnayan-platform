@@ -80,7 +80,7 @@ export async function YourStorySection() {
 
   return (
     <section className="mb-8">
-      <h2 className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]">
         Your story
       </h2>
       <LifeStorySection groups={groups} />

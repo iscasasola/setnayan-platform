@@ -13,6 +13,9 @@ import {
   type DependentKind,
 } from '@/lib/dependent-people';
 import { RELIGION_LABELS } from '@/lib/profile-personalization';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PostedPick } from '@/app/dashboard/[eventId]/_components/posted-pick';
 
 /** A name example that fits what is being named — "e.g. Bantay" on a business read wrong. */
 const NAME_PLACEHOLDERS: Record<DependentKind, string> = {
@@ -37,24 +40,23 @@ export function AddAlagaFields() {
   return (
     <>
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-ink" htmlFor="dep_kind">
+        <span className="block text-sm font-medium text-ink">
           What is this?
-        </label>
-        <select
-          id="dep_kind"
-          name="dependent_kind"
-          value={kind}
-          onChange={(e) => setKind(e.target.value as DependentKind)}
-          className="input-field sm:max-w-[14rem]"
-        >
-          {DEPENDENT_KINDS.map((k) => (
-            <option key={k} value={k}>
-              {DEPENDENT_KIND_LABELS[k]}
-            </option>
-          ))}
-        </select>
+        </span>
+        {/* Rule 4 (design template 14 Nov 2026): the ▾ pick, posting the same `dependent_kind` field. */}
+        <span className="block sm:max-w-[14rem]">
+          <input type="hidden" name="dependent_kind" value={kind} />
+          <PickMenu
+            label="What is this?"
+            value={kind}
+            options={DEPENDENT_KINDS.map((k) => ({ key: k, label: DEPENDENT_KIND_LABELS[k] }))}
+            onPick={(k) => setKind(k as DependentKind)}
+            dataAttr="data-posted-pick-dependent_kind"
+            className="w-full !min-h-12"
+          />
+        </span>
         {!person ? (
-          <p className="text-xs text-ink/50">
+          <p className="text-xs text-ink/70">
             {DEPENDENT_KIND_LABELS[kind]} is just a name and, if you like, one date — no other
             details.
           </p>
@@ -62,7 +64,7 @@ export function AddAlagaFields() {
       </div>
       <div className="space-y-1.5">
         <label className="block text-sm font-medium text-ink" htmlFor="dep_name">
-          Name <span className="text-terracotta">*</span>
+          Name <span className="text-[color:var(--sn-gold-700)]">*</span>
         </label>
         <input
           autoComplete="off"
@@ -74,59 +76,61 @@ export function AddAlagaFields() {
         />
       </div>
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-ink" htmlFor="dep_birth">
-          {person ? 'Birthday' : DEPENDENT_DATE_LABELS[kind]}{' '}
-          <span className="text-ink/40">(optional)</span>
-        </label>
-        <input id="dep_birth" name="birth_date" type="date" className="input-field sm:max-w-[14rem]" />
         {person ? (
-          <p className="text-xs text-ink/50">
-            A stored birthday is only for a child (under 18) or an elder (over 50) — adults keep
-            their own, so invite them instead.
-          </p>
-        ) : null}
+          <span className="flex items-center gap-1">
+            <InfoTip label="Birthday" labelClassName="text-sm font-medium text-ink" align="start">
+              A stored birthday is only for a child (under 18) or an elder (over 50) — adults keep
+              their own, so invite them instead.
+            </InfoTip>
+            <span className="text-sm text-ink/70">(optional)</span>
+          </span>
+        ) : (
+          <label className="block text-sm font-medium text-ink" htmlFor="dep_birth">
+            {DEPENDENT_DATE_LABELS[kind]} <span className="text-ink/70">(optional)</span>
+          </label>
+        )}
+        <input
+          id="dep_birth"
+          name="birth_date"
+          type="date"
+          aria-label={person ? 'Birthday (optional)' : undefined}
+          className="input-field sm:max-w-[14rem]"
+        />
       </div>
       {person ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-ink" htmlFor="dep_rel">
-                Relationship
-              </label>
-              <select id="dep_rel" name="relationship" defaultValue="child" className="input-field">
-                {DEPENDENT_RELATIONSHIPS.map((r) => (
-                  <option key={r} value={r}>
-                    {DEPENDENT_RELATIONSHIP_LABELS[r]}
-                  </option>
-                ))}
-              </select>
+              <span className="block text-sm font-medium text-ink">Relationship</span>
+              <PostedPick
+                name="relationship"
+                label="Relationship"
+                initial="child"
+                className="block"
+                options={DEPENDENT_RELATIONSHIPS.map((r) => ({ key: r, label: DEPENDENT_RELATIONSHIP_LABELS[r] }))}
+              />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-ink" htmlFor="dep_sex">
-                For the debut year (optional)
-              </label>
-              <select id="dep_sex" name="sex" defaultValue="" className="input-field">
-                <option value="">Prefer not to say</option>
-                {DEPENDENT_SEXES.map((s) => (
-                  <option key={s} value={s}>
-                    {s === 'female' ? '18th (daughter)' : '21st (son)'}
-                  </option>
-                ))}
-              </select>
+              <span className="block text-sm font-medium text-ink">For the debut year (optional)</span>
+              <PostedPick
+                name="sex"
+                label="For the debut year"
+                className="block"
+                options={[
+                  { key: '', label: 'Prefer not to say' },
+                  ...DEPENDENT_SEXES.map((s) => ({ key: s, label: s === 'female' ? '18th (daughter)' : '21st (son)' })),
+                ]}
+              />
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-ink" htmlFor="dep_religion">
-              Religion (optional — unlocks their rites)
-            </label>
-            <select id="dep_religion" name="religion" defaultValue="" className="input-field">
-              <option value="">Prefer not to say</option>
-              {RELIGIONS.map((r) => (
-                <option key={r} value={r}>
-                  {RELIGION_LABELS[r]}
-                </option>
-              ))}
-            </select>
+            <span className="block text-sm font-medium text-ink">Religion (optional — unlocks their rites)</span>
+            <PostedPick
+              name="religion"
+              label="Religion"
+              className="block"
+              options={[{ key: '', label: 'Prefer not to say' }, ...RELIGIONS.map((r) => ({ key: r, label: RELIGION_LABELS[r] }))]}
+            />
           </div>
         </>
       ) : null}

@@ -557,6 +557,23 @@ const QUEUE_DEFS: QueueDef[] = [
     lane: 'money',
     slaHours: 24,
     filter: (q) => q.eq('status', 'pending'),
+    /* 🔑 AN ORDER ALREADY PAID IS NOT WAITING ON YOU (walk RW-308a, 14 Nov 2026). A pending payment row can outlive the
+       order it pays for — the order reconciled through another payment — and was counted under Work / Reply while its own
+       card said "Already paid — nothing to confirm here". Counted through the order (inner join; `payments.order_id` is
+       NOT NULL, so no payment is lost), excluding paid orders. `readPaymentLights` reads the same way, so the count and
+       the cards agree. */
+    digest: async (admin) => {
+      const r = await admin
+        .from('payments')
+        .select('created_at, order:orders!inner(status)', { count: 'exact' })
+        .eq('status', 'pending')
+        .neq('order.status', 'paid')
+        .order('created_at', { ascending: true })
+        .limit(1);
+      if (r.error) return { count: null, oldestAt: null };
+      const rows = r.data as Array<{ created_at: string | null }> | null;
+      return { count: num(r.count), oldestAt: rows?.[0]?.created_at ?? null };
+    },
   },
   // lane money — a vendor is waiting for money.
   {

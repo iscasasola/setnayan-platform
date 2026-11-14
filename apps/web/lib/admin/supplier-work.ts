@@ -58,9 +58,81 @@ export const SUPPLIER_WORK_REASONS = {
     'That detail can’t be changed this way — message Setnayan',
   ],
   cards: ['This photo belongs to another shop — use your own work', 'Verify your shop first'],
-} as const satisfies Record<'docs' | 'names' | 'cards', readonly string[]>;
+  /* ➕ ADMIN REQUEST CARDS (owner approved 2026-11-14, `prototypes/admin_request_cards_2026-11-14_fable.html`): a
+     decline offers reasons that FIT what was asked. The names list above was offered for every detail, so a logo
+     decline read "Too close to another shop’s name". Every list ends with the line that ships today. */
+  logo: [
+    'The picture is blurry or too small',
+    'It isn’t your own logo',
+    'It has a phone number, link or amount on it',
+    'It looks too much like another shop’s logo',
+    'That detail can’t be changed this way — message Setnayan',
+  ],
+  place: [
+    'We can’t find this address',
+    'Please send proof you operate here',
+    'That detail can’t be changed this way — message Setnayan',
+  ],
+  contact: [
+    'We couldn’t reach this number or email',
+    'Please send proof it belongs to the shop',
+    'That detail can’t be changed this way — message Setnayan',
+  ],
+  /** Any other locked detail (owner name, services, year) — only the shipped line fits every one of them. */
+  other: ['That detail can’t be changed this way — message Setnayan'],
+  /** A payment photo that cannot be checked — the couple reads it and sends it again (≥ 10 characters each). */
+  proof: [
+    'The photo is blurry — please send a clearer one',
+    'The reference number can’t be read — please send it again',
+    'The amount on the photo doesn’t match the bill — please check and resend',
+  ],
+  /** A plan payment that cannot be confirmed — the shop reads it. */
+  plan: [
+    'The payment hasn’t arrived yet',
+    'We couldn’t read the payment photo — please send a clearer one',
+    'The amount doesn’t match the plan',
+  ],
+  /** Why a held review is published anyway — on the record, never shown to the shop. */
+  publish: [
+    'The appeal explains it — they are a real client',
+    'Checked the booking — the review is genuine',
+    'The match was a coincidence — different people',
+  ],
+  /** Why a held review stays held (the appeal is turned down) — on the record. */
+  held: [
+    'The appeal doesn’t explain the match',
+    'The review comes from someone close to the shop',
+  ],
+  /** Why a colleague's request is turned down — they read it. */
+  approval: ['Not needed right now', 'The details look wrong — check them again', 'Talk to me before doing this'],
+} as const satisfies Record<
+  'docs' | 'names' | 'cards' | 'logo' | 'place' | 'contact' | 'other' | 'proof' | 'plan' | 'publish' | 'held' | 'approval',
+  readonly string[]
+>;
 
 export type ReasonList = keyof typeof SUPPLIER_WORK_REASONS;
+
+/**
+ * The decline list that fits a correction's field. Shop name and web address keep the names list that ships; a logo,
+ * an address or city, a phone or email each get their own. Unknown fields get only the shipped catch-all line.
+ */
+export function correctionReasonList(fieldKey: string | null | undefined): ReasonList {
+  switch (fieldKey) {
+    case 'business_name':
+    case 'business_slug':
+      return 'names';
+    case 'logo_url':
+      return 'logo';
+    case 'hq_address':
+    case 'location_city':
+      return 'place';
+    case 'contact_phone':
+    case 'contact_email':
+      return 'contact';
+    default:
+      return 'other';
+  }
+}
 
 /**
  * The reason the admin picked — ONLY if it is one of the list's own words. Anything else (empty, typed, from another
@@ -70,6 +142,22 @@ export function pickedReason(list: ReasonList, raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const s = raw.trim();
   return (SUPPLIER_WORK_REASONS[list] as readonly string[]).includes(s) ? s : null;
+}
+
+/** The lists a CORRECTION decline may use — one per kind of detail (see `correctionReasonList`). */
+const CORRECTION_LISTS = ['names', 'logo', 'place', 'contact', 'other'] as const satisfies readonly ReasonList[];
+
+/**
+ * A correction decline's reason: one of the list's own words for THAT field when the field is known, else one of any
+ * correction list's words (the Work form does not read the row before the page action does). Null refuses.
+ */
+export function pickedCorrectionReason(raw: unknown, fieldKey?: string | null): string | null {
+  if (fieldKey !== undefined) return pickedReason(correctionReasonList(fieldKey), raw);
+  for (const list of CORRECTION_LISTS) {
+    const hit = pickedReason(list, raw);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 /** One row in Work's supplier section. */

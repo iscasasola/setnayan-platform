@@ -177,7 +177,7 @@ export async function PatiktokSurface() {
       hideBelow: 'md',
       mono: true,
       cell: (j) =>
-        new Date(j.enqueued_at).toLocaleString('en-PH', {
+        new Date(j.enqueued_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila',
           dateStyle: 'medium',
           timeStyle: 'short',
         }),

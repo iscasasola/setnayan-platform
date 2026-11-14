@@ -14,6 +14,7 @@ import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
+import { distinctShopServices } from '@/lib/distinct-shop-services';
 import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
@@ -260,10 +261,8 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
 
   const microsite = micrositeFromRow(own);
   const tier = own?.tier_state ?? null;
-  const services = ((profile.services ?? []) as string[]).map((key) => ({
-    key,
-    label: vocab.serviceLabels?.[key] ?? titleCase(key),
-  }));
+  // 🧹 RW-167: one row per service — an older spelling of the same key is not a second service.
+  const services = distinctShopServices((profile.services ?? []) as string[], vocab.serviceLabels, titleCase);
   const slug = profile.business_slug ?? null;
   // The page opens for its own team whenever a stranger's not-found is not "closed" (lib/own-shop-preview.ts) — so
   // 👁 View my page works BEFORE couples can see it, which is the whole point of the button. This used to be

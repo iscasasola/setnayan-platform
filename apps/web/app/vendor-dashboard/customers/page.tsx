@@ -57,6 +57,7 @@ import {
   CUSTOMER_LANES,
   type CustomerLane,
   type PipelineCustomer,
+  onlyCandidateDay,
 } from '@/lib/vendor-customer-pipeline';
 import { rowReadsCompleted } from '@/lib/vendor-thread-stage';
 import { eventTypeLabel } from '@/lib/demand-radar';
@@ -451,6 +452,8 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const eventDateByEvent = new Map<string, string | null>();
   // 📅 No day set yet → the couple's candidate date(s) / window, as the chat title says them (walk 13 Nov 2026).
   const dateOptionsByEvent = new Map<string, string | null>();
+  // 📅 F-W1-47: no day fixed but exactly one candidate → the day the list files the client under.
+  const onlyCandidateByEvent = new Map<string, string | null>();
   const rosterEventIds = [
     ...new Set([...bookedByEvent.keys(), ...bookingByEvent.keys(), ...threadByEvent.keys()]),
   ];
@@ -489,6 +492,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       eventNameByEvent.set(e.event_id, e.display_name);
       eventDateByEvent.set(e.event_id, e.event_date);
       if (!e.event_date) {
+        onlyCandidateByEvent.set(e.event_id, onlyCandidateDay(e.date_candidates));
         dateOptionsByEvent.set(
           e.event_id,
           eventDateOptionWords({
@@ -544,6 +548,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         // `display_name`, never to hide one.
         descriptor: 'Customer',
         eventDate: eventDateByEvent.get(eventId) ?? null,
+        onlyCandidateDate: onlyCandidateByEvent.get(eventId) ?? null,
         place: venueByEvent.get(eventId) ?? null,
         // A live hold in this shop's own pool. Carrying it forward is what stops
         // a customer whose `event_vendors` row is archived, or was never stamped

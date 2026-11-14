@@ -94,6 +94,11 @@ export default async function VendorDeepSearchPage() {
   const admin = createAdminClient();
   const offer = await loadDeepSearchOffer(supabase, admin, { vendorProfileId, tier, tierExpiresAt, verification });
   const { eligible, cyclePricePhp, openRails } = offer;
+  // 💰 The catalogue price, or no figure when the row did not read (truth sweep 2026-11-13) — chosen here, said once.
+  const priceLine =
+    cyclePricePhp !== null
+      ? `Each search is ${peso(cyclePricePhp)} — one search per purchase, on every plan.`
+      : 'One search per purchase, on every plan.';
 
   // History — the vendor's own uses (RLS-scoped), resolved to their dossiers by
   // the explicit id list (admin-read; verification dossiers have no use row).
@@ -145,7 +150,7 @@ export default async function VendorDeepSearchPage() {
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold text-ink">Run a Deep Search</h2>
             <p className="mt-1 max-w-prose text-sm text-ink/65">
-              {`Each search is ${peso(cyclePricePhp)} — one search per purchase, on every plan.`}
+              {priceLine}
             </p>
           </div>
         </div>
@@ -187,7 +192,7 @@ export default async function VendorDeepSearchPage() {
                     ) : null}
                     <span className="text-xs text-ink/55">
                       {/* A free use is history: Pro/Ultra had 1 free per 28 days until 2026-11-09. */}
-                      {u.was_free ? 'Free (cycle)' : peso(cyclePricePhp)}
+                      {u.was_free ? 'Free (cycle)' : cyclePricePhp !== null ? peso(cyclePricePhp) : '—'}
                     </span>
                     <span
                       className={

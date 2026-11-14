@@ -41,9 +41,10 @@ import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 import {
   readPapicOneTiers,
   readPapicPassTiers,
-  readPapicFreeGrantPoints,
+  readPapicFreeGrantRead,
   readPapicFreeOneCameraPoints,
 } from '@/lib/papic-tier-config-read';
+import { papicFreeCreditPoints } from '@/lib/papic-free-credit-promise';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { setnayanAiTierSkuForEventType } from '@/lib/setnayan-ai-type-pricing';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
@@ -75,7 +76,7 @@ export async function readServicesStepView(
     customerSkus,
     poolTiers,
     oneTiers,
-    freePoolPoints,
+    freePoolRead,
     freeOnePoints,
     aiPricePhp,
     aiListPricePhp,
@@ -85,7 +86,10 @@ export async function readServicesStepView(
       fetchV2CustomerCatalog(),
       readPapicPassTiers(),
       readPapicOneTiers(),
-      readPapicFreeGrantPoints(),
+      // 💰 The PROMISE reader, not the mint reader (2026-11-13): `readPapicFreeGrantPoints` folds an admin "0 —
+      // switched off" and a failed read onto the seed 50, so this card advertised 50 free credits SQL would not
+      // grant. `papicFreeCreditPoints` answers null for both — and the card says nothing (0 below).
+      readPapicFreeGrantRead(),
       readPapicFreeOneCameraPoints(),
       aiOffered
         ? // 🔴 THROUGH THE SHARED RESOLVER, IN ONBOARDING CONTEXT. This used to
@@ -217,7 +221,7 @@ export async function readServicesStepView(
     oneTiers,
     pricePhpByCode,
     listPricePhpByCode,
-    freePoolPoints,
+    freePoolPoints: papicFreeCreditPoints(freePoolRead) ?? 0,
     freeOnePoints,
     aiPricePhp: aiOffered ? (setupApplies ? aiPricePhp : aiListPricePhp) : null,
     aiListPricePhp: aiOffered ? aiListPricePhp : null,

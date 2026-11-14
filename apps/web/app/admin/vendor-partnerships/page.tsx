@@ -1,3 +1,4 @@
+import { FieldPick } from '@/app/admin/_components/field-pick';
 import { Handshake } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -379,55 +380,22 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
 
         <form action={createPartnershipHq} className="grid gap-4 sm:grid-cols-2">
           {/* Recommending vendor */}
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className="font-semibold text-ink">Recommending supplier</span>
-            <select
-              name="recommending_vendor_id"
-              required
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">Select supplier…</option>
-              {vendorOptions.map((v) => (
-                <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
-                  {v.business_name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <FieldPick name="recommending_vendor_id" label="Recommending supplier" placeholder="Select supplier…" required className="min-h-11 w-full" options={vendorOptions.map((v) => ({ key: v.vendor_profile_id, label: v.business_name }))} />
+          </div>
 
           {/* Recommended vendor */}
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className="font-semibold text-ink">Recommended supplier</span>
-            <select
-              name="recommended_vendor_id"
-              required
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">Select supplier…</option>
-              {vendorOptions.map((v) => (
-                <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
-                  {v.business_name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <FieldPick name="recommended_vendor_id" label="Recommended supplier" placeholder="Select supplier…" required className="min-h-11 w-full" options={vendorOptions.map((v) => ({ key: v.vendor_profile_id, label: v.business_name }))} />
+          </div>
 
           {/* Relationship type */}
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className="font-semibold text-ink">Relationship type</span>
-            <select
-              name="relationship_type"
-              required
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">Select type…</option>
-              {Object.entries(RELATIONSHIP_LABELS).map(([k, label]) => (
-                <option key={k} value={k}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <FieldPick name="relationship_type" label="Relationship type" placeholder="Select type…" required className="min-h-11 w-full" options={Object.entries(RELATIONSHIP_LABELS).map(([k, label]) => ({ key: k, label }))} />
+          </div>
 
           {/* Additional fee */}
           <label className="flex flex-col gap-1 text-sm">

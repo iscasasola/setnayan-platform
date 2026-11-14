@@ -23,6 +23,7 @@
  * sentence disclosing it sit together. It was also the surface's one wholly
  * unchecked read.
  */
+import { manilaDayLabel } from '@/lib/admin/manila-stamp';
 import { LineChart, Filter, BarChart3 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -281,7 +282,7 @@ export async function FunnelsSurface({ searchParams }: Props) {
           Apply
         </button>
         <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Since {sinceIso.slice(0, 10)}
+          Since {manilaDayLabel(sinceIso)}
         </span>
       </form>
 

@@ -1843,7 +1843,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'maker-tools',
           title: 'Page, Look and Event Details',
-          body: 'Page ▾ picks what you are looking at. Look dresses the whole Event Hub. Event Details holds the facts — names, date, places — shown on every page.',
+          /* 🔒 + the Maker Edit shell (owner-approved 2026-11-13): the four tabs, and what a locked one does. */
+          body: 'Page ▾ picks what you are looking at. Look dresses the whole Event Hub. Event Details holds the facts — names, date, places — shown on every page. Every part has the same four tabs; a tab with a 🔒 says why, and where it is set.',
         },
         {
           anchor: 'maker-apply',

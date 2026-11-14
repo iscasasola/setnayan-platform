@@ -185,7 +185,8 @@ const MUST_NOT_CLAIM: ReadonlyArray<readonly [string, RegExp, string]> = [
   ['a business page or timeline', /\b(business|company)\s+(page|timeline|profile page of its own)\b/i,
     'a business is not an entity with a page or a history — session C4, unbuilt'],
   ['an avatar maker', /\bavatar (maker|builder|creator)\b|\b(build|create|design) your (own )?avatar\b/i,
-    'guest-avatar.tsx and vendor-avatar.tsx RENDER; nothing makes one — session C5, unbuilt'],
+    'C5 built a guest avatar picker (app/[slug]/avatar-actions.ts), but it is behind NEXT_PUBLIC_FIGURE_CHIBI, whose ' +
+      'production value no session can read — so llms.txt may neither CLAIM it (this ban) nor DENY it (2026-11-13)'],
   ['a drawn family tree', /\bfamily tree\b|\bkinship (chart|diagram|graph|map)\b/i,
     'kinship is derived but reaches no screen — session C1'],
   ['affiliate pages', /\baffiliate\b/i, 'no code'],
@@ -282,7 +283,10 @@ test('the out-of-scope section still exists and now carries the list', () => {
     'the section that withholds unshipped surfaces was deleted — it is the reason ' +
       'AI assistants are not sent to dead links',
   );
-  for (const marker of ['No public feed', 'No avatar maker', 'No drawn family tree', 'No affiliate']) {
+  // 'No avatar maker' left this list 2026-11-13 (truth sweep T4): it stopped being true when C5 shipped the guest
+  // avatar picker behind NEXT_PUBLIC_FIGURE_CHIBI. The ban above still stops llms.txt from CLAIMING one; denying a
+  // feature the code has is the same defect as promising one it lacks.
+  for (const marker of ['No public feed', 'No drawn family tree', 'No affiliate']) {
     assert.ok(body.includes(marker), `the out-of-scope list no longer withholds: ${marker}`);
   }
 });

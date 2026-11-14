@@ -52,7 +52,7 @@ export function ShopServicesHead({ line, compact, serviceHref, bundlesOn }: { li
             <h2 id="shop-services-h" className="sn-eye truncate">
               Your bundles and services
               <span
-                className="font-sans normal-case tracking-normal text-ink/60"
+                className="font-sans normal-case tracking-normal text-ink/70"
                 style={{ opacity: stuck ? 1 : 0, transition: 'opacity var(--sn-pill-dur) var(--sn-pill-spring)' }}
                 aria-hidden={!stuck}
               >
@@ -61,7 +61,7 @@ export function ShopServicesHead({ line, compact, serviceHref, bundlesOn }: { li
               </span>
             </h2>
             <p
-              className="overflow-hidden text-[12.5px] leading-snug text-ink/60"
+              className="overflow-hidden text-[12.5px] leading-snug text-ink/70"
               style={{
                 maxHeight: stuck ? 0 : 40,
                 opacity: stuck ? 0 : 1,

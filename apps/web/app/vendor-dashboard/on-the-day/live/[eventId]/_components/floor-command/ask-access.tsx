@@ -19,7 +19,9 @@
  */
 
 import { useState, useTransition } from 'react';
-import { Loader2, Lock, Send } from 'lucide-react';
+import { Lock, Send } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 
 import type { DelegateArea } from '@/lib/event-moderators';
 import { FLOOR_AREA_LABEL, GRANT_WORDS } from '@/lib/floor-command';
@@ -73,60 +75,60 @@ export function AskAccess({
   if (holding.length === 0 && !waiting && !lastAnswer && askable.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-ink/15 bg-white p-3" data-ask-access="">
-      <p className="flex items-center gap-1.5 text-sm font-medium text-ink">
-        <Lock aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
+    <div className="space-y-2" data-ask-access="">
+      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
+        <Lock aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
         Access to this event
       </p>
 
       {holding.length > 0 ? (
-        <ul className="mt-2 space-y-1" data-ask-access-held="">
+        <ul className="divide-y divide-[color:var(--m-line)]" data-ask-access-held="">
           {holding.map(([area, level]) => (
-            <li key={area} className="text-sm text-ink/75">
-              <span className="font-medium text-ink">{FLOOR_AREA_LABEL[area]}</span>{' '}
-              <span className={level === 'edit' ? 'text-terracotta' : 'text-ink/55'}>· {GRANT_WORDS[level!]}</span>
+            <li key={area} className="py-2 text-sm text-[color:var(--m-slate-2)]">
+              <span className="font-semibold text-ink">{FLOOR_AREA_LABEL[area]}</span>{' '}
+              <span className={level === 'edit' ? 'font-semibold text-ink' : 'text-[color:var(--m-slate-2)]'}>· {GRANT_WORDS[level!]}</span>
             </li>
           ))}
         </ul>
       ) : null}
 
       {waiting && waiting.length > 0 ? (
-        <p className="mt-2 rounded-lg border border-dashed border-ink/20 px-3 py-2 text-sm text-ink/60" data-ask-access-waiting="">
+        <p className="text-sm text-[color:var(--m-slate-2)]" data-ask-access-waiting="">
           You asked for{' '}
-          <strong className="font-medium text-ink/80">{waiting.map((a) => FLOOR_AREA_LABEL[a]).join(', ')}</strong>.
+          <strong className="font-semibold text-ink">{waiting.map((a) => FLOOR_AREA_LABEL[a]).join(', ')}</strong>.
           Waiting for {whoDecides(askerIsCoordinator)}.
         </p>
       ) : lastAnswer ? (
-        <p className="mt-2 text-xs text-ink/55" data-ask-access-answer="">
+        <p className="text-sm text-[color:var(--m-slate-2)]" data-ask-access-answer="">
           Last answer · {answerLines(lastAnswer)}
         </p>
       ) : null}
 
       {!waiting && askable.length > 0 ? (
-        <div className="mt-3">
-          <p className="text-sm font-medium text-ink">
-            {askerIsCoordinator ? 'Ask the host for access' : 'Ask the host or the coordinator for access'}
-          </p>
-          <p className="text-xs text-ink/60">
+        <div className="space-y-2 pt-1">
+          <InfoTip
+            label={askerIsCoordinator ? 'Ask the host for access' : 'Ask the host or the coordinator for access'}
+            labelAs="p"
+            labelClassName="text-sm font-semibold text-ink"
+            align="start"
+          >
             {askerIsCoordinator ? 'The host decides' : 'The host or the coordinator decides'} each part, and can take it
             back any time.
-          </p>
-          <div className="mt-2">
-            <PickMenu
-              label="Parts to ask for"
-              value={null}
-              options={askable.map((a) => ({ key: a, label: FLOOR_AREA_LABEL[a] }))}
-              picked={picked}
-              onPick={toggle}
-              buttonText={
-                picked.length === 0
-                  ? 'Pick the parts you need'
-                  : `${formatCount(picked.length)} ${picked.length === 1 ? 'part' : 'parts'} picked`
-              }
-              dataAttr="data-ask-access-parts"
-              doneNote="Tick each part you need."
-            />
-          </div>
+          </InfoTip>
+          <PickMenu
+            label="Parts to ask for"
+            value={null}
+            options={askable.map((a) => ({ key: a, label: FLOOR_AREA_LABEL[a] }))}
+            picked={picked}
+            onPick={toggle}
+            buttonText={
+              picked.length === 0
+                ? 'Pick the parts you need'
+                : `${formatCount(picked.length)} ${picked.length === 1 ? 'part' : 'parts'} picked`
+            }
+            dataAttr="data-ask-access-parts"
+            doneNote="Tick each part you need."
+          />
 
           <input
             type="text"
@@ -134,28 +136,24 @@ export function AskAccess({
             onChange={(e) => setNote(e.target.value)}
             maxLength={240}
             placeholder="Why you need it (optional)"
-            className="mt-2 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+            aria-label="Why you need it (optional)"
+            className="min-h-11 w-full rounded-lg border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
           />
 
           {error ? (
-            <p role="alert" className="mt-2 rounded-lg bg-warn-600/10 px-3 py-2 text-sm text-warn-600">
+            <p role="alert" className="text-sm font-semibold text-danger-700">
               {error}
             </p>
           ) : null}
 
-          <button
-            type="button"
+          <ActionButton
+            tone="brand"
+            icon={Send}
+            label="Send request"
             onClick={send}
-            disabled={pending || picked.length === 0}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-sm font-medium text-cream transition hover:bg-ink/90 disabled:opacity-40"
-          >
-            {pending ? (
-              <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-            ) : (
-              <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            )}
-            Send request
-          </button>
+            waiting={pending}
+            disabled={!pending && picked.length === 0}
+          />
         </div>
       ) : null}
     </div>

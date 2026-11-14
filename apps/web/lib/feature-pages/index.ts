@@ -78,7 +78,7 @@ export function featureHref(slug: FeatureSlug, locale: FeatureLocale): string {
  * shared fresh stamp as freshness fraud; see `app/sitemap.xml/route.ts`).
  * Bump it in the same commit as any copy change in this folder.
  */
-export const FEATURES_LASTMOD = '2026-10-18';
+export const FEATURES_LASTMOD = '2026-11-13';
 
 /**
  * THE ECOSYSTEM, AS A MAP (DECISION_LOG 2026-10-01 "EVERY FEATURE PAGE SAYS WHY

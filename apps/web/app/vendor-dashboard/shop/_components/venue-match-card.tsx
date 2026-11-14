@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check } from 'lucide-react';
+
+import { ActionButton } from '@/components/action-button';
 
 import { useToast } from '@/app/_components/toast/toast-provider';
 import {
@@ -89,19 +91,13 @@ export function VenueMatchCard({
   }
 
   return (
-    <section
-      className="mt-3 rounded-xl border p-4"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-    >
-      <h3 className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-        Weddings you’re a fit for{' '}
-        <span className="font-normal" style={{ color: 'var(--m-slate)' }}>
-          (optional)
-        </span>
+    <section className="mt-5" data-venue-match-card>
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
+        Weddings you’re a fit for (optional)
       </h3>
-      <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+      <p className="mt-1 text-sm text-[color:var(--m-slate-2)]">
         Couples searching for their kind of wedding see you first. Tick nothing and you
-        show up for <strong style={{ fontWeight: 600 }}>every</strong> venue and ceremony —
+        show up for <strong className="font-semibold text-ink">every</strong> venue and ceremony —
         ticking is how you narrow, not how you appear.
       </p>
 
@@ -124,22 +120,10 @@ export function VenueMatchCard({
       />
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={save}
-          disabled={pending}
-          className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-          style={{ background: 'var(--m-accent-deep)' }}
-        >
-          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} /> : null}
-          Save
-        </button>
+        <ActionButton tone="brand" icon={Check} label={pending ? 'Saving…' : 'Save'} onClick={save} waiting={pending} />
         {justSaved && !pending ? (
-          <span
-            className="inline-flex items-center gap-1 text-xs"
-            style={{ color: 'var(--m-slate)' }}
-          >
-            <Check className="h-3.5 w-3.5" strokeWidth={2} />
+          <span className="inline-flex items-center gap-1 text-sm text-[color:var(--m-slate-2)]" role="status">
+            <Check className="h-4 w-4" strokeWidth={2} aria-hidden />
             Saved
           </span>
         ) : null}
@@ -169,31 +153,28 @@ function CheckGroup({
   onToggle: (key: string, on: boolean) => void;
 }) {
   return (
-    <fieldset className="mt-3">
-      <legend className="text-xs font-medium" style={{ color: 'var(--m-ink)' }}>
+    <fieldset className="mt-4">
+      <legend className="text-sm font-semibold text-ink">
         {legend}{' '}
-        <span className="font-normal" style={{ color: 'var(--m-slate)' }}>
+        <span className="font-normal text-[color:var(--m-slate-2)]">
           — {selected.size === 0 ? emptyNote : `${selected.size} chosen`}
         </span>
       </legend>
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
+      <div className="mt-2 flex flex-wrap gap-2">
         {options.map((key) => {
           const on = selected.has(key);
           return (
             <label
               key={key}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors"
-              style={{
-                borderColor: on ? 'var(--m-accent-deep)' : 'var(--m-line)',
-                background: on ? 'var(--m-accent-soft, rgba(194,78,37,0.08))' : 'transparent',
-                color: 'var(--m-ink)',
-              }}
+              className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border px-3 text-sm text-ink transition-colors duration-sn-control ease-sn ${
+                on ? 'border-[color:var(--m-accent-deep)] bg-terracotta/10' : 'border-[color:var(--m-line)]'
+              }`}
             >
               <input
                 type="checkbox"
                 checked={on}
                 onChange={(e) => onToggle(key, e.currentTarget.checked)}
-                className="h-3.5 w-3.5 accent-[var(--m-accent-deep)]"
+                className="h-4 w-4 accent-[var(--m-accent-deep)]"
               />
               {labels[key] ?? key}
             </label>

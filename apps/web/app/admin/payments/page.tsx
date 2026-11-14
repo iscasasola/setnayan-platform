@@ -34,7 +34,7 @@ import {
   type DeskBillLine,
   type DeskDuplicate,
 } from '@/lib/admin-payment-desk';
-import { eventTypeLabel } from '@/lib/demand-radar';
+import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
 import { formatEventDate } from '@/lib/events';
 import {
   approvePayment,
@@ -470,6 +470,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
         />
       ) : (
         <PaymentsList
+          typeName={await readEventTypeNames()}
           payments={payments}
           screenshotUrlMap={screenshotUrlMap}
           sameDayOrderIds={sameDayOrderIds}
@@ -685,7 +686,10 @@ function PaymentsList({
   channelSettings,
   readFailed,
   query,
+  typeName,
 }: {
+  /** 🏷 F-A-15: an event type's admin-managed name. */
+  typeName: EventTypeName;
   /** Convert-to-credits / move-to-next-event state per paid order — see readRemedyDesk. */
   remedyDesk: RemedyDesk;
   /** The receiving-accounts list, so a payment's channel id prints as its NAME. */
@@ -894,6 +898,7 @@ function PaymentsList({
               eventId={p.order?.event_id ?? null}
               info={p.order?.event_id ? (eventInfo.byEventId.get(p.order.event_id) ?? null) : null}
               readFailed={eventInfo.failed}
+              typeName={typeName}
             />
 
             {p.order ? (
@@ -1502,7 +1507,9 @@ function CelebrationLine({
   eventId,
   info,
   readFailed,
+  typeName,
 }: {
+  typeName: EventTypeName;
   eventId: string | null;
   info: OrderEventInfo | null;
   readFailed: boolean;
@@ -1529,7 +1536,7 @@ function CelebrationLine({
     <p className="text-xs text-ink/65">
       <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">For</span>{' '}
       <span className="font-medium text-ink">{info.displayName}</span>
-      {info.eventType ? <> · {eventTypeLabel(info.eventType)}</> : null}
+      {info.eventType ? <> · {typeName(info.eventType)}</> : null}
       {' · '}
       {/* A NULL date must read as intent, never as a blank or a dash that looks
           like a broken join — same rule as buyerLabel. */}

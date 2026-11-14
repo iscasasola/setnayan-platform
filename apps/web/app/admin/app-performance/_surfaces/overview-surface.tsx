@@ -2,6 +2,7 @@
 // re-homed here (2026-07-10) so the App Performance menu is ONE tabbed
 // studio. Its actions/_components stay under /admin/app-performance; the legacy
 // route is now a redirect into /admin/app-performance?tab={tab}.
+import { manilaDayLabel, manilaStampLabel } from '@/lib/admin/manila-stamp';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
@@ -266,7 +267,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           Apply
         </button>
         <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Since {perf.sinceIso.slice(0, 10)} · deltas vs the previous equal window
+          Since {manilaDayLabel(perf.sinceIso)} · deltas vs the previous equal window
         </span>
       </form>
 
@@ -755,7 +756,7 @@ export async function CockpitSurface({ searchParams }: Props) {
         style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink-500)' }}
       >
         Live charts compute from the platform&apos;s own tables at{' '}
-        {perf.generatedAtIso.slice(0, 16).replace('T', ' ')} UTC
+        {manilaStampLabel(perf.generatedAtIso)}
         {sampled ? ' · some window reads hit their row cap — those counts are a floor, not exact' : ''}
         . Needs-wiring cards name their missing instrumentation — nothing here is
         simulated. All three zones of the plan are live: Action Center · Expenses &amp;

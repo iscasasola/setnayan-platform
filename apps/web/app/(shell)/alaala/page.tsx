@@ -45,6 +45,7 @@ import Link from 'next/link';
 import { AlaalaOrb } from '@/app/_components/marketing/AlaalaOrb';
 import { Reveal } from '@/app/_components/marketing/_motion';
 import { DOORWAY_TONE } from '@/app/_components/marketing/_doorway-tone';
+import { actionButtonClass } from '@/components/action-button-class';
 import {
   LineRevealHeading,
   RevealBand,
@@ -225,7 +226,7 @@ export default function AlaalaLandingPage() {
       <main className="mx-auto w-full max-w-6xl overflow-x-clip px-5 pb-20 pt-10 sm:pt-14">
         {/* Hero — text-led; line-reveal headline + quiet rise. */}
         <header className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--m-orange-2)]">
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             Memories · the memory you keep
           </p>
           <LineRevealHeading
@@ -244,13 +245,13 @@ export default function AlaalaLandingPage() {
             <div data-reveal-item className="mt-7 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/onboarding/wedding?from=alaala"
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90"
+                className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
               >
                 Start planning · free
               </Link>
               <Link
                 href="/pricing"
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[var(--m-ink)]/20 px-7 py-3 text-sm font-semibold text-[var(--m-ink)] transition-colors hover:bg-[var(--m-ink)]/[0.04]"
+                className={actionButtonClass('neutral', { extra: '!h-11' })}
               >
                 See pricing
               </Link>
@@ -280,7 +281,7 @@ export default function AlaalaLandingPage() {
               {PILLARS.map((p, i) => (
                 <li key={p.name} data-premium-item className={DOORWAY_TONE.card}>
                   <Link href={p.href} className="group block rounded-2xl p-5 transition-shadow hover:shadow-[var(--m-shadow-md)]">
-                    <span className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--m-orange-2)]">
+                    <span className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
                       {String(i + 1).padStart(2, '0')} · {p.role}
                     </span>
                     <h2 className="mt-2 font-serif text-lg text-[var(--m-ink)]">{p.name}</h2>
@@ -318,7 +319,7 @@ export default function AlaalaLandingPage() {
           <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
             Albums kept the photo. Memories keeps the day.
           </LineRevealHeading>
-          <RevealList className="mt-7 overflow-hidden rounded-2xl border border-[var(--m-line)] shadow-[var(--m-shadow-sm)]" stagger={0.06} y={12}>
+          <RevealList className="mt-7 overflow-hidden rounded-2xl shadow-[var(--m-shadow-sm)]" stagger={0.06} y={12}>
             {VS.map(([before, after], i) => (
               <li
                 key={after}
@@ -360,13 +361,13 @@ export default function AlaalaLandingPage() {
             <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/onboarding/wedding?from=alaala"
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90"
+                className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
               >
                 Start planning · free
               </Link>
               <Link
                 href="/our-story"
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[var(--m-ink)]/20 px-7 py-3 text-sm font-semibold text-[var(--m-ink)] transition-colors hover:bg-[var(--m-ink)]/[0.04]"
+                className={actionButtonClass('neutral', { extra: '!h-11' })}
               >
                 Read the whole story
               </Link>

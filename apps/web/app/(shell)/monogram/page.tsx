@@ -21,6 +21,7 @@ import Link from 'next/link';
 import { PublicMonogramStudio } from '@/app/monogram/public-monogram-studio';
 import { MonogramHeadline, StepsReveal, ClosingCta } from '@/app/monogram/_monogram-motion';
 import { registerGatesEnabled } from '@/lib/register-gates';
+import { actionButtonClass } from '@/components/action-button-class';
 
 // 2026-11-12 — moved into app/(shell)/ (owner: "these are on old shells");
 // the shell layout sets force-dynamic for the group, so no route directive here.
@@ -100,7 +101,7 @@ export default function PublicMonogramPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
         <header className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--m-orange-2)]">{gated ? 'Free · create an account' : 'Free · no sign-up'}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">{gated ? 'Free · create an account' : 'Free · no sign-up'}</p>
           <MonogramHeadline>Make your wedding monogram</MonogramHeadline>
           <p className="mx-auto mt-4 max-w-xl text-base text-[var(--m-slate-2)] sm:text-lg">
             Two initials, your way — real vector outlines you can interlock, frame, and colour. Design it here for
@@ -110,7 +111,7 @@ export default function PublicMonogramPage() {
 
         <section className="mt-9" aria-label="Monogram studio">
           {gated ? (
-            <div className="mx-auto max-w-md rounded-3xl border border-[var(--m-orange)]/40 bg-[var(--m-orange-4)] px-6 py-12 text-center">
+            <div className="mx-auto max-w-md rounded-3xl bg-[var(--m-orange-4)] px-6 py-12 text-center">
               <h2 className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">Create your free account to design</h2>
               <p className="mx-auto mt-3 max-w-sm text-base text-[var(--m-slate-2)]">
                 Your monogram becomes your wedding&rsquo;s mark — saved to your account so you can refine it, download it,
@@ -118,7 +119,7 @@ export default function PublicMonogramPage() {
               </p>
               <Link
                 href="/signup?next=/monogram"
-                className="mt-6 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+                className={actionButtonClass('brand', { main: true, extra: 'mt-6 !h-11' })}
               >
                 Create my free account
               </Link>
@@ -137,8 +138,8 @@ export default function PublicMonogramPage() {
         <section className="mx-auto mt-16 max-w-3xl">
           <StepsReveal>
             {STEPS.map((s, i) => (
-              <li key={s.t} data-reveal-item className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60 p-5">
-                <span className="font-mono text-xs text-[var(--m-orange-2)]">{String(i + 1).padStart(2, '0')}</span>
+              <li key={s.t} data-reveal-item className="rounded-2xl p-5">
+                <span className="tabular-nums text-xs text-[var(--m-orange-2)]">{String(i + 1).padStart(2, '0')}</span>
                 <h2 className="mt-2 font-serif text-lg text-[var(--m-ink)]">{s.t}</h2>
                 <p className="mt-1.5 text-sm text-[var(--m-slate-2)]">{s.d}</p>
               </li>
@@ -155,7 +156,7 @@ export default function PublicMonogramPage() {
           <Link
             data-premium-item
             href="/onboarding/wedding?from=monogram"
-            className="mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+            className={actionButtonClass('brand', { main: true, extra: 'mt-5 !h-11' })}
           >
             Start planning · free
           </Link>

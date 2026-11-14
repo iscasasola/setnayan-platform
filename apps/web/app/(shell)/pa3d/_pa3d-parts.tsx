@@ -45,7 +45,7 @@ export function PartsFilms({ parts }: { parts: ReadonlyArray<Part> }) {
   return (
     <ul className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
       {parts.map((p) => (
-        <li key={p.slug} className="pa3d-lift overflow-hidden rounded-2xl border border-[var(--m-line)] bg-[var(--m-paper)]">
+        <li key={p.slug} className="pa3d-lift overflow-hidden rounded-2xl bg-[var(--m-paper)]">
           <div className="flex justify-center bg-[var(--m-paper-2)] px-4 pt-4">
             <PartFilm slug={p.slug} title={p.title} />
           </div>

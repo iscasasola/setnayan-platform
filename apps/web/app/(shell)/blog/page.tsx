@@ -14,6 +14,7 @@ import {
 // so /realstories' "From our articles" rail renders a real article card instead
 // of a copy of one. Pure move — this page's markup is unchanged.
 import { StoryCard, Eyebrow, metaLine } from '@/app/blog/_components/story-card';
+import { actionButtonClass } from '@/components/action-button-class';
 
 // Setnayan Articles index — magazine redesign (iteration 0038, 2026-06-15).
 // Photo-led editorial: a full-bleed cover for the featured guide, a "Nuggets"
@@ -70,7 +71,7 @@ function LeadCard({ article }: { article: BlogArticle }) {
   return (
     <Link
       href={`/blog/${article.slug}`}
-      className="group grid overflow-hidden rounded-3xl border border-ink/10 bg-white/50 transition hover:border-terracotta/40 hover:bg-white sm:grid-cols-2"
+      className="group grid overflow-hidden rounded-3xl transition hover:bg-white sm:grid-cols-2"
     >
       <div className="relative aspect-[16/11] overflow-hidden sm:aspect-auto">
         <Image
@@ -191,7 +192,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10 sm:bg-gradient-to-r sm:from-black/80 sm:via-black/45 sm:to-transparent" />
           <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-6xl px-5 pb-12 sm:px-8 sm:pb-16">
-            <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.24em] text-[#E6D4A6]">
+            <p className="inline-flex items-center gap-1.5 text-[color:var(--sn-gold-300)] text-xs font-bold uppercase tracking-[0.1em]">
               <Newspaper aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Setnayan Articles · the Filipino event edit
             </p>
@@ -199,7 +200,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
               Event planning, the Filipino way.
             </h1>
             <div className="mt-6 max-w-xl">
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#E6D4A6]">
+              <p className="text-[color:var(--sn-gold-300)] text-xs font-bold uppercase tracking-[0.1em]">
                 Featured · {blogCategoryLabel(featured.category)}
               </p>
               <p className="mt-2 font-display text-xl font-medium leading-snug text-white sm:text-2xl">
@@ -221,7 +222,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
       {!activeCategory ? (
         <section className="bg-ink text-cream">
           <div className="mx-auto w-full max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta">
+            <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
               Nuggets
             </p>
             <h2 className="mt-2 font-display text-3xl font-medium tracking-tight text-cream sm:text-4xl">
@@ -238,13 +239,13 @@ export default async function BlogIndexPage({ searchParams }: Props) {
                   <Link
                     key={i}
                     href={`/blog/${n.sourceSlug}`}
-                    className="group flex min-h-[164px] flex-col rounded-2xl border border-cream/10 bg-cream/[0.04] p-5 transition hover:border-terracotta/50 hover:bg-cream/[0.07]"
+                    className="group flex min-h-[164px] flex-col rounded-2xl bg-cream/[0.04] p-5 transition hover:bg-cream/[0.07]"
                   >
                     <div className="flex items-center justify-between">
                       <span className="grid h-8 w-8 place-items-center rounded-full border border-terracotta/45 font-display text-sm font-medium text-terracotta">
                         {String(i + 1).padStart(2, '0')}
                       </span>
-                      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cream/45">
+                      <span className="text-cream/45 text-xs font-bold uppercase tracking-[0.1em]">
                         {blogCategoryLabel(n.category)}
                       </span>
                     </div>
@@ -286,11 +287,8 @@ export default async function BlogIndexPage({ searchParams }: Props) {
         <nav aria-label="Filter by category" className="mt-6 flex flex-wrap gap-2">
           <Link
             href="/blog"
-            className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
-              activeCategory
-                ? 'border-ink/15 text-ink/65 hover:border-ink/40 hover:text-ink'
-                : 'border-terracotta bg-terracotta text-[#3a2c10]'
-            }`}
+            className={actionButtonClass(activeCategory ? 'neutral' : 'brand', { filled: !activeCategory, extra: '!h-11' })}
+            aria-current={activeCategory ? undefined : 'page'}
           >
             All
           </Link>
@@ -300,11 +298,8 @@ export default async function BlogIndexPage({ searchParams }: Props) {
               <Link
                 key={c.key}
                 href={`/blog?category=${c.key}`}
-                className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
-                  isActive
-                    ? 'border-terracotta bg-terracotta text-[#3a2c10]'
-                    : 'border-ink/15 text-ink/65 hover:border-ink/40 hover:text-ink'
-                }`}
+                className={actionButtonClass(isActive ? 'brand' : 'neutral', { filled: isActive, extra: '!h-11' })}
+                aria-current={isActive ? 'page' : undefined}
               >
                 {c.label}
               </Link>
@@ -351,7 +346,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
         </section>
 
         {/* Conversion footer — sells the free workspace, no quoted SKU price. */}
-        <div className="mt-12 rounded-3xl border border-terracotta/25 bg-accent-soft p-8 text-center sm:p-12">
+        <div className="mt-12 rounded-3xl bg-accent-soft p-8 text-center sm:p-12">
           <h2 className="font-display text-2xl font-medium tracking-tight text-ink sm:text-3xl">
             Ready to start your own plan?
           </h2>
@@ -361,7 +356,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
           </p>
           <Link
             href="/signup"
-            className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-mulberry px-6 text-sm font-semibold text-cream transition hover:bg-mulberry-600"
+            className={actionButtonClass('brand', { main: true, extra: 'mt-6 !h-11' })}
           >
             Start planning · free
             <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />

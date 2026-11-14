@@ -431,7 +431,7 @@ export default async function PapicLandingPage() {
         <h1 className="font-serif text-[2.05rem] leading-[1.14] tracking-tight text-[var(--m-ink)] sm:text-5xl">
           Every guest goes home with their own photos.
         </h1>
-        <div className="relative mt-6 aspect-[4/5] overflow-hidden rounded-2xl border border-[var(--m-line)] sm:aspect-[16/10]">
+        <div className="relative mt-6 aspect-[4/5] overflow-hidden rounded-2xl sm:aspect-[16/10]">
           <Image
             src="/demo/maria-jose/wall-1.webp"
             alt="A toast at a Filipino reception, photographed from a guest’s own seat"
@@ -456,7 +456,7 @@ export default async function PapicLandingPage() {
       {/* ── SCAN IT ─────────────────────────────────────────────────────────
           With no buttons on the page, the code is the door. */}
       <section className="mx-auto mt-16 max-w-2xl" aria-label="Try Papic now">
-        <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           Point your phone at this
         </p>
         <h2 className="mt-2 font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
@@ -485,7 +485,7 @@ export default async function PapicLandingPage() {
           so it can never drift from the product. Ours already, and it had never
           appeared on a public page. */}
       <section className="mx-auto mt-16 max-w-2xl" aria-label="The Papic camera">
-        <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           The app itself
         </p>
         <h2 className="mt-2 font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
@@ -508,7 +508,7 @@ export default async function PapicLandingPage() {
         <div className="grid gap-5 sm:grid-cols-3">
           {STEPS.map((s) => (
             <Reveal key={s.n}>
-              <article className="overflow-hidden rounded-2xl border border-[var(--m-line)]">
+              <article className="overflow-hidden rounded-2xl">
                 <div className="relative aspect-[9/11]">
                   <Image
                     src={s.img}
@@ -519,7 +519,7 @@ export default async function PapicLandingPage() {
                   />
                 </div>
                 <div className="px-4 pb-5 pt-3.5">
-                  <span className="font-mono text-xs text-[var(--m-orange-2)]">{s.n}</span>
+                  <span className="tabular-nums text-xs text-[var(--m-orange-2)]">{s.n}</span>
                   <h3 className="mt-1 font-serif text-[1.02rem] text-[var(--m-ink)]">{s.t}</h3>
                   {s.d ? <p className="mt-1.5 text-sm text-[var(--m-slate-2)]">{s.d}</p> : null}
                 </div>
@@ -543,7 +543,7 @@ export default async function PapicLandingPage() {
                 height={66}
                 className="h-[66px] w-[66px] rounded-full border border-[var(--m-line)] object-cover"
               />
-              <div className="mt-1.5 font-mono text-[0.6rem] tabular-nums text-[var(--m-slate-2)]">
+              <div className="mt-1.5 text-[0.6rem] tabular-nums text-[var(--m-slate-2)]">
                 {f.n}
               </div>
             </div>
@@ -569,7 +569,7 @@ export default async function PapicLandingPage() {
               className="grid grid-cols-[1fr_auto_1fr] items-center gap-2.5 border-b border-[var(--m-line)] py-3 text-[0.92rem]"
             >
               <dt className="text-[var(--m-slate-2)]">{them}</dt>
-              <span aria-hidden className="font-mono text-xs text-[var(--m-orange-2)]">
+              <span aria-hidden className="tabular-nums text-xs text-[var(--m-orange-2)]">
                 →
               </span>
               <dd className="m-0 font-semibold text-[var(--m-ink)]">{us}</dd>
@@ -609,7 +609,7 @@ export default async function PapicLandingPage() {
           Two ways to run it
         </h2>
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          <div className="rounded-2xl border border-[var(--m-line)] p-5">
+          <div className="rounded-2xl p-5">
             <h3 className="font-serif text-lg text-[var(--m-ink)]">Give a camera its own credits</h3>
             <p className="mt-2 text-sm text-[var(--m-slate-2)]">
               Set aside some of your credits for the few friends or family you trust — theirs alone,
@@ -617,7 +617,7 @@ export default async function PapicLandingPage() {
               whatever they don’t use.
             </p>
           </div>
-          <div className="rounded-2xl border border-[var(--m-line)] p-5">
+          <div className="rounded-2xl p-5">
             <h3 className="font-serif text-lg text-[var(--m-ink)]">Let the whole room shoot</h3>
             <p className="mt-2 text-sm text-[var(--m-slate-2)]">
               Everything you haven’t set aside stays in one shared pot, and every guest shoots from
@@ -647,7 +647,7 @@ export default async function PapicLandingPage() {
                 is the half people get wrong: they assume the cameras and the wall
                 are metered too. Both figures are DERIVED; a literal fails the
                 copy guard. */}
-            <div className="mt-4 rounded-xl border border-[var(--m-line)] px-4 py-4">
+            <div className="mt-4 rounded-xl px-4 py-4">
               <p className="text-[0.92rem] text-[var(--m-ink)]">
                 A credit is <span className="font-medium">one photograph</span>. That is the whole
                 meter — you spend a credit when someone takes a picture, and nothing else on Papic
@@ -663,7 +663,7 @@ export default async function PapicLandingPage() {
                   video, the longest there is. A shorter one costs less.
                 </li>
                 <li className="py-1 text-[0.88rem] text-[var(--m-slate-2)]">
-                  <span className="mr-2 inline-block min-w-[2.2em] font-mono font-medium text-[var(--m-orange-2)]">
+                  <span className="mr-2 inline-block min-w-[2.2em] tabular-nums font-medium text-[var(--m-orange-2)]">
                     free
                   </span>
                   <span className="mr-1.5">·</span>
@@ -723,7 +723,7 @@ export default async function PapicLandingPage() {
             <details key={f.q} className="border-b border-[var(--m-line)]">
               <summary className="flex cursor-pointer list-none items-baseline justify-between gap-4 py-3.5 text-[0.98rem] font-semibold text-[var(--m-ink)] [&::-webkit-details-marker]:hidden">
                 {f.q}
-                <span aria-hidden className="flex-none font-mono text-[var(--m-orange-2)]">
+                <span aria-hidden className="flex-none tabular-nums text-[var(--m-orange-2)]">
                   +
                 </span>
               </summary>
@@ -761,7 +761,7 @@ const FOLDERS = [
 function Cost({ n }: { n: number }) {
   return (
     <>
-      <span className="mr-2 inline-block min-w-[2.2em] font-mono font-medium tabular-nums text-[var(--m-ink)]">
+      <span className="mr-2 inline-block min-w-[2.2em] font-medium tabular-nums text-[var(--m-ink)]">
         {n}
       </span>
       <span className="mr-1.5">credit{n === 1 ? '' : 's'} ·</span>

@@ -29,6 +29,7 @@ import { useCallback, useState } from 'react';
 import { Loader2, QrCode, RotateCcw } from 'lucide-react';
 import { Plan3DSceneLoader } from '@/app/_components/plan3d/plan3d-scene-loader';
 import { useIsMobile } from '@/lib/use-responsive';
+import { actionButtonClass } from '@/components/action-button';
 import {
   loadPlan3DDemoScene,
   mintPlan3DGuestQr,
@@ -74,7 +75,7 @@ export function Pa3dRoom() {
   if (phase !== 'ready') {
     const busy = phase === 'loading';
     return (
-      <div className="overflow-hidden rounded-2xl border border-[var(--m-line)] bg-[var(--m-paper)]">
+      <div className="overflow-hidden rounded-2xl bg-[var(--m-paper)]">
         <div className="relative flex aspect-[4/5] flex-col items-center justify-center gap-4 px-6 text-center sm:aspect-[16/10]">
           {/* A hint of the room behind the invitation — floor, then the warm
               wash the mood board puts over it. Pure CSS: no image to ship.
@@ -114,7 +115,7 @@ export function Pa3dRoom() {
             </div>
           ) : (
             <>
-              <p className="relative font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
+              <p className="relative text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
                 A real reception, not a mock-up
               </p>
               <p className="relative max-w-sm font-serif text-xl leading-snug text-[var(--m-ink)] sm:text-2xl">
@@ -125,7 +126,7 @@ export function Pa3dRoom() {
                 onClick={enter}
                 disabled={busy}
                 aria-label="Open the sample reception in 3D"
-                className="relative inline-flex items-center gap-2 rounded-full bg-[var(--m-mulberry)] px-6 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90 disabled:opacity-60"
+                className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
               >
                 {busy ? (
                   <>
@@ -150,7 +151,7 @@ export function Pa3dRoom() {
   return (
     <div>
       <div
-        className="relative overflow-hidden rounded-2xl border border-[var(--m-line)]"
+        className="relative overflow-hidden rounded-2xl"
         style={{ aspectRatio: isMobile ? '4 / 5' : '16 / 10', background: 'var(--m-paper-2)' }}
       >
         <Plan3DSceneLoader
@@ -220,7 +221,7 @@ export function Pa3dRoom() {
       {/* The QR is the pitch's second half: the room is not just yours to look
           at, it is every guest's to find their seat in. */}
       {qrPending || qr ? (
-        <div className="mt-4 flex items-center gap-4 rounded-2xl border border-dashed border-[var(--m-line)] p-4">
+        <div className="mt-4 flex items-center gap-4 rounded-2xl p-4">
           {qrPending ? (
             <>
               <Loader2 aria-hidden className="h-4 w-4 animate-spin text-[var(--m-slate-2)]" />

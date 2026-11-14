@@ -423,7 +423,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
         {hasDemoContent ? (
           <div
             role="status"
-            className="mb-6 flex items-start gap-3 rounded-xl border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900"
+            className="mb-6 flex items-start gap-3 rounded-xl bg-warn-50 px-4 py-3 text-sm text-warn-900"
           >
             <FlaskConical
               aria-hidden
@@ -445,13 +445,13 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
           </div>
         ) : null}
 
-        <div className="overflow-x-auto rounded-2xl border border-ink/10 bg-cream">
+        <div className="overflow-x-auto rounded-2xl bg-[color:var(--m-paper-2)]">
           <table className="w-full min-w-[640px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-ink/10 bg-ink/[0.02]">
                 <th
                   scope="col"
-                  className="w-32 px-3 py-3 text-left font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
+                  className="w-32 px-3 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]"
                 >
                   Spec
                 </th>
@@ -518,7 +518,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                       key={row.vendor_profile_id}
                       className="border-b border-ink/5 px-3 py-3 align-top"
                     >
-                      <span className="inline-flex items-center gap-1 font-mono">
+                      <span className="inline-flex items-center gap-1 tabular-nums">
                         <MapPin
                           aria-hidden
                           className="h-3.5 w-3.5"
@@ -561,7 +561,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                           }
                           strokeWidth={1.75}
                         />
-                        <span className="font-mono">
+                        <span className="tabular-nums">
                           {rating > 0 ? formatStarRating(rating) : NEW_TO_SETNAYAN_LABEL}
                         </span>
                         {rating > 0 ? (
@@ -588,7 +588,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                         {row.is_demo === true ? (
                           price !== null && price > 0 ? (
                             <span className="inline-flex items-baseline gap-1">
-                              <span className="font-mono text-lg font-semibold text-ink">
+                              <span className="tabular-nums text-lg font-semibold text-ink">
                                 {/* `starting_price_php` is already pesos · formatPhp expects pesos · the prior `price * 100` shipped ₱25,000 as ₱2,500,000 (pre-pilot audit cleanup 2026-05-30) */}
                                 {formatPhpRounded(price)}
                               </span>
@@ -708,7 +708,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                           {compat.map((c) => (
                             <span
                               key={c}
-                              className="rounded-full bg-ink/5 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-ink/65"
+                              className="rounded-full bg-ink/5 px-1.5 py-0.5 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]"
                             >
                               {c}
                             </span>
@@ -730,11 +730,11 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                       className="border-b border-ink/5 px-3 py-3 align-top"
                     >
                       {visibility === 'verified' ? (
-                        <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
+                        <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-success-800 text-xs font-bold uppercase tracking-[0.1em]">
                           ✓ Verified
                         </span>
                       ) : (
-                        <span data-coming-soon className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                        <span data-coming-soon className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
                           Coming soon
                         </span>
                       )}
@@ -928,7 +928,7 @@ function CompareRowEl({
     <tr>
       <th
         scope="row"
-        className="border-b border-ink/5 bg-ink/[0.02] px-3 py-3 text-left align-top font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
+        className="border-b border-ink/5 bg-ink/[0.02] px-3 py-3 text-left align-top text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]"
       >
         {label}
       </th>

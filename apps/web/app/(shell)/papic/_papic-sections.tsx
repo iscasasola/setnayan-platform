@@ -170,19 +170,19 @@ export function PapicFeatures() {
         <summary className="flex cursor-pointer list-none items-baseline justify-between gap-4 text-[0.98rem] font-semibold text-[var(--m-ink)] [&::-webkit-details-marker]:hidden">
           <span>
             And everything else
-            <span className="ml-2 font-mono text-[0.72rem] font-normal tabular-nums text-[var(--m-slate-2)]">
+            <span className="ml-2 text-[0.72rem] font-normal tabular-nums text-[var(--m-slate-2)]">
               {EVERYTHING_ELSE.length} more
             </span>
           </span>
           <span
             aria-hidden
-            className="flex-none font-mono text-[var(--m-orange-2)] group-open:hidden"
+            className="flex-none tabular-nums text-[var(--m-orange-2)] group-open:hidden"
           >
             +
           </span>
           <span
             aria-hidden
-            className="hidden flex-none font-mono text-[var(--m-orange-2)] group-open:block"
+            className="hidden flex-none tabular-nums text-[var(--m-orange-2)] group-open:block"
           >
             −
           </span>
@@ -193,7 +193,7 @@ export function PapicFeatures() {
               <dt className="flex flex-wrap items-baseline gap-x-2 text-[0.94rem] font-semibold text-[var(--m-ink)] sm:w-[38%] sm:flex-none">
                 {f.t}
                 {f.paid ? (
-                  <span className="rounded-full border border-[var(--m-line)] px-1.5 py-0.5 font-mono text-[0.55rem] uppercase tracking-[0.08em] text-[var(--m-slate-2)]">
+                  <span className="rounded-full border border-[var(--m-line)] px-1.5 py-0.5 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
                     Paid add-on
                   </span>
                 ) : null}
@@ -255,7 +255,7 @@ export function PapicHub() {
             visibly INSIDE something rather than floating. */}
         <div className="border-b border-[var(--m-line)] bg-[var(--m-paper)] px-4 py-4">
           <p className="text-[1.05rem] font-semibold tracking-tight text-[var(--m-ink)]">Maria &amp; Jose</p>
-          <p className="mt-1 font-mono text-[0.6rem] uppercase tracking-[0.09em] text-[var(--m-slate-2)]">
+          <p className="mt-1 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             14 February 2027 · Tagaytay
           </p>
           <div className="mt-3 flex gap-4 text-[0.78rem] text-[var(--m-slate-2)]">
@@ -274,7 +274,7 @@ export function PapicHub() {
             {WALL.map((w) => (
               <figure key={w.src} className="relative m-0 aspect-square overflow-hidden rounded-lg">
                 <Image src={w.src} alt="" fill sizes="(min-width:640px) 200px, 32vw" className="object-cover" />
-                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgb(23_22_15/0.85)] to-transparent px-1.5 pb-1 pt-4 font-mono text-[0.5rem] uppercase tracking-[0.04em] text-[var(--sn-ob-text)]">
+                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgb(23_22_15/0.85)] to-transparent px-1.5 pb-1 pt-4 text-[var(--sn-ob-text)] text-xs font-bold uppercase tracking-[0.1em]">
                   {w.cam}
                 </figcaption>
               </figure>
@@ -307,7 +307,7 @@ export function PapicHub() {
 function HubHead({ kick, big, small }: { kick: string; big: string; small: string }) {
   return (
     <div className="flex items-start justify-between gap-2.5">
-      <p className="sn-gal-kick inline-flex items-center gap-2 font-mono text-[0.58rem] font-bold uppercase tracking-[0.14em]">
+      <p className="sn-gal-kick inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sn-ob-gold)]" />
         {kick}
       </p>

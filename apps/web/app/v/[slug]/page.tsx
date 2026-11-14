@@ -3189,7 +3189,7 @@ export async function renderVendorBySlug({
                 return (
                 <a
                   key={story.eventId}
-                  href={storyLink.href}
+                  href={storyLink.own ? storyLink.href : `/${story.slug}`}
                   data-story-link={storyLink.own ? 'own' : 'couple'}
                   className={`group flex flex-col justify-between rounded-2xl border border-ink/10 bg-cream/50 p-5 transition-colors hover:border-terracotta/40 ${
                     idx === 0 ? 'sm:col-span-3 sm:flex-row sm:items-end sm:gap-6' : ''

@@ -597,6 +597,8 @@ export async function setVendorAgentServices(formData: FormData) {
     if (insErr) return err(insErr.message);
   }
 
+  // It now writes `vendor_team_members` (whole_branch_keys), which the shop page tree reads — clear its cached copy.
+  revalidateShopPage(ctx.vendorProfileId);
   revalidatePath(TEAM);
   return back('saved=1');
 }

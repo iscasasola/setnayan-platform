@@ -19,7 +19,7 @@ import { groupByLocation, type Location, type ScopedService } from '@/lib/branch
  */
 type Action = (formData: FormData) => void | Promise<void>;
 
-export function WhoWorksWhatServices({
+export function AgentServiceAssignment({
   action,
   memberId,
   services,
@@ -58,8 +58,8 @@ export function WhoWorksWhatServices({
       ) : (
         <>
           {branched ? (
-            <fieldset className="rounded-lg border border-dashed border-ink/15 bg-white/50 p-2" data-whole-branch="">
-              <legend className="px-1 text-[12.5px] font-semibold text-ink/70">Whole branch</legend>
+            <fieldset className="space-y-1 pb-1" data-whole-branch="">
+              <legend className="mb-1 text-[12.5px] font-semibold text-ink/70">Whole branch</legend>
               <div className="flex flex-wrap gap-2">
                 {locations.map((l) => {
                   const n = services.filter((s) => s.key === l.key).length;

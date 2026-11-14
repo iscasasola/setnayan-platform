@@ -19,7 +19,7 @@ import { insertLiveCard, FIXTURE_COVER } from './live-card-fixture';
 
 let replay: ReplayResult;
 let db: PGlite;
-const F: Record<string, string> = {};
+const F = {} as Record<'owner' | 'agent' | 'stranger' | 'vendor' | 'member' | 'cebu' | 'card' | 'copy', string>;
 
 async function setRole(role: string): Promise<void> {
   await db.query(`SELECT set_config('request.jwt.claim.role', $1, false)`, [role]);

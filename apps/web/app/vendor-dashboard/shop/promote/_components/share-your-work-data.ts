@@ -31,7 +31,7 @@ export type ShareYourWorkData = {
    * story row gets its "In our words" note and a link to the shop's own page for it. `notes` is keyed by event id;
    * a refused read is an empty map (the box opens empty — the page still shows nothing it should not).
    */
-  ultra: { shopSlug: string; notes: Record<string, string> } | null;
+  ultra?: { shopSlug: string; notes: Record<string, string> } | null;
 };
 
 async function loadUltraStoryNotes(supabase: SupabaseClient, vendorProfileId: string): Promise<ShareYourWorkData['ultra']> {
@@ -73,7 +73,7 @@ export async function loadShareYourWork(supabase: SupabaseClient, vendorProfileI
     }),
     loadUltraStoryNotes(supabase, vendorProfileId).catch(() => null),
   ]);
-  if (eventIds === null) return { stories: null, recaps: null, recapsGated, ultra };
+  if (eventIds === null) return { stories: null, recaps: null, recapsGated };
 
   const [stories, recaps] = await Promise.all([
     loadVendorFeaturedStories(eventIds).catch((err) => {

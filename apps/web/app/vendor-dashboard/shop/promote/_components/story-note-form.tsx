@@ -1,6 +1,7 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { ArrowRight, Check } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { supplierPlanExtra, type PlanExtraResult } from '@/app/vendor-dashboard/plan-extras-actions';
@@ -14,21 +15,14 @@ import { IN_OUR_WORDS, OUR_STORY_LINK, STORY_NOTE_MAX } from '@/lib/ultra-story-
  */
 export function StoryNoteForm({ eventId, initial, pageHref }: { eventId: string; initial: string; pageHref: string }) {
   const [state, action, pending] = useActionState<PlanExtraResult | null, FormData>(supplierPlanExtra, null);
+  const [note, setNote] = useState(initial);
   return (
     <form action={action} className="mt-2 space-y-2 pb-1" data-story-note-form="">
       <input type="hidden" name="op" value="story_note" />
       <input type="hidden" name="event_id" value={eventId} />
-      <label className="block space-y-1">
-        <span className="block text-[13px] font-medium text-ink/70">{IN_OUR_WORDS}</span>
-        <textarea
-          name="body"
-          defaultValue={initial}
-          maxLength={STORY_NOTE_MAX}
-          rows={3}
-          placeholder="What happened that day, from your side — a line or two."
-          className="input-field min-h-[88px] w-full text-[14px]"
-        />
-      </label>
+      <FormRows>
+        <TypedRow name={IN_OUR_WORDS} value={note} empty="Add a line or two" long boxed maxLength={STORY_NOTE_MAX} fieldName="body" onKeep={(t) => setNote(t)} data="story-note" />
+      </FormRows>
       <div className="flex flex-wrap items-center gap-2">
         <ActionButton
           tone="ok"

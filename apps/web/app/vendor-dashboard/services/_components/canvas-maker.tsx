@@ -2327,6 +2327,6 @@ function branchCopyProps(
   const p = initial?.pricing;
   const basis = p?.pricing_basis ?? 'fixed';
   const herePricePhp = basis === 'per_pax' ? (p?.per_pax_price_php ?? null) : basis === 'per_hour' ? (p?.hour_base_php ?? null) : (p?.starting_price_php ?? null);
-  const priceWord = basis === 'per_pax' ? 'Per guest there' : basis === 'per_hour' ? 'Base price there' : 'Price there';
+  const priceWord = basis === 'per_pax' ? 'Per guest' : basis === 'per_hour' ? 'The base, for the first hours' : 'Price there';
   return { serviceId: editing.serviceId, targets, hereLabel: here, herePricePhp, priceWord };
 }

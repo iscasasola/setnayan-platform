@@ -19,7 +19,7 @@ import { SupplierSubmit } from '../../_components/supplier-submit';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { InviteHelperSheet, RolePick } from './helpers-controls';
 import { StayForm } from '@/app/_components/stay-form';
-import { WhoWorksWhatServices } from './who-works-what-services';
+import { AgentServiceAssignment } from './who-works-what-services';
 import { keyOfBranchId, whoWorksWhatLine, type BranchScope, type ScopedService } from '@/lib/branch-copy';
 
 /**
@@ -267,7 +267,7 @@ export function HelpersView({
                       />
                     </StayForm>
                     {m.role === 'agent' ? (
-                      <WhoWorksWhatServices
+                      <AgentServiceAssignment
                         action={actions.setServices}
                         memberId={m.vendor_team_member_id}
                         services={scoped}

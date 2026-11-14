@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, CopyPlus, X } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { ActionButton } from '@/components/action-button';
 import { formatPhp } from '@/lib/php';
 import { supplierPlanExtra, type PlanExtraResult } from '@/app/vendor-dashboard/plan-extras-actions';
@@ -36,6 +37,7 @@ export function CopyToBranch({
 }) {
   const [open, setOpen] = useState(false);
   const [branch, setBranch] = useState(targets[0]?.key ?? '');
+  const [price, setPrice] = useState('');
   const [state, action, pending] = useActionState<PlanExtraResult | null, FormData>(supplierPlanExtra, null);
   const router = useRouter();
   useEffect(() => {
@@ -59,7 +61,7 @@ export function CopyToBranch({
         </span>
         <ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Copy to another branch" rise>
+      <Sheet open={open} onClose={() => setOpen(false)} labelledById="branch-copy-title" title="Copy to another branch" rise>
         <form action={action} className="space-y-3" data-branch-copy-sheet="">
           <input type="hidden" name="op" value="branch_copy" />
           <input type="hidden" name="vendor_service_id" value={serviceId} />
@@ -79,13 +81,9 @@ export function CopyToBranch({
               ))}
             </select>
           </label>
-          <label className="flex min-h-11 items-center justify-between gap-3 border-t border-ink/10 pt-2 text-[15px]">
-            <span>{priceWord}</span>
-            <span className="flex items-center gap-1">
-              <span aria-hidden className="text-ink/55">₱</span>
-              <input name="price_php" inputMode="numeric" pattern="[0-9,]*" required placeholder="0" className="input-field min-h-11 w-36 text-right" />
-            </span>
-          </label>
+          <FormRows>
+            <TypedRow name="Price there" note={priceWord === 'Price there' ? undefined : priceWord} value={price} empty="Set it" amount required inputMode="numeric" fieldName="price_php" onKeep={(t) => setPrice(t)} data="branch-copy-price" />
+          </FormRows>
           <p className="text-[13px] text-ink/60">
             {herePricePhp ? `${short(hereLabel)} is ${formatPhp(herePricePhp)}. ` : ''}Each branch sets its own price.
           </p>

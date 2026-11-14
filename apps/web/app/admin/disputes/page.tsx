@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { FieldPick } from '@/app/admin/_components/field-pick';
 import { ActionButton } from '@/components/action-button';
 import { Gavel, Filter, ShieldCheck, PackageCheck } from 'lucide-react';
@@ -352,12 +353,14 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
         title="Disputes"
       />
 
-      <p className="mb-6 rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-xs text-ink/70">
-        Use <span className="font-semibold">Resolve</span> on any open row to
+      <div className="mb-6">
+        <InfoTip label="How to resolve" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Use <span className="font-semibold">Resolve</span> on any open row to
         record the outcome (couple / supplier / withdrawn) with a note. The
         opener is notified automatically. A standalone detail page with the
         full evidence trail is the next refresh.
-      </p>
+        </InfoTip>
+      </div>
 
       <StatsBanner
         stats={stats}

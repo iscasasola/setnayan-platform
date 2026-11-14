@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { Flag, Gavel, ShieldOff } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -284,13 +285,15 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
           of overrides you yourself issued. */}
       <PageMasthead title="Review moderation" />
       <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          Three queues — <span className="font-medium">Supplier fake-review flags</span>{' '}
+        <div>
+          <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Three queues — <span className="font-medium">Supplier fake-review flags</span>{' '}
           (supplier-reported disputed reviews), <span className="font-medium">Self-review
           appeals</span> (blocked reviewers contesting the related-account gate), and{' '}
           <span className="font-medium">Admin override-published reviews</span> (audit
           trail of every override-publish you&rsquo;ve issued).
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {flash ? (
@@ -317,10 +320,12 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
               </span>
             ) : null}
           </h2>
-          <p className="text-xs text-ink/55">
-            Suppliers flag reviews they believe are fake or fraudulent. Dismiss to close, or
+          <div>
+            <InfoTip label="About fake-review flags" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              Suppliers flag reviews they believe are fake or fraudulent. Dismiss to close, or
             escalate to the two-admin override queue. SLA: 48 hours.
-          </p>
+            </InfoTip>
+          </div>
         </header>
 
         {fakeFlagError ? (
@@ -716,10 +721,12 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
         </form>
         <div className="flex-1 rounded-lg border border-warn-200 bg-warn-50/60 p-3 text-xs text-warn-900">
           <p className="font-medium">To escalate:</p>
-          <p className="mt-0.5 text-warn-800">
-            Use the self-review override-publish queue — reject or override-publish
+          <div className="mt-0.5">
+            <InfoTip label="About self-reviews" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              Use the self-review override-publish queue — reject or override-publish
             the underlying review from there. Create an appeal row manually if needed.
-          </p>
+            </InfoTip>
+          </div>
         </div>
       </div>
     </li>

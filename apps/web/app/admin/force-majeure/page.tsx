@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { FieldPick } from '@/app/admin/_components/field-pick';
 import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
@@ -161,10 +162,12 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
           this queue. A judgement desk where not deciding is itself a decision
           has to say so on the screen. */}
       <PageMasthead title="Force majeure" />
-      <p className="mb-6 text-sm text-ink/70">
-        Inbound flags from <code className="text-xs">/dashboard/&lt;event&gt;/disputes</code>.
+      <div className="mb-6">
+        <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Inbound flags from <code className="text-xs">/dashboard/&lt;event&gt;/disputes</code>.
         7-day auto-resolution timer; review and route to one of 6 resolutions.
-      </p>
+        </InfoTip>
+      </div>
 
       <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
         <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Filter</span>

@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { Check, X } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -148,8 +149,9 @@ export default async function AdminChatFlagsPage({
           reasonably think they were about to read a private conversation. */}
       <PageMasthead title="Chat contact flags" />
       <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          Couple↔supplier chat messages <strong>blocked</strong> for sharing
+        <div>
+          <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Couple↔supplier chat messages <strong>blocked</strong> for sharing
           off-platform contact info (phone, email, social/messaging links,
           @handles, app names, or &ldquo;add me on&hellip;&rdquo; solicitations).
           The message never reached the other person. This queue shows only the{' '}
@@ -157,7 +159,8 @@ export default async function AdminChatFlagsPage({
           the message text (Setnayan staff don&apos;t read chats). Use it to spot a
           repeat off-platform-pusher; review or dismiss false positives. Latest 200
           matching the filter, newest first.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       <PillTrack className="mb-4">

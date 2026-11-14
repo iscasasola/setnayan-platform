@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   Star,
   Store,
@@ -333,8 +334,9 @@ export default async function AdminIntegrityWatchPage({
         }
       />
       <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          Deterministic integrity screening. <span className="font-medium">Reviews</span>{' '}
+        <div>
+          <InfoTip label="How the screening works" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Deterministic integrity screening. <span className="font-medium">Reviews</span>{' '}
           scores every submitted review on velocity/burst, rating anomaly, and
           shared-device reviewer clusters; <span className="font-medium">Listings</span>{' '}
           flags placeholder / abandoned / duplicate marketplace listings;{' '}
@@ -343,7 +345,8 @@ export default async function AdminIntegrityWatchPage({
           never penalized). Detect-and-review only — resolving records a verdict; a
           review flag never auto-deletes the review, and a listing is only hidden
           on an explicit click. Demo suppliers are excluded.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {search.scanned !== undefined && (

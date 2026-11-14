@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { FieldPick } from '@/app/admin/_components/field-pick';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
@@ -137,24 +138,28 @@ export default async function AdminBudgetPlannerPage() {
           clear it. Nothing else on the screen says that, and it is the one
           gesture an operator would otherwise guess wrong. */}
       <PageMasthead title="Budget Planner" />
-      <p className="mb-8 text-sm text-ink/70">
-        Seed the fallback benchmark prices, tune the allocation engine, and
+      <div className="mb-8">
+        <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Seed the fallback benchmark prices, tune the allocation engine, and
         review de-identified couple insights. Prices are admin-set and never
         invented — leave a field blank to clear it.
-      </p>
+        </InfoTip>
+      </div>
 
       {/* ── 0. Budget bands (onboarding) ─────────────────────────────────── */}
       <section className="mb-12">
         <h2 className="mb-1 text-base font-semibold tracking-tight">
           Budget bands (onboarding) ({bandsUnread ? '—' : budgetBands.length})
         </h2>
-        <p className="mb-3 text-sm text-ink/60">
-          The feel-band ladder couples pick from on the onboarding budget screen.
+        <div className="mb-3">
+          <InfoTip label="About the feel bands" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            The feel-band ladder couples pick from on the onboarding budget screen.
           The per-head median (₱ per guest) × their guest count sets the estimated
           budget. Edit the label, tag, or median; leave the median blank to clear
           it to ₱0 (the &ldquo;No limit&rdquo; convention). If this table is empty
           the onboarding uses the built-in fallback ladder.
-        </p>
+          </InfoTip>
+        </div>
         <div className="overflow-hidden border-t border-ink/10">
           {bandsUnread ? (
             <p role="alert" className="border-l-2 border-[rgb(var(--color-warn))] py-2 pl-3 text-sm text-ink/70">
@@ -200,11 +205,13 @@ export default async function AdminBudgetPlannerPage() {
         <h2 className="mb-1 text-base font-semibold tracking-tight">
           Benchmark seeding ({benchmarksUnread ? '—' : benchmarks.length})
         </h2>
-        <p className="mb-3 text-sm text-ink/60">
-          Set the typical ₱ per service. These are the fallback the planner shows
+        <div className="mb-3">
+          <InfoTip label="About typical prices" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Set the typical ₱ per service. These are the fallback the planner shows
           couples when there aren&apos;t enough real supplier prices yet. Leave
           blank to clear.
-        </p>
+          </InfoTip>
+        </div>
         <div className="overflow-hidden border-t border-ink/10">
           {benchmarksUnread ? (
             <p role="alert" className="border-l-2 border-[rgb(var(--color-warn))] py-2 pl-3 text-sm text-ink/70">
@@ -254,12 +261,14 @@ export default async function AdminBudgetPlannerPage() {
         <h2 className="mb-1 text-base font-semibold tracking-tight">
           Engine settings
         </h2>
-        <p className="mb-3 text-sm text-ink/60">
-          The allocation engine knobs. Sample thresholds decide when real supplier
+        <div className="mb-3">
+          <InfoTip label="About the engine settings" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            The allocation engine knobs. Sample thresholds decide when real supplier
           medians are trusted over the seeded benchmark; the band is the ±
           tolerance around a target; surplus mode decides what happens to money
           left over after every service is funded.
-        </p>
+          </InfoTip>
+        </div>
         {configUnread ? (
           <div role="alert" className="mb-3 rounded-card bg-[var(--sn-warning-soft)] p-4 text-sm text-ink">
             Couldn&rsquo;t load this — refresh to try again. Saving is off until the saved

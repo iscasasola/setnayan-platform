@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * Admin · Setnayan AI enforcement queue (iteration 0023 § 3.11).
  *
@@ -177,19 +178,23 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
           exact harm this desk&apos;s no-buttons rule exists to prevent. */}
       <PageMasthead title="Today’s Focus enforcement" />
       <div className="mb-6 space-y-2">
-        <p className="text-sm text-ink/70">
-          People opening extra accounts to get another free trial. Tiered enforcement
+        <div>
+          <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            People opening extra accounts to get another free trial. Tiered enforcement
           ladder: strike 1 → warning · strike 2 → trial banned · strike 3+ → full banned. Single-
           admin authority per § 4.3.
-        </p>
-        <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
-          <span className="font-semibold">Read-only — retired as a separate concept.</span>{' '}
+          </InfoTip>
+        </div>
+        <div>
+          <InfoTip label="About the Concierge rule" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            <span className="font-semibold">Read-only — retired as a separate concept.</span>{' '}
           The Setnayan Concierge product was replaced by the Today’s Focus
           one-time product on 2026-05-28. Existing flagged users +
           enforcement actions remain valid here for audit + appeal; the V2
           abuse model is being locked separately and will replace this queue
           when it ships.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       <AbuseTabs

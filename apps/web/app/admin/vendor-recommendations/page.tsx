@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -222,12 +223,14 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
           recommendation could compete with the vendor&apos;s own service. */}
       <PageMasthead title="Supplier recommendations" />
       <div className="mb-6">
-        <p className="max-w-3xl text-sm text-ink/70">
-          Recommend only what helps them — a SKU appears for a leaf only when it amplifies that
+        <div className="max-w-3xl">
+          <InfoTip label="How recommendations work" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Recommend only what helps them — a SKU appears for a leaf only when it amplifies that
           supplier&apos;s own deliverable. Sparse by design. Mark a recommendation{' '}
           <span className="font-medium text-ink">Opt-in</span> when it could compete with the
           supplier&apos;s own service (it stays hidden until the supplier turns it on).
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       <Banner search={search} />
@@ -286,11 +289,13 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
         <h2 className="mb-1 text-base font-semibold tracking-tight">
           Supplier flags ({feedbackRows.length} pending)
         </h2>
-        <p className="mb-3 text-sm text-ink/60">
-          Suppliers flag the map as <span className="font-medium">not a fit</span> or{' '}
+        <div className="mb-3">
+          <InfoTip label="About supplier flags" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Suppliers flag the map as <span className="font-medium">not a fit</span> or{' '}
           <span className="font-medium">suggest add</span>. Accepting acts on the map (deactivate /
           add); declining just resolves the flag.
-        </p>
+          </InfoTip>
+        </div>
         {feedbackRows.length === 0 ? (
           <p className="sn-tile px-4 py-6 text-center text-sm text-ink/60">
             No pending flags.

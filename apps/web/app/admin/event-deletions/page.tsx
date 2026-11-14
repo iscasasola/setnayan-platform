@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { Trash2, Undo2 } from 'lucide-react';
 import { actionButtonClass } from '@/components/action-button';
 import { redirect } from 'next/navigation';
@@ -78,11 +79,13 @@ export default async function EventDeletionsPage() {
         `admin-page-starts-at-its-content.test.ts` holds it).
       */}
       <PageMasthead title="Event removals" />
-      <p className="max-w-prose text-sm text-ink/70">
-        A couple can remove their own event. They can’t when money has
+      <div className="max-w-prose">
+        <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          A couple can remove their own event. They can’t when money has
         moved — a bill we confirmed, a receipt, or a payment nobody has checked
         yet. Those come here.
-      </p>
+        </InfoTip>
+      </div>
 
       {open === null ? (
         <p

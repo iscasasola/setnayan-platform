@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { Receipt } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -154,11 +155,13 @@ export async function DepositDisputesSection() {
           “The downpayment never reached me”
         </h2>
       </div>
-      <p className="mb-4 max-w-2xl text-xs text-ink/60">
-        A supplier says a downpayment the couple recorded never arrived. Nothing the couple
+      <div className="mb-4 max-w-2xl">
+        <InfoTip label="About these disputes" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          A supplier says a downpayment the couple recorded never arrived. Nothing the couple
         sent is deleted while this is open — their amount, receipt, method and ledger row all
         stand. Confirm it by hand against the bank record.
-      </p>
+        </InfoTip>
+      </div>
 
       {rows === null ? (
         <p className="rounded-lg bg-[var(--sn-warning-soft)] px-4 py-3 text-xs text-[color:var(--sn-warning)]">

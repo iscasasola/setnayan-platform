@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { EyeOff, UserX, ArrowUpRight, Check, X } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -333,13 +334,15 @@ export default async function AdminUserReportsPage({
           to legal, or dismiss — and it discloses the 200-row cap. */}
       <PageMasthead title="User reports" />
       <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          Reports filed against guest Memories content (Papic), Setnayan AI
+        <div>
+          <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Reports filed against guest Memories content (Papic), Setnayan AI
           output (Play GenAI policy), and public pages (an invitation page,
           a profile, or a creator chapter). Hide the photo, block the uploader
           for that event, escalate for owner/legal review, or dismiss. The
           latest 200 matching the filter, newest first.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       <PillTrack className="mb-4">
@@ -557,11 +560,13 @@ export default async function AdminUserReportsPage({
         </ul>
       )}
 
-      <p className="mt-6 text-sm text-ink/70">
-        Both app stores require a way for anyone to report content and for us to act
+      <div className="mt-6">
+        <InfoTip label="Why this exists" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Both app stores require a way for anyone to report content and for us to act
         on it. This queue is that promise &mdash; leaving it unattended is a store
         compliance problem, not only a moderation one.
-      </p>
+        </InfoTip>
+      </div>
     </div>
   );
 }

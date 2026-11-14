@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { Plus, Trash2 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -76,11 +77,13 @@ export async function SupplierPhotoReports() {
       <h2 className="text-base font-semibold text-ink">
         Suppliers who say a photo is theirs{rows.length > 0 ? ` · ${formatCount(rows.length)}` : ''}
       </h2>
-      <p className="mt-1 text-sm text-ink/65">
-        A supplier was told a photo is already on another shop’s service card and pressed “It’s mine — report it”.
+      <div className="mt-1">
+        <InfoTip label="About card checks" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          A supplier was told a photo is already on another shop’s service card and pressed “It’s mine — report it”.
         Their card stays blocked until they replace the photo; the same pair is in the list below if you want to
         record a verdict.
-      </p>
+        </InfoTip>
+      </div>
       {error ? (
         <p className="mt-2 text-sm" style={{ color: 'rgb(var(--color-danger))' }}>
           Reports couldn’t load right now — refresh in a moment.
@@ -144,10 +147,12 @@ export async function CardChecksAdmin() {
   return (
     <section className="mt-10 border-t border-ink/10 pt-6" id="card-claim-words" data-admin-claim-words={words.length}>
       <h2 className="text-base font-semibold text-ink">Claim words on service cards</h2>
-      <p className="mt-1 text-sm text-ink/65">
-        The card maker keeps Create shut while a card’s name, a what’s-included line or an extra carries one of these
+      <div className="mt-1">
+        <InfoTip label="About the card maker's checks" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          The card maker keeps Create shut while a card’s name, a what’s-included line or an extra carries one of these
         (whole word, any case), and shows the supplier the note as the reason. Allow a word for one shop below.
-      </p>
+        </InfoTip>
+      </div>
 
       {wordsRes.error ? (
         <p className="mt-2 text-sm" style={{ color: 'rgb(var(--color-danger))' }}>

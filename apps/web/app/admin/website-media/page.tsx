@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { AlertTriangle, Images } from 'lucide-react';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -43,14 +44,16 @@ export default async function AdminWebsiteMediaPage() {
           know exactly how far the button reaches. */}
       <PageMasthead title="Website media" />
       <div className="mb-6">
-        <p className="text-[14px] leading-relaxed text-ink/70 mt-2 max-w-2xl">
-          The website&rsquo;s own pictures and videos — the homepage clips, the sign-in page, the
+        <div className="mt-2 max-w-2xl">
+          <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            The website&rsquo;s own pictures and videos — the homepage clips, the sign-in page, the
           onboarding music, the logo set and the menu icons. Files marked <strong>Left over</strong>{' '}
           are ones nothing on the site points at any more; download a copy, then remove them to free
           up space. Anything we can&rsquo;t check is left alone and can&rsquo;t be deleted here.
           Guests&rsquo; photos, receipts and supplier documents are not shown on this page and cannot
           be touched from it.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {!report.configured ? (

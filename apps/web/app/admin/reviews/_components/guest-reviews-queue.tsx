@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { ShieldCheck } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ReadFailed } from '../../_components/read-failed';
@@ -16,10 +17,12 @@ export function GuestReviewsQueue({ read }: { read: AdminGuestReviewsRead }) {
           <ShieldCheck aria-hidden className="h-4 w-4 text-link" strokeWidth={1.75} />
           Guest reviews
         </h2>
-        <p className="text-xs text-ink/55">
-          Public the moment a checked-in guest sends one. Hide one to take it off the shop&rsquo;s page, the shop&rsquo;s
+        <div>
+          <InfoTip label="About guest reviews" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Public the moment a checked-in guest sends one. Hide one to take it off the shop&rsquo;s page, the shop&rsquo;s
           list and the guests&rsquo; line. Guest stars never move a shop&rsquo;s overall.
-        </p>
+          </InfoTip>
+        </div>
       </header>
       {read.state === 'refused' ? (
         <ReadFailed what="the guest reviews" />

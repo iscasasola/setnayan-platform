@@ -1,4 +1,5 @@
 'use client';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * Library editor — the client-side wrapper around the Color Range Manipulator
@@ -359,11 +360,13 @@ export function LibraryEditor({ initialAssets }: Props) {
           <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Random Higgsfield prompt
           </p>
-          <p className="mb-3 text-xs text-ink/65">
-            One click → a Filipino-first prompt with randomized asset type,
+          <div className="mb-3">
+            <InfoTip label="About the prompt" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              One click → a Filipino-first prompt with randomized asset type,
             subtype, and accent color. Copy it into Higgsfield, generate,
             then upload the result below.
-          </p>
+            </InfoTip>
+          </div>
           <ActionButton tone="brand" main icon={Sparkles} label={isPending ? 'Rolling…' : 'Generate random prompt'} type="button" onClick={generatePrompt} disabled={isPending} className="w-full" />
           {randomPrompt && (
             <div className="space-y-2 rounded-md border border-ink/15 bg-white p-3">
@@ -627,10 +630,12 @@ export function LibraryEditor({ initialAssets }: Props) {
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-[12px] text-ink/55">
-                These are the colors that will be applied to each tagged slot when previewing.
+              <div className="mt-2">
+                <InfoTip label="About the preview" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+                  These are the colors that will be applied to each tagged slot when previewing.
                 In production this comes from the host&apos;s master palette.
-              </p>
+                </InfoTip>
+              </div>
             </details>
           </>
         ) : (

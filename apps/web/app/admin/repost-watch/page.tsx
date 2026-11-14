@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { ActionButton } from '@/components/action-button';
 import {
@@ -256,14 +257,16 @@ export default async function AdminRepostWatchPage({
         }
       />
       <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          Cross-supplier reverse-image matches — a supplier&apos;s newly-uploaded
+        <div>
+          <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Cross-supplier reverse-image matches — a supplier&apos;s newly-uploaded
           portfolio / service-cover image whose perceptual hash matches an older
           image owned by a <span className="font-medium">different</span> supplier.
           Detect-and-review only: resolving a flag records a verdict and never
           touches the image. Demo suppliers and same-supplier matches are excluded.
           The latest 200 matching the filter, newest first.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {(search.rescanned !== undefined) && (
@@ -461,13 +464,15 @@ export default async function AdminRepostWatchPage({
             </SubmitButton>
           </form>
         </div>
-        <p className="mb-4 text-sm text-ink/65">
-          Supplier-website media (portfolio, logo, hero, service photos) containing a
+        <div className="mb-4">
+          <InfoTip label="About website media checks" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Supplier-website media (portfolio, logo, hero, service photos) containing a
           QR that targets the supplier&apos;s invite / lock funnel — directly or via a
           link shortener. New uploads are rejected at save time; this sweep covers
           media uploaded before the guard shipped. Review-only: resolving a flag
           never touches the image.
-        </p>
+          </InfoTip>
+        </div>
 
         {qrError && (
           <FormFlash tone="error">

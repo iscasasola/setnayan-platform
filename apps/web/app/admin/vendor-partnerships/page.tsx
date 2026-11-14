@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { FieldPick } from '@/app/admin/_components/field-pick';
 import { Handshake } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -346,10 +347,12 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
         <h2 className="mb-1 sn-eye">
           Add partnership (HQ entry)
         </h2>
-        <p className="mb-4 text-xs text-ink/70">
-          Propose a partnership on a supplier&apos;s behalf. It lands in the recommended
+        <div className="mb-4">
+          <InfoTip label="About proposing" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Propose a partnership on a supplier&apos;s behalf. It lands in the recommended
           supplier&apos;s partnerships inbox — the badge only goes live once THEY accept it.
-        </p>
+          </InfoTip>
+        </div>
 
         {/* An UNREADABLE picker and a truncated one fail the same way — the shop
             is not in the list and nothing says why — but they need different

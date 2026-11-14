@@ -54,13 +54,13 @@ export default async function AdminWebsiteMediaPage() {
       </div>
 
       {!report.configured ? (
-        <p className="rounded-lg border border-[var(--m-line,#e6e2da)] bg-[var(--m-cloud,#f8f6f2)] px-4 py-3 text-[14px] text-[var(--m-slate,#4f535b)]">
+        <p className="py-3 text-[14px] text-ink/70">
           Storage isn&rsquo;t connected in this environment, so there is nothing to show. This page
           works on the live site.
         </p>
       ) : (
         <>
-          <div className="mb-6 flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-[var(--m-line,#e6e2da)] bg-[var(--m-cloud,#f8f6f2)] px-4 py-3">
+          <div className="mb-6 flex flex-wrap gap-x-8 gap-y-3 rounded-2xl bg-[var(--m-paper-2)] px-4 py-3">
             <Stat
               label={summary.incomplete ? 'Files stored (at least)' : 'Files stored'}
               value={String(summary.fileCount)}
@@ -94,7 +94,7 @@ export default async function AdminWebsiteMediaPage() {
           ) : null}
 
           {groups.length === 0 ? (
-            <p className="rounded-lg border border-[var(--m-line,#e6e2da)] px-4 py-3 text-[14px] text-[var(--m-slate,#4f535b)]">
+            <p className="py-3 text-[14px] text-ink/70">
               Nothing is stored in any of these folders yet.
             </p>
           ) : (
@@ -102,17 +102,17 @@ export default async function AdminWebsiteMediaPage() {
               {groups.map((g) => (
                 <section key={g.prefix}>
                   <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                    <h2 className="text-[16px] font-semibold text-[var(--m-ink,#1b1a17)]">
+                    <h2 className="text-[16px] font-semibold text-ink">
                       {g.label}
                     </h2>
-                    <div className="flex items-center gap-1.5 text-[12px] text-[var(--m-slate,#6a6e76)] tabular-nums">
+                    <div className="flex items-center gap-1.5 text-[12px] text-ink/70 tabular-nums">
                       <Images className="h-3.5 w-3.5" aria-hidden />
                       {formatCount(g.rows.length)} files · {humanBytes(g.totalBytes)}
                       {g.counts.unreferenced ? ` · ${g.counts.unreferenced} left over` : ''}
                     </div>
                   </div>
 
-                  <p className="mb-3 text-[13px] leading-relaxed text-[var(--m-slate,#4f535b)] max-w-2xl">
+                  <p className="mb-3 text-[13px] leading-relaxed text-ink/70 max-w-2xl">
                     {g.blurb}
                   </p>
 
@@ -171,10 +171,10 @@ export default async function AdminWebsiteMediaPage() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[var(--m-slate,#6a6e76)] text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+      <div className="text-ink/70 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         {label}
       </div>
-      <div className="text-[15px] font-semibold text-[var(--m-ink,#1b1a17)] tabular-nums">
+      <div className="text-[15px] font-semibold text-ink tabular-nums">
         {value}
       </div>
     </div>

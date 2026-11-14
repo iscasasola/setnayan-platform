@@ -26,7 +26,7 @@ export async function StayOnSection({
   if (read.status !== 'ok') return null;
   if (!need.show) {
     return need.line ? (
-      <p className="text-[13px] text-ink/70" data-stay-on-line="">
+      <p className="text-[13px] text-[color:var(--m-slate-2)]" data-stay-on-line="">
         {need.line}
       </p>
     ) : null;

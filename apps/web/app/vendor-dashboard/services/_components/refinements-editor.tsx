@@ -47,7 +47,7 @@ export function RefinementsEditor({
       <div className="space-y-4" data-refinements-bare="">
         <input type="hidden" name="canonical_service" value={canonicalService} />
         <input type="hidden" name="refinement_keys" value={keys.join(',')} />
-        <p className="text-[13px] text-ink/60">Shared by every {leafLabel} card · couples filter by these.</p>
+        <p className="text-[13px] text-[color:var(--m-slate-2)]">Shared by every {leafLabel} card · couples filter by these.</p>
         {Object.entries(refinements.fields).map(([k, def]) => (
           <AttributeFieldRenderer key={k} fieldKey={k} def={def} initial={initial[k]} isFacet={facetSet.has(k)} />
         ))}
@@ -65,28 +65,29 @@ export function RefinementsEditor({
     <StayForm
       door="svServices.saveServiceRefinements"
       action={saveServiceRefinements}
-      className="rounded-lg border p-3"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
+      // Rule 2 · a section between hairlines, not a box.
+      className="border-y py-3"
+      style={{ borderColor: 'var(--m-line)' }}
     >
       <input type="hidden" name="canonical_service" value={canonicalService} />
       <input type="hidden" name="refinement_keys" value={keys.join(',')} />
       <div className="flex items-start justify-between gap-3">
         <div>
           <p
-            className="flex items-center gap-1.5 text-xs font-medium"
+            className="flex items-center gap-1.5 text-sm font-semibold"
             style={{ color: 'var(--m-ink)' }}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
             Refinements
           </p>
-          <p className="mt-0.5 text-[11px]" style={{ color: 'var(--m-slate-2)' }}>
+          <p className="mt-0.5 text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
             Tag your {leafLabel} details — couples filter by these. Applies to
             all your {leafLabel} listings.
           </p>
         </div>
         <Link
           href={`/vendor-dashboard/attributes#${encodeURIComponent(canonicalService)}`}
-          className="shrink-0 text-[11px] underline"
+          className="inline-flex min-h-11 shrink-0 items-center text-[13px] underline"
           style={{ color: 'var(--m-slate-2)' }}
         >
           More details →
@@ -105,10 +106,11 @@ export function RefinementsEditor({
       </div>
       <div className="mt-3 flex justify-end">
         <SubmitButton
-          className="inline-flex h-8 items-center justify-center rounded-lg border px-3 text-[11px] font-medium"
+          // Rule 3 · the green button piece (it saves), 44 high.
+          className="ab ab-ok !min-h-11"
           pendingLabel="Saving…"
         >
-          Save refinements
+          <span className="lbl">Save refinements</span>
         </SubmitButton>
       </div>
     </StayForm>

@@ -6,6 +6,7 @@ import { Archive, ArchiveRestore, Ban, CalendarDays, ClipboardList, Flag, Folder
 import { archiveThread, blockUser, reportUser, unarchiveThread, unblockUser } from '@/lib/chat-actions';
 import { StayForm } from '@/app/_components/stay-form';
 import { useOneOpen } from '@/lib/one-open';
+import { actionButtonClass } from '@/components/action-button';
 
 // Apple Guideline 1.2 (UGC safety): an in-app way to REPORT abusive content and
 // BLOCK the other person, reachable from every chat thread. Report files a
@@ -84,7 +85,7 @@ export function ChatThreadMenu({
         aria-label="About this chat"
         /* The head's one action (chat prototype 2026-10-28, frame B draws ⓘ; no 📞, no video). It stays ⋮: the house
            keeps the ⓘ glyph for InfoTip/Explain only (`there-is-one-info-dot.test.ts`) — a menu is not a tip. */
-        className="grid h-11 w-11 place-items-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink"
+        className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--m-slate-2)] hover:bg-ink/5 hover:text-ink"
       >
         <MoreVertical aria-hidden className="h-[22px] w-[22px] text-sn-accent" strokeWidth={1.9} />
       </button>
@@ -100,7 +101,7 @@ export function ChatThreadMenu({
           />
           <div
             role="menu"
-            className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
+            className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-[color:var(--m-line)] bg-cream p-1 shadow-lg"
           >
             {!showReport ? (
               <>
@@ -113,7 +114,7 @@ export function ChatThreadMenu({
                     role="menuitem"
                     className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
                   >
-                    <Icon aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={2} data-chat-menu-icon={l.icon} />
+                    <Icon aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={2} data-chat-menu-icon={l.icon} />
                     {l.label}
                   </Link>
                   );
@@ -134,12 +135,12 @@ export function ChatThreadMenu({
                     >
                       {archive.archived ? (
                         <>
-                          <ArchiveRestore aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={2} />
+                          <ArchiveRestore aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={2} />
                           Move back to your list
                         </>
                       ) : (
                         <>
-                          <Archive aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={2} />
+                          <Archive aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={2} />
                           Archive this chat
                         </>
                       )}
@@ -152,7 +153,7 @@ export function ChatThreadMenu({
                   onClick={() => setShowReport(true)}
                   className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
                 >
-                  <Flag aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={2} />
+                  <Flag aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={2} />
                   Report this conversation
                 </button>
                 <StayForm
@@ -186,14 +187,14 @@ export function ChatThreadMenu({
                 <input type="hidden" name="thread_id" value={threadId} />
                 <input type="hidden" name="return_to" value={returnTo} />
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ink/55">
+                  <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
                     Report
                   </p>
                   <button
                     type="button"
                     onClick={() => setShowReport(false)}
                     aria-label="Back"
-                    className="text-ink/40 hover:text-ink"
+                    className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--m-slate-2)] hover:text-ink"
                   >
                     <X aria-hidden className="h-4 w-4" />
                   </button>
@@ -221,15 +222,14 @@ export function ChatThreadMenu({
                   rows={2}
                   maxLength={1000}
                   placeholder="Add details (optional)"
-                  className="w-full rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-sm text-ink placeholder:text-ink/40 focus:border-mulberry focus:outline-none"
+                  className="w-full rounded-xl border border-[color:var(--m-line)] bg-white px-2.5 py-1.5 text-sm text-ink placeholder:text-[color:var(--m-slate-3)] focus:border-mulberry focus:outline-none dark:bg-raised"
                 />
-                <button
-                  type="submit"
-                  className="w-full rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600"
-                >
-                  Send report
+                {/* The button piece (rule 3) — outlined; the chat's Send stays the screen's one filled button. */}
+                <button type="submit" className={actionButtonClass('brand', { extra: 'w-full !min-h-11' })}>
+                  <Flag aria-hidden strokeWidth={1.9} />
+                  <span className="lbl">Send report</span>
                 </button>
-                <p className="px-1 text-[11px] text-ink/50">
+                <p className="px-1 text-[13px] text-[color:var(--m-slate-2)]">
                   Our team reviews every report within 24 hours.
                 </p>
               </StayForm>

@@ -439,7 +439,6 @@
   "app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx": 1,
   "app/vendor-dashboard/creators/page.tsx": 6,
   "app/vendor-dashboard/manpower/surface.tsx": 6,
-  "app/vendor-dashboard/messages/[threadId]/page.tsx": 8,
   "app/vendor-dashboard/recommendations/_panel.tsx": 5,
   "app/vendor-dashboard/services/_components/customization-step.tsx": 2,
   "app/wall/[eventId]/_components/wall-projection.tsx": 1
@@ -539,9 +538,6 @@
   "app/vendor-dashboard/attributes/page.tsx": 1,
   "app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx": 2,
   "app/vendor-dashboard/lines/page.tsx": 1,
-  "app/vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx": 1,
-  "app/vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx": 2,
-  "app/vendor-dashboard/messages/[threadId]/_components/vendor-offer-service.tsx": 1,
   "app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx": 3,
   "app/vendor-dashboard/partnerships/page.tsx": 2,
   "app/vendor-dashboard/proposals/surface.tsx": 4,

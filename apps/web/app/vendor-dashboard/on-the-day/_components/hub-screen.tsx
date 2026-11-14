@@ -126,7 +126,7 @@ export function HubEventCard({
           />
         </div>
       ) : (
-        <p className="text-[13px] text-ink/65" data-hub-opens="">
+        <p className="text-[13px] text-[color:var(--m-slate-2)]" data-hub-opens="">
           {event.lock
             ? 'Opens once the booking fee is paid — see Set up.'
             : !event.booked
@@ -136,7 +136,7 @@ export function HubEventCard({
                 : `The Hub opens here on ${day ?? 'the day'} — ${HUB_OPEN_WINDOW_PLAIN}.`}
         </p>
       )}
-      <p className="text-[13px] leading-relaxed text-ink/60">
+      <p className="text-[13px] leading-relaxed text-[color:var(--m-slate-2)]">
         The Hub is its own page for this event — only your tools for the day. Set up here feeds it.
       </p>
     </div>
@@ -151,10 +151,10 @@ export function HubLockRow({ lock }: { lock: HubLock }) {
   return (
     <div className="space-y-2 border-b border-ink/10 py-3" data-hub-day-locked="">
       <p className="flex items-center gap-2 text-[15px] font-medium text-ink">
-        <Lock aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.9} />
+        <Lock aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={1.9} />
         Locked
       </p>
-      <p className="text-[13.5px] text-ink/70">{lock.headline}</p>
+      <p className="text-[13.5px] text-[color:var(--m-slate-2)]">{lock.headline}</p>
       {lock.cta ? <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label={lock.cta} href={lock.payHref} /> : null}
     </div>
   );
@@ -182,27 +182,27 @@ export function HubRunOfShow({
         Run of show
       </HubEyebrow>
       {blocks == null ? (
-        <p className="py-3 text-[14px] text-ink/65">Couldn’t load the run of show — open their schedule to see it.</p>
+        <p className="py-3 text-[14px] text-[color:var(--m-slate-2)]">Couldn’t load the run of show — open their schedule to see it.</p>
       ) : shown.length === 0 ? (
-        <p className="py-3 text-[14px] text-ink/65">No moments yet — the hosts have not built their schedule.</p>
+        <p className="py-3 text-[14px] text-[color:var(--m-slate-2)]">No moments yet — the hosts have not built their schedule.</p>
       ) : (
         shown.map((b) => (
           <div key={b.block_id} className="grid min-h-12 grid-cols-[72px_minmax(0,1fr)] items-center gap-3 border-b border-ink/10 py-2">
-            <span className="text-[13.5px] tabular-nums text-ink/65">{formatWallClock(b.start_at) || '—'}</span>
+            <span className="text-[13.5px] tabular-nums text-[color:var(--m-slate-2)]">{formatWallClock(b.start_at) || '—'}</span>
             <span className="min-w-0">
               {/* 🗓 A skipped part stays in the list, struck, so the crew sees what will not happen (Change the schedule). */}
-              <span className={`block truncate text-[14.5px] ${b.run_state === 'skipped' ? 'text-ink/55 line-through' : 'text-ink'}`}>{b.label}</span>
+              <span className={`block truncate text-[14.5px] ${b.run_state === 'skipped' ? 'text-[color:var(--m-slate-2)] line-through' : 'text-ink'}`}>{b.label}</span>
               {b.run_state === 'skipped' ? (
-                <span className="block truncate text-[12.5px] text-ink/60" data-hub-ros-skipped="">Skipped</span>
+                <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]" data-hub-ros-skipped="">Skipped</span>
               ) : b.location ? (
-                <span className="block truncate text-[12.5px] text-ink/60">{b.location}</span>
+                <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]">{b.location}</span>
               ) : null}
             </span>
           </div>
         ))
       )}
       {rest > 0 && moreHref ? (
-        <Link href={moreHref} className="sn-press flex min-h-11 items-center justify-between gap-2 py-2 text-[14px] text-ink/70">
+        <Link href={moreHref} className="sn-press flex min-h-11 items-center justify-between gap-2 py-2 text-[14px] text-[color:var(--m-slate-2)]">
           <span>{rest} more · the whole day</span>
           <ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />
         </Link>
@@ -217,7 +217,7 @@ export function HubDoorRow({ href, label, line, data }: { href: string; label: s
     <Link href={href} data-hub-door={data ?? ''} className="sn-press flex min-h-12 items-center gap-3 border-b border-ink/10 py-2">
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[14.5px] font-medium text-ink">{label}</span>
-        <span className="block truncate text-[12.5px] text-ink/60">{line}</span>
+        <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]">{line}</span>
       </span>
       <ChevronRight aria-hidden className="h-4 w-4 flex-none text-sn-accent" strokeWidth={2} />
     </Link>
@@ -287,7 +287,7 @@ export function HubPageRow({
     <div data-hub-page-row={pageKey} className="border-b border-ink/10">
       <Fold title={label} line={line} lead={<RowIcon icon={icon} />} data={`hub-page-${pageKey}`}>
         <div className="space-y-2 pb-3">
-          <p className="text-[13.5px] text-ink/65">{access}</p>
+          <p className="text-[13.5px] text-[color:var(--m-slate-2)]">{access}</p>
           <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label={`Open ${label}`} href={href} />
         </div>
       </Fold>
@@ -300,7 +300,7 @@ export function HubPageRows({ children }: { children: ReactNode }) {
   return (
     <div data-hub-page-rows="">
       {children}
-      <p hidden className="py-3 text-[14px] text-ink/65" data-hub-pages-none="">
+      <p hidden className="py-3 text-[14px] text-[color:var(--m-slate-2)]" data-hub-pages-none="">
         No page here matches — a guest or a table is found inside Guests or Seats.
       </p>
     </div>

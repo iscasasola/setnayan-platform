@@ -9,7 +9,7 @@ export function RowIcon({ icon: Icon }: { icon: ComponentType<SVGProps<SVGSVGEle
   return (
     <span
       aria-hidden
-      className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75"
+      className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-[color:var(--m-slate-2)]"
     >
       <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
     </span>

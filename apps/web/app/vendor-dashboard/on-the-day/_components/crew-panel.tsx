@@ -126,14 +126,14 @@ export function CrewPanel({
         </Explain>
       </div>
       {error ? (
-        <p role="alert" className="py-2 text-[13px] font-semibold text-danger-700">
+        <p role="alert" className="py-2 text-[13px] font-semibold text-[rgb(var(--color-danger))]">
           {error}
         </p>
       ) : null}
       {unreadable ? (
-        <p className="py-3 text-[14px] text-ink/65">Couldn’t load your crew — try again in a moment.</p>
+        <p className="py-3 text-[14px] text-[color:var(--m-slate-2)]">Couldn’t load your crew — try again in a moment.</p>
       ) : live.length === 0 && qr ? (
-        <p className="py-3 text-[14px] text-ink/65">No phones yet — show them the QR below.</p>
+        <p className="py-3 text-[14px] text-[color:var(--m-slate-2)]">No phones yet — show them the QR below.</p>
       ) : null}
       {live.map((p) => (
         <div key={p.passId} className="flex min-h-14 items-center gap-3 border-b border-ink/10 py-2" data-crew-pass={p.status}>
@@ -152,7 +152,7 @@ export function CrewPanel({
             {/* The line WRAPS, never truncates: at 390 px the role ▾ and Allow leave it ~130 px, and "Wants to join ·
                 Helper · scanner only" cut to "Helpe…" hid the one thing the Allow is deciding. It breaks only between
                 its parts, so a line never starts on a "·". */}
-            <span className={`block text-[12.5px] leading-snug ${p.status === 'waiting' ? 'text-warn-700 dark:text-warn-300' : 'text-success-700 dark:text-success-600'}`} data-crew-line="">
+            <span className={`block text-[13px] leading-snug ${p.status === 'waiting' ? 'text-[rgb(var(--color-warn))]' : 'text-[rgb(var(--color-ok))]'}`} data-crew-line="">
               {crewRowLine(p.status, p.role, coordinator)
                 .split(' · ')
                 .map((part, i, all) => (
@@ -186,21 +186,21 @@ export function CrewPanel({
         decide(opened, next);
       }} /> : null}
       {/* 🔎 The thumb row's crew search (`HubThumbRow`) hides the rows that do not match; this says so when none is left. */}
-      <p hidden className="py-3 text-[14px] text-ink/65" data-crew-none="">
+      <p hidden className="py-3 text-[14px] text-[color:var(--m-slate-2)]" data-crew-none="">
         No one on this crew matches — a phone joins by the QR below.
       </p>
 
       {qr ? (
-        <div className="mt-4 rounded-2xl bg-ink/[0.04] p-4 text-center" data-crew-qr="">
+        <div className="mt-4 rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4 text-center" data-crew-qr="">
           <div className="qr-slot mx-auto w-[220px] max-w-full rounded-xl bg-white p-2 [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qr.svg }} />
           <p className="mt-2 text-[15px] font-medium text-ink">Crew QR · {eventName}</p>
-          <p className="text-[12.5px] text-ink/60">One per event · they scan, you tap Allow · {qr.endsWords}</p>
+          <p className="text-[13px] text-[color:var(--m-slate-2)]">One per event · they scan, you tap Allow · {qr.endsWords}</p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             <ActionButton tone="brand" main icon={Share} label="Share" onClick={() => void share()} />
             <ActionButton tone="neutral" icon={Share} label="Save" onClick={save} />
             <ActionButton tone="neutral" icon={Expand} label="Show" onClick={() => setShowing(true)} />
           </div>
-          {note ? <p className="pt-2 text-[12.5px] text-ink/60">{note}</p> : null}
+          {note ? <p className="pt-2 text-[13px] text-[color:var(--m-slate-2)]">{note}</p> : null}
           <div className="mt-2 flex justify-center">
             <PickMenu
               label="Crew QR"
@@ -221,15 +221,15 @@ export function CrewPanel({
                 Crew QR · {eventName}
               </h2>
               <div className="qr-slot mx-auto mt-4 w-[320px] max-w-full rounded-xl bg-white p-3 [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qr.svg }} />
-              <p className="mt-3 text-[13px] text-ink/60">Hold it up — each phone that scans waits for your Allow.</p>
+              <p className="mt-3 text-[13px] text-[color:var(--m-slate-2)]">Hold it up — each phone that scans waits for your Allow.</p>
             </div>
           </Sheet>
         </div>
       ) : unreadable ? null : (
-        <div className="mt-4 rounded-2xl bg-ink/[0.04] p-4 text-center" data-crew-qr="none">
-          <QrCode aria-hidden className="mx-auto h-8 w-8 text-ink/50" strokeWidth={1.5} />
+        <div className="mt-4 rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4 text-center" data-crew-qr="none">
+          <QrCode aria-hidden className="mx-auto h-8 w-8 text-[color:var(--m-slate-2)]" strokeWidth={1.5} />
           <p className="mt-2 text-[15px] font-medium text-ink">No crew QR yet</p>
-          <p className="text-[12.5px] text-ink/60">Make one for this event — your crew scan it with any phone.</p>
+          <p className="text-[13px] text-[color:var(--m-slate-2)]">Make one for this event — your crew scan it with any phone.</p>
           <div className="mt-3 flex justify-center">
             <ActionButton tone="brand" main icon={QrCode} label="Make the crew QR" disabled={pending} onClick={() => run(() => write({ kind: 'make' }))} />
           </div>
@@ -241,7 +241,7 @@ export function CrewPanel({
           <p className="home-k2">Removed</p>
           {removed.map((p) => (
             <div key={p.passId} className="flex min-h-12 items-center gap-3 border-b border-ink/10 py-1.5">
-              <span className="min-w-0 flex-1 truncate text-[14px] text-ink/60">{p.name}</span>
+              <span className="min-w-0 flex-1 truncate text-[14px] text-[color:var(--m-slate-2)]">{p.name}</span>
               <ActionButton tone="neutral" quiet icon={Check} label="Let back in" name={`Let ${p.name} back in`} disabled={pending} onClick={() => decide(p, { status: 'allowed' })} />
             </div>
           ))}
@@ -273,18 +273,18 @@ function CrewRowSheet({
         <h2 id="crew-row-sheet" className="pr-12 text-[17px] font-semibold text-ink">
           {pass.name}
         </h2>
-        <p className="text-[13px] text-ink/60">{crewRowLine(pass.status, pass.role, coordinator)}</p>
+        <p className="text-[13px] text-[color:var(--m-slate-2)]">{crewRowLine(pass.status, pass.role, coordinator)}</p>
         <p className="home-k2 pt-4">What a {CREW_ROLE_LABEL[pass.role]} gets</p>
         <ul className="pt-1" data-crew-gets="">
           {gets.opens.map((line) => (
             <li key={line} className="flex gap-2 border-b border-ink/10 py-2 text-[14px] leading-snug text-ink">
-              <Check aria-hidden className="mt-0.5 h-4 w-4 flex-none text-success-700 dark:text-success-600" strokeWidth={2} />
+              <Check aria-hidden className="mt-0.5 h-4 w-4 flex-none text-[rgb(var(--color-ok))]" strokeWidth={2} />
               <span>{line}</span>
             </li>
           ))}
         </ul>
-        <p className="pt-2 text-[12.5px] leading-snug text-ink/60">{gets.never}</p>
-        <p className="pt-2 text-[12.5px] leading-snug text-ink/60" data-crew-gets-other="">
+        <p className="pt-2 text-[13px] leading-snug text-[color:var(--m-slate-2)]">{gets.never}</p>
+        <p className="pt-2 text-[13px] leading-snug text-[color:var(--m-slate-2)]" data-crew-gets-other="">
           A {CREW_ROLE_LABEL[other]} gets {crewToolsWords(other, coordinator)}.
         </p>
         <FormRows width="wide">

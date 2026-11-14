@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { CHAT_SENT_AS_FIELD } from '@/lib/chat-sent-as';
-import { CheckCircle2, CircleDashed, XCircle } from 'lucide-react';
+import { CheckCircle2, CircleDashed, MessageSquareReply, XCircle } from 'lucide-react';
 import { threadDayIsOpen, threadDayWords, type ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { dayTitle, daySheetHref } from '@/lib/vendor-dates';
-import { SubmitButton } from '@/app/_components/submit-button';
+import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
 import { AnswerAskButton } from './thread-tools-sheet';
 
 /**
@@ -32,7 +32,7 @@ export function ThreadAnswerLine({
   const words = answer ? threadDayWords(answer) : null;
   const Icon = words?.tone === 'ok' ? CheckCircle2 : words?.tone === 'danger' ? XCircle : CircleDashed;
   return (
-    <div data-thread-day-answer={answer?.kind ?? 'unknown'} className="flex min-h-[56px] items-center gap-3 border-b border-ink/10 px-3 py-2 sm:px-4">
+    <div data-thread-day-answer={answer?.kind ?? 'unknown'} className="flex min-h-14 items-center gap-3 border-b border-[color:var(--m-line)] px-3 py-2 sm:px-4">
       <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sn-accent/10 text-[13px] font-semibold text-ink">
         {initials}
       </span>
@@ -44,11 +44,15 @@ export function ThreadAnswerLine({
         ) : null}
         {words ? (
           <>
-            {eventDay ? <span aria-hidden className="text-ink/40">·</span> : null}
+            {eventDay ? <span aria-hidden className="text-[color:var(--m-slate-2)]">·</span> : null}
+            {/* Status = icon + colour + one or two words, in the state tokens (rule 14 · never a raw palette colour). */}
             <b
               className={`inline-flex items-center gap-1 font-semibold ${
-                words.tone === 'ok' ? 'text-success-700' : words.tone === 'danger' ? 'text-danger-700' : 'text-ink/60'
+                words.tone === 'ok' || words.tone === 'danger' ? '' : 'text-[color:var(--m-slate-2)]'
               }`}
+              style={
+                words.tone === 'ok' ? { color: 'rgb(var(--color-ok))' } : words.tone === 'danger' ? { color: 'rgb(var(--color-danger))' } : undefined
+              }
             >
               <Icon aria-hidden className="h-4 w-4" strokeWidth={2} />
               {words.word}
@@ -89,12 +93,14 @@ export function QuickReplies({
           <input type="hidden" name={CHAT_SENT_AS_FIELD} value="vendor" />
           <input type="hidden" name="body" value={q} />
           <input type="hidden" name="return_to" value={`/vendor-dashboard/messages/${threadId}`} />
-          <SubmitButton
+          {/* Rule 3 · the button piece (grey = plain), never a hand-made pill. */}
+          <SupplierSubmit
+            tone="neutral"
+            icon={<MessageSquareReply aria-hidden strokeWidth={1.9} />}
+            label={q}
             pendingLabel="Sending…"
-            className="sn-press inline-flex min-h-11 items-center whitespace-nowrap rounded-full border border-ink/15 bg-ink/[0.04] px-4 text-sm text-ink hover:border-ink/30"
-          >
-            {q}
-          </SubmitButton>
+            className="!min-h-11 whitespace-nowrap"
+          />
         </form>
       ))}
     </div>

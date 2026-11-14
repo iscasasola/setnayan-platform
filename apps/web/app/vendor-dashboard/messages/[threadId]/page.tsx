@@ -4,7 +4,7 @@ import { readWordsOnlyTopUp } from '@/lib/booking-fee-top-up.server';
 import { TOP_UP_WORDS } from '@/lib/booking-fee-top-up';
 import { manilaToday as manilaTodayYmd } from '@/lib/std-views';
 import { notFound, redirect } from 'next/navigation';
-import { CalendarDays, Send, Wallet } from 'lucide-react';
+import { CalendarDays, CircleCheck, MessageCircle, Send, Undo2, Wallet, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -163,7 +163,9 @@ import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-a
 import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
 import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { manilaDate } from '@/lib/vendor-schedule';
-import { SubmitButton } from '@/app/_components/submit-button';
+import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
+import { Badge } from '@/app/_components/badge';
+import { TEMPLATE_MONEY, TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import {
   deriveThreadStage,
@@ -1837,8 +1839,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                     options: dateOptions,
                   })}
                   {founderInquiry ? (
-                    <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                      {FOUNDER_BADGE_LABEL}
+                    <span className="ml-2 inline-block align-middle">
+                      {/* Rule 5 · a status is the soft chip — never 9 px typewriter capitals in gold. */}
+                      <Badge tone="ok">{FOUNDER_BADGE_LABEL}</Badge>
                     </span>
                   ) : null}
                 </>
@@ -1851,7 +1854,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
                   {event?.event_date ? <span>{formatLongDate(event.event_date)}</span> : dateOptions ? <span>{dateOptions}</span> : null}
                   {guestCountLine(guestCounts) ? (
-                    <span className="text-terracotta-700">
+                    <span className="font-semibold text-ink">
                       Planning for {guestCountLine(guestCounts)}
                     </span>
                   ) : null}
@@ -1895,9 +1898,15 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 <p
                   role={lockAnswer.tone === 'refused' ? 'alert' : 'status'}
                   // A band across the box, like the answer line under it — no frame: nothing here is pressed but the door.
-                  className={`border-b border-ink/10 px-3.5 py-2 text-[13px] ${
-                    lockAnswer.tone === 'refused' ? 'bg-danger-50/60 text-danger-900' : 'bg-mulberry/[0.06] text-ink'
+                  className={`border-b border-[color:var(--m-line)] px-3.5 py-2 text-[13px] ${
+                    lockAnswer.tone === 'refused' ? '' : 'bg-mulberry/[0.06] text-ink'
                   }`}
+                  // A refusal in the state colour (rule 14 · tokens, never a raw palette shade).
+                  style={
+                    lockAnswer.tone === 'refused'
+                      ? { color: 'rgb(var(--color-danger))', background: 'color-mix(in srgb, rgb(var(--color-danger)) 8%, transparent)' }
+                      : undefined
+                  }
                   data-lock-answer=""
                 >
                   {lockAnswer.text}
@@ -1921,7 +1930,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                the `pending-payments` id the rail's "Log payment" reveals. */
             <div
               id="pending-payments"
-              className="max-h-[40dvh] space-y-2 overflow-y-auto scroll-mt-24 border-b border-ink/10 px-3 py-2 empty:hidden sm:px-4"
+              className="max-h-[40dvh] space-y-2 overflow-y-auto scroll-mt-24 border-b border-[color:var(--m-line)] px-3 py-2 empty:hidden sm:px-4"
             >
       {/* 📋 THEIR ASK — the inquiry card at the top of a first chat (supplier dashboard v13): the event's fixed lines, then
           Decline · Ask a question · Accept (Accept starts a quote here). The band under the conversation keeps the
@@ -1964,10 +1973,11 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           time. The collab-active marker below covers the OTHER money moment:
           the inquirer themself holds an accepted collab → creator rate. */}
       {attribution ? (
-        <div className="rounded-xl border border-amber-300/50 bg-amber-50/60 p-4 text-sm text-ink">
+        // Rule 2 · read-only, so no card: the chip says what it is, the words follow on the page.
+        <div className="py-1 text-sm text-ink" data-thread-attribution="">
           <p>
-            <span className="mr-1.5 inline-block rounded-full bg-amber-200/70 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-amber-900">
-              Influencer Recommendation
+            <span className="mr-1.5 inline-block align-middle">
+              <Badge tone="wait">Influencer Recommendation</Badge>
             </span>
             Referred by{' '}
             {attribution.creatorSlug ? (
@@ -1993,7 +2003,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             )}
           </p>
           {attribution.audienceRateTerms ? (
-            <p className="mt-1 text-ink/75">
+            <p className={`mt-1 ${TEMPLATE_SUBLINE}`}>
               You promised their viewers:{' '}
               <span className="font-medium text-ink">
                 {attribution.audienceRateTerms}
@@ -2005,9 +2015,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
         </div>
       ) : null}
       {inquirerCollabActive ? (
-        <div className="rounded-xl border border-amber-300/50 bg-amber-50/60 p-4 text-sm text-ink">
-          <span className="mr-1.5 inline-block rounded-full bg-amber-200/70 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-amber-900">
-            Creator collab active
+        <div className="py-1 text-sm text-ink" data-thread-collab="">
+          <span className="mr-1.5 inline-block align-middle">
+            <Badge tone="wait">Creator collab active</Badge>
           </span>
           This inquirer holds an accepted collab with you — your agreed creator
           rate applies.
@@ -2023,16 +2033,17 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
         return (
           <div
             key={p.eventVendorId}
-            className="rounded-xl border border-terracotta/30 bg-terracotta/5 p-4"
+            // It needs an answer, so it is the one thing here that may wear a frame (rule 2): the warm surface.
+            className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4"
           >
-            <p className="text-sm font-semibold text-ink">
+            <p className="text-[15px] font-semibold text-ink">
               Guest count changed — {p.label}
             </p>
-            <p className="mt-1 text-sm text-ink/70">
+            <p className={`mt-1 ${TEMPLATE_SUBLINE}`}>
               Now planning for <span className="font-semibold">{formatCount(p.livePax)}</span> guests
               (you quoted ~{formatCount(p.quoteBasePax)}). At {peso(p.ratePhp)}/guest, your total
               would {up ? 'increase' : 'decrease'} by{' '}
-              <span className="font-semibold text-terracotta-700">
+              <span className={TEMPLATE_MONEY}>
                 {up ? '+' : '−'}{peso(p.delta)}
               </span>
               .
@@ -2041,22 +2052,25 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
               <form action={acceptPaxSurcharge}>
                 <input type="hidden" name="event_vendor_id" value={p.eventVendorId} />
                 <input type="hidden" name="thread_id" value={threadId} />
-                <SubmitButton
+                {/* Rule 3 · green confirms money; outlined — Send stays the screen's one filled button. */}
+                <SupplierSubmit
+                  tone="ok"
+                  icon={<CircleCheck aria-hidden strokeWidth={1.9} />}
+                  label={up ? `Apply +${peso(p.delta)}` : `Apply −${peso(p.delta)}`}
                   pendingLabel="Applying…"
-                  className="inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
-                >
-                  {up ? `Apply +${peso(p.delta)}` : `Apply −${peso(p.delta)}`}
-                </SubmitButton>
+                  className="!min-h-11"
+                />
               </form>
               <form action={declinePaxSurcharge}>
                 <input type="hidden" name="event_vendor_id" value={p.eventVendorId} />
                 <input type="hidden" name="thread_id" value={threadId} />
-                <SubmitButton
+                <SupplierSubmit
+                  tone="neutral"
+                  icon={<Undo2 aria-hidden strokeWidth={1.9} />}
+                  label="Hold price"
                   pendingLabel="Holding…"
-                  className="inline-flex h-9 items-center rounded-lg border border-ink/15 bg-white/70 px-4 text-sm text-ink/70 hover:border-ink/40"
-                >
-                  Hold price
-                </SubmitButton>
+                  className="!min-h-11"
+                />
               </form>
             </div>
           </div>
@@ -2080,7 +2094,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           }
           composer={
             blocked ? (
-              <div className="px-2 py-1 text-sm text-ink/70">
+              <div className={`px-2 py-1 ${TEMPLATE_SUBLINE}`}>
                 {blockState.blockedByMe
                   ? 'You blocked this person. Unblock from the ⋯ menu to message again.'
                   : 'You can no longer message in this conversation.'}
@@ -2088,7 +2102,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             ) : thread.inquiry_status === 'accepted' ? (
               <div className="space-y-1.5">
                 {proposalNotice ? (
-                  <p className="rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-4 py-2.5 text-sm text-ink">
+                  // A notice is one line on the page (rule 2), never a card.
+                  <p role="status" className="px-1 py-1 text-[14px] text-ink">
                     {proposalNotice}
                   </p>
                 ) : null}
@@ -2113,11 +2128,13 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
-        <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+        // The one next step — answer the inquiry — so the one thing here that wears a frame: the warm surface (rule 2).
+        <div className="space-y-3 rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4">
           {/* 🧾 RW-24 (walk 13 Nov 2026): a quote sent before saying yes is refused — the notice is said HERE, on the
-              pending inquiry, where it used to be drawn only for an open conversation (so the refusal was silent). */}
+              pending inquiry, where it used to be drawn only for an open conversation (so the refusal was silent).
+              One plain line inside the frame (rule 2: no card inside a card). */}
           {proposalNotice ? (
-            <p role="status" data-proposal-notice="pending" className="rounded-xl bg-mulberry/[0.08] px-4 py-2.5 text-sm text-ink">
+            <p role="status" data-proposal-notice="pending" className="text-[14px] font-medium text-ink">
               {proposalNotice}
             </p>
           ) : null}
@@ -2132,9 +2149,10 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
               same admin-scoped `events` read that feeds the header, so the name
               above and the chips here can no longer disagree. Null-safe. */}
           {event ? (
-            <div className="flex flex-wrap gap-1.5">
+            // Rule 5 · facts are a dark-grey line (a chip only tells a status), the parts joined by a middot.
+            <div className={`flex flex-wrap items-center gap-x-1.5 gap-y-1 [&>span+span]:before:mr-1.5 [&>span+span]:before:content-['·'] ${TEMPLATE_SUBLINE}`}>
               {event.event_date ? (
-                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
+                <span>
                   {/* The chip a supplier reads before Accept/Decline. It showed
                       the raw ISO key while the line below it said "18 Dec." and
                       the header said something else again — three renderings of
@@ -2142,7 +2160,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   {formatLongDate(event.event_date)}
                 </span>
               ) : dateOptions ? (
-                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
+                <span>
                   {dateOptions}
                 </span>
               ) : null}
@@ -2156,24 +2174,24 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                    indistinguishable to the person reading. */
                 const chip = guestCountChip(guestCounts, 'at_inquiry', { unit: 'pax' });
                 return chip ? (
-                  <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
-                    {chip.label} <i className="not-italic opacity-70">· {chip.basisLabel}</i>
+                  <span>
+                    {chip.label} <i className="not-italic">({chip.basisLabel})</i>
                   </span>
                 ) : null;
               })()}
               {event.event_type ? (
-                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
+                <span>
                   {eventTypeLabel(event.event_type)}
                 </span>
               ) : null}
               {inquiryCity ? (
-                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
+                <span>
                   {inquiryCity}
                 </span>
               ) : null}
               {event.setnayan_ai_active ? (
-                <span className="inline-flex items-center rounded-full bg-mulberry/10 px-2.5 py-1 text-xs font-semibold text-mulberry">
-                  Setnayan AI · Active
+                <span>
+                  <Badge tone="ok">Setnayan AI · Active</Badge>
                 </span>
               ) : null}
             </div>
@@ -2193,8 +2211,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             thought is whether accepting spends something; it does not.
           */}
           {vendorDateDemandLine(dateDemand) ? (
-            <p className="flex items-start gap-1.5 rounded-lg bg-ink/[0.04] px-2.5 py-2 text-xs text-ink/70">
-              <CalendarDays aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/45" />
+            <p className={`flex items-start gap-1.5 ${TEMPLATE_SUBLINE}`}>
+              <CalendarDays aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--m-slate-3)]" />
               <span>
                 {vendorDateDemandLine(dateDemand)} Accepting does not book it.
               </span>
@@ -2202,8 +2220,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           ) : null}
           {returning ? (
             <p className="text-sm text-ink">
-              <span className="mr-1.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                Returning client
+              <span className="mr-1.5 inline-block align-middle">
+                <Badge tone="ok">Returning client</Badge>
               </span>
               Booked you for{' '}
               {returning.prior_event_display_name ?? 'a previous event'}.
@@ -2214,8 +2232,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
               warning), and the couple never sees this. */}
           {leadActivePlanner ? (
             <p className="text-sm text-ink">
-              <span className="mr-1.5 inline-block rounded-full bg-mulberry/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-mulberry">
-                Active planner
+              <span className="mr-1.5 inline-block align-middle">
+                <Badge tone="ok">Active planner</Badge>
               </span>
               An engaged couple who&rsquo;s already deep in planning.
             </p>
@@ -2226,8 +2244,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
               and accepting costs the vendor nothing. */}
           {founderInquiry ? (
             <p className="text-sm text-ink">
-              <span className="mr-1.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                {FOUNDER_BADGE_LABEL}
+              <span className="mr-1.5 inline-block align-middle">
+                <Badge tone="ok">{FOUNDER_BADGE_LABEL}</Badge>
               </span>
               {FOUNDER_INQUIRY_NOTE}
             </p>
@@ -2241,12 +2259,15 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 name="return_to"
                 value={`/vendor-dashboard/messages/${threadId}`}
               />
-              <SubmitButton
+              {/* Rule 3 · the screen's one main (no composer is drawn until they talk). */}
+              <SupplierSubmit
+                tone="brand"
+                main
+                icon={<MessageCircle aria-hidden strokeWidth={1.9} />}
+                label="Talk to them"
                 pendingLabel="Opening…"
-                className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
-              >
-                Talk to them
-              </SubmitButton>
+                className="!min-h-11"
+              />
             </form>
             <form action={declineInquiry}>
               <input type="hidden" name="thread_id" value={threadId} />
@@ -2255,19 +2276,20 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 name="return_to"
                 value={`/vendor-dashboard/messages/${threadId}`}
               />
-              <SubmitButton
+              <SupplierSubmit
+                tone="neutral"
+                icon={<X aria-hidden strokeWidth={1.9} />}
+                label="Decline"
                 pendingLabel="Declining…"
-                className="inline-flex h-11 items-center rounded-md border border-ink/20 px-5 text-sm font-semibold text-ink hover:bg-ink/5"
-              >
-                Decline
-              </SubmitButton>
+                className="!min-h-11"
+              />
             </form>
           </div>
         </div>
       ) : (
         <div className="space-y-3">
           {proposalNotice ? (
-            <p className="rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-4 py-2.5 text-sm text-ink">
+            <p role="status" className="px-1 py-1 text-[14px] text-ink">
               {proposalNotice}
             </p>
           ) : null}
@@ -2276,8 +2298,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
               told a supplier "You declined this inquiry" when the COUPLE booked
               someone else or withdrew. One module decides for both sides;
               `archived_at` is required because withdrawInquiry writes only that. */}
-          <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
-            <p className="text-sm text-ink/70">
+          {/* Rule 2 · read-only, so one line on the page — no card. */}
+          <div className="py-1">
+            <p className={TEMPLATE_SUBLINE}>
               {
                 closingCopy(
                   thread,

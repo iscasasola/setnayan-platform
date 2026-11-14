@@ -1,5 +1,6 @@
 import { manilaTodayIsoFor, validUntilRefusal } from '@/lib/quote-valid-until';
 import { keepLineStructure, lineStructureOf } from '@/lib/quote-line-structure';
+import { offerTakenRefusal } from '@/lib/offer-taken';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_QUOTE_NOTE_TAIL } from './accepted-quote-terms';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -69,6 +70,8 @@ export type SendProposalError =
   // 🧪 the demo rule (lib/demo-scope.ts): a demo shop on a real event, or a real shop on a demo event. `message` is the
   // sentence that says which — the senders show it instead of "please try again", because trying again never works.
   | 'demo_scope'
+  // 🧾 a "first N couples" offer on this quote is already used up by other couples (OWN-01).
+  | 'offer_taken'
   | 'failed';
 
 export type SendProposalResult =
@@ -430,6 +433,8 @@ export async function sendProposalCore(
       .delete()
       .eq('proposal_id', inserted.proposal_id)
       .eq('status', 'draft');
+    const taken = offerTakenRefusal(sendErr);
+    if (taken) return { ok: false, code: 'offer_taken', message: taken };
     console.error('[proposal-send] draft→sent flip refused:', sendErr.code, sendErr.message);
     return { ok: false, code: 'failed', message: 'Couldn’t send that quote. Please try again.' };
   }
@@ -795,6 +800,8 @@ export async function sendCustomProposalCore(
       .delete()
       .eq('proposal_id', inserted.proposal_id)
       .eq('status', 'draft');
+    const taken = offerTakenRefusal(sendErr);
+    if (taken) return { ok: false, code: 'offer_taken', message: taken };
     console.error('[proposal-send] draft→sent flip refused:', sendErr.code, sendErr.message);
     return { ok: false, code: 'failed', message: 'Couldn’t send that quote. Please try again.' };
   }

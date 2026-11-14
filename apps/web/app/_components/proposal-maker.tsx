@@ -609,7 +609,7 @@ export function ProposalMaker({
   const [appliedOfferId, setAppliedOfferId] = useState<string | null>(() => revision?.offer?.id ?? null);
   // 🎁 The Setnayan gift packs an applied offer put on the quote — taken off again when the offer is removed.
   const [offerGiftCodes, setOfferGiftCodes] = useState<string[]>([]);
-  const [cardOfferId, setCardOfferId] = useState<string | null>(null);
+  const [cardOfferId, setCardOfferId] = useState<string | null>(() => revision?.discountOfferId ?? null);
   // What the last door did, in one line ("Wedding pair · ₱46,500 · every line stays editable"), or why it could not.
   const [doorNote, setDoorNote] = useState<string | null>(null);
   // FROM YOUR CATALOGUE — the shop's optional package items, read once when the quote first opens.
@@ -777,7 +777,14 @@ export function ProposalMaker({
               detail: viewerPromo.terms,
               amount_centavos: -money.discount,
             }
-          : { label: 'Discount', detail: discountReason, amount_centavos: -money.discount },
+          : {
+              label: 'Discount',
+              detail: discountReason,
+              amount_centavos: -money.discount,
+              // 🧾 OWN-01: this discount IS the card's offer, untouched (a hand-edited figure clears `cardOfferId`) —
+              // the line names it, so the offer's "first N" count sees this couple.
+              ...(cardOfferId ? { from_offer_id: cardOfferId } : {}),
+            },
       );
     } else if (viewerPromo) {
       // No peso amount entered yet — still reflect the promised promo on the

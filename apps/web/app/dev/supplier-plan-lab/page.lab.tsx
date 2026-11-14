@@ -326,8 +326,22 @@ function helpersFixture(who: Who) {
       founderUserId={ME}
       enriched={team}
       motionData={{ motions: motions as never, votes: [] }}
-      services={who === 'studio' ? ([{ vendor_service_id: 's1', category: 'photo_video', is_active: true }] as never) : []}
-      assignments={who === 'studio' ? { m2: ['s1'] } : {}}
+      services={
+        who === 'studio'
+          ? [
+              { vendor_service_id: 's1', category: 'photo_video', is_active: true, title: 'Wedding Day', branch_id: null },
+              { vendor_service_id: 's2', category: 'photo_video', is_active: true, title: 'Prenup Shoot', branch_id: null },
+              { vendor_service_id: 's3', category: 'photo_video', is_active: true, title: 'Debut Coverage', branch_id: null },
+              { vendor_service_id: 's4', category: 'photo_video', is_active: true, title: 'Same-Day Edit', branch_id: null },
+              { vendor_service_id: 's5', category: 'photo_video', is_active: true, title: 'Wedding Day', branch_id: 'b-cebu' },
+              { vendor_service_id: 's6', category: 'photo_video', is_active: true, title: 'Debut Coverage', branch_id: 'b-cebu' },
+              { vendor_service_id: 's7', category: 'photo_video', is_active: true, title: 'Christening', branch_id: 'b-cebu' },
+            ]
+          : []
+      }
+      assignments={who === 'studio' ? { m2: ['s3', 's5', 's6', 's7'] } : {}}
+      // 🏢 Whole branch (2026-11-14, item 9) — a two-branch studio, Marco holding all of Cebu plus Makati's Debut Coverage.
+      branchScope={who === 'studio' ? { locations: [{ key: 'main', label: 'Main · Makati' }, { key: 'b-cebu', label: 'Cebu' }], wholeKeys: { m2: ['b-cebu'] } } : undefined}
       seatsLine={seatLine(teamSeats(team, ME), cap)}
       canBuySeats={false}
       storeShell={false}

@@ -44,6 +44,12 @@ export type PlanCard = {
   hold: PlanHoldState;
   /** For a scheduled card: the plan whose start puts it on hold. */
   holdStartsOn: VendorTier | null;
+  /**
+   * The same service at another branch (`vendor_services.branch_copy_of`, owner 2026-11-14 item 10: *"Copy to another
+   * branch … does NOT use up a card"*). Never counted toward cards per kind; its kind's family still counts, which it
+   * shares with its original anyway.
+   */
+  branchCopy?: boolean;
 };
 
 export type FitCaps = { parentCategories: number; servicesPerLeaf: number };
@@ -62,7 +68,7 @@ export function capsOf(tier: VendorTier, founder = false): FitCaps {
 /** Do these cards, all on together, fit the plan? The create gate's two refusals, on a set. */
 export function keptFits(kept: readonly PlanCard[], caps: FitCaps): FitAnswer {
   const perKind = new Map<string, number>();
-  for (const c of kept) perKind.set(c.kind, (perKind.get(c.kind) ?? 0) + 1);
+  for (const c of kept) if (!c.branchCopy) perKind.set(c.kind, (perKind.get(c.kind) ?? 0) + 1);
   for (const [kind, n] of perKind) if (n > caps.servicesPerLeaf) return { ok: false, why: 'kind_full', kind, cap: caps.servicesPerLeaf };
   const families = new Set(kept.flatMap((c) => c.families));
   if (families.size > caps.parentCategories) return { ok: false, why: 'families_full', cap: caps.parentCategories };

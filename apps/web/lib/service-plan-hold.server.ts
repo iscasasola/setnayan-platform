@@ -36,7 +36,7 @@ export type StayOnRead =
   | { status: 'ok'; shop: StayOnShop; cards: PlanCard[]; firstBooking: FirstBooking }
   | { status: 'unreadable' };
 
-const HOLD_COLS = 'vendor_service_id,title,category,is_active,plan_hold,plan_hold_starts_on,created_at';
+const HOLD_COLS = 'vendor_service_id,title,category,is_active,plan_hold,plan_hold_starts_on,created_at,branch_copy_of';
 
 type CardRow = {
   vendor_service_id: string;
@@ -45,6 +45,8 @@ type CardRow = {
   is_active: boolean;
   plan_hold: string | null;
   plan_hold_starts_on: string | null;
+  /** Set on a "Copy to another branch" card — it uses no card (owner 2026-11-14, item 10). */
+  branch_copy_of?: string | null;
 };
 
 function asHold(raw: string | null): PlanHoldState {
@@ -70,6 +72,7 @@ export function toPlanCards(rows: readonly CardRow[], leaves: LeafIndex): PlanCa
     live: r.is_active === true,
     hold: asHold(r.plan_hold),
     holdStartsOn: r.plan_hold_starts_on ? asVendorTier(r.plan_hold_starts_on) : null,
+    branchCopy: Boolean(r.branch_copy_of),
   }));
 }
 

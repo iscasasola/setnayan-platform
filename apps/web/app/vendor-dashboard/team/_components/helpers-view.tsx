@@ -1,5 +1,4 @@
 import { Check, Gavel, LogOut, Trash2, UserPlus, X } from 'lucide-react';
-import { SubmitButton } from '@/app/_components/submit-button';
 import { Badge } from '@/app/_components/badge';
 import { Fold } from '@/app/_components/fold';
 import { formatPhp } from '@/lib/php';
@@ -20,6 +19,8 @@ import { SupplierSubmit } from '../../_components/supplier-submit';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { InviteHelperSheet, RolePick } from './helpers-controls';
 import { StayForm } from '@/app/_components/stay-form';
+import { AgentServiceAssignment } from './who-works-what-services';
+import { keyOfBranchId, whoWorksWhatLine, type BranchScope, type ScopedService } from '@/lib/branch-copy';
 
 /**
  * HELPERS — the screen (simpler supplier dashboard step 6; owner-APPROVED 2026-10-14 "team seats → Helpers";
@@ -64,6 +65,7 @@ function motionLabel(m: VendorAdminMotion): string {
 
 export function HelpersView({
   userId,
+  branchScope,
   founderUserId,
   enriched,
   motionData,
@@ -79,6 +81,8 @@ export function HelpersView({
   embedded = false,
 }: {
   userId: string;
+  /** 🏢 Whole branch (owner 2026-11-14, item 9) — the shop's locations and who holds which in full. Omitted = one location. */
+  branchScope?: BranchScope;
   founderUserId: string | null;
   enriched: VendorTeamMemberWithUser[];
   motionData: { motions: VendorAdminMotion[]; votes: VendorAdminMotionVote[] };
@@ -108,6 +112,15 @@ export function HelpersView({
   const otherAdmins = enriched.filter((m) => m.user_id !== userId && isVendorAdminRole(m.role));
   const agents = enriched.filter((m) => m.role === 'agent');
   const roleOptions = VENDOR_TEAM_ROLE_PICK.map((o) => ({ key: o.key as string, label: o.label }));
+  // Who works what names each service by its card title, filed under its location (owner 2026-11-14, item 9).
+  const locations = branchScope?.locations ?? [];
+  const wholeKeys = branchScope?.wholeKeys ?? {};
+  const scoped: ScopedService[] = services.map((s) => ({
+    id: s.vendor_service_id,
+    name: s.title?.trim() || categoryLabel(s.category),
+    key: keyOfBranchId(s.branch_id),
+    active: s.is_active,
+  }));
 
   return (
     <section className={embedded ? 'pb-2' : 'mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6 sm:pt-10'} data-helpers-screen="">
@@ -231,7 +244,7 @@ export function HelpersView({
           <div className="border-t border-ink/10" data-helpers-fold="who-works-what">
             <Fold
               title="Who works what"
-              line={agents.map((a) => { const n = (assignments[a.vendor_team_member_id] ?? []).length; return `${a.display_name?.trim() || a.email || 'Team member'} · ${formatCount(n)} ${n === 1 ? 'service' : 'services'}`; }).join(' · ')}
+              line={agents.map((a) => whoWorksWhatLine(a.display_name?.trim() || a.email || 'Team member', assignments[a.vendor_team_member_id] ?? [], locations.length >= 2 ? (wholeKeys[a.vendor_team_member_id] ?? []) : [], scoped, locations)).join(' · ')}
               data="helpers-who-works-what"
             >
               <div className="space-y-3 pb-3">
@@ -257,8 +270,10 @@ export function HelpersView({
                       <AgentServiceAssignment
                         action={actions.setServices}
                         memberId={m.vendor_team_member_id}
-                        services={services}
+                        services={scoped}
                         assigned={assignments[m.vendor_team_member_id] ?? []}
+                        locations={locations}
+                        wholeKeys={wholeKeys[m.vendor_team_member_id] ?? []}
                       />
                     ) : null}
                   </div>
@@ -416,49 +431,4 @@ function categoryLabel(category: string): string {
     .split(/[_-]/)
     .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
     .join(' ');
-}
-
-/**
- * Phase 2a — per-service assignment for an agent. An admin checks the services
- * this agent should manage; the agent then sees only those services + their
- * customers. Replace-on-save semantics.
- */
-function AgentServiceAssignment({
-  action,
-  memberId,
-  services,
-  assigned,
-}: {
-  action: Action;
-  memberId: string;
-  services: AssignableService[];
-  assigned: string[];
-}) {
-  const assignedSet = new Set(assigned);
-  return (
-    <StayForm door="supTeam.setVendorAgentServices" action={action} className="mt-3 space-y-2">
-      <input type="hidden" name="vendor_team_member_id" value={memberId} />
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-success-900/70">
-        Their services — they see only these, and those customers
-      </p>
-      {services.length === 0 ? (
-        <p className="text-xs text-ink/55">Add services on the Services page first, then assign them here.</p>
-      ) : (
-        <>
-          <div className="flex flex-wrap gap-2">
-            {services.map((s) => (
-              <label key={s.vendor_service_id} className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-3 py-1 text-[13px] text-ink/80 hover:border-ink/30">
-                <input type="checkbox" name="service_ids" value={s.vendor_service_id} defaultChecked={assignedSet.has(s.vendor_service_id)} className="h-3.5 w-3.5 accent-success-600" />
-                {categoryLabel(s.category)}
-                {s.is_active ? null : <span className="text-ink/40">(inactive)</span>}
-              </label>
-            ))}
-          </div>
-          <SubmitButton className="inline-flex min-h-11 items-center justify-center rounded-md border border-success-300 bg-white/70 px-4 text-[13px] font-medium text-success-900 hover:border-success-500" pendingLabel="Saving…">
-            Save their services
-          </SubmitButton>
-        </>
-      )}
-    </StayForm>
-  );
 }

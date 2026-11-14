@@ -31,6 +31,7 @@ import {
   SEAT_PERIOD_DAYS,
 } from '@/lib/vendor-seats';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { MAIN_BRANCH_KEY, keyOfBranchId } from '@/lib/branch-copy';
 
 const ROLE_SET: ReadonlySet<string> = new Set(VENDOR_TEAM_ROLES);
 
@@ -550,14 +551,36 @@ export async function setVendorAgentServices(formData: FormData) {
 
   const { data: services } = await supabase
     .from('vendor_services')
-    .select('vendor_service_id')
+    .select('vendor_service_id,branch_id')
     .eq('vendor_profile_id', ctx.vendorProfileId);
-  const valid = new Set(
-    (services ?? []).map((s) => (s as { vendor_service_id: string }).vendor_service_id),
+  const rows = (services ?? []) as { vendor_service_id: string; branch_id: string | null }[];
+  const valid = new Set(rows.map((s) => s.vendor_service_id));
+
+  // 🏢 WHOLE BRANCH (owner 2026-11-14, SIMPLER SUPPLIER PLANS item 9): a ticked branch gives the person every service
+  // filed there now — added below — and every one filed later (the database trigger reads `whole_branch_keys`). A key is
+  // 'main' or one of THIS shop's branch ids; anything else is dropped, never trusted.
+  const { data: branchRows } = await supabase
+    .from('vendor_branches')
+    .select('branch_id')
+    .eq('parent_vendor_profile_id', ctx.vendorProfileId);
+  const validKeys = new Set<string>([MAIN_BRANCH_KEY, ...((branchRows ?? []) as { branch_id: string }[]).map((b) => b.branch_id)]);
+  const wholeKeys = Array.from(
+    new Set(formData.getAll('whole_branch').filter((v): v is string => typeof v === 'string' && validKeys.has(v))),
   );
-  const selected = formData
-    .getAll('service_ids')
-    .filter((v): v is string => typeof v === 'string' && valid.has(v));
+  const wholeSet = new Set(wholeKeys);
+  const selected = Array.from(
+    new Set([
+      ...formData.getAll('service_ids').filter((v): v is string => typeof v === 'string' && valid.has(v)),
+      ...rows.filter((r) => wholeSet.has(keyOfBranchId(r.branch_id))).map((r) => r.vendor_service_id),
+    ]),
+  );
+
+  const { error: keysErr } = await supabase
+    .from('vendor_team_members')
+    .update({ whole_branch_keys: wholeKeys })
+    .eq('vendor_team_member_id', memberIdRaw)
+    .eq('vendor_profile_id', ctx.vendorProfileId);
+  if (keysErr) return err(keysErr.message);
 
   const { error: delErr } = await supabase
     .from('vendor_service_agents')
@@ -574,6 +597,8 @@ export async function setVendorAgentServices(formData: FormData) {
     if (insErr) return err(insErr.message);
   }
 
+  // It now writes `vendor_team_members` (whole_branch_keys), which the shop page tree reads — clear its cached copy.
+  revalidateShopPage(ctx.vendorProfileId);
   revalidatePath(TEAM);
   return back('saved=1');
 }

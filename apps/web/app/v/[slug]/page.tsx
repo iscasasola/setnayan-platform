@@ -193,6 +193,7 @@ import {
   type StorytellerTileItem,
 } from '@/lib/storytellers';
 import { StorytellerTile } from '@/app/_components/storyteller-tile';
+import { featuredStoryLink } from '@/lib/ultra-story-pages';
 import {
   fetchVendorMicrosite,
   isSectionVisible,
@@ -3203,10 +3204,15 @@ export async function renderVendorBySlug({
             </h2>
             {featuredEditorials.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-3">
-              {featuredEditorials.map((story, idx) => (
+              {featuredEditorials.map((story, idx) => {
+                // ULTRA STORY PAGES (owner 2026-11-14, item 8): on Ultra the card opens the shop's OWN page for that
+                // event on the shop's address; Free · Plus · Pro keep "Read their story" (lib/ultra-story-pages.ts).
+                const storyLink = featuredStoryLink({ tier: effectiveTierState, shopSlug: vendor.business_slug, eventSlug: story.slug });
+                return (
                 <a
                   key={story.eventId}
-                  href={`/${story.slug}`}
+                  href={storyLink.own ? storyLink.href : `/${story.slug}`}
+                  data-story-link={storyLink.own ? 'own' : 'couple'}
                   className={`group flex flex-col justify-between rounded-2xl border border-ink/10 bg-cream/50 p-5 transition-colors hover:border-terracotta/40 ${
                     idx === 0 ? 'sm:col-span-3 sm:flex-row sm:items-end sm:gap-6' : ''
                   }`}
@@ -3227,11 +3233,12 @@ export async function renderVendorBySlug({
                     </p>
                   </div>
                   <span className="mt-3 inline-flex shrink-0 items-center gap-1 text-sm font-medium text-terracotta group-hover:underline sm:mt-0">
-                    Read their story
+                    {storyLink.label}
                     <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                   </span>
                 </a>
-              ))}
+                );
+              })}
             </div>
             ) : null}
             {/* Storyteller chapters crediting this vendor — their own tile

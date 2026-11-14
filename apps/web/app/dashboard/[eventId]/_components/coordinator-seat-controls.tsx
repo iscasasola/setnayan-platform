@@ -1,3 +1,4 @@
+import { Badge } from '@/app/_components/badge';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import {
@@ -42,26 +43,19 @@ export function CoordinatorGrantChips({ permissions }: { permissions: ModeratorP
   const grantChips = DELEGATE_AREAS.filter((a) => a !== 'budget')
     .map((a) => ({ area: a, level: resolveAreaLevel(permissions, a) }))
     .filter((g) => g.level !== null);
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 5 · 13): each grant is the shared soft chip (no 10 px words, no pale ink) —
+  // an edit grant green, a view grant or "off" grey.
   return (
     <p className="flex flex-wrap gap-1">
       {grantChips.map((g) => (
-        <span
-          key={g.area}
-          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-            g.level === 'edit' ? 'bg-terracotta/10 text-terracotta-700' : 'bg-ink/5 text-ink/60'
-          }`}
-        >
+        <Badge key={g.area} tone={g.level === 'edit' ? 'ok' : 'quiet'}>
           {DELEGATE_AREA_LABEL[g.area]}
           {g.level === 'view' ? ' · view' : ''}
-        </span>
+        </Badge>
       ))}
-      <span
-        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-          budgetLevel ? 'bg-ink/5 text-ink/60' : 'bg-ink/[0.03] text-ink/35'
-        }`}
-      >
+      <Badge tone="quiet">
         {DELEGATE_AREA_LABEL.budget} {budgetLevel ? '· view' : '· off'}
-      </span>
+      </Badge>
     </p>
   );
 }
@@ -71,11 +65,11 @@ export function ChangeAccessLink({ eventId }: { eventId: string }) {
   return (
     <Link
       href={peopleWithAccessHref(eventId)}
-      className="inline-flex shrink-0 items-center gap-0.5 text-[12px] text-ink/55 hover:text-ink"
+      className="inline-flex min-h-11 shrink-0 items-center gap-0.5 text-[13px] font-semibold text-terracotta-700 hover:underline"
       data-change-access-link=""
     >
       Change in People with access
-      <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+      <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
     </Link>
   );
 }

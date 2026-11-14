@@ -314,7 +314,7 @@ function QueueTab({
             <header className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-1">
                 <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-                  Flagged · {new Date(f.created_at).toLocaleString()}
+                  Flagged · {new Date(f.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
                 </p>
                 <h2 className="text-lg font-semibold tracking-tight text-ink">
                   {flaggedUser?.display_name ?? flaggedUser?.email ?? f.flagged_user_id.slice(0, 8)}
@@ -421,7 +421,7 @@ function EnforcementTab({ users }: { users: UserBrief[] }) {
               <StrikePill count={u.concierge_abuse_strike_count} level={u.concierge_enforcement_level} />
               {u.concierge_enforcement_at ? (
                 <p className="text-[11px] text-ink/45">
-                  Enforced {new Date(u.concierge_enforcement_at).toLocaleString()}
+                  Enforced {new Date(u.concierge_enforcement_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
                 </p>
               ) : null}
             </div>

@@ -336,7 +336,7 @@ export async function VendorsSurface({
                 mono: true,
                 cell: (r) => (
                   <span className="text-ink/70">
-                    {r.sent_at ? new Date(r.sent_at).toLocaleDateString('en-PH') : '—'}
+                    {r.sent_at ? new Date(r.sent_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }) : '—'}
                   </span>
                 ),
               },
@@ -456,7 +456,7 @@ export async function VendorsSurface({
                       </code>
                       {v.expires_at ? (
                         <p className="mt-1 text-ink/45">
-                          Expires {new Date(v.expires_at).toLocaleDateString('en-PH')}
+                          Expires {new Date(v.expires_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })}
                         </p>
                       ) : null}
                     </details>

@@ -105,7 +105,7 @@ export default async function EventDeletionsPage() {
                 {r.event_name as string}
               </p>
               <p className="mt-0.5 text-[13px] text-ink/60">
-                Asked {new Date(r.created_at as string).toLocaleString('en-PH')}
+                Asked {new Date(r.created_at as string).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
               </p>
               <p className="mt-2 text-sm text-ink">
                 <span className="font-semibold">
@@ -189,7 +189,7 @@ export default async function EventDeletionsPage() {
                   ? 'removed by them'
                   : (r.status as string)}
                 {' · '}
-                {new Date(r.created_at as string).toLocaleDateString('en-PH')}
+                {new Date(r.created_at as string).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })}
               </span>
             </li>
           ))}

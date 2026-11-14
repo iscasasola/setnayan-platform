@@ -11,6 +11,7 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import {
+  DOC_SLOTS,
   markSentBack,
   parseVerificationState,
   type DocUploadMap,
@@ -737,6 +738,11 @@ async function applyApplicationDecision(
       vendorProfileId: vendor.vendor_profile_id,
       decision: input.decision,
       reason: input.reason,
+      // A send-back names its papers (owner 2026-11-14, "Only the named one") — the notice says which, by label.
+      sentBackPapers:
+        input.decision === 'rejected'
+          ? DOC_SLOTS.filter((s) => (input.sentBackSlots ?? []).includes(s.key)).map((s) => s.label)
+          : undefined,
     });
   }
 

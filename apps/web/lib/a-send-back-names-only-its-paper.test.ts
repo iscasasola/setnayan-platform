@@ -145,6 +145,11 @@ test('wiring: both send-back doors pass the named papers, and the decision refus
   const rows = code('app/vendor-dashboard/_components/setup-papers.tsx');
   assert.match(rows, /p\.reason \? `\$\{PAPER_STATE_WORD\.new_copy\} · \$\{p\.reason\}`/);
   assert.match(rows, /&& !papers\.some\(\(p\) => p\.reason\)/, 'the reason is said above every paper again');
+  // The supplier's notice names the papers too (through the one notification pipeline the bell and #7631 read).
+  assert.match(actions, /sentBackPapers:\s*input\.decision === 'rejected'/, 'the send-back notice does not name its papers');
+  const notify = code('lib/vendor-status-notify.ts');
+  assert.match(notify, /Needs a new copy: \$\{args\.sentBackPapers\.join\(', '\)\}/);
+  assert.match(notify, /Your other papers are kept/);
   for (const rel of ['app/vendor-dashboard/profile/details-data.ts', 'lib/vendor-first-steps.server.ts']) {
     assert.match(code(rel), /sentBackSlotKeys\(uploads\)\.length > 0 \? null/, `${rel} repeats the reason off the paper`);
   }

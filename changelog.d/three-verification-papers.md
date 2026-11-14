@@ -21,6 +21,10 @@ Owner (specs DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"): *"veri
 - The shop cover chip reads "Get verified · n of 3 papers" (was "n of 2" steps).
 - Database: no CHECK, trigger or function requires a profile, a VALIDATE stamp or a Meet before submit or approve (the only verification triggers are the self-grant guards, which keep the admin's approval the only way to verified). No migration.
 
+### 2026-11-14 · the send-back notice names its papers
+
+`notifyVendorStatusChange` takes `sentBackPapers`: a send-back that names papers tells the supplier "Needs a new copy: <papers>" and that the other papers are kept; one that names none reads as before. Same notification pipeline (bell, and the notice system from #7631) — no new channel.
+
 ### 2026-11-14 · the paper labels match the approved demo
 
 Owner approved the supplier papers demo (DECISION_LOG 7e4de291). The three `DOC_SLOTS` labels now read as the demo does: **DTI or SEC registration** · **BIR 2303** · **Business Permit** (were "DTI or SEC Registration", "BIR Form 2303 (Certificate of Registration)", "Mayor's Permit (current year)"). Renewal and branches from the same demo are follow-ons, not in this PR.

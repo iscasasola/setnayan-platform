@@ -12,6 +12,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
     category: 'planning',
     author: 'Setnayan Editorial',
     publishedAt: '2026-06-29',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -60,7 +61,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A budget is also a values exercise. Before you book anything, agree on the two or three things that matter most — perhaps the food, the photos, or a venue you have always dreamed of — and protect their share of the total. Everything else can flex. When something has to give, you trim from the areas you already agreed are less important, rather than arguing about it in a stressful week three months out. This single conversation prevents most of the money tension couples feel, because every later choice is measured against a decision you already made together, calmly, at the start. And when you book through a marketplace that takes zero commission on vendor bookings, the price you agree with a supplier is the price you pay — no hidden platform cut quietly eating into the total you worked so hard to set.',
+        text: 'A budget is also a values exercise. Before you book anything, agree on the two or three things that matter most — perhaps the food, the photos, or a venue you have always dreamed of — and protect their share of the total. Everything else can flex. When something has to give, you trim from the areas you already agreed are less important, rather than arguing about it in a stressful week three months out. This single conversation prevents most of the money tension couples feel, because every later choice is measured against a decision you already made together, calmly, at the start. And when you book through a marketplace that takes zero commission on supplier bookings, the price you agree with a supplier is the price you pay — no hidden platform cut quietly eating into the total you worked so hard to set.',
       },
       {
         type: 'cta',
@@ -152,6 +153,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
     category: 'planning',
     author: 'Setnayan Editorial',
     publishedAt: '2026-08-05',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -204,7 +206,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       {
         type: 'ul',
         items: [
-          'Send digital invitations and a free wedding website instead of printing for every guest.',
+          'Send digital invitations and a free Event Hub instead of printing for every guest.',
           'Print only a few keepsake invitations for sponsors and close family.',
           'Make favours edible or useful — homemade treats beat trinkets that get left behind.',
           'Build your own playlist for cocktails and dinner; save the live band for the key moments.',
@@ -238,6 +240,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
     category: 'planning',
     author: 'Setnayan Editorial',
     publishedAt: '2026-08-24',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -286,7 +289,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'When you have eight or ten suppliers, each with their own deposit and balance dates, the calendar is where money slips through the cracks — a balance due you forgot, a deposit you cannot remember sending. The fix is to record each payment the moment it goes out, tagged to the supplier and the milestone it covers, so a single glance tells you your true remaining balance across the whole wedding rather than a guess and a stack of receipts in your phone’s photos. This is also your early-warning system: if the payments due in a given month start to crowd together, you see it weeks ahead and can talk to a supplier about adjusting a date, instead of discovering the crunch the week it lands. Because Setnayan takes zero commission on vendor bookings, the only amounts on your schedule are the ones you agreed with your suppliers — never a surprise platform fee on top. Pay in stages, get it in writing, keep your records, and watch the calendar, and the scariest part of working with suppliers becomes routine: money out, value in, all the way to the day.',
+        text: 'When you have eight or ten suppliers, each with their own deposit and balance dates, the calendar is where money slips through the cracks — a balance due you forgot, a deposit you cannot remember sending. The fix is to record each payment the moment it goes out, tagged to the supplier and the milestone it covers, so a single glance tells you your true remaining balance across the whole wedding rather than a guess and a stack of receipts in your phone’s photos. This is also your early-warning system: if the payments due in a given month start to crowd together, you see it weeks ahead and can talk to a supplier about adjusting a date, instead of discovering the crunch the week it lands. Because Setnayan takes zero commission on supplier bookings, the only amounts on your schedule are the ones you agreed with your suppliers — never a surprise platform fee on top. Pay in stages, get it in writing, keep your records, and watch the calendar, and the scariest part of working with suppliers becomes routine: money out, value in, all the way to the day.',
       },
       {
         type: 'cta',

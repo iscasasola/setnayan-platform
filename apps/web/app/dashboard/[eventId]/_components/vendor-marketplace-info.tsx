@@ -397,7 +397,10 @@ export function VendorMarketplaceInfo({
     // contact data. Mirrors the public profile UX on /v/[slug] which only
     // surfaces contact links when fields are set.
     return (
-      <div className="grid gap-5 lg:grid-cols-2">
+      // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 5 · 6 · 12 · 13 · 14): one column on every screen (never side-by-side
+      // cards), each part a section in grey capitals over plain hairline rows; money and the rating bold in the body
+      // face; a failed read is one amber line, an empty one a plain line — no dashed boxes.
+      <div className="space-y-2">
         <ServicesCard services={services} vendorBusinessName={vendorBusinessName} />
         <ReviewsCard
           data={reviewsData}
@@ -410,11 +413,9 @@ export function VendorMarketplaceInfo({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-5 lg:grid-cols-2">
-        <ServicesCard services={services} vendorBusinessName={vendorBusinessName} />
-        <ContactCard contact={contact} vendorBusinessName={vendorBusinessName} reach={reach} />
-      </div>
+    <div className="space-y-2">
+      <ServicesCard services={services} vendorBusinessName={vendorBusinessName} />
+      <ContactCard contact={contact} vendorBusinessName={vendorBusinessName} reach={reach} />
       <ReviewsCard
         data={reviewsData}
         vendorBusinessName={vendorBusinessName}
@@ -437,20 +438,11 @@ function ServicesCard({
   vendorBusinessName: string;
 }) {
   return (
-    <section
-      id="vendor-services"
-      aria-labelledby="vendor-services-heading"
-      className="space-y-3 rounded-xl border border-ink/10 bg-cream/60 p-5"
-    >
-      <header className="flex items-center justify-between gap-3">
-        <h2
-          id="vendor-services-heading"
-          className="flex items-center gap-2 text-sm font-semibold text-ink"
-        >
-          <Sparkles aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Services
-        </h2>
-      </header>
+    <section id="vendor-services" aria-labelledby="vendor-services-heading">
+      <h2 id="vendor-services-heading" className="mb-1 mt-[18px] flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
+        <Sparkles aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+        Services
+      </h2>
 
       {services === null ? (
         /*
@@ -462,12 +454,12 @@ function ServicesCard({
          */
         <ReadRefusedNotice what={`what ${vendorBusinessName} offers`} />
       ) : services.length === 0 ? (
-        <p className="text-xs text-ink/55">
+        <p className="py-2 text-sm text-ink/70">
           {vendorBusinessName} hasn&rsquo;t published a service list yet. Ask them
           in chat — final quotes happen there anyway.
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-ink/10">
           {services.map((s) => (
             <li key={s.vendor_service_id}>
               <ServiceRow row={s} />
@@ -496,13 +488,13 @@ function ServiceRow({ row }: { row: VendorServiceRow }) {
     crewParts.push('crew meal required');
   }
   return (
-    <div className="rounded-lg border border-ink/10 bg-cream/80 px-3 py-2">
+    <div className="flex min-h-14 flex-col justify-center py-2.5">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-sm font-medium text-ink">{label}</p>
-        <p className="font-mono text-xs text-ink/75">{priceLabel}</p>
+        <p className="text-[15px] font-semibold text-ink">{label}</p>
+        <p className="text-[15px] font-bold tabular-nums text-ink">{priceLabel}</p>
       </div>
       {crewParts.length > 0 ? (
-        <p className="mt-0.5 text-[11px] text-ink/55">{crewParts.join(' · ')}</p>
+        <p className="mt-0.5 text-[13px] text-ink/70">{crewParts.join(' · ')}</p>
       ) : null}
     </div>
   );
@@ -522,25 +514,16 @@ function ContactCard({
   reach: ReactNode;
 }) {
   return (
-    <section
-      id="vendor-contact"
-      aria-labelledby="vendor-contact-heading"
-      className="space-y-3 rounded-xl border border-ink/10 bg-cream/60 p-5"
-    >
-      <header className="flex items-center justify-between gap-3">
-        <h2
-          id="vendor-contact-heading"
-          className="flex items-center gap-2 text-sm font-semibold text-ink"
-        >
-          <MessageCircle aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Contact
-        </h2>
-      </header>
+    <section id="vendor-contact" aria-labelledby="vendor-contact-heading">
+      <h2 id="vendor-contact-heading" className="mb-1 mt-[18px] flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
+        <MessageCircle aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+        Contact
+      </h2>
 
       {/* The shop's phone and email used to sit here as tap-to-call and
           tap-to-email. They are gone on purpose (see MarketplaceContact); the
           sentence and the control below are what replaced them. */}
-      <p className="text-xs text-ink/65">
+      <p className="py-1 text-sm text-ink/70">
         You talk to {vendorBusinessName} here on Setnayan — every message, quote
         and booking stays with this event.
       </p>
@@ -554,8 +537,8 @@ function ContactCard({
           `lib/no-door-out-of-the-app.test.ts` Rule 5 fails on a website href
           anywhere on a couple-facing surface. */}
       {contact?.location_city ? (
-        <ul className="space-y-2">
-          <li className="text-xs text-ink/55">{contact.location_city}</li>
+        <ul className="divide-y divide-ink/10">
+          <li className="py-2 text-sm text-ink/70">{contact.location_city}</li>
         </ul>
       ) : null}
     </section>
@@ -579,23 +562,16 @@ function ReviewsCard({
 }) {
   const { trustedStats, reviews, reviewsMeasured } = data;
   return (
-    <section
-      id="vendor-reviews"
-      aria-labelledby="vendor-reviews-heading"
-      className="space-y-4 rounded-xl border border-ink/10 bg-cream/60 p-5"
-    >
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h2
-          id="vendor-reviews-heading"
-          className="flex items-center gap-2 text-sm font-semibold text-ink"
-        >
+    <section id="vendor-reviews" aria-labelledby="vendor-reviews-heading" className="space-y-1">
+      <header className="mb-1 mt-[18px] flex flex-wrap items-center justify-between gap-3">
+        <h2 id="vendor-reviews-heading" className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           <Star aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
           Reviews
         </h2>
         {vendorProfileSlug ? (
           <Link
             href={`/v/${vendorProfileSlug}#reviews`}
-            className="text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
+            className="inline-flex min-h-11 items-center text-sm font-semibold text-sn-accent"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -607,14 +583,12 @@ function ReviewsCard({
       <ReviewsHero trusted={trustedStats} />
 
       {!reviewsMeasured ? (
-        <div className="rounded-md border border-dashed border-ink/15 bg-cream/40 px-3 py-3">
-          <p className="text-xs text-ink/65">
-            We couldn&rsquo;t load {vendorBusinessName}&rsquo;s reviews right now.
-          </p>
-        </div>
+        <p role="status" className="py-2 text-sm text-warn-800">
+          Couldn&rsquo;t load {vendorBusinessName}&rsquo;s reviews right now — not the same as none.
+        </p>
       ) : reviews.length === 0 ? (
-        <div className="rounded-md border border-dashed border-ink/15 bg-cream/40 px-3 py-3">
-          <p className="text-xs text-ink/65">
+        <div className="py-2">
+          <p className="text-sm text-ink/70">
             {vendorBusinessName} still has no review.
           </p>
           {/*
@@ -632,21 +606,21 @@ function ReviewsCard({
             steps are what a couple actually needs to know. A hand-typed
             duration in copy is exactly how this said 24 hours in the first place.
           */}
-          <p className="mt-1 text-[11px] text-ink/45">
+          <p className="mt-1 text-[13px] text-ink/70">
             A review opens once your supplier confirms they delivered and you
             confirm you received it.
           </p>
           {reviewLinkHref ? (
             <Link
               href={reviewLinkHref}
-              className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
+              className="ab ab-brand mt-2 inline-flex min-h-11 items-center justify-center"
             >
               Write a review
             </Link>
           ) : null}
         </div>
       ) : (
-        <ul className="space-y-2.5">
+        <ul className="divide-y divide-ink/10">
           {reviews.map((r) => (
             <li key={r.review_id}>
               <ReviewRow review={r} vendorName={vendorBusinessName} />
@@ -664,22 +638,22 @@ function ReviewsHero({ trusted }: { trusted: TrustedReviewStatsRow }) {
   const count = trusted.trusted_review_count;
   if (count === 0) {
     return (
-      <div className="flex items-center gap-3 rounded-md bg-cream/40 px-3 py-2">
+      <div className="flex min-h-11 items-center gap-3 py-2">
         <Star className="h-5 w-5 text-ink/25" strokeWidth={1.5} />
-        <span className="text-xs text-ink/55">No reviews yet.</span>
+        <span className="text-sm text-ink/70">No reviews yet.</span>
       </div>
     );
   }
   return (
-    <div className="flex items-center gap-3 rounded-md bg-cream/40 px-3 py-2">
+    <div className="flex min-h-14 items-center gap-3 py-2">
       <Star
         className={`h-5 w-5 ${hero > 0 ? 'fill-warn-400 text-warn-500' : 'text-ink/25'}`}
         strokeWidth={1.5}
       />
-      <span className="text-xl font-semibold text-ink">
+      <span className="text-[28px] font-bold leading-none tabular-nums text-ink">
         {hero > 0 ? formatStarRating(hero) : '—'}
       </span>
-      <span className="text-xs text-ink/60">
+      <span className="text-[13px] text-ink/70">
         {formatCount(count)} review{count === 1 ? '' : 's'}
       </span>
     </div>
@@ -702,25 +676,26 @@ function ReviewRow({ review, vendorName }: { review: MarketplaceReview; vendorNa
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    timeZone: 'Asia/Manila',
   });
   return (
-    <article className="rounded-lg border border-ink/10 bg-cream/80 px-3 py-2.5">
+    <article className="py-3">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <Star
             className="h-3.5 w-3.5 fill-warn-400 text-warn-500"
             strokeWidth={1.5}
           />
-          <span className="text-sm font-semibold text-ink">
+          <span className="text-[15px] font-bold tabular-nums text-ink">
             {formatStarRating(review.rating_overall)}
           </span>
         </div>
-        <p className="text-[11px] text-ink/55">
+        <p className="text-[13px] text-ink/70">
           {author} · {dateLabel}
         </p>
       </header>
       {review.body ? (
-        <p className="mt-1.5 line-clamp-3 text-xs text-ink/80">{review.body}</p>
+        <p className="mt-1.5 line-clamp-3 text-sm text-ink">{review.body}</p>
       ) : null}
       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 sm:grid-cols-4">
         {AXIS_ORDER.map((axis) => {
@@ -734,8 +709,8 @@ function ReviewRow({ review, vendorName }: { review: MarketplaceReview; vendorNa
                   : review.rating_on_time;
           return (
             <div key={axis} className="flex items-baseline gap-1">
-              <dt className="text-[10px] text-ink/45">{REVIEW_AXIS_LABEL[axis]}</dt>
-              <dd className="font-mono text-[11px] text-ink/75">
+              <dt className="text-[13px] text-ink/70">{REVIEW_AXIS_LABEL[axis]}</dt>
+              <dd className="text-[13px] font-semibold tabular-nums text-ink">
                 {formatStarRating(value)}
               </dd>
             </div>
@@ -743,18 +718,18 @@ function ReviewRow({ review, vendorName }: { review: MarketplaceReview; vendorNa
         })}
       </dl>
       {review.vendor_reply ? (
-        <div className="mt-2 rounded-md border border-terracotta/15 bg-terracotta/[0.04] px-2.5 py-1.5">
+        <div className="mt-2 border-l-2 border-l-terracotta pl-3">
           <div className="flex items-center gap-1">
             <AlertCircle
               aria-hidden
-              className="h-3 w-3 text-terracotta"
+              className="h-3.5 w-3.5 text-terracotta"
               strokeWidth={1.75}
             />
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+            <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
               Response from {vendorName}
             </span>
           </div>
-          <p className="mt-1 line-clamp-3 text-[11px] text-ink/75">{review.vendor_reply}</p>
+          <p className="mt-1 line-clamp-3 text-sm text-ink">{review.vendor_reply}</p>
         </div>
       ) : null}
     </article>

@@ -224,6 +224,61 @@ function runExclusive<T>(op: () => Promise<T>): Promise<T> {
 }
 
 /**
+ * ✂ TRIM A CLIP ON THE PHONE (guest phone uploads — owner 2026-11-13, ruling 3 of 2026-11-14 on #7607: "Videos are
+ * trimmed to 10 seconds max. Trim on the phone, so only the chosen clip is sent and charged").
+ *
+ * Cuts [startS, startS + lengthS) out of `file` and re-encodes it as the same 720p-class web copy the Papic camera
+ * keeps (`web720`), with ALL container metadata dropped (`-map_metadata -1` — the location atom never leaves the
+ * phone). Returns the cut clip, or NULL when this browser cannot cut it — never the whole file: a guest who chose
+ * ten seconds must not be charged for, or have us store, the other fifty.
+ */
+export async function trimClipOnPhone(
+  file: File,
+  startS: number,
+  lengthS: number,
+  opts: { signal?: AbortSignal } = {},
+): Promise<File | null> {
+  if (!canCompressVideo()) return null;
+  if (!(Number.isFinite(startS) && startS >= 0 && Number.isFinite(lengthS) && lengthS > 0)) return null;
+  try {
+    const { fetchFile } = await import('@ffmpeg/util');
+    return await runExclusive(async () => {
+      const ffmpeg = await getLoadedFFmpeg();
+      if (opts.signal?.aborted) return null;
+      const inName = 'in.mp4';
+      const outName = 'out.mp4';
+      await ffmpeg.writeFile(inName, await fetchFile(file));
+      const code = await ffmpeg.exec([
+        '-ss', startS.toFixed(2),
+        '-i', inName,
+        '-t', lengthS.toFixed(2),
+        '-map_metadata', '-1',
+        '-vf',
+        `scale='min(${WEB_LONG_EDGE},iw)':'min(${WEB_LONG_EDGE},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2`,
+        '-c:v', 'libx264',
+        '-profile:v', 'baseline',
+        '-pix_fmt', 'yuv420p',
+        '-preset', PRESET,
+        '-crf', WEB_CRF,
+        '-c:a', 'aac', '-b:a', WEB_AUDIO_BITRATE,
+        '-movflags', '+faststart',
+        outName,
+      ]);
+      if (code !== 0 || opts.signal?.aborted) return null;
+      const out = await ffmpeg.readFile(outName);
+      if (typeof out === 'string') return null;
+      const bytes = out as Uint8Array;
+      if (bytes.byteLength <= WEB_COPY_MIN_BYTES) return null;
+      const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+      const baseName = file.name.replace(/\.[^.]+$/, '') || 'clip';
+      return new File([ab], `${baseName}-trimmed.mp4`, { type: 'video/mp4' });
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Compress a video File for web playback. Returns a smaller MP4 File on success,
  * or the ORIGINAL file unchanged on skip/failure (never throws).
  */

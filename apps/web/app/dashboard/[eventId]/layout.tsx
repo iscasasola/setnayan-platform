@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { NoticeSlot } from '@/app/_components/notices/notices';
 import { COORDINATOR_SEAT_ROLE } from '@/lib/events-you-run';
 import { CoordinatingLine } from './_components/coordinating-line';
 import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
@@ -813,9 +814,11 @@ export default async function EventLayout({ children, params }: Props) {
                 their own and would otherwise touch the header. From `sm` up
                 nothing changes. */}
             <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+              {/* 🔔 THE EVENT PAGES' TOP for notices (one notice system, owner approved 14 Nov 2026): the live band and
+                  at most two lines; the rest wait in the bell. Every event page has exactly this one top slot. */}
+              <NoticeSlot place="top" className="mb-4" />
               {/* Live "free this weekend" promo announcement (self-gates to null
                   when PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
-              <PromoFreeWindowBanner />
               {/* "You are now a co-host…" · CONFIRM — shows until acknowledged
                   (owner 2026-09-28). Renders nothing for everyone else. */}
               <CohostWelcome eventId={eventId} userId={user.id} />
@@ -846,6 +849,10 @@ export default async function EventLayout({ children, params }: Props) {
                 </HomeCoverWordsProvider>
                 </EventTeamPresence>
               </LastSeenScope>
+              {/* Live "free this weekend" promo — an OFFER, registered for the END of the page (one notice system,
+                  owner approved 14 Nov 2026). Self-gates to null when PROMO_FREE_WINDOWS_ENABLED is off or nothing is live. */}
+              <PromoFreeWindowBanner />
+              <NoticeSlot place="end" className="mt-6" />
             </div>
           </div>
         </main>

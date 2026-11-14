@@ -120,7 +120,7 @@ const MAY_NAME_OLD = new Set([
   'app/dashboard/(launcher)/_components/account-bottom-nav.tsx',
   'lib/appearance.ts',
   'lib/stay-ratchet.navigation.ts',
-  'app/dev/bar-lab/[[...path]]/page.tsx',
+  'app/dev/bar-lab/[[...path]]/page.lab.tsx',
 ]);
 
 test('3b · no code links the old People or Memories address — every door lands on Home', () => {

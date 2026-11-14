@@ -47,6 +47,12 @@ export const FEATURE_SLUGS = [
   'patiktok',
   'alaala',
   'real-stories',
+  'supplier-page',
+  'supplier-chat',
+  'supplier-calendar',
+  'supplier-qr-codes',
+  'supplier-verified',
+  'supplier-plans',
 ] as const;
 
 export type FeatureSlug = (typeof FEATURE_SLUGS)[number];

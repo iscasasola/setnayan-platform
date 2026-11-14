@@ -17,6 +17,7 @@ import { readBookingChanges } from '@/lib/booking-changes.server';
 import { hostFirstName } from '@/lib/host-first-name.server';
 import { QUOTE_VERSION_SELECT, orderQuoteVersions, type QuoteVersionRow } from '@/lib/quote-versions';
 import { resolveAppointmentLabel } from '@/lib/appointments';
+import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { agreedOutcome, agreedRows, type AgreedOutcome, type AgreedRow } from '@/lib/agreed-now';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { ChangedRow } from './changed-row';
@@ -83,6 +84,12 @@ export async function AgreedNow({
     }),
   );
 
+  // 👥 RW-108: a CLAIMED per-guest booking of THIS shop (`marketplace_vendor_id` = the shop) — the figure and count
+  // the couple reads, instead of "No quote sent yet" and the event's estimate. Only once the supplier's own session
+  // showed it is on the event; a refused read draws as shipped.
+  const perGuest = onTheEvent && versionsEmpty(quotes.data)
+    ? (await readShopPerGuest(createAdminClient(), vendorProfileId, [eventId]))?.get(eventId) ?? null
+    : null;
   const event = ev.data as { event_date: string | null; estimated_pax: number | null; final_pax: number | null };
   const versions = orderQuoteVersions((quotes.data ?? []) as unknown as QuoteVersionRow[]);
   const outcome = agreedOutcome({ isBooked, declined: false }, versions);
@@ -102,11 +109,16 @@ export async function AgreedNow({
     names,
     booking: { isBooked, declined: false },
     quoteBy,
+    perGuest,
   });
   return <AgreedNowView outcome={outcome} rows={rows} historyLoaded={changes !== null} />;
 }
 
 /** The section itself — the reads' result drawn; labs draw it from fixtures (`/dev/chat-cards-lab`). */
+function versionsEmpty(rows: unknown): boolean {
+  return !Array.isArray(rows) || rows.length === 0;
+}
+
 export function AgreedNowView({
   outcome,
   rows,

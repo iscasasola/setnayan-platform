@@ -75,7 +75,7 @@ test('(2) the lab’s draft is laid over the story as the real Maker lays the hu
 });
 
 test('(3) the lab wires it: the page hands the story, the save stand-in keeps the story’s keys, the canvas marks each scene as the real page does', () => {
-  const page = read('app/dev/maker-lab/page.tsx');
+  const page = read('app/dev/maker-lab/page.lab.tsx');
   assert.match(page, /const labPostEvent = labPostEventRead\(labEditorialDraft\(\(await cookies\(\)\)\.get\(LAB_EDITORIAL_COOKIE\)\?\.value\)\);/);
   assert.match(page, /buildMakerNavigatorData\(\{\s*postEvent: labPostEvent,/, 'the lab hands the Maker no Post Event story');
   const shell = read('app/dev/maker-lab/maker-lab-shell.tsx');
@@ -83,7 +83,7 @@ test('(3) the lab wires it: the page hands the story, the save stand-in keeps th
      handed to the pages from its state (`lab-draft.ts` `labDraftCookies`) — so an Undo takes a press back too. */
   assert.match(shell, /writeLabCookies\(draft, scrub\);/, 'a Post Event press is forgotten at the next render');
   assert.match(read('app/dev/maker-lab/lab-draft.ts'), /\[LAB_EDITORIAL_COOKIE\]: draft\.editorial && some\(draft\.editorial\) \? json\(draft\.editorial\) : null,/, 'the draft’s story keys are not handed to the lab’s pages');
-  const guest = read('app/dev/maker-lab/guest/page.tsx');
+  const guest = read('app/dev/maker-lab/guest/page.lab.tsx');
   assert.match(guest, /\{phase === 'editorial' \? \(\s*<div className="sn-editorial" data-lab-post-event="">/);
   assert.match(guest, /\{r\.marker \? mark\(`p:\$\{r\.marker\}`\) : null\}/, 'a scene is not behind the real page’s own marker');
   // The day's chapters share ONE marker (they move together), as the navigator's tiles expect.

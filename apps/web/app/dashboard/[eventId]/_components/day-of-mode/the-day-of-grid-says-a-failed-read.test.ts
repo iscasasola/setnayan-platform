@@ -30,8 +30,12 @@ before(async () => {
 const said = (html: string) => html.replace(/&#x27;|&rsquo;|’/g, '’');
 
 test('a failed read is said in the banner, Happening now and Up next — never "wrapped"', () => {
+  // 🔔 The banner is a live notice since the one notice system (14 Nov 2026): it REGISTERS and the page's top slot
+  // draws it, so it renders nothing where it is written. Its failed branch is read from the source instead.
+  assert.equal(renderToStaticMarkup(React.createElement(DayOfModeBanner, { eventId: 'e1', blocks: [], failed: true })), '');
+  const banner = stripComments(readFileSync(join(import.meta.dirname, 'banner.tsx'), 'utf8'));
+  assert.match(banner, /\{failed \? <ScheduleUnread \/> :/, 'the live notice no longer says a failed read');
   const parts = [
-    renderToStaticMarkup(React.createElement(DayOfModeBanner, { eventId: 'e1', blocks: [], failed: true })),
     renderToStaticMarkup(React.createElement(WhatsHappeningCard, { blocks: [], failed: true })),
     renderToStaticMarkup(React.createElement(LiveScheduleCard, { eventId: 'e1', blocks: [], failed: true })),
   ].map(said);

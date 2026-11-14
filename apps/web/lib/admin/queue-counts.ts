@@ -9,6 +9,7 @@ import {
 } from '@/lib/admin/completions-stuck';
 import { ACTIVE_STATUSES, BUNDLE_CHILD_SKUS } from '@/lib/entitlements';
 import { formatCount } from '@/lib/format-number';
+import { countOpenProblems } from '@/lib/telemetry/problem-merge';
 import { FAILED_DELIVERY_EVENTS, SUMMARY_WINDOW_MS } from '@/lib/email-delivery-log';
 
 /**
@@ -804,6 +805,8 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: null,
     filter: (q) => q.eq('status', 'open'),
     tsCol: 'first_seen',
+    // RW-285e: the count is the Problems page's own merged rows, never the raw row count.
+    digest: (admin) => countOpenProblems(admin),
     digestLine: { label: 'Problems', say: (n) => `${formatCount(n)} ${n === 1 ? 'thing is' : 'things are'} failing in the app` },
   },
   {

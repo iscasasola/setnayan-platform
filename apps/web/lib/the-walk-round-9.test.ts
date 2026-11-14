@@ -81,3 +81,38 @@ test('RW-59 · an event dated only by its one picked day: the Hub and the reply 
     assert.match(code(f), /std_invitation_launch_date[^`]*date_candidates`/, f);
   }
 });
+
+test('RW-256 / RW-64 · the account switcher’s OTHER accounts never show "Someone —" either', () => {
+  const src = code('app/_components/account-switcher/account-switcher.tsx');
+  assert.match(src, /<span className=\{NAME\}>\{realNameOrNull\(acct\.name\) \?\? acct\.email\}<\/span>/);
+  assert.match(src, /\(realNameOrNull\(acct\.name\) \?\? acct\.email\)\.charAt\(0\)/);
+  assert.doesNotMatch(src, /acct\.name\?\.trim\(\) \|\| acct\.email/);
+});
+
+test('RW-87 · before the day the run of show is labelled "Starts", and the day carries its year', async () => {
+  const { weekdayDateWithYear } = await import('./format-date');
+  assert.equal(weekdayDateWithYear('2027-05-15'), 'Sat, May 15, 2027');
+  assert.equal(weekdayDateWithYear(null), null);
+  const h = code('app/_components/run-of-show-header.tsx');
+  assert.equal((h.match(/notStarted && startsOnWords \? 'Starts' : 'Now'/g) ?? []).length, 2);
+});
+
+test('RW-263 · the Get-together’s browser tab says Get-together, not "Simple Event"', () => {
+  const page = code('app/onboarding/simple/page.tsx');
+  assert.match(page, /title: 'Create a Get-together'/);
+  assert.doesNotMatch(page, /Simple Event'/);
+});
+
+test('RW-262 · a Lights & Sound card is never "Filled for a florist"', async () => {
+  const { supplierTypeForKind } = await import('./service-card-maker');
+  assert.equal(supplierTypeForKind('lights_sound', 'design'), 'other');
+  assert.equal(supplierTypeForKind('led_wall', 'design'), 'other');
+  assert.equal(supplierTypeForKind('florist', 'design'), 'florist');
+  assert.equal(supplierTypeForKind('stylist_decorator', 'design'), 'florist');
+  assert.equal(supplierTypeForKind('mandap_decor', 'design'), 'florist');
+});
+
+test('RW-264 · the couple’s Suppliers row reads the shop’s current name, not the one copied at booking', () => {
+  const page = code('app/dashboard/[eventId]/vendors/page.tsx');
+  assert.match(page, /vendor_id: v\.vendor_id,\s*vendor_name: mk\?\.name \?\? v\.vendor_name,/);
+});

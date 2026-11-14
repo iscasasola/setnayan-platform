@@ -1,5 +1,6 @@
 'use client';
 
+import { realNameOrNull } from '@/lib/no-name';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
@@ -447,9 +448,9 @@ export function SwitcherPanelBody({
           <form key={acct.uid} action="/auth/accounts/switch" method="post" data-sheet-place="account" data-sheet-account={acct.uid}>
             <input type="hidden" name="uid" value={acct.uid} />
             <button type="submit" className={ROW}>
-              <RowMark className="bg-[var(--m-ivory)] text-ink">{(acct.name?.trim() || acct.email).charAt(0).toUpperCase()}</RowMark>
+              <RowMark className="bg-[var(--m-ivory)] text-ink">{(realNameOrNull(acct.name) ?? acct.email).charAt(0).toUpperCase()}</RowMark>
               <span className="min-w-0 flex-1">
-                <span className={NAME}>{acct.name?.trim() || acct.email}</span>
+                <span className={NAME}>{realNameOrNull(acct.name) ?? acct.email}</span>
                 <span className={SUB}>
                   <span aria-hidden className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-[var(--m-line)] text-[9px] font-semibold text-ink">@</span>
                   <span className="truncate">{acct.email}</span>

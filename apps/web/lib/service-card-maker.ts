@@ -69,7 +69,10 @@ export function supplierTypeForKind(kind: string, folder: string | null): Suppli
   const f = folder ?? familyOfLegacyKind(k);
   if (f === 'feast') return 'caterer';
   if (f === 'documentary') return 'studio';
-  if (f === 'design') return 'florist';
+  // 🌸 RW-262 (re-walk 14 Nov 2026): the design family is more than flowers — a Lights & Sound card opened "Filled for a
+  // florist". Only florals, decor and styling take the florist's defaults; lights, sound, LED walls, dance floors, tents,
+  // fireworks and the rest fall to 'other' (nothing pre-filled, never filled for the wrong trade).
+  if (f === 'design') return /flor|flower|decor|styl|chuppah|mandap|tea_set|backdrop/.test(k) ? 'florist' : 'other';
   if (f === 'venue') return 'venue';
   if (f === 'program') return 'performer';
   return 'other';

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { hubDayWords } from '@/lib/hub-events';
+import { weekdayDateWithYear } from '@/lib/format-date';
 import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
@@ -3687,7 +3687,7 @@ function ScheduleTab(props: {
               // RW-87: before the event's day the Now box says when it starts, never "Not started yet".
               startsOnWords={
                 props.brief.event.event_date && props.brief.event.event_date.slice(0, 10) > manilaToday()
-                  ? hubDayWords(props.brief.event.event_date)
+                  ? weekdayDateWithYear(props.brief.event.event_date)
                   : null
               }
             />

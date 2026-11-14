@@ -107,7 +107,7 @@ test('the scanner descends into route groups — a group is not a hiding place',
         for (const c of readdirSync(full, { withFileTypes: true })) {
           if (!c.isDirectory()) continue;
           if (!/^[a-z0-9][a-z0-9-]*$/.test(c.name)) continue;
-          if (existsSync(path.join(full, c.name, 'page.tsx'))) inGroups.push(c.name);
+          if (existsSync(path.join(full, c.name, 'page.tsx')) || existsSync(path.join(full, c.name, 'page.lab.tsx'))) inGroups.push(c.name);
         }
       }
     }

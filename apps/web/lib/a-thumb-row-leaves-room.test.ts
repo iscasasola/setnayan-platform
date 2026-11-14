@@ -194,7 +194,7 @@ test('8 · a bar that mounts LATER (portalled to <body> after a null first commi
   }
   // …and the chapters lab wears the real column, so a walk sees the room (no column, no padding — it hid this bug).
   assert.match(
-    read('app/dev/chapters-lab/page.tsx'),
+    read('app/dev/chapters-lab/page.lab.tsx'),
     /<main data-shell-main=""/,
     'the chapters lab dropped the event column — a walk cannot see the room',
   );

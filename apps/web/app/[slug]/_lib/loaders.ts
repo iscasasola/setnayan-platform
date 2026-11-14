@@ -32,6 +32,7 @@ import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { noteEventStamp, rememberedEventRead } from '@/lib/event-shared-reads';
 import { startAhead } from '@/lib/start-ahead';
+import { askedOnce } from '@/lib/request-once';
 import { EVENT_ROW_ONCE_EXTRA_COLUMNS, eventRowOnce, holdEventRow, withoutOnceExtras } from '@/lib/event-row-once';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { loadRoleNames } from '@/lib/role-names.server';
@@ -2204,12 +2205,19 @@ export const loadGuestContext = cache(
 export const loadEntourageSectionOrder = cache(
   async (admin: AdminClient, eventId: string): Promise<string[] | null> => {
     // From the row the render already holds (`lib/event-row-once.ts`); else this read, as before.
+    /* ⚡ `cache()` keys on the `admin` OBJECT and every caller builds its own, so it never hit — the Maker sent this
+       read three times (speed pass 2026-11-14). `askedOnce` keys on who is asking, so the fallback is one read per
+       render; the held row (`eventRowOnce`) still answers first, and a failure still reaches every caller. */
     const { data, error } = await eventRowOnce(admin, eventId, 'entourage_section_order', () =>
-      admin
-        .from('events')
-        .select('entourage_section_order')
-        .eq('event_id', eventId)
-        .maybeSingle(),
+      askedOnce(admin, 'events.entourage_section_order', [eventId], () =>
+        Promise.resolve(
+          admin
+            .from('events')
+            .select('entourage_section_order')
+            .eq('event_id', eventId)
+            .maybeSingle(),
+        ),
+      ),
     );
     if (error) {
       logQueryError('loadEntourageSectionOrder', error, { event_id: eventId }, 'graceful_degrade');

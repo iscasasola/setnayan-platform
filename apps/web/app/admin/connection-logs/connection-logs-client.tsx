@@ -102,7 +102,7 @@ function formatRelativeTime(iso: string): string {
   if (diffHr < 24) return `${diffHr}h ago`;
   const diffDay = Math.floor(diffHr / 24);
   if (diffDay < 30) return `${diffDay}d ago`;
-  return new Date(iso).toLocaleDateString('en-PH', {
+  return new Date(iso).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -495,7 +495,7 @@ function InspectModal({ row, onClose }: { row: FaultLogRow; onClose: () => void 
               {row.element_name || 'Unnamed element'}
             </h2>
             <p className="mt-0.5 text-xs text-[#5B5B5B]">
-              {new Date(row.created_at).toLocaleString('en-PH')} · {row.status}
+              {new Date(row.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })} · {row.status}
             </p>
           </div>
           <button

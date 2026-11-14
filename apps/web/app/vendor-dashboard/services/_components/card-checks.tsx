@@ -189,7 +189,7 @@ export function ServiceMismatchNote({
       </p>
       {onMove && !moveWhy ? (
         <div>
-          <ActionButton tone="neutral" icon={MoveRight} label={`Move to ${mismatch.says.label}`} onClick={() => onMove(mismatch.says.key)} />
+          <ActionButton tone="neutral" icon={MoveRight} label={`Move to ${mismatch.says.label}`} onClick={() => onMove(mismatch.says.key)} className="!h-11" />
         </div>
       ) : !onMove ? (
         <p className={QUIET}>
@@ -272,8 +272,7 @@ function PhotoBlockedNote({ verdict, serviceId, position }: { verdict: CardPhoto
                   intend();
                   setOpen(true);
                 }}
-                aria-expanded={false}
-              />
+                aria-expanded={false} className="!h-11" />
             ) : (
               <div className="space-y-2">
                 <TypedRow
@@ -288,7 +287,7 @@ function PhotoBlockedNote({ verdict, serviceId, position }: { verdict: CardPhoto
                   data="card-photo-report-note"
                 />
                 <div className="flex flex-wrap items-center gap-2">
-                  <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setOpen(false)} />
+                  <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setOpen(false)} className="!h-11" />
                   <ActionButton
                     tone="brand"
                     icon={Flag}
@@ -302,8 +301,7 @@ function PhotoBlockedNote({ verdict, serviceId, position }: { verdict: CardPhoto
                         }));
                         setSent(res.ok ? { ok: true, text: '' } : { ok: false, text: res.message });
                       })
-                    }
-                  />
+                    } className="!h-11" />
                 </div>
                 {sent && !sent.ok ? (
                   <p role="alert" className="text-sm" style={DANGER}>
@@ -332,8 +330,7 @@ export function CardChecksSummary({ open, unread, isEdit }: { open: number; unre
             quiet
             icon={ArrowDown}
             label="Show me"
-            onClick={() => document.querySelector('[data-card-check] [role="alert"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })}
-          />
+            onClick={() => document.querySelector('[data-card-check] [role="alert"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })} className="!h-11" />
         </span>
       ) : null}
       {unread.length > 0 ? (

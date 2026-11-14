@@ -12,7 +12,7 @@ import { shortDay, type HomeChecklistFacts } from './home-control-faces';
 
 /** What the To do list's ⓘ says (the approved prototype's words, `TIPS.todo`). */
 export const HOME_TODO_INFO =
-  'The three soonest tasks of your plan, each with its tick, and how far the plan is. The whole plan is in Schedule › Planning Stage. The one item in Now is never repeated here.';
+  'Your next tasks, soonest first — tick one when it is done. Your whole plan is in Schedule.';
 
 /** How many tasks the list shows (round 3: "the three soonest tasks with their tick"). */
 export const HOME_TODO_ROWS = 3;

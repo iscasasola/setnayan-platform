@@ -212,11 +212,12 @@ export function IconTileFolderStrip({
           />
         </li>
         {visibleTabs.map((tab) => {
-          // DB-first: an admin icon override wins when it's on the Lucide
-          // allowlist; anything unknown / NULL drops to the hardcoded default.
+          // Nov 2026: the folder's own drawn icon wins (owner-approved animated
+          // set). An admin `icon_name` override now only fills a folder the
+          // code has no icon for (a DB-only folder); unknown / NULL → nothing.
           const Icon =
-            (getLucideIcon(tab.iconName) as ComponentType<LucideProps> | null) ??
-            FOLDER_ICON[tab.folder];
+            FOLDER_ICON[tab.folder] ??
+            (getLucideIcon(tab.iconName) as ComponentType<LucideProps> | null);
           const label =
             WEDDING_FOLDER_SHORT_LABEL[tab.folder] ?? tab.label;
           return (

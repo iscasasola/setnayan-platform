@@ -110,9 +110,33 @@ import {
 } from 'lucide-react';
 
 import type { WeddingFolder, WeddingTile } from '@/lib/taxonomy';
+import { SERVICE_FOLDER_ART, SERVICE_TILE_ART } from '@/lib/service-icon-art';
+import { serviceIcon, type IconComponent } from '@/lib/service-icon';
 
-/** Tile → Coverage Strip icon. Exhaustive over `WeddingTile` by construction. */
-export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
+/**
+ * 🎨 NOV 2026 — THE DRAWN SET WINS. Every folder and every live service now has
+ * its own animated drawing (`lib/service-icon-art.ts`, from the owner-approved
+ * prototype). The lucide maps below are kept as the record of the old glyphs
+ * and as the fallback for the four tiles with no drawing yet (`officiants`,
+ * `counseling_seminars`, `livestream`, `everything_else` — all hidden from the
+ * couple). The exported maps stay EXHAUSTIVE: they are built over these
+ * exhaustive records, so a new tile is still a compile error until it gets a
+ * lucide glyph, and it picks up a drawing the moment one is added.
+ */
+function withDrawings<K extends string>(
+  lucide: Record<K, LucideIcon>,
+  art: Partial<Record<K, string>>,
+): Record<K, IconComponent> {
+  const out = {} as Record<K, IconComponent>;
+  for (const key of Object.keys(lucide) as K[]) {
+    const drawing = art[key];
+    out[key] = drawing ? serviceIcon(drawing, key) : lucide[key];
+  }
+  return out;
+}
+
+/** Tile → the old lucide glyph. Exhaustive over `WeddingTile` by construction. */
+const LUCIDE_TILE_ICON: Record<WeddingTile, LucideIcon> = {
   funeral_home: Feather,
   cremation: Flame,
   memorial_park: TreePine,
@@ -215,12 +239,15 @@ export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
   reveal_element: Wand2,
 };
 
+/** Tile → Coverage Strip icon: the drawn service icon, else the lucide glyph above. Exhaustive over `WeddingTile`. */
+export const WEDDING_TILE_ICON: Record<WeddingTile, IconComponent> = withDrawings(LUCIDE_TILE_ICON, SERVICE_TILE_ART);
+
 /**
  * Icon for a tile string that may not be a known `WeddingTile` (the Shortlist
  * model types `tile` as `WeddingTile`, but the strip also renders from
  * DB-driven taxonomy snapshots). Unknown → `Sparkles`, never a blank circle.
  */
-export function tileIcon(tile: string): LucideIcon {
+export function tileIcon(tile: string): IconComponent {
   return WEDDING_TILE_ICON[tile as WeddingTile] ?? Sparkles;
 }
 
@@ -254,7 +281,7 @@ export function tileIcon(tile: string): LucideIcon {
  * Exhaustive over `WeddingFolder` — a new folder is a COMPILE ERROR here until
  * it gets an icon.
  */
-export const WEDDING_FOLDER_ICON: Record<WeddingFolder, LucideIcon> = {
+const LUCIDE_FOLDER_ICON: Record<WeddingFolder, LucideIcon> = {
   farewell: Feather,
   venue: Building2,
   planning: ClipboardList,
@@ -273,11 +300,14 @@ export const WEDDING_FOLDER_ICON: Record<WeddingFolder, LucideIcon> = {
   specialty: Sparkles,
 };
 
+/** Folder → icon: the drawn folder icon, else the lucide glyph above. Exhaustive over `WeddingFolder`. */
+export const WEDDING_FOLDER_ICON: Record<WeddingFolder, IconComponent> = withDrawings(LUCIDE_FOLDER_ICON, SERVICE_FOLDER_ART);
+
 /**
  * Icon for a folder string that may not be a known `WeddingFolder` (the bench
  * renders from DB-driven taxonomy snapshots). Unknown → `Sparkles`, matching
  * `tileIcon`'s never-a-blank-slot contract.
  */
-export function folderIcon(folder: string): LucideIcon {
+export function folderIcon(folder: string): IconComponent {
   return WEDDING_FOLDER_ICON[folder as WeddingFolder] ?? Sparkles;
 }

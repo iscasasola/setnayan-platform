@@ -17,6 +17,7 @@ import './_components/pinned-row/pin-glide.css';
 import './_components/pinned-row/pin-fold.css';
 import './_components/collapsing-top/collapsing-top.css';
 import './_components/fold.css';
+import './service-icons.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { StoreShellLinkGuard } from './_components/store-shell-link-guard';
 import { NativeBridge } from './_components/native-bridge';
@@ -34,6 +35,7 @@ import { SiteFooterChrome } from './_components/marketing/site-footer-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { ZoomGuard } from './_components/zoom-guard';
 import { PressFeel } from './_components/press-feel';
+import { ServiceIconPlay } from './_components/service-icon-play';
 import { RevealDetailsOnOpen } from './_components/reveal-on-open';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-bootstrap-script';
@@ -746,6 +748,7 @@ export default async function RootLayout({
         {/* ONE press feel for every control the app owns (owner 2026-10-08) — one delegated listener; the guest's
             Event Hub (`.sn-editorial`) is left alone. See _components/press-feel.tsx. */}
         <PressFeel />
+        <ServiceIconPlay />
         {/* 🔭 A <details> a user opens glides its summary to the pin line when it runs past the bottom (owner
             2026-11-04, app-wide) — one capture listener. See _components/reveal-on-open.ts. */}
         <RevealDetailsOnOpen />

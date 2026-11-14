@@ -1,0 +1,196 @@
+/* service-icons.css — the animated service icons (folders + services).
+ * Ported from the owner-approved prototype service-icons.html (Nov 2026).
+ * Rest = a plain line icon. A press colours it, the short play runs in colour,
+ * then the colour fades back. Only transform + opacity animate.
+ * The player (app/_components/service-icon-player.tsx) adds .go to every
+ * svg.si inside the pressed control for 1.3s. */
+svg.si{--md:.85s;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;overflow:visible;transition:color .7s ease}
+@media (prefers-reduced-motion:reduce){svg.si{--md:.5s}}
+svg.si.go{color:rgb(var(--color-mulberry));transition:color .06s}
+svg.si *{transform-box:fill-box;transform-origin:center}
+svg.si [transform]{transform-box:view-box;transform-origin:0 0}
+svg.si .ghost{opacity:0}
+svg.si .fillc{fill:currentColor;stroke:none}
+svg.si .t{stroke-width:1.4}
+svg.si .o-b{transform-origin:50% 100%}svg.si .o-t{transform-origin:50% 0}svg.si .o-l{transform-origin:0 50%}svg.si .o-r{transform-origin:100% 50%}svg.si .o-bl{transform-origin:0 100%}svg.si .o-br{transform-origin:100% 100%}svg.si .o-key{transform-origin:68% 30%}
+/* ================= SERVICE ICONS — paste-ready block (16 folders) ================= */
+/* 1 venues — Building2: windows light up one by one, wing lights blink on */
+svg.si.go .bd-all{animation:si-svSquash var(--md) ease-in-out both!important;transform-origin:50% 100%}
+svg.si.go .bd-w{animation:si-bdWin var(--md) ease-in-out both!important}
+svg.si.go .bd-g{animation:si-bdLit var(--md) ease-in-out both!important}
+svg.si.go .bd-door{animation:si-bdDoor var(--md) ease-in-out both!important;transform-origin:50% 100%}
+@keyframes si-svSquash{0%,100%{transform:none}14%{transform:scale(1.04,.95)}30%{transform:scale(.98,1.03)}48%{transform:none}}
+@keyframes si-bdWin{0%,100%{opacity:1;transform:none}14%{opacity:.15;transform:scaleX(.2)}40%{opacity:1;transform:scaleX(1.3)}58%{transform:scaleX(1)}}
+@keyframes si-bdLit{0%,100%{opacity:0;transform:scale(.2)}30%{opacity:1;transform:scale(1.35)}48%,78%{opacity:1;transform:scale(1)}}
+@keyframes si-bdDoor{0%,100%{transform:none}30%{transform:scaleY(.8)}55%{transform:scaleY(1.08)}}
+/* 2 planners — ClipboardList: clip lifts, bullets become ticks, lines write in */
+svg.si.go .cl-all{animation:si-clTilt var(--md) ease-in-out both!important;transform-origin:50% 100%}
+svg.si.go .cl-clip{animation:si-clClip var(--md) cubic-bezier(.3,1.4,.5,1) both!important}
+svg.si.go .cl-ln{animation:si-clLine var(--md) ease-out both!important;transform-origin:0 50%}
+svg.si.go .cl-dot{animation:si-clDot var(--md) linear both!important}
+svg.si.go .cl-tk{animation:si-clTick var(--md) ease-in-out both!important}
+@keyframes si-clTilt{0%,100%{transform:none}16%{transform:rotate(-4deg)}36%{transform:rotate(3deg)}54%{transform:none}}
+@keyframes si-clClip{0%,100%{transform:none}18%{transform:translateY(-1.8px)}40%{transform:translateY(.4px)}56%{transform:none}}
+@keyframes si-clLine{0%,100%{transform:none}12%{transform:scaleX(.05)}50%{transform:scaleX(1.12)}66%{transform:none}}
+@keyframes si-clDot{0%,100%{opacity:1}12%,86%{opacity:0}}
+@keyframes si-clTick{0%,10%{opacity:0;transform:scale(.2) rotate(-30deg)}36%{opacity:1;transform:scale(1.4)}52%,82%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.5)}}
+/* 3 catering — UtensilsCrossed: fork and knife part, then clink */
+svg.si.go .ut-f{animation:si-utFork var(--md) ease-in-out both!important}
+svg.si.go .ut-k{animation:si-utKnife var(--md) ease-in-out both!important}
+svg.si.go .ut-s{animation:si-utSpark var(--md) ease-out both!important;transform-origin:50% 100%}
+@keyframes si-utFork{0%,100%{transform:none}26%{transform:rotate(17deg)}46%{transform:rotate(-7deg)}60%{transform:rotate(4deg)}76%{transform:rotate(-2deg)}}
+@keyframes si-utKnife{0%,100%{transform:none}26%{transform:rotate(-17deg)}46%{transform:rotate(7deg)}60%{transform:rotate(-4deg)}76%{transform:rotate(2deg)}}
+@keyframes si-utSpark{0%,40%{opacity:0;transform:scale(.3)}50%{opacity:1;transform:scale(1.25)}68%{opacity:1;transform:scale(1) translateY(-.6px)}86%,100%{opacity:0;transform:scale(.8) translateY(-1.6px)}}
+/* 4 styling — Flower2: the bloom opens, leaves sway, one petal drifts down */
+svg.si.go .fw-head{animation:si-fwBloom var(--md) cubic-bezier(.3,1.3,.5,1) both!important}
+svg.si.go .fw-lr{animation:si-fwLeafR var(--md) ease-in-out both!important;transform-origin:0 100%}
+svg.si.go .fw-ll{animation:si-fwLeafL var(--md) ease-in-out both!important;transform-origin:100% 100%}
+svg.si.go .fw-p{animation:si-fwPetal var(--md) ease-in both!important}
+@keyframes si-fwBloom{0%,100%{transform:none}20%{transform:scale(.7) rotate(-24deg)}50%{transform:scale(1.2) rotate(16deg)}70%{transform:scale(.96) rotate(-5deg)}86%{transform:scale(1.02)}}
+@keyframes si-fwLeafR{0%,100%{transform:none}25%{transform:rotate(-16deg)}50%{transform:rotate(11deg)}75%{transform:rotate(-5deg)}}
+@keyframes si-fwLeafL{0%,100%{transform:none}25%{transform:rotate(16deg)}50%{transform:rotate(-11deg)}75%{transform:rotate(5deg)}}
+@keyframes si-fwPetal{0%,34%{opacity:0;transform:none}46%{opacity:1;transform:translate(.4px,.8px) rotate(12deg)}72%{opacity:1;transform:translate(1.8px,5px) rotate(55deg)}92%,100%{opacity:0;transform:translate(.8px,8.5px) rotate(20deg)}}
+/* 5 music — Music: the note hops on the beat, small notes float off */
+svg.si.go .mu-all{animation:si-muHop var(--md) ease-in-out both!important;transform-origin:50% 100%}
+svg.si.go .mu-h{animation:si-muHead var(--md) ease-in-out both!important}
+svg.si.go .mu-n{animation:si-muNote var(--md) ease-out both!important}
+@keyframes si-muHop{0%,100%{transform:none}16%{transform:translateY(-2.4px) rotate(-6deg)}34%{transform:scale(1.06,.93)}52%{transform:translateY(-1.5px) rotate(4deg)}70%{transform:scale(1.03,.97)}}
+@keyframes si-muHead{0%,100%{transform:none}34%{transform:scale(1.25)}52%{transform:scale(.95)}70%{transform:scale(1.15)}}
+@keyframes si-muNote{0%,14%{opacity:0;transform:translateY(3px) scale(.6)}38%{opacity:1;transform:rotate(-10deg)}64%{opacity:1;transform:translateY(-2.4px) rotate(9deg)}88%,100%{opacity:0;transform:translateY(-4.6px)}}
+/* 6 photo — Camera: shutter press, the lens blinks, a flash */
+svg.si.go .cm-body{animation:si-cmPress var(--md) ease-in-out both!important;transform-origin:50% 100%}
+svg.si.go .cm-lens{animation:si-cmLens var(--md) ease-in-out both!important}
+svg.si.go .cm-fl{animation:si-cmFlash var(--md) linear both!important}
+svg.si.go .cm-star{animation:si-svGlint var(--md) ease-in-out both!important}
+@keyframes si-cmPress{0%,100%{transform:none}14%{transform:scale(1.05,.91)}30%{transform:scale(.98,1.03)}46%{transform:none}}
+@keyframes si-cmLens{0%,100%{transform:none}16%{transform:scale(.5)}34%{transform:scale(1.22)}52%{transform:scale(.92)}70%{transform:none}}
+@keyframes si-cmFlash{0%,14%,100%{opacity:0}22%{opacity:.9}38%{opacity:.15}46%{opacity:.55}66%{opacity:0}}
+@keyframes si-svGlint{0%,18%,100%{opacity:0;transform:scale(.2) rotate(0)}40%{opacity:1;transform:scale(1.25) rotate(45deg)}56%{opacity:.5;transform:scale(.7) rotate(70deg)}70%{opacity:1;transform:scale(1.1) rotate(90deg)}90%{opacity:0;transform:scale(.2) rotate(120deg)}}
+/* 7 attire — Shirt: swings on its hanger, buttons do up */
+svg.si.go .st-all{animation:si-stSwing var(--md) ease-in-out both!important;transform-origin:50% 0}
+svg.si.go .st-hook{animation:si-stHook var(--md) ease-in-out both!important}
+svg.si.go .st-b{animation:si-stBtn var(--md) ease-in-out both!important}
+@keyframes si-stSwing{0%,100%{transform:none}20%{transform:rotate(11deg)}42%{transform:rotate(-9deg)}62%{transform:rotate(5deg)}80%{transform:rotate(-2deg)}}
+@keyframes si-stHook{0%,100%{opacity:0;transform:translateY(2.4px)}16%,80%{opacity:1;transform:none}}
+@keyframes si-stBtn{0%,100%{opacity:0;transform:scale(.2)}28%{opacity:1;transform:scale(1.5)}44%,80%{opacity:1;transform:scale(1)}}
+/* 8 booths — Tent: the door flaps flutter, a pennant waves */
+svg.si.go .tn-body{animation:si-tnSway var(--md) ease-in-out both!important;transform-origin:50% 100%}
+svg.si.go .tn-door{animation:si-tnDoor var(--md) ease-in-out both!important;transform-origin:50% 0}
+svg.si.go .tn-flag{animation:si-tnFlag var(--md) ease-in-out both!important;transform-origin:0 50%}
+@keyframes si-tnSway{0%,100%{transform:none}18%{transform:skewX(-5deg)}40%{transform:skewX(4deg)}62%{transform:skewX(-2deg)}}
+@keyframes si-tnDoor{0%,100%{transform:none}20%{transform:scaleX(1.65)}40%{transform:scaleX(.5)}60%{transform:scaleX(1.4)}80%{transform:scaleX(.85)}}
+@keyframes si-tnFlag{0%,100%{opacity:0;transform:scaleX(.2)}20%{opacity:1;transform:scaleX(1.15) skewY(-12deg)}40%{opacity:1;transform:scaleX(.8) skewY(12deg)}60%{opacity:1;transform:scaleX(1.1) skewY(-7deg)}80%{opacity:1;transform:scaleX(1)}}
+/* 9 invites — Mail: the flap opens, a heart comes out */
+svg.si.go .ml-env{animation:si-mlEnv var(--md) ease-in-out both!important}
+svg.si.go .ml-flap{animation:si-mlFlap var(--md) cubic-bezier(.4,0,.2,1) both!important;transform-origin:50% 0}
+svg.si.go .ml-heart{animation:si-mlHeart var(--md) ease-in-out both!important}
+@keyframes si-mlEnv{0%,100%{transform:none}24%,68%{transform:translateY(1.4px)}86%{transform:translateY(-.4px)}}
+@keyframes si-mlFlap{0%,100%{transform:none}26%,66%{transform:translateY(-3px) scaleY(-.62)}84%{transform:scaleY(1.1)}}
+@keyframes si-mlHeart{0%,22%{opacity:0;transform:translateY(3px) scale(.3)}40%{opacity:1;transform:scale(1.3)}54%{opacity:1;transform:translateY(-1px) scale(1)}70%{opacity:1;transform:translateY(-2px) scale(1.1)}86%,100%{opacity:0;transform:translateY(-3px) scale(.6)}}
+/* 10 transport — Car: rolls back, then drives off with speed lines */
+svg.si.go .cr-all{animation:si-crGo var(--md) ease-in-out both!important}
+svg.si.go .cr-body{animation:si-crBody var(--md) ease-in-out both!important;transform-origin:50% 100%}
+svg.si.go .cr-wh{animation:si-crWheel var(--md) ease-in-out both!important}
+svg.si.go .cr-ln{animation:si-crLine var(--md) ease-out both!important;transform-origin:100% 50%}
+@keyframes si-crGo{0%,100%{transform:none}16%{transform:translateX(-1.6px)}40%{transform:translateX(2.8px)}62%{transform:translateX(2.2px)}84%{transform:translateX(-.4px)}}
+@keyframes si-crBody{0%,100%{transform:none}16%{transform:rotate(2deg)}40%{transform:rotate(-4deg) translateY(-.6px)}62%{transform:rotate(2deg)}84%{transform:none}}
+@keyframes si-crWheel{0%,100%{transform:none}40%{transform:translateY(-.5px)}62%{transform:translateY(.3px)}}
+@keyframes si-crLine{0%,24%{opacity:0;transform:scaleX(.2)}42%{opacity:1;transform:scaleX(1)}62%{opacity:.8;transform:translateX(-1px) scaleX(.7)}80%,100%{opacity:0;transform:translateX(-1.6px) scaleX(.3)}}
+/* 11 guest experiences — compass: the needle spins and settles */
+svg.si.go .gx-ring{animation:si-gxRing var(--md) ease-in-out both!important}
+svg.si.go .gx-nd{animation:si-gxNeedle var(--md) cubic-bezier(.4,0,.3,1) both!important}
+svg.si.go .gx-tk{animation:si-gxTick var(--md) ease-in-out both!important}
+@keyframes si-gxRing{0%,100%{transform:none}22%{transform:scale(1.07)}46%{transform:scale(.98)}64%{transform:none}}
+@keyframes si-gxNeedle{0%{transform:none}32%{transform:rotate(210deg)}56%{transform:rotate(388deg)}72%{transform:rotate(348deg)}86%{transform:rotate(365deg)}100%{transform:rotate(360deg)}}
+@keyframes si-gxTick{0%,100%{opacity:0}26%,74%{opacity:1}}
+/* 12 dining extras — cloche: the lid lifts, steam rises */
+svg.si.go .dn-lid{animation:si-dnLid var(--md) cubic-bezier(.3,1.3,.5,1) both!important;transform-origin:100% 100%}
+svg.si.go .dn-base{animation:si-dnBase var(--md) ease-in-out both!important;transform-origin:50% 100%}
+svg.si.go .dn-st{animation:si-dnSteam var(--md) ease-out both!important}
+@keyframes si-dnLid{0%,100%{transform:none}26%,58%{transform:translateY(-2.4px) rotate(14deg)}76%{transform:translateY(.6px)}}
+@keyframes si-dnBase{0%,100%{transform:none}76%{transform:scale(1.04,.86)}88%{transform:scale(.99,1.06)}}
+@keyframes si-dnSteam{0%,22%{opacity:0;transform:translateY(1.5px)}38%{opacity:1;transform:none}56%{opacity:1;transform:translateY(-1px)}70%,100%{opacity:0;transform:translateY(-2.2px)}}
+/* 13 logistics & safety — first-aid kit: the cross beats twice, the handle lifts */
+svg.si.go .sf-kit{animation:si-svSquash var(--md) ease-in-out both!important;transform-origin:50% 100%}
+svg.si.go .sf-hd{animation:si-sfHandle var(--md) ease-in-out both!important}
+svg.si.go .sf-x{animation:si-sfBeat var(--md) ease-in-out both!important}
+svg.si.go .sf-ray{animation:si-sfRay var(--md) ease-out both!important}
+@keyframes si-sfHandle{0%,100%{transform:none}22%{transform:translateY(-1.5px)}44%{transform:translateY(.3px)}60%{transform:none}}
+@keyframes si-sfBeat{0%,100%{transform:none}18%{transform:scale(1.55)}34%{transform:scale(.95)}50%{transform:scale(1.4)}68%{transform:scale(1)}}
+@keyframes si-sfRay{0%,100%{opacity:0;transform:scale(.4)}18%{opacity:1;transform:scale(1.15)}34%{opacity:.3;transform:scale(.9)}50%{opacity:1;transform:scale(1.1)}74%{opacity:0;transform:scale(1.2)}}
+/* 14 insurance — shield: braces, a tick lands, a glint */
+svg.si.go .in-all{animation:si-inGuard var(--md) cubic-bezier(.3,1.3,.5,1) both!important}
+svg.si.go .in-ck{animation:si-inCheck var(--md) ease-in-out both!important}
+svg.si.go .in-star{animation:si-svGlint var(--md) ease-in-out both!important}
+@keyframes si-inGuard{0%,100%{transform:none}18%{transform:scale(.9)}40%{transform:scale(1.1)}58%{transform:scale(.98)}74%{transform:none}}
+@keyframes si-inCheck{0%,22%{opacity:0;transform:scale(.3) rotate(-20deg)}44%{opacity:1;transform:scale(1.3)}58%,82%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.7)}}
+/* 15 specialty — reveal balloon: swells, wobbles, confetti flies out */
+svg.si.go .rv-bl{animation:si-rvSwell var(--md) ease-in-out both!important;transform-origin:50% 100%}
+svg.si.go .rv-str{animation:si-rvString var(--md) ease-in-out both!important;transform-origin:50% 0}
+svg.si.go .rv-c{animation:si-rvConf var(--md) cubic-bezier(.15,.7,.3,1) both!important}
+@keyframes si-rvSwell{0%,100%{transform:none}20%{transform:scale(.9,1.06)}42%{transform:scale(1.2)}54%{transform:scale(1.05) rotate(-6deg)}68%{transform:scale(1.12) rotate(5deg)}84%{transform:scale(.98)}}
+@keyframes si-rvString{0%,100%{transform:none}24%{transform:rotate(18deg)}46%{transform:rotate(-16deg)}66%{transform:rotate(10deg)}84%{transform:rotate(-4deg)}}
+@keyframes si-rvConf{0%,34%{opacity:0;transform:translate(calc(var(--x)*-1.2),calc(var(--y)*-1.2)) scale(.2)}46%{opacity:1;transform:scale(1.25)}70%{opacity:1;transform:translate(var(--x),var(--y)) rotate(40deg)}90%,100%{opacity:0;transform:translate(calc(var(--x)*1.5),calc(var(--y)*1.5)) rotate(60deg)}}
+/* 16 farewell — candle: the flame softly brightens. One slow swell, nothing else moves. */
+svg.si.go .fn-fl{animation:si-fnFlame var(--md) ease-in-out both!important;transform-origin:50% 100%}
+svg.si.go .fn-glow{animation:si-fnGlow var(--md) ease-in-out both!important;transform-origin:50% 100%}
+svg.si.go .fn-halo{animation:si-fnHalo var(--md) ease-in-out both!important}
+@keyframes si-fnFlame{0%,100%{transform:none}50%{transform:scale(1.1,1.16)}}
+@keyframes si-fnGlow{0%,100%{opacity:0;transform:none}50%{opacity:.32;transform:scale(1.1,1.16)}}
+@keyframes si-fnHalo{0%,100%{opacity:0;transform:scale(.85)}50%{opacity:.45;transform:scale(1.06)}}
+/* ---- shared moves for the per-service icons: a part gets x-<move>, plus o-<corner> for its pivot and q1–q5 for a later start ---- */
+svg.si.go .x-hop{animation:si-xHop var(--md) ease-in-out both!important}@keyframes si-xHop{0%,100%{transform:none}22%{transform:translateY(-2.6px) scale(.97,1.04)}44%{transform:scale(1.06,.92)}62%{transform:translateY(-1px)}80%{transform:none}}
+svg.si.go .x-sq{animation:si-xSq var(--md) ease-in-out both!important}@keyframes si-xSq{0%,100%{transform:none}14%{transform:scale(1.04,.94)}30%{transform:scale(.98,1.03)}48%{transform:none}}
+svg.si.go .x-sw{animation:si-xSw var(--md) ease-in-out both!important}@keyframes si-xSw{0%,100%{transform:none}20%{transform:rotate(11deg)}42%{transform:rotate(-9deg)}62%{transform:rotate(5deg)}80%{transform:rotate(-2deg)}}
+svg.si.go .x-wig{animation:si-xWig var(--md) ease-in-out both!important}@keyframes si-xWig{0%,100%{transform:none}20%{transform:rotate(-10deg)}44%{transform:rotate(8deg)}66%{transform:rotate(-4deg)}84%{transform:rotate(2deg)}}
+svg.si.go .x-rock{animation:si-xRock var(--md) ease-in-out both!important}@keyframes si-xRock{0%,100%{transform:none}20%{transform:rotate(8deg)}44%{transform:rotate(-7deg)}66%{transform:rotate(4deg)}84%{transform:rotate(-2deg)}}
+svg.si.go .x-pop{animation:si-xPop var(--md) ease-in-out both!important}@keyframes si-xPop{0%,100%{transform:none}25%{transform:scale(1.2)}45%{transform:scale(.93)}62%{transform:scale(1.07)}80%{transform:none}}
+svg.si.go .x-beat{animation:si-xBeat var(--md) ease-in-out both!important}@keyframes si-xBeat{0%,100%{transform:none}18%{transform:scale(1.22)}34%{transform:scale(.96)}50%{transform:scale(1.16)}68%{transform:none}}
+svg.si.go .x-in{animation:si-xIn var(--md) ease-in-out both!important}@keyframes si-xIn{0%,100%{opacity:0;transform:scale(.2)}30%{opacity:1;transform:scale(1.3)}46%,80%{opacity:1;transform:scale(1)}}
+svg.si.go .x-rise{animation:si-xRise var(--md) ease-out both!important}@keyframes si-xRise{0%,14%{opacity:0;transform:translateY(3px) scale(.6)}38%{opacity:1;transform:rotate(-10deg)}64%{opacity:1;transform:translateY(-2.4px) rotate(9deg)}88%,100%{opacity:0;transform:translateY(-4.6px)}}
+svg.si.go .x-fall{animation:si-xFall var(--md) ease-in both!important}@keyframes si-xFall{0%,30%{opacity:0;transform:none}44%{opacity:1;transform:none}72%{opacity:1;transform:translate(.8px,4px) rotate(40deg)}92%,100%{opacity:0;transform:translate(.4px,7px) rotate(20deg)}}
+svg.si.go .x-glint{animation:si-xGlint var(--md) ease-in-out both!important}@keyframes si-xGlint{0%,18%,100%{opacity:0;transform:scale(.2) rotate(0)}40%{opacity:1;transform:scale(1.25) rotate(45deg)}56%{opacity:.5;transform:scale(.7) rotate(70deg)}70%{opacity:1;transform:scale(1.1) rotate(90deg)}90%{opacity:0;transform:scale(.2) rotate(120deg)}}
+svg.si.go .x-spin{animation:si-xSpin var(--md) cubic-bezier(.4,0,.3,1) both!important}@keyframes si-xSpin{0%{transform:none}60%{transform:rotate(380deg)}78%{transform:rotate(352deg)}100%{transform:rotate(360deg)}}
+svg.si.go .x-flap{animation:si-xFlap var(--md) ease-in-out both!important}@keyframes si-xFlap{0%,100%{transform:none}20%{transform:scaleX(1.12) skewY(-9deg)}40%{transform:scaleX(.8) skewY(9deg)}60%{transform:scaleX(1.08) skewY(-5deg)}80%{transform:scaleX(.96) skewY(2deg)}}
+svg.si.go .x-wr{animation:si-xWr var(--md) ease-out both!important}@keyframes si-xWr{0%,100%{transform:none}12%{transform:scaleX(.05)}50%{transform:scaleX(1.12)}66%{transform:none}}
+svg.si.go .x-lift{animation:si-xLift var(--md) cubic-bezier(.3,1.3,.5,1) both!important}@keyframes si-xLift{0%,100%{transform:none}26%,58%{transform:translateY(-2.6px)}76%{transform:translateY(.5px)}}
+svg.si.go .x-dn{animation:si-xDn var(--md) ease-in-out both!important}@keyframes si-xDn{0%,100%{transform:none}28%,56%{transform:translateY(2.2px)}76%{transform:translateY(-.4px)}}
+svg.si.go .x-press{animation:si-xPress var(--md) ease-in-out both!important}@keyframes si-xPress{0%,100%{transform:none}25%{transform:translateY(1.2px)}45%{transform:none}60%{transform:translateY(1px)}78%{transform:none}}
+svg.si.go .x-go{animation:si-xGo var(--md) ease-in-out both!important}@keyframes si-xGo{0%,100%{transform:none}16%{transform:translateX(-1.4px)}40%{transform:translateX(2.4px)}62%{transform:translateX(1.8px)}84%{transform:translateX(-.4px)}}
+svg.si.go .x-blink{animation:si-xBlink var(--md) linear both!important}@keyframes si-xBlink{0%,100%{opacity:1}20%{opacity:.15}36%{opacity:1}52%{opacity:.2}68%{opacity:1}}
+svg.si.go .x-flash{animation:si-xFlash var(--md) linear both!important}@keyframes si-xFlash{0%,100%{opacity:0}18%{opacity:1}34%{opacity:.15}50%{opacity:1}74%{opacity:0}}
+svg.si.go .x-steam{animation:si-xSteam var(--md) ease-in-out both!important}@keyframes si-xSteam{0%,100%{opacity:1;transform:none}38%{opacity:0;transform:translateY(-2.6px)}40%{opacity:0;transform:translateY(1.6px)}72%{opacity:1;transform:none}}
+svg.si.go .x-cll{animation:si-xCll var(--md) ease-in-out both!important}@keyframes si-xCll{0%,100%{transform:none}30%{transform:rotate(-8deg)}50%{transform:rotate(9deg)}64%{transform:rotate(5deg)}78%{transform:rotate(9deg)}}
+svg.si.go .x-clr{animation:si-xClr var(--md) ease-in-out both!important}@keyframes si-xClr{0%,100%{transform:none}30%{transform:rotate(8deg)}50%{transform:rotate(-9deg)}64%{transform:rotate(-5deg)}78%{transform:rotate(-9deg)}}
+svg.si.go .x-tilt{animation:si-xTilt var(--md) cubic-bezier(.3,1.3,.5,1) both!important}@keyframes si-xTilt{0%,100%{transform:none}30%{transform:rotate(17deg)}46%{transform:rotate(12deg)}60%{transform:rotate(17deg)}82%{transform:rotate(-2deg)}}
+svg.si.go .x-tiltn{animation:si-xTiltn var(--md) cubic-bezier(.3,1.3,.5,1) both!important}@keyframes si-xTiltn{0%,100%{transform:none}30%{transform:rotate(-17deg)}46%{transform:rotate(-12deg)}60%{transform:rotate(-17deg)}82%{transform:rotate(2deg)}}
+svg.si.go .x-burst{animation:si-xBurst var(--md) cubic-bezier(.15,.7,.3,1) both!important}@keyframes si-xBurst{0%,30%{opacity:0;transform:scale(.2)}44%{opacity:1;transform:scale(1.25)}70%{opacity:1;transform:translate(var(--x),var(--y))}90%,100%{opacity:0;transform:translate(calc(var(--x)*1.5),calc(var(--y)*1.5))}}
+svg.si.go .x-stamp{animation:si-xStamp var(--md) ease-in both!important}@keyframes si-xStamp{0%,30%{opacity:0;transform:scale(2.2)}46%{opacity:1;transform:scale(.85)}58%,84%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
+svg.si.go .x-fly{animation:si-xFly var(--md) ease-in-out both!important}@keyframes si-xFly{0%,100%{transform:none}18%{transform:translate(-1.4px,1.4px)}50%{transform:translate(2.6px,-2.6px)}78%{transform:translate(-.3px,.3px)}}
+svg.si.go .x-poke{animation:si-xPoke var(--md) ease-in-out both!important}@keyframes si-xPoke{0%,100%{transform:none}25%{transform:translate(-2px,2px)}45%{transform:translate(.6px,-.6px)}65%{transform:translate(-1.4px,1.4px)}85%{transform:none}}
+svg.si.go .x-sx{animation:si-xSx var(--md) ease-in-out both!important}@keyframes si-xSx{0%,100%{transform:none}22%,58%{transform:scaleX(.25)}78%{transform:scaleX(1.08)}}
+svg.si.go .x-shake{animation:si-xShake var(--md) linear both!important}@keyframes si-xShake{0%,100%{transform:none}15%{transform:translateX(-1.2px)}30%{transform:translateX(1.2px)}45%{transform:translateX(-.9px)}60%{transform:translateX(.9px)}75%{transform:translateX(-.4px)}}
+svg.si.go .x-eq{animation:si-xEq var(--md) ease-in-out both!important}@keyframes si-xEq{0%,100%{opacity:0;transform:scaleY(.2)}22%{opacity:1;transform:scaleY(1.2)}42%{opacity:1;transform:scaleY(.5)}62%{opacity:1;transform:scaleY(1)}82%{opacity:1;transform:scaleY(.6)}}
+svg.si.go .x-clap{animation:si-xClap var(--md) ease-in both!important}@keyframes si-xClap{0%,100%{transform:none}30%{transform:rotate(-18deg)}46%{transform:rotate(2deg)}56%{transform:rotate(-4deg)}68%{transform:none}}
+svg.si.go .x-peek{animation:si-xPeek var(--md) ease-in-out both!important}@keyframes si-xPeek{0%,18%{opacity:0;transform:translateY(3px)}38%{opacity:1;transform:rotate(-6deg)}56%{opacity:1;transform:rotate(6deg)}74%{opacity:1;transform:none}92%,100%{opacity:0;transform:translateY(3px)}}
+svg.si.go .x-drop{animation:si-xDrop var(--md) ease-in both!important}@keyframes si-xDrop{0%,18%{opacity:0;transform:translateY(-4px)}40%{opacity:1;transform:none}50%{opacity:1;transform:translateY(-.9px)}60%,84%{opacity:1;transform:none}100%{opacity:0;transform:none}}
+svg.si.go .x-twirl{animation:si-xTwirl var(--md) ease-in-out both!important}@keyframes si-xTwirl{0%,100%{transform:none}22%{transform:scaleX(.32)}44%{transform:scaleX(1.06)}66%{transform:scaleX(.32)}86%{transform:scaleX(1.03)}}
+svg.si.go .x-flip{animation:si-xFlip var(--md) ease-in-out both!important}@keyframes si-xFlip{0%,100%{transform:none}30%{transform:scaleX(.28)}55%{transform:scaleX(1.08)}72%{transform:none}}
+svg.si.go .x-snipa{animation:si-xSnipa var(--md) ease-in-out both!important}@keyframes si-xSnipa{0%,100%{transform:none}20%{transform:rotate(12deg)}36%{transform:rotate(-3deg)}52%{transform:rotate(10deg)}68%{transform:rotate(-2deg)}}
+svg.si.go .x-snipb{animation:si-xSnipb var(--md) ease-in-out both!important}@keyframes si-xSnipb{0%,100%{transform:none}20%{transform:rotate(-12deg)}36%{transform:rotate(3deg)}52%{transform:rotate(-10deg)}68%{transform:rotate(2deg)}}
+svg.si.go .x-slr{animation:si-xSlr var(--md) ease-in-out both!important}@keyframes si-xSlr{0%,100%{transform:none}25%{transform:translateX(-1.5px)}50%{transform:translateX(.9px)}72%{transform:none}}
+svg.si.go .x-sll{animation:si-xSll var(--md) ease-in-out both!important}@keyframes si-xSll{0%,100%{transform:none}25%{transform:translateX(1.5px)}50%{transform:translateX(-.9px)}72%{transform:none}}
+svg.si.go .x-tap{animation:si-xTap var(--md) ease-in-out both!important}@keyframes si-xTap{0%,100%{transform:none}22%{transform:rotate(9deg)}38%{transform:none}56%{transform:rotate(6deg)}72%{transform:none}}
+svg.si.go .x-boom{animation:si-xBoom var(--md) cubic-bezier(.3,1.3,.5,1) both!important}@keyframes si-xBoom{0%,100%{opacity:1;transform:none}20%{opacity:.25;transform:scale(.3)}48%{opacity:1;transform:scale(1.2)}66%{transform:scale(.95)}84%{transform:none}}
+svg.si.go .x-roll{animation:si-xRoll var(--md) ease-out both!important}@keyframes si-xRoll{0%,100%{transform:none}18%{transform:scaleY(.2)}56%{transform:scaleY(1.1)}72%{transform:none}}
+svg.si.go .x-soft{animation:si-xSoft var(--md) ease-in-out both!important}@keyframes si-xSoft{0%,100%{transform:none}50%{transform:scale(1.05)}}
+svg.si.go .x-glow{animation:si-xGlow var(--md) ease-in-out both!important}@keyframes si-xGlow{0%,100%{opacity:0}50%{opacity:.4}}
+svg.si.go .x-halo{animation:si-xHalo var(--md) ease-in-out both!important}@keyframes si-xHalo{0%,100%{opacity:0;transform:scale(.9)}50%{opacity:.4;transform:scale(1.03)}}
+svg.si.go .x-drift{animation:si-xDrift var(--md) ease-in-out both!important}@keyframes si-xDrift{0%{opacity:0;transform:translateY(-1px)}30%{opacity:.8}70%{opacity:.8;transform:translate(1.4px,5px) rotate(25deg)}100%{opacity:0;transform:translate(1.8px,7px) rotate(30deg)}}
+/* staggers stay inside --md: a later start gets a shorter run */
+svg.si.go .q1{animation-duration:calc(var(--md)*.88)!important;animation-delay:calc(var(--md)*.12)!important}
+svg.si.go .q2{animation-duration:calc(var(--md)*.76)!important;animation-delay:calc(var(--md)*.24)!important}
+svg.si.go .q3{animation-duration:calc(var(--md)*.7)!important;animation-delay:calc(var(--md)*.06)!important}
+svg.si.go .q4{animation-duration:calc(var(--md)*.7)!important;animation-delay:calc(var(--md)*.18)!important}
+svg.si.go .q5{animation-duration:calc(var(--md)*.7)!important;animation-delay:calc(var(--md)*.3)!important}
+/* ================= end of paste-ready block ================= */

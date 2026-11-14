@@ -15,15 +15,16 @@
  *       "Awarded on {date}" and Setnayan's mark ("AN EXCLUSIVE SETNAYAN SEAL"), diamond screws.
  *
  * Owner rulings held here: the share button sits UNDER the plaque, plain glass, never colourful · no necklace ribbon ·
- * the plaque keeps its shadow with no dark block · the whole plaque + button scale to fit the screen with a transform
- * (not `zoom` — zoom failed on iPhone) · prefers-reduced-motion goes straight to the plaque · nothing opens by itself.
+ * the plaque keeps its shadow with no dark block · the plaque scales to fit the screen with a transform
+ * (not `zoom` — zoom failed on iPhone) while the share button stays full size under it (owner 15 Nov, "Stay full
+ * size") · prefers-reduced-motion goes straight to the plaque · nothing opens by itself.
  *
  * Client-only, on the device: no fetch, no write. Mount it on a tap; `onClose` unmounts it.
  */
 import { useCallback, useId, useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
 import { SetnayanMark } from '../setnayan-mark-icon';
 import s from './award.module.css';
-import { plaqueScale } from './fit';
+import { plaqueLayout } from './fit';
 import { SEAL_TONE, prefersReducedMotion, serializeArt } from './shared';
 
 export type SealPlaqueProps = {
@@ -117,6 +118,7 @@ export function SealPlaque({
   const canvasHost = useRef<HTMLDivElement>(null);
   const cf = useRef<HTMLCanvasElement>(null);
   const fit = useRef<HTMLDivElement>(null);
+  const share = useRef<HTMLButtonElement>(null);
   const mount = useRef<HTMLSpanElement>(null);
   const art = useRef<HTMLDivElement>(null);
   const skip = useRef(false);
@@ -131,13 +133,21 @@ export function SealPlaque({
     onCloseRef.current();
   }, []);
 
-  // awFit: the plaque and its button scale down together until the whole thing fits the screen
+  // awFit: the PLAQUE scales down until it fits; the share button stays full size under it (owner 15 Nov, "Stay full
+  // size") — its full height + gap is reserved first, and it lives outside the scaled box
   const refit = useCallback(() => {
     const d = plaque.current;
     const w = fit.current;
     if (!d || !w || !d.open) return;
-    const k = plaqueScale(d.clientWidth, d.clientHeight, w.offsetWidth, w.offsetHeight);
-    w.style.transform = `translate(-50%,-50%) scale(${k})`;
+    const b = share.current;
+    const L = plaqueLayout(d.clientWidth, d.clientHeight, w.offsetWidth, w.offsetHeight, b ? b.offsetHeight : null);
+    w.style.top = `${L.top}px`;
+    w.style.transformOrigin = '50% 0';
+    w.style.transform = `translate(-50%,0) scale(${L.k})`;
+    if (b && L.shareTop != null) {
+      b.style.top = `${L.shareTop}px`;
+      b.style.visibility = 'visible';
+    }
   }, []);
 
   useLayoutEffect(() => {
@@ -408,12 +418,13 @@ export function SealPlaque({
               </div>
             </div>
           </div>
-          {onShare ? (
-            <button type="button" className={s.awShare} onClick={() => onShare(serializeArt(art.current))}>
-              ↗ Share to story
-            </button>
-          ) : null}
         </div>
+        {onShare ? (
+          // outside the scaled plaque: it never shrinks (owner, "Stay full size"); placed under it by refit
+          <button ref={share} type="button" className={s.awShare} onClick={() => onShare(serializeArt(art.current))}>
+            ↗ Share to story
+          </button>
+        ) : null}
       </dialog>
     </>
   );

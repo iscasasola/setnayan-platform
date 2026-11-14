@@ -10,10 +10,10 @@ New in `apps/web/app/_components/award/`, client-only (no fetch, no server write
 - **`SealPlaque`**:
   - The entrance (the story scene, then the seal flies to its mount), then the grand black-and-gold plaque.
   - `variant: 'gold' | 'no1'`. Only `no1` gets the diamonds, the velvet-curtain reveal (simulated cloth) and the endless black-and-gold confetti.
-  - Plaque and share button scale together with a transform, never `zoom`.
+  - The plaque scales with a transform, never `zoom`. Its share button stays full size, 44 px tall, under it (owner, "Stay full size"); `plaqueLayout` reserves the button's room first.
   - Cinzel is loaded through the root layout's `next/font`.
 - **`no1Seal`**: the No. 1 seal art. It is an option only and is not wired into any public or dashboard surface.
 
-Render and source tests in `award-kit.test.ts` (11). Screenshots at 375×640, 390×844, 768×1024 and 1440×900 are in `build-sessions/shots-award-ui-kit/`. No route was added and the bundle budget was not raised.
+Render and source tests in `award-kit.test.ts` (12). Screenshots at 375×640, 390×844, 768×1024 and 1440×900 are in `build-sessions/shots-award-ui-kit/`. No route was added and the bundle budget was not raised.
 
 SPEC IMPACT: None. This ports the approved prototype; nothing is wired into a live page yet (slices A, B and D mount it).

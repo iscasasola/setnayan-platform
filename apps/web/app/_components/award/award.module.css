@@ -1110,15 +1110,22 @@
   text-shadow: 0 1px 0 rgba(255, 246, 214, 0.7), 0 -1px 0 rgba(40, 24, 2, 0.3);
 }
 /* the share sits UNDER the plaque: plain glass, never colourful (owner ruling) */
+/* owner 15 Nov, "Stay full size": the share button sits OUTSIDE the scaled plaque, at full size; `refit` places its
+   top under the plaque (fit.ts `plaqueLayout` reserves its height + gap) and then shows it */
 .awShare {
-  position: relative;
-  z-index: 1;
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  visibility: hidden;
+  z-index: 6;
   display: flex;
   width: fit-content;
+  white-space: nowrap;
   align-items: center;
   gap: 6px;
   min-height: 44px;
-  margin: 18px auto 4px;
+  margin: 0;
   padding: 0 22px;
   border-radius: var(--m-r-full);
   border: 1px solid rgba(255, 255, 255, 0.35);

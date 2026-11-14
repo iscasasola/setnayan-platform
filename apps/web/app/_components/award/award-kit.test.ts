@@ -102,6 +102,35 @@ test('4 · the plaque scales down to fit, never up', async () => {
   }
 });
 
+test('4b · owner "Stay full size": the plaque shrinks, its share button never does — under it, apart, on screen', async () => {
+  const { plaqueLayout, SHARE_H, SHARE_GAP } = await import('./fit');
+  assert.equal(SHARE_H, 44);
+  // the plaque's real unscaled size (440 wide; gold ≈ 1090 tall, No. 1 ≈ 1180 tall) and a taller worst case
+  for (const ch of [700, 1090, 1180, 1400])
+    for (const [vw, vh] of SIZES) {
+      const L = plaqueLayout(vw, vh, 440, ch, 44);
+      const shareTop = L.shareTop!;
+      assert.ok(L.k <= 1 && L.k > 0, `${vw}×${vh} k`);
+      assert.ok(Math.abs(L.bottom - L.top - ch * L.k) < 0.01, 'the plaque box is its scaled height');
+      assert.ok(L.top >= 10 - 0.01, `${vw}×${vh} plaque on screen (top)`);
+      assert.ok(shareTop >= L.bottom + SHARE_GAP - 0.01, `${vw}×${vh} the button sits under the plaque, never on it`);
+      assert.ok(shareTop + SHARE_H <= vh - 10 + 0.01, `${vw}×${vh} h=${ch} the full 44 px button is on screen`);
+      assert.ok(440 * L.k <= vw - 16 + 0.01, `${vw}×${vh} plaque fits across`);
+    }
+  // the button's height is reserved at full size: a taller button pushes the plaque smaller, never off screen
+  const a = plaqueLayout(375, 640, 440, 1180, 44);
+  const b = plaqueLayout(375, 640, 440, 1180, 60);
+  assert.ok(b.k < a.k && b.shareTop! + 60 <= 640 - 10 + 0.01);
+  // no button → the plaque gets the whole height
+  const n = plaqueLayout(375, 640, 440, 1180, null);
+  assert.equal(n.shareTop, null);
+  assert.ok(n.k > a.k);
+  // the share button lives OUTSIDE the scaled box in the component
+  const src = stripComments(readFileSync(join(DIR, 'seal-plaque.tsx'), 'utf8'));
+  const fitBox = src.slice(src.indexOf('<div ref={fit}'), src.indexOf('{onShare ? ('));
+  assert.ok(fitBox.length > 0 && !fitBox.includes('awShare'), 'the button is not inside the scaled plaque');
+});
+
 test('5 · the full-screen badge names the shop, the GIVEN tier, and signs with the hallmark', async () => {
   const { BadgeFullscreen } = await import('./badge-fullscreen');
   const art = h('svg', { viewBox: '0 0 100 100' }, h('circle', { cx: 50, cy: 50, r: 40 }));

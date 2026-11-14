@@ -40,7 +40,7 @@ export function FieldPick({
     <>
       <input type="hidden" name={name} form={form} value={value} />
       {required ? (
-        <input
+        <input // field-ok: not a typed box — the invisible twin that carries the browser's required check for the ▾ pick
           tabIndex={-1}
           aria-hidden="true"
           required

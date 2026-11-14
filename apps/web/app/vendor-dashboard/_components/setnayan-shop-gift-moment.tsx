@@ -14,15 +14,15 @@
  * once and cannot be pressed again while the request is out; a lost connection says so and offers Try again, which
  * re-sends the SAME claim (the database grants once); Later always works and leaves the gift waiting.
  */
-import { useLayoutEffect, useRef, useState, useTransition } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Gift } from 'lucide-react';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import { inertBehind } from '@/lib/popup-behind';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useHydrated } from '@/lib/use-hydrated';
 import { startBadgeUpgrade } from '@/app/vendor-dashboard/subscription/badge-upgrade-actions';
 import {
   SHOP_GIFT_CLAIM_WORDS as W,
@@ -61,14 +61,13 @@ export function SetnayanShopGiftWaiting({ gifts }: { gifts: readonly ShopGiftVie
 }
 
 export function SetnayanShopGiftMoment({ gift, onClose }: { gift: ShopGiftView; onClose: () => void }) {
-  const router = useRouter();
   const root = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const first = useRef<HTMLButtonElement>(null);
   const [phase, setPhase] = useState<Phase>('wrapped');
   const [pressed, setPressed] = useState<ShopGiftChoice | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const hydrated = useHydrated();
   const words = shopGiftMomentWords(gift);
 
   useLayoutEffect(() => {
@@ -77,10 +76,9 @@ export function SetnayanShopGiftMoment({ gift, onClose }: { gift: ShopGiftView; 
   }, []);
   useModalA11y({ open: true, onClose: close, containerRef: panel, initialFocusRef: first });
 
+  // A claimed gift leaves the waiting line by itself: the action revalidated Today, and its answer carries the render.
   function close() {
     onClose();
-    // A claimed gift leaves the waiting line; Today redraws with the plan line or the new stock.
-    if (phase === 'claimed') startTransition(() => router.refresh());
   }
 
   async function claim(choice: ShopGiftChoice) {
@@ -105,7 +103,7 @@ export function SetnayanShopGiftMoment({ gift, onClose }: { gift: ShopGiftView; 
     }
   }
 
-  if (typeof document === 'undefined') return null;
+  if (!hydrated) return null;
   const busy = phase === 'claiming';
   return createPortal(
     <div ref={root} className="fixed inset-0 z-[96]" data-setnayan-shop-gift-moment={phase}>
@@ -221,7 +219,6 @@ export function SetnayanPlanGiftEndsSoon({
   stay: string;
   goBack: string | null;
 }) {
-  const router = useRouter();
   const [state, setState] = useState<'idle' | 'sending' | 'done' | 'failed'>('idle');
   const [note, setNote] = useState<string | null>(null);
   async function back() {
@@ -234,7 +231,6 @@ export function SetnayanPlanGiftEndsSoon({
       const res = await startBadgeUpgrade({ status: 'idle' }, fd);
       setNote(res.status === 'gift' || res.status === 'error' ? res.message : null);
       setState(res.status === 'gift' ? 'done' : 'failed');
-      if (res.status === 'gift') router.refresh();
     } catch {
       setNote(W.offline);
       setState('failed');

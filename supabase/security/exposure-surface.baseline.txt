@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7820
+# facts: 7846
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     635
-#   col       5632
-#   policy    1146
+#   tpriv     636
+#   col       5656
+#   policy    1147
 #   view      10
 #   func      393
 #
@@ -438,6 +438,7 @@ tpriv	public.service_slot_reservations|authenticated	S
 tpriv	public.setnayan_ai_guard_log|authenticated	SIUD
 tpriv	public.setnayan_pay_methods|anon	SIUD
 tpriv	public.setnayan_pay_methods|authenticated	SIUD
+tpriv	public.setnayan_shop_gifts|authenticated	S
 tpriv	public.shared_attribute_groups|anon	SIUD
 tpriv	public.shared_attribute_groups|authenticated	SIUD
 tpriv	public.shop_badge_rewards|authenticated	S
@@ -4426,6 +4427,30 @@ col	public.setnayan_pay_methods.notes	anon=SIU authenticated=SIU
 col	public.setnayan_pay_methods.setnayan_pay_pct	anon=SIU authenticated=SIU
 col	public.setnayan_pay_methods.updated_at	anon=SIU authenticated=SIU
 col	public.setnayan_pay_methods.updated_by_user_id	anon=SIU authenticated=SIU
+col	public.setnayan_shop_gifts.claim_choice	anon=- authenticated=S
+col	public.setnayan_shop_gifts.claimed_at	anon=- authenticated=S
+col	public.setnayan_shop_gifts.claimed_by	anon=- authenticated=S
+col	public.setnayan_shop_gifts.finish_reason	anon=- authenticated=S
+col	public.setnayan_shop_gifts.finished_at	anon=- authenticated=S
+col	public.setnayan_shop_gifts.gift_id	anon=- authenticated=S
+col	public.setnayan_shop_gifts.gift_type	anon=- authenticated=S
+col	public.setnayan_shop_gifts.held_until	anon=- authenticated=S
+col	public.setnayan_shop_gifts.note	anon=- authenticated=S
+col	public.setnayan_shop_gifts.plan_days	anon=- authenticated=S
+col	public.setnayan_shop_gifts.plan_ends_at	anon=- authenticated=S
+col	public.setnayan_shop_gifts.plan_starts_at	anon=- authenticated=S
+col	public.setnayan_shop_gifts.plan_tier	anon=- authenticated=S
+col	public.setnayan_shop_gifts.return_billing_cycle	anon=- authenticated=S
+col	public.setnayan_shop_gifts.return_open_ended	anon=- authenticated=S
+col	public.setnayan_shop_gifts.return_remaining	anon=- authenticated=S
+col	public.setnayan_shop_gifts.return_source	anon=- authenticated=S
+col	public.setnayan_shop_gifts.return_tier	anon=- authenticated=S
+col	public.setnayan_shop_gifts.sent_at	anon=- authenticated=S
+col	public.setnayan_shop_gifts.sent_by	anon=- authenticated=S
+col	public.setnayan_shop_gifts.stock_credits_each	anon=- authenticated=S
+col	public.setnayan_shop_gifts.stock_kind	anon=- authenticated=S
+col	public.setnayan_shop_gifts.stock_units	anon=- authenticated=S
+col	public.setnayan_shop_gifts.vendor_profile_id	anon=- authenticated=S
 col	public.shared_attribute_groups.attributes	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.created_at	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.display_name_en	anon=SIU authenticated=SIU
@@ -7077,6 +7102,7 @@ policy	public.service_slot_reservations|sssr_vendor_read	mode=PERMISSIVE cmd=SEL
 policy	public.setnayan_ai_guard_log|admin_reads_setnayan_ai_guard_log	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.setnayan_ai_guard_log|couple_reads_setnayan_ai_guard_log	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.setnayan_pay_methods|setnayan_pay_methods_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.setnayan_shop_gifts|setnayan_shop_gifts_shop_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shared_attribute_groups|shared_attribute_groups_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.shared_attribute_groups|shared_attribute_groups_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.shop_badge_rewards|shop_badge_rewards_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL

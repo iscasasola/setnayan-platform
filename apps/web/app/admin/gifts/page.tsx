@@ -49,6 +49,7 @@ import { BadgeUpgradesLedger } from './_components/badge-upgrades-ledger';
 import { fetchBadgeUpgradeLedger } from '@/lib/badge-upgrades.server';
 import { ShopGiftsLedger } from './_components/shop-gifts-ledger';
 import { GiftLimitForm } from './_components/gift-limit-form';
+import { SetnayanGiftPicks } from './_components/setnayan-gift-picks';
 import { saveGiftLimitPct } from './gift-limit-actions';
 import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import { readShopGiftsForAdmin } from '@/lib/setnayan-shop-gift.server';
@@ -477,46 +478,13 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
                   {sp.shop_gift === 'sent' ? 'Sent. It waits on the shop’s Today until they open it.' : sp.shop_gift}
                 </p>
               ) : null}
-              <div className="flex flex-wrap items-end gap-3">
-                <div>
-                  <label htmlFor="setnayan_gift" className="mb-1 block text-xs font-medium text-ink/70">
-                    Gift
-                  </label>
-                  <select id="setnayan_gift" name="gift" className="min-h-11 rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm">
-                    <optgroup label="Gift stock to give couples">
-                      {(giftPacks ?? []).map((p) => (
-                        <option key={p.code} value={`stock:${p.code}`}>
-                          {p.title}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="28 days of the shop’s own plan">
-                      {SHOP_GIFT_PLAN_TIERS.map((t) => (
-                        <option key={t} value={`plan:${t}`}>
-                          {TIER_LABEL[t]}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="setnayan_gift_units" className="mb-1 block text-xs font-medium text-ink/70">
-                    How many <span className="text-ink/50">(stock only)</span>
-                  </label>
-                  <select
-                    id="setnayan_gift_units"
-                    name="units"
-                    defaultValue="1"
-                    className="min-h-11 rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-                  >
-                    {Array.from({ length: SHOP_GIFT_MAX_UNITS }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <SetnayanGiftPicks
+                maxUnits={SHOP_GIFT_MAX_UNITS}
+                gifts={[
+                  ...(giftPacks ?? []).map((p) => ({ key: `stock:${p.code}`, label: `${p.title} · gift stock` })),
+                  ...SHOP_GIFT_PLAN_TIERS.map((t) => ({ key: `plan:${t}`, label: `28 days of ${TIER_LABEL[t]}` })),
+                ]}
+              />
               {giftPacks === null ? (
                 <p className="text-xs text-danger-700">The gift catalogue couldn’t be read — only plan time can be sent now.</p>
               ) : null}

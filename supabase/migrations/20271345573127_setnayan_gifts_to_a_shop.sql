@@ -108,6 +108,7 @@ CREATE OR REPLACE FUNCTION public.setnayan_plan_gift_rank(p_tier TEXT)
  RETURNS INTEGER
  LANGUAGE sql
  IMMUTABLE
+ SET search_path TO 'public', 'pg_temp'
 AS $function$
   SELECT CASE p_tier WHEN 'solo' THEN 1 WHEN 'pro' THEN 2 WHEN 'enterprise' THEN 3 ELSE 0 END;
 $function$;
@@ -394,6 +395,7 @@ BEGIN
 END;
 $function$;
 
+REVOKE ALL ON FUNCTION public.setnayan_plan_gift_rank(TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.setnayan_shop_gift_choices(UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.setnayan_shop_gift_claim(UUID, UUID, TEXT, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.setnayan_plan_gift_return(UUID, TEXT) FROM PUBLIC, anon, authenticated;

@@ -79,8 +79,7 @@ import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/co
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchShopLogoBytes, readShopOwnPhotoBytes } from '@/lib/shop-own-photos.server';
 import { autoColourRanges } from '@/lib/extract-palette.server';
-import { readShopCards, verifyCardForPart } from '@/lib/inspiration-card-link.server';
-import { cardLabel } from '@/lib/inspiration-card-link';
+import { cardLabel, readShopCards, verifyCardForPart } from '@/lib/inspiration-card-link.server';
 import { isFromAlbumPageRef } from '@/lib/put-photo-on-my-page';
 import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { bucketForPrefix } from '@/lib/bucket-routing';

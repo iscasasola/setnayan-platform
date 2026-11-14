@@ -438,7 +438,7 @@ export default async function SupplierLabPage({
           gallerySlots={uploadableSlotsForShop(LAB_LIBRARY_SHOP.services, fallbackInspirationParts())}
           shopName={LAB_LIBRARY_SHOP.business_name}
           cardsByPart={labCardsByPart(uploadableSlotsForShop(LAB_LIBRARY_SHOP.services, fallbackInspirationParts()).map((s) => s.key))}
-          startSlot={slotForShopKind(uploadableSlotsForShop(LAB_LIBRARY_SHOP.services, fallbackInspirationParts()), LAB_LIBRARY_SHOP.services, fallbackInspirationParts())}
+          startSlot={slotForShopKind(uploadableSlotsForShop(LAB_LIBRARY_SHOP.services, fallbackInspirationParts()), LAB_LIBRARY_SHOP.services, fallbackInspirationParts(), canonicalServicesForTile)}
         />
       </div>
     );

@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchOwnVendorProfile, type VendorProfileRow } from '@/lib/vendor-profile';
 import { uploadableSlotsForShop } from '@/lib/moodboard-gallery-upload';
 import { tradesForSlot } from '@/lib/moodboard-gallery';
-import { canonicalServicesForTile } from '@/lib/vendor-counts';
+import { getCanonicalBuckets, servicesInTile } from '@/lib/vendor-counts';
 import type { PhotoPartGroup } from '@/lib/inspiration-slots';
 import type { InspirationPartsSnapshot } from '@/lib/inspiration-parts';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
@@ -68,11 +68,13 @@ export function moodboardLibraryAccessForProfile(
   profile: VendorProfileRow | null,
   /** The parts snapshot — `await getInspirationParts()`. REQUIRED (③0-b): no silent fallback to the consts. */
   parts: InspirationPartsSnapshot,
+  /** 🧰 A trade's services, from the LIVE taxonomy (`servicesInTile` over `getCanonicalBuckets()`); absent = no own-kind start. */
+  servicesOfTile?: (tile: string) => readonly string[],
 ): MoodboardLibraryAccess {
   if (!profile) return { allowed: false, reason: 'no_shop' };
   const slots = uploadableSlotsForShop(profile.services, parts);
   if (slots.length === 0) return { allowed: false, reason: 'no_supplying_trade' };
-  return { allowed: true, profile, slots, ownSlot: slotForShopKind(slots, profile.services, parts) };
+  return { allowed: true, profile, slots, ownSlot: servicesOfTile ? slotForShopKind(slots, profile.services, parts, servicesOfTile) : null };
 }
 
 /**
@@ -86,13 +88,15 @@ export function slotForShopKind(
   slots: ReadonlyArray<{ key: string }>,
   services: readonly string[] | null | undefined,
   parts: InspirationPartsSnapshot,
+  /** A trade's services — the live taxonomy's (`servicesInTile`), never the const buckets (`one-source-buckets.test.ts`). */
+  servicesOfTile: (tile: string) => readonly string[],
 ): string | null {
   /* A part's LEAD trade (`tradesForSlot`'s first) is whose work it shows; every part a florist may fill lists the
      florist's services, so "does it take this service" cannot tell Table linens from Bridal bouquet — its lead can. */
   for (const service of services ?? []) {
     const hit = slots.find((s) => {
       const lead = tradesForSlot(s.key, parts)[0];
-      return lead ? canonicalServicesForTile(lead).includes(service) : false;
+      return lead ? servicesOfTile(lead).includes(service) : false;
     });
     if (hit) return hit.key;
   }
@@ -108,6 +112,6 @@ export async function resolveMoodboardLibraryAccess(
   userId: string | null | undefined,
 ): Promise<MoodboardLibraryAccess> {
   if (!userId) return { allowed: false, reason: 'not_signed_in' };
-  const [profile, parts] = await Promise.all([fetchOwnVendorProfile(supabase, userId), getInspirationParts()]);
-  return moodboardLibraryAccessForProfile(profile, parts);
+  const [profile, parts, buckets] = await Promise.all([fetchOwnVendorProfile(supabase, userId), getInspirationParts(), getCanonicalBuckets()]);
+  return moodboardLibraryAccessForProfile(profile, parts, (tile) => servicesInTile(buckets, tile));
 }

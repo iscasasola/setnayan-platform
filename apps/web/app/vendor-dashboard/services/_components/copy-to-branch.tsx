@@ -63,7 +63,7 @@ export function CopyToBranch({
         <ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} labelledById="branch-copy-title" title="Copy to another branch" rise>
-        <form action={action} className="space-y-3" data-branch-copy-sheet="">
+        <form action={action} className="space-y-3 px-5 pb-5 pt-3" data-branch-copy-sheet="">
           <input type="hidden" name="op" value="branch_copy" />
           <input type="hidden" name="vendor_service_id" value={serviceId} />
           <p className="text-[14px] text-ink/65">Same words and photos. Change anything after.</p>

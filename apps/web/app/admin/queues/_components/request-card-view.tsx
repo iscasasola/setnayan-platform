@@ -51,8 +51,8 @@ function Picture({ url, alt, label }: { url: string | null; alt: string; label: 
   return (
     <figure className="flex min-w-0 flex-col items-center gap-1.5">
       <span
-        className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border"
-        style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-paper)' }}
+        className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg"
+        style={{ background: 'var(--sn-paper)' }}
       >
         {url ? (
           // eslint-disable-next-line @next/next/no-img-element -- a short-lived signed address; the optimizer would re-sign it on every render.
@@ -119,8 +119,8 @@ function Show({ show }: { show: RequestCard['show'][number] }) {
         {show.papers.map((p) => (
           <li key={p.label} className="flex w-24 flex-col items-center gap-1 text-center">
             <span
-              className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border"
-              style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-paper)' }}
+              className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg"
+              style={{ background: 'var(--sn-paper)' }}
             >
               {p.previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- a short-lived signed address of a private paper.

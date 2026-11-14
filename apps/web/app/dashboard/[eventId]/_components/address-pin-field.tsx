@@ -28,7 +28,7 @@
  */
 
 import { useState, useTransition } from 'react';
-import { Loader2, MapPin, Search } from 'lucide-react';
+import { MapPin, Search } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { BranchPinMap, type LatLng } from '@/app/vendor-dashboard/_components/branch-pin-map';
@@ -150,11 +150,12 @@ export function AddressPinField({
         {pinLocked != null ? null : mapOpen ? (
           <ActionButton
             tone="neutral"
-            icon={locating ? Loader2 : Search}
+            icon={Search}
             label="Find"
             name="Find this address on the map"
             onClick={locate}
-            disabled={disabled || locating}
+            waiting={locating}
+            disabled={disabled}
           />
         ) : (
           <ActionButton
@@ -173,7 +174,7 @@ export function AddressPinField({
       </div>
 
       {pinLocked != null ? (
-        <p className="flex items-center gap-1 text-[11.5px] text-ink/60" data-pin-locked="">
+        <p className="flex items-center gap-1 text-[12px] text-ink/75" data-pin-locked="">
           <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.9} />
           {pinLocked}
         </p>
@@ -181,7 +182,7 @@ export function AddressPinField({
         <>
 
       {hideHints ? null : (
-        <p className="text-[10px] text-ink/45">
+        <p className="text-[12px] text-ink/75">
           {required ? MANUAL_VENUE_ADDRESS_HINT : mapOpen ? 'Optional — handy for a commissary or studio.' : 'The pin follows the address.'}
         </p>
       )}
@@ -211,7 +212,7 @@ export function AddressPinField({
       ) : null}
 
       {pin || !hideHints ? (
-        <p className="flex items-center gap-1 text-[10px] text-ink/45" data-pin-line="">
+        <p className="flex items-center gap-1 text-[12px] text-ink/75" data-pin-line="">
           <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.9} />
           {pin
             ? `Pinned at ${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)} — drag the map to adjust.`
@@ -222,7 +223,7 @@ export function AddressPinField({
         </>
       ) : null}
 
-      {note ? <p className="text-[11px] text-warn-800">{note}</p> : null}
+      {note ? <p className="text-[12px] text-warn-800">{note}</p> : null}
         </>
       )}
     </div>

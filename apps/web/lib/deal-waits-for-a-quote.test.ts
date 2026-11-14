@@ -57,10 +57,10 @@ test('couple, no quote: no Send a deal anywhere; the 🧾 opens the meeting requ
   assert.doesNotMatch(e.composer.label, /deal/i);
 });
 
-test('a quote exists: both sides are exactly as before', () => {
+test('a quote exists: the deal door opens on both sides; the "Send a deal" pill is the supplier\'s (RW-278)', () => {
   for (const side of ['vendor', 'couple'] as const) {
     const e = dealEntryFor({ side, hasQuote: true });
-    assert.equal(e.offerDeal, true, `${side}: Send a deal withheld after a quote`);
+    assert.equal(e.offerDeal, side === 'vendor', `${side}: the Send a deal pill is shown to the wrong side`);
     assert.equal(e.composer.icon, 'deal');
     assert.equal(e.composer.label, 'Deal or meeting');
     assert.deepEqual([...e.composer.reveal], [...affordanceReveal('deal')]);

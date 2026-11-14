@@ -42,9 +42,9 @@ export function PeopleViewPicker({
       label="People view, or invite"
       value={view}
       options={[
-        ...options.map((o) => ({ ...o, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> })),
+        ...options.map((o) => ({ ...o, icon: <ListFilter className="h-5 w-5" strokeWidth={1.9} /> })),
         ...(onInvite
-          ? [{ key: INVITE_SOMEONE_KEY, label: 'Invite someone', group: 'Add', icon: <UserPlus className="h-[18px] w-[18px]" strokeWidth={1.9} /> }]
+          ? [{ key: INVITE_SOMEONE_KEY, label: 'Invite someone', group: 'Add', icon: <UserPlus className="h-5 w-5" strokeWidth={1.9} /> }]
           : []),
       ]}
       dataAttr="data-people-view-picker"

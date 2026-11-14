@@ -1,5 +1,8 @@
 import Link from 'next/link';
-import { CheckCircle2, Clock, Gavel, MinusCircle, Circle, AlertTriangle, ArrowRight } from 'lucide-react';
+import { AlertTriangle, ArrowRight } from 'lucide-react';
+import { Fold } from '@/app/_components/fold';
+import { InfoTip } from '@/app/_components/info-tip';
+import { Badge, Facts, Row, Rows, Sec } from '@/app/admin/app-performance/_components/insights-parts';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { relativeTime } from '@/lib/activity';
 import {
@@ -23,14 +26,17 @@ import { ReadFailed } from '../../_components/read-failed';
  * IN PLACE (TaskActions / useActionState) so a status flip never navigates the
  * hub. The header can never render a terminal "ready to file" state; the
  * NOT-FILED banner + the counsel gate keep the board honest.
+ *
+ * Drawn to the Insights drawing (admin_pub/insights.html › Privacy & NPC › NPC checklist): the headline, the NOT FILED
+ * line with its reason in an ⓘ, the blockers as rows that open their task, then one fold per task in its tier.
  */
 
-const STATUS_ICON: Record<NpcTaskStatus, typeof CheckCircle2> = {
-  resolved: CheckCircle2,
-  in_progress: Clock,
-  blocked_on_counsel: Gavel,
-  not_applicable: MinusCircle,
-  not_started: Circle,
+const STATUS_TONE: Record<NpcTaskStatus, 'ok' | 'warn' | 'info' | undefined> = {
+  resolved: 'ok',
+  in_progress: 'info',
+  blocked_on_counsel: 'warn',
+  not_applicable: undefined,
+  not_started: undefined,
 };
 
 export async function NpcChecklist() {
@@ -50,40 +56,30 @@ export async function NpcChecklist() {
   const tiers: (0 | 1 | 2 | 3)[] = [0, 1, 2, 3];
 
   return (
-    <div>
-      <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+    <div data-npc-checklist="">
+      <p className="mt-1 text-sm text-ink/70">
         {headline}
         {naCount > 0 ? ` · ${formatCount(naCount)} marked N/A` : ''}.
       </p>
 
-      {/* Anti-false-assurance banner — a green count is not clearance to file. */}
-      <div
-        className="mt-4 mb-6 flex items-start gap-3 rounded-xl border px-4 py-3.5"
-        style={{ borderColor: 'var(--sn-danger)', background: 'rgba(180,35,24,0.06)', color: 'var(--sn-danger)' }}
-      >
-        <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-        <p className="text-sm leading-relaxed">
-          <strong>NOT FILED.</strong> External Philippine counsel review is a required gate. A green
-          count here means the work is staged — it does <strong>not</strong> mean Setnayan is
-          compliant or cleared to lodge with the NPC.
-        </p>
-      </div>
+      {/* Anti-false-assurance line — a green count is not clearance to file. The words stay; the reason is its ⓘ. */}
+      <p role="note" className="my-2 flex items-center gap-2 text-sm text-[var(--sn-danger)]">
+        <AlertTriangle aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <strong>NOT FILED.</strong>
+        <InfoTip label="Counsel is a required gate" align="start">
+          External Philippine counsel review is a required gate. A green count here means the work is staged — it does
+          not mean Setnayan is compliant or cleared to lodge with the NPC.
+        </InfoTip>
+      </p>
 
       {blockers.length > 0 ? (
-        <section className="mb-6">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: 'var(--sn-danger)' }}>
-            {blockers.length} blocker{blockers.length === 1 ? '' : 's'} — resolve before filing
-          </p>
-          <ul className="mt-2 space-y-1">
+        <section>
+          <Sec title="Blockers — resolve before filing" count={blockers.length} />
+          <Rows label="Blockers — resolve before filing">
             {blockers.map((t) => (
-              <li key={t.key} className="flex items-center gap-2 text-sm" style={{ color: 'var(--m-ink)' }}>
-                <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--sn-danger)' }} strokeWidth={2} />
-                <a href={`#${t.key}`} className="hover:underline">
-                  <span className="font-mono text-xs" style={{ color: 'var(--m-slate-3)' }}>{t.key}</span> · {t.title}
-                </a>
-              </li>
+              <Row key={t.key} href={`#${t.key}`} title={`${t.key} · ${t.title}`} tone="danger" />
             ))}
-          </ul>
+          </Rows>
         </section>
       ) : null}
 
@@ -91,9 +87,9 @@ export async function NpcChecklist() {
         const rows = tasks.filter((t) => t.tier === tier);
         if (rows.length === 0) return null;
         return (
-          <section key={tier} className="mb-7">
-            <h3 className="sn-sec">{NPC_TIER_LABEL[tier]}</h3>
-            <ul className="mt-3 space-y-3">
+          <section key={tier}>
+            <Sec title={NPC_TIER_LABEL[tier]} count={rows.length} />
+            <ul className="[&>li:first-child]:border-t-0">
               {rows.map((t) => (
                 <TaskCard key={t.key} task={t} counselGatedStill={counselGatedStill} />
               ))}
@@ -106,81 +102,59 @@ export async function NpcChecklist() {
 }
 
 function TaskCard({ task: t, counselGatedStill }: { task: NpcTaskRow; counselGatedStill: boolean }) {
-  const StatusIcon = STATUS_ICON[t.status];
   const isBlocker = t.severity === 'blocking';
-  const statusColor =
-    t.status === 'resolved'
-      ? 'var(--sn-success)'
-      : t.status === 'blocked_on_counsel'
-        ? 'var(--m-orange-2)'
-        : isBlocker
-          ? 'var(--sn-danger)'
-          : 'var(--m-slate-3)';
+  const open = isBlocker && t.status !== 'resolved';
+  const line = [
+    t.key,
+    NPC_TASK_KIND_LABEL[t.kind],
+    t.counselGated ? 'Counsel-gated' : null,
+    isBlocker ? 'Blocker' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
-    <li
-      id={t.key}
-      className="sn-tile scroll-mt-24"
-      style={isBlocker && t.status !== 'resolved' ? { borderColor: 'var(--sn-danger)' } : undefined}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold"
-              style={{ color: statusColor, background: 'var(--m-line-soft)' }}
-            >
-              <StatusIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              {NPC_TASK_STATUS_LABEL[t.status]}
-            </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate-3)' }}>
-              {t.key} · {NPC_TASK_KIND_LABEL[t.kind]}
-            </span>
-            {isBlocker ? (
-              <span
-                className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                style={{ background: 'rgba(180,35,24,0.1)', color: 'var(--sn-danger)' }}
-              >
-                Blocker
-              </span>
-            ) : null}
-            {t.counselGated ? (
-              <span
-                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-              >
-                <Gavel aria-hidden className="h-3 w-3" strokeWidth={2} /> Counsel-gated
-              </span>
-            ) : null}
-          </div>
-          <h4 className="mt-2 text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-            {t.title}
-          </h4>
-          <p className="mt-1 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-            {t.detail}
-          </p>
-          {t.note || t.evidence || (t.status === 'resolved' && t.resolvedAt) ? (
-            <div className="mt-2 space-y-0.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              {t.evidence ? <p><strong>Evidence:</strong> {t.evidence}</p> : null}
-              {t.note ? <p><strong>Note:</strong> {t.note}</p> : null}
-              {t.status === 'resolved' && t.resolvedAt ? <p>Resolved {relativeTime(t.resolvedAt)}</p> : null}
-            </div>
-          ) : null}
-          {t.relatedControlKey ? (
-            <Link
-              href="/admin/data-privacy?tab=controls"
-              scroll={false}
-              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold hover:underline"
-              style={{ color: 'var(--m-orange-2)' }}
-            >
-              Related privacy control <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </Link>
-          ) : null}
-        </div>
+    <li className="scroll-mt-24 border-t border-ink/10" data-npc-task={t.key}>
+      {/* `anchor` puts id={t.key} on the fold, and a link ending in #t0-1 (the Blockers rows) opens it in place. */}
+      <Fold
+        title={t.title}
+        line={line}
+        wrap
+        anchor={t.key}
+        popovers
+        aside={
+          <Badge tone={open && t.status === 'not_started' ? 'danger' : STATUS_TONE[t.status]}>
+            {NPC_TASK_STATUS_LABEL[t.status]}
+          </Badge>
+        }
+        data="npc-task"
+      >
+        <p className="whitespace-pre-line pb-2 text-sm text-ink/70">{t.detail}</p>
+        {t.note || t.evidence || (t.status === 'resolved' && t.resolvedAt) ? (
+          <Facts
+            rows={[
+              ...(t.evidence ? ([['Evidence', t.evidence]] as [string, string][]) : []),
+              ...(t.note ? ([['Note', t.note]] as [string, string][]) : []),
+              ...(t.status === 'resolved' && t.resolvedAt
+                ? ([['Resolved', relativeTime(t.resolvedAt)]] as [string, string][])
+                : []),
+            ]}
+          />
+        ) : null}
 
         {/* Status / note / evidence — in-place via useActionState, no page nav */}
         <TaskActions task={t} counselGatedStill={counselGatedStill} />
-      </div>
+
+        {t.relatedControlKey ? (
+          <Link
+            href="/admin/data-privacy?tab=controls"
+            scroll={false}
+            className="mb-2 inline-flex min-h-11 items-center gap-1 rounded-full border border-ink/15 px-4 text-sm font-semibold text-ink hover:bg-ink/[0.03]"
+          >
+            Related privacy control <ArrowRight aria-hidden className="h-4 w-4 text-[var(--sn-accent)]" strokeWidth={1.75} />
+          </Link>
+        ) : null}
+      </Fold>
     </li>
   );
 }

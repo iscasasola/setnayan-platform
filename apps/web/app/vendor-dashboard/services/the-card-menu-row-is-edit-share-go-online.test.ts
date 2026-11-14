@@ -91,7 +91,8 @@ test('the row is TWO icon buttons (Edit · Share to a client) and ONE worded Onl
   const buttons = line.match(/<ActionButton\b/g) ?? [];
   assert.equal(buttons.length, 2, 'the row should hold exactly two ActionButtons: Edit and Share');
   assert.equal((line.match(/\biconOnly\b/g) ?? []).length, 2, 'Edit and Share are icon buttons');
-  assert.match(line, /\[&>\.ab\]:h-10 \[&>\.ab\]:min-h-10 \[&>\.ab\]:w-10/, 'the two icon buttons are not one 40×40 size');
+  // RW-286b (re-walk 14 Nov): one size for both, at the 44 px floor of the T02/T04 size round (was 40×40).
+  assert.match(line, /\[&>\.ab\]:h-11 \[&>\.ab\]:min-h-11 \[&>\.ab\]:w-11/, 'the two icon buttons are not one 44×44 size');
   const edit = line.indexOf('name="Edit"');
   const share = line.indexOf('name="Share to a client"');
   const sw = line.indexOf('role="switch"');

@@ -1,4 +1,5 @@
-import { CheckCircle2, CircleAlert, CircleDashed, Loader2, XCircle, HelpCircle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import { Badge, One, Row, Rows, Sec } from '@/app/admin/app-performance/_components/insights-parts';
 import type { JobLedger } from '@/lib/periodic-job-health';
 import { jobsInRenderOrder } from '@/lib/periodic-job-health';
 import type { JobState, JobVerdict } from '@/lib/periodic-job-registry';
@@ -21,35 +22,30 @@ import type { JobState, JobVerdict } from '@/lib/periodic-job-registry';
  *
  * 🔑 AND "handled 0 records" IS A GOOD RESULT — it is what "checked, nothing was
  * due" looks like. It is printed as a completed run, never as a shrug.
+ *
+ * Drawn to the Insights drawing (admin_pub/insights.html › Privacy & NPC › Deletions): the verdict as the opening line
+ * with the explanation in its ⓘ, then hairline rows each carrying its state as a badge — no tiles.
  */
 
-const STATE_META: Record<
-  JobState,
-  { label: string; icon: typeof CheckCircle2; color: string; bad: boolean }
-> = {
-  ok: { label: 'Ran and finished', icon: CheckCircle2, color: 'var(--sn-success)', bad: false },
-  running: { label: 'Running now', icon: Loader2, color: 'var(--m-slate-3)', bad: false },
-  'never-claimed': { label: 'No run yet', icon: CircleDashed, color: 'var(--m-slate-3)', bad: false },
-  'no-outcome-recorded': { label: 'Outcome unknown', icon: HelpCircle, color: 'var(--m-slate-3)', bad: false },
-  'never-finished': { label: 'Started, never finished', icon: CircleAlert, color: 'var(--sn-danger)', bad: true },
-  failed: { label: 'Failed', icon: XCircle, color: 'var(--sn-danger)', bad: true },
+const STATE_META: Record<JobState, { label: string; tone: 'ok' | 'danger' | 'info' | undefined; bad: boolean }> = {
+  ok: { label: 'Ran and finished', tone: 'ok', bad: false },
+  running: { label: 'Running now', tone: 'info', bad: false },
+  'never-claimed': { label: 'No run yet', tone: undefined, bad: false },
+  'no-outcome-recorded': { label: 'Outcome unknown', tone: undefined, bad: false },
+  'never-finished': { label: 'Started, never finished', tone: 'danger', bad: true },
+  failed: { label: 'Failed', tone: 'danger', bad: true },
 };
 
-function Row({ verdict, what }: { verdict: JobVerdict; what: string }) {
+function JobRow({ verdict, what }: { verdict: JobVerdict; what: string }) {
   const meta = STATE_META[verdict.state];
-  const Icon = meta.icon;
   return (
-    <li className="sn-tile flex items-start gap-3 py-3">
-      <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0" style={{ color: meta.color }} strokeWidth={1.75} />
-      <span className="min-w-0">
-        <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-          {what}
-        </span>
-        <span className="mt-0.5 block text-sm" style={{ color: meta.bad ? 'var(--m-ink)' : 'var(--m-slate-2)' }}>
-          <strong>{meta.label}.</strong> {verdict.summary}
-        </span>
-      </span>
-    </li>
+    <Row
+      data="deletion-run"
+      title={<span className="whitespace-normal">{what}</span>}
+      sub={<span className="whitespace-normal">{verdict.summary}</span>}
+      tone={meta.bad ? 'danger' : undefined}
+      trail={<Badge tone={meta.tone}>{meta.label}</Badge>}
+    />
   );
 }
 
@@ -59,10 +55,12 @@ export function DeletionRunsPanel({ ledger }: { ledger: JobLedger }) {
     // refused query look identical, and the second one is the dangerous one.
     return (
       <section>
-        <h2 className="sn-sec">Deletions</h2>
-        <p className="mt-2 text-sm" style={{ color: 'var(--sn-danger)' }}>
-          We could not read the job ledger, so this page cannot tell you whether the deletions
-          ran. This is <strong>not</strong> the same as everything being fine. ({ledger.reason})
+        <p role="alert" className="mt-2 flex items-start gap-2 text-sm text-[var(--sn-danger)]">
+          <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
+          <span>
+            We could not read the job ledger, so this page cannot tell you whether the deletions ran. This is{' '}
+            <strong>not</strong> the same as everything being fine. ({ledger.reason})
+          </span>
         </p>
       </section>
     );
@@ -75,50 +73,36 @@ export function DeletionRunsPanel({ ledger }: { ledger: JobLedger }) {
   const attention = ledger.verdicts.filter((v) => v.needsAttention);
 
   return (
-    <section>
-      <h2 className="sn-sec">Deletions — did they actually run?</h2>
-      <p className="mt-1 max-w-2xl text-sm" style={{ color: 'var(--m-slate-2)' }}>
-        Our privacy notice promises deletions with dates on them. Each job below records what it
-        did the last time it ran, so a job that stops working looks different from one that is
-        simply quiet. <strong>Handling 0 records is a good result</strong> — it means the job
-        checked and nothing had come due yet.
-      </p>
-      <p className="mt-2 max-w-2xl text-sm" style={{ color: 'var(--m-slate-3)' }}>
-        These run when someone uses the site, not on a timer, so a long gap between runs is normal
-        and is not flagged here. What is flagged is a job that started and never said how it
-        finished, or one that failed.
-      </p>
+    <section data-deletion-runs="">
+      <One
+        label={
+          attention.length === 0
+            ? 'Nothing needs your attention: every job that started has also reported back.'
+            : `${attention.length} job${attention.length === 1 ? '' : 's'} need${attention.length === 1 ? 's' : ''} a look — listed below.`
+        }
+      >
+        Our privacy notice promises deletions with dates on them. Each job below records what it did the last time it
+        ran, so a job that stops working looks different from one that is simply quiet. Handling 0 records is a good
+        result — it means the job checked and nothing had come due yet. These run when someone uses the site, not on a
+        timer, so a long gap between runs is normal and is not flagged here. What is flagged is a job that started and
+        never said how it finished, or one that failed.
+      </One>
 
-      {attention.length === 0 ? (
-        <p className="mt-4 text-sm" style={{ color: 'var(--sn-success)' }}>
-          Nothing needs your attention: every job that started has also reported back.
-        </p>
-      ) : (
-        <p className="mt-4 text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-          {attention.length} job{attention.length === 1 ? '' : 's'} need{attention.length === 1 ? 's' : ''} a
-          look — listed below.
-        </p>
-      )}
-
-      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate-3)' }}>
-        The promises on our privacy notice
-      </p>
-      <ul className="mt-2 space-y-1.5">
+      <Sec title="The promises on our privacy notice" count={retention.length} />
+      <Rows label="The promises on our privacy notice">
         {retention.map((j) => {
           const v = byKey.get(j.key);
-          return v ? <Row key={j.key} verdict={v} what={j.what} /> : null;
+          return v ? <JobRow key={j.key} verdict={v} what={j.what} /> : null;
         })}
-      </ul>
+      </Rows>
 
-      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate-3)' }}>
-        Everything else that runs on its own
-      </p>
-      <ul className="mt-2 space-y-1.5">
+      <Sec title="Everything else that runs on its own" count={operational.length} />
+      <Rows label="Everything else that runs on its own">
         {operational.map((j) => {
           const v = byKey.get(j.key);
-          return v ? <Row key={j.key} verdict={v} what={j.what} /> : null;
+          return v ? <JobRow key={j.key} verdict={v} what={j.what} /> : null;
         })}
-      </ul>
+      </Rows>
     </section>
   );
 }

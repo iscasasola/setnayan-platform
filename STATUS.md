@@ -13,6 +13,43 @@
 
 ---
 
+## Admin Insights views — old page → new home (area build, 2026-11-14)
+
+Every Insights view now wears the approved drawing (`Setnayan-specs/prototypes/admin_pub/insights.html`). Homes come
+from `lib/admin/admin-tabs.ts` (Insights tab, `Insights · View ▾`); every old address still answers (redirects
+unchanged). Re-measure a row with `/usr/bin/grep -n "<path>" apps/web/lib/admin/admin-tabs.ts`.
+
+| Old page | New home |
+|---|---|
+| `/admin/app-performance` · `?tab=overview` · `/admin/insights` (→ redirect) | Insights › Overview (kept as shipped 14 Nov) |
+| `/admin/app-performance?tab=visits` | Insights › Visits |
+| `?tab=growth` · `/admin/growth` (→) · `/admin/growth/export` (CSV) | Insights › Sign-ups & growth (Export CSV button) |
+| `?tab=intelligence` · `/admin/intelligence` (→) | Insights › Intelligence (Won & lost · Churn radar · Market pulse · Lead scores) |
+| `?tab=funnels` · `/admin/funnels` (→) | Insights › Funnels |
+| `?tab=seo` · `/admin/seo` (→) | Insights › SEO & GEO |
+| `?tab=operations` · `/admin/operations-hiring` (→) | Insights › Expenses & hiring (the drawing's Costs › Operations & hiring) |
+| Overview › Expenses & Receipts | stays on Overview until the Costs landing exists (see below) |
+| `?tab=connection-logs` · `/admin/connection-logs` (→) | Insights › Problems |
+| `?tab=slow-loads` | Insights › Slow loads |
+| `?tab=offline` · `/admin/offline` (→) | Insights › Offline daemon |
+| `?tab=interconnections` | Insights › Interconnections |
+| `?tab=browser-blocks` | Insights › Browser blocks |
+| `/admin/demand` | Insights › Demand |
+| `/admin/papic-storage` | Insights › Papic storage |
+| `/admin/live-studio-channels` | Insights › Live Watch channels |
+| `/admin/data-privacy` (+ `?tab=coverage·deletions·checklist·documents`) · `/admin/npc-readiness` (→ checklist) · `/admin/compliance/data-sheet` | Insights › Privacy & NPC — controls on the landing; the rest open from its Filing rows |
+
+**Skipped — files another open PR edits** (re-check with the PR's file list before touching):
+`app/admin/app-performance/page.tsx` (#7632 — removes the old tab strip), `_surfaces/overview-surface.tsx` + `_components/charts.tsx`
+(#7677), `lib/admin/admin-tabs.ts` (#7585), `app/admin/layout.tsx` (#7668), `app/admin/connection-logs/connection-logs-client.tsx` (#7671).
+
+**In the drawing, not built:** the grouped View ▾ and a Costs landing (both need `admin-tabs.ts`, #7585) · Top shops,
+budget-rule ratios, Growth sales split / delivery & trust / fastest movers, privacy-exceptions row, live counts on Filing
+rows (each needs a new read) · Problems Mark fixed / Ignore per issue, Expenses Note, channel Retire (each needs a new
+or newly-wired action) · data sheet Print.
+
+---
+
 ## Verified production state — 2026-09-28
 
 - **Production = `main` = `6136cd2`** (merge of #6071). Re-measure: `curl -sL https://setnayan.com/api/health` (its `version`) vs `git log origin/main -1`.

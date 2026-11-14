@@ -101,6 +101,18 @@ export function appleMapsUrl(lat: number, lng: number): string {
   return `https://maps.apple.com/?ll=${encodeURIComponent(`${lat},${lng}`)}`;
 }
 
+/**
+ * Android's own map chooser — a `geo:` URI (RFC 5870 + Android's `?q=lat,lng(label)` extension). Android hands it to
+ * every map app actually installed (Google Maps, Waze, Grab…) and lets the guest pick: the only honest "which map apps
+ * do they have" a web page can ask (map card + Get directions, approved 2026-11-14). Never offered on an iPhone or a
+ * computer, where nothing answers it.
+ */
+export function geoUri(lat: number, lng: number, label?: string | null): string {
+  const at = `${lat},${lng}`;
+  const name = label?.replace(/[()]/g, '').trim();
+  return `geo:${at}?q=${encodeURIComponent(at)}${name ? `(${encodeURIComponent(name)})` : ''}`;
+}
+
 export type GeocodeResult = {
   latitude: number;
   longitude: number;

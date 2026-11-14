@@ -21,6 +21,8 @@
  * proper LAB ΔE76 when tolerance is high enough that the approximation drifts.
  */
 
+import { ActionButton } from '@/components/action-button';
+import { Eye, Save } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildMatchMask,
@@ -389,22 +391,8 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2 border-t border-ink/10 pt-3">
-        <button
-          type="button"
-          onClick={saveSlot}
-          disabled={!pickedHex || showPreview}
-          className="rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Save sample to slot {activeSlot}
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowPreview((p) => !p)}
-          disabled={Object.keys(map).length === 0 || !previewPalette}
-          className="rounded-md border border-ink/20 bg-cream px-4 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {showPreview ? 'Back to tagging' : 'Preview with palette'}
-        </button>
+        <ActionButton tone="brand" main icon={Save} label={`Save sample to slot ${activeSlot}`} type="button" onClick={saveSlot} disabled={!pickedHex || showPreview} />
+        <ActionButton tone="neutral" icon={Eye} label={showPreview ? 'Back to tagging' : 'Preview with palette'} type="button" onClick={() => setShowPreview((p) => !p)} disabled={Object.keys(map).length === 0 || !previewPalette} />
       </div>
     </div>
   );

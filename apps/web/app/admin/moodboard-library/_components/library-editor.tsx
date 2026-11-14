@@ -11,6 +11,9 @@
  *   - RIGHT: Color Range Manipulator on the currently-selected asset
  */
 
+import { ActionButton } from '@/components/action-button';
+import { FieldPick } from '@/app/admin/_components/field-pick';
+import { Archive, Check, Copy, Save, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { watermarkFile } from '@/lib/watermark';
@@ -361,14 +364,7 @@ export function LibraryEditor({ initialAssets }: Props) {
             subtype, and accent color. Copy it into Higgsfield, generate,
             then upload the result below.
           </p>
-          <button
-            type="button"
-            onClick={generatePrompt}
-            disabled={isPending}
-            className="mb-3 w-full rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream disabled:opacity-50"
-          >
-            {isPending ? 'Rolling…' : 'Generate random prompt'}
-          </button>
+          <ActionButton tone="brand" main icon={Sparkles} label={isPending ? 'Rolling…' : 'Generate random prompt'} type="button" onClick={generatePrompt} disabled={isPending} className="w-full" />
           {randomPrompt && (
             <div className="space-y-2 rounded-md border border-ink/15 bg-white p-3">
               <div>
@@ -406,13 +402,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                   {randomPrompt.prompt}
                 </p>
               </details>
-              <button
-                type="button"
-                onClick={copyPrompt}
-                className="w-full rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-xs font-medium text-ink"
-              >
-                {promptCopied ? '✓ Copied' : 'Copy prompt to clipboard'}
-              </button>
+              <ActionButton tone="neutral" icon={Copy} label={promptCopied ? '✓ Copied' : 'Copy prompt to clipboard'} type="button" onClick={copyPrompt} className="w-full" />
             </div>
           )}
         </section>
@@ -443,16 +433,18 @@ export function LibraryEditor({ initialAssets }: Props) {
               className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none"
             />
             <div className="grid grid-cols-2 gap-2">
-              <select
+              <FieldPick
                 name="assetType"
+                label="Asset type"
                 required
                 defaultValue="venue_scene"
-                className="rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
-              >
-                <option value="venue_scene">Venue scene</option>
-                <option value="figure_attire">Figure attire</option>
-                <option value="florals">Florals</option>
-              </select>
+                className="min-h-11 w-full"
+                options={[
+                  { key: 'venue_scene', label: 'Venue scene' },
+                  { key: 'figure_attire', label: 'Figure attire' },
+                  { key: 'florals', label: 'Florals' },
+                ]}
+              />
               <input
                 name="assetSubtype"
                 type="text"
@@ -460,22 +452,18 @@ export function LibraryEditor({ initialAssets }: Props) {
                 className="rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
               />
             </div>
-            <select
+            <FieldPick
               name="source"
+              label="Source"
               defaultValue="internet_placeholder"
-              className="w-full rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
-            >
-              <option value="internet_placeholder">Internet placeholder (V1 soft-beta only)</option>
-              <option value="higgsfield_generated">Higgsfield-generated (V1.x)</option>
-              <option value="stylist_upload">Stylist-approved upload (V1.x+)</option>
-            </select>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="w-full rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream disabled:opacity-50"
-            >
-              {isPending ? 'Uploading…' : 'Upload + tag'}
-            </button>
+              className="min-h-11 w-full"
+              options={[
+                { key: 'internet_placeholder', label: 'Internet placeholder (V1 soft-beta only)' },
+                { key: 'higgsfield_generated', label: 'Higgsfield-generated (V1.x)' },
+                { key: 'stylist_upload', label: 'Stylist-approved upload (V1.x+)' },
+              ]}
+            />
+            <ActionButton tone="brand" main icon={Upload} label={isPending ? 'Uploading…' : 'Upload + tag'} type="submit" disabled={isPending} className="w-full" />
           </form>
         </section>
 
@@ -548,52 +536,17 @@ export function LibraryEditor({ initialAssets }: Props) {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleSaveTags}
-                  disabled={isPending}
-                  className="rounded-md bg-mulberry px-3 py-1.5 text-sm font-medium text-cream disabled:opacity-50"
-                >
-                  Save tags
-                </button>
+                <ActionButton tone="brand" main icon={Save} label="Save tags" type="button" onClick={handleSaveTags} disabled={isPending} />
                 {!selected.approved_at && (
-                  <button
-                    type="button"
-                    onClick={handleApprove}
-                    disabled={isPending}
-                    className="rounded-md border border-success-600 px-3 py-1.5 text-sm font-medium text-success-700 disabled:opacity-50"
-                  >
-                    Publish
-                  </button>
+                  <ActionButton tone="ok" icon={Check} label="Publish" type="button" onClick={handleApprove} disabled={isPending} />
                 )}
                 {!selected.rejected_at && (
-                  <button
-                    type="button"
-                    onClick={() => setRejectOpen((v) => !v)}
-                    disabled={isPending}
-                    className="rounded-md border border-danger-500 px-3 py-1.5 text-sm font-medium text-danger-600 disabled:opacity-50"
-                  >
-                    Reject…
-                  </button>
+                  <ActionButton tone="danger" icon={X} label="Reject…" type="button" onClick={() => setRejectOpen((v) => !v)} disabled={isPending} />
                 )}
                 {selected.approved_at && !selected.retired_at && (
-                  <button
-                    type="button"
-                    onClick={handleRetire}
-                    disabled={isPending}
-                    className="rounded-md border border-ink/30 px-3 py-1.5 text-sm font-medium text-ink/70 disabled:opacity-50"
-                  >
-                    Retire
-                  </button>
+                  <ActionButton tone="neutral" icon={Archive} label="Retire" type="button" onClick={handleRetire} disabled={isPending} />
                 )}
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={isPending}
-                  className="rounded-md border border-danger-500 px-3 py-1.5 text-sm font-medium text-danger-600 disabled:opacity-50"
-                >
-                  Delete
-                </button>
+                <ActionButton tone="danger" icon={Trash2} label="Delete" type="button" onClick={handleDelete} disabled={isPending} />
               </div>
             </header>
 
@@ -637,13 +590,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                   >
                     Reject with this reason
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setRejectOpen(false)}
-                    className="rounded-md border border-ink/20 px-3 py-1.5 text-sm font-medium text-ink/70"
-                  >
-                    Cancel
-                  </button>
+                  <ActionButton tone="neutral" icon={X} label="Cancel" type="button" onClick={() => setRejectOpen(false)} />
                 </div>
               </div>
             ) : null}

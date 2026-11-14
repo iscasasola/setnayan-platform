@@ -36,6 +36,7 @@ import {
 } from '@/lib/admin-payment-desk';
 import { readEventTypeNames } from '@/lib/admin/event-type-names.server';
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { countPaymentsWaiting } from '@/lib/admin/queue-counts';
 import {
   fetchPlatformSettings,
   fetchPlatformSettingsMeasured,
@@ -370,16 +371,16 @@ async function readDeskNums(admin: ReturnType<typeof createAdminClient>): Promis
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
   const [week, pending] = await Promise.all([
     admin.from('payments').select('amount_php').in('status', MONEY_STATUSES).gte('paid_at', weekAgo).limit(5000),
-    admin.from('payments').select('payment_id', { count: 'exact', head: true }).eq('status', 'pending'),
+    // The SAME count Work and the Money badge show (AW-4: a bill's placeholder on a paid order is not waiting).
+    countPaymentsWaiting(admin, Date.now()),
   ]);
   if (week.error) logQueryError('admin/payments: received this week', week.error);
-  if (pending.error) logQueryError('admin/payments: count to confirm', pending.error);
   return {
     receivedWeekPhp:
       week.error || !Array.isArray(week.data)
         ? null
         : week.data.reduce((sum, r) => sum + Number((r as { amount_php: number }).amount_php || 0), 0),
-    toConfirm: pending.error ? null : (pending.count ?? null),
+    toConfirm: pending.count,
   };
 }
 

@@ -1,3 +1,4 @@
+import { paymentStillWaiting } from '@/lib/payment-logged';
 import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -405,6 +406,36 @@ export async function countStuckCompletions(
  * confident wrong total, which is how an admin is told there is less work
  * waiting than there is.
  */
+/**
+ * 🧾 AW-4 (admin walk 14 Nov 2026): payments still waiting on an admin. A head count of `status = 'pending'` also
+ * counted a bill's placeholder row whose order was already paid (its logged payment matched, a receipt issued), so
+ * Work said "2 waiting" over one real item. Pending rows are few, so they are read and judged by the ONE rule
+ * (`paymentStillWaiting`, lib/payment-logged.ts) the Payments desk and the Work drawer use. A refused read is null.
+ */
+export async function countPaymentsWaiting(
+  admin: SupabaseClient,
+  _nowMs: number,
+): Promise<AdminQueueDigestRow> {
+  const { data, error } = await admin
+    .from('payments')
+    .select('created_at, status, reference_number, screenshot_url, order:orders(status)')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+    .limit(5000);
+  if (error || !Array.isArray(data)) {
+    logQueryError('countPaymentsWaiting', error ?? null, {}, 'graceful_degrade');
+    return { count: null, oldestAt: null };
+  }
+  const waiting = (data as unknown as Array<{
+    created_at: string;
+    status: string;
+    reference_number: string | null;
+    screenshot_url: string | null;
+    order: { status: string | null } | null;
+  }>).filter((p) => paymentStillWaiting(p, p.order?.status));
+  return { count: waiting.length, oldestAt: waiting[0]?.created_at ?? null };
+}
+
 export async function countOpenDisputes(
   admin: SupabaseClient,
   _nowMs: number,
@@ -556,7 +587,10 @@ const QUEUE_DEFS: QueueDef[] = [
     table: 'payments',
     lane: 'money',
     slaHours: 24,
+    // Coarse cut only — the COUNT comes from `digest`, which also drops a bill's placeholder on an order already paid
+    // (AW-4). Every consumer that LISTS rows applies the same `paymentStillWaiting` after this filter.
     filter: (q) => q.eq('status', 'pending'),
+    digest: countPaymentsWaiting,
   },
   // lane money — a vendor is waiting for money.
   {

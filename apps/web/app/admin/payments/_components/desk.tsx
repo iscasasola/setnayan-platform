@@ -7,7 +7,7 @@
  * verdict and the bill come from the same pure helpers the server re-checks on approve.
  */
 import Link from 'next/link';
-import { paymentWasLogged } from '@/lib/payment-logged';
+import { NOTHING_SENT_WORDS, paymentWasLogged } from '@/lib/payment-logged';
 import { ProofImage } from '@/app/_components/proof-image';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -663,7 +663,11 @@ export function PaymentRow({
           ? { text: 'AI read: reference on the screenshot', bad: false }
           : null
       : null;
-  const third = decisive
+  // AW-5: a bill's placeholder (pending, no reference, no screenshot) is a bill nobody has paid against — the same
+  // words Fees owed uses, never a money verdict on a transfer that does not exist.
+  const third = p.status === 'pending' && !paymentWasLogged(p)
+    ? { text: NOTHING_SENT_WORDS, bad: true }
+    : decisive
     ? { text: 'Clean match · ref + amount', bad: false }
     : dup
       ? { text: dup.kind === 'same_order' ? 'Reference already counted on this order' : 'Reference counted on another order', bad: true }
@@ -829,7 +833,8 @@ export function OpenedPayment({
         </h2>
         <p className="mt-2 flex flex-wrap items-center gap-1.5">
           <span className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${PAYMENT_STATUS_TONE[p.status]}`}>
-            {PAYMENT_STATUS_LABEL[p.status]}
+            {/* AW-5: a placeholder is a bill with nothing sent against it — the words Fees owed uses. */}
+            {p.status === 'pending' && !paymentWasLogged(p) ? NOTHING_SENT_WORDS : PAYMENT_STATUS_LABEL[p.status]}
           </span>
           {sameDay ? (
             <span className="rounded-full bg-terracotta-700 px-2 py-0.5 text-[12px] font-semibold text-cream">

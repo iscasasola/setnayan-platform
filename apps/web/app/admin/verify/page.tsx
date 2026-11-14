@@ -1104,6 +1104,13 @@ function ApplicationCard({
         </p>
       ) : null}
 
+      {(['dti_certificate', 'bir_2303', 'mayors_permit'] as const).some((k) => typedBySupplier(application.doc_uploads?.[k] as DocUpload)) ? (
+        <p className="rounded-md border border-warn-300 bg-warn-50 px-3 py-2 text-xs font-medium text-warn-900">
+          Typed by the supplier — a paper could not be read in 3 tries. Compare what they typed with the kept file, then
+          approve or ask for a clearer copy.
+        </p>
+      ) : null}
+
       {autoCheck ? <AutoCheckBlock auto={autoCheck} application={application} /> : null}
 
       <CheckResultsBlock checks={checks} />
@@ -1754,9 +1761,30 @@ function SlotRead({
   if (!r2Key) return null;
   const read = parsePaperRead(value);
   const pair = VERIFICATION_PAIRS.find((p) => p.slotKey === slotKey);
-  const labelOf = (k: string) => pair?.fields.find((f) => f.key === k)?.label ?? k;
+  const labelOf = (k: string) => TYPED_LABEL[k] ?? pair?.fields.find((f) => f.key === k)?.label ?? k;
+  const typed = typedBySupplier(value);
   return (
     <div className="ml-7 space-y-1 rounded-md border border-ink/10 bg-ink/[0.02] px-2 py-1.5 text-[11px] text-ink/75">
+      {typed ? (
+        /* 🧾 THE REQUEST CARD (approved papers demo, DECISION_LOG 7e4de291): three photos could not be read, so the
+           supplier typed the details and this paper waits for a person. The kept file is the Open button above. */
+        <div className="space-y-1 rounded-md border border-warn-300 bg-warn-50 px-2 py-1.5">
+          <p className="font-semibold text-ink">
+            Typed by the supplier · Try {formatCount(typed.attempts)} of {formatCount(3)} — compare it with the paper by hand
+          </p>
+          {Object.keys(typed.values).length > 0 ? (
+            <ul className="space-y-0.5">
+              {Object.entries(typed.values).map(([k, v]) => (
+                <li key={k}>
+                  {labelOf(k)}: <span className="font-mono text-ink">{v}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Nothing typed yet — the supplier has not sent the details.</p>
+          )}
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium text-ink">
           {read
@@ -1888,6 +1916,28 @@ function AutoCheckBlock({ auto, application }: { auto: AutoCheckRow; application
       ) : null}
     </section>
   );
+}
+
+/** The typed-form keys, labelled the way the supplier saw them (paper-upload-place.tsx TYPED_FIELDS). */
+const TYPED_LABEL: Record<string, string> = {
+  permit_number: 'Permit number',
+  valid_until: 'Good until',
+  registered_business_name: 'Registered name',
+  registration_number_raw: 'Registration number',
+  tin_number: 'TIN',
+  registered_address: 'Registered address',
+  date_registered: 'Date registered',
+};
+
+/** A paper the supplier TYPED after three unreadable tries — or null. Defensive: a malformed slot is not "typed". */
+function typedBySupplier(value: DocUpload): { attempts: number; values: Record<string, string> } | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  if (v.manual !== true) return null;
+  const typed = v.typed && typeof v.typed === 'object' && !Array.isArray(v.typed) ? (v.typed as Record<string, unknown>) : {};
+  const values: Record<string, string> = {};
+  for (const [k, x] of Object.entries(typed)) if (typeof x === 'string' && x.trim()) values[k] = x.trim();
+  return { attempts: typeof v.attempts === 'number' ? v.attempts : 3, values };
 }
 
 /**

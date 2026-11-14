@@ -46,3 +46,16 @@ THE BUSINESS PERMIT LEADS · THE RENEWAL DAY IS 30 MARCH. Outside-spec items 1�
   Setnayan".
 
 SPEC IMPACT: None — implements the DECISION_LOG rows named above as ruled; nothing in the corpus changes.
+
+### 2026-11-14 · the approved supplier papers demo (DECISION_LOG 7e4de291)
+- **What does not count as a try** is one list in code, `NOT_A_TRY` (`lib/paper-intake.ts`), and each entry is driven
+  through `mergeIntake` in a test with the try count asserted unchanged: wrong paper (`other`/`unknown`/`only_one_needed`),
+  **a paper from a different shop name** (new — clearly different registered names only; a near match is filed and the
+  Submit name check sends it to a person), an expired paper, a file too big or damaged, our checker busy. The internet
+  dropping and a file the picker refuses never reach the server. A blurry copy of a recognised paper still counts.
+- After three tries the **permit's typed form is the demo's two fields**: Permit number · Good until → "Send for checking".
+- **Admin request card**: a typed paper reads "Typed by the supplier · Try 3 of 3 — compare it with the paper by hand",
+  with what was typed, and the application carries a "Typed by the supplier" line.
+- The supplier screen uses the demo's words: Recognised · Reading… · Not clear enough — not kept · A person will check
+  this · Waiting for a photo · "What doesn't count as a try?" · the pin card's "Is this your address? Read from your
+  Business Permit. Couples see this pin on your shop."

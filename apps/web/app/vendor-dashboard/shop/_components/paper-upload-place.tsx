@@ -38,7 +38,7 @@ import type { ModelPaperRead, ReadableSlotKey } from '@/lib/verification-paper-r
  */
 
 const ROWS: ReadonlyArray<{ slot: ReadableSlotKey; title: string; hint: string }> = [
-  { slot: 'dti_certificate', title: 'DTI or SEC', hint: 'Your DTI certificate or SEC registration — either one' },
+  { slot: 'dti_certificate', title: 'DTI or SEC registration', hint: 'Your DTI certificate or SEC registration — either one' },
   { slot: 'bir_2303', title: 'BIR 2303', hint: 'BIR Certificate of Registration, Form 2303' },
   { slot: 'mayors_permit', title: 'Business Permit', hint: 'This year’s Mayor’s / Business Permit' },
 ];
@@ -48,7 +48,7 @@ const TYPED_FIELDS: Record<ReadableSlotKey, ReadonlyArray<{ key: string; label: 
   dti_certificate: [
     { key: 'registered_business_name', label: 'Registered name' },
     { key: 'registration_number_raw', label: 'Registration number' },
-    { key: 'valid_until', label: 'Valid until' },
+    { key: 'valid_until', label: 'Good until' },
   ],
   bir_2303: [
     { key: 'registered_business_name', label: 'Registered name' },
@@ -56,11 +56,10 @@ const TYPED_FIELDS: Record<ReadableSlotKey, ReadonlyArray<{ key: string; label: 
     { key: 'registered_address', label: 'Registered address' },
     { key: 'date_registered', label: 'Date registered' },
   ],
+  // The approved papers demo (DECISION_LOG 7e4de291): "Type what's on your permit instead" — two fields.
   mayors_permit: [
-    { key: 'registered_business_name', label: 'Business name' },
-    { key: 'permit_number', label: 'Permit no.' },
-    { key: 'permit_address', label: 'Address' },
-    { key: 'valid_until', label: 'Valid until' },
+    { key: 'permit_number', label: 'Permit number' },
+    { key: 'valid_until', label: 'Good until' },
   ],
 };
 
@@ -85,28 +84,27 @@ function addressOf(m: ModelPaperRead): string | null {
     .join(', ') || null;
 }
 
-/** "Read ✓ · DTI 3456789" — the one-line summary of a read paper. */
-function readSummary(slot: ReadableSlotKey, m: ModelPaperRead): string {
-  if (slot === 'dti_certificate') return `Read ✓ · ${m.registry === 'sec' ? 'SEC' : 'DTI'} ${m.registrationNumber ?? ''}`.trim();
-  if (slot === 'bir_2303') return `Read ✓ · TIN ${m.registrationNumber ?? ''}`.trim();
-  return `Read ✓ · Permit ${m.registrationNumber ?? ''}`.trim();
-}
-
 /** The read values, read-only, in the design's order. */
 function readLines(slot: ReadableSlotKey, m: ModelPaperRead): Array<[string, string]> {
+  // The approved papers demo (DECISION_LOG 7e4de291): DTI/SEC → Name · Number · Good until;
+  // BIR 2303 → Name · TIN · Address; Business Permit → Number · Address · Good until.
   const out: Array<[string, string]> = [];
   const name = m.accountName ?? m.ownerName;
-  if (name) out.push(['Name', name]);
-  if (m.registrationNumber) {
-    out.push([
-      slot === 'dti_certificate' ? (m.registry === 'sec' ? 'SEC no.' : 'DTI no.') : slot === 'bir_2303' ? 'TIN' : 'Permit no.',
-      m.registrationNumber,
-    ]);
-  }
   const addr = addressOf(m);
-  if (addr) out.push(['Address', addr]);
-  if (m.expirationDate) out.push(['Valid', `until ${formatLongDate(m.expirationDate)}`]);
-  else if (slot === 'bir_2303') out.push(['Valid', 'No expiry date']);
+  const until = m.expirationDate ? formatLongDate(m.expirationDate) : null;
+  if (slot === 'dti_certificate') {
+    if (name) out.push(['Name', name]);
+    if (m.registrationNumber) out.push(['Number', m.registrationNumber]);
+    if (until) out.push(['Good until', until]);
+  } else if (slot === 'bir_2303') {
+    if (name) out.push(['Name', name]);
+    if (m.registrationNumber) out.push(['TIN', m.registrationNumber]);
+    if (addr) out.push(['Address', addr]);
+  } else {
+    if (m.registrationNumber) out.push(['Number', m.registrationNumber]);
+    if (addr) out.push(['Address', addr]);
+    if (until) out.push(['Good until', until]);
+  }
   return out;
 }
 
@@ -208,8 +206,8 @@ export function PaperUploadPlace({
             maxSizeMB={15}
             acceptedTypes={['image/png', 'image/jpeg', 'application/pdf']}
             variant="wide"
-            label="Upload documents"
-            help="Pick 1, 2 or all 3 at once — any order. PDF / JPG / PNG up to 15 MB each."
+            label="Upload your papers"
+            help="You can pick all three photos at once. A clear phone photo is fine. PDF / JPG / PNG up to 15 MB each."
             disabled={pending}
             onChange={(val) => save(Array.isArray(val) ? val : val ? [val] : [])}
           />
@@ -248,6 +246,21 @@ export function PaperUploadPlace({
         </ul>
       ) : null}
 
+      {reports.some((x) => x.outcome === 'unreadable') ? (
+        <details className="text-xs" style={{ color: MUTE }}>
+          <summary className="flex min-h-[44px] cursor-pointer items-center">What doesn’t count as a try?</summary>
+          {/* The approved demo's list — the code's own list is NOT_A_TRY (lib/paper-intake.ts). */}
+          <ul className="list-disc space-y-0.5 pl-5">
+            <li>A photo of the wrong paper</li>
+            <li>A paper from a different shop name</li>
+            <li>A permit that has already expired</li>
+            <li>Your internet dropping mid-upload</li>
+            <li>A file too big to send</li>
+            <li>Our checker being busy</li>
+          </ul>
+        </details>
+      ) : null}
+
       <div className="flex items-baseline justify-between">
         <h4 className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
           Your three papers
@@ -262,15 +275,17 @@ export function PaperUploadPlace({
           const s = slots[row.slot];
           const model = s?.evidence?.model ?? null;
           let status: { icon: 'ok' | 'wait' | 'person' | 'none'; text: string };
+          // The approved demo's words: Recognised · Reading… · Not clear enough — not kept · A person will check
+          // this · Waiting for a photo.
           if (s?.r2_key && s.manual) status = { icon: 'person', text: 'A person will check this' };
-          else if (s?.r2_key && model) status = { icon: 'ok', text: readSummary(row.slot, model) };
+          else if (s?.r2_key && model) status = { icon: 'ok', text: 'Recognised' };
+          else if (pending && checking > 0) status = { icon: 'wait', text: 'Reading…' };
           else if (s && s.attempts > 0)
             status = {
               icon: 'wait',
-              text: `Not read yet · Try ${formatCount(Math.min(s.attempts + 1, MAX_TRIES))} of ${formatCount(MAX_TRIES)}${s.attempts + 1 >= MAX_TRIES ? ' · last one' : ''}`,
+              text: `Not clear enough — not kept · Try ${formatCount(Math.min(s.attempts + 1, MAX_TRIES))} of ${formatCount(MAX_TRIES)}${s.attempts + 1 >= MAX_TRIES ? ' · last one' : ''}`,
             };
-          else if (pending && checking > 0) status = { icon: 'wait', text: 'Checking…' };
-          else status = { icon: 'none', text: 'Not uploaded yet' };
+          else status = { icon: 'none', text: 'Waiting for a photo' };
 
           return (
             <li
@@ -387,7 +402,8 @@ function TypedForm({
         {fileName(fileRef)} · try 3 · kept
       </p>
       <p className="text-xs" style={{ color: 'var(--m-ink)' }}>
-        We couldn’t read it after three tries. Type what the paper says and we’ll compare it by hand.
+        <strong className="block">{slot === 'mayors_permit' ? 'Type what’s on your permit instead' : 'Type what’s on this paper instead'}</strong>
+        Three photos couldn’t be read. We kept the last one so a person can compare it with what you type.
       </p>
       <form
         className="space-y-2"
@@ -400,7 +416,7 @@ function TypedForm({
             fd.set('typed_json', JSON.stringify(values));
             const res = await updateDocUploadInline(null, fd);
             if (res.ok) {
-              toast.success('Saved — a person will check this.');
+              toast.success('Sent — a person will check it, usually within 1 working day.');
               onSaved();
             } else {
               toast.error(res.error);
@@ -430,7 +446,7 @@ function TypedForm({
         ) : null}
         {locked ? null : (
           <button type="submit" className="button-primary h-11 px-4 text-sm" disabled={pending}>
-            {pending ? 'Saving…' : saved ? 'Save changes' : 'Save these details'}
+            {pending ? 'Sending…' : saved ? 'Send again' : 'Send for checking'}
           </button>
         )}
       </form>
@@ -474,10 +490,10 @@ function PermitPin({ address, city, onSaved }: { address: string; city: string; 
       }}
     >
       <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-        Your place
+        Is this your address?
       </p>
       <p className="text-xs" style={{ color: MUTE }}>
-        From your permit
+        Read from your Business Permit. Couples see this pin on your shop.
       </p>
       <CityPin defaultAddress={address} defaultCity={city} onConfirmedChange={setConfirmedCity} />
       <p className="text-xs" style={{ color: MUTE }}>

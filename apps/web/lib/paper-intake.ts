@@ -34,6 +34,10 @@ import {
 } from '@/lib/verification-paper-read';
 import type { PaperRead } from '@/lib/verification-pairs';
 import { formatLongDate } from '@/lib/format-date';
+import { foldBusinessName, nameSimilarity } from '@/lib/auto-verify';
+
+/** Below this similarity (0..1, folded names) a paper is "from a different shop name". */
+export const DIFFERENT_NAME_BELOW = 0.6;
 
 import { MAX_TRIES } from '@/lib/paper-intake-shared';
 export { MAX_TRIES };
@@ -63,7 +67,32 @@ export type IntakeOutcome =
   | 'other'
   | 'expired'
   | 'file_refused'
-  | 'reader_unavailable';
+  | 'reader_unavailable'
+  | 'different_name';
+
+/**
+ * 🧾 WHAT DOES NOT COUNT AS A TRY (owner-approved supplier papers demo, DECISION_LOG 7e4de291 — "What doesn't
+ * count as a try?"). Only a recognised paper that could not be read cleanly uses one of the three tries; every
+ * outcome below leaves `attempts` exactly as it was:
+ *   · `other` / `unknown` / `only_one_needed` — a photo of the wrong paper, or one we could not place
+ *   · `different_name`  — a paper from a different shop name than the papers already in
+ *   · `expired`         — a permit (or DTI/SEC) that has already ended
+ *   · `file_refused`    — a file too big to send, or one that does not open
+ *   · `reader_unavailable` — our checker being busy or timing out
+ * Two more never reach the server at all, so they cannot count by construction: the internet dropping
+ * mid-upload, and a file the picker refuses as too big (the upload widget stops both before a ref exists).
+ * Held by `lib/paper-intake.test.ts` — every listed outcome is driven through `mergeIntake` and the try count
+ * is asserted unchanged.
+ */
+export const NOT_A_TRY: readonly IntakeOutcome[] = [
+  'other',
+  'unknown',
+  'only_one_needed',
+  'different_name',
+  'expired',
+  'file_refused',
+  'reader_unavailable',
+];
 
 export type IntakeReport = {
   r2Key: string;
@@ -121,6 +150,7 @@ export const INTAKE_MESSAGE = {
   triesUsed: 'You’ve used your three tries for this paper — type the details from it instead.',
   unknown: 'We couldn’t tell which paper this is. Upload your DTI or SEC certificate, BIR 2303, or Mayor’s Permit.',
   other: 'This isn’t one of the three papers we need.',
+  differentName: 'This paper is for a different shop name than your other papers — upload the one for your shop. Not counted as a try.',
   readerDown: 'We couldn’t read papers just now. Try again in a minute.',
 } as const;
 
@@ -292,6 +322,26 @@ export function mergeIntake(
     }
     const slot = SLOT_OF[kind];
     const cur = slotNow(slot);
+
+    // A paper from a DIFFERENT shop name than the clean papers already in is not one of theirs — refused, not a
+    // try (NOT_A_TRY). Compared on the REGISTERED names only (account + owner, folded), never the shop's own name,
+    // and only when both sides were read: a name we could not read proves nothing either way.
+    const theseNames = new Set([p.model.accountName, p.model.ownerName].filter(Boolean).map((n) => foldBusinessName(n!)));
+    const otherNames = new Set<string>();
+    for (const k of ['dti_certificate', 'bir_2303', 'mayors_permit'] as const) {
+      if (k === slot) continue;
+      const other = slotNow(k);
+      if (!hasCleanFile(other)) continue;
+      for (const n of [other.evidence?.model?.accountName, other.evidence?.model?.ownerName]) if (n) otherNames.add(foldBusinessName(n));
+    }
+    // Only a CLEARLY different name is refused here (under DIFFERENT_NAME_BELOW alike). A near match ("Liwanag Photo
+    // & Film" beside "Liwanag Photo and Film Services") is filed, and the Submit check (auto-verify, check 2) sends
+    // it to a person — refusing it here would leave a real shop unable to file its own paper.
+    const best = Math.max(0, ...[...theseNames].flatMap((a) => [...otherNames].map((b) => nameSimilarity(a, b))));
+    if (theseNames.size > 0 && otherNames.size > 0 && best < DIFFERENT_NAME_BELOW) {
+      say({ outcome: 'different_name', slot, message: INTAKE_MESSAGE.differentName });
+      continue;
+    }
 
     if (!isCleanRead(p.model)) {
       if (hasCleanFile(cur)) {

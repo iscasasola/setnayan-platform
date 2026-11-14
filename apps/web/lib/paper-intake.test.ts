@@ -204,3 +204,64 @@ test('the permit address is only a PROPOSAL at upload; the pin is written only b
   // The only writers of the shop pin in this file are the confirm path.
   assert.equal((actions.match(/hq_latitude:/g) ?? []).length, 1);
 });
+
+/* ── WHAT DOES NOT COUNT AS A TRY (approved papers demo, DECISION_LOG 7e4de291) ── */
+
+import { NOT_A_TRY, DIFFERENT_NAME_BELOW } from './paper-intake';
+
+test('every NOT_A_TRY outcome leaves the try count exactly as it was', () => {
+  // One unclear try already used on the permit.
+  const start = mergeIntake({}, [page('t1', m({ registry: 'lgu', couldNotRead: ['address'], address: null }))], CTX).next;
+  assert.equal(slot(start, 'mayors_permit')?.attempts, 1);
+  const withDti = mergeIntake(start, [page('dti', m({ registry: 'dti', accountName: 'LIWANAG PHOTO AND FILM' }))], CTX).next;
+  const cases: Array<[string, PageRead]> = [
+    ['other', page('o', m({ registry: 'other' }))],
+    ['unknown', page('u', m({ registry: 'unreadable' }))],
+    ['different_name', page('d', m({ registry: 'lgu', accountName: 'KUSINA ROSARIO CATERING', ownerName: 'MARIA SANTOS', expirationDate: '2026-12-31' }))],
+    ['expired', page('e', m({ registry: 'lgu', accountName: 'LIWANAG PHOTO AND FILM', expirationDate: '2025-12-31' }))],
+    ['file_refused', page('f', null, { fileProblem: 'The file is over 15 MB.' })],
+    ['reader_unavailable', page('r', null)],
+    ['only_one_needed', page('s', m({ registry: 'sec', accountName: 'LIWANAG PHOTO AND FILM', unsure: ['owner_name', 'account_name'] }))],
+  ];
+  const seen = new Set<string>();
+  for (const [want, pg] of cases) {
+    const out = mergeIntake(withDti, [pg], CTX);
+    assert.equal(out.reports[0]!.outcome, want, want);
+    seen.add(want);
+    assert.equal(slot(out.next, 'mayors_permit')?.attempts, 1, `${want} used a try`);
+    if (want !== 'only_one_needed') assert.ok(out.discard.includes(pg.r2Key), `${want} kept a file it refused`);
+  }
+  assert.deepEqual([...seen].sort(), [...NOT_A_TRY].sort(), 'NOT_A_TRY and the tested list drifted apart');
+});
+
+test('a paper from a DIFFERENT shop name is refused and not counted; a near match is filed for the Submit check', () => {
+  const dti = mergeIntake({}, [page('dti', m({ registry: 'dti', accountName: 'LIWANAG PHOTO AND FILM', ownerName: 'RAMON BAUTISTA' }))], CTX).next;
+  const other = mergeIntake(dti, [page('x', m({ registry: 'bir', accountName: 'KUSINA ROSARIO CATERING', ownerName: 'MARIA SANTOS', registrationNumber: '210334871000' }))], CTX);
+  assert.equal(other.reports[0]!.outcome, 'different_name');
+  assert.match(other.reports[0]!.message, /Not counted as a try/);
+  assert.equal(other.next.bir_2303, undefined);
+  const near = mergeIntake(dti, [page('y', m({ registry: 'bir', accountName: 'LIWANAG PHOTO & FILM SERVICES', ownerName: null, registrationNumber: '210334871000' }))], CTX);
+  assert.equal(near.reports[0]!.outcome, 'read_ok', 'a near match is filed (the Submit check sends it to a person)');
+  const owner = mergeIntake(dti, [page('z', m({ registry: 'bir', accountName: null, ownerName: 'RAMON BAUTISTA', registrationNumber: '210334871000' }))], CTX);
+  assert.equal(owner.reports[0]!.outcome, 'read_ok', 'a sole proprietor’s BIR names the owner — that matches');
+  assert.ok(DIFFERENT_NAME_BELOW > 0 && DIFFERENT_NAME_BELOW < 1);
+});
+
+test('a BLURRY copy of a recognised paper DOES count (demo: "Try 2 of 3")', () => {
+  const t = mergeIntake({}, [page('b', m({ registry: 'lgu', couldNotRead: ['address'], address: null }))], CTX);
+  assert.equal(t.reports[0]!.outcome, 'unreadable');
+  assert.equal(slot(t.next, 'mayors_permit')?.attempts, 1);
+  assert.ok(!NOT_A_TRY.includes('unreadable'));
+});
+
+test('after 3 tries the PERMIT typed form is the demo’s two fields, and the admin sees them on a request card', () => {
+  const place = stripComments(readFileSync(join(WEB, 'app', 'vendor-dashboard', 'shop', '_components', 'paper-upload-place.tsx'), 'utf8'));
+  const permit = place.slice(place.indexOf('mayors_permit: ['), place.indexOf('],', place.indexOf('mayors_permit: [')));
+  assert.match(permit, /key: 'permit_number', label: 'Permit number'/);
+  assert.match(permit, /key: 'valid_until', label: 'Good until'/);
+  assert.match(place, /Send for checking/);
+  const admin = stripComments(readFileSync(join(WEB, 'app', 'admin', 'verify', 'page.tsx'), 'utf8'));
+  assert.match(admin, /function typedBySupplier\(/);
+  assert.match(admin, /Typed by the supplier · Try \{formatCount\(typed\.attempts\)\}/);
+  assert.match(admin, /permit_number: 'Permit number'/);
+});

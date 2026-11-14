@@ -7,6 +7,8 @@
  * names a person: the display name; else first + last, joined with a space (never a dash — F-W3-22's "Someone —");
  * else null, and the caller says its neutral word. Never the email (RA 10173 — the group reads names only).
  */
+import { realNameOrNull } from './no-name';
+
 export type AccountNameRow = {
   display_name?: string | null;
   first_name?: string | null;
@@ -18,8 +20,9 @@ export const ACCOUNT_NAME_COLUMNS = 'display_name, first_name, last_name';
 
 export function accountPersonName(r: AccountNameRow | null | undefined): string | null {
   if (!r) return null;
-  const shown = (r.display_name ?? '').trim();
+  // RW-275 (re-walk 14 Nov): a STAND-IN is no name — "Someone —" reached the group chat as a member's name, the same
+  // stand-in RW-64 kept off three screens. `realNameOrNull` is that one rule.
+  const shown = realNameOrNull(r.display_name);
   if (shown) return shown;
-  const joined = [r.first_name, r.last_name].map((p) => (p ?? '').trim()).filter(Boolean).join(' ');
-  return joined || null;
+  return realNameOrNull([r.first_name, r.last_name].map((p) => (p ?? '').trim()).filter(Boolean).join(' '));
 }

@@ -171,12 +171,12 @@ export function DetailsBoundField({
             disabled={pending}
             className="sn-press ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-full bg-ink/5 px-3 text-[12.5px] font-semibold text-ink/75 transition-colors duration-300 ease-in-out hover:bg-ink/10 disabled:opacity-50"
           >
-            <span className="font-normal text-ink/55">Edited here ·</span>
+            <span className="font-normal text-ink/75">Edited here ·</span>
             <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Use {DETAILS_FACT[fact].boxLabel.toLowerCase()}
           </button>
         ) : (
-          <span className="ml-auto text-[12px] font-medium text-ink/55" data-details-from="">
+          <span className="ml-auto text-[12px] font-medium text-ink/75" data-details-from="">
             <InfoTip label="Everywhere" align="end">
               Your {label.toLowerCase()} is written once, and every scene that shows it follows. Change it here and we
               ask whether it changes everywhere or only in this scene.
@@ -199,7 +199,7 @@ export function DetailsBoundField({
         placeholder="A heartfelt note to everyone joining you…"
         className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-[16px] leading-relaxed text-ink"
       />
-      {onStartingPoint && startingHint ? <p className="text-[12px] text-ink/55">{startingHint}</p> : null}
+      {onStartingPoint && startingHint ? <p className="text-[12px] text-ink/75">{startingHint}</p> : null}
 
       {asking && changed ? (
         <div role="group" aria-label={`Where should this change to your ${label.toLowerCase()} go?`} data-details-ask="" className="space-y-2 rounded-xl bg-ink/[0.04] p-3">
@@ -223,7 +223,7 @@ export function DetailsBoundField({
             Just this scene
           </button>
           {blank ? (
-            <p className="text-[12px] text-ink/60">A scene of its own needs words. To clear the message, change it everywhere.</p>
+            <p className="text-[12px] text-ink/75">A scene of its own needs words. To clear the message, change it everywhere.</p>
           ) : null}
           <button
             type="button"
@@ -232,7 +232,7 @@ export function DetailsBoundField({
               setAsking(false);
               preview(opening);
             }}
-            className="sn-press flex min-h-10 w-full items-center justify-center text-[13px] font-semibold text-ink/65 hover:text-ink"
+            className="sn-press flex min-h-10 w-full items-center justify-center text-[13px] font-semibold text-ink/75 hover:text-ink"
           >
             Cancel
           </button>
@@ -272,7 +272,7 @@ export function DetailsBoundField({
         </div>
       )}
 
-      <p className="text-[12px] text-ink/55">In your draft — guests see it after you Apply.</p>
+      <p className="text-[12px] text-ink/75">In your draft — guests see it after you Apply.</p>
       {error ? (
         <p role="alert" className="text-[12.5px] font-semibold text-terracotta-700">
           {error}

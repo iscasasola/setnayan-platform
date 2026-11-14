@@ -21,6 +21,7 @@ import { PairTargetPicker } from './_components/pair-target-picker';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { addSponsor } from './actions';
 import { formatCount } from '@/lib/format-number';
+import { InfoTip } from '@/app/_components/info-tip';
 
 export const metadata = {
   title: 'Sponsors',
@@ -383,17 +384,15 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
         );
       })}
 
-      <p className="text-center text-xs text-ink/55">
-        Sponsors who accept are auto-added to your guest list with their
-        sponsor role + RSVP marked Attending. Edit them anytime from
-        <Link
-          href={`/dashboard/${eventId}/guests`}
-          className="ml-1 text-terracotta hover:text-terracotta-700"
-        >
-          your guest list
+      {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 7): one line and the way to the list; the rest behind ⓘ. */}
+      <div className="flex flex-wrap items-center justify-center gap-x-2 text-xs text-ink/70">
+        <InfoTip label="Sponsors who accept are auto-added to your guest list." labelAs="span" labelClassName="text-ink/70">
+          With their sponsor role + RSVP marked Attending. Edit them anytime from your guest list.
+        </InfoTip>
+        <Link href={`/dashboard/${eventId}/guests`} className="inline-flex min-h-11 items-center font-medium text-terracotta-700">
+          Your guest list
         </Link>
-        .
-      </p>
+      </div>
     </section>
   );
 }

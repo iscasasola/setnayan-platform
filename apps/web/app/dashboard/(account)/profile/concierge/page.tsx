@@ -33,6 +33,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserEvents } from '@/lib/events';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
 import {
   CONCIERGE_ENABLED,
   type ConciergeStatus,
@@ -64,29 +66,24 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
   if (!CONCIERGE_ENABLED) {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-        <Link href="/dashboard/profile" className="sn-chip sn-press w-fit">
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Back to profile
-        </Link>
-        <section className="sn-tile mt-6 p-8 text-center">
+        <ActionButton tone="neutral" icon={<ArrowLeft aria-hidden />} label="Back to profile" href="/dashboard/profile" />
+        <section className="mt-6 py-6 text-center">
           <Gem aria-hidden className="mx-auto h-8 w-8 text-terracotta" strokeWidth={1.5} />
           <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
             Setnayan AI
           </h1>
-          <p className="mt-2 text-base text-ink/65">
-            Your in-app planner that surfaces the next step every time you open the dashboard.
-          </p>
-          <p className="mt-1 text-sm text-ink/55">
-            All planning tools — guest list, suppliers, mood board, schedule — work for every event,
-            regardless of whether Setnayan AI is activated.
-          </p>
+          <InfoTip
+            label="Your in-app planner that surfaces the next step every time you open the dashboard."
+            labelAs="p"
+            labelClassName="mt-2 text-base text-ink/75"
+            className="justify-center"
+          >
+            All planning tools — guest list, suppliers, mood board, schedule — work for every event, regardless of whether
+            Setnayan AI is activated.
+          </InfoTip>
           <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-3">
-            <Link href="/pricing" className="button-primary">
-              See pricing
-            </Link>
-            <Link href="/dashboard/profile" className="sn-chip sn-press">
-              Back to profile
-            </Link>
+            <ActionButton tone="brand" main icon={<Gem aria-hidden />} label="See pricing" href="/pricing" />
+            <ActionButton tone="neutral" icon={<ArrowLeft aria-hidden />} label="Back to profile" href="/dashboard/profile" />
           </div>
         </section>
       </div>
@@ -166,7 +163,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
           activatedAt={todaysFocusRow?.concierge_activated_at ?? null}
         />
       ) : (
-        <p className="sn-tile border-dashed p-6 text-center text-sm text-ink/60">
+        <p className="py-3 text-sm text-ink/70">
           Create your first event from the dashboard to manage Setnayan AI.
         </p>
       )}
@@ -216,15 +213,15 @@ function StatusPanel({
   if (status === 'active' || status === 'trial') {
     const days = daysRemaining(expiresAt);
     return (
-      <section className="rounded-tile border border-success-300/60 bg-success-50 p-6">
+      <section className="py-2">
         <header className="mb-3 flex items-center gap-2">
-          <CheckCircle2 aria-hidden className="h-4 w-4 text-success-700" strokeWidth={1.75} />
-          <p className="sn-eye text-success-900/75">
+          <CheckCircle2 aria-hidden className="h-4 w-4 text-[rgb(var(--color-ok))]" strokeWidth={1.75} />
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[rgb(var(--color-ok))]">
             Setnayan AI · active
           </p>
         </header>
         <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
-        <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <dl className="mt-4 divide-y divide-ink/10 border-y border-ink/10">
           <FactRow label="Activated" value={formatConciergeDate(activatedAt)} />
           <FactRow label="Active until" value={formatConciergeDate(expiresAt)} />
           {days !== null ? (
@@ -234,30 +231,41 @@ function StatusPanel({
             />
           ) : null}
         </dl>
-        <p className="mt-4 text-sm text-success-900/80">
-          Your daily wedding planner is unlocked across every event surface. Head to your event
-          home to see today&rsquo;s recommended step.
-        </p>
+        <InfoTip
+          label="Your daily wedding planner is unlocked across every event surface."
+          labelAs="p"
+          labelClassName="text-sm text-ink/75"
+          className="mt-4"
+        >
+          Head to your event home to see today&rsquo;s recommended step.
+        </InfoTip>
       </section>
     );
   }
 
   if (status === 'expired') {
     return (
-      <section className="sn-tile p-6">
+      <section className="py-2">
         <header className="mb-3 flex items-center gap-2">
-          <Clock aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />
-          <p className="sn-eye">Setnayan AI ended</p>
+          <Clock aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.75} />
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Setnayan AI ended</p>
         </header>
         <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
-        <p className="mt-1 text-sm text-ink/65">
-          Setnayan AI ended on <strong>{formatConciergeDate(expiresAt)}</strong>. Your
-          planning progress is saved — pick it back up anytime.
-        </p>
+        <InfoTip
+          label={`Setnayan AI ended on ${formatConciergeDate(expiresAt)}.`}
+          labelNode={
+            <>
+              Setnayan AI ended on <strong>{formatConciergeDate(expiresAt)}</strong>.
+            </>
+          }
+          labelAs="p"
+          labelClassName="text-sm text-ink/75"
+          className="mt-1"
+        >
+          Your planning progress is saved — pick it back up anytime.
+        </InfoTip>
         <div className="mt-4">
-          <Link href="/pricing" className="button-primary">
-            See pricing
-          </Link>
+          <ActionButton tone="brand" main icon={<Gem aria-hidden />} label="See pricing" href="/pricing" />
         </div>
       </section>
     );
@@ -265,22 +273,18 @@ function StatusPanel({
 
   // DIY — Setnayan AI not yet activated on this event.
   return (
-    <section className="sn-tile p-6">
+    <section className="py-2">
       <header className="mb-3 flex items-center gap-2">
         <Gem aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-        <p className="sn-eye">Currently · DIY</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Currently · DIY</p>
       </header>
       <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
-      <p className="mt-1 text-sm text-ink/65">
-        You&rsquo;re planning on your own. Every dashboard tool — guest list, suppliers, mood board,
-        schedule — works the same. Setnayan AI adds a daily &ldquo;here&rsquo;s the next
-        step&rdquo; suggestion every time you open the app.
-      </p>
+      <InfoTip label="You’re planning on your own." labelAs="p" labelClassName="text-sm text-ink/75" className="mt-1">
+        Every dashboard tool — guest list, suppliers, mood board, schedule — works the same. Setnayan AI adds a daily
+        &ldquo;here&rsquo;s the next step&rdquo; suggestion every time you open the app.
+      </InfoTip>
       <div className="mt-4">
-        <Link href="/pricing" className="button-primary inline-flex items-center gap-2">
-          <Gem aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          See pricing
-        </Link>
+        <ActionButton tone="brand" main icon={<Gem aria-hidden />} label="See pricing" href="/pricing" />
       </div>
     </section>
   );
@@ -288,9 +292,9 @@ function StatusPanel({
 
 function FactRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="sn-row space-y-0.5 p-3">
-      <dt className="sn-eye">{label}</dt>
-      <dd className="font-mono text-base text-ink">{value}</dd>
+    <div className="flex min-h-14 items-center justify-between gap-3 py-2">
+      <dt className="text-sm text-ink/70">{label}</dt>
+      <dd className="text-base font-semibold tabular-nums text-ink">{value}</dd>
     </div>
   );
 }

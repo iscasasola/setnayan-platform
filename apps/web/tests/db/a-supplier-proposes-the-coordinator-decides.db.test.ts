@@ -91,8 +91,8 @@ async function newUser(email: string): Promise<string> {
 }
 async function bookedShop(uid: string, name: string, services: string[], category: string, eventId = W.eventId): Promise<string> {
   const vp = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, $2, 'Manila', $3::text[], 'verified', NOW()) RETURNING vendor_profile_id`,
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES ($1, $2, 'Manila', $3::text[], 'verified', NOW(), 'verified') RETURNING vendor_profile_id`,
     [uid, name, services],
   );
   const shop = vp.rows[0]!.vendor_profile_id;

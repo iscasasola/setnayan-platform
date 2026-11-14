@@ -97,14 +97,22 @@ test('4 · the save touches the pack only when the row was drawn', () => {
   assert.ok(src.indexOf('giftColumns(', at) > at, 'the pack is no longer checked through giftColumns');
 });
 
-test('5 · one page of fields, in the prototype’s order, none of them inside More settings', () => {
+test('5 · the short form: name · price · included · photos first; extras and the gift under More options', () => {
+  /* 🔁 RE-AIMED 2026-11-14 (cut 3, owner-approved — DECISION_LOG "THE SEVEN SUPPLIER CUTS ARE APPROVED"): the first page
+     is name · price · what's included · photos; Extras and the Gift moved under More options, in the same sheet. The claim
+     is unchanged in kind and stricter in place: each field has ONE place, in the order drawn. */
   const src = read(MAKER);
   // The JSX attribute (` data-maker-row="…"`), never the save's `[data-maker-row="included"]` selector.
-  const order = ['name', 'price', 'included', 'extras', 'gift', 'photos'].map((k) => src.search(new RegExp(`(?<!\\[)data-maker-row="${k}"`)));
-  order.forEach((at, i) => assert.ok(at > 0, `the ${['name', 'price', 'included', 'extras', 'gift', 'photos'][i]} field is gone`));
+  const first = ['name', 'price', 'included', 'photos'];
+  const order = first.map((k) => src.search(new RegExp(`(?<!\\[)data-maker-row="${k}"`)));
+  order.forEach((at, i) => assert.ok(at > 0, `the ${first[i]} field is gone`));
   for (let i = 1; i < order.length; i++) assert.ok(order[i]! > order[i - 1]!, 'the first page is out of the prototype’s order');
   const more = src.indexOf('data-maker-more-wrap=');
-  assert.ok(more > order[order.length - 1]!, 'a first-page field sits inside More settings');
+  assert.ok(more > order[order.length - 1]!, 'a first-page field sits inside More options');
+  for (const k of ['specialties', 'extras', 'gift']) {
+    const at = src.search(new RegExp(`(?<!\\[)data-maker-row="${k}"`));
+    assert.ok(at > more, `${k} is back on the first page`);
+  }
   // The folds the first page took over are not drawn twice.
   for (const gone of ['data="m-price"', 'data="m-addons"', 'data="m-details"', 'data="photos"', 'data="price"', 'data="included"']) {
     assert.ok(!src.includes(gone), `${gone} is drawn again — a field must have one place`);

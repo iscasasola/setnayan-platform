@@ -1,7 +1,8 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Check, Plus, Send } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { createClient } from '@/lib/supabase/client';
 import { askOutcome, cleanAskLabel, type AskOutcome } from '@/lib/event-type-requests';
@@ -59,14 +60,14 @@ export function AskForEventType() {
           setOutcome(null);
           setOpen(true);
         }}
-        className="sn-press sn-press-ring mt-4 flex min-h-11 w-full items-center gap-3 rounded-2xl border-[1.5px] border-dashed border-ink/15 px-4 py-3 text-left transition-colors hover:border-gold/40"
+        className="sn-press sn-press-ring mt-4 flex min-h-14 w-full items-center gap-3 border-y border-ink/10 py-3 text-left transition-colors hover:bg-ink/[0.03]"
       >
-        <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink/[0.06] text-terracotta">
+        <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-mulberry/10 text-sn-accent">
           <Plus className="h-5 w-5" strokeWidth={2} />
         </span>
         <span className="min-w-0">
           <span className="block text-[15px] font-semibold text-ink">Can’t find yours? Ask us to add it</span>
-          <span className="block text-[13px] text-ink/60">We add it with the right suppliers</span>
+          <span className="block text-[13px] text-ink/75">We add it with the right suppliers</span>
         </span>
       </button>
 
@@ -83,7 +84,7 @@ export function AskForEventType() {
             </p>
           ) : (
             <>
-              <p className="text-sm text-ink/65">
+              <p className="text-sm text-ink/75">
                 Tell us the kind of event. We’ll add it with the suppliers it needs and let you know here.
               </p>
               <input
@@ -101,11 +102,11 @@ export function AskForEventType() {
                 type="text"
                 value={label}
               />
-              <p className="text-[13px] text-ink/60">
+              <p className="text-[13px] text-ink/75">
                 Meanwhile, start with the closest type — you can switch once yours is added.
               </p>
               {outcome ? (
-                <p role="alert" className="text-sm text-terracotta-700">
+                <p role="alert" className="text-sm text-[rgb(var(--color-danger))]">
                   {outcome === 'too_short'
                     ? 'Type the kind of event first.'
                     : outcome === 'signed_out'
@@ -115,14 +116,17 @@ export function AskForEventType() {
               ) : null}
             </>
           )}
-          <button
+          <ActionButton
             type="button"
+            tone="brand"
+            main
+            icon={sent ? Check : Send}
+            label={sent ? 'Done' : sending ? 'Sending…' : 'Send to Setnayan'}
             disabled={sending}
+            waiting={sending}
             onClick={sent ? () => setOpen(false) : send}
-            className="button-primary min-h-12 w-full"
-          >
-            {sent ? 'Done' : sending ? 'Sending…' : 'Send to Setnayan'}
-          </button>
+            className="w-full"
+          />
         </div>
       </Sheet>
     </>

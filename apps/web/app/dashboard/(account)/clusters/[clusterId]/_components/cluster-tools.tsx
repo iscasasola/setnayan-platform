@@ -62,7 +62,7 @@ export function ClusterTools({
 
       {error ? (
         <p
-          className="text-sm text-danger"
+          className="text-sm text-[rgb(var(--color-danger))]"
           role="alert"
         >
           {error}
@@ -73,7 +73,7 @@ export function ClusterTools({
       <div>
         <h3 className="text-sm font-semibold text-ink">Add an event</h3>
         {!linkableMeasured ? (
-          <p className="mt-1 text-sm text-warn" role="status">
+          <p className="mt-1 text-sm text-[rgb(var(--color-warn))]" role="status">
             We could not load your other events just now — not the same as none. Refresh to try again.
           </p>
         ) : linkable.length === 0 ? (

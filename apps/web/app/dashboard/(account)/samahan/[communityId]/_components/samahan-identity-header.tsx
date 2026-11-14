@@ -211,7 +211,7 @@ export function SamahanIdentityHeader({
           {metaLine}
         </div>
       </div>
-      {error ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
+      {error ? <p className="mt-2 text-sm text-[rgb(var(--color-danger))]">{error}</p> : null}
     </div>
   );
 }

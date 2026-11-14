@@ -106,7 +106,7 @@ export function AskForEventType() {
                 Meanwhile, start with the closest type — you can switch once yours is added.
               </p>
               {outcome ? (
-                <p role="alert" className="text-sm text-danger">
+                <p role="alert" className="text-sm text-[rgb(var(--color-danger))]">
                   {outcome === 'too_short'
                     ? 'Type the kind of event first.'
                     : outcome === 'signed_out'

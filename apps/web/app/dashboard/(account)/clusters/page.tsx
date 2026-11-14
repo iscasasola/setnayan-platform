@@ -57,7 +57,7 @@ export default async function ClustersPage() {
 
       {/* An unreadable list is not an empty one. */}
       {!clusters.measured ? (
-        <p className="text-sm text-warn" role="status">
+        <p className="text-sm text-[rgb(var(--color-warn))]" role="status">
           We could not load your groups just now — not the same as none. Refresh to try again.
         </p>
       ) : clusters.rows.length === 0 ? (

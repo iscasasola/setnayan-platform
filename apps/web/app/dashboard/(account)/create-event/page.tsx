@@ -394,7 +394,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
       ) : errorMessage ? (
         <p
           role="alert"
-          className="mb-6 text-sm text-danger"
+          className="mb-6 text-sm text-[rgb(var(--color-danger))]"
         >
           {errorMessage}
         </p>

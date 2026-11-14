@@ -180,7 +180,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
         </p>
 
         {!budgets ? (
-          <p className="mt-2 text-sm text-warn" role="status">
+          <p className="mt-2 text-sm text-[rgb(var(--color-warn))]" role="status">
             We could not read the events in this group, so there is no total to show.
           </p>
         ) : budgets.totalPhp === null ? (
@@ -228,7 +228,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
         exact defect this repo has already shipped once and fixed seven times.
       */}
       {!timeline.measured ? (
-        <p className="text-sm text-warn" role="status">
+        <p className="text-sm text-[rgb(var(--color-warn))]" role="status">
           We could not load the events in this group — not the same as none. Refresh to try again.
         </p>
       ) : timeline.rows.length === 0 ? (
@@ -307,7 +307,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
           </p>
 
           {!roster.measured ? (
-            <p className="mt-2 text-sm text-warn" role="status">
+            <p className="mt-2 text-sm text-[rgb(var(--color-warn))]" role="status">
               We could not load the guest lists just now — not the same as none. Refresh to try
               again.
             </p>

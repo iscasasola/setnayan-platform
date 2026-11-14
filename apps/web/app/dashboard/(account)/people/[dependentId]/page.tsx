@@ -224,7 +224,7 @@ export default async function DependentPage({
         {unmeasured.length > 0 ? (
           <div
             role="status"
-            className="mb-4 space-y-1 text-sm text-warn"
+            className="mb-4 space-y-1 text-sm text-[rgb(var(--color-warn))]"
           >
             {unmeasured.map((source) => (
               <p key={source}>{UNMEASURED_COPY[source]}</p>

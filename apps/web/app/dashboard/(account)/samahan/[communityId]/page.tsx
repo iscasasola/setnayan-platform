@@ -172,7 +172,7 @@ export default async function SamahanSpacePage({
         </p>
       ) : null}
       {errorMessage ? (
-        <p role="alert" className="mt-2 text-sm text-danger">
+        <p role="alert" className="mt-2 text-sm text-[rgb(var(--color-danger))]">
           {errorMessage}
         </p>
       ) : null}
@@ -316,7 +316,7 @@ function MembersTab({
                   <SubmitButton
                     overlay={false}
                     pendingLabel="Leaving…"
-                    className="min-h-11 rounded-md px-2 text-[13px] font-medium text-danger"
+                    className="min-h-11 rounded-md px-2 text-[13px] font-medium text-[rgb(var(--color-danger))]"
                   >
                     Leave group
                   </SubmitButton>

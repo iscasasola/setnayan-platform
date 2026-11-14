@@ -30,7 +30,7 @@ export function CreateClusterForm({
 
       {error ? (
         <p
-          className="mt-3 text-sm text-danger"
+          className="mt-3 text-sm text-[rgb(var(--color-danger))]"
           role="alert"
         >
           {error}

@@ -35,7 +35,7 @@ export default async function NewSamahanPage({
       {errorMessage ? (
         <p
           role="alert"
-          className="mb-6 text-sm text-danger"
+          className="mb-6 text-sm text-[rgb(var(--color-danger))]"
         >
           {errorMessage}
         </p>

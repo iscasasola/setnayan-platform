@@ -134,7 +134,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
 
   return (
     <RoleNamesProvider names={roleNames}>
-    <div className="mx-auto w-full max-w-2xl space-y-6">
+    <div className="mx-auto w-full max-w-2xl tab:max-w-3xl space-y-6">
       <header className="space-y-1">
         <Link
           href={`/dashboard/${eventId}/guests`}

@@ -6400,6 +6400,25 @@ div:has(> [data-apply-pro-sheet]),
     max-width: 64rem;
     margin-inline: auto;
   }
+  /* 🖥 THE READING COLUMN FROM 701 (owner D1, tablet/desktop lane 1, 2026-11-12).
+   * The large-screen system has three page widths: reading 48rem (`tab:max-w-3xl`),
+   * wide 64rem (`tab:max-w-5xl`) and the full body (`tab:max-w-none`). `.sn-col` is
+   * the READING one from the `tab` line (701px, `tailwind.config.ts` → screens.tab).
+   * Below 701 nothing changes: the 64rem cap above cannot bind on a phone.
+   *
+   * `.sn-col-wide` is the opt-out for a page that wants the 64rem wide stage
+   * (`schedule`, `vendors`, `details`, `paperwork` — rows and grids that were drawn
+   * at 64rem). A page that wants the full body keeps writing `max-w-none`: this
+   * block is in @layer components, so any Tailwind `max-w-*` utility on the same
+   * element still wins (guests `max-w-none`, budget `max-w-3xl`). */
+  @media (min-width: 701px) {
+    .sn-col {
+      max-width: 48rem;
+    }
+    .sn-col.sn-col-wide {
+      max-width: 64rem;
+    }
+  }
 
   /* Non-navigating panel — Watch/Spaces/stat panels/form sections.
    *

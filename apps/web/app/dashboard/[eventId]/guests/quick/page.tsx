@@ -34,7 +34,7 @@ export default async function QuickAddGuestsPage({ params, searchParams }: Props
     : null;
 
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className="mx-auto w-full max-w-2xl tab:max-w-3xl">
       <Link
         href={`/dashboard/${eventId}/guests`}
         className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"

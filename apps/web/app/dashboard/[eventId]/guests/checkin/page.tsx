@@ -172,7 +172,7 @@ export default async function CheckinDeskPage({ params }: Props) {
   const hasSides = eventHasSides(await resolveRoleSetForEvent(eventId));
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
+    <div className="mx-auto w-full max-w-2xl tab:max-w-3xl px-4 py-6 sm:px-6">
       <Link
         href={`/dashboard/${eventId}/guests`}
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"

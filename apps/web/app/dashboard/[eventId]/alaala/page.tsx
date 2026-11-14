@@ -253,7 +253,7 @@ export default async function AlaalaPage({ params }: Props) {
   }
 
   return (
-    <section className="space-y-10">
+    <section className="space-y-10 tab:mx-auto tab:w-full tab:max-w-3xl">
       {/* ── Header — name the pillar + the promise + the guardrail ── */}
       <PageMasthead
         title="Your wedding, kept alive."

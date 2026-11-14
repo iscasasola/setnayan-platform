@@ -135,7 +135,7 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
       filtering: picked.length > 0,
     });
     return (
-      <div className="mx-auto w-full max-w-2xl px-4 pb-24 pt-5">
+      <div className="mx-auto w-full max-w-2xl tab:max-w-3xl px-4 pb-24 pt-5">
         <PageMasthead title={openTile.label} />
         <Link
           href={base}
@@ -273,7 +273,7 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
   return (
     // 📏 16 px gutters on a phone (house rule): the event layout's wrapper already pads 16 px, so this page adds none
     // below `sm` — it had a second 16 px, which put the list at 32 px (measured at 375, 2026-11-09).
-    <div className="mx-auto w-full max-w-2xl pb-24 pt-5 sm:px-4">
+    <div className="mx-auto w-full max-w-2xl tab:max-w-3xl pb-24 pt-5 sm:px-4">
       <PageMasthead title="Find a supplier" />
       {backToSuppliers}
       <header className="mb-4 mt-3">

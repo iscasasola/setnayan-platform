@@ -227,7 +227,7 @@ export default async function GalleriesHubPage({ params }: Props) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+    <div className="mx-auto w-full max-w-3xl tab:max-w-5xl px-4 py-6 sm:px-6">
       <PageMasthead title="Memories" />
 
       <RevealList as="div" className="mt-6 space-y-3">

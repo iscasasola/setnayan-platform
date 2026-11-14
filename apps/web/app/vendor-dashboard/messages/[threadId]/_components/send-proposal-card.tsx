@@ -3,12 +3,18 @@
 import { customerLandingHref } from '../../../customers/anchors';
 import Link from 'next/link';
 import { useState } from 'react';
+import { FileText, Send, X } from 'lucide-react';
 import {
   previewGiftForTotal,
   giftQuoteCopy,
   type GiftQuoteBasis,
 } from '@/lib/setnayan-gift';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+
+/** A field's label — the template's dark grey at 13 px, never 10 px typewriter capitals (rule 13). */
+const FIELD_LABEL = 'block text-[13px] font-medium text-[color:var(--m-slate-2)]';
 import { sendProposalFromChat } from '../proposal-actions';
 import { ValidUntilPicker } from '@/app/_components/valid-until-picker';
 import { resolveQuoteTotalCentavos } from '@/lib/quote-total';
@@ -136,7 +142,7 @@ export function SendProposalCard({
 
   if (templates.length === 0) {
     return (
-      <div className="rounded-xl border border-mulberry/25 bg-mulberry/[0.04] p-3 text-sm text-ink/70">
+      <div className="py-1 text-sm text-[color:var(--m-slate-2)]">
         {/* Under the builder now (SUP-H): a shop with no template still has
             the builder above, so this must not read as "you cannot quote". */}
         Quote the same thing often?{' '}
@@ -149,67 +155,65 @@ export function SendProposalCard({
   }
 
   const field =
-    'h-10 w-full rounded-lg border border-ink/15 bg-white/70 px-3 text-sm text-ink focus:border-mulberry focus:outline-none';
+    'h-11 w-full rounded-xl border border-[color:var(--m-line)] bg-white px-3 text-sm text-ink focus:border-mulberry focus:outline-none dark:bg-raised';
 
   return (
-    <div className="rounded-xl border border-mulberry/25 bg-mulberry/[0.04] p-3">
+    // Rule 2 · no card: it sits in the quote panel under the builder, as plain content.
+    <div className="py-1">
       {!open ? (
-        <button
+        <ActionButton
           type="button"
+          tone="neutral"
+          icon={<FileText aria-hidden strokeWidth={1.9} />}
+          label="Send from a saved template"
           onClick={() => setOpen(true)}
-          className="inline-flex h-10 items-center gap-2 rounded-lg border border-mulberry/30 bg-white/70 px-4 text-sm font-medium text-mulberry hover:border-mulberry/60"
-        >
-          <span aria-hidden>📄</span> Send from a saved template
-        </button>
+          className="!min-h-11"
+        />
       ) : (
         <form action={sendProposalFromChat} className="space-y-2.5">
           <p className="text-sm font-semibold text-ink">Send a quote</p>
           <input type="hidden" name="thread_id" value={threadId} />
 
           <label className="block space-y-1">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">Template</span>
-            <select
-              name="template_id"
-              required
+            <span className={FIELD_LABEL}>Template</span>
+            {/* Rule 4 · ONE PickMenu; the hidden field posts `template_id`, and Send waits until one is chosen. */}
+            <input type="hidden" name="template_id" value={templateId} />
+            <PickMenu
+              label="Template"
               value={templateId}
-              onChange={(e) => setTemplateId(e.target.value)}
-              className={field}
-            >
-              <option value="" disabled>
-                Choose a template…
-              </option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { key: '', label: 'Choose a template…', disabledNote: 'Pick one of your saved templates' },
+                ...templates.map((t) => ({ key: t.id, label: t.name })),
+              ]}
+              onPick={setTemplateId}
+              dataAttr="data-quote-template"
+              className="w-full !min-h-11"
+            />
           </label>
 
           {packages.length > 0 ? (
             <label className="block space-y-1">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              <span className={FIELD_LABEL}>
                 Package (optional)
               </span>
-              <select
-                name="package_id"
+              <input type="hidden" name="package_id" value={packageId} />
+              <PickMenu
+                label="Package (optional)"
                 value={packageId}
-                onChange={(e) => setPackageId(e.target.value)}
-                className={field}
-              >
-                <option value="">No package — set a price below</option>
-                {packages.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { key: '', label: 'No package — set a price below' },
+                  ...packages.map((p) => ({ key: p.id, label: p.name })),
+                ]}
+                onPick={setPackageId}
+                dataAttr="data-quote-package"
+                className="w-full !min-h-11"
+              />
             </label>
           ) : null}
 
           <div className="grid grid-cols-2 gap-2">
             <label className="block space-y-1">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">Price ₱</span>
+              <span className={FIELD_LABEL}>Price ₱</span>
               <input
                 name="total_php"
                 type="number"
@@ -223,14 +227,14 @@ export function SendProposalCard({
               />
             </label>
             <div className="block space-y-1">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">Valid until</span>
+              <span className={FIELD_LABEL}>Valid until</span>
               {/* 📅 No lifetime quotation (2026-11-09): required to send, the one shared picker. */}
               <ValidUntilPicker todayIso={todayIso} eventDate={eventDate} />
             </div>
           </div>
 
           <label className="block space-y-1">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">Title (optional)</span>
+            <span className={FIELD_LABEL}>Title (optional)</span>
             <input name="title" type="text" maxLength={160} placeholder="Auto-titled if blank" className={field} />
           </label>
 
@@ -245,10 +249,11 @@ export function SendProposalCard({
           {giftCopy ? (
             <div
               data-testid="compose-setnayan-gift"
-              className="rounded-lg border border-mulberry-600/25 bg-mulberry-600/5 px-3 py-2.5"
+              // Read-only, so a line between hairlines, not a tinted box (rule 2 · 13).
+              className="border-y border-[color:var(--m-line)] py-2.5"
             >
-              <p className="text-sm font-semibold text-mulberry-600">{giftCopy.headline}</p>
-              <p className="mt-0.5 text-xs text-ink/60">{giftCopy.detail}</p>
+              <p className="text-sm font-semibold text-ink">{giftCopy.headline}</p>
+              <p className="mt-0.5 text-[13px] text-[color:var(--m-slate-2)]">{giftCopy.detail}</p>
             </div>
           ) : null}
 
@@ -261,25 +266,24 @@ export function SendProposalCard({
             cta={papicCopy?.cta}
           />
 
-          <p className="text-xs text-ink/55">
+          <p className="text-[13px] text-[color:var(--m-slate-2)]">
             The quote appears in this chat. The couple reviews + accepts it — accepting just adds it to
             their plan, never a payment.
           </p>
 
           <div className="flex gap-2 pt-0.5">
+            {/* Rule 3 · the button piece; not `main` (the composer's Send is this screen's one). */}
             <SubmitButton
               pendingLabel="Sending…"
-              className="inline-flex h-10 items-center rounded-lg bg-mulberry px-4 text-sm font-semibold text-cream hover:bg-mulberry-600"
+              disabled={!templateId}
+              className={actionButtonClass('brand', { extra: '!min-h-11' })}
+              aria-label="Send this quote"
+              title="Send this quote"
             >
-              Send this quote
+              <Send aria-hidden strokeWidth={1.9} />
+              <span className="lbl">Send this quote</span>
             </SubmitButton>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="inline-flex h-10 items-center rounded-lg border border-ink/15 px-4 text-sm text-ink/70 hover:border-ink/40"
-            >
-              Cancel
-            </button>
+            <ActionButton type="button" tone="neutral" icon={<X aria-hidden strokeWidth={1.9} />} label="Cancel" onClick={() => setOpen(false)} className="!min-h-11" />
           </div>
         </form>
       )}

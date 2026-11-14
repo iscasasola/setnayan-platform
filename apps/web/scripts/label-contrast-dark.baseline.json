@@ -1,12 +1,9 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 220,
+  "total": 200,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
-    "app/_components/chat-thread-menu.tsx · ink on white": 1,
-    "app/_components/chat/conversation-column.tsx · ink on white": 1,
-    "app/_components/chat/conversation-column.tsx · mulberry on white": 1,
     "app/_components/facebook-dual-stream-card.tsx · ink on white": 1,
     "app/_components/file-upload.tsx · sn-accent on white": 1,
     "app/_components/home/home-reskin.css · .home-reskin-ov .hr-vb-legend": 1,
@@ -148,22 +145,13 @@
     "app/pay/[reference]/_components/pay-panel.tsx · white on ink": 1,
     "app/pay/[reference]/page.tsx · white on ink": 1,
     "app/proposals/[publicId]/page.tsx · white on success-700": 1,
-    "app/vendor-dashboard/activities/page.tsx · ink on white": 4,
-    "app/vendor-dashboard/activities/questions-section.tsx · ink on white": 3,
     "app/vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx · ink on white": 2,
     "app/vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx · ink on white": 1,
-    "app/vendor-dashboard/clients/[eventId]/_components/vendor-part-signoff.tsx · white on ink": 1,
-    "app/vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx · ink on white": 2,
     "app/vendor-dashboard/clients/[eventId]/page.tsx · ink on white": 5,
-    "app/vendor-dashboard/lines/page.tsx · ink on white": 2,
-    "app/vendor-dashboard/manpower/_components/gig-card.tsx · danger-700 on white": 1,
-    "app/vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx · ink on white": 2,
-    "app/vendor-dashboard/notifications/push-toggle.tsx · ink on white": 1,
     "app/vendor-dashboard/on-the-day/_components/issues-log.tsx · ink on white": 1,
     "app/vendor-dashboard/on-the-day/_components/shot-list.tsx · ink on white": 1,
     "app/vendor-dashboard/on-the-day/_components/vendor-status-updates.tsx · ink on white": 1,
     "app/vendor-dashboard/partnerships/page.tsx · white on ink": 2,
-    "app/vendor-dashboard/shop/_components/suggested-coverage-card.tsx · #fff on m-accent-deep": 1,
-    "app/vendor-dashboard/website/_components/flag-reason-pick.tsx · white on danger-600": 1
+    "app/vendor-dashboard/shop/_components/suggested-coverage-card.tsx · #fff on m-accent-deep": 1
   }
 }

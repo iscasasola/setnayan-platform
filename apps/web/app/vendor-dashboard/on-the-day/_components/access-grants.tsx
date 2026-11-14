@@ -55,7 +55,7 @@ export function AccessGrants({
       <div className="flex items-center justify-between gap-2 pt-4">
         <p className="home-k2">Your team on this event</p>
         <span className="flex items-center gap-1.5">
-          {pending ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin text-ink/55" strokeWidth={1.75} /> : null}
+          {pending ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin text-[color:var(--m-slate-2)]" strokeWidth={1.75} /> : null}
           <Explain title="Your team on this event">
             You always have access. Switch a teammate on to let them open just this event’s Hub — nothing else
             of your shop changes.
@@ -63,7 +63,7 @@ export function AccessGrants({
         </span>
       </div>
       {error ? (
-        <p role="alert" className="py-2 text-[13px] font-semibold text-danger-700">
+        <p role="alert" className="py-2 text-[13px] font-semibold text-[rgb(var(--color-danger))]">
           {error}
         </p>
       ) : null}
@@ -78,7 +78,7 @@ export function AccessGrants({
               attrs={{ 'data-hub-team-member': m.userId }}
             >
               {m.isOwnerAdmin ? (
-                <span className="inline-flex items-center gap-1 text-[13px] font-medium text-success-700 dark:text-success-600">
+                <span className="inline-flex items-center gap-1 text-[13px] font-medium text-[rgb(var(--color-ok))]">
                   <Check aria-hidden className="h-4 w-4" strokeWidth={2} /> In
                 </span>
               ) : (

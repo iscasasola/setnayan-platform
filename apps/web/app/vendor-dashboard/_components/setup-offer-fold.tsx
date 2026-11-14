@@ -54,7 +54,7 @@ export function SetupOfferFold({ services, maker }: { services: readonly OfferFo
       onClick={() => setOpen(true)}
       aria-haspopup="dialog"
       data-setup-add-card={tier}
-      className="sn-press grid min-h-[76px] place-items-center rounded-md border-2 border-dashed border-ink/20 px-2 py-2 text-center text-[12.5px] text-ink/70"
+      className="sn-press grid min-h-[76px] place-items-center rounded-md border-2 border-dashed border-ink/20 px-2 py-2 text-center text-[12.5px] text-[color:var(--m-slate-2)]"
     >
       <span className="flex items-center gap-1 font-semibold text-sn-accent">
         <Plus aria-hidden className="h-4 w-4" strokeWidth={2.2} />
@@ -74,7 +74,7 @@ export function SetupOfferFold({ services, maker }: { services: readonly OfferFo
             <div className="flex min-h-11 items-center gap-2">
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-medium text-ink">{s.label}</span>
-                <span className="block text-[12.5px] text-ink/60">
+                <span className="block text-[12.5px] text-[color:var(--m-slate-2)]">
                   {formatCount(Math.min(s.cards.length, s.target))} of {formatCount(s.target)}
                 </span>
               </span>
@@ -92,9 +92,9 @@ export function SetupOfferFold({ services, maker }: { services: readonly OfferFo
                 const c = s.cards[i];
                 return c ? (
                   <div key={tier} data-setup-card={tier} className="min-w-0 px-1 py-2">
-                    <small className="block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-sn-accent">{tier}</small>
+                    <small className="block text-xs font-semibold uppercase tracking-[0.08em] text-sn-accent">{tier}</small>
                     <b className="block truncate text-[13.5px] font-semibold text-ink">{c.title?.trim() || s.label}</b>
-                    <span className="block text-[12.5px] text-ink/65">{c.pricePhp == null ? 'No price yet' : `from ${formatPhp(c.pricePhp)}`}</span>
+                    <span className="block text-[12.5px] text-[color:var(--m-slate-2)]">{c.pricePhp == null ? 'No price yet' : `from ${formatPhp(c.pricePhp)}`}</span>
                   </div>
                 ) : (
                   <span key={tier}>{add(i === 2 ? 'Add your top option' : 'Add a card', tier)}</span>

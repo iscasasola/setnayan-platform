@@ -76,7 +76,7 @@ export type SheetPlan = {
   fit?: DowngradeFit | null;
 };
 
-const lead = (Icon: typeof Gem) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
+const lead = (Icon: typeof Gem) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />;
 const CYCLE_WORD: Record<Cycle, string> = { monthly: '28 days', annual: 'a year' };
 const EVERY_WORD: Record<Cycle, string> = { monthly: 'every 28 days', annual: 'every year' };
 
@@ -87,7 +87,7 @@ function LimitRow({ l, compare }: { l: LimitChange; compare: boolean }) {
       <span className="shrink-0 text-[14.5px] tabular-nums text-ink">
         {compare && l.changed ? (
           <>
-            <span className="text-ink/60">{l.now}</span> → <b className="font-semibold">{l.after}</b>
+            <span className="text-[color:var(--m-slate-2)]">{l.now}</span> → <b className="font-semibold">{l.after}</b>
           </>
         ) : (
           <b className="font-semibold">{l.after}</b>
@@ -103,7 +103,7 @@ function PayRow({ title, line, pesos, cycle }: { title: string; line: string; pe
     <div className="flex min-h-11 items-center gap-3 border-t border-ink/10 py-1.5" data-plan-pay-row="">
       <span className="min-w-0 flex-1">
         <span className="block text-[14.5px] font-medium text-ink">{title}</span>
-        <span className="block text-[12.5px] text-ink/60">{line}</span>
+        <span className="block text-[13px] text-[color:var(--m-slate-2)]">{line}</span>
       </span>
       {pesos !== null ? (
         <b className="shrink-0 text-[15px] font-semibold tabular-nums text-ink">
@@ -122,7 +122,7 @@ function AlsoRows({ also }: { also: readonly PlanLine[] }) {
       {also.map((g) => (
         <div key={g.key} className="border-t border-ink/10 py-2">
           <span className="block text-[14.5px] font-medium text-ink">{g.title}</span>
-          <span className="block text-[12.5px] text-ink/60">{g.line}</span>
+          <span className="block text-[13px] text-[color:var(--m-slate-2)]">{g.line}</span>
         </div>
       ))}
     </div>
@@ -261,7 +261,7 @@ export function PlanSheet({
                     ) : (
                       <PayRow title="What you pay" line={p.pickLine} pesos={null} />
                     )}
-                    {tooShort ? <p className="pt-2 text-[13px] text-ink/70">{tooShort}</p> : null}
+                    {tooShort ? <p className="pt-2 text-[13px] text-[color:var(--m-slate-2)]">{tooShort}</p> : null}
                     {(!onGift || keepGift) && p.paid ? <div className="pt-3">{button(p, 'renew')}</div> : null}
                   </>
                 ) : (
@@ -275,13 +275,13 @@ export function PlanSheet({
                     </div>
                     {dir === 'down' && p.fit ? (
                       <>
-                        <p className="pt-2 text-[13px] text-ink/70" data-plan-lower="">
+                        <p className="pt-2 text-[13px] text-[color:var(--m-slate-2)]" data-plan-lower="">
                           A lower plan waits until your paid days end.
                         </p>
                         <LimitsList fit={p.fit} />
                       </>
                     ) : dir === 'down' ? (
-                      <p className="pt-2 text-[13px] text-ink/70" data-plan-lower="">
+                      <p className="pt-2 text-[13px] text-[color:var(--m-slate-2)]" data-plan-lower="">
                         A lower plan waits until your paid days end. You keep what you already have; you just can&rsquo;t add
                         past its limits.
                       </p>
@@ -327,7 +327,7 @@ export function PlanSheet({
                       </div>
                     ) : null}
                     {p.paid && verified && !storeShell && price !== undefined && !tooShort ? (
-                      <p className="pt-2 text-[12.5px] text-ink/60">
+                      <p className="pt-2 text-[13px] text-[color:var(--m-slate-2)]">
                         You pay by GCash or bank and log it; {p.name} turns on when Setnayan confirms it.
                       </p>
                     ) : null}

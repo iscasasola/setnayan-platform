@@ -23,7 +23,7 @@ import type { PlanLine, PlanRowBadge } from '@/lib/vendor-plan-rows';
  * Presentational: every value arrives read; nothing here fetches or writes. The page and `/dev/supplier-plan-lab`
  * both mount it, so the lab shows what ships.
  */
-const ic = (Icon: LucideIcon) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
+const ic = (Icon: LucideIcon) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />;
 const icFold = (Icon: LucideIcon) => <span className="mr-1 flex">{ic(Icon)}</span>;
 
 export function PlanRows({
@@ -77,7 +77,7 @@ export function PlanRows({
       {titled ? <h1 className="sn-h1">Your plan</h1> : null}
       <p className="mt-2 text-[15px] text-ink" data-plan-answer="">
         <b className="font-semibold">You are on {planWord(tier)}</b> · {gift ? gift.line : pays}
-        {expiresOn && !gift ? <span className={expiresSoon ? 'font-medium text-orange' : 'text-ink/60'}> · until {expiresOn}</span> : null}
+        {expiresOn && !gift ? <span className={expiresSoon ? 'font-medium text-orange' : 'text-[color:var(--m-slate-2)]'}> · until {expiresOn}</span> : null}
       </p>
 
       {notices ? <div className="mt-3 space-y-3">{notices}</div> : null}
@@ -122,11 +122,11 @@ export function PlanRows({
           >
             <div className="pb-3">
               {receipts === null ? (
-                <p className="py-2 text-[13.5px] text-ink/70" role="status">
+                <p className="py-2 text-[13.5px] text-[color:var(--m-slate-2)]" role="status">
                   Your plan receipts couldn&rsquo;t load. Reload to try again — nothing you paid has changed.
                 </p>
               ) : receipts.length === 0 ? (
-                <p className="py-2 text-[13.5px] text-ink/60">Nothing paid for a plan yet.</p>
+                <p className="py-2 text-[13.5px] text-[color:var(--m-slate-2)]">Nothing paid for a plan yet.</p>
               ) : (
                 receipts.map((r) => (
                   <DatesRow

@@ -459,21 +459,21 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         </p>
       ) : null}
       {fileName ? (
-        <div className="flex items-center gap-2 self-start rounded-full border border-ink/15 bg-ink/[0.04] py-1 pl-3 pr-1 text-xs text-ink/75">
-          <Paperclip className="h-3.5 w-3.5 text-ink/50" strokeWidth={1.75} />
+        <div className="flex items-center gap-2 self-start rounded-full bg-[color:var(--m-paper-2)] py-0.5 pl-3 pr-0.5 text-[13px] text-ink">
+          <Paperclip className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={1.75} />
           <span className="max-w-[220px] truncate">{fileName}</span>
           <button
             type="button"
             onClick={clearFile}
             aria-label="Remove attachment"
-            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-ink/50 hover:bg-ink/10 hover:text-ink"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[color:var(--m-slate-2)] hover:bg-ink/10 hover:text-ink"
           >
             <X className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </div>
       ) : null}
       {fileError ? (
-        <p className="self-start text-xs text-terracotta" role="alert">
+        <p className="self-start text-[13px]" style={{ color: 'rgb(var(--color-danger))' }} role="alert">
           {fileError}
         </p>
       ) : null}
@@ -489,7 +489,9 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       ) : null}
       {blockError ? (
         <p
-          className="self-stretch rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-2 text-xs text-terracotta-700"
+          // A refusal in the danger colour, one line — never small gold words in a box (rules 2 · 13).
+          className="self-stretch px-1 py-1 text-[13px]"
+          style={{ color: 'rgb(var(--color-danger))' }}
           role="alert"
         >
           {blockError}
@@ -599,7 +601,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           maxLength={4000}
           placeholder={privateTo ? privateBoxPlaceholder(privateNames) : 'Message'}
           aria-label={privateTo ? privateBoxPlaceholder(privateNames) : 'Message'}
-          className={`max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 ${privateTo ? `pl-9 pr-11 ${PRIVATE_BOX_FILL}` : 'bg-ink/[0.06] px-3.5 placeholder:text-ink/45'} py-[9px] text-[15px] leading-5 text-ink outline-none ${privateTo ? PRIVATE_FOCUS_RING : 'focus:ring-2 focus:ring-sn-accent/30'}`}
+          className={`max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 ${privateTo ? `pl-9 pr-11 ${PRIVATE_BOX_FILL}` : 'bg-[color:var(--m-paper-2)] px-3.5 placeholder:text-[color:var(--m-slate-3)]'} py-[9px] text-[15px] leading-5 text-ink outline-none ${privateTo ? PRIVATE_FOCUS_RING : 'focus:ring-2 focus:ring-sn-accent/30'}`}
           data-rides=""
           onPaste={(e) => {
             // 🔒 Words only while private (owner, 9 Nov): a pasted picture or file is refused, said in the row's own words.

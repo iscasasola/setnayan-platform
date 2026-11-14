@@ -1,4 +1,4 @@
-import { Trophy } from 'lucide-react';
+import { TemplateFail, TemplateSection } from '@/app/_components/template-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchVendorSponsoredShots } from '@/lib/vendor-sponsored-shots';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -37,10 +37,12 @@ export async function SponsoredShotsStrip({
 
   if (!ok) {
     return (
-      <p className="mt-6 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-        We couldn&rsquo;t load your challenge photos just now — this isn&rsquo;t a
-        sign there are none. Try again in a moment.
-      </p>
+      <TemplateSection label="From your challenge" data="sponsored-shots">
+        <TemplateFail data="sponsored-shots">
+          We couldn&rsquo;t load your challenge photos just now — this isn&rsquo;t a
+          sign there are none. Try again in a moment.
+        </TemplateFail>
+      </TemplateSection>
     );
   }
   if (shots.length === 0) return null;
@@ -64,27 +66,20 @@ export async function SponsoredShotsStrip({
   }
 
   return (
-    <section className="mt-8">
-      <p
-        className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em]"
-        style={{ color: 'var(--m-slate-3)' }}
-      >
-        <Trophy aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        From your challenge
-      </p>
-      <p className="mt-2 max-w-prose text-sm" style={{ color: 'var(--m-slate-2)' }}>
-        Guests took these for the challenge you sponsored, and chose to share
-        them. Only photos the couple approved your challenge for appear here.
-      </p>
+    <TemplateSection
+      label="From your challenge"
+      data="sponsored-shots"
+      tip="Guests took these for the challenge you sponsored and chose to share them — only where the couple approved it."
+    >
 
       {[...byPrompt.entries()].map(([prompt, group]) => (
-        <div key={prompt} className="mt-5">
-          <p className="text-sm font-medium">{prompt}</p>
+        <div key={prompt} className="mt-3">
+          <p className="text-[15px] font-semibold text-ink">{prompt}</p>
           <ul className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
             {group.map((s) => (
               <li
                 key={s.captureId}
-                className="aspect-square overflow-hidden rounded-lg bg-ink/5"
+                className="aspect-square overflow-hidden rounded-lg bg-[color:var(--m-paper-2)]"
               >
                 {s.src ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -100,6 +95,6 @@ export async function SponsoredShotsStrip({
           </ul>
         </div>
       ))}
-    </section>
+    </TemplateSection>
   );
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useActionState, useEffect, useRef, useState } from 'react';
-import { Images } from 'lucide-react';
+import { Check, Images } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { InstagramConnectCard } from '@/app/vendor-dashboard/_components/instagram-connect-card';
 import { VideoLinksEditor } from '@/app/vendor-dashboard/_components/video-links-editor';
@@ -179,14 +180,7 @@ function GalleryForm({
         <input type="hidden" name="field" value={field} />
         {children}
         <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={!dirty || pending}
-            className="rounded-md px-3 py-1 text-xs font-medium transition-opacity disabled:opacity-40"
-            style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-          >
-            {pending ? 'Saving…' : 'Save'}
-          </button>
+          <ActionButton type="submit" tone="brand" icon={Check} label={pending ? 'Saving…' : 'Save'} disabled={!dirty || pending} />
         </div>
       </form>
     </Row>

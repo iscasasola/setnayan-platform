@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
-import { ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, CircleOff, Clock, Plus, RotateCcw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateFail, TemplateSection } from '@/app/_components/template-rows';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { SCHEDULE_BLOCK_LABEL, SCHEDULE_BLOCK_TYPES } from '@/lib/schedule';
@@ -78,117 +80,93 @@ export default async function VendorActivitiesPage({
   const minutes = totalMinutes(offered);
 
   return (
-    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 sm:px-6">
-      <header className="space-y-2">
-        <h1 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
-          What you do on the night
-        </h1>
-        <p className="max-w-prose text-sm leading-relaxed text-ink/70">
-          Write your programme down once — the roll call, the games, the bits that always
-          land — and every couple after this picks from it. They see the list; you keep the
-          list. It stays yours from wedding to wedding.
-        </p>
-      </header>
+    <section className="mx-auto w-full max-w-3xl space-y-2 px-4 py-4 sm:px-6">
+      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
+      <h1 className="sr-only">What you do on the night</h1>
 
       {sp.error ? (
-        <p role="alert" className="border border-terracotta-700/40 bg-terracotta-700/5 px-4 py-3 text-sm text-terracotta-700">
+        <p role="alert" className="py-2 text-[14px] font-semibold" style={{ color: 'rgb(var(--color-danger))' }}>
           {sp.error}
         </p>
       ) : null}
 
       {/* Add */}
-      <StayForm door="supActivities.addActivity" action={addActivity} className="space-y-3 border border-ink/10 bg-paper-deep p-4">
-        <h2 className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
-          Add a segment
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+      <TemplateSection
+        label="Add a segment"
+        first
+        tip="Write your programme once — the roll call, the games — and every couple after picks from it. It stays yours."
+      >
+        <StayForm door="supActivities.addActivity" action={addActivity} className="space-y-2">
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+            <label className="block">
+              <span className="sr-only">Segment name</span>
+              <input
+                name="label"
+                required
+                maxLength={80}
+                placeholder="e.g. Principal sponsors roll call"
+                className={FIELD}
+              />
+            </label>
+            <label className="block">
+              <span className="sr-only">How long it takes</span>
+              <select name="duration_minutes" defaultValue={15} className={FIELD}>
+                {DURATIONS.map((d) => (
+                  <option key={d} value={d}>
+                    {d} min
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="sr-only">Where in the day</span>
+              <select name="block_type" defaultValue="program" className={FIELD}>
+                {SCHEDULE_BLOCK_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {SCHEDULE_BLOCK_LABEL[t]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <label className="block">
-            <span className="sr-only">Segment name</span>
-            <input
-              name="label"
-              required
-              maxLength={80}
-              placeholder="e.g. Principal sponsors roll call"
-              className="w-full border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/40"
+            <span className="sr-only">What it is</span>
+            <textarea
+              name="blurb"
+              rows={2}
+              maxLength={400}
+              placeholder="What happens, in your words — the couple reads this while choosing."
+              className={FIELD}
             />
           </label>
-          <label className="block">
-            <span className="sr-only">How long it takes</span>
-            <select
-              name="duration_minutes"
-              defaultValue={15}
-              className="w-full border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-            >
-              {DURATIONS.map((d) => (
-                <option key={d} value={d}>
-                  {d} min
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="sr-only">Where in the day</span>
-            <select
-              name="block_type"
-              defaultValue="program"
-              className="w-full border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-            >
-              {SCHEDULE_BLOCK_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {SCHEDULE_BLOCK_LABEL[t]}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <label className="block">
-          <span className="sr-only">What it is</span>
-          <textarea
-            name="blurb"
-            rows={2}
-            maxLength={400}
-            placeholder="What happens, in your words — the couple reads this while choosing."
-            className="w-full border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/40"
-          />
-        </label>
-        <button
-          type="submit"
-          className="bg-ink px-4 py-2 font-mono text-[0.6rem] uppercase tracking-[0.16em] text-paper transition-opacity hover:opacity-90"
-        >
-          Add segment
-        </button>
-      </StayForm>
+          <ActionButton type="submit" tone="brand" main icon={<Plus aria-hidden />} label="Add segment" />
+        </StayForm>
+      </TemplateSection>
 
       {/* The list */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
-            Your menu · {offered.length} {offered.length === 1 ? 'segment' : 'segments'}
-          </h2>
-          {offered.length > 0 ? (
-            <span className="inline-flex items-center gap-1.5 font-mono text-[0.66rem] uppercase tracking-[0.16em] text-ink/55">
-              <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
+      <TemplateSection
+        label={`Your menu · ${offered.length} ${offered.length === 1 ? 'segment' : 'segments'}`}
+        right={
+          offered.length > 0 ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Clock aria-hidden className="h-4 w-4" strokeWidth={1.9} />
               {minutes} min end to end
             </span>
-          ) : null}
-        </div>
-
+          ) : null
+        }
+      >
         {!measured ? (
-          <p
-            role="alert"
-            className="border-t-[3px] border-mulberry/70 bg-mulberry/5 px-4 py-3 text-sm leading-relaxed text-ink/70"
-          >
-            <strong className="text-ink">We couldn&rsquo;t load your segments.</strong>{' '}
-            Your list has not been emptied and couples can still pick from it —
-            it just is not showing here. Reload before writing it out again.
-          </p>
+          <TemplateFail data="activities">
+            <strong>We couldn&rsquo;t load your segments.</strong> Your list has not been emptied
+            and couples can still pick from it — reload before writing it out again.
+          </TemplateFail>
         ) : offered.length === 0 ? (
-          <p className="border border-dashed border-ink/15 px-4 py-8 text-center text-sm leading-relaxed text-ink/65">
-            Nothing here yet. Add the segments you actually run — a couple can only pick
-            from what you have written down.
-          </p>
+          <TemplateEmpty data="activities">
+            Nothing here yet. Add the segments you actually run — a couple can only pick from
+            what you have written down.
+          </TemplateEmpty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
             {offered.map((a, i) => (
               <ActivityRow
                 key={a.activity_id}
@@ -199,29 +177,24 @@ export default async function VendorActivitiesPage({
             ))}
           </ul>
         )}
-      </div>
+      </TemplateSection>
 
       {retired.length > 0 ? (
-        <details className="border border-ink/10 bg-paper-deep p-4">
-          <summary className="cursor-pointer font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/60">
+        <details className="mt-[18px]">
+          <summary className="flex min-h-11 cursor-pointer items-center text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             Not offering · {retired.length}
           </summary>
-          <p className="mt-2 text-xs leading-relaxed text-ink/60">
+          <p className={TEMPLATE_SUBLINE}>
             Kept, not deleted — couples who already picked these still see them on their day.
           </p>
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-1 [&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
             {retired.map((a) => (
-              <li key={a.activity_id} className="flex items-center justify-between gap-3">
-                <span className="text-sm text-ink/70">{a.label}</span>
+              <li key={a.activity_id} className="flex min-h-14 items-center justify-between gap-3 py-2">
+                <span className="text-[15px] text-ink">{a.label}</span>
                 <StayForm door="supActivities.toggleActivityOffered" action={toggleActivityOffered}>
                   <input type="hidden" name="activity_id" value={a.activity_id} />
                   <input type="hidden" name="is_offered" value="true" />
-                  <button
-                    type="submit"
-                    className="border border-ink/15 px-2.5 py-1 font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/70 transition-colors hover:border-gild"
-                  >
-                    Offer again
-                  </button>
+                  <ActionButton type="submit" tone="neutral" icon={<RotateCcw aria-hidden />} label="Offer again" />
                 </StayForm>
               </li>
             ))}
@@ -241,6 +214,10 @@ export default async function VendorActivitiesPage({
   );
 }
 
+/** A typed field — the template's 12-corner field, 44 high, on the page's own paper. */
+const FIELD =
+  'w-full min-h-11 rounded-xl border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-[15px] text-ink placeholder:text-[color:var(--m-slate-2)]'; // no-card-ok: a typed field's own outline (inputs / selects / textareas), not a box around content
+
 /** One segment: editable in place, movable, retirable. */
 function ActivityRow({
   activity,
@@ -252,7 +229,7 @@ function ActivityRow({
   isLast: boolean;
 }) {
   return (
-    <li className="border border-ink/10 bg-white p-3">
+    <li className="py-3">
       <StayForm door="supActivities.updateActivity" action={updateActivity} className="space-y-2">
         <input type="hidden" name="activity_id" value={activity.activity_id} />
         <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
@@ -261,13 +238,13 @@ function ActivityRow({
             defaultValue={activity.label}
             maxLength={80}
             aria-label="Segment name"
-            className="w-full border border-ink/15 px-2.5 py-1.5 text-sm font-medium text-ink"
+            className={`${FIELD} font-medium`}
           />
           <select
             name="duration_minutes"
             defaultValue={activity.duration_minutes}
             aria-label="How long it takes"
-            className="border border-ink/15 px-2.5 py-1.5 text-sm text-ink"
+            className={FIELD}
           >
             {[...new Set([...DURATIONS, activity.duration_minutes])]
               .sort((a, b) => a - b)
@@ -281,7 +258,7 @@ function ActivityRow({
             name="block_type"
             defaultValue={activity.block_type}
             aria-label="Where in the day"
-            className="border border-ink/15 px-2.5 py-1.5 text-sm text-ink"
+            className={FIELD}
           >
             {SCHEDULE_BLOCK_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -297,28 +274,18 @@ function ActivityRow({
           maxLength={400}
           aria-label="What it is"
           placeholder="What happens, in your words."
-          className="w-full border border-ink/15 px-2.5 py-1.5 text-sm text-ink placeholder:text-ink/40"
+          className={FIELD}
         />
-        <button
-          type="submit"
-          className="border border-ink/15 px-2.5 py-1 font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/75 transition-colors hover:border-gild"
-        >
-          Save
-        </button>
+        <ActionButton type="submit" tone="brand" icon={<Check aria-hidden />} label="Save" />
       </StayForm>
 
-      <div className="mt-2 flex items-center gap-2 border-t border-ink/10 pt-2">
+      <div className="mt-2 flex items-center gap-2">
         <MoveButton activityId={activity.activity_id} direction="up" disabled={isFirst} />
         <MoveButton activityId={activity.activity_id} direction="down" disabled={isLast} />
         <StayForm door="supActivities.toggleActivityOffered" action={toggleActivityOffered} className="ml-auto">
           <input type="hidden" name="activity_id" value={activity.activity_id} />
           <input type="hidden" name="is_offered" value="false" />
-          <button
-            type="submit"
-            className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/55 underline-offset-4 hover:text-terracotta-700 hover:underline"
-          >
-            Stop offering
-          </button>
+          <ActionButton type="submit" tone="neutral" quiet icon={<CircleOff aria-hidden />} label="Stop offering" />
         </StayForm>
       </div>
     </li>
@@ -339,14 +306,14 @@ function MoveButton({
     <StayForm door="supActivities.reorderActivity" action={reorderActivity}>
       <input type="hidden" name="activity_id" value={activityId} />
       <input type="hidden" name="direction" value={direction} />
-      <button
+      <ActionButton
         type="submit"
+        tone="neutral"
+        iconOnly
         disabled={disabled}
-        aria-label={direction === 'up' ? 'Move earlier' : 'Move later'}
-        className="inline-flex h-7 w-7 items-center justify-center border border-ink/15 text-ink/60 transition-colors hover:border-gild disabled:opacity-30"
-      >
-        <Icon aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-      </button>
+        icon={<Icon aria-hidden strokeWidth={1.9} />}
+        label={direction === 'up' ? 'Move earlier' : 'Move later'}
+      />
     </StayForm>
   );
 }

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Banknote, HandCoins, Check, X, Loader2 } from 'lucide-react';
+import { Banknote, HandCoins, Check, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { TEMPLATE_MONEY, TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 import {
   acceptManpowerGig,
   completeGig,
@@ -141,19 +143,20 @@ export function GigCard({
   }
 
   return (
-    <article className="sn-row p-4" style={{ boxShadow: 'var(--m-shadow-sm)' }}>
+    <article className="border-t border-[color:var(--m-line)] py-3 first:border-t-0">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900">{gig.gig_label}</p>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="text-[15px] font-semibold text-ink">{gig.gig_label}</p>
+          <p className={`mt-1 ${TEMPLATE_SUBLINE}`}>
             <Banknote
-              className="-mt-0.5 mr-1 inline-block h-4 w-4 text-slate-500"
+              aria-hidden
+              className="-mt-0.5 mr-1 inline-block h-4 w-4"
               strokeWidth={1.75}
             />
-            {formatPhp(gig.cash_amount_php_centavos)} · paid to your crew direct
+            <span className={TEMPLATE_MONEY}>{formatPhp(gig.cash_amount_php_centavos)}</span> · paid to your crew direct
           </p>
           {mode !== 'open' ? (
-            <p className="mt-1 text-xs text-slate-500">
+            <p className={`mt-1 ${TEMPLATE_SUBLINE}`}>
               Accepted {formatRelative(gig.accepted_at) ?? '—'}
               {gig.completed_at
                 ? ` · Wrapped ${formatRelative(gig.completed_at) ?? ''}`
@@ -161,90 +164,59 @@ export function GigCard({
             </p>
           ) : null}
           {gig.notes ? (
-            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600">
+            <p className={`mt-2 whitespace-pre-line ${TEMPLATE_SUBLINE}`}>
               {gig.notes}
             </p>
           ) : null}
           {gig.cancellation_reason ? (
-            <p className="mt-2 text-sm text-danger-700">
+            <p className="mt-2 text-[14px]" style={{ color: 'rgb(var(--color-danger))' }}>
               Cancellation reason: {gig.cancellation_reason}
             </p>
           ) : null}
         </div>
         <span
-          className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs ring-1 ${statusStyle}`}
+          className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[13px] ring-1 ${statusStyle}`}
         >
           {statusLabel}
         </span>
       </div>
 
-      {banner ? (
-        <div
+      {banner && 'msg' in banner ? (
+        <p
           role={banner.kind === 'error' ? 'alert' : 'status'}
-          className={`mt-3 rounded-md px-3 py-2 text-sm ${
-            banner.kind === 'error'
-              ? 'border border-danger-300/50 bg-danger-50 text-danger-900'
-              : 'border border-success-300/50 bg-success-50 text-success-900'
-          }`}
+          className="mt-2 text-[14px] font-semibold"
+          style={{ color: banner.kind === 'error' ? 'rgb(var(--color-danger))' : 'rgb(var(--color-ok))' }}
         >
-          {'msg' in banner ? banner.msg : null}
-        </div>
+          {banner.msg}
+        </p>
       ) : null}
 
       {mode === 'open' ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
+          <ActionButton
+            tone="brand"
+            icon={HandCoins}
+            label={pending ? 'Accepting…' : 'Accept gig'}
+            waiting={pending}
             onClick={handleAccept}
-            disabled={pending}
-            className="m-btn inline-flex items-center gap-1.5 disabled:opacity-60"
-            style={{
-              background: 'var(--m-orange)',
-              color: 'white',
-              padding: '8px 16px',
-              borderRadius: 'var(--m-r-md)',
-              fontSize: '14px',
-              fontWeight: 500,
-            }}
-          >
-            {pending ? (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />
-            ) : (
-              <HandCoins className="h-4 w-4" strokeWidth={1.75} />
-            )}
-            {pending ? 'Accepting…' : 'Accept gig'}
-          </button>
+          />
         </div>
       ) : null}
 
       {mode === 'accepted' ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
+          <ActionButton
+            tone="ok"
+            icon={Check}
+            label={pending ? 'Wrapping…' : 'Mark wrapped'}
+            waiting={pending}
             onClick={handleComplete}
-            disabled={pending}
-            className="m-btn inline-flex items-center gap-1.5 disabled:opacity-60"
-            style={{
-              background: 'var(--m-orange)',
-              color: 'white',
-              padding: '8px 14px',
-              borderRadius: 'var(--m-r-md)',
-              fontSize: '13px',
-              fontWeight: 500,
-            }}
-          >
-            {pending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
-            ) : (
-              <Check className="h-3.5 w-3.5" strokeWidth={1.75} />
-            )}
-            {pending ? 'Wrapping…' : 'Mark wrapped'}
-          </button>
+          />
 
           {banner?.kind === 'cancel-form' ? (
-            <div className="flex w-full flex-wrap items-end gap-2 rounded-md border border-slate-200/60 bg-slate-50 p-3">
-              <label className="flex-1 min-w-[180px]">
-                <span className="sn-eye mb-1 block">Reason</span>
+            <div className="flex w-full flex-wrap items-end gap-2 rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-3">
+              <label className="min-w-[180px] flex-1">
+                <span className={`mb-1 block ${TEMPLATE_SUBLINE}`}>Reason</span>
                 <input
                   type="text"
                   value={cancelReason}
@@ -252,40 +224,35 @@ export function GigCard({
                   placeholder="Why are you cancelling?"
                   minLength={4}
                   maxLength={500}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
+                  className="min-h-11 w-full rounded-xl border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-[15px] text-ink placeholder:text-[color:var(--m-slate-2)] focus:border-mulberry focus:outline-none" // no-card-ok: the reason input's own outline
                 />
               </label>
-              <button
-                type="button"
+              <ActionButton
+                tone="danger"
+                icon={X}
+                label={pending ? 'Cancelling…' : 'Confirm cancel'}
+                waiting={pending}
                 onClick={handleCancel}
-                disabled={pending}
-                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-danger-700 hover:bg-danger-50 disabled:opacity-60"
-              >
-                {pending && (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
-                )}
-                {pending ? 'Cancelling…' : 'Confirm cancel'}
-              </button>
-              <button
-                type="button"
+              />
+              <ActionButton
+                tone="neutral"
+                quiet
+                iconOnly
+                icon={X}
+                label="Close cancel form"
                 onClick={() => {
                   setBanner(null);
                   setCancelReason('');
                 }}
-                className="inline-flex items-center gap-1 rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
-                aria-label="Close cancel form"
-              >
-                <X className="h-3.5 w-3.5" strokeWidth={1.75} />
-              </button>
+              />
             </div>
           ) : (
-            <button
-              type="button"
+            <ActionButton
+              tone="danger"
+              icon={X}
+              label="Cancel gig"
               onClick={() => setBanner({ kind: 'cancel-form' })}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Cancel gig
-            </button>
+            />
           )}
         </div>
       ) : null}

@@ -4,6 +4,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/orders';
 import { revenueStatement, revenueScopeNote, splitPaidRevenue } from '@/lib/admin/revenue-statement';
 import { formatCount } from '@/lib/format-number';
+import { TEMPLATE_MONEY, TEMPLATE_SUBLINE, TemplateFail, TemplateSection } from '@/app/_components/template-rows';
 
 /**
  * RevenueSummary — the answer to "what have we earned?", on the page named Money.
@@ -39,14 +40,12 @@ export async function RevenueSummary() {
       if (res.error) logQueryError(`admin/money revenue: ${what}`, res.error);
     }
     return (
-      <section className="mb-6 rounded-2xl border border-warn-300/60 bg-warn-50/60 p-5">
-        <h2 className="text-sm font-semibold text-ink">Revenue</h2>
-        <p className="mt-1 text-2xl font-semibold text-ink/40">&mdash;</p>
-        <p className="mt-1 text-xs text-ink/70">
-          We couldn&rsquo;t load the money figures. This is not ₱0 &mdash; it is a failed read, and
-          the reason is in the logs.
-        </p>
-      </section>
+      <TemplateSection label="Revenue, all time" first data="revenue">
+        <p className="text-[32px] font-bold leading-none tabular-nums text-ink">&mdash;</p>
+        <TemplateFail retryHref="/admin/money" data="revenue">
+          Couldn&rsquo;t load the money figures &mdash; this is not ₱0, it is a failed read.
+        </TemplateFail>
+      </TemplateSection>
     );
   }
 
@@ -64,36 +63,43 @@ export async function RevenueSummary() {
   });
 
   const Row = ({ label, value, note }: { label: string; value: string; note?: string }) => (
-    <div className="flex items-baseline justify-between gap-4 py-1.5">
-      <span className="text-sm text-ink/70">
+    <div className="flex min-h-11 items-center justify-between gap-4 py-1.5">
+      <span className="text-[15px] text-ink">
         {label}
-        {note ? <span className="ml-1.5 text-xs text-ink/45">{note}</span> : null}
+        {note ? <span className={`ml-1.5 ${TEMPLATE_SUBLINE}`}>{note}</span> : null}
       </span>
-      <span className="font-mono text-sm tabular-nums text-ink">{value}</span>
+      <span className={`text-[15px] ${TEMPLATE_MONEY}`}>{value}</span>
     </div>
   );
 
+  // 📐 Design template rule 13 (owner-approved 2026-11-14): the one strong number on the warm surface, money in the
+  // words' own font (never a typewriter font), the lines under it as hairline rows, the scope note behind ⓘ.
   return (
-    <section className="mb-6 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
-      {/* ⓘ F-A-21 (admin walk, round 2): what the total counts sits behind the ⓘ, not as five lines under the card. */}
-      <div className="-my-3 flex items-center gap-0.5">
-        <h2 className="text-sm font-semibold text-ink">Revenue, all time</h2>
-        <Explain title="What this counts" label="What the revenue total counts" data="revenue-scope">
-          {revenueScopeNote(s)}
-        </Explain>
-      </div>
-      <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-ink">
-        {formatPhp(s.netPhp)}
-      </p>
-      <div className="mt-4 divide-y divide-ink/5 border-t border-ink/10 pt-2">
-        <Row label="Software sales" value={formatPhp(s.softwarePhp)} note={`${formatCount(s.paidOrderCount)} paid order${s.paidOrderCount === 1 ? '' : 's'}`} />
-        <Row label="Booking fees" value={formatPhp(s.bookingFeePhp)} note={`${formatCount(s.paidFeeCount)} paid`} />
-        <Row label="Refunds" value={`− ${formatPhp(s.refundedPhp)}`} />
+    <div className="mx-auto w-full max-w-[760px] px-4 pt-2 sm:px-6">
+      <TemplateSection
+        label="Revenue, all time"
+        first
+        data="revenue"
+        right={
+          /* ⓘ F-A-21 (admin walk, round 2): what the total counts sits behind the ⓘ. */
+          <Explain title="What this counts" label="What the revenue total counts" data="revenue-scope">
+            {revenueScopeNote(s)}
+          </Explain>
+        }
+      >
+        <div className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] px-4 py-3">
+          <p className="text-[32px] font-bold leading-none tabular-nums text-ink">{formatPhp(s.netPhp)}</p>
+        </div>
+        <div className="mt-2 divide-y divide-[color:var(--m-line)]">
+          <Row label="Software sales" value={formatPhp(s.softwarePhp)} note={`${formatCount(s.paidOrderCount)} paid order${s.paidOrderCount === 1 ? '' : 's'}`} />
+          <Row label="Booking fees" value={formatPhp(s.bookingFeePhp)} note={`${formatCount(s.paidFeeCount)} paid`} />
+          <Row label="Refunds" value={`− ${formatPhp(s.refundedPhp)}`} />
+        </div>
         {/* Outside the divide: it is NOT part of the sum above. */}
-      </div>
-      <div className="mt-3 border-t border-dashed border-ink/15 pt-2">
-        <Row label="Receipts issued" value={formatPhp(s.receiptPhp)} note={`${formatCount(s.receiptCount)} · not counted in the total`} />
-      </div>
-    </section>
+        <div className="mt-1 border-t border-dashed border-[color:var(--m-line)]">
+          <Row label="Receipts issued" value={formatPhp(s.receiptPhp)} note={`${formatCount(s.receiptCount)} · not counted in the total`} />
+        </div>
+      </TemplateSection>
+    </div>
   );
 }

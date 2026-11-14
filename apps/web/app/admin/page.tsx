@@ -29,8 +29,26 @@
  *    show at both addresses ("Also waiting" in the drawing).
  *  - The directory tiles → each one's tab › View ▾ (`lib/admin/admin-tabs.ts`).
  */
+import { cookies } from 'next/headers';
 import AdminWorkLanding from './work/page';
+import { FocusHome } from './_components/focus-home';
+import { ADMIN_MODE_COOKIE, readAdminMode } from '@/lib/admin/admin-mode';
+import { requireAdmin } from '@/lib/admin/require-admin';
 
 export const metadata = { title: 'Work · Admin' };
 
-export default AdminWorkLanding;
+/**
+ * ➕ FOCUS | FULL (owner approved 14 Nov 2026, DECISION_LOG "ADMIN FOCUS | FULL — APPROVED (v6)"): in FOCUS — where the
+ * admin opens — this address is the decide list (`FocusHome`); in FULL it is the work list, exactly as above.
+ */
+export default async function AdminHome(props: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // The gate first, before any service-role read — the same rule the work list follows.
+  const { userId } = await requireAdmin();
+  const mode = readAdminMode((await cookies()).get(ADMIN_MODE_COOKIE)?.value);
+  if (mode === 'full') return AdminWorkLanding(props);
+  const sp = (await props.searchParams) ?? {};
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  return <FocusHome viewerUserId={userId} cardKey={one(sp.card)} settle={one(sp.settle)} why={one(sp.why)} />;
+}

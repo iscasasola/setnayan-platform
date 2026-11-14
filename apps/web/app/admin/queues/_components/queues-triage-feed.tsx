@@ -350,7 +350,7 @@ function LaneChips({
  * be claiming a transfer twice". Collapsing them into a generic "couldn't do
  * that" throws away the only part an admin can act on.
  */
-const SETTLE_NOTICES: Record<string, { tone: 'warn' | 'ok'; headline: string }> = {
+export const SETTLE_NOTICES: Record<string, { tone: 'warn' | 'ok'; headline: string }> = {
   shortfall: { tone: 'warn', headline: 'Not enough money to finish this order' },
   duplicate: { tone: 'warn', headline: 'This reference has been used before' },
   refused: { tone: 'warn', headline: 'That could not be done' },

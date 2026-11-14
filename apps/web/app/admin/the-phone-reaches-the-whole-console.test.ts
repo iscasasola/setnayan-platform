@@ -41,8 +41,10 @@ test('the phone bar is the five tabs, drawn from the one source — and has no M
 });
 
 test('every page wears the pinned row (Page · View ▾ + ⚙) and the phone wears the thumb row', () => {
-  assert.match(layout, /<AdminPinnedRow queueCounts=\{queueCounts\} \/>\s*\{children\}/, 'the pinned row is not above every page');
-  assert.match(layout, /<AdminThumbRow \/>/, 'the thumb row is not mounted');
+  // ➕ FOCUS | FULL (owner 14 Nov 2026): the pinned row stays above every page (Focus's own home draws its own head);
+  // the thumb row is FULL's — Focus has the ask pill instead (admin-focus-full.test.ts holds that half).
+  assert.match(layout, /<AdminPinnedRow queueCounts=\{queueCounts\} focus=\{mode === 'focus'\} \/>\s*\{children\}/, 'the pinned row is not above every page');
+  assert.match(layout, /mode === 'full' \? <AdminThumbRow \/> : null/, 'the thumb row is not mounted in Full');
   // The view picker is the shared PickMenu inside the shared PinnedRow; the ⚙ is the shared MenuSettingsButton.
   assert.match(rows, /<PinnedRow\b/);
   assert.match(rows, /<MenuSettingsButton\s+menu="admin"/);

@@ -1,10 +1,13 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Sparkles } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { useRidingRow } from '@/app/_components/typing-band';
 import { claimCommandKey } from '@/lib/command-key-claim';
 import { rankBySentence } from '@/lib/admin-map/rank-by-sentence';
 import { ADMIN_JOBS } from '@/lib/admin-map/admin-jobs.generated';
@@ -113,6 +116,10 @@ function score(d: Dest, needle: string): number {
 export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  /* ➕ ADMIN FOCUS | FULL (owner approved 14 Nov 2026, ruling (4)): opened from the ask PILL, the field stays where the
+     pill was — at the bottom, same pill — and the suggestions rise above it. Opened from ⌘K or the top bar it stays a
+     panel at the top, as shipped. */
+  const [dock, setDock] = useState<'top' | 'bottom'>('top');
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -414,6 +421,9 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
   // without routing through here — my first draft only RESTORED focus and was
   // correctly rejected. Restoring is not trapping.
   useModalA11y({ open, onClose: close, containerRef: dialogRef });
+  /* ⌨ Docked at the bottom, the panel IS a bottom row with a text field — it rides the keyboard through the ONE riding
+     row (`useRidingRow`, owner 2026-10-24 "Applies all textbox like that"); at the top it is an ordinary dialog. */
+  const ride = useRidingRow(dialogRef, { rides: dock === 'bottom', place: 'Ask or go anywhere' });
 
   /*
     ⌘K IS OURS ON THIS DOORWAY (One top bar, 2026-08-14). The shared top bar
@@ -435,7 +445,10 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
    * searchbar."* A shortcut nobody was told about is not a door.
    */
   useEffect(() => {
-    const onOpen = () => setOpen(true);
+    const onOpen = (e: Event) => {
+      setDock((e as CustomEvent<{ dock?: string } | null>).detail?.dock === 'bottom' ? 'bottom' : 'top');
+      setOpen(true);
+    };
     window.addEventListener(ADMIN_SEARCH_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(ADMIN_SEARCH_OPEN_EVENT, onOpen);
   }, []);
@@ -515,12 +528,19 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
       <OverlayBackdrop onClose={close} className="z-[60]" />
       <div
         ref={dialogRef}
+        {...(dock === 'bottom' ? ride.rowProps : {})}
         role="dialog"
         aria-modal="true"
         aria-label="Search every admin page"
-        className="fixed left-1/2 top-[11vh] z-[61] w-[min(620px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border shadow-2xl"
+        data-dock={dock}
+        className={
+          dock === 'bottom'
+            ? 'fixed bottom-3 left-[calc(var(--sn-safe-l)+0.75rem)] right-[calc(var(--sn-safe-r)+0.75rem)] z-[61] flex flex-col-reverse overflow-hidden rounded-3xl shadow-2xl lg:left-1/2 lg:right-auto lg:w-[620px] lg:-translate-x-1/2'
+            : 'fixed left-1/2 top-[11vh] z-[61] w-[min(620px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border shadow-2xl'
+        }
         style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-paper, #FFFFFF)' }}
       >
+        {dock === 'bottom' ? ride.band : null}
         <div
           className="flex items-center gap-3 border-b px-4 py-3.5"
           style={{ borderColor: 'var(--sn-line-soft, #F1ECE3)' }}
@@ -859,8 +879,22 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
           )}
             </>
           )}
+          {/* ➕ "What can I ask?" is the LAST suggestion, always (ruling (3)) — the cheat sheet, with its download. */}
+          <Link
+            href="/admin/ask"
+            onClick={close}
+            className="mt-1 flex min-h-11 items-center gap-2 rounded-lg px-3 text-left text-[13px] font-semibold"
+            style={{ color: 'var(--sn-ink-900)' }}
+            data-ask-cheat-sheet
+          >
+            <span className="flex-1">What can I ask?</span>
+            <span className="text-[11px] font-normal" style={{ color: 'var(--sn-ink-500)' }}>
+              The cheat sheet
+            </span>
+          </Link>
         </div>
 
+        {dock === 'top' ? (
         <div
           className="flex gap-4 border-t px-4 py-2 text-[11px]"
           style={{ borderColor: 'var(--sn-line-soft, #F1ECE3)', color: 'var(--sn-ink-500)' }}
@@ -868,6 +902,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
           <span>↑↓ move</span><span>↵ open</span><span>esc close</span>
           <span className="ml-auto font-mono">{formatCount(hits.length)} of {formatCount(all.length)}</span>
         </div>
+        ) : null}
       </div>
     </>
   );

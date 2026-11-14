@@ -408,6 +408,9 @@ export const ADMIN_AVATAR_ROWS: readonly AdminAvatarRow[] = [
     href: '/admin/settings?tab=compliance',
     match: ['/admin/settings?tab=compliance', '/admin/compliance'],
   },
+  // ➕ ADMIN FOCUS | FULL (owner 14 Nov 2026, ruling (3)): "What can I ask?" and its Download also live here, so Full
+  // reaches them too. Download is the same page — its one button saves the A4 sheet.
+  { key: 'ask', label: 'What can I ask?', href: '/admin/ask', match: ['/admin/ask'] },
 ];
 
 // ─── the matcher ─────────────────────────────────────────────────────────

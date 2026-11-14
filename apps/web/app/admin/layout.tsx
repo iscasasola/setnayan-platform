@@ -43,6 +43,9 @@ import { AdminCommandPalette } from './_components/admin-command-palette';
 import { AdminSearchBox } from './_components/admin-search-box';
 import { fetchAdminRows } from '@/lib/admin-map/admin-row-index';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
+import { AdminModeToggle } from './_components/admin-mode-toggle';
+import { ADMIN_MODE_COOKIE, readAdminMode } from '@/lib/admin/admin-mode';
+import { cookies } from 'next/headers';
 import { AdminPinnedRow, AdminThumbRow } from './_components/admin-tab-rows';
 import { ADMIN_AVATAR_ROWS } from '@/lib/admin/admin-tabs';
 import Link from 'next/link';
@@ -322,6 +325,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     Object.entries(digest).map(([k, v]) => [k, v.count]),
   );
   const urgency = deriveQueueUrgency(digest, Date.now());
+  // ➕ FOCUS | FULL (owner approved 14 Nov 2026 — `lib/admin/admin-mode.ts`): the person's own mode, Focus unless they
+  // chose Full. Focus has no bottom nav and no thumb row; its ask box is the Focus list's own.
+  const mode = readAdminMode((await cookies()).get(ADMIN_MODE_COOKIE)?.value);
 
   // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
   // mobile-only (lg:hidden); desktop users open the same panel from the
@@ -343,6 +349,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   */
   const topBar = (
     <div className="flex min-w-0 items-center gap-3 sm:gap-2">
+      <AdminModeToggle mode={mode} />
       {/* SLA escalation pills — semantic red/warn classes (council fix #12:
           same color family per urgency state as the sidebar badges + overview
           tiles; the stock Untitled-UI hexes are retired). The ::before inset
@@ -493,25 +500,27 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             shell's grid now, so there is no padding math left here. */}
         <div className="sn-vt-page pb-[calc(env(safe-area-inset-bottom)+92px+var(--sn-thumb-room,0px))] lg:pb-0">
           {/* T2 — `Page · View ▾` and the tab's ⚙, at the top of every admin page (owner 13 Nov 2026). */}
-          <AdminPinnedRow queueCounts={queueCounts} />
+          <AdminPinnedRow queueCounts={queueCounts} focus={mode === 'focus'} />
           {children}
         </div>
       </AppRailShell>
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside the shell so it doesn't
           inherit the desktop content column. */}
-      <AdminBottomNav
-        navSlots={navSlots}
-        queueCounts={queueCounts}
-        overdue={urgency.overdue}
-        dueSoon={urgency.dueSoon}
-        unreadable={urgency.unknownCount}
-        workTotal={urgency.totalOpen}
-      />
+      {mode === 'full' ? (
+        <AdminBottomNav
+          navSlots={navSlots}
+          queueCounts={queueCounts}
+          overdue={urgency.overdue}
+          dueSoon={urgency.dueSoon}
+          unreadable={urgency.unknownCount}
+          workTotal={urgency.totalOpen}
+        />
+      ) : null}
       {/* T6 — the thumb row: this tab's search (the console's one search panel) and its ＋, phone only.
           The Payment-requests FAB that sat here is retired with the old strip (Place map: "the Next card is the
           payment that needs you"); Money › To confirm is that list now, one tap from the bar. */}
-      <AdminThumbRow />
+      {mode === 'full' ? <AdminThumbRow /> : null}
       {!termsAsk && !(profile?.tour_seen_keys ?? []).includes('admin_welcome_v1') ? (
         <GuidedTour tourKey="admin_welcome_v1" completeAction={completeTour} />
       ) : null}

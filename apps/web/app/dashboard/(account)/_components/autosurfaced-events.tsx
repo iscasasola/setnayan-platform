@@ -64,7 +64,7 @@ export async function AutoSurfacedEvents({ userId }: { userId: string }) {
             )}
             <form action={leaveAutoSurfacedEvent}>
               <input type="hidden" name="event_id" value={event.event_id} />
-              <ActionButton type="submit" tone="danger" icon={LogOut} label="Leave" name={`Leave ${event.display_name}`} />
+              <ActionButton type="submit" tone="danger" icon={<LogOut aria-hidden />} label="Leave" name={`Leave ${event.display_name}`} />
             </form>
           </li>
           );

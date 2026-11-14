@@ -47,7 +47,7 @@ export async function VendorsTab({ userId }: { userId: string }) {
         title="No saved suppliers yet."
         blurb="Save a supplier from the marketplace and it lands here."
         readPermitted
-        action={<ActionButton tone="brand" main icon={Compass} label="Explore the marketplace" href="/?browse=1" />}
+        action={<ActionButton tone="brand" main icon={<Compass aria-hidden />} label="Explore the marketplace" href="/?browse=1" />}
       />
     );
   }

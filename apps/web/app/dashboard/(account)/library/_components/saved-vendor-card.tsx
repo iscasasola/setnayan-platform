@@ -81,7 +81,7 @@ export function SavedVendorCardItem({ vendor }: { vendor: SavedVendorCardData })
         </Link>
         <ActionButton
           tone="info"
-          icon={MessageCircle}
+          icon={<MessageCircle aria-hidden />}
           label="Contact"
           name={`Contact ${vendor.displayName}`}
           href={`/v/${vendor.businessSlug}?src=favorites`}

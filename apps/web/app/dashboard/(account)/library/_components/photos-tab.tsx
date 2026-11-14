@@ -103,7 +103,7 @@ export async function PhotosTab({
         readPermitted
         action={
           lens === 'attended' ? undefined : (
-            <ActionButton tone="brand" main icon={Plus} label="Create an event" href="/dashboard/create-event" />
+            <ActionButton tone="brand" main icon={<Plus aria-hidden />} label="Create an event" href="/dashboard/create-event" />
           )
         }
       />
@@ -322,7 +322,7 @@ function AlbumCard({ album }: { album: Album }) {
         {href ? (
           <ActionButton
             tone="brand"
-            icon={ArrowRight}
+            icon={<ArrowRight aria-hidden />}
             label={hasMedia ? 'View & download' : 'Open album'}
             href={href}
             className="mt-auto"

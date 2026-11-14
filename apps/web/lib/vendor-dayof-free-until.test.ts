@@ -90,9 +90,10 @@ test('label: unset → no copy at all', () => {
   assert.equal(vendorDayOfFreeUntilEndedLabel(null), null);
 });
 
-test('label: set → mentions "Free until" and the ended copy is past-tense', () => {
+test('label: set → says what is free until when and the ended copy is past-tense', () => {
   const label = vendorDayOfFreeUntilLabel(END);
-  assert.ok(label && label.startsWith('Free until '), `got: ${label}`);
+  assert.ok(label && label.startsWith('Your day-of tools are free until '), `got: ${label}`);
+  assert.ok(label!.endsWith('The booking fee is separate.'), 'RW-20: what is free is the tools, not the fee');
   const ended = vendorDayOfFreeUntilEndedLabel(END);
   assert.ok(ended && ended.includes('ended'), `got: ${ended}`);
 });

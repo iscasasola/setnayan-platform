@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { displayAccountEmail } from '@/lib/erasure/display-email';
 import Link from 'next/link';
 import { ArrowLeft, BadgeCheck, Gavel, Users } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -143,7 +144,7 @@ export default async function AdminVendorTeamPage({ params }: Props) {
                   ) : null}
                 </p>
                 <p className="truncate font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-                  {m.email ?? '—'}
+                  {displayAccountEmail(m.email) ?? '—'}
                   {m.team_label ? ` · ${m.team_label}` : ''}
                 </p>
               </div>

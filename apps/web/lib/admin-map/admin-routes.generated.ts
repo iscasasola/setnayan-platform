@@ -3,7 +3,7 @@
 //
 // Every place inside /admin a person can land, scanned from the route tree.
 // 101 destinations (65 real pages, 36 redirect stubs)
-// as of 8444e5d0. admin-map-is-generated.test.ts fails if this drifts from the tree.
+// as of 7a829384. admin-map-is-generated.test.ts fails if this drifts from the tree.
 
 import type { AdminRoute } from './scan-admin-routes';
 

@@ -17,6 +17,7 @@ import { fetchStageNotes } from '@/lib/stage-notes';
 import { StageNotesCard } from '../stage-notes-card';
 import { fetchMyAreaGrants } from '@/lib/my-area-grants.server';
 import { ScheduleUpdater } from '../floor-command/schedule-updater';
+import { Badge } from '@/app/_components/badge';
 
 /**
  * SCRIPT & CUES — the host / MC specialization surface (`stage_script`).
@@ -97,9 +98,9 @@ export async function StageScript({
 
   if (error) {
     return (
-      <p className="text-sm leading-relaxed text-ink/70">
-        We couldn&rsquo;t load the program just now. Your other tools on this screen are
-        unaffected — reopen this screen to try again.
+      <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">
+        <strong className="font-semibold text-ink">We couldn&rsquo;t load the program just now.</strong> Your other
+        tools on this screen are unaffected — reopen this screen to try again.
       </p>
     );
   }
@@ -123,9 +124,9 @@ export async function StageScript({
 
   if (model.phase === 'empty') {
     return (
-      <p className="text-sm leading-relaxed text-ink/70">
-        {coupleName} hasn&rsquo;t built their timeline yet. The moment they add their
-        program, your running script and cue card appear here — nothing for you to set up.
+      <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">
+        <strong className="font-semibold text-ink">{coupleName} hasn’t built their timeline yet.</strong> Your script
+        and cue card appear here once they do — nothing for you to set up.
       </p>
     );
   }
@@ -202,9 +203,8 @@ export async function StageScript({
   );
 }
 
-/** The inner card shell. Deliberately NOT a `ConsolePlate` — the slot already
- *  wraps this surface in one, and a plate inside a plate double-draws the
- *  inset hairline frame. */
+/** One section of the desk — a small grey capitals label over its rows, divided
+ *  by one hairline (design template rule 2: no card per block). */
 function Card({
   icon: Icon,
   title,
@@ -215,8 +215,8 @@ function Card({
   children: ReactNode;
 }) {
   return (
-    <section className="border border-ink/10 bg-paper p-4">
-      <h4 className="flex items-center gap-2 font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
+    <section className="border-t border-[color:var(--m-line)] pt-3">
+      <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
         <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-gild" strokeWidth={1.75} />
         {title}
       </h4>
@@ -231,10 +231,10 @@ function Card({
  */
 function PrivateBadge() {
   return (
-    <span className="inline-flex items-center gap-1 border border-ink/20 bg-ink/[0.04] px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink/70">
-      <EyeOff aria-hidden className="h-3 w-3" strokeWidth={2} />
+    <Badge tone="no">
+      <EyeOff aria-hidden className="mr-1 h-3 w-3" strokeWidth={2} />
       Don&rsquo;t read aloud
-    </span>
+    </Badge>
   );
 }
 
@@ -258,19 +258,19 @@ function PrivateBadge() {
 function MyLine({ body, publicFacing }: { body: string; publicFacing: boolean }) {
   if (!publicFacing) {
     return (
-      <div className="mt-2 border-l-2 border-ink bg-ink/[0.05] px-3 py-2">
-        <p className="flex items-center gap-1.5 font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink/70">
+      <div className="mt-2 border-l-2 border-ink bg-[color:var(--m-paper-2)] px-3 py-2">
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
           <span className="bg-ink px-1.5 py-0.5 font-bold text-paper">Not for the mic</span>
           Your note
         </p>
-        <p className="mt-1 text-sm leading-relaxed text-ink/80">{body}</p>
+        <p className="mt-1 text-sm leading-relaxed text-ink">{body}</p>
       </div>
     );
   }
   return (
     <div className="mt-2 border-l-2 border-gild bg-gild/10 px-3 py-2">
-      <p className="flex items-center gap-1.5 font-mono text-[0.6rem] uppercase tracking-[0.2em] text-gild">
-        <Mic aria-hidden className="h-3 w-3" strokeWidth={2} />
+      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink">
+        <Mic aria-hidden className="h-3 w-3 text-gild" strokeWidth={2} />
         Your line
       </p>
       <p className="mt-1 font-pahina text-[1.05rem] leading-relaxed text-ink">{body}</p>
@@ -292,24 +292,24 @@ function CueCard({
   const timing = cue.next ? nextTimingLabel(cue.next.minutesAway) : null;
   return (
     <Card icon={Radio} title="On now">
-      <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">
+      <p className="text-2xl font-bold leading-snug text-ink">
         {cue.headline}
       </p>
 
       {cue.drift ? (
-        <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
+        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
           Running {cue.drift}
         </p>
       ) : null}
 
       {cue.now ? (
         <div className="mt-3 space-y-1.5 border-l-2 border-gild/60 pl-3">
-          <p className="font-mono text-xs text-ink/60">{cue.now.time}</p>
+          <p className="text-sm tabular-nums text-[color:var(--m-slate-2)]">{cue.now.time}</p>
           {cue.now.cue ? <p className="text-sm leading-relaxed text-ink">{cue.now.cue}</p> : null}
           {cue.now.note ? (
             <div className="space-y-1">
               {!cue.now.publicFacing ? <PrivateBadge /> : null}
-              <p className="text-sm leading-relaxed text-ink/80">{cue.now.note}</p>
+              <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">{cue.now.note}</p>
             </div>
           ) : null}
           {/* His words sit closest to the moment — it is what he needs fastest. */}
@@ -318,19 +318,19 @@ function CueCard({
       ) : null}
 
       {cue.next ? (
-        <div className="mt-3 border-t border-ink/10 pt-3">
-          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/55">
+        <div className="mt-3 border-t border-[color:var(--m-line)] pt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
             Next
             {timing ? ` · ${timing}` : ''}
           </p>
           <p className="mt-1 text-sm font-medium text-ink">
             {cue.next.label}{' '}
-            <span className="font-mono text-xs font-normal text-ink/60">{cue.next.time}</span>
+            <span className="text-sm font-normal tabular-nums text-[color:var(--m-slate-2)]">{cue.next.time}</span>
           </p>
           {cue.next.note ? (
             <div className="mt-1 space-y-1">
               {!cue.next.publicFacing ? <PrivateBadge /> : null}
-              <p className="text-sm leading-relaxed text-ink/80">{cue.next.note}</p>
+              <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">{cue.next.note}</p>
             </div>
           ) : null}
           {/* Shown under NEXT too, so he can pre-read while the current moment runs. */}
@@ -351,34 +351,32 @@ function ScriptCard({
 }) {
   return (
     <Card icon={ScrollText} title="Running script">
-      <ol className="space-y-3">
+      <ol className="divide-y divide-[color:var(--m-line)]">
         {entries.map((e) => (
           <li
             key={e.blockId}
-            className={`${e.depth === 1 ? 'ml-4 border-l border-ink/10 pl-3' : ''} ${
-              e.state === 'done' ? 'opacity-55' : ''
+            className={`py-2.5 ${e.depth === 1 ? 'ml-4 border-l border-[color:var(--m-line)] pl-3' : ''} ${
+              e.state === 'done' ? 'opacity-70' : ''
             }`}
           >
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="font-mono text-xs text-ink/60">{e.time}</span>
+              <span className="text-sm tabular-nums text-[color:var(--m-slate-2)]">{e.time}</span>
               <span
                 className={`text-sm text-ink ${e.depth === 0 ? 'font-semibold' : 'font-medium'}`}
               >
                 {e.label}
               </span>
               {e.state === 'live' ? (
-                <span className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-terracotta-700">
-                  On now
-                </span>
+                <Badge tone="ok">On now</Badge>
               ) : null}
               {!e.publicFacing ? <PrivateBadge /> : null}
             </div>
-            {e.cue ? <p className="mt-0.5 text-sm leading-relaxed text-ink/75">{e.cue}</p> : null}
+            {e.cue ? <p className="mt-0.5 text-sm leading-relaxed text-[color:var(--m-slate-2)]">{e.cue}</p> : null}
             {e.note ? (
-              <p className="mt-0.5 text-sm leading-relaxed text-ink/80">{e.note}</p>
+              <p className="mt-0.5 text-sm leading-relaxed text-[color:var(--m-slate-2)]">{e.note}</p>
             ) : null}
             {e.location ? (
-              <p className="mt-0.5 font-mono text-[0.66rem] uppercase tracking-[0.16em] text-ink/50">
+              <p className="mt-0.5 text-sm text-[color:var(--m-slate-2)]">
                 {e.location}
               </p>
             ) : null}
@@ -399,20 +397,19 @@ function AnnouncementsCard({ items }: { items: StageAnnouncement[] }) {
   return (
     <Card icon={Megaphone} title="Announcements">
       {items.length === 0 ? (
-        <p className="text-sm leading-relaxed text-ink/70">
-          No notes on the program yet. Anything the couple writes against a block shows up
-          here, so you can say it in their words.
+        <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">
+          The couple hasn’t written notes on the program yet. Whatever they write shows here, in their words.
         </p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="divide-y divide-[color:var(--m-line)]">
           {items.map((a) => (
-            <li key={a.blockId} className={a.state === 'done' ? 'opacity-55' : ''}>
+            <li key={a.blockId} className={`py-2.5 ${a.state === 'done' ? 'opacity-70' : ''}`}>
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <span className="font-mono text-xs text-ink/60">{a.time}</span>
+                <span className="text-sm tabular-nums text-[color:var(--m-slate-2)]">{a.time}</span>
                 <span className="text-sm font-medium text-ink">{a.blockLabel}</span>
                 {!a.publicFacing ? <PrivateBadge /> : null}
               </div>
-              <p className="mt-0.5 text-sm leading-relaxed text-ink/80">{a.note}</p>
+              <p className="mt-0.5 text-sm leading-relaxed text-[color:var(--m-slate-2)]">{a.note}</p>
             </li>
           ))}
         </ul>

@@ -98,8 +98,8 @@ before(async () => {
   F.shopOwner = await mkUser('shop@where.test');
   F.shop = (
     await db.query<{ vendor_profile_id: string }>(
-      `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-       VALUES ($1,'Sample Lights','Manila',ARRAY['lights_and_sound']::text[],'verified', NOW()) RETURNING vendor_profile_id`,
+      `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+       VALUES ($1,'Sample Lights','Manila',ARRAY['lights_and_sound']::text[],'verified', NOW(), 'verified') RETURNING vendor_profile_id`,
       [F.shopOwner],
     )
   ).rows[0]!.vendor_profile_id;

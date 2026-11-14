@@ -28,7 +28,7 @@ export function labWork(now: number, fail: readonly string[], absentTypes: boole
       applicationId: 'app-1',
       shopName: 'Tita Nena’s Catering',
       papers: [
-        { slot: 'dti_certificate', label: 'DTI or SEC Registration', present: true, r2Key: 'vendors/v1/verification/dti.pdf', previewUrl: null },
+        { slot: 'dti_certificate', label: 'DTI or SEC registration', present: true, r2Key: 'vendors/v1/verification/dti.pdf', previewUrl: null },
         { slot: 'bir_2303', label: 'BIR Certificate of Registration (2303)', present: true, r2Key: 'vendors/v1/verification/bir.jpg', previewUrl: SWATCH },
         { slot: 'mayors_permit', label: 'Mayor’s Permit', present: false, r2Key: null, previewUrl: null },
       ],
@@ -45,7 +45,7 @@ export function labWork(now: number, fail: readonly string[], absentTypes: boole
       at: ago(5, now),
       applicationId: 'app-2',
       shopName: 'Lumière Photo',
-      papers: [{ slot: 'dti_certificate', label: 'DTI or SEC Registration', present: true, r2Key: 'vendors/v2/verification/id.png', previewUrl: SWATCH }],
+      papers: [{ slot: 'dti_certificate', label: 'DTI or SEC registration', present: true, r2Key: 'vendors/v2/verification/id.png', previewUrl: SWATCH }],
       checks: [{ label: 'Name matches the account', outcome: 'pass', detail: 'Lumière Photo' }],
     },
     {

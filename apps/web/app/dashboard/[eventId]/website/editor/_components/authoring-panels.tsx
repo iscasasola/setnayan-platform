@@ -113,22 +113,22 @@ export function SchedulePeekPanel({
       <dl className="space-y-1 text-xs text-ink/70">
         {eventDate ? (
           <div className="flex gap-2">
-            <dt className="w-14 shrink-0 font-semibold text-ink/50">When</dt>
+            <dt className="w-14 shrink-0 font-semibold text-ink/75">When</dt>
             <dd>{new Date(eventDate).toLocaleDateString('en-PH', { dateStyle: 'long' })}</dd>
           </div>
         ) : null}
         {venueName || venueAddress ? (
           <div className="flex gap-2">
-            <dt className="w-14 shrink-0 font-semibold text-ink/50">Where</dt>
+            <dt className="w-14 shrink-0 font-semibold text-ink/75">Where</dt>
             <dd>
               {venueName}
-              {venueAddress ? <span className="block text-ink/50">{venueAddress}</span> : null}
+              {venueAddress ? <span className="block text-ink/75">{venueAddress}</span> : null}
             </dd>
           </div>
         ) : null}
       </dl>
       <div className="mt-2 border-t border-ink/10 pt-2">
-        <p className="text-[0.7rem] font-semibold text-ink/60">
+        <p className="text-[12px] font-semibold text-ink/75">
           {blocks.length > 0
             ? 'What guests see on your schedule'
             : 'No public schedule yet'}
@@ -137,25 +137,25 @@ export function SchedulePeekPanel({
           <ul className="mt-1 space-y-0.5">
             {blocks.map((b) => (
               <li key={b.block_id} className="flex gap-2 text-xs text-ink/70">
-                <span className="w-16 shrink-0 font-mono text-[0.68rem] text-ink/50">
+                <span className="w-16 shrink-0 text-[12px] tabular-nums text-ink/75">
                   {fmtTime(b.start_at)}
                 </span>
                 <span className="min-w-0">
                   {b.label}
-                  {b.location ? <span className="text-ink/45"> · {b.location}</span> : null}
+                  {b.location ? <span className="text-ink/75"> · {b.location}</span> : null}
                 </span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mt-1 text-[0.7rem] text-ink/50">
+          <p className="mt-1 text-[12px] text-ink/75">
             Build your run-of-show in Schedule and mark blocks public to show them here.
           </p>
         )}
       </div>
       <Link
         href={`/dashboard/${eventId}/schedule?view=event-day`}
-        className="mt-2 inline-flex items-center rounded-full border border-ink/15 px-3 py-1 text-[0.7rem] font-semibold text-ink/70 hover:border-ink/30"
+        className="ab ab-neutral mt-2"
       >
         Adjust in Schedule →
       </Link>
@@ -180,17 +180,17 @@ export function StdPanel({
     <div className={PANEL}>
       <dl className="space-y-1 text-xs text-ink/70">
         <div className="flex gap-2">
-          <dt className="w-24 shrink-0 font-semibold text-ink/50">Opening</dt>
+          <dt className="w-24 shrink-0 font-semibold text-ink/75">Opening</dt>
           <dd className="capitalize">{openingLabel}</dd>
         </div>
         {themeLabel ? (
           <div className="flex gap-2">
-            <dt className="w-24 shrink-0 font-semibold text-ink/50">Theme</dt>
+            <dt className="w-24 shrink-0 font-semibold text-ink/75">Theme</dt>
             <dd className="capitalize">{themeLabel}</dd>
           </div>
         ) : null}
         <div className="flex gap-2">
-          <dt className="w-24 shrink-0 font-semibold text-ink/50">Invitation day</dt>
+          <dt className="w-24 shrink-0 font-semibold text-ink/75">Invitation day</dt>
           <dd>
             {launchDate
               ? new Date(launchDate).toLocaleDateString('en-PH', { dateStyle: 'long' })
@@ -198,12 +198,12 @@ export function StdPanel({
           </dd>
         </div>
       </dl>
-      <p className="mt-1.5 text-[0.7rem] text-ink/45">
+      <p className="mt-1.5 text-[12px] text-ink/75">
         Use the Save-the-Date tab above to experience the film exactly as guests will.
       </p>
       <Link
         href={`/dashboard/${eventId}/studio/save-the-date`}
-        className="mt-2 inline-flex items-center rounded-full border border-ink/15 px-3 py-1 text-[0.7rem] font-semibold text-ink/70 hover:border-ink/30"
+        className="ab ab-neutral mt-2"
       >
         Design the film →
       </Link>
@@ -220,14 +220,14 @@ export function EditorialPanel({ ownsPro }: { ownsPro: boolean }) {
      couple anywhere and never shows a price. */
   return (
     <div className={PANEL}>
-      <p className="text-[0.7rem] font-semibold text-success-800">Free — always on</p>
-      <ul className="mt-0.5 list-disc pl-4 text-[0.7rem] text-ink/60">
+      <p className="text-[12px] font-semibold text-success-800">Free — always on</p>
+      <ul className="mt-0.5 list-disc pl-4 text-[12px] text-ink/75">
         <li>The After page itself — your wedding&rsquo;s recap page for guests</li>
         <li>Approved wedding photos gathered automatically</li>
         <li>Your thank-you note (Special message)</li>
         <li>Show, hide, move and restyle each scene — tap it in the scene list</li>
       </ul>
-      <p className="mt-2 flex items-center gap-1 text-[0.7rem] font-semibold text-amber-800">
+      <p className="mt-2 flex items-center gap-1 text-[12px] font-semibold text-amber-800">
         <PaidMark
           state={ownsPro ? 'unlocked' : 'try'}
           label={paidMarkLabel(ownsPro ? 'unlocked' : 'try', 'Event Hub Pro')}
@@ -235,12 +235,12 @@ export function EditorialPanel({ ownsPro }: { ownsPro: boolean }) {
         />
         Event Hub Pro
       </p>
-      <ul className="mt-0.5 list-disc pl-4 text-[0.7rem] text-ink/60">
+      <ul className="mt-0.5 list-disc pl-4 text-[12px] text-ink/75">
         <li>A font or an animation of your own on any scene</li>
         <li>From your story: named moments, columns of your own, featured guest wishes</li>
       </ul>
       {ownsPro ? null : (
-        <p className="mt-2 text-[0.7rem] text-ink/60">
+        <p className="mt-2 text-[12px] text-ink/75">
           Try all of it now — Apply asks for Event Hub Pro when you publish.
         </p>
       )}

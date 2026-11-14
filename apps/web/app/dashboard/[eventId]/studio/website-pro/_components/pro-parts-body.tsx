@@ -5,6 +5,7 @@ import { InlineCheckoutDrawer, type InlineCheckoutDrawerProps } from '@/app/dash
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import {
+  EVENT_PLUS_SKU,
   FULL_PRO_SKU,
   HUB_PARTS,
   HUB_PARTS_ORDER_KEY,
@@ -15,6 +16,9 @@ import {
   type HubOwnershipView,
   type HubPartId,
 } from '@/lib/hub-parts';
+import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
+import { PlanOffer, UltraOffer, proCreditsLine, type PlanOfferFacts } from './plan-offer';
+import type { PlanKey } from '@/lib/plan-buy-doors';
 
 /**
  * 💎 THE PARTS PAGE'S BODY (owner 2026-10-22, prototype `pro_part_by_part_2026-10-22.html` frame 4) — everything it
@@ -40,9 +44,13 @@ export type ProPartsBodyProps = {
   buy: string | undefined;
   settings: InlineCheckoutDrawerProps['settings'];
   vatRatePct: number;
+  /** 💰 Free · Event Plus above Event Pro, each read from the catalogue (F-W2-29). Absent in the lab → not drawn. */
+  plans?: PlanOfferFacts;
+  /** 💰 RW-13: the plan a public door opened this page for — its card is ringed and anchored (`#plan-<key>`). */
+  focusPlan?: PlanKey | null;
 };
 
-export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active, owned, partPricePhp, fullPhp, buy, settings, vatRatePct }: ProPartsBodyProps) {
+export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active, owned, partPricePhp, fullPhp, buy, settings, vatRatePct, plans, focusPlan = null }: ProPartsBodyProps) {
   const HERO = { label: title };
   const has = (o: HubOwnershipView | null, id: HubPartId) => Boolean(o && (o.full || o.parts.includes(id)));
   /* Everything you pay for parts counts toward everything — the rest, never below zero (the cap). */
@@ -57,7 +65,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
   const partsOnSale = HUB_PARTS.some((p) => partPrice(p.id) !== null);
 
   /* `?buy=` — the Apply sheet's pick, carried here: "style,motion" or "full". Unknown or owned parts are dropped. */
-  const buyFull = buy === 'full';
+  const buyFull = buy === 'full' || focusPlan === 'pro';
   const buyParts = buyFull
     ? []
     : (buy ?? '')
@@ -107,6 +115,16 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
         </p>
       </header>
 
+      {/* ── 💰 THE PLANS — Free · Event Plus, then Event Pro (the card below). Read, never typed. ── */}
+      {plans ? (
+        <PlanOffer
+          facts={plans}
+          focus={focusPlan}
+          proHeld={Boolean(active?.full || owned?.full)}
+          plusDrawer={(php) => drawer({ serviceKey: EVENT_PLUS_SKU, name: 'Event Plus', php, label: 'Get Event Plus' })}
+        />
+      ) : null}
+
       {/* ── EVERYTHING — one tap, on top. ── */}
       {active?.full ? (
         <div className="rounded-3xl bg-ink/[0.04] p-5" data-pro-everything="yours">
@@ -138,7 +156,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
           </Link>
         </div>
       ) : restPhp !== null ? (
-        <div className={`rounded-3xl bg-ink/[0.04] p-5 ${buyFull ? 'ring-2 ring-terracotta/50' : ''}`} data-pro-everything="buy">
+        <div id="plan-pro" className={`rounded-3xl bg-ink/[0.04] p-5 ${buyFull ? 'ring-2 ring-terracotta/50' : ''}`} data-pro-everything="buy">
           <p className="flex items-baseline justify-between gap-3">
             <span className="text-lg font-semibold text-ink">Everything</span>
             <span className="font-mono text-lg font-bold text-ink">{paidPhp > 0 ? `${formatPhp(restPhp)} more` : formatPhp(restPhp)}</span>
@@ -149,6 +167,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
               : partsOnSale
                 ? `All ${HUB_PARTS.length} parts, and the "Powered by Setnayan" footer comes off your Hub, invite, prints and story.`
                 : `Everything below, and the "Powered by Setnayan" footer comes off your Hub, invite, prints and story.`}
+            {plans && proCreditsLine(plans.proCredits) ? ` ${proCreditsLine(plans.proCredits)}` : ''}
           </p>
           <div className="mt-3">
             {drawer({
@@ -163,6 +182,15 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
       ) : (
         <p className="text-sm text-ink/65">Pricing loads from your catalog &mdash; please refresh in a moment.</p>
       )}
+
+      {/* ── 💎 EVENT ULTRA (#7601) — after Event Pro; the drawer quotes the difference for a Plus/Pro event. ── */}
+      {plans ? (
+        <UltraOffer
+          facts={plans}
+          focus={focusPlan === 'ultra'}
+          ultraDrawer={(php) => drawer({ serviceKey: EVENT_ULTRA_SKU, name: 'Event Ultra', php, label: 'Get Event Ultra' })}
+        />
+      ) : null}
 
       {/* ── THE APPLY SHEET'S PICK (`?buy=`) — one order, one payment. ── */}
       {partsOnSale && !active?.full && !owned?.full && buyParts.length > 0 && buyPricePhp !== null ? (

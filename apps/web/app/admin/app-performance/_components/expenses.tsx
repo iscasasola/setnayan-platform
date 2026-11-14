@@ -7,9 +7,13 @@ import {
   type ExpenseCategory,
 } from '@/lib/admin/platform-expenses';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { Fold } from '@/app/_components/fold';
+import { FormRows } from '@/app/_components/form-row';
+import { CardPick, CardToggle } from '@/app/dashboard/[eventId]/guests/_components/guest-card-rows';
 
 import { addExpense, attachReceipt, viewReceipt } from '../actions';
-import { ChartCard, DeltaPct, StackedBars } from './charts';
+import { DeltaPct, StackedBars } from './charts';
+import { Note, Row, Rows, Sec } from './insights-parts';
 
 /**
  * Expenses & Receipts — Zone 2 of the App Performance cockpit (PR 3;
@@ -35,6 +39,12 @@ import { ChartCard, DeltaPct, StackedBars } from './charts';
  * (Measured in production 2026-08-17: `platform_expenses` holds 0 rows, so the
  * honest empty state is what actually renders today — which is exactly why the
  * two states had to stop looking alike.)
+ *
+ * ── Re-drawn onto the approved drawing 2026-11-14 (insights.html › Costs › Expenses & receipts) ──
+ * No cards around read-only figures (T18): section heads with their ⓘ, hairline rows, one meter. "Log an expense" is
+ * the one thing framed — a row that opens in place, holding the same form posting to the same `addExpense`; its
+ * Category is the house dropdown (never a native select) and "recurs monthly" the house switch, both posting the
+ * same field names. Exported API unchanged: `ExpensesZone()`, no props — the Overview cockpit draws it as before.
  */
 
 /** Shown where a figure would be when the read did not complete. */
@@ -47,13 +57,29 @@ const php = new Intl.NumberFormat('en-PH', {
   maximumFractionDigits: 0,
 });
 
+/** The drawing's three series colours: infra in the accent, AI credits in blue-grey, the rest in the hairline grey. */
 const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
-  infra: 'var(--m-slate-3)',
-  ai_credits: 'var(--m-orange)',
-  domains_fees: 'var(--m-mulberry-3)',
-  tools: 'var(--m-slate-4)',
-  permits_docs: 'var(--m-sage-deep)',
+  infra: 'var(--sn-accent)',
+  ai_credits: 'var(--sn-info)',
+  domains_fees: 'var(--sn-line)',
+  tools: 'var(--sn-line)',
+  permits_docs: 'var(--sn-line)',
 };
+
+/** The legend groups the three grey categories into one entry, as the drawing does. */
+const LEGEND: { label: string; color: string }[] = [
+  { label: 'Infra', color: CATEGORY_COLORS.infra },
+  { label: 'AI credits', color: CATEGORY_COLORS.ai_credits },
+  {
+    label: EXPENSE_CATEGORIES.filter((c) => CATEGORY_COLORS[c.key] === 'var(--sn-line)')
+      .map((c) => c.label)
+      .join(' · '),
+    color: 'var(--sn-line)',
+  },
+];
+
+/** A native field, 44 px, on a hairline row — the date, text, amount and file inputs `addExpense` reads. */
+const FIELD = 'input-field min-h-11 w-full text-[15px]';
 
 function categoryLabel(key: ExpenseCategory): string {
   return EXPENSE_CATEGORIES.find((c) => c.key === key)?.label ?? key;
@@ -71,256 +97,48 @@ export async function ExpensesZone() {
       : null;
 
   return (
-    <section className="mb-12" aria-labelledby="apx-expenses">
-      <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h2 id="apx-expenses" className="text-base font-semibold text-ink">
-          Expenses &amp; Receipts
-        </h2>
-        <p className="text-xs text-ink/55">
-          Every digital peso out, with the receipt to prove it — feeds BIR expense substantiation.
-        </p>
-      </header>
+    <section className="mb-12 max-w-3xl" aria-labelledby="apx-expenses">
+      <Sec
+        id="apx-expenses"
+        title="Expenses & Receipts"
+        about="Every digital peso out, with the receipt to prove it — feeds BIR expense substantiation."
+      />
 
       {ov.error ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <p role="alert" className="mb-2 rounded-lg bg-[var(--sn-warning-soft)] px-3 py-2 text-sm text-ink">
           We couldn&rsquo;t load the expense ledger just now. Nothing is lost &mdash; the reason is in the logs.
         </p>
       ) : null}
 
-      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* E1 — monthly spend, stacked by category */}
-        <ChartCard
-          title="Monthly digital spend"
-          pill="live"
-          source="Expenses · pesos · last 6 months"
-          className="lg:col-span-2"
-        >
-          <div className="mb-2 flex flex-wrap items-baseline gap-2">
-            <p
-              className="text-2xl font-semibold tabular-nums"
-              data-countup=""
-              style={{ color: 'var(--m-ink)' }}
-            >
-              {measured ? php.format(ov.totalThisMonth) : UNMEASURED}
-            </p>
-            <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
-              this month
-            </span>
-            {/* A delta against an unread month is a comparison of two numbers
-                we do not have — it read "0%", which looks like "flat". */}
-            {measured ? (
-              <DeltaPct current={ov.totalThisMonth} previous={ov.totalPrevMonth} inverseGood />
-            ) : null}
-          </div>
-          {!measured ? (
-            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-              The spend for these months was not read, so nothing is charted
-              here — this is not a month of zero spending.
-            </p>
-          ) : ov.months.every((m) => m.total === 0) ? (
-            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-              No expenses logged yet — use “Log an expense” below to start the
-              ledger.
-            </p>
-          ) : (
-            <>
-              <StackedBars
-                series={EXPENSE_CATEGORIES.map((c) => ({
-                  label: c.label,
-                  color: CATEGORY_COLORS[c.key],
-                  values: ov.months.map((m) => m.byCategory[c.key]),
-                }))}
-                ariaLabel={`Monthly spend by category. ${ov.months
-                  .map((m) => `${m.month}: ${php.format(m.total)}`)
-                  .join('; ')}.`}
-                formatTitle={(label, v) => `${label}: ${php.format(v)}`}
-              />
-              <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
-                {EXPENSE_CATEGORIES.map((c) => (
-                  <li
-                    key={c.key}
-                    className="flex items-center gap-1.5 text-xs"
-                    style={{ color: 'var(--m-slate)' }}
-                  >
-                    <span
-                      aria-hidden
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ background: CATEGORY_COLORS[c.key] }}
-                    />
-                    {c.label}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </ChartCard>
-
-        {/* E3 — receipt coverage */}
-        <ChartCard
-          title="Receipt coverage"
-          pill="live"
-          source="receipt attached ÷ expenses · 6-month window"
-        >
-          {!measured ? (
-            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-              Coverage could not be worked out — the expenses it divides were
-              not read. That is not the same as zero.
-            </p>
-          ) : coveragePct === null ? (
-            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-              No expenses logged yet — coverage appears with the first row.
-            </p>
-          ) : (
-            <>
-              <p
-                className="text-3xl font-semibold tabular-nums"
-                data-countup=""
-                style={{
-                  color: coveragePct >= 90 ? 'var(--m-sage-deep)' : 'var(--m-ink)',
-                }}
-              >
-                {coveragePct}%
-              </p>
-              <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>
-                {nf.format(ov.receiptCoverage.withReceipt)} of{' '}
-                {nf.format(ov.receiptCoverage.total)} expenses have a receipt
-              </p>
-              {ov.receiptCoverage.missing.length > 0 ? (
-                <p className="mt-2 text-xs font-medium" style={{ color: 'var(--m-blush-deep)' }}>
-                  {nf.format(ov.receiptCoverage.total - ov.receiptCoverage.withReceipt)}{' '}
-                  missing — collect before the BIR quarter closes:{' '}
-                  {ov.receiptCoverage.missing
-                    .slice(0, 4)
-                    .map((r) => r.vendor_name)
-                    .join(' · ')}
-                </p>
-              ) : null}
-            </>
-          )}
-        </ChartCard>
-      </div>
-
-      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* E2 — spend by vendor, current month */}
-        <ChartCard
-          title="Spend by service — this month"
-          pill="live"
-          source="Expenses by supplier"
-        >
-          {!measured ? (
-            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-              This month&rsquo;s spend was not read.
-            </p>
-          ) : ov.byVendorThisMonth.length === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-              Nothing logged this month yet.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {ov.byVendorThisMonth.slice(0, 8).map((v) => {
-                const max = ov.byVendorThisMonth[0]?.php ?? 1;
-                return (
-                  <li key={v.vendor} className="space-y-1">
-                    <div className="flex items-baseline justify-between gap-2 text-sm">
-                      <span style={{ color: 'var(--m-ink)' }}>{v.vendor}</span>
-                      <span className="tabular-nums" style={{ color: 'var(--m-slate)' }}>
-                        {php.format(v.php)}
-                      </span>
-                    </div>
-                    <span
-                      aria-hidden
-                      className="apx-lb block h-2 rounded-full"
-                      style={{
-                        width: `${Math.max(2, (v.php / Math.max(1, max)) * 100)}%`,
-                        background: 'var(--m-orange)',
-                        opacity: 0.55,
-                      }}
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </ChartCard>
-
-        {/* E5 — upcoming charges */}
-        <ChartCard
-          title="Upcoming charges"
-          pill="live"
-          source="Next due dates — renewals show before they hit"
-        >
-          {!measured ? (
-            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-              Renewals were not read. Do not take this as a clear month — a
-              charge due next week would look exactly like this.
-            </p>
-          ) : ov.upcoming.length === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-              No dated renewals logged. Give annual lines (domains · permits ·
-              app-store fees) a next-due date so January never surprises you.
-            </p>
-          ) : (
-            <ul className="space-y-1.5">
-              {ov.upcoming.map((r) => (
-                <li
-                  key={r.expense_id}
-                  className="flex items-baseline justify-between gap-2 text-sm"
-                >
-                  <span style={{ color: 'var(--m-ink)' }}>
-                    <span
-                      className="mr-2 rounded-full px-1.5 py-0.5 font-mono text-[10px]"
-                      style={{ background: 'var(--m-paper-2)', color: 'var(--m-slate-2)' }}
-                    >
-                      {r.next_due_on}
-                    </span>
-                    {r.vendor_name}
-                  </span>
-                  <span className="tabular-nums" style={{ color: 'var(--m-slate)' }}>
-                    {php.format(r.amount_php)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </ChartCard>
-
-        {/* Log an expense — server-action form, no client JS */}
-        <ChartCard title="Log an expense" pill="live" source="Saved to the expense ledger · receipt optional">
-          <form action={addExpense} className="space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="date"
-                name="expensed_on"
-                required
-                aria-label="Expense date"
-                className="input-field h-9 py-0 text-sm"
-              />
-              <select
+      {/* Log an expense — a hairline-ruled row that opens in place (no card: lint:no-card). Same server-action form, no new action. */}
+      <div className="my-2 border-y border-ink/10" data-expenses-log="">
+        <Fold title="Log an expense" summary="Saved to the expense ledger · receipt optional" data="log-expense" popovers>
+          <form action={addExpense} className="space-y-2 px-3 pb-3">
+            <label className="block text-[13px] text-ink/65">
+              Expense date
+              <input type="date" name="expensed_on" required aria-label="Expense date" className={FIELD} />
+            </label>
+            <FormRows>
+              <CardPick
                 name="category"
+                label="Category"
+                value="infra"
+                options={EXPENSE_CATEGORIES.map((c) => ({ key: c.key, label: c.label }))}
+              />
+            </FormRows>
+            <label className="block text-[13px] text-ink/65">
+              Supplier
+              <input
+                type="text"
+                name="vendor_name"
                 required
-                aria-label="Category"
-                className="input-field h-9 py-0 text-sm"
-                defaultValue="infra"
-              >
-                {EXPENSE_CATEGORIES.map((c) => (
-                  <option key={c.key} value={c.key}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <input
-              type="text"
-              name="vendor_name"
-              required
-              placeholder="Supplier (Suno · Vercel · IPOPHL …)"
-              aria-label="Supplier"
-              className="input-field h-9 w-full py-0 text-sm"
-            />
-            <div className="grid grid-cols-2 gap-2">
+                placeholder="Supplier (Suno · Vercel · IPOPHL …)"
+                aria-label="Supplier"
+                className={FIELD}
+              />
+            </label>
+            <label className="block text-[13px] text-ink/65">
+              Amount ₱
               <input
                 type="number"
                 name="amount_php"
@@ -329,39 +147,195 @@ export async function ExpensesZone() {
                 required
                 placeholder="Amount ₱"
                 aria-label="Amount in pesos"
-                className="input-field h-9 py-0 text-sm"
+                className={FIELD}
               />
-              <input
-                type="date"
-                name="next_due_on"
-                aria-label="Next due date (optional)"
-                className="input-field h-9 py-0 text-sm"
-              />
-            </div>
-            <input
-              type="file"
-              name="receipt"
-              accept="application/pdf,image/jpeg,image/png,image/webp"
-              aria-label="Receipt file (optional)"
-              className="block w-full text-xs"
-              style={{ color: 'var(--m-slate)' }}
-            />
-            <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--m-slate)' }}>
-              <input type="checkbox" name="recurs_monthly" /> recurs monthly
             </label>
-            <button type="submit" className="button-secondary h-9 px-3 text-xs">
+            <label className="block text-[13px] text-ink/65">
+              Next due date · optional
+              <input type="date" name="next_due_on" aria-label="Next due date (optional)" className={FIELD} />
+            </label>
+            <label className="block text-[13px] text-ink/65">
+              Receipt file · optional
+              <input
+                type="file"
+                name="receipt"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                aria-label="Receipt file (optional)"
+                className="block min-h-11 w-full py-2 text-[13px] text-ink/70"
+              />
+            </label>
+            <FormRows>
+              <CardToggle
+                name="recurs_monthly"
+                label="recurs monthly"
+                defaultChecked={false}
+                note="Repeats this expense every month."
+              />
+            </FormRows>
+            <button type="submit" className="button-primary min-h-11 w-full">
               Log expense
             </button>
           </form>
-        </ChartCard>
+        </Fold>
       </div>
 
+      {/* E1 — monthly spend, stacked by category */}
+      <section aria-labelledby="apx-exp-spend">
+        <Sec
+          id="apx-exp-spend"
+          title="Monthly digital spend"
+          about="Live · expenses in pesos, last 6 months, stacked by category. A month that was not read is not charted — that is not a month of zero spending."
+          right={
+            <span className="flex flex-wrap items-baseline gap-2">
+              <span className="text-[15px] font-semibold tabular-nums text-ink" data-countup="">
+                {measured ? php.format(ov.totalThisMonth) : UNMEASURED}
+              </span>
+              <span className="text-[12px] text-ink/55">this month</span>
+              {/* A delta against an unread month is a comparison of two numbers
+                  we do not have — it read "0%", which looks like "flat". */}
+              {measured ? (
+                <DeltaPct current={ov.totalThisMonth} previous={ov.totalPrevMonth} inverseGood />
+              ) : null}
+            </span>
+          }
+        />
+        {!measured ? (
+          <p className="text-[13px] text-ink/60">
+            The spend for these months was not read, so nothing is charted
+            here — this is not a month of zero spending.
+          </p>
+        ) : ov.months.every((m) => m.total === 0) ? (
+          <p className="text-[13px] text-ink/60">
+            No expenses logged yet — use “Log an expense” above to start the
+            ledger.
+          </p>
+        ) : (
+          <>
+            <StackedBars
+              series={EXPENSE_CATEGORIES.map((c) => ({
+                label: c.label,
+                color: CATEGORY_COLORS[c.key],
+                values: ov.months.map((m) => m.byCategory[c.key]),
+              }))}
+              ariaLabel={`Monthly spend by category. ${ov.months
+                .map((m) => `${m.month}: ${php.format(m.total)}`)
+                .join('; ')}.`}
+              formatTitle={(label, v) => `${label}: ${php.format(v)}`}
+            />
+            <ul className="mt-2 flex flex-wrap gap-x-3.5 gap-y-1 text-[12px] text-ink/65">
+              {LEGEND.map((c) => (
+                <li key={c.label} className="flex items-center gap-1.5">
+                  <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: c.color }} />
+                  {c.label}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+
+      {/* E3 — receipt coverage */}
+      <section aria-labelledby="apx-exp-coverage">
+        <Sec
+          id="apx-exp-coverage"
+          title="Receipt coverage"
+          about="Live · receipt attached ÷ expenses, over the 6-month window."
+          right={
+            coveragePct === null ? undefined : (
+              <span
+                className={`text-[15px] font-semibold tabular-nums ${coveragePct >= 90 ? 'text-[var(--sn-success-deep)]' : 'text-ink'}`}
+                data-countup=""
+              >
+                {coveragePct}%
+              </span>
+            )
+          }
+        />
+        {!measured ? (
+          <p className="text-[13px] text-ink/60">
+            Coverage could not be worked out — the expenses it divides were
+            not read. That is not the same as zero.
+          </p>
+        ) : coveragePct === null ? (
+          <p className="text-[13px] text-ink/60">No expenses logged yet — coverage appears with the first row.</p>
+        ) : (
+          <>
+            <div aria-hidden className="my-2 h-2.5 overflow-hidden rounded-full bg-ink/[0.06]">
+              <span className="block h-full rounded-full bg-[var(--sn-accent)]" style={{ width: `${coveragePct}%` }} />
+            </div>
+            <p className="text-[13px] text-ink/70">
+              {nf.format(ov.receiptCoverage.withReceipt)} of{' '}
+              {nf.format(ov.receiptCoverage.total)} expenses have a receipt
+            </p>
+            {ov.receiptCoverage.missing.length > 0 ? (
+              <p className="mt-1 text-[13px] font-medium text-[var(--sn-warning-deep)]">
+                {nf.format(ov.receiptCoverage.total - ov.receiptCoverage.withReceipt)}{' '}
+                missing — collect before the BIR quarter closes:{' '}
+                {ov.receiptCoverage.missing
+                  .slice(0, 4)
+                  .map((r) => r.vendor_name)
+                  .join(' · ')}
+              </p>
+            ) : null}
+          </>
+        )}
+      </section>
+
+      {/* E2 — spend by supplier, current month */}
+      <section aria-labelledby="apx-exp-by-service">
+        <Sec id="apx-exp-by-service" title="Spend by service · this month" about="Live · expenses by supplier." />
+        {!measured ? (
+          <p className="text-[13px] text-ink/60">This month&rsquo;s spend was not read.</p>
+        ) : ov.byVendorThisMonth.length === 0 ? (
+          <p className="text-[13px] text-ink/60">Nothing logged this month yet.</p>
+        ) : (
+          <Rows label="Spend by service this month" data="expenses-by-service">
+            {ov.byVendorThisMonth.slice(0, 8).map((v) => (
+              <Row key={v.vendor} title={v.vendor} trail={php.format(v.php)} />
+            ))}
+          </Rows>
+        )}
+      </section>
+
+      {/* E5 — upcoming charges */}
+      <section aria-labelledby="apx-exp-upcoming">
+        <Sec
+          id="apx-exp-upcoming"
+          title="Upcoming charges"
+          about="Live · next due dates — renewals show before they hit."
+          count={measured ? ov.upcoming.length : null}
+        />
+        {!measured ? (
+          <p className="text-[13px] text-ink/60">
+            Renewals were not read. Do not take this as a clear month — a
+            charge due next week would look exactly like this.
+          </p>
+        ) : ov.upcoming.length === 0 ? (
+          <p className="text-[13px] text-ink/60">
+            No dated renewals logged. Give annual lines (domains · permits ·
+            app-store fees) a next-due date so January never surprises you.
+          </p>
+        ) : (
+          <Rows label="Upcoming charges" data="expenses-upcoming">
+            {ov.upcoming.map((r) => (
+              <Row
+                key={r.expense_id}
+                title={r.vendor_name}
+                sub={`${r.next_due_on} · ${categoryLabel(r.category)}`}
+                trail={php.format(r.amount_php)}
+              />
+            ))}
+          </Rows>
+        )}
+      </section>
+
       {/* E4 — the ledger */}
-      <ChartCard
-        title="Expense ledger"
-        pill="live"
-        source="latest rows · attach the receipt on every line"
-      >
+      <section aria-labelledby="apx-exp-ledger">
+        <Sec
+          id="apx-exp-ledger"
+          title="Expense ledger"
+          about="Live · the latest rows. Attach the receipt on every line."
+        />
         {/* The per-row receipt controls live INSIDE their own cell, which is the
             only way the archetype offers a button: this row genuinely settles
             on one press, and the server action refuses to run without the file
@@ -373,7 +347,7 @@ export async function ExpensesZone() {
           reads="the expense ledger"
           cap={LEDGER_ROWS}
           label="Expense ledger"
-          minWidth="44rem"
+          minWidth="20rem"
           rowKey={(r) => r.expense_id}
           empty={{
             Icon: ReceiptText,
@@ -410,8 +384,7 @@ export async function ExpensesZone() {
                     <input type="hidden" name="expense_id" value={r.expense_id} />
                     <button
                       type="submit"
-                      className="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                      style={{ background: 'var(--m-sage)', color: '#2E4A2A' }}
+                      className="min-h-11 rounded-full bg-[var(--sn-success-soft)] px-3 text-[13px] font-semibold text-[var(--sn-success-deep)]"
                     >
                       View receipt
                     </button>
@@ -419,10 +392,7 @@ export async function ExpensesZone() {
                 ) : (
                   <form action={attachReceipt} className="inline-flex flex-wrap items-center gap-1.5">
                     <input type="hidden" name="expense_id" value={r.expense_id} />
-                    <span
-                      className="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                      style={{ background: 'var(--m-blush)', color: 'var(--m-blush-deepest)' }}
-                    >
+                    <span className="inline-flex min-h-6 items-center rounded-full bg-[var(--sn-warning-soft)] px-2 text-[12px] font-semibold text-[var(--sn-warning-deep)]">
                       Missing
                     </span>
                     <input
@@ -431,10 +401,9 @@ export async function ExpensesZone() {
                       required
                       accept="application/pdf,image/jpeg,image/png,image/webp"
                       aria-label={`Receipt for ${r.vendor_name}`}
-                      className="w-32 text-[11px]"
-                      style={{ color: 'var(--m-slate)' }}
+                      className="w-32 text-[12px] text-ink/70"
                     />
-                    <button type="submit" className="button-secondary h-7 px-2 text-[11px]">
+                    <button type="submit" className="button-secondary min-h-11 px-3 text-[13px]">
                       Attach
                     </button>
                   </form>
@@ -442,7 +411,12 @@ export async function ExpensesZone() {
             },
           ]}
         />
-      </ChartCard>
+      </section>
+
+      <Note label="Receipts">
+        PDF, JPG, PNG or WebP, up to 10 MB, kept in a private bucket; only admins open one, through a 10-minute signed link. Every line with
+        its receipt attached is a line the BIR expense-substantiation trail can stand on.
+      </Note>
     </section>
   );
 }

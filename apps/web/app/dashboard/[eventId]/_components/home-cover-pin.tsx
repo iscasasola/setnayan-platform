@@ -39,7 +39,7 @@ export function HomeCoverPin({ name, date, gear = false }: { name: string; date?
     <span
       ref={line}
       data-home-cover-pin=""
-      className={`pointer-events-none absolute inset-x-4 bottom-0 ${gear ? 'pr-[54px]' : ''} flex h-[52px] translate-y-2 items-center gap-2.5 opacity-0 transition-[opacity,transform] duration-200 ease-sn group-data-[collapsed]/cover:translate-y-0 group-data-[collapsed]/cover:opacity-100 motion-reduce:translate-y-0 motion-reduce:transition-none sm:inset-x-6 lg:inset-x-8`}
+      className={`pointer-events-none absolute inset-x-4 bottom-0 ${gear ? 'pr-[54px]' : ''} flex h-[52px] translate-y-2 items-center gap-2.5 opacity-0 transition-[opacity,transform] duration-[var(--sn-dur-control)] ease-sn group-data-[collapsed]/cover:translate-y-0 group-data-[collapsed]/cover:opacity-100 motion-reduce:translate-y-0 motion-reduce:transition-none sm:inset-x-6 lg:inset-x-8`}
     >
       <span aria-hidden className="min-w-0 flex-1 truncate text-[17px] font-semibold">{name}</span>
       {date ? <span aria-hidden className="shrink-0 text-[13px] opacity-90">{date}</span> : null}

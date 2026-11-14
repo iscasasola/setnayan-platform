@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ownWebAddress, pinnedQuote, shopReach, shopReachLine } from '@/lib/shop-page-plan';
+import { ownWebAddress, pinnedQuote, shopHasWhere, shopReach, shopReachLine } from '@/lib/shop-page-plan';
 import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 
 /** Supplier website by plan (owner-approved 2026-10-30) — the card column's plan pieces, read off the shipped caps. */
@@ -62,4 +62,14 @@ test('the pinned quote keeps whole words and never invents text', () => {
   const long = pinnedQuote('word '.repeat(80), 60)!;
   assert.ok(long.endsWith('…') && long.length <= 61, long);
   assert.ok(!/\s…$/.test(long));
+});
+
+test('a shop with no pin, no address and no city has no "Where" (re-walk 2026-11-14: the tab led to an empty heading)', () => {
+  const none = { latitude: null, longitude: null, address: null, city: null };
+  assert.equal(shopHasWhere(none), false);
+  assert.equal(shopHasWhere({ ...none, address: '   ', city: '' }), false, 'blank words are not a place');
+  assert.equal(shopHasWhere({ ...none, latitude: 14.1, longitude: null }), false, 'half a pin is no pin');
+  assert.equal(shopHasWhere({ ...none, latitude: 14.1, longitude: 120.9 }), true, 'a pin draws the map');
+  assert.equal(shopHasWhere({ ...none, address: '12 Rizal St' }), true, 'an address gets the search');
+  assert.equal(shopHasWhere({ ...none, city: 'Tagaytay' }), true, 'a city gets the reach line and the search');
 });

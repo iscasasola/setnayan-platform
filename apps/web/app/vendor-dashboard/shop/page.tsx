@@ -102,8 +102,8 @@ type ShopData = {
   verify: {
     status: VerifyStatus;
     requiredDocsIn: boolean;
-    emailConfirmedAt: string | null;
-    phoneConfirmedAt: string | null;
+    /** How many of the required papers are in (the cover's "n of 3 papers"). */
+    requiredIn: number;
   };
   /** 🧰 One row per service — `null` = the read failed, said as such, never "no services". */
   serviceRows: ShopServiceRow[] | null;
@@ -433,8 +433,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     verify: {
       status: (verifyApp?.status as VerifyStatus) ?? null,
       requiredDocsIn: requiredDocsComplete(verifyUploads),
-      emailConfirmedAt: verifyApp?.contact_email_confirmed_at ?? null,
-      phoneConfirmedAt: verifyApp?.contact_phone_confirmed_at ?? null,
+      requiredIn: countCompleteRequiredSlots(verifyUploads),
     },
     serviceRows,
     scanSettings,
@@ -615,7 +614,8 @@ async function ShopHome({
     verified: {
       isVerified: data.isVerified,
       inReview: data.verify.status === 'pending_review' || data.verify.status === 'in_review',
-      stepsDone: (data.verify.requiredDocsIn ? 1 : 0) + (data.verify.emailConfirmedAt && data.verify.phoneConfirmedAt ? 1 : 0),
+      papersIn: data.verify.requiredIn,
+      papersOf: REQUIRED_DOC_COUNT,
     },
     rating: data.rating,
     reviews: data.reviews,

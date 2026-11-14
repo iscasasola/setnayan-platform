@@ -81,11 +81,11 @@ export function SupplierHero({
         {gear ? <span className="shrink-0" data-supplier-hero-gear="">{gear}</span> : null}
       </div>
       {sample ? (
-        <span className="absolute left-4 top-16 rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11px] tracking-[0.06em] backdrop-blur" data-supplier-hero-sample="">
+        <span className="absolute left-4 top-16 rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs tracking-[0.06em] backdrop-blur" data-supplier-hero-sample="">
           Sample photo · Upload yours
         </span>
       ) : caption ? (
-        <span className="absolute right-4 top-16 max-w-[60%] truncate rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11px] tracking-[0.06em] backdrop-blur" data-supplier-hero-caption="">
+        <span className="absolute right-4 top-16 max-w-[60%] truncate rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs tracking-[0.06em] backdrop-blur" data-supplier-hero-caption="">
           {caption}
         </span>
       ) : null}

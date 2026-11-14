@@ -91,10 +91,10 @@ export function QrCodeList({ rows, openKey = null }: { rows: QrRow[]; openKey?: 
                 {r.name}
                 {r.sub ? <span className="font-normal text-[var(--sn-ink-500)]"> · {r.sub}</span> : null}
                 {r.perEvent ? (
-                  <span className="ml-1.5 inline-block rounded-full bg-[var(--sn-gold-100)] px-2 py-0.5 align-[1px] text-[11px] font-semibold text-[var(--sn-gold-800)]">per event</span>
+                  <span className="ml-1.5 inline-block rounded-full bg-[var(--sn-gold-100)] px-2 py-0.5 align-[1px] text-xs font-semibold text-[var(--sn-gold-800)]">per event</span>
                 ) : null}
               </span>
-              <span className="mt-0.5 block text-[13px] text-ink/60">{r.line}</span>
+              <span className="mt-0.5 block text-[13px] text-[color:var(--m-slate-2)]">{r.line}</span>
             </span>
             <QrThumb svg={r.thumb} />
             <ChevronRight aria-hidden className="h-[18px] w-[18px] flex-none text-sn-accent" strokeWidth={2} />
@@ -157,7 +157,7 @@ function PutOnRow({ title, line, data, onClick }: { title: string; line: string;
     <button type="button" onClick={onClick} className="sn-press flex min-h-14 w-full items-center gap-3 border-b border-[var(--sn-hairline)] py-2.5 text-left last:border-b-0" data-qr-put-on-row={data}>
       <span className="min-w-0 flex-1">
         <span className="block text-[15px] font-medium leading-tight text-ink">{title}</span>
-        <span className="mt-0.5 block text-[13px] text-ink/60">{line}</span>
+        <span className="mt-0.5 block text-[13px] text-[color:var(--m-slate-2)]">{line}</span>
       </span>
       <ChevronRight aria-hidden className="h-[18px] w-[18px] flex-none text-sn-accent" strokeWidth={2} />
     </button>
@@ -172,7 +172,7 @@ function QrThumb({ svg }: { svg: string | null }) {
       className="block h-11 w-11 flex-none rounded-lg bg-white p-[3px] shadow-[0_1px_0_rgba(0,0,0,.04),0_4px_12px_-8px_rgba(0,0,0,.35)] [&_svg]:block [&_svg]:h-full [&_svg]:w-full"
       data-qr-thumb={svg ? 'code' : 'none'}
     >
-      {svg ? <span className="block h-full w-full" dangerouslySetInnerHTML={{ __html: svg }} /> : <QrCode className="h-full w-full p-1.5 text-ink/40" strokeWidth={1.5} />}
+      {svg ? <span className="block h-full w-full" dangerouslySetInnerHTML={{ __html: svg }} /> : <QrCode className="h-full w-full p-1.5 text-[color:var(--m-slate-2)]" strokeWidth={1.5} />}
     </span>
   );
 }

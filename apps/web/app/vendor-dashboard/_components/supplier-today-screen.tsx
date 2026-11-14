@@ -144,7 +144,7 @@ export function SupplierTodayScreen({
             <BookingFeeBills today bills={view.bills} copyFor={view.billCopy} />
             {view.lockLine ? (
               /* Said once, for every bill — one short line visible, the whole sentence in its ⓘ. */
-              <p data-fee-lock-line="" className="pb-2 pl-[46px] text-[12.5px] leading-snug text-ink/60">
+              <p data-fee-lock-line="" className="pb-2 pl-[46px] text-[12.5px] leading-snug text-[color:var(--m-slate-2)]">
                 <InfoTip label={view.lockWord} align="start">
                   {view.lockLine}
                 </InfoTip>

@@ -139,8 +139,8 @@ test('(4) the lab’s doors stay the lab’s', () => {
   }
   assert.equal(scrubOutOffered(), true, 'the lab’s door, closed, turned the constant off');
   /* The lab USES both doors… */
-  assert.match(read('app/dev/maker-lab/guest/page.tsx'), /as never\} scrubAllowed scrubOut>/);
-  assert.match(read('app/dev/maker-lab/guest/page.tsx'), /hubScrubHoldsAtMost\(LAB_SCRUB_CHAIN\.map\(\(t\) => rowOf\(t\)\) as never, true, true\)/);
+  assert.match(read('app/dev/maker-lab/guest/page.lab.tsx'), /as never\} scrubAllowed scrubOut>/);
+  assert.match(read('app/dev/maker-lab/guest/page.lab.tsx'), /hubScrubHoldsAtMost\(LAB_SCRUB_CHAIN\.map\(\(t\) => rowOf\(t\)\) as never, true, true\)/);
   assert.match(read('app/dev/maker-lab/maker-lab-shell.tsx'), /useEffect\(\(\) => \{\s*offerScrubOutInTheLab\(scrub\);\s*return \(\) => offerScrubOutInTheLab\(false\);\s*\}, \[scrub\]\);/);
   /* …and NOTHING ELSE in the app does: no file outside `app/dev/` opens the browser door, hands the renderer the
      server door, or asks the page's hold with it. (The renderer itself only RECEIVES it.) */
@@ -159,7 +159,7 @@ test('(4) the lab’s doors stay the lab’s', () => {
   assert.match(renderer, /scrubOut = SCRUB_OUT_OFFERED,/);
   assert.doesNotMatch(renderer, /scrubOutOffered\(|offerScrubOutInTheLab/);
   /* Every page under `app/dev/` answers 404 in production — itself, or the lab page it hands straight to. */
-  const pages = walk('app/dev').filter((f) => /\/page\.tsx$/.test(f));
+  const pages = walk('app/dev').filter((f) => /\/page(\.lab)?\.tsx$/.test(f));
   assert.ok(pages.length >= 8, 'anti-vacuity: the lab’s pages were found');
   for (const f of pages) {
     const src = read(f);

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { hubDayWords } from '@/lib/hub-events';
 import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
@@ -159,6 +160,7 @@ import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-fla
 import { pipelineCurrentLabel, supplierNextMove } from '@/lib/supplier-next-move';
 import { ClientDayAnswers } from '../../_components/client-day-answers';
 import { detailsNumbers } from './_components/details-numbers';
+import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
@@ -2443,6 +2445,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const sentQuote = [...proposals]
     .filter((p) => p.status !== 'draft')
     .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
+  // 👥 RW-108: a claimed per-guest booking — the couple's figure and count (the same read as Customers, #7633).
+  const shopPerGuest = isBooked || sentQuote ? null : (await readShopPerGuest(admin, profile.vendor_profile_id, [eventId]))?.get(eventId) ?? null;
   const numbersCells = detailsNumbers({
     isBooked,
     todayIso: manilaTodayIso(),
@@ -2450,6 +2454,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     ledger: ledgerUnreadable ? null : { receivedPhp: ledgerMoney.receivedPhp, expectedPhp: ledgerMoney.expectedPhp },
     onPlan: planRowsAll.length > 0,
     sentQuotePhp: proposalRowsError ? null : sentQuote ? sentQuote.total_centavos / 100 : undefined,
+    perGuest: shopPerGuest,
     peso: (php) => fmtPeso(php),
   });
 
@@ -3679,6 +3684,12 @@ function ScheduleTab(props: {
               initial={runOfShowBlocks}
               canAdvance={canAdvance}
               compact
+              // RW-87: before the event's day the Now box says when it starts, never "Not started yet".
+              startsOnWords={
+                props.brief.event.event_date && props.brief.event.event_date.slice(0, 10) > manilaToday()
+                  ? hubDayWords(props.brief.event.event_date)
+                  : null
+              }
             />
           </div>
         ) : null}

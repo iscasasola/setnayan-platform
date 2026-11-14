@@ -56,7 +56,7 @@ test('the scan reads the tree and knows the vocabulary (a zero-file sweep is a g
   assert.ok(isScannedPath('lib/supplier-find.ts'));
   assert.ok(!isScannedPath('lib/taxonomy.ts'), 'the seed owns the taxonomy and must not be scanned');
   assert.ok(!isScannedPath('lib/supplier-find.test.ts'));
-  assert.ok(!isScannedPath('app/dev/supplier-lab/page.tsx'));
+  assert.ok(!isScannedPath('app/dev/supplier-lab/page.lab.tsx'));
 });
 
 test('the scanner goes red on each kind, and not on prose or on an ambiguous word', () => {

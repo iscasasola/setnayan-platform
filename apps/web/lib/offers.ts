@@ -10,7 +10,9 @@
  *
  * ✅ SETTLED 10 Nov ("all yes", DECISION_LOG) — each one is held by `lib/offers.test.ts`:
  *   · the supplier's OWN gifts (add-ons, typed gifts) have NO 40% limit — the limit binds Setnayan gifts only (`limitApplies`);
- *   · the stocked gift price is for Verified-and-up only; a Free shop pays the list price (`tierPaysGiftPrice`, shipped);
+ *   · 📦 ONE PRICE PER GIFT (14 Nov, superseding the 10 Nov stocked gift price): every Setnayan gift is at its list
+ *     price, stocked or on the booking fee; stock only says whether it is already paid for. The only discount is the
+ *     buy-10-get-1 Papic bundle, which fills the stock (lib/shop-gifts.ts);
  *   · offers never stack — the single best price result wins (`pickBestDiscount`, the ONE function, reads
  *     `offerCandidatesFor`); the lowest first payment wins (`bestFirstPayment`);
  *   · the same gift from two offers is given ONCE (`giftsFor`).
@@ -30,8 +32,8 @@ import type { BookingFeeSchedule } from './booking-fee';
 import { formatPhpRounded } from './php';
 import {
   alwaysAllowedPack,
+  freeOfPack,
   giftLimitCentavos,
-  giftUnitPrice,
   type FreeByKind,
   type ShopGiftPack,
 } from './shop-gifts';
@@ -116,9 +118,7 @@ export type GiftContext = {
   packs: readonly ShopGiftPack[];
   schedule: BookingFeeSchedule;
   limitPct: number;
-  /** `tierPaysGiftPrice(tier)` — Verified-and-up pay the stocked gift price; Free pays list. */
-  paysGiftPrice: boolean;
-  /** Free to offer, per kind; null = could not be read (said so, never "0 in stock"). */
+  /** Free to offer, per kind (Papic per pack); null = could not be read (said so, never "0 in stock"). */
   free: FreeByKind | null;
   addons: readonly ShopAddon[];
 };
@@ -398,22 +398,19 @@ export function giftWorth(g: OfferGift, ctx: Pick<GiftContext, 'packs' | 'addons
   return g.worthPhp;
 }
 
-/** How many of this pack the shop can still give from stock; null = stock unread. */
+/** How many of this pack the shop can still give from stock (Papic counted in packs); null = stock unread. */
 export function packsInStock(pack: ShopGiftPack, free: FreeByKind | null): number | null {
-  if (!free) return null;
-  return Math.floor(Math.max(0, free[pack.kind]) / pack.credits);
+  return freeOfPack(free, pack);
 }
 
 /**
- * The stock line on a Setnayan gift row (9 Nov: stock sets the PRICE, never whether it can be offered): "6 in stock ·
- * ₱449 each from stock · ₱499 on the booking fee". A Free shop pays the list price either way (Verified-and-up only).
+ * The stock line on a Setnayan gift row: "11 in stock · ₱499 each". 📦 ONE price per gift (14 Nov) — stock only says
+ * whether it is already paid for; with none in stock it goes on the booking fee at the same price.
  */
-export function stockLine(pack: ShopGiftPack, ctx: Pick<GiftContext, 'free' | 'paysGiftPrice'>): string {
+export function stockLine(pack: ShopGiftPack, ctx: Pick<GiftContext, 'free'>): string {
   const n = packsInStock(pack, ctx.free);
-  const stocked = giftUnitPrice(pack, ctx.paysGiftPrice);
   const head = n === null ? 'Couldn’t read your stock' : n > 0 ? `${count(n)} in stock` : 'none in stock';
-  const list = php(pack.srpCentavos / 100);
-  return stocked.basis === 'gift' ? `${head} · ${php(stocked.centavos / 100)} each from stock · ${list} on the booking fee` : `${head} · ${list} each`;
+  return `${head} · ${php(pack.srpCentavos / 100)} each`;
 }
 
 export type GiftVerdict = { gift: OfferGift; ok: boolean; why: string };
@@ -468,6 +465,8 @@ export function giftsFor(offers: readonly Offer[], cardId: string, payPhp: numbe
  * Good = the always-allowed smallest Papic · Better = the biggest Setnayan gift(s) that fit the limit at the price
  * couples pay (stock never caps it) · Best = Better + ONE own extra — the controller's rule, written in the ⓘ: the
  * highest-worth add-on from the card(s) that is not already on it.
+ * 📐 AT MOST ONE PLAN GIFT PER SET (owner's pick 3, 14 Nov): the biggest Event Plus / Pro / Ultra that fits leads, the
+ * rest is Papic — so Ultra can lead Better and Best, and a set never pairs two plans.
  */
 export function recommendGifts(payPhp: number, cardIds: readonly string[], ctx: GiftContext): { good: OfferGift[]; better: OfferGift[]; best: OfferGift[] } {
   const smallest = alwaysAllowedPack(ctx.packs);
@@ -475,30 +474,49 @@ export function recommendGifts(payPhp: number, cardIds: readonly string[], ctx: 
   const lim = giftLimitCentavos(Math.round(payPhp * 100), ctx.schedule, ctx.limitPct);
   const better: OfferGift[] = [];
   let used = 0;
+  let plan = false;
   for (const p of [...ctx.packs].filter((p) => p.code !== smallest?.code && p.srpCentavos <= lim).sort((a, b) => b.srpCentavos - a.srpCentavos)) {
     if (used + p.srpCentavos > lim) continue;
+    if (p.kind !== 'papic' && plan) continue;
     better.push({ kind: 'sn', code: p.code });
     used += p.srpCentavos;
+    if (p.kind !== 'papic') plan = true;
   }
   const b = better.length ? better : good;
   const own = ctx.addons.filter((a) => cardIds.includes(a.cardId)).sort((x, y) => (y.fromPhp ?? 0) - (x.fromPhp ?? 0))[0];
   return { good, better: b, best: own ? [...b, { kind: 'addon', addonId: own.id }] : b };
 }
 
-/** What a stack costs the supplier per booking: stocked gifts at the stocked price, the rest on the booking fee at list. */
+/**
+ * What a stack costs the supplier per booking — ONE total at list price (📦 14 Nov: one price per gift), and which of its
+ * Setnayan gifts are already paid for in stock: "₱11,488 · all 3 from your stock" · "₱999 · on the booking fee".
+ */
 export function stackCost(items: readonly OfferGift[], ctx: GiftContext): string {
-  let fromStock = 0;
-  let onFee = 0;
+  let total = 0;
+  let gifts = 0;
+  let stocked = 0;
+  let unread = false;
   for (const g of items) {
     if (g.kind !== 'sn') continue;
     const p = packOf(ctx, g.code);
     if (!p) continue;
+    gifts += 1;
+    total += p.srpCentavos;
     const n = packsInStock(p, ctx.free);
-    if (n !== null && n > 0) fromStock += giftUnitPrice(p, ctx.paysGiftPrice).centavos;
-    else onFee += p.srpCentavos;
+    if (n === null) unread = true;
+    else if (n > 0) stocked += 1;
   }
-  const parts = [fromStock ? `${php(fromStock / 100)} from stock` : '', onFee ? `${php(onFee / 100)} on the fee` : ''].filter(Boolean);
-  return parts.length ? `costs you ${parts.join(' + ')}` : 'costs you nothing';
+  if (gifts === 0) return 'costs you nothing';
+  const where = unread
+    ? 'couldn’t read your stock'
+    : stocked === gifts
+      ? gifts === 1
+        ? 'from your stock'
+        : `all ${count(gifts)} from your stock`
+      : stocked === 0
+        ? 'on the booking fee'
+        : `${count(stocked)} of ${count(gifts)} from your stock`;
+  return `${php(total / 100)} · ${where}`;
 }
 
 // ── The saved row ↔ the model ─────────────────────────────────────────────────

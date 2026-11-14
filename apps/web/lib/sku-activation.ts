@@ -441,14 +441,21 @@ async function grantShopGiftPurchase(ctx: ActivationContext): Promise<void> {
   try {
     const { data, error } = await ctx.admin
       .from('shop_gift_purchases')
-      .select('vendor_profile_id, gift_kind, quantity, credits_each')
+      .select('vendor_profile_id, service_code, gift_kind, quantity, credits_each, packs_each')
       .eq('order_id', ctx.orderId)
       .maybeSingle();
     if (error) {
       reportActivationFault('activate:shop_gift_purchase', ctx, error);
       return;
     }
-    const p = data as { vendor_profile_id: string; gift_kind: string; quantity: number; credits_each: number } | null;
+    const p = data as {
+      vendor_profile_id: string;
+      service_code: string;
+      gift_kind: string;
+      quantity: number;
+      credits_each: number;
+      packs_each: number | null;
+    } | null;
     if (!p) {
       reportActivationFault(
         'activate:shop_gift_purchase',
@@ -463,12 +470,16 @@ async function grantShopGiftPurchase(ctx: ActivationContext): Promise<void> {
       reportActivationFault('activate:shop_gift_purchase', ctx, new Error(`no credits for ${ctx.serviceKey}`));
       return;
     }
+    // 🔢 Papic is COUNTED IN PACKS (2026-11-14): the row says which pack and how many — a bundle lands
+    // `quantity × packs_each` (11 per buy-10-get-1 bundle, read from the catalogue when it was bought).
+    const packs = p.quantity * (p.packs_each && p.packs_each > 0 ? p.packs_each : 1);
     const { error: insErr } = await ctx.admin.from('shop_gift_stock_entries').insert({
       vendor_profile_id: p.vendor_profile_id,
       gift_kind: p.gift_kind,
       delta: credits,
       kind: 'bought',
       order_id: ctx.orderId,
+      ...(p.gift_kind === 'papic' ? { pack_code: p.service_code, packs } : {}),
       note: `Gifts bought · ${p.quantity} × ${ctx.serviceKey}`,
       created_by: ctx.actorUserId,
     });
@@ -502,7 +513,7 @@ async function reverseShopGiftPurchase(ctx: ActivationContext): Promise<void> {
   try {
     const { data, error } = await ctx.admin
       .from('shop_gift_stock_entries')
-      .select('vendor_profile_id, gift_kind, delta')
+      .select('vendor_profile_id, gift_kind, delta, pack_code, packs')
       .eq('order_id', ctx.orderId)
       .eq('kind', 'bought')
       .maybeSingle();
@@ -510,12 +521,19 @@ async function reverseShopGiftPurchase(ctx: ActivationContext): Promise<void> {
       reportActivationFault('deactivate:shop_gift_purchase', ctx, error);
       return;
     }
-    const bought = data as { vendor_profile_id: string; gift_kind: string; delta: number } | null;
+    const bought = data as {
+      vendor_profile_id: string;
+      gift_kind: string;
+      delta: number;
+      pack_code: string | null;
+      packs: number | null;
+    } | null;
     if (!bought || !(bought.delta > 0)) return;
     const { error: insErr } = await ctx.admin.from('shop_gift_stock_entries').insert({
       vendor_profile_id: bought.vendor_profile_id,
       gift_kind: bought.gift_kind,
       delta: -bought.delta,
+      ...(bought.pack_code && bought.packs ? { pack_code: bought.pack_code, packs: -bought.packs } : {}),
       kind: 'reversal',
       order_id: ctx.orderId,
       note: `Gift order refunded or un-approved · ${ctx.serviceKey}`,

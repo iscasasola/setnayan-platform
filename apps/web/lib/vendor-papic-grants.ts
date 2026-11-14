@@ -209,6 +209,9 @@ export async function fetchVendorPapicPackPricePhp(
  * unretired `PAPIC_GUEST*` catalogue row with an active, non-top-up tier row, smallest first. Price and credits are
  * READ; `null` on any read error (render "unavailable", never a remembered figure).
  *
+ * 📦 One price per gift since 2026-11-14 — the list price; `gift_price_php` is no longer read here (owner: "we only have
+ * the 10+1"). The service-role requirement stays (history below): it costs nothing and keeps every caller on one client.
+ *
  * 🔒 `admin` MUST BE THE SERVICE-ROLE CLIENT (G6, 2026-11-10). `gift_price_php` is withheld from `anon` +
  * `authenticated` on purpose — 20271201188010 grants the catalogue column by column, the final price sheet
  * (20271308555594) added the gift price after it, and `the-catalog-keeps-its-margin.db.test.ts` lists it in
@@ -223,7 +226,7 @@ export async function fetchShopPapicPacks(admin: SupabaseClient): Promise<ShopPa
     const [catalog, tiers] = await Promise.all([
       admin
         .from('platform_retail_catalog_v2')
-        .select('service_code, title, retail_price_php, gift_price_php, is_active, retired_at')
+        .select('service_code, title, retail_price_php, is_active, retired_at')
         .like('service_code', 'PAPIC_GUEST%'),
       admin.from('papic_pass_tiers').select('service_code, points, is_active, is_topup').like('service_code', 'PAPIC_GUEST%'),
     ]);
@@ -238,14 +241,12 @@ export async function fetchShopPapicPacks(admin: SupabaseClient): Promise<ShopPa
       }
     }
     const packs: ShopPapicPack[] = [];
-    for (const c of (catalog.data ?? []) as Array<{ service_code: string; title: string | null; retail_price_php: number | string | null; gift_price_php?: number | string | null; is_active: boolean | null; retired_at: string | null }>) {
+    for (const c of (catalog.data ?? []) as Array<{ service_code: string; title: string | null; retail_price_php: number | string | null; is_active: boolean | null; retired_at: string | null }>) {
       if (c.is_active !== true || c.retired_at) continue;
       const credits = points.get(c.service_code);
       const pricePhp = Number(c.retail_price_php);
       if (credits === undefined || !Number.isFinite(pricePhp) || pricePhp <= 0) continue;
-      const gift = c.gift_price_php == null ? NaN : Number(c.gift_price_php);
-      const giftPricePhp = Number.isFinite(gift) && gift > 0 ? gift : null;
-      packs.push({ code: c.service_code, title: c.title ?? c.service_code, credits, pricePhp, giftPricePhp });
+      packs.push({ code: c.service_code, title: c.title ?? c.service_code, credits, pricePhp });
     }
     return packs.sort((a, b) => a.credits - b.credits);
   } catch (e) {

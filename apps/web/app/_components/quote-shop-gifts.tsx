@@ -15,11 +15,15 @@ import {
   giftCount,
   giftPackLine,
   judgeQuoteGifts,
+  type ShopGiftBundle,
   type ShopGiftQuoteBasis,
 } from '@/lib/shop-gifts';
 
-/** Buying from inside the quote — present only where the shop can buy (Papic on, not the App Store shell). */
-export type QuoteShopGiftsBuy = { paysGiftPrice: boolean; openRails: OpenRail[] };
+/**
+ * Buying from inside the quote — present only where the shop can buy (Papic on, not the App Store shell). 📦 `bundles`:
+ * the buy-10-get-1 bundles on sale (2026-11-14); every single gift is at its one list price.
+ */
+export type QuoteShopGiftsBuy = { bundles: ShopGiftBundle[]; openRails: OpenRail[] };
 
 const BUY_KEY = '__buy_more_gifts';
 
@@ -64,7 +68,12 @@ export function QuoteShopGifts({
   );
   const smallest = alwaysAllowedPack(basis.packs);
   const feeCentavos = totalCentavos > 0 ? Math.round(bookingFeePhp(totalCentavos / 100, basis.schedule) * 100) : 0;
-  const leftAfter = basis.free === null || verdict.credits === 0 ? null : Math.max(0, basis.free.papic - verdict.credits);
+  // 🔢 Papic is counted in packs (2026-11-14): what is left of the LAST-added Papic pack after this quote.
+  const lastPapic = [...verdict.lines].reverse().find((p) => p.kind === 'papic') ?? null;
+  const leftAfter =
+    basis.free === null || !lastPapic
+      ? null
+      : Math.max(0, (basis.free.packs[lastPapic.code] ?? 0) - verdict.lines.filter((p) => p.code === lastPapic.code).length);
   // The first Event Plus on an event that already has Plus becomes Event Pro — said on that line.
   const firstPlusIndex = codes.findIndex((c) => basis.packs.find((p) => p.code === c)?.kind === 'event_plus');
 
@@ -77,9 +86,10 @@ export function QuoteShopGifts({
     <div data-testid="quote-shop-gifts" className="mt-3 space-y-2">
       <InfoTip label="Gifts from you" labelClassName="text-sm font-semibold text-ink" align="start">
         Gifts from your own stock. They leave your stock when the couple&rsquo;s first payment clears, and land on their
-        event — Papic credits in its shared credits, Event Plus or Event Pro unlocked on it. A second Event Plus on an
-        event that already has one makes it Event Pro. Gifts from your badge rewards are used first and sit outside this
-        booking&rsquo;s gift limit.
+        event — a Papic pack&rsquo;s credits in its shared Papic pool (whole packs, one at a time, at the price couples
+        pay), Event Plus, Event Pro or Event Ultra unlocked on it. A second Event Plus on an event that already has one
+        makes it Event Pro; Event Ultra on an event with Plus or Pro makes it Event Ultra. Gifts from your badge rewards
+        are used first and sit outside this booking&rsquo;s gift limit.
       </InfoTip>
 
       <div className="flex items-start justify-between gap-3 text-sm" data-testid="quote-shop-gifts-limit">
@@ -123,13 +133,15 @@ export function QuoteShopGifts({
               >
                 <div className="flex items-center justify-between gap-3 rounded-lg px-1 py-1.5 text-sm" data-testid="quote-shop-gift-line">
                   <span className="min-w-0">
-                    <span className="block text-ink">🎁 {title}</span>
+                    <span className="block text-ink">🎁 {pack?.kind === 'papic' ? `1 × ${title}` : title}</span>
                     <span className="mt-0.5 block text-xs text-ink/60">
                       {!pack
                         ? 'Not on sale any more'
                         : pack.kind === 'event_plus' && basis.eventHas === 'plus' && i === firstPlusIndex
                           ? 'They already have Event Plus — this makes it Event Pro'
-                          : giftPackLine(pack)}
+                          : pack.kind === 'event_ultra' && (basis.eventHas === 'plus' || basis.eventHas === 'pro')
+                            ? `They already have Event ${basis.eventHas === 'pro' ? 'Pro' : 'Plus'} — this makes it Event Ultra`
+                            : giftPackLine(pack)}
                       {pack && verdict.fromReward[i] ? (
                         <span className="font-medium text-success-700" data-testid="quote-shop-gift-reward">
                           {' '}
@@ -150,7 +162,7 @@ export function QuoteShopGifts({
           Gifts worth {formatCentavos(verdict.valueCentavos)} at the price couples pay
           {verdict.rewardCentavos > 0 ? ` · ${formatCentavos(verdict.rewardCentavos)} from badge rewards, outside the limit` : ''}
           {verdict.alwaysAllowed ? '' : ` · of ${formatCentavos(verdict.limitCentavos)}`}
-          {leftAfter !== null ? ` · ${giftCount(leftAfter)} credits left in your stock after` : ''}
+          {leftAfter !== null && lastPapic ? ` · ${giftCount(leftAfter)} × ${lastPapic.title} left in your stock after` : ''}
         </p>
       ) : verdict.state === 'over_limit' ? (
         <p className="text-xs text-danger-700" role="status" data-testid="quote-shop-gifts-over">
@@ -165,8 +177,8 @@ export function QuoteShopGifts({
         <p className="text-xs text-danger-700" role="status" data-testid="quote-shop-gifts-short">
           <b className="font-semibold">
             Not on this quote · short {giftCount(verdict.shortBy)}{' '}
-            {verdict.shortKind === 'papic' || !verdict.shortKind
-              ? 'credits'
+            {verdict.shortKind === 'papic'
+              ? `× ${basis.packs.find((p) => p.code === verdict.shortPack)?.title ?? 'Papic'}`
               : (basis.packs.find((p) => p.kind === verdict.shortKind)?.title ?? 'gifts')}
             .
           </b>{' '}
@@ -174,7 +186,17 @@ export function QuoteShopGifts({
         </p>
       ) : verdict.state === 'already_has' ? (
         <p className="text-xs text-danger-700" role="status" data-testid="quote-shop-gifts-already">
-          <b className="font-semibold">Their event already has Event Pro.</b> Take Event Plus and Event Pro off this quote.
+          {basis.eventHas === 'ultra' ? (
+            <>
+              <b className="font-semibold">Their event already has Event Ultra.</b> Take Event Plus, Event Pro and Event
+              Ultra off this quote.
+            </>
+          ) : (
+            <>
+              <b className="font-semibold">Their event already has Event Pro.</b> Take Event Plus and Event Pro off this
+              quote.
+            </>
+          )}
         </p>
       ) : verdict.state === 'unknown_pack' ? (
         <p className="text-xs text-danger-700" role="status">
@@ -201,7 +223,7 @@ export function QuoteShopGifts({
           open={buying}
           onClose={() => setBuying(false)}
           packs={basis.packs}
-          paysGiftPrice={buy.paysGiftPrice}
+          bundles={buy.bundles}
           openRails={buy.openRails}
         />
       ) : null}

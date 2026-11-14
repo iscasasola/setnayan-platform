@@ -17,10 +17,11 @@ import { formatPhp } from '@/lib/php';
 import type { OpenRail } from '@/lib/payment-channels';
 import {
   SHOP_GIFT_MAX_QUANTITY,
+  bundleFreePacks,
   giftCount,
-  giftUnitPrice,
   stockSubline,
   type FreeByKind,
+  type ShopGiftBundle,
   type ShopGiftKind,
   type ShopGiftPack,
   type ShopGiftStocks,
@@ -46,6 +47,10 @@ export type ShopGiftBoughtLine = {
   kind?: ShopGiftKind;
   quantity: number;
   paidPhp: number;
+  /** 📦 Packs this order landed — a bundle lands its whole count. Absent ⇒ `quantity`. */
+  packs?: number;
+  /** 📦 "Buy 10, get 1 free" on a bundle order. */
+  bundleNote?: string | null;
   createdAt: string;
   state: 'in_stock' | 'checking' | 'refunded';
 };
@@ -55,8 +60,11 @@ export type ShopGiftsSectionData = {
   stock: ShopGiftStocks | null;
   /** null ⇒ the catalogue could not be read; [] ⇒ nothing on sale. */
   packs: ShopGiftPack[] | null;
-  /** Verified-and-up pays the catalogue's gift price (`vendor_pays_gift_price`). */
-  paysGiftPrice: boolean;
+  /**
+   * 📦 BUY 10, GET 1 FREE bundles on sale (owner 2026-11-14), from the catalogue. Every shop may buy them. [] ⇒ none on
+   * sale or unread — the singles stay on sale either way. ONE price per single gift: its list price.
+   */
+  bundles: ShopGiftBundle[];
   /** null ⇒ the purchases could not be read. */
   bought: ShopGiftBoughtLine[] | null;
   openRails: OpenRail[];
@@ -84,9 +92,31 @@ const icReward = <Award aria-hidden className="h-[18px] w-[18px] flex-none text-
  * The "🏅 300" chip on a stock row when some of it is badge reward — the mark that tells it apart from bought stock,
  * kept short so the row's own line still fits a phone (the ⓘ says what 🏅 means; the Badge rewards fold lists each).
  */
-function rewardChip(left: FreeByKind | null | undefined, k: ShopGiftKind): { tone: 'ok'; word: string } | null {
-  const n = left?.[k] ?? 0;
+function rewardChip(
+  left: FreeByKind | null | undefined,
+  k: ShopGiftKind,
+  /** Papic only: the credits of one pack — the reward stock is kept in credits, shown in packs. */
+  perPack = 1,
+): { tone: 'ok'; word: string } | null {
+  const n = Math.floor((left?.[k] ?? 0) / Math.max(1, perPack));
   return n > 0 ? { tone: 'ok', word: `🏅 ${giftCount(n)}` } : null;
+}
+
+/**
+ * One "Your gifts" row per Papic pack: every pack on sale (smallest first), then any pack the shop still holds that is
+ * no longer on sale (titled by its code — the catalogue no longer names it). The smallest is the badge-reward pack.
+ */
+function papicRows(
+  packs: readonly ShopGiftPack[],
+  stock: ShopGiftStocks | null,
+): Array<{ code: string; title: string; credits: number; smallest: boolean }> {
+  const onSale = packs.filter((p) => p.kind === 'papic');
+  const rows = onSale.map((p, i) => ({ code: p.code, title: p.title, credits: p.credits, smallest: i === 0 }));
+  for (const [code, st] of Object.entries(stock?.packs ?? {})) {
+    if (rows.some((r) => r.code === code) || (st.balance === 0 && st.held === 0)) continue;
+    rows.push({ code, title: code, credits: 1, smallest: false });
+  }
+  return rows;
 }
 
 function day(iso: string): string {
@@ -106,8 +136,8 @@ const STATE_WORD: Record<ShopGiftBoughtLine['state'], string | null> = {
  * 🎁 YOUR GIFTS — the supplier's gift stock (owner 2026-11-04, prototype supplier dashboard v59 "Your gifts").
  *
  *   Your gifts ⓘ                      (title; everything else in the ⓘ)
- *   Papic credits · N free to offer · M on sent quotes          [balance]
- *   Event Plus · Event Pro — the same row, as COUNTS (slice 2, 2026-11-05), each once it is on sale or in stock
+ *   Papic 150 · Papic 1000 · Papic 3000 — one row per pack, COUNTED IN PACKS (2026-11-14): N free · M on sent quotes
+ *   Event Plus · Event Pro · Event Ultra — the same row, as COUNTS (slice 2, 2026-11-05), each once on sale or in stock
  *   [Buy gifts]                        → the Buy sheet: Gift ▾ · How many − n + · Total · Pay with ▾ · Pay ₱X
  *   Bought ▾                           qty × title · date · ₱ (Checking / Refunded when so)
  *   the quiet line                     where gifts go, in one sentence
@@ -139,15 +169,23 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
       </InfoTip>
 
       <div className="mt-2">
-        <DatesRow
-          data="shop-gifts-papic"
-          lead={ic}
-          title="Papic credits"
-          line={stockSubline(stock?.papic ?? null)}
-          strong={stock ? formatCount(stock.papic.balance) : null}
-          badge={stock ? rewardChip(rewards?.left, 'papic') : null}
-        />
-        {(['event_plus', 'event_pro'] as const).map((k) => {
+        {/* 🔢 Papic COUNTED IN PACKS (owner 2026-11-14, "they get how many papic 150, papic 1000, papic 3000"): one
+            row per pack size, the same way as Event Plus / Pro / Ultra. A pack held but no longer on sale keeps its row. */}
+        {papicRows(packs, stock).map((r) => {
+          const s = stock?.packs[r.code] ?? null;
+          return (
+            <DatesRow
+              key={r.code}
+              data="shop-gifts-papic"
+              lead={ic}
+              title={r.title}
+              line={stock ? stockSubline(s ?? { balance: 0, held: 0 }) : stockSubline(null)}
+              strong={stock ? formatCount(s?.balance ?? 0) : null}
+              badge={stock && r.smallest ? rewardChip(rewards?.left, 'papic', r.credits) : null}
+            />
+          );
+        })}
+        {(['event_plus', 'event_pro', 'event_ultra'] as const).map((k) => {
           const pack = packs.find((p) => p.kind === k);
           const s = stock?.[k] ?? null;
           // A count is shown once the product is on sale or the shop holds some — never a row for nothing.
@@ -157,7 +195,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
               key={k}
               data={`shop-gifts-${k.replace('_', '-')}`}
               lead={icUnlock}
-              title={pack?.title ?? (k === 'event_plus' ? 'Event Plus' : 'Event Pro')}
+              title={pack?.title ?? (k === 'event_plus' ? 'Event Plus' : k === 'event_ultra' ? 'Event Ultra' : 'Event Pro')}
               line={stockSubline(s)}
               strong={stock ? formatCount(s?.balance ?? 0) : null}
               badge={stock ? rewardChip(rewards?.left, k) : null}
@@ -226,7 +264,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
                     <DatesRow
                       key={b.orderId}
                       data="shop-gifts-bought-row"
-                      title={`${formatCount(b.quantity)} × ${b.title}`}
+                      title={`${formatCount(b.packs ?? b.quantity)} × ${b.title}${b.bundleNote ? ` · ${b.bundleNote}` : ''}`}
                       line={`${day(b.createdAt)} · ${formatPhp(b.paidPhp)}`}
                       badge={word ? { tone: 'quiet', word } : null}
                     />
@@ -290,7 +328,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
           open={buying}
           onClose={() => setBuying(false)}
           packs={packs}
-          paysGiftPrice={data.paysGiftPrice}
+          bundles={data.bundles}
           openRails={data.openRails}
         />
       ) : null}
@@ -298,19 +336,23 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   );
 }
 
-/** The Buy sheet — the shipped pack-buy pair (Pack ▾ · Pay with ▾ · Submit) plus "How many". */
+/**
+ * The Buy sheet — the shipped pack-buy pair (Gift ▾ · Pay with ▾ · Submit) plus "How many". 📦 Since 2026-11-14 the Gift
+ * menu opens with the BUY 10, GET 1 FREE bundles, then each single gift at its ONE price (the list price) — Event Ultra
+ * beside Plus and Pro. No second price is drawn: every price is the price couples pay.
+ */
 export function BuyGiftsSheet({
   open,
   onClose,
   packs,
-  paysGiftPrice,
+  bundles = [],
   openRails,
   initialCode,
 }: {
   open: boolean;
   onClose: () => void;
   packs: ShopGiftPack[];
-  paysGiftPrice: boolean;
+  bundles?: ShopGiftBundle[];
   openRails: OpenRail[];
   initialCode?: string | null;
 }) {
@@ -318,10 +360,12 @@ export function BuyGiftsSheet({
   const toast = useToast();
   const [state, formAction] = useActionState(buyVendorPapicPortfolioPack, IDLE);
   const handled = useRef<BuyVendorPapicPortfolioPackState | null>(null);
-  const [code, setCode] = useState<string | null>(initialCode ?? packs[0]?.code ?? null);
+  const [code, setCode] = useState<string | null>(initialCode ?? bundles[0]?.code ?? packs[0]?.code ?? null);
   const [qty, setQty] = useState(1);
   const [rail, setRail] = useState<string | null>(openRails[0]?.id ?? null);
-  const pack = packs.find((p) => p.code === code) ?? packs[0] ?? null;
+  const bundle = bundles.find((b) => b.code === code) ?? null;
+  const pack = bundle ? null : (packs.find((p) => p.code === code) ?? (bundles.length === 0 ? packs[0] : null) ?? null);
+  const picked = bundle ?? pack ?? bundles[0] ?? packs[0] ?? null;
 
   useEffect(() => {
     if (state === handled.current) return;
@@ -329,10 +373,11 @@ export function BuyGiftsSheet({
     if (state.status === 'error') toast.error(state.message);
   }, [state, toast]);
 
-  if (!pack) return null;
-  const unit = giftUnitPrice(pack, paysGiftPrice);
-  const totalPhp = (unit.centavos * qty) / 100;
-  const srpTotalPhp = (pack.srpCentavos * qty) / 100;
+  if (!picked) return null;
+  const isBundle = 'pack' in picked;
+  const unitCentavos = isBundle ? picked.priceCentavos : picked.srpCentavos;
+  const totalPhp = (unitCentavos * qty) / 100;
+  const free = isBundle ? bundleFreePacks(picked) : 0;
 
   return (
     <Sheet open={open} onClose={onClose} labelledById={headingId} rise>
@@ -347,18 +392,30 @@ export function BuyGiftsSheet({
         ) : (
           <form action={formAction} className="mt-4 space-y-4">
             <input type="hidden" name="for" value="gift" />
-            <input type="hidden" name="pack" value={pack.code} />
+            <input type="hidden" name="pack" value={picked.code} />
             <input type="hidden" name="quantity" value={qty} />
             <input type="hidden" name="channel" value={rail ?? ''} />
 
             <PickMenu
               label="Gift"
-              value={pack.code}
+              value={picked.code}
               className="!min-h-11 w-full"
-              options={packs.map((p) => ({
-                key: p.code,
-                label: `${p.title} · ${formatPhp(giftUnitPrice(p, paysGiftPrice).centavos / 100)} each`,
-              }))}
+              options={[
+                ...bundles.map((b) => {
+                  const f = bundleFreePacks(b);
+                  return {
+                    key: b.code,
+                    label: `${b.title} · ${formatPhp(b.priceCentavos / 100)}`,
+                    hint: `${formatCount(b.quantity)} × ${b.pack.title} in your gifts`,
+                    group: f > 0 ? `Buy ${formatCount(b.quantity - f)}, get ${formatCount(f)} free` : 'Bundles',
+                  };
+                }),
+                ...packs.map((p) => ({
+                  key: p.code,
+                  label: `${p.title} · ${formatPhp(p.srpCentavos / 100)} each`,
+                  group: bundles.length > 0 ? 'One at a time' : undefined,
+                })),
+              ]}
               onPick={(key) => setCode(key)}
               dataAttr="data-shop-gifts-pack"
             />
@@ -382,13 +439,15 @@ export function BuyGiftsSheet({
               <p className="flex justify-between">
                 <span className="text-ink/70">You get</span>
                 <span className="tabular-nums">
-                  {pack.kind === 'papic' ? `${formatCount(pack.credits * qty)} credits` : `${formatCount(qty)} × ${pack.title}`}
+                  {isBundle
+                    ? `${formatCount(picked.quantity * qty)} × ${picked.pack.title}`
+                    : `${formatCount(qty)} × ${picked.title}`}
                 </span>
               </p>
-              {unit.basis === 'gift' ? (
-                <p className="flex justify-between" data-shop-gifts-srp="">
-                  <span className="text-ink/70">Price couples pay</span>
-                  <s className="tabular-nums text-ink/50">{formatPhp(srpTotalPhp)}</s>
+              {isBundle && free > 0 ? (
+                <p className="flex justify-between" data-shop-gifts-free="">
+                  <span className="text-ink/70">Free in {qty > 1 ? 'these bundles' : 'this bundle'}</span>
+                  <span className="tabular-nums">{`${formatCount(free * qty)} × ${picked.pack.title}`}</span>
                 </p>
               ) : null}
               <p className="flex justify-between font-semibold">

@@ -94,7 +94,7 @@ import {
 } from '@/lib/service-customization-draft';
 import { savePackage } from '../packages/actions';
 import { SHOP_PACK_GIFTS_DELIVER, giftColumns } from '@/lib/gift-pick';
-import { freeByKind, shopGiftKindOf } from '@/lib/shop-gifts';
+import { freeByKind, freeOfPack, shopGiftKindOf } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { SERVICE_REQUESTS_HREF, SERVICE_REQUEST_NEW_HREF, sameNameKey } from '@/lib/service-requests';
@@ -1779,7 +1779,8 @@ export async function commitVendorService(formData: FormData) {
         const pack = packs?.find((p) => p.code === code) ?? null;
         const free = freeByKind(stock);
         if (packs && !pack) return back('That gift is not on sale right now — pick another.');
-        if (pack && free && free[pack.kind] < pack.credits) {
+        // 🔢 Papic is counted in packs (2026-11-14): one of THIS pack must be free.
+        if (pack && free && (freeOfPack(free, pack) ?? 0) < 1) {
           return back('Not enough of that gift in your stock — buy it first (Shop › Promote › Your gifts).');
         }
       }

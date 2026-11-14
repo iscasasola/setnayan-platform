@@ -2339,6 +2339,22 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // 💎 Slice 2 (2026-11-05): Event Plus / Event Pro gifts are units in the same ledger; a given one names the
       // product the EVENT received (a second Plus becomes Pro) — read by event_comp_active_skus / event_has_comp_for_sku.
       { kind: 'column', table: 'shop_gift_stock_entries', column: 'unlocks_sku' },
+      // 🔢📦 G1 (owner 2026-11-14): Papic stock is COUNTED IN PACKS — a Papic row names its pack and how many
+      // (pack_code, packs; delta stays the credits), read per pack by shop_gift_pack_stock_status and given per pack by
+      // shop_gift_deliver_for_booking. A BUY 10, GET 1 FREE bundle is a catalogue row saying which pack and how many
+      // (bundle_of_service_code, bundle_quantity); its purchase records the count (packs_each) and its own code.
+      { kind: 'column', table: 'shop_gift_stock_entries', column: 'pack_code' },
+      { kind: 'column', table: 'shop_gift_stock_entries', column: 'packs' },
+      {
+        kind: 'check',
+        table: 'shop_gift_stock_entries',
+        name: 'shop_gift_stock_entries_packs_shape',
+        mentions: 'packs',
+      },
+      { kind: 'column', table: 'shop_gift_purchases', column: 'packs_each' },
+      { kind: 'column', table: 'shop_gift_purchases', column: 'bundle_code' },
+      { kind: 'column', table: 'platform_retail_catalog_v2', column: 'bundle_of_service_code' },
+      { kind: 'column', table: 'platform_retail_catalog_v2', column: 'bundle_quantity' },
       { kind: 'table', table: 'vendor_proposal_shop_gifts' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'proposal_id', references: 'vendor_proposals' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'vendor_profile_id', references: 'vendor_profiles' },

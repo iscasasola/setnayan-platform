@@ -48,12 +48,12 @@ const MAKER = 'app/vendor-dashboard/services/_components/canvas-maker.tsx';
 const ACTIONS = 'app/vendor-dashboard/services/actions.ts';
 
 const PACKS: ShopGiftPack[] = [
-  { code: 'PAPIC_GUEST', title: 'Papic · 100 credits', kind: 'papic', credits: 100, srpCentavos: 1, giftPriceCentavos: null },
-  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 1, giftPriceCentavos: null },
+  { code: 'PAPIC_GUEST', title: 'Papic · 100 credits', kind: 'papic', credits: 100, srpCentavos: 1 },
+  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 1 },
 ];
 
 test('1 · the dropdown: No gift · Setnayan gift · the shop’s packs, a short pack listed with "buy first"', () => {
-  const menu = giftMenu(PACKS, { papic: 100, event_plus: 0, event_pro: 0 }, GIFT_NONE, true);
+  const menu = giftMenu(PACKS, { papic: 100, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST: 1 } }, GIFT_NONE, true);
   assert.deepEqual(menu.map((o) => o.key), [GIFT_NONE, GIFT_SETNAYAN, 'PAPIC_GUEST', 'EVENT_PLUS']);
   assert.equal(menu[0]!.label, 'No gift');
   assert.equal(menu[1]!.label, 'Setnayan gift');
@@ -62,7 +62,7 @@ test('1 · the dropdown: No gift · Setnayan gift · the shop’s packs, a short
   // Unreadable stock is said as unreadable, never as empty.
   for (const o of giftMenu(PACKS, null, GIFT_NONE, true).slice(2)) assert.equal(o.disabledNote, 'Couldn’t read your gift stock right now');
   // A saved card's own pack stays pickable whatever the stock says — opening it never strands its gift.
-  assert.equal(giftMenu(PACKS, { papic: 0, event_plus: 0, event_pro: 0 }, 'EVENT_PLUS', true)[3]!.disabledNote, undefined);
+  assert.equal(giftMenu(PACKS, { papic: 0, event_plus: 0, event_pro: 0, event_ultra: 0, packs: {} }, 'EVENT_PLUS', true)[3]!.disabledNote, undefined);
   // Unread catalogue: only the two answers that need no catalogue.
   assert.deepEqual(giftMenu(null, null).map((o) => o.key), [GIFT_NONE, GIFT_SETNAYAN]);
 });
@@ -121,7 +121,7 @@ test('6 · the couple’s line for a pack names the kind, never a count', () => 
 });
 
 test('7 · 🚧 shop packs are not offered while they reach nobody — and are offered once the switch is on', () => {
-  const free = { papic: 1000, event_plus: 5, event_pro: 5 };
+  const free = { papic: 1000, event_plus: 5, event_pro: 5, event_ultra: 5, packs: { PAPIC_GUEST: 10 } };
   const keys = (deliver: boolean) => giftMenu(PACKS, free, GIFT_NONE, deliver).map((o) => o.key);
   // The default follows the switch: hidden while false, listed while true.
   const def = giftMenu(PACKS, free).map((o) => o.key);

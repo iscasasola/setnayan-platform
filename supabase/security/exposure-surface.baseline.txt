@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7822
+# facts: 7829
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     635
-#   col       5632
+#   col       5638
 #   policy    1146
 #   view      10
-#   func      395
+#   func      396
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -4018,6 +4018,8 @@ col	public.platform_package_catalog.title	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.updated_at	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.updated_by_admin_id	anon=SIU authenticated=SIU
 col	public.platform_retail_catalog_v2.billing_period	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.bundle_of_service_code	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.bundle_quantity	anon=S authenticated=S
 col	public.platform_retail_catalog_v2.created_at	anon=S authenticated=S
 col	public.platform_retail_catalog_v2.description	anon=S authenticated=S
 col	public.platform_retail_catalog_v2.is_active	anon=S authenticated=S
@@ -4461,11 +4463,13 @@ col	public.shop_badge_upgrades.started_choice	anon=- authenticated=S
 col	public.shop_badge_upgrades.started_period_days	anon=- authenticated=S
 col	public.shop_badge_upgrades.upgrade_id	anon=- authenticated=S
 col	public.shop_badge_upgrades.vendor_profile_id	anon=- authenticated=S
+col	public.shop_gift_purchases.bundle_code	anon=- authenticated=S
 col	public.shop_gift_purchases.created_at	anon=- authenticated=S
 col	public.shop_gift_purchases.created_by	anon=- authenticated=S
 col	public.shop_gift_purchases.credits_each	anon=- authenticated=S
 col	public.shop_gift_purchases.gift_kind	anon=- authenticated=S
 col	public.shop_gift_purchases.order_id	anon=- authenticated=S
+col	public.shop_gift_purchases.packs_each	anon=- authenticated=S
 col	public.shop_gift_purchases.price_basis	anon=- authenticated=S
 col	public.shop_gift_purchases.quantity	anon=- authenticated=S
 col	public.shop_gift_purchases.service_code	anon=- authenticated=S
@@ -4481,6 +4485,8 @@ col	public.shop_gift_stock_entries.gift_kind	anon=- authenticated=S
 col	public.shop_gift_stock_entries.kind	anon=- authenticated=S
 col	public.shop_gift_stock_entries.note	anon=- authenticated=S
 col	public.shop_gift_stock_entries.order_id	anon=- authenticated=S
+col	public.shop_gift_stock_entries.pack_code	anon=- authenticated=S
+col	public.shop_gift_stock_entries.packs	anon=- authenticated=S
 col	public.shop_gift_stock_entries.pool_grant_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.proposal_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.unlocks_sku	anon=- authenticated=S
@@ -7742,6 +7748,7 @@ func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authen
 func	public.settle_event_date_change(p_request_id uuid, p_action text, p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_deposit_dispute(p_event_vendor_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_payment_dispute(p_payment_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
+func	public.shop_gift_pack_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_gift_reward_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_gift_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_papic_wallet_balance(p_vendor_profile_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp

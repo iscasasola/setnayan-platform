@@ -214,20 +214,21 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
 ]);
 
 /**
- * 💝 THE SUPPLIER GIFT PRODUCTS (owner 2026-11-04, "GIFT PRICES" + *"they can purchase inside apple as well"*): what a
- * Verified-and-up SUPPLIER pays to gift one of the couple's products, sold in the iPhone app through Apple. The price
- * is the row's `gift_price_php` in `platform_retail_catalog_v2` (never typed here); in App Store Connect each is set to
- * the Philippine price point equal to that figure (build-sessions/APPLE-IAP-PRICES-2026-11-04.md).
+ * 💝 THE SUPPLIER GIFT PRODUCTS (owner 2026-11-04, *"they can purchase inside apple as well"*): what a SUPPLIER pays to
+ * gift one of the couple's products, sold in the iPhone app through Apple. 📦 Since 2026-11-14 the price is the row's
+ * LIST price (`retail_price_php`, never typed here) — one price per gift, `gift_price_php` is not a price anywhere; in
+ * App Store Connect each is set to the Philippine price point equal to that figure (an OWNER action — the 4 Nov price
+ * points were set from the retired gift price; build-sessions/APPLE-IAP-PRICES-2026-11-04.md).
  *
  * ⚠ DELIBERATELY NOT IN `IAP_PRODUCTS`, so NOT in `IAP_PRODUCT_IDS` and NOT answered by `iapProductById`: the purchase
  * path (`startAppStorePurchase`) is a COUPLE's — event-scoped and coordinator-checked — and has no supplier buyer, no
- * recipient event and no gift delivery. Listing these there would let a couple buy their own product at the gift price.
+ * recipient event and no gift delivery. Listing these there would let a couple buy their own product through a gift product.
  * They join the sellable list only together with a supplier-buyer intent + delivery (not built — PR body). Ids are
  * FOREVER once created in App Store Connect.
  */
 export type IapSupplierGiftProduct = {
   productId: string;
-  /** The couple product gifted — its catalogue row carries the `gift_price_php` this product is priced from. */
+  /** The couple product gifted — its catalogue row carries the list price (`retail_price_php`) this product is priced from. */
   serviceKey: string;
   appleType: 'consumable';
   appStoreName: string;
@@ -249,6 +250,9 @@ export const IAP_SUPPLIER_GIFT_PRODUCTS: readonly IapSupplierGiftProduct[] = Obj
     [
       ['gift_event_plus', 'EVENT_PLUS', 'Gift · Event Plus'],
       ['gift_event_pro', EVENT_HUB_PRO_SERVICE_KEY, 'Gift · Event Pro'],
+      // 💎 Event Ultra as a gift (owner 2026-11-13, "Gifting Ultra: yes"). The OWNER creates it in App Store Connect at the
+      // price point equal to the EVENT_ULTRA row's list price; not sellable until the supplier path is.
+      ['gift_event_ultra', 'EVENT_ULTRA', 'Gift · Event Ultra'],
       ['gift_live_watch', 'LIVE_STUDIO', 'Gift · Live Watch'],
       ['gift_music_maker', 'PAKANTA', 'Gift · Music Maker'],
       ['gift_patiktok', 'PATIKTOK_COMPILER', 'Gift · Patiktok'],

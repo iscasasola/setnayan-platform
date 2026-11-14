@@ -183,7 +183,10 @@ test('6 · moved, not lost', () => {
   const members = PAGE.slice(PAGE.indexOf("if (view === 'members')"));
   assert.match(members.slice(0, 1200), /<SamahanIdentityHeader\b/, 'the group’s photo + rename are lost (they live on Members now)');
   assert.match(ROOM, /<StayForm door="accGroup\.deleteSamahanMessage" action=\{deleteSamahanMessage\}/, '“Take it down” is gone from your own message');
-  assert.match(ROOM, /<StayForm\s+door="accGroup\.postSamahanMessage"\s+action=\{postSamahanMessage\}/, 'the message bar does not post to Usapan');
+  // The message bar is its own composer since walk F-W3-12 (one send per message); the room mounts it.
+  assert.match(ROOM, /<GroupComposer communityId=\{communityId\} \/>/, 'the room lost its message bar');
+  const COMPOSER = stripComments(readFileSync(join(HERE, '_components', 'group-composer.tsx'), 'utf8'));
+  assert.match(COMPOSER, /<StayForm\s+door="accGroup\.postSamahanMessage"\s+action=\{postSamahanMessage\}/, 'the message bar does not post to Usapan');
   assert.match(ROOM, /<SamahanStories[\s\S]{0,200}strip[\s\S]{0,80}controlRef=\{storiesRef\}/, 'the strip is not the shipped one');
   assert.match(ROOM, /storiesRef\.current\?\.record\(\)/, '📷 does not open the strip’s camera');
   assert.match(ORGANIZER, /aria-label="Play the day"/, 'the strip lost Play the day');

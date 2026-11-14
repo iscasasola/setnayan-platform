@@ -36,10 +36,11 @@ import {
 } from '@/lib/samahan-chatroom';
 import type { SamahanMessage } from '@/lib/communities';
 import type { SamahanStory } from '@/lib/samahan-stories';
-import { deleteSamahanMessage, leaveCommunity, postSamahanMessage } from '../../actions';
+import { deleteSamahanMessage, leaveCommunity } from '../../actions';
 import { SamahanStories, type StoriesControl } from './samahan-stories';
 import { CollagePlayer, GroupCollage } from './group-collage';
 import { StayForm } from '@/app/_components/stay-form';
+import { GroupComposer } from './group-composer';
 
 /**
  * group-chatroom.tsx — 💬 THE GROUP IS A CHATROOM (owner 2026-10-28, verbatim: *"groups should look like a chatroom
@@ -265,7 +266,6 @@ export function GroupChatroom({
   const [leaveAsk, setLeaveAsk] = useState(false);
   const [armedMsg, setArmedMsg] = useState<string | null>(null);
   const [playerKey, setPlayerKey] = useState<string | null>(null);
-  const [text, setText] = useState('');
 
   const collages = useMemo(() => hourlyCollages(stories, nowMs), [stories, nowMs]);
   const items = useMemo<ChatItem[]>(
@@ -523,35 +523,9 @@ export function GroupChatroom({
             ]}
             field={{
               node: (
-                /* Sends IN PLACE (owner 2026-10-26, "a save never resets the screen" — the chat keeps its scroll):
-                   the `accGroup.postSamahanMessage` door; the box empties once the line has landed (a refusal keeps
-                   the words, said under the box). An empty box sends nothing — the action lands it as a no-op. */
-                <StayForm
-                  door="accGroup.postSamahanMessage"
-                  action={postSamahanMessage}
-                  onSaved={() => setText('')}
-                  className="flex h-full min-w-0 flex-1 items-center gap-1 pl-3.5 pr-1"
-                  data-group-send-form=""
-                >
-                  <input type="hidden" name="community_id" value={communityId} />
-                  <input
-                    // field-ok: the group chat's composer in the ThumbRow (a chat composer, another template — rule 2 of lint-field-template)
-                    name="body"
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    maxLength={2000}
-                    autoComplete="off"
-                    enterKeyHint="send"
-                    placeholder="Message the group"
-                    aria-label="Message the group"
-                    className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink/45"
-                  />
-                  {text.trim() ? (
-                    <span className="shrink-0" data-group-send="">
-                      <ActionButton tone="brand" filled iconOnly icon={ArrowUp} label="Send" type="submit" />
-                    </span>
-                  ) : null}
-                </StayForm>
+                /* Sends IN PLACE (owner 2026-10-26, "a save never resets the screen"); Enter sends, Shift+Enter is a new
+                   line, the box grows, one send per message (walk 13 Nov, F-W3-12 — `GroupComposer`). */
+                <GroupComposer communityId={communityId} />
               ),
             }}
             right={[{ icon: Camera, label: 'Add a story', onClick: record, testId: 'group-story' }]}

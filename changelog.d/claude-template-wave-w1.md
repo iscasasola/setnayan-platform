@@ -11,7 +11,7 @@ shared pieces only (`ActionButton`/`ab` classes, `InfoTip`, `Badge`, `PickMenu`)
 - **Buttons** — every hand-painted mulberry/ink/burgundy pill is the shared pill (one terracotta main per screen; red
   removes; grey everything else).
 - **Picks** — Camera cues' native mode `<select>` is the ▾ `PickMenu`.
-- **Captions** — 19 typewriter caption captions are the sheet's section label. Money and times are in the words' font
+- **Captions** — 19 typewriter captions are the sheet's section label. Money and times are in the words' font
   with even digits.
 - **ⓘ** — explaining paragraphs move behind `InfoTip` (camera cues, guest preview, background music, video hero, the
   hero tip, the crew QR check, the Maker's best-size tip).

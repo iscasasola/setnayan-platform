@@ -35,6 +35,7 @@ import {
 import { plausibilityScannerEnabled } from '@/lib/plausibility-scanner-flag';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ActionButton } from '@/components/action-button';
 import { PillLink, PillTrack } from '@/app/_components/pill-track';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -381,21 +382,19 @@ export default async function AdminIntegrityWatchPage({
       </PillTrack>
 
       {/* Status filters */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <PillTrack className="mb-4">
         {STATUS_FILTERS.map((f) => (
-          <Link
+          <PillLink
             key={f.value}
+            on={status === f.value}
             href={`/admin/integrity-watch?tab=${tab}&status=${f.value}`}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-              status === f.value
-                ? 'bg-ink text-cream'
-                : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
-            }`}
+            aria-current={status === f.value ? 'page' : undefined}
+            className="px-3"
           >
             {f.label}
-          </Link>
+          </PillLink>
         ))}
-      </div>
+      </PillTrack>
 
       {listError && (
         <FormFlash tone="error">
@@ -478,63 +477,23 @@ export default async function AdminIntegrityWatchPage({
                         name="note"
                         placeholder="Optional note…"
                         maxLength={500}
-                        className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white/70 px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
+                        className="min-h-11 min-w-0 flex-1 rounded-[var(--m-r-md)] border border-ink/15 bg-white/70 px-3 text-[14px] text-ink placeholder:text-ink/40 sm:w-48 sm:flex-none"
                       />
                       {r.kind === 'review_fraud' ? (
-                        <button
-                          type="submit"
-                          name="action"
-                          value="confirm_fraud"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                        >
-                          <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Confirm fraud
-                        </button>
+                        <ActionButton tone="danger" type="submit" name="action" value="confirm_fraud" icon={<ShieldAlert aria-hidden />} label="Confirm fraud" />
                       ) : r.kind === 'ghost_listing' ? (
-                        <button
-                          type="submit"
-                          name="action"
-                          value="hide_listing"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                        >
-                          <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Hide listing
-                        </button>
+                        <ActionButton tone="danger" type="submit" name="action" value="hide_listing" icon={<EyeOff aria-hidden />} label="Hide listing" />
                       ) : r.kind === 'price_underdeclaration' ? (
                         // price_underdeclaration: confirm the under-declaration
                         // (VERDICT only — records the flag; never adjusts the
                         // price, penalizes the vendor, or touches the lock).
-                        <button
-                          type="submit"
-                          name="action"
-                          value="confirm_fraud"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                        >
-                          <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Confirm under-declaration
-                        </button>
+                        <ActionButton tone="danger" type="submit" name="action" value="confirm_fraud" icon={<ShieldAlert aria-hidden />} label="Confirm under-declaration" />
                       ) : (
                         // inquiry_concentration: confirm the ATTACK (verdict only —
                         // never touches the victim vendor). No "hide listing".
-                        <button
-                          type="submit"
-                          name="action"
-                          value="confirm_fraud"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                        >
-                          <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Confirm attack
-                        </button>
+                        <ActionButton tone="danger" type="submit" name="action" value="confirm_fraud" icon={<ShieldAlert aria-hidden />} label="Confirm attack" />
                       )}
-                      <button
-                        type="submit"
-                        name="action"
-                        value="dismiss"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-ink/[0.04]"
-                      >
-                        <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                        Dismiss
-                      </button>
+                      <ActionButton tone="neutral" type="submit" name="action" value="dismiss" icon={<X aria-hidden />} label="Dismiss" />
                     </form>
                     <Link
                       // The supplier's own admin page (2026-10-01). /edit bounced

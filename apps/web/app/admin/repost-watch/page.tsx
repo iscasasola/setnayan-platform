@@ -1,3 +1,5 @@
+import { PillLink, PillTrack } from '@/app/_components/pill-track';
+import { ActionButton } from '@/components/action-button';
 import {
   ArrowUpRight,
   Check,
@@ -289,22 +291,14 @@ export default async function AdminRepostWatchPage({
       {/* 🃏 "It's mine — report it" (owner 2026-10-26) — a LIST, not a queue: the card stays blocked either way. */}
       <SupplierPhotoReports />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <PillTrack className="mb-4">
         {STATUS_FILTERS.map((f) => (
-          <a
-            key={f.value}
-            href={`/admin/repost-watch?status=${f.value}`}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-              status === f.value
-                ? 'bg-ink text-cream'
-                : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
-            }`}
-          >
+          <PillLink key={f.value} on={status === f.value} href={`/admin/repost-watch?status=${f.value}`} aria-current={status === f.value ? 'page' : undefined} className="px-3">
             {f.label}
             {f.value === 'open' && openCount > 0 ? ` · ${formatCount(openCount)}` : ''}
-          </a>
+          </PillLink>
         ))}
-      </div>
+      </PillTrack>
 
       {listError && (
         <FormFlash tone="error">
@@ -420,33 +414,9 @@ export default async function AdminRepostWatchPage({
                         maxLength={500}
                         className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white/70 px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
                       />
-                      <button
-                        type="submit"
-                        name="action"
-                        value="confirm_theft"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                      >
-                        <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                        Confirm theft
-                      </button>
-                      <button
-                        type="submit"
-                        name="action"
-                        value="escalate"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-warn-300 bg-warn-50 px-3 py-1.5 text-xs font-medium text-warn-900 hover:bg-warn-100"
-                      >
-                        <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                        Escalate
-                      </button>
-                      <button
-                        type="submit"
-                        name="action"
-                        value="dismiss"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-ink/[0.04]"
-                      >
-                        <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                        Dismiss
-                      </button>
+                      <ActionButton tone="danger" type="submit" name="action" value="confirm_theft" icon={<ShieldAlert aria-hidden />} label="Confirm theft" />
+                      <ActionButton tone="warn" type="submit" name="action" value="escalate" icon={<ArrowUpRight aria-hidden />} label="Escalate" />
+                      <ActionButton tone="neutral" type="submit" name="action" value="dismiss" icon={<X aria-hidden />} label="Dismiss" />
                     </form>
                     <a
                       // The supplier's own admin page (2026-10-01). /edit bounced
@@ -597,24 +567,8 @@ export default async function AdminRepostWatchPage({
                           maxLength={500}
                           className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white/70 px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
                         />
-                        <button
-                          type="submit"
-                          name="action"
-                          value="mark_removed"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                        >
-                          <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Media removed
-                        </button>
-                        <button
-                          type="submit"
-                          name="action"
-                          value="clear"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-ink/[0.04]"
-                        >
-                          <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Clear
-                        </button>
+                        <ActionButton tone="danger" type="submit" name="action" value="mark_removed" icon={<ShieldAlert aria-hidden />} label="Media removed" />
+                        <ActionButton tone="neutral" type="submit" name="action" value="clear" icon={<X aria-hidden />} label="Clear" />
                       </form>
                       <a
                         // The supplier's own admin page, as above.

@@ -1,3 +1,4 @@
+import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { Check, X } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -159,22 +160,14 @@ export default async function AdminChatFlagsPage({
         </p>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <PillTrack className="mb-4">
         {STATUS_FILTERS.map((f) => (
-          <a
-            key={f.value}
-            href={`/admin/chat-flags?status=${f.value}`}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-              status === f.value
-                ? 'bg-ink text-cream'
-                : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
-            }`}
-          >
+          <PillLink key={f.value} on={status === f.value} href={`/admin/chat-flags?status=${f.value}`} aria-current={status === f.value ? 'page' : undefined} className="px-3">
             {f.label}
             {f.value === 'open' && openCount > 0 ? ` · ${formatCount(openCount)}` : ''}
-          </a>
+          </PillLink>
         ))}
-      </div>
+      </PillTrack>
 
       {listError && (
         <FormFlash tone="error">

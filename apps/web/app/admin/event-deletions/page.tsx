@@ -1,3 +1,5 @@
+import { Trash2, Undo2 } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button';
 import { redirect } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
@@ -138,16 +140,18 @@ export default async function EventDeletionsPage() {
                   <button
                     type="submit"
                     formAction={approveEventDeletion}
-                    className="rounded-full bg-[color:var(--sn-danger)] px-3 py-1.5 text-[13px] font-bold text-cream"
+                    className={actionButtonClass('danger', { main: true })}
                   >
-                    Remove it for good
+                    <Trash2 aria-hidden strokeWidth={1.9} />
+                    <span className="lbl">Remove it for good</span>
                   </button>
                   <button
                     type="submit"
                     formAction={rejectEventDeletion}
-                    className="rounded-full border border-ink/25 px-3 py-1.5 text-[13px] font-bold text-ink/80"
+                    className={actionButtonClass('neutral')}
                   >
-                    Keep it, and tell them why
+                    <Undo2 aria-hidden strokeWidth={1.9} />
+                    <span className="lbl">Keep it, and tell them why</span>
                   </button>
                   <span className="text-[12px] text-ink/50">
                     Removing destroys its photos and ends what was paid for.

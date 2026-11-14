@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { Flag, Gavel, ShieldOff } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -355,11 +355,11 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
               Single-admin authority. SLA: 48 hours.
             </p>
           </div>
-          <nav className="flex flex-wrap gap-2">
+          <PillTrack as="nav">
             <FilterChip active={filter} target="pending" label="Pending" />
             <FilterChip active={filter} target="decided" label="Decided" />
             <FilterChip active={filter} target="all" label="All" />
-          </nav>
+          </PillTrack>
         </header>
 
         {appealError ? (
@@ -453,16 +453,14 @@ function FilterChip({
   label: string;
 }) {
   return (
-    <Link
+    <PillLink
+      on={active === target}
       href={`/admin/reviews?filter=${target}`}
-      className={`rounded-full px-3 py-1 text-xs font-medium ${
-        active === target
-          ? 'bg-terracotta text-cream'
-          : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-      }`}
+      aria-current={active === target ? 'page' : undefined}
+      className="px-3"
     >
       {label}
-    </Link>
+    </PillLink>
   );
 }
 

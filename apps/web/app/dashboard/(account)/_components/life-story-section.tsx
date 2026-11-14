@@ -80,7 +80,7 @@ export function LifeStorySection({ groups }: { groups: LifeStoryGroup[] }) {
   return (
     <div className="space-y-4">
       {error ? (
-        <p role="alert" className="text-sm text-danger">
+        <p role="alert" className="text-sm text-[rgb(var(--color-danger))]">
           {error}
         </p>
       ) : null}

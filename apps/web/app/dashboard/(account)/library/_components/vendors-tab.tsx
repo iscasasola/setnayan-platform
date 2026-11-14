@@ -34,7 +34,7 @@ export async function VendorsTab({ userId }: { userId: string }) {
 
   if (ownUnreadable && attended.length === 0) {
     return (
-      <p role="status" className="text-sm text-warn">
+      <p role="status" className="text-sm text-[rgb(var(--color-warn))]">
         We couldn&rsquo;t load your saved suppliers right now — not the same as none. Refresh in a moment.
       </p>
     );
@@ -55,7 +55,7 @@ export async function VendorsTab({ userId }: { userId: string }) {
   return (
     <div className="space-y-4">
       {ownUnreadable ? (
-        <p role="status" className="text-sm text-warn">
+        <p role="status" className="text-sm text-[rgb(var(--color-warn))]">
           We couldn&rsquo;t load the suppliers saved in your own plans right now — not the same as none.
         </p>
       ) : null}
@@ -73,7 +73,7 @@ export async function VendorsTab({ userId }: { userId: string }) {
       <section className="space-y-2" data-library-favorites-group="">
         <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">{FAVORITES_GROUP}</h3>
         {favoritesUnreadable ? (
-          <p role="status" className="text-sm text-warn">We couldn&rsquo;t load your favorites right now — not the same as none. Refresh in a moment.</p>
+          <p role="status" className="text-sm text-[rgb(var(--color-warn))]">We couldn&rsquo;t load your favorites right now — not the same as none. Refresh in a moment.</p>
         ) : attended.length > 0 ? (
           <FavoriteRows rows={attended} />
         ) : (

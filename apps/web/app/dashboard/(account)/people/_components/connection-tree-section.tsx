@@ -43,9 +43,9 @@ export async function ConnectionTreeSection({ userId, bare = false }: { userId: 
     return (
       <Frame>
         <div className="flex items-start gap-3 py-3" data-tree-refused="">
-          <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-warn" strokeWidth={1.75} />
+          <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-[rgb(var(--color-warn))]" strokeWidth={1.75} />
           <div className="space-y-1">
-            <p className="text-sm font-medium text-warn">We couldn’t work out your tree just now.</p>
+            <p className="text-sm font-medium text-[rgb(var(--color-warn))]">We couldn’t work out your tree just now.</p>
             {/* ⚠ NOT "you have no relatives". We do not know — and saying the
                 one when we mean the other is the defect this whole section was
                 written under. */}

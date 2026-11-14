@@ -69,7 +69,7 @@ export async function PhotosTab({
     // hosting an event yet" to a host "would be a lie" — a refused read makes
     // it exactly that lie, for every lens at once.
     return (
-      <p role="status" className="mt-6 text-sm text-warn">
+      <p role="status" className="mt-6 text-sm text-[rgb(var(--color-warn))]">
         We couldn’t load your albums — your photos are safe, nothing changed. Refresh to try again.
       </p>
     );

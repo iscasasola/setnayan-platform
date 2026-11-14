@@ -27,7 +27,7 @@ export function GroupChatRows({ rows, activityUnreadable = false }: { rows: read
   return (
     <>
       {activityUnreadable ? (
-        <p role="status" className="py-2 text-[13px] text-warn" data-group-activity="refused">
+        <p role="status" className="py-2 text-[13px] text-[rgb(var(--color-warn))]" data-group-activity="refused">
           We couldn’t load the latest messages just now. Your groups are all here.
         </p>
       ) : null}

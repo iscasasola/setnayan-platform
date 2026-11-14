@@ -125,7 +125,7 @@ export function countSource(src: string): TemplateCounts {
   const c = (re: RegExp) => (flat.match(re) || []).length;
   let longP = 0;
   for (const m of flat.matchAll(/<p\b[^>]*>(.*?)<\/p>/g)) {
-    const t = m[1]
+    const t = (m[1] ?? '')
       .replace(/\{[^{}]*\}/g, ' x ')
       .replace(/<[^>]+>/g, '')
       .replace(/&[a-z]+;/g, "'")
@@ -191,7 +191,7 @@ export function lowerBaseline(old: Record<string, number>, rows: TemplatePageSco
   for (const page of Object.keys(old).sort()) {
     const cur = now.get(page);
     if (cur === undefined || cur === 0) continue;
-    out[page] = Math.min(old[page], cur);
+    out[page] = Math.min(old[page] ?? cur, cur);
   }
   return out;
 }

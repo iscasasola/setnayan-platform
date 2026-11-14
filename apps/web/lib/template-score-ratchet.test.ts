@@ -104,7 +104,7 @@ test('the baseline is sorted, live, non-zero and never names an exempt page', ()
   const scored = new Set(rows.map((r) => r.page));
   const dead = keys.filter((k) => !scored.has(k));
   assert.deepEqual(dead, [], `baseline names pages that are gone or exempt — run template-score --write:\n  ${dead.join('\n  ')}`);
-  const zero = keys.filter((k) => !(baseline[k] > 0));
+  const zero = keys.filter((k) => !((baseline[k] ?? 0) > 0));
   assert.deepEqual(zero, [], 'baseline entries must be > 0 (a clean page simply leaves the file)');
 });
 

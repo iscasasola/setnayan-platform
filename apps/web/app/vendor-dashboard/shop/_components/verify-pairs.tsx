@@ -367,7 +367,7 @@ function PairCard({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-x-4 gap-y-3 p-3.5 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.15fr)]">
+      <div className="grid grid-cols-1 gap-x-4 gap-y-3 p-3.5 tab:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.15fr)]">
         {/* ── The paper ── */}
         <div className="space-y-1.5">
           <PaperSide
@@ -402,8 +402,8 @@ function PairCard({
           className="self-center font-mono text-[10px] uppercase tracking-[0.14em]"
           style={{ color: '#6E6A62' }}
         >
-          <span className="hidden md:inline">proves →</span>
-          <span className="md:hidden">proves ↓</span>
+          <span className="hidden tab:inline">proves →</span>
+          <span className="tab:hidden">proves ↓</span>
         </p>
 
         {/* ── The details it proves ── */}

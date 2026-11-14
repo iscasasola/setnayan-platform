@@ -141,7 +141,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   const proposable = proposableShops(served);
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6">
+    <div className="mx-auto w-full tab:max-w-3xl px-4 py-10 sm:px-6">
       <PageMasthead
         title="Partnerships"
       />

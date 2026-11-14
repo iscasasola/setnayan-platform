@@ -186,7 +186,7 @@ export default async function VendorManpowerPage() {
     // Glass PR-7: the opaque `--m-paper` page wrapper is dropped — the wash
     // shows through; eyebrows/headings move to the kit (`.sn-eye`/`.sn-sec`).
     <div className="min-h-screen" style={{ color: 'var(--m-ink)' }}>
-      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full tab:max-w-3xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
         <PageMasthead
           title="Manpower gigs"
         />

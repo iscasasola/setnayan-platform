@@ -116,7 +116,7 @@ export default async function EditServiceCardPage({
 
   return (
     // No page title: the maker's surface carries the card's name (makers prototype 7 Nov 2026 § 3).
-    <div className="mx-auto w-full max-w-6xl px-4 pb-8 pt-4 sm:px-6">
+    <div className="mx-auto w-full tab:max-w-5xl px-4 pb-8 pt-4 sm:px-6">
       <div className="mb-2 flex min-h-11 items-center gap-2">
         <Link href="/vendor-dashboard/shop" className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
           <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />

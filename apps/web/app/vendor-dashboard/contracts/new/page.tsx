@@ -48,13 +48,11 @@ export default async function NewVendorContractPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-2">
-      <ActionButton
-        tone="neutral"
-        quiet
-        icon={<ArrowLeft aria-hidden strokeWidth={2} />}
-        label="Back to contracts"
-        href="/vendor-dashboard/contracts"
-      />
+      {/* A plain <Link> wearing the shared button's class, so the back-link guard still sees where it lands. */}
+      <Link href="/vendor-dashboard/contracts" className={actionButtonClass('neutral', { quiet: true })}>
+        <ArrowLeft aria-hidden strokeWidth={2} />
+        <span>Back to contracts</span>
+      </Link>
 
       {/* The heading stays visible: this route's own loading.tsx (FormPageSkeleton title) promises it. The explaining
           line moved behind its ⓘ (rule 7). */}
@@ -140,7 +138,10 @@ export default async function NewVendorContractPage({ searchParams }: Props) {
               <SubmitButton className={`${actionButtonClass('brand', { main: true })} w-full sm:w-auto`} pendingLabel="Uploading…">
                 Upload draft
               </SubmitButton>
-              <ActionButton tone="neutral" icon={<X aria-hidden />} label="Cancel" href="/vendor-dashboard/contracts" />
+              <Link href="/vendor-dashboard/contracts" className={actionButtonClass('neutral')}>
+                <X aria-hidden strokeWidth={1.9} />
+                <span>Cancel</span>
+              </Link>
             </div>
           </form>
         )}

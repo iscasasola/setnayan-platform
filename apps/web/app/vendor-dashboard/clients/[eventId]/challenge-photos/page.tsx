@@ -1,6 +1,7 @@
+import { formatCount } from '@/lib/format-number';
+import { BackButton } from '@/app/_components/back-button';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, PlayCircle } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
+import { PlayCircle } from 'lucide-react';
 import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateSection } from '@/app/_components/template-rows';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -87,13 +88,8 @@ export default async function VendorChallengePhotosPage({
 
   return (
     <section className="mx-auto w-full max-w-5xl space-y-2 px-4 py-4 sm:px-6">
-      <ActionButton
-        tone="neutral"
-        quiet
-        icon={<ArrowLeft aria-hidden strokeWidth={2} />}
-        label="Back to client"
-        href={`/vendor-dashboard/clients/${eventId}?tab=details`}
-      />
+      {/* The app's ONE back (rule 1 "way out"; `lib/every-back-goes-home.test.ts`): it lands on this page's home. */}
+      <BackButton route="/vendor-dashboard/clients/[eventId]/challenge-photos" params={{ eventId }} label="Back to client" />
 
       {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
       <h1 className="sr-only">Challenge photos</h1>
@@ -102,7 +98,7 @@ export default async function VendorChallengePhotosPage({
         label="Challenge photos"
         first
         tip="Guest photos and videos from the challenges you sponsored — only the ones a guest chose to share with you. Yours to use."
-        right={total > 0 ? `${total} shared` : undefined}
+        right={total > 0 ? `${formatCount(total)} shared` : undefined}
       >
         {total === 0 ? (
           <TemplateEmpty data="challenge-photos">

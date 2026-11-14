@@ -2,7 +2,7 @@
  * event-hub-pro-on-the-services-step.test.ts — the third card.
  *
  * ⚖ Owner, 2026-09-25: *"so now on the onboarding also, there are 3 things they
- * can purchase Papic, Setnayan AI, Event Hub Pro."*
+ * can purchase Papic, Setnayan AI, Event Pro."*
  *
  * What this pins, in the order a couple meets it:
  *   1. THE CARD — offered only where the type has an Event Hub AND the catalog
@@ -192,7 +192,7 @@ test('the bill line: every "no" drops it, and an owner is NEVER billed twice', (
 test('the mint bills COUPLE_WEBSITE_PRO from three server-side measurements', () => {
   const minter = strip(read('lib/onboarding-services-orders.ts'));
   const block = minter.slice(minter.indexOf('if (selection.hubPro)'));
-  assert.ok(block.length > 0, 'the mint has no Event Hub Pro branch');
+  assert.ok(block.length > 0, 'the mint has no Event Pro branch');
   const head = block.slice(0, 1200);
   assert.match(head, /eventHasEventHub\(admin, eventId\)/, 'the STORED type is re-read');
   assert.match(head, /eventAlreadyHasHubPro\(admin, eventId\)/, 'prior ownership is checked');

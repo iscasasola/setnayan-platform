@@ -126,6 +126,22 @@ test('admin Receipts: the "View" link presses at 44 without growing the word', (
   assert.equal(drawnHeight(cls).drawn, 0, 'Receipts "View" was given a drawn height — the fix is the press, never a bigger link');
 });
 
+/*
+ * 📖 THE HUB PRIVACY PAGE'S "Stories" LINK PRESSES AT 44 (walkthrough RW-306, 2026-11-14): the in-sentence link to
+ * the public Stories page was drawn — and pressed — 18 px tall. It wears `.sn-hit` now: the word stays in its line,
+ * its press reaches 46 around it, vertical only (the sentence does not reflow).
+ */
+test('Event Hub privacy: the in-sentence "Stories" link presses at 44 without growing the word', () => {
+  const src = stripComments(read('app/dashboard/[eventId]/website/privacy/page.tsx'));
+  const m = src.match(/href="\/realstories"\s+className="([^"]+)"\s*>\s*Stories\s*</);
+  assert.ok(m, 'the privacy page\'s "Stories" link is gone or no longer reads as one className — the guard cannot see it');
+  const cls = m![1]!;
+  const p = press(cls);
+  assert.ok(p.height >= 44, `privacy "Stories" presses at ${p.height}px — under the 44-px floor (classes: ${cls})`);
+  assert.ok(!p.sideways, 'privacy "Stories": its press bleeds sideways');
+  assert.equal(drawnHeight(cls).drawn, 0, 'privacy "Stories" was given a drawn height — the fix is the press, never a bigger link');
+});
+
 test('the toast’s own buttons (Undo, Try again) press at 44 inside the 48-px pill', () => {
   const src = stripComments(read('app/_components/toast/peek-toast.tsx'));
   const buttons = [...src.matchAll(/<button\b[^>]*className="([^"]+)"/g)].map((m) => m[1]!);

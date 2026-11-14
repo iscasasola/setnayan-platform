@@ -144,7 +144,7 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
           data={`graph-${g.k}`}
           thumb={
             <div className="ag-onedoor" data-graph-door={g.k}>
-              <ActionButton tone="brand" main icon={ArrowRight} label={door.label} href={door.href} />
+              <ActionButton tone="brand" main icon={ArrowRight} label={door.label} href={door.href} className="!h-11" />
             </div>
           }
         >

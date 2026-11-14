@@ -38,6 +38,7 @@ import {
   type BookingFeeSchedule,
 } from '@/lib/booking-fee';
 import {
+  BOOKING_FEE_CHARGED_WHEN,
   FIRST_BOOKING_ON_US_CLAUSE,
   FREE_BOOKING_LIMIT,
   freeHeldBackSentence,
@@ -776,7 +777,7 @@ export function feeDueCopy(
         tone: 'due',
         headline: `Booking fee due${by} — ${amount}${who}`,
         detail:
-          'Setnayan charges this once a couple we brought you agrees to book. Pay it the same way your couples pay — it clears within 24 hours of our team confirming it.',
+          `${BOOKING_FEE_CHARGED_WHEN} Pay it the same way your couples pay — it clears within 24 hours of our team confirming it.`,
       };
   }
 }

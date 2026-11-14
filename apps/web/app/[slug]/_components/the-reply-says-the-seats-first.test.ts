@@ -186,7 +186,7 @@ function ticketOrder(src: string, sectionStart: RegExp, ticket: RegExp) {
 test('6b · the order is ticket → Save → Wallet slot → +1 list, on the page and in its lab (owner-approved, 2026-10-25)', () => {
   const pages = {
     'invite/enter': ticketOrder(read('[slug]/invite/enter/page.tsx'), /data-landing-ticket="full"/, /<TicketPicture src=\{PASS_CARD_ROUTE\}/),
-    'maker-lab thank-you': ticketOrder(read('dev/maker-lab/guest/page.tsx'), /data-lab-guest-pass=""/, /<TicketPicture src=\{labPass\}/),
+    'maker-lab thank-you': ticketOrder(read('dev/maker-lab/guest/page.lab.tsx'), /data-lab-guest-pass=""/, /<TicketPicture src=\{labPass\}/),
   };
   console.log('[ticket-order]', JSON.stringify(pages));
   for (const [where, o] of Object.entries(pages)) {

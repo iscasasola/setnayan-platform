@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { Megaphone } from 'lucide-react';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { jittered } from '@/lib/live-day-timing';
 import { AnnouncementLine, AnnouncementNotice } from './announcement-styles';
 
@@ -147,47 +148,30 @@ export function DayOfAnnouncement({
   );
 }
 
+/**
+ * 🔔 Inventory #38 — the default ("banner") look is a LIVE notice in the one notice system (owner approved 14 Nov 2026):
+ * the coordinator's own words in full, and it can't be hidden — it affects everyone at the event. The Maker's other two
+ * looks (`notice`, `line`) are the Event Hub's own designs and stay in announcement-styles.tsx.
+ */
 function AnnouncementCard({ body, stage }: { body: string; stage: 'before' | 'live' }) {
   const live = stage === 'live';
   return (
-    <aside
-      // `role="status"` + polite: a screen reader announces it when it appears
-      // without interrupting whatever the guest is already reading. `alert`
-      // would be wrong — this is not an error and must not seize focus.
-      role="status"
-      aria-live="polite"
-      className="mx-auto mt-4 w-full max-w-3xl px-4"
-    >
-      <div
-        className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 ${
-          live ? 'border-terracotta/35 bg-terracotta/[0.06]' : 'border-ink/12 bg-ink/[0.03]'
-        }`}
-      >
-        <span
-          className={
-            live
-              ? 'mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta/12 text-terracotta-700'
-              : 'mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-ink/70'
-          }
-        >
-          <Megaphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </span>
-        <div className="min-w-0">
-          <p
-            className={
-              live
-                ? 'font-mono text-xs font-bold uppercase tracking-[0.14em] text-terracotta-700'
-                : 'font-mono text-xs font-bold uppercase tracking-[0.14em] text-ink/70'
-            }
-          >
-            {live ? 'From the coordinator' : 'Announcement'}
-          </p>
-          {/* The coordinator's own words, rendered as text. Never markdown,
-              never HTML — this is typed by a person on a phone under pressure
-              and reaches every guest at the wedding. */}
-          <p className="mt-1 whitespace-pre-line text-[15px] leading-snug text-ink">{body}</p>
-        </div>
-      </div>
+    <aside role="status" aria-live="polite" className="mx-auto mt-4 w-full max-w-3xl px-4">
+      <InlineNotice
+        kind="live"
+        tone={live ? 'warning' : 'info'}
+        closable={false}
+        noticeKey="coordinator-announcement"
+        mark={<Megaphone aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />}
+        title={live ? `From the coordinator: ${body}` : `Announcement: ${body}`}
+        // The coordinator's own words, rendered as text. Never markdown, never HTML.
+        titleNode={
+          <>
+            <span className="block font-mono text-xs font-bold uppercase tracking-[0.14em]">{live ? 'From the coordinator' : 'Announcement'}</span>
+            <span className="mt-1 block whitespace-pre-line text-[15px] leading-snug">{body}</span>
+          </>
+        }
+      />
     </aside>
   );
 }

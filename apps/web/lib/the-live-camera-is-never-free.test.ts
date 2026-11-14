@@ -24,7 +24,7 @@ const FILES = [
   'app/(shell)/about/page.tsx',
   'app/(shell)/privacy/page.tsx',
   'app/panood/control/[eventId]/page.tsx',
-  'app/dev/home-lab/page.tsx',
+  'app/dev/home-lab/page.lab.tsx',
   'lib/home-first-screen.ts',
   'lib/iap/where-bought.ts',
   'lib/add-ons-catalog.ts',

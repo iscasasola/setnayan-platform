@@ -50,7 +50,6 @@ test('1 · the couple dashboard Sheet docks at 440 for both widths', () => {
 
 const AREA2_DIALOGS = [
   'app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx',
-  'app/dashboard/[eventId]/_components/cohost-welcome.tsx',
   'app/dashboard/[eventId]/guests/_components/add-guest-sheet.tsx',
   'app/dashboard/[eventId]/guests/_components/quick-add-sheet.tsx',
   'app/dashboard/[eventId]/guests/_components/add-from-people-sheet.tsx',

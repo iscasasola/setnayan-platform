@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { REVIEW_LINE_MAX, REVIEW_STAR_OPTIONS, reviewAskWords } from '@/lib/supplier-scan';
@@ -65,13 +67,26 @@ export function ScanReviewAsk({
       </p>
     );
   }
+  // 🔔 Inventory #34 — a To-do ask in the one notice system (owner approved 14 Nov 2026), drawn where it stands under the
+  // guest's number: the ask is the line, the rating and Send are its actions, "Not now" its close — kept by the one
+  // notice memory AND sent as the shipped skip, so the supplier's request is answered either way.
   return (
-    <section aria-label={reviewAskWords(service)} className="space-y-2 text-center" data-scan-review={vendorProfileId}>
-      <p className="text-[15px] font-medium text-ink">{reviewAskWords(service)}</p>
-      {shop ? <p className="text-[12.5px] text-ink/55">Your review shows on {shop}&rsquo;s page.</p> : null}
-      <div className="flex justify-center">
-        <PickMenu label="Your rating" value={stars} options={REVIEW_STAR_OPTIONS} onPick={setStars} buttonText={stars ? undefined : 'Your rating'} dataAttr="data-scan-review-stars" />
-      </div>
+    <section aria-label={reviewAskWords(service)} className="space-y-2 text-left" data-scan-review={vendorProfileId}>
+      <InlineNotice
+        kind="todo"
+        noticeKey={`booth-review:${eventId}:${vendorProfileId}`}
+        title={reviewAskWords(service)}
+        detail={shop ? `Your review shows on ${shop}’s page.` : undefined}
+        onClose={() => send(true)}
+        actions={
+          <>
+            <PickMenu label="Your rating" value={stars} options={REVIEW_STAR_OPTIONS} onPick={setStars} buttonText={stars ? undefined : 'Your rating'} dataAttr="data-scan-review-stars" />
+            <button type="button" disabled={pending || !stars} onClick={() => send(false)} className={`${NOTICE_ACTION} disabled:opacity-40`}>
+              Send
+            </button>
+          </>
+        }
+      />
       {stars ? (
         // ✍ The one Field template (`TypedRow`): it posts nothing itself — what it holds rides along with Send, as typed.
         <>
@@ -102,19 +117,6 @@ export function ScanReviewAsk({
           </div>
         </>
       ) : null}
-      <div className="flex items-center justify-center gap-4">
-        <button
-          type="button"
-          disabled={pending || !stars}
-          onClick={() => send(false)}
-          className="sn-press min-h-11 rounded-full border border-ink/25 px-5 text-[15px] font-medium text-ink disabled:opacity-40"
-        >
-          Send
-        </button>
-        <button type="button" disabled={pending} onClick={() => send(true)} className="min-h-11 px-2 text-[14px] text-ink/60 underline underline-offset-4">
-          Not now
-        </button>
-      </div>
       {error ? (
         <p role="alert" className="text-[13px] text-[rgb(var(--color-warn))]">
           {error}

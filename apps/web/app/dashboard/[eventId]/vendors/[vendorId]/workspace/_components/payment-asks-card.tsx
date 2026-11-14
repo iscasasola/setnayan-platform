@@ -1,4 +1,5 @@
 import { Wallet } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * WHAT THIS SUPPLIER IS WAITING FOR — the couple's side of a payment ask.
@@ -54,13 +55,15 @@ export function PaymentAsksCard({
   asks: CouplePaymentAsk[];
   measured: boolean;
 }) {
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 6 · 7 · 11 · 13): no card — a section in grey capitals, then each ask
+  // as a row that needs you (the gold edge is its only colour), the money bold on the right in the body face. The
+  // "pay them directly" explaining sits behind the ⓘ on the label. A refused read is one amber line with no box.
   if (!measured) {
     return (
-      <section className="rounded-2xl border border-warn-300/50 bg-warn-50 p-4">
-        <p className="flex items-center gap-2 text-sm text-warn-900">
-          <Wallet aria-hidden className="h-4 w-4 shrink-0" /> We could not check
-          whether {vendorName} is waiting on a payment. Message them if you are
-          unsure — this is us failing to load it, not them asking for nothing.
+      <section>
+        <p role="status" className="flex items-center gap-2 py-2 text-sm text-warn-800">
+          <Wallet aria-hidden className="h-4 w-4 shrink-0" /> Couldn’t check whether {vendorName} is waiting on a
+          payment — not the same as nothing. Message them if you are unsure.
         </p>
       </section>
     );
@@ -68,29 +71,31 @@ export function PaymentAsksCard({
   if (asks.length === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-white p-4">
-      <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-        {vendorName} is waiting for
-      </p>
-      <ul className="space-y-2">
+    <section>
+      <InfoTip
+        label={`${vendorName} is waiting for`}
+        labelAs="p"
+        labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
+        align="start"
+        className="mb-1 mt-[18px]"
+      >
+        Pay {vendorName} directly, the way you agreed. Setnayan never holds this money — record it below once you have
+        sent it.
+      </InfoTip>
+      <ul className="divide-y divide-ink/10">
         {asks.map((a) => (
-          <li
-            key={a.askId}
-            className="rounded-xl border border-ink/10 border-l-[3px] border-l-terracotta px-3 py-2.5"
-          >
-            <p className="text-sm font-semibold">{peso(a.amountPhp)}</p>
-            <p className="text-xs text-ink/55">
-              {a.note ? `${a.note} · ` : ''}
-              {a.dueDate ? `by ${dayLabel(a.dueDate)} · ` : ''}
-              asked {dayLabel(a.createdAt.slice(0, 10))}
-            </p>
+          <li key={a.askId} className="flex min-h-14 items-center gap-3 border-l-[3px] border-l-terracotta py-2.5 pl-3">
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold text-ink">{a.note ?? 'Payment'}</span>
+              <span className="block text-[13px] text-ink/70">
+                {a.dueDate ? `By ${dayLabel(a.dueDate)} · ` : ''}
+                asked {dayLabel(a.createdAt.slice(0, 10))}
+              </span>
+            </span>
+            <span className="flex-none text-[15px] font-bold tabular-nums text-ink">{peso(a.amountPhp)}</span>
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-[11px] text-ink/45">
-        Pay {vendorName} directly, the way you agreed. Setnayan never holds this
-        money — record it below once you have sent it.
-      </p>
     </section>
   );
 }

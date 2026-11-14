@@ -56,7 +56,14 @@ export function RunOfShowHeader({
   compact = false,
   variant = 'card',
   forGuests = false,
+  startsOnWords = null,
 }: {
+  /**
+   * 🗓 RW-87 (walk 13 Nov 2026): the day's words ("Fri, Dec 18") while the event is still AHEAD — handed in by the page,
+   * which knows the event's date and today in Manila. Then the Now box says when the run of show starts, instead of
+   * "Not started yet" 179 days early. Null (the default, and on the day itself) = as shipped.
+   */
+  startsOnWords?: string | null;
   eventId: string;
   initial: RunOfShowBlock[];
   canAdvance?: boolean;
@@ -318,7 +325,7 @@ export function RunOfShowHeader({
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-mulberry">Now</p>
                 <p className="truncate font-display text-xl leading-tight text-ink sm:text-2xl">
-                  {current ? current.label : notStarted ? 'Not started yet' : 'Between moments'}
+                  {current ? current.label : notStarted ? (startsOnWords ? `Starts on ${startsOnWords}` : 'Not started yet') : 'Between moments'}
                 </p>
                 {current ? (
                   <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-ink/55">
@@ -436,7 +443,7 @@ export function RunOfShowHeader({
                 </p>
               </>
             ) : notStarted ? (
-              <p className="mt-1 text-sm text-ink/60">Not started yet.</p>
+              <p className="mt-1 text-sm text-ink/60">{startsOnWords ? `Starts on ${startsOnWords}.` : 'Not started yet.'}</p>
             ) : (
               <p className="mt-1 text-sm text-ink/60">Between moments.</p>
             )}

@@ -311,7 +311,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
           ))}
           <div className="flex items-center justify-between gap-3">
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-              Last updated {new Date(settings.updated_at).toLocaleString()}
+              Last updated {new Date(settings.updated_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
             </p>
             <SubmitButton
               className="button-primary inline-flex items-center gap-2"
@@ -804,7 +804,7 @@ function ChannelSwitch({
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
             {formatPhp(headroom.remainingPhp)} left of {formatPhp(headroom.startingPhp)}
             {headroom.source === 'owner_balance' && availableAsOf
-              ? ` · your reading ${new Date(availableAsOf).toLocaleDateString()}`
+              ? ` · your reading ${new Date(availableAsOf).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })}`
               : ' · from the monthly limit'}
           </p>
         </div>

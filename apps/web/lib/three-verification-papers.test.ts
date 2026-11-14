@@ -95,6 +95,7 @@ const SAID_TO_PEOPLE = [
   'lib/vendor-verification.ts',
   'lib/verification-pairs.ts',
   'lib/help.ts',
+  'lib/help/topics-existing.ts',
   'lib/shop-badge-row.ts',
   'lib/vendor-first-steps.ts',
   'lib/verified-badge.ts',
@@ -133,7 +134,7 @@ test('5 · the retired guide is gone from Help, and its address forwards to Gett
     /source:\s*'\/help\/how-to-prepare-bank-account-proof',\s*destination:\s*'\/help\?role=vendor#getting-verified',\s*permanent:\s*true/,
     'the old guide address no longer forwards to the verification help',
   );
-  assert.match(read('lib/help.ts'), /key: 'getting-verified'/, 'the forward points at a Help section that no longer exists');
+  assert.match(read('lib/help/topics-existing.ts'), /key: 'getting-verified'/, 'the forward points at a Help section that no longer exists');
 });
 
 test('6 · payout settings are not part of this ruling — the payout method keeps its bank option', () => {

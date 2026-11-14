@@ -14,6 +14,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { stripComments } from './strip-comments';
 import { groupsToOpen, unopenedGroups, openOneGroup } from './chat-groups';
 
@@ -47,12 +48,11 @@ function fakeClient(calls: Call[]) {
 
 test('rendering the list (groupsToOpen) makes no RPC and no write', async () => {
   const calls: Call[] = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const wanted = await groupsToOpen(fakeClient(calls) as any, 'event-1');
+  const wanted = await groupsToOpen(fakeClient(calls) as unknown as SupabaseClient, 'event-1');
   assert.deepEqual(calls, [], `a render wrote or called a function: ${JSON.stringify(calls)}`);
   assert.ok(wanted, 'the guest list was readable');
-  assert.equal(wanted![0].kind, 'general', 'General is offered — as a row to tap, not a thread made on sight');
-  assert.ok(wanted!.some((g) => g.kind === 'role'), 'a role held on the guest list is offered too');
+  assert.equal(wanted?.[0]?.kind, 'general', 'General is offered — as a row to tap, not a thread made on sight');
+  assert.ok(wanted?.some((g) => g.kind === 'role'), 'a role held on the guest list is offered too');
 });
 
 test('an opened group is not offered again; an unopened one is', () => {
@@ -76,8 +76,7 @@ test('an opened group is not offered again; an unopened one is', () => {
 
 test('a tap (openOneGroup) is the one place the opener runs', async () => {
   const calls: Call[] = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const id = await openOneGroup(fakeClient(calls) as any, 'event-1', 'general', null);
+  const id = await openOneGroup(fakeClient(calls) as unknown as SupabaseClient, 'event-1', 'general', null);
   assert.equal(id, 'thread-1');
   assert.deepEqual(calls.map((c) => c.name), ['chat_group_open']);
 });

@@ -1,5 +1,6 @@
 'use client';
 
+import { PickMenu } from '../../website/editor/_components/pick-menu';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useTransition } from 'react';
@@ -103,35 +104,36 @@ export function PairTargetPicker({ eventId, currentTarget, highestUsedPair }: Pr
   for (let i = PRINCIPAL_PAIR_MIN; i <= PRINCIPAL_PAIR_MAX; i += 1) options.push(i);
 
   return (
-    <label className="inline-flex items-center gap-2">
-      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+    <div className="inline-flex flex-wrap items-center gap-2" aria-busy={isPending || undefined}>
+      <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
         Pairs to invite
       </span>
-      <select
-        value={currentTarget}
-        onChange={(e) => setTarget(Number.parseInt(e.target.value, 10))}
-        disabled={isPending}
-        className="h-9 rounded-md border border-ink/20 bg-cream px-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta disabled:opacity-50"
-      >
-        {options.map((n) => (
-          <option key={n} value={n} disabled={n < highestUsedPair}>
-            {n} pairs ({n * 2} ninong/ninang)
-          </option>
-        ))}
-      </select>
+      {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 4): the ▾ picker. A count below the pairs already filled was never
+          pickable (it was a disabled option) — it is simply not offered. */}
+      <PickMenu
+        label="Pairs to invite"
+        value={String(currentTarget)}
+        options={options
+          .filter((n) => n >= highestUsedPair)
+          .map((n) => ({ key: String(n), label: `${n} pairs (${n * 2} ninong/ninang)` }))}
+        onPick={(k) => {
+          if (!isPending) setTarget(Number.parseInt(k, 10));
+        }}
+        dataAttr="data-sponsor-pairs"
+      />
       {highestUsedPair > PRINCIPAL_PAIR_DEFAULT ? (
-        <span className="text-[11px] text-ink/55">
+        <span className="text-xs text-ink/70">
           Remove sponsors from a pair to drop below {highestUsedPair}.
         </span>
       ) : null}
       <noscript>
         <Link
           href={`?pairs=${PRINCIPAL_PAIR_DEFAULT}`}
-          className="text-[11px] text-terracotta underline"
+          className="text-xs text-terracotta underline"
         >
           Reset to {PRINCIPAL_PAIR_DEFAULT} pairs
         </Link>
       </noscript>
-    </label>
+    </div>
   );
 }

@@ -33,6 +33,8 @@ import { REQUEST_WORDS, undoStillOpen } from '@/lib/request-key';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { preMatchFor } from '@/lib/find-me';
 import { invitationLinkOn } from '@/lib/invitation-link';
+import { actionButtonClass } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 
 export const metadata = { title: 'Requests' };
 
@@ -344,10 +346,11 @@ export default async function RequestsPage({ params, searchParams }: Props) {
       ) : null}
 
       {!unlistedMeasured ? (
-        <p role="alert" className="mt-8 border-l-2 border-mulberry/70 pl-3 text-sm text-ink/70">
-          <strong className="text-ink">We couldn&rsquo;t load your requests.</strong> This does not mean nobody asked.
-          Nobody has been added or removed &mdash; reload in a moment and they will be here.
-        </p>
+        <div role="alert" className="mt-8 text-sm text-warn-800">
+          <InfoTip label="We couldn’t load your requests. This does not mean nobody asked." labelAs="span" labelClassName="font-semibold text-warn-800" align="start">
+            Nobody has been added or removed — reload in a moment and they will be here.
+          </InfoTip>
+        </div>
       ) : rows.length === 0 ? (
         <div className="mt-8 flex items-baseline gap-4">
           <span className="font-serif text-7xl leading-none text-ink">0</span>
@@ -400,9 +403,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                         approved prototype (guest_ticket_flow_2026-09-29, G1). */}
                     <details className="group/keep">
                       <summary
-                        className={`sn-press inline-flex min-h-11 cursor-pointer list-none items-center rounded-full px-5 text-sm font-semibold [&::-webkit-details-marker]:hidden ${
-                          match ? 'bg-ink/[0.06] text-ink' : 'bg-ink text-cream'
-                        }`}
+                        className={`${actionButtonClass('brand', { main: !match })} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}
                       >
                         Accept
                       </summary>
@@ -451,9 +452,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                     {candidates.length > 0 ? (
                       <details className="group/link">
                         <summary
-                          className={`sn-press inline-flex min-h-11 cursor-pointer list-none items-center rounded-full px-5 text-sm font-semibold [&::-webkit-details-marker]:hidden ${
-                            match ? 'bg-ink text-cream' : 'bg-ink/[0.06] text-ink'
-                          }`}
+                          className={`${actionButtonClass('brand', { main: Boolean(match) })} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}
                         >
                           Link
                         </summary>
@@ -492,10 +491,11 @@ export default async function RequestsPage({ params, searchParams }: Props) {
             })}
           </ul>
 
-          <p className="mt-6 text-sm text-ink/55">
-            They already hold their own QR and link. Accept or Link and it opens their invitation; Decline and it
-            says &ldquo;{REQUEST_WORDS.declined}&rdquo; Nothing is emailed.
-          </p>
+          <div className="mt-6 text-sm text-ink/70">
+            <InfoTip label="They already hold their own QR and link." labelAs="span" labelClassName="text-ink/70" align="start">
+              Accept or Link and it opens their invitation; Decline and it says “{REQUEST_WORDS.declined}” Nothing is emailed.
+            </InfoTip>
+          </div>
         </>
       )}
     </div>

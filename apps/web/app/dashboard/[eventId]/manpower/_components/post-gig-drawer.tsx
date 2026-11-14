@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { postManpowerGig } from '@/app/vendor-dashboard/manpower/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * V2 Phase F · Post-gig drawer (host-side).
@@ -23,27 +24,9 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
   return (
     <div>
       {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="m-btn inline-flex items-center gap-2"
-          style={{
-            background: 'var(--m-orange)',
-            color: 'white',
-            padding: '10px 18px',
-            borderRadius: 'var(--m-r-md)',
-            fontSize: '14px',
-            fontWeight: 500,
-          }}
-        >
-          <Plus className="h-4 w-4" strokeWidth={1.75} />
-          Post a manpower gig
-        </button>
+        <ActionButton tone="brand" main icon={Plus} label="Post a manpower gig" onClick={() => setOpen(true)} />
       ) : (
-        <div
-          className="rounded-lg border border-slate-200 bg-white p-5"
-          style={{ boxShadow: 'var(--m-shadow-md)' }}
-        >
+        <div className="border-t border-ink/10 pt-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p

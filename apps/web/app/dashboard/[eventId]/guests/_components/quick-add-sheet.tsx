@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, Check, Plus, UserCheck, UserRoundPen, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
 import { GuestPopup } from './guest-popup';
 import { plainRefusal } from './plain-refusal';
 import { usePeekToast } from './use-peek-toast';
@@ -438,7 +439,7 @@ export function QuickAddSheet({
                     keep their widths instead of stretching over the gap. */}
                 {hasSides ? (
                 <div className="col-span-1 block space-y-1">
-                  <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45">
+                  <span className="block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                     Side
                   </span>
                   <PickMenu
@@ -453,7 +454,7 @@ export function QuickAddSheet({
 
                 {/* role (2 cols — the long labels need the room) */}
                 <div className="col-span-2 block space-y-1">
-                  <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45">
+                  <span className="block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                     Role
                   </span>
                   <PickMenu
@@ -467,7 +468,7 @@ export function QuickAddSheet({
 
                 {/* group (1 col — always present; "No group" by default) */}
                 <div className="col-span-1 block space-y-1">
-                  <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45">
+                  <span className="block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                     Group
                   </span>
                   <PickMenu
@@ -493,7 +494,7 @@ export function QuickAddSheet({
 
               {/* inline create-group strip — only while naming a new group */}
               {newGroupMode ? (
-                <div className="space-y-1.5 rounded-lg border border-terracotta/40 bg-terracotta/10 p-2.5">
+                <div className="space-y-1.5 border-l-2 border-terracotta pl-3">
                   <div className="flex items-center gap-2">
                     <input
                       ref={groupRef}
@@ -588,7 +589,7 @@ export function QuickAddSheet({
                 </div>
 
                 {dupActive ? (
-                  <div className="space-y-2 rounded-xl border border-warn-300/70 bg-warn-50 p-3">
+                  <div className="space-y-2 border-l-2 border-warn-600 pl-3">
                     <p className="flex items-center gap-2 text-sm font-semibold leading-tight text-warn-800">
                       <AlertTriangle aria-hidden className="h-4 w-4 flex-none" strokeWidth={1.9} />
                       {target && !targetHasPicked
@@ -598,28 +599,18 @@ export function QuickAddSheet({
                     {dups.map(({ g, kind }, i) => (
                       <div
                         key={i}
-                        className="flex items-center gap-3 rounded-lg border border-ink/10 bg-cream px-2.5 py-2"
+                        className="flex min-h-14 items-center gap-3 border-b border-ink/10 py-2"
                       >
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium text-ink">
                             {g.first_name} {g.last_name}
                           </span>
-                          <span className="block truncate text-[11px] text-ink/55">
+                          <span className="block truncate text-xs text-ink/70">
                             {[g.role, ...g.extra_roles].map((r) => guestRoleLabel(r, roleNames)).join(' · ')}
                             {hasSides ? ` · ${SIDE_LABELS[g.side]}` : null}
                           </span>
                         </span>
-                        <span
-                          className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                            kind === 'exact'
-                              ? 'bg-danger-100 text-danger-700'
-                              : kind === 'nick'
-                                ? 'bg-info-100 text-info-800'
-                                : 'bg-warn-200/70 text-warn-800'
-                          }`}
-                        >
-                          {TAG[kind]}
-                        </span>
+                        <Badge tone={kind === 'exact' ? 'no' : kind === 'nick' ? 'quiet' : 'wait'}>{TAG[kind]}</Badge>
                       </div>
                     ))}
 

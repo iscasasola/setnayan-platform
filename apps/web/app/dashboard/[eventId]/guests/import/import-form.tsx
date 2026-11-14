@@ -12,6 +12,7 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { GuestImportState } from './actions';
+import { InfoTip } from '@/app/_components/info-tip';
 
 type Action = (prev: GuestImportState, formData: FormData) => Promise<GuestImportState>;
 
@@ -104,11 +105,12 @@ export function GuestImportForm({ action }: { action: Action }) {
   return (
     <form action={run} className="space-y-3">
       <h2 className="text-base font-semibold text-ink">2 · Upload it</h2>
-      <p className="text-sm text-ink/70">
-        Save your list as CSV, then upload it. Excel: File › Save As › CSV · Numbers: File › Export To › CSV ·
-        Google Sheets: File › Download › CSV. Already uploaded before? Upload the edited file — we update the
-        people already on your list and add the new ones.
-      </p>
+      <div className="text-sm text-ink/70">
+        <InfoTip label="Save your list as CSV, then upload it." labelAs="span" labelClassName="text-ink/70" align="start">
+          Excel: File › Save As › CSV · Numbers: File › Export To › CSV · Google Sheets: File › Download › CSV. Already
+          uploaded before? Upload the edited file — we update the people already on your list and add the new ones.
+        </InfoTip>
+      </div>
       {state.stage === 'error' ? (
         <p role="alert" className="rounded-md border border-terracotta/30 bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
           {state.message}

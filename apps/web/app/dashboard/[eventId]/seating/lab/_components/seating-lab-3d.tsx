@@ -1112,7 +1112,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   return (
     <div
       ref={wrapperRef}
-      className={`relative w-full overflow-hidden bg-[#11131a] ${inMaker ? 'h-full' : 'h-[82vh] rounded-2xl border border-ink/10'}`}
+      className={`relative w-full overflow-hidden bg-[#11131a] ${inMaker ? 'h-full' : 'h-[82vh] rounded-2xl'}`}
     >
       {webgl.lost ? (
         <ContextLostNotice

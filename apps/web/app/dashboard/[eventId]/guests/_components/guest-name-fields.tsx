@@ -4,6 +4,8 @@ import { useRoleNames } from './role-names-context';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
+import { Badge } from '@/app/_components/badge';
+import { actionButtonClass } from '@/components/action-button';
 import {
   guestRoleLabel,
   SIDE_LABELS,
@@ -190,7 +192,7 @@ export function GuestNameFields({
       </div>
 
       {dups.length > 0 ? (
-        <div className="space-y-2 rounded-xl border border-warn-300/70 bg-warn-50 p-3">
+        <div className="space-y-2 border-l-2 border-warn-600 pl-3">
           <p className="flex items-center gap-2 text-sm font-semibold leading-tight text-warn-800">
             <AlertTriangle aria-hidden className="h-4 w-4 flex-none" strokeWidth={1.9} />
             {dups.length > 1
@@ -200,33 +202,23 @@ export function GuestNameFields({
           {dups.map(({ g, kind }) => (
             <div
               key={g.guest_id}
-              className="flex items-center gap-3 rounded-lg border border-ink/10 bg-cream px-2.5 py-2"
+              className="flex min-h-14 items-center gap-3 border-b border-ink/10 py-2"
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-ink">
                   {g.first_name} {g.last_name}
                 </span>
-                <span className="block truncate text-[11px] text-ink/55">
+                <span className="block truncate text-xs text-ink/70">
                   {[g.role, ...g.extra_roles].map((r) => guestRoleLabel(r, roleNames)).join(' · ')}
                   {hasSides ? ` · ${SIDE_LABELS[g.side]}` : null}
                 </span>
               </span>
-              <span
-                className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                  kind === 'exact'
-                    ? 'bg-danger-100 text-danger-700'
-                    : kind === 'nick'
-                      ? 'bg-info-100 text-info-800'
-                      : 'bg-warn-200/70 text-warn-800'
-                }`}
-              >
-                {TAG[kind]}
-              </span>
+              <Badge tone={kind === 'exact' ? 'no' : kind === 'nick' ? 'quiet' : 'wait'}>{TAG[kind]}</Badge>
               <Link
                 href={`/dashboard/${eventId}/guests/${g.guest_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-none rounded-lg border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/70 hover:border-ink/30"
+                className={actionButtonClass('info', { extra: 'flex-none' })}
               >
                 View
               </Link>
@@ -235,7 +227,7 @@ export function GuestNameFields({
           <button
             type="button"
             onClick={() => setDismissed(true)}
-            className="text-xs font-medium text-ink/55 hover:text-ink"
+            className="inline-flex min-h-11 items-center text-sm font-medium text-ink/70 hover:text-ink"
           >
             These are different people — continue
           </button>

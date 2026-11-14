@@ -1,5 +1,6 @@
 'use client';
 
+import { InfoTip } from '@/app/_components/info-tip';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { Check, Copy, Share, Send, Undo2 } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -268,9 +269,10 @@ export function SendInviteActions({
 
   if (!guest.inviteUrl) {
     return (
-      <p role="status" className="text-[13px] text-ink/55">
-        {first} has no personal link yet, so there is nothing to send. Re-issue their QR on the
-        Invitation page to give them one.
+      <p role="status" className="text-[13px] text-ink/70">
+        <InfoTip label={`${first} has no personal link yet, so there is nothing to send.`} labelAs="span" labelClassName="text-ink/70" align="start">
+          Re-issue their QR on the Invitation page to give them one.
+        </InfoTip>
       </p>
     );
   }
@@ -398,7 +400,7 @@ export function SendInviteActions({
           <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink" data-send-invite-sent="">
             <Check aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2.25} />
             <span className="font-medium">Sent ✓</span>
-            <span className="text-ink/55">
+            <span className="text-ink/70">
               {/* A fixed zone: the server (UTC) and the phone must draw the same day, or the card fails to hydrate. */}
               {new Date(sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
             </span>
@@ -559,18 +561,18 @@ export function InviteMessageEditor({
         }}
         rows={9}
       />
-      <p className="text-xs leading-relaxed text-ink/55">
+      <p className="text-xs leading-relaxed text-ink/70">
         These fill themselves for each guest:{' '}
         {INVITE_PLACEHOLDERS.map((p, i) => (
           <span key={p.token}>
             {i > 0 ? ' · ' : ''}
-            <code className="rounded bg-ink/5 px-1 font-mono text-[11px] text-ink/80">{p.token}</code> {p.says}
+            <code className="rounded bg-ink/5 px-1 text-xs text-ink/80 tabular-nums">{p.token}</code> {p.says}
           </span>
         ))}
         . Their link is always included.
       </p>
       <div className="rounded-xl bg-ink/[0.04] p-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           {sample ? `What ${sample.firstName?.trim() || sample.fullName} gets` : 'What a guest gets'}
         </p>
         <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-ink/85">{preview}</p>

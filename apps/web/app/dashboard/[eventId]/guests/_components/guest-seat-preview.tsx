@@ -10,6 +10,7 @@ import { guestsViewHref } from '@/lib/guests-views';
 import { GUEST_SEAT_VIEW_LABEL, seatViewParts } from '@/lib/guest-seat-view';
 import { formatCount } from '@/lib/format-number';
 import { guestSeatView, type GuestSeatPreview as Preview } from '../seat-view-actions';
+import { actionButtonClass } from '@/components/action-button';
 
 /* The map and the supplier card load only when a seated guest's card draws this — never with the card itself. */
 const GuestSeatMap = dynamic(() => import('@/app/_components/guest-seat-map').then((m) => m.GuestSeatMap), { ssr: false });
@@ -74,7 +75,7 @@ export function GuestSeatPreview({
     <Link
       href={walkHref}
       data-guest-seat-preview-walk=""
-      className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/15 px-4 text-sm font-medium text-ink"
+      className={actionButtonClass('neutral')}
     >
       <Navigation aria-hidden className="h-4 w-4" />
       Watch {firstName} walk to it in 3D

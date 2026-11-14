@@ -10,7 +10,8 @@
  */
 
 import { useState, useTransition } from 'react';
-import { Check, Loader2, ShieldCheck, X } from 'lucide-react';
+import { Check, ShieldCheck, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 import type { DelegateArea } from '@/lib/event-moderators';
 import { FLOOR_AREA_LABEL, GRANT_WORDS, grantLevelFor, type AreaVerdict } from '@/lib/floor-command';
@@ -79,7 +80,7 @@ export function RequestCard({
         <h3 className="text-base font-semibold">
           {request.askerName} is asking for access
         </h3>
-        <span className="text-xs text-ink/50">
+        <span className="text-xs text-ink/70">
           {new Date(request.createdAt).toLocaleDateString()}
         </span>
       </div>
@@ -90,24 +91,24 @@ export function RequestCard({
         </p>
       ) : null}
 
-      <ul className="mt-4 space-y-2">
+      <ul className="mt-4 divide-y divide-ink/10">
         {request.requestedAreas.map((area) => {
           const v = verdicts[area];
           return (
             <li
               key={area}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
+              className="flex min-h-14 flex-wrap items-center justify-between gap-3 py-2.5"
             >
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-medium text-ink">
                   {FLOOR_AREA_LABEL[area]}
                   {grantLevelFor(area, { coordinator: request.askerIsCoordinator }) === 'view' ? (
-                    <span className="ml-2 font-normal text-xs text-ink/45">{GRANT_WORDS.view}</span>
+                    <span className="ml-2 font-normal text-xs text-ink/70">{GRANT_WORDS.view}</span>
                   ) : (
                     <span className="ml-2 font-normal text-xs text-terracotta">{GRANT_WORDS.edit}</span>
                   )}
                 </span>
-                <span className="mt-0.5 block text-xs text-ink/60">{AREA_MEANING[area]}</span>
+                <span className="mt-0.5 block text-xs text-ink/70">{AREA_MEANING[area]}</span>
               </span>
               <span className="flex shrink-0 gap-1.5">
                 <button
@@ -149,27 +150,24 @@ export function RequestCard({
       ) : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
+        {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 3 · 15): the shared main pill; while it sends it is grey, never a spinner. */}
+        <ActionButton
+          tone="brand"
+          main
+          icon={ShieldCheck}
+          label="Send my answer"
           onClick={send}
-          disabled={pending || chosen === 0}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-medium text-cream transition hover:bg-ink/90 disabled:opacity-40"
-        >
-          {pending ? (
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-          ) : (
-            <ShieldCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          )}
-          Send my answer
-        </button>
-        <span className="text-xs text-ink/55">
+          waiting={pending}
+          disabled={chosen === 0}
+        />
+        <span className="text-xs text-ink/70">
           {chosen === 0
             ? 'Choose share or decline for each thing.'
             : `${formatCount(chosen)} of ${formatCount(request.requestedAreas.length)} decided`}
         </span>
       </div>
 
-      <p className="mt-3 text-xs text-ink/45">
+      <p className="mt-3 text-xs text-ink/70">
         {answering.as === 'host'
           ? 'You can take any of this back later, and they lose it straight away.'
           : 'You answer for the host. Only parts the host shared with you can be shared on. The host can take any of it back.'}

@@ -16008,6 +16008,9 @@
         "Suspense",
         "SwipeToDelete",
         "SyncResult",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TermsReacceptSheet",
         "ThumbFit",
         "ThumbLayer",
@@ -16507,14 +16510,13 @@
       "files": [
         "vendor-dashboard/clients/[eventId]/challenge-photos/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/clients/[seg]?tab=details"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
+        "BackButton",
         "EventLockedPage",
-        "Link",
-        "ShopCard"
+        "TemplateEmpty",
+        "TemplateSection"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/cocktail": {
@@ -16551,12 +16553,14 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "EditorialMediaStudio",
         "EventLockedPage",
         "HTMLInputElement",
         "Link",
-        "ShopPill",
-        "StatusBadge"
+        "StatusBadge",
+        "TemplateSection"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/mood-board": {
@@ -16705,7 +16709,9 @@
       "actions": [],
       "blocks": [
         "DatesRow",
-        "ShopSegments"
+        "ShopSegments",
+        "TemplateEmpty",
+        "TemplateSection"
       ]
     },
     "/vendor-dashboard/contracts": {
@@ -16759,7 +16765,9 @@
         "uploadVendorContract"
       ],
       "blocks": [
+        "CardPick",
         "FormPageSkeleton",
+        "InfoTip",
         "Link",
         "SubmitButton"
       ]
@@ -17050,12 +17058,14 @@
     },
     "/vendor-dashboard/help": {
       "files": [
+        "vendor-dashboard/help/loading.tsx",
         "vendor-dashboard/help/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
-        "DatesRow"
+        "DatesRow",
+        "ListPageSkeleton"
       ]
     },
     "/vendor-dashboard/invite": {
@@ -17066,6 +17076,7 @@
         "vendor-dashboard/invite/_components/qr-codes.tsx",
         "vendor-dashboard/invite/actions.ts",
         "vendor-dashboard/invite/date-status-actions.ts",
+        "vendor-dashboard/invite/loading.tsx",
         "vendor-dashboard/invite/page.tsx"
       ],
       "destinations": [
@@ -17087,7 +17098,9 @@
         "Icon",
         "InfoTip",
         "Link",
+        "ListPageSkeleton",
         "LockedQrGenerator",
+        "PickMenu",
         "PutOnRow",
         "QrCard",
         "QrCodeList",
@@ -17097,6 +17110,8 @@
         "Sheet",
         "SubmitButton",
         "SwipeToDelete",
+        "TemplateEmpty",
+        "TemplateFail",
         "TypedRow",
         "UndoToastHost"
       ]
@@ -17361,6 +17376,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ArrayBuffer",
         "DatesRow",
         "ListPageSkeleton",
@@ -17642,6 +17658,7 @@
         "vendor-dashboard/packages/_components/bundle-preview-sample.tsx",
         "vendor-dashboard/packages/_components/package-editor.tsx",
         "vendor-dashboard/packages/actions.ts",
+        "vendor-dashboard/packages/loading.tsx",
         "vendor-dashboard/packages/page.tsx"
       ],
       "destinations": [
@@ -17651,6 +17668,7 @@
       "actions": [],
       "blocks": [
         "ActionButton",
+        "Badge",
         "BundlePlanDrafts",
         "BundlePreviewSample",
         "DraftItem",
@@ -17661,7 +17679,7 @@
         "FairNote",
         "Fold",
         "InfoTip",
-        "Link",
+        "ListPageSkeleton",
         "LockExplainer",
         "Note",
         "OptionList",
@@ -17672,6 +17690,11 @@
         "SavePackageResult",
         "ServiceCardFace",
         "SwipeToDelete",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "UndoToastHost"
       ]
     },
@@ -18261,7 +18284,6 @@
         "vendor-dashboard/services/requests/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/services/requests",
         "/vendor-dashboard/shop"
       ],
       "actions": [
@@ -18269,6 +18291,8 @@
         "putCardUnderRequest"
       ],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "CardPick",
         "DecisionNotice",
         "FormRows",
@@ -18279,12 +18303,13 @@
         "RequestNameForm",
         "RequestRowLink",
         "RequestStatusPill",
-        "ShopCard",
-        "ShopEmpty",
-        "ShopNotice",
-        "ShopPill",
         "StayForm",
         "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TypedRow",
         "YourRequestsView"
       ]
@@ -18313,6 +18338,7 @@
     },
     "/vendor-dashboard/settings": {
       "files": [
+        "vendor-dashboard/settings/loading.tsx",
         "vendor-dashboard/settings/page.tsx",
         "vendor-dashboard/settings/settings-rows.ts",
         "vendor-dashboard/settings/settings-view.tsx"
@@ -18334,6 +18360,7 @@
         "Fold",
         "Icon",
         "Link",
+        "ListPageSkeleton",
         "SettingsView"
       ]
     },
@@ -18673,7 +18700,8 @@
         "ShopPrintsSection",
         "ShopSegments",
         "SupplierSubmit",
-        "SwitchTrack"
+        "SwitchTrack",
+        "TemplateEmpty"
       ]
     },
     "/vendor-dashboard/subscription": {
@@ -18881,6 +18909,7 @@
         "GuestReplies",
         "GuestReviewsRead",
         "HostReplies",
+        "InfoTip",
         "OwnRow",
         "PageData",
         "PageDraft",
@@ -18904,6 +18933,8 @@
         "SwipeToDelete",
         "SwitchRow",
         "SwitchTrack",
+        "TemplateEmpty",
+        "TemplateFail",
         "ThumbRow",
         "TypedRow",
         "UndoToastHost",
@@ -18928,10 +18959,14 @@
         "claimVendorInviteToEvent"
       ],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "Image",
+        "InfoTip",
         "Link",
         "LoadingActivity",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateSection"
       ]
     },
     "/vendor/claim/[token]": {

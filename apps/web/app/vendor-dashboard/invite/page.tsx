@@ -289,13 +289,13 @@ export default async function VendorQrCodesPage({
   const verified = !issued && bookingsOpen ? await isMarketplaceVendorBookable(supabase, vendorProfileId) : true;
   if (!issued && !bookingsOpen) {
     generator = (
-      <p className="text-sm text-ink/70">
+      <p className="text-sm text-[color:var(--m-slate-2)]">
         <span className="font-semibold text-ink">{BOOKINGS_OPEN_SOON}.</span> {BOOKINGS_CLOSED_SUPPLIER_MESSAGE}
       </p>
     );
   } else if (!issued && !verified) {
     generator = (
-      <p className="text-sm text-ink/70" data-locked-qr-needs-verified="">
+      <p className="text-sm text-[color:var(--m-slate-2)]" data-locked-qr-needs-verified="">
         {LOCKED_QR_NEEDS_VERIFIED}{' '}
         <Link href="/vendor-dashboard/profile#docs" className="font-semibold text-ink underline underline-offset-2">
           Your documents

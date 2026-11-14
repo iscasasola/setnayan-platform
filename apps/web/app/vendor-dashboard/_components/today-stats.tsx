@@ -67,7 +67,7 @@ export function TodayStats({ stats }: { stats: Stats }) {
                 <span className="text-[22px] font-semibold leading-none tracking-[-0.01em] text-ink">{s.figure}</span>
               ) : null}
               <span className="mt-1.5 text-[14px] font-semibold leading-tight text-ink">{s.label}</span>
-              <span className={`truncate text-[12px] leading-tight ${s.line === UNREAD ? 'text-[rgb(var(--color-danger))]' : 'text-ink/55'}`}>
+              <span className={`truncate text-[12px] leading-tight ${s.line === UNREAD ? 'text-[rgb(var(--color-danger))]' : 'text-[color:var(--m-slate-2)]'}`}>
                 {s.line}
               </span>
             </Link>
@@ -89,7 +89,7 @@ export function TodayStatsPinned({ stats }: { stats: Stats }) {
       {todayStatsOf(stats).map((s) => (
         <Link key={s.id} href={TODAY_STAT_HREFS[s.id]} data-today-stat-pinned={s.id} className="flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center text-center">
           <span className="text-[14px] font-semibold leading-none text-ink">{s.figure ?? '—'}</span>
-          <span className="mt-0.5 truncate text-[11px] text-ink/60">{s.label}</span>
+          <span className="mt-0.5 truncate text-xs text-[color:var(--m-slate-2)]">{s.label}</span>
         </Link>
       ))}
     </nav>

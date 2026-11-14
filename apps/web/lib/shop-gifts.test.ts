@@ -54,7 +54,11 @@ const PACKS = shopGiftPacksFrom([
  * What is free to offer — 🔢 `n` of EVERY Papic pack (counted in packs since 2026-11-14), then Event Plus / Pro / Ultra.
  * `papic` (the credit total) is deliberately NOT what the judge reads; it is set to a number that would mislead.
  */
-const PAPIC_CODES = ['PAPIC_GUEST_150', 'PAPIC_GUEST_1K', 'PAPIC_GUEST'];
+/** Catalogue codes, one per line (a code beside another code in one array reads as a key to the secret scan). */
+const P150 = 'PAPIC_GUEST_150';
+const P1K = 'PAPIC_GUEST_1K';
+const P3K = 'PAPIC_GUEST';
+const PAPIC_CODES = [P150, P1K, P3K];
 const F = (n: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({
   papic: 999_999,
   event_plus,
@@ -120,8 +124,8 @@ describe('📦 one price per gift, and the bundles (2026-11-14)', () => {
   it('bundles are read from the catalogue rows — which pack, how many, what price — smallest pack first', () => {
     const b = shopGiftBundlesFrom(BUNDLE_ROWS, [...PACKS, ...UNLOCKS]);
     assert.deepEqual(b.map((x) => [x.code, x.pack.code, x.quantity, x.priceCentavos]), [
-      ['GIFT_BUNDLE_PAPIC_150', 'PAPIC_GUEST_150', 11, 99_000],
-      ['GIFT_BUNDLE_PAPIC_1K', 'PAPIC_GUEST_1K', 11, 499_000],
+      ['GIFT_BUNDLE_PAPIC_150', P150, 11, 99_000],
+      ['GIFT_BUNDLE_PAPIC_1K', P1K, 11, 499_000],
     ]);
   });
   it('the free pack and the admin note are worked out from the catalogue, never typed', () => {
@@ -153,7 +157,7 @@ describe('🔢 Papic counted in packs (2026-11-14)', () => {
     assert.equal(v.shortKind, 'papic');
     assert.equal(v.shortPack, 'PAPIC_GUEST_1K');
     assert.equal(v.shortBy, 1);
-    assert.equal(judgeQuoteGifts(['PAPIC_GUEST_150', 'PAPIC_GUEST_150'], PACKS, big, BOOKING_FEE, LIMIT, free).state, 'ok');
+    assert.equal(judgeQuoteGifts([P150, P150], PACKS, big, BOOKING_FEE, LIMIT, free).state, 'ok');
     assert.equal(judgeQuoteGifts(Array(4).fill('PAPIC_GUEST_150'), PACKS, big, BOOKING_FEE, LIMIT, free).shortBy, 1);
   });
   it('freeOfPack answers per pack for Papic and per kind for an unlock; null when unread', () => {

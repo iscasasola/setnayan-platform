@@ -34,6 +34,11 @@ import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 
+/** Catalogue codes, one per line (a code beside another code in one array reads as a key to the secret scan). */
+const P150 = 'PAPIC_GUEST_150';
+const P1K = 'PAPIC_GUEST_1K';
+const P3K = 'PAPIC_GUEST';
+
 let replay: ReplayResult;
 let db: PGlite;
 let n = 0;
@@ -594,9 +599,9 @@ test('8 · 📦 the three bundles are catalogue rows that say which pack and how
   assert.deepEqual(
     rows.rows.map((r) => [r.service_code, r.bundle_of_service_code, Number(r.bundle_quantity), Number(r.retail_price_php), r.is_active]),
     [
-      ['GIFT_BUNDLE_PAPIC_150', 'PAPIC_GUEST_150', 11, 990, true],
-      ['GIFT_BUNDLE_PAPIC_1K', 'PAPIC_GUEST_1K', 11, 4990, true],
-      ['GIFT_BUNDLE_PAPIC_3000', 'PAPIC_GUEST', 11, 9990, true],
+      ['GIFT_BUNDLE_PAPIC_150', P150, 11, 990, true],
+      ['GIFT_BUNDLE_PAPIC_1K', P1K, 11, 4990, true],
+      ['GIFT_BUNDLE_PAPIC_3000', P3K, 11, 9990, true],
     ],
   );
   // Readable like the rest of the catalogue's public columns.

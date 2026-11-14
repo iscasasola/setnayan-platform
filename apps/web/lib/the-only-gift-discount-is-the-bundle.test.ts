@@ -25,6 +25,11 @@ import { join, relative } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { shopGiftBundlesFrom, shopGiftPacksFrom } from '@/lib/shop-gifts';
 
+/** Catalogue codes, one per line (a code beside another code in one array reads as a key to the secret scan). */
+const P150 = 'PAPIC_GUEST_150';
+const P1K = 'PAPIC_GUEST_1K';
+const P3K = 'PAPIC_GUEST';
+
 const WEB = join(import.meta.dirname, '..');
 const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
 
@@ -110,9 +115,9 @@ test('4 · the three bundles are seeded from the owner’s figures in ONE migrat
   assert.equal(files.length, 1);
   const sql = readFileSync(join(MIGRATIONS, files[0]!), 'utf8').replace(/--[^\n]*/g, '');
   for (const [code, pack, price] of [
-    ['GIFT_BUNDLE_PAPIC_150', 'PAPIC_GUEST_150', '990.00'],
-    ['GIFT_BUNDLE_PAPIC_1K', 'PAPIC_GUEST_1K', '4990.00'],
-    ['GIFT_BUNDLE_PAPIC_3000', 'PAPIC_GUEST', '9990.00'],
+    ['GIFT_BUNDLE_PAPIC_150', P150, '990.00'],
+    ['GIFT_BUNDLE_PAPIC_1K', P1K, '4990.00'],
+    ['GIFT_BUNDLE_PAPIC_3000', P3K, '9990.00'],
   ] as const) {
     assert.match(sql, new RegExp(`'${code}'[^)]*${price.replace('.', '\\.')}[^)]*'${pack}', 11\\)`), `${code} seed`);
   }

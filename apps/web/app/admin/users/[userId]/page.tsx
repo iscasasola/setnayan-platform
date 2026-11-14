@@ -71,7 +71,7 @@ export const metadata = { title: 'Account · Admin' };
 
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-PH', {
+  return new Date(iso).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -1042,7 +1042,7 @@ function SupportSection({
 
 function fmtDateShort(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // --- Activity timeline -------------------------------------------------------

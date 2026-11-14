@@ -15,12 +15,13 @@ import { useState, useTransition } from 'react';
 import {
   PackageCheck,
   CheckCircle2,
-  Clock,
   Link2,
   FileText,
   MessageSquare,
-  Loader2,
 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import { acknowledgeHandover } from '../../../actions';
 import { useSaveLoader } from '@/components/sd-loader';
 
@@ -77,16 +78,22 @@ export function HandoverInbox({
   if (handovers.length === 0) return null;
 
   return (
-    <div className="space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4">
-      <p className="flex items-center gap-2 text-xs font-semibold text-ink">
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 5 · 7 · 11 · 13 · 15): no card — the section's grey capitals with
+    // what "confirm" records behind ⓘ; each handover a plain row (a gold edge while it waits on you), its state a soft
+    // chip, Confirm receipt the shared green pill (grey while it saves, no spinner).
+    <div className="space-y-1">
+      <p className="mb-1 mt-[18px] flex items-center gap-2">
         <PackageCheck aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-        Delivery handover
+        <InfoTip
+          label="Delivery handover"
+          labelAs="span"
+          labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
+          align="start"
+        >
+          {vendorName} sent these. Confirm receipt once you have everything — it records that the work was delivered.
+        </InfoTip>
       </p>
-      <p className="text-[11px] text-ink/60">
-        {vendorName} sent these. Confirm receipt once you have everything — it
-        records that the work was delivered.
-      </p>
-      <ul className="space-y-2 pt-1">
+      <ul className="divide-y divide-ink/10">
         {handovers.map((h) => (
           <HandoverItem
             key={h.handover_id}
@@ -114,7 +121,8 @@ function HandoverItem({
 }) {
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [advance, setAdvance] = useState(canAdvanceToDelivered);
+  // ☐ Starts UNTICKED (walk 13 Nov 2026, F-W1-72): marking a supplier delivered is the couple's own choice, never a default.
+  const [advance, setAdvance] = useState(false);
   const save = useSaveLoader();
   const { label, Icon } = KIND_META[handover.kind];
   const acked = handover.status === 'acknowledged';
@@ -142,23 +150,17 @@ function HandoverItem({
   }
 
   return (
-    <li className="rounded-lg border border-ink/10 bg-cream/40 p-3">
+    <li className={`min-h-14 py-2.5 ${acked ? '' : 'border-l-[3px] border-l-terracotta pl-3'}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-2 text-xs font-medium text-ink">
-          <Icon aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
+        <p className="flex items-center gap-2 text-[15px] font-semibold text-ink">
+          <Icon aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.75} />
           {label}
-          {handover.label ? <span className="text-ink/60">· {handover.label}</span> : null}
+          {handover.label ? <span className="font-normal text-ink/70">· {handover.label}</span> : null}
         </p>
         {acked ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-success-400 bg-success-50 px-2.5 py-1 text-[11px] font-semibold text-success-700">
-            <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Confirmed {fmtDate(handover.couple_acknowledged_at)}
-          </span>
+          <Badge tone="ok">Confirmed {fmtDate(handover.couple_acknowledged_at)}</Badge>
         ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-warn-300 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold text-warn-900">
-            <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Awaiting your confirmation
-          </span>
+          <Badge tone="wait">Awaiting your confirmation</Badge>
         )}
       </div>
 
@@ -168,7 +170,7 @@ function HandoverItem({
           href={handover.payload}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-terracotta-700 underline-offset-2 hover:underline"
+          className="mt-1 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent underline-offset-2 hover:underline"
         >
           <Link2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Open album
@@ -178,46 +180,34 @@ function HandoverItem({
           href={handover.payload}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-terracotta-700 underline-offset-2 hover:underline"
+          className="mt-1 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent underline-offset-2 hover:underline"
         >
           <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           View file
         </a>
       ) : handover.payload ? (
-        <p className="mt-1 whitespace-pre-wrap text-[11px] text-ink/70">{handover.payload}</p>
+        <p className="mt-1 whitespace-pre-wrap text-[13px] text-ink/70">{handover.payload}</p>
       ) : null}
 
       {!acked ? (
         <div className="mt-2 space-y-2">
           {canAdvanceToDelivered ? (
-            <label className="flex items-center gap-2 text-[11px] text-ink/65">
+            <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
               <input
                 type="checkbox"
                 checked={advance}
                 onChange={(e) => setAdvance(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+                className="h-4 w-4 rounded border-ink/30 accent-mulberry"
               />
               Also mark this supplier delivered (asks you for a review)
             </label>
           ) : null}
           {errorMsg ? (
-            <p role="alert" className="text-[11px] font-medium text-danger-600">
+            <p role="alert" className="text-[13px] font-medium text-[rgb(var(--color-danger))]">
               {errorMsg}
             </p>
           ) : null}
-          <button
-            type="button"
-            onClick={confirm}
-            disabled={pending}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
-          >
-            {pending ? (
-              <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-            ) : (
-              <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            )}
-            Confirm receipt
-          </button>
+          <ActionButton tone="ok" icon={CheckCircle2} label="Confirm receipt" onClick={confirm} waiting={pending} />
         </div>
       ) : null}
     </li>

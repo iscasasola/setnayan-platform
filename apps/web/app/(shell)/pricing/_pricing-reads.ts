@@ -3,7 +3,7 @@
  * page and the questionnaire into the app"; prototype `pricing_ours_only_2026-10-25`, index.html revision 5 + quiz.html).
  *
  * 🔑 EVERY PESO COMES FROM `platform_retail_catalog_v2`: the customer catalogue (`fetchV2CustomerCatalog`) plus the rows
- * it leaves out on purpose (`readPricingExtras`: the eleven Event Hub Pro parts and Setnayan AI's band rows). Nothing
+ * it leaves out on purpose (`readPricingExtras`: the eleven Event Pro parts and Setnayan AI's band rows). Nothing
  * here types a price. A row that is missing, inactive or unreadable comes back `null` / absent — and the pages draw NO
  * figure for it (a missing price is recoverable; a confidently wrong one is not).
  *
@@ -16,8 +16,8 @@ import { HUB_PARTS, HUB_PART_SKUS } from '@/lib/hub-parts';
 import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
 
 /**
- * The rows /pricing reads that `fetchV2CustomerCatalog` leaves out ON PURPOSE: the eleven Event Hub Pro parts (listed
- * inside Event Hub Pro's "Just the parts you need") and Setnayan AI's price-source rows B · C · D (is_active=false —
+ * The rows /pricing reads that `fetchV2CustomerCatalog` leaves out ON PURPOSE: the eleven Event Pro parts (listed
+ * inside Event Pro's "Just the parts you need") and Setnayan AI's price-source rows B · C · D (is_active=false —
  * they price an event type, they are not sold on their own). Read-only; an unreadable read returns no rows, and a
  * missing row draws no figure.
  */
@@ -60,7 +60,14 @@ export type OurPrices = {
   pro: TwoPrices | null;
   /** Event Plus — EVENT_PLUS (Setnayan AI + Papic credits, owner 2026-11-04). Absent until its row is on sale. */
   plus: number | null;
-  /** The Event Hub Pro parts that have an active, priced row, in `HUB_PARTS` order. */
+  /** 💎 Event Ultra — EVENT_ULTRA (owner 2026-11-13). Absent until its row is on sale. */
+  ultra: number | null;
+  /**
+   * The Papic credits each plan includes — the row's `included_papic_credits` (RW-12, 2026-11-14). Null when the row
+   * is not on sale, unread, or carries none: then the page names no number.
+   */
+  planCredits: { plus: number | null; pro: number | null; ultra: number | null };
+  /** The Event Pro parts that have an active, priced row, in `HUB_PARTS` order. */
   hubParts: Array<{ id: string; name: string; php: number }>;
   /** Papic credit rungs (PAPIC_GUEST*), cheapest first — the label is the row's own words ("add 100 credits"). */
   papicRungs: Array<{ label: string; php: number; signup: number | null }>;
@@ -100,6 +107,10 @@ export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: re
     const n = r ? Number(r.retail_price_php) : NaN;
     return usable(n) ? n : null;
   };
+  const credits = (code: string): number | null => {
+    const n = Number(row(code)?.included_papic_credits);
+    return usable(n) ? n : null;
+  };
   const extraByCode = new Map(extras.map((r) => [r.service_code, r]));
 
   const hubParts = HUB_PARTS.flatMap((part) => {
@@ -137,6 +148,8 @@ export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: re
   return {
     pro: twoPrices(row('COUPLE_WEBSITE_PRO') ?? null),
     plus: php('EVENT_PLUS'),
+    ultra: php('EVENT_ULTRA'),
+    planCredits: { plus: credits('EVENT_PLUS'), pro: credits('COUPLE_WEBSITE_PRO'), ultra: credits('EVENT_ULTRA') },
     hubParts,
     papicRungs,
     liveWatch: php('LIVE_STUDIO'),

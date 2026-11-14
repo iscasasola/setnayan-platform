@@ -45,7 +45,7 @@ import { redeployProduction } from './actions';
 // edit that adds "just show the first 4 characters" breaks it.
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Secrets & Rotation HQ' };
+export const metadata = { title: 'Secrets & rotation · Admin' };
 
 const ENCRYPTION_KEY_ID = 'encryption_key';
 

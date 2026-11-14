@@ -23,7 +23,7 @@
  * name). One builder means one answer.
  *
  * ⚠ NOTHING HERE IS BEHIND A DISCLOSURE LADDER, AND THAT IS DELIBERATE BUT
- * NARROW. Identity stopped being gated on 2026-09-08 (the token wallet that
+ * NARROW. Identity stopped being gated on 2026-09-08 (the token balance that
  * sold it is retired). The SEPARATE ladder in `get_vendor_event_brief` — exact
  * venue, timeline, seat plan, dietary, hard-NULL until an agreement exists —
  * rests on a different argument ("only an agreement earns those") that the

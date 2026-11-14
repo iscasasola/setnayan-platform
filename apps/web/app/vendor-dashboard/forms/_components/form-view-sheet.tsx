@@ -69,9 +69,9 @@ export function FormViewSheet({
       rise
       foot={
         <div className="flex items-center gap-2 px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3" data-form-view-foot>
-          <ActionButton tone="neutral" icon={Pencil} label="Edit" onClick={() => onEdit(form)} className="flex-1" data-testid="form-view-edit" />
+          <ActionButton tone="neutral" icon={Pencil} label="Edit" onClick={() => onEdit(form)} className="flex-1 !h-11" data-testid="form-view-edit" />
           {sent ? (
-            <p className="flex-1 text-center text-[14px] font-medium text-ink/70" data-form-view-sent>
+            <p className="flex-1 text-center text-sm font-medium text-ink/70" data-form-view-sent>
               Sent · {formatDay(sent.sentAt)}
             </p>
           ) : canSend ? (
@@ -82,7 +82,7 @@ export function FormViewSheet({
               label="Send to chat"
               onClick={() => call('send')}
               waiting={pending}
-              className="flex-1"
+              className="flex-1 !h-11"
               data-testid="form-view-send"
             />
           ) : null}
@@ -94,23 +94,23 @@ export function FormViewSheet({
           <h2 id={titleId} className="pr-12 text-[19px] font-semibold text-ink">
             {form.title}
           </h2>
-          <p className="text-[13px] text-ink/60">
+          <p className="text-[13px] text-ink/70">
             {form.sizeLine}
             {state ? ` · ${state.words}` : ' · as the couple will see it'}
           </p>
         </div>
         {items.length === 0 ? (
-          <p className="text-sm text-ink/60">This form has no lines yet.</p>
+          <p className="text-sm text-ink/70">This form has no lines yet.</p>
         ) : (
           <ol className="space-y-2" data-form-view-items>
             {items.map((i, n) => (
               <li key={i.question_id} className="rounded-xl bg-ink/[0.04] px-3.5 py-2.5">
                 <p className="text-[15px] font-medium text-ink">
-                  <span className="mr-1.5 text-ink/45">{formatCount(n + 1)}.</span>
+                  <span className="mr-1.5 text-ink/70">{formatCount(n + 1)}.</span>
                   {i.prompt}
-                  {i.item_kind === 'question' && i.is_required ? <span className="ml-1 text-ink/50">· required</span> : null}
+                  {i.item_kind === 'question' && i.is_required ? <span className="ml-1 text-ink/70">· required</span> : null}
                 </p>
-                <p className="text-[12px] text-ink/60">
+                <p className="text-xs text-ink/70">
                   {i.item_kind === 'question'
                     ? answerTypeLabel(i.answer_type)
                     : i.item_kind === 'media'
@@ -119,7 +119,7 @@ export function FormViewSheet({
                   {i.item_kind === 'question' && i.options?.length ? ` · ${i.options.join(' · ')}` : ''}
                 </p>
                 {sent && answersOpen && i.item_kind === 'question' ? (
-                  <p className={`mt-1 text-[14px] ${sent.answers[i.question_id] ? 'text-ink/80' : 'text-ink/50'}`} data-form-view-answer>
+                  <p className={`mt-1 text-sm ${sent.answers[i.question_id] ? 'text-ink/80' : 'text-ink/70'}`} data-form-view-answer>
                     {sent.answers[i.question_id] ?? 'Not answered yet.'}
                   </p>
                 ) : null}
@@ -137,7 +137,7 @@ export function FormViewSheet({
             label="Save to my library · reuse with other clients"
             onClick={() => call('keep')}
             waiting={pending}
-            className="w-full"
+            className="w-full !h-11"
             data-testid="form-view-keep"
           />
         ) : null}

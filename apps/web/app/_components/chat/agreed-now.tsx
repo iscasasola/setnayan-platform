@@ -2,8 +2,8 @@
  * 🧾 AGREED NOW — the top of Details (Supplier Build 3 · lane B; prototype v8.3 `Details` › "Agreed now").
  *
  * Owner: the chat is the record; Details holds the AGREED RESULT, each row's "Changed N×" opening who changed it and
- * when. Won / lost is automatic here — never a (+) row. One batched read (four requests in parallel, RLS-scoped as
- * the reader), then `lib/agreed-now.ts` turns them into rows and `ChangedRow` draws each one.
+ * when. Won / lost is automatic here — never a (+) row. One batched read (three requests in parallel, RLS-scoped as
+ * the reader; the event's own facts after them — see F-W1-59 below), then `lib/agreed-now.ts` turns them into rows and `ChangedRow` draws each one.
  *
  * Every read that fails says so ("Couldn't load"), never a quiet empty: a refused quote read must not read as
  * "No quote sent yet" (the honest-reads rule, `reads-are-honest.test.ts`).
@@ -11,11 +11,13 @@
 import 'server-only';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readBookingChanges } from '@/lib/booking-changes.server';
 import { hostFirstName } from '@/lib/host-first-name.server';
 import { QUOTE_VERSION_SELECT, orderQuoteVersions, type QuoteVersionRow } from '@/lib/quote-versions';
 import { resolveAppointmentLabel } from '@/lib/appointments';
+import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { agreedOutcome, agreedRows, type AgreedOutcome, type AgreedRow } from '@/lib/agreed-now';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { ChangedRow } from './changed-row';
@@ -36,8 +38,7 @@ export async function AgreedNow({
   quoteBy?: string;
 }) {
   const supabase = await createClient();
-  const [ev, quotes, changes, appts] = await Promise.all([
-    supabase.from('events').select('event_date, estimated_pax, final_pax').eq('event_id', eventId).maybeSingle(),
+  const [quotes, changes, appts] = await Promise.all([
     supabase.from('vendor_proposals').select(QUOTE_VERSION_SELECT).eq('event_id', eventId).eq('vendor_profile_id', vendorProfileId),
     readBookingChanges(supabase, { eventId, vendorProfileId }),
     threadId
@@ -49,6 +50,16 @@ export async function AgreedNow({
           .order('scheduled_at', { ascending: true })
       : Promise.resolve({ data: [], error: null }),
   ]);
+  /* 🧾 THE EVENT'S THREE FACTS, READ AS THE PAGE READS THEM (walk 13 Nov 2026, F-W1-59). A supplier's own session
+     cannot read a couple's `events` row (RLS), so this read came back EMPTY on every booked client — and an empty
+     event is counted as a failure below: "Couldn't load what is agreed" on a booking that was fine. The client page
+     itself reads this row with the service client (`clients/[eventId]/page.tsx`, its facts read); so does this card,
+     for three columns only, and only once this supplier's OWN session has shown it is on the event — a chat thread
+     with it, or a quote of its own (both read above under RLS). */
+  const onTheEvent = Boolean(threadId) || ((quotes.data ?? []) as unknown[]).length > 0;
+  const ev = onTheEvent
+    ? await createAdminClient().from('events').select('event_date, estimated_pax, final_pax').eq('event_id', eventId).maybeSingle()
+    : await supabase.from('events').select('event_date, estimated_pax, final_pax').eq('event_id', eventId).maybeSingle();
   if (ev.error) logQueryError('AgreedNow.event', ev.error, { event_id: eventId }, 'graceful_degrade');
   if (quotes.error) logQueryError('AgreedNow.quotes', quotes.error, { event_id: eventId }, 'graceful_degrade');
   if (appts.error) logQueryError('AgreedNow.meetings', appts.error, { event_id: eventId }, 'graceful_degrade');
@@ -73,6 +84,12 @@ export async function AgreedNow({
     }),
   );
 
+  // 👥 RW-108: a CLAIMED per-guest booking of THIS shop (`marketplace_vendor_id` = the shop) — the figure and count
+  // the couple reads, instead of "No quote sent yet" and the event's estimate. Only once the supplier's own session
+  // showed it is on the event; a refused read draws as shipped.
+  const perGuest = onTheEvent && versionsEmpty(quotes.data)
+    ? (await readShopPerGuest(createAdminClient(), vendorProfileId, [eventId]))?.get(eventId) ?? null
+    : null;
   const event = ev.data as { event_date: string | null; estimated_pax: number | null; final_pax: number | null };
   const versions = orderQuoteVersions((quotes.data ?? []) as unknown as QuoteVersionRow[]);
   const outcome = agreedOutcome({ isBooked, declined: false }, versions);
@@ -92,11 +109,16 @@ export async function AgreedNow({
     names,
     booking: { isBooked, declined: false },
     quoteBy,
+    perGuest,
   });
   return <AgreedNowView outcome={outcome} rows={rows} historyLoaded={changes !== null} />;
 }
 
 /** The section itself — the reads' result drawn; labs draw it from fixtures (`/dev/chat-cards-lab`). */
+function versionsEmpty(rows: unknown): boolean {
+  return !Array.isArray(rows) || rows.length === 0;
+}
+
 export function AgreedNowView({
   outcome,
   rows,

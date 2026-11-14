@@ -194,7 +194,7 @@ test('P · 💎 a free couple gets the sheet on the web (Apply asks for Pro); th
     /addScene=\{\s*proShell\s*\?\s*null\s*:\s*!nextFreeCustomSlot\(/,
     'the store shell must get nothing, and every other couple the sheet (or the six-cap note)',
   );
-  assert.doesNotMatch(page, /Scenes of your own, from 25 templates, come with Event Hub Pro/, 'a free couple is still turned away at the door');
+  assert.doesNotMatch(page, /Scenes of your own, from 25 templates, come with Event (?:Hub )?Pro/, 'a free couple is still turned away at the door');
   // The work area registers the answer — ready opens the sheet, refused
   // carries only the six-cap note: there is no Pro refusal any more.
   const work = read(`${C}editor-shell.tsx`);
@@ -209,8 +209,8 @@ test('P · 💎 a free couple gets the sheet on the web (Apply asks for Pro); th
   const bar = read(BAR);
   const row = bar.slice(bar.indexOf("if (input.addScene?.kind === 'ready') {"), bar.indexOf('if (input.hasWork) stageRows.push'));
   assert.ok(row.length > 100, 'the Page ▾ row for Add a scene was not found — the scan is blind');
-  assert.doesNotMatch(row, /'locked'|See Event Hub Pro|unlockHref/, 'the Add a scene row still wears a Pro padlock');
-  assert.match(row, /paidMarkLabel\('try', 'Event Hub Pro'\)/, 'the row does not wear ◆ PRO for a couple trying it');
+  assert.doesNotMatch(row, /'locked'|See Event (?:Hub )?Pro|unlockHref/, 'the Add a scene row still wears a Pro padlock');
+  assert.match(row, /paidMarkLabel\('try', 'Event (?:Hub )?Pro'\)/, 'the row does not wear ◆ PRO for a couple trying it');
   assert.match(row, /disabledNote: input\.addScene\.note/, 'a refused Add a scene does not say why');
   assert.doesNotMatch(row, /<form\b|formAction|action=/, 'the refused row must not be able to post anything');
 });

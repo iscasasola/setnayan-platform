@@ -416,16 +416,26 @@ function DateBody({
           pending={pending}
           onUse={(day) => {
             start(async () => {
-              const r = await save(day, 'day');
-              if (!r.ok && !r.clashed) onFail(r.error ?? FAILED);
+              /* 📵 Caught here: the sheet is now opened inside the Maker too (its date Edit), where a rejection thrown
+                 into a transition replaces the whole Maker (`a-failed-press-never-replaces-the-maker.test.ts`). */
+              try {
+                const r = await save(day, 'day');
+                if (!r.ok && !r.clashed) onFail(r.error ?? FAILED);
+              } catch {
+                onFail(FAILED);
+              }
             });
           }}
           onMonth={(m) => {
             /* No day yet → the month IS the date for now (saved, as the prototype); a day already set → compare only. */
             if (shown.precision !== 'day') {
               start(async () => {
-                const r = await save(`${m}-01`, 'month');
-                if (!r.ok && !r.clashed) onFail(r.error ?? FAILED);
+                try {
+                  const r = await save(`${m}-01`, 'month');
+                  if (!r.ok && !r.clashed) onFail(r.error ?? FAILED);
+                } catch {
+                  onFail(FAILED);
+                }
               });
             }
             onMonth(m);

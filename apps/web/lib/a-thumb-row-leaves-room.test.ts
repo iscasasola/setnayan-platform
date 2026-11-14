@@ -106,7 +106,7 @@ test('4 · the account, launcher, Discover and supplier columns pad by the row a
   const cols: [string, RegExp][] = [
     ['app/dashboard/(account)/layout.tsx', /<main\s+className="([^"]+)"/],
     ['app/dashboard/(launcher)/layout.tsx', /<main\s+className="([^"]+)"/],
-    ['app/vendor-dashboard/layout.tsx', /<div className="(pb-\[[^"]+)">\s*\{\/\* Live vendor deal/],
+    ['app/vendor-dashboard/layout.tsx', /<div className="(pb-\[[^"]+)">\s*\{\/\* 🔔 The supplier pages' TOP for notices/],
     ['app/_components/frontdoor/front-door.tsx', /\? '(sn-vt-page pb-\[[^']+)'/],
   ];
   for (const [file, re] of cols) {
@@ -194,7 +194,7 @@ test('8 · a bar that mounts LATER (portalled to <body> after a null first commi
   }
   // …and the chapters lab wears the real column, so a walk sees the room (no column, no padding — it hid this bug).
   assert.match(
-    read('app/dev/chapters-lab/page.tsx'),
+    read('app/dev/chapters-lab/page.lab.tsx'),
     /<main data-shell-main=""/,
     'the chapters lab dropped the event column — a walk cannot see the room',
   );

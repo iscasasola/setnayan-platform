@@ -1,7 +1,7 @@
 /**
  * the-cover-scene-has-its-own-animate.test.ts — 🎭 COVER SCENE › STYLE IS THE OPENING, 🎬 ITS ANIMATE IS ONE ENTRANCE
  * (owner-approved 2026-10-16, DECISION_LOG "APPROVED — THE COVER SCENE'S OWN EDIT · STYLE (OPENING) · ANIMATE…";
- * prototype `cover_scene_edit_animate_2026-10-16.html`; "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO ◆").
+ * prototype `cover_scene_edit_animate_2026-10-16.html`; "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT PRO ◆").
  *
  *   (1) THE GROUP HAS ALL FOUR TOOLS — Edit (its lines), Style (the Opening), Background, Animate (one entrance).
  *   (2) THE ENTRANCE REACHES EVERY WORD WITH NO BUILD IN OF ITS OWN, AND NONE THAT HAS ONE — stored ONCE on the hero
@@ -125,7 +125,7 @@ test('(4) ▶ on the cover: the closed veil with none of the words, the unveil, 
   assert.match(overlay, /\{VEIL_HINT\}/, 'the instruction is not the guests’ own');
   const body = read('app/[slug]/_components/site-body.tsx');
   assert.match(body, /\{isEditorCanvas && editorBridge && !themeTile \? \(\s*<CoverPlayOpeningServer/, 'the Maker canvas has no ▶ veil');
-  assert.equal((read('app/dev/maker-lab/guest/page.tsx').match(/<CoverPlayOpening /g) ?? []).length, 2, 'the lab canvas has no ▶ veil');
+  assert.equal((read('app/dev/maker-lab/guest/page.lab.tsx').match(/<CoverPlayOpening /g) ?? []).length, 2, 'the lab canvas has no ▶ veil');
   /* …and while it plays, the status bar ("Build in · Action · Build out") stays away — the cover has no phases to name. */
   assert.match(TOOLS, /\{seq && playing && !\(coverPlay && seq\.skipped\.length === 0\) \? <StagePlayStatus /);
   assert.match(TOOLS, /setCoverPlay\(true\);\s*postToCanvas\(\{ source: 'setnayan-editor', t: 'playCover'/);

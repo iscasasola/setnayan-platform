@@ -1,6 +1,8 @@
 import { MapPin } from 'lucide-react';
 import { ReachMap } from '@/app/vendor-dashboard/shop/_components/reach-map';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
+import { BiggerMapButton } from '@/app/_components/map-card-chrome';
+import { openStreetMapUrl } from '@/lib/scene-map-tiles';
 import { shopReachLine, type ShopReach } from '@/lib/shop-page-plan';
 
 /**
@@ -27,33 +29,32 @@ export function ShopReachMap({
   latitude,
   longitude,
   city,
+  mapHref,
 }: {
   reach: ShopReach;
   latitude: number | null;
   longitude: number | null;
   city: string | null;
+  /** RW-81: `null` = the sample's map — no bigger-map button and no credit link (`VendorLocationMap`'s `mapHref`). */
+  mapHref?: null;
 }) {
   if (latitude == null || longitude == null) return null;
-  if (reach.kind !== 'ring') return <VendorLocationMap latitude={latitude} longitude={longitude} label={city} />;
+  if (reach.kind !== 'ring') return <VendorLocationMap latitude={latitude} longitude={longitude} label={city} mapHref={mapHref} />;
   const lat = Number(latitude.toFixed(6));
   const lng = Number(longitude.toFixed(6));
+  // 🗺 THE SAME MAP CARD (approved 2026-11-14): the ring map gets the card's frame, its corner credit and the round
+  // bigger-map button where "View larger map →" was. `mapHref === null` (the sample) draws neither door.
   return (
-    <div data-shop-reach-map="" className="space-y-0">
+    <div data-shop-reach-map="" className="relative overflow-hidden rounded-card border border-ink/15">{/* no-card-ok: the approved map card's frame (2026-11-14) — the map is the only framed thing on the page */}
       <ReachMap
         lat={lat}
         lng={lng}
         radiusKm={reach.km}
         ariaLabel={`Map: serves up to ${reach.km} kilometres around ${city ?? 'the shop'}`}
         kmTag
+        credit={mapHref !== null}
       />
-      <a
-        href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=11/${lat}/${lng}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex min-h-[44px] items-center px-1 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink"
-      >
-        View larger map →
-      </a>
+      {mapHref === null ? null : <BiggerMapButton href={openStreetMapUrl(lat, lng, 11)} />}
     </div>
   );
 }

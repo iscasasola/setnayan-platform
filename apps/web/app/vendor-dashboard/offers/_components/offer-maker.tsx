@@ -28,6 +28,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Filter, Gift, Plus, Search, Tag, Wallet } from 'lucide-react';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { ActionButton } from '@/components/action-button';
+import { BADGE_CLASS } from '@/app/_components/badge';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
@@ -108,13 +109,13 @@ export function OfferTile({ offer, off }: { offer: Offer; off: boolean }) {
   return (
     <span
       aria-hidden
-      className="flex min-h-12 w-[60px] flex-none flex-col items-center justify-center gap-px rounded-xl px-[3px] py-[5px] font-mono leading-none"
+      className="flex min-h-12 w-[60px] flex-none flex-col items-center justify-center gap-px rounded-xl px-1 py-1 leading-none tabular-nums"
       style={{ background: tone.bg, color: tone.fg }}
       data-offer-tile={t.tone}
     >
       {t.bigs.length ? (
         t.bigs.map((b) => (
-          <b key={b} className="whitespace-nowrap text-[11.5px] font-bold tracking-tight">
+          <b key={b} className="whitespace-nowrap text-xs font-bold tracking-tight">
             {b}
           </b>
         ))
@@ -123,7 +124,7 @@ export function OfferTile({ offer, off }: { offer: Offer; off: boolean }) {
       ) : (
         <Tag className="h-5 w-5" strokeWidth={1.75} />
       )}
-      <small className="text-[8.5px] uppercase tracking-[.08em] opacity-90">{t.small}</small>
+      <small className="text-xs leading-tight">{t.small}</small>
       {t.marks.length ? (
         <span className="mt-[3px] flex gap-[3px]">
           {t.marks.map((m) => (m === 'wallet' ? <Wallet key={m} className="h-[11px] w-[11px]" /> : <Gift key={m} className="h-[11px] w-[11px]" />))}
@@ -137,7 +138,7 @@ export function StatusChip({ offer, today }: { offer: Offer; today: string }) {
   const s = offerStatus(offer, today);
   const c = CHIP[s.k]!;
   return (
-    <span className="inline-flex h-[18px] flex-none items-center whitespace-nowrap rounded-full px-[7px] text-[10.5px] font-semibold" style={{ background: c.bg, color: c.fg }} data-offer-status={s.k}>
+    <span className={BADGE_CLASS} style={{ background: c.bg, color: c.fg }} data-offer-status={s.k}>
       {s.label}
     </span>
   );
@@ -168,7 +169,7 @@ export function OfferMaker({ onClose, start = null }: { onClose: () => void; sta
         <OffersScreen data={data} onClose={onClose} start={start} />
       ) : (
         <RiseScreen title="Offers" line={read ? 'Couldn’t load' : 'Opening your offers…'} onClose={onClose} data="offer-maker">
-          <p role={read ? 'alert' : 'status'} className="px-4 py-6 text-[14px] text-ink/65" data-offers-read={read ? 'refused' : 'loading'}>
+          <p role={read ? 'alert' : 'status'} className="px-4 py-6 text-sm text-ink/70" data-offers-read={read ? 'refused' : 'loading'}>
             {read && !read.ok ? read.message : 'Opening your offers…'}
           </p>
         </RiseScreen>
@@ -249,7 +250,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
             return (
               <li key={c.id} className="py-1.5">
                 <b className="block text-[13px] text-ink">{c.name}</b>
-                <small className="block text-[12px] text-ink/60">
+                <small className="block text-xs text-ink/70">
                   {c.pricePhp == null ? 'No price on this card yet' : b ? `₱${c.pricePhp.toLocaleString('en-PH')} → ₱${(c.pricePhp - b.savingsPhp).toLocaleString('en-PH')} · ${b.label}` : `₱${c.pricePhp.toLocaleString('en-PH')} · no price offer`}
                 </small>
               </li>
@@ -275,8 +276,8 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
 
   const thumb = (
     <div className="flex items-center gap-2" data-offers-thumb="">
-      <label className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-full border border-ink/10 bg-raised px-4 text-[14px] text-ink/70">
-        <Search aria-hidden className="h-4 w-4 flex-none text-ink/50" strokeWidth={1.75} />
+      <label className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-full border border-ink/10 bg-raised px-4 text-sm text-ink/70">
+        <Search aria-hidden className="h-4 w-4 flex-none text-ink/70" strokeWidth={1.75} />
         <input
           type="search"
           value={query}
@@ -284,7 +285,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
           placeholder="Search offers"
           aria-label="Search offers"
           enterKeyHint="search"
-          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-ink/45"
+          className="h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-ink/70"
         />
       </label>
       <PickMenu
@@ -317,21 +318,21 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
         </p>
       ) : null}
       {/* The one short line (prototype `.lead`): what runs, and what most cards show. */}
-      <p className="px-4 pt-3.5 text-[14px] leading-snug text-ink/70" data-offers-summary="">
+      <p className="px-4 pt-3.5 text-sm leading-snug text-ink/70" data-offers-summary="">
         {offers ? summaryLine(live, cards, today) : 'Couldn’t load your offers'}
       </p>
       <div className="flex items-baseline justify-between gap-3 px-4 pb-2 pt-4">
-        <h2 className="sn-eye">Offers</h2>
-        <small className="text-[12px] text-ink/55" data-offers-count="">
+        <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Offers</h2>
+        <small className="text-xs text-ink/70" data-offers-count="">
           {offers ? `${live.length ? `${formatCount(running)} of ${formatCount(live.length)} running · ` : ''}the best one wins` : ''}
         </small>
       </div>
       {offers === null ? (
-        <p role="alert" className="flex items-start gap-2 px-4 text-[13px] text-ink/65" data-offers-read="refused">
+        <p role="alert" className="flex items-start gap-2 px-4 text-[13px] text-ink/70" data-offers-read="refused">
           Couldn’t load your offers — check your connection, then open Offers again.
         </p>
       ) : shown.length === 0 ? (
-        <p className="flex items-start gap-2 px-4 text-[13px] leading-snug text-ink/65" data-offers-empty="">
+        <p className="flex items-start gap-2 px-4 text-[13px] leading-snug text-ink/70" data-offers-empty="">
           {live.length ? 'No offer matches that search.' : 'No offers yet · couples pay the card price · start one with ＋'}
         </p>
       ) : (
@@ -354,9 +355,9 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
                   >
                     <OfferTile offer={o} off={off} />
                     <span className="flex min-w-0 flex-1 flex-col gap-1 pt-px">
-                      <b className={`text-[14.5px] font-semibold leading-tight ${off ? 'text-ink/60' : 'text-ink'}`}>{o.name}</b>
-                      <span className={`text-[12.5px] leading-snug ${off ? 'text-ink/60' : 'text-ink'}`}>{mixLine(o, data)}</span>
-                      <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12.5px] leading-snug text-ink/60">
+                      <b className={`text-[14.5px] font-semibold leading-tight ${off ? 'text-ink/70' : 'text-ink'}`}>{o.name}</b>
+                      <span className={`text-[12.5px] leading-snug ${off ? 'text-ink/70' : 'text-ink'}`}>{mixLine(o, data)}</span>
+                      <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12.5px] leading-snug text-ink/70">
                         <StatusChip offer={o} today={today} />
                         <span>{whoShort(o)}</span>
                       </span>
@@ -373,7 +374,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
       )}
       {offers !== null && cards.length === 0 && data.cards !== null ? (
         <div className="px-4 pt-4" data-offers-no-cards="">
-          <ActionButton tone="neutral" icon={Plus} label="Make a service card first" href="/vendor-dashboard/shop#services" />
+          <ActionButton tone="neutral" icon={Plus} label="Make a service card first" href="/vendor-dashboard/shop#services" className="!h-11" />
         </div>
       ) : null}
       <div className="h-6" />

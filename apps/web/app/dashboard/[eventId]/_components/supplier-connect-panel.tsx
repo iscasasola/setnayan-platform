@@ -154,7 +154,7 @@ export function SupplierConnectPanel({
             />
           </div>
           <p
-            className="mt-2 select-all break-all text-center font-mono text-[11.5px] text-ink/70"
+            className="mt-2 select-all break-all text-center font-mono text-[12px] text-ink/70"
             aria-label="Their claim link"
             data-claim-link-url=""
           >
@@ -268,7 +268,7 @@ function ConnectTop({
               <SupplierShareButton eventId={eventId} vendorId={vendorId} vendorName={vendorName} iconOnly prepareOnMount />
             </div>
             <p className="mt-1 text-[12px] text-ink/60">{copied ? 'Link copied' : 'Not joined yet'}</p>
-            <p className="select-all break-all font-mono text-[11px] text-ink/55" aria-label="Their claim link" data-claim-link-url="">
+            <p className="select-all break-all font-mono text-[12px] text-ink/55" aria-label="Their claim link" data-claim-link-url="">
               {invite.url.replace(/^https?:\/\//, '')}
             </p>
             {saved === 'failed' ? (

@@ -336,7 +336,7 @@ test('GUARD: no free path reaches the THEMED print-ready renderer — Classic pr
   // it was an all-guests ◆ file 2026-10-17). Nothing in the free branch reads the event's Pro or refuses with a 403.
   const qrBranch = route.slice(route.indexOf("if (piece === 'qr-codes' || piece === 'guest-registry') {"), freeGroupEnd);
   assert.ok(qrBranch.includes('await freeSheet('), 'the free branch was not found — the probe is blind');
-  assert.doesNotMatch(qrBranch, /printOwnsPro\(|isAllInOnePrint\(|status: 403/, 'the Guest QR sheet asks for Event Hub Pro again');
+  assert.doesNotMatch(qrBranch, /printOwnsPro\(|isAllInOnePrint\(|status: 403/, 'the Guest QR sheet asks for Event Pro again');
 });
 
 test('entourage groups print in lib/entourage.ts order', () => {

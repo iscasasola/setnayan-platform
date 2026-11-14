@@ -38,6 +38,8 @@ const BASELINE = join(HERE, 'no-delete-x-on-list-rows.baseline.txt');
 /** Kept kinds — tile · chip · editor field · confirm — never a list row. Path (from apps/web) → why. */
 export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/monogram/upload-mark.tsx', 'tile — the uploaded mark’s ✕'],
+  ['app/vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx', 'tile — the booth poster preview’s Remove in the booth editor (one poster, not a list)'],
+  ['app/vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx', 'editor field — the booth words’ Remove in the booth editor (one set of words, not a list)'],
   ['app/papic/decorate/_components/kwento-decorator.tsx', 'tile — a sticker on the photo being decorated'],
   ['app/_components/chat-send-form.tsx', 'chip — an attachment waiting in the composer'],
   ['app/dashboard/(account)/people/_components/dependents-section.tsx', 'chip — a ninong / ninang chip’s ✕ inside a loved one’s card'],

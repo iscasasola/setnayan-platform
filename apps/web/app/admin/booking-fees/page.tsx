@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { paymentWasLogged } from '@/lib/payment-logged';
 import { Receipt, AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -12,6 +13,8 @@ import { readSuppliersToReview } from '@/lib/admin/suppliers-to-review.server';
 import { ReviewMinForm } from './review-min-form';
 import { BookingsOpenForm } from './bookings-open-form';
 import { bookingsOpenFromSetting } from '@/lib/bookings-open';
+
+export const metadata = { title: 'Booking fees · Admin' };
 
 export const dynamic = 'force-dynamic';
 
@@ -101,7 +104,8 @@ export default async function AdminBookingFeesPage() {
   // a failure here must not blank the page, because the amounts above are the
   // point and they are already in hand.
   const vendorNames = new Map<string, string>();
-  const paidRefs = new Map<string, { hasProof: boolean; orderId: string; orderPublicId: string | null }>();
+  // `billedCentavos`: the ORDER's total — the fee plus any gift on the bill (RW-45). Null when no bill was read.
+  const paidRefs = new Map<string, { hasProof: boolean; orderId: string; orderPublicId: string | null; billedCentavos: number | null }>();
   // The order and payment reads decide "never billed" — if either was refused we
   // do not know, and "Never billed" over a supplier who WAS billed is a false
   // accusation about money.
@@ -123,13 +127,19 @@ export default async function AdminBookingFeesPage() {
     const keys = charges.map((c) => bookingFeeLockServiceKey(c.charge_id));
     const { data: orders, error: ordersErr } = await admin
       .from('orders')
-      .select('order_id, public_id, service_key')
+      .select('order_id, public_id, service_key, requested_total_php, confirmed_total_php')
       .in('service_key', keys);
     if (ordersErr) {
       logQueryError('admin/booking-fees (orders)', ordersErr);
       billingUnread = true;
     }
-    const orderRows = (orders ?? []) as { order_id: string; public_id: string | null; service_key: string }[];
+    const orderRows = (orders ?? []) as {
+      order_id: string;
+      public_id: string | null;
+      service_key: string;
+      requested_total_php: number | string | null;
+      confirmed_total_php: number | string | null;
+    }[];
 
     if (orderRows.length > 0) {
       const { data: pays, error: paysErr } = await admin
@@ -143,24 +153,24 @@ export default async function AdminBookingFeesPage() {
         logQueryError('admin/booking-fees (payments)', paysErr);
         billingUnread = true;
       }
-      const byOrder = new Map<string, { reference_number: string | null; screenshot_url: string | null }>();
+      // 🧾 RW-46/47: an order can hold the bill's own placeholder row AND the logged one — proof is "ANY row logged",
+      // never whichever row the read happened to return last.
+      const loggedOrders = new Set<string>();
       for (const p of (pays ?? []) as {
         order_id: string;
         reference_number: string | null;
         screenshot_url: string | null;
       }[]) {
-        byOrder.set(p.order_id, p);
+        if (paymentWasLogged(p)) loggedOrders.add(p.order_id);
       }
       for (const o of orderRows) {
-        const p = byOrder.get(o.order_id);
+        const billedPhp = Number(o.confirmed_total_php ?? o.requested_total_php);
         paidRefs.set(o.service_key, {
           orderId: o.order_id,
           orderPublicId: o.public_id ?? null,
-          // Same definition of proof the work list uses: non-EMPTY, not merely
-          // non-null. A blank string is what an empty form field posts.
-          hasProof:
-            (p?.reference_number != null && p.reference_number.trim() !== '') ||
-            (p?.screenshot_url != null && p.screenshot_url.trim() !== ''),
+          // Same definition of proof the work list uses: non-EMPTY, not merely non-null (`paymentWasLogged`).
+          hasProof: loggedOrders.has(o.order_id),
+          billedCentavos: Number.isFinite(billedPhp) && billedPhp > 0 ? Math.round(billedPhp * 100) : null,
         });
       }
     }
@@ -195,13 +205,21 @@ export default async function AdminBookingFeesPage() {
   // 🚪 The bookings switch, read fresh (not remembered) so this page shows what was just saved.
   const { data: switchRow, error: switchErr } = await admin
     .from('platform_settings')
-    .select('bookings_open')
+    .select('bookings_open, booking_fee_minting_live')
     .eq('id', 1)
     .maybeSingle();
   if (switchErr) logQueryError('admin/booking-fees.bookings_open', switchErr);
   const bookingsOpen = switchErr ? null : bookingsOpenFromSetting((switchRow as { bookings_open?: unknown } | null)?.bookings_open);
+  /* 💸 F-A-23 (admin walk 13 Nov 2026): the empty state said fees start "once the booking fee is switched on" while
+     `platform_settings.booking_fee_minting_live` was already true. It reads the real setting now; null = unread. */
+  const mintingRaw = (switchRow as { booking_fee_minting_live?: unknown } | null)?.booking_fee_minting_live;
+  const feesMinting: boolean | null = switchErr ? null : mintingRaw === true ? true : mintingRaw === false ? false : null;
 
-  const owedTotal = charges.reduce((s, c) => s + num(c.amount_charged_centavos), 0);
+  // 💳 RW-45 (walk 13 Nov 2026): what a supplier OWES is the bill — the fee plus the Papic gift on it — never the fee
+  // alone (₱1,337.50 shown against a ₱1,818.90 bill). A charge with no bill yet owes its fee.
+  const owedOf = (c: (typeof charges)[number]) =>
+    paidRefs.get(bookingFeeLockServiceKey(c.charge_id))?.billedCentavos ?? num(c.amount_charged_centavos);
+  const owedTotal = charges.reduce((s, c) => s + owedOf(c), 0);
   const withProof = charges.filter(
     (c) => paidRefs.get(bookingFeeLockServiceKey(c.charge_id))?.hasProof,
   ).length;
@@ -292,10 +310,12 @@ export default async function AdminBookingFeesPage() {
             strokeWidth={1.75}
             style={{ color: 'var(--sn-ink-500)' }}
           />
-          <p className="text-sm text-[color:var(--sn-ink-500)]">
-            Nobody owes a booking fee right now. Note that fees are only charged once the
-            booking fee is switched on — until then this page stays empty even when
-            bookings are being locked.
+          <p className="text-sm text-[color:var(--sn-ink-500)]" data-fees-minting={String(feesMinting)}>
+            {feesMinting === true
+              ? 'Nobody owes a booking fee right now. The booking fee is on, so a booking that owes one shows here as soon as it is locked.'
+              : feesMinting === false
+                ? 'Nobody owes a booking fee right now. The booking fee is off, so this page stays empty even when bookings are being locked.'
+                : 'Nobody owes a booking fee right now. Whether the booking fee is on could not be read just now.'}
           </p>
         </div>
       ) : null}
@@ -326,7 +346,11 @@ export default async function AdminBookingFeesPage() {
                     {vendorNames.get(c.vendor_profile_id) ?? 'A supplier'}
                   </span>
                   <span className="text-xs text-[color:var(--sn-ink-500)]">
-                    {formatCentavosPhp(num(c.amount_charged_centavos))} on a{' '}
+                    {formatCentavosPhp(owedOf(c))}
+                    {owedOf(c) > num(c.amount_charged_centavos)
+                      ? ` (fee ${formatCentavosPhp(num(c.amount_charged_centavos))} + gift ${formatCentavosPhp(owedOf(c) - num(c.amount_charged_centavos))})`
+                      : ''}{' '}
+                    on a{' '}
                     {formatCentavosPhp(num(c.proposal_amount_centavos))} booking
                     {c.public_id ? ` · ${c.public_id}` : ''}
                   </span>

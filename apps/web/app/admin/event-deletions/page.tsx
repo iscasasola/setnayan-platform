@@ -8,10 +8,10 @@ import { approveEventDeletion, rejectEventDeletion } from './actions';
 export const dynamic = 'force-dynamic';
 
 /**
- * /admin/event-deletions — celebrations a couple has asked us to remove.
+ * /admin/event-deletions — events a couple has asked us to remove.
  *
  * ─── WHAT LANDS HERE, AND WHAT DOES NOT ────────────────────────────────────
- * Only the ones money is holding. A couple removes an ordinary celebration
+ * Only the ones money is holding. A couple removes an ordinary event
  * themselves and nothing reaches this queue — what reaches it is a bill we
  * confirmed, an official receipt, or a payment nobody has checked yet.
  *
@@ -75,9 +75,9 @@ export default async function EventDeletionsPage() {
         are, so a visible title is the same word twice (owner-locked, and
         `admin-page-starts-at-its-content.test.ts` holds it).
       */}
-      <PageMasthead title="Celebration removals" />
+      <PageMasthead title="Event removals" />
       <p className="max-w-prose text-sm text-ink/70">
-        A couple can remove their own celebration. They can’t when money has
+        A couple can remove their own event. They can’t when money has
         moved — a bill we confirmed, a receipt, or a payment nobody has checked
         yet. Those come here.
       </p>
@@ -105,7 +105,7 @@ export default async function EventDeletionsPage() {
                 {r.event_name as string}
               </p>
               <p className="mt-0.5 text-[13px] text-ink/60">
-                Asked {new Date(r.created_at as string).toLocaleString('en-PH')}
+                Asked {new Date(r.created_at as string).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
               </p>
               <p className="mt-2 text-sm text-ink">
                 <span className="font-semibold">
@@ -189,7 +189,7 @@ export default async function EventDeletionsPage() {
                   ? 'removed by them'
                   : (r.status as string)}
                 {' · '}
-                {new Date(r.created_at as string).toLocaleDateString('en-PH')}
+                {new Date(r.created_at as string).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })}
               </span>
             </li>
           ))}

@@ -1,5 +1,6 @@
 import { ArrowRight, EyeOff } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { TEAM_PREVIEW_COPY, TEAM_PREVIEW_HEAD, type ShopPreviewReason } from '@/lib/own-shop-preview';
 
 /**
@@ -12,29 +13,33 @@ import { TEAM_PREVIEW_COPY, TEAM_PREVIEW_HEAD, type ShopPreviewReason } from '@/
  * client one, so the icon goes over as an ELEMENT — a component (a function) cannot cross that line and 500s the page.
  * `data-team-preview` carries the reason so a walk and a guard can read which state was drawn.
  */
+/**
+ * 🔔 Inventory #11 — a LIVE notice (info) in the one notice system (owner approved 14 Nov 2026): who can see this page.
+ * It can't be hidden — it is the truth about the page in front of you — and it is drawn where it stands.
+ */
 export function TeamPreviewBanner({ reason }: { reason: ShopPreviewReason }) {
   const copy = TEAM_PREVIEW_COPY[reason];
   return (
-    <section
-      aria-label="Only your team can see this page"
-      data-team-preview={reason}
-      className="border-b border-ink/10 bg-ink/[0.04]"
-    >
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:gap-5 sm:px-6 lg:px-8">
-        <EyeOff aria-hidden className="hidden h-5 w-5 shrink-0 text-ink/60 sm:block" strokeWidth={1.75} />
-        <div className="min-w-0 flex-1">
-          <p className="text-[15px] font-semibold text-ink">{TEAM_PREVIEW_HEAD}</p>
-          <p className="mt-0.5 text-sm text-ink/70">{copy.line}</p>
-        </div>
-        <ActionButton
-          tone="brand"
-          main
-          icon={<ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />}
-          label={copy.action.label}
-          href={copy.action.href}
-          className="!h-11 min-h-11 shrink-0"
-        />
-      </div>
+    <section aria-label="Only your team can see this page" data-team-preview={reason} className="mx-auto w-full max-w-5xl px-4 pt-3 sm:px-6 lg:px-8">
+      <InlineNotice
+        kind="live"
+        tone="info"
+        closable={false}
+        noticeKey={`who-can-see:${reason}`}
+        mark={<EyeOff aria-hidden className="h-4 w-4 shrink-0 text-ink/60" strokeWidth={1.75} />}
+        title={TEAM_PREVIEW_HEAD}
+        detail={copy.line}
+        actions={
+          <ActionButton
+            tone="brand"
+            main
+            icon={<ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />}
+            label={copy.action.label}
+            href={copy.action.href}
+            className="!h-11 min-h-11 shrink-0"
+          />
+        }
+      />
     </section>
   );
 }

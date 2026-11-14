@@ -1,4 +1,6 @@
 import 'server-only';
+import { ACCOUNT_NAME_COLUMNS, accountPersonName, type AccountNameRow } from '@/lib/account-person-name';
+import { withPickedDate } from '@/lib/event-anchor';
 import { cache } from 'react';
 import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -239,7 +241,7 @@ export async function fetchCommunityEvents(
 ): Promise<CommunityEventRow[]> {
   const { data, error } = await supabase
     .from('events')
-    .select('event_id, display_name, event_type, event_date, archived, slug, created_at')
+    .select('event_id, display_name, event_type, event_date, date_candidates, archived, slug, created_at')
     .eq('community_id', communityId)
     .order('event_date', { ascending: true, nullsFirst: false });
   if (error) {
@@ -253,7 +255,11 @@ export async function fetchCommunityEvents(
     }
     return [];
   }
-  return ((data ?? []) as CommunityEventRow[]).filter((e) => !e.archived);
+  // 📅 F-W3-30 (walk 13 Nov): an event made before the one-pick write was fixed holds its day as its only candidate —
+  // read it as the date (`withPickedDate`, the reader half of the 2026-10-08 rule), never "TBD".
+  return ((data ?? []) as Array<CommunityEventRow & { date_candidates?: string[] | null }>)
+    .filter((e) => !e.archived)
+    .map((e) => withPickedDate(e));
 }
 
 /**
@@ -363,13 +369,10 @@ export async function fetchCommunityRoster(
   const names = new Map<string, string>();
   const { data: nameRows } = await admin
     .from('users')
-    .select('user_id, display_name')
+    .select(`user_id, ${ACCOUNT_NAME_COLUMNS}`)
     .in('user_id', [...new Set(rows.map((r) => r.user_id))]);
-  for (const r of (nameRows ?? []) as Array<{
-    user_id: string;
-    display_name: string | null;
-  }>) {
-    const label = (r.display_name ?? '').trim();
+  for (const r of (nameRows ?? []) as Array<{ user_id: string } & AccountNameRow>) {
+    const label = accountPersonName(r);
     if (label) names.set(r.user_id, label);
   }
 
@@ -540,10 +543,10 @@ export async function fetchSamahanSecondDegree(
   const names = new Map<string, string>();
   const { data: nameRows } = await admin
     .from('users')
-    .select('user_id, display_name')
+    .select(`user_id, ${ACCOUNT_NAME_COLUMNS}`)
     .in('user_id', [...viaByUser.keys()]);
-  for (const r of (nameRows ?? []) as Array<{ user_id: string; display_name: string | null }>) {
-    const label = (r.display_name ?? '').trim();
+  for (const r of (nameRows ?? []) as Array<{ user_id: string } & AccountNameRow>) {
+    const label = accountPersonName(r);
     if (label) names.set(r.user_id, label);
   }
 
@@ -601,10 +604,10 @@ export async function fetchSamahanMessages(
   const names = new Map<string, string>();
   const { data: nameRows } = await admin
     .from('users')
-    .select('user_id, display_name')
+    .select(`user_id, ${ACCOUNT_NAME_COLUMNS}`)
     .in('user_id', [...new Set(rows.map((r) => r.user_id))]);
-  for (const r of (nameRows ?? []) as Array<{ user_id: string; display_name: string | null }>) {
-    const label = (r.display_name ?? '').trim();
+  for (const r of (nameRows ?? []) as Array<{ user_id: string } & AccountNameRow>) {
+    const label = accountPersonName(r);
     if (label) names.set(r.user_id, label);
   }
   return rows.map((r) => ({

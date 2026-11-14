@@ -21,13 +21,19 @@
  * When the env var is absent the component skips registration entirely —
  * the in-app notification + email still fire, push is optional.
  *
- * Non-blocking by design: the banner is a fixed bottom strip (above the
- * bottom nav on mobile), never a modal or alert. Dismissing hides it for a
- * cooldown window (30 days); denying browser permission hides it permanently.
+ * 🔔 IT IS AN ALERTS ASK NOW (ONE NOTICE SYSTEM, owner approved 14 Nov 2026).
+ * The fixed bar over the page is gone. The ask registers as a to-do notice that
+ * asks (`ask`): it takes a page's top only when nothing else is waiting, else it
+ * waits in the bell's "Waiting on this page"; "Not now" brings it back after 7
+ * days and it stops for good after the second. Denying the browser's permission
+ * still ends it at once. The older 30-day browser cooldown is still READ, so a
+ * vendor who closed it before this change is not asked again early.
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Bell, X } from 'lucide-react';
+import { Notice } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
+import type { CloseRecord } from '@/lib/notices';
 import {
   registerPushToken,
 } from '@/app/vendor-dashboard/actions/push-tokens';
@@ -67,18 +73,6 @@ function isPushSupported(): boolean {
 const DISMISSED_UNTIL_KEY = 'setnayan_push_banner_dismissed_until';
 const DISMISS_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '';
-
-/** True when a prior dismissal is still within its cooldown window. */
-function isWithinDismissCooldown(): boolean {
-  try {
-    const raw = localStorage.getItem(DISMISSED_UNTIL_KEY);
-    if (!raw) return false;
-    const until = Number(raw);
-    return Number.isFinite(until) && Date.now() < until;
-  } catch {
-    return false;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -146,12 +140,7 @@ export function PushNotificationRegistrar() {
       return;
     }
 
-    // permission === 'default' — respect a still-active dismissal cooldown.
-    if (isWithinDismissCooldown()) {
-      setState('dismissed');
-      return;
-    }
-
+    // permission === 'default' — the notice memory decides whether it is asked now (the old cooldown is its legacy).
     setState('banner');
   }, [subscribeAndRegister]);
 
@@ -179,70 +168,37 @@ export function PushNotificationRegistrar() {
     }
   }, [subscribeAndRegister]);
 
-  const handleDismiss = useCallback(() => {
+  /** A close kept by the older 30-day cooldown — honoured, so nobody is asked again early. */
+  const legacy = useCallback((): CloseRecord | null => {
     try {
-      localStorage.setItem(
-        DISMISSED_UNTIL_KEY,
-        String(Date.now() + DISMISS_COOLDOWN_MS),
-      );
+      const until = Number(localStorage.getItem(DISMISSED_UNTIL_KEY));
+      return Number.isFinite(until) && until > 0 ? { closedAt: until - DISMISS_COOLDOWN_MS, count: 1 } : null;
     } catch {
-      // Private-mode / storage-disabled: fall back to hiding for this session
-      // only. Better a re-nag than a crash.
+      return null;
     }
-    setState('dismissed');
   }, []);
 
   // Only the 'banner' and 'pending' states render visible UI.
   if (state !== 'banner' && state !== 'pending') return null;
 
   return (
-    /*
-     * Non-blocking consent banner — sits above the bottom nav on mobile
-     * (z-40 ensures it floats above content but below modals/sheets).
-     * Never a modal; never auto-focused; never blocks interaction.
-     */
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed inset-x-0 bottom-20 z-40 mx-auto flex max-w-lg items-center gap-3 sn-row pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-3 shadow-lg backdrop-blur-sm sm:bottom-6 lg:bottom-6"
-    >
-      <Bell
-        aria-hidden
-        className="h-5 w-5 shrink-0 text-terracotta"
-        strokeWidth={1.75}
-      />
-
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-ink">
-          Enable push notifications
-        </p>
-        <p className="mt-0.5 text-xs text-ink/60">
-          Get instant alerts when a couple sends you an inquiry.
-        </p>
-        {error ? (
-          <p className="mt-1 text-xs text-red-600">{error}</p>
-        ) : null}
-      </div>
-
-      <div className="flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          onClick={handleEnable}
-          disabled={state === 'pending'}
-          className="rounded-lg bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {state === 'pending' ? 'Enabling…' : 'Enable'}
+    <Notice
+      kind="todo"
+      ask
+      noticeKey="alerts-ask:supplier"
+      title="Get an alert for every new inquiry"
+      detail={
+        <>
+          Your phone tells you the moment a couple sends you an inquiry. You can turn it off in your browser settings.
+          {error ? <span className="mt-1 block text-danger-700">{error}</span> : null}
+        </>
+      }
+      actions={
+        <button type="button" onClick={handleEnable} disabled={state === 'pending'} className={NOTICE_ACTION}>
+          {state === 'pending' ? 'Turning on…' : 'Turn on alerts'}
         </button>
-
-        <button
-          type="button"
-          onClick={handleDismiss}
-          aria-label="Dismiss push notification prompt"
-          className="rounded-md p-1 text-ink/40 transition-colors hover:text-ink"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </button>
-      </div>
-    </div>
+      }
+      legacy={legacy}
+    />
   );
 }

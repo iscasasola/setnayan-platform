@@ -14,7 +14,8 @@
 //     `spotlight-mount.tsx`. Its steps reuse the slides' words where they fit.
 
 import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
-import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
 import {
   Apple,
@@ -308,6 +309,16 @@ export type TourDefinition = {
   /** 🔦 Present → this tour is drawn as the SPOTLIGHT (`spotlight-mount.tsx`). */
   spotlight?: SpotlightScript;
 };
+
+/**
+ * 💳 The Money tour's fee step, from the rule itself (walk RW-20): ON → when it is charged + the free first booking + own
+ * clients free; OFF → that no booking fee is charged right now. `NEXT_PUBLIC_BOOKING_FEE_ENABLED` (`isBookingFeeEnabled`).
+ */
+export function bookingFeeTourLine(feeOn: boolean): string {
+  return feeOn
+    ? `One booking fee per booking from Setnayan. ${BOOKING_FEE_CHARGED_WHEN} ${FIRST_BOOKING_ON_US} Your own clients are always free.`
+    : 'No booking fee is charged right now. Your own clients are always free.';
+}
 
 export const TOURS: Record<TourKey, TourDefinition> = {
   couple_welcome_v1: {
@@ -666,7 +677,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'Five stories are free',
-        body: 'Tell up to five stories in your words for free. More stories and your own photos come with Event Hub Pro.',
+        body: 'Tell up to five stories in your words for free. More stories and your own photos come with Event Pro.',
         sells: true,
       },
     ],
@@ -685,7 +696,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   /*
     THE MAKER'S TOUR, SHORT (owner 2026-10-02, "SIMPLIFY FIRST, THEN TOUR";
     FIRST_TIMER_TEST fix 6 — the 5-slide welcome that opened before the first
-    tap and ended on "What Event Hub Pro adds" scored the invitation HARD).
+    tap and ended on "What Event Pro adds" scored the invitation HARD).
     It no longer opens on a first visit at all: the Maker shows one quiet line,
     "Tap anything to change it", and this plays only from ⋯ › About the Maker.
     No Pro slide — Pro is met where it is tried (◆ PRO on the thing, Apply asks).
@@ -731,8 +742,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Sparkles,
-        title: 'Try it now, keep it with Event Hub Pro',
-        body: 'Try it in your draft &mdash; only you see it. It goes live for your guests when you Apply with Event Hub Pro.',
+        title: 'Try it now, keep it with Event Pro',
+        body: 'Try it in your draft &mdash; only you see it. It goes live for your guests when you Apply with Event Pro.',
         sells: true,
       },
     ],
@@ -774,7 +785,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Wand2,
         title: 'Add scenes made for after the day',
-        body: 'Press <b>+ Add a scene</b> on Post Event for twelve scenes made for the story after the day &mdash; The Toast, Before &amp; After, By Our Count, Since Then and more. Each is &#9670; Event Hub Pro: try one in your draft now, and Pro is asked for when you press <b>Apply</b>. A Pro theme, a part&rsquo;s own font and your own photos come with Pro too.',
+        body: 'Press <b>+ Add a scene</b> on Post Event for twelve scenes made for the story after the day &mdash; The Toast, Before &amp; After, By Our Count, Since Then and more. Each is &#9670; Event Pro: try one in your draft now, and Pro is asked for when you press <b>Apply</b>. A Pro theme, a part&rsquo;s own font and your own photos come with Pro too.',
         sells: true,
       },
     ],
@@ -835,7 +846,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_pro_qr_v1: {
     key: 'customer_pro_qr_v1',
     label: 'Your QR code',
-    blurb: 'First visit to the Details page: what the QR carries, and what Event Hub Pro lets you change.',
+    blurb: 'First visit to the Details page: what the QR carries, and what Event Pro lets you change.',
     slides: [
       {
         Icon: QrCode,
@@ -847,7 +858,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         title: 'Your logo in the centre',
         // A pitch: dropped in the app-store shell, price never written here.
         sells: true,
-        body: 'Free codes carry the Setnayan mark. With <strong>Event Hub Pro</strong> the centre carries your own logo, and you pick the shape (square or circle), the pattern and a colour from your Mood Board.',
+        body: 'Free codes carry the Setnayan mark. With <strong>Event Pro</strong> the centre carries your own logo, and you pick the shape (square or circle), the pattern and a colour from your Mood Board.',
       },
       {
         Icon: CheckCircle2,
@@ -885,7 +896,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         sells: true,
         // Tried free, paid at Apply (owner 2026-09-28, PR #6091): a Pro theme is
         // picked like any other and waits in the draft — no padlock, no detour.
-        body: 'The others are marked <strong>&#9670; PRO</strong>. Try one on your page for free &mdash; it waits in your draft, and <strong>Event Hub Pro</strong> puts it live when you press Apply.',
+        body: 'The others are marked <strong>&#9670; PRO</strong>. Try one on your page for free &mdash; it waits in your draft, and <strong>Event Pro</strong> puts it live when you press Apply.',
       },
     ],
   },
@@ -1318,14 +1329,14 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     slides: [
       {
         Icon: Sparkles,
-        title: 'You tried Event Hub Pro',
+        title: 'You tried Event Pro',
         body: 'Everything marked &#9670; PRO in the Maker works before you pay &mdash; it waits in your draft. This list names each Pro effect you chose, and where it is.',
         sells: true,
       },
       {
         Icon: MousePointerClick,
         title: 'Keep it, change it, or take it off',
-        body: 'Tap Go to to see an effect in the Maker, or &times; to take it off your draft. Unlock Event Hub Pro to put them all live &mdash; or apply the rest now; the Pro ones stay in your draft.',
+        body: 'Tap Go to to see an effect in the Maker, or &times; to take it off your draft. Unlock Event Pro to put them all live &mdash; or apply the rest now; the Pro ones stay in your draft.',
         sells: true,
       },
     ],
@@ -1512,7 +1523,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'hub-next-days',
           title: 'Your events',
-          body: 'Pick the event to set up — every booked day and every event you run. A day opens once its booking fee is paid.',
+          // RW-20 / F-W1-75 (walk 13 Nov 2026): no fee rule typed here — whether a day waits on its fee is a live setting,
+          // and a day that does says so on its own row (`feeLockCopy`).
+          body: 'Pick the event to set up — every booked day and every event you run. A day that is waiting on its booking fee says so on its row.',
         },
         {
           anchor: 'hub-empty',
@@ -1590,8 +1603,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'money-fees',
           title: 'Setnayan’s fee',
-          // The sentence is the lock's own — the rule the fee engine actually waives (owner 2026-10-23), never typed here.
-          body: `One booking fee per booking, due after the day. ${FIRST_BOOKING_ON_US} Your own clients are always free.`,
+          // RW-20 (walk 13 Nov 2026): the sentences are the lock's own — WHEN it is charged and what is waived — and the
+          // switch decides whether it is charged at all; never "due after the day", which no code does.
+          body: bookingFeeTourLine(isBookingFeeEnabled()),
         },
       ],
       finale: {
@@ -1843,7 +1857,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'maker-tools',
           title: 'Page, Look and Event Details',
-          body: 'Page ▾ picks what you are looking at. Look dresses the whole Event Hub. Event Details holds the facts — names, date, places — shown on every page.',
+          /* 🔒 + the Maker Edit shell (owner-approved 2026-11-13): the four tabs, and what a locked one does. */
+          body: 'Page ▾ picks what you are looking at. Look dresses the whole Event Hub. Event Details holds the facts — names, date, places — shown on every page. Every part has the same four tabs; a tab with a 🔒 says why, and where it is set.',
         },
         {
           anchor: 'maker-apply',
@@ -1913,7 +1928,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           //  owner 2026-10-23, Papic is the camera. This page's last stop is the camera's own settings.)
           anchor: 'papic-settings',
           title: 'Your camera, your rules',
-          body: 'Pick the filter, set challenges and choose face tagging. The photos land in Memories, and each guest’s camera is on their guest card.',
+          // 📲 Guest upload v2 (2026-11-13): the "Photos from guests' phones" row sits in these settings.
+          body: 'Pick the filter, set challenges, choose face tagging, and whether photos from guests’ phones show right away or after you check. The photos land in Memories, and each guest’s camera is on their guest card.',
         },
       ],
       finale: {
@@ -2422,7 +2438,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'camera-shots',
           title: 'My shots',
-          body: 'Everything you took, right here.',
+          // 📲 Guest upload v2 (2026-11-13): My shots holds "Add from your phone".
+          body: 'Everything you took, right here — and Add from your phone, for photos you took on the day.',
         },
         {
           anchor: 'camera-shutter',

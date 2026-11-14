@@ -4,7 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getPeopleRoster } from '@/lib/people-roster';
+import { realNameOrNull } from '@/lib/no-name';
 import { fetchSamahanSecondDegree } from '@/lib/communities';
+import { confirmedConnectionUserIds } from '@/lib/confirmed-connection-user-ids';
 import { splitPersonName } from '@/lib/person-name-split';
 import {
   assembleInvitable,
@@ -142,6 +144,14 @@ export async function getPeopleYouCanInvite(
       // not allowed to be invited". A loved one is offered only when it IS a
       // person; `dependent_kind` NOT NULL DEFAULT 'person'.
       if (!isInvitableRosterEntry(p)) continue;
+      // 🔒 ONLY ACCEPTED CONNECTIONS (walk 13 Nov 2026, F-W3-20 — privacy): a request nobody has answered is not "your
+      // people". Indalecio, whose connect request was still pending, was offered as a guest. Loved ones have no
+      // request to accept and stay.
+      if (p.kind === 'connection' && p.state !== 'connected') continue;
+      // 🪪 THE ROSTER'S "Someone" IS A PLACEHOLDER, NOT A NAME (F-W3-22): a connection whose name the rule does not show
+      // reads "Someone" on People — taken as a first name here, it made a guest literally called "Someone".
+      // RW-64: "Someone —" (the placeholder run into a dash part) is no name either — one rule, `realNameOrNull`.
+      if (realNameOrNull(p.name) === null) continue;
       const { first, last } = splitPersonName(p.name);
       if (!first) continue;
       push({
@@ -165,8 +175,12 @@ export async function getPeopleYouCanInvite(
       admin = null;
     }
     if (admin) {
-      const members = await fetchSamahanSecondDegree(supabase, admin, userId);
+      // 👥 ONE ROW PER PERSON (F-W3-20): a group co-member who is ALSO an accepted connection is already offered above
+      // as "Your people" — `known` marks them, and they are not listed a second time under the group.
+      const confirmed = await confirmedConnectionUserIds(supabase, admin, userId);
+      const members = await fetchSamahanSecondDegree(supabase, admin, userId, confirmed);
       for (const m of members) {
+        if (m.known) continue;
         const { first, last } = splitPersonName(m.display_name);
         if (!first) continue;
         push({

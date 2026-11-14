@@ -1,0 +1,895 @@
+/**
+ * /dev/home-lab — the phone Home's first screen (owner-APPROVED 2026-10-01,
+ * "THE SIMPLE PHONE APP — APPROVED", frame 1) on fixture data: no sign-in, no
+ * database. DEV-ONLY: production builds 404 this route, the same kill-switch as
+ * `/dev/details-lab`. It draws the REAL `HomeFirstScreen` with the REAL picker
+ * and glance formatters, so what it shows is what the Home shows.
+ *
+ *   ?next=guide|date|guests|invite|papic|ai|plan   which Next card (default: guide)
+ *   ?unread=1 (or ?fail=1)           every read failed — said so, with ⟳ Reload (H3)
+ *   ?hidden=1                        the budget is not shared with this viewer
+ *   ?proto=1                         the prototype's own figures (Cale & Ice, 72 days, 7 coming…)
+ *   ?store=1                         the App Store / Play shell (no Your services row)
+ *   ?view=papic                      🎨 the Papic page's TOP BAND instead of Home, in the same
+ *                                    ?papic= state (the real PapicTopBand; the Buy more sheet
+ *                                    on the prototype's ladder seed — no database)
+ *   ?view=early&early=1|0&shots=N    🖼 an invited guest's Invitation before the day with the host's
+ *                                    "Let guests shoot now" on/off (owner 2026-10-14): the REAL
+ *                                    resolver + bar (`resolveSiteNav`, `SiteMenuBar`) and the REAL
+ *                                    "Your shots" (empty → "Take your first photo"; N sample shots)
+ *   ?view=stagebar&stage=save_the_date|rsvp|event|editorial&papic=1|0&photos=1|0|x
+ *                                    📷 an invited guest's bar on ANY stage (owner 2026-10-30, "PAPIC ON = A CAMERA
+ *                                    TAB ON EVERY STAGE"): the REAL resolver + bar (`resolveSiteNav`, `SiteMenuBar`)
+ *                                    with Papic on (default) or off, and the event's Papic photos: 1 = some, 0 = none
+ *                                    (no Memories tab), x = not known (the old rules)
+ *   ?needs=simple|open|list|full     🚪 what the event needs (owner 2026-10-08, Level 1 —
+ *                                    `lib/event-needs.ts`): the Home drops what the preset leaves
+ *                                    off (the bar's own drop is held by its test), the One QR card and ONE
+ *                                    "Switch on more" row (prototype frame 2, a hangout after)
+ *   ?store=1&apple=1[&live=on]       🍎 the iPhone app where Apple sells (owner 2026-10-18): Your
+ *                                    services carries Papic · Buy more and Live Watch · Activate
+ *                                    (or "On"). Prices come from StoreKit — in a browser there is
+ *                                    none, so a walk injects a stand-in `window.Capacitor`.
+ *     [&bought=web|app] [&v11=1]     🍎 1.1: where Live Watch was bought ("On · bought on the web / in the app"),
+ *                                    and the 1.1 doors — the Papic row opens its page, an owned Live Watch has Go live
+ *   ?view=papic&apple=1              🍎 the Papic page's band in that app — Buy more is Apple's sheet
+ *   ?view=papic&need=1               the sheet reads its sizes on the tap, as the page does
+ *                                    (`papicBuySizes`) — against whatever the lab's Supabase URL answers (a walk's stub)
+ *   ?moved=1|unread                  🏠 the lines for what moved: Guests' "N without a seat" (→ Guests › Seats) and
+ *                                    Suppliers' "N looks on your board" (→ Find's board) — or both reads refused
+ *   ?view=guests-see[&page=save_the_date|rsvp|event|editorial]  🗓 Home's "Parts of the page" switches (the REAL
+ *                                    `HubPartsSwitches` over the REAL What-guests-see table) — "The day's program" row
+ *   ?view=pro                        💎 what Event Pro includes (owner 2026-10-22, Host 5): the REAL
+ *                                    controller offer (`resolveHubProOffer` → `HubProOffer`) and the REAL
+ *                                    editor lock (`ProLockPanel`), both reading `WEBSITE_PRO_ITEMS`. No price
+ *                                    (the app reads the catalogue; a lab has none, so the figure is omitted).
+ *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
+ *                                    selling Event Pro through Apple, in each outcome
+ *   ?level=1 | level=unread          🔑 "<shop> joined as your coordinator" (owner 2026-10-29) — the REAL
+ *                                    `CoordinatorLevelAsk`, FIRST in the Today list under the cover (never above it);
+ *                                    its press opens the house Sheet, Limited · Full access (the lab's presses write
+ *                                    nothing real). `&shop=long` a long shop name (never cut) · `&shop=none` no name read
+ *   ?as=helper|coordinator           🪪 a helper's ⚙ (owner 2026-10-31): with `&settings=1` the sheet opens on "Your access"
+ *                                    alone, read-only — a limited helper (every part View) or the hired coordinator.
+ *                                    `&asked=1` its "Ask the hosts" button after a Send ("Asked · <time>"); without
+ *                                    `as`, the hosts' sheet with the helper's row saying what they asked for;
+ *                                    `&row=access&person=00000000-0000-4000-8000-0000000b0002` lands on that row
+ *   ?coord=1                         🗂 the coordinator's line on top (owner 2026-10-28) — the REAL `CoordinatingLine`
+ *   ?view=offline[&state=ok|amber|nosignal|failed|saving|none|unsupported][&browser=1][&desk=notes|sent]
+ *                                    📶 EV3 (owner 2026-10-28): the REAL "Ready for no signal" card, the supplier's saved
+ *                                    mark on the event card and the REAL Check-in desk with a stand-in queue (offline-lab.tsx)
+ *   ?for=shop|person                 🏷 "For <name>" under the name (owner 22 Oct 2026): the REAL
+ *                                    `homeCoverWords` with a subject — SetnaProd (its logo) or Lola Nena (initials)
+ *   ?view=board[&for=1][&one=1]      🏷 the Events board's Planning posters (owner 22 Oct 2026): the REAL
+ *                                    `CollectionCard` + `EventPoster` + `StanceChip`, fixture facts; `for=1`
+ *                                    puts "For SetnaProd" / "For Lola Nena" in the stance slot (prototype
+ *                                    for_tag_on_event_cards_2026-10-22.html); `one=1` the one-card row
+ *   ?order=a|b                       🔀 the header over "Claire & Indalecio" (a) or "Indalecio & Claire" (b), stored
+ *   ?nodate=1[&date=find]            🗓 a couple with no date yet ("No date yet"); the Countdown opens the REAL date sheet.
+ *   ?picked=YYYY-MM-DD               🗓 …and the same Home once a day is picked there: the date saves to the event at once
+ *                                    (owner 2026-11-05, "it shouldn't rely on the hub"), so the cover and the countdown
+ *                                    read it with no Apply. The lab's date door keeps the day in the `lab_home_date`
+ *                                    cookie and redraws (the lab has no database); `?picked=` sets it by hand.
+ *   ?paid=cale|none|mix|pending|unread   🧾 every paid service + Event Pro (owner 2026-10-14):
+ *                                    cale = all on (cale-ice, an internal host, measured 2026-10-20) ·
+ *                                    none = nothing added (slim lines) · mix = Planner + Pro on, the rest
+ *                                    not added · pending = payments waiting · unread = the reads failed
+ *   ?view=day                        📷 the EVENT-DAY console (owner 22 Oct 2026, "Fix both"): the REAL
+ *                                    `DayOfModeGrid` with Home › Your services' own Papic row beside the Live
+ *                                    photo wall (`DayPapicRow`, face from `dayPapicFace`)
+ *     [&face=off|none|failed]        Papic switched off · not on yet · the credits read failed
+ *     [&store=1]                     the App Store / Play shell — no Papic row, as Your services
+ *     [&before=1]                    the console as `main` drew it before 22 Oct (no Papic; with &shell=1,
+ *                                    main's bar rule too — `/dev/bar-lab`'s `was=1`)
+ *     [&shell=1&type=…&needs=…]      the REAL event bar for that type (`/dev/bar-lab`'s gates), phase dayof
+ *   ?sched=before|week|day|none|unread|off  📅 the Schedule widget (owner 2026-11-01, approved
+ *                                    `home_frames_where_you_act_2026-11-01/`): 40 days out (default) · one week out
+ *                                    (Release, Countdown at 7) · the day · no chapters yet · its read failed · absent;
+ *                                    `&plan=pro` — the event owns Pro (Release wears no ◆ PRO)
+ *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
+ *                                    2026-10-14): before the window · on · running low ·
+ *                                    stopped (Next card) · no photos yet (Next card) · low on the day
+ */
+import { CoordinatingLine } from '@/app/dashboard/[eventId]/_components/coordinating-line';
+import { CoordinatorLevelAsk } from '@/app/dashboard/[eventId]/_components/coordinator-level-ask';
+import { labEventSettingsRows, labYourAccessRows } from './lab-event-settings';
+import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
+import { PapicCameraSettings } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
+import { PapicHeadPicker } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-head-picker';
+import { papicHeadLine, type PapicHeadFacts } from '@/lib/papic-shoot-now';
+import { ChallengeCardRow } from '@/app/dashboard/[eventId]/studio/papic/_components/challenge-card-row';
+import { PapicCameraHelp } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-help';
+import { papicCardPhase } from '@/lib/papic-home-card';
+import { PapicChapterRow } from '@/app/dashboard/[eventId]/_components/papic-chapter-row';
+import type { PapicChapter } from '@/lib/papic-chapter';
+import type { PapicCardInput } from '@/app/dashboard/[eventId]/_components/home-first-screen';
+import { LabShell } from '@/app/dev/_components/lab-shell';
+import { labEventBar } from '@/app/dev/bar-lab/lab-event';
+import { DayOfModeGrid } from '@/app/dashboard/[eventId]/_components/day-of-mode/grid';
+import { LabSpotlight } from './lab-spotlight';
+import { TOURS } from '@/lib/tours';
+import { coupleNameColumns } from '@/lib/typed-names';
+import { homeCoverWords } from '@/lib/home-cover-words';
+import { homeFacts } from '@/lib/home-facts';
+import type { GuestStats } from '@/lib/guests';
+
+/** No guest figures — the date lab reads only the countdown off `homeFacts`. */
+const LAB_NO_GUEST_STATS: GuestStats = { total: 0, attending: 0, pending: 0, declined: 0, maybe: 0, plus_ones: 0 };
+import { CollectionCard, CollectionGrid } from '@/app/_components/collection-card';
+import { EventPoster } from '@/app/_components/event-poster';
+import { StanceChip } from '@/app/dashboard/(launcher)/_components/stance-chip';
+import type { EventPosterFacts } from '@/lib/event-poster';
+import type { ForTag } from '@/lib/for-tag';
+import { notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
+import type { HomeHubPickRead } from '@/app/dashboard/[eventId]/_components/home-cards/hub-pick-types';
+import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
+import { DayPapicRow, HomeFirstScreen, PapicCard, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
+import { fixtureControl, fixtureControlEmpty, fixtureControlUnread, fixturePays, fixtureSchedule } from '@/lib/home-control-fixture';
+import { planningProgress } from '@/lib/preparation';
+import { labPlanningList } from '../schedule-lab/lab-planning';
+
+/** The lab's To do tile facts — `planningProgress` over Planning Stage's own fixture list. */
+function labTodoFacts() {
+  const p = planningProgress(labPlanningList().items);
+  return { done: p.done, total: p.total, open: p.open, next: p.next, dueThisWeek: p.dueThisWeek };
+}
+import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
+import { STAGE_BAR } from '@/app/[slug]/_lib/stage-bar';
+import { SiteMenuBar } from '@/app/[slug]/_components/site-menu-bar';
+import { YourShotsGallery } from '@/app/[slug]/_components/your-shots-gallery';
+import { papicGlance, papicRowDoubled } from '@/lib/papic-glance';
+import { resolveStoredWindow } from '@/lib/papic-window';
+import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
+import { ApplyProSheetLab } from './apply-pro-sheet-lab';
+import { resolveHubProOffer } from '@/lib/event-hub-pro';
+import { HubProOffer } from '@/app/dashboard/[eventId]/launch/_components/hub-pro-offer';
+import { ProLockPanel } from '@/app/dashboard/[eventId]/website/editor/_components/pro-panels';
+import { liveWatchHomeStatus } from '@/lib/iap/where-bought';
+import { ADD_ONS } from '@/lib/add-ons-catalog';
+import { formatPhp } from '@/lib/php';
+import { homePaidFacts, type HomeSkuRead } from '@/lib/home-paid-services';
+import {
+  HOME_PAID_SKU,
+  aiStatus,
+  dayPapicFace,
+  glanceDays,
+  homeServices,
+  pickHomeNext,
+  type HomeNextInput,
+} from '@/lib/home-first-screen';
+import { OfflineLab } from './offline-lab';
+import { OfflineScheduleLab } from './offline-schedule-lab';
+import { LabFactSheets } from '../suppliers-lab/lab-fact-sheets';
+import { isEventSettingsRow, peopleWithAccessHref } from '@/lib/people-with-access-href';
+import { HomeWhosHereCard } from '@/app/dashboard/[eventId]/_components/home-cards/home-whos-here-card';
+import { EventTeamPresenceLab } from '@/app/dashboard/[eventId]/_components/event-team-presence';
+import { labOpenMarchCard } from '@/app/dev/details-lab/lab-march-cards';
+import type { HubViewers } from '@/lib/whos-here';
+import { LabGuestsSee } from './lab-guests-see';
+
+/**
+ * 👀 `?whos=live|alone|joining|failed|unread|nonames|off|busy` — Home › Who's here (owner 2026-10-29) on fixtures: the
+ * REAL card, a stand-in team list (no channel) and a stand-in viewers read. Guest faces open the march lab's guest card
+ * (`labOpenMarchCard` — its ids are maria-and-jose's people).
+ */
+function labWhosHere(eventId: string, mode: string) {
+  const team =
+    mode === 'joining'
+      ? { peers: null, state: 'joining' as const, pulse: 0 }
+      : mode === 'failed'
+        ? { peers: null, state: 'failed' as const, pulse: 0 }
+        : mode === 'alone'
+          ? { peers: [], state: 'live' as const, pulse: 0 }
+          : {
+              peers: [
+                { id: 'u-claire', name: 'Claire', role: 'Co-host' as const, photo: null },
+                { id: 'u-jen', name: 'Jen', role: 'Coordinator' as const, photo: null },
+                ...(mode === 'busy' ? [{ id: 'u-kim', name: 'Kimberly', role: 'Helper' as const, photo: null }, { id: 'u-ric', name: 'Ric', role: 'Host' as const, photo: null }] : []),
+              ],
+              state: 'live' as const,
+              pulse: 0,
+            };
+  const ago = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+  const names: Array<[string, string | null, string]> = [
+    ['p12', 'Ninong Ricardo', 'Ricardo'],
+    ['p6', 'Tita Carmen', 'Carmen'],
+    ['p11', null, 'Daniel'],
+    ['p10', 'Ate Ana', 'Ana Reyes'],
+    ['p5', 'Tito Fidel', 'Fidel'],
+    ['p7', null, 'Noel'],
+    ['p3', null, 'Eduardo'],
+  ];
+  const viewers: HubViewers | null =
+    mode === 'unread'
+      ? null
+      : {
+          team: true,
+          may_name: mode !== 'nonames',
+          window_minutes: 30,
+          guest_total: mode === 'nonames' ? 0 : mode === 'alone' ? 0 : mode === 'busy' ? 12 : names.length,
+          visitors: mode === 'alone' ? 0 : 30,
+          guests:
+            mode === 'nonames' || mode === 'alone'
+              ? []
+              : names.map(([id, display, first], i) => ({ guest_id: id, first_name: first, last_name: null, display_name: display, photo_url: null, seen_at: ago(i * 3) })),
+        };
+  return (
+    <EventTeamPresenceLab value={team}>
+      <HomeWhosHereCard eventId={eventId} initial={viewers} hubEnabled={mode !== 'off'} openGuest={labOpenMarchCard} />
+    </EventTeamPresenceLab>
+  );
+}
+
+export const dynamic = 'force-dynamic';
+
+/*
+  🧾 The paid rows' fixtures — sample amounts for a lab with no database (the live
+  `platform_retail_catalog_v2` rows as read on 2026-10-20), formatted the way the Home formats a catalogue
+  amount. The Home itself reads the table; no price is typed as a peso string here.
+*/
+const LAB_PRICES = new Map<string, string>([
+  [HOME_PAID_SKU.ai, formatPhp(2499)],
+  [HOME_PAID_SKU.live, formatPhp(2500)],
+  [HOME_PAID_SKU.music, formatPhp(2500)],
+  [HOME_PAID_SKU.booth, `${formatPhp(1500)} / day`],
+  [HOME_PAID_SKU.hub, formatPhp(5000)],
+]);
+const ON: HomeSkuRead = { active: true, pending: false };
+const OFF: HomeSkuRead = { active: false, pending: false };
+const WAIT: HomeSkuRead = { active: false, pending: true };
+const FAILED: HomeSkuRead = { active: null, pending: null };
+function labPaid(state: string | undefined, eventId: string) {
+  if (!state) return null;
+  const all = (r: HomeSkuRead) => Object.fromEntries(Object.values(HOME_PAID_SKU).map((sku) => [sku, r]));
+  const reads =
+    state === 'cale'
+      ? all(ON)
+      : state === 'pending'
+        ? all(WAIT)
+        : state === 'unread'
+          ? all(FAILED)
+          : state === 'mix'
+            ? { ...all(OFF), [HOME_PAID_SKU.ai]: ON, [HOME_PAID_SKU.hub]: ON }
+            : all(OFF);
+  return homePaidFacts({
+    eventId,
+    catalogue: ADD_ONS,
+    reads,
+    prices: state === 'cale' ? new Map() : LAB_PRICES,
+    offered: () => true,
+    sellableNow: () => true,
+    aiSellable: true,
+    refusesPath: () => false,
+  });
+}
+
+/** Sample shots for the early-shots lab — the repo's own portraits, nothing real. */
+const LAB_PHOTOS = ['isabel-mendoza.avif', 'andres-delgado.avif', 'isabella-reyes.avif', 'miguel-santos-garden.avif'];
+const DONE_GUESTS = { total: 96, unsent: 0 };
+const STATES: Record<string, HomeNextInput> = {
+  guide: {
+    guide: { done: 9, total: 20, stageTitle: 'Invitation', stageDone: 4, stageTotal: 8 },
+    hasDate: true,
+    guests: DONE_GUESTS,
+    noun: 'wedding',
+    papicReady: true,
+    aiOffer: true,
+  },
+  date: { guide: null, hasDate: false, guests: DONE_GUESTS, noun: 'wedding', papicReady: false, aiOffer: true },
+  guests: { guide: null, hasDate: true, guests: { total: 0, unsent: 0 }, noun: 'wedding', papicReady: true, aiOffer: true },
+  invite: { guide: null, hasDate: true, guests: { total: 96, unsent: 58 }, noun: 'wedding', papicReady: true, aiOffer: true },
+  papic: { guide: null, hasDate: true, guests: DONE_GUESTS, noun: 'wedding', papicReady: true, aiOffer: true },
+  ai: { guide: null, hasDate: true, guests: DONE_GUESTS, noun: 'wedding', papicReady: false, aiOffer: true },
+  plan: { guide: null, hasDate: true, guests: DONE_GUESTS, noun: 'wedding', papicReady: false, aiOffer: false },
+};
+
+/* 📷 PAPIC'S CARD (owner 2026-10-26, "a quick on off button and expand for more settings") — `?card=1[&cardphase=before|live|after]`:
+   the REAL card on fixture dates — closed, the head and the switch; open, the REAL camera settings (in a lab with no
+   database they say "couldn't load" — the failed-read state, drawn as it ships).
+   📷 `&head=off|eventday|now|offwait|onwait|unread` (owner 2026-10-30): the head's ONE dropdown — Off · On — event day ·
+   On — everyone, now — in each position, `offwait` = Off picked but not applied (Papic still live), `onwait` = On picked
+   but not applied, `unread` = the facts could not be read; with its line under the title. `&save=fail` refuses the lab's
+   picks (default: they save, with no server). Absent: On — event day. */
+const LAB_HEAD: Record<string, PapicHeadFacts> = {
+  off: { live: false, draftOn: false, early: false },
+  eventday: { live: true, draftOn: true, early: false },
+  now: { live: true, draftOn: true, early: true },
+  offwait: { live: true, draftOn: false, early: false },
+  onwait: { live: false, draftOn: true, early: false },
+  unread: { live: true, draftOn: true, early: null },
+};
+/* 📷 PAPIC SHOOTS INTO A CHAPTER (owner 2026-11-01) — `?card=1&chapter=now|picked|soon|whole|unread|none`: the REAL
+   chapter row on fixture chapters, at a fixed "now" (Tue 10 Nov 2026, 3 PM Manila).
+     now     — "Meeting with caterer" is on now (2 → 4 PM), 12 photos in it
+     picked  — the host picked "Fitting" (tomorrow), shown with Start now
+     soon    — nothing on now, nothing picked: the dropdown says Whole event
+     whole   — the same as soon
+     unread  — the chapters could not be read: the row says so
+     none    — the event has no chapters: no row (as before chapters)
+   `&save=fail` refuses the lab's picks. */
+const LAB_CHAPTER_NOW = Date.parse('2026-11-10T07:00:00Z');
+const LAB_CHAPTERS: PapicChapter[] = [
+  { blockId: '00000000-0000-4000-8000-0000000c4a01', label: 'Meeting with caterer', startAt: '2026-11-10T14:00:00Z', photoWho: 'chapter', opensAt: '2026-11-10T06:00:00Z', closesAt: '2026-11-10T08:00:00Z', openedEarlyAt: null, picked: false, captures: 12 },
+  { blockId: '00000000-0000-4000-8000-0000000c4a02', label: 'Fitting', startAt: '2026-11-11T10:00:00Z', photoWho: 'tagged', opensAt: '2026-11-11T02:00:00Z', closesAt: '2026-11-11T04:00:00Z', openedEarlyAt: null, picked: false, captures: 0 },
+  { blockId: '00000000-0000-4000-8000-0000000c4a03', label: 'Ceremony', startAt: '2026-12-18T14:00:00Z', photoWho: 'everybody', opensAt: '2026-12-18T06:00:00Z', closesAt: '2026-12-18T07:30:00Z', openedEarlyAt: null, picked: false, captures: 0 },
+];
+function labChapterRow(eventId: string, which: string | undefined, save?: string) {
+  if (!which || which === 'none') return null;
+  const standIn = save === 'fail' ? 'fail' : 'ok';
+  if (which === 'unread') return <PapicChapterRow eventId={eventId} chapters={null} nowMs={LAB_CHAPTER_NOW} standIn={standIn} />;
+  const chapters =
+    which === 'now'
+      ? LAB_CHAPTERS
+      : which === 'picked'
+        ? LAB_CHAPTERS.slice(1).map((c) => ({ ...c, picked: c.label === 'Fitting' }))
+        : LAB_CHAPTERS.slice(1);
+  return <PapicChapterRow eventId={eventId} chapters={chapters} nowMs={LAB_CHAPTER_NOW} standIn={standIn} />;
+}
+function labPapicCard(eventId: string, phase: string | undefined, failed: boolean, challenges = false, head?: string, save?: string, chapter?: string): PapicCardInput {
+  const facts = LAB_HEAD[head ?? 'eventday'] ?? LAB_HEAD.eventday!;
+  const startIso = '2026-12-10T16:00:00.000Z';
+  const endIso = '2026-12-13T04:00:00.000Z';
+  const now = phase === 'after' ? Date.parse('2026-12-14T02:00:00Z') : phase === 'live' ? Date.parse('2026-12-12T06:00:00Z') : Date.parse('2026-10-23T02:00:00Z');
+  return {
+    phase: papicCardPhase(startIso, endIso, now),
+    thankYouHref: '#thank-you',
+    headControl: <PapicHeadPicker eventId={eventId} {...facts} standIn={save === 'fail' ? 'fail' : 'ok'} />,
+    headLine: papicHeadLine(facts),
+    // 🔢 The face (owner 2026-10-26): Total · Taken · Remaining and Add more — the settings open under it.
+    counts: { total: failed ? null : 2000, left: failed ? null : 1240 },
+    buy: <PapicBuySheet eventId={eventId} left={failed ? null : 1240} tone="brand" main label="Add more" />,
+    chapter: labChapterRow(eventId, chapter, save),
+    defaultOpen: challenges,
+    settings: (
+      <>
+        <PapicCameraSettings eventId={eventId} seat="memories" />
+        {/* `?challenges=1` — the REAL challenge rows (name · switch · ✕) on fixtures: the settings above have no
+            database here, so their own list cannot draw. */}
+        {challenges ? (
+          <ul className="divide-y divide-ink/10 border-t border-ink/10 pt-1" data-lab-challenges="">
+            {LAB_CHALLENGES.map((m) => (
+              <ChallengeCardRow key={m.mission_id} eventId={eventId} eventType="wedding" taken={[]} mission={m} full={false} returnTo="memories" />
+            ))}
+          </ul>
+        ) : null}
+        <PapicCameraHelp />
+      </>
+    ),
+  };
+}
+const LAB_CHALLENGES = [
+  'A selfie with the couple',
+  'The first dance, from your seat',
+  'Your table, all smiling',
+  'The oldest guest and the youngest',
+  'Someone mid-laugh',
+  'The cake before it is cut',
+  'A toast, glasses up',
+  'Your best dance move',
+  'The view from the back row',
+  'Something borrowed, something blue',
+].map((prompt, i) => ({ mission_id: `lab-${i + 1}`, prompt, is_active: i !== 2, capture_kind: i === 1 || i === 7 ? 'clip' : 'photo' }));
+
+/** 🎛 The Event Hub tile's "Pick what shows", handed in so the sheet opens with no database (nothing pinned; the date
+ * gives the Invitation). Its pick still calls the real `setLaunchPhase`, which refuses a made-up event. */
+const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' };
+
+export default async function HomeLab({
+  searchParams,
+}: {
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; schedule?: string; moved?: string; page?: string; empty?: string }>;
+}) {
+  if (process.env.NODE_ENV === 'production') notFound();
+  const q = await searchParams;
+  const labAs = q.as === 'helper' || q.as === 'coordinator' ? q.as : null;
+  const unread = q.unread === '1' || q.fail === '1';
+  const proto = q.proto === '1';
+  /* The prototype's own figures, for the side-by-side (prototypes/home_and_guests_2026-10-07_fable.html). */
+  const F0 = proto
+    ? { eyebrow: 'Wedding · Fri, Dec 18, 2026', shortDate: 'Dec 18', name: 'Cale & Ice', days: 72, coming: 7, noReply: 2, paid: 0, owing: 1056000 }
+    : { eyebrow: 'Wedding · March 13, 2027', shortDate: 'Mar 13', name: 'Ana & Miguel', days: 163, coming: 96, noReply: 35, paid: 120000, owing: 45000 };
+  /* 🔀 `?order=a|b` — the owner's couple, its event name stored either way round (owner 2026-10-21): the header is
+     the REAL `homeCoverWords` over that stored name, as the dashboard draws it. */
+  const F =
+    q.order === 'a' || q.order === 'b'
+      ? {
+          ...F0,
+          ...homeCoverWords({
+            event_type: 'wedding',
+            event_date: '2026-12-18',
+            display_name: coupleNameColumns({ first: 'Claire', last: '' }, { first: 'Indalecio', last: '' }, q.order === 'b' ? 'b-first' : 'a-first').display_name,
+          }),
+        }
+      : q.for === 'shop' || q.for === 'person'
+        ? {
+            ...F0,
+            ...homeCoverWords({
+              event_type: q.for === 'shop' ? 'gala_night' : 'birthday',
+              event_date: q.for === 'shop' ? '2027-03-07' : '2027-05-09',
+              display_name: q.for === 'shop' ? 'Year-End Gala' : 'Lola Nena',
+              for_tag: q.for === 'shop' ? LAB_SHOP_TAG : LAB_PERSON_TAG,
+            }),
+          }
+        : F0;
+  /* 🗓 `?nodate=1` / `?picked=` — the event's date as the lab's date door left it (owner 2026-11-05): no date yet, or the
+     day just picked, worded by the REAL `homeCoverWords` and counted down by the REAL `homeFacts`. */
+  const dayOf = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+  const pickedDay = dayOf(q.picked) ?? (q.nodate === '1' ? dayOf((await cookies()).get('lab_home_date')?.value) : null);
+  const labDated = pickedDay
+    ? homeFacts({ eventDate: pickedDay, precision: 'day', timezone: null, guests: { stats: LAB_NO_GUEST_STATS, measured: false }, money: 'hidden' })
+    : null;
+  const labDate: { cover: Partial<typeof F>; countdown: { value: string; label: string; days: number | null; hasDate: boolean; long: string; placeLine: string } } | null = pickedDay && labDated
+    ? {
+        cover: homeCoverWords({ event_type: 'wedding', event_date: pickedDay, display_name: F.name }),
+        countdown: {
+          ...labDated.days,
+          days: labDated.figures.days,
+          hasDate: true,
+          long: new Date(`${pickedDay}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }),
+          placeLine: 'Tagaytay',
+        },
+      }
+    : q.nodate === '1'
+      ? { cover: { eyebrow: 'Wedding', shortDate: '' }, countdown: { value: '—', label: 'No date yet', days: null, hasDate: false, long: '', placeLine: 'Tagaytay' } }
+      : null;
+  const labForWho: ForTag | undefined = 'forWho' in F ? (F.forWho as ForTag | undefined) : undefined;
+  // 🏷 The Events board's Planning posters (owner 22 Oct 2026) — the real card parts on fixture facts.
+  if (q.view === 'board') return <LabBoard tagged={q.for === '1'} one={q.one === '1'} />;
+  const picked = proto
+    ? { guide: null, hasDate: true, guests: { total: 14, unsent: 3 }, noun: 'wedding' as const, papicReady: false, aiOffer: false }
+    : STATES[q.next ?? 'guide'] ?? STATES.guide!;
+  const E = '00000000-0000-4000-8000-000000000000';
+  // 🗓 Home's "Parts of the page" switches over the real What-guests-see table — "The day's program" row (2026-11-06).
+  if (q.view === 'guests-see') return <LabGuestsSee page={q.page} eventId={E} />;
+  // 💎 Host 5 — far from the lab's Papic ladder seed, whose figures are not Event Pro's.
+  if (q.view === 'pro') {
+    const offer = resolveHubProOffer({ channel: 'save_the_date', phase: 'plan', ownsPro: false });
+    return (
+      <div className="mx-auto w-full max-w-md px-4 py-4" data-lab-pro-list="">
+        {offer ? <HubProOffer offer={offer} channelName="Save-the-Date" priceLabel={null} base={`/dashboard/${E}`} /> : null}
+        <div className="mt-4">
+          <ProLockPanel featureName="Background music" unlockHref={`/dashboard/${E}/studio/website-pro`} priceLabel={null} />
+        </div>
+      </div>
+    );
+  }
+  /* 🎨 Papic's row and band — the REAL glance over the approved prototype's own sample
+     (papic_easy_home_and_band_2026-10-14_fable.html: Maria & Jose, 2,000 credits bought),
+     the REAL default window. `lowday` = running low ON the event day (owner call 1). */
+  const papicState = q.papic ?? null;
+  const dayMs = 86_400_000;
+  const iso = (ms: number) => new Date(ms + 8 * 3_600_000).toISOString().slice(0, 10);
+  const PAPIC: Record<string, { left: number; photos: number; days: number }> = {
+    before: { left: 2000, photos: 0, days: 234 },
+    on: { left: 1240, photos: 86, days: 66 },
+    low: { left: 140, photos: 1860, days: 66 },
+    stopped: { left: 0, photos: 2000, days: 66 },
+    empty: { left: 2000, photos: 0, days: 66 },
+    lowday: { left: 140, photos: 1860, days: 0 },
+  };
+  const ps = papicState ? PAPIC[papicState] ?? PAPIC.on! : null;
+  const papicEventDate = iso(Date.now() + (ps?.days ?? 40) * dayMs);
+  const papicWin = resolveStoredWindow({ windowStart: null, windowEnd: null, eventDate: papicEventDate });
+  const papicNow = papicGlance({
+    permitted: true,
+    tile: unread
+      ? 'failed'
+      : ps
+        ? { shotsLeft: ps.left, shotsTotal: 2000, photosGathered: ps.photos }
+        : proto
+          ? { shotsLeft: 50, shotsTotal: 50, photosGathered: 0 }
+          : { shotsLeft: 1240, shotsTotal: 1500, photosGathered: 12 },
+    window: { startDate: papicWin.startDate, endIso: papicWin.endIso },
+    eventDate: papicEventDate,
+    papicOn: true,
+  });
+  /* The prototype's ladder seed — for the lab's sheet only; the app reads the catalog. */
+  const LAB_SIZES = [
+    { serviceCode: 'LAB_100', points: 100, pricePhp: 70, discountPercent: 30 },
+    { serviceCode: 'LAB_300', points: 300, pricePhp: 210, discountPercent: 30 },
+    { serviceCode: 'LAB_500', points: 500, pricePhp: 350, discountPercent: 30 },
+    { serviceCode: 'LAB_1000', points: 1000, pricePhp: 700, discountPercent: 30 },
+    { serviceCode: 'LAB_3000', points: 3000, pricePhp: 1680, discountPercent: 44 },
+  ];
+  if (q.view === 'apply') {
+    return <ApplyProSheetLab screen={q.screen ?? 'none'} />;
+  }
+  if (q.view === 'stagebar') {
+    /* 📷 The bar a guest holding their key sees on this stage — no database, the real rules. */
+    const stage = (['save_the_date', 'rsvp', 'event', 'editorial'] as const).find((s) => s === q.stage) ?? 'save_the_date';
+    const papicOn = q.papic !== '0';
+    const phase = stage === 'event' ? 'day' : stage === 'editorial' ? 'after' : 'before';
+    const bar = resolveSiteNav({
+      viewer: { kind: 'guest' },
+      phase,
+      stageSlots: STAGE_BAR[stage].slots,
+      hostAllowsCamera: papicOn,
+      anyChapterPublic: false,
+      memoriesHasPhotos: q.photos === 'x' ? null : q.photos !== '0',
+      hasStory: true,
+      hasDetails: true,
+      liveBroadcast: false,
+      postEvent: { film: true, suppliers: true },
+      tabbed: stage === 'event' ? true : stage === 'editorial' ? false : 'one-page',
+      destinations: { camera: '/papic/guest?from=lab', film: '#open-film', suppliers: '#site-suppliers' },
+    });
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-28 pt-3">
+        <div className="mx-auto flex max-w-xl flex-col gap-3">
+          <p className="sn-eye text-ink/70">{STAGE_BAR[stage].label} · the guest&rsquo;s bar</p>
+          <p className="text-sm text-ink/70">
+            Papic {papicOn ? 'on' : 'off'} · {q.photos === 'x' ? 'photos not known' : q.photos === '0' ? 'no Papic photos yet' : 'Papic photos taken'}
+          </p>
+          <p className="text-sm text-ink/60">{bar.map((sl) => sl.label).join(' · ')}</p>
+        </div>
+        <SiteMenuBar slots={bar} onePage={stage === 'save_the_date' || stage === 'rsvp'} />
+      </div>
+    );
+  }
+  if (q.view === 'early') {
+    const early = q.early !== '0';
+    const n = Math.max(0, Number(q.shots ?? 0) || 0);
+    const bar = resolveSiteNav({
+      viewer: { kind: 'guest' },
+      phase: 'before',
+      stageSlots: STAGE_BAR.rsvp.slots,
+      hostAllowsCamera: true,
+      anyChapterPublic: false,
+      hasStory: true,
+      liveBroadcast: false,
+      earlyOwnShots: early,
+      destinations: { camera: '/papic/guest?from=lab' },
+    });
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-28 pt-3">
+        <div className="mx-auto flex max-w-xl flex-col gap-6">
+          <p className="sn-eye text-ink/70">Memories · before the day</p>
+          {early ? (
+            <YourShotsGallery
+              shots={{ shots: Array.from({ length: n }, (_, i) => ({ id: `lab-${i}`, url: '/portraits/' + LAB_PHOTOS[i % LAB_PHOTOS.length]!, capturedAt: null })), total: n }}
+              qrToken={null}
+              cameraOn
+              everyoneHref={null}
+              cameraHref="/papic/guest?from=lab"
+            />
+          ) : (
+            <p className="text-sm text-ink/60">(Early shooting off — there are no Memories before the day.)</p>
+          )}
+        </div>
+        <SiteMenuBar slots={bar} />
+      </div>
+    );
+  }
+  if (q.view === 'papic') {
+    const band = (
+      <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
+        <div className="mx-auto flex max-w-xl flex-col gap-7">
+          <PapicTopBand eventId={E} glance={papicNow} canBuy sizes={q.need === '1' ? undefined : LAB_SIZES} apple={q.apple === '1'} />
+        </div>
+      </div>
+    );
+    return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{band}</LabShell> : band;
+  }
+  if (q.view === 'offline') {
+    /* 📶 EV3 — Ready for no signal · the supplier's saved mark · the Check-in desk's offline queue (offline-lab.tsx). */
+    if (q.schedule === '1') return <OfflineScheduleLab state={q.state} />;
+    return <OfflineLab state={q.state} browser={q.browser} desk={q.desk} />;
+  }
+  if (q.view === 'day') {
+    /* The event day: the page's own wiring — `homeServices` builds Your services, the console draws its Papic entry. */
+    const store = q.store === '1';
+    const face = q.face;
+    const dayGlance =
+      face === 'failed' || face === 'none'
+        ? papicGlance({ permitted: true, tile: face === 'failed' ? 'failed' : null, window: { startDate: null, endIso: null }, papicOn: true })
+        : papicNow;
+    const dayServices = homeServices({
+      next: 'plan',
+      storeShell: store,
+      papic: dayGlance.status,
+      papicDoors: { glance: dayGlance, line: dayGlance.line, buy: dayGlance.buy, whileNext: papicRowDoubled(null) },
+      ai: aiStatus(false),
+      eventId: E,
+      paid: store ? null : labPaid(q.paid ?? 'none', E),
+    });
+    const svc = dayServices.find((x) => x.key === 'papic');
+    const now = Date.now();
+    const at = (min: number) => new Date(now + min * 60_000).toISOString();
+    const blocks = [
+      { block_id: 'b1', label: 'Ceremony', start_at: at(-90), end_at: at(-30), location: 'Garden' },
+      { block_id: 'b2', label: 'Cocktails', start_at: at(-30), end_at: at(30), location: 'Terrace' },
+      { block_id: 'b3', label: 'Dinner & toasts', start_at: at(30), end_at: at(150), location: 'Main hall' },
+    ];
+    const day = (
+      <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-28 pt-3 sm:px-6 sm:pt-6 lg:px-8" data-lab-day="">
+        <DayOfModeGrid
+          eventId={E}
+          blocks={blocks}
+          headTable={null}
+          nearbyTables={[]}
+          liveWallActive={!store}
+          papic={
+            q.before === '1' ? null : (
+              <DayPapicRow
+                eventId={E}
+                face={dayPapicFace({ svc, papicOn: face === 'off' ? false : true, permitted: true, tile: face === 'failed' ? 'failed' : face === 'none' ? null : {} })}
+                svc={svc}
+                left={dayGlance.count}
+                sizes={LAB_SIZES}
+              />
+            )
+          }
+        />
+        {/* The rest of Your services on the day (More left the bar, owner 22 Oct 2026) — as the page draws it. */}
+        {q.before === '1' ? null : (
+          <div className="mt-4">
+            <YourServices eventId={E} services={dayServices.filter((x) => x.key !== 'papic')} papicLeft={dayGlance.count} />
+          </div>
+        )}
+      </div>
+    );
+    return q.shell === '1' ? (
+      <LabShell eventId={E} gutter={false} eventBar={labEventBar({ type: q.type, needs: q.needs, phase: q.phase ?? 'dayof', store: q.store, was: q.before })}>
+        {day}
+      </LabShell>
+    ) : (
+      day
+    );
+  }
+  /* An unread guest list reaches the picker as `null` — exactly as the page hands it. */
+  const base: HomeNextInput = ps
+    ? {
+        ...picked,
+        guide: null,
+        papicReady: false,
+        papic: papicNow.moment && papicNow.count !== null && papicNow.total !== null
+          ? { moment: papicNow.moment, left: papicNow.count, total: papicNow.total }
+          : null,
+      }
+    : picked;
+  // 🚪 What the event needs — a preset's needs read back exactly as the dashboard reads the columns.
+  const labNeeds =
+    q.needs && (NEED_PRESETS as readonly string[]).includes(q.needs)
+      ? readEventNeeds(needsColumns(needsForPreset(q.needs as NeedPreset, { marketplace: true })))
+      : null;
+  const input0: HomeNextInput = unread ? { ...base, guide: null, guests: null } : base;
+  const input: HomeNextInput = labNeeds ? { ...input0, needs: labNeeds } : input0;
+  const next = pickHomeNext(input);
+  /* 🎛 The control row on the prototype's own sample (`lib/home-control-fixture.ts`, the guards' own fixture) — with
+     the unread states the page hands over when its reads fail, and the lab's own days / coming / no reply / money. */
+  const days = glanceDays(F.days);
+  /* 📅 The Schedule widget on the prototype's own sample (`fixtureSchedule`) — `?sched=` picks the moment. */
+  const schedPhase = q.sched === 'week' || q.sched === 'day' ? q.sched : 'before';
+  const labSchedule =
+    q.sched === 'off'
+      ? null
+      : unread || q.sched === 'unread'
+        ? ('unread' as const)
+        : q.sched === 'none'
+          ? { chapters: 0, now: [], next: [], then: [], toApprove: 0, needYou: 0, oweTimes: 0, pro: false }
+          : fixtureSchedule(schedPhase, q.plan === 'pro');
+  const weekOut = schedPhase === 'week' && labSchedule !== null && labSchedule !== 'unread';
+  /* 👻 `?empty=1` — THE EMPTY LOOK (Build 5 Lane H): a new event, every read answered and empty — each widget's honest
+     face with its greyed Example under it (`fixtureControlEmpty`, the same fixture the guard renders). */
+  const labControl = q.empty === '1' ? fixtureControlEmpty(E) : (unread ? fixtureControlUnread : fixtureControl)(E, {
+    next,
+    schedule: labSchedule,
+    countdown: labDate
+      ? labDate.countdown
+      : weekOut
+      ? { value: '7', label: 'days to go', days: 7, hasDate: true, long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' }
+      : { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
+    ...(labNeeds?.guestList === false ? { guests: null } : unread ? {} : { guests: { coming: F.coming, noReply: F.noReply, toInvite: 35, declined: 4, total: 131 } }),
+    ...(q.hidden === '1' ? { budget: null } : unread ? {} : { budget: { paidPhp: F.paid, owingPhp: F.owing, pays: fixturePays() } }),
+    /* ✅ To do (owner 2026-11-01, "Checklist merges into Planning Stage"): the SAME fixture list `/dev/schedule-lab?view=
+       preparation` draws, counted by the SAME rule (`planningProgress`) — so the tile here and the list there agree. */
+    ...(unread ? {} : { checklist: labTodoFacts() }),
+  });
+  /* 🏠 `&moved=1|unread` — the lines for what moved (event-menu reorganisation): Guests' "N without a seat" (→ Guests ›
+     Seats) and Suppliers' "N looks on your board" (→ Find's board), or both reads refused. */
+  if (q.moved === '1' || q.moved === 'unread') {
+    const refused = q.moved === 'unread';
+    if (labControl.guests && labControl.guests !== 'unread') labControl.guests = { ...labControl.guests, unseated: refused ? 'unread' : 12 };
+    if (labControl.suppliers && labControl.suppliers !== 'unread') {
+      labControl.suppliers = { ...labControl.suppliers, inspiration: refused ? 'unread' : { photos: 24, parts: 6 } };
+    }
+  }
+  const home = (
+    /* The EVENT LAYOUT's own gutter (`app/dashboard/[eventId]/layout.tsx` — px-4 · sm:px-6 · lg:px-8, pt-3 ·
+       sm:pt-6): the cover band cancels exactly that gutter to run edge to edge, so a lab that pads by less draws
+       a band that overflows (sweep 2026-10-19 C13: 16 px past the right edge at 1280 — the lab's, not the Home's).
+       Held by `lib/the-home-cover-band-fits-its-gutter.test.ts`. */
+    <>
+    {/* `&coord=1` — 🗂 a supplier inside an event they run as the hosts' coordinator (owner 2026-10-28): the REAL
+        line the event layout draws above every page for that viewer, over the couple's own Home. */}
+    {q.coord === '1' ? <CoordinatingLine eventName={F.name} checkInHref={`/dashboard/${E}/guests/checkin`} /> : null}
+    {/* 📅 The Countdown's Date Finder answers from the Suppliers lab's date fixtures (no database) — the SAME sheet. */}
+    <LabFactSheets options={{ help: 'ok', notSet: false, change: false, venues: 'none' }} open={null} landDateCookie="lab_home_date">
+    <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+      <HomeFirstScreen
+        eventId={E}
+        /* ✨ The Memories line (Home redraw 2026-11-02) — the lab's words; the page words it from its own reads. */
+        memories={q.sched === 'day' ? '12 photos so far · filling now' : 'Fills on the day · photos, reels and your Thank-you video'}
+        /* ☀ The Today asks — under the cover, first in the Today list (owner 2026-10-29). */
+        asks={
+          q.level === '1' || q.level === 'unread' ? (
+            <CoordinatorLevelAsk
+              eventId={E}
+              asks={[
+                {
+                  moderatorId: 'lab-seat',
+                  shop: q.shop === 'none' ? null : q.shop === 'long' ? 'The Wedding Project Events & Coordination by Ana Marie' : 'The Wedding Project',
+                  logoUrl: null,
+                },
+              ]}
+              unread={q.level === 'unread'}
+              accessHref={peopleWithAccessHref(E)}
+            />
+          ) : null
+        }
+        /* ⚙ Event Settings on the cover — its rows drawn on the lab's fixture (`lab-event-settings.tsx`), no database. */
+        /* `&as=helper|coordinator` — 🪪 a helper's ⚙ (owner 2026-10-31): the same sheet, "Your access" alone, read-only. */
+        eventSettings={labAs === null}
+        helperSettings={labAs !== null}
+        eventSettingsRows={labAs ? labYourAccessRows(E, labAs, q.asked === '1') : labEventSettingsRows(E, q.asked === '1')}
+        /* `?settings=1[&row=access]` — the sheet opens with the page, as Home's own link does (the ☰'s mark). */
+        dateFinderOpen={q.date === 'find'}
+        eventSettingsLink={{
+          open: q.settings === '1',
+          row: q.settings === '1' && isEventSettingsRow(q.row) ? q.row : null,
+          // 🪪 `&person=<seat>` — lands on that person's row, as a helper's "Ask the hosts" notice does.
+          person: q.settings === '1' && q.person ? q.person : null,
+          landed: null,
+          renderKey: 'lab',
+        }}
+        cover={{
+          eyebrow: labDate?.cover.eyebrow ?? F.eyebrow,
+          shortDate: labDate ? labDate.cover.shortDate || undefined : F.shortDate,
+          name: F.name,
+          ...(labForWho ? { forWho: labForWho } : {}),
+        }}
+        next={next}
+        control={labControl}
+        needs={labNeeds ? { ...labNeeds, switchOn: switchOnRows(labNeeds, { marketplace: true }) } : null}
+        papicLeft={papicNow.count}
+        papicSizes={LAB_SIZES}
+        hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
+        /* 🖨 The Prints line (R8) — the couple's, where the event needs its Event Hub details; `&prints=0` drops it. */
+        prints={q.prints !== '0' && (labNeeds ? labNeeds.hubDetails : true)}
+        /* 📷 `?card=1` — the couple's Papic card is in Memories since 2026-11-08: Today draws no Papic row, and the lab
+           draws the card under the screen, as Memories' keepsake row hands it on (`PapicCard`). */
+        papicInMemories={q.card === '1'}
+        whosHere={q.whos ? labWhosHere(E, q.whos) : null}
+        apple={
+          q.store === '1' && q.apple === '1'
+            ? {
+                papic: { status: papicNow.status, buy: true, open: null },
+                liveWatch:
+                  q.live === 'on'
+                    ? {
+                        status: liveWatchHomeStatus({
+                          active: true,
+                          owned: true,
+                          where: q.bought === 'web' ? 'web' : q.bought === 'app' ? 'app' : null,
+                        }),
+                        owned: true,
+                        askReady: false,
+                        goLive: q.v11 === '1' ? `/panood/control/${E}` : null,
+                      }
+                    : { status: 'Not on yet · one camera included', owned: false, askReady: true },
+              }
+            : null
+        }
+        services={homeServices({
+          next: next.kind,
+          storeShell: q.store === '1',
+          papic: papicNow.status,
+          papicDoors: {
+            glance: papicNow,
+            line: papicNow.line,
+            buy: papicNow.buy,
+            whileNext: papicRowDoubled(next.kind === 'papic' ? next.papicMoment ?? null : null),
+          },
+          ai: aiStatus(unread ? null : false),
+          eventId: E,
+          paid: q.store === '1' ? null : labPaid(q.paid, E),
+        })}
+      />
+      {/* 📷 MEMORIES' SEAT — the card Memories draws under its keepsake row (2026-11-08), drawn here on fixtures. */}
+      {q.card === '1' ? (
+        <section aria-label="Memories" className="mt-6 grid gap-3" data-lab-memories-papic="">
+          <p className="hc-k2"><span className="hc-k2-name">In Memories</span><em>under the keepsakes</em></p>
+          <PapicCard card={labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1', q.head, q.save, q.chapter)} />
+        </section>
+      ) : null}
+    </div>
+    </LabFactSheets>
+    </>
+  );
+  /* `&spot=1` — 👋 the host spotlight's first run over this Home: the once-only welcome, then the shipped steps. */
+  const lit = q.spot === '1' ? (
+    <>
+      {home}
+      {TOURS.host_spotlight_v1.spotlight ? <LabSpotlight name="Isabel" script={TOURS.host_spotlight_v1.spotlight} /> : null}
+    </>
+  ) : (
+    home
+  );
+  /* `&shell=1` — the REAL One Shell (rail + bar, `boundary="tab"`); the Home draws the layout's gutter itself. */
+  /* The REAL event bar (`labEventBar` — five tabs since 23 Oct 2026, Memories after Hub), Home lit. */
+  return q.shell === '1' ? (
+    <LabShell eventId={E} gutter={false} eventBar={labEventBar({ type: q.type, needs: q.needs, phase: q.phase, store: q.store })} homeAt="/dev/home-lab">
+      {lit}
+    </LabShell>
+  ) : (
+    lit
+  );
+}
+
+/* 🏷 "For <name>" fixtures (prototype for_tag_on_event_cards_2026-10-22.html): the shop's round
+   logo is a drawn stand-in (no R2 in a lab); a loved one has no photo, so initials. */
+const LAB_LOGO =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='32' fill='%231F3A5F'/><circle cx='32' cy='32' r='24' fill='none' stroke='%23CBA766' stroke-width='3'/><text x='32' y='43' text-anchor='middle' font-family='Georgia,serif' font-size='30' fill='%23FBFAF7'>S</text></svg>";
+const LAB_SHOP_TAG: ForTag = { name: 'SetnaProd', markUrl: LAB_LOGO };
+const LAB_PERSON_TAG: ForTag = { name: 'Lola Nena', markUrl: null };
+
+function labPoster(over: Partial<EventPosterFacts>): EventPosterFacts {
+  return {
+    kind: 'deep', accent: null, capiz: false, dark: true, names: { first: '', second: null },
+    weekday: null, date: null, eyebrow: null, line: null, venue: null, photoSrc: null, ground: null, legibility: null,
+    ...over,
+  };
+}
+
+function LabBoard({ tagged, one }: { tagged: boolean; one: boolean }) {
+  const cards = one
+    ? [
+        {
+          id: 'lola', title: 'Lola Nena', badge: 'Birthday', tag: LAB_PERSON_TAG, days: '199 days to go', pct: 12, attention: undefined,
+          poster: labPoster({ kind: 'moon', accent: '#6b7a3a', names: { first: 'Lola Nena', second: null }, weekday: 'Sunday', date: '9 May 2027' }),
+          mark: 'LN',
+        },
+      ]
+    : [
+        {
+          id: 'gala', title: 'Year-End Gala', badge: 'Gala Night', tag: LAB_SHOP_TAG, days: '136 days to go', pct: 41,
+          attention: { count: 3, label: '3 tasks overdue' },
+          poster: labPoster({ kind: 'deep', accent: '#1f3a5f', names: { first: 'Year-End Gala', second: null }, weekday: 'Saturday', date: '7 March 2027' }),
+          mark: 'S',
+        },
+        {
+          id: 'mj', title: 'Maria & Jose', badge: 'Wedding', tag: null, days: '226 days to go', pct: 62,
+          attention: { count: 17, label: '17 tasks overdue' },
+          poster: labPoster({ kind: 'photo', names: { first: 'Maria', second: 'Jose' }, weekday: 'Saturday', date: '5 June 2027', photoSrc: '/event-types/wedding.webp', ground: 'hero', legibility: { '--hub-ink': '#FBFAF7', '--hub-heading': '#FBFAF7', '--hub-accent-text': '#E6D3A8', '--hub-scrim': 'rgba(20,14,10,.62)' } }),
+          mark: 'M & J',
+        },
+      ];
+  return (
+    <div className="mx-auto w-full max-w-md bg-cream px-4 py-3" data-lab-board="">
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-ink/45">Planning</p>
+      <CollectionGrid layout="poster">
+        {cards.map((c, i) => {
+          const forTag = tagged ? c.tag : null;
+          return (
+            <div key={c.id} className="relative">
+              <CollectionCard
+                href="#"
+                layout="poster"
+                coverTone={c.poster.dark ? 'dark' : 'light'}
+                index={i}
+                reserveMenuCorner
+                cover={<EventPoster poster={c.poster} markText={c.mark} nameOnly />}
+                kicker={[c.badge, <StanceChip stance="organiser" forTag={forTag} key="stance" />]}
+                title={c.title}
+                meta={`${c.badge}, ${forTag ? `for ${forTag.name}` : 'You organise this'}`}
+                attention={c.attention}
+                progress={{ pct: c.pct, remainder: c.days, srLabel: 'planned' }}
+              />
+            </div>
+          );
+        })}
+      </CollectionGrid>
+    </div>
+  );
+}

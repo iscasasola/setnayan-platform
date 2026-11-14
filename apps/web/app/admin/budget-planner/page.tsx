@@ -14,7 +14,7 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { formatCount } from '@/lib/format-number';
-export const metadata = { title: 'Budget Planner' };
+export const metadata = { title: 'Budget planner · Admin' };
 
 /**
  * /admin/budget-planner — admin-facing control surface for the Budget Planner
@@ -401,7 +401,6 @@ export default async function AdminBudgetPlannerPage() {
             title: 'Not enough couples yet',
             blurb:
               'A service appears here only once enough different couples have saved a plan that names it, so no single couple can be identified from the average. Nothing to do — it fills as couples plan.',
-            verifiedNote: 'Verified: read permitted · 0 services above the privacy floor',
           }}
           columns={[
             {

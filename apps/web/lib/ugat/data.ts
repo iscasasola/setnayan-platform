@@ -9,6 +9,7 @@ import type { UgatEntityType } from './graph';
 import {
   scoreUgatMatch,
   sanitizeIlikeTerm,
+  eventWordFilters,
   guestNameOrFilter,
   guestDisplayName,
   guestRsvpLabel,
@@ -35,7 +36,7 @@ export { scoreUgatMatch } from './data-pure';
  *
  * ⚖ THE GUEST HALF WAS NARROWED BY THE OWNER ON 2026-08-27, AND ONLY BY NAME.
  * Asked directly — framed to him as a privacy posture call — whether an admin
- * should be able to search ANY guest by name across EVERY celebration, he
+ * should be able to search ANY guest by name across EVERY event, he
  * answered **YES**. So `ugatSearch()` now finds an individual guest. The lock
  * that used to read "no individual guest PII in slice 1" is superseded to
  * exactly this extent and no further:
@@ -43,7 +44,7 @@ export { scoreUgatMatch } from './data-pure';
  *     Deliberately NOT by email or mobile: the ruling was "by name", and a
  *     reverse lookup from a contact detail is a different power nobody granted.
  *   · A HIT SHOWS what identifies the record — the name, the RSVP status, and
- *     which celebration. **Never a contact detail.** `email`, `mobile` and
+ *     which event. **Never a contact detail.** `email`, `mobile` and
  *     `address` are not selected by this module at all; they live on the
  *     record's own surface, which is the privacy-preserving default the
  *     shipped record links already follow.
@@ -916,12 +917,17 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       .or(`business_name.ilike.${like},business_slug.ilike.${like}`)
       .limit(6)
       .then(({ data }) => data ?? [], () => []),
-    admin
-      .from('events')
-      .select('event_id, public_id, display_name, slug')
-      .or(`display_name.ilike.${like},slug.ilike.${like}`)
+    // 🔎 F-W2-37: word by word, with the public id — and a refused read is LOGGED, never a silent "no matches".
+    (eventWordFilters(q) ?? [])
+      .reduce((qb, f) => qb.or(f), admin.from('events').select('event_id, public_id, display_name, slug'))
       .limit(6)
-      .then(({ data }) => data ?? [], () => []),
+      .then(
+        ({ data, error }) => {
+          if (error) logQueryError('ugat search (events)', error);
+          return data ?? [];
+        },
+        () => [],
+      ),
     admin
       .from('users')
       .select('user_id, public_id, display_name, email')
@@ -968,7 +974,7 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
 
   /*
     WHICH CELEBRATION each found guest belongs to. A name on its own does not
-    identify anybody — there is more than one Maria — and the celebration is
+    identify anybody — there is more than one Maria — and the event is
     also where the hit LANDS, so this read is what makes the destination real
     rather than a guess. Only runs when a guest actually matched.
   */
@@ -1063,8 +1069,8 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
 
   /*
     A GUEST HIT SHOWS THREE THINGS: who they are, whether they replied, and
-    whose celebration it is. That is what identifies the record — no more.
-    The celebration is named because a name alone identifies nobody, and it is
+    whose event it is. That is what identifies the record — no more.
+    The event is named because a name alone identifies nobody, and it is
     also the only surface an admin can act on, since a guest has no page.
   */
   const guestHits: UgatSearchHit[] = (guests as any[])

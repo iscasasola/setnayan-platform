@@ -69,7 +69,7 @@ export function CouplePhotosList({
       <div className="flex items-center gap-2">
         <h2 className="min-w-0 flex-1 text-[17px] font-semibold text-ink">
           Photos couples shared
-          {waiting > 0 ? <span className="ml-1.5 text-[14px] font-normal text-ink/55">· {waiting} waiting</span> : null}
+          {waiting > 0 ? <span className="ml-1.5 text-sm font-normal text-ink/70">· {waiting} waiting</span> : null}
         </h2>
         <Explain title="Photos couples shared">
           A couple on one of your events shared their own photo of your work for one of your service cards. Approve it
@@ -94,29 +94,29 @@ export function CouplePhotosList({
                   className="absolute inset-x-1 bottom-1 z-[1] grid gap-0.5 rounded-md bg-cream/95 p-1 [&_.ab]:w-full"
                   data-couple-photo-answer={r.shareId}
                 >
-                  <small className="px-0.5 text-[12px] font-semibold leading-[1.1] text-ink/60">Shared by the couple</small>
-                  <ActionButton tone="brand" main icon={Check} label="Approve" name={`Approve the photo for ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, true)} />
+                  <small className="px-0.5 text-xs font-semibold leading-[1.1] text-ink/70">Shared by the couple</small>
+                  <ActionButton tone="brand" main icon={Check} label="Approve" name={`Approve the photo for ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, true)} className="!h-11" />
                 </div>
               ) : (
-                <span className="absolute bottom-1 left-1 right-1 z-[1] w-fit max-w-full rounded-lg bg-cream/95 px-1.5 py-0.5 text-[12px] font-semibold leading-[1.2] text-[rgb(var(--color-ok))] shadow-sm" data-couple-photo-on-card="">
+                <span className="absolute bottom-1 left-1 right-1 z-[1] w-fit max-w-full rounded-lg bg-cream/95 px-1.5 py-0.5 text-xs font-semibold leading-[1.2] text-[rgb(var(--color-ok))] shadow-sm" data-couple-photo-on-card="">
                   ✓ On your card
                 </span>
               )}
             </div>
             <div className="flex items-start gap-1">
-              <span className="min-w-0 flex-1 text-[12px] leading-snug">
+              <span className="min-w-0 flex-1 text-xs leading-snug">
                 <b className="line-clamp-2 font-medium text-ink" title={r.serviceTitle}>{r.state === 'waiting' ? `For “${r.serviceTitle}”` : `On “${r.serviceTitle}”`}</b>
-                <span className="block truncate text-ink/60" title={r.creditLine}>Credit: {r.creditLine}</span>
-                {r.audienceLabel ? <span className="block truncate text-ink/50">Seen by: {r.audienceLabel}</span> : null}
+                <span className="block truncate text-ink/70" title={r.creditLine}>Credit: {r.creditLine}</span>
+                {r.audienceLabel ? <span className="block truncate text-ink/70">Seen by: {r.audienceLabel}</span> : null}
               </span>
               {r.state === 'waiting' ? (
-                <ActionButton tone="neutral" quiet iconOnly icon={X} label="Decline" name={`Decline the photo for ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, false)} />
+                <ActionButton tone="neutral" quiet iconOnly icon={X} label="Decline" name={`Decline the photo for ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, false)} className="!h-11 !w-11" />
               ) : (
-                <ActionButton tone="neutral" quiet iconOnly icon={Undo2} label="Take off" name={`Take the photo off ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, false)} />
+                <ActionButton tone="neutral" quiet iconOnly icon={Undo2} label="Take off" name={`Take the photo off ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, false)} className="!h-11 !w-11" />
               )}
             </div>
             {said[r.shareId] ? (
-              <p role={said[r.shareId]!.tone === 'bad' ? 'alert' : 'status'} className={`text-[12px] leading-snug ${said[r.shareId]!.tone === 'bad' ? 'text-danger-700' : 'text-success-700'}`}>
+              <p role={said[r.shareId]!.tone === 'bad' ? 'alert' : 'status'} className={`text-xs leading-snug ${said[r.shareId]!.tone === 'bad' ? 'text-danger-700' : 'text-success-700'}`}>
                 {said[r.shareId]!.text}
               </p>
             ) : null}

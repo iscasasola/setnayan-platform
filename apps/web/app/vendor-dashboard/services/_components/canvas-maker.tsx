@@ -254,6 +254,8 @@ export function CanvasMaker({
   detailsSlot = null,
   detailsKind = null,
   recordSlot = null,
+  portfolioSlot = null,
+  portfolioLine = null,
   editing = null,
   bookedNow,
   deleteGate = null,
@@ -321,6 +323,13 @@ export function CanvasMaker({
   detailsKind?: string | null;
   /** The card's collected record, server-rendered (`CardRecordSection`), on the edit sheet. */
   recordSlot?: ReactNode;
+  /**
+   * 🃏📸 What this card collected from its bookings (`CardPortfolioSection`, frames 72 · 74 · 75), server-rendered on
+   * the edit sheet — ONLY while the record flag is on. Null → the fold says what it always said.
+   */
+  portfolioSlot?: ReactNode;
+  /** The Portfolio fold's summary when `portfolioSlot` is drawn (`portfolioSummary`). */
+  portfolioLine?: string | null;
   /** An existing card → the edit sheet: Save, the Live switch, delete and copy. */
   editing?: MakerEditing | null;
   /**
@@ -797,9 +806,9 @@ export function CanvasMaker({
     ...schedules.map((s) => ({ key: s.id, label: `${s.name} schedule` })),
   ];
   const sharedSchedule = schedules.find((s) => s.id === scheduleChoice) ?? null;
-  const scheduleLine = sharedSchedule
-    ? `Shares ${sharedSchedule.name}${sharedSchedule.perDay ? ` · ${formatCount(sharedSchedule.perDay)} a day` : ''}`
-    : 'Its own';
+  // RW-67 (walk 13 Nov 2026): the schedule's own "N a day" is said ONCE — on the daily field below, as the number that
+  // holds — not here as a third number beside the card's limit and the plan's.
+  const scheduleLine = sharedSchedule ? `Shares ${sharedSchedule.name}` : 'Its own';
 
   // ── 🏷 the one question ───────────────────────────────────────────────────
   const ask = !isEdit && category ? (coverageAsk[category] ?? null) : null;
@@ -1438,9 +1447,11 @@ export function CanvasMaker({
                           with a −/＋ stepper from 1, inside the plan's bookings per date per card (owner 2026-11-06: Solo 1 ·
                           Pro 3 · Ultra 5). It lives HERE under More settings, not on the first page — DECISION_LOG 2026-11-13
                           "CARD MAKER SAME-DAY ROW → MORE SETTINGS" (owner: "more settings."). The fold stays mounted while
-                          shut (inert), so it still posts. Time slots set it instead when the card has some. */}
+                          shut (inert), so it still posts. Time slots set it instead when the card has some. The question is the per-service
+                          one (owner 13 Nov 2026, DECISION_LOG d8ec0922), and a shared schedule's own number is the one
+                          said (RW-67) — both from main, merged into this row. */}
                       <FormRows data="same-day-rows">
-                        <SameDayRow editing={editing} bookingsPerDate={bookingsPerDate} />
+                        <SameDayRow editing={editing} bookingsPerDate={bookingsPerDate} sharedSchedule={sharedSchedule} />
                       </FormRows>
                       <SlotRows existing={editing?.slots ?? []} />
                     </div>
@@ -1515,12 +1526,14 @@ export function CanvasMaker({
                     </div>
                   </Fold>
 
-                  <Fold data="m-portfolio" title="Portfolio · collected" line="Albums from events this card was booked for · read-only" lead={<SubIcon><Images aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <Fold data="m-portfolio" title="Portfolio · collected" line={portfolioLine ?? 'Albums from events this card was booked for · read-only'} lead={<SubIcon><Images aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
                     <div className="pb-4 pt-1">
-                      <p className="text-[14px] text-ink/65">
-                        Each booked event’s album lands here and in Their work on your page. Your cover photos are never
-                        shown as proof.
-                      </p>
+                      {portfolioSlot ?? (
+                        <p className="text-[14px] text-ink/65">
+                          Each booked event’s album lands here and in Their work on your page. Your cover photos are never
+                          shown as proof.
+                        </p>
+                      )}
                     </div>
                   </Fold>
 
@@ -1966,7 +1979,8 @@ function MakerSection({ label, aside, tip }: { label: string; aside?: string; ti
 }
 
 /** The question, verbatim as ruled (6058): "How many a day" read as confusing. */
-export const SAME_DAY_QUESTION = 'How many events can you serve on the same day?';
+/** The per-service question (owner 13 Nov 2026, DECISION_LOG d8ec0922 — "THE DAILY LIMIT IS PER SERVICE"). */
+export const SAME_DAY_QUESTION = 'How many events a day can this service take?';
 
 /**
  * ⚖ SAME-DAY CAPACITY — PER SERVICE CARD (`vendor_services.daily_capacity`, posted as `daily_capacity`). A −/＋ stepper from
@@ -1980,9 +1994,12 @@ export const SAME_DAY_QUESTION = 'How many events can you serve on the same day?
 function SameDayRow({
   editing,
   bookingsPerDate,
+  sharedSchedule = null,
 }: {
   editing: MakerEditing | null;
   bookingsPerDate: { cap: number | null; help: string | null } | null;
+  /** RW-67: a shared schedule's own number is what holds — said in the row's ⓘ, never three numbers side by side. */
+  sharedSchedule?: { name: string; perDay?: number | null } | null;
 }) {
   const stored = editing && editing.dailyCapacity.trim() !== '' ? Number(editing.dailyCapacity) : null;
   const cap = bookingsPerDate?.cap != null && Number.isFinite(bookingsPerDate.cap) ? bookingsPerDate.cap : null;
@@ -1992,7 +2009,9 @@ function SameDayRow({
   const shown = stored ?? (blankStored && cap !== null ? cap : 1);
   const about = slots
     ? 'Time slots set how many at once instead — change them under More settings · Booking terms.'
-    : [`A couple can book this card for an event on a date while fewer than this many events are booked on it.`, bookingsPerDate?.help ?? null]
+    : sharedSchedule?.perDay
+      ? `It shares the ${sharedSchedule.name} schedule, which takes ${formatCount(sharedSchedule.perDay)} ${sharedSchedule.perDay === 1 ? 'event' : 'events'} a day — that is the number that holds.`
+      : [`A couple can book this card for an event on a date while fewer than this many events are booked on it.`, bookingsPerDate?.help ?? null]
         .filter(Boolean)
         .join(' ');
   return (

@@ -80,6 +80,37 @@ export function myPageUrl(origin: string, slug: string): string {
   return `${origin.replace(/\/+$/, '')}${myPagePath(slug)}`;
 }
 
+/**
+ * 💳 THE SUPPLIER'S OWN LINK (owner 2026-11-13, DECISION_LOG "THE SUPPLIER'S PERSONAL QR IS FREE; THEIR SHOP PAGE IS
+ * CHARGED"; walk F-W1-58). The SAME page as `myPageUrl`, tagged `?src=own`, so an inquiry that arrives through the
+ * supplier's QR, door sticker, print or share link is stamped `website` — their own client, no booking fee — while an
+ * untagged arrival (somebody who found the shop on Setnayan) is `shop_page`, Setnayan-sourced. Every code or link the
+ * SUPPLIER distributes is built here; a page Setnayan itself links to uses `myPageUrl`.
+ */
+export const OWN_LINK_SRC = 'own';
+export function ownPageUrl(origin: string, slug: string): string {
+  return `${myPageUrl(origin, slug)}?src=${OWN_LINK_SRC}`;
+}
+/** 💳 RW-19 (walk 13 Nov 2026): the supplier's own "Check a date" code — `/v/<slug>/dates`, tagged as theirs. */
+export function ownDatesUrl(origin: string, slug: string): string {
+  return `${myPageUrl(origin, slug)}/dates?src=${OWN_LINK_SRC}`;
+}
+/** 💳 RW-19: the supplier's own "Reviews" code — `/v/<slug>/review`, tagged as theirs (the door keeps the tag). */
+export function ownReviewsUrl(origin: string, slug: string): string {
+  return `${myPageUrl(origin, slug)}/review?src=${OWN_LINK_SRC}`;
+}
+
+/**
+ * 💳 THE ONE RULE for what an arrival on the shop (or its Check-a-date page) is stamped when it asks (owner 2026-11-13,
+ * walk F-W1-58 · RW-19): `?src=own` — the supplier's own code or link — is 'website', their own client; a Setnayan
+ * surface's tag is that surface; NO tag found the shop on Setnayan → 'shop_page', sourced.
+ */
+export function arrivalInquirySourceOf(src: unknown): 'website' | 'editorial' | 'favorites' | 'explore' | 'search' | 'shop_page' {
+  if (src === OWN_LINK_SRC) return 'website';
+  if (src === 'editorial' || src === 'favorites' || src === 'explore' || src === 'search') return src;
+  return 'shop_page';
+}
+
 export type CrewQrEvent = { eventId: string; label: string };
 
 /**

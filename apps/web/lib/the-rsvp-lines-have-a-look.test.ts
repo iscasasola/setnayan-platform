@@ -259,7 +259,7 @@ test('4 · the panel: Style on a text line is Font ▾, then ONE colour circle a
   assert.match(text, /<button type="button" aria-pressed="true" aria-label="Colour #6b7a3a — change it"[^>]*data-rsvp-look-colour="#6b7a3a"/);
   /* Font ▾ on its own row, first; then Colour and Size TOGETHER on the next (the cover line's last row). */
   assert.deepEqual(rows(text), ['font', 'size']);
-  /* 💎 2026-10-18: each label wears ◆ — a reply line's Style is Event Hub Pro (owner 2026-10-16). */
+  /* 💎 2026-10-18: each label wears ◆ — a reply line's Style is Event Pro (owner 2026-10-16). */
   assert.match(text, /data-rsvp-line-look-row="font">.*?>Font ◆<\/span>.*?<button type="button" aria-label="Font: Cinzel" aria-haspopup="listbox"[^>]*data-rsvp-look-font=""/s, 'the Font is not the one dropdown, showing the font kept');
   assert.match(text, /data-rsvp-line-look-row="size">.*?>Colour ◆<\/span>.*?data-rsvp-look-colour=.*?>Size ◆<\/span>.*?data-slider="rsvp-look-size".*?120%/s, 'Colour and Size do not share the row');
   assert.match(await panel('form', { tool: 'style', part: 'rsvp', line: 'question' }, { look: { lines: { 'rsvp.question': { c: '#AA0011' } } } }), /aria-label="Colour #aa0011 — change it"[^>]*data-rsvp-look-colour="#aa0011"/);
@@ -685,5 +685,5 @@ test('11 · When no shows ONE card: with a ground chosen for the door’s card, 
   assert.match(src('app/[slug]/invite/enter/page.tsx'), /<RsvpNoteLines\b/);
   assert.match(src('app/[slug]/_components/rsvp-note-lines.tsx'), /<div className=\{lines \? 'sn-glass-bare space-y-2 rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm' : 'sn-glass-bare rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm'\} data-landing-missed="">/);
   /* …and the lab draws that same component for its When no (it was a stand-in with a copy of the card's classes). */
-  assert.match(src('app/dev/maker-lab/guest/page.tsx'), /<RsvpNoteLines\s+reply="no"/);
+  assert.match(src('app/dev/maker-lab/guest/page.lab.tsx'), /<RsvpNoteLines\s+reply="no"/);
 });

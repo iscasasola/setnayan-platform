@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import Link from 'next/link';
-import { Globe } from 'lucide-react';
+import { ArrowUpRight, Globe } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
 import { TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
@@ -40,8 +41,10 @@ export async function VendorTierGate({
   const mark = paidMarkState({ owns: false, storeShell });
   const label = paidMarkLabel('locked', TIER_LABEL[requiredTier]);
   return (
-    <section className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6">
-      <div className="flex flex-col items-center gap-4 rounded-2xl border border-ink/10 bg-ink/[0.02] px-6 py-14 text-center">
+    // Design template (rules 1 · 2 · 3 · 13): no card and no big title — the page's name is in the pinned row. One
+    // strong line, the reason in dark grey, ONE main button.
+    <section className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6" data-tier-gate="">
+      <div className="flex flex-col items-center gap-4 px-2 py-8 text-center">
         <span className="relative inline-flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
           {icon ?? (mark ? (
             <PaidMark state={mark} label={label} size="lg" tone="current" />
@@ -56,24 +59,24 @@ export async function VendorTierGate({
         </span>
         {storeShell ? (
           <>
-            <h1 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
-              {feature} is not part of the app
-            </h1>
-            <p className="max-w-sm text-sm text-ink/60">{blurb}</p>
+            <p className="text-lg font-semibold tracking-tight text-ink">{feature} is not part of the app</p>
+            <p className="max-w-sm text-sm text-ink/70">{blurb}</p>
           </>
         ) : (
           <>
-            <h1 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
+            <p className="text-lg font-semibold tracking-tight text-ink">
               {feature} unlocks with {TIER_LABEL[requiredTier]}
-            </h1>
-            <p className="max-w-sm text-sm text-ink/60">{blurb}</p>
-            <Link
+            </p>
+            <p className="max-w-sm text-sm text-ink/70">{blurb}</p>
+            <ActionButton
+              tone="brand"
+              main
+              icon={<ArrowUpRight aria-hidden strokeWidth={1.9} />}
+              label={`Upgrade to ${TIER_LABEL[requiredTier]}`}
               href="/vendor-dashboard/subscription"
-              className="mt-1 inline-flex items-center rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-ink/90"
-            >
-              Upgrade to {TIER_LABEL[requiredTier]}
-            </Link>
-            <p className="text-xs text-ink/40">
+              className="mt-1 !h-11"
+            />
+            <p className="text-sm text-ink/70">
               Everything you have today stays free — this only adds {feature.toLowerCase()}.
             </p>
           </>
@@ -104,7 +107,12 @@ export async function VendorTierTeaser({
 }) {
   if (await isStoreShellRequest()) return null;
   return (
-    <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] px-5 py-6 sm:flex-row sm:items-center sm:justify-between">
+    // Design template (rules 2 · 3 · 5): a plain row on a hairline — the plan as a soft chip, the name bold, one grey
+    // line, and an outlined button (the page's one main button is elsewhere).
+    <div
+      data-tier-teaser=""
+      className="flex min-h-14 flex-col items-start gap-3 border-b border-ink/10 py-4 sm:flex-row sm:items-center sm:justify-between"
+    >
       <div className="flex items-start gap-3">
         <span className="relative mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
           {icon ?? (
@@ -112,19 +120,20 @@ export async function VendorTierTeaser({
           )}
         </span>
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
-            {TIER_LABEL[requiredTier]}
-          </p>
-          <h3 className="text-sm font-semibold text-ink">{feature}</h3>
-          <p className="mt-0.5 max-w-md text-xs text-ink/55">{blurb}</p>
+          <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold text-ink">
+            {feature}
+            <Badge tone="quiet">{TIER_LABEL[requiredTier]}</Badge>
+          </h3>
+          <p className="mt-0.5 max-w-md text-sm text-ink/70">{blurb}</p>
         </div>
       </div>
-      <Link
+      <ActionButton
+        tone="brand"
+        icon={<ArrowUpRight aria-hidden strokeWidth={1.9} />}
+        label={`Unlock with ${TIER_LABEL[requiredTier]}`}
         href="/vendor-dashboard/subscription"
-        className="inline-flex shrink-0 items-center rounded-full border border-ink/15 px-4 py-2 text-xs font-medium text-ink transition hover:bg-ink hover:text-cream"
-      >
-        Unlock with {TIER_LABEL[requiredTier]}
-      </Link>
+        className="shrink-0 !h-11"
+      />
     </div>
   );
 }

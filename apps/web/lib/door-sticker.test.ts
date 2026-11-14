@@ -13,8 +13,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import jsQR from 'jsqr';
 import { PDFDocument } from 'pdf-lib';
-import { checkADateUrl } from './check-a-date';
-import { myPageUrl, SUPPLIER_QR_MODES, SUPPLIER_QR_MODE_LABEL } from './supplier-qr-codes';
+import { ownDatesUrl, ownPageUrl, SUPPLIER_QR_MODES, SUPPLIER_QR_MODE_LABEL } from './supplier-qr-codes';
 import { badgesForPrint, type ShopBadgeFacts } from './shop-badges';
 import { stripComments } from './strip-comments';
 import {
@@ -37,7 +36,8 @@ const FACTS: ShopBadgeFacts = {
 };
 const ORIGIN = 'https://www.setnayan.com';
 const SLUG = 'tita-nenas-catering';
-const URLS = { page: myPageUrl(ORIGIN, SLUG), dates: checkADateUrl(ORIGIN, SLUG) } as const;
+// 💳 The door sticker is the supplier's own code: ?src=own (owner 2026-11-13, F-W1-58).
+const URLS = { page: ownPageUrl(ORIGIN, SLUG), dates: ownDatesUrl(ORIGIN, SLUG) } as const;
 
 async function scan(svg: string): Promise<string | null> {
   const { data, info } = await sharp(Buffer.from(svg), { density: 72 }).resize(1000, 1000).flatten({ background: '#ffffff' }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -64,8 +64,8 @@ test('the code is one of the shop’s own — My page or Check a date — named 
   for (const m of SUPPLIER_QR_MODES.filter((m) => m !== 'dates')) assert.equal(doorStickerCodeFor(m), 'page');
   // The route builds the address with the same two helpers the QR card uses — no sticker page.
   const route = stripComments(fs.readFileSync(path.join(__dirname, '../app/api/vendor/door-sticker/route.ts'), 'utf8'));
-  assert.match(route, /checkADateUrl\(siteOrigin\(\), slug\)/);
-  assert.match(route, /myPageUrl\(siteOrigin\(\), slug\)/);
+  assert.match(route, /ownDatesUrl\(siteOrigin\(\), slug\)/); // 💳 RW-19: the sticker's Check a date code is the supplier's own
+  assert.match(route, /ownPageUrl\(siteOrigin\(\), slug\)/);
   assert.equal(fs.existsSync(path.join(__dirname, '../app/v/[slug]/sticker')), false, 'a sticker must not get its own public page');
 });
 

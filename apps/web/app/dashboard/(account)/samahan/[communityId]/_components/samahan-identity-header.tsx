@@ -1,5 +1,6 @@
 'use client';
 
+import { ActionButton } from '@/components/action-button';
 import { useRef, useState } from 'react';
 import { Camera, Check, Loader2, Pencil, X } from 'lucide-react';
 import { updateCommunityIdentity } from '../../actions';
@@ -178,23 +179,17 @@ export function SamahanIdentityHeader({
                 minLength={2}
                 maxLength={80}
                 aria-label="What this group is called"
-                className="min-w-0 flex-1 rounded-xl border border-ink/20 bg-white dark:bg-raised px-2 py-1 font-sans text-2xl font-semibold tracking-tight text-ink sm:text-3xl"
+                className="input-field min-w-0 flex-1 font-sans text-2xl font-semibold tracking-tight text-ink sm:text-3xl"
               />
-              <button
-                type="submit"
-                aria-label="Save the name"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-mulberry text-white dark:text-cream"
-              >
-                <Check className="h-4 w-4" aria-hidden />
-              </button>
-              <button
+              <ActionButton type="submit" tone="brand" main iconOnly icon={Check} label="Save the name" />
+              <ActionButton
                 type="button"
+                tone="neutral"
+                iconOnly
+                icon={X}
+                label="Cancel"
                 onClick={() => setEditingName(false)}
-                aria-label="Cancel"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ink/15 text-ink/60"
-              >
-                <X className="h-4 w-4" aria-hidden />
-              </button>
+              />
             </StayForm>
           ) : (
             <button
@@ -208,7 +203,7 @@ export function SamahanIdentityHeader({
               </h1>
               <Pencil
                 aria-hidden
-                className="h-4 w-4 shrink-0 text-ink/40"
+                className="h-4 w-4 shrink-0 text-ink/70"
                 strokeWidth={1.75}
               />
             </button>
@@ -216,7 +211,7 @@ export function SamahanIdentityHeader({
           {metaLine}
         </div>
       </div>
-      {error ? <p className="mt-2 text-xs text-mulberry-700">{error}</p> : null}
+      {error ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
     </div>
   );
 }

@@ -1,8 +1,10 @@
-import Link from 'next/link';
 import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { HeartHandshake, Users } from 'lucide-react';
+import { ArrowRight, HeartHandshake, Users } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { Badge } from '@/app/_components/badge';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
@@ -344,7 +346,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   const notice = (
     <>
       {together ? (
-        <p className="sn-tile mb-6 flex items-center gap-2 py-3 text-sm text-ink/75" data-plan-together>
+        <p className="mb-6 flex min-h-11 items-center gap-2 border-y border-ink/10 py-3 text-sm text-ink/75" data-plan-together>
           <HeartHandshake aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={1.75} />
           <span>
             Planning together with <span className="font-medium text-ink">{together.partner}</span>
@@ -352,13 +354,13 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         </p>
       ) : null}
       {samahan ? (
-        <p className="sn-tile mb-6 flex items-center gap-2 py-3 text-sm text-ink/75">
+        <p className="mb-6 flex min-h-11 items-center gap-2 border-y border-ink/10 py-3 text-sm text-ink/75">
           <Users aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={1.75} />
           <span>
             Planning for <span className="font-medium text-ink">{samahan.name}</span>
           </span>
-          <span className="ml-auto shrink-0 rounded-full border border-ink/10 bg-white/60 dark:bg-raised px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            Group
+          <span className="ml-auto shrink-0">
+            <Badge tone="quiet">Group</Badge>
           </span>
         </p>
       ) : null}
@@ -369,29 +371,30 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
            different celebrant (the form's "Para kanino?" field), or archive the
            old event (the inline archive door — an undated in-planning event
            otherwise blocks forever). Invitation, not wall. */
-        <div className="mb-6 rounded-2xl border border-ink/10 bg-ink/[0.02] p-5 sm:p-6" role="alert">
-          <p className="font-sans text-xl text-ink">Tuloy pa rin ang planning na ito</p>
+        <div className="mb-6 rounded-[18px] bg-[color:var(--m-paper-2)] p-4" role="alert">
+          <p className="font-sans text-xl font-semibold text-ink">Tuloy pa rin ang planning na ito</p>
           <p className="mt-2 text-sm leading-relaxed text-ink/70">
             <span className="font-medium text-ink">{blockedLifeEvent.displayName}</span> is already in
             planning — one event of this kind per celebrant at a time.
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Link
-              className="inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white dark:text-cream transition-colors hover:bg-mulberry/90"
+            <ActionButton
               href={`/dashboard/${blockedLifeEvent.eventId}`}
-            >
-              Buksan ang {blockedLifeEvent.displayName}
-            </Link>
-            <span className="text-xs leading-relaxed text-ink/60">
-              Iba ang celebrant? Start again and name a different person when we ask who it’s
-              for. Tapos na ang lumang event? Archive it from its dashboard to free the slot.
-            </span>
+              tone="brand"
+              main
+              icon={<ArrowRight aria-hidden />}
+              label={`Buksan ang ${blockedLifeEvent.displayName}`}
+            />
+            <InfoTip label="Iba ang celebrant?" labelClassName="text-sm text-ink/75" align="start">
+              Start again and name a different person when we ask who it’s for. Tapos na ang lumang event? Archive
+              it from its dashboard to free the slot.
+            </InfoTip>
           </div>
         </div>
       ) : errorMessage ? (
         <p
           role="alert"
-          className="mb-6 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+          className="mb-6 text-sm text-danger"
         >
           {errorMessage}
         </p>

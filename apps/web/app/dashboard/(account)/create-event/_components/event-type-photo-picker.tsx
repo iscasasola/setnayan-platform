@@ -129,12 +129,12 @@ function PhotoTile({
       onClick={() => enabled && onSelect(t)}
       // `[container-type:inline-size]` makes the CARD the measure for the name's
       // `cqi` size below — a card-relative size, whatever frame it sits in.
-      className={`group relative aspect-[4/5] overflow-hidden rounded-2xl [container-type:inline-size] text-left shadow-[0_10px_30px_rgba(30,34,41,0.16)] transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream ${
+      className={`group relative aspect-[4/5] overflow-hidden rounded-2xl [container-type:inline-size] text-left shadow-sn-tile transition-all duration-sn-elem focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream ${
         !enabled
           ? 'cursor-not-allowed opacity-60'
           : greyedOut
             ? 'cursor-pointer opacity-75 grayscale-[0.6] hover:opacity-100 hover:grayscale-0'
-            : 'cursor-pointer hover:-translate-y-1 hover:shadow-[0_18px_48px_rgba(30,34,41,0.26)]'
+            : 'cursor-pointer hover:-translate-y-1 hover:shadow-sn-hi'
       }`}
     >
       {noPhoto ? (
@@ -145,7 +145,7 @@ function PhotoTile({
           style={{ background: eventTypePlaceholderGradient(t.key) }}
         >
           <span
-            className={`absolute inset-0 flex items-center justify-center text-6xl opacity-90 drop-shadow-[0_4px_18px_rgba(0,0,0,0.35)] transition-transform duration-500 sm:text-7xl ${
+            className={`absolute inset-0 flex items-center justify-center text-6xl opacity-90 drop-shadow-lg transition-transform duration-sn-pill sm:text-7xl ${
               enabled ? 'group-hover:scale-105' : 'grayscale'
             }`}
           >
@@ -160,7 +160,7 @@ function PhotoTile({
           draggable={false}
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
           priority={index < 4}
-          className={`object-cover transition-transform duration-500 ${
+          className={`object-cover transition-transform duration-sn-pill ${
             enabled ? 'group-hover:scale-105' : ''
           }`}
           onError={() => setNoPhoto(true)}
@@ -183,23 +183,23 @@ function PhotoTile({
             for an admin-typed name longer than any of those. */}
         <p
           data-type-name
-          className="break-words font-sans text-[length:clamp(1.125rem,14cqi,1.875rem)] font-semibold italic leading-none text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.45)]"
+          className="break-words font-sans text-[length:clamp(1.125rem,14cqi,1.875rem)] font-semibold italic leading-none text-white drop-shadow-lg"
         >
           {t.label}
         </p>
-        <p data-type-tagline className="mt-1.5 line-clamp-2 text-[13px] text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-sm">
+        <p data-type-tagline className="mt-1.5 line-clamp-2 text-[13px] text-white/90 drop-shadow-md sm:text-sm">
           {greyedOut ? unavailableReason : tagline}
         </p>
         {greyedOut ? (
-          <span className="mt-3 inline-flex items-center rounded-full border border-white/40 bg-white/10 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/80 backdrop-blur-sm">
+          <span className="mt-3 inline-flex items-center rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
             Already in planning
           </span>
         ) : enabled ? (
-          <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/55 bg-white/15 px-3.5 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100 sm:text-[11px]">
+          <span className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-2 text-xs font-semibold text-white opacity-0 backdrop-blur-sm transition-opacity duration-sn-elem group-hover:opacity-100 group-focus-visible:opacity-100">
             Begin &rarr;
           </span>
         ) : (
-          <span className="mt-3 inline-flex items-center rounded-full border border-white/40 bg-white/10 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/80 backdrop-blur-sm">
+          <span className="mt-3 inline-flex items-center rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
             Coming soon
           </span>
         )}

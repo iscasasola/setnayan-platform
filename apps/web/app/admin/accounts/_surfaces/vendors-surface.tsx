@@ -234,6 +234,30 @@ export async function VendorsSurface({
     logoByProfileId.set(v.vendor_profile_id, unclaimedLogos[i] ?? null),
   );
 
+  // 👤 AW-11 (admin walkthrough, 14 Nov): the card showed only the shop's CONTACT email, unlabelled — so a shop whose
+  // contact address is not its owner's sign-in read as if it were run by the wrong account. Read each claimed shop's
+  // OWNER account in one batch and show both, each named. null = the read was refused: the card then says so, never
+  // a blank that reads as "no owner".
+  const ownerIds = Array.from(new Set(listedVendors.map((v) => v.user_id).filter((id): id is string => !!id)));
+  let ownerById: Map<string, { email: string | null; name: string | null }> | null = new Map();
+  if (ownerIds.length > 0) {
+    const { data: owners, error: ownersError } = await admin
+      .from('users')
+      .select('user_id, email, display_name')
+      .in('user_id', ownerIds);
+    if (ownersError) {
+      logQueryError('AdminVendorsPage (owner accounts)', ownersError);
+      ownerById = null;
+    } else {
+      for (const o of owners ?? []) {
+        ownerById.set(o.user_id as string, {
+          email: displayAccountEmail(o.email as string | null),
+          name: (o.display_name as string | null)?.trim() || null,
+        });
+      }
+    }
+  }
+
   // New vendor requests (owner 2026-06-09) — when a couple "Add manually"s a
   // vendor on their Shortlist, that mints a COUPLE-source claim invite. Surface
   // those pending requests here so the team can see who's being invited onto the
@@ -426,7 +450,7 @@ export async function VendorsSurface({
                         />
                         {v.contact_email ? (
                           <p className="truncate text-[11px] text-ink/55">
-                            {v.contact_email}
+                            Shop contact · {v.contact_email}
                           </p>
                         ) : null}
                       </div>
@@ -593,7 +617,19 @@ export async function VendorsSurface({
               ) : null}
 
               <div className="space-y-0.5 text-xs text-ink/65">
-                {v.contact_email ? <p>📧 {v.contact_email}</p> : null}
+                {v.contact_email ? <p>📧 Shop contact · {v.contact_email}</p> : null}
+                {v.user_id ? (
+                  <p>
+                    👤 Owner account ·{' '}
+                    {ownerById === null ? (
+                      <span role="alert">couldn&rsquo;t read it — not the same as none</span>
+                    ) : (
+                      <Link href={`/admin/users/${v.user_id}`} className="underline underline-offset-2 hover:text-ink">
+                        {ownerById.get(v.user_id)?.email ?? ownerById.get(v.user_id)?.name ?? 'account not found'}
+                      </Link>
+                    )}
+                  </p>
+                ) : null}
                 {v.location_city ? <p>📍 {v.location_city}</p> : null}
                 {v.services.length > 0 ? (
                   <p>

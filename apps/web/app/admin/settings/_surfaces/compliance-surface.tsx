@@ -3,13 +3,12 @@
 // legacy route is now a redirect (or, for pricing/settings, the studio shell).
 import { notFound, redirect } from 'next/navigation';
 import {
-  Users,
-  Briefcase,
-  UserRound,
-  CalendarDays,
-  ScanFace,
-} from 'lucide-react';
-import { PageMasthead } from '@/app/_components/page-masthead';
+  TemplateFail,
+  TemplateNums,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ComplianceForm, type ComplianceFormState } from '@/app/admin/compliance/_components/compliance-form';
@@ -67,30 +66,9 @@ function toFormState(row: Record<string, unknown> | null): ComplianceFormState {
 
 const NF = new Intl.NumberFormat('en-PH');
 
-function CountCard({
-  icon: Icon,
-  label,
-  value,
-  note,
-}: {
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number; 'aria-hidden'?: boolean }>;
-  label: string;
-  value: number | null;
-  note: string;
-}) {
-  return (
-    <div className="sn-tile p-4">
-      <div className="flex items-center gap-2 text-ink/60">
-        <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em]">{label}</span>
-      </div>
-      <p className="mt-1.5 text-2xl font-semibold tracking-tight text-ink">
-        {value == null ? '—' : NF.format(value)}
-      </p>
-      <p className="mt-0.5 text-xs text-ink/50">{note}</p>
-    </div>
-  );
-}
+/** A count that could not be read is "—" in the warn tone — never a 0. */
+const countValue = (v: number | null) => (v == null ? '—' : NF.format(v));
+const countTone = (v: number | null) => (v == null ? ('warn' as const) : undefined);
 
 export async function ComplianceSurface() {
   await requireAdmin();
@@ -152,56 +130,46 @@ export async function ComplianceSurface() {
   const initial = toFormState(factsRes.data as Record<string, unknown> | null);
 
   return (
-    <section className="mx-auto max-w-4xl space-y-6">
-      {/* 'Back to admin' link dropped — Compliance is a tab inside the Settings
-          studio now; the tab strip replaces it. */}
-      {/* The tab strip already says "Compliance". The name stays in the
-          document at zero pixels.
-          ⚖ The sentence survives, and its last clause is why: what you type on
-          this screen leaves the database only as the NPC data sheet. Somebody
-          entering a government identifier is entitled to know that before they
-          type it. */}
-      <PageMasthead title="Compliance" />
-      <p className="text-sm text-ink/70">
-        The RA 10173 (Data Privacy Act) / NPC registration facts — one place for
-        the Personal Information Controller identity, DPO designation, breach
-        plan, sub-processors, and processing declarations. Enter the sensitive
-        identifiers here once; they live only in the database and feed the NPC
-        data sheet.
-      </p>
+    <section id="compliance" data-compliance="" className="scroll-mt-28">
+      {/* It was the Settings studio's Compliance tab; it now sits under Business identity on avatar › Business &
+          compliance (owner go 14 Nov 2026). The sentence survives inside the ⓘ — what is typed here leaves the
+          database only as the NPC data sheet, and somebody entering a government identifier is entitled to know that
+          before they type it. */}
+      <TemplateSection
+        label="Compliance · RA 10173"
+        tip="The RA 10173 (Data Privacy Act) / NPC registration facts — one place for the Personal Information Controller identity, DPO designation, breach plan, sub-processors, and processing declarations. Enter the sensitive identifiers here once; they live only in the database and feed the NPC data sheet."
+      />
 
       {/* Live scale counts — read-only, computed server-side. These feed the NPC
           "scale of processing" fields (total data subjects + sensitive-PII). */}
-      <section className="space-y-2">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-          Live scale (from the database)
-        </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <CountCard icon={Users} label="Users" value={users} note="All accounts" />
-          <CountCard icon={Briefcase} label="Suppliers" value={vendors} note="Supplier profiles" />
-          <CountCard icon={UserRound} label="Guests" value={guests} note="Event guests" />
-          <CountCard icon={CalendarDays} label="Events" value={events} note="All events" />
-          <CountCard
-            icon={ScanFace}
-            label="Face vectors"
-            value={faces}
-            note="Active (not revoked)"
-          />
-        </div>
-      </section>
+      <TemplateSection label="Live scale (from the database)">
+        <TemplateNums
+          items={[
+            { label: 'Users', value: countValue(users), tone: countTone(users) },
+            { label: 'Suppliers', value: countValue(vendors), tone: countTone(vendors) },
+            { label: 'Guests', value: countValue(guests), tone: countTone(guests) },
+          ]}
+        />
+        <TemplateNums
+          items={[
+            { label: 'Events', value: countValue(events), tone: countTone(events) },
+            { label: 'Face vectors (active)', value: countValue(faces), tone: countTone(faces) },
+          ]}
+        />
+      </TemplateSection>
 
       {factsReadFailed ? (
-        <p
-          role="alert"
-          className="rounded-md bg-warn-50 px-4 py-3 text-sm text-warn-900"
-        >
-          Couldn&rsquo;t load the saved compliance facts — refresh to try again.
-          The form is hidden until they load, so blank fields can&rsquo;t
-          overwrite the real ones.
-        </p>
+        <TemplateFail retryHref="/admin/business#compliance" data="compliance-unread">
+          Couldn&rsquo;t load the saved compliance facts — refresh to try again. The form is hidden until they load, so
+          blank fields can&rsquo;t overwrite the real ones.
+        </TemplateFail>
       ) : (
         <ComplianceForm initial={initial} />
       )}
+
+      <TemplateRows>
+        <TemplateRow title="Export NPC data sheet" line="The filing sheet, built from these facts" href="/admin/compliance/data-sheet" data="npc-data-sheet" />
+      </TemplateRows>
     </section>
   );
 }

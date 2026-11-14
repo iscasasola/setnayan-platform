@@ -197,14 +197,9 @@ export const ADMIN_TABS: readonly AdminTab[] = [
       { key: 'founder-seats', label: 'Founder seats', href: '/admin/founder-seats' },
       { key: 'gifts', label: 'Gifts & comps', href: '/admin/gifts' },
     ],
-    settings: [
-      {
-        key: 'demo-mode',
-        label: 'Demo mode',
-        href: '/admin/settings?tab=demo-mode',
-        match: ['/admin/settings?tab=demo-mode', '/admin/settings/demo-mode'],
-      },
-    ],
+    // Demo mode moved to avatar › Switches (2026-11-14, the approved drawing's `page('switches' …)`): a ⚙ door from
+    // People would land outside People. The old addresses are claimed by the Switches avatar row.
+    settings: [],
   },
   {
     key: 'catalogue',
@@ -393,20 +388,20 @@ export const ADMIN_AVATAR_ROWS: readonly AdminAvatarRow[] = [
   {
     key: 'email-delivery',
     label: 'Email delivery',
-    href: '/admin/settings?tab=notifications',
-    match: ['/admin/settings?tab=notifications', '/admin/notifications'],
+    href: '/admin/email-delivery',
+    match: ['/admin/email-delivery', '/admin/settings?tab=notifications', '/admin/notifications'],
   },
   {
     key: 'switches',
     label: 'Switches',
-    href: '/admin/settings?tab=settings',
-    match: ['/admin/settings', '/admin/settings?tab=settings'],
+    href: '/admin/switches',
+    match: ['/admin/switches', '/admin/settings?tab=demo-mode', '/admin/settings/demo-mode'],
   },
   {
     key: 'business',
     label: 'Business & compliance',
-    href: '/admin/settings?tab=compliance',
-    match: ['/admin/settings?tab=compliance', '/admin/compliance'],
+    href: '/admin/business',
+    match: ['/admin/business', '/admin/settings', '/admin/settings?tab=settings', '/admin/settings?tab=compliance', '/admin/compliance'],
   },
 ];
 

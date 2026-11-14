@@ -253,7 +253,7 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/admin/integrations': { home: '/admin/ugat' },
   '/admin/secrets': { home: '/admin/ugat' },
   // The old lists are tabs now; their routes are redirect stubs (audit ✅ for the first three).
-  '/admin/compliance/data-sheet': { home: '/admin/settings?tab=compliance', label: 'Compliance' },
+  '/admin/compliance/data-sheet': { home: '/admin/business#compliance', label: 'Business & compliance' },
   '/admin/events/[eventId]': { home: ADMIN_ACCOUNTS('events'), label: 'Events' },
   '/admin/vendors/[vendorProfileId]': { home: ADMIN_ACCOUNTS('vendors'), label: 'Shops' },
   '/admin/users/[userId]': { home: ADMIN_ACCOUNTS('users'), label: 'Users' },

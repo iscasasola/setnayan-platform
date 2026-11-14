@@ -1,13 +1,12 @@
 import { redirect } from 'next/navigation';
 
 /**
- * Legacy /admin/compliance → studio redirect (Money split · 2026-07-10). The surface
- * now lives at /admin/settings?tab=compliance; its body was re-homed into a _surfaces/*
- * file. actions/_components stay in this dir. Params are forwarded so deep-links
- * + post-mutation redirects land on the right tab with their flash intact.
+ * Legacy /admin/compliance → avatar › Business & compliance (owner go 14 Nov 2026, the approved drawing
+ * `admin_five_tabs_2026-11-13/admin.html` `page('business' …)`). It was the Settings studio's Compliance tab; the
+ * RA 10173 facts now sit under Business identity on one screen. actions/_components stay in this dir.
  */
 export const dynamic = 'force-dynamic';
 
 export default function Redirect() {
-  redirect('/admin/settings?tab=compliance');
+  redirect('/admin/business');
 }

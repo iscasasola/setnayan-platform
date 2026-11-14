@@ -1,10 +1,9 @@
 import { redirect } from 'next/navigation';
 
 /**
- * Legacy /admin/settings/demo-mode → studio redirect (Money split · 2026-07-10). The surface
- * now lives at /admin/settings?tab=demo-mode; its body was re-homed into a _surfaces/*
- * file. actions/_components stay in this dir. Params are forwarded so deep-links
- * + post-mutation redirects land on the right tab with their flash intact.
+ * Legacy /admin/settings/demo-mode → avatar › Switches › Demo mode (owner go 14 Nov 2026, the approved drawing
+ * `admin_five_tabs_2026-11-13/admin.html` `page('switches' …)`). `toggled` is forwarded so an old post-toggle
+ * redirect still shows its line.
  */
 export const dynamic = 'force-dynamic';
 
@@ -19,8 +18,8 @@ function first(v: string | string[] | undefined): string | undefined {
 export default async function Redirect({ searchParams }: Props) {
   const search = await searchParams;
   const out = new URLSearchParams();
-  out.set('tab', 'demo-mode');
   const toggled = first(search.toggled);
   if (toggled !== undefined) out.set('toggled', toggled);
-  redirect(`/admin/settings?${out.toString()}`);
+  const q = out.toString();
+  redirect(`/admin/switches${q ? `?${q}` : ''}#demo-mode`);
 }

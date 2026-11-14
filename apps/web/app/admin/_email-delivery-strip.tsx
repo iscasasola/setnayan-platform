@@ -38,7 +38,7 @@ export async function EmailDeliveryStrip() {
       detail={alert.detail}
       actions={
         <Link
-          href="/admin/settings?tab=notifications#email-delivery"
+          href="/admin/email-delivery#email-delivery"
           data-email-delivery-strip={alert.tone}
           className={NOTICE_ACTION}
         >

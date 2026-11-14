@@ -1,11 +1,12 @@
-// Money-split studio surface — the body of the former notifications page,
-// re-homed here (2026-07-10). actions/_components stay in /admin/notifications; the
-// legacy route is now a redirect (or, for pricing/settings, the studio shell).
+// The body of avatar › Email delivery (owner go 14 Nov 2026; the approved drawing is `Setnayan-specs`
+// `prototypes/admin_five_tabs_2026-11-13/admin.html` `page('email-delivery' …)` + `page('notifications' …)`).
+// It was the Settings studio's Notifications tab (`/admin/settings?tab=notifications`, and before that
+// `/admin/notifications`); both old addresses forward to `/admin/email-delivery`. Nothing was dropped — the delivery
+// log, the morning digest's switch beside its last send, push on this device, and the bell's own list.
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Bell, CheckCheck } from 'lucide-react';
+import { CheckCheck } from 'lucide-react';
 import { PushToggle } from '@/app/_components/push-toggle';
-import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import {
   fetchOwnNotifications,
@@ -18,16 +19,15 @@ import {
   markNotificationRead,
 } from '@/lib/notification-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { formatCount } from '@/lib/format-number';
+import { TemplateEmpty, TemplateRows, TemplateSection, TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 import { EmailDeliverySection } from '../_components/email-delivery-section';
 import { MorningDigestCard } from '../_components/morning-digest-card';
 
 /**
- * /admin/notifications — admin in-app notification reader (cross-actor audit
- * 2026-06-07). Admin users already RECEIVE notification rows (force_majeure_filed
- * fan-out, help-intake) via emitNotification, but until now had no bell and no
- * reader page — the in-app half was effectively a dead-letter and admins relied
- * on email (itself gated on RESEND_API_KEY). This reuses the same reader shape
- * as the vendor/couple surfaces; auth is enforced at the admin layout level.
+ * The admin in-app notification reader (cross-actor audit 2026-06-07). Admin users RECEIVE notification rows
+ * (force_majeure_filed fan-out, help-intake) via emitNotification; this is their bell and reader. Same reader shape
+ * as the supplier/couple surfaces; auth is enforced at the admin layout level.
  */
 export async function NotificationsSurface({ error }: { error?: string } = {}) {
   const supabase = await createClient();
@@ -38,128 +38,90 @@ export async function NotificationsSurface({ error }: { error?: string } = {}) {
 
   const items = await fetchOwnNotifications(supabase, user.id);
   const unreadCount = items.filter((n) => !n.read_at).length;
-  // returnTo drives revalidatePath+redirect in the shared mark-read actions;
-  // point it at the studio tab so mark-read lands back on ?tab=notifications.
-  const returnTo = '/admin/settings?tab=notifications';
+  // returnTo drives revalidatePath+redirect in the shared mark-read actions; it lands back on this screen.
+  const returnTo = '/admin/email-delivery';
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
-      {/* The tab strip already says "Notifications", and this one said it at
-          36px — the exact size the owner pointed at. The name stays in the
-          document at zero pixels.
-          ⚖ The sentence goes. It describes what the list below already shows
-          and names nothing an operator has to do; "email delivery fires when
-          Resend is configured" is a fact about our deployment, not an
-          instruction for the person reading their alerts. */}
-      <PageMasthead title="Notifications" className="mb-6" />
-
-      {/* A failed save from this tab (the digest switch) says so here. */}
+    <>
+      {/* A failed save from this screen (the digest switch) says so here. */}
       {error ? (
-        <p role="alert" className="mb-4 rounded-md bg-warn-50 px-4 py-3 text-sm text-warn-900">
+        <p role="alert" className="py-2 text-[14px]" style={{ color: 'rgb(var(--color-warn))' }}>
           {error.slice(0, 300)}
         </p>
       ) : null}
 
-      {/* 🔔 THE CONSOLE CAN REACH YOUR PHONE — added 2026-08-26.
-       *
-       * Everything else in this admin assumes you OPEN it. Nothing made you.
-       * In-app notices fan out correctly (order_awaiting_reconciliation reaches
-       * every admin, and it IS on the email allowlist), but prod held **zero**
-       * push subscriptions and the only two toggles in the product lived on the
-       * couple and vendor doorways — so the person running Setnayan had no
-       * control anywhere to turn on phone alerts for admin work. The first real
-       * sale's "awaiting reconciliation" notice sat unread overnight.
-       *
-       * Same component the couple's profile uses, not a third copy. It asks for
-       * browser permission only when you flip it ON, and where push cannot work
-       * (no VAPID key, no service worker, iOS Safari outside an installed PWA)
-       * it renders a quiet "not available" note rather than a dead switch — so
-       * this is safe to ship before the keys are confirmed in hosting. */}
-      <div className="mb-6">
-        <PushToggle audience="admin" />
-      </div>
-
-      {/* 📨 The morning digest's switch, next to whether it actually went out
-          (row 38 — moved here from Settings, 2026-10-01). */}
-      <MorningDigestCard />
-
-      {/* 📬 Did the emails arrive? The admin-home strip links here. */}
+      {/* 📬 Did the emails arrive? The Work strip links here (#email-delivery). */}
       <EmailDeliverySection />
 
-      {unreadCount > 0 ? (
-        <form action={markAllNotificationsRead} className="mb-4">
-          <input type="hidden" name="return_to" value={returnTo} />
-          <SubmitButton
-            className="button-secondary inline-flex items-center gap-2"
-            pendingLabel="Marking…"
-          >
-            <CheckCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Mark all read
-          </SubmitButton>
-        </form>
-      ) : null}
+      {/* 📨 The morning digest's switch, next to whether it actually went out (row 38). */}
+      <MorningDigestCard />
 
-      {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center">
-          <Bell aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-          <p className="text-sm font-medium text-ink">No notifications yet.</p>
-          <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
-            Dispute flags, help-center messages, and other team alerts will land
-            here as they come in.
-          </p>
+      {/* 🔔 THE CONSOLE CAN REACH YOUR PHONE — added 2026-08-26.
+       *
+       * Everything else in this admin assumes you OPEN it. Nothing made you. In-app notices fan out correctly, but prod
+       * held **zero** push subscriptions and the only toggles lived on the couple and supplier doorways — so the person
+       * running Setnayan had no control anywhere to turn on phone alerts for admin work. Same component the couple's
+       * profile uses, not a third copy. It asks for browser permission only when you flip it ON, and where push cannot
+       * work it renders a quiet "not available" note rather than a dead switch. */}
+      <TemplateSection label="This device">
+        <div className="py-2">
+          <PushToggle audience="admin" />
         </div>
-      ) : (
-        <ul className="space-y-2">
-          {items.map((n) => {
-            const unread = !n.read_at;
-            return (
-              <li
-                key={n.notification_id}
-                className={`flex items-start gap-3 rounded-xl border p-4 ${
-                  unread ? 'border-terracotta/30 bg-terracotta/5' : 'border-ink/10 bg-white/70'
-                }`}
-              >
-                <span
-                  className={`mt-0.5 inline-flex shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                    NOTIFICATION_TYPE_TONE[n.type]
-                  }`}
-                >
-                  {NOTIFICATION_TYPE_LABEL[n.type]}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-ink">{n.title}</p>
-                  {n.body ? <p className="text-sm text-ink/65">{n.body}</p> : null}
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                    {relativeTime(n.created_at)}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col gap-1">
-                  {n.related_url ? (
-                    <Link
-                      href={n.related_url}
-                      className="rounded-md bg-mulberry px-3 py-1 text-xs font-medium text-cream hover:bg-mulberry-600"
-                    >
-                      Open
-                    </Link>
-                  ) : null}
-                  {unread ? (
-                    <form action={markNotificationRead}>
-                      <input type="hidden" name="notification_id" value={n.notification_id} />
-                      <input type="hidden" name="return_to" value={returnTo} />
-                      <SubmitButton
-                        className="w-full rounded-md bg-ink/5 px-3 py-1 text-xs text-ink/70 hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-60"
-                        pendingLabel="…"
-                      >
-                        Mark read
-                      </SubmitButton>
-                    </form>
-                  ) : null}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
+      </TemplateSection>
+
+      <TemplateSection label="The bell" right={unreadCount > 0 ? `${formatCount(unreadCount)} unread` : undefined}>
+        {unreadCount > 0 ? (
+          <form action={markAllNotificationsRead} className="flex justify-end">
+            <input type="hidden" name="return_to" value={returnTo} />
+            <SubmitButton className="inline-flex min-h-11 items-center gap-1.5 text-[13px] font-semibold text-mulberry" pendingLabel="Marking…">
+              <CheckCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Mark all read
+            </SubmitButton>
+          </form>
+        ) : null}
+        {items.length === 0 ? (
+          <TemplateEmpty data="bell-empty">
+            No notifications yet. Dispute flags, help-center messages, and other team alerts land here.
+          </TemplateEmpty>
+        ) : (
+          <TemplateRows label="Notifications">
+            {items.map((n) => {
+              const unread = !n.read_at;
+              return (
+                <li key={n.notification_id} data-notification-unread={unread ? 'true' : 'false'} className="flex min-h-14 items-start gap-2.5 py-2.5">
+                  {unread ? <i aria-hidden className="mt-1 block h-9 w-1 flex-none rounded-sm" style={{ background: 'var(--m-orange)' }} /> : null}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[12px] font-semibold ${NOTIFICATION_TYPE_TONE[n.type]}`}>
+                        {NOTIFICATION_TYPE_LABEL[n.type]}
+                      </span>
+                      <b className="text-[15px] font-semibold leading-tight text-ink">{n.title}</b>
+                    </span>
+                    {n.body ? <span className={`mt-0.5 block ${TEMPLATE_SUBLINE}`}>{n.body}</span> : null}
+                    <span className={`mt-0.5 block ${TEMPLATE_SUBLINE}`}>{relativeTime(n.created_at)}</span>
+                  </span>
+                  <span className="flex flex-none flex-col items-end gap-1">
+                    {n.related_url ? (
+                      <Link href={n.related_url} className="inline-flex min-h-11 items-center text-[13px] font-semibold text-mulberry">
+                        Open ›
+                      </Link>
+                    ) : null}
+                    {unread ? (
+                      <form action={markNotificationRead}>
+                        <input type="hidden" name="notification_id" value={n.notification_id} />
+                        <input type="hidden" name="return_to" value={returnTo} />
+                        <SubmitButton className="inline-flex min-h-11 items-center text-[13px] text-[color:var(--m-slate-2)]" pendingLabel="…">
+                          Mark read
+                        </SubmitButton>
+                      </form>
+                    ) : null}
+                  </span>
+                </li>
+              );
+            })}
+          </TemplateRows>
+        )}
+      </TemplateSection>
+    </>
   );
 }

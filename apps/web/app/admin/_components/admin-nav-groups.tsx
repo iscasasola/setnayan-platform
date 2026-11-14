@@ -649,9 +649,9 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       {
         key: 'demo-mode',
         label: 'Demo mode',
-        href: '/admin/settings?tab=demo-mode',
+        href: '/admin/switches',
         icon: Settings,
-        matchPrefix: '/admin/settings/demo-mode',
+        matchPrefix: '/admin/switches',
       },
       {
         // Settings Studio shell + first tab (Money split 2026-07-10). Same
@@ -663,9 +663,9 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // hrefMatch (tab===settings) lights this row. (Money-split review.)
         key: 'settings',
         label: 'Settings',
-        href: '/admin/settings?tab=settings',
+        href: '/admin/business',
         icon: Settings,
-        matchPrefix: '/admin/settings?tab=settings',
+        matchPrefix: '/admin/business',
       },
       {
         // Colours (owner 2026-11-12, corpus Design_App_Colours_2026-11-12) — the app's colours by JOB (page, band,
@@ -686,16 +686,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // phone) live only in the DB behind admin-only RLS, never in the repo.
         key: 'compliance',
         label: 'Compliance',
-        href: '/admin/settings?tab=compliance',
+        href: '/admin/business#compliance',
         icon: ShieldCheck,
         matchPrefix: '/admin/compliance',
       },
       {
         key: 'notifications',
         label: 'Notifications',
-        href: '/admin/settings?tab=notifications',
+        href: '/admin/email-delivery',
         icon: Bell,
-        matchPrefix: '/admin/notifications',
+        matchPrefix: '/admin/email-delivery',
       },
       {
         // Integration Activation Console — the one place the solo operator flips

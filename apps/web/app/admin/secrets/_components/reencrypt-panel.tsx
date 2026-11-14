@@ -18,7 +18,7 @@ export function ReencryptPanel() {
   const [failedToRun, setFailedToRun] = useState(false);
 
   return (
-    <div className="space-y-3 border-t border-ink/10 pt-4">
+    <div className="space-y-3 border-t border-[color:var(--m-line)] pt-3">
       <button
         type="button"
         disabled={pending}
@@ -33,9 +33,7 @@ export function ReencryptPanel() {
             }
           });
         }}
-        className={`inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 ${
-          pending ? 'cursor-wait opacity-80' : ''
-        }`}
+        className={`ab ab-brand ab-main ${pending ? 'cursor-wait opacity-80' : ''}`}
       >
         {pending ? (
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2.25} />

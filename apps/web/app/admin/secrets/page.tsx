@@ -1,6 +1,9 @@
-import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, Rocket, ShieldAlert } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TemplateFail, TemplateRow, TemplateRows, TemplateSection, TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
+import { AvatarScreen, ConfirmLines } from '../_components/avatar-screen';
+import { ConfirmButton } from '../_components/avatar-confirm';
+import { AppleSecretReminder } from '../_apple-secret-reminder';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { encryptionKeyStatus } from '@/lib/encryption';
@@ -20,7 +23,6 @@ import {
   type SecretStatus,
 } from '@/lib/secrets/status';
 import { envUpdatedAtMap, listProjectEnvMeta, vercelEnvConfigured } from '@/lib/vercel-env';
-import { SubmitButton } from '@/app/_components/submit-button';
 import { SecretRow } from './_components/secret-row';
 import { EncryptionKeyCard } from './_components/encryption-key-card';
 import { redeployProduction } from './actions';
@@ -174,177 +176,156 @@ export default async function AdminSecretsPage({
   const encryptionRow = rows.find((r) => r.def.id === ENCRYPTION_KEY_ID);
   const keyStatus = encryptionKeyStatus();
 
-  return (
-    <section className="space-y-6">
-      <Link
-        href="/admin/ugat"
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--m-orange-2)]"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Back to admin
-      </Link>
+  const flash: { tone: 'ok' | 'fail'; words: string } | null = error
+    ? {
+        tone: 'fail',
+        words:
+          (error === 'empty'
+            ? 'Nothing was entered — no change was made.'
+            : error === 'redeploy'
+              ? 'Couldn’t trigger a deploy — push any commit, or redeploy from the Vercel dashboard.'
+              : error === 'db'
+                ? 'Setnayan couldn’t store that value, so nothing changed — the old one is still in place. Try again; if it keeps failing, check that ENCRYPTION_KEY is set in this environment.'
+                : 'Vercel rejected the write. On a two-part key (R2, TURN) the first part may already have been saved — re-enter BOTH values and save again before redeploying.') +
+          (code ? ` (${code})` : ''),
+      }
+    : saved
+      ? {
+          tone: 'ok',
+          words: savedToDb
+            ? savedKeyCount === 2
+              ? 'Saved — both keys are stored. Live on the very next request; no redeploy needed.'
+              : 'Saved — live on the very next request; no redeploy needed. Any box you left blank kept the value it already had.'
+            : `Saved to Vercel.${redeploy ? ' Now press “Redeploy production” to apply it.' : ''}`,
+        }
+      : cleared
+        ? { tone: 'ok', words: 'Removed from Setnayan’s database. Paste a new value whenever you’re ready.' }
+        : marked
+          ? { tone: 'ok', words: 'Rotation recorded — the clock is reset.' }
+          : deploying
+            ? { tone: 'ok', words: 'Production deployment started. It takes a few minutes; watch it in Vercel.' }
+            : null;
 
-      {/* The page starts at its content — the Back to admin link above is
-          untouched.
-          ⚖ The sentence survives: values here are WRITE-ONLY. Somebody
-          hunting for a key they already hold needs to be told this screen can
-          never show it to them, rather than concluding the page is broken. */}
+  return (
+    <AvatarScreen data="secrets">
+      {/* The page starts at its content. ⚖ The sentence survives inside the ⓘ: values here are WRITE-ONLY. Somebody
+          hunting for a key they already hold needs to be told this screen can never show it to them, rather than
+          concluding the page is broken. */}
       <PageMasthead title="Secrets & Rotation" />
-      <p className="text-sm text-ink/70">
-        Every key Setnayan holds — where it lives, how old it is, and how to
-        replace it. Values are write-only: you can set a new one here, but
-        nothing on this page can ever show you the current one.
+      <p className={`flex min-h-11 items-center ${TEMPLATE_SUBLINE}`}>
+        <InfoTip label="Write-only" align="start" labelClassName="text-[14px] font-semibold text-ink">
+          Every key Setnayan holds — where it lives, how old it is, and how to replace it. Values are write-only: you can
+          set a new one here, but nothing on this page can ever show you the current one. A value you paste goes
+          straight to Vercel’s encrypted store (or to Setnayan’s encrypted secrets table) and is never read back, logged,
+          or shown again — so if you lose a value, mint a new one at the provider rather than looking for it here.
+        </InfoTip>
       </p>
 
-      {/* ── Alarm banner ─────────────────────────────────────────────────── */}
+      {/* ── Alarm line ───────────────────────────────────────────────────── */}
       {rotationsUnread ? (
-        <div role="alert" className="rounded-card bg-[var(--sn-warning-soft)] p-4 text-sm text-ink">
-          Couldn&rsquo;t load this — refresh to try again. The rotation dates below are not
-          known, so no secret is shown as overdue or as fine.
-        </div>
+        <TemplateFail retryHref="/admin/secrets" data="rotations-unread">
+          Couldn&rsquo;t load this — refresh to try again. The rotation dates below are not known, so no secret is shown
+          as overdue or as fine.
+        </TemplateFail>
       ) : alarming.length > 0 ? (
-        <div
-          role="alert"
-          className="space-y-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-        >
-          <p className="inline-flex items-center gap-2 font-medium">
-            <ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            {alarming.length} secret{alarming.length === 1 ? '' : 's'} need
-            {alarming.length === 1 ? 's' : ''} attention
-          </p>
-          <ul className="list-disc space-y-0.5 pl-5 text-xs">
-            {alarming.map((r) => (
-              <li key={r.def.id}>
-                <a href={`#${r.def.id}`} className="underline underline-offset-2">
-                  {r.def.label}
-                </a>{' '}
-                — {r.status === 'overdue' ? 'past its rotation window' : 'never recorded'}
-              </li>
-            ))}
-          </ul>
+        <div role="alert" data-secrets-alarm="" className="py-2 text-[14px] text-[rgb(var(--color-danger))]">
+          <b>
+            {alarming.length} secret{alarming.length === 1 ? '' : 's'} need{alarming.length === 1 ? 's' : ''} attention
+          </b>{' '}
+          ·{' '}
+          {alarming.map((r, i) => (
+            <span key={r.def.id}>
+              {i > 0 ? ' · ' : ''}
+              <a href={`#${r.def.id}`} className="underline underline-offset-2">
+                {r.def.label}
+              </a>{' '}
+              — {r.status === 'overdue' ? 'past its rotation window' : 'never recorded'}
+            </span>
+          ))}
         </div>
       ) : (
-        <p
-          role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-        >
-          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Every
-          scheduled secret is inside its rotation window.
+        <p role="status" className="py-2 text-[14px] text-[rgb(var(--color-ok))]">
+          Every scheduled secret is inside its rotation window.
         </p>
       )}
 
       {dueSoon.length > 0 && !rotationsUnread ? (
-        <p className="rounded-2xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 text-xs text-amber-900/90">
+        <p className="py-1 text-[14px]" style={{ color: 'rgb(var(--color-warn))' }}>
           Coming up: {dueSoon.map((r) => r.def.label).join(' · ')}.
         </p>
       ) : null}
 
       {/* ── Save / error flashes ─────────────────────────────────────────── */}
-      {saved ? (
+      {flash ? (
         <p
-          role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          role={flash.tone === 'fail' ? 'alert' : 'status'}
+          className="py-2 text-[14px]"
+          style={{ color: flash.tone === 'fail' ? 'rgb(var(--color-danger))' : 'rgb(var(--color-ok))' }}
         >
-          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          {savedToDb
-            ? savedKeyCount === 2
-              ? 'Saved — both keys are stored. Live on the very next request; no redeploy needed.'
-              : 'Saved — live on the very next request; no redeploy needed. Any box you left blank kept the value it already had.'
-            : `Saved to Vercel.${redeploy ? ' Now click “Redeploy production” to apply it.' : ''}`}
-        </p>
-      ) : null}
-      {cleared ? (
-        <p
-          role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-white/70 px-4 py-3 text-sm text-ink/70"
-        >
-          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Removed
-          from Setnayan&rsquo;s database. Paste a new value whenever you&rsquo;re
-          ready.
-        </p>
-      ) : null}
-      {marked ? (
-        <p
-          role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-white/70 px-4 py-3 text-sm text-ink/70"
-        >
-          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Rotation
-          recorded — the clock is reset.
-        </p>
-      ) : null}
-      {deploying ? (
-        <p
-          role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-        >
-          <Rocket aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Production
-          deployment started. It takes a few minutes; watch it in Vercel.
-        </p>
-      ) : null}
-      {error ? (
-        <p
-          role="alert"
-          className="inline-flex items-start gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-        >
-          <ShieldAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-          <span>
-            {error === 'empty'
-              ? 'Nothing was entered — no change was made.'
-              : error === 'redeploy'
-                ? 'Couldn’t trigger a deploy — push any commit, or redeploy from the Vercel dashboard.'
-                : error === 'db'
-                  ? 'Setnayan couldn’t store that value, so nothing changed — the old one is still in place. Try again; if it keeps failing, check that ENCRYPTION_KEY is set in this environment.'
-                  : 'Vercel rejected the write. On a two-part key (R2, TURN) the first part may already have been saved — re-enter BOTH values and save again before redeploying.'}
-            {code ? <span className="font-mono text-xs"> ({code})</span> : null}
-          </span>
+          {flash.words}
         </p>
       ) : null}
 
       {/* ── Redeploy control ─────────────────────────────────────────────── */}
-      <section className="space-y-3 sn-tile p-5">
-        <h2 className="text-lg font-semibold tracking-tight">Apply pending changes</h2>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          A secret saved to the Vercel environment only reaches the running app on
-          the next deployment. Rows marked &ldquo;In-app DB&rdquo; are stored in
-          Setnayan&rsquo;s own database, take effect on the very next request, and
-          need none of this.
-        </p>
-        <form action={redeployProduction}>
-          <SubmitButton
-            pendingLabel="Starting deploy…"
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
-          >
-            Redeploy production
-          </SubmitButton>
-        </form>
+      <TemplateSection
+        first
+        label="Apply pending changes"
+        tip="A secret saved to the Vercel environment only reaches the running app on the next deployment. Rows marked “In-app DB” are stored in Setnayan’s own database, take effect on the very next request, and need none of this."
+      >
+        <div className="flex flex-wrap items-center gap-2 py-2">
+          <ConfirmButton
+            action={redeployProduction}
+            tone="warn"
+            icon="rocket"
+            label="Redeploy production"
+            main
+            title="Redeploy production"
+            confirmLabel="Redeploy"
+            body={
+              <ConfirmLines
+                what={['A production deployment starts — a few minutes; watch it in Vercel', 'Every secret saved to Vercel since the last deploy reaches the running app']}
+                not={['In-app DB rows need none of this']}
+                who="Every visitor gets the new build"
+              />
+            }
+            data="redeploy"
+          />
+        </div>
         {!vercelWritable ? (
-          <p className="text-xs text-amber-900/90">
-            VERCEL_API_TOKEN / VERCEL_PROJECT_ID aren&rsquo;t set in this
-            environment, so in-app editing and redeploys are unavailable here.
+          <p className="text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
+            VERCEL_API_TOKEN / VERCEL_PROJECT_ID aren&rsquo;t set in this environment, so in-app editing and redeploys
+            are unavailable here.
           </p>
         ) : null}
-      </section>
+      </TemplateSection>
 
-      {/* ── ENCRYPTION_KEY — its own card, above the grouped list ────────── */}
+      {/* ── Waiting: the dated Apple renewal, from Dec 8 (renders nothing before) ── */}
+      <AppleSecretReminder />
+
+      {/* ── Integrations: the feature setup around a key ─────────────────── */}
+      <TemplateSection label="Integrations" tip="The console keeps the feature setup around a key — redirect URIs, Page/IG ids, the AI paywall card, Verify buttons. Every key is still pasted here or there through the same encrypted write.">
+        <TemplateRows>
+          <TemplateRow title="Integrations" line="Email · AI paywall · OpenAI · OAuth clients · Meta · TikTok · Maya · CSAM" href="/admin/integrations" data="integrations" />
+          <TemplateRow title="Live Watch channels" line="The Setnayan-owned YouTube channel pool and its Google grants" href="/admin/live-studio-channels" data="live-studio-channels" />
+        </TemplateRows>
+      </TemplateSection>
+
+      {/* ── ENCRYPTION_KEY — its own fold, above the grouped list ───────── */}
       {encryptionRow ? (
-        <EncryptionKeyCard
-          def={encryptionRow.def}
-          primarySet={keyStatus.primarySet}
-          previousSet={keyStatus.previousSet}
-        />
+        <TemplateSection label="ENCRYPTION_KEY">
+          <TemplateRows>
+            <EncryptionKeyCard def={encryptionRow.def} primarySet={keyStatus.primarySet} previousSet={keyStatus.previousSet} />
+          </TemplateRows>
+        </TemplateSection>
       ) : null}
 
       {/* ── Grouped registry ─────────────────────────────────────────────── */}
       {GROUP_ORDER.map((group) => {
-        const groupRows = rows.filter(
-          (r) => r.def.group === group && r.def.id !== ENCRYPTION_KEY_ID,
-        );
+        const groupRows = rows.filter((r) => r.def.group === group && r.def.id !== ENCRYPTION_KEY_ID);
         if (groupRows.length === 0) return null;
         return (
-          <section key={group} className="space-y-3">
-            <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-              {GROUP_LABEL[group]}
-            </h2>
-            <div className="space-y-2">
+          <TemplateSection key={group} label={GROUP_LABEL[group]} right={String(groupRows.length)}>
+            <TemplateRows>
               {groupRows.map((r) => (
                 <SecretRow
                   key={r.def.id}
@@ -355,21 +336,10 @@ export default async function AdminSecretsPage({
                   configured={r.configured}
                 />
               ))}
-            </div>
-          </section>
+            </TemplateRows>
+          </TemplateSection>
         );
       })}
-
-      <p className="inline-flex items-start gap-2 rounded-2xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 text-xs text-amber-900/90">
-        <ShieldAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-        <span>
-          Every input here is write-only. A value you paste goes straight to
-          Vercel&rsquo;s encrypted store (or to Setnayan&rsquo;s encrypted
-          secrets table) and is never read back, logged, or shown again — so if
-          you lose a value, mint a new one at the provider rather than looking
-          for it here.
-        </span>
-      </p>
-    </section>
+    </AvatarScreen>
   );
 }

@@ -123,6 +123,15 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
 // it in the same edit when an article body materially changes.
 // ───────────────────────────────────────────────────────────────────────────
 
+/**
+ * 🧱 WHICH /help/[slug] PAGES ARE BUILT AHEAD (help split, 2026-11-14). Only the answers that existed before the
+ * split — topics-existing.ts. Every answer the eight slot files add is rendered on its first visit and cached like
+ * the rest (`revalidate`), because each page built ahead is build time on every deploy: the slots add about 250
+ * answers, which would take the build past STATIC_PAGE_CEILING (apps/web/scripts/check-build-budget.mjs). Held by
+ * lib/help-pages-built-ahead-stay-fixed.test.ts.
+ */
+export const HELP_PRERENDER_SLUGS: ReadonlyArray<string> = TOPICS_EXISTING.flatMap((t) => t.articles.map((a) => a.slug));
+
 export const HELP_LASTMOD = '2026-11-13';
 
 export type HelpArticleWithTopic = {

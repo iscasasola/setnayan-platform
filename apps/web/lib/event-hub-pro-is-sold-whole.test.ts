@@ -89,7 +89,7 @@ test('with no part on sale the Pro page sells Everything alone — no part price
   // The Apply sheet's `?buy=` pick is a part order — only while parts are sold.
   assert.match(body, /\{partsOnSale && !active\?\.full && !owned\?\.full && buyParts\.length > 0/);
   // One list of what Everything opens, instead of the priced big/small bands.
-  assert.match(body, /partsOnSale\s*\?\s*\[\s*\{ title: 'Big parts'[\s\S]{0,120}\]\s*:\s*\[\{ title: 'What Event (?:Hub )?Pro unlocks', parts: HUB_PARTS \}\]/);
+  assert.match(body, /partsOnSale\s*\?\s*\[\s*\{ title: 'Big parts'[\s\S]{0,120}\]\s*:\s*\[\{ title: `What \$\{planName\} unlocks`, parts: HUB_PARTS \}\]/);
   // A part's own button needs its price — and no part price is handed in once they are off sale.
   assert.match(body, /state === 'buy' && php !== null && !owned\?\.full \? \(/);
   assert.match(body, /\{partsOnSale \? `Everything you pay here counts toward everything\./);

@@ -250,7 +250,7 @@ export async function commitSimpleEvent(formData: FormData) {
       // 🧭 Suppliers off on "What do you need?" ⇒ Setnayan AI was not offered (`setnayanAiOffered`, owner
       // 2026-10-26) — a 'true' the form still posts is dropped, never charged.
       ai: needs && !setnayanAiOffered(needs) ? 'false' : formData.get(AI_FIELD_SELECTED),
-      // Event Hub Pro — the same STRING yes/no, the same parse rule.
+      // Event Pro — the same STRING yes/no, the same parse rule.
       hubPro: formData.get(HUB_PRO_FIELD_SELECTED),
     },
   });

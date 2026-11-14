@@ -292,7 +292,7 @@ export type HomeServiceKey = 'papic' | 'ai' | 'live' | 'music' | 'booth' | 'hub'
 /*
   ─── EVERY PAID SERVICE + EVENT PRO (owner 2026-10-14 🧾 + ✅) ────────────
 
-  DECISION_LOG 2026-10-14 "HOME › YOUR SERVICES = THE PAID SERVICES + EVENT HUB
+  DECISION_LOG 2026-10-14 "HOME › YOUR SERVICES = THE PAID SERVICES + EVENT
   PRO; FREE TOOLS STAY OUT" and, the same day, "APPROVE ALL: THE SERVICES
   PROTOTYPE" (`prototypes/services_home_rows_and_bands_2026-10-14_fable.html`):
   Guest photos · Planner · Live stream · Music · Video booth · Event Pro.

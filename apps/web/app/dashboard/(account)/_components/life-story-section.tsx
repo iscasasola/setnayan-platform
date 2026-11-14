@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { Images, Film, Newspaper, EyeOff, Eye } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
 import {
   hideMyStoryItem,
   unhideMyStoryItem,
@@ -51,7 +53,7 @@ function countSummary(items: LifeStoryGroup['items']): string {
 }
 
 function KindIcon({ kind }: { kind: 'photo' | 'clip' | 'editorial' }) {
-  const cls = 'h-4 w-4 shrink-0 text-ink/60';
+  const cls = 'h-4 w-4 shrink-0 text-ink/70';
   if (kind === 'clip') return <Film aria-hidden className={cls} />;
   if (kind === 'editorial') return <Newspaper aria-hidden className={cls} />;
   return <Images aria-hidden className={cls} />;
@@ -78,42 +80,36 @@ export function LifeStorySection({ groups }: { groups: LifeStoryGroup[] }) {
   return (
     <div className="space-y-4">
       {error ? (
-        <p className="rounded-xl border border-ink/10 bg-white/40 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       ) : null}
 
       {groups.map((group) => (
-        <div
-          key={group.eventId}
-          className="rounded-xl border border-ink/10 bg-white/40 p-4"
-        >
-          <div className="mb-3 flex items-start justify-between gap-3">
+        <section key={group.eventId}>
+          <div className="mb-1 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-ink">
                 {group.eventName ?? 'An event'}
               </p>
-              <p className="text-xs text-ink/60">{countSummary(group.items)}</p>
+              <p className="text-xs text-ink/70">{countSummary(group.items)}</p>
             </div>
-            <button
-              type="button"
+            <ActionButton
+              tone="neutral"
+              icon={EyeOff}
+              label="Hide all from this event"
               disabled={pending}
               onClick={() => run(() => optOutOfEventStory(group.eventId))}
-              className="button-secondary shrink-0 text-xs disabled:opacity-50"
-            >
-              Hide all from this event
-            </button>
+            />
           </div>
 
-          <ul className="space-y-1.5">
+          <ul className="divide-y divide-ink/10">
             {group.items.map((item) => {
               const hidden = item.hiddenAt !== null;
               return (
                 <li
                   key={item.storyItemId}
-                  className={`flex items-center justify-between gap-3 rounded-xl border border-ink/10 px-3 py-2 ${
-                    hidden ? 'opacity-50' : ''
-                  }`}
+                  className="flex min-h-14 items-center justify-between gap-3 py-2"
                 >
                   <span className="flex min-w-0 items-center gap-2">
                     <KindIcon kind={item.itemKind} />
@@ -121,35 +117,31 @@ export function LifeStorySection({ groups }: { groups: LifeStoryGroup[] }) {
                       {kindLabel(item.itemKind)}
                     </span>
                     {hidden ? (
-                      <span className="shrink-0 text-xs text-ink/60">Hidden</span>
+                      <Badge tone="quiet">Hidden</Badge>
                     ) : null}
                   </span>
                   {hidden ? (
-                    <button
-                      type="button"
+                    <ActionButton
+                      tone="neutral"
+                      icon={Eye}
+                      label="Unhide"
                       disabled={pending}
                       onClick={() => run(() => unhideMyStoryItem(item.storyItemId))}
-                      className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-ink/60 hover:text-ink disabled:opacity-50"
-                    >
-                      <Eye aria-hidden className="h-4 w-4" />
-                      Unhide
-                    </button>
+                    />
                   ) : (
-                    <button
-                      type="button"
+                    <ActionButton
+                      tone="neutral"
+                      icon={EyeOff}
+                      label="Hide"
                       disabled={pending}
                       onClick={() => run(() => hideMyStoryItem(item.storyItemId))}
-                      className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-ink/60 hover:text-ink disabled:opacity-50"
-                    >
-                      <EyeOff aria-hidden className="h-4 w-4" />
-                      Hide
-                    </button>
+                    />
                   )}
                 </li>
               );
             })}
           </ul>
-        </div>
+        </section>
       ))}
     </div>
   );

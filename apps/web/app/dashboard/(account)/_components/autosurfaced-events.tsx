@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { LogOut } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { formatCount } from '@/lib/format-number';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
 import { eventBoardHref } from '@/lib/event-board';
@@ -31,16 +34,16 @@ export async function AutoSurfacedEvents({ userId }: { userId: string }) {
   return (
     <section>
       <div className="mb-3 flex items-baseline gap-2">
-        <h2 className="text-base font-semibold text-ink">You were added</h2>
-        <span className="text-xs text-ink/40">{surfaced.length}</span>
+        <h2 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">You were added</h2>
+        <span className="text-xs text-ink/70">{formatCount(surfaced.length)}</span>
       </div>
-      <ul className="space-y-2">
+      <ul className="divide-y divide-ink/10">
         {surfaced.map((event) => {
           const href = eventBoardHref(event);
           const body = (
             <>
               <p className="truncate text-sm font-medium text-ink">{event.display_name}</p>
-              <p className="text-xs text-ink/50">
+              <p className="text-xs text-ink/70">
                 {href
                   ? 'A couple added you to their event.'
                   : 'A couple added you to their event. They haven’t opened their page yet.'}
@@ -50,7 +53,7 @@ export async function AutoSurfacedEvents({ userId }: { userId: string }) {
           return (
           <li
             key={event.event_id}
-            className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white/70 px-4 py-3"
+            className="flex min-h-14 items-center justify-between gap-3 py-2"
           >
             {href ? (
               <Link href={href} className="min-w-0 flex-1">
@@ -61,12 +64,7 @@ export async function AutoSurfacedEvents({ userId }: { userId: string }) {
             )}
             <form action={leaveAutoSurfacedEvent}>
               <input type="hidden" name="event_id" value={event.event_id} />
-              <button
-                type="submit"
-                className="shrink-0 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 transition-colors hover:border-danger-300 hover:bg-danger-50 hover:text-danger-700"
-              >
-                Leave
-              </button>
+              <ActionButton type="submit" tone="danger" icon={LogOut} label="Leave" name={`Leave ${event.display_name}`} />
             </form>
           </li>
           );

@@ -106,6 +106,22 @@ export function sanitizeIlikeTerm(raw: string): string {
 }
 
 /**
+ * 🔎 F-W2-37 (walk 14 Nov): an EVENT is found word by word — every word the admin typed must appear in its name, its
+ * address or its public id, in any order. One ILIKE over the whole query missed "Wanda Indigo" for the event named
+ * "Wanda & Indigo" (the ampersand sits between the words), so the box said nothing matched an event that exists.
+ * One `.or()` per word; chained, PostgREST ANDs them. At most four words; null when nothing is left to search.
+ */
+export function eventWordFilters(raw: string): string[] | null {
+  const words = sanitizeIlikeTerm(raw)
+    .split(' ')
+    .map((w) => w.replace(/^[&+-]+|[&+-]+$/g, ''))
+    .filter((w) => w.length > 0 && w !== '&')
+    .slice(0, 4);
+  if (words.length === 0) return null;
+  return words.map((w) => `display_name.ilike.%${w}%,slug.ilike.%${w}%,public_id.ilike.%${w}%`);
+}
+
+/**
  * The `.or()` filter that finds a guest by name, or `null` when the query is
  * too short to be worth a round trip.
  *

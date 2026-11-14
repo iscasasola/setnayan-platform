@@ -37,6 +37,7 @@ import { fileURLToPath } from 'node:url';
 
 import { SOURCED_INQUIRY_SOURCES } from '@/lib/booking-fee-gate';
 import { isInquirySource } from '@/lib/inquiry-source';
+import { arrivalInquirySourceOf } from '@/lib/supplier-qr-codes';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..', '..', '..');
@@ -101,9 +102,12 @@ test('2 · the link points at the CANONICAL shop address, not the legacy one', (
 test('3 · the shop page RECOGNISES that exact word', () => {
   // An unrecognised ?src is inert by design — dropped, never rejected. So a
   // reader would arrive untracked and the page would look completely normal.
+  // RW-19 (walk 13 Nov 2026): the shop page reads `?src=` through ONE shared rule (`arrivalInquirySourceOf`, also used
+  // by Check a date) — so the word is asserted on the rule's behaviour, and the page is asserted to call it.
+  assert.equal(arrivalInquirySourceOf(TAG), TAG, `the shop page must accept '${TAG}' — an unlisted value is silently ignored`);
   assert.ok(
-    new RegExp(`search\\.src === '${TAG}'`).test(VENDOR_CODE),
-    `the shop page must accept '${TAG}' — an unlisted value is silently ignored`,
+    /const arrivalInquirySource = arrivalInquirySourceOf\(search\.src\);/.test(VENDOR_CODE),
+    'the shop page no longer reads ?src= through the shared rule',
   );
   assert.ok(
     /inquirySource=\{/.test(VENDOR_CODE),

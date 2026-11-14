@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, X } from 'lucide-react';
+
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { VENDOR_VENUE_TYPES, VENDOR_VENUE_TYPE_LABEL } from '@/lib/vendor-venue-type';
@@ -19,6 +22,9 @@ import { updateVenueType } from '../venue-type-actions';
  * Rendered for every shop, same as `VenueMatchCard` — a non-venue vendor
  * simply leaves it unset, identical to "no venue-type constraint".
  */
+/** Rule 2's section label — small grey capitals, no box. */
+const SECTION_LABEL = 'text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]';
+
 export function VenueTypeCard({ initialVenueType }: { initialVenueType: string | null }) {
   const toast = useToast();
   const [, startTransition] = useTransition();
@@ -46,35 +52,28 @@ export function VenueTypeCard({ initialVenueType }: { initialVenueType: string |
   }
 
   return (
-    <section
-      className="mt-3 rounded-xl border p-4"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-    >
-      <h3 className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-        What kind of venue are you{' '}
-        <span className="font-normal" style={{ color: 'var(--m-slate)' }}>
-          (optional)
-        </span>
-      </h3>
-      <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-        Shown on your public profile and used to match couples searching for your kind of
-        venue. Leave unset and you match every reception style.
-      </p>
+    <section className="mt-5" data-venue-type-card>
+      <InfoTip
+        label="What kind of venue are you (optional)"
+        labelAs="h3"
+        labelClassName={SECTION_LABEL}
+        align="start"
+      >
+        Shown on your public profile and used to match couples searching for your kind of venue. Leave unset and you
+        match every reception style.
+      </InfoTip>
 
-      <fieldset className="mt-3">
+      <fieldset className="mt-2">
         <legend className="sr-only">Venue type</legend>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {VENDOR_VENUE_TYPES.map((key) => {
             const on = venueType === key;
             return (
               <label
                 key={key}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors"
-                style={{
-                  borderColor: on ? 'var(--m-accent-deep)' : 'var(--m-line)',
-                  background: on ? 'var(--m-accent-soft, rgba(194,78,37,0.08))' : 'transparent',
-                  color: 'var(--m-ink)',
-                }}
+                className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border px-3 text-sm text-ink transition-colors duration-sn-control ease-sn ${
+                  on ? 'border-[color:var(--m-accent-deep)] bg-terracotta/10' : 'border-[color:var(--m-line)]'
+                }`}
               >
                 <input
                   type="radio"
@@ -82,7 +81,7 @@ export function VenueTypeCard({ initialVenueType }: { initialVenueType: string |
                   checked={on}
                   disabled={pending}
                   onChange={() => pick(key)}
-                  className="h-3.5 w-3.5 accent-[var(--m-accent-deep)]"
+                  className="h-4 w-4 accent-[var(--m-accent-deep)]"
                 />
                 {VENDOR_VENUE_TYPE_LABEL[key] ?? key}
               </label>
@@ -91,24 +90,22 @@ export function VenueTypeCard({ initialVenueType }: { initialVenueType: string |
         </div>
       </fieldset>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <ActionButton
+          tone="neutral"
+          quiet
+          icon={X}
+          label="Clear"
           onClick={() => pick(null)}
           disabled={pending || venueType === null}
-          className="text-xs underline disabled:opacity-40"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          Clear
-        </button>
+        />
         {pending ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+          <span className="text-sm text-[color:var(--m-slate-2)]" role="status">
+            Saving…
+          </span>
         ) : justSaved ? (
-          <span
-            className="inline-flex items-center gap-1 text-xs"
-            style={{ color: 'var(--m-slate)' }}
-          >
-            <Check className="h-3.5 w-3.5" strokeWidth={2} />
+          <span className="inline-flex items-center gap-1 text-sm text-[color:var(--m-slate-2)]" role="status">
+            <Check className="h-4 w-4" strokeWidth={2} aria-hidden />
             Saved
           </span>
         ) : null}

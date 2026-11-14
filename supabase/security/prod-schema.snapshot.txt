@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1878
-# tables: 502
-# columns: 6090
-# notnull: 3674
+# ledger: 1879
+# tables: 503
+# columns: 6097
+# notnull: 3678
 [ledger]
 20260512000000
 20260513000000
@@ -1889,6 +1889,7 @@
 20271345334309
 20271345380761
 20271345494976
+20271345870082
 20271345904117
 [columns]
 account_deletion_requests.admin_note
@@ -4154,6 +4155,13 @@ fraud_signals.updated_at
 fraud_signals.vendor_profile_id
 fraud_signals.window_end
 fraud_signals.window_start
+gift_moment_claims.claim_id
+gift_moment_claims.claimed_at
+gift_moment_claims.claimed_by
+gift_moment_claims.event_id
+gift_moment_claims.ref_id
+gift_moment_claims.source
+gift_moment_claims.vendor_profile_id
 godchild_reminder_log.godparent_id
 godchild_reminder_log.reminder_year
 godchild_reminder_log.resend_id
@@ -9284,6 +9292,10 @@ fraud_signals.updated_at
 fraud_signals.vendor_profile_id
 fraud_signals.window_end
 fraud_signals.window_start
+gift_moment_claims.claim_id
+gift_moment_claims.claimed_at
+gift_moment_claims.ref_id
+gift_moment_claims.source
 godchild_reminder_log.godparent_id
 godchild_reminder_log.reminder_year
 godchild_reminder_log.sent_at

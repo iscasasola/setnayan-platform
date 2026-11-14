@@ -7,10 +7,12 @@
 // Reuses (cited): the data-read patterns from
 //   · app/[slug]/_components/editorial/data.ts  (loadEditorialData — admin read + hero fallback)
 //   · lib/showcase-db.ts                         (loadPublishedShowcases — consent/visibility gate)
-// and the card shell from app/dashboard/[eventId]/galleries/page.tsx
-//   (rounded-2xl border border-ink/10 bg-white shadow-sm).
+// (2026-11-14: unframed photo tiles, design template rule 2).
 import Link from 'next/link';
-import { Newspaper, ArrowRight, Pencil } from 'lucide-react';
+import { ArrowRight, Pencil } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import { formatEventDate } from '@/lib/events';
 import {
   fetchLibraryEditorials,
@@ -22,14 +24,9 @@ export async function EditorialsTab({ userId }: { userId: string }) {
 
   if (owned.length === 0 && attended.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-ink/15 p-10 text-center">
-        <span className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
-          <Newspaper aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        </span>
-        <p className="text-sm text-ink/55">
-          Your wedding editorial will appear here once you publish it.
-        </p>
-      </div>
+      <p className="text-sm text-ink/70">
+        Your wedding editorial will appear here once you publish it.
+      </p>
     );
   }
 
@@ -65,9 +62,15 @@ function Section({
 }) {
   return (
     <section>
-      <div className="mb-4 space-y-1">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">{title}</h2>
-        <p className="max-w-prose text-sm text-ink/55">{blurb}</p>
+      <div className="mb-3">
+        <InfoTip
+          label={title}
+          labelAs="h2"
+          labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
+          align="start"
+        >
+          {blurb}
+        </InfoTip>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => (
@@ -100,7 +103,8 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
   const publicHref = item.slug ? `/${item.slug}` : null;
   const primaryHref = item.relation === 'owned' ? editorHref : publicHref;
 
-  const monogram = (item.monogramColor ?? '#A9834B').trim();
+  // No own colour → the house gold token (never a typed colour code).
+  const monogram = (item.monogramColor ?? 'rgb(var(--color-terracotta))').trim();
   const initials = deriveInitials(item.displayName);
 
   const hero = (
@@ -112,12 +116,12 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
             <img
               src={item.heroImageUrl}
               alt={`${item.displayName} editorial`}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              className="h-full w-full object-cover"
             />
           ) : (
             <div
               className="flex h-full w-full items-center justify-center"
-              style={{ backgroundColor: `${monogram}14` }}
+              style={{ backgroundColor: `color-mix(in srgb, ${monogram} 8%, transparent)` }}
               aria-hidden
             >
               <span
@@ -135,22 +139,22 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
   );
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white dark:bg-raised shadow-sm transition-shadow hover:shadow-md">
+    <article className="flex flex-col">
       {primaryHref ? (
-        <Link href={primaryHref} className="block">
+        <Link href={primaryHref} className="block overflow-hidden rounded-lg">
           {hero}
         </Link>
       ) : (
-        hero
+        <div className="overflow-hidden rounded-lg">{hero}</div>
       )}
 
-      <div className="flex flex-1 flex-col gap-3 p-4">
+      <div className="flex flex-1 flex-col gap-3 pt-3">
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-ink">
             {item.displayName}
           </h3>
           {item.eventDate ? (
-            <p className="mt-0.5 text-xs text-ink/50">
+            <p className="mt-0.5 text-xs text-ink/70">
               {formatEventDate(item.eventDate)}
             </p>
           ) : null}
@@ -159,33 +163,15 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
         <div className="mt-auto flex flex-wrap items-center gap-2">
           {item.relation === 'owned' ? (
             <>
-              <Link
-                href={editorHref}
-                className="inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-800"
-              >
-                <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                Edit editorial
-              </Link>
+              <ActionButton tone="brand" icon={<Pencil aria-hidden />} label="Edit editorial" href={editorHref} />
               {publicHref && item.published ? (
-                <Link
-                  href={publicHref}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/65 transition-colors hover:bg-ink/5 hover:text-ink"
-                >
-                  View page
-                  <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                </Link>
+                <ActionButton tone="neutral" icon={<ArrowRight aria-hidden />} label="View page" href={publicHref} />
               ) : null}
             </>
           ) : publicHref ? (
-            <Link
-              href={publicHref}
-              className="inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-800"
-            >
-              View editorial
-              <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            </Link>
+            <ActionButton tone="brand" icon={<ArrowRight aria-hidden />} label="View editorial" href={publicHref} />
           ) : (
-            <p className="rounded-xl bg-ink/[0.03] px-3 py-1.5 text-xs text-ink/55">
+            <p className="text-xs text-ink/70">
               The organizer hasn’t opened this event’s page yet.
             </p>
           )}
@@ -196,13 +182,10 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
 }
 
 function StatusChip({ published }: { published: boolean }) {
-  return published ? (
-    <span className="inline-flex items-center rounded-full bg-success-50 px-2 py-0.5 text-[11px] font-medium text-success-700 shadow-sm">
-      Published
-    </span>
-  ) : (
-    <span className="inline-flex items-center rounded-full bg-warn-50 px-2 py-0.5 text-[11px] font-medium text-warn-700 shadow-sm">
-      Draft
+  // Over a photo — a cream backing so the soft badge reads on any picture.
+  return (
+    <span className="inline-flex rounded-full bg-cream">
+      {published ? <Badge tone="ok">Published</Badge> : <Badge tone="quiet">Draft</Badge>}
     </span>
   );
 }

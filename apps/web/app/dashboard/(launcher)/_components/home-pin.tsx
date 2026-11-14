@@ -111,7 +111,7 @@ export function HomePinnedRow({
 export function HomeFindRow({ words, children, tour }: { words: string; children: ReactNode; tour?: string }) {
   return (
     <label className={hp.find} data-home-find={words} data-tour={tour}>
-      <Search className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.9} aria-hidden />
+      <Search className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.9} aria-hidden />
       {children}
     </label>
   );

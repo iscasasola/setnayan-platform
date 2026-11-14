@@ -108,7 +108,7 @@ export function HomeCoverBand({
             <span className="absolute inset-0 block" style={{ background: ground.scrim }} />
           </span>
         ) : null}
-        <div className={`relative min-w-0 ${card ? 'flex-1' : ''} ${gear && !card ? 'pr-[54px]' : ''} transition-[opacity,transform] duration-200 ease-sn group-data-[collapsed]/cover:-translate-y-2.5 group-data-[collapsed]/cover:opacity-0 motion-reduce:transition-none motion-reduce:group-data-[collapsed]/cover:translate-y-0`}>
+        <div className={`relative min-w-0 ${card ? 'flex-1' : ''} ${gear && !card ? 'pr-[54px]' : ''} transition-[opacity,transform] duration-[var(--sn-dur-control)] ease-sn group-data-[collapsed]/cover:-translate-y-2.5 group-data-[collapsed]/cover:opacity-0 motion-reduce:transition-none motion-reduce:group-data-[collapsed]/cover:translate-y-0`}>
           {/* The page's one h1. Screen-reader only: the name is drawn once, below, for the eye — and
               BEFORE the eyebrow, so `lint-page-masthead` does not read a label-over-h1. */}
           <h1 className="sr-only">{cover.name}</h1>

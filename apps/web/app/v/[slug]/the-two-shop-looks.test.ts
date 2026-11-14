@@ -147,3 +147,23 @@ test('motion: the seal\'s ring and tick draw, and the reach ring draws itself �
   const reach = read('_components/shop-reach.tsx');
   assert.match(reach, /<ReachMap[\s\S]{0,260}\bkmTag\b/, 'the shop page\'s ring lost its km tag');
 });
+
+test('the shop page\'s reach ring is the map card: 9 : 5 capped at 250 px, the credit tag, the bigger-map door (re-walk 2026-11-14)', () => {
+  const reach = read('_components/shop-reach.tsx');
+  // The card's shape is asked for at the public caller only — the supplier's own "Where you work" map keeps 240 px.
+  assert.match(reach, /<ReachMap[\s\S]{0,300}\bcard\b/, 'the shop page\'s ring lost the card shape (it drew 3 : 2 again)');
+  assert.match(reach, /mapHref === null \? null : <BiggerMapButton href=\{openStreetMapUrl\(lat, lng, \d+\)\} \/>/, 'the bigger-map door must open OSM at the shop pin, and stay shut on the sample');
+  assert.match(reach, /credit=\{mapHref !== null\}/, 'the sample\'s credit must be words, not a link');
+  const map = stripComments(readFileSync(join(HERE, '../../vendor-dashboard/shop/_components/reach-map.tsx'), 'utf8'));
+  assert.match(map, /card \? 'aspect-\[9\/5\] max-h-\[250px\]'/, 'the card shape is the map card\'s 9 : 5, never taller than 250 px');
+  assert.match(map, /height: card \? undefined : H/, 'the dashboard map keeps its fixed height');
+  assert.match(map, /<MapCredit link=\{credit\} \/>/);
+  const dash = stripComments(readFileSync(join(HERE, '../../vendor-dashboard/shop/_components/service-radius-fields.tsx'), 'utf8'));
+  assert.doesNotMatch(dash, /<ReachMap[^>]*\bcard\b/, 'the supplier\'s own Where you work map is not the public card');
+});
+
+test('the Where tab and the Where section share one answer — a shop with nowhere to show has neither (re-walk 2026-11-14)', () => {
+  assert.match(PAGE, /const hasWhere = shopHasWhere\(\{/);
+  assert.match(PAGE, /\.\.\.\(hasWhere \? \[\{ id: 'shop-where', label: 'Where' \}\] : \[\]\)/, 'the Where tab is drawn whatever the shop has');
+  assert.match(PAGE, /\{cinematicHero \|\| !hasWhere \? null : \(\s*<div id="shop-where"/, 'the Where section is drawn whatever the shop has');
+});

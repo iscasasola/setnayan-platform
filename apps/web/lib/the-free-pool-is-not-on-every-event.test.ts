@@ -5,6 +5,7 @@ import { dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PAPIC_FREE_CREDIT_CONDITION } from './papic-free-credit-promise';
 import { stripComments } from './strip-comments';
+import { publicHelpSourceText } from '@/lib/help-sources.test-helper';
 
 /**
  * The property: no surface anywhere may say the free CREDIT POOL comes with
@@ -118,8 +119,13 @@ test('the guard actually fires on each of the four strings it was written for', 
 
 test('the honest condition is the one the corrected copy uses', () => {
   assert.equal(PAPIC_FREE_CREDIT_CONDITION, 'on your first event');
-  for (const rel of ['lib/help.ts', 'lib/llms-txt.ts']) {
-    const src = readFileSync(join(WEB, rel), 'utf8');
+  // help split 2026-11-14: the prose lives in lib/help/*.ts — read every file, never lib/help.ts alone.
+  const read: Record<string, () => string> = {
+    'lib/help.ts + lib/help/*.ts': publicHelpSourceText,
+    'lib/llms-txt.ts': () => readFileSync(join(WEB, 'lib/llms-txt.ts'), 'utf8'),
+  };
+  for (const [rel, load] of Object.entries(read)) {
+    const src = load();
     // Either the wording itself, or — better — the constant interpolated, so
     // the file follows the moment the condition is reworded (2026-10-19).
     assert.match(

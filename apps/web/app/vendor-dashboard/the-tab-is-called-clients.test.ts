@@ -21,6 +21,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
+import { PUBLIC_HELP_SOURCES } from '@/lib/help-sources.test-helper';
 
 const WEB = join(__dirname, '..', '..');
 
@@ -33,7 +34,7 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const SHARED = ['lib/menu-settings.ts', 'lib/help.ts', 'lib/tours.ts', 'lib/nav-registry-defaults.ts'];
+const SHARED = ['lib/menu-settings.ts', ...PUBLIC_HELP_SOURCES, 'lib/tours.ts', 'lib/nav-registry-defaults.ts']; // help split 2026-11-14
 
 /** Files whose owning lane renames the word in THE ONE BUILD (owner lane in the value). Remove a line once fixed. */
 // Integration (8 Nov): emptied — the last three strings (the pinned row's group + Show label, the client page's back

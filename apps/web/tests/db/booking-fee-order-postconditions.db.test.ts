@@ -77,8 +77,8 @@ async function newVendor(email: string): Promise<{ vendorProfileId: string; user
   );
   const userId = u.rows[0]!.id;
   const v = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, 'Postcondition Vendor', 'Manila', ARRAY['photography']::text[], 'verified', NOW())
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES ($1, 'Postcondition Vendor', 'Manila', ARRAY['photography']::text[], 'verified', NOW(), 'verified')
      RETURNING vendor_profile_id`,
     [userId],
   );
@@ -88,8 +88,8 @@ async function newVendor(email: string): Promise<{ vendorProfileId: string; user
 /** A VERIFIED but UNCLAIMED (admin-owned) vendor profile — `user_id IS NULL`. */
 async function newUnclaimedVendor(): Promise<string> {
   const v = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES (NULL, 'Unclaimed Vendor', 'Cebu', ARRAY['photography']::text[], 'verified', NOW())
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES (NULL, 'Unclaimed Vendor', 'Cebu', ARRAY['photography']::text[], 'verified', NOW(), 'verified')
      RETURNING vendor_profile_id`,
   );
   return v.rows[0]!.vendor_profile_id;

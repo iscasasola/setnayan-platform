@@ -211,7 +211,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
             {row.public_id}
           </p>
           <span
-            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${FLAG_STATUS_TONE[row.status]}`}
+            className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${FLAG_STATUS_TONE[row.status]}`}
           >
             {FLAG_STATUS_LABEL[row.status]}
           </span>
@@ -232,7 +232,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                   {event.display_name}
                 </span>
                 <br />
-                <span className="font-mono text-[11px] text-ink/55">
+                <span className="text-[12px] text-ink/55 tabular-nums">
                   {event.public_id}
                   {event.event_date ? ` · ${event.event_date}` : ''}
                 </span>
@@ -249,7 +249,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
               <>
                 <span className="font-medium text-ink">{vendor.vendor_name}</span>
                 <br />
-                <span className="font-mono text-[11px] text-ink/55">
+                <span className="text-[12px] text-ink/55 tabular-nums">
                   {vendor.category}
                 </span>
               </>
@@ -339,7 +339,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
           for this booking. Admins read it as evidence; they never raise/resolve. */}
       {row.event_vendor_id ? (
         <section className="mb-6 space-y-2">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Change orders ({changeOrdersUnread ? '—' : changeOrders.length})
           </h2>
           {changeOrdersUnread ? (
@@ -377,16 +377,16 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                           {abs}
                         </span>
                       </span>
-                      <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                      <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                         {co.status}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[11px] text-ink/55">
+                    <p className="mt-0.5 text-[12px] text-ink/55">
                       Raised by {co.raised_by} · {co.created_at.slice(0, 10)}
                       {co.acknowledged_at ? ` · acknowledged ${co.acknowledged_at.slice(0, 10)}` : ''}
                     </p>
                     {co.status === 'declined' && co.decline_reason ? (
-                      <p className="mt-0.5 text-[11px] text-ink/55">Reason: {co.decline_reason}</p>
+                      <p className="mt-0.5 text-[12px] text-ink/55">Reason: {co.decline_reason}</p>
                     ) : null}
                   </li>
                 );
@@ -397,7 +397,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
       ) : null}
 
       <section className="mb-6 space-y-2">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Description
         </h2>
         <p className="whitespace-pre-wrap rounded-md bg-ink/[0.03] p-4 text-sm text-ink/85">
@@ -406,7 +406,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
       </section>
 
       <section className="mb-6 space-y-2">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Evidence ({evidenceUnread ? (evidenceStored > 0 ? `${evidenceStored} attached` : '—') : evidenceUrls.length})
         </h2>
         {evidenceUnread ? (
@@ -429,7 +429,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                       unoptimized
                     />
                   </span>
-                  <span className="block px-2 py-1 text-center font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
+                  <span className="block px-2 py-1 text-center text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                     file {idx + 1}
                   </span>
                 </a>
@@ -445,7 +445,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
 
       {row.resolution_notes ? (
         <section className="mb-6 space-y-2">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Resolution notes
           </h2>
           <p className="whitespace-pre-wrap rounded-md bg-success-50/60 p-4 text-sm text-success-900">
@@ -455,7 +455,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
       ) : null}
 
       <section className="space-y-4 sn-tile p-5">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Actions
         </h2>
 
@@ -483,7 +483,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                     className={`flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm font-medium ${FLAG_STATUS_TONE[act]} rounded-md`}
                   >
                     <span>{FLAG_STATUS_LABEL[act]}</span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                       open
                     </span>
                   </summary>
@@ -494,7 +494,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                     <input type="hidden" name="flag_id" value={row.flag_id} />
                     <input type="hidden" name="action" value={act} />
                     <label className="block space-y-1">
-                      <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                      <span className="block text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                         Resolution notes{' '}
                         {act === 'refund_issued' || act === 'partial_credit'
                           ? '(required — amount + channel)'
@@ -540,7 +540,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+      <dt className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         {label}
       </dt>
       <dd className="text-sm">{value}</dd>

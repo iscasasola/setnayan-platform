@@ -19,7 +19,7 @@ export function CheckADateUnreadableView({ shopHref, retryHref }: { shopHref: st
         <div className="px-4 pb-16 pt-6" data-check-date-unreadable="">
           <h1 className="text-[22px] font-semibold">Check a date</h1>
           <p role="alert" className="mt-2 text-[15px] text-ink/75">
-            We couldn&rsquo;t load this shop&rsquo;s dates just now, so we won&rsquo;t guess which days are free. Please try again in a moment.
+            We couldn&rsquo;t load this shop&rsquo;s dates just now, so we won&rsquo;t guess which days are free.
           </p>
           <div className="mt-4 flex gap-2">
             <a href={retryHref} className="button-secondary inline-flex items-center gap-2">

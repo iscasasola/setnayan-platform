@@ -94,7 +94,7 @@ export function CoordinatorColourDomains({
     // chip; sub-section labels in grey capitals (never 10 px typewriter); full-strength ink.
     <section id="colour-domains" aria-labelledby="colour-domains-heading" className="space-y-3">
       <h2 id="colour-domains-heading" className="flex items-center gap-1.5">
-        <Palette aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+        <Palette aria-hidden className="h-3.5 w-3.5 text-terracotta-700" strokeWidth={1.75} />
         <InfoTip label="Colour access" labelAs="span" labelClassName={LABEL} align="start">
           A coordinator isn’t tied to one craft the way a supplier is — they can hold access across several parts of
           your design at once. Grant only what makes sense; each one is its own switch. You’re told about every change,

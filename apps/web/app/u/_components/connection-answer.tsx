@@ -7,18 +7,17 @@
  * The SAME two answers People's Requests row gives (`people-roster-view.tsx` → `RequestRow`), through the SAME shipped
  * actions — `confirmConnection` / `declineConnection` (no new action: the server-action budget is at its ceiling). A
  * request that carries "Partner" asks the one-partner question here too, in the action's own words. After an answer
- * the page re-reads, so "Waiting to connect" becomes "Connected" (or the line goes) from the database, never a guess.
+ * the action's own revalidation re-renders the page (no second refresh — `a-save-renders-once.test.ts`), so "Waiting to
+ * connect" becomes "Connected" (or the line goes) from the database, never a guess.
  *
  * Drawn only where the page already knows the request waits on THIS viewer (`ProfileViewer.answerConnectionId`).
  */
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { confirmConnection, declineConnection } from '@/app/dashboard/(account)/people/actions';
 
 export function ConnectionAnswer({ connectionId, name }: { connectionId: string; name: string | null }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [question, setQuestion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,14 +33,12 @@ export function ConnectionAnswer({ connectionId, name }: { connectionId: string;
       }
       setQuestion(null);
       if (!res.ok) setError(res.error);
-      else router.refresh();
     });
   const decline = () =>
     start(async () => {
       setError(null);
       const res = await declineConnection(connectionId);
       if (!res.ok) setError(res.error);
-      else router.refresh();
     });
 
   return (

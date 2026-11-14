@@ -95,6 +95,10 @@ export async function setAiPaywall(formData: FormData): Promise<void> {
   revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
 
   revalidatePath('/admin/integrations');
+  revalidatePath('/admin/switches');
+  // The same switch is drawn on Switches (avatar › Switches, 2026-11-14); a flip from there lands back there.
+  // Allow-listed — never an open redirect.
+  if (formData.get('back') === '/admin/switches') redirect('/admin/switches?saved=paywall');
   redirect('/admin/integrations?saved=1');
 }
 

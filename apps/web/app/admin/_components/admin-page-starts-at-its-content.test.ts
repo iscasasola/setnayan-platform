@@ -286,18 +286,11 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
     file: 'settings/_surfaces/settings-surface.tsx',
     namesItself: 'title="Platform settings"',
   },
-  {
-    file: 'settings/_surfaces/compliance-surface.tsx',
-    namesItself: 'title="Compliance"',
-  },
-  {
-    file: 'settings/_surfaces/demo-mode-surface.tsx',
-    namesItself: 'title="Demo mode"',
-  },
-  {
-    file: 'settings/_surfaces/notifications-surface.tsx',
-    namesItself: 'title="Notifications"',
-  },
+  // The Settings studio's Compliance · Demo mode · Notifications tabs became PARTS of the avatar's screens
+  // (2026-11-14) — the page that holds each one names itself, once.
+  { file: 'business/page.tsx', namesItself: 'title="Business & compliance"' },
+  { file: 'switches/page.tsx', namesItself: 'title="Switches"' },
+  { file: 'email-delivery/page.tsx', namesItself: 'title="Email delivery"' },
   { file: 'studio/_surfaces/recaps-surface.tsx', namesItself: 'title="Recaps"' },
   {
     file: 'studio/_surfaces/reveal-studio-surface.tsx',
@@ -602,6 +595,12 @@ test('what the old header held survived the header', () => {
 const SENTENCES_THAT_EARNED_THEIR_KEEP: Array<{ file: string; keeps: RegExp; why: string }> = [
   {
     file: 'settings/_surfaces/settings-surface.tsx',
+    keeps: /these are not BIR ORs/,
+    why: 'mistaking this screen for BIR Official Receipts is a tax problem, not a layout one',
+  },
+  {
+    // The live home of the same form since 2026-11-14 (avatar › Business & compliance).
+    file: 'business/page.tsx',
     keeps: /these are not BIR ORs/,
     why: 'mistaking this screen for BIR Official Receipts is a tax problem, not a layout one',
   },

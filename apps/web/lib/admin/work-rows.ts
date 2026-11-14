@@ -103,7 +103,7 @@ export const BASE_ROWS: BaseRow[] = [
   { key: 'supplier-refunds', label: 'Supplier refunds', href: '/admin/payments/supplier-refunds', icon: Undo2, description: 'Refunds suppliers recorded this week — you only watch these.' },
   { key: 'service-requests', label: 'Service requests', href: '/admin/categories/requests', icon: Lightbulb, description: 'Suppliers asking for a service we don’t list.' },
   { key: 'problems', label: 'Problems', href: '/admin/app-performance?tab=connection-logs', icon: Bug, description: 'Things failing in the app right now.' },
-  { key: 'email-bounces', label: 'Email bounces', href: '/admin/settings?tab=notifications', icon: MailWarning, description: 'Emails this week that did not arrive.' },
+  { key: 'email-bounces', label: 'Email bounces', href: '/admin/email-delivery', icon: MailWarning, description: 'Emails this week that did not arrive.' },
 ];
 
 /**

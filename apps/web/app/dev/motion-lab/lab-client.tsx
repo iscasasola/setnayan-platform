@@ -35,17 +35,17 @@ export function MotionLabClient() {
       <div className="space-y-2">
         <Fold title="Celebrants" summary="Maria, Jose" data="lab-1">
           <p className="py-1 text-[14px] text-ink/60">The default event name reads these.</p>
-          <input className="input-field" defaultValue="Maria Santos" aria-label="First" />
-          <input className="input-field mt-2" defaultValue="Jose Reyes" aria-label="Second" />
+          <p className="py-1 text-[15px] text-ink">Maria Santos</p>
+          <p className="py-1 text-[15px] text-ink">Jose Reyes</p>
         </Fold>
         <Fold title="Date" summary="Sat, 12 Dec 2026" data="lab-2">
           <p className="py-1 text-[14px] text-ink/60">Guests see this on the cover.</p>
-          <input className="input-field" defaultValue="Sat, 12 Dec 2026" aria-label="Date" />
+          <p className="py-1 text-[15px] text-ink">Sat, 12 Dec 2026</p>
         </Fold>
         <Fold title="Venues" summary="2 venues" data="lab-3">
           <p className="py-1 text-[14px] text-ink/60">Ceremony, then reception.</p>
-          <input className="input-field" defaultValue="San Agustin Church" aria-label="Ceremony" />
-          <input className="input-field mt-2" defaultValue="Casa Maria Gardens" aria-label="Reception" />
+          <p className="py-1 text-[15px] text-ink">San Agustin Church</p>
+          <p className="py-1 text-[15px] text-ink">Casa Maria Gardens</p>
         </Fold>
       </div>
       <button type="button" role="switch" aria-checked={on} onClick={() => setOn((v) => !v)} className="flex min-h-[44px] items-center gap-3" data-lab="switch">

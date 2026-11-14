@@ -639,3 +639,7 @@
   .pickCard[data-open="true"] { border-color: var(--sf-line); }
   .pickCard[data-first="true"] { border-color: var(--sf-accent); }
 }
+/* four cards side by side: the shop-page miniature stacks above its words, so the narrow card keeps its text readable */
+@media (min-width: 960px) {
+  .pickCard .mini { grid-template-columns: minmax(0, 1fr); justify-items: start; }
+}

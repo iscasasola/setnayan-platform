@@ -159,6 +159,20 @@ test('(10) the copy is the same service at Cebu — own price, own calendar, no 
   assert.equal(shared.rows.length, 0, 'a Cebu booking must never take a Makati date');
 });
 
+test('(10) a shop cannot mark a card as a copy itself — that would step outside its card limit', async () => {
+  let err = '';
+  try {
+    await db.query(`UPDATE public.vendor_services SET branch_copy_of = $1 WHERE vendor_service_id = $2`, [F.copy, F.card]);
+  } catch (e) {
+    err = (e as Error).message;
+  }
+  assert.match(err, /only through Copy to another branch/);
+  // Clearing it is always allowed (what ON DELETE SET NULL does).
+  await db.query(`UPDATE public.vendor_services SET branch_copy_of = NULL WHERE vendor_service_id = $1`, [F.copy]);
+  const r = await db.query<{ c: string | null }>(`SELECT branch_copy_of AS c FROM public.vendor_services WHERE vendor_service_id = $1`, [F.copy]);
+  assert.equal(r.rows[0]!.c, null);
+});
+
 test('(10) a card cannot be copied to the branch it is already at', async () => {
   await setRole('service_role');
   let err = '';

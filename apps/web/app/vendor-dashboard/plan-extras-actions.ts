@@ -15,7 +15,7 @@ import { fetchVendorBranches } from '@/lib/vendor-branches';
  * SIMPLER SUPPLIER PLANS — the supplier's two new writes (owner-approved 2026-11-14, items 8 and 10), as ONE
  * dispatcher so the server-action budget grows by one, not two (`scripts/lint-server-action-budget.mjs`):
  *
- *   op=story_note     — Ultra: the shop's "In our words" note for one PUBLISHED celebration it worked
+ *   op=story_note     — Ultra: the shop's "In our words" note for one PUBLISHED event it worked
  *                       (`vendor_event_story_notes`). Blank deletes the note.
  *   op=branch_copy    — "Copy to another branch": the same service at another branch, at that branch's price
  *                       (`copy_vendor_service_to_branch`, which also gives it its own calendar and uses no card).
@@ -49,14 +49,14 @@ export async function supplierPlanExtra(_prev: PlanExtraResult | null, formData:
     }
     const { stories } = await publishedStoriesOfShop(admin, ctx.vendorProfileId).catch(() => ({ stories: [] as { eventId: string; slug: string }[] }));
     const story = stories.find((s) => s.eventId === eventId);
-    if (!story) return { ok: false, message: 'Only a celebration its host has published can have a story page.' };
+    if (!story) return { ok: false, message: 'Only an event its host has published can have a story page.' };
 
     const body = cleanStoryNote(formData.get('body'));
     const write = body
       ? await supabase
           .from('vendor_event_story_notes')
           .upsert(
-            { vendor_profile_id: ctx.vendorProfileId, event_id: eventId, body, written_by_user_id: user.id, updated_at: new Date().toISOString() },
+            { vendor_profile_id: ctx.vendorProfileId, event_id: eventId, body, updated_at: new Date().toISOString() },
             { onConflict: 'vendor_profile_id,event_id' },
           )
       : await supabase.from('vendor_event_story_notes').delete().eq('vendor_profile_id', ctx.vendorProfileId).eq('event_id', eventId);

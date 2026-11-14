@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS public.vendor_event_story_notes (
   vendor_profile_id  UUID NOT NULL REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE CASCADE,
   event_id           UUID NOT NULL REFERENCES public.events(event_id) ON DELETE CASCADE,
   body               TEXT NOT NULL CHECK (length(btrim(body)) BETWEEN 1 AND 600),
-  written_by_user_id UUID NULL REFERENCES public.users(user_id) ON DELETE SET NULL,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (vendor_profile_id, event_id)
@@ -44,10 +43,10 @@ ALTER TABLE public.vendor_event_story_notes ENABLE ROW LEVEL SECURITY;
 -- Grants by column, the way this schema grants (a stranger never reads the table; the public page reads it
 -- server-side with the service role).
 REVOKE ALL ON public.vendor_event_story_notes FROM PUBLIC, anon, authenticated;
-GRANT SELECT (note_id, vendor_profile_id, event_id, body, written_by_user_id, created_at, updated_at)
+GRANT SELECT (note_id, vendor_profile_id, event_id, body, created_at, updated_at)
   ON public.vendor_event_story_notes TO authenticated;
-GRANT INSERT (vendor_profile_id, event_id, body, written_by_user_id, updated_at),
-      UPDATE (body, written_by_user_id, updated_at),
+GRANT INSERT (vendor_profile_id, event_id, body, updated_at),
+      UPDATE (body, updated_at),
       DELETE
   ON public.vendor_event_story_notes TO authenticated;
 GRANT ALL ON public.vendor_event_story_notes TO service_role;
@@ -87,9 +86,8 @@ BEGIN
   END IF;
 END $$;
 
--- vendor_team_members is granted to `authenticated` column by column (measured in production 2026-11-14: 9 columns),
--- so a new column is invisible to the Team screen until it is named. The admin-write RLS policy still decides WHO.
-GRANT SELECT (whole_branch_keys), UPDATE (whole_branch_keys) ON public.vendor_team_members TO authenticated;
+-- Who may write it: the table's admin-write RLS policy (current_vendor_ids('admin')), unchanged. No new grant — the
+-- table-level privileges already cover a new column (measured in production 2026-11-14).
 
 COMMENT ON COLUMN public.vendor_team_members.whole_branch_keys IS
   'Shop › Team "Whole branch" (owner 2026-11-14, item 9): the branches this person works in full — a vendor_branches.branch_id as text, or ''main'' for cards filed under no branch. The person still sees exactly their vendor_service_agents rows; vendor_services_whole_branch_agents() adds the row for every card filed at such a branch later.';
@@ -133,9 +131,31 @@ CREATE INDEX IF NOT EXISTS vendor_services_branch_copy_of_idx
   ON public.vendor_services (branch_copy_of)
   WHERE branch_copy_of IS NOT NULL;
 
--- Readable by the shop (the create gate counts with it); never writable from the app — only
--- copy_vendor_service_to_branch() sets it. vendor_services is granted column by column (49 columns, 2026-11-14).
-GRANT SELECT (branch_copy_of) ON public.vendor_services TO authenticated;
+-- 🔒 ONLY THE COPY MAY SET IT. `authenticated` holds table-level UPDATE on vendor_services and the row policy is "your
+-- own cards", so without this fence a shop could PATCH branch_copy_of onto any card through PostgREST and step outside
+-- its card limit. Clearing it (the FK's ON DELETE SET NULL, or an admin) is always allowed; SETTING it is allowed only
+-- inside copy_vendor_service_to_branch(), which raises a transaction-local flag first.
+CREATE OR REPLACE FUNCTION public.only_a_branch_copy_sets_branch_copy_of()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.branch_copy_of IS NOT NULL
+     AND (TG_OP = 'INSERT' OR NEW.branch_copy_of IS DISTINCT FROM OLD.branch_copy_of)
+     AND COALESCE(current_setting('setnayan.branch_copy', true), '') <> 'on' THEN
+    RAISE EXCEPTION 'A card becomes a branch copy only through Copy to another branch.' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.only_a_branch_copy_sets_branch_copy_of() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS only_a_branch_copy_sets_branch_copy_of_trg ON public.vendor_services;
+CREATE TRIGGER only_a_branch_copy_sets_branch_copy_of_trg
+  BEFORE INSERT OR UPDATE OF branch_copy_of ON public.vendor_services
+  FOR EACH ROW EXECUTE FUNCTION public.only_a_branch_copy_sets_branch_copy_of();
 
 COMMENT ON COLUMN public.vendor_services.branch_copy_of IS
   'Copy to another branch (owner 2026-11-14, item 10): the card this one is the same service as, at another branch. A row with this set does NOT use up a card — the create gate (commitVendorService) and the plan picker (lib/service-plan-hold.ts) skip it. Its price, calendar and team are its own. ON DELETE SET NULL: when the original goes, the copy is simply a card.';
@@ -198,6 +218,7 @@ BEGIN
                ELSE p_price_php
              END;
 
+  PERFORM set_config('setnayan.branch_copy', 'on', true);
   INSERT INTO public.vendor_services (
     vendor_service_id, vendor_profile_id, category, title, branch_id, branch_copy_of, is_active,
     starting_price_php, per_pax_price_php, hour_base_php,
@@ -219,6 +240,8 @@ BEGIN
     s.is_demo, s.demo_batch_id, s.base_pax, s.coverage_id, s.pricing_basis, s.min_pax, s.min_hours, s.extra_hour_php,
     s.includes_setnayan_gift, s.gift_pack_code, s.category_request_id
   );
+
+  PERFORM set_config('setnayan.branch_copy', '', true);
 
   INSERT INTO public.vendor_service_price_brackets (vendor_service_id, vendor_profile_id, min_pax, max_pax, price_php, sort_order)
   SELECT v_new_id, vendor_profile_id, min_pax, max_pax, price_php, sort_order

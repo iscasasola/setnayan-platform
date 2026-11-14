@@ -16,6 +16,7 @@ import { ArrowLeft, ArrowRight, CalendarCheck, Star } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { loadShopStoryPage } from '@/lib/ultra-story-pages.server';
 import { IN_OUR_WORDS } from '@/lib/ultra-story-pages';
+import { formatCount } from '@/lib/format-number';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,7 +76,7 @@ export default async function ShopStoryPage({ params }: Props) {
               </div>
             ) : null}
             <p className="mt-1.5 text-[12.5px] text-ink/55">
-              Our photos from the day · {photos.length}
+              Our photos from the day · {formatCount(photos.length)}
             </p>
           </section>
         ) : null}

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, CopyPlus, X } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { ActionButton } from '@/components/action-button';
 import { formatPhp } from '@/lib/php';
@@ -66,21 +67,11 @@ export function CopyToBranch({
           <input type="hidden" name="op" value="branch_copy" />
           <input type="hidden" name="vendor_service_id" value={serviceId} />
           <p className="text-[14px] text-ink/65">Same words and photos. Change anything after.</p>
-          <label className="flex min-h-11 items-center justify-between gap-3 border-t border-ink/10 pt-2 text-[15px]">
+          <div className="flex min-h-11 items-center justify-between gap-3 border-t border-ink/10 pt-2 text-[15px]">
             <span>Branch</span>
-            <select
-              name="branch"
-              value={branch}
-              onChange={(e) => setBranch(e.currentTarget.value)}
-              className="input-field min-h-11 w-auto cursor-pointer"
-            >
-              {targets.map((t) => (
-                <option key={t.key} value={t.key}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <input type="hidden" name="branch" value={branch} />
+            <PickMenu label="Branch" value={branch} options={targets.map((t) => ({ key: t.key, label: t.label }))} onPick={setBranch} dataAttr="data-branch-copy-branch" className="!min-h-11" />
+          </div>
           <FormRows>
             <TypedRow name="Price there" note={priceWord === 'Price there' ? undefined : priceWord} value={price} empty="Set it" amount required inputMode="numeric" fieldName="price_php" onKeep={(t) => setPrice(t)} data="branch-copy-price" />
           </FormRows>

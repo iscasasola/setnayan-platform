@@ -24,8 +24,13 @@ theirs is touched.
   time slots, references the SAME photos, gets its own price, its own calendar (a new schedule pool) and no team, and
   is marked `branch_copy_of` so the create gate and the plan picker do not count it as a card. A new service, or one in
   another category, still uses a card.
-- ONE add-only migration `20271346029832` (new table `vendor_event_story_notes`, RLS at CREATE; two new columns with
-  explicit column grants, because both tables grant `authenticated` column by column in production).
+- ONE add-only migration `20271346029832`: new table `vendor_event_story_notes` (RLS at CREATE, column grants, no
+  anon), two new columns, the copy function, the whole-branch trigger, and a fence trigger — `authenticated` holds
+  table-level UPDATE on `vendor_services`, so without it a shop could PATCH `branch_copy_of` onto any card and step
+  outside its card limit; only `copy_vendor_service_to_branch()` may set it (proved in
+  `tests/db/a-branch-copy-is-its-own-card-and-a-whole-branch-follows.db.test.ts`). Exposure baseline regenerated: every
+  added line is the new table (authenticated only), the two new columns inheriting their tables' existing grants (rows
+  still fenced by the existing RLS), and the copy function (admin check inside).
 - ONE new server action (`supplierPlanExtra`, op = story_note | branch_copy) — 1,245 → 1,246 of the 1,251 ceiling.
 - Shared files also edited by open PRs, with hunks kept clear of theirs: `app/v/[slug]/page.tsx` (#7667),
   `team/_components/helpers-view.tsx` · `team-screen.tsx` · `team/actions.ts` (#7635),

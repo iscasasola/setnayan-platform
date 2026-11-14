@@ -19,8 +19,8 @@ import type { useToast } from '@/app/_components/toast/toast-provider';
 import { updateVendorProfileField } from '../../actions';
 import { PORTFOLIO_ALLOWANCE_UNREAD } from '@/lib/vendor-tier-caps';
 import { SHOP_WALLET_HREF } from '@/lib/shop-wallet';
-import {
 import { useIsStoreShell } from '@/lib/use-store-shell';
+import {
   portfolioCounter,
   portfolioMaxFiles,
   portfolioQuote,

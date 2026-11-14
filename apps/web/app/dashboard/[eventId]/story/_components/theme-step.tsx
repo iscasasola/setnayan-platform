@@ -117,12 +117,14 @@ export function ThemeStep({
     onChange({ mode: 'own', colors: next });
   };
 
-  const card = 'rounded-2xl border border-ink/10 bg-cream/40 p-5 sm:p-6';
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 13): a plain block under a hairline, not a tinted card; captions in grey
+  // capitals. The theme tiles stay (they are the picks), and the hex readout stays a readout.
+  const card = 'border-t border-ink/10 pt-5';
 
   return (
     <section className={card}>
       <h2 className="font-display text-lg italic text-ink">Theme</h2>
-      <p className="mt-0.5 text-sm text-ink/60">
+      <p className="mt-0.5 text-sm text-ink/75">
         The story takes its colours from your day. It runs them as light: morning
         at the top of the page, night at the bottom.
       </p>
@@ -143,7 +145,7 @@ export function ThemeStep({
               }`}
             >
               <span className="block text-sm font-medium text-ink">{m.label}</span>
-              <span className="mt-0.5 block text-xs leading-relaxed text-ink/55">
+              <span className="mt-0.5 block text-xs leading-relaxed text-ink/75">
                 {/* The prototype names the saved theme here. It only does so when
                     there IS one — "Your saved theme — , saved" with the middle
                     missing is worse than not mentioning it. */}
@@ -209,7 +211,7 @@ export function ThemeStep({
                           className="h-9 w-9 shrink-0 rounded-md border border-ink/10"
                           style={{ background: hex }}
                         />
-                        <span className="min-w-0 truncate font-mono text-[10px] uppercase text-ink/45">
+                        <span className="min-w-0 truncate font-mono text-[12px] uppercase text-ink/75">
                           {hex}
                         </span>
                       </span>
@@ -220,11 +222,11 @@ export function ThemeStep({
                         already read beside these five colours. Neutral is not the
                         host's board, so it carries no slot names. */}
                     {theme.mode === 'neutral' ? null : (
-                      <span className="mt-1 block text-center text-[10px] font-mono uppercase tracking-[0.14em] text-ink/45">
+                      <span className="mt-1 block text-center text-[12px] font-semibold uppercase text-ink/70">
                         {receptionSlotLabel(i)}
                       </span>
                     )}
-                    <span className="mt-0.5 block text-center text-[10.5px] leading-tight text-ink/55">
+                    <span className="mt-0.5 block text-center text-[12px] leading-tight text-ink/75">
                       {name}
                     </span>
                   </div>
@@ -234,7 +236,7 @@ export function ThemeStep({
 
             {/* The prototype's `lockMsg` — and its offer of the ONE honest way to
                 change a followed colour. */}
-            <p className="mt-3 text-xs leading-relaxed text-ink/55">
+            <p className="mt-3 text-xs leading-relaxed text-ink/75">
               {theme.mode === 'board' ? (
                 <>
                   These are your mood board&rsquo;s colours.{' '}
@@ -279,7 +281,7 @@ export function ThemeStep({
             </li>
           ))}
         </ul>
-        <p className="mt-3.5 max-w-[66ch] text-xs leading-relaxed text-ink/55">
+        <p className="mt-3.5 max-w-[66ch] text-xs leading-relaxed text-ink/75">
           Every colour is checked for contrast before it is used, and corrected if
           it would be hard to read &mdash; a colour off a mood board is never
           trusted to be legible on its own. {WHY[theme.mode]}

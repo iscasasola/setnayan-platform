@@ -58,7 +58,7 @@ export function InkCompare({
 
   if (!paletteInk) {
     return (
-      <div className="rounded-xl border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/65">
+      <div className="text-sm text-ink/75">
         Your mark keeps its own {inks.length === 1 ? 'colour' : `${inks.length} colours`}. Once you
         choose your mood board, you can have it follow those colours instead — everywhere it appears.
       </div>
@@ -68,8 +68,8 @@ export function InkCompare({
   return (
     <section className="space-y-3">
       <div>
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-gold-deep">Whose colours?</p>
-        <p className="mt-1 max-w-prose text-sm text-ink/65">
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Whose colours?</p>
+        <p className="mt-1 max-w-prose text-sm text-ink/75">
           Drag to compare. Your file is never changed — this is only how your mark is painted, and you
           can switch back any time.
         </p>
@@ -89,10 +89,10 @@ export function InkCompare({
           dangerouslySetInnerHTML={{ __html: recoloured }}
         />
 
-        <span className="pointer-events-none absolute left-3 top-3 rounded-md bg-cream/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-ink">
+        <span className="pointer-events-none absolute left-3 top-3 rounded-md bg-cream/90 px-2 py-1 text-[12px] font-bold uppercase tracking-wider text-ink">
           Your file
         </span>
-        <span className="pointer-events-none absolute right-3 top-3 rounded-md bg-cream/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-ink">
+        <span className="pointer-events-none absolute right-3 top-3 rounded-md bg-cream/90 px-2 py-1 text-[12px] font-bold uppercase tracking-wider text-ink">
           Mood board
         </span>
         <div
@@ -154,7 +154,7 @@ function InkChoice({
       }`}
     >
       <span className="block text-sm font-semibold text-ink">{title}</span>
-      <span className="mt-0.5 block text-xs text-ink/55">{hint}</span>
+      <span className="mt-0.5 block text-xs text-ink/75">{hint}</span>
     </button>
   );
 }

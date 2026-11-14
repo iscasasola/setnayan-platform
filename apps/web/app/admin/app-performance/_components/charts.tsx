@@ -272,7 +272,7 @@ export function StatusPill({ state }: { state: 'live' | 'wiring' }) {
       className="shrink-0 rounded-full border border-dashed px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
       style={{ borderColor: 'var(--m-orange-2)', color: '#7A5D24', background: 'var(--m-orange-4)' }}
     >
-      Needs wiring
+      Not measured yet
     </span>
   );
 }

@@ -87,12 +87,12 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     line: { en: 'Free, for good — and couples find you in search.', tl: 'Libre, habambuhay — at mahahanap ka sa search.' },
     title: { en: 'Get Verified as an Event Supplier, Free', tl: 'Magpa-Verified bilang Event Supplier, Libre' },
     description: {
-      en: 'Send your DTI or SEC, BIR 2303, business permit and bank proof. A Setnayan admin checks them, and Verified puts your shop in search. Free.',
-      tl: 'Ipadala ang DTI o SEC, BIR 2303, business permit at bank proof. Susuriin ng Setnayan admin, at ilalagay ng Verified ang shop mo sa search. Libre.',
+      en: 'Send three papers: DTI or SEC, BIR 2303 and your Mayor’s or Business Permit. A Setnayan admin checks them, and Verified puts your shop in search. Free.',
+      tl: 'Ipadala ang tatlong papeles: DTI o SEC, BIR 2303 at Mayor’s o Business Permit. Susuriin ng Setnayan admin, at ilalagay ng Verified ang shop mo sa search. Libre.',
     },
     answer: {
-      en: 'Verified is free, for good. You send your business papers — DTI or SEC registration, BIR 2303, a business permit and bank proof — and prove your email is yours. A Setnayan admin reviews them and contacts you for a final confirmation. A Verified shop shows the Verified seal and appears in search around you.',
-      tl: 'Libre ang Verified, habambuhay. Ipapadala mo ang papeles ng negosyo — DTI o SEC registration, BIR 2303, business permit at bank proof — at patutunayan mong iyo ang email mo. Susuriin ito ng Setnayan admin at kokontakin ka para sa huling kumpirmasyon. May Verified seal ang Verified na shop at lumalabas ito sa search sa paligid mo.',
+      en: 'Verified is free, for good. You send your business papers — DTI or SEC registration, BIR 2303 and a Mayor’s or Business Permit — and prove your email is yours. A Setnayan admin reviews them and contacts you for a final confirmation. A Verified shop shows the Verified seal and appears in search around you.',
+      tl: 'Libre ang Verified, habambuhay. Ipapadala mo ang papeles ng negosyo — DTI o SEC registration, BIR 2303 at Mayor’s o Business Permit — at patutunayan mong iyo ang email mo. Susuriin ito ng Setnayan admin at kokontakin ka para sa huling kumpirmasyon. May Verified seal ang Verified na shop at lumalabas ito sa search sa paligid mo.',
     },
     forWho: {
       en: 'Every supplier who wants couples to trust them, and to be found in Setnayan search.',
@@ -122,12 +122,12 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     faq: {
       en: [
         { q: 'How much does it cost to get Verified?', a: 'Nothing. Verified is free, for good.' },
-        { q: 'What papers do I need?', a: 'DTI or SEC registration, BIR 2303, a business permit and bank proof.' },
+        { q: 'What papers do I need?', a: 'Three: DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit.' },
         { q: 'What does Verified give me?', a: 'The Verified seal on your page, and a place in Marketplace search around you, as far as your plan reaches.' },
       ],
       tl: [
         { q: 'Magkano ang magpa-Verified?', a: 'Wala. Libre ang Verified, habambuhay.' },
-        { q: 'Anong papeles ang kailangan?', a: 'DTI o SEC registration, BIR 2303, business permit at bank proof.' },
+        { q: 'Anong papeles ang kailangan?', a: 'Tatlo: DTI o SEC registration, BIR 2303, at Mayor’s o Business Permit.' },
         { q: 'Ano ang makukuha ko sa Verified?', a: 'Ang Verified seal sa page mo, at puwesto sa Marketplace search sa paligid mo, hanggang sa abot ng plan mo.' },
       ],
     },

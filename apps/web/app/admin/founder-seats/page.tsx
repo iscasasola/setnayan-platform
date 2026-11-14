@@ -148,7 +148,7 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
                     </p>
                     <p className="truncate font-mono text-[11px] text-ink/55">
                       {seat.users?.email ?? seat.user_id} · granted{' '}
-                      {new Date(seat.granted_at).toLocaleDateString('en-PH')}
+                      {new Date(seat.granted_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })}
                     </p>
                   </div>
                 ) : (

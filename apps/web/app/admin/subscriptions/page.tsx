@@ -37,7 +37,7 @@ const NUMBER = new Intl.NumberFormat('en-PH');
 const TIER_LABEL: Record<string, string> = { pro: 'Supplier Pro', enterprise: 'Supplier Ultra' };
 
 function fmtDate(s: string) {
-  return new Date(s).toLocaleString('en-PH', {
+  return new Date(s).toLocaleString('en-PH', { timeZone: 'Asia/Manila',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',

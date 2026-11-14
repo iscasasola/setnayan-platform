@@ -80,7 +80,7 @@ import { resolveSectionOrder, shippedSections } from './editorial/editorial-orde
 import { openUpHash } from '@/lib/post-event-scenes';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { hubLinkWords, invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
-import { guestsArriveTime } from '@/lib/guests-arrive';
+import { coverMoment, guestsArriveTime } from '@/lib/guests-arrive';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { VendorDoorway } from './vendor-doorway';
@@ -1071,10 +1071,12 @@ export async function SiteBody({
   // 🎴 The invitation card's words (canvas "1 · Arrival"), resolved once for
   // both the stranger's and the guest's first screen. Null for the solemn
   // register, which keeps its quiet masthead. See _lib/invitation-card.ts.
+  // 🎴 F-W2-40: the event's own first moment a guest sees — never a private block, never the Prep chapter.
+  const coverAt = coverMoment(scheduleBlocks);
   const inviteCard = invitationCard({
     words: clientWords,
-    firstStartAt: scheduleBlocks[0]?.start_at ?? null,
-    firstLabel: scheduleBlocks[0]?.label ?? null,
+    firstStartAt: coverAt?.start_at ?? null,
+    firstLabel: coverAt?.label ?? null,
   });
   /* ⏰ When GUESTS arrive — the card's first moment when it is an arrival of its own (`lib/guests-arrive.ts`), the dress
      code's Guests call time (owner 2026-10-19). A plain guest's Me › Arrive by. */

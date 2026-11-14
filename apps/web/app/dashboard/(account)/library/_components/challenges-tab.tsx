@@ -1,3 +1,4 @@
+import { displayChallengePrompt } from '@/lib/papic-missions';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -71,7 +72,7 @@ export async function ChallengesTab({ albums }: { albums: Album[] }) {
       const eventId = album.event.event_id;
       const board: MemoriesChallenge[] = ((missionsRes.data ?? []) as { mission_id: string; event_id: string; prompt: string | null; source: string | null; vendor_id: string | null }[])
         .filter((m) => m.event_id === eventId)
-        .map((m) => ({ id: m.mission_id, title: (m.prompt ?? '').trim() || 'A challenge', supplier: m.source === 'vendor' && m.vendor_id ? (vendorName.get(m.vendor_id) ?? null) : null }));
+        .map((m) => ({ id: m.mission_id, title: displayChallengePrompt((m.prompt ?? '').trim()) || 'A challenge', supplier: m.source === 'vendor' && m.vendor_id ? (vendorName.get(m.vendor_id) ?? null) : null }));
       const items = await Promise.all(
         completions
           .filter((c) => c.event_id === eventId && shownCaps.has(c.capture_id))

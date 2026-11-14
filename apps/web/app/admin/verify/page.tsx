@@ -1080,13 +1080,13 @@ function ApplicationCard({
           {application.submitted_at ? (
             <p>
               Submitted{' '}
-              {new Date(application.submitted_at).toLocaleString('en-PH')}
+              {new Date(application.submitted_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
             </p>
           ) : null}
           {application.decided_at ? (
             <p>
               Decided{' '}
-              {new Date(application.decided_at).toLocaleString('en-PH')}
+              {new Date(application.decided_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
             </p>
           ) : null}
           {application.vendor.demotion_count > 0 ? (
@@ -1262,7 +1262,7 @@ function ContactChannelMark({
       <span className="inline-flex items-center gap-1 rounded-md border border-success-200 bg-success-50 px-2.5 py-1 text-xs font-medium text-success-800">
         <BadgeCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         {channel === 'email' ? 'Email' : 'Text'} received{' '}
-        {new Date(confirmedAt).toLocaleString('en-PH')}
+        {new Date(confirmedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
       </span>
     );
   }
@@ -1342,7 +1342,7 @@ function DeepSearchBlock({
 
       {dossierRow?.status === 'running' ? (
         <p className="text-xs text-ink/55">
-          A run started {new Date(dossierRow.created_at).toLocaleString('en-PH')}{' '}
+          A run started {new Date(dossierRow.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}{' '}
           and hasn&rsquo;t finished — if it&rsquo;s been more than a few minutes,
           re-run it.
         </p>
@@ -1359,7 +1359,7 @@ function DeepSearchBlock({
             </span>
             {dossierRow?.completed_at ? (
               <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-                {new Date(dossierRow.completed_at).toLocaleString('en-PH')}
+                {new Date(dossierRow.completed_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
               </span>
             ) : null}
           </div>

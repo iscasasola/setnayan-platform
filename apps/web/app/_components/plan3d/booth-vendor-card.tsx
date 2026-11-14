@@ -32,7 +32,7 @@
  */
 
 import { useId, useMemo } from 'react';
-import Link from 'next/link';
+import { ShopLink } from '@/app/_components/shop-link';
 import { ArrowUpRight, Footprints, Store } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { boothTypeLabel, type Lab3DBooth } from '@/lib/seating-3d';
@@ -148,7 +148,7 @@ export function BoothVendorCard({
 
           {/* Marketplace profile CTA — new tab so the 3D scene keeps running. */}
           {vendor?.slug ? (
-            <Link
+            <ShopLink
               href={`/v/${vendor.slug}`}
               target="_blank"
               rel="noopener noreferrer"
@@ -158,7 +158,7 @@ export function BoothVendorCard({
                 ? 'Book this supplier for your event'
                 : 'View supplier profile'}
               <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-            </Link>
+            </ShopLink>
           ) : null}
         </div>
       ) : null}

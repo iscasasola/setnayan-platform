@@ -1761,7 +1761,7 @@ export async function renderVendorBySlug({
 
   /* 🧭 WHERE THIS VISIT CAME FROM (owner 2026-11-07, "back to suppliers … went to a wrong shell"). Read once; the
      back door at the foot of Inquire and every screen this page opens carry it (lib/shop-back.ts). */
-  const shopArrival = { src: arrivalParams(search).src, eventId: arrivalEventId };
+  const shopArrival = { src: arrivalParams(search).src, eventId: arrivalEventId, q: arrivalParams(search).q, from: arrivalParams(search).from };
   const shopBack = shopBackDoor(shopArrival);
   /*
     💬 THE INQUIRE POP-UP (owner 2026-11-07: "inquire for your event is it should have been a pop up to first ask what

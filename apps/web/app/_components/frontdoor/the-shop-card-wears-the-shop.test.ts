@@ -151,7 +151,7 @@ test('the card draws the badges as the shipped circular ImageBadge, read once pe
 test('the search hit draws the shelf’s own card', () => {
   assert.match(
     RESULTS,
-    /function ShopHitCard\(\{ s \}: \{ s: FrontDoorShop \}\) \{\s*return <ShopCard s=\{s\} href=\{withShopArrival\(s\.href, \{ src: SHOP_ARRIVAL_SRC\.search \}\)\} \/>;/,
+    /function ShopHitCard\(\{ s, query \}: \{ s: FrontDoorShop; query: string \}\) \{\s*return <ShopCard s=\{s\} href=\{withShopArrival\(s\.href, \{ src: SHOP_ARRIVAL_SRC\.search, q: query \}\)\} \/>;/,
   );
   assert.doesNotMatch(RESULTS, /fd-shoplogo|s\.folderLabel|s\.logoUrl/, 'a second shop card is drawn in the results');
 });

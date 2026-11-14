@@ -147,7 +147,7 @@ test('Check a date, the booth and the waitlist send you back onto the shop with 
 
 test('the doors into a shop say where they are', () => {
   assert.match(src('app/_components/frontdoor/front-door-feed.tsx'), /withShopArrival\(s\.href, \{ src: SHOP_ARRIVAL_SRC\.discover \}\)/);
-  assert.match(src('app/_components/frontdoor/front-door-results.tsx'), /withShopArrival\(s\.href, \{ src: SHOP_ARRIVAL_SRC\.search \}\)/);
+  assert.match(src('app/_components/frontdoor/front-door-results.tsx'), /withShopArrival\(s\.href, \{ src: SHOP_ARRIVAL_SRC\.search, q: query \}\)/);
   assert.match(src('app/(shell)/explore/_components/vendor-card.tsx'), /\?src=explore/);
   for (const rel of [
     'app/dashboard/[eventId]/vendors/categories/page.tsx',

@@ -29,6 +29,7 @@
  */
 
 import { useCallback, useEffect, useId, useState, useTransition } from 'react';
+import { ShopLink } from '@/app/_components/shop-link';
 import { Check, ImageOff, Search, Sparkles } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import type { GalleryAsset, GalleryPage } from '@/lib/moodboard-gallery';
@@ -373,7 +374,7 @@ export function GalleryPicker({
               </button>
               {/* 🛍 Shop › — the photo's shop, in its own tab so the Maker stays where it is. */}
               {studio && asset.shopSlug ? (
-                <a
+                <ShopLink
                   href={`/v/${asset.shopSlug}`}
                   target="_blank"
                   rel="noopener"
@@ -381,7 +382,7 @@ export function GalleryPicker({
                   data-gallery-shop=""
                 >
                   Shop ›
-                </a>
+                </ShopLink>
               ) : null}
             </li>
           );
@@ -402,9 +403,9 @@ export function GalleryPicker({
                 <dt className="w-28 flex-none text-ink/55">From</dt>
                 <dd className="min-w-0 text-ink">
                   {opened.shopSlug ? (
-                    <a href={`/v/${opened.shopSlug}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
+                    <ShopLink href={`/v/${opened.shopSlug}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
                       {opened.credit} ›
-                    </a>
+                    </ShopLink>
                   ) : (
                     opened.credit
                   )}
@@ -415,9 +416,9 @@ export function GalleryPicker({
                   <dt className="w-28 flex-none text-ink/55">From this event</dt>
                   <dd className="min-w-0 text-ink">
                     {opened.shopSlug ? (
-                      <a href={`/v/${opened.shopSlug}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
+                      <ShopLink href={`/v/${opened.shopSlug}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
                         {opened.eventLine} ›
-                      </a>
+                      </ShopLink>
                     ) : (
                       opened.eventLine
                     )}

@@ -71,7 +71,7 @@ export function SavedVendorCardItem({ vendor }: { vendor: SavedVendorCardData })
   if (vendor.businessSlug) {
     return (
       <div className={`${shell} flex flex-col hover:border-ink/20`}>
-        <Link href={`/v/${vendor.businessSlug}`} className="block">
+        <Link href={`/v/${vendor.businessSlug}?src=favorites`} className="block">
           {inner}
         </Link>
         <Link

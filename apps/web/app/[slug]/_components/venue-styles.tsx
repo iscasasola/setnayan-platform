@@ -4,8 +4,10 @@ import { VENUE_ROLE_LABEL, type EventVenue, type VenueRole } from '@/lib/event-v
 import { DirectionsMenu } from '@/app/_components/nav-links';
 import { ceremonyBlock, firstBlockOf, type ScheduleBlockRow } from '@/lib/print-pieces';
 import { formatBlockTimeRange } from '@/lib/schedule';
-import { mapFrame } from '@/lib/scene-map-tiles';
-import { NearViewport } from '@/app/_components/near-viewport';
+import { mapFrame, openStreetMapUrl } from '@/lib/scene-map-tiles';
+import { MapCard, MAP_CARD_BOX } from '@/app/_components/vendor-location-map';
+import { haversineKm } from '@/lib/geo';
+import { apartLine } from '@/lib/map-directions';
 import { venueDrawingFor, type ParishDrawing } from '@/lib/parish-drawings';
 
 /**
@@ -75,91 +77,98 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
   const numbered = venues.map((v, i) => ({ v, n: i + 1 }));
   const located = numbered.filter(({ v }) => hasPin(v));
   const unplaced = numbered.filter(({ v }) => !hasPin(v));
-  const box = { width: 360, height: 220 };
-  const frame = mapFrame(
-    located.map(({ v }) => ({ latitude: v.latitude as number, longitude: v.longitude as number })),
-    box,
-  );
+  const pins = located.map(({ v }) => ({ latitude: v.latitude as number, longitude: v.longitude as number }));
+  const frame = mapFrame(pins, MAP_CARD_BOX);
   if (!frame) return null;
   const label = located.map(({ v }) => v.name ?? VENUE_ROLE_LABEL[v.role]).join(' and ');
   const missing = unplaced.length
     ? `. ${unplaced.map(({ v }) => v.name ?? VENUE_ROLE_LABEL[v.role]).join(' and ')} ${unplaced.length > 1 ? 'are' : 'is'} not on the map`
     : '';
   const line = route && located.length > 1 ? frame.spots.map((s) => `${s.leftPct},${s.topPct}`).join(' ') : null;
+  // 🔍 The bigger map opens on the view that holds every pin (the middle of them, at this card's zoom).
+  const mid = {
+    lat: Number(((Math.max(...pins.map((p) => p.latitude)) + Math.min(...pins.map((p) => p.latitude))) / 2).toFixed(6)),
+    lng: Number(((Math.max(...pins.map((p) => p.longitude)) + Math.min(...pins.map((p) => p.longitude))) / 2).toFixed(6)),
+  };
+  // 📏 "About 7 km apart" (map card approved 2026-11-14) — the straight line between two pins, said only when both are
+  // on the map. A straight line, never a drive time (nothing we hold measures a drive; see the ⛔ above).
+  const apart =
+    pins.length === 2 ? apartLine(haversineKm(pins[0]!.latitude, pins[0]!.longitude, pins[1]!.latitude, pins[1]!.longitude)) : null;
   return (
-    <figure
-      role="img"
-      aria-label={`Map showing ${label}${missing}`}
-      data-venue-map-pins={located.length}
-      data-venue-map-unplaced={unplaced.length || undefined}
-      className="relative w-full overflow-hidden bg-veil"
-      style={{ aspectRatio: `${box.width} / ${box.height}` }}
-    >
-      {/* 🗺 The tiles load only when the map nears the screen (Batch 9 walk W2) — never on landing. */}
-      <NearViewport className="absolute inset-0">
-      {frame.tiles.map((t) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={t.key}
-          src={t.src}
-          alt=""
-          aria-hidden
-          loading="lazy"
-          draggable={false}
-          className="absolute max-w-none select-none"
-          style={{ left: `${t.leftPct}%`, top: `${t.topPct}%`, width: `${t.widthPct}%`, height: `${t.heightPct}%` }}
-        />
-      ))}
-      </NearViewport>
-      {line ? (
-        <svg aria-hidden data-venue-route="" viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
-          <polyline
-            points={line}
-            fill="none"
-            stroke="#1E2229"
-            strokeWidth={3}
-            strokeDasharray="6 5"
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
-      ) : null}
-      {located.map(({ v, n }, i) => (
-        <span
-          key={v.role}
-          aria-hidden
-          className="absolute flex h-7 w-7 -translate-x-1/2 -translate-y-full items-center justify-center rounded-full border-2 border-cream bg-ink font-mono text-xs text-cream shadow"
-          style={{ left: `${frame.spots[i]!.leftPct}%`, top: `${frame.spots[i]!.topPct}%` }}
-        >
-          {n}
-        </span>
-      ))}
-      {unplaced.length ? (
-        <ul data-venue-map-missing="" className="absolute left-0 top-0 space-y-0.5 bg-cream/90 px-2 py-1 font-sans text-xs text-ink">
-          {unplaced.map(({ v, n }) => (
-            <li key={v.role} className="flex items-center gap-1.5">
-              <span
-                aria-hidden
-                className="flex h-5 w-5 items-center justify-center rounded-full bg-ink/60 font-mono text-[0.65rem] text-cream"
-              >
-                {n}
-              </span>
-              {VENUE_ROLE_LABEL[v.role]} · not on the map
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <a
-        href="https://www.openstreetmap.org/copyright"
-        target="_blank"
-        rel="noopener noreferrer"
-        /* 👆 The credit is drawn as it always was (the span); the LINK around it is a 44 px corner, so a thumb that
-           reaches for it lands on it (it measured 20 px tall — the Hub button walk, 2026-10-21). */
-        className="absolute bottom-0 right-0 flex min-h-[44px] min-w-[44px] items-end justify-end"
+    <div className="space-y-2" data-venue-map="">
+      <MapCard
+        tiles={frame.tiles}
+        label={`Map showing ${label}${missing}`}
+        /* 🗺 The tiles load only when the map nears the screen (Batch 9 walk W2) — never on landing. */
+        deferUntilNear
+        biggerHref={openStreetMapUrl(mid.lat, mid.lng, frame.zoom, located.length === 1)}
+        attrs={{ 'data-venue-map-pins': located.length, 'data-venue-map-unplaced': unplaced.length || undefined }}
+        overlay={
+          unplaced.length ? (
+            <ul data-venue-map-missing="" className="absolute left-0 top-0 space-y-0.5 rounded-br-xl bg-cream/90 px-2 py-1 font-sans text-xs text-ink">
+              {unplaced.map(({ v, n }) => (
+                <li key={v.role} className="flex items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="flex h-5 w-5 items-center justify-center rounded-full bg-ink/60 font-mono text-[0.65rem] text-cream"
+                  >
+                    {n}
+                  </span>
+                  {VENUE_ROLE_LABEL[v.role]} · not on the map
+                </li>
+              ))}
+            </ul>
+          ) : null
+        }
       >
-        <span className="bg-cream/85 px-1.5 py-0.5 font-sans text-xs text-ink/80">© OpenStreetMap</span>
-      </a>
-    </figure>
+        {line ? (
+          <svg aria-hidden data-venue-route="" viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+            <polyline
+              points={line}
+              fill="none"
+              stroke="#1E2229"
+              strokeWidth={3}
+              strokeDasharray="6 5"
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+        ) : null}
+        {located.map(({ v, n }, i) => (
+          <span
+            key={v.role}
+            aria-hidden
+            className="absolute flex h-7 w-7 -translate-x-1/2 -translate-y-full items-center justify-center rounded-full border-2 border-cream bg-ink font-mono text-xs text-cream shadow"
+            style={{ left: `${frame.spots[i]!.leftPct}%`, top: `${frame.spots[i]!.topPct}%` }}
+          >
+            {n}
+          </span>
+        ))}
+      </MapCard>
+      {/* 🔢 Which number is which place — under the map, the venue card's own words (map card approved 2026-11-14). */}
+      {located.length > 1 || apart ? (
+        <div data-venue-map-legend="" className="space-y-0.5 px-0.5">
+          {located.length > 1
+            ? located.map(({ v, n }) => (
+                <p key={v.role} className="flex items-center gap-1.5 text-sm leading-relaxed text-ink/80">
+                  <span aria-hidden className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[0.65rem] text-cream">
+                    {n}
+                  </span>
+                  <span>
+                    <span className="font-medium text-ink">{VENUE_ROLE_LABEL[v.role]}</span>
+                    {v.name ? ` · ${v.name}` : null}
+                  </span>
+                </p>
+              ))
+            : null}
+          {apart ? (
+            <p data-venue-map-apart="" className="text-sm leading-relaxed text-ink/80">
+              {apart}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

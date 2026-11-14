@@ -32,6 +32,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { emitNotification } from '@/lib/notification-emit';
 import { readCardOwnerView, setCardHide } from '@/lib/service-card-hides.server';
+import { readServicePrivatePhotos } from '@/lib/photos-by-service.server';
 import { coupleLookUrl, fetchViewerCouplePhotos, moveCoupleLook, publishCoupleLook, reconcileCoupleLooks, unpublishCoupleLook } from '@/lib/couple-photo-share.server';
 import {
   COUPLE_PHOTO_CONSENT_VERSION,
@@ -74,6 +75,8 @@ export async function couplePhotoShare(req: CouplePhotoShareRequest): Promise<Co
       return { op: 'card_owner', result: await readCardOwnerView(req.vendorProfileId) };
     case 'card_hide':
       return { op: 'card_hide', result: await setCardHide(req.vendorServiceId, req.key, req.hidden === true) };
+    case 'service_private':
+      return { op: 'service_private', result: await readServicePrivatePhotos(req.vendorProfileId, req.serviceKey) };
   }
 }
 

@@ -9,6 +9,7 @@ import type { UgatEntityType } from './graph';
 import {
   scoreUgatMatch,
   sanitizeIlikeTerm,
+  eventWordFilters,
   guestNameOrFilter,
   guestDisplayName,
   guestRsvpLabel,
@@ -916,12 +917,17 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       .or(`business_name.ilike.${like},business_slug.ilike.${like}`)
       .limit(6)
       .then(({ data }) => data ?? [], () => []),
-    admin
-      .from('events')
-      .select('event_id, public_id, display_name, slug')
-      .or(`display_name.ilike.${like},slug.ilike.${like}`)
+    // 🔎 F-W2-37: word by word, with the public id — and a refused read is LOGGED, never a silent "no matches".
+    (eventWordFilters(q) ?? [])
+      .reduce((qb, f) => qb.or(f), admin.from('events').select('event_id, public_id, display_name, slug'))
       .limit(6)
-      .then(({ data }) => data ?? [], () => []),
+      .then(
+        ({ data, error }) => {
+          if (error) logQueryError('ugat search (events)', error);
+          return data ?? [];
+        },
+        () => [],
+      ),
     admin
       .from('users')
       .select('user_id, public_id, display_name, email')

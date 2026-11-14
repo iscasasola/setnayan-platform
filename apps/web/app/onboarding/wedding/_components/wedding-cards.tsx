@@ -94,7 +94,11 @@ type Props = {
 };
 
 export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFaiths, budgetBands, searchVenues }: Props) {
-  const frame = { skin: 'wedding' as const, n, total, dataCard: card };
+  // 🗒 F-W2-08 (walk 14 Nov): "You can change this anytime" is said ONCE — on the first wedding card — never under every step.
+  const frame = { skin: 'wedding' as const, n, total, dataCard: card, footer: card === 'w_names' ? undefined : '' };
+  // 🔴 F-W2-04 (walk 14 Nov): a name box says "Required" only after it has been typed into and left empty — never on a
+  // fresh card before the couple has typed a letter. Continue still waits for both first names (`weddingNamesReady`).
+  const [touched, setTouched] = useState<Partial<Record<keyof OnboardingState, true>>>({});
 
   if (card === 'w_names') {
     // "Which one is you?" comes FIRST (owner 2026-11-08: "they need to be one of the 2") — exactly the two
@@ -107,7 +111,10 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
     // Like the text of the names"): each name is `TypedRow boxed` — its name above, the 48 px box with its
     // 14 px inner padding, one ✕ while typing — never a bespoke box whose text sits on the border.
     const field = (rowSide: WeddingSelfSide, label: string, value: string, key: keyof OnboardingState, req: boolean, token: string) => {
-      const write = (t: string) => patch({ [key]: nameOnly(t), monogramFinalized: true } as Partial<OnboardingState>);
+      const write = (t: string) => {
+        if (!touched[key]) setTouched((m) => ({ ...m, [key]: true }));
+        patch({ [key]: nameOnly(t), monogramFinalized: true } as Partial<OnboardingState>);
+      };
       return (
         <TypedRow
           boxed
@@ -115,7 +122,7 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
           value={value}
           placeholder={label}
           empty={req ? label : 'Optional'}
-          required={req}
+          required={req && Boolean(touched[key])}
           clean={nameOnly}
           autoCapitalize="words"
           // Your own row offers the phone's saved name; the partner's is another person's — autofill off.
@@ -262,7 +269,7 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
   return <ColoursCard frame={frame} state={state} patch={patch} />;
 }
 
-type FrameProps = { skin: 'wedding'; n: number; total: number; dataCard: string };
+type FrameProps = { skin: 'wedding'; n: number; total: number; dataCard: string; footer?: string };
 type SubProps = { frame: FrameProps; state: OnboardingState; patch: (p: Partial<OnboardingState>) => void };
 
 function AreaCard({ frame, state, patch, searchVenues }: SubProps & { searchVenues: VenueSearch }) {
@@ -352,7 +359,6 @@ function PaxCard({ frame, state, patch }: SubProps) {
       title="About how many guests?"
       line="A rough number is fine — it sizes your seat plan and quotes."
       info="It sizes your seat plan, your suppliers’ quotes and Papic. You’ll list their names later — or now, if you like."
-      footer="Steps of 10. You can change this anytime."
     >
       <div className="flex items-center justify-between gap-3" data-wedding-estimate>
         <ActionButton tone="neutral" iconOnly icon={Minus} label="Fewer guests" disabled={value <= ESTIMATE_MIN} onClick={() => patch({ pax: stepEstimate(value, -1) })} />
@@ -383,12 +389,14 @@ function BudgetCard({ frame, state, patch, budgetBands }: SubProps & { budgetBan
     <SetupFrame
       {...frame}
       title="About how much is your budget?"
-      line="Rough is fine — you can change it anytime."
+      line="Rough is fine."
       info="It is only for tracking. It never hides or limits a choice."
     >
       <PickMenu
         label="Budget"
         value={row?.value ?? null}
+        // 💰 F-W2-09 (walk 14 Nov): the shut pill carries the amount, not only the band's name.
+        buttonText={row ? budgetPillText(row) : undefined}
         options={rows.map((r) => ({
           key: r.value,
           label: `${r.label} · ${r.tag}`,
@@ -402,6 +410,11 @@ function BudgetCard({ frame, state, patch, budgetBands }: SubProps & { budgetBan
       />
     </SetupFrame>
   );
+}
+
+/** The budget pill when shut: "Classic · about ₱1,200,000" — the band with its peso amount (no ceiling says so). */
+export function budgetPillText(row: { label: string; pesos: number | null }): string {
+  return row.pesos == null ? `${row.label} · No ceiling` : `${row.label} · about ${peso(row.pesos)}`;
 }
 
 function ColoursCard({ frame, state, patch }: SubProps) {

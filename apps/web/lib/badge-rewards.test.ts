@@ -42,7 +42,7 @@ import {
 } from './badge-rewards';
 import { badgeTracker, type TrackerFacts } from './shop-badges';
 
-const NAMES: RewardNames = { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro' };
+const NAMES: RewardNames = { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro', event_ultra: 'Event Ultra' };
 
 const NONE: BadgeRewardFacts = {
   verified: null,
@@ -299,7 +299,7 @@ describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep i
     { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
     { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
   ]);
-  const F = (papic: number, event_plus = 0, event_pro = 0) => ({ papic, event_plus, event_pro });
+  const F = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra });
   // A small booking: its 40% limit is far below Event Pro's price.
   const TOTAL = 2_000_000;
 

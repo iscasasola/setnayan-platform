@@ -156,13 +156,14 @@ export async function fetchEventGiftHolds(
   eventId: string,
   mode: 'owned' | 'active',
 ): Promise<EventHolds> {
-  const [hub, plus] = await Promise.all([
+  const holds = (code: string) => (mode === 'active' ? eventSkuActive(admin, eventId, code) : eventOwnsSku(admin, eventId, code));
+  // 💎 Ultra first: an Ultra event also reads as Pro through the ownership aliases.
+  const [hub, plus, ultra] = await Promise.all([
     eventHubOwnership(admin, eventId, mode),
-    mode === 'active'
-      ? eventSkuActive(admin, eventId, SHOP_GIFT_UNLOCK_CODE.event_plus)
-      : eventOwnsSku(admin, eventId, SHOP_GIFT_UNLOCK_CODE.event_plus),
+    holds(SHOP_GIFT_UNLOCK_CODE.event_plus),
+    holds(SHOP_GIFT_UNLOCK_CODE.event_ultra),
   ]);
-  return hub.full ? 'pro' : plus ? 'plus' : 'none';
+  return ultra ? 'ultra' : hub.full ? 'pro' : plus ? 'plus' : 'none';
 }
 
 /** One row of the supplier's "Bought" list, newest first. */
@@ -527,9 +528,10 @@ export type ShopGiftHoldRow = {
   status: string;
   /** Papic credits still promised. */
   credits: number;
-  /** Event Plus / Event Pro still promised. */
+  /** Event Plus / Event Pro / Event Ultra still promised. */
   plus: number;
   pro: number;
+  ultra: number;
 };
 
 /** Gift lines on quotes still live (sent · viewed · accepted), newest first (admin). Null on a read failure. */
@@ -584,10 +586,12 @@ export async function fetchShopGiftHolds(admin: SupabaseClient, limit = 100): Pr
       credits: 0,
       plus: 0,
       pro: 0,
+      ultra: 0,
       key: `${r.vendor_profile_id}:${r.vendor_proposals?.event_id ?? ''}`,
     };
     if (r.gift_kind === 'event_plus') h.plus += r.credits;
     else if (r.gift_kind === 'event_pro') h.pro += r.credits;
+    else if (r.gift_kind === 'event_ultra') h.ultra += r.credits;
     else h.credits += r.credits;
     byQuote.set(r.proposal_id, h);
   }
@@ -596,7 +600,8 @@ export async function fetchShopGiftHolds(admin: SupabaseClient, limit = 100): Pr
       credits: Math.max(0, h.credits - (givenBy.get(`${key}:papic`) ?? 0)),
       plus: Math.max(0, h.plus - (givenBy.get(`${key}:event_plus`) ?? 0)),
       pro: Math.max(0, h.pro - (givenBy.get(`${key}:event_pro`) ?? 0)),
+      ultra: Math.max(0, h.ultra - (givenBy.get(`${key}:event_ultra`) ?? 0)),
     };
-    return left.credits + left.plus + left.pro > 0 ? [{ ...h, ...left }] : [];
+    return left.credits + left.plus + left.pro + left.ultra > 0 ? [{ ...h, ...left }] : [];
   });
 }

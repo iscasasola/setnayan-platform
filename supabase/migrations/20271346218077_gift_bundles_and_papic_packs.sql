@@ -162,8 +162,9 @@ AS $function$
    LIMIT 1;
 $function$;
 
-REVOKE ALL ON FUNCTION public.shop_gift_smallest_papic_pack() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.shop_gift_smallest_papic_pack() TO authenticated, service_role;
+-- Read only by the badge-reward trigger and the backfill below (both run as the owner): no session calls it.
+REVOKE ALL ON FUNCTION public.shop_gift_smallest_papic_pack() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.shop_gift_smallest_papic_pack() TO service_role;
 
 -- A badge reward's Papic is Papic 150 packs (DECISION_LOG 2026-11-14): fill the
 -- pack on the way in, so shop_badge_reward_grant needs no change.
@@ -188,6 +189,9 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
+
+-- A trigger function is never called directly: nobody but the trigger may EXECUTE it.
+REVOKE ALL ON FUNCTION public.tg_shop_gift_stock_entries_badge_pack() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS shop_gift_stock_entries_badge_pack ON public.shop_gift_stock_entries;
 CREATE TRIGGER shop_gift_stock_entries_badge_pack

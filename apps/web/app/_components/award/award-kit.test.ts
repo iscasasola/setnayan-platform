@@ -17,7 +17,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -129,6 +130,40 @@ test('4b · owner "Stay full size": the plaque shrinks, its share button never d
   const src = stripComments(readFileSync(join(DIR, 'seal-plaque.tsx'), 'utf8'));
   const fitBox = src.slice(src.indexOf('<div ref={fit}'), src.indexOf('{onShare ? ('));
   assert.ok(fitBox.length > 0 && !fitBox.includes('awShare'), 'the button is not inside the scaled plaque');
+});
+
+test('12 · the approved seal words: No. 1 has its own body, titles match the prototype, the year is a parameter', async () => {
+  const { AWARD_COPY, SEAL_KINDS, sealPlaqueCopy } = await import('./award-copy');
+  const c = AWARD_COPY(2031);
+  assert.deepEqual([...SEAL_KINDS].sort(), Object.keys(c).sort());
+  assert.notEqual(c.no1.body, c.medal.body, 'No. 1 never shows the Top 10 medal words');
+  assert.doesNotMatch(c.no1.body, /ten best-rated/);
+  assert.deepEqual(
+    Object.fromEntries(SEAL_KINDS.map((k) => [k, c[k].title])),
+    { no1: 'No. 1 Supplier of the Year', medal: 'Top 10 Supplier', heart: "Clients' Choice", crest: 'Most In-Demand', verified: 'Setnayan Verified', partner: 'Verified Partner' },
+  );
+  assert.equal(c.no1.eyebrow, 'Setnayan · 2031', 'the year is passed in, never typed');
+  assert.equal(c.verified.eyebrow, 'Setnayan');
+  assert.equal(c.partner.eyebrow, 'Setnayan · for life');
+  const src = stripComments(readFileSync(join(DIR, 'award-copy.ts'), 'utf8'));
+  assert.doesNotMatch(src, /\b20\d\d\b/, 'no typed year');
+  assert.doesNotMatch(src, /4\.99|4\.96|236|214/, 'the demo record numbers stay out');
+  assert.deepEqual(sealPlaqueCopy('no1', 2031).how, c.no1.how.map(([l]) => l));
+  // verbatim against the prototype, when the corpus is on this machine (CI does not have it)
+  const proto = join(homedir(), 'Documents/Claude/Projects/Setnayan/prototypes/supplier_badges_2026-11-15/badge-milestones_v48.html');
+  if (existsSync(proto)) {
+    const html = readFileSync(proto, 'utf8');
+    const block = html.slice(html.indexOf('const AWARD_TXT={'), html.indexOf('function openSeal('));
+    for (const k of SEAL_KINDS) {
+      const row = new RegExp(`\\b${k}:\\{t:(['"])(.*?)\\1,e:'(.*?)',b:'(.*?)',\\s*h:\\[(.*?)\\],r:`, 's').exec(block);
+      assert.ok(row, k);
+      assert.equal(c[k].title, row![2], `${k} title`);
+      assert.equal(c[k].eyebrow, row![3]!.replace('2026', '2031'), `${k} eyebrow`);
+      assert.equal(c[k].body, row![4], `${k} body`);
+      const how = [...row![5]!.matchAll(/\['(.*?)',([01])\]/g)].map((m) => [m[1], m[2] === '1']);
+      assert.deepEqual(c[k].how, how, `${k} how`);
+    }
+  }
 });
 
 test('5 · the full-screen badge names the shop, the GIVEN tier, and signs with the hallmark', async () => {

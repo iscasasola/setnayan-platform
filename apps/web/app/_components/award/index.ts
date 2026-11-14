@@ -11,3 +11,4 @@ export { TICKET_SPECS, type TicketKind, type TicketSpec } from './ticket-svg';
 export { AWARD_TONES, SEAL_TONE, toneForTier } from './shared';
 export { badgeStack, plaqueScale } from './fit';
 export { no1Seal, no1SealSvg } from './no1-seal-svg';
+export { AWARD_COPY, SEAL_KINDS, sealPlaqueCopy, type SealCopy, type SealKind } from './award-copy';

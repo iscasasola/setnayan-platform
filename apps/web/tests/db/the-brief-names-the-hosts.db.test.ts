@@ -57,7 +57,7 @@ async function newVendor(email: string): Promise<{ vpid: string; uid: string }> 
      ON CONFLICT (user_id) DO UPDATE
        SET business_name = EXCLUDED.business_name,
            verification_state = EXCLUDED.verification_state,
-           last_verified_at = EXCLUDED.last_verified_at
+           last_verified_at = EXCLUDED.last_verified_at, public_visibility = EXCLUDED.public_visibility
      RETURNING vendor_profile_id`,
     [uid],
   );

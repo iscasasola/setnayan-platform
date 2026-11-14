@@ -139,7 +139,7 @@ before(async () => {
          VALUES ($1, $2, 'Manila', ARRAY[$3]::text[], 'verified', NOW(), 'verified')
          -- A vendor sign-up already made the shop row (on_auth_user_created): fill it in.
          ON CONFLICT (user_id) DO UPDATE SET business_name = EXCLUDED.business_name, location_city = EXCLUDED.location_city,
-           services = EXCLUDED.services, verification_state = EXCLUDED.verification_state, last_verified_at = EXCLUDED.last_verified_at
+           services = EXCLUDED.services, verification_state = EXCLUDED.verification_state, last_verified_at = EXCLUDED.last_verified_at, public_visibility = EXCLUDED.public_visibility
          RETURNING vendor_profile_id AS v`,
         [uid, name, services],
       )

@@ -41,7 +41,7 @@ async function newShop(): Promise<{ vpid: string; owner: string }> {
        (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
      VALUES ($1, 'Loop Co', 'Manila', ARRAY['photography']::text[], 'verified', NOW(), 'verified')
      ON CONFLICT (user_id) DO UPDATE
-       SET verification_state = EXCLUDED.verification_state, last_verified_at = EXCLUDED.last_verified_at
+       SET verification_state = EXCLUDED.verification_state, last_verified_at = EXCLUDED.last_verified_at, public_visibility = EXCLUDED.public_visibility
      RETURNING vendor_profile_id`,
     [owner],
   );

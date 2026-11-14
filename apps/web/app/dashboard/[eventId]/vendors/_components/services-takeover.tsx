@@ -448,8 +448,9 @@ export function ServicesTakeover({
       <PageMasthead title="Suppliers" />
       {/* …and a visible title row from 1024 px only. On a phone the bottom
           bar names the page and the Maker has no title row either (owner
-          2026-10-07). aria-hidden: the h1 above already says it. */}
-      <p aria-hidden className="mb-1 hidden font-display text-[28px] leading-none text-ink lg:block">
+          2026-10-07). aria-hidden: the h1 above already says it. 📐 Design template rule 1 (14 Nov 2026): in the
+          body face, not a serif — the owner's desktop name row stays (your-team-phone-first.test.ts pins it). */}
+      <p aria-hidden className="mb-1 hidden text-[28px] font-bold leading-none text-ink lg:block">
         Suppliers
       </p>
 
@@ -486,7 +487,7 @@ export function ServicesTakeover({
           />
         </span>
         <span
-          className="min-w-0 flex-1 truncate text-[13px] text-ink/60"
+          className="min-w-0 flex-1 truncate text-[13px] text-ink/70"
           data-sup-row-count=""
           aria-live="polite"
         >
@@ -538,10 +539,10 @@ export function ServicesTakeover({
                 // a divider (owner 2026-10-11 — a frame only on what is pressed).
                 <p data-sai-line="" className="mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-ink/15 pb-3">
                   <Sparkles className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+                  <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                     Setnayan&nbsp;AI
                   </span>
-                  <span className="text-xs text-ink/60">
+                  <span className="text-xs text-ink/70">
                     Smart matching, fit scoring, and the watch guard are on — free while we are in launch.
                   </span>
                 </p>
@@ -626,10 +627,10 @@ function ServiceSection({
       data-money={tab === 'budget' || tab === 'compare' ? '' : undefined}
     >
       <header className={folded ? 'sr-only' : 'mb-4'}>
-        <h2 id={`${sectionId(tab)}-h`} className={folded ? undefined : 'font-serif text-xl italic leading-tight text-ink sm:text-2xl'}>
+        <h2 id={`${sectionId(tab)}-h`} className={folded ? undefined : 'text-[17px] font-semibold leading-tight text-ink'}>
           {heading}
         </h2>
-        {folded ? null : <p className="mt-0.5 text-sm text-ink/55">{blurb}</p>}
+        {folded ? null : <p className="mt-0.5 text-sm text-ink/70">{blurb}</p>}
       </header>
       <div id={`${sectionId(tab)}-body`}>{children}</div>
     </section>
@@ -647,8 +648,8 @@ function SectionStub({ tab }: { tab: BudgetBuildTab }) {
         <Icon className="h-6 w-6" strokeWidth={1.5} aria-hidden />
       </span>
       <h3 className="text-lg font-semibold text-ink">{label}</h3>
-      <p className="text-sm text-ink/60">{blurb}</p>
-      <p className="mt-1 text-xs text-ink/40">Coming together as we build this out.</p>
+      <p className="text-sm text-ink/70">{blurb}</p>
+      <p className="mt-1 text-xs text-ink/70">Coming together as we build this out.</p>
     </div>
   );
 }

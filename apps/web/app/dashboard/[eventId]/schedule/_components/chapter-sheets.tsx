@@ -414,7 +414,7 @@ export function ChapterSheet({
     <>
       {timeLine && timeLine.row === row && !(warn && warn.row === row) ? (
         timeLine.kind === 'saving' ? (
-          <p role="status" className="mt-1 text-[13px] text-ink/60" data-chapter-time-saving={row}>
+          <p role="status" className="mt-1 text-[13px] text-ink/70" data-chapter-time-saving={row}>
             {timeLine.text}
           </p>
         ) : (

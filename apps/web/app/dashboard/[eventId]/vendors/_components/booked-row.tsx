@@ -106,17 +106,17 @@ const PILL_TONE: Record<TeamRowTone, string> = {
   soft: 'bg-ink/5 text-ink/70',
   no: 'bg-[rgb(var(--color-danger)_/_0.12)] text-[rgb(var(--color-danger))]',
 };
-const PILL = 'shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] leading-none';
+const PILL = 'shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs leading-none';
 /** A ref that never holds a row — the tiles run no fit pass (`useFitRow` is a hook, so it is always called). */
 const NO_ROW = { current: null };
 /** The line a press came back with, under the verb row. */
-const SAID = 'text-[12px] leading-snug';
+const SAID = 'text-xs leading-snug';
 
 function Logo({ url, initials }: { url: string | null; initials: string }) {
   return (
     <span
       aria-hidden
-      className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-ink/10 bg-cream text-[12px] tracking-[0.06em] text-ink/60"
+      className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-ink/10 bg-cream text-xs tracking-[0.06em] text-ink/70"
     >
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -143,11 +143,11 @@ export function BookedRowsExample() {
             <Logo url={null} initials={r.initials} />
             <span className="min-w-0">
               <span className="block truncate text-[15px] font-medium text-ink">{r.name}</span>
-              <span className="block truncate text-[13px] text-ink/55">{r.service}</span>
+              <span className="block truncate text-[13px] text-ink/70">{r.service}</span>
             </span>
             <ChevronDown aria-hidden strokeWidth={2} className="h-5 w-5 text-sn-accent" />
             <span className="col-span-2 col-start-2 flex flex-wrap items-baseline gap-x-2 text-[14px]">
-              <span className="text-ink/55">Next:</span>
+              <span className="text-ink/70">Next:</span>
               <span className="text-ink/80">{r.line}</span>
             </span>
             {pillSaysMore({ text: r.pill, tone: 'ok' }) ? (
@@ -305,7 +305,7 @@ function VerbRow({
         {verbs.map(draw)}
       </div>
       {said ? (
-        <p className={`${SAID} ${said.tone === 'error' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/60'}`} role="status">
+        <p className={`${SAID} ${said.tone === 'error' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/70'}`} role="status">
           {said.text}
         </p>
       ) : null}
@@ -429,14 +429,14 @@ export function BookedRowList({
           <>
             <p className="flex items-baseline gap-3 border-b border-ink/10 pb-3">
               <span className="min-w-0 flex-1 truncate text-[17px] font-medium text-ink">{openRow.name}</span>
-              <span className="shrink-0 text-[13px] tabular-nums text-ink/55">
+              <span className="shrink-0 text-[13px] tabular-nums text-ink/70">
                 {[openRow.service, openRow.money ? formatPhp(openRow.money.agreedPhp) : null].filter(Boolean).join(' · ')}
               </span>
             </p>
             <BookedFold eventId={eventId} row={openRow} counts={counts} />
           </>
         ) : (
-          <p className="pt-2 text-[14px] text-ink/55">Tap a supplier to see their call time, payments and tools here.</p>
+          <p className="pt-2 text-[14px] text-ink/70">Tap a supplier to see their call time, payments and tools here.</p>
         )}
       </aside>
     </div>
@@ -451,11 +451,11 @@ export function BookedRowList({
 function TimesMarkLine({ mark }: { mark: NonNullable<BookedRow['timesMark']> }) {
   return (
     <p className="flex items-start gap-2 text-[13.5px] leading-snug" data-booked-times-mark={mark.kind === 'mark' ? (mark.confirmed ? 'confirmed' : 'seen') : 'unread'}>
-      <Check aria-hidden strokeWidth={1.9} className={`mt-px h-4 w-4 shrink-0 ${mark.kind === 'mark' && mark.confirmed ? 'text-success-700' : 'text-ink/55'}`} />
+      <Check aria-hidden strokeWidth={1.9} className={`mt-px h-4 w-4 shrink-0 ${mark.kind === 'mark' && mark.confirmed ? 'text-success-700' : 'text-ink/70'}`} />
       {mark.kind === 'mark' ? (
         <span className={mark.confirmed ? 'font-semibold text-ink' : 'text-ink/70'}>{mark.line}</span>
       ) : (
-        <span className="text-[12.5px] text-ink/55">{TIMES_MARK_UNREAD}</span>
+        <span className="text-[12.5px] text-ink/70">{TIMES_MARK_UNREAD}</span>
       )}
     </p>
   );
@@ -465,17 +465,17 @@ function TimesMarkLine({ mark }: { mark: NonNullable<BookedRow['timesMark']> }) 
 function CallTimeLine({ line }: { line: BookedCallTime }) {
   return (
     <p className="flex items-start gap-2 text-[13.5px] leading-snug" data-booked-call-time={line.kind}>
-      <Clock aria-hidden strokeWidth={1.9} className="mt-px h-4 w-4 shrink-0 text-ink/55" />
+      <Clock aria-hidden strokeWidth={1.9} className="mt-px h-4 w-4 shrink-0 text-ink/70" />
       {line.kind === 'set' ? (
         <span>
           <span className="text-ink">Call time </span>
           <b className="font-semibold text-ink tabular-nums">{line.clock}</b>
-          <span className="text-[12.5px] text-ink/55"> · {line.moment} · from your Schedule</span>
+          <span className="text-[12.5px] text-ink/70"> · {line.moment} · from your Schedule</span>
         </span>
       ) : line.kind === 'none' ? (
-        <span className="text-[12.5px] text-ink/55">No call time yet — tag them on a Schedule moment</span>
+        <span className="text-[12.5px] text-ink/70">No call time yet — tag them on a Schedule moment</span>
       ) : (
-        <span className="text-[12.5px] text-ink/55">We couldn’t check your Schedule for their call time.</span>
+        <span className="text-[12.5px] text-ink/70">We couldn’t check your Schedule for their call time.</span>
       )}
     </p>
   );
@@ -496,7 +496,7 @@ function ClaimDoor({ eventId, vendorId, vendorName }: { eventId: string; vendorI
           Send {vendorName} their link. They join free and see their part of your schedule, and can confirm their times
           themselves.
         </InfoTip>
-        <span className="block text-[12.5px] text-ink/55">Until they join, you enter their times.</span>
+        <span className="block text-[12.5px] text-ink/70">Until they join, you enter their times.</span>
       </p>
       <SupplierShareButton eventId={eventId} vendorId={vendorId} vendorName={vendorName} />
     </div>
@@ -526,7 +526,7 @@ function UpdatedLine({ updated }: { updated: NonNullable<BookedRow['updated']> }
 function PlanRows({ plan, own }: { plan: NonNullable<BookedPlan>; own: boolean }) {
   if (plan.kind === 'unread') {
     return (
-      <p className="text-[12.5px] text-ink/55" data-booked-plan="unread">
+      <p className="text-[12.5px] text-ink/70" data-booked-plan="unread">
         We couldn’t load the payment plan. Pay opens it again.
       </p>
     );
@@ -540,7 +540,7 @@ function PlanRows({ plan, own }: { plan: NonNullable<BookedPlan>; own: boolean }
       : `Payment plan${own ? ' · your record' : plan.estimated ? ' · estimated' : ''}`;
   return (
     <div data-booked-plan={plan.kind}>
-      <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-ink/55">{head}</p>
+      <p className="text-xs font-medium uppercase tracking-[0.06em] text-ink/70">{head}</p>
       <ul className="mt-0.5">
         {plan.rows.map((r, i) => (
           <li
@@ -563,7 +563,7 @@ function PlanRows({ plan, own }: { plan: NonNullable<BookedPlan>; own: boolean }
             </span>
             <span className="min-w-0">
               <span className="block text-ink">{r.label}</span>
-              <span className={`block text-[12px] ${r.late ? 'text-[rgb(var(--color-danger))]' : 'text-ink/55'}`}>
+              <span className={`block text-xs ${r.late ? 'text-[rgb(var(--color-danger))]' : 'text-ink/70'}`}>
                 {r.state === 'paid'
                   ? 'Paid'
                   : r.state === 'pending'
@@ -625,7 +625,7 @@ export function BookedRowItem({
         <Logo url={row.logoUrl} initials={row.initials} />
         <span className="min-w-0">
           <span className="block truncate text-[15px] font-medium text-ink">{row.name}</span>
-          <span className="block truncate text-[13px] text-ink/55">
+          <span className="block truncate text-[13px] text-ink/70">
             {[row.service, row.own ? 'added by you' : null, row.updated ? CORRECTIONS_SHORT : null].filter(Boolean).join(' · ')}
           </span>
           {/* 📍 The chapters they work — or "Needs at least 1 chapter" (the prototype's `supRow`). */}
@@ -641,12 +641,12 @@ export function BookedRowItem({
         <span className="col-span-2 col-start-2 flex flex-wrap items-baseline gap-x-2 text-[14px]" data-booked-next={n.kind}>
           {n.kind === 'paid_in_full' ? (
             <>
-              <span className="text-ink/55">Paid in full</span>
+              <span className="text-ink/70">Paid in full</span>
               <span className="tabular-nums text-ink">{formatPhp(n.paidPhp)}</span>
             </>
           ) : (
             <>
-              <span className="text-ink/55">Next:</span>
+              <span className="text-ink/70">Next:</span>
               {n.kind === 'set_price' ? (
                 <span className="text-sn-accent">{NEXT_SET_PRICE}</span>
               ) : n.kind === 'due' ? (
@@ -721,14 +721,14 @@ function BookedFold({ eventId, row, counts = null }: { eventId: string; row: Boo
           a later change to their card never reaches this booking unless the couple accepts it. Not for a supplier the
           couple added themselves (they set that price). */}
       {!row.own && row.money ? (
-        <p className="text-[12.5px] leading-snug text-ink/55" data-booked-price-stays="">
+        <p className="text-[12.5px] leading-snug text-ink/70" data-booked-price-stays="">
           {BOOKED_PRICE_STAYS_COUPLE}
         </p>
       ) : null}
       {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}
       {counted && counts ? <BookedCountRule eventId={eventId} service={counted} groups={counts.groups} roster={counts.roster} names={counts.names} /> : null}
       {/* K3 (owner 2026-11-12): where this booking feeds the event, as ONE line — no chips. */}
-      <p className="text-[12.5px] leading-snug text-ink/55" data-booked-feeds="">
+      <p className="text-[12.5px] leading-snug text-ink/70" data-booked-feeds="">
         Used in: <span className="text-ink/70">{row.feeds.join(' · ')}</span>
       </p>
       <VerbRow
@@ -755,17 +755,17 @@ export function WaitingRowItem({ eventId, row }: { eventId: string; row: Waiting
         <span className="min-w-0">
           <span className="block truncate text-[15px] font-medium text-ink">{row.name}</span>
           {/* 💸 carries a price, so it wraps — never cut (the-page-never-scrolls-sideways.spec.ts) */}
-          <span className="block break-words text-[13px] tabular-nums text-ink/55">
+          <span className="block break-words text-[13px] tabular-nums text-ink/70">
             {[row.service, row.pricePhp != null ? formatPhp(row.pricePhp) : null].filter(Boolean).join(' · ')}
           </span>
         </span>
         <span className={`${PILL} bg-sn-accent/10 text-sn-accent`}>{WAITING_PILL}</span>
       </div>
       <p className="ml-14 mt-1 flex items-baseline gap-2 text-[14px]">
-        <span className="shrink-0 text-ink/55">Until they say yes:</span>
+        <span className="shrink-0 text-ink/70">Until they say yes:</span>
         <span className="text-sn-accent">{WAITING_UNTIL}</span>
       </p>
-      {row.fuse ? <p className="ml-14 mt-0.5 text-[12px] text-ink/55">{row.fuse}</p> : null}
+      {row.fuse ? <p className="ml-14 mt-0.5 text-xs text-ink/70">{row.fuse}</p> : null}
       <div className="grid min-w-0 gap-2 pb-1 pl-14 pt-2">
         <VerbRow
           eventId={eventId}

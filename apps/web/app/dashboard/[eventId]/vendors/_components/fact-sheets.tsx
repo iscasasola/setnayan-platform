@@ -207,14 +207,14 @@ export function FactSheet({
           </PeekToast>
         ) : null}
         <header>
-          <h2 id={headingId} className="font-serif text-[22px] leading-tight text-ink">
+          <h2 id={headingId} className="text-[17px] font-semibold leading-tight text-ink">
             {which === 'date' ? 'Your date' : 'Your place'}
           </h2>
-          <p className="text-[13px] text-ink/60">It gets sharper as you book.</p>
+          <p className="text-[13px] text-ink/70">It gets sharper as you book.</p>
         </header>
         {state.kind === 'loading' ? (
           <div aria-busy="true" data-fact-sheet-loading="" className="flex flex-col gap-2">
-            <p className="text-[13px] text-ink/60">{which === 'date' ? 'Checking your suppliers’ calendars…' : 'Opening your place…'}</p>
+            <p className="text-[13px] text-ink/70">{which === 'date' ? 'Checking your suppliers’ calendars…' : 'Opening your place…'}</p>
             <span className="skeleton block h-10 rounded-md" />
             <span className="skeleton block h-10 rounded-md" />
           </div>
@@ -262,9 +262,9 @@ function Ladder({ rungs }: { rungs: readonly LadderRung[] }) {
         <li key={r.key} data-rung={r.key} data-on={r.on ? '1' : '0'} className="flex min-h-11 items-center gap-3 border-t border-ink/10 py-2 first:border-t-0">
           <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${r.on ? 'bg-sn-accent' : 'border border-ink/30'}`} />
           <span className="min-w-0 flex-1 text-[14px]">
-            <span className="text-ink/60">{r.label} · </span>
-            <span className={r.on ? 'text-ink' : 'text-ink/55'}>{r.value}</span>
-            {r.note ? <span className="text-ink/55"> · {r.note}</span> : null}
+            <span className="text-ink/70">{r.label} · </span>
+            <span className={r.on ? 'text-ink' : 'text-ink/70'}>{r.value}</span>
+            {r.note ? <span className="text-ink/70"> · {r.note}</span> : null}
           </span>
         </li>
       ))}
@@ -272,7 +272,7 @@ function Ladder({ rungs }: { rungs: readonly LadderRung[] }) {
   );
 }
 
-const SECTION_HEAD = 'font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55';
+const SECTION_HEAD = 'font-mono text-xs uppercase tracking-[0.06em] text-ink/70';
 
 /* ── DATE ──────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -352,7 +352,7 @@ function DateBody({
     <>
       <Ladder rungs={ladder} />
       {booked > 0 && shown.precision === 'day' && shown.date ? (
-        <p className="text-[12.5px] text-ink/60" data-date-few-gone="">
+        <p className="text-[12.5px] text-ink/70" data-date-few-gone="">
           {data.bookedNames[0]} is booked for {shown.end ? `${dayWords(shown.date)} – ${dayWords(shown.end)}` : dayWords(shown.date)}, so that is your
           date — the dates you were considering are done with. A change asks them first.
         </p>
@@ -402,7 +402,7 @@ function DateBody({
             ) : null}
           </FormRows>
           {hasOptions && !shown.date ? (
-            <p className="text-[12.5px] text-ink/60" data-date-replaces-options="">
+            <p className="text-[12.5px] text-ink/70" data-date-replaces-options="">
               Picking one day replaces the {opts.candidates.length ? `${opts.candidates.length} ${(data.days ?? 1) > 1 ? 'options' : 'dates'}` : 'window'} you’re
               considering — your date becomes exact{(data.days ?? 1) > 1 ? ` (${data.days} days from it)` : ''}.
             </p>
@@ -449,7 +449,7 @@ function DateBody({
         </p>
       ) : null}
       {booked > 0 && shown.precision === 'day' && !clash ? (
-        <p className="text-[12.5px] text-ink/60" data-date-held="">
+        <p className="text-[12.5px] text-ink/70" data-date-held="">
           A day {listWords(data.bookedNames)} can’t do is never moved quietly — they are asked first, and your date stays until
           they answer.
         </p>
@@ -495,7 +495,7 @@ function FewDates({
   return (
     <section className="flex flex-col gap-2" data-date-few="">
       <p className={SECTION_HEAD}>Dates you’re considering</p>
-      <p className="text-[12.5px] text-ink/60">
+      <p className="text-[12.5px] text-ink/70">
         Your venue’s booked day becomes your date. Until then, these are options — Find checks suppliers against all of them.
       </p>
       <DateCalendar
@@ -591,7 +591,7 @@ function PendingChange({
           </li>
         ))}
       </ul>
-      <p className="text-[12.5px] text-ink/60">Your date stays {from} meanwhile, and guests see nothing.</p>
+      <p className="text-[12.5px] text-ink/70">Your date stays {from} meanwhile, and guests see nothing.</p>
       <div className="flex flex-wrap gap-2">
         <ActionButton
           tone="neutral"
@@ -673,7 +673,7 @@ function HelpBody({
     <div className="flex flex-col gap-3" data-help-me-choose="">
       <p className={SECTION_HEAD}>The days you’re considering — ranked by your suppliers</p>
       {help.pricedCount > 0 ? (
-        <p className="text-[12.5px] text-ink/60" data-help-priced="">
+        <p className="text-[12.5px] text-ink/70" data-help-priced="">
           Only days all {formatCount(help.pricedCount)} of your priced suppliers can take are offered.
         </p>
       ) : null}
@@ -697,19 +697,19 @@ function HelpBody({
                       on ? 'bg-sn-accent/10 ring-2 ring-sn-accent' : ''
                     }`}
                   >
-                    <span className={`w-5 shrink-0 font-mono text-[11px] ${on ? 'text-sn-accent' : 'text-ink/45'}`}>{i + 1}</span>
+                    <span className={`w-5 shrink-0 text-xs ${on ? 'text-sn-accent' : 'text-ink/70'}`}>{i + 1}</span>
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">
                         <span className={`text-[17px] font-semibold tracking-tight ${on ? 'text-sn-accent' : 'text-ink'}`}>{d.label}</span>
-                        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">{d.dow}</span>
+                        <span className="text-xs uppercase tracking-[0.06em] text-ink/70">{d.dow}</span>
                         {d.isBest ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-sn-accent/15 px-2 py-0.5 text-[11px] font-medium text-sn-accent">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sn-accent/15 px-2 py-0.5 text-xs font-medium text-sn-accent">
                             <Star aria-hidden className="h-3 w-3" strokeWidth={2.25} />
                             Best match
                           </span>
                         ) : null}
                       </span>
-                      <span className="mt-0.5 block text-[13px] text-ink/60">{coverageHeadline(d)}</span>
+                      <span className="mt-0.5 block text-[13px] text-ink/70">{coverageHeadline(d)}</span>
                     </span>
                   </button>
                 </li>
@@ -757,13 +757,13 @@ function HelpBody({
           />
         </div>
       ) : null}
-      <p className="text-[12.5px] text-ink/60">
+      <p className="text-[12.5px] text-ink/70">
         {data.bookedNames.length > 0
           ? `Only days every booked supplier can do are offered — ${listWords(data.bookedNames)} ${data.bookedNames.length === 1 ? 'holds' : 'hold'} your date.`
           : 'Nobody is booked yet, so every Saturday your priced suppliers can take is offered — ranked by who is free.'}
       </p>
       {help.offPlatformCount > 0 ? (
-        <p className="text-[12.5px] text-ink/55">
+        <p className="text-[12.5px] text-ink/70">
           {formatCount(help.offPlatformCount)} of your suppliers {help.offPlatformCount === 1 ? 'is' : 'are'} not on Setnayan — their
           calendar can’t be seen, so confirm with them directly.
         </p>
@@ -862,7 +862,7 @@ function PlaceBody({
               {locked.where}
             </span>
           </div>
-          <p className="text-[12.5px] text-ink/60" data-place-locked-why="">
+          <p className="text-[12.5px] text-ink/70" data-place-locked-why="">
             {lockedPlaceWhy(locked)}
           </p>
         </section>
@@ -882,7 +882,7 @@ function PlaceBody({
               });
             }}
           />
-          <p className="text-[12.5px] text-ink/60" data-place-before-booking="">
+          <p className="text-[12.5px] text-ink/70" data-place-before-booking="">
             Once you book a reception, your place becomes its city.
           </p>
         </section>
@@ -910,11 +910,11 @@ function PlaceBody({
                 });
             }}
           />
-          <p className="text-[12.5px] text-ink/60" data-place-region-note="">
+          <p className="text-[12.5px] text-ink/70" data-place-region-note="">
             This is your <span className="font-semibold text-ink">Region</span> in ⚙ Event settings — one value, shown in both places.
             Changing it here changes it there.
           </p>
-          <p className="text-[12.5px] text-ink/60">Suppliers near this area fit your event. Once you book a venue, your place becomes its city.</p>
+          <p className="text-[12.5px] text-ink/70">Suppliers near this area fit your event. Once you book a venue, your place becomes its city.</p>
         </section>
       ) : null}
       {slots.map((s) => (
@@ -931,7 +931,7 @@ function PlaceBody({
           onFind={onFind}
         />
       ))}
-      <p className="text-[12.5px] text-ink/60" data-place-note="">
+      <p className="text-[12.5px] text-ink/70" data-place-note="">
         Saves as you type. Guests see it when you Apply your Event Hub. A place you type yourself is only its name and its pin, for
         your guests — it is not added to your suppliers.
       </p>
@@ -1027,7 +1027,7 @@ function VenueSlotBody({
         <div className="flex flex-col" data-venue-booked="">
           <p className="text-[15px] font-medium text-ink">{slot.booked.name}</p>
           {slot.booked.address ? <p className="text-[13px] text-ink/65">{slot.booked.address}</p> : null}
-          <p className="text-[12px] text-ink/55">Booked · follows the booking{slot.booked.pinned && door !== 'shop' ? ' · pinned on the map' : ''}</p>
+          <p className="text-xs text-ink/70">Booked · follows the booking{slot.booked.pinned && door !== 'shop' ? ' · pinned on the map' : ''}</p>
           {door === 'shop' ? <ShopPinNote shop={slot.booked.name} pinned={slot.booked.pinned} /> : null}
           {door === 'manual' && slot.booked.vendorId ? (
             /* 📍 A supplier added by hand: its pin is set right here, on its own card (owner 2026-10-22). */
@@ -1042,7 +1042,7 @@ function VenueSlotBody({
               />
             </div>
           ) : null}
-          <p className="pt-1 text-[12px] text-ink/55">Changing the venue means cancelling a booking — do that from Booked.</p>
+          <p className="pt-1 text-xs text-ink/70">Changing the venue means cancelling a booking — do that from Booked.</p>
         </div>
       ) : (
         <>

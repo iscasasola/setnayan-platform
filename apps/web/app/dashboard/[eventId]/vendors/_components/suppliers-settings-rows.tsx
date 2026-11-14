@@ -83,7 +83,7 @@ function ClusterHead({ name, first = false }: { name: string; first?: boolean })
   return (
     <p
       data-settings-cluster={name}
-      className={`${first ? 'pt-2' : 'pt-5'} pb-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70 [&+*]:!border-t-0`}
+      className={`${first ? 'pt-2' : 'pt-5'} pb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70 [&+*]:!border-t-0`}
     >
       {name}
     </p>

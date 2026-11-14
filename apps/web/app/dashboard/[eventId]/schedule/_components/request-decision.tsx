@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { REQUEST_NOT_SENT, requestAnswerOf } from '@/lib/schedule-request-answer';
+import { Check, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * 🔁 ONE REQUEST'S DECISION — Decline · Approve (or Noted, for a suggestion in words), SAVED IN PLACE (audit 2026-11-02
@@ -47,26 +49,25 @@ export function RequestDecision({
     <div data-request-decision={suggestionId}>
       <div className="flex justify-end gap-2">
         {noteOnly ? null : (
-          <button
-            type="button"
-            disabled={busy !== null}
+          <ActionButton
+            tone="neutral"
+            icon={X}
+            label={busy === 'decline' ? 'Declining…' : 'Decline'}
+            waiting={busy !== null}
             onClick={() => void press('decline')}
-            className="h-10 rounded-full px-4 text-[13px] font-semibold text-ink/75 ring-1 ring-inset ring-ink/15 disabled:opacity-60"
-          >
-            {busy === 'decline' ? 'Declining…' : 'Decline'}
-          </button>
+          />
         )}
-        <button
-          type="button"
-          disabled={busy !== null}
+        <ActionButton
+          tone="brand"
+          main
+          icon={Check}
+          label={busy === 'accept' ? (noteOnly ? 'Saving…' : 'Approving…') : (acceptLabel ?? (noteOnly ? 'Noted' : 'Approve'))}
+          waiting={busy !== null}
           onClick={() => void press('accept')}
-          className="h-10 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-60"
-        >
-          {busy === 'accept' ? (noteOnly ? 'Saving…' : 'Approving…') : (acceptLabel ?? (noteOnly ? 'Noted' : 'Approve'))}
-        </button>
+        />
       </div>
       {problem ? (
-        <p role="alert" className="mt-2 text-right text-[13px] font-semibold text-danger-700">
+        <p role="alert" className="mt-2 text-right text-[13px] font-semibold text-[rgb(var(--color-danger))]">
           {problem}
         </p>
       ) : null}

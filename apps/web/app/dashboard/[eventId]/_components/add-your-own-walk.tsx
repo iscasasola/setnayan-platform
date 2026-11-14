@@ -397,7 +397,7 @@ export function AddYourOwnWalk({
         <h2 id="add-own-walk-title" className="pr-10 text-[20px] font-semibold tracking-[-0.01em] text-ink">
           {ADD_OWN_TITLE}
         </h2>
-        <p className="mt-0.5 text-sm text-ink/60">{ADD_OWN_SUB}</p>
+        <p className="mt-0.5 text-sm text-ink/70">{ADD_OWN_SUB}</p>
 
         <div className="mt-3 flex items-center gap-1.5" role="img" aria-label={addOwnStepLine(step)}>
           {ADD_OWN_STEPS.map((s, i) => (
@@ -406,7 +406,7 @@ export function AddYourOwnWalk({
               className={`h-[3px] min-w-0 flex-1 rounded-full ${i < step ? 'bg-sn-accent' : 'bg-ink/15'}`}
             />
           ))}
-          <span className="shrink-0 pl-1 text-[12px] text-ink/55">{addOwnStepLine(step)}</span>
+          <span className="shrink-0 pl-1 text-xs text-ink/70">{addOwnStepLine(step)}</span>
         </div>
 
         {step === 1 ? (
@@ -455,7 +455,7 @@ export function AddYourOwnWalk({
             ) : null}
             {hasMatches ? (
               <div className="mt-2 border-t border-ink/10 pt-3" data-add-own-matches="">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+                <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   {ADD_OWN_MATCH_HEAD}{' '}
                   <span className="font-sans normal-case tracking-normal">· {ADD_OWN_MATCH_TAIL}</span>
                 </p>
@@ -465,7 +465,7 @@ export function AddYourOwnWalk({
                       <MatchLogo name={m.business_name} url={m.logo_display_url} />
                       <span className="min-w-0 flex-1">
                         <b className="block truncate text-[14.5px] font-semibold text-ink">{m.business_name}</b>
-                        <span className="block truncate text-[12.5px] text-ink/60">{matchLine(m)}</span>
+                        <span className="block truncate text-[12.5px] text-ink/70">{matchLine(m)}</span>
                         {/* 🕵️ FOUND-YOU nudge (2026-11-05): this couple already opened this shop here. */}
                         {m.found_on ? (
                           <span className="mt-0.5 block text-[12.5px] leading-snug text-ink/75" data-add-own-found="">
@@ -488,11 +488,11 @@ export function AddYourOwnWalk({
                 </ul>
               </div>
             ) : searching ? (
-              <p className="mt-2 text-[12.5px] text-ink/55" aria-live="polite">
+              <p className="mt-2 text-[12.5px] text-ink/70" aria-live="polite">
                 Searching Setnayan…
               </p>
             ) : matches && typed.length >= ADD_OWN_SEARCH_MIN && !leak ? (
-              <p className="mt-2 text-[12.5px] text-ink/60" data-add-own-nobody="">
+              <p className="mt-2 text-[12.5px] text-ink/70" data-add-own-nobody="">
                 {addOwnNobodyLine(typed, label)}
               </p>
             ) : null}
@@ -511,7 +511,7 @@ export function AddYourOwnWalk({
               onPick={(key) => setPick(key)}
               className="w-full border border-ink/15"
             />
-            <p className="text-[12.5px] text-ink/60">Only the categories on your event.</p>
+            <p className="text-[12.5px] text-ink/70">Only the categories on your event.</p>
           </div>
         ) : null}
 
@@ -575,7 +575,7 @@ export function AddYourOwnWalk({
               vendorName={typed}
               initial={created.invite}
             />
-            <p className="text-[12.5px] text-ink/60" data-add-own-note="">
+            <p className="text-[12.5px] text-ink/70" data-add-own-note="">
               {note.lead}
               <b className="font-semibold text-ink">{note.strong}</b>.
             </p>
@@ -648,7 +648,7 @@ function MatchLogo({ name, url }: { name: string; url: string | null }) {
       .slice(0, 2)
       .join('') || '?';
   return (
-    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ink/10 bg-paper text-[12px] font-semibold text-ink/70">
+    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ink/10 bg-paper text-xs font-semibold text-ink/70">
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />

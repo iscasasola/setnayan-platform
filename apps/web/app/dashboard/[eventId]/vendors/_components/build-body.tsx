@@ -454,7 +454,7 @@ export function BuildBody({
                   <span>
                     Nobody yet · {formatCount(emptyLines.length)} {emptyLines.length === 1 ? 'category' : 'categories'}
                   </span>
-                  <ChevronRight aria-hidden strokeWidth={2} className="bb-chev h-4 w-4 text-ink/45 transition-transform motion-reduce:transition-none" />
+                  <ChevronRight aria-hidden strokeWidth={2} className="bb-chev h-4 w-4 text-ink/70 transition-transform motion-reduce:transition-none" />
                 </summary>
                 <ul className="divide-y divide-ink/10 border-t border-ink/10">{emptyLines.map(lineRow)}</ul>
               </details>
@@ -486,7 +486,7 @@ export function BuildBody({
               </span>
             </Explain>
             {view.buildsMeasured && saved.length > 0 ? (
-              <span className="ml-auto text-[13px] text-ink/55">
+              <span className="ml-auto text-[13px] text-ink/70">
                 <Count value={view.cards.length} id="sup-build-n" /> builds · the dates each is free on
               </span>
             ) : null}
@@ -502,7 +502,7 @@ export function BuildBody({
             moment. Nothing you saved has been lost.
           </p>
         ) : saved.length === 0 ? (
-          <p className="text-sm text-ink/60 lg:mt-0.5">Save this build to compare it with another.</p>
+          <p className="text-sm text-ink/70 lg:mt-0.5">Save this build to compare it with another.</p>
         ) : wide ? (
           <div className="mt-3">{table()}</div>
         ) : (
@@ -633,9 +633,9 @@ export function BuildBody({
 /** "of ₱600,000 budget · ₱310,000 buffer" — or over, or not knowable while a price is missing, or no budget yet. */
 function BudgetWords({ view }: { view: BuildView }) {
   const { money } = view;
-  if (money.budgetPhp == null) return <span className="text-[13px] text-ink/60">· no budget set yet</span>;
+  if (money.budgetPhp == null) return <span className="text-[13px] text-ink/70">· no budget set yet</span>;
   return (
-    <span className="text-[13px] text-ink/60">
+    <span className="text-[13px] text-ink/70">
       of <Count value={money.budgetPhp} format="peso" id="sup-build-budget" /> budget ·{' '}
       {money.unpriced > 0 ? (
         <span data-build-buffer="unknown">buffer not knowable</span>
@@ -726,7 +726,7 @@ function BuildLineRow({
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3" data-build-line={line.tile} data-booked={line.booked ? '' : undefined}>
       <div className="min-w-0">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink/55">
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           {line.label}
           {line.booked ? ' · booked' : ''}
         </p>
@@ -754,13 +754,13 @@ function BuildLineRow({
             ) : null}
           </div>
         ) : (
-          <p className="mt-0.5 text-[13px] leading-snug text-ink/55">Nobody shortlisted with a price yet</p>
+          <p className="mt-0.5 text-[13px] leading-snug text-ink/70">Nobody shortlisted with a price yet</p>
         )}
       </div>
       <div className="text-right" data-money="">
         {who == null ? (
           canChoose ? (
-            <span className="text-base text-ink/45" aria-hidden>
+            <span className="text-base text-ink/70" aria-hidden>
               —
             </span>
           ) : null
@@ -803,13 +803,13 @@ function FitLine({ view, allFree }: { view: BuildView; allFree: boolean }) {
             <Count value={fit.free} id="sup-build-free" /> of <Count value={fit.priced} id="sup-build-priced" /> priced picks are free on{' '}
             {dateLabel}
             {fit.notSet > 0 ? (
-              <span className="text-ink/55" data-build-fit-not-set="">
+              <span className="text-ink/70" data-build-fit-not-set="">
                 {' '}
                 · <Count value={fit.notSet} id="sup-build-not-set" /> {CALENDAR_NOT_SET.toLowerCase()}
               </span>
             ) : null}
             {fit.unread > 0 ? (
-              <span className="text-ink/55">
+              <span className="text-ink/70">
                 {' '}
                 · <Count value={fit.unread} id="sup-build-unread" /> not checked
               </span>
@@ -863,7 +863,7 @@ function CompareTable({
   const swap = cards.length > cap;
   const cols = `5.25rem repeat(${shown.length}, minmax(7.4rem, 1fr))`;
   const cell = 'min-w-0 border-b border-ink/10 px-2 py-2 text-[13px] leading-snug';
-  const key = `${cell} text-ink/60`;
+  const key = `${cell} text-ink/70`;
   const pickCol = (at: number, id: string) =>
     setShownIds(() => {
       const next = shown.map((c) => c.id);
@@ -894,7 +894,7 @@ function CompareTable({
                 ) : (
                   c.name
                 )}
-                {c.id === CURRENT ? <span className={`font-normal text-ink/55 ${swap ? 'block px-1 text-xs' : ''}`}>{swap ? 'now' : ' · now'}</span> : null}
+                {c.id === CURRENT ? <span className={`font-normal text-ink/70 ${swap ? 'block px-1 text-xs' : ''}`}>{swap ? 'now' : ' · now'}</span> : null}
               </span>
             ))}
           </div>
@@ -913,7 +913,7 @@ function CompareTable({
                   <Count value={c.totalPhp} format="peso" id={`sup-build-card-${i}`} />
                 </b>
                 {c.unpriced > 0 ? (
-                  <span className="block text-xs text-ink/55">
+                  <span className="block text-xs text-ink/70">
                     + <Count value={c.unpriced} id={`sup-build-card-unp-${i}`} /> without a price
                   </span>
                 ) : null}
@@ -928,7 +928,7 @@ function CompareTable({
               <span
                 role="cell"
                 key={c.id}
-                className={`${cell} tabular-nums ${c.bufferPhp == null ? 'text-ink/55' : c.bufferPhp < 0 ? 'text-mulberry-700' : 'text-success-700'}`}
+                className={`${cell} tabular-nums ${c.bufferPhp == null ? 'text-ink/70' : c.bufferPhp < 0 ? 'text-mulberry-700' : 'text-success-700'}`}
               >
                 {c.unpriced > 0 ? (
                   'Not knowable'
@@ -951,7 +951,7 @@ function CompareTable({
             {shown.map((c) => (
               <span role="cell" key={c.id} className={cell}>
                 {c.free == null ? (
-                  <span className="text-ink/55">—</span>
+                  <span className="text-ink/70">—</span>
                 ) : c.free.kind === 'dates' ? (
                   <span className="text-success-700">
                     Free: {c.free.labels.join(' · ')}
@@ -974,20 +974,20 @@ function CompareTable({
               {shown.map((c) => {
                 const x = c.rows[r];
                 return (
-                  <span role="cell" key={c.id} className={`${cell} ${x?.full ? 'text-ink' : 'text-ink/55'}`}>
+                  <span role="cell" key={c.id} className={`${cell} ${x?.full ? 'text-ink' : 'text-ink/70'}`}>
                     {x?.full ? (
                       x.inclusions.length > 0 ? (
                         // What the price comes with — folded, as the old compare cell was.
                         <details data-build-inclusions="">
                           <summary className="flex min-h-11 cursor-pointer list-none items-center">
-                            {x.full} <span className="text-ink/55">&nbsp;▾</span>
+                            {x.full} <span className="text-ink/70">&nbsp;▾</span>
                           </summary>
-                          <span className="block text-xs text-ink/55">+ {x.inclusions.join(', ')}</span>
+                          <span className="block text-xs text-ink/70">+ {x.inclusions.join(', ')}</span>
                         </details>
                       ) : (
                         <>
                           {x.full}
-                          {x.booked ? <span className="text-xs text-ink/55"> · booked</span> : null}
+                          {x.booked ? <span className="text-xs text-ink/70"> · booked</span> : null}
                         </>
                       )
                     ) : (
@@ -999,7 +999,7 @@ function CompareTable({
             </div>
           ))}
           {hideSame && rows.length === 0 ? (
-            <p className="col-span-full px-2 py-3 text-[13px] text-ink/60">These builds have the same supplier in every category.</p>
+            <p className="col-span-full px-2 py-3 text-[13px] text-ink/70">These builds have the same supplier in every category.</p>
           ) : null}
           <div role="row" className="contents">
             <span role="rowheader" className={`${key} border-b-0`} />
@@ -1204,7 +1204,7 @@ function SaveSheetBody({
         onSave();
       }}
     >
-      <SheetField label={kind === 'rename' ? 'Name' : <>Name <span className="text-ink/45">(optional)</span></>}>
+      <SheetField label={kind === 'rename' ? 'Name' : <>Name <span className="text-ink/70">(optional)</span></>}>
         <input
           value={name}
           onChange={(e) => onName(e.target.value)}

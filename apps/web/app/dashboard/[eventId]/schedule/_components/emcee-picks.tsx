@@ -36,15 +36,10 @@ import { StayForm } from '@/app/_components/stay-form';
 /** Said once, in both places a refused read used to remove the block silently. */
 function EmceePicksUnread() {
   return (
-    <p
-      role="alert"
-      className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
-    >
-      <strong className="text-ink">
-        We couldn&rsquo;t check what your host has planned.
-      </strong>{' '}
-      If they have suggested anything, it hasn&rsquo;t gone away. Reload in a
-      moment.
+    // 📐 Design template rule 6: a failed read is one amber line with no box — never mistakable for "none".
+    <p role="alert" className="py-2 text-sm text-warn-800">
+      We couldn&rsquo;t check what your host has planned — if they suggested anything, it hasn&rsquo;t gone away. Reload in
+      a moment.
     </p>
   );
 }
@@ -121,12 +116,12 @@ export async function EmceePicks({
   return (
     <section id="emcee-picks" className="sn-row scroll-mt-4 space-y-3 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="inline-flex items-center gap-2 font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
+        <h2 className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           <Mic aria-hidden className="h-3.5 w-3.5 text-gild" strokeWidth={1.9} />
           From {host.business_name ?? 'your host'}
         </h2>
         {chosen.length > 0 ? (
-          <span className="inline-flex items-center gap-1.5 font-mono text-[0.66rem] uppercase tracking-[0.16em] text-ink/55">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
             {totalMinutes(chosen)} min chosen
           </span>
@@ -168,7 +163,7 @@ export async function EmceePicks({
                   {a.blurb ? (
                     <span className="text-xs leading-relaxed text-ink/65">{a.blurb}</span>
                   ) : null}
-                  <span className="mt-auto pt-1 font-mono text-[0.6rem] uppercase tracking-[0.14em] text-ink/50">
+                  <span className="mt-auto pt-1 text-[0.6rem] uppercase tracking-[0.06em] text-ink/70">
                     {a.duration_minutes} min
                     {isPlaced ? ' · on your timeline' : ''}
                   </span>
@@ -184,18 +179,18 @@ export async function EmceePicks({
           <input type="hidden" name="event_id" value={eventId} />
           <button
             type="submit"
-            className="inline-flex items-center gap-2 bg-ink px-4 py-2.5 font-mono text-[0.6rem] uppercase tracking-[0.16em] text-paper transition-opacity hover:opacity-90"
+            className="ab ab-brand inline-flex min-h-11 items-center justify-center gap-2"
           >
             <CalendarPlus aria-hidden className="h-4 w-4" strokeWidth={1.9} />
             Add {formatCount(unplacedCount)} to my timeline
           </button>
-          <span className="mt-2 block text-xs leading-relaxed text-ink/60">
+          <span className="mt-2 block text-xs leading-relaxed text-ink/70">
             They go in after everything you already have, back to back — nothing you have
             planned moves. Drag them where they belong afterwards.
           </span>
         </StayForm>
       ) : chosen.length > 0 ? (
-        <p className="text-xs leading-relaxed text-ink/60">
+        <p className="text-xs leading-relaxed text-ink/70">
           All {chosen.length} added to your timeline. Untick isn&rsquo;t available once a
           segment is on the day — delete the block itself if you change your mind.
         </p>

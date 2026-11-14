@@ -115,7 +115,7 @@ export function PendingLockProposals({
 
   return (
     <section className="space-y-1" data-pending-lock-proposals="">
-      <h3 className="mt-[18px] text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+      <h3 className="mt-[18px] text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
         Your coordinator proposed booking
       </h3>
       {/* ── CAPPED, 2026-09-22 ────────────────────────────────────────────

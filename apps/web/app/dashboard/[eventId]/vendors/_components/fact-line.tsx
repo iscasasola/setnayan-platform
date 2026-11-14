@@ -78,7 +78,7 @@ export function FactLine({
             · {CHANGE_ASKED_WORD}
           </button>
         ) : null}
-        <span aria-hidden className="text-ink/55">
+        <span aria-hidden className="text-ink/70">
           ·
         </span>
         <button

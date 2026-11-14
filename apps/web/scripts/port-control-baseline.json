@@ -1844,7 +1844,6 @@
         "RevealOverlay",
         "RevealOverlayServer",
         "RevealParticles",
-        "ReviewsEmptyState",
         "ReviewsWall",
         "RigidFlaps",
         "RigidReveal",
@@ -4084,6 +4083,7 @@
       "actions": [],
       "blocks": [
         "ConsoleTable",
+        "Explain",
         "KpiStatCard",
         "Link",
         "MobileLandingGrid",

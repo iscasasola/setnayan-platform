@@ -37,3 +37,21 @@ test('(2) the maker context only reads — the sign-up kind writes nothing', () 
   assert.ok(part.length > 100, 'anti-vacuity: the sign-up block was not found');
   assert.doesNotMatch(part, /\.insert\(|\.upsert\(|\.update\(|insertCoverage/, 'reading the sign-up kind writes a coverage');
 });
+
+test('(3) the short form: four things first, the rest under More options IN THE SAME FORM, so a typed price is kept', () => {
+  const src = read('app/vendor-dashboard/services/_components/canvas-maker.tsx');
+  const formOpen = src.indexOf('id={CARD_FORM_ID}');
+  const formClose = src.indexOf('</form>', formOpen);
+  const more = src.indexOf('data-maker-more-wrap=');
+  assert.ok(formOpen > 0 && formClose > formOpen, 'anti-vacuity: the card form was not found');
+  /* More options opens inside the one form: the price row is never unmounted or re-asked by opening it. */
+  assert.ok(more > formOpen && more < formClose, 'More options left the card’s form — what was typed would be lost');
+  assert.doesNotMatch(src, /hidden=\{!isEdit\} className=\{isEdit \? TOPIC/, 'More options is hidden again while a card is made');
+  assert.match(src, /title=\{isEdit \? 'More settings' : 'More options'\}/);
+  for (const k of ['specialties', 'extras', 'gift']) {
+    const at = src.search(new RegExp(`(?<!\\[)data-maker-row="${k}"`));
+    assert.ok(at > more && at < formClose, `${k} is not under More options in the card’s form`);
+  }
+  /* On a phone the preview is one tap away, shut by default. */
+  assert.match(src, /const \[peekOpen, setPeekOpen\] = useState\(false\);/, 'the phone preview is open by default again');
+});

@@ -930,6 +930,8 @@ export function CanvasMaker({
 
   // ── The one page of fields (makers prototype 7 Nov 2026 § 3) ──────────────
   const [aboutOpen, setAboutOpen] = useState(false);
+  /** 🧰 The phone's "See it as couples do" — shut by default, so the short form has the screen (cut 3). */
+  const [peekOpen, setPeekOpen] = useState(false);
   const [incMissing, setIncMissing] = useState(false);
   /** The basis dropdown, its hint under it — the shipped words (`PRICING_BASIS_OPTIONS`), the maker's labels. */
   const basisOptions = PRICING_BASIS_OPTIONS.map((o) => ({
@@ -1048,12 +1050,20 @@ export function CanvasMaker({
           goes; the card preview is always pinned at the top"). On a phone the card sits under the pinned row and stays
           on screen while the fields scroll under it, redrawing as you type. It IS the card a host sees in Suppliers ›
           Find — `ServiceCardFace`, the one face `supplier-sheet.tsx` renders; never a second drawing. ═══ */}
-      <div className="sticky top-0 z-[3] -mx-4 border-b px-4 pb-3 pt-1 md:hidden" style={{ borderColor: line, background: 'var(--sn-canvas)' }} data-maker-card-pinned="">
-        <div className="flex items-baseline justify-between gap-2 pb-1.5">
-          <span className="sn-eye">As couples see it</span>
-          <span className="text-[11.5px] text-ink/50">updates as you type</span>
-        </div>
-        {cardFace}
+      {/* 🧰 BEHIND ONE TAP ON A PHONE (owner-approved 2026-11-14, cut 3 — it supersedes the 9 Nov "always pinned"): pinned,
+          the card left a ~60 px window for the fields at 390. "See it as couples do" opens the same face, live, in place. */}
+      <div className="-mx-4 border-b px-4 pb-2 pt-1 md:hidden" style={{ borderColor: line }} data-maker-card-peek={peekOpen ? 'open' : 'shut'}>
+        <button
+          type="button"
+          aria-expanded={peekOpen}
+          onClick={() => setPeekOpen((o) => !o)}
+          className="sn-press flex min-h-11 w-full items-center justify-between gap-2 text-left"
+          data-maker-see-as-couples=""
+        >
+          <span className="text-[14px] font-semibold text-ink">See it as couples do</span>
+          <span className="text-[12px] text-ink/50">{peekOpen ? 'Hide' : 'updates as you type'}</span>
+        </button>
+        {peekOpen ? <div className="pb-1">{cardFace}</div> : null}
       </div>
 
       {/* ═══ THE SURFACE | AS COUPLES SEE IT — split evenly from 820 up; on a phone the card is pinned above ═══ */}
@@ -1107,8 +1117,8 @@ export function CanvasMaker({
                 </span>
                 {!isEdit ? (
                   <span className="block">
-                    Discounts, booking terms, the payment schedule, crew and transport, who it is for, its schedule and
-                    what it comes with are on the card once it is made.
+                    Specialties, extras, the gift, discounts, booking terms, the payment schedule, crew and transport, who
+                    it is for and its schedule are under More options, below — optional, and kept as you type.
                   </span>
                 ) : null}
               </div>
@@ -1153,21 +1163,6 @@ export function CanvasMaker({
                     onMove={canChooseKind && moveTrade ? (key) => pickCategory(key) : null}
                     moveWhy={moveTrade?.standing === 'locked' ? (moveTrade.why ?? 'Your plan doesn’t include that service yet.') : null}
                   />
-                  {/* Specialties (optional) — the kind's chip details, posting with the card (mounted while shut). */}
-                  <div data-maker-row="specialties">
-                    <OpensRow name="Specialties (optional)" answer="" empty="Add" data="specialties">
-                      <div className="pb-3 pt-1">
-                        {detailsSlot && detailsKind === category ? (
-                          detailsSlot
-                        ) : (
-                          <p className="text-[14px] text-ink/65">
-                            {category ? `Specialties for ${activeCategoryLabel} open on the card once it is created.` : 'Pick what you offer first.'}{' '}
-                            <Link href="/vendor-dashboard/attributes" className="font-semibold text-sn-accent">All details ›</Link>
-                          </p>
-                        )}
-                      </div>
-                    </OpensRow>
-                  </div>
                 </div>
               ) : null}
 
@@ -1258,24 +1253,7 @@ export function CanvasMaker({
               ) : null}
             </div>
 
-            {/* ── Extras — priced add-ons; a line leaves by its swipe. ── */}
-            <div data-maker-row="extras">
-              <MakerSection
-                label="Extras"
-                aside="priced add-ons · optional"
-                tip="Add-ons: priced extras · “from ₱” each · up to 12. A couple adds them to this card when they ask for a quote."
-              />
-              <AddonsEditor serviceId={editing?.serviceId ?? ''} initial={editing?.addons ?? []} bare />
-              <FairNote hits={checks.fair} field="extras" />
-            </div>
 
-            {/* ── Gift — ONE dropdown (No gift · Setnayan gift · the shop's packs). app/_components/gift-pick.tsx ── */}
-            <div data-maker-row="gift">
-              <MakerSection label="Gift" aside="optional" />
-              <FormRows width="short">
-                <GiftPickRow host="card" value={giftPick} onPick={setGiftPick} packs={giftPacks} free={giftFree} dataAttr="data-maker-gift" row />
-              </FormRows>
-            </div>
 
             {/* ── Photos — ONE gallery (owner 2026-11-13, `card_maker_gallery_upload_2026-11-13`): the primary first, the
                 rest after, the add tile last (gone at 6); every help line in the section's ⓘ (T17). The clip stays its
@@ -1345,7 +1323,9 @@ export function CanvasMaker({
                 other More-settings folds move OFF the creation page and stay on the saved card"). While a card is being
                 MADE the folds stay MOUNTED but unseen, so every default and every value a copy brought along still
                 posts exactly as before — nothing is lost by the move; they show here once the card exists. ═══ */}
-            <div hidden={!isEdit} className={isEdit ? TOPIC : undefined} data-maker-more-wrap={isEdit ? 'card' : 'later'}>
+            {/* 🧰 Shown while the card is MADE too (cut 3, owner-approved 2026-11-14 — it supersedes the 7 Nov "more settings on
+                the saved card only"): the short form's "More options", in the same sheet. */}
+            <div className={TOPIC} data-maker-more-wrap={isEdit ? 'card' : 'new'}>
               <Fold
                 data="more"
                 open={moreOpen}
@@ -1354,14 +1334,52 @@ export function CanvasMaker({
                 // 📌 Its body stops clipping once open and still, so the groups inside pin as slim lines UNDER this one
                 // while you scroll them (owner 2026-11-04; the app-wide 2026-10-29 pin rule). fold.tsx
                 popovers
-                title="More settings"
-                line={`Filled for ${fillWord}`}
+                title={isEdit ? 'More settings' : 'More options'}
+                line={isEdit ? `Filled for ${fillWord}` : 'Schedule · discounts · crew · terms · payment · who it’s for'}
                 lead={<RowIcon><Settings aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
               >
                 {/* 📐 ONE ICON COLUMN, ONE TEXT COLUMN (owner 2026-11-04 "alignments for the more settings is wrong"): a
                     nested row's mark sits in the same 40 px box as the row above it (SubIcon), with no extra inset, and
                     what a nested fold opens onto starts on the title's column (40 px mark + the head's 8 px gap). */}
                 <div className="divide-y pb-2 [&>[data-fold]>[data-fold-body]>div>*]:pl-12" style={{ borderColor: line }} data-maker-more="">
+                  {/* ═══ 🧰 THE SHORT FORM (owner-approved 2026-11-14, cut 3 of the supplier's eleven jobs — DECISION_LOG "THE
+                      SEVEN SUPPLIER CUTS ARE APPROVED"): the first page is name · price · what's included · photos; the
+                      card's other details open here, under More options, IN THE SAME SHEET — so nothing typed is lost and
+                      every field still posts with the card (mounted while shut). ═══ */}
+                  <div className="space-y-5 py-3" data-maker-more-card="">
+                    {/* Specialties (optional) — the kind's chip details, posting with the card (mounted while shut). */}
+                  <div data-maker-row="specialties">
+                    <OpensRow name="Specialties (optional)" answer="" empty="Add" data="specialties">
+                      <div className="pb-3 pt-1">
+                        {detailsSlot && detailsKind === category ? (
+                          detailsSlot
+                        ) : (
+                          <p className="text-[14px] text-ink/65">
+                            {category ? `Specialties for ${activeCategoryLabel} open on the card once it is created.` : 'Pick what you offer first.'}{' '}
+                            <Link href="/vendor-dashboard/attributes" className="font-semibold text-sn-accent">All details ›</Link>
+                          </p>
+                        )}
+                      </div>
+                    </OpensRow>
+                  </div>
+            {/* ── Extras — priced add-ons; a line leaves by its swipe. ── */}
+            <div data-maker-row="extras">
+              <MakerSection
+                label="Extras"
+                aside="priced add-ons · optional"
+                tip="Add-ons: priced extras · “from ₱” each · up to 12. A couple adds them to this card when they ask for a quote."
+              />
+              <AddonsEditor serviceId={editing?.serviceId ?? ''} initial={editing?.addons ?? []} bare />
+              <FairNote hits={checks.fair} field="extras" />
+            </div>
+            {/* ── Gift — ONE dropdown (No gift · Setnayan gift · the shop's packs). app/_components/gift-pick.tsx ── */}
+            <div data-maker-row="gift">
+              <MakerSection label="Gift" aside="optional" />
+              <FormRows width="short">
+                <GiftPickRow host="card" value={giftPick} onPick={setGiftPick} packs={giftPacks} free={giftFree} dataAttr="data-maker-gift" row />
+              </FormRows>
+            </div>
+                  </div>
                   {/* ── Schedule — its own, or shares one (a first-page row until 7 Nov 2026; on the saved card since). ── */}
                   <MakerRow
                     icon={<CalendarDays aria-hidden className="h-5 w-5" strokeWidth={1.75} />}

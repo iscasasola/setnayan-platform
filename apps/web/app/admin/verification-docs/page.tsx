@@ -4,6 +4,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { buildVerificationDocsReport } from '@/lib/verification-docs-server';
+import { verificationDocSupplierNames } from '@/lib/verification-doc-suppliers.server';
 import {
   formatDocSize,
   verificationDocShelves,
@@ -32,6 +33,8 @@ import { DOC_SLOTS } from '@/lib/vendor-verification';
  * file sat inside it with Delete switched on. Here the label and the button
  * come from the SAME check, re-derived at press time, so they cannot disagree.
  */
+
+export const metadata = { title: 'Verification documents · Admin' };
 
 export const dynamic = 'force-dynamic';
 
@@ -105,6 +108,8 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
   // to `true` (Delete beside a live government ID). A React server component is
   // not renderable by `node:test`, so those were unguardable where they sat.
   const shelves = verificationDocShelves(report);
+  // 🏷 F-A-08: each paper names its supplier.
+  const supplierNames = await verificationDocSupplierNames(report.docs.map((d) => d.vendorProfileId ?? ''));
 
   return (
     <section className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6">
@@ -155,6 +160,7 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
         shelf.state === 'unrecognised' && shelf.docs.length === 0 ? null : (
           <Group
             key={shelf.state}
+            supplierNames={supplierNames}
             title={SHELVES[shelf.state].title}
             icon={SHELVES[shelf.state].icon}
             blurb={SHELVES[shelf.state].blurb}
@@ -175,12 +181,15 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
 
 function Group({
   title,
+  supplierNames,
   icon,
   blurb,
   docs,
   deletable,
 }: {
   title: string;
+  /** Shop name per supplier id; null = the read was refused. */
+  supplierNames: Map<string, string> | null;
   icon: React.ReactNode;
   blurb: string;
   docs: VerificationDoc[];
@@ -211,6 +220,13 @@ function Group({
                 ) : (
                   <p className="truncate font-mono text-xs text-ink">{d.key}</p>
                 )}
+                {d.vendorProfileId ? (
+                  <p className="truncate text-xs text-ink/70" data-doc-supplier="">
+                    {supplierNames === null
+                      ? 'Supplier name couldn’t load'
+                      : (supplierNames.get(d.vendorProfileId) ?? 'A supplier with no shop name')}
+                  </p>
+                ) : null}
                 <p className="mt-0.5 text-xs text-ink/55">
                   {formatDocSize(d.size)}
                   {d.lastModified ? ` · uploaded ${manilaDay(d.lastModified)}` : ''}

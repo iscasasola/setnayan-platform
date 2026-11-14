@@ -309,16 +309,16 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
       tl: 'Nagmumungkahi ang Setnayan AI ng supplier team ayon sa pinakabagay, tapos binabantayan ang deadlines, bayarin, budget at petsa, at sinasabi ang susunod.',
     },
     answer: {
-      en: 'Setnayan AI is a paid planner, not a chatbot. It suggests a team of verified suppliers by how well they fit your event, then tracks your deadlines, payments, budget and dates and tells you the one thing to do next. One unlock covers your event.',
-      tl: 'Ang Setnayan AI ay bayad na planner, hindi chatbot. Nagmumungkahi ito ng team ng verified na suppliers ayon sa bagay sa event mo, tapos binabantayan ang deadlines, bayarin, budget at petsa mo at sinasabi ang susunod na dapat gawin. Isang unlock para sa buong event mo.',
+      en: 'Setnayan AI is a paid planner, not a chatbot. It suggests a team of verified suppliers by how well they fit your event, then tracks your deadlines, payments, budget and dates and tells you the one thing to do next. It is not sold on its own: it comes with Event Plus, Event Pro and Event Ultra.',
+      tl: 'Ang Setnayan AI ay bayad na planner, hindi chatbot. Nagmumungkahi ito ng team ng verified na suppliers ayon sa bagay sa event mo, tapos binabantayan ang deadlines, bayarin, budget at petsa mo at sinasabi ang susunod na dapat gawin. Hindi ito binebenta nang hiwalay: kasama ito sa Event Plus, Event Pro at Event Ultra.',
     },
     forWho: {
       en: 'Busy hosts who would rather be told than check, and who want a team picked by fit, never cheapest first.',
       tl: 'Para sa mga abalang host na mas gustong sabihan kaysa mag-check, at gustong team na pinili ayon sa bagay, hindi ayon sa pinakamura.',
     },
     steps: {
-      en: ['Unlock it for your event. It reads what you already entered: type, date, budget, guests and place.', 'It suggests a supplier team by best fit, then keeps watching your suppliers, budget and dates.', 'It flags a payment before it is due, warns you before you go over budget, and warns you when two things clash on the day.'],
-      tl: ['I-unlock ito para sa event mo. Binabasa nito ang mga nailagay mo na: uri, petsa, budget, bisita at lugar.', 'Nagmumungkahi ito ng supplier team ayon sa pinakabagay, tapos patuloy na binabantayan ang suppliers, budget at petsa mo.', 'Sinasabi nito ang bayarin bago ma-due, nagbababala bago ka lumampas sa budget, at nagbababala kapag may nagbabanggaan sa mismong araw.'],
+      en: ['Add Event Plus, Event Pro or Event Ultra to your event. It reads what you already entered: type, date, budget, guests and place.', 'It suggests a supplier team by best fit, then keeps watching your suppliers, budget and dates.', 'It flags a payment before it is due, warns you before you go over budget, and warns you when two things clash on the day.'],
+      tl: ['Idagdag ang Event Plus, Event Pro o Event Ultra sa event mo. Binabasa nito ang mga nailagay mo na: uri, petsa, budget, bisita at lugar.', 'Nagmumungkahi ito ng supplier team ayon sa pinakabagay, tapos patuloy na binabantayan ang suppliers, budget at petsa mo.', 'Sinasabi nito ang bayarin bago ma-due, nagbababala bago ka lumampas sa budget, at nagbababala kapag may nagbabanggaan sa mismong araw.'],
     },
     different: {
       en: ['It watches in the background instead of waiting for your questions.', 'It tells you the one thing to do next, not a long list.', 'Your suggested team is picked by best fit, never cheapest first.', 'The % match on every supplier stays free for everyone; Setnayan AI adds the watching.'],
@@ -333,13 +333,13 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
     faq: {
       en: [
         { q: 'Is Setnayan AI a chatbot?', a: 'No. A chatbot waits for you to ask. Setnayan AI watches your suppliers, budget and dates in the background and tells you what needs you.' },
-        { q: 'Do I have to use it?', a: 'Never. The planning tools stay free and work on their own. Setnayan AI is the paid upgrade that does the suggesting and watching.' },
-        { q: 'How is it priced?', a: 'One unlock covers your event, and the price depends on the type of event. The current price is read from our live catalogue and shown on this page.' },
+        { q: 'Do I have to use it?', a: 'Never. The planning tools stay free and work on their own. Setnayan AI comes with the paid event plans and does the suggesting and watching.' },
+        { q: 'How is it priced?', a: 'It is not sold on its own. It comes with Event Plus, Event Pro and Event Ultra; one plan covers your event, and their current prices are read from our live catalogue and shown on this page.' },
       ],
       tl: [
         { q: 'Chatbot ba ang Setnayan AI?', a: 'Hindi. Naghihintay ang chatbot ng tanong mo. Ang Setnayan AI ay nagbabantay sa suppliers, budget at petsa mo sa background at sinasabi kung ano ang kailangan mo.' },
-        { q: 'Kailangan ko ba itong gamitin?', a: 'Hindi kailanman. Libre pa rin ang mga planning tool at gumagana nang mag-isa. Ang Setnayan AI ang bayad na upgrade na nagmumungkahi at nagbabantay.' },
-        { q: 'Paano ang presyo?', a: 'Isang unlock para sa buong event mo, at nakadepende ang presyo sa uri ng event. Binabasa ang kasalukuyang presyo mula sa live catalogue namin at ipinapakita sa page na ito.' },
+        { q: 'Kailangan ko ba itong gamitin?', a: 'Hindi kailanman. Libre pa rin ang mga planning tool at gumagana nang mag-isa. Ang Setnayan AI ay kasama sa bayad na event plans at siya ang nagmumungkahi at nagbabantay.' },
+        { q: 'Paano ang presyo?', a: 'Hindi ito binebenta nang hiwalay. Kasama ito sa Event Plus, Event Pro at Event Ultra; isang plan para sa buong event mo, at binabasa ang kasalukuyang presyo nila mula sa live catalogue namin at ipinapakita sa page na ito.' },
       ],
     },
     keywords: {
@@ -347,11 +347,16 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
       tl: ['AI event planner', 'AI planner ng kasal', 'rekomendasyon ng supplier'],
     },
     shots: [],
-    price: { kind: 'paid', catalogue: 'retail', codes: ['SETNAYAN_AI', 'SETNAYAN_AI_B', 'SETNAYAN_AI_C', 'SETNAYAN_AI_D'], inactiveRowsArePrices: true },
+    // ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is not sold on its own — every SETNAYAN_AI* row is off sale.
+    // It comes inside the three event plans (`AI_INCLUDED_PLAN_SKUS`, lib/sku-activation.ts), so the page is priced by
+    // THEIR active rows: "From" the cheapest plan. Reading the retired AI ladder showed "From ₱265" (RW-149, 2026-11-14).
+    // 🔒 app/features/setnayan-ai-is-priced-by-its-plans.test.ts
+    price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_PLUS', 'COUPLE_WEBSITE_PRO', 'EVENT_ULTRA'] },
     moreHref: '/setnayan-ai',
     evidence: [
       'app/(shell)/setnayan-ai/page.tsx',
-      'lib/setnayan-ai-type-pricing.ts',
+      'lib/sku-activation.ts',
+      'lib/event-ultra.ts',
       'lib/setnayan-ai.ts',
       'app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value-copy.ts',
       'lib/studio-apps.ts',

@@ -10835,6 +10835,12 @@ input[data-clearing]::-webkit-search-cancel-button { display: none; -webkit-appe
     justify-content: center;
   }
 }
+/* 🔔 One notice system (owner approved 14 Nov 2026): while a spotlight tour runs, the top notices wait, so a tour and a
+   notice never show together. Set by `app/_components/spotlight-tour.tsx`. */
+html[data-tour-running] [data-notice-slot='top'] {
+  display: none;
+}
+
 
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element

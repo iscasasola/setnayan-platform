@@ -11,6 +11,16 @@
  *   ?m=couple     the couple's approval line + sheet
  *   ?m=filechat   📥 Piece 3c — a chat photo opened: "File under a service"
  *   ?m=now        the SHIPPED Files body (FilesFinder), unchanged — the screenshots' "Now"
+ *   🏷 Inspiration tags (DECISION_LOG 2026-11-14 · prototype inspiration_tags_2026-11-14_fable.html):
+ *   ?m=files      frame 1 — tagged tiles wear a tag with a count; a service group has Select
+ *   ?m=tag-open   frame 2 — an untagged photo opened: the one new Inspiration row
+ *   ?m=tag-pick   frame 3 — the ▾ open, two picked, the rights line ticked
+ *   ?m=tag-select frame 4 — Select mode, three picked, the bar
+ *   ?m=tag-after  frame 5 — a tagged photo opened: one line per inspiration, its state, its ✕
+ *   ?m=library    frame 8 — the couple's library tile: the event line under the credit
+ *   ?m=library-open frame 9 — a tagged photo opened: From · From this event · Also in · Save
+ *   ?m=library-waiting frame 11 — before the shop shows the photo: no tile, no trace
+ *   ?m=shop       frame 10 — the shop page's Inspiration section with the event line
  */
 import { notFound } from 'next/navigation';
 import { FilesLabClient } from './lab-client';

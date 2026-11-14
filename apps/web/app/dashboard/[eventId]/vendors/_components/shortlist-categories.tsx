@@ -22,6 +22,7 @@
  * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { ServiceFace } from '@/app/_components/service-face';
 import {
   Fragment,
@@ -4213,21 +4214,29 @@ export function ShortlistCategories({
           2026-10-26): the date is already on the date · place line above, and "free that day" is in the ⓘ. A conflict,
           a narrowing build and "Booking these suppliers sets your date" still show here — they are news, not detail. */}
       {convergence && !(coverInHeader && convergence.tone === 'anchored') ? (
-        <div className={`convrg t-${convergence.tone}`} role="status">
-          <span className="cv-i" aria-hidden>
-            {convergence.tone === 'conflict' ? (
-              <CalendarX2 size={15} strokeWidth={1.9} />
-            ) : convergence.tone === 'converged' ? (
-              <CalendarCheck size={15} strokeWidth={1.9} />
-            ) : (
-              <CalendarDays size={15} strokeWidth={1.9} />
-            )}
-          </span>
-          <span className="cv-b">
-            <b>{convergence.headline}</b>
-            <span>{convergence.detail}</span>
-          </span>
-        </div>
+        // 🔔 Inventory #32 — a LIVE notice (info) in the one notice system (owner approved 14 Nov 2026), drawn where it
+        // stands (between the Coverage Strip and the bench): a fact about the build that is true right now, no close —
+        // it leaves when the build changes.
+        <InlineNotice
+          kind="live"
+          tone={convergence.tone === 'conflict' ? 'warning' : 'info'}
+          closable={false}
+          noticeKey={`build-date:${convergence.tone}`}
+          mark={
+            <span className="cv-i" aria-hidden>
+              {convergence.tone === 'conflict' ? (
+                <CalendarX2 size={15} strokeWidth={1.9} />
+              ) : convergence.tone === 'converged' ? (
+                <CalendarCheck size={15} strokeWidth={1.9} />
+              ) : (
+                <CalendarDays size={15} strokeWidth={1.9} />
+              )}
+            </span>
+          }
+          title={convergence.headline}
+          detail={convergence.detail}
+          className={`convrg-n t-${convergence.tone} mb-3.5`}
+        />
       ) : null}
       {/* The pre-replan bench keeps its bar above the folders. On the one-screen
           page the SAME dropdown sits in each open category's "More to compare"

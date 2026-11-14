@@ -47,7 +47,6 @@ import {
   Calendar,
   ChevronDown,
   Receipt,
-  Sparkles,
   MessageCircle,
   PencilLine,
   ArrowUpRight,
@@ -64,13 +63,15 @@ import { formatPhp } from '@/lib/orders';
 import {
   VENDOR_CATEGORY_LABEL,
   VENDOR_STATUS_LABEL,
-  VENDOR_STATUS_TONE,
   type EventVendorRow,
+  type VendorStatus,
 } from '@/lib/vendors';
 import { ContactShortlistVendorButton } from '../vendors/_components/contact-shortlist-vendor-button';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Badge, type BadgeTone } from '@/app/_components/badge';
+import { PostedPick } from './posted-pick';
 import { ConfirmSwipe } from './confirm-swipe';
 import { FileUpload } from '@/app/_components/file-upload';
 import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
@@ -189,10 +190,7 @@ export function VendorItemizationCard({
   });
 
   const refusedReadNotice = paymentsMeasured ? null : (
-    <div
-      role="status"
-      className="mx-5 mt-3 rounded-lg border-t-[3px] border-mulberry/70 bg-mulberry/5 px-3 py-2 text-xs text-ink/70"
-    >
+    <div role="status" className="py-2 text-sm text-warn-800">
       We couldn&rsquo;t load your payments for this supplier, so what
       you&rsquo;ve paid and what&rsquo;s left aren&rsquo;t shown. Nothing has
       changed &mdash; refresh to try again.
@@ -209,7 +207,7 @@ export function VendorItemizationCard({
           Money's own wrapper is unchanged. (Repo-wide this shape appears in
           three files; the other two are outside this screen and are reported,
           not touched.) */}
-      <dl className="grid gap-x-4 gap-y-2 px-5 py-3 sm:grid-cols-3">
+      <dl className="grid grid-cols-3 gap-x-4 py-3">
         <Money
           label={lineItemsMeasured ? 'Budget' : 'Budget (partly loaded)'}
           value={formatPhp(itemizedTotal)}
@@ -243,7 +241,7 @@ export function VendorItemizationCard({
    * behind the row rather than beside it.
    */
   const workingSections = (
-    <div className="grid gap-0 border-t border-ink/10 lg:grid-cols-2 lg:divide-x lg:divide-ink/10">
+    <div className="border-t border-ink/10">
         <LineItemSection
           priceSource={priceSource}
           vendorControlledItems={vendorControlledItems}
@@ -279,7 +277,9 @@ export function VendorItemizationCard({
   // workspace page wraps this in its own Payments <section>.
   if (variant === 'embed') {
     return (
-      <div className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
+      // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 4 · 5 · 6 · 12 · 13 · 14): no card around the ledger — the
+      // three figures between hairlines, line items and payments as sections of plain rows, one column on every screen.
+      <div>
         {refusedReadNotice}
         {reachLinks}
         {ledgerRow}
@@ -332,44 +332,38 @@ export function VendorItemizationCard({
   return (
     <article
       id={`vendor-${vendor.vendor_id}`}
-      className="overflow-hidden rounded-xl border border-ink/10 bg-cream scroll-mt-24"
+      className="scroll-mt-24 border-t border-ink/10"
     >
       {refusedReadNotice}
       {reachLinks}
       <details className="group/ledger">
-        <summary className="cursor-pointer list-none pb-1 pt-4 transition-colors hover:bg-ink/[0.02] [&::-webkit-details-marker]:hidden">
-          <div className="flex flex-wrap items-start justify-between gap-3 px-5">
+        <summary className="cursor-pointer list-none pb-1 pt-4 [&::-webkit-details-marker]:hidden">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-base font-semibold tracking-tight text-ink">
+                <h2 className="truncate text-[15px] font-semibold text-ink">
                   {vendor.vendor_name}
                 </h2>
                 <PriceSourceChip priceSource={priceSource} />
               </div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+              <p className="text-[13px] text-ink/70">
                 {VENDOR_CATEGORY_LABEL[vendor.category]}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span
-                className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                  VENDOR_STATUS_TONE[vendor.status]
-                }`}
-              >
-                {VENDOR_STATUS_LABEL[vendor.status]}
-              </span>
+              <Badge tone={STATUS_BADGE[vendor.status]}>{VENDOR_STATUS_LABEL[vendor.status]}</Badge>
               {/* Decoration: a <summary> already carries its own expanded
                   state, so these words would otherwise be read out as part of
                   the control's name for no gain. */}
               <span
                 aria-hidden
-                className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70 group-open/ledger:hidden"
+                className="text-[13px] font-semibold text-sn-accent group-open/ledger:hidden"
               >
                 Open
               </span>
               <span
                 aria-hidden
-                className="hidden font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70 group-open/ledger:inline"
+                className="hidden text-[13px] font-semibold text-sn-accent group-open/ledger:inline"
               >
                 Close
               </span>
@@ -460,55 +454,52 @@ function SupplierReachLinks({
   const canOpenThread = variant === 'card' && vendor.marketplace_vendor_id != null;
   const workspaceHref = `/dashboard/${eventId}/vendors/${vendor.vendor_id}/workspace`;
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 px-5 py-2">
+    <div className="flex flex-wrap items-center gap-2 py-2">
       {canOpenThread ? (
         <ContactShortlistVendorButton
           eventId={eventId}
           vendorId={vendor.vendor_id}
           label="Message"
           pendingLabel="Opening…"
-          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-ink/30 hover:text-ink disabled:opacity-60"
+          className="ab ab-info inline-flex min-h-11 items-center justify-center gap-1.5"
         />
       ) : (
-        <Link
-          href={messagesHref}
-          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-ink/30 hover:text-ink"
-        >
-          <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+        <Link href={messagesHref} className="ab ab-info inline-flex min-h-11 items-center justify-center gap-1.5">
+          <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Message
         </Link>
       )}
-      <Link
-        href={workspaceHref}
-        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-ink/30 hover:text-ink"
-      >
-        <ArrowUpRight aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+      <Link href={workspaceHref} className="ab ab-neutral inline-flex min-h-11 items-center justify-center gap-1.5">
+        <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Open workspace
       </Link>
     </div>
   );
 }
 
+/** Where the booking stands, as the shared chip — green once money or work has moved, amber waiting, grey otherwise (rule 5). */
+const STATUS_BADGE: Record<VendorStatus, BadgeTone> = {
+  considering: 'quiet',
+  shortlisted: 'wait',
+  contracted: 'quiet',
+  deposit_paid: 'ok',
+  delivered: 'ok',
+  complete: 'ok',
+};
+
 function PriceSourceChip({ priceSource }: { priceSource: VendorPriceSource }) {
   if (priceSource === 'manual') return null;
   if (priceSource === 'package' || priceSource === 'service') {
     return (
-      <span
-        className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700"
-        title="The supplier publishes this pricing in their catalog. Message them to adjust."
-      >
-        <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-        From supplier
+      <span title="The supplier publishes this pricing in their catalog. Message them to adjust.">
+        <Badge tone="quiet">From supplier</Badge>
       </span>
     );
   }
   // 'pending' — vendor hasn't sent pricing yet.
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-800"
-      title="The supplier hasn't published pricing yet. Ask them in chat."
-    >
-      Awaiting pricing
+    <span title="The supplier hasn't published pricing yet. Ask them in chat.">
+      <Badge tone="wait">Awaiting pricing</Badge>
     </span>
   );
 }
@@ -516,13 +507,11 @@ function PriceSourceChip({ priceSource }: { priceSource: VendorPriceSource }) {
 /**
  * One ledger cell — a money figure under its own micro-label.
  *
- * 🔤 THE FIGURE IS SET IN THE MONO FACE, and that is the archetype's rule, not
- * a preference: the binding Ledger archetype asks for "every numeral … in Space
- * Mono like a bank book" so magnitude scans down one edge. This cell set its
- * LABEL in mono and its FIGURE in the body face until 2026-08-25, which put the
- * word "Paid" on the budget screen twice in two different typefaces — once over
- * a mono figure in payment progress, once over a body-face figure here.
- * Pinned by budget/money-wears-the-ledger-face.test.ts.
+ * 🔤 THE FIGURE IS STILL IN THE MONO FACE — on purpose, and only for now. The design template (14 Nov 2026, rule 13)
+ * wants money in the body face, but `app/tour/budget/the-tour-copy-does-not-drift.test.ts` pins this cell and its
+ * public-tour fork (`tour/budget/_components/tour-vendor-itemization.tsx`, template batch T30) to ONE face: "fix both,
+ * or neither". T10 does not own the fork, so both move together in T30 (or one follow-up). No box: the three cells
+ * sit between hairlines.
  */
 function Money({
   label,
@@ -534,17 +523,15 @@ function Money({
   tone?: 'default' | 'muted' | 'warn' | 'good';
 }) {
   return (
-    <div className="rounded-md bg-ink/[0.03] p-2">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">{label}</dt>
+    <div>
+      <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">{label}</dt>
       <dd
-        className={`mt-0.5 font-mono text-sm font-semibold tabular-nums ${
+        className={`mt-0.5 font-mono text-[17px] font-bold tabular-nums ${
           tone === 'warn'
-            ? 'text-terracotta-700'
+            ? 'text-warn-800'
             : tone === 'good'
-              ? 'text-success-700'
-              : tone === 'muted'
-                ? 'text-ink/65'
-                : 'text-ink'
+              ? 'text-[rgb(var(--color-ok))]'
+              : 'text-ink'
         }`}
       >
         {value}
@@ -595,44 +582,44 @@ function LineItemSection({
   const hasManual = manualLines.length > 0;
   const hasChanges = changeLines.length > 0;
   return (
-    <section className="space-y-3 p-5">
-      <header className="flex items-center gap-2">
-        <Receipt aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
-        <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+    <section className="space-y-3 py-2">
+      <header className="mt-[18px] flex items-center gap-2">
+        <Receipt aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+        <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           Line items
         </h3>
       </header>
 
       {lead === 'quote' && acceptedQuoteLines ? (
         <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700/80">
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             From the quote you accepted
           </p>
-          <ul className="space-y-1.5">
+          <ul className="divide-y divide-ink/10">
             {acceptedQuoteLines.map((line, i) => (
               <li
                 key={`${i}-${line.label}`}
-                className="flex items-center justify-between gap-2 rounded-md border border-terracotta/15 bg-terracotta/[0.04] px-3 py-2 text-sm"
+                className="flex min-h-14 items-center justify-between gap-2 py-2.5 text-[15px]"
               >
                 <div className="min-w-0 space-y-0.5">
-                  <p className="truncate font-medium text-ink">{line.label}</p>
-                  {line.detail ? <p className="text-xs text-ink/55">{line.detail}</p> : null}
+                  <p className="truncate font-semibold text-ink">{line.label}</p>
+                  {line.detail ? <p className="text-[13px] text-ink/70">{line.detail}</p> : null}
                 </div>
-                <span className="font-mono text-sm font-semibold text-ink">
+                <span className="text-[15px] font-bold tabular-nums text-ink">
                   {pesoFromCentavos(line.amountCentavos)}
                 </span>
               </li>
             ))}
           </ul>
           {acceptedQuoteTotalCentavos != null && acceptedQuoteTotalCentavos > 0 ? (
-            <p className="flex items-center justify-between border-t border-ink/10 pt-2 text-xs text-ink/70">
+            <p className="flex min-h-11 items-center justify-between border-t border-ink/10 pt-2 text-sm text-ink/70">
               <span>Quote total</span>
-              <span className="font-mono font-semibold text-ink">
+              <span className="font-bold tabular-nums text-ink">
                 {pesoFromCentavos(acceptedQuoteTotalCentavos)}
               </span>
             </p>
           ) : null}
-          <p className="text-xs text-ink/55">
+          <p className="text-[13px] text-ink/70">
             To change these, ask the supplier to send an updated quote.
           </p>
         </div>
@@ -640,30 +627,30 @@ function LineItemSection({
 
       {lead === 'catalogue' ? (
         <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700/80">
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             From the supplier&rsquo;s catalog
           </p>
-          <ul className="space-y-1.5">
+          <ul className="divide-y divide-ink/10">
             {vendorControlledItems.map((item) => (
               <li
                 key={item.source_id}
-                className="flex items-center justify-between gap-2 rounded-md border border-terracotta/15 bg-terracotta/[0.04] px-3 py-2 text-sm"
+                className="flex min-h-14 items-center justify-between gap-2 py-2.5 text-[15px]"
               >
                 <div className="min-w-0 space-y-0.5">
-                  <p className="truncate font-medium text-ink">{item.label}</p>
-                  <p className="text-xs text-ink/55">
+                  <p className="truncate font-semibold text-ink">{item.label}</p>
+                  <p className="text-[13px] text-ink/70">
                     {item.source_kind === 'package' ? 'Package item' : 'Starting price'}
                     {' · '}
                     {item.vendor_business_name}
                   </p>
                 </div>
-                <span className="font-mono text-sm font-semibold text-ink">
+                <span className="text-[15px] font-bold tabular-nums text-ink">
                   {formatPhp(item.amount_php)}
                 </span>
               </li>
             ))}
           </ul>
-          <p className="text-xs text-ink/55">
+          <p className="text-[13px] text-ink/70">
             To adjust pricing, message the supplier in chat. They&rsquo;ll update their
             catalog and these line items will refresh.
           </p>
@@ -671,8 +658,8 @@ function LineItemSection({
       ) : null}
 
       {lead === 'pending' ? (
-        <div className="space-y-2 rounded-md border border-dashed border-warn-300/60 bg-warn-50/60 px-3 py-3 text-sm">
-          <p className="text-ink/75">
+        <div className="space-y-2 py-1 text-sm">
+          <p className="text-ink/70">
             This supplier hasn&rsquo;t shared pricing yet. Their catalog will appear
             here once they publish it.
           </p>
@@ -692,7 +679,7 @@ function LineItemSection({
             label="Ask them for pricing"
             pendingLabel="Opening…"
             wrapperClassName=""
-            className="inline-flex items-center gap-1.5 rounded-md border border-warn-400/50 bg-cream px-2.5 py-1 text-xs font-medium text-warn-900 hover:border-warn-500 hover:text-warn-950 disabled:opacity-60"
+            className="ab ab-info inline-flex min-h-11 items-center justify-center gap-1.5"
           />
         </div>
       ) : null}
@@ -700,11 +687,11 @@ function LineItemSection({
       {hasManual ? (
         <div className="space-y-2">
           {hasVendorControlled ? (
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
               Your own additions
             </p>
           ) : null}
-          <ul className="space-y-1.5">
+          <ul className="divide-y divide-ink/10">
             {manualLines.map((li) => (
               /* 👈 Your own line's Delete is its swipe (owner 2026-11-03) — the same ask, then Undo. */
               <ConfirmSwipe
@@ -716,19 +703,19 @@ function LineItemSection({
                 confirmLabel="Delete"
                 label={`Delete ${li.label}`}
                 undoLabel={`“${li.label}” deleted`}
-                className="flex items-center justify-between gap-2 rounded-md bg-ink/[0.03] px-3 py-2 text-sm"
+                className="flex min-h-14 items-center justify-between gap-2 py-2.5 text-[15px]"
               >
                 <div className="min-w-0 space-y-0.5">
-                  <p className="truncate font-medium text-ink">{li.label}</p>
+                  <p className="truncate font-semibold text-ink">{li.label}</p>
                   {li.due_date ? (
-                    <p className="inline-flex items-center gap-1 text-xs text-ink/60">
-                      <Calendar className="h-3 w-3" strokeWidth={1.75} />
+                    <p className="inline-flex items-center gap-1 text-[13px] text-ink/70">
+                      <Calendar className="h-3.5 w-3.5" strokeWidth={1.75} />
                       Due {li.due_date}
                     </p>
                   ) : null}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-semibold text-ink">
+                  <span className="text-[15px] font-bold tabular-nums text-ink">
                     {formatPhp(li.amount_php)}
                   </span>
                 </div>
@@ -740,7 +727,7 @@ function LineItemSection({
 
       {hasChanges ? (
         <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             Changes you both agreed
           </p>
           {/* 🔢 BOTH NUMBERS, AND THE SUM BETWEEN THEM (owner 2026-09-09, "Both,
@@ -749,23 +736,23 @@ function LineItemSection({
               as arithmetic on one screen instead of a number that silently moved.
               Both ends come from `resolveAgreedTotal` (basePart and agreed), so
               the three rows cannot disagree with the Budget figure above. */}
-          <div className="flex items-center justify-between gap-2 px-3 text-sm text-ink/70">
+          <div className="flex min-h-11 items-center justify-between gap-2 text-[15px] text-ink/70">
             <span>Agreed price before changes</span>
-            <span className="font-mono text-sm font-semibold tabular-nums text-ink/70">
+            <span className="text-[15px] font-bold tabular-nums text-ink/70">
               {formatPhp(agreedBeforeChangesPhp)}
             </span>
           </div>
-          <ul className="space-y-1.5">
+          <ul className="divide-y divide-ink/10">
             {changeLines.map((li) => (
               <li
                 key={li.line_item_id}
-                className="flex items-center justify-between gap-2 rounded-md border border-ink/10 bg-ink/[0.02] px-3 py-2 text-sm"
+                className="flex min-h-14 items-center justify-between gap-2 py-2.5 text-[15px]"
               >
                 <div className="min-w-0 space-y-0.5">
-                  <p className="truncate font-medium text-ink">{li.label}</p>
+                  <p className="truncate font-semibold text-ink">{li.label}</p>
                   {li.due_date ? (
-                    <p className="inline-flex items-center gap-1 text-xs text-ink/60">
-                      <Calendar className="h-3 w-3" strokeWidth={1.75} />
+                    <p className="inline-flex items-center gap-1 text-[13px] text-ink/70">
+                      <Calendar className="h-3.5 w-3.5" strokeWidth={1.75} />
                       Due {li.due_date}
                     </p>
                   ) : null}
@@ -776,15 +763,15 @@ function LineItemSection({
                     the budget and the change-order trail — which keeps saying
                     "accepted" — back into disagreement, which is the whole
                     defect. The way to undo a change is another change. */}
-                <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+                <span className="text-[15px] font-bold tabular-nums text-ink">
                   {pesoLabel(Number(li.amount_php))}
                 </span>
               </li>
             ))}
           </ul>
-          <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-3 pt-2 text-sm">
-            <span className="font-medium text-ink">Agreed total now</span>
-            <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+          <div className="flex min-h-11 items-center justify-between gap-2 border-t border-ink/10 pt-2 text-[15px]">
+            <span className="font-semibold text-ink">Agreed total now</span>
+            <span className="text-[15px] font-bold tabular-nums text-ink">
               {formatPhp(suggestTotalPhp)}
             </span>
           </div>
@@ -795,7 +782,7 @@ function LineItemSection({
         <>
           {!hasManual ? (
             <div className="space-y-2">
-              <p className="text-xs text-ink/55">
+              <p className="py-2 text-sm text-ink/70">
                 No line items yet — add a First payment, Balance, or Tip below.
               </p>
               {/* One-click split — only when there's a total to divide. Seeds an
@@ -817,7 +804,7 @@ function LineItemSection({
               required
               maxLength={64}
               placeholder="Label (e.g. First payment)"
-              className="input-field col-span-2 h-9 py-0 text-xs"
+              className="input-field col-span-2 min-h-12 text-[15px]"
             />
             <input
               name="amount_php"
@@ -826,19 +813,19 @@ function LineItemSection({
               step="0.01"
               required
               placeholder="Amount"
-              className="input-field h-9 py-0 text-xs"
+              className="input-field min-h-12 text-[15px]"
             />
             <input
               name="due_date"
               type="date"
               placeholder="Due date"
-              className="input-field h-9 py-0 text-xs"
+              className="input-field min-h-12 text-[15px]"
             />
             <SubmitButton
-              className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:col-span-4"
+              className="ab ab-brand col-span-2 inline-flex min-h-11 items-center justify-center gap-1 sm:col-span-4"
               pendingLabel="Adding…"
             >
-              <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+              <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
               Add line item
             </SubmitButton>
           </form>
@@ -849,8 +836,8 @@ function LineItemSection({
         // itemize. Keeps manual entry alive without competing with the
         // vendor's own pricing surface.
         <details className="group border-t border-ink/10 pt-3">
-          <summary className="flex cursor-pointer items-center gap-1.5 text-xs text-ink/55 hover:text-ink/80">
-            <PencilLine aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+          <summary className="flex min-h-11 cursor-pointer items-center gap-1.5 text-sm font-semibold text-sn-accent">
+            <PencilLine aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Add an extra not on the supplier&rsquo;s catalog
           </summary>
           <form action={addLineItem} className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -861,7 +848,7 @@ function LineItemSection({
               required
               maxLength={64}
               placeholder="Label (e.g. Tip)"
-              className="input-field col-span-2 h-9 py-0 text-xs"
+              className="input-field col-span-2 min-h-12 text-[15px]"
             />
             <input
               name="amount_php"
@@ -870,19 +857,19 @@ function LineItemSection({
               step="0.01"
               required
               placeholder="Amount"
-              className="input-field h-9 py-0 text-xs"
+              className="input-field min-h-12 text-[15px]"
             />
             <input
               name="due_date"
               type="date"
               placeholder="Due date"
-              className="input-field h-9 py-0 text-xs"
+              className="input-field min-h-12 text-[15px]"
             />
             <SubmitButton
-              className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:col-span-4"
+              className="ab ab-brand col-span-2 inline-flex min-h-11 items-center justify-center gap-1 sm:col-span-4"
               pendingLabel="Adding…"
             >
-              <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+              <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
               Add extra
             </SubmitButton>
           </form>
@@ -917,7 +904,7 @@ function PaymentSection({
   const planInstallments = installments ?? [];
   const hasInstallments = planInstallments.length > 0;
   return (
-    <section className="space-y-3 p-5">
+    <section className="space-y-3 py-2">
       {/* Off-platform direct-pay surface — the vendor's published payment
           destinations + the always-on "Setnayan doesn't hold this money"
           disclosure. Rendered just above the payment log so the host sees
@@ -925,18 +912,18 @@ function PaymentSection({
           server-side via the secure helper (see budget/page.tsx). */}
       <VendorDirectPay vendorName={vendorName} methods={directPayMethods} />
 
-      <header className="flex items-center gap-2">
-        <Receipt aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={1.75} />
-        <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+      <header className="mt-[18px] flex items-center gap-2">
+        <Receipt aria-hidden className="h-4 w-4 text-success-700" strokeWidth={1.75} />
+        <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           Payments
         </h3>
       </header>
       {payments.length === 0 ? (
-        <p className="text-xs text-ink/55">
+        <p className="py-2 text-sm text-ink/70">
           No payments logged yet — record one below as soon as money moves.
         </p>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="divide-y divide-ink/10">
           {payments.map((p) => {
             const line = lineItems.find((li) => li.line_item_id === p.line_item_id);
             const fallbackLabel =
@@ -952,20 +939,20 @@ function PaymentSection({
                 confirmLabel="Delete"
                 label={`Delete the payment ${line ? line.label : fallbackLabel}`}
                 undoLabel="Payment removed"
-                className="flex items-start justify-between gap-2 rounded-md bg-success-50/60 px-3 py-2 text-sm"
+                className="flex min-h-14 items-start justify-between gap-2 py-2.5 text-[15px]"
               >
                 <div className="min-w-0 space-y-0.5">
-                  <p className="truncate font-medium text-success-900">
+                  <p className="truncate font-semibold text-ink">
                     {line ? line.label : fallbackLabel}
                   </p>
-                  <p className="text-xs text-success-900/75">
+                  <p className="text-[13px] text-ink/70">
                     {p.paid_at}
                     {p.method ? ` · ${p.method}` : ''}
                     {p.reference ? ` · ref ${p.reference}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-semibold text-success-900">
+                  <span className="text-[15px] font-bold tabular-nums text-[rgb(var(--color-ok))]">
                     {formatPhp(p.amount_php)}
                   </span>
                 </div>
@@ -982,21 +969,21 @@ function PaymentSection({
           a second door: a first payment logged here counted as Paid, held
           nothing, and left the first payment still owed. */}
       {paymentDoor === 'amount_to_pay' ? (
-        <div className="space-y-1.5 border-t border-ink/10 pt-3 text-xs text-ink/65">
+        <div className="space-y-1.5 border-t border-ink/10 pt-3 text-sm text-ink/70">
           <p>
             Payments to {vendorName} are recorded under Amount to pay, which shows
             which payment is due next and lets them confirm it.
           </p>
           <Link
             href={depositStepHref(eventId, vendorId)}
-            className="inline-flex items-center gap-1 font-medium text-success-700 hover:text-success-800"
+            className="inline-flex min-h-11 items-center gap-1 font-semibold text-sn-accent"
           >
             Amount to pay
-            <ArrowUpRight aria-hidden className="h-3 w-3" strokeWidth={2} />
+            <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
           </Link>
         </div>
       ) : paymentDoor === 'unknown' ? (
-        <p role="status" className="border-t border-ink/10 pt-3 text-xs text-ink/60">
+        <p role="status" className="border-t border-ink/10 pt-3 text-sm text-warn-800">
           We couldn&rsquo;t check whether your payment to {vendorName} is
           recorded, so logging a payment is paused. Refresh to try again.
         </p>
@@ -1004,8 +991,8 @@ function PaymentSection({
       /* Default-then-disclose: the 5-field log stays out of the way until the
           host actually has a payment to record (it's the page's busiest form). */
       <details className="group border-t border-ink/10 pt-3">
-        <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-success-700 hover:text-success-800">
-          <Plus aria-hidden className="h-3 w-3" strokeWidth={2} />
+        <summary className="flex min-h-11 cursor-pointer items-center gap-1.5 text-sm font-semibold text-sn-accent">
+          <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
           Log a payment
         </summary>
         <form
@@ -1019,50 +1006,41 @@ function PaymentSection({
             vendor sees WHICH installment this payment is for when they confirm.
             "Not tied to an installment" = leave NULL (a generic payment). */}
         {hasInstallments ? (
-          <select
+          <PostedPick
             name="schedule_instance_seq"
-            defaultValue=""
-            aria-label="Which payment?"
-            className="input-field col-span-2 h-9 py-0 text-xs sm:col-span-4"
-          >
-            <option value="">Not tied to a payment</option>
-            {planInstallments.map((inst) => (
-              <option key={inst.seq} value={inst.seq}>
-                {inst.label}
-                {inst.amount_php != null ? ` · ${formatPhp(inst.amount_php)}` : ''}
-                {inst.due_date ? ` · due ${inst.due_date}` : ''}
-              </option>
-            ))}
-          </select>
+            label="Which payment?"
+            className="col-span-2 sm:col-span-4"
+            options={[
+              { key: '', label: 'Not tied to a payment' },
+              ...planInstallments.map((inst) => ({
+                key: String(inst.seq),
+                label: `${inst.label}${inst.amount_php != null ? ` · ${formatPhp(inst.amount_php)}` : ''}${inst.due_date ? ` · due ${inst.due_date}` : ''}`,
+              })),
+            ]}
+          />
         ) : null}
-        <select
+        {/* Synthetic `vc:` value for a catalog item — see logPayment in budget/actions.ts. Stores the label in notes;
+            writes line_item_id=NULL because vendor-controlled items have no FK target. */}
+        <PostedPick
           name="line_item_id"
-          defaultValue=""
-          className="input-field col-span-2 h-9 py-0 text-xs"
-        >
-          <option value="">Against any line item</option>
-          {hasVendorControlled ? (
-            <optgroup label="From the supplier's catalog">
-              {vendorControlledItems.map((item) => (
-                // Synthetic value — see logPayment in budget/actions.ts.
-                // Stores the label in notes; writes line_item_id=NULL
-                // because vendor-controlled items have no FK target.
-                <option key={item.source_id} value={`vc:${item.label}`}>
-                  {item.label} · {formatPhp(item.amount_php)}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-          {lineItems.length > 0 ? (
-            <optgroup label="Your own additions">
-              {lineItems.map((li) => (
-                <option key={li.line_item_id} value={li.line_item_id}>
-                  {li.label} · {formatPhp(li.amount_php)}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-        </select>
+          label="Against which line item?"
+          className="col-span-2"
+          options={[
+            { key: '', label: 'Against any line item' },
+            ...(hasVendorControlled
+              ? vendorControlledItems.map((item) => ({
+                  key: `vc:${item.label}`,
+                  label: `${item.label} · ${formatPhp(item.amount_php)}`,
+                  group: 'From the supplier’s catalog',
+                }))
+              : []),
+            ...lineItems.map((li) => ({
+              key: li.line_item_id,
+              label: `${li.label} · ${formatPhp(li.amount_php)}`,
+              group: 'Your own additions',
+            })),
+          ]}
+        />
         <input
           name="amount_php"
           type="number"
@@ -1070,23 +1048,23 @@ function PaymentSection({
           step="0.01"
           required
           placeholder="Amount paid"
-          className="input-field h-9 py-0 text-xs"
+          className="input-field min-h-12 text-[15px]"
         />
         <input
           name="paid_at"
           type="date"
           defaultValue={new Date().toISOString().slice(0, 10)}
-          className="input-field h-9 py-0 text-xs"
+          className="input-field min-h-12 text-[15px]"
         />
         <input
           name="method"
           placeholder="Method (cash, BDO, GCash)"
-          className="input-field col-span-2 h-9 py-0 text-xs"
+          className="input-field col-span-2 min-h-12 text-[15px]"
         />
         <input
           name="reference"
           placeholder="Reference #"
-          className="input-field h-9 py-0 text-xs"
+          className="input-field min-h-12 text-[15px]"
         />
         {/* Optional receipt screenshot — couples pay vendors off-platform, so
             this is their own record of the transfer (not a Setnayan-verified
@@ -1124,10 +1102,10 @@ function PaymentSection({
           />
         </div>
         <SubmitButton
-          className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70 sm:col-span-4"
+          className="ab ab-ok col-span-2 inline-flex min-h-11 items-center justify-center gap-1 sm:col-span-4"
           pendingLabel="Logging…"
         >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+          <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
           Log
         </SubmitButton>
         </form>

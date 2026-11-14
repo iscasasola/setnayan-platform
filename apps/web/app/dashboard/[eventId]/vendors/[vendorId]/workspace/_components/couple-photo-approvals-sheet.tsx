@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useState, useTransition } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ChevronRight } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
@@ -68,7 +68,7 @@ export function CouplePhotoApprovalsSheet({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl bg-ink/[0.04] px-3.5 py-2.5 text-left"
+        className="flex min-h-14 w-full items-center justify-between gap-3 border-t border-ink/10 px-0.5 py-2.5 text-left"
         data-couple-approvals-line
       >
         <span className="text-[15px] text-ink">
@@ -76,7 +76,10 @@ export function CouplePhotoApprovalsSheet({
             ? `${shopName} wants to show ${formatCount(waiting.length)} photo${waiting.length === 1 ? '' : 's'} as from your day`
             : `Photos ${shopName} shows from your day`}
         </span>
-        <span className="flex-none text-[14px] font-semibold text-sn-accent">Review</span>
+        <span className="flex flex-none items-center gap-1 text-sm font-semibold text-sn-accent">
+          Review
+          <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        </span>
       </button>
       <Sheet
         open={open}
@@ -112,11 +115,11 @@ export function CouplePhotoApprovalsSheet({
               {said}
             </p>
           ) : null}
-          <ul className="space-y-2">
+          <ul className="divide-y divide-ink/10">
             {rows.map((r) => {
               const d = decisionOf(r);
               return (
-                <li key={r.fileId} className="flex items-center gap-3 rounded-xl bg-ink/[0.04] p-2" data-approval-row={d}>
+                <li key={r.fileId} className="flex min-h-14 items-center gap-3 py-2" data-approval-row={d}>
                   <span className="h-14 w-14 flex-none overflow-hidden rounded-lg bg-ink/[0.08]">
                     {r.url && r.kind === 'photo' ? (
                       // eslint-disable-next-line @next/next/no-img-element -- a signed private R2 link, not an optimisable asset
@@ -124,8 +127,8 @@ export function CouplePhotoApprovalsSheet({
                     ) : null}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-medium text-ink">{r.name}</span>
-                    <span className="block text-[12px] text-ink/60">
+                    <span className="block truncate text-sm font-medium text-ink">{r.name}</span>
+                    <span className="block text-xs text-ink/70">
                       {r.service} · {r.takenAt ? `taken ${dayWords(r.takenAt)}` : 'no date on the photo'}
                     </span>
                   </span>

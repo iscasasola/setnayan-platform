@@ -112,12 +112,16 @@ import { ShopNotice } from '../../_components/kit';
 
 const NUMBER = new Intl.NumberFormat('en-PH');
 
+/**
+ * 📅 RW-30 (walk 13 Nov 2026): ONE date phrasing on this page — "12 Dec 2026", the gift's own words (`offerDayWords`),
+ * of the MANILA day. It printed "Dec 11, 2026" (US order, the server's UTC day) beside the gift's "12 Dec 2026" for the
+ * same moment: a plan that ends at 00:24 on 12 Dec in Manila is still 11 Dec in UTC.
+ */
 function fmtDate(s: string) {
-  return new Date(s).toLocaleDateString('en-PH', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  const ms = Date.parse(s);
+  if (!Number.isFinite(ms)) return s;
+  const manilaDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+  return offerDayWords(manilaDay);
 }
 
 export type PlanSearch = {

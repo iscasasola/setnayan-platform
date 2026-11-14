@@ -544,7 +544,7 @@ function AlsoCoversPicker({
       ) : null}
 
       {chosen.length > 0 ? (
-        <p className="flex items-center gap-1 text-[11.5px] text-ink/50">
+        <p className="flex items-center gap-1 text-[12px] text-ink/50">
           <Check aria-hidden className="h-3 w-3" strokeWidth={2.2} />
           One booking, one price — counted once across all of these.
         </p>

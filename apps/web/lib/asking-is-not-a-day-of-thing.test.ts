@@ -54,7 +54,9 @@ test('THE PREMISE: the live console really is day-gated', () => {
     src.includes("booking.bookedDate !== today"),
     'the live console no longer refuses a booking that is not today — re-read why the ask was moved',
   );
-  assert.ok(src.includes("redirect('/vendor-dashboard/on-the-day')"));
+  // F-W1-76 (walk 13 Nov 2026): it still sends a not-today booking back to the Hub — now ON that event, with the Hub
+  // saying when the live page opens. The refusal is the premise; the bare address was not.
+  assert.ok(src.includes('redirect(`/vendor-dashboard/on-the-day?event=${encodeURIComponent(eventId)}&live=not-yet`)'));
 });
 
 test('the ask is mounted on a screen that is NOT day-gated', () => {

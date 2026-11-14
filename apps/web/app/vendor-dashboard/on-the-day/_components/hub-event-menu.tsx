@@ -109,6 +109,8 @@ export function HubEventMenu({
         label="Which event the Hub sets up"
         value={selectedId}
         picked={[`${VIEW}${seg}`, ...(selectedId ? [selectedId] : [])]}
+        // F-W1-81 (walk 13 Nov 2026): one view and one event are ticked — never "Tick as many as apply".
+        doneNote="One view and one event."
         buttonText={face}
         options={options}
         compact
@@ -123,7 +125,7 @@ export function HubEventMenu({
                 placeholder="Find an event — name or date"
                 aria-label="Find an event"
                 data-hub-event-find=""
-                className="h-10 w-full rounded-full border border-ink/15 bg-white px-3.5 text-[14px] text-ink dark:bg-raised"
+                className="h-11 w-full rounded-full border border-[color:var(--m-line)] bg-white px-3.5 text-sm text-ink dark:bg-raised"
               />
             </li>
           ) : undefined

@@ -10821,6 +10821,12 @@ input[data-clearing]::-webkit-search-cancel-button { display: none; -webkit-appe
   html:has([data-reads-as='story']) {
     scroll-snap-type: y proximity;
   }
+  /* 📶 The story's bars stand UNDER the page's pinned top bar (F-W2-50, the live walk after #7596: both stuck at the
+     top, the bars over the bar). The same offset the hub's progress mark takes under it (`.hub-prog`). */
+  html:has([data-sticky-top]) [data-story-progress] {
+    top: calc(4.5rem + env(safe-area-inset-top, 0px));
+    padding-top: 0.5rem;
+  }
   [data-reads-as='story'] :is([data-post-event-look], [data-story-screen]):not(:is([data-post-event-look], [data-story-screen]) *) {
     min-height: calc(100svh - 4.5rem);
     scroll-snap-align: start;

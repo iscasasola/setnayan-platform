@@ -33,6 +33,10 @@ import { Check, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 
 import {
   PLAYLIST_SLOT_LABELS,
@@ -49,6 +53,12 @@ import {
   removeSongFromVendorEventSet,
 } from '../../../../actions';
 import { formatCount } from '@/lib/format-number';
+
+/** The moments a set may cover — every playlist slot but the "Don't play these" list. One list for both pickers. */
+const MOMENT_OPTIONS: readonly PickOption[] = PLAYLIST_SLOT_TYPES.filter((s) => s !== 'banned_songs').map((slot) => ({
+  key: slot,
+  label: PLAYLIST_SLOT_LABELS[slot],
+}));
 
 export function SetsPanel({
   eventId,
@@ -111,11 +121,11 @@ export function SetsPanel({
 
   return (
     <details className="group">
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-ink/75 hover:text-ink">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-ink">
         <ChevronRight
           aria-hidden
-          className="h-3.5 w-3.5 text-ink/40 transition-transform group-open:rotate-90"
-          strokeWidth={1.75}
+          className="h-4 w-4 text-terracotta transition-transform duration-sn-micro ease-sn group-open:rotate-90"
+          strokeWidth={2}
         />
         {sets.length === 0
           ? 'Your sets'
@@ -123,60 +133,62 @@ export function SetsPanel({
       </summary>
 
       <div className="space-y-3 pt-2">
-        <p className="text-xs leading-relaxed text-ink/60">
+        <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">
           Name each stretch of the night and place songs from your repertoire. Up to {MAX_SETS}.
         </p>
 
         {error ? (
-          <p role="alert" className="text-xs text-terracotta-700">
+          <p role="alert" className="text-sm text-danger-700">
             {error}
           </p>
         ) : null}
 
-        {shownSets.map((set) => (
-          <SetCard
-            key={set.setId}
-            eventId={eventId}
-            set={set}
-            repertoire={repertoire}
-            pending={pending}
-            run={run}
-            onRemoveSong={(setSongId, title) => removeSong(set, setSongId, title)}
-            onDeleteSet={() => deleteSet(set)}
-          />
-        ))}
+        {shownSets.length > 0 ? (
+          <div className="divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)]">
+            {shownSets.map((set) => (
+              <SetCard
+                key={set.setId}
+                eventId={eventId}
+                set={set}
+                repertoire={repertoire}
+                pending={pending}
+                run={run}
+                onRemoveSong={(setSongId, title) => removeSong(set, setSongId, title)}
+                onDeleteSet={() => deleteSet(set)}
+              />
+            ))}
+          </div>
+        ) : null}
 
         {adding ? (
-          <div className="space-y-2 rounded-xl border border-dashed border-ink/20 p-3">
+          <div className="space-y-3">
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Name it — “Slow burn”, “Last call”"
               maxLength={60}
-              className="w-full rounded-lg border border-ink/15 px-2.5 py-1.5 text-sm"
+              aria-label="Set name"
+              className="min-h-12 w-full rounded-lg border border-[color:var(--m-line)] bg-white px-3 text-sm text-ink dark:bg-raised"
             />
-            <label className="block text-xs text-ink/60">
-              Which moment does it cover?
-              <select
+            <div className="flex min-h-14 items-center justify-between gap-3">
+              <InfoTip label="Which moment does it cover?" labelClassName="text-sm text-ink">
+                Naming the moment is what lets us show you anything the couple asked for there and you haven’t placed yet.
+              </InfoTip>
+              <PickMenu
+                label="Which moment the new set covers"
                 value={newSlot}
-                onChange={(e) => setNewSlot(e.target.value as PlaylistSlotType)}
-                className="mt-1 w-full rounded-lg border border-ink/15 px-2.5 py-1.5 text-sm text-ink/85"
-              >
-                {PLAYLIST_SLOT_TYPES.filter((s) => s !== 'banned_songs').map((slot) => (
-                  <option key={slot} value={slot}>
-                    {PLAYLIST_SLOT_LABELS[slot]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <p className="text-[0.6875rem] leading-relaxed text-ink/50">
-              Naming the moment is what lets us show you anything the couple asked for there and
-              you haven’t placed yet.
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
+                options={MOMENT_OPTIONS}
+                onPick={(k) => setNewSlot(k as PlaylistSlotType)}
+                dataAttr="data-new-set-moment"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <ActionButton
+                tone="brand"
+                main
+                icon={Plus}
+                label="Add set"
                 disabled={pending || newName.trim().length === 0}
                 onClick={() =>
                   run(async () => {
@@ -188,32 +200,26 @@ export function SetsPanel({
                     return res;
                   })
                 }
-                className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white disabled:opacity-60"
-              >
-                Add set
-              </button>
-              <button
-                type="button"
+              />
+              <ActionButton
+                tone="neutral"
+                icon={X}
+                label="Cancel"
                 onClick={() => {
                   setAdding(false);
                   setNewName('');
                 }}
-                className="rounded-full border border-ink/15 px-3 py-1 text-xs text-ink/70"
-              >
-                Cancel
-              </button>
+              />
             </div>
           </div>
         ) : (
-          <button
-            type="button"
+          <ActionButton
+            tone="neutral"
+            icon={Plus}
+            label={full ? `${MAX_SETS} sets is the most` : sets.length === 0 ? 'Add your first set' : 'Add a set'}
             disabled={full || pending}
             onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1 text-xs font-medium text-ink/75 hover:bg-ink/5 disabled:opacity-60"
-          >
-            <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            {full ? `${MAX_SETS} sets is the most` : sets.length === 0 ? 'Add your first set' : 'Add a set'}
-          </button>
+          />
         )}
       </div>
       <UndoToastHost />
@@ -243,7 +249,7 @@ function SetCard({
   const available = repertoireAvailableForSet({ repertoire, setSongs: set.songs });
 
   return (
-    <section className="space-y-1.5 rounded-xl border border-ink/10 p-3">
+    <section className="space-y-1.5 py-3">
       {editing ? (
         <SetHeaderEditor
           eventId={eventId}
@@ -254,29 +260,29 @@ function SetCard({
           onDelete={onDeleteSet}
         />
       ) : (
-        <header className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-          <h5 className="text-sm font-medium text-ink">
-            <span className="font-mono text-xs text-ink/45">{set.position}</span> {set.name}
+        <header className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <h5 className="text-sm font-semibold text-ink">
+            <span className="tabular-nums text-[color:var(--m-slate-2)]">{set.position}</span> {set.name}
           </h5>
           <span className="flex items-center gap-2">
-            <span className="font-mono text-[0.625rem] uppercase tracking-[0.08em] text-ink/45">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
               {set.slotLabel}
             </span>
-            <button
-              type="button"
+            <ActionButton
+              tone="neutral"
+              iconOnly
+              icon={Pencil}
+              label="Rename"
+              name={`Rename set ${set.name}`}
               disabled={pending}
               onClick={() => setEditing(true)}
-              aria-label={`Rename set ${set.name}`}
-              className="rounded-full p-1 text-ink/40 hover:bg-ink/5 hover:text-ink/70 disabled:opacity-60"
-            >
-              <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            </button>
+            />
           </span>
         </header>
       )}
 
       {set.songs.length > 0 ? (
-        <ul>
+        <ul className="divide-y divide-[color:var(--m-line)]">
           {set.songs.map((s) => (
             <SwipeToDelete
               key={s.setSongId}
@@ -288,54 +294,49 @@ function SetCard({
               radiusClass=""
               surfaceClass="bg-paper-deep"
             >
-              <div className="flex min-h-11 min-w-0 items-center gap-2 py-0.5" data-set-song="">
-                <span className="min-w-0 flex-1 truncate text-sm text-ink/85">{s.title}</span>
+              <div className="flex min-h-14 min-w-0 items-center gap-2 py-1" data-set-song="">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{s.title}</span>
                 {s.artist ? (
-                  <span className="min-w-0 shrink truncate text-xs text-ink/55">{s.artist}</span>
+                  <span className="min-w-0 shrink truncate text-sm text-[color:var(--m-slate-2)]">{s.artist}</span>
                 ) : null}
               </div>
             </SwipeToDelete>
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-ink/50">Nothing placed yet.</p>
+        <p className="text-sm text-[color:var(--m-slate-2)]">Nothing placed yet.</p>
       )}
 
       {/* THE PAYOFF FOR THE SHARED VOCABULARY. Only possible because the set and
           the couple's picks both say the same slot underneath. */}
       {set.missingFromHost.length > 0 ? (
-        <p className="text-xs leading-relaxed text-terracotta-700">
+        <p className="text-sm leading-relaxed text-warn-700">
           They asked for {set.missingFromHost.join(', ')} at {set.slotLabel.toLowerCase()} — not in
           this set yet.
         </p>
       ) : null}
 
       {available.length > 0 ? (
-        <label className="block pt-0.5">
-          <span className="sr-only">Add a song to {set.name}</span>
-          <select
-            defaultValue=""
-            disabled={pending}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              if (Number.isFinite(v) && v > 0) {
-                run(() => addSongToVendorEventSet(eventId, set.setId, v));
-                e.target.value = '';
-              }
+        <div className="pt-0.5">
+          <PickMenu
+            label={`Add a song to ${set.name}`}
+            value={null}
+            buttonText="Add from your repertoire…"
+            options={available.map((s) => ({
+              key: String(s.song_id),
+              label: s.artist ? `${s.title} · ${s.artist}` : s.title,
+            }))}
+            dataAttr="data-set-add-song"
+            onPick={(k) => {
+              // Was a disabled <select> while a save was in flight; the pick waits the same way.
+              if (pending) return;
+              const v = Number(k);
+              if (Number.isFinite(v) && v > 0) run(() => addSongToVendorEventSet(eventId, set.setId, v));
             }}
-            className="rounded-full border border-ink/15 px-2.5 py-1 text-xs text-ink/80 disabled:opacity-60"
-          >
-            <option value="">Add from your repertoire…</option>
-            {available.map((s) => (
-              <option key={s.song_id} value={s.song_id}>
-                {s.title}
-                {s.artist ? ` · ${s.artist}` : ''}
-              </option>
-            ))}
-          </select>
-        </label>
+          />
+        </div>
       ) : (
-        <p className="text-[0.6875rem] text-ink/45">
+        <p className="text-sm text-[color:var(--m-slate-2)]">
           Every song you play is already in this set.
         </p>
       )}
@@ -404,7 +405,7 @@ function SetHeaderEditor({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="font-mono text-xs text-ink/45">{set.position}</span>
+      <span className="text-sm tabular-nums text-[color:var(--m-slate-2)]">{set.position}</span>
       <input
         type="text"
         value={name}
@@ -416,38 +417,33 @@ function SetHeaderEditor({
         maxLength={60}
         aria-label="Set name"
         autoFocus
-        className="min-w-0 flex-1 rounded-lg border border-ink/20 bg-white px-2 py-1 text-sm text-ink"
+        className="min-h-11 min-w-0 flex-1 rounded-lg border border-[color:var(--m-line)] bg-white px-3 text-sm text-ink dark:bg-raised"
       />
-      <select
+      <PickMenu
+        label="Moment this set covers"
         value={slot}
-        onChange={(e) => setSlot(e.target.value as PlaylistSlotType)}
-        aria-label="Moment this set covers"
-        className="rounded-lg border border-ink/20 bg-white px-1.5 py-1 text-xs text-ink"
-      >
-        {PLAYLIST_SLOT_TYPES.filter((sl) => sl !== 'banned_songs').map((sl) => (
-          <option key={sl} value={sl}>
-            {PLAYLIST_SLOT_LABELS[sl]}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
+        options={MOMENT_OPTIONS}
+        onPick={(k) => setSlot(k as PlaylistSlotType)}
+        dataAttr="data-set-moment"
+      />
+      <ActionButton
+        tone="ok"
+        iconOnly
+        icon={Check}
+        label="Save"
+        name="Save set name"
         disabled={pending || trimmed.length === 0}
         onClick={save}
-        aria-label="Save set name"
-        className="rounded-full p-1 text-ink/50 hover:bg-ink/5 hover:text-ink disabled:opacity-50"
-      >
-        <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-      </button>
-      <button
-        type="button"
+      />
+      <ActionButton
+        tone="neutral"
+        iconOnly
+        icon={X}
+        label="Cancel"
+        name="Cancel rename"
         disabled={pending}
         onClick={onDone}
-        aria-label="Cancel rename"
-        className="rounded-full p-1 text-ink/40 hover:bg-ink/5 hover:text-ink/70 disabled:opacity-60"
-      >
-        <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-      </button>
+      />
       {/* The set's own Delete lives in its editor (owner 2026-11-03: no ✕ on the card). Its songs go with it, so it
           waits out the Undo window before anything is written. */}
       <button
@@ -458,7 +454,7 @@ function SetHeaderEditor({
           onDelete();
         }}
         aria-label={`Delete set ${set.name}`}
-        className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-danger-700 hover:bg-danger-50 disabled:opacity-60"
+        className="ml-auto inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-sm font-medium text-danger-700 hover:bg-danger-50 disabled:opacity-60"
       >
         <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Delete set

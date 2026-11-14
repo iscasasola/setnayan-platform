@@ -32,7 +32,7 @@ import type { ProfileFieldData } from './editable-row';
 // Library and Memories, and an on-demand load turns every chunk it names into an entry of the webpack runtime that ships
 // on EVERY page — measured over the 202.3 KB shared-bundle lock (Build 3 integration, #7416). Same call as `portfolio-upload.tsx`.
 
-const ROW = 'flex min-h-[56px] w-full items-center gap-3.5 py-2 text-left';
+const ROW = 'flex min-h-14 w-full items-center gap-3.5 py-2 text-left';
 
 function RowLead({ icon: Icon, quiet = false }: { icon: LucideIcon; quiet?: boolean }) {
   return (
@@ -45,8 +45,8 @@ function RowLead({ icon: Icon, quiet = false }: { icon: LucideIcon; quiet?: bool
 function RowWord({ children, quiet = false, line = null }: { children: ReactNode; quiet?: boolean; line?: ReactNode }) {
   return (
     <span className="min-w-0 flex-1">
-      <span className={`block truncate text-[15px] font-semibold leading-tight ${quiet ? 'text-ink/40' : 'text-ink'}`}>{children}</span>
-      {line ? <span className="mt-0.5 block text-[13px] text-ink/60">{line}</span> : null}
+      <span className={`block truncate text-[15px] font-semibold leading-tight ${quiet ? 'text-ink/70' : 'text-ink'}`}>{children}</span>
+      {line ? <span className="mt-0.5 block text-[13px] text-ink/70">{line}</span> : null}
     </span>
   );
 }
@@ -102,7 +102,7 @@ export function CoverPhotoMenu({ coverUrl, facts, chooseHref }: { coverUrl: stri
           </Link>
         </li>
       </ul>
-      <p className="pt-2 text-[12.5px] text-ink/55">Your cover goes live when you Apply on Your page.</p>
+      <p className="pt-2 text-[12.5px] text-ink/70">Your cover goes live when you Apply on Your page.</p>
     </div>
   );
 }
@@ -123,7 +123,7 @@ export function LogoPhotoMenu({
   if ((files || editing) && logoItem) {
     return (
       <div className="space-y-3" data-photo-menu="logo-frame">
-        <p className="text-[13px] text-ink/65">Your logo · shows on your page, cards and chat. Drag to move, pinch to zoom.</p>
+        <p className="text-[13px] text-ink/70">Your logo · shows on your page, cards and chat. Drag to move, pinch to zoom.</p>
         <ProfileChecklistEditor items={[logoItem]} data={logoFields} isVerified={isVerified} showProgress={false} flat pickedLogo={files} />
       </div>
     );

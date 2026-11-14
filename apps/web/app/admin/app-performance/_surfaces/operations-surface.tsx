@@ -103,7 +103,7 @@ export async function OperationsHiringSurface() {
                 <span className="font-medium">{alert.alert_type.replace(/_/g, ' ')}</span>
                 {alert.signal_name && ` · ${alert.signal_name}`}
                 <span className="ml-2 text-xs text-danger-700/70">
-                  {new Date(alert.fired_at).toLocaleString('en-PH')}
+                  {new Date(alert.fired_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
                 </span>
               </li>
             ))}
@@ -130,7 +130,7 @@ export async function OperationsHiringSurface() {
                 <dd className="text-sm text-ink/70">{signals.signups_prior_week}</dd>
               </div>
               <div className="text-xs text-ink/50 pt-2 border-t border-ink/10">
-                Refreshed {new Date(signals.refreshed_at).toLocaleString('en-PH')}
+                Refreshed {new Date(signals.refreshed_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
               </div>
             </dl>
           ) : (

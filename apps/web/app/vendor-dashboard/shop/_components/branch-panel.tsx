@@ -40,7 +40,7 @@ export async function BranchPanel({
   innerRadiusKm: number | null;
   outerRadiusKm: number | null;
   branches: VendorBranchView[];
-  branchFeePhp: number;
+  branchFeePhp: number | null;
   branchAutoRadius: number;
   branchPay: PayInfo;
   /** The shop is verified — an unverified shop's 0 km says why (`GetVerifiedLine`). */

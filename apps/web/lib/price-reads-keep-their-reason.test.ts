@@ -89,8 +89,8 @@ async function recorded<T>(fn: () => Promise<T>): Promise<{ value: T; logs: unkn
 }
 
 const READERS: { name: string; run: (c: SupabaseClient) => Promise<unknown>; fallback: () => unknown }[] = [
-  { name: 'fetchSeatFeePhp', run: (c) => seats.fetchSeatFeePhp(c), fallback: () => seats.SEAT_FEE_PHP },
-  { name: 'fetchBranchFeePhp', run: (c) => branches.fetchBranchFeePhp(c), fallback: () => branches.BRANCH_FEE_PHP },
+  { name: 'fetchSeatFeePhp', run: (c) => seats.fetchSeatFeePhp(c), fallback: () => null }, // no typed seat fee since 2026-11-13
+  { name: 'fetchBranchFeePhp', run: (c) => branches.fetchBranchFeePhp(c), fallback: () => null }, // no typed branch fee since 2026-11-13
   { name: 'getSetnayanFeeBps', run: (c) => payouts.getSetnayanFeeBps(c), fallback: () => payouts.DEFAULT_SETNAYAN_FEE_BPS },
   { name: 'resolveApplicationFeeCentavos', run: (c) => verification.resolveApplicationFeeCentavos(c, 'initial'), fallback: () => 0 },
   { name: 'fetchVendorPapicPackPricePhp', run: (c) => papic.fetchVendorPapicPackPricePhp(c), fallback: () => null },

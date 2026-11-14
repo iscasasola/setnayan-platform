@@ -46,6 +46,8 @@ import { formatCount } from '@/lib/format-number';
 
 const IDLE: PhotoChallengeActionState = { status: 'idle' };
 const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
+/** "₱X / N days", or — when the catalogue row did not read — the cadence with no figure. */
+const per = (n: number | null, days: string = '28') => (n !== null ? `${peso(n)} / ${days} days` : `billed every ${days} days`);
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-PH', {
@@ -71,7 +73,8 @@ export type PapicChallengeCardProps = {
   /** papic_challenge_expires_at, when set. */
   expiresAt: string | null;
   /** The standing price from the admin-managed catalog (or the tiered band). */
-  pricePhp: number;
+  /** The catalogue price; null when unread — then no figure is shown (owner 2026-11-13: no typed prices). */
+  pricePhp: number | null;
   /** One cycle in days — 28. Passed in, never re-typed in copy. */
   periodDays: number;
   /** "Free until your second booking" is ACTIVE right now (owner 2026-07-25; one free booking since 2026-10-23). */
@@ -145,11 +148,11 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
               <>
                 {/* ⚖ One free booking since 2026-10-23 — the add-on rides the same window. */}
                 Free until your second booking, then{' '}
-                {peso(pricePhp)} / {formatCount(periodDays)} days.
+                {per(pricePhp, formatCount(periodDays))}.
               </>
             ) : (
               <>
-                {peso(pricePhp)} / {formatCount(periodDays)} days &middot; unlimited.
+                {per(pricePhp, formatCount(periodDays))} &middot; unlimited.
               </>
             )}
           </p>
@@ -210,8 +213,8 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
                 ? 'Extend Papic Challenges — still free'
                 : 'Turn on Papic Challenges — free'
               : active
-                ? `Renew — ${peso(pricePhp)} / ${formatCount(periodDays)} days`
-                : `Turn on Papic Challenges — ${peso(pricePhp)} / ${formatCount(periodDays)} days`}
+                ? `Renew — ${per(pricePhp, formatCount(periodDays))}`
+                : `Turn on Papic Challenges — ${per(pricePhp, formatCount(periodDays))}`}
           </SubmitButton>
         </form>
       )}

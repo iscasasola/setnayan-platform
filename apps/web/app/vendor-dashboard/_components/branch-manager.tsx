@@ -57,7 +57,8 @@ export type PayInfo = OpenRailDetails;
 
 type Props = {
   branches: VendorBranchView[];
-  feePhp: number;
+  /** The live branch fee; null when unread — no figure is shown and the server refuses the sale. */
+  feePhp: number | null;
   autoRadiusKm: number;
   /** Where the pin map opens before the vendor pans (HQ, or a PH fallback). */
   initialCenter: LatLng;
@@ -137,7 +138,7 @@ export function BranchManager({
         >
           <h3 className="text-xs font-semibold text-ink">How to pay</h3>
           <p className="text-xs text-ink/70">
-            Send {peso(feePhp)} per pending branch and put its{' '}
+            {feePhp !== null ? `Send ${peso(feePhp)} per pending branch` : 'Send each pending branch’s fee'} and put its{' '}
             <span className="font-medium">reference code</span> in the transfer note so
             our team can match it (confirmed within 24 hours).
           </p>
@@ -203,7 +204,8 @@ function AddBranchForm({
   toastSuccess,
   toastError,
 }: {
-  feePhp: number;
+  /** The live branch fee; null when unread — no figure is shown and the server refuses the sale. */
+  feePhp: number | null;
   autoRadiusKm: number;
   initialCenter: LatLng;
   openRails: readonly OpenRail[];
@@ -377,7 +379,7 @@ function AddBranchForm({
             pendingLabel="Starting…"
             disabled={openRails.length === 0}
           >
-            Purchase · {peso(feePhp)} / 28 days
+            {feePhp !== null ? `Purchase · ${peso(feePhp)} / 28 days` : 'Purchase · 28 days'}
           </SubmitButton>
           <p className="text-center text-[11px] text-ink/45">
             Apply-then-pay — the branch activates once our team confirms your payment.
@@ -395,7 +397,8 @@ function BranchRow({
   toastError,
 }: {
   branch: VendorBranchView;
-  feePhp: number;
+  /** The live branch fee; null when unread — no figure is shown and the server refuses the sale. */
+  feePhp: number | null;
   toastSuccess: (m: string) => void;
   toastError: (m: string) => void;
 }) {
@@ -472,7 +475,7 @@ function BranchRow({
               className="inline-flex h-9 items-center gap-1.5 rounded-md border border-warn-300 bg-warn-50 px-3 text-xs font-medium text-warn-900 hover:border-warn-500"
             >
               <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-              Renew · {peso(feePhp)}
+              {feePhp !== null ? `Renew · ${peso(feePhp)}` : 'Renew'}
             </button>
           </form>
         ) : null}

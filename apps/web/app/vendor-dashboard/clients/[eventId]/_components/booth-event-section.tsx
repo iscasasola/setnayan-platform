@@ -124,7 +124,7 @@ export async function BoothEventSection({
             It stays for as long as the couple keeps their room up.
           </p>
           <BoothEventBuyForm eventId={eventId} pricePhp={eventPricePhp} openRails={openRails} />
-          {cyclePricePhp > 0 ? (
+          {cyclePricePhp != null && cyclePricePhp > 0 ? (
             <p className="mt-2 text-[11px] text-ink/45">
               Several weddings this month? The 3D Booth cycle brands every client&rsquo;s room for{' '}
               {peso(cyclePricePhp)} / 4 weeks.{' '}

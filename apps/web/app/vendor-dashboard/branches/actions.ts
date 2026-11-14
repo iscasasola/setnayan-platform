@@ -322,9 +322,10 @@ export async function createBranch(
   if (bErr || !branchRow) return err('Could not create the branch. Please try again.');
   const branchId = (branchRow as { branch_id: string }).branch_id;
 
-  // 2) Apply-then-pay charge. Price comes from the admin-managed catalog
-  //    (falls back to the ₱999 literal if the SKU row is missing).
+  // 2) Apply-then-pay charge. Price comes from the admin-managed catalog — and only from it: no readable row, no
+  //    order (never a remembered figure).
   const feePhp = await fetchBranchFeePhp(supabase);
+  if (feePhp === null) return err('We couldn’t read the branch price just now. Please try again.');
   const res = await startBranchPayment(
     userId,
     vendorProfileId,
@@ -389,6 +390,7 @@ export async function renewBranch(
   const label = (branch as { branch_label: string }).branch_label;
 
   const feePhp = await fetchBranchFeePhp(supabase);
+  if (feePhp === null) return err('We couldn’t read the branch price just now. Please try again.');
   const res = await startBranchPayment(
     userId,
     vendorProfileId,

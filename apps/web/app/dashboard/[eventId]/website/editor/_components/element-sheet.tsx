@@ -86,7 +86,7 @@ import { StageAnimate } from '../../../launch/_components/stage-panel/stage-anim
  * draft-over-live canvas the page handed in, so the scene's arrangement, motion
  * and background ride along untouched. Colour, size and every other Text row
  * are free (owner 2026-09-28); the part's own FONT and its ANIMATION are Event
- * Hub Pro — a free couple may try them, and they are held at Apply
+ * Pro — a free couple may try them, and they are held at Apply
  * (`canvasLookChange`) while the free edits beside them go live
  * (`canvasFreePart`).
  *
@@ -313,10 +313,10 @@ export function ElementSheet({
   const proMark = makerProMark({ owns: ownsPro, storeShell: hideLocked });
   const hidePro = hideLocked && !ownsPro;
   const animateMark = proMark ? (
-    <PaidMark state={proMark} text="Event Hub Pro" label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" />
+    <PaidMark state={proMark} text="Event Pro" label={paidMarkLabel(proMark, 'Event Pro')} size="xs" />
   ) : null;
-  /* 🔤 A part's Font ▾ is Event Hub Pro again (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS
-     ARE EVENT HUB PRO ◆" — everything in Style): it wears the sheet's ONE mark, the same node Animate wears, and the
+  /* 🔤 A part's Font ▾ is Event Pro again (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS
+     ARE EVENT PRO ◆" — everything in Style): it wears the sheet's ONE mark, the same node Animate wears, and the
      store shell hides it from a couple without Pro like every Pro row. Apply already names it ("Font · …"). */
   const fontMark = animateMark;
   const tabs = hidePro ? PART_TABS.filter((t) => t.key !== 'animate') : PART_TABS;
@@ -515,7 +515,7 @@ export function ElementSheet({
         <InfoTip label="" ariaLabel="About this part" align="end">
           Changes this part only — the rest keeps the Event Hub&rsquo;s look. Until you choose, it wears the
           Event Hub font and colour and moves with its scene.
-          {ownsPro || hidePro ? '' : ' Animation comes with Event Hub Pro — try it here; it goes live when you Apply with it.'}
+          {ownsPro || hidePro ? '' : ' Animation comes with Event Pro — try it here; it goes live when you Apply with it.'}
         </InfoTip>
         <button
           type="button"
@@ -629,7 +629,7 @@ export function ElementSheet({
                  stored word that is neither (an older one) presses nothing.
                  ✨ THE SIX NEW EFFECTS (owner-approved 2026-10-16): a cover word adds Glow ◆; the cover's photo is Still ·
                  Drift · Ken Burns · Parallax · Light leak ◆ (Parallax its own, an absence). Each new effect is marked ◆
-                 exactly as Shimmer is — tried here free, named at Apply ("ALL ANIMATE, EFFECTS … ARE EVENT HUB PRO ◆"). */
+                 exactly as Shimmer is — tried here free, named at Apply ("ALL ANIMATE, EFFECTS … ARE EVENT PRO ◆"). */
               value: travelOffered && travelling ? LOGO_TRAVELS_ACTION : (motion.during ?? hubElementDuringDefault(target.el)),
               options: hubElementDuringOffered(target.el).map((v) => ({ key: v as string, label: HUB_EL_DURING_PRO_NAMED.includes(v) ? `${HUB_EL_DURING_LABEL[v]} ◆` : HUB_EL_DURING_LABEL[v] })).concat(
                 /* ✈ The cover's Logo: its journey to the bar, ◆ as Magic Move always was. */

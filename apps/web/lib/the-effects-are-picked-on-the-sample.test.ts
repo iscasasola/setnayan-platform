@@ -147,7 +147,7 @@ test('(3) the carousel: None, then the eight in the approved order — one ringe
   const none = cardsOf(await carousel({ effect: null, locked: true }));
   assert.deepEqual(none.map((c) => c.key), [EFFECT_NONE, 'haze', 'bokeh', 'dust', 'petals', 'lanterns', 'shimmer', 'leak', 'grain'], 'the cards or their order moved off the approved prototype');
   assert.deepEqual(none.filter((c) => c.on).map((c) => c.key), [EFFECT_NONE], 'with no effect, None is the one ringed card');
-  assert.deepEqual(none.filter((c) => /aria-label="Event (?:Hub )?Pro"/.test(c.html)).map((c) => c.key), ['haze', 'bokeh', 'dust', 'petals', 'lanterns', 'shimmer', 'leak', 'grain'], 'an effect lost its ◆ (owner 2026-10-16: every effect is Pro)');
+  assert.deepEqual(none.filter((c) => /aria-label="Event Pro"/.test(c.html)).map((c) => c.key), ['haze', 'bokeh', 'dust', 'petals', 'lanterns', 'shimmer', 'leak', 'grain'], 'an effect lost its ◆ (owner 2026-10-16: every effect is Pro)');
   for (const c of none) {
     assert.ok(c.html.includes('sn-phone-card'), `${c.key}: not the one style card (112 × 149)`);
     assert.ok(c.html.includes(`>${c.key === EFFECT_NONE ? 'None' : AMBIENT_EFFECT_LABEL[c.key as keyof typeof AMBIENT_EFFECT_LABEL]}<`), `${c.key}: its name is not under it`);

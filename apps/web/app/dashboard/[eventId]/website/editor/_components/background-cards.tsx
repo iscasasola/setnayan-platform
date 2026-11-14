@@ -366,7 +366,7 @@ export function BgCard({
         <span className="truncate">{name}</span>
         {note ? <small className="shrink-0 text-[12px] font-normal text-ink/75">· {note}</small> : null}
         {pro ? (
-          <span aria-label="Event Hub Pro" className="shrink-0 text-[12px] text-ink/75">
+          <span aria-label="Event Pro" className="shrink-0 text-[12px] text-ink/75">
             ◆
           </span>
         ) : null}

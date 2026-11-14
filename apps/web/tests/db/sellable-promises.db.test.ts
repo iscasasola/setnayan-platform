@@ -118,16 +118,16 @@ test('the Custom Subdomain is not sellable', async () => {
   );
 });
 
-test('the Animated Monogram is sold inside Event Hub Pro — retired on its own, never unsellable', async () => {
-  /* RE-AIMED 2026-10-22 (owner, "Event Hub Pro, part by part", Q2 "yes"): the standalone ₱500 row is retired from sale
+test('the Animated Monogram is sold inside Event Pro — retired on its own, never unsellable', async () => {
+  /* RE-AIMED 2026-10-22 (owner, "Event Pro, part by part", Q2 "yes"): the standalone ₱500 row is retired from sale
      (migration 20271283592608) BECAUSE the animation is now the Logo & QR part — the monogram itself still works and is
      still sold. What would be wrong is the animation with NO way to buy it, so that is what is asserted. */
   const r = await row('ANIMATED_MONOGRAM');
   assert.equal(r!.is_active, false, 'the standalone Animated Monogram is on sale beside the Logo & QR part that replaces it');
-  /* RE-AIMED 2026-10-26 (owner, "just have the upgrade event hub pro"): the Logo & QR part is off sale too — the
-     animation is bought with Event Hub Pro, whole (the monogram page sells Pro in place). Still never unsellable: */
+  /* RE-AIMED 2026-10-26 (owner, "just have the upgrade Event Pro"): the Logo & QR part is off sale too — the
+     animation is bought with Event Pro, whole (the monogram page sells Pro in place). Still never unsellable: */
   const pro = await row('COUPLE_WEBSITE_PRO');
-  assert.equal(pro?.is_active, true, 'the animation cannot be bought at all — Event Hub Pro is off sale');
+  assert.equal(pro?.is_active, true, 'the animation cannot be bought at all — Event Pro is off sale');
 });
 
 test('no live SKU promises the LED stage screen while no file can be made', async () => {
@@ -155,7 +155,7 @@ test('no live SKU promises the LED stage screen while no file can be made', asyn
   );
 });
 
-test('Event Hub Pro does not sell colours — every couple has them free', async () => {
+test('Event Pro does not sell colours — every couple has them free', async () => {
   // Owner 2026-09-28 (DECISION_LOG "WHAT IS FREE VS PRO IN THE EVENT HUB MAKER —
   // REDRAWN"): "free to change design, change text, size, color, background
   // color, only when you start adding themes will it be pro. adding media for
@@ -164,13 +164,13 @@ test('Event Hub Pro does not sell colours — every couple has them free', async
   // selling colours here is charging for something already free.
   const r = await row('COUPLE_WEBSITE_PRO');
   assert.ok(r, 'COUPLE_WEBSITE_PRO is not in the replayed catalog — nothing below would be tested.');
-  assert.equal(r.is_active, true, 'Event Hub Pro went off sale — a copy fix must not withdraw the product.');
+  assert.equal(r.is_active, true, 'Event Pro went off sale — a copy fix must not withdraw the product.');
   const d = r.description ?? '';
   assert.ok(d.length > 100, `the description is nearly empty: "${d}"`);
   assert.doesNotMatch(
     d,
     /\bcolou?rs?\b/i,
-    `Event Hub Pro's description still sells colours, which are free for every couple since 2026-09-28: "${d}"`,
+    `Event Pro's description still sells colours, which are free for every couple since 2026-09-28: "${d}"`,
   );
   // …and it says what Pro adds in their place: media behind a scene or the page.
   assert.match(d, /photo or video behind/i, `the description does not name photo and video backgrounds: "${d}"`);

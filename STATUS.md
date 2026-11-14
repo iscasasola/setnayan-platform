@@ -9,6 +9,45 @@
 > previous picture; every number here was measured on 2026-09-28 and starts rotting at once —
 > re-measure with the command beside it before trusting it.
 
+## Admin People records (build A4) — old page → new home · 2026-11-14
+
+Branch `claude/admin-people` (draft PR, `do-not-auto-merge`; the controller audits and ships). Drawing:
+`Setnayan-specs/prototypes/admin_pub/people.html`.
+
+| Old page / control | New home |
+|---|---|
+| `/admin/users/[id]` › Overview tab (Profile & flags · Events & roles · Entitlements & comps) | People › person › **Profile** · **Events** · **Comps** folds (`?tab=overview` opens Profile) |
+| `/admin/users/[id]` › Money tab (Orders · Logged payments · Refunds) | person › **Orders & payments** fold (`?tab=money`) |
+| `/admin/users/[id]` › Support tab (Help · Disputes · Reports · AI abuse) | person › **Problems** fold (`?tab=support`) |
+| `/admin/users/[id]` › Activity tab | person › **Activity** fold (`?tab=activity`) |
+| `/admin/users/[id]` › Privacy tab (Their data · Who viewed · takeover note) | person › **Access** fold (`?tab=governance`) |
+| Account hold (Suspend / Unsuspend, #7584) | person, under the head — unchanged |
+| Users-list row: Confirm email · Reset password · Force sign-out | person › **Access** (also still on the list's ⋯) |
+| Users-list row: Team toggle · Blacklist · Delete | person › **Flags** (also still on the list's ⋯) |
+| Users-list row: Comp grants (view · revoke · issue) | person › **Comps** (view · revoke); **Give a comp** opens the list's shipped issue panel |
+| Admin actions on the account (was only in the Activity timeline) | person › **Admin log** fold |
+| `/admin/vendors/[id]` Shop facts · demo-shop switch · Edit unclaimed | People › shop, head + facts (unchanged controls) |
+| `/admin/vendors/[id]` Plan / Team / Verification tiles | shop › **Plan** · **Team** · **Verification** folds (doors to `/plan`, `/team`, `/admin/verify`) |
+| `/admin/vendors/[id]` Service cards (`#cards`) | shop › **Services** fold, open with the page — `#cards` still lands |
+| `/admin/vendors/[id]` Payouts | shop › **Money** fold |
+| `/admin/events/[id]` facts · Hosts | People › event, head + facts + Hosts rows |
+| `/admin/events/[id]` Guest list (Reopen) · Face tagging · counts / schedule / scans | event › **Guest list** · **Face tagging** · **Suppliers** folds |
+| `/admin/venues/[id]` VenueForm · Danger zone | People › venue, the form + **Remove** at the bottom |
+| `/admin/accounts` (Accounts list, approved 14 Nov) | unchanged here — owned by #7632 |
+
+**Not done here, on purpose (files held by other open PRs):**
+- `/admin/vendors/[id]/plan` and `/team` stay standalone (doors from the shop's Plan / Team folds) — #7671 and #7677
+  edit them; their forms move into the shop record and the addresses redirect once those land.
+- `/admin/verify` "See their service cards" still points at `/admin/vendors/[id]#cards` (lands on the shop record) —
+  #7624 · #7627 · #7671 edit that file. A Work request card's "Open record" (A1) should link `/admin/vendors/<id>`.
+- `app/admin/users/actions.ts` and `vendors/actions.ts` are edited by #7585, so the moved person actions still land
+  on People › Accounts with their banner, not back on the record.
+- ⚠ `app/admin/users/[userId]/page.tsx` is ALSO edited by #7677 (erased-email display) and #7671 (Manila dates):
+  this branch already carries the Manila-date change; #7677's `displayAccountEmail` must be re-applied on merge.
+- Event force-delete stays on the Events list (its paid-supplier/money reads word the consequence); events-surface is
+  edited by #7677. The drawing's NEW items (View as, Hold, Pause shop, Wipe and ban, People on their events,
+  Memories, shop Scores/Activity) are not built — nothing invented.
+
 **Owner deadline anchor:** December 2026 wedding
 
 ---

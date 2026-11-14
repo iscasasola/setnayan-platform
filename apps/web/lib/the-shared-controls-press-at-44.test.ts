@@ -126,6 +126,22 @@ test('admin Receipts: the "View" link presses at 44 without growing the word', (
   assert.equal(drawnHeight(cls).drawn, 0, 'Receipts "View" was given a drawn height — the fix is the press, never a bigger link');
 });
 
+/*
+ * 📖 THE HUB PRIVACY PAGE'S "Stories" LINK PRESSES AT 44 (walkthrough RW-306, 2026-11-14): the in-sentence link to
+ * the public Stories page was drawn — and pressed — 18 px tall. It wears `.sn-hit` now: the word stays in its line,
+ * its press reaches 46 around it, vertical only (the sentence does not reflow).
+ */
+test('Event Hub privacy: the in-sentence "Stories" link presses at 44 without growing the word', () => {
+  const src = stripComments(read('app/dashboard/[eventId]/website/privacy/page.tsx'));
+  const m = src.match(/href="\/realstories"\s+className="([^"]+)"\s*>\s*Stories\s*</);
+  assert.ok(m, 'the privacy page\'s "Stories" link is gone or no longer reads as one className — the guard cannot see it');
+  const cls = m![1]!;
+  const p = press(cls);
+  assert.ok(p.height >= 44, `privacy "Stories" presses at ${p.height}px — under the 44-px floor (classes: ${cls})`);
+  assert.ok(!p.sideways, 'privacy "Stories": its press bleeds sideways');
+  assert.equal(drawnHeight(cls).drawn, 0, 'privacy "Stories" was given a drawn height — the fix is the press, never a bigger link');
+});
+
 test('the toast’s own buttons (Undo, Try again) press at 44 inside the 48-px pill', () => {
   const src = stripComments(read('app/_components/toast/peek-toast.tsx'));
   const buttons = [...src.matchAll(/<button\b[^>]*className="([^"]+)"/g)].map((m) => m[1]!);
@@ -221,4 +237,18 @@ test('ⓘ every .sn-dot-btn button in app/ presses at 44 × 44', async () => {
   }
   // InfoTip + the schedule's hand-drawn ⓘ and its icon buttons: a count of 0 would mean the scan read nothing.
   assert.ok(n >= 5, `found only ${n} .sn-dot-btn buttons — the scan is not reading the tree`);
+});
+
+/*
+ * 🏷 THE ADMIN WORK LIST'S LANE CHIPS PRESS AT 44 (walkthrough AW-13, 2026-11-14): each lane filter chip
+ * (`LaneChips` in `app/admin/queues/_components/queues-triage-feed.tsx`) was drawn — and pressed — 30 px tall. It wears
+ * `.sn-hit` now: the chip keeps its drawing, its press reaches 46 around it.
+ */
+test('admin Work list: the lane chips press at 44 without growing the chip', () => {
+  const src = stripComments(read('app/admin/queues/_components/queues-triage-feed.tsx'));
+  const m = src.match(/aria-current=\{active \? 'true' : undefined\}\s*className="([^"]+)"/);
+  assert.ok(m, 'the lane chip link is gone or no longer reads as one className — the guard cannot see it');
+  const cls = m![1]!;
+  const p = press(cls);
+  assert.ok(p.height >= 44, `a lane chip presses at ${p.height}px — under the 44-px floor (classes: ${cls})`);
 });

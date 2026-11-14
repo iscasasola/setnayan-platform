@@ -19,8 +19,9 @@ import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { readPapicFreeGrantRead } from '@/lib/papic-tier-config-read';
 import { papicFreeCreditPromise } from '@/lib/papic-free-credit-promise';
 import type { PlanOfferFacts } from './_components/plan-offer';
+import { PLAN_NAME } from '@/lib/plan-buy-doors';
 
-export const metadata = { title: 'Event Hub PRO' };
+export const metadata = { title: 'Event Pro' };
 
 /* Name + promise from the one record every Studio row reads — never a second
    sentence written into this page. Throws rather than rendering a nameless
@@ -30,7 +31,7 @@ const HERO = addOnHeroCopy('website-pro');
 
 /**
  * /dashboard/[eventId]/studio/website-pro — the couple-facing buy surface for
- * Event Hub PRO (the UMBRELLA · owner 2026-07-04). Price is read LIVE from the
+ * Event Pro (the UMBRELLA · owner 2026-07-04). Price is read LIVE from the
  * catalog, never written here. Wires the EXISTING apply-then-pay flow (live
  * catalog price + platform BDO/GCash settings → InlineCheckoutDrawer →
  * submitOrderAction). No new payment mechanics.
@@ -63,7 +64,7 @@ const HERO = addOnHeroCopy('website-pro');
  *   • Active (admin-approved) → "Unlocked" + a link into the website hub.
  *   • Owned but pending → "Payment under review", no second drawer.
  *   • Owned nothing → the working buy drawer.
- * Event Hub PRO is the top tier, so there's no cross-sell line up from it.
+ * Event Pro is the top tier, so there's no cross-sell line up from it.
  */
 
 type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string; then?: string; buy?: string; plan?: string }> };
@@ -80,7 +81,7 @@ const WEBSITE_HUB_HREF = (eventId: string) => `/dashboard/${eventId}/website`;
  * 🔑 THE RULE THAT REPLACED THE OLD BENEFITS LIST is the same rule, made structural: a line may name only something a
  * buyer of THAT part is actually let through — so the lines ARE the gate table (`lib/hub-parts.ts`).
  *
- * ⛔ SOLD WHOLE AGAIN (owner 2026-10-26, "just have the upgrade event hub pro" → "no more by part as well on the
+ * ⛔ SOLD WHOLE AGAIN (owner 2026-10-26, "just have the upgrade Event Pro" → "no more by part as well on the
  * website"): every part's row is off sale, so `onSale` hands no part price and the body sells Everything alone, the
  * parts kept only as the list of what it unlocks (`pro-parts-body.tsx`).
  */
@@ -146,6 +147,8 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
     <ProPartsBody
       eventId={eventId}
       title={HERO.label}
+      // 🏷 The plan's name from its catalogue row (RW-306) — the same read as the prices; unread → the plan list's name.
+      planName={prices?.fullTitle ?? PLAN_NAME.pro}
       back={back}
       fromMaker={fromMaker}
       hubHref={WEBSITE_HUB_HREF(eventId)}

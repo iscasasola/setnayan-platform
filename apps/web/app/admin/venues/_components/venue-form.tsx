@@ -19,7 +19,7 @@ export type VenueFormInitial = {
   source_note: string | null;
 };
 
-const VENUE_TYPE_LABEL: Record<(typeof VENUE_TYPES)[number], string> = {
+export const VENUE_TYPE_LABEL: Record<(typeof VENUE_TYPES)[number], string> = {
   catholic_church: 'Catholic Church',
   christian_church: 'Christian Church',
   inc_chapel: 'INC Chapel',

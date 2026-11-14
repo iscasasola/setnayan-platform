@@ -45,7 +45,7 @@ import { copyStrings } from '@/lib/public-copy-strings';
  *     only as an EVENT TYPE's name, which comes from the database vocabulary,
  *     not from these files — so it can never be a finding here.
  *   · "Animated Monogram" — retired from sale 2026-10-22 (#6781); its
- *     animation is Event Hub Pro's Logo & QR part. /palogo and the home page's
+ *     animation is Event Pro's Logo & QR part. /palogo and the home page's
  *     structured data still sold it by name.
  *   · New roots: the sign-up doors (/open-shop, /signup, /login, the password
  *     pages), /help articles, /download, the /tour walk-through, the front
@@ -103,7 +103,7 @@ const BANNED: ReadonlyArray<[string, RegExp]> = [
   ['website — say "Event Hub" (or "Setnayan page" for a supplier)', /\bweb ?sites?\b/gi],
   ['site — say "Event Hub"', /\b(?:your|our|their|the|event|wedding|invitation|own)\s+sites?\b/gi],
   ['celebration — say "event"', /\bcelebrations?\b/gi],
-  ['Animated Monogram — retired; say Logo Maker / Event Hub Pro’s Logo & QR', /\banimated monograms?\b/gi],
+  ['Animated Monogram — retired; say Logo Maker / Event Pro’s Logo & QR', /\banimated monograms?\b/gi],
 ];
 
 /** Each allowance: the file, the exact phrase it permits, and why that is true. */

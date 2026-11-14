@@ -141,6 +141,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
             tone="neutral"
             icon={<ArrowLeft aria-hidden />}
             label="All groups"
+            className="!h-11"
           />
         }
       />

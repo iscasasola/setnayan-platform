@@ -94,7 +94,8 @@ test('the list is the catalogue’s, in the owner’s order, with nothing off sa
   assert.equal(rows.find((r) => r.kind === 'category')?.buyHref, null);
 
   // No peso figure is typed in the module or the card — every price is the catalogue's.
-  for (const f of [join(HERE, 'vendor-ultra-addons.ts'), join(HERE, '..', 'app/vendor-dashboard/subscription/_components/ultra-addons-card.tsx')]) {
+  // (The Ultra add-ons card was deleted 2026-11-14 — the four "+1" add-ons folded into Ultra's limits.)
+  for (const f of [join(HERE, 'vendor-ultra-addons.ts')]) {
     const src = stripComments(readFileSync(f, 'utf8'));
     assert.doesNotMatch(src, /₱\s?\d|\b(199|990)\b/, `${f} types an add-on price`);
   }

@@ -16677,17 +16677,13 @@
     },
     "/vendor-dashboard/subscription": {
       "files": [
-        "vendor-dashboard/subscription/_components/ai-addon-card.tsx",
         "vendor-dashboard/subscription/_components/badge-upgrades-data.ts",
         "vendor-dashboard/subscription/_components/badge-upgrades-section.tsx",
-        "vendor-dashboard/subscription/_components/booth-addon-card.tsx",
         "vendor-dashboard/subscription/_components/limits-sheet.tsx",
-        "vendor-dashboard/subscription/_components/papic-challenge-card.tsx",
         "vendor-dashboard/subscription/_components/plan-change-notice.tsx",
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
         "vendor-dashboard/subscription/_components/plan-sheet.tsx",
-        "vendor-dashboard/subscription/_components/ultra-addons-card.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/badge-upgrade-actions.ts",
@@ -16707,7 +16703,6 @@
       ],
       "actions": [
         "action",
-        "buyUltraAddOn",
         "cancelScheduledPlanChange",
         "formAction",
         "startSubscriptionPurchase"
@@ -16734,9 +16729,7 @@
         "Link",
         "LockButton",
         "LowerPlanSwitch",
-        "PaidMark",
         "PayRow",
-        "PaymentsPausedNote",
         "PhotoChallengeActionState",
         "PickMenu",
         "PlanChangeNotice",

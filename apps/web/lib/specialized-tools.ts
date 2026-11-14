@@ -63,8 +63,8 @@ export const SPECIALIZED_TOOLS: readonly SpecializedTool[] = [
   { key: 'run_of_show', title: 'Run of show', line: 'Now · Next · Coming, with a countdown', door: { kind: 'per_event' }, hubKeys: ['run_of_show'] },
   { key: 'headcount', title: 'Headcount', line: 'Who is coming, from the RSVPs', door: { kind: 'per_event' }, hubKeys: ['headcount'] },
   { key: 'live_watch', title: 'Live Watch', line: 'The day’s live feed', door: { kind: 'per_event' }, hubKeys: ['live_watch'] },
-  { key: 'papic_challenge', title: 'Papic challenge', line: 'Photo games for the guests', door: { kind: 'page', href: '/vendor-dashboard/subscription#papic-challenge' }, hubKeys: ['papic_camera'] },
-  { key: 'plan_3d', title: '3D plan', line: 'Your booth inside the couple’s 3D plan', door: { kind: 'page', href: '/vendor-dashboard/subscription#booth-addon' }, hubKeys: ['floor_plan', 'tables_and_seating', 'floor_command'] },
+  { key: 'papic_challenge', title: 'Papic challenge', line: 'Photo games for the guests', door: { kind: 'page', href: '/vendor-dashboard/subscription' }, hubKeys: ['papic_camera'] },
+  { key: 'plan_3d', title: '3D plan', line: 'Your booth inside the couple’s 3D plan', door: { kind: 'page', href: '/vendor-dashboard/subscription' }, hubKeys: ['floor_plan', 'tables_and_seating', 'floor_command'] },
 ];
 
 /** The hub tools each of the shop's categories gets, from the one table (labels matched the table's own way). */

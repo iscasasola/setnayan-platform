@@ -14,9 +14,8 @@ import { readFileSync } from 'node:fs';
 import { stripComments } from '@/lib/strip-comments';
 
 const CARDS: Array<[file: string, flag: string]> = [
-  ['app/vendor-dashboard/subscription/_components/ai-addon-card.tsx', 'assistantLive'],
-  ['app/vendor-dashboard/subscription/_components/booth-addon-card.tsx', 'available'],
-  ['app/vendor-dashboard/subscription/_components/papic-challenge-card.tsx', 'available'],
+  // The Plan page's Vendor AI, 3D Booth and Papic Challenges cards were deleted 2026-11-14 ("SIMPLER SUPPLIER PLANS":
+  // they folded into the plans), so they can no longer show a placeholder.
   ['app/vendor-dashboard/_components/instagram-connect-card.tsx', 'configured'],
 ];
 

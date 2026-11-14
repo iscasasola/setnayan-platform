@@ -56,9 +56,6 @@ const APP = dirname(HERE); // app
 const NOT_THE_SWITCH: Record<string, string> = {
   // The plan page itself — it is where a supplier chooses to buy.
   'subscription/actions.ts': 'the Plans checkout — buying is its job',
-  'subscription/_components/ai-addon-card.tsx': 'Vendor AI — a separately sold add-on, on the Plans page',
-  'subscription/_components/booth-addon-card.tsx': '3D Booth — a separately sold add-on, on the Plans page',
-  'subscription/_components/papic-challenge-card.tsx': 'the Plans page cards',
   'subscription/_components/plan-sheet.tsx': 'the Plans page’s own plan rows (Build 5 Lane B) — buying a plan is its job; hiding Upgrade behind the paywall switch would leave the Plan page with nothing to buy',
   'subscription/ai-addon-actions.ts': 'Vendor AI add-on checkout',
   // The gate component: it only ever renders where a caller asked the switch

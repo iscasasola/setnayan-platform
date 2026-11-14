@@ -38,7 +38,7 @@ import {
 const PLAN = '/vendor-dashboard/subscription';
 
 function back(message: string): never {
-  redirect(`${PLAN}?error=${encodeURIComponent(message)}#add-ons`);
+  redirect(`${PLAN}?error=${encodeURIComponent(message)}`);
 }
 
 /** 'SN' + 8 uppercase hex — the seat / branch / couple checkout reference format. */

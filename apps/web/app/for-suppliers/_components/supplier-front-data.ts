@@ -21,7 +21,6 @@ import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_FINDABLE } from './plan-table-data';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
-import { TILE_PARENT } from '@/lib/taxonomy';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
   PORTFOLIO_FREE_BASE,
@@ -87,9 +86,6 @@ export function verifiedSpec(): string {
   return `${reach(TIER_CAPS.verified.serviceRadiusKm)} around you · the Verified seal · get paid in the app`;
 }
 
-/** How many main categories there are (the taxonomy's own parents) — "all 16" when a plan takes every one. */
-export const MAIN_CATEGORY_COUNT = new Set(Object.values(TILE_PARENT)).size;
-
 /**
  * A paid plan's spec line, e.g. Pro: "100 km · 8 categories · 10 service cards each · 3 bookings a day per service, at
  * each branch · 5 team seats · 3 branches · waiting list, 1 a date". A part a plan does not have (Plus's branches,
@@ -99,9 +95,7 @@ export function growSpec(t: GrowTier): string {
   const c: TierCaps = TIER_CAPS[t];
   const parts = [
     reach(c.serviceRadiusKm, 'Nationwide'),
-    c.parentCategories >= MAIN_CATEGORY_COUNT
-      ? `all ${formatCount(MAIN_CATEGORY_COUNT)} categories`
-      : countNoun(c.parentCategories, 'category', 'categories'),
+    countNoun(c.parentCategories, 'category', 'categories'),
     `${countNoun(c.servicesPerLeaf, 'service card', 'service cards')} each`,
     `${countNoun(c.bookingsPerDatePerService, 'booking', 'bookings')} a day per service, at each branch`,
     countNoun(c.agentAccounts, 'team seat', 'team seats'),

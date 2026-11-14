@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1871
-# tables: 501
-# columns: 6083
-# notnull: 3669
+# ledger: 1874
+# tables: 502
+# columns: 6087
+# notnull: 3673
 [ledger]
 20260512000000
 20260513000000
@@ -1882,7 +1882,10 @@
 20271344452857
 20271344488042
 20271344860040
+20271345020514
 20271345227050
+20271345334309
+20271345494976
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -4817,6 +4820,10 @@ nav_slot_override.lucide_name
 nav_slot_override.slot_key
 nav_slot_override.updated_at
 nav_slot_override.updated_by
+notice_closes.close_count
+notice_closes.closed_at
+notice_closes.notice_key
+notice_closes.user_id
 notifications.body
 notifications.created_at
 notifications.event_id
@@ -9710,6 +9717,10 @@ moodboard_theme_templates.updated_at
 nav_slot_override.is_hidden
 nav_slot_override.slot_key
 nav_slot_override.updated_at
+notice_closes.close_count
+notice_closes.closed_at
+notice_closes.notice_key
+notice_closes.user_id
 notifications.created_at
 notifications.notification_id
 notifications.title

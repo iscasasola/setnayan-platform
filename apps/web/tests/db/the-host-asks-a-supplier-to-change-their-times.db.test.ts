@@ -135,8 +135,8 @@ before(async () => {
     const uid = await mkUser(`sup${key}@ask.test`);
     const vp = (
       await db.query<{ vendor_profile_id: string }>(
-        `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-         VALUES ($1,$2,'Manila',ARRAY['catering']::text[],'verified', NOW()) RETURNING vendor_profile_id`,
+        `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+         VALUES ($1,$2,'Manila',ARRAY['catering']::text[],'verified', NOW(), 'verified') RETURNING vendor_profile_id`,
         [uid, `Supplier ${key}`],
       )
     ).rows[0]!.vendor_profile_id;
@@ -162,8 +162,8 @@ before(async () => {
   const unbookedUser = await mkUser('unbooked@ask.test');
   F.vpUnbooked = (
     await db.query<{ vendor_profile_id: string }>(
-      `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-       VALUES ($1,'Not Booked','Manila',ARRAY['catering']::text[],'verified', NOW()) RETURNING vendor_profile_id`,
+      `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+       VALUES ($1,'Not Booked','Manila',ARRAY['catering']::text[],'verified', NOW(), 'verified') RETURNING vendor_profile_id`,
       [unbookedUser],
     )
   ).rows[0]!.vendor_profile_id;

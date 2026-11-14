@@ -69,14 +69,14 @@ async function oldShop(name: string): Promise<{ uid: string; shop: string }> {
   if (!shop) {
     shop = (
       await db.query<{ v: string }>(
-        `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-         VALUES ($1, $2, 'Manila', ARRAY['catering']::text[], 'verified', NOW()) RETURNING vendor_profile_id AS v`,
+        `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+         VALUES ($1, $2, 'Manila', ARRAY['catering']::text[], 'verified', NOW(), 'verified') RETURNING vendor_profile_id AS v`,
         [uid, name],
       )
     ).rows[0]!.v;
   }
   await db.query(`UPDATE public.vendor_profiles
-        SET created_at = now() - interval '30 days', business_name = $2, verification_state = 'verified', last_verified_at = NOW()
+        SET created_at = now() - interval '30 days', business_name = $2, verification_state = 'verified', public_visibility = 'verified', last_verified_at = NOW()
       WHERE vendor_profile_id = $1`,
     [shop, name],);
   return { uid, shop };

@@ -72,8 +72,8 @@ async function newWorld(coordinatorAreas: Record<string, string> = { vendors: 'e
   const coordinator = await newUser('Cora');
   const supplier = await newUser('Sol');
   const shop = (await q<{ v: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, $2, 'Manila', ARRAY['photography']::text[], 'verified', NOW()) RETURNING vendor_profile_id AS v`,
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES ($1, $2, 'Manila', ARRAY['photography']::text[], 'verified', NOW(), 'verified') RETURNING vendor_profile_id AS v`,
     [supplier, `Shop ${uniq()}`]))[0]!.v;
   const eventId = (await q<{ e: string }>(
     `INSERT INTO public.events (display_name, event_type, event_date, event_date_precision)

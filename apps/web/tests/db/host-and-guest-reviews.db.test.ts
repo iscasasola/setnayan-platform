@@ -60,8 +60,8 @@ async function seed(tag: string) {
   const vendorUserId = await user(`gr-vendor-${tag}@example.com`);
   const vp = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles
-       (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, 'Bloom & Co.', 'Manila', ARRAY['florist']::text[], 'verified', NOW())
+       (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES ($1, 'Bloom & Co.', 'Manila', ARRAY['florist']::text[], 'verified', NOW(), 'verified')
      RETURNING vendor_profile_id`,
     [vendorUserId],
   );
@@ -288,8 +288,8 @@ async function secondShop(tag: string, eventId: string, opts: { status: string; 
   const email = `bookings-${tag}@shop2.example.com`;
   const vp = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles
-       (user_id, business_name, location_city, services, verification_state, last_verified_at, contact_email)
-     VALUES ($1, 'Lights & Co.', 'Manila', ARRAY['photographer']::text[], 'verified', NOW(), $2)
+       (user_id, business_name, location_city, services, verification_state, last_verified_at, contact_email, public_visibility)
+     VALUES ($1, 'Lights & Co.', 'Manila', ARRAY['photographer']::text[], 'verified', NOW(), $2, 'verified')
      RETURNING vendor_profile_id`,
     [ownerId, email],
   );

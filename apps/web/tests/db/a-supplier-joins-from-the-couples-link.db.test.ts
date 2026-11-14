@@ -409,7 +409,7 @@ test('8 · a BOOKED non-coordinator supplier never edits or deletes an item that
   const shop = (
     await db.query<{ v: string }>(
       `UPDATE public.vendor_profiles SET business_name = 'Kusina', services = ARRAY['catering']::text[],
-              verification_state = 'verified', last_verified_at = NOW()
+              verification_state = 'verified', public_visibility = 'verified', last_verified_at = NOW()
         WHERE user_id = $1 RETURNING vendor_profile_id AS v`,
       [caterer],
     )
@@ -457,7 +457,7 @@ test('8c · once booked, the coordinator who joined from the link IS the coordin
   // tile 'coordinator', which no shop carries (services_make_a_coordinator).
   await asServer();
   await db.query(
-    `UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = NOW() WHERE vendor_profile_id = $1`,
+    `UPDATE public.vendor_profiles SET verification_state = 'verified', public_visibility = 'verified', last_verified_at = NOW() WHERE vendor_profile_id = $1`,
     [F.coordShop],
   );
   await db.query(`UPDATE public.event_vendors SET status = 'contracted', total_cost_php = 50000 WHERE vendor_id = $1`, [F.rowId]);

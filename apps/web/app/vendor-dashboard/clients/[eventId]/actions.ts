@@ -20,6 +20,7 @@ import { postThreadSystemLine } from '@/lib/chat-system-line.server';
 import { paymentAskedLine } from '@/lib/chat-gap-lines';
 import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
+import { closedDayOfAsk } from '@/lib/closed-day.server';
 import { shortDayWords, waitlistMessage } from '@/lib/day-check';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
@@ -1333,6 +1334,13 @@ export async function vendorAgreeToLock(formData: FormData) {
   // anyway (`a_held_service_takes_no_booking`); this only lets the answer say why instead of "did not go through".
   if (await heldServiceOfAsk(supabase, eventVendorId)) {
     redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=service_on_hold`);
+  }
+
+  // ⬜ A DAY YOU CLOSED TAKES NO BOOKING (owner 2026-11-14, "Grey: no ask, no book" — `lib/closed-day.server.ts`). The
+  // couple's ask is refused on it too; this catches an ask made before the day was closed. The same closed-day source
+  // the date sheet reads. Before the RPC: nothing booked, no fee minted. Fails open on a read error.
+  if ((await closedDayOfAsk(supabase, eventVendorId)) === 'closed') {
+    redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=day_closed`);
   }
 
   // 💸 THE CARRY-OVER (owner 2026-11-12, booking-fee top-up rule 4): while a top-up from another booking is OVERDUE

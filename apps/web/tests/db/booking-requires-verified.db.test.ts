@@ -238,14 +238,14 @@ test('a VERIFIED shop that an admin ARCHIVED cannot be locked', async () => {
   assert.match(String(err), /vendor_not_verified: .*reason=not_listed/);
 });
 
-test('KNOWN GAP, pinned: the DB still lets an admin-HIDDEN verified shop lock (the app gate refuses it)', async () => {
-  // 20271335513615's header: 'hidden' is the column default and ~90 DB fixtures seed verified shops at it.
-  // When the shared fixture lands and the trigger refuses 'hidden', flip this assertion — do not delete it.
+test('an admin-HIDDEN verified shop cannot be locked either — the gap is closed (owner 2026-11-14, "Yes, block them")', async () => {
+  // This was pinned as a KNOWN GAP (20271335513615): the DB let a hidden verified shop lock while the app refused it.
+  // 20271346561709 refuses every shop that is not listed; the fixtures list their verified shops, as /admin/verify does.
   const event = await newEvent();
   const vendor = await newVendor('vis-hidden@bookgate.test', 'verified');
   await db.query(`UPDATE public.vendor_profiles SET public_visibility = 'hidden' WHERE vendor_profile_id = $1`, [vendor]);
   const err = await tryInsertVendor(event, { marketplaceVendorId: vendor, status: 'contracted' });
-  assert.equal(err, null);
+  assert.match(String(err), /vendor_not_verified: .*reason=not_listed/);
 });
 
 test('a VERIFIED shop under a fraud SUSPEND cannot be locked (INSERT and UPDATE)', async () => {

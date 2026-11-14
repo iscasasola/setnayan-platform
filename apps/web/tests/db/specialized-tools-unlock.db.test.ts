@@ -59,9 +59,10 @@ async function newShop(a: ShopArgs = {}): Promise<{ vpid: string; ownerId: strin
   const v = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles
        (user_id, business_name, location_city, services, verification_state, last_verified_at,
-        tier_state, tier_expires_at, registration_number_raw)
+        tier_state, tier_expires_at, registration_number_raw, public_visibility)
      VALUES ($1, $2, 'Manila', ARRAY['photography']::text[], $3::vendor_verification_state, NOW(),
-             $4::vendor_tier_state, $5, $6)
+             $4::vendor_tier_state, $5, $6,
+             (CASE WHEN $3 = 'verified' THEN 'verified' ELSE 'hidden' END)::public.vendor_public_visibility)
      RETURNING vendor_profile_id`,
     [
       ownerId,

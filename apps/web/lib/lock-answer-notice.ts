@@ -181,6 +181,13 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
     text: 'A booking fee top-up from a past event is still unsettled, so a new booking cannot be accepted yet. Settle it and this booking can go through — your conversation with the couple stays open.',
     door: { label: 'Booking fees', href: '/vendor-dashboard/booking-fees' },
   }),
+  // ⬜ The ask's day is one the shop CLOSED on its calendar (owner 2026-11-14, "Grey: no ask, no book") — said by the
+  // app before the RPC (`closedDayOfAsk`). The ask may predate the closure; the couple is not booked.
+  day_closed: () => ({
+    tone: 'refused',
+    text: 'You closed this date on your calendar, so this booking cannot be taken. Open the date again in Dates if you can take it, or turn this one down so the couple can look elsewhere.',
+    door: { label: 'Dates', href: '/vendor-dashboard/customers?seg=dates' },
+  }),
   hall_taken: (ctx) => {
     const taken = ctx.halls?.taken ?? [];
     const free = ctx.halls?.free ?? [];

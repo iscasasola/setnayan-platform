@@ -71,8 +71,8 @@ const W = { couple: '', guest: '', florist: '', stylist: '', stranger: '', event
 async function shop(email: string, name: string, services: string[], book: boolean): Promise<{ owner: string; booking: string | null }> {
   const owner = await newUser(email);
   const vp = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, $2, 'Manila', $3::text[], 'verified', NOW()) RETURNING vendor_profile_id`,
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES ($1, $2, 'Manila', $3::text[], 'verified', NOW(), 'verified') RETURNING vendor_profile_id`,
     [owner, name, services],
   );
   if (!book) return { owner, booking: null };

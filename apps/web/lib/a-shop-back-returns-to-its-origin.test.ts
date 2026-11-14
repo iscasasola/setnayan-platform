@@ -43,19 +43,21 @@ test('Home / Discover only on a cold open', () => {
 
 test('the eight doors that sent no origin now send one', () => {
   const doors: Array<[string, RegExp]> = [
-    ['app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx', /<ShopLink\s+slug=\{vendorProfileSlug\}\s+hash="#reviews"/],
-    ['app/dashboard/[eventId]/_components/day-of-mode/get-help-card.tsx', /<ShopLink\s+slug=\{href\}/],
-    ['app/[slug]/_components/hub-suppliers-made-this-day.tsx', /<ShopLink slug=\{v\.businessSlug\}/],
-    ['app/_components/plan3d/booth-vendor-card.tsx', /<ShopLink\s+slug=\{vendor\.slug\}/],
-    ['app/dashboard/[eventId]/studio/mood-board/_components/gallery-picker.tsx', /href=\{shopHrefFrom\(asset\.shopSlug, pathname\)\}/],
+    ['app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx', /<ShopLink\s+href=\{`\/v\/\$\{vendorProfileSlug\}#reviews`\}/],
+    ['app/dashboard/[eventId]/_components/day-of-mode/get-help-card.tsx', /<ShopLink\s+href=\{href\}/],
+    ['app/[slug]/_components/hub-suppliers-made-this-day.tsx', /<ShopLink href=\{`\/v\/\$\{v\.businessSlug\}`\}/],
+    ['app/_components/plan3d/booth-vendor-card.tsx', /<ShopLink\s+href=\{`\/v\/\$\{vendor\.slug\}`\}/],
+    ['app/dashboard/[eventId]/studio/mood-board/_components/gallery-picker.tsx', /<ShopLink\s+href=\{`\/v\/\$\{asset\.shopSlug\}`\}/],
     ['app/dashboard/(account)/library/_components/saved-vendor-card.tsx', /<Link href=\{`\/v\/\$\{vendor\.businessSlug\}\?src=favorites`\} className="block">/],
-    ['app/u/[userSlug]/page.tsx', /<ShopLink slug=\{v\.slug\} className="uprof-inf-card">/],
-    ['app/dashboard/(account)/creator/page.tsx', /<ShopLink slug=\{o\.vendorSlug\}/],
+    ['app/u/[userSlug]/page.tsx', /<ShopLink href=\{`\/v\/\$\{v\.slug\}`\} className="uprof-inf-card">/],
+    ['app/dashboard/(account)/creator/page.tsx', /<ShopLink href=\{`\/v\/\$\{o\.vendorSlug\}`\}/],
   ];
   for (const [f, re] of doors) {
     const src = code(f);
     assert.match(src, re, `${f}: the door into the shop sends no origin again`);
-    assert.doesNotMatch(src, /href=\{`\/v\/\$\{[\w.]+\}`\}/, `${f}: a bare /v/<slug> link is back`);
+    // A plain <Link>/<a> with a bare shop address (no origin) — `ShopLink` takes the same literal address on purpose,
+    // so the route map still sees the door.
+    assert.doesNotMatch(src, /<(?:Link|a)\s+href=\{`\/v\/\$\{[\w.]+\}`\}/, `${f}: a bare /v/<slug> link is back`);
   }
   // The shop page reads both new halves of the arrival.
   assert.match(code('app/v/[slug]/page.tsx'), /q: arrivalParams\(search\)\.q, from: arrivalParams\(search\)\.from \}/);

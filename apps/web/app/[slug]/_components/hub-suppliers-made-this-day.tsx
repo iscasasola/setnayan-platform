@@ -71,7 +71,7 @@ export function HubSuppliersMadeThisDay({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] font-semibold text-ink">
                   {v.businessSlug ? (
-                    <ShopLink slug={v.businessSlug} className="hover:text-terracotta">
+                    <ShopLink href={`/v/${v.businessSlug}`} className="hover:text-terracotta">
                       {v.displayName}
                     </ShopLink>
                   ) : (

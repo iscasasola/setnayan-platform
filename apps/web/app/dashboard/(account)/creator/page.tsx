@@ -325,7 +325,7 @@ function OfferInbox({
               <div className="min-w-0 space-y-1">
                 <p className="text-sm font-semibold text-ink">
                   {o.vendorSlug ? (
-                    <ShopLink slug={o.vendorSlug} className="hover:underline">
+                    <ShopLink href={`/v/${o.vendorSlug}`} className="hover:underline">
                       {o.vendorName}
                     </ShopLink>
                   ) : (

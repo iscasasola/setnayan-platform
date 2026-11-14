@@ -961,7 +961,7 @@ function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
       <ul className="uprof-inf-list">
         {vendors.map((v) => (
           <li key={v.slug}>
-            <ShopLink slug={v.slug} className="uprof-inf-card">
+            <ShopLink href={`/v/${v.slug}`} className="uprof-inf-card">
               {v.logoUrl ? (
                 <span className="uprof-inf-logo">
                   {/* eslint-disable-next-line @next/next/no-img-element */}

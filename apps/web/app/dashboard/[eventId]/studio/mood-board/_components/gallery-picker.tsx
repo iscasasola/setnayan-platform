@@ -29,8 +29,7 @@
  */
 
 import { useCallback, useEffect, useId, useState, useTransition } from 'react';
-import { usePathname } from 'next/navigation';
-import { shopHrefFrom } from '@/app/_components/shop-link';
+import { ShopLink } from '@/app/_components/shop-link';
 import { Check, ImageOff, Search, Sparkles } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import type { GalleryAsset, GalleryPage } from '@/lib/moodboard-gallery';
@@ -97,7 +96,6 @@ export function GalleryPicker({
   studio,
 }: GalleryPickerProps) {
   /* 🔍 Studio's filters — the words settle for a moment before they are asked. */
-  const pathname = usePathname();
   const [typed, setTyped] = useState('');
   const [q, setQ] = useState('');
   const [from, setFrom] = useState<GalleryFromKey>('everyone');
@@ -376,15 +374,15 @@ export function GalleryPicker({
               </button>
               {/* 🛍 Shop › — the photo's shop, in its own tab so the Maker stays where it is. */}
               {studio && asset.shopSlug ? (
-                <a
-                  href={shopHrefFrom(asset.shopSlug, pathname)}
+                <ShopLink
+                  href={`/v/${asset.shopSlug}`}
                   target="_blank"
                   rel="noopener"
                   className="sn-press inline-flex min-h-9 w-full items-center justify-center rounded-full px-3 text-[11px] font-semibold text-ink/70 hover:bg-ink/5"
                   data-gallery-shop=""
                 >
                   Shop ›
-                </a>
+                </ShopLink>
               ) : null}
             </li>
           );
@@ -405,9 +403,9 @@ export function GalleryPicker({
                 <dt className="w-28 flex-none text-ink/55">From</dt>
                 <dd className="min-w-0 text-ink">
                   {opened.shopSlug ? (
-                    <a href={shopHrefFrom(opened.shopSlug, pathname)} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
+                    <ShopLink href={`/v/${opened.shopSlug}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
                       {opened.credit} ›
-                    </a>
+                    </ShopLink>
                   ) : (
                     opened.credit
                   )}
@@ -418,9 +416,9 @@ export function GalleryPicker({
                   <dt className="w-28 flex-none text-ink/55">From this event</dt>
                   <dd className="min-w-0 text-ink">
                     {opened.shopSlug ? (
-                      <a href={shopHrefFrom(opened.shopSlug, pathname)} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
+                      <ShopLink href={`/v/${opened.shopSlug}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
                         {opened.eventLine} ›
-                      </a>
+                      </ShopLink>
                     ) : (
                       opened.eventLine
                     )}

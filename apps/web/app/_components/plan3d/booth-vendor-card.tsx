@@ -149,7 +149,7 @@ export function BoothVendorCard({
           {/* Marketplace profile CTA — new tab so the 3D scene keeps running. */}
           {vendor?.slug ? (
             <ShopLink
-              slug={vendor.slug}
+              href={`/v/${vendor.slug}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded-full border border-ink/15 px-5 py-3 text-sm font-medium text-ink transition-colors hover:bg-ink/5"

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
@@ -447,7 +448,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
 
   return (
     <div className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6">
-      <RecordBack href="/admin/users" label="All users" />
+      <RecordBack href="/admin/accounts?tab=users" label="All users" />
       {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME. The visible name is the RECORD; only its
           `<h1>` moves to the masthead, which carries the same words at zero pixels. */}
       <PageMasthead titleNode={displayName} />
@@ -598,9 +599,9 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
           <RecordSection
             label={`Orders (${ordersUnread ? '—' : formatCount((orders ?? []).length)})`}
             right={
-              <a href="/admin/payments" className="font-semibold text-mulberry underline-offset-2 hover:underline">
+              <Link href="/admin/payments" className="font-semibold text-mulberry underline-offset-2 hover:underline">
                 Reconcile in Payments ›
-              </a>
+              </Link>
             }
           >
             {ordersUnread ? (
@@ -1051,9 +1052,9 @@ function SupportSection({
     <RecordSection
       label={`${title} (${loadFailed ? '—' : formatCount(count)})`}
       right={
-        <a href={href} className="font-semibold text-mulberry underline-offset-2 hover:underline">
+        <Link href={href} className="font-semibold text-mulberry underline-offset-2 hover:underline">
           {hrefLabel} ›
-        </a>
+        </Link>
       }
     >
       {loadFailed ? (

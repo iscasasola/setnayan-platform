@@ -197,7 +197,7 @@ function Event({ fail }: { fail: boolean }) {
         <RecordFold title="Face tagging" summary="Off · running: no">
           <ActionButton tone="neutral" icon={<ScanFace aria-hidden strokeWidth={1.9} />} label="Turn on" type="button" />
         </RecordFold>
-        <RecordFold title="Suppliers" summary="4 booked"><RecordRows><RecordRow title="Lumina Studio" line="Locked since Nov 10 · Where: Preparation" /></RecordRows></RecordFold>
+        <RecordFold title="Suppliers" summary="4 booked"><RecordRows><RecordRow title="Lumina Studio" line="Not taking changes since Nov 10 · Where: Preparation" /></RecordRows></RecordFold>
       </RecordFolds>
     </main>
   );

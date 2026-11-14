@@ -38,7 +38,7 @@ export function ContactShortlistVendorButton({
   ariaLabel,
   className = 'inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-mulberry/30 bg-mulberry/5 px-3 py-2 text-[12.5px] font-semibold text-mulberry transition-colors hover:bg-mulberry/10 disabled:opacity-60',
   wrapperClassName = 'mt-2',
-  errorClassName = 'mt-1 text-[11px] text-danger-700',
+  errorClassName = 'mt-1 text-[12px] text-danger-700',
 }: {
   eventId: string;
   /** event_vendors.vendor_id — the couple's shortlist row for this vendor.

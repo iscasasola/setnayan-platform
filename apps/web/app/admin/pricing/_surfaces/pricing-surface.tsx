@@ -125,7 +125,7 @@ const VENDOR_OFFERING_LABEL: Record<VendorOfferingType, string> = {
   seat: 'Add-on · +1 team seat (Supplier Ultra)',
   custom_addon: 'Custom plan part',
   vendor_addon_recurring: 'Add-on · every 4 weeks',
-  vendor_addon_per_event: 'Add-on · per celebration',
+  vendor_addon_per_event: 'Add-on · per event',
   vendor_addon_metered: 'Add-on · per use',
   // Ultra add-ons, owner 2026-11-06 ("ULTRA ADD-ON PRICES").
   category: 'Add-on · +1 category (Supplier Ultra)',

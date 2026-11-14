@@ -726,7 +726,7 @@ function BuildLineRow({
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3" data-build-line={line.tile} data-booked={line.booked ? '' : undefined}>
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink/55">
           {line.label}
           {line.booked ? ' · booked' : ''}
         </p>

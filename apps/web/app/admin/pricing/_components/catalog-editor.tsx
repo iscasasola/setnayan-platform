@@ -160,7 +160,7 @@ function pesoShort(n: number): string {
 
 const BILLING_LABEL: Record<string, string> = {
   one_time: 'Once',
-  per_day: 'Per day of the celebration',
+  per_day: 'Per day of the event',
   per_year: 'Per year',
   per_28d: 'Every 28 days',
 };
@@ -632,7 +632,7 @@ function RowCard(props: {
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-semibold leading-snug text-ink">{row.title}</span>
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
-            <code className="font-mono text-[10px] uppercase tracking-[0.13em] text-ink/50">{row.code}</code>
+            {/* ✂ F-A-14 (admin walk 13 Nov 2026): the SKU code is not drawn — the title names the product. */}
             {tag}
             {row.replacedByCode && <Tag>Replaced by {row.replacedByCode}</Tag>}
           </span>

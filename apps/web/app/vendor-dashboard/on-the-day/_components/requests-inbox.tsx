@@ -17,7 +17,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
-import { AlertTriangle, Check, Inbox, Loader2, Plus, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Check, Plus, RefreshCw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 
 import {
   countsAsOpenWork,
@@ -36,7 +39,6 @@ import {
   setDayRequestStatus,
   submitDayRequest,
 } from '../actions';
-import { shopEmptyInlineClass } from '../../_components/kit';
 
 type Props = {
   eventId: string;
@@ -44,11 +46,12 @@ type Props = {
   side: 'coordinator' | 'vendor';
 };
 
+/** Which lane raised it — a soft fill per lane, words in full strength (gold stays a fill, never small words). */
 const LANE_TONE: Record<string, string> = {
-  couple: 'bg-terracotta/10 text-terracotta-700',
-  vendor: 'bg-ink/10 text-ink/70',
-  host: 'bg-success-500/10 text-success-600',
-  coordinator: 'bg-warn-600/10 text-warn-600',
+  couple: 'bg-terracotta/10 text-ink',
+  vendor: 'bg-ink/10 text-ink',
+  host: 'bg-success-500/10 text-success-700',
+  coordinator: 'bg-warn-600/10 text-warn-700',
 };
 
 export function RequestsInbox({ eventId, initialRows, side }: Props) {
@@ -116,44 +119,41 @@ export function RequestsInbox({ eventId, initialRows, side }: Props) {
   }
 
   return (
-    <div className="sn-tile p-4 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="flex items-center gap-2 text-base font-semibold">
-          <Inbox aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          {canTriageHere ? 'Requests inbox' : 'Your reports'}
-        </h3>
+    <section>
+      <div className="flex items-center justify-between gap-3">
+        <InfoTip
+          label={canTriageHere ? 'Requests inbox' : 'Your reports'}
+          labelAs="h3"
+          labelClassName="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]"
+        >
+          {canTriageHere
+            ? 'Everything raised on the day — by the couple, the hosts, your suppliers, or you. Tap an item to move it from open to seen to done.'
+            : 'What you have reported to the coordinator today. They clear each one as it is handled.'}
+        </InfoTip>
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            {summary.openWork} open
-          </span>
-          <button
-            type="button"
+          <Badge tone={summary.openWork > 0 ? 'wait' : 'quiet'}>{summary.openWork} open</Badge>
+          <ActionButton
+            tone="neutral"
+            iconOnly
+            icon={RefreshCw}
+            label="Refresh"
+            waiting={refreshing}
             onClick={() => void refresh()}
-            aria-label="Refresh"
-            className="rounded-md p-1.5 text-ink/40 transition hover:bg-ink/5 hover:text-ink/70"
-          >
-            {refreshing ? (
-              <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-            ) : (
-              <RefreshCw aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            )}
-          </button>
+          />
         </div>
       </div>
 
-      <p className="mt-2 text-sm text-ink/65">
-        {canTriageHere
-          ? 'Everything raised on the day — by the couple, the hosts, your suppliers, or you. Tap an item to move it from open to seen to done.'
-          : 'What you have reported to the coordinator today. They clear each one as it is handled.'}
-      </p>
+      {canTriageHere ? (
+        <p className="mt-1 text-sm text-[color:var(--m-slate-2)]">Tap the box to move an item to seen, then done.</p>
+      ) : null}
 
       {error ? (
-        <p role="alert" className="mt-3 rounded-lg bg-warn-600/10 px-3 py-2 text-sm text-warn-600">
+        <p role="alert" className="mt-3 rounded-lg bg-warn-600/10 px-3 py-2 text-sm text-warn-700">
           {error}
         </p>
       ) : null}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex items-center gap-2">
         <input
           type="text"
           value={draft}
@@ -166,47 +166,47 @@ export function RequestsInbox({ eventId, initialRows, side }: Props) {
           }}
           maxLength={DAY_REQUEST_BODY_MAX}
           placeholder={canTriageHere ? 'Log an issue…' : 'Report something to the coordinator…'}
-          className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+          className="min-h-12 min-w-0 flex-1 rounded-lg border border-[color:var(--m-line)] bg-white px-3 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta dark:bg-raised"
         />
-        <button
-          type="button"
-          onClick={add}
+        <ActionButton
+          tone="brand"
+          main
+          icon={Plus}
+          label="Log"
           disabled={pending || !draft.trim()}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-sm font-medium text-cream transition hover:bg-ink/90 disabled:opacity-40"
-        >
-          <Plus aria-hidden className="h-4 w-4" strokeWidth={2} /> Log
-        </button>
+          onClick={add}
+        />
       </div>
 
-      <ul className="mt-4 space-y-1.5">
+      <ul className="mt-3 divide-y divide-[color:var(--m-line)]">
         {ordered.length === 0 ? (
-          <li className={shopEmptyInlineClass}>
-            All clear — nothing logged yet.
-          </li>
+          <li className="py-3 text-sm text-[color:var(--m-slate-2)]">All clear — nothing logged yet.</li>
         ) : (
           ordered.map((row) => {
             const done = row.status === 'resolved';
             const isWork = countsAsOpenWork(row);
             const preset = presetByKey(row.preset_key);
             return (
-              <li
-                key={row.request_id}
-                className="flex items-start gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
-              >
+              <li key={row.request_id} className="flex min-h-14 items-start gap-3 py-2.5">
                 {canTriageHere ? (
+                  // The box is drawn 24 px; the button around it presses at 44.
                   <button
                     type="button"
                     onClick={() => advance(row)}
                     aria-label={`Mark ${statusLabel(nextStatus(row.status)).toLowerCase()}`}
-                    className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition ${
-                      done
-                        ? 'border-success-400 bg-success-500 text-white'
-                        : row.status === 'acknowledged'
-                          ? 'border-terracotta bg-terracotta/15 text-terracotta-700'
-                          : 'border-ink/25 bg-white text-transparent hover:border-terracotta'
-                    }`}
+                    className="-my-2.5 -ml-2.5 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center"
                   >
-                    <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+                    <span
+                      className={`inline-flex size-6 items-center justify-center rounded-md border transition duration-sn-micro ease-sn ${
+                        done
+                          ? 'border-success-400 bg-success-500 text-white'
+                          : row.status === 'acknowledged'
+                            ? 'border-terracotta bg-terracotta/15 text-ink'
+                            : 'border-[color:var(--m-line)] bg-white text-transparent hover:border-terracotta dark:bg-raised'
+                      }`}
+                    >
+                      <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+                    </span>
                   </button>
                 ) : (
                   <span
@@ -219,28 +219,28 @@ export function RequestsInbox({ eventId, initialRows, side }: Props) {
 
                 <span className="min-w-0 flex-1">
                   <span
-                    className={`block text-sm ${done ? 'text-ink/40 line-through' : 'text-ink/80'}`}
+                    className={`block text-sm ${done ? 'text-[color:var(--m-slate-2)] line-through' : 'font-medium text-ink'}`}
                   >
                     {row.body}
                   </span>
                   <span className="mt-1 flex flex-wrap items-center gap-1.5">
                     <span
-                      className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                        LANE_TONE[row.origin] ?? 'bg-ink/10 text-ink/70'
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        LANE_TONE[row.origin] ?? 'bg-ink/10 text-ink'
                       }`}
                     >
                       {laneLabel(row.origin)}
                     </span>
                     {preset ? (
-                      <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                      <span className="rounded-full bg-ink/5 px-2 py-0.5 text-xs text-[color:var(--m-slate-2)]">
                         {preset.label}
                       </span>
                     ) : null}
                     {!isWork && !done ? (
-                      <span className="text-[11px] text-ink/40">status update</span>
+                      <span className="text-xs text-[color:var(--m-slate-2)]">status update</span>
                     ) : null}
                     {row.status !== 'open' ? (
-                      <span className="text-[11px] text-ink/45">{statusLabel(row.status)}</span>
+                      <span className="text-xs text-[color:var(--m-slate-2)]">{statusLabel(row.status)}</span>
                     ) : null}
                   </span>
                 </span>
@@ -257,6 +257,6 @@ export function RequestsInbox({ eventId, initialRows, side }: Props) {
           })
         )}
       </ul>
-    </div>
+    </section>
   );
 }

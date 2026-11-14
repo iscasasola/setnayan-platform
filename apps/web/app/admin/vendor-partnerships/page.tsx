@@ -8,7 +8,7 @@ import { rejectPartnership, createPartnershipHq } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-export const metadata = { title: 'Supplier Partnerships · Admin' };
+export const metadata = { title: 'Supplier partnerships · Admin' };
 
 type SearchParams = {
   rejected?: string;

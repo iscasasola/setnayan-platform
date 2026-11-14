@@ -20,6 +20,7 @@
  * users + enforcement actions remain valid for audit + appeal.
  */
 
+import { displayAccountEmail } from '@/lib/erasure/display-email';
 import { AlertTriangle, ShieldAlert, ShieldCheck, Users as UsersIcon } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -320,7 +321,7 @@ function QueueTab({
                   {flaggedUser?.display_name ?? flaggedUser?.email ?? f.flagged_user_id.slice(0, 8)}
                 </h2>
                 {flaggedUser?.email ? (
-                  <p className="text-xs text-ink/55">{flaggedUser.email}</p>
+                  <p className="text-xs text-ink/55">{displayAccountEmail(flaggedUser.email)}</p>
                 ) : null}
                 <StrikePill
                   count={flaggedUser?.concierge_abuse_strike_count ?? 0}
@@ -416,7 +417,7 @@ function EnforcementTab({ users }: { users: UserBrief[] }) {
               <h2 className="text-lg font-semibold tracking-tight text-ink">
                 {u.display_name ?? u.email ?? u.user_id.slice(0, 8)}
               </h2>
-              {u.email ? <p className="text-xs text-ink/55">{u.email}</p> : null}
+              {u.email ? <p className="text-xs text-ink/55">{displayAccountEmail(u.email)}</p> : null}
               {u.phone ? <p className="text-xs text-ink/55">Phone: {u.phone}</p> : null}
               <StrikePill count={u.concierge_abuse_strike_count} level={u.concierge_enforcement_level} />
               {u.concierge_enforcement_at ? (
@@ -544,7 +545,7 @@ function MatchedAccounts({ users }: { users: UserBrief[] }) {
             <span className="font-medium text-ink">
               {u.display_name ?? u.email ?? u.user_id.slice(0, 8)}
             </span>
-            {u.email ? <span className="text-ink/55">{u.email}</span> : null}
+            {u.email ? <span className="text-ink/55">{displayAccountEmail(u.email)}</span> : null}
             <StrikePill count={u.concierge_abuse_strike_count} level={u.concierge_enforcement_level} />
           </li>
         ))}

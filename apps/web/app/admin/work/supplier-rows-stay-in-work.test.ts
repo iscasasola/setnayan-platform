@@ -81,7 +81,7 @@ test('2 · a decline / needs-a-fix without a reason from the list is refused BEF
   assert.match(v, /decision === 'needs_fix' && !reason\)\s*\{\s*redirect\(workBackHref\(back, 'refused'/);
 
   const c = bodyOf(WORK, 'settleCorrectionFromWorkList');
-  const refuse = c.indexOf("decision === 'decline' && !pickedReason('names'");
+  const refuse = c.indexOf("decision === 'decline' && !pickedCorrectionReason(");
   assert.ok(refuse > 0 && refuse < c.indexOf('settleViaRedirectingAction('), 'the correction decline no longer refuses first');
 
   const r = bodyOf(REPOST, 'resolveRepostFlag');

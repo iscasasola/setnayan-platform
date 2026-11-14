@@ -114,6 +114,17 @@ function badgeColor(dueState?: AdminQueueDueState): string {
   return '#8A6A2E';
 }
 
+/**
+ * The Work address a card press returns to, with THIS row still open — the toggle link of an open row is its CLOSE
+ * link, so a press used to fold the queue shut and the next card (or the refusal beside it) went out of sight.
+ */
+function stayOpen(href: string, key: string): string {
+  const [path, query = ''] = href.split('?');
+  const p = new URLSearchParams(query);
+  p.set('open', key);
+  return `${path}?${p.toString()}`;
+}
+
 function TriageRow({
   item,
   toggleHref,
@@ -203,7 +214,8 @@ function TriageRow({
           peek={item.peek}
           href={item.href}
           label={item.label}
-          backTo={toggleHref ?? '/admin/work'}
+          backTo={stayOpen(toggleHref ?? '/admin/work', item.key)}
+          late={item.dueState === 'overdue'}
         />
       ) : null}
     </li>
@@ -358,6 +370,10 @@ const SETTLE_NOTICES: Record<string, { tone: 'warn' | 'ok'; headline: string }> 
   'sent-back': { tone: 'ok', headline: 'Sent back with the reason — the shop sees it on its setup' },
   declined: { tone: 'ok', headline: 'Declined with the reason — the shop is told in the app' },
   'type-added': { tone: 'ok', headline: 'Event type added' },
+  /* ➕ ADMIN REQUEST CARDS (owner 2026-11-14) — the card's new second buttons, each said. */
+  asked: { tone: 'ok', headline: 'Asked for a clearer photo — they are told and can send it again' },
+  kept: { tone: 'ok', headline: 'Kept held — the reason is on the record' },
+  'declined-request': { tone: 'ok', headline: 'Turned down — your colleague sees why' },
   replied: { tone: 'ok', headline: 'Reply sent — they see it in the app' },
 };
 

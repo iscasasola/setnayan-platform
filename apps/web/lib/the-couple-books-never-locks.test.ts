@@ -29,6 +29,8 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'app/vendor-dashboard/', why: 'the supplier app — the supplier side keeps its own word (owner d19)' },
   { prefix: 'app/vendor/', why: 'supplier claim / lock-by-token pages — read by the supplier, not the couple' },
   { prefix: 'app/for-suppliers/', why: 'supplier-facing marketing — the supplier side keeps its own word' },
+  { prefix: 'app/dashboard/[eventId]/launch/_components/stage-panel/tool-lock.tsx', why: "the Maker's locked TAB (🔒 Problem → Solution, Maker Edit shell approved 2026-11-13) — a tool with nothing to set, not a booking" },
+  { prefix: 'lib/help.ts', text: /Why does a tab in the Maker show a lock\?|A tab with a 🔒 has nothing to set on that part/, why: "the Maker's locked TAB's help answer (Maker Edit shell approved 2026-11-13) — not a booking" },
   { prefix: 'app/_components/lock/locked-feature.tsx', why: "supplier plan-feature lock, not a couple booking — owner 10 Nov 'Every lock shows Problem → Solution'" },
   { prefix: 'app/_components/proposal-maker.tsx', why: "the supplier's quote builder — supplier side" },
   { prefix: 'app/_components/chat-amendment-card.tsx', text: /Waiting for the couple to lock/, why: 'the supplier’s view of the same card; the couple’s button reads "Book this deal"' },

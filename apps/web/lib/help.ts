@@ -542,6 +542,20 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'Classic, Modern and Cyber Neon are free themes; every other theme, and every effect marked ◆, comes with Event Pro. Try any of them in your draft — only you see it. When you press Apply, the sheet lists each Pro effect and where it is: tap one to open it, or × to take it off. Unlock Pro and Apply puts everything live with Event Pro; Apply without the Pro effects puts the rest live and keeps the Pro ones in your draft. Event Pro comes whole, not part by part, and what you paid for Event Plus counts toward it; Event Ultra includes everything in Event Pro, and moving up to it you pay only the difference. Its price is on setnayan.com/pricing.',
       },
       {
+        // 🔒 The Maker Edit shell's locked tabs (owner-approved 2026-11-13, "maker shell approved").
+        slug: 'maker-locked-tab',
+        title: 'Why does a tab in the Maker show a lock?',
+        appBody: HELP_NOT_IN_THE_APP,
+        body: 'In the Event Hub Maker every part has the same four tabs: Edit, Style, Background and Animate. A tab with a 🔒 has nothing to set on that part. Tap it anyway: the rows say the problem and where it is set instead — a line on the cover takes its background from the Cover Scene, and one tap selects it. The camera keeps one style for every guest, so its Style is locked too.',
+      },
+      {
+        // 📅 The Maker's date Edit (Maker Edit shell, owner-approved 2026-11-13).
+        slug: 'maker-event-date',
+        title: 'Change the event date from the Maker',
+        appBody: HELP_NOT_IN_THE_APP,
+        body: 'In the Event Hub Maker, tap the Countdown or the date on the cover. Edit shows your event date — or "Not final yet" and the dates you are weighing. Change date (or Pick your final date) opens the same date sheet as Suppliers, so your suppliers and Home follow the one date.',
+      },
+      {
         slug: 'monogram',
         title: 'Customize the QR monogram',
         appBody: 'Every guest’s QR code carries a mark in its centre and opens their own invitation. You will find it in Hub, under Event Details › QR code.',

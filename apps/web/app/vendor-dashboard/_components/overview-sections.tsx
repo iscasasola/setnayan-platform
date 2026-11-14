@@ -1294,12 +1294,6 @@ function MeetingBody({
   respondMeeting: (formData: FormData) => void | Promise<void>;
 }) {
   const when = meetingWhen(card.scheduledAt);
-  const meta = metaLine([
-    when,
-    card.meetingKind === 'in_person' ? APPOINTMENT_KIND_LABEL.in_person : virtualSummary(parseVirtualLocation(card.location)),
-    card.meetingKind === 'in_person' ? card.location : null,
-    card.durationMin ? `${card.durationMin} min` : null,
-  ]);
   const hidden = (
     <>
       <input type="hidden" name="appointment_id" value={card.appointmentId} />
@@ -1315,7 +1309,12 @@ function MeetingBody({
         {card.coupleName} — {card.label}
       </p>
       <p className="mt-0.5 text-[13px] tabular-nums text-ink/70">
-        {meta}
+        {metaLine([
+          when,
+          card.meetingKind === 'in_person' ? APPOINTMENT_KIND_LABEL.in_person : virtualSummary(parseVirtualLocation(card.location)),
+          card.meetingKind === 'in_person' ? card.location : null,
+          card.durationMin ? `${card.durationMin} min` : null,
+        ])}
         {' · '}
         <AgeLine since={card.passed && card.scheduledAt ? card.scheduledAt : card.proposedAt} />
       </p>

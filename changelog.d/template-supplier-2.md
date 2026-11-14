@@ -1,19 +1,18 @@
 ## 2026-11-14 · style(supplier): second supplier batch onto the design template
 
-Brings 17 supplier-dashboard files onto the owner-approved design template sheet (style only — same
-words, data, links and server actions):
+Four supplier-dashboard files move onto the owner-approved design template sheet. Style only: the words, data, links and server actions are unchanged.
 
-- explaining lines move behind an ⓘ (`InfoTip`, same words): the emcee's empty programme
-  (stage script), "the rest are here so nothing surprises you" (your run of day — the call time
-  becomes its own visible line), and when a shop wallet pack lands / that it never expires;
-- the form preview's items become hairline rows instead of grey tiles, with their kind line in the
-  dark-grey 13 px line instead of a 12 px caption;
-- computed meta lines (meeting card, don't-play warning, roster day heading, number times, form
-  item kind) are built once above the markup, so the template scorer stops reading code as a
-  paragraph. Rendered words unchanged.
+- **Explaining lines move behind an ⓘ** (`InfoTip`, same words):
+  - the emcee's empty programme (stage script);
+  - "the rest are here so nothing surprises you" (your run of day). Its call time becomes its own visible line;
+  - when a shop wallet pack lands, and that it never expires.
+- **The form preview's items become hairline rows** instead of grey tiles. Their kind line uses the dark-grey 13 px line instead of a 12 px caption.
 
-Kept on purpose: "couldn't load" lines and the date-clash warning stay visible (errors and
-consequences never hide behind an ⓘ); text already behind an ⓘ; the offer row shape held by its
-tests; the obsidian focal on the live day page (the one framed thing).
+**Kept on purpose:**
+- "Couldn't load" lines and the date-clash warning stay visible, because errors and consequences never hide behind an ⓘ.
+- Text that is already behind an ⓘ.
+- The offer-row shape, which its tests hold.
+- The obsidian focal on the live day page, the one framed thing there.
+- The template scorer reads code inside a `<p>` as a long paragraph (the meeting meta line, the don't-play warning, the roster day heading, the numbers' times). Those are false positives: nothing long is on screen, so the code was left as it is rather than reshuffled to hide them.
 
 SPEC IMPACT: None — implements the approved design template.

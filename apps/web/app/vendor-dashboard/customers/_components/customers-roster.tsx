@@ -493,11 +493,6 @@ export function CustomersRoster({
           {rows.map((r, i) => {
             const head = groupOf ? groupOf(r) : null;
             const newHead = head !== null && (i === 0 || groupOf!(rows[i - 1]!) !== head);
-            // v113 "SUN 8 NOV" (Build 2 #43e) — the one wording every Clients day heading uses.
-            const headWords =
-              head !== null && /^\d{4}-\d{2}-\d{2}$/.test(head)
-                ? dayHeadWords(head, new Date(nowMs + 8 * 3_600_000).toISOString().slice(0, 10))
-                : head;
             return (
               <li key={`${r.lane}:${r.eventId}`} className="[&:first-child>*]:border-t-0">
                 {newHead ? (
@@ -506,7 +501,8 @@ export function CustomersRoster({
                     style={{ top: 'var(--sn-pin-h)', background: 'var(--sn-canvas)' }}
                     data-customers-group-heading={head}
                   >
-                    {headWords}
+                    {/* v113 "SUN 8 NOV" (Build 2 #43e) — the one wording every Clients day heading uses. */}
+                    {/^\d{4}-\d{2}-\d{2}$/.test(head) ? dayHeadWords(head, new Date(nowMs + 8 * 3_600_000).toISOString().slice(0, 10)) : head}
                   </p>
                 ) : null}
                 <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} list={list} />

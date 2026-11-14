@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -58,19 +59,21 @@ export default async function PhotoMomentsEditorPage({
       <PageMasthead
         titleNode={<>{event.display_name}</>}
       />
-      <div className="mt-3 space-y-3">
-        <p className="max-w-prose text-base text-ink/70">
+      {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 7): the explaining paragraph sits behind the ⓘ; the closing note is one
+          plain line, not a tile. */}
+      <div className="mt-3">
+        <InfoTip label="Camera cues" labelAs="h2" labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70" align="start">
           Tell guests when to enjoy the moment phone-down · when to capture freely · and
           which beats your <span data-web-only="">Papic</span>
           {/* 🍎 the iPhone app names no paid extra (lib/store-shell.ts) */}
           <span data-app-only="">photo</span> team will own. Up to 8 entries, displayed in order on
           your landing page.
-        </p>
+        </InfoTip>
       </div>
 
       <PhotoMomentsEditor eventId={eventId} initial={config} />
 
-      <footer className="sn-tile p-5 text-sm text-ink/65">
+      <footer className="border-t border-ink/10 pt-3 text-sm text-ink/75">
         Changes go live the moment you save. Guests will see the new list on their next
         visit to your wedding URL.
       </footer>

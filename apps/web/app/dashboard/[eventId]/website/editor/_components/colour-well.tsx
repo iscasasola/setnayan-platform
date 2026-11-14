@@ -110,7 +110,7 @@ export function ColourWell({
           aria-expanded={open}
           onClick={() => setOpen(true)}
           data-colour-well-wide=""
-          className="sn-press flex h-11 min-w-0 flex-1 items-center justify-between rounded-md border border-ink/20 px-2.5 font-mono text-[11px] tracking-wide lg:h-9"
+          className="sn-press flex h-11 min-w-0 flex-1 items-center justify-between rounded-md border border-ink/20 px-2.5 font-mono text-[12px] tracking-wide lg:h-9"
           style={{ background: current, color: readableOn(current) }}
         >
           <span className="truncate">{sheet.value ? current.slice(0, 7).toUpperCase() : unsetLabel}</span>

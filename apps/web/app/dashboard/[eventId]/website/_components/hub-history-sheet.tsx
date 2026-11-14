@@ -98,7 +98,7 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
           onClick={close}
           aria-label="Close history"
           data-maker-history-close=""
-          className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink/15 text-ink"
+          className="ab ab-neutral icon-only shrink-0"
         >
           <X aria-hidden className="h-5 w-5" strokeWidth={2} />
         </button>
@@ -137,9 +137,9 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
                     <b className={`block text-[13.5px] font-semibold leading-snug ${row.pub ? 'text-success-700' : ''}`}>
                       {row.pub ? `Published ${historyTime(row.at)}` : row.what}
                     </b>
-                    {note ? <span className="block text-xs leading-snug text-ink/60">{note}</span> : null}
+                    {note ? <span className="block text-xs leading-snug text-ink/75">{note}</span> : null}
                   </span>
-                  <time className="shrink-0 font-mono text-[11px] text-ink/60" dateTime={row.at ?? undefined}>
+                  <time className="shrink-0 text-[12px] tabular-nums text-ink/75" dateTime={row.at ?? undefined}>
                     {row.pub ? '—' : historyTime(row.at)}
                   </time>
                 </button>
@@ -147,7 +147,7 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
             );
           })}
         </ol>
-        <p className="mt-2 text-[12.5px] leading-snug text-ink/60" data-maker-history-note="">
+        <p className="mt-2 text-[13px] leading-snug text-ink/75" data-maker-history-note="">
           {ahead.length > 0
             ? `The ${ahead.length === 1 ? 'row' : `${formatCount(ahead.length)} rows`} above ${ahead.length === 1 ? 'is' : 'are'} greyed — ${ahead.length === 1 ? 'it drops' : 'they drop'} at your first new edit; until then ↻ redo is one tap.`
             : 'Tap a row and the page returns to that point.'}
@@ -156,7 +156,7 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
 
       <div className="rounded-t-3xl bg-ink/[.04] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
         <div aria-hidden className="mx-auto mb-3 h-1 w-10 rounded-full bg-ink/20" />
-        <p className="mb-2 text-center text-[10.5px] font-semibold uppercase tracking-[.14em] text-ink/55">This draft · newest first</p>
+        <p className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">This draft · newest first</p>
         <ActionButton
           tone="neutral"
           icon={Redo2}

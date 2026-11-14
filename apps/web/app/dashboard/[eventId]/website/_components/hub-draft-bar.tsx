@@ -606,8 +606,8 @@ export function HubDraftToolbar({
           key={`s:${makerSaveStatusText(status)}`}
           role={status.state === 'error' ? 'alert' : 'status'}
           data-maker-save-status={status.state}
-          className={`max-w-[9rem] text-[11px] font-semibold ${PHONE_TOAST} ${
-            status.state === 'error' ? 'line-clamp-3 leading-tight text-terracotta-700' : 'truncate text-ink/60 max-md:sn-toast-fades'
+          className={`max-w-[9rem] text-[12px] font-semibold ${PHONE_TOAST} ${
+            status.state === 'error' ? 'line-clamp-3 leading-tight text-terracotta-700' : 'truncate text-ink/75 max-md:sn-toast-fades'
           }`}
           title={makerSaveStatusText(status)}
         >
@@ -617,7 +617,7 @@ export function HubDraftToolbar({
         <OutcomeLine key={outcomeN} outcome={outcome} />
       ) : null}
       {readError ? (
-        <span role="alert" className={`text-[11px] font-semibold text-terracotta-700 ${PHONE_TOAST}`}>
+        <span role="alert" className={`text-[12px] font-semibold text-terracotta-700 ${PHONE_TOAST}`}>
           Draft could not load
         </span>
       ) : null}
@@ -671,7 +671,7 @@ export function HubDraftToolbar({
           <span
             aria-label={`${formatCount(summary.changeCount)} ${summary.changeCount === 1 ? 'change' : 'changes'} waiting`}
             data-maker-apply-count=""
-            className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-terracotta-700 px-1 text-[10px] font-bold leading-none text-cream"
+            className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-terracotta-700 px-1 text-[12px] font-bold leading-none text-cream"
           >
             {formatCount(summary.changeCount)}
           </span>
@@ -742,7 +742,7 @@ export function HubDraftToolbar({
             aria-label="Close"
             data-maker-draft-close=""
             onClick={() => setOpen(false)}
-            className="sn-press absolute right-1.5 top-1.5 inline-flex h-10 w-10 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+            className="sn-press absolute right-1.5 top-1.5 inline-flex h-10 w-10 items-center justify-center rounded-full text-ink/75 hover:bg-ink/5"
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
@@ -839,8 +839,8 @@ const PHONE_TOAST =
 
 /** 📣 The outcome, said beside Apply (`hubDraftOutcome`) — never a box that opens. */
 function OutcomeLine({ outcome }: { outcome: NonNullable<ReturnType<typeof hubDraftOutcome>> }) {
-  const quiet = `max-w-[9rem] truncate text-[11px] font-semibold text-ink/60 ${PHONE_TOAST} max-md:sn-toast-fades`;
-  const loud = `max-w-[11rem] line-clamp-3 text-[11px] font-semibold leading-tight text-terracotta-700 ${PHONE_TOAST}`;
+  const quiet = `max-w-[9rem] truncate text-[12px] font-semibold text-ink/75 ${PHONE_TOAST} max-md:sn-toast-fades`;
+  const loud = `max-w-[11rem] line-clamp-3 text-[12px] font-semibold leading-tight text-terracotta-700 ${PHONE_TOAST}`;
   if (outcome.kind === 'live') return <span role="status" data-maker-save-status="applied" className={quiet}>Live now</span>;
   if (outcome.kind === 'reset') return <span role="status" data-maker-save-status="reset" className={quiet}>Reset in your draft</span>;
   if (outcome.kind === 'error') return <span role="alert" data-maker-save-status="error" className={loud}>{outcome.text}</span>;

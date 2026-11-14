@@ -46,15 +46,15 @@ export function PresetTiles({
   return (
     <div data-post-event-presets="">
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <span className="text-[0.7rem] font-semibold text-ink">Six slots</span>
+        <span className="text-[12px] font-semibold text-ink">Six slots</span>
         <span aria-label={`${formatCount(presets.used)} of ${formatCount(MAX_OWN_SCENES)} used`} className="flex gap-1">
           {Array.from({ length: MAX_OWN_SCENES }, (_, i) => (
             <span key={i} aria-hidden className={`h-2 w-2 rounded-full ${i < presets.used ? 'bg-ink' : 'bg-ink/15'}`} />
           ))}
         </span>
-        <span className="text-[0.7rem] text-ink/60">{presets.used} used · shared with your other stages</span>
+        <span className="text-[12px] text-ink/75">{presets.used} used · shared with your other stages</span>
       </div>
-      <p className="mt-1 text-[0.7rem] text-ink/65" data-post-event-presets-note="">
+      <p className="mt-1 text-[12px] text-ink/75" data-post-event-presets-note="">
         {full
           ? 'You have all six of your own scenes. Remove one you are not using to add another.'
           : presets.ownsPro
@@ -81,12 +81,12 @@ export function PresetTiles({
                 <span className="flex justify-center">
                   <Thumb boxes={view === 'desktop' ? t.thumb.desk : t.thumb.phone} shape={view === 'desktop' ? 'desk' : 'phone'} hideMedia={false} word={p.name} />
                 </span>
-                <span className="flex items-center gap-1 pr-7 text-[0.7rem] font-semibold leading-tight text-ink">
+                <span className="flex items-center gap-1 pr-7 text-[12px] font-semibold leading-tight text-ink">
                   {/* ◆ marks what Pro covers — the diamond, never a padlock: the tap still places it (2026-09-29). */}
                   {mark ? <PaidMark state={mark} size="xs" label={paidMarkLabel(mark, 'Event Hub Pro')} /> : null}
                   {p.name}
                 </span>
-                <span className="text-[0.62rem] leading-tight text-ink/60">{p.fields}</span>
+                <span className="text-[12px] leading-tight text-ink/75">{p.fields}</span>
               </button>
               <span className="absolute right-1 top-[calc(100%-2.6rem)]">
                 <InfoTip label="" ariaLabel={`About ${p.name}`} align="end">

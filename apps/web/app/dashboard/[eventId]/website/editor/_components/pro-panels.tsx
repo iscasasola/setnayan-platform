@@ -74,12 +74,12 @@ export function ProLockPanel({
 }) {
   return (
     <div className="border-t border-dashed border-amber-300/60 bg-amber-50/60 p-3">
-      <p className="flex items-center gap-1.5 text-[0.72rem] font-semibold text-amber-900">
+      <p className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-900">
         {/* ◆ never a padlock (owner 2026-09-28: "remove padlock … the diamond icon"). */}
         <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" tone="current" />
         {featureName} is part of Event Hub PRO
       </p>
-      <p className="mt-1 text-[0.7rem] leading-relaxed text-ink/60">
+      <p className="mt-1 text-[12px] leading-relaxed text-ink/75">
         One unlock covers all {formatCount(WEBSITE_PRO_ITEMS.length)}: {WEBSITE_PRO_ITEMS.join(' · ')}. It also removes the
         “Powered by Setnayan” mark from your page.
       </p>
@@ -189,7 +189,7 @@ export function ColorsPanel({
     <fieldset className={part === 'font' ? undefined : 'mt-3 border-t border-dashed border-ink/10 pt-3'}>
       <legend className="sr-only">Typeface</legend>
       {/* 🆓 FREE since 2026-10-05 (owner: "Colors, and Fonts are all free") — no ◆. */}
-      <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Typeface</p>
+      <p className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink/80">Typeface</p>
       <FontPick
         eventId={eventId}
         label="Typeface"
@@ -309,7 +309,7 @@ function ButtonColourField({
   const unsetLabel = moodBoard ? 'From your Mood Board' : 'Default';
   return (
     <div data-button-colour-field="">
-      <p className="mb-1 text-[0.7rem] font-semibold text-ink/60">Buttons</p>
+      <p className="mb-1 text-[12px] font-semibold text-ink/75">Buttons</p>
       <input type="hidden" name={name} value={hex} />
       <ColourWell
         value={hex || null}
@@ -377,7 +377,7 @@ function BackgroundField({
     <div data-background-field="" id={id}>
       <input type="hidden" name="bg_color" value={posted} />
       <div className="mb-1.5">
-        <InfoTip label={label} labelClassName="text-[0.7rem] font-semibold text-ink/60" align="start">
+        <InfoTip label={label} labelClassName="text-[12px] font-semibold text-ink/75" align="start">
           Pick one colour, then an effect. Plain is the flat colour; Dawn, Diagonal and Glow blend it
           softly, lighter and darker, like a wallpaper. Your words are re-measured over the whole
           blend so they stay easy to read.
@@ -428,7 +428,7 @@ function BackgroundField({
                     : { backgroundImage: ombreCss({ shape: e, base: previewBase }) }
                 }
               />
-              <span className={`mt-0.5 block text-[0.66rem] leading-tight ${on ? 'font-semibold text-ink' : 'text-ink/60'}`}>
+              <span className={`mt-0.5 block text-[12px] leading-tight ${on ? 'font-semibold text-ink' : 'text-ink/75'}`}>
                 {BACKGROUND_EFFECT_LABEL[e]}
               </span>
             </button>
@@ -444,7 +444,7 @@ function BackgroundField({
           className="mt-2 flex h-16 items-end rounded-md px-3 pb-2"
           style={{ backgroundImage: look.css }}
         >
-          <span className="text-[0.72rem] font-semibold" style={{ color: look.legibility.ink }}>
+          <span className="text-[12px] font-semibold" style={{ color: look.legibility.ink }}>
             Your words read like this
           </span>
         </div>
@@ -461,7 +461,7 @@ function ArtDirectionPick({ value, mark, leads = false }: { value: 'daylight' | 
   const [art, setArt] = useState<'daylight' | 'candlelight'>(value);
   return (
     <div className={`flex min-h-11 items-center justify-between gap-3${leads ? '' : ' mt-3 border-t border-dashed border-ink/10 pt-3'}`} data-look-art-direction="">
-      <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Art direction{mark}</p>
+      <p className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink/80">Art direction{mark}</p>
       <input type="hidden" name="site_art_direction" value={art} />
       <PickMenu
         label="Art direction"

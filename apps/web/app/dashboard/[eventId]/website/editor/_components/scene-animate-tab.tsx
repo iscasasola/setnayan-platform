@@ -362,7 +362,7 @@ export function SceneAnimateTab({
           <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Preview
         </IButton>
-        <span className="text-[12px] text-ink/55">Plays this scene, then the move into the next.</span>
+        <span className="text-[12px] text-ink/75">Plays this scene, then the move into the next.</span>
       </div>
       <ErrorLine error={error} />
     </div>

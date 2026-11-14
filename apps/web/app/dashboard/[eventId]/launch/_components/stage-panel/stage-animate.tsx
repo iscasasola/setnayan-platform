@@ -57,7 +57,7 @@ const SIZES = [
 const FIRST_DIR: Record<'in' | 'out', MotionDir> = { in: 'below', out: 'above' };
 /**
  * 💎 EVERY ANIMATE CONTROL WEARS THE SHIPPED " ◆" (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND
- * ACCENTS ARE EVENT HUB PRO ◆": *"all animate, effects, styles, accents are pro"*). Movement ◆ and Leaves ◆ wore it
+ * ACCENTS ARE EVENT PRO ◆": *"all animate, effects, styles, accents are pro"*). Movement ◆ and Leaves ◆ wore it
  * first; every other named control here does now — tried free in the draft, named at ✓ Apply (`hubDraftProEffects`).
  */
 export const animatePro = (name: string): string => (name.endsWith('◆') ? name : `${name} ◆`);

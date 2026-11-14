@@ -176,7 +176,7 @@ export const metadata = {
 // request), but its same-for-everyone ROW reads are now remembered for 60 s —
 // `lib/home-public-reads-core.ts` lists them and what may never join them.
 // Round 2, the same day: the event types' public rows and the two facts a
-// Discover card's cover can turn on (does the event own Event Hub Pro, is its
+// Discover card's cover can turn on (does the event own Event Pro, is its
 // logo animation on) joined them, so a signed-out view no longer walks the
 // ownership chain card by card — it was most of the page's waiting.
 // ⚠ NOT taken, and still asked on every view: the consented editorials

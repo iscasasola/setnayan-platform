@@ -662,7 +662,7 @@ export function VenuesEditor({
   slots: readonly VenueSlot[];
   /** The reception's city or area (the Save-the-Date's line) — null where the film does not apply. */
   city: string | null;
-  /** ⛪ Event Hub Pro as the viewer is shown it — the "Our drawing ◆" mark (`makerProMark`). */
+  /** ⛪ Event Pro as the viewer is shown it — the "Our drawing ◆" mark (`makerProMark`). */
   pro?: { owns: boolean; storeShell: boolean };
 }) {
   const [values, setValues] = useState<Record<string, { name: string; address: string; pin: LatLng | null }>>(() =>
@@ -836,7 +836,7 @@ export function VenuesEditor({
  * THE COUPLE'S CHOICE": *"on a church you can upload a photo or use our pro
  * feature photos of the venue"*) — listed ONLY when the parish library has a
  * drawing of this venue (`drawing`), marked ◆ Pro: a free couple may pick it
- * (it is drafted and drawn at once), Apply names it and asks for Event Hub Pro
+ * (it is drafted and drawn at once), Apply names it and asks for Event Pro
  * (`venueBagNewDrawings`). Picking it keeps the photo refs, so picking the photo
  * back restores it; the photo stays the default — the drawing never shows
  * until it is picked here.
@@ -885,7 +885,7 @@ function VenuePhotoPicker({
     ownRef,
     drawing,
     mark,
-    markLabel: (m) => paidMarkLabel(m, 'Event Hub Pro'),
+    markLabel: (m) => paidMarkLabel(m, 'Event Pro'),
     url,
   });
   const shown = drawingOn ? null : url(current);

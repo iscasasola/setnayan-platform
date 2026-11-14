@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search box — site-wide, learning, offline · for OK</title>
+<style>
+  :root {
+    --paper: #FBFAF7; --ink: #2A2420; --slate: #5E5650; --line: #E7E1D6; --sunk: #F4F2EC;
+    --accent: #C24E25; --gold: #A9834B; --ok: #2B744A; --warn: #8A5A12; --danger: #B3261E;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #1D1A17; --ink: #F1ECE4; --slate: #B9B0A6; --line: #3A342E; --sunk: #26221E;
+      --accent: #E07A52; --gold: #CBA766; --ok: #6FCF97; --warn: #E3B05C; --danger: #F2A29C;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lede { color: var(--slate); margin: 0 0 18px; max-width: 760px; }
+  .grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  .phone { border: 1px solid var(--line); border-radius: 22px; padding: 14px; background: var(--paper); box-shadow: 0 6px 24px rgba(0,0,0,.06); }
+  .who { font: 700 11px/1 ui-monospace, monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--slate); margin: 2px 0 10px; }
+  .box { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-height: 44px; }
+  .box b { font-weight: 600; }
+  .row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 6px; min-height: 52px; border-top: 1px solid var(--line); }
+  .row:first-of-type { border-top: 0; }
+  .row .t { font-weight: 600; }
+  .row .l { color: var(--slate); font-size: 13px; }
+  .tag { font: 700 10px/1 ui-monospace, monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--slate); }
+  .rec { border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin: 10px 0 4px; background: var(--sunk); }
+  .mine { color: var(--gold); font-size: 12px; }
+  .theirs { color: var(--slate); font-size: 12px; }
+  .forget { font-size: 12px; color: var(--slate); text-decoration: underline; }
+  .end { margin-left: auto; color: var(--accent); }
+  .note { font-size: 13px; color: var(--slate); margin: 8px 2px 0; }
+  .off { display: flex; gap: 8px; align-items: center; color: var(--warn); font-size: 13px; padding: 8px 2px; }
+  .never { color: var(--danger); font-size: 13px; }
+  section { margin: 34px 0 0; }
+  h2 { font-size: 16px; margin: 0 0 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  td, th { border-top: 1px solid var(--line); padding: 8px 6px; text-align: left; vertical-align: top; }
+  th { font: 700 11px/1.2 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--slate); }
+  details { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+  summary { cursor: pointer; font-weight: 600; min-height: 24px; }
+  code { font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The search box, across the whole website</h1>
+  <p class="lede">For the owner's OK before building (slice 2 of ASK-BRAIN). Plain words first, then learning, AI off. Each person only ever sees pages they may open. No script on this page: every state is drawn side by side. ⚠ The couple and supplier page names in sections 1–3 show the <i>behaviour</i>; slice 2 offers each role its real menu pages, not these labels.</p>
+
+  <!-- ─────────────── 1 · THE SAME WORDS, THREE PEOPLE ─────────────── -->
+  <section>
+    <h2>1 · The same words, typed by three different people</h2>
+    <div class="grid">
+      <div class="phone">
+        <p class="who">A couple</p>
+        <div class="box">🔍 <b>change the price</b></div>
+        <div class="rec"><span class="tag">Recommended</span><div class="t">Your budget → Budget</div><div class="l">the couple's own money page</div></div>
+        <div class="row"><div><div class="t">Budget</div><div class="l">Your event</div></div><span class="end">›</span></div>
+        <div class="row"><div><div class="t">Orders &amp; payments</div><div class="l">Your event</div></div><span class="end">›</span></div>
+        <p class="note never">Never offered: Pricing (admin), a supplier's card prices.</p>
+      </div>
+      <div class="phone">
+        <p class="who">A supplier</p>
+        <div class="box">🔍 <b>change the price</b></div>
+        <div class="rec"><span class="tag">Recommended</span><div class="t">Change a service price → Your services</div><div class="l">opens the card maker; you press Save</div></div>
+        <div class="row"><div><div class="t">Your services</div><div class="l">Your shop</div></div><span class="end">›</span></div>
+        <div class="row"><div><div class="t">Quotes</div><div class="l">Your shop</div></div><span class="end">›</span></div>
+        <p class="note never">Never offered: admin Pricing, any couple's event pages.</p>
+      </div>
+      <div class="phone">
+        <p class="who">Setnayan staff (admin)</p>
+        <div class="box">🔍 <b>change the price</b></div>
+        <div class="rec"><span class="tag">Recommended</span><div class="t">Change a price → Money › Pricing</div><div class="l">opens the page; you press Save</div></div>
+        <div class="row"><div><div class="t">Pricing</div><div class="l">Money</div></div><span class="end">›</span></div>
+        <div class="row"><div><div class="t">Price bands</div><div class="l">Money</div></div><span class="end">›</span></div>
+        <p class="note">Staff also see the public pages and can open any shop or event record.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 2 · LEARNING ─────────────── -->
+  <section>
+    <h2>2 · It learns from what people open</h2>
+    <div class="grid">
+      <div class="phone">
+        <p class="who">Your own pick wins for you</p>
+        <div class="box">🔍 <b>gawa ng promo</b></div>
+        <div class="row"><div><div class="t">Launch offer</div><div class="l">Money</div><div class="mine">You picked this before · 3×</div><a class="forget">Forget this</a></div><span class="end">›</span></div>
+        <div class="row"><div><span class="tag">Recommended</span><div class="t">Create a promo code → Discount codes</div></div><span class="end">›</span></div>
+        <p class="note">One stray pick wears a habit down by one; it never erases it.</p>
+      </div>
+      <div class="phone">
+        <p class="who">Other people's picks count less</p>
+        <div class="box">🔍 <b>where do i pay the booking fee</b></div>
+        <div class="row"><div><span class="tag">Recommended</span><div class="t">Pay a booking fee → Your plan &amp; fees</div></div><span class="end">›</span></div>
+        <div class="row"><div><div class="t">Booking fees</div><div class="l">Your shop</div><div class="theirs">Often opened by suppliers for these words</div></div><span class="end">›</span></div>
+        <p class="note">Suppliers learn from suppliers, couples from couples, staff from staff — never across.</p>
+      </div>
+      <div class="phone">
+        <p class="who">What is stored</p>
+        <div class="row"><div><div class="t">The words typed</div><div class="l">"gawa ng promo"</div></div></div>
+        <div class="row"><div><div class="t">The page opened</div><div class="l">/admin/launch-offer</div></div></div>
+        <div class="row"><div><div class="t">Who (for "yours first") and their role</div><div class="l">your account · admin</div></div></div>
+        <div class="row"><div><div class="t">How often, and when last</div><div class="l">3× · today</div></div></div>
+        <p class="note">Nothing else — no page contents, no names you searched for.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 3 · OFFLINE ─────────────── -->
+  <section>
+    <h2>3 · Offline, in the installed app</h2>
+    <div class="grid">
+      <div class="phone">
+        <p class="who">No signal at the venue</p>
+        <div class="off">⚠ Offline — searching your saved copy (saved today 9:40 AM)</div>
+        <div class="box">🔍 <b>check in guests</b></div>
+        <div class="row"><div><span class="tag">Recommended</span><div class="t">Check in a guest → Day-of › Check-in</div><div class="l">works offline</div></div><span class="end">›</span></div>
+        <div class="row"><div><div class="t">Guest list</div><div class="l">Your event</div></div><span class="end">›</span></div>
+        <p class="note">Pages that need the internet say so on the row instead of opening a blank screen.</p>
+      </div>
+      <div class="phone">
+        <p class="who">A pick made offline</p>
+        <div class="off">⚠ Offline · 1 pick will be saved when you're back online</div>
+        <div class="box">🔍 <b>seat plan</b></div>
+        <div class="row"><div><div class="t">Seat plan</div><div class="l">Your event</div><div class="mine">You picked this before</div></div><span class="end">›</span></div>
+        <p class="note">Back online: the queued pick is sent once, then the line goes away.</p>
+      </div>
+      <div class="phone">
+        <p class="who">Never saved offline</p>
+        <div class="box">🔍 <b>approve payment</b></div>
+        <div class="off">⚠ Offline — money and approvals open only online</div>
+        <p class="note">The search can point there, but the page itself stays online-only, as today.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 4 · WHAT IS BUILT, WHAT IS NEXT ─────────────── -->
+  <section>
+    <h2>4 · Built now (slice 1) and next (slice 2)</h2>
+    <table>
+      <tr><th>Part</th><th>Slice 1 — in the open PR</th><th>Slice 2 — after this OK</th></tr>
+      <tr><td>Plain words → one recommended action</td><td>Admin box. "add a new service in the catalog", "create a new promo", "change a pricelist", "change the price of live watch" each land first.</td><td>Same table, with couple and supplier pages and their own nouns.</td></tr>
+      <tr><td>Phrase bank + simulator</td><td>1,675 admin phrases (pages, jobs, Taglish, typos); 64.1 % → 100 % first-row accuracy.</td><td>Grows to every page each role can open; one accuracy floor per role.</td></tr>
+      <tr><td>Learning</td><td>Admin picks, stored in the existing table, most-used wins, "Forget this".</td><td>Per person and per role, yours weighted above others'.</td></tr>
+      <tr><td>Offline</td><td>—</td><td>The installed app keeps a copy of the bank and of your learned words; picks queue and send later. Loaded lazily, outside the main bundle.</td></tr>
+      <tr><td>AI</td><td>Off, untouched.</td><td>Off, untouched.</td></tr>
+    </table>
+    <details>
+      <summary>One storage decision this needs (why the ruling's "widen the table" cannot be add-only)</summary>
+      <p>The existing memory table refuses any address that is not an admin page (a check on the address), and keeps exactly one row per phrase (a uniqueness rule). Couple and supplier pages, and "yours first", both need those two rules relaxed — which is not an add-only change. The add-only way is a <b>new, separate table</b> for the site-wide picks (phrase, page, person, role, count, last used), readable only by its owner and by staff, with the admin table left exactly as it is.</p>
+      <p><b>Recommendation:</b> the new table. It keeps every rule on the admin memory, needs no change to existing rows, and lets couples, suppliers and staff learn separately by design.</p>
+    </details>
+  </section>
+</div>
+</body>
+</html>

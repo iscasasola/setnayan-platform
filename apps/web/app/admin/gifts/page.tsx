@@ -42,7 +42,7 @@ import {
   type V2CustomerSku,
 } from '@/lib/v2-catalog';
 import { isPromoFreeWindowsEnabled, vendorTierOfSku } from '@/lib/promo-free-windows';
-import { fetchShopGiftHolds, fetchShopGiftLedger } from '@/lib/shop-gifts.server';
+import { fetchShopGiftHolds, fetchShopGiftLedger, fetchShopGiftPacks } from '@/lib/shop-gifts.server';
 import { fetchBadgeRewardLedger, readRewardNames } from '@/lib/badge-rewards.server';
 import { BadgeRewardsLedger } from './_components/badge-rewards-ledger';
 import { BadgeUpgradesLedger } from './_components/badge-upgrades-ledger';
@@ -51,6 +51,8 @@ import { ShopGiftsLedger } from './_components/shop-gifts-ledger';
 import { GiftLimitForm } from './_components/gift-limit-form';
 import { saveGiftLimitPct } from './gift-limit-actions';
 import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
+import { readShopGiftsForAdmin } from '@/lib/setnayan-shop-gift.server';
+import { SHOP_GIFT_MAX_UNITS, SHOP_GIFT_PLAN_TIERS, adminGiftLine } from '@/lib/setnayan-shop-gift';
 
 /**
  * One row of the vendor list — a single comped vendor, or one cohort DEAL
@@ -110,6 +112,8 @@ type Props = {
     createError?: string;
     saved?: string;
     error?: string;
+    /** 🎁 The panel's "Send a Setnayan gift" answer: 'sent', or the refusal's words. */
+    shop_gift?: string;
   }>;
 };
 
@@ -259,6 +263,10 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
       .maybeSingle();
     grantVendor = data ?? null;
   }
+  // 🎁 What Setnayan can send this shop (the live gift catalogue) and what it was already sent.
+  const [giftPacks, sentShopGifts] = grantVendor
+    ? await Promise.all([fetchShopGiftPacks(admin), readShopGiftsForAdmin(admin, grantVendor.vendor_profile_id)])
+    : [null, null];
 
   // ── User search + selection ────────────────────────────────────────────
   const userQuery = sp.user_q?.trim() ?? '';
@@ -448,6 +456,103 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
               <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Saving…">
                 Comp Papic Challenges
               </SubmitButton>
+            </form>
+
+            {/* 🎁 SEND A SETNAYAN GIFT (owner 14 Nov 2026) — gift stock to give couples (outside the 40% limit, like a
+                badge reward), or 28 days of Supplier Plus / Pro / Ultra the shop chooses when to start. Nothing is
+                granted here: the shop opens it on Today, and its press is the claim (exactly once). */}
+            <form
+              id="setnayan-shop-gift"
+              action={setVendorTier}
+              className="mt-4 space-y-3 border-t border-ink/10 pt-4"
+              data-admin-setnayan-shop-gift=""
+            >
+              <input type="hidden" name="op" value="setnayan_gift" />
+              <input type="hidden" name="vendor_id" value={grantVendor.vendor_profile_id} />
+              <p className="text-xs font-medium text-ink/70">
+                Or send a gift from Setnayan — the shop taps it open on Today.
+              </p>
+              {sp.shop_gift ? (
+                <p role="status" className={`text-sm ${sp.shop_gift === 'sent' ? 'text-success-700' : 'text-danger-700'}`}>
+                  {sp.shop_gift === 'sent' ? 'Sent. It waits on the shop’s Today until they open it.' : sp.shop_gift}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label htmlFor="setnayan_gift" className="mb-1 block text-xs font-medium text-ink/70">
+                    Gift
+                  </label>
+                  <select id="setnayan_gift" name="gift" className="min-h-11 rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm">
+                    <optgroup label="Gift stock to give couples">
+                      {(giftPacks ?? []).map((p) => (
+                        <option key={p.code} value={`stock:${p.code}`}>
+                          {p.title}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="28 days of the shop’s own plan">
+                      {SHOP_GIFT_PLAN_TIERS.map((t) => (
+                        <option key={t} value={`plan:${t}`}>
+                          {TIER_LABEL[t]}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="setnayan_gift_units" className="mb-1 block text-xs font-medium text-ink/70">
+                    How many <span className="text-ink/50">(stock only)</span>
+                  </label>
+                  <select
+                    id="setnayan_gift_units"
+                    name="units"
+                    defaultValue="1"
+                    className="min-h-11 rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+                  >
+                    {Array.from({ length: SHOP_GIFT_MAX_UNITS }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {giftPacks === null ? (
+                <p className="text-xs text-danger-700">The gift catalogue couldn’t be read — only plan time can be sent now.</p>
+              ) : null}
+              <SubmitButton className="button-secondary h-11 px-4 text-sm" pendingLabel="Sending…">
+                Send the gift
+              </SubmitButton>
+              {sentShopGifts === null ? (
+                <p className="text-xs text-danger-700">This shop’s Setnayan gifts couldn’t be read.</p>
+              ) : sentShopGifts.length > 0 ? (
+                <ul className="divide-y divide-ink/10 rounded-md border border-ink/10 text-sm">
+                  {sentShopGifts.map((g) => (
+                    <li key={g.gift_id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                      <span>
+                        {adminGiftLine({
+                          type: g.gift_type,
+                          stockLine: g.stockLine ?? undefined,
+                          planTier: g.plan_tier,
+                          planDays: g.plan_days,
+                        })}{' '}
+                        <span className="text-xs text-ink/50">· sent {fmtDay(g.sent_at)}</span>
+                      </span>
+                      <span className="text-xs text-ink/70">
+                        {!g.claimed_at
+                          ? 'Waiting to be opened'
+                          : g.finished_at
+                            ? `Ended · ${g.finish_reason ?? 'done'}`
+                            : g.claim_choice === 'after' && !g.plan_starts_at
+                              ? 'Starts when their plan ends'
+                              : g.plan_ends_at
+                                ? `Opened · runs to ${fmtDay(g.plan_ends_at)}`
+                                : 'Opened'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </form>
           </div>
         )}

@@ -366,6 +366,10 @@ export function rewardSourceWords(key: string): string {
       const month = d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('en-PH', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : '';
       return month ? `${word} · ${month}` : word;
     }
+    // 🎁 Gift stock Setnayan sent the shop (Admin › Gifts › Send a gift to a shop) lands through the same door,
+    // keyed `setnayan_gift:<gift_id>` (`lib/setnayan-shop-gift.ts`), so the ledger names it for what it is.
+    case 'setnayan_gift':
+      return 'A gift from Setnayan';
     default:
       return 'Badge reward';
   }

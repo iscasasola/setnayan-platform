@@ -83,6 +83,7 @@ export function SavedVendorCardItem({ vendor }: { vendor: SavedVendorCardData })
           tone="info"
           icon={<MessageCircle aria-hidden />}
           label="Contact"
+          className="!h-11"
           name={`Contact ${vendor.displayName}`}
           href={`/v/${vendor.businessSlug}?src=favorites`}
         />

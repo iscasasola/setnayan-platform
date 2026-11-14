@@ -22,12 +22,10 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Supplier payouts · Admin' };
 
 type FilterKey = 'pending' | 'paid' | 'on_hold' | 'all';
-type StageFilter = PayoutStage | 'all';
 
 type Props = {
   searchParams: Promise<{
     filter?: string;
-    stage?: string;
     vendor?: string;
     from?: string;
     to?: string;
@@ -80,21 +78,14 @@ const FILTER_TABS: Array<{ key: FilterKey; label: string }> = [
   { key: 'all', label: 'All' },
 ];
 
-const STAGE_TABS: Array<{ key: StageFilter; label: string }> = [
-  { key: 'all', label: 'All stages' },
-  { key: 'immediate_full', label: 'Immediate (verified)' },
-  // F-A-10 (admin walk 13 Nov 2026): the old split is not offered as a rule any more — each older row still shows
-  // its own share ("Stage N% of net"); the filters only name when the stage fell.
-  { key: 'stage_1_confirm', label: 'Stage 1 · at confirmation' },
-  { key: 'stage_2_event_start', label: 'Stage 2 · at the event start' },
-  { key: 'stage_3_event_end', label: 'Stage 3 · after the event' },
-];
+/* F-A-10 (admin walk, round 2): the old escrow stage filters ("Immediate (verified)" · "Stage 1 · at confirmation" …)
+   are gone. Setnayan does not hold the couple's money; a row from an older booking still shows its own stage on its
+   card, which is all an admin needs to read it. */
 
 export default async function AdminPayoutsPage({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
   const filter = parseFilter(search.filter);
-  const stage = parseStage(search.stage);
   const vendor = search.vendor?.trim() ?? '';
   const from = search.from?.trim() ?? '';
   const to = search.to?.trim() ?? '';
@@ -122,7 +113,6 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
   } else if (filter === 'on_hold') {
     query = query.eq('on_hold', true);
   }
-  if (stage !== 'all') query = query.eq('payout_stage', stage);
   // The supplier box takes a NAME as well as an ID: nobody keeps a UUID in their
   // head. A name is resolved to the matching shops first; an ID passes straight
   // through. 🔑 A name that matches nothing is "no supplier named …", which is
@@ -195,27 +185,26 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
           label="Pending (filtered)"
           value={error ? '—' : formatCentavosPhp(pendingTotal)}
           tone="bg-warn-100 text-warn-800"
-          help={error ? 'couldn’t read' : `${rows.filter((r) => !r.paid_at && !r.on_hold).length} stage(s)`}
+          help={error ? 'couldn’t read' : `${rows.filter((r) => !r.paid_at && !r.on_hold).length} payout(s)`}
         />
         <Stat
           icon={<CheckCircle2 className="h-4 w-4" />}
           label="Paid (filtered)"
           value={error ? '—' : formatCentavosPhp(paidTotal)}
           tone="bg-success-100 text-success-800"
-          help={error ? 'couldn’t read' : `${rows.filter((r) => !!r.paid_at).length} stage(s)`}
+          help={error ? 'couldn’t read' : `${rows.filter((r) => !!r.paid_at).length} payout(s)`}
         />
         <Stat
           icon={<AlertTriangle className="h-4 w-4" />}
           label="On hold (filtered)"
           value={error ? '—' : formatCentavosPhp(onHoldTotal)}
           tone="bg-danger-100 text-danger-800"
-          help={error ? 'couldn’t read' : `${rows.filter((r) => r.on_hold).length} stage(s)`}
+          help={error ? 'couldn’t read' : `${rows.filter((r) => r.on_hold).length} payout(s)`}
         />
       </section>
 
       <FilterBar
         filter={filter}
-        stage={stage}
         vendor={vendor}
         from={from}
         to={to}
@@ -248,13 +237,11 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
 
 function FilterBar({
   filter,
-  stage,
   vendor,
   from,
   to,
 }: {
   filter: FilterKey;
-  stage: StageFilter;
   vendor: string;
   from: string;
   to: string;
@@ -265,7 +252,7 @@ function FilterBar({
         {FILTER_TABS.map((t) => (
           <Link
             key={t.key}
-            href={makeHref({ filter: t.key, stage, vendor, from, to })}
+            href={makeHref({ filter: t.key, vendor, from, to })}
             className={`rounded-full px-3 py-1 text-xs font-medium ${
               filter === t.key
                 ? 'bg-ink text-cream'
@@ -276,24 +263,8 @@ function FilterBar({
           </Link>
         ))}
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {STAGE_TABS.map((t) => (
-          <Link
-            key={t.key}
-            href={makeHref({ filter, stage: t.key, vendor, from, to })}
-            className={`rounded-full px-3 py-1 text-[11px] font-medium ${
-              stage === t.key
-                ? 'bg-terracotta text-cream'
-                : 'bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink'
-            }`}
-          >
-            {t.label}
-          </Link>
-        ))}
-      </div>
       <form className="flex flex-wrap items-end gap-2 sn-tile p-3" method="get">
         <input type="hidden" name="filter" value={filter} />
-        {stage !== 'all' ? <input type="hidden" name="stage" value={stage} /> : null}
         <label className="block text-xs text-ink/60">
           <span className="mb-1 block font-mono uppercase tracking-[0.15em]">Supplier (name or ID)</span>
           <input
@@ -325,7 +296,7 @@ function FilterBar({
           Apply
         </button>
         <Link
-          href={makeHref({ filter, stage, vendor: '', from: '', to: '' })}
+          href={makeHref({ filter, vendor: '', from: '', to: '' })}
           className="inline-flex h-11 items-center justify-center px-3 text-xs text-ink/60 hover:text-ink"
         >
           Reset
@@ -560,20 +531,17 @@ function FlashBanner({ flash, error }: { flash?: string; error?: string }) {
 
 function makeHref({
   filter,
-  stage,
   vendor,
   from,
   to,
 }: {
   filter: FilterKey;
-  stage: StageFilter;
   vendor: string;
   from: string;
   to: string;
 }): string {
   const params = new URLSearchParams();
   params.set('filter', filter);
-  if (stage !== 'all') params.set('stage', stage);
   if (vendor) params.set('vendor', vendor);
   if (from) params.set('from', from);
   if (to) params.set('to', to);
@@ -584,18 +552,6 @@ function makeHref({
 function parseFilter(raw: string | undefined): FilterKey {
   if (raw === 'paid' || raw === 'on_hold' || raw === 'all') return raw;
   return 'pending';
-}
-
-function parseStage(raw: string | undefined): StageFilter {
-  switch (raw) {
-    case 'immediate_full':
-    case 'stage_1_confirm':
-    case 'stage_2_event_start':
-    case 'stage_3_event_end':
-      return raw;
-    default:
-      return 'all';
-  }
 }
 
 function legacyStageToPayoutStage(legacy: string): PayoutStage {

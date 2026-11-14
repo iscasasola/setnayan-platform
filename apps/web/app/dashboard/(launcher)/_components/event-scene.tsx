@@ -108,7 +108,7 @@ export function EventScene({
           className="absolute inset-0 block"
           style={{
             background:
-              'repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 1px, transparent 1px 7px)',
+              'repeating-linear-gradient(45deg, color-mix(in srgb, white 3.5%, transparent) 0 1px, transparent 1px 7px)',
           }}
         />
         <span className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/45 to-ink/10" />
@@ -135,7 +135,7 @@ export function EventScene({
           alt=""
           loading="lazy"
           decoding="async"
-          className={`absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04] ${dim}`}
+          className={`absolute inset-0 h-full w-full object-cover transition-transform duration-sn-pill group-hover:scale-[1.04] ${dim}`}
           onError={() => setCoverFailed(true)}
         />
         {/* The Event Hub's own veil for this ground (`hubLegibility`): over a
@@ -184,7 +184,7 @@ export function EventScene({
           alt=""
           loading="lazy"
           decoding="async"
-          className={`absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04] ${dim}`}
+          className={`absolute inset-0 h-full w-full object-cover transition-transform duration-sn-pill group-hover:scale-[1.04] ${dim}`}
           onError={() => setOwnFailed(true)}
         />
       ) : typeFailed ? null : (
@@ -205,7 +205,7 @@ export function EventScene({
             fill
             sizes="(min-width: 1280px) 22vw, (min-width: 1024px) 30vw, (min-width: 640px) 45vw, 90vw"
             style={{ objectPosition }}
-            className={`object-cover transition-transform duration-500 group-hover:scale-[1.04] ${dim}`}
+            className={`object-cover transition-transform duration-sn-pill group-hover:scale-[1.04] ${dim}`}
             onError={() => setTypeFailed(true)}
           />
         </span>

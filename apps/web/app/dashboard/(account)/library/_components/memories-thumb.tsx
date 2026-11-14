@@ -71,8 +71,8 @@ export function MemoriesThumb({
       group: o.group === 'Also kept' ? 'Also kept' : 'Show',
       ...(o.key === showValue && events ? { trail: { text: 'showing', tone: 'ok' as const } } : {}),
     })),
-    ...(download ? [{ key: 'download', label: 'Download all', group: 'This event', href: download, icon: <Share className="h-[18px] w-[18px]" strokeWidth={1.9} /> }] : []),
-  ].map((o) => ({ ...o, icon: o.icon ?? <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }));
+    ...(download ? [{ key: 'download', label: 'Download all', group: 'This event', href: download, icon: <Share className="h-5 w-5" strokeWidth={1.9} /> }] : []),
+  ].map((o) => ({ ...o, icon: o.icon ?? <ListFilter className="h-5 w-5" strokeWidth={1.9} /> }));
 
   const home = homeSegOptions(homeSegs);
   const all = [...home, ...options];
@@ -111,7 +111,7 @@ export function MemoriesThumb({
         />
       </HomeFindRow>
       {none ? (
-        <p role="status" className="mx-auto w-full max-w-3xl py-3 text-[14px] text-ink/60" data-memories-no-match="">
+        <p role="status" className="mx-auto w-full max-w-3xl py-3 text-sm text-ink/70" data-memories-no-match="">
           No event or chapter named “{q.trim()}” here.
         </p>
       ) : null}

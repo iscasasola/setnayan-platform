@@ -79,6 +79,7 @@ const ROOTS = [
   'app/_components/frontdoor',
   'lib/blog.ts',
   'lib/help.ts',
+  'lib/help', // help split 2026-11-14: the answers live here now
   // Widened 2026-10-23 — see the docblock.
   'app/page.tsx',
   'app/open-shop',
@@ -123,7 +124,7 @@ const ALLOWED: ReadonlyArray<{ file: string | RegExp; phrase: RegExp; why: strin
       'category the Event Hub replaces, never our own page (same exemption as product-pages-say-what-ships).',
   },
   {
-    file: 'lib/help.ts',
+    file: /^lib\/help(?:\.ts$|\/)/, // help split 2026-11-14
     phrase: /paid wedding website builders/i,
     why: 'The question a couple types into a search engine; it names the other products, and the answer is "the Event Hub".',
   },
@@ -133,7 +134,7 @@ const ALLOWED: ReadonlyArray<{ file: string | RegExp; phrase: RegExp; why: strin
     why: "The Church's own word for the rite (a liturgical celebration is the Mass), in an article about a Catholic wedding — not our word for an event.",
   },
   {
-    file: 'lib/help.ts',
+    file: /^lib\/help(?:\.ts$|\/)/, // help split 2026-11-14
     phrase: /local government website/i,
     why: "A city hall's own website, where a supplier renews a business permit — not ours.",
   },

@@ -38,6 +38,6 @@ test('conversion counts only the guests the total counts', () => {
 
 test('the converted figure names its unit', () => {
   const surface = code('app/admin/app-performance/_surfaces/growth-surface.tsx');
-  assert.match(surface, /of \{nf\.format\(c\.totalGuests\)\} guests/);
+  assert.match(surface, /of \$?\{nf\.format\(c\.totalGuests\)\} guests/);
   assert.doesNotMatch(surface, /\/ \{nf\.format\(c\.totalGuests\)\}/, 'a bare "/ N" is back');
 });

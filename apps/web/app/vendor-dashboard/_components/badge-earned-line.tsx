@@ -7,6 +7,7 @@ import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { Notice, NoticeSlot } from '@/app/_components/notices/notices';
 import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { newlyEarned, type EarnedNews, type ShopBadgeFacts } from '@/lib/shop-badges';
+import { GiftMoments } from '@/app/_components/gift-moment/gift-moments';
 
 /**
  * 🏅 "IMPROVES EVERY TIME" — ONE line on Today when a badge is NEWLY earned (owner 2026-10-28: *"we want to build it
@@ -40,13 +41,21 @@ function readSeen(vendorId: string): string[] {
 
 export function BadgeEarnedLine({
   factsUrl = '/api/vendor/badges?view=facts',
+  giftsUrl = '/api/unwrap?shop=1',
   labFiles,
 }: {
   factsUrl?: string;
+  /**
+   * 🎁 The badge rewards' gift moment (owner 14 Nov 2026: "this effect also applies to shops when they get a badge. and
+   * a reward"). Asked only AFTER the facts read above answers — that read is the door that PAYS a newly earned reward,
+   * so a reward earned on this visit plays on this visit. null = none (a lab with no session).
+   */
+  giftsUrl?: string | null;
   /** /dev only — each badge's print file as a data: URI, so the lab saves the real file with no session. */
   labFiles?: Record<string, string>;
 }) {
   const [news, setNews] = useState<{ vendorId: string; n: EarnedNews } | null>(null);
+  const [swept, setSwept] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -58,7 +67,8 @@ export function BadgeEarnedLine({
         if (n) setNews({ vendorId: j.vendorId, n });
       })
       // A failed read is not news: the line simply does not appear (nothing on Today waits on it).
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => live && setSwept(true));
     return () => {
       live = false;
     };
@@ -93,6 +103,7 @@ export function BadgeEarnedLine({
           }}
         />
       ) : null}
+      {swept && giftsUrl ? <GiftMoments url={giftsUrl} /> : null}
       <NoticeSlot place="top" className="mt-3 mb-1 border-b border-ink/10" />
     </>
   );

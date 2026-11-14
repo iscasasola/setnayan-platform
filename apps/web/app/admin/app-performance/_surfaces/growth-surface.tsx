@@ -2,13 +2,25 @@
 // re-homed here (2026-07-10) so the App Performance menu is ONE tabbed
 // studio. Its actions/_components stay under /admin/growth; the legacy
 // route is now a redirect into /admin/app-performance?tab={tab}.
+//
+// Re-drawn 2026-11-14 onto the approved drawing (`admin_pub/insights.html` ›
+// Sign-ups & growth): the range is the one dropdown row (`InsightsParamPick`,
+// moves `?range=` — the native select + Apply GET form went), the population is
+// read-only `Facts`, each growth curve is a `Fold` row, conversion is `Facts`
+// with its explanation in the ⓘ, and the breakdowns are folds of hairline rows.
+// No frames on read-only facts (T18); the Export CSV link is unchanged.
+//
+// 🔑 A REFUSED READ SAYS SO. `fetchGrowthStats` names each failed section in
+// `errors` and hands back a zero in its place; this view turns every such zero
+// back into "—", so a refused count is never drawn as a fact about the business.
 import { manilaDayLabel } from '@/lib/admin/manila-stamp';
 import { cookies } from 'next/headers';
-import { LineChart, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 import {
   fetchGrowthStats,
   buildDemoGrowthStats,
   GROWTH_RANGE_OPTIONS,
+  type EntityKey,
   type GrowthRangeKey,
   type GrowthSeries,
   type ConversionStats,
@@ -17,7 +29,10 @@ import {
 } from '@/lib/admin/growth-stats';
 import { ReadFailed } from '../../_components/read-failed';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { Fold } from '@/app/_components/fold';
 import { DEMO_MODE_COOKIE_NAME } from '@/lib/demo-mode';
+import { Badge, Facts, One, Rows, Row, Sec, UNREAD } from '../_components/insights-parts';
+import { InsightsParamPick } from '../_components/insights-param-pick';
 
 type Props = {
   searchParams: Promise<{ range?: string; demo?: string }>;
@@ -46,8 +61,17 @@ export async function GrowthSurface({ searchParams }: Props) {
   const rangeLabel =
     GROWTH_RANGE_OPTIONS.find((o) => o.value === range)?.label ?? 'window';
 
+  // Which reads were refused — named by `fetchGrowthStats` in `errors`.
+  const seriesFailed = (key: EntityKey) => stats.errors.includes(`${key} growth`);
+  const popFailed = stats.errors.includes('population totals');
+  const convFailed = stats.errors.includes('guest conversion') || seriesFailed('guests');
+  const p = stats.population;
+  const count = (failed: boolean, n: number): string | null => (failed ? null : nf.format(n));
+  const withSub = (failed: boolean, n: number, subFailed: boolean, sub: number, word: string): string | null =>
+    failed ? null : `${nf.format(n)} · ${subFailed ? UNREAD : nf.format(sub)} ${word}`;
+
   return (
-    <div>
+    <div className="max-w-3xl">
       {/* The tab strip above already says "Growth & Population"; this row said
           it again at 36px. The name stays in the document at zero pixels.
           🔒 THE DEMO BADGE IS NOT THE PAGE NAME AND DOES NOT GO WITH IT. It is
@@ -56,132 +80,106 @@ export async function GrowthSurface({ searchParams }: Props) {
           `actions`, which is the slot for what the old header genuinely held.
           ⚖ The lede splits: the demo sentence is an INSTRUCTION (it names the
           switch that brings the real counts back) and survives beside the
-          badge; the live-mode sentence was orientation and goes. */}
+          badge — now inside its ⓘ (T17); the live-mode sentence was
+          orientation and goes. */}
       <PageMasthead
         title="Growth & Population"
-        className="mb-4"
-        actions={
-          stats.demo ? (
-            <span className="rounded-full border border-warn-300/70 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-warn-800">
-              Illustrative demo data
-            </span>
-          ) : null
-        }
+        className="mb-0"
+        actions={stats.demo ? <Badge tone="warn">Illustrative demo data</Badge> : null}
       />
       {stats.demo ? (
-        <p className="mb-6 max-w-prose text-sm text-ink/70">
+        <One label="Demo data">
           Sample figures so you can see the shape of this surface before real
           data accrues. Turn off demo mode to see live counts.
-        </p>
+        </One>
       ) : null}
 
-      {/* Range picker — GET form, no client JS (mirrors /admin/funnels). */}
-      <form method="get" className="mb-8 flex flex-wrap items-center gap-2">
-        <input type="hidden" name="tab" value="growth" />
-        <label
-          htmlFor="range"
-          className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55"
-        >
-          Range
-        </label>
-        <select
-          id="range"
-          name="range"
-          defaultValue={range}
-          className="input-field h-9 max-w-[14rem] py-0 text-sm"
-        >
-          {GROWTH_RANGE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="button-secondary h-9 px-3 text-xs">
-          Apply
-        </button>
-        <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Since {manilaDayLabel(stats.sinceIso)}
-        </span>
+      {/* Range — the one dropdown (approved drawing: rangeRow()), never a native select with an Apply. */}
+      <InsightsParamPick
+        name="Range"
+        param="range"
+        value={range}
+        options={GROWTH_RANGE_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
+        about={`Since ${manilaDayLabel(stats.sinceIso)}.`}
+      />
+
+      <div className="my-2 flex">
         <a
           href={exportHref}
-          className="button-secondary ml-auto inline-flex h-9 items-center gap-1.5 px-3 text-xs"
+          className="button-secondary inline-flex min-h-11 items-center gap-1.5 px-3 text-sm"
           download
         >
-          <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
           Export CSV
         </a>
-      </form>
+      </div>
 
       {stats.errors.length > 0 ? (
         <p
           role="alert"
-          className="mb-6 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+          className="my-2 rounded-lg bg-[var(--sn-warning-soft)] px-3 py-2 text-sm text-ink"
         >
-          Some metrics couldn&apos;t load: {stats.errors.join(' · ')}
+          <b>Some metrics couldn&apos;t load: {stats.errors.join(' · ')}</b> — that is not the same as none.
+          Refresh to try again.
         </p>
       ) : null}
 
       {/* ── POPULATION NOW ─────────────────────────────────────────── */}
-      <section className="mb-10">
-        <SectionHeading
-          icon
-          title="Population now"
-          blurb="Current totals across the platform."
+      <section aria-labelledby="growth-population">
+        <Sec id="growth-population" title="Population now" about="Current totals across the platform." />
+        <Facts
+          data="growth-population"
+          rows={[
+            ['Account holders', count(popFailed, p.accountHolders)],
+            ['Customers', count(seriesFailed('customers'), p.customers)],
+            ['Suppliers', withSub(seriesFailed('vendors'), p.vendors, popFailed, p.vendorsPublished, 'published')],
+            ['Services', withSub(seriesFailed('services'), p.services, popFailed, p.servicesActive, 'active')],
+            ['Events', count(seriesFailed('events'), p.events)],
+            ['Guests', count(seriesFailed('guests'), p.guests)],
+          ]}
         />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <StatTile label="Account holders" value={nf.format(stats.population.accountHolders)} />
-          <StatTile label="Customers" value={nf.format(stats.population.customers)} />
-          <StatTile
-            label="Suppliers"
-            value={nf.format(stats.population.vendors)}
-            sub={`${nf.format(stats.population.vendorsPublished)} published`}
-          />
-          <StatTile
-            label="Services"
-            value={nf.format(stats.population.services)}
-            sub={`${nf.format(stats.population.servicesActive)} active`}
-          />
-          <StatTile label="Events" value={nf.format(stats.population.events)} />
-          <StatTile label="Guests" value={nf.format(stats.population.guests)} />
-        </div>
       </section>
 
       {/* ── GROWTH OVER TIME ───────────────────────────────────────── */}
-      <section className="mb-10">
-        <SectionHeading
+      <section aria-labelledby="growth-over-time">
+        <Sec
+          id="growth-over-time"
           title="Growth over time"
-          blurb={`Cumulative totals (line) and net new per period (bars) across the ${rangeLabel.toLowerCase()}.`}
+          about={`Cumulative totals (line) and net new per period (bars) across the ${rangeLabel.toLowerCase()}. The accent bar is the latest period.`}
         />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="divide-y divide-ink/10 border-y border-ink/10">
           {stats.series.map((s) => (
-            <GrowthCard key={s.key} series={s} />
+            <GrowthFold key={s.key} series={s} failed={seriesFailed(s.key)} />
           ))}
         </div>
       </section>
 
       {/* ── GUEST → ACCOUNT CONVERSION ─────────────────────────────── */}
-      <section className="mb-4">
-        <SectionHeading
+      <section aria-labelledby="growth-conversion">
+        <Sec
+          id="growth-conversion"
           title="Guest → account conversion"
-          blurb="How many invited guests went on to hold a Setnayan account."
+          about="How many invited guests went on to hold a Setnayan account. A conversion is a guest-list entry that became tied to a real Setnayan account (joined by QR scan or invite link). Rate is converted guests ÷ all non-removed guests, all-time — both counted over the same guests."
         />
-        <ConversionCard c={stats.conversion} rangeLabel={rangeLabel} />
+        <Conversion c={stats.conversion} rangeLabel={rangeLabel} failed={convFailed} />
       </section>
 
       {/* ── BREAKDOWNS ─────────────────────────────────────────────── */}
-      <section className="mb-4">
-        <SectionHeading
+      <section aria-labelledby="growth-breakdowns">
+        <Sec
+          id="growth-breakdowns"
           title="Breakdowns"
-          blurb={`Current composition of events by type and region${
+          about={`Current composition of events by type and region${
             stats.breakdowns.sampled ? ' (sampled)' : ''
           }.`}
+          right={stats.breakdowns.sampled ? <Badge>sampled</Badge> : null}
         />
         {stats.breakdowns.failed ? (
           <ReadFailed what="the events-by-type and events-by-region breakdowns" />
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <BreakdownCard title="Events by type" rows={stats.breakdowns.eventsByType} />
-            <BreakdownCard title="Events by region" rows={stats.breakdowns.eventsByRegion} />
+          <div className="divide-y divide-ink/10 border-y border-ink/10">
+            <BreakdownFold title="Events by type" rows={stats.breakdowns.eventsByType} />
+            <BreakdownFold title="Events by region" rows={stats.breakdowns.eventsByRegion} />
           </div>
         )}
       </section>
@@ -190,245 +188,145 @@ export async function GrowthSurface({ searchParams }: Props) {
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-/* Presentational helpers (server-rendered, no client JS)             */
+/* Presentational helpers (server-rendered; the folds are the client  */
+/* island, their contents are static SVG)                             */
 /* ────────────────────────────────────────────────────────────────── */
 
-function SectionHeading({
-  title,
-  blurb,
-  icon = false,
-}: {
-  title: string;
-  blurb: string;
-  icon?: boolean;
-}) {
-  return (
-    <header className="mb-3 flex items-center gap-2">
-      {icon ? (
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--sn-gold-500)]/10 text-[var(--sn-gold-700)]">
-          <LineChart aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </span>
-      ) : null}
-      <div>
-        <h2 className="text-base font-semibold text-ink">{title}</h2>
-        <p className="text-xs text-ink/55">{blurb}</p>
-      </div>
-    </header>
-  );
+function signed(n: number): string {
+  return `${n > 0 ? '+' : ''}${nf.format(n)}`;
 }
 
-function BreakdownCard({ title, rows }: { title: string; rows: BreakdownRow[] }) {
-  const max = Math.max(1, ...rows.map((r) => r.count));
-  const total = rows.reduce((sum, r) => sum + r.count, 0);
-  return (
-    <div className="sn-row p-5">
-      <p className="sn-eye mb-3" style={{ color: 'var(--sn-ink-500)' }}>
-        {title}
-      </p>
-      {rows.length === 0 ? (
-        <p className="text-sm" style={{ color: 'var(--sn-ink-700)' }}>
-          No data yet.
-        </p>
-      ) : (
-        <ul className="space-y-2.5">
-          {rows.map((r) => {
-            const pct = total > 0 ? Math.round((r.count / total) * 100) : 0;
-            return (
-              <li key={r.key} className="space-y-1">
-                <div className="flex items-baseline justify-between gap-2 text-sm">
-                  <span style={{ color: 'var(--sn-ink-900)' }}>{r.label}</span>
-                  <span className="tabular-nums" style={{ color: 'var(--sn-ink-700)' }}>
-                    {nf.format(r.count)} · {pct}%
-                  </span>
-                </div>
-                <span
-                  aria-hidden
-                  className="block h-2 rounded-full"
-                  style={{
-                    width: `${Math.max(2, (r.count / max) * 100)}%`,
-                    background: 'var(--sn-gold-500)',
-                    opacity: 0.55,
-                  }}
-                />
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
+function share(n: number, total: number): number {
+  return total > 0 ? Math.round((n / total) * 100) : 0;
 }
 
-function StatTile({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-}) {
+/** One entity's curve: the row says the total and the net new; it opens to the line and the bars. */
+function GrowthFold({ series, failed }: { series: GrowthSeries; failed: boolean }) {
   return (
-    <div className="sn-row p-4">
-      <p className="sn-eye" style={{ color: 'var(--sn-ink-500)' }}>
-        {label}
-      </p>
-      <p
-        className="mt-1 text-2xl font-semibold tabular-nums"
-        style={{ color: 'var(--sn-ink-900)' }}
-      >
-        {value}
-      </p>
-      {sub ? (
-        <p className="mt-0.5 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
-          {sub}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function DeltaChip({ value }: { value: number }) {
-  const positive = value > 0;
-  return (
-    <span
-      className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums"
-      style={
-        positive
-          ? { background: '#ECFDF5', color: '#065F46' }
-          : { background: 'rgba(27, 26, 23, 0.05)', color: 'var(--sn-ink-700)' }
+    <Fold
+      title={series.label}
+      data={`growth-${series.key}`}
+      summary={
+        failed
+          ? `${UNREAD} · couldn’t read`
+          : `${nf.format(series.total)} · ${signed(series.newInRange)} this period`
       }
     >
-      {positive ? '+' : ''}
-      {nf.format(value)}
-    </span>
-  );
-}
-
-function GrowthCard({ series }: { series: GrowthSeries }) {
-  return (
-    <div className="sn-row p-5">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="sn-eye" style={{ color: 'var(--sn-ink-500)' }}>
-            {series.label}
-          </p>
-          <p
-            className="mt-1 text-3xl font-semibold tabular-nums"
-            style={{ color: 'var(--sn-ink-900)' }}
-          >
-            {nf.format(series.total)}
-          </p>
+      {failed ? (
+        <div className="pb-3">
+          <ReadFailed what={`the ${series.label.toLowerCase()} growth`} />
         </div>
-        <DeltaChip value={series.newInRange} />
-      </div>
-      <div className="mt-4">
-        <Sparkline points={series.points} ariaLabel={`${series.label} cumulative growth`} />
-      </div>
-      <div className="mt-2">
-        <MiniBars points={series.points} />
-      </div>
-      <p className="mt-2 text-[11px]" style={{ color: 'var(--sn-ink-700)' }}>
-        Net new this period
-      </p>
-    </div>
+      ) : (
+        <div className="pb-3">
+          <Sparkline points={series.points} ariaLabel={`${series.label} cumulative growth`} />
+          <div className="mt-2">
+            <MiniBars points={series.points} />
+          </div>
+          <p className="mt-1.5 text-[12px] text-ink/65">Net new this period</p>
+        </div>
+      )}
+    </Fold>
   );
 }
 
-function ConversionCard({
+function Conversion({
   c,
   rangeLabel,
+  failed,
 }: {
   c: ConversionStats;
   rangeLabel: string;
+  failed: boolean;
 }) {
   const ratePct = c.totalGuests > 0 ? `${(c.rate * 100).toFixed(1)}%` : '—';
+  const days = c.medianDaysToConvert === null ? null : Math.round(c.medianDaysToConvert);
   const median =
-    c.medianDaysToConvert === null
+    days === null
       ? '—'
-      : `${Math.round(c.medianDaysToConvert)} ${
-          Math.round(c.medianDaysToConvert) === 1 ? 'day' : 'days'
-        }`;
+      : `${days} ${days === 1 ? 'day' : 'days'}${c.sampleSize > 0 ? ` · n=${nf.format(c.sampleSize)} in range` : ''}`;
+  if (failed) {
+    return (
+      <>
+        <Facts
+          data="growth-conversion"
+          rows={[
+            ['Conversion rate', null],
+            ['Converted', null],
+            ['New this period', null],
+            ['Median time to convert', null],
+          ]}
+        />
+        <ReadFailed what="the guest conversion" />
+      </>
+    );
+  }
   return (
-    <div className="sn-row p-5">
-      <div className="grid gap-5 lg:grid-cols-[1fr_1.4fr]">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-2">
-          <div>
-            <p className="sn-eye" style={{ color: 'var(--sn-ink-500)' }}>
-              Conversion rate
-            </p>
-            <p
-              className="mt-1 text-4xl font-semibold tabular-nums"
-              style={{ color: 'var(--sn-ink-900)' }}
-            >
-              {ratePct}
-            </p>
-          </div>
-          <div>
-            <p className="sn-eye" style={{ color: 'var(--sn-ink-500)' }}>
-              Converted
-            </p>
-            <p
-              className="mt-1 text-2xl font-semibold tabular-nums"
-              style={{ color: 'var(--sn-ink-900)' }}
-            >
-              {nf.format(c.converted)}
-              <span className="text-base font-normal" style={{ color: 'var(--sn-ink-700)' }}>
-                {/* AW-8: say what is counted — guests (the label's own denominator), never a bare "/ N". */}
-                {' '}
-                of {nf.format(c.totalGuests)} guests
-              </span>
-            </p>
-          </div>
-          <div>
-            <p className="sn-eye" style={{ color: 'var(--sn-ink-500)' }}>
-              New this period
-            </p>
-            <p
-              className="mt-1 text-2xl font-semibold tabular-nums"
-              style={{ color: 'var(--sn-ink-900)' }}
-            >
-              {c.newInRange >= 0 ? '+' : ''}
-              {nf.format(c.newInRange)}
-            </p>
-          </div>
-          <div>
-            <p className="sn-eye" style={{ color: 'var(--sn-ink-500)' }}>
-              Median time to convert
-            </p>
-            <p
-              className="mt-1 text-2xl font-semibold tabular-nums"
-              style={{ color: 'var(--sn-ink-900)' }}
-            >
-              {median}
-            </p>
-            {c.sampleSize > 0 ? (
-              <p className="mt-0.5 text-[11px]" style={{ color: 'var(--sn-ink-700)' }}>
-                n={nf.format(c.sampleSize)} in range
-              </p>
-            ) : null}
-          </div>
+    <>
+      <Facts
+        data="growth-conversion"
+        rows={[
+          ['Conversion rate', ratePct],
+          // AW-8: say what is counted — guests (the label's own denominator), never a bare "/ N".
+          ['Converted', `${nf.format(c.converted)} of ${nf.format(c.totalGuests)} guests`],
+          ['New this period', `${c.newInRange >= 0 ? '+' : ''}${nf.format(c.newInRange)}`],
+          ['Median time to convert', median],
+        ]}
+      />
+      <figure className="m-0 pt-1">
+        <figcaption className="mb-1.5 text-[12px] text-ink/65">
+          Cumulative conversions · {rangeLabel.toLowerCase()}
+        </figcaption>
+        <Sparkline points={c.points} ariaLabel="Cumulative guest conversions" />
+        <div className="mt-2">
+          <MiniBars points={c.points} />
         </div>
-        <div className="flex flex-col justify-center">
-          <p className="sn-eye mb-2" style={{ color: 'var(--sn-ink-500)' }}>
-            Cumulative conversions · {rangeLabel.toLowerCase()}
-          </p>
-          <Sparkline points={c.points} ariaLabel="Cumulative guest conversions" />
-          <div className="mt-2">
-            <MiniBars points={c.points} />
-          </div>
-        </div>
-      </div>
-      <p className="mt-4 border-t border-ink/10 pt-3 text-[11px]" style={{ color: 'var(--sn-ink-700)' }}>
-        A conversion is a guest-list entry that became tied to a real Setnayan
-        account (joined by QR scan or invite link). Rate is converted guests ÷ all
-        non-removed guests, all-time — both counted over the same guests.
-      </p>
-    </div>
+      </figure>
+    </>
   );
 }
 
-/** Cumulative-curve sparkline. Pure SVG — stretches to its container width. */
+/** A breakdown as a fold: the row names its two biggest shares; it opens to every row with its meter. */
+function BreakdownFold({ title, rows }: { title: string; rows: BreakdownRow[] }) {
+  const total = rows.reduce((sum, r) => sum + r.count, 0);
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  const summary =
+    rows.length === 0
+      ? 'No data yet.'
+      : rows
+          .slice(0, 2)
+          .map((r) => `${r.label} ${share(r.count, total)}%`)
+          .join(' · ');
+  return (
+    <Fold title={title} summary={summary} data={`growth-breakdown-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+      {rows.length === 0 ? (
+        <p className="pb-3 text-[13px] text-ink/65">No data yet.</p>
+      ) : (
+        <Rows label={title}>
+          {rows.map((r, i) => (
+            <Row
+              key={r.key}
+              title={r.label}
+              sub={
+                <span aria-hidden className="mt-1 block h-1.5 overflow-hidden rounded-full bg-ink/[0.06]">
+                  <span
+                    className="block h-full rounded-full"
+                    style={{
+                      width: `${Math.max(2, (r.count / max) * 100)}%`,
+                      background: i === 0 ? 'var(--sn-accent)' : 'var(--sn-ink-300)',
+                    }}
+                  />
+                </span>
+              }
+              trail={`${nf.format(r.count)} · ${share(r.count, total)}%`}
+            />
+          ))}
+        </Rows>
+      )}
+    </Fold>
+  );
+}
+
+/** Cumulative-curve sparkline. Pure SVG — stretches to its container width. One series, in the info token. */
 function Sparkline({ points, ariaLabel }: { points: SeriesPoint[]; ariaLabel: string }) {
   const W = 100;
   const H = 32;
@@ -454,11 +352,11 @@ function Sparkline({ points, ariaLabel }: { points: SeriesPoint[]; ariaLabel: st
       role="img"
       aria-label={ariaLabel}
     >
-      <path d={area} fill="var(--sn-gold-500)" opacity={0.12} />
+      <path d={area} fill="var(--sn-info)" opacity={0.12} />
       <path
         d={line}
         fill="none"
-        stroke="var(--sn-gold-500)"
+        stroke="var(--sn-info)"
         strokeWidth={1.5}
         vectorEffect="non-scaling-stroke"
         strokeLinejoin="round"
@@ -468,7 +366,7 @@ function Sparkline({ points, ariaLabel }: { points: SeriesPoint[]; ariaLabel: st
   );
 }
 
-/** Net-new-per-bucket bars beneath the cumulative curve. */
+/** Net-new-per-bucket bars beneath the cumulative curve — one grey series, the latest bar in accent. */
 function MiniBars({ points }: { points: SeriesPoint[] }) {
   const max = Math.max(1, ...points.map((p) => p.added));
   return (
@@ -479,8 +377,7 @@ function MiniBars({ points }: { points: SeriesPoint[] }) {
           className="flex-1 rounded-sm"
           style={{
             height: `${Math.max(3, (p.added / max) * 100)}%`,
-            background: 'var(--sn-gold-500)',
-            opacity: 0.45,
+            background: i === points.length - 1 ? 'var(--sn-accent)' : 'var(--sn-ink-300)',
           }}
         />
       ))}

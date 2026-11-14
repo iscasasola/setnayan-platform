@@ -105,7 +105,7 @@ export function PapicBuySheet({
           One credit is one camera photo; a short clip uses a little more.
           {rungs && ladderEnds(rungs) ? ` ${ladderEnds(rungs)} — add more any time.` : ' Add more any time.'}
         </InfoTip>
-        <p className="mb-3.5 text-sm text-ink/60" data-papic-buy-have="">
+        <p className="mb-3.5 text-sm text-ink/75" data-papic-buy-have="">
           {left === 0
             ? 'Your cameras restart the moment this is paid.'
             : left !== null
@@ -113,14 +113,14 @@ export function PapicBuySheet({
               : 'Credits land once your payment is confirmed.'}
         </p>
         {error ? (
-          <p className="mb-3 text-sm font-medium" role="alert" style={{ color: 'rgb(var(--color-danger))' }}>
+          <p className="mb-3 text-sm font-medium text-danger-700" role="alert">
             {ERROR_COPY[error] ?? 'Something went wrong, and nothing was charged. Please try again.'}
           </p>
         ) : null}
         {rungs ? (
           <PapicBuyForm eventId={eventId} rungs={rungs} left={left} />
         ) : refusal ? (
-          <p className="text-sm" role="alert" style={{ color: 'rgb(var(--color-danger))' }}>
+          <p className="text-sm text-danger-700" role="alert">
             {refusal}
           </p>
         ) : (

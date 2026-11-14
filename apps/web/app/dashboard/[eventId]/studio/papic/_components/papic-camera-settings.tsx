@@ -26,6 +26,7 @@ import { PapicHeadPicker } from './papic-head-picker';
 import { FaceTaggingChoice } from './face-tagging-choice';
 import { FaceBlockingCount } from './face-blocking-count';
 import { GuestAllotmentsChoice } from './guest-allotments-choice';
+import { PhoneUploadsChoice } from './phone-uploads-choice';
 import type { PapicCardSeat } from '@/lib/papic-home-href';
 
 /**
@@ -205,6 +206,8 @@ export async function PapicCameraSettings({
           <FaceTaggingChoice eventId={eventId} variant="row" returnTo={seat === 'page' ? null : seat} subLine="set per guest on their guest card" />
           {/* Face blocking — a COUNT, never a switch (owner 2026-10-24: "each guest's wish is always honoured"). */}
           <FaceBlockingCount eventId={eventId} />
+          {/* 📲 Photos from guests' phones (guest upload v2, approved 2026-11-13) — Right away / After I check. */}
+          <PhoneUploadsChoice eventId={eventId} />
         </div>
       </section>
 

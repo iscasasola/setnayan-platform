@@ -149,6 +149,7 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   service_moved_to_event: 'low',
   vendor_status_change: 'low',
   vendor_credit_expiring: 'low',
+  vendor_plan_gift_ending: 'low',
   vendor_joined: 'low',
   vendor_invite_declined: 'low',
   subscription_activated: 'low',

@@ -156,45 +156,54 @@ export function planGiftDaysLeft(g: Pick<RunningPlanGift, 'endsAt'>, nowMs: numb
   return Math.max(1, Math.ceil((end - nowMs) / DAY_MS));
 }
 
-/** The block's length in days ("of 28"). */
-export function planGiftBlockDays(g: Pick<RunningPlanGift, 'startsAt' | 'endsAt'>): number {
-  const days = Math.round((Date.parse(g.endsAt) - Date.parse(g.startsAt)) / DAY_MS);
-  return Number.isFinite(days) && days > 0 ? days : SHOP_PLAN_GIFT_DAYS;
+/**
+ * 🔔 WHEN A PLAN GIFT SAYS "ENDS SOON" (owner 14 Nov 2026, DECISION_LOG "A GIFTED SUPPLIER PLAN SAYS 'ENDS SOON' 7
+ * DAYS BEFORE AND AGAIN 1 DAY BEFORE"): the 7-day stage from a week out, the 1-day stage on its last day. Null before
+ * the week, before the gift has started, and once it is over. No daily countdown in between.
+ */
+export const PLAN_GIFT_NOTICE_STAGES = [7, 1] as const;
+export type PlanGiftNoticeStage = (typeof PLAN_GIFT_NOTICE_STAGES)[number];
+
+export function planGiftNoticeStage(g: Pick<RunningPlanGift, 'startsAt' | 'endsAt'>, nowMs: number): PlanGiftNoticeStage | null {
+  if (Date.parse(g.startsAt) > nowMs) return null;
+  const left = planGiftDaysLeft(g, nowMs);
+  if (left === 0) return null;
+  if (left <= 1) return 1;
+  return left <= SHOP_PLAN_GIFT_ENDS_SOON_DAYS ? 7 : null;
 }
 
-/** Today's line under the greeting ("During the gift"): "Ultra · gift · 21 of 28 days left". Null once over. */
-export function runningGiftLine(g: RunningPlanGift, nowMs: number): string | null {
-  const left = planGiftDaysLeft(g, nowMs);
-  if (left === 0 || Date.parse(g.startsAt) > nowMs) return null;
-  return `${shortPlanWord(g.tier)} · gift · ${formatCount(left)} of ${formatCount(planGiftBlockDays(g))} days left`;
+/** "Saturday 21 November" — the day it ends, in words, in Manila. */
+export function planGiftEndDayWords(endsAt: string): string {
+  const d = new Date(endsAt);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Manila' });
 }
 
 /**
- * The notice in the gift's last 7 days ("Before it ends"), or null before then. `stayPricePhp` is the 28-day price
- * READ from the catalogue; null → the button names no price. "Go back" is absent for days added to the shop's own
- * plan — there is no other plan to go back to.
+ * The "ends soon" words — the SAME for the in-app notice and the email: the end date in words, what happens if the shop
+ * does nothing (it goes back to its own plan, nothing lost), and ONE button, "Stay on <plan>". `stayPricePhp` is the
+ * plan's 28-day price READ from the catalogue; null → the words name no price, never a typed one.
  */
-export function giftEndsSoonNotice(
-  g: RunningPlanGift,
-  nowMs: number,
+export function planGiftEndingWords(
+  g: Pick<RunningPlanGift, 'tier' | 'returnTier' | 'extend' | 'endsAt'>,
   stayPricePhp: number | null,
-): { title: string; body: string; stay: string; goBack: string | null } | null {
-  const left = planGiftDaysLeft(g, nowMs);
-  if (left === 0 || left > SHOP_PLAN_GIFT_ENDS_SOON_DAYS || Date.parse(g.startsAt) > nowMs) return null;
-  const plan = shortPlanWord(g.tier);
-  const back = g.extend ? null : shortPlanWord(g.returnTier ?? 'free');
-  const price =
-    stayPricePhp != null && Number.isFinite(stayPricePhp)
-      ? ` · ${formatPhp(stayPricePhp)}`
-      : '';
+): { title: string; body: string; stay: string } {
+  const plan = planWord(g.tier);
+  const day = planGiftEndDayWords(g.endsAt);
+  const price = stayPricePhp != null && Number.isFinite(stayPricePhp) ? ` for ${formatPhp(stayPricePhp)} every ${SHOP_PLAN_GIFT_DAYS} days` : '';
+  const after = g.extend
+    ? `your ${plan} ends then, as it would have`
+    : `your shop goes back to ${planWord(g.returnTier ?? 'free')} that day, with nothing lost`;
   return {
-    title: `Your ${plan} gift ends in ${formatCount(left)} ${left === 1 ? 'day' : 'days'}`,
-    body: back
-      ? `Stay on ${plan}, or go back to ${back}. Nothing is lost either way: what you made on ${plan} stays, and anything past ${back}’s allowances waits for you, hidden, not deleted.`
-      : `Stay on ${plan} after these days, or do nothing and your plan ends as it would have.`,
-    stay: `Stay on ${plan}${price}`,
-    goBack: back ? `Go back to ${back}` : null,
+    title: `Your ${plan} gift ends ${day}`,
+    body: `Stay on ${plan}${price}, or do nothing and ${after}.`,
+    stay: `Stay on ${plan}`,
   };
+}
+
+/** The one plain line on the day a plan gift ends (no line for days added to the shop's own plan — nothing changes). */
+export function planGiftEndedLine(g: { tier: string; returnTier: string | null }): string {
+  return `Your ${planWord(g.tier)} gift has ended. Your shop is back on ${planWord(g.returnTier ?? 'free')}.`;
 }
 
 /** What a finished press says, for the toast under the moment. */

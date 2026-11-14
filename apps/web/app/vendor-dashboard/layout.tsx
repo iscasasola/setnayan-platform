@@ -11,6 +11,7 @@ import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { REQUEST_PATH_HEADER, shopConsolePath } from '@/lib/shop-console-path';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
+import { maybeSweepPlanGiftEndingNotices } from '@/lib/setnayan-shop-gift.server';
 import { maybeSweepVendorCreditWarnings } from '@/lib/vendor-credit-warning.server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
@@ -371,6 +372,9 @@ export default async function VendorDashboardLayout({
   // It cannot live in sweep_vendor_tier_expiry: that runs on the first visit
   // AFTER a term ends, which is the same page load that takes the money.
   after(() => maybeSweepVendorCreditWarnings().catch(() => {}));
+  // 🎁 A gifted plan says "ends soon" 7 days and 1 day before it ends (owner 14 Nov 2026) — the same fleet-wide,
+  // cron-free shape: the shop that needs telling is the one not opening this page. Once per stage, claimed per gift.
+  after(() => maybeSweepPlanGiftEndingNotices().catch(() => {}));
   // PR-H · nudge at 24 hours, close at 48 (owner 2026-08-28). Mounted in BOTH layouts on purpose:
   // the DB compare-and-swap picks exactly one winner per gap window, and an
   // admin-only mount would wait for an admin page view — production is

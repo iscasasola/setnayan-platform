@@ -70,6 +70,9 @@ const EMAILED_ON_MAIN: readonly string[] = [
   'review_received', 'schedule_change_requested', 'security_alert',
   'vendor_credit_expiring', 'vendor_feature_suggested', 'vendor_status_change',
   'waitlist_picked',
+  // + 14 Nov 2026, OWNER'S WORD (DECISION_LOG "A GIFTED SUPPLIER PLAN SAYS 'ENDS SOON' 7 DAYS BEFORE AND AGAIN 1 DAY
+  // BEFORE": "an in-app notice + email 7 days before it ends and again 1 day before"): a Setnayan plan gift ending.
+  'vendor_plan_gift_ending',
 ];
 /** The engagement types whose email also needs marketing consent, on main. */
 const MARKETING_GATED_ON_MAIN: readonly string[] = ['new_chapter_from_followed'];
@@ -90,7 +93,7 @@ function compare(name: string, frozen: readonly string[], what: string): void {
 }
 
 test('anchor — the three lists were really read', () => {
-  assert.equal(EMAILED_ON_MAIN.length, 51);
+  assert.equal(EMAILED_ON_MAIN.length, 52); // 51 + vendor_plan_gift_ending (owner, 14 Nov 2026)
   assert.equal(new Set(EMAILED_ON_MAIN).size, EMAILED_ON_MAIN.length, 'the frozen list repeats a type');
   assert.ok(members('EMAIL_ENABLED_TYPES').length >= 40, 'the email allowlist parsed as nearly empty');
 });

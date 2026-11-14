@@ -9,7 +9,7 @@ import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role'
 import { BADGE_UPGRADE_CHOICES, BADGE_UPGRADE_NAME, type BadgeUpgradeChoice } from '@/lib/badge-upgrades';
 import { startBadgeUpgradeCore } from '@/lib/badge-upgrades.server';
 import { SHOP_GIFT_CHOICES, claimedWords, type ShopGiftChoice } from '@/lib/setnayan-shop-gift';
-import { claimSetnayanShopGift, goBackFromPlanGift } from '@/lib/setnayan-shop-gift.server';
+import { claimSetnayanShopGift } from '@/lib/setnayan-shop-gift.server';
 
 /**
  * ⏱ START A BADGE UPGRADE (owner approved the table 2026-11-06): the supplier's tap on "Start" beside a ready upgrade
@@ -25,8 +25,8 @@ export type StartBadgeUpgradeState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
   | { status: 'started'; message: string }
-  /** 🎁 A Setnayan gift's press (op=gift_claim) or "Go back" (op=gift_go_back) — see below. */
-  | { status: 'gift'; outcome: 'claimed' | 'already' | 'went_back'; message: string };
+  /** 🎁 A Setnayan gift's press (op=gift_claim) — see below. */
+  | { status: 'gift'; outcome: 'claimed' | 'already'; message: string };
 
 const err = (message: string): StartBadgeUpgradeState => ({ status: 'error', message });
 
@@ -49,21 +49,14 @@ export async function startBadgeUpgrade(_prev: StartBadgeUpgradeState, formData:
   const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
   if (!canManageVendor(role)) return err('Only the owner or an admin can start an upgrade.');
 
-  // 🎁 SETNAYAN GIFTS TO A SHOP (owner 14 Nov 2026) ride this action as two ops rather than new exports (the
+  // 🎁 SETNAYAN GIFTS TO A SHOP (owner 14 Nov 2026) ride this action as an op rather than a new export (the
   // server-action budget is at its ceiling). The press IS the claim: the database grants once, and a repeat — a
   // retry after a lost connection, a second tab — answers 'already' (`setnayan_shop_gift_claim`).
   const op = String(formData.get('op') ?? '');
-  if (op === 'gift_claim' || op === 'gift_go_back') {
+  if (op === 'gift_claim') {
     const giftId = String(formData.get('gift_id') ?? '').trim();
     if (!/^[0-9a-f-]{36}$/i.test(giftId)) return err('This gift isn’t on your shop.');
     const admin = createAdminClient();
-    if (op === 'gift_go_back') {
-      const back = await goBackFromPlanGift(admin, { vendorProfileId, giftId });
-      if (back === 'failed') return err('Couldn’t switch back right now. Nothing changed — try again.');
-      revalidatePath('/vendor-dashboard');
-      revalidatePath('/vendor-dashboard/subscription');
-      return { status: 'gift', outcome: 'went_back', message: back === 'returned' ? 'You’re back on your own plan.' : 'Your gift has already ended.' };
-    }
     const choice = String(formData.get('choice') ?? '').trim();
     if (!(SHOP_GIFT_CHOICES as readonly string[]).includes(choice)) return err('Pick how to open this gift.');
     const res = await claimSetnayanShopGift(admin, { vendorProfileId, giftId, choice: choice as ShopGiftChoice, actorUserId: user.id });

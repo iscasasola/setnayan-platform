@@ -10,13 +10,18 @@ ADDS 28 DAYS" · "PRESSING REDEEM IS THE CLAIM" · "GIFT DESIGN APPROVED").
 - **The shop's Today**: "🎁 A gift from Setnayan is waiting · Open" until claimed → the tap-to-open moment with
   Setnayan's mark. Stock: *Add to my gifts* (lands through `shop_badge_reward_grant`, outside the 40% limit). Plan:
   *Start it* (no plan) · *Upgrade now* / *Start it when my plan ends* (a lower plan) · *28 more days* (the same plan).
-  While it runs: "Ultra · gift · N of 28 days left"; in the last 7 days "Your Ultra gift ends in N days" with
-  *Stay on Ultra* (the catalogue's 28-day price) and *Go back to Pro*. A branch of `startBadgeUpgrade` (no new action).
+  A branch of `startBadgeUpgrade` (no new action).
+- **Ends soon — 7 days before and again 1 day before** (owner, DECISION_LOG "A GIFTED SUPPLIER PLAN SAYS 'ENDS SOON'
+  7 DAYS BEFORE AND AGAIN 1 DAY BEFORE"): an in-app notice (Today, through the one notice system, and the bell) and an
+  email (`vendor_plan_gift_ending`, on the email allowlist by that ruling), each with one **Stay on <plan>** button,
+  the plan's 28-day catalogue price and the end date in words. Sent by a fleet-wide, cron-free sweep, once per stage
+  (claimed on the gift row). On the day it ends, one plain line: "Your Supplier Ultra gift has ended. Your shop is back
+  on Supplier Pro." No countdown line anywhere.
 - **Nothing is lost**: Upgrade now PAUSES the shop's plan; when the gift ends, the shipped lapse sweep
   (`sweep_vendor_tier_expiry`) hands it back with exactly the days it had left (`setnayan_plan_gift_return`).
 - **Exactly once**: `setnayan_shop_gift_claim` sets `claimed_at` in one conditional UPDATE; a repeat answers
   `already`. `tests/db/a-setnayan-gift-is-claimed-once.db.test.ts` (8 tests).
-- Migration `20271345573127_setnayan_gifts_to_a_shop.sql` — adds one table (RLS at create), five functions, and two
+- Migrations `20271345573127_setnayan_gifts_to_a_shop.sql` and `20271346219255_plan_gift_ending_notice_type.sql` (the notification type + two once-only send stamps) — adds one table (RLS at create), five functions, and two
   branches in `sweep_vendor_tier_expiry` (body copied from the object's newest definition, 20271310256381). Ugat map:
   `setnayan_shop_gifts` on the Papic ↔ Vendor joint.
 - The moment stands in for G2's GiftMoment (not merged when this was built) — same words, swap the shell.

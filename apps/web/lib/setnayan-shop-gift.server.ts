@@ -4,10 +4,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchShopGiftPacks } from '@/lib/shop-gifts.server';
 import type { ShopGiftPack } from '@/lib/shop-gifts';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
+import { readPersonalInvitePlanPrices } from '@/lib/personal-invite-prices.server';
 import {
   SHOP_GIFT_CHOICES,
   SHOP_GIFT_MAX_UNITS,
   SHOP_GIFT_PLAN_TIERS,
+  planGiftEndingWords,
+  planGiftNoticeStage,
   type RunningPlanGift,
   type ShopGiftChoice,
   type ShopGiftPlanTier,
@@ -21,7 +26,7 @@ import {
  *   sendSetnayanShopGift   the admin's send (Admin › Gifts › the shop's comp panel) — one row, nothing granted yet
  *   readShopGifts          what is waiting to be opened, and the plan gift running now (Today)
  *   claimSetnayanShopGift  the press — `setnayan_shop_gift_claim`, exactly once (the database decides)
- *   goBackFromPlanGift     "Go back to <plan>" — `setnayan_plan_gift_go_back`
+ *   maybeSweepPlanGiftEndingNotices  the 7-day and 1-day "ends soon" notice + email, once per stage (fleet-wide)
  *
  * Every function takes the SERVICE-ROLE client: the doors are granted to service_role only. The caller has already
  * proved the shop is the signed-in supplier's own and that they may run it (or that the caller is an admin).
@@ -45,6 +50,9 @@ type GiftRow = {
   finished_at: string | null;
   finish_reason: string | null;
 };
+
+/** How long the end-day line stays on Today after the gift ends. */
+const ENDED_LINE_MS = 24 * 60 * 60 * 1000;
 
 const COLS =
   'gift_id, gift_type, stock_kind, stock_units, stock_credits_each, plan_tier, plan_days, sent_at, claimed_at, claim_choice, plan_starts_at, plan_ends_at, held_until, return_tier, finished_at, finish_reason';
@@ -107,7 +115,14 @@ export async function sendSetnayanShopGift(admin: SupabaseClient, input: SendSho
 
 export type ShopGiftsRead =
   | { ok: false }
-  | { ok: true; waiting: ShopGiftView[]; running: RunningPlanGift | null; stayPricePhp: number | null };
+  | {
+      ok: true;
+      waiting: ShopGiftView[];
+      running: RunningPlanGift | null;
+      stayPricePhp: number | null;
+      /** A plan gift that ended (its days ran out) within the last day — Today says so once, plainly. */
+      endedToday: { giftId: string; tier: string; returnTier: string | null } | null;
+    };
 
 /**
  * What Today shows: every gift not yet opened (with what the shop may press now, from the database), and the plan
@@ -125,7 +140,9 @@ export async function readShopGifts(
       .from('setnayan_shop_gifts')
       .select(COLS)
       .eq('vendor_profile_id', vendorProfileId)
-      .or('claimed_at.is.null,and(gift_type.eq.plan,finished_at.is.null,plan_starts_at.not.is.null)')
+      .or(
+        `claimed_at.is.null,and(gift_type.eq.plan,finished_at.is.null,plan_starts_at.not.is.null),and(gift_type.eq.plan,finish_reason.eq.ended,finished_at.gte.${new Date(nowMs - ENDED_LINE_MS).toISOString()})`,
+      )
       .order('sent_at', { ascending: true })
       .limit(20),
     admin
@@ -197,7 +214,11 @@ export async function readShopGifts(
       }
     : null;
   const stayPricePhp = running ? (planPrices?.[running.tier] ?? null) : null;
-  return { ok: true, waiting, running, stayPricePhp };
+  const ended = rows
+    .filter((r) => r.gift_type === 'plan' && r.finish_reason === 'ended' && r.plan_tier && r.finished_at)
+    .sort((a, b) => Date.parse(b.finished_at!) - Date.parse(a.finished_at!))[0];
+  const endedToday = ended ? { giftId: ended.gift_id, tier: ended.plan_tier!, returnTier: ended.return_tier } : null;
+  return { ok: true, waiting, running, stayPricePhp, endedToday };
 }
 
 export type ClaimShopGiftResult =
@@ -229,25 +250,6 @@ export async function claimSetnayanShopGift(
   return { status: 'failed' };
 }
 
-/** "Go back to <plan>" — ends the running plan gift now and hands the shop its own plan back. */
-export async function goBackFromPlanGift(
-  admin: SupabaseClient,
-  args: { vendorProfileId: string; giftId: string },
-): Promise<'returned' | 'not_running' | 'failed'> {
-  const { data, error } = await admin.rpc('setnayan_plan_gift_go_back', {
-    p_gift_id: args.giftId,
-    p_vendor_profile_id: args.vendorProfileId,
-  });
-  if (error) {
-    console.error('[goBackFromPlanGift] refused', error.message);
-    return 'failed';
-  }
-  const status = (data as { status?: string } | null)?.status;
-  if (status === 'returned') return 'returned';
-  if (status === 'not_running' || status === 'superseded' || status === 'none') return 'not_running';
-  return 'failed';
-}
-
 /** The shop's Setnayan gifts for the admin panel, newest first. Null on a read failure. */
 export async function readShopGiftsForAdmin(
   admin: SupabaseClient,
@@ -262,4 +264,102 @@ export async function readShopGiftsForAdmin(
     return null;
   }
   return ((data ?? []) as GiftRow[]).map((r) => ({ ...r, stockLine: r.gift_type === 'stock' ? stockLineOf(r, packs) : null }));
+}
+
+// ── 🔔 "ENDS SOON", 7 DAYS BEFORE AND AGAIN 1 DAY BEFORE ─────────────────────────────────────────────────────────────
+
+const SWEEP_THROTTLE_MS = 5 * 60 * 1000;
+let lastPlanGiftSweepMs = 0;
+
+/**
+ * 🔔 THE "ENDS SOON" NOTICE + EMAIL (owner 14 Nov 2026, DECISION_LOG "A GIFTED SUPPLIER PLAN SAYS 'ENDS SOON' 7 DAYS
+ * BEFORE AND AGAIN 1 DAY BEFORE"): an in-app notice and an email 7 days before a plan gift ends and again 1 day before,
+ * each with one "Stay on <plan>" button and the end date in words.
+ *
+ * FLEET-WIDE, the `maybeSweepVendorCreditWarnings` shape: any supplier's dashboard load sweeps every shop, because the
+ * shop that needs telling is the one NOT opening its dashboard. Cron-free, so with no supplier traffic at all nothing is
+ * sent — and the hand-back is login-driven too, so nothing ends unannounced through a window nobody could have warned.
+ *
+ * 🔒 ONCE PER STAGE: the send is claimed on the gift row (`ends_soon_7_sent_at` / `ends_soon_1_sent_at`, set only while
+ * NULL), so two instances, two tabs or a retry never send a second copy. A gift first seen inside its last day gets the
+ * 1-day notice only (its 7-day mark is stamped with it, unsent).
+ */
+export async function maybeSweepPlanGiftEndingNotices(): Promise<void> {
+  const nowMs = Date.now();
+  if (nowMs - lastPlanGiftSweepMs < SWEEP_THROTTLE_MS) return;
+  lastPlanGiftSweepMs = nowMs;
+  try {
+    const admin = createAdminClient();
+    const nowIso = new Date(nowMs).toISOString();
+    const horizonIso = new Date(nowMs + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await admin
+      .from('setnayan_shop_gifts')
+      .select('gift_id, vendor_profile_id, plan_tier, plan_starts_at, plan_ends_at, return_tier, claim_choice, ends_soon_7_sent_at, ends_soon_1_sent_at')
+      .eq('gift_type', 'plan')
+      .is('finished_at', null)
+      .not('plan_starts_at', 'is', null)
+      .lte('plan_starts_at', nowIso)
+      .gt('plan_ends_at', nowIso)
+      .lte('plan_ends_at', horizonIso)
+      .or('ends_soon_7_sent_at.is.null,ends_soon_1_sent_at.is.null')
+      .limit(200);
+    if (error) {
+      console.error('[supabase-error] setnayan-shop-gift: ends-soon sweep read', error);
+      return;
+    }
+    const rows = (data ?? []) as Array<{
+      gift_id: string;
+      vendor_profile_id: string;
+      plan_tier: ShopGiftPlanTier;
+      plan_starts_at: string;
+      plan_ends_at: string;
+      return_tier: string | null;
+      claim_choice: ShopGiftChoice | null;
+      ends_soon_7_sent_at: string | null;
+      ends_soon_1_sent_at: string | null;
+    }>;
+    if (rows.length === 0) return;
+    const prices = await readPersonalInvitePlanPrices().catch(() => null);
+
+    for (const r of rows) {
+      const g = { startsAt: r.plan_starts_at, endsAt: r.plan_ends_at };
+      const stage = planGiftNoticeStage(g, nowMs);
+      if (stage === null) continue;
+      const col = stage === 1 ? 'ends_soon_1_sent_at' : 'ends_soon_7_sent_at';
+      if (r[col]) continue;
+      // Claim this stage (and, at the 1-day stage, the 7-day mark too) — only while still unsent.
+      const { data: claimed } = await admin
+        .from('setnayan_shop_gifts')
+        .update(stage === 1 ? { ends_soon_1_sent_at: nowIso, ends_soon_7_sent_at: r.ends_soon_7_sent_at ?? nowIso } : { ends_soon_7_sent_at: nowIso })
+        .eq('gift_id', r.gift_id)
+        .is(col, null)
+        .select('gift_id');
+      if (!claimed || claimed.length === 0) continue;
+
+      // The shop must still be on the gift's plan (a plan bought or set since is the shop's own — nothing to say).
+      const { data: shop } = await admin
+        .from('vendor_profiles')
+        .select('user_id, tier_state, tier_expires_at')
+        .eq('vendor_profile_id', r.vendor_profile_id)
+        .maybeSingle();
+      const sh = (shop ?? null) as { user_id: string | null; tier_state: string | null; tier_expires_at: string | null } | null;
+      if (!sh?.user_id || sh.tier_state !== r.plan_tier || Date.parse(sh.tier_expires_at ?? '') !== Date.parse(r.plan_ends_at)) continue;
+
+      const w = planGiftEndingWords(
+        { tier: r.plan_tier, returnTier: r.return_tier, extend: r.claim_choice === 'extend', endsAt: r.plan_ends_at },
+        prices?.[r.plan_tier] ?? null,
+      );
+      await emitNotification({
+        userId: sh.user_id,
+        type: 'vendor_plan_gift_ending',
+        title: w.title,
+        body: w.body,
+        relatedUrl: '/vendor-dashboard/subscription',
+        email: { ctaLabel: w.stay },
+      });
+    }
+  } catch (e) {
+    // Best-effort: a missed run retries on the next eligible dashboard load. Nothing here moves a plan.
+    console.error('[setnayan-shop-gift] ends-soon sweep failed', e);
+  }
 }

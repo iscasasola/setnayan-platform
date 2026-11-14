@@ -23,6 +23,8 @@ import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import { inertBehind } from '@/lib/popup-behind';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useHydrated } from '@/lib/use-hydrated';
+import { Notice } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { startBadgeUpgrade } from '@/app/vendor-dashboard/subscription/badge-upgrade-actions';
 import {
   SHOP_GIFT_CLAIM_WORDS as W,
@@ -35,28 +37,67 @@ import {
 
 type Phase = 'wrapped' | 'open' | 'claiming' | 'offline' | 'claimed' | 'refused';
 
-/** The waiting line on Today + the moment it opens. One line per waiting gift; nothing closes it but claiming. */
-export function SetnayanShopGiftWaiting({ gifts }: { gifts: readonly ShopGiftView[] }) {
+export type PlanGiftNoticeView = {
+  /** Stable, with its FACT in it (the gift and the 7- or 1-day stage), so a new stage comes back after a Hide. */
+  noticeKey: string;
+  title: string;
+  detail: string;
+  stay: string;
+};
+
+/**
+ * 🔔 SETNAYAN GIFTS ON TODAY, THROUGH THE ONE NOTICE SYSTEM (owner 14 Nov 2026; DECISION_LOG "A GIFTED SUPPLIER PLAN
+ * SAYS 'ENDS SOON' 7 DAYS BEFORE AND AGAIN 1 DAY BEFORE"). Registers notices only; Today's top slot draws them.
+ *   · a gift waiting to be opened — live, no close (only claiming closes it), Open;
+ *   · 7 days and 1 day before a plan gift ends — live, the stage in its key, ONE button "Stay on <plan>";
+ *   · the day it ends — news, one plain line, Got it.
+ * No countdown anywhere else (owner: "no countdown banners on every page").
+ */
+export function SetnayanShopGiftNotices({
+  gifts,
+  ending,
+  ended,
+}: {
+  gifts: readonly ShopGiftView[];
+  ending: PlanGiftNoticeView | null;
+  ended: { noticeKey: string; title: string } | null;
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
   const open = gifts.find((g) => g.giftId === openId) ?? null;
-  if (gifts.length === 0) return null;
   return (
-    <section aria-label="Gifts from Setnayan" className="mb-3 divide-y divide-ink/10 border-b border-ink/10" data-setnayan-shop-gift="">
+    <>
       {gifts.map((g) => (
-        <div key={g.giftId} className="flex items-center gap-3 py-2">
-          <p className="min-w-0 flex-1 text-[14px] font-semibold text-ink">{SHOP_GIFT_WAITING.line}</p>
-          <button
-            type="button"
-            onClick={() => setOpenId(g.giftId)}
-            className="sn-press sn-press-ring inline-flex h-11 min-h-11 items-center rounded-full bg-sn-accent px-4 text-[14px] font-semibold text-sn-on-accent"
-            data-setnayan-shop-gift-open=""
-          >
-            {SHOP_GIFT_WAITING.open}
-          </button>
-        </div>
+        <Notice
+          key={g.giftId}
+          kind="live"
+          tone="info"
+          closable={false}
+          noticeKey={`setnayan-gift:${g.giftId}`}
+          title={SHOP_GIFT_WAITING.line}
+          actions={
+            <button type="button" onClick={() => setOpenId(g.giftId)} className={NOTICE_ACTION} data-setnayan-shop-gift-open="">
+              {SHOP_GIFT_WAITING.open}
+            </button>
+          }
+        />
       ))}
+      {ending ? (
+        <Notice
+          kind="live"
+          tone="warning"
+          noticeKey={ending.noticeKey}
+          title={ending.title}
+          detail={ending.detail}
+          actions={
+            <Link href="/vendor-dashboard/subscription" className={NOTICE_ACTION} data-setnayan-plan-gift-stay="">
+              {ending.stay}
+            </Link>
+          }
+        />
+      ) : null}
+      {ended ? <Notice kind="news" noticeKey={ended.noticeKey} title={ended.title} /> : null}
       {open ? <SetnayanShopGiftMoment gift={open} onClose={() => setOpenId(null)} /> : null}
-    </section>
+    </>
   );
 }
 
@@ -199,70 +240,5 @@ export function SetnayanShopGiftMoment({ gift, onClose }: { gift: ShopGiftView; 
       </div>
     </div>,
     document.body,
-  );
-}
-
-/**
- * The last-week notice ("Before it ends"): [Stay on <plan>] goes to the usual plan payment, at the catalogue's price;
- * [Go back to <plan>] just confirms — the shop also goes back by itself when the gift ends. No Got it.
- */
-export function SetnayanPlanGiftEndsSoon({
-  giftId,
-  title,
-  body,
-  stay,
-  goBack,
-}: {
-  giftId: string;
-  title: string;
-  body: string;
-  stay: string;
-  goBack: string | null;
-}) {
-  const [state, setState] = useState<'idle' | 'sending' | 'done' | 'failed'>('idle');
-  const [note, setNote] = useState<string | null>(null);
-  async function back() {
-    if (state === 'sending') return;
-    setState('sending');
-    const fd = new FormData();
-    fd.set('op', 'gift_go_back');
-    fd.set('gift_id', giftId);
-    try {
-      const res = await startBadgeUpgrade({ status: 'idle' }, fd);
-      setNote(res.status === 'gift' || res.status === 'error' ? res.message : null);
-      setState(res.status === 'gift' ? 'done' : 'failed');
-    } catch {
-      setNote(W.offline);
-      setState('failed');
-    }
-  }
-  return (
-    <section aria-label={title} className="mb-3 border-b border-ink/10 py-3" data-setnayan-plan-gift-ends="">
-      <p className="text-[15px] font-semibold text-ink">🎁 {title}</p>
-      <p className="mt-1 text-[13.5px] leading-snug text-ink/70">{body}</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Link
-          href="/vendor-dashboard/subscription"
-          className="sn-press sn-press-ring inline-flex h-11 min-h-11 items-center rounded-full bg-sn-accent px-4 text-[14px] font-semibold text-sn-on-accent"
-        >
-          {stay}
-        </Link>
-        {goBack ? (
-          <button
-            type="button"
-            onClick={back}
-            disabled={state === 'sending' || state === 'done'}
-            className="sn-press sn-press-ring inline-flex h-11 min-h-11 items-center rounded-full border border-ink/20 px-4 text-[14px] font-semibold text-ink disabled:opacity-60"
-          >
-            {state === 'sending' ? 'Switching…' : goBack}
-          </button>
-        ) : null}
-      </div>
-      {note ? (
-        <p role="status" className={`mt-2 text-[13px] ${state === 'failed' ? 'text-danger-700' : 'text-ink/70'}`}>
-          {note}
-        </p>
-      ) : null}
-    </section>
   );
 }

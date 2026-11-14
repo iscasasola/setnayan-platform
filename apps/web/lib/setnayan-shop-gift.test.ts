@@ -6,8 +6,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   claimedWords,
-  giftEndsSoonNotice,
-  runningGiftLine,
+  planGiftEndedLine,
+  planGiftEndingWords,
+  planGiftNoticeStage,
   shopGiftMomentWords,
   shortPlanWord,
   type RunningPlanGift,
@@ -83,32 +84,35 @@ const running = (over: Partial<RunningPlanGift> = {}): RunningPlanGift => ({
   ...over,
 });
 
-test('during the gift: "Ultra · gift · 21 of 28 days left"', () => {
-  assert.equal(runningGiftLine(running(), NOW), 'Ultra · gift · 21 of 28 days left');
-  assert.equal(giftEndsSoonNotice(running(), NOW, 4990), null, 'no notice before the last 7 days');
+test('no countdown: nothing before the last week, the 7-day stage in it, the 1-day stage on the last day', () => {
+  assert.equal(planGiftNoticeStage(running(), NOW), null, '21 days left — no notice');
+  const at = (daysLeft: number) => running({ endsAt: new Date(NOW + daysLeft * DAY).toISOString() });
+  assert.equal(planGiftNoticeStage(at(7), NOW), 7);
+  assert.equal(planGiftNoticeStage(at(2), NOW), 7);
+  assert.equal(planGiftNoticeStage(at(1), NOW), 1);
+  assert.equal(planGiftNoticeStage(at(0.1), NOW), 1);
+  assert.equal(planGiftNoticeStage(at(-0.1), NOW), null, 'over');
+  assert.equal(planGiftNoticeStage({ ...at(5), startsAt: new Date(NOW + DAY).toISOString() }, NOW), null, 'held, not started');
 });
 
-test('the last week: ends in N days, Stay at the catalogue price, Go back to the old plan', () => {
-  const g = running({ startsAt: new Date(NOW - 23 * DAY).toISOString(), endsAt: new Date(NOW + 5 * DAY).toISOString() });
-  const n = giftEndsSoonNotice(g, NOW, 4990);
-  assert.ok(n);
-  assert.equal(n.title, 'Your Ultra gift ends in 5 days');
-  assert.equal(n.stay, 'Stay on Ultra · ₱4,990');
-  assert.equal(n.goBack, 'Go back to Pro');
-  assert.match(n.body, /Nothing is lost either way/);
-  // No price read → the button names no price, never a typed one.
-  assert.equal(giftEndsSoonNotice(g, NOW, null)?.stay, 'Stay on Ultra');
-  // No plan before the gift → back to Free; days added to its own plan → nothing to go back to.
-  assert.equal(giftEndsSoonNotice({ ...g, returnTier: null }, NOW, null)?.goBack, 'Go back to Free');
-  assert.equal(giftEndsSoonNotice({ ...g, extend: true }, NOW, null)?.goBack, null);
-  // One day left reads "1 day".
-  assert.equal(giftEndsSoonNotice({ ...g, endsAt: new Date(NOW + 3_600_000).toISOString() }, NOW, null)?.title, 'Your Ultra gift ends in 1 day');
+test('the ends-soon words: the end date in words, one Stay button, the catalogue price or none', () => {
+  // 2026-11-21T04:00Z is Saturday 21 November in Manila.
+  const g = running({ endsAt: '2026-11-21T04:00:00Z' });
+  const w = planGiftEndingWords(g, 10000);
+  assert.equal(w.title, 'Your Supplier Ultra gift ends Saturday 21 November');
+  assert.equal(w.stay, 'Stay on Supplier Ultra');
+  assert.equal(
+    w.body,
+    'Stay on Supplier Ultra for ₱10,000 every 28 days, or do nothing and your shop goes back to Supplier Pro that day, with nothing lost.',
+  );
+  assert.doesNotMatch(planGiftEndingWords(g, null).body, /₱/, 'no price read → no price, never a typed one');
+  assert.match(planGiftEndingWords({ ...g, returnTier: null }, null).body, /goes back to Free that day/);
+  assert.match(planGiftEndingWords({ ...g, extend: true }, null).body, /your Supplier Ultra ends then, as it would have/);
 });
 
-test('once over, nothing is drawn', () => {
-  const g = running({ endsAt: new Date(NOW - 1).toISOString() });
-  assert.equal(runningGiftLine(g, NOW), null);
-  assert.equal(giftEndsSoonNotice(g, NOW, 4990), null);
+test('the day it ends: one plain line', () => {
+  assert.equal(planGiftEndedLine({ tier: 'enterprise', returnTier: 'pro' }), 'Your Supplier Ultra gift has ended. Your shop is back on Supplier Pro.');
+  assert.equal(planGiftEndedLine({ tier: 'pro', returnTier: null }), 'Your Supplier Pro gift has ended. Your shop is back on Free.');
 });
 
 test('what a press says', () => {

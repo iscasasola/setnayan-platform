@@ -11,7 +11,7 @@ import { patiktokBoothCookieName, resolveBoothTemplates } from '@/lib/patiktok-b
 import { BoothTemplatePick } from './booth-template-pick';
 
 const opens = (href: string, label: string, marker: string) => (
-  <Link href={href} className="inline-flex items-center gap-1 text-[13px] font-medium text-ink/65 hover:text-ink" data-home-booth-door={marker}>
+  <Link href={href} className="inline-flex items-center gap-1 text-[13px] font-medium text-ink/75 hover:text-ink" data-home-booth-door={marker}>
     {label}
     <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={1.9} />
   </Link>

@@ -1,4 +1,5 @@
 /**
+ * 🔓 SWITCHED OFF 2026-11-14 (owner: "just remove that rule for everyone") — the tests below hold it off.
  * 💍 THE FIRST-EVENT-DAY RULE IS SAID BESIDE THE DATE (owner 2026-11-01,
  * DECISION_LOG "NO EVENT BEFORE DECEMBER 19, 2026"; `lib/event-date-floor.ts`).
  *
@@ -44,15 +45,14 @@ async function render(value: string, dateExempt: boolean): Promise<string> {
 /** The owner's sentence as React escapes it into HTML. */
 const SAID = EVENT_DATE_FLOOR_MESSAGE.replace(/'/g, '&#x27;');
 
-test('a normal account picking December 18, 2026 reads the owner’s words beside the date', async () => {
-  const html = await render('2026-12-18', false);
-  assert.ok(html.includes(SAID), 'the refusal is not drawn beside the When field');
-  assert.match(html, /data-event-date-floor/);
-});
+/* 🔓 The floor is switched OFF for everyone (owner 2026-11-14: "just remove that rule for everyone"), so the
+   sentence is never drawn and the picker starts today. The field keeps its slot for the day it is switched back on. */
 
-test('December 19, 2026 is allowed — nothing is said', async () => {
-  const html = await render('2026-12-19', false);
-  assert.ok(!html.includes(SAID));
+test('the floor is off: December 18, 2026 says nothing, for a normal account too', async () => {
+  for (const d of ['2026-12-18', '2026-11-05', '2026-12-19']) {
+    const html = await render(d, false);
+    assert.ok(!html.includes(SAID), d);
+  }
 });
 
 test('the founders’ account may pick any date — nothing is said', async () => {
@@ -62,8 +62,7 @@ test('the founders’ account may pick any date — nothing is said', async () =
   }
 });
 
-test('the picker starts on December 19, 2026 for a normal account', async () => {
+test('the picker no longer starts on December 19, 2026 for a normal account', async () => {
   const html = await render('', false);
-  // Until that day passes, the floor IS the first pickable day.
-  if (new Date().toISOString().slice(0, 10) < '2026-12-19') assert.match(html, /min="2026-12-19"/);
+  assert.doesNotMatch(html, /min="2026-12-19"/);
 });

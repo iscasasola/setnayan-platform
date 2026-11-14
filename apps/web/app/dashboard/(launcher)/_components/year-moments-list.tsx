@@ -6,6 +6,8 @@ import { ChevronDown, CalendarHeart, Sparkles, Check, Plus } from 'lucide-react'
 
 import { StartPlanningLink } from './start-planning-link';
 import { formatCount } from '@/lib/format-number';
+import { actionButtonClass } from '@/components/action-button';
+import { badgeStyle } from '@/app/_components/badge';
 
 /**
  * Serializable view of one "Your year" moment — the strings are precomputed on
@@ -60,7 +62,7 @@ export function YearMomentsList({
 
   return (
     <div>
-      <ul className="space-y-2.5">
+      <ul className="divide-y divide-ink/10 border-y border-ink/10">
         {shown.map((m) => (
           <li key={m.key}>
             <MomentRow moment={m} />
@@ -73,12 +75,12 @@ export function YearMomentsList({
             type="button"
             onClick={() => setShowAll((v) => !v)}
             aria-expanded={showAll}
-            className="inline-flex items-center gap-1 text-xs font-medium text-gold-deep transition-colors hover:text-ink"
+            className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink transition-colors duration-sn-control hover:text-sn-accent"
           >
             {showAll ? 'Show less' : `Show ${formatCount(hiddenCount)} more`}
             <ChevronDown
               aria-hidden
-              className={`h-3.5 w-3.5 transition-transform duration-200 ${
+              className={`h-3.5 w-3.5 transition-transform duration-sn-control ${
                 showAll ? 'rotate-180' : ''
               }`}
             />
@@ -121,29 +123,28 @@ function MomentRow({ moment: m }: { moment: YearMomentView }) {
     the breakpoint so the one-line desktop design truncates as it always did.
   */
   const shell = [
-    'flex flex-wrap items-center gap-3.5 rounded-xl border px-4 py-3 sm:flex-nowrap',
-    m.isMilestone
-      ? 'border-gold/40 bg-gold/[0.06]'
-      : 'border-ink/10 bg-ink/[0.015]',
+    'flex flex-wrap items-center gap-3 min-h-14 py-3 pr-1 sm:flex-nowrap',
+    // A milestone wears the gold EDGE — the only colour on the row (sheet rule 11).
+    m.isMilestone ? 'border-l-2 border-gold pl-3' : 'pl-1',
   ].join(' ');
   const inner = (
     <>
       <span
         className={[
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-          m.isMilestone ? 'bg-gold/15 text-gold-deep' : 'bg-ink/[0.06] text-ink/55',
+          'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
+          m.isMilestone ? 'bg-gold/15 text-gold-deep' : 'bg-ink/[0.06] text-ink/70',
         ].join(' ')}
       >
         <Icon aria-hidden className="h-4.5 w-4.5" />
       </span>
       <div className="min-w-[9rem] flex-1 sm:min-w-0">
-        <p className="truncate text-sm font-medium text-ink">{m.label}</p>
-        <p className="truncate text-xs text-ink/50">{m.dateLabel}</p>
+        <p className="truncate text-base font-semibold text-ink">{m.label}</p>
+        <p className="truncate text-[13px] text-ink/70">{m.dateLabel}</p>
       </div>
       <span
         className={[
-          'shrink-0 whitespace-nowrap text-xs font-medium',
-          m.isMilestone ? 'text-gold-deep' : 'text-ink/45',
+          'shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums',
+          m.isMilestone ? 'text-[color:var(--sn-gold-700)]' : 'text-ink/70',
         ].join(' ')}
       >
         {m.countdownLabel}
@@ -163,12 +164,12 @@ function MomentRow({ moment: m }: { moment: YearMomentView }) {
           It was hidden because the row had no room for it; now that the row
           wraps, it has room, and the stated rule is true at every width.
         */
-        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-ink/15 bg-white/70 px-2.5 py-1 text-xs font-medium text-ink/70">
+        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold" style={badgeStyle('ok')}>
           <Check aria-hidden className="h-3 w-3" />
           Open plan
         </span>
       ) : (
-        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-mulberry px-2.5 py-1 text-xs font-medium text-cream">
+        <span className={actionButtonClass('brand', { extra: 'shrink-0 whitespace-nowrap' })}>
           <Plus aria-hidden className="h-3 w-3" />
           Start planning
         </span>
@@ -176,7 +177,7 @@ function MomentRow({ moment: m }: { moment: YearMomentView }) {
     </>
   );
 
-  const hover = m.isMilestone ? 'hover:bg-gold/[0.1]' : 'hover:bg-ink/[0.04]';
+  const hover = 'hover:bg-ink/[0.04]';
 
   // An event moment deep-links into that event's dashboard (an allowed jump);
   // everything else opens the create flow, preselecting the type when the

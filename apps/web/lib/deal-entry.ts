@@ -86,10 +86,12 @@ export function dealEntryFor({
   side: DealEntrySide;
   hasQuote: boolean;
 }): DealEntry {
-  // 3 · A quote exists: exactly today's behaviour, on both sides.
+  // 3 · A quote exists: the deal tools open — but the "🧾 Send a deal" PILL (the menu row and the chip under a message)
+  // is the supplier's (RW-278, walk 13 Nov: it showed on the couple's side, where a deal is not theirs to send). The
+  // couple's ＋ keeps its "Deal or meeting" door (`composer`), unchanged.
   if (hasQuote) {
     return {
-      offerDeal: true,
+      offerDeal: side === 'vendor',
       composer: {
         reveal: affordanceReveal('deal'),
         label: CHAT_BOX_AFFORDANCES.deal.label,

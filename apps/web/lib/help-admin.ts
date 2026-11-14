@@ -26,6 +26,8 @@
  */
 
 import type { HelpArticle } from './help';
+import { ADMIN_1_TOPICS } from '@/lib/help-admin/admin-1';
+import { ADMIN_2_TOPICS } from '@/lib/help-admin/admin-2';
 
 export type AdminHelpTopic = {
   key: string;
@@ -106,4 +108,9 @@ export const ADMIN_HELP_TOPICS: ReadonlyArray<AdminHelpTopic> = [
       },
     ],
   },
+  // ── Answer slots (help split, 2026-11-14): one file per answer-writing session,
+  // appended after the three topics above so their order is unchanged. Same wall:
+  // only this file imports lib/help-admin/*.
+  ...ADMIN_1_TOPICS,
+  ...ADMIN_2_TOPICS,
 ];

@@ -30,6 +30,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { BANNED_LAUNCH_WINDOW_SHAPE } from '@/lib/commission-promise';
+import { PUBLIC_HELP_SOURCES } from '@/lib/help-sources.test-helper';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -55,7 +56,7 @@ const SUPPLIER_SURFACES = [
   // couples' page and couple-facing pages do not mention the supplier fee. It
   // is now held by the COUPLE-facing test below instead.
   'app/(shell)/pricing/page.tsx',
-  'lib/help.ts',
+  ...PUBLIC_HELP_SOURCES, // help split 2026-11-14: lib/help.ts + every lib/help/*.ts
   // Added 2026-09-26 (GEO audit). Both told every answer engine "0% commission"
   // to SUPPLIERS with no fee — /vendors' metadata still said "while we launch"
   // four days after the fee went live, because the page itself (as opposed to
@@ -181,7 +182,7 @@ test('the supplier list still covers what it claims to', () => {
     'app/for-suppliers/_components/supplier-front-page.tsx',
     'app/(shell)/pricing/page.tsx',
     'app/vendor/claim/[token]/_components/claim-parts.tsx',
-    'lib/help.ts',
+    'lib/help/topics-existing.ts', // the help's claim moved here with the split (2026-11-14)
   ]) {
     assert.ok(SUPPLIER_SURFACES.includes(f), `${f} left the supplier list`);
     assert.match(readCode(f), MAKES_THE_CLAIM, `${f} no longer makes the commission claim — if it moved, follow it`);

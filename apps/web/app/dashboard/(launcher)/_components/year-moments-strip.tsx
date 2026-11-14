@@ -204,9 +204,9 @@ function Tile({
   heading?: string | null;
 }) {
   return (
-    <div className="sn-tile-glass sn-lift-3 rounded-2xl p-4 sm:p-[18px]">
+    <div data-year-moments="">
       {heading ? (
-        <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
+        <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-[color:var(--sn-ink-500)]">
           {heading}
         </h3>
       ) : null}
@@ -258,11 +258,11 @@ export function EmptyYear({
   return (
     <Tile heading={heading}>
       {unsure ? (
-        <p className="text-sm text-ink/70">We couldn’t load your dates just now.</p>
+        <p className="text-sm text-[rgb(var(--color-warn))]">We couldn’t load your dates just now — not the same as none.</p>
       ) : (
         <p className="text-sm text-ink/70">Nothing in the year ahead yet.</p>
       )}
-      <p className="mt-1.5 text-xs leading-relaxed text-ink/50">
+      <p className="mt-1 text-[13px] leading-relaxed text-ink/70">
         {unsure
           ? 'Your dates are still there — try again in a moment.'
           : 'Your birthday, an anniversary, anything you mark as a yearly thing — it lands here and returns every year.'}
@@ -270,7 +270,7 @@ export function EmptyYear({
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <Link
           href="/dashboard/profile"
-          className="text-xs font-semibold text-[color:var(--sn-gold-700)] underline-offset-4 hover:underline"
+          className="inline-flex min-h-11 items-center text-sm font-semibold text-sn-accent underline-offset-4 hover:underline"
         >
           Add your birthday
         </Link>

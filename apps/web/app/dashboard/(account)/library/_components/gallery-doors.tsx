@@ -46,7 +46,7 @@ export function GalleryDoor({ event }: { event: GalleryDoorEvent }) {
       href={galleryDoorHref(event.event_id)}
       data-gallery-door={event.event_id}
       aria-label={`${event.display_name} — Memories`}
-      className="inline-flex min-h-11 shrink-0 items-center gap-0.5 text-[13px] text-ink/60"
+      className="inline-flex min-h-11 shrink-0 items-center gap-0.5 text-[13px] text-ink/70"
     >
       Memories
       <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />

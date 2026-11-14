@@ -230,12 +230,14 @@ test('gap 2 — a first + last day is clash-checked on EVERY day of the span, by
 });
 
 test('gap 4 — the Suppliers calendar says the floor in the owner’s own words when a floor day is in view', async () => {
-  const { EVENT_DATE_FLOOR_MESSAGE, FIRST_EVENT_DAY } = await import('@/lib/event-date-floor');
+  const { EVENT_DATE_FLOOR_MESSAGE, EVENT_DATE_FLOOR_ON, FIRST_EVENT_DAY } = await import('@/lib/event-date-floor');
   const today = new Date().toISOString().slice(0, 10);
-  const floorAhead = today < FIRST_EVENT_DAY && Number(FIRST_EVENT_DAY.slice(8)) > 1;
+  // 🔓 The floor is switched off for everyone (owner 2026-11-14) — then there is no floor day to explain.
+  const floorAhead = EVENT_DATE_FLOOR_ON && today < FIRST_EVENT_DAY && Number(FIRST_EVENT_DAY.slice(8)) > 1;
   const esc = (t: string) => renderEsc(t);
   const said = await cal({ dateExempt: false, sayFloor: true });
   if (floorAhead) assert.ok(said.includes(esc(EVENT_DATE_FLOOR_MESSAGE)), 'the floor month opens with its days greyed and no reason');
+  if (!EVENT_DATE_FLOOR_ON) assert.ok(!said.includes('data-event-date-floor'), 'the floor is off, yet the calendar still explains it');
   // Not for the founders' account, and not for a caller that did not ask (onboarding says it at Continue).
   assert.ok(!(await cal({ dateExempt: true, sayFloor: true })).includes('data-event-date-floor'));
   assert.ok(!(await cal({ dateExempt: false })).includes('data-event-date-floor'));

@@ -1,4 +1,5 @@
 import 'server-only';
+import { quoteSetnayanGift } from '@/lib/setnayan-gift.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -24,8 +25,9 @@ import {
   type WaivedFeeCharge,
   WAIVED_FEE_RECEIPT_STATUSES,
   waivedFeeReasonOf,
+  withGiftOnTheBill,
 } from '@/lib/booking-fee-disclosure';
-import type { BookingFeeSchedule } from '@/lib/booking-fee';
+import { bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { isBookingFeeFreeWindowActive } from '@/lib/booking-fee-free-window';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
 import { launchOfferIsOpen } from '@/lib/launch-offer';
@@ -340,7 +342,34 @@ export async function forecastForBooking(
       vendorProfileId: args.vendorProfileId,
       eventId,
     });
-    return bookingFeeForecast(standing, totalPhp);
+    const forecast = bookingFeeForecast(standing, totalPhp);
+    /*
+      💳 RW-43 (walk 13 Nov 2026): THE GIFT, BEFORE THE YES. A Setnayan gift on the accepted quote rides on the SAME bill
+      (`collectBookingFeeAtLock`: fee + gift), and the supplier used to meet it only after pressing Agree. Priced by the
+      very function the quote screen uses (`quoteSetnayanGift`, the accepted quote's own switch), and said only where a
+      fee is actually billed — never on a free, promo or badge-reward booking, whose bill this sentence would misstate.
+    */
+    const total = Number(totalPhp);
+    if (
+      forecast &&
+      standing.kind === 'billable' &&
+      !standing.badgeReward &&
+      eventId &&
+      args.vendorProfileId &&
+      Number.isFinite(total) &&
+      total > 0
+    ) {
+      const gift = await quoteSetnayanGift(admin, {
+        eventId,
+        vendorProfileId: args.vendorProfileId,
+        amountCentavos: Math.round(total * 100),
+        quoteSwitch: null,
+      });
+      if (gift && !gift.freeWithBadge && gift.chargeCentavos > 0) {
+        return withGiftOnTheBill(forecast, Math.round(bookingFeePhp(total, standing.schedule) * 100), gift.chargeCentavos);
+      }
+    }
+    return forecast;
   } catch {
     return bookingFeeForecast({ kind: 'unreadable' }, null);
   }

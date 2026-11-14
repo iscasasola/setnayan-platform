@@ -128,7 +128,7 @@ export function SupplierOpenScope({
         list={<div ref={listRef}>{children}</div>}
         pane={
           <div ref={setPane} className="min-w-0" data-open-pane="">
-            {wide && openId === null ? <div className="px-4 py-6 text-[14px] text-ink/60 sm:px-6">{rest}</div> : null}
+            {wide && openId === null ? <div className="px-4 py-6 text-[15px] text-[color:var(--m-slate-2)] sm:px-6">{rest}</div> : null}
           </div>
         }
       />

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { hidePlaceholdersBesideLogged, paymentWasLogged } from '@/lib/payment-logged';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 import { paymentProofPolicy } from '@/lib/r2-client-ref';
@@ -286,7 +287,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
         logQueryError('admin/payments: payment queue', queueError);
         readFailed = 'queue';
       }
-      payments = (data ?? []) as unknown as PaymentJoined[];
+      payments = hidePlaceholdersBesideLogged((data ?? []) as unknown as PaymentJoined[]);
     }
   }
 
@@ -917,7 +918,8 @@ function PaymentsList({
                 }
               />
               <Stat label="Reference" value={p.reference_number ?? '—'} mono />
-              <Stat label="Paid" value={p.paid_at} mono />
+              {/* 🧾 RW-37: a bill's own placeholder row (no reference, no screenshot) is not a payment — say so. */}
+              <Stat label="Paid" value={paymentWasLogged(p) ? p.paid_at : 'Nothing logged yet'} mono />
             </div>
 
             {p.order ? (
@@ -2144,3 +2146,4 @@ function RecordPaymentCard({ record, query }: { record: RecordTarget; query: str
     </section>
   );
 }
+

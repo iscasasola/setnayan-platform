@@ -11,7 +11,6 @@
  *       (the end day does not move).
  *   3 · UPGRADE NOW, THEN THE END — a Supplier Pro shop (paid, 10 days left) takes Supplier Ultra now; when the gift's
  *       end day has passed, the shipped lapse sweep hands it back Supplier Pro, self-paid, with its 10 days.
- *   4 · GO BACK — the same, early, on the shop's "Go back to Supplier Pro".
  *   5 · SAME PLAN — Ultra → Ultra adds 28 days to the block the shop is on.
  *   6 · START IT WHEN MY PLAN ENDS — held; the sweep starts it INSTEAD of lapsing the shop to Free.
  *   7 · A choice the shop's plan does not allow is refused, and claims nothing.
@@ -171,19 +170,6 @@ test('3 · Upgrade now pauses Supplier Pro; when the gift ends the sweep hands P
     await one<string>(`SELECT finish_reason AS v FROM public.setnayan_shop_gifts WHERE gift_id = $1`, [gift]),
     'ended',
   );
-});
-
-test('4 · Go back to Supplier Pro ends the gift early, nothing lost', async () => {
-  const { userId, shop } = await newShop({ tier: 'pro', expiresIn: 10 * DAY });
-  const gift = await sendPlan(shop, 'enterprise');
-  await claim(gift, shop, 'now', userId);
-  const res = await one<{ status: string }>(`SELECT public.setnayan_plan_gift_go_back($1, $2) AS v`, [gift, shop]);
-  assert.equal(res.status, 'returned');
-  const back = await planOf(shop);
-  assert.equal(back.tier_state, 'pro');
-  assert.ok(Math.abs(msLeft(back.tier_expires_at) - 10 * DAY) < 120_000);
-  const again = await one<{ status: string }>(`SELECT public.setnayan_plan_gift_go_back($1, $2) AS v`, [gift, shop]);
-  assert.equal(again.status, 'not_running', 'a second Go back changes nothing');
 });
 
 test('5 · Ultra → Ultra adds 28 days to the block the shop is on', async () => {

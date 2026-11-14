@@ -13,7 +13,7 @@
 --   · PLAN TIME (Supplier Plus · Pro · Ultra, one 28-day block) is written onto `vendor_profiles` the way every comp
 --     is (`tier_source = 'admin_comp'` + `tier_expires_at`). A plan the shop was on is PAUSED, not lost: the gift row
 --     keeps the plan and the days it had left, and the shipped login-driven lapse (`sweep_vendor_tier_expiry`) hands
---     them back the moment the gift ends — or `setnayan_plan_gift_go_back` does, early, when the shop asks.
+--     them back the moment the gift ends.
 --
 -- 🔒 THE PRESS IS THE CLAIM, EXACTLY ONCE: `setnayan_shop_gift_claim` stamps `claimed_at` in ONE conditional UPDATE
 -- (`… WHERE gift_id = $1 AND claimed_at IS NULL`). A double tap, a retry after a lost connection, two tabs or two
@@ -89,7 +89,7 @@ COMMENT ON TABLE public.setnayan_shop_gifts IS
   'A gift Setnayan sent a shop (owner 2026-11-14): gift stock (Papic packs, Event Plus, Event Pro — lands through '
   'shop_badge_reward_grant, outside the 40% limit) or one 28-day block of Supplier Plus / Pro / Ultra. Written by the '
   'admin console (service_role); claimed ONCE by setnayan_shop_gift_claim (claimed_at set only while NULL). A plan '
-  'the gift paused is handed back by sweep_vendor_tier_expiry when the gift ends, or early by setnayan_plan_gift_go_back.';
+  'the gift paused is handed back by sweep_vendor_tier_expiry when the gift ends,.';
 
 DROP POLICY IF EXISTS setnayan_shop_gifts_shop_read ON public.setnayan_shop_gifts;
 CREATE POLICY setnayan_shop_gifts_shop_read
@@ -265,8 +265,8 @@ END;
 $function$;
 
 -- ── THE HAND-BACK: the shop returns to its own plan, with the days it had left ──────────────────────────────────────
--- p_reason 'ended' (from the lapse sweep — only once the gift's end day has passed) or 'went_back' (the shop's
--- "Go back to <plan>", any time while it runs). Returns 'none' · 'running' · 'superseded' · 'stayed' · 'returned'.
+-- p_reason 'ended' (from the lapse sweep — only once the gift's end day has passed). 'went_back' (an early hand-back)
+-- is understood but nothing passes it today: the owner's 14 Nov ruling has one button, "Stay on <plan>", and no Go back. Returns 'none' · 'running' · 'superseded' · 'stayed' · 'returned'.
 CREATE OR REPLACE FUNCTION public.setnayan_plan_gift_return(p_vendor_id UUID, p_reason TEXT)
  RETURNS TEXT
  LANGUAGE plpgsql
@@ -384,37 +384,13 @@ BEGIN
 END;
 $function$;
 
--- ── "Go back to <plan>" — the shop ends its running gift early ──────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.setnayan_plan_gift_go_back(p_gift_id UUID, p_vendor_profile_id UUID)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'pg_temp'
-AS $function$
-DECLARE
-  v_res TEXT;
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM public.setnayan_shop_gifts
-     WHERE gift_id = p_gift_id AND vendor_profile_id = p_vendor_profile_id AND gift_type = 'plan'
-       AND plan_starts_at IS NOT NULL AND finished_at IS NULL
-  ) THEN
-    RETURN jsonb_build_object('status', 'not_running');
-  END IF;
-  v_res := public.setnayan_plan_gift_return(p_vendor_profile_id, 'went_back');
-  RETURN jsonb_build_object('status', v_res);
-END;
-$function$;
-
 REVOKE ALL ON FUNCTION public.setnayan_plan_gift_rank(TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.setnayan_shop_gift_choices(UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.setnayan_shop_gift_claim(UUID, UUID, TEXT, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.setnayan_plan_gift_return(UUID, TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.setnayan_plan_gift_start_held(UUID) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.setnayan_plan_gift_go_back(UUID, UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.setnayan_shop_gift_choices(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION public.setnayan_shop_gift_claim(UUID, UUID, TEXT, UUID) TO service_role;
-GRANT EXECUTE ON FUNCTION public.setnayan_plan_gift_go_back(UUID, UUID) TO service_role;
 
 COMMENT ON FUNCTION public.setnayan_shop_gift_claim(UUID, UUID, TEXT, UUID) IS
   'The press on a Setnayan gift to a shop IS the claim (owner 2026-11-14): claimed_at is set in one conditional UPDATE '

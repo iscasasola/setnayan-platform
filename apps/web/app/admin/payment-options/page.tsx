@@ -192,7 +192,7 @@ function PaymentMethodCard({
               </>
             ) : null}
             <span aria-hidden>·</span>
-            <span>Added {new Date(row.created_at).toLocaleString('en-PH')}</span>
+            <span>Added {new Date(row.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</span>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

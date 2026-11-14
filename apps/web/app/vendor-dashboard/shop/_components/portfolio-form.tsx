@@ -129,14 +129,14 @@ export function PortfolioForm({
       {walletBalance == null ? (
         <p className="mt-2 text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} role="status" data-portfolio-wallet="unread">
           Your shop wallet couldn&rsquo;t be read, so only free photos can be saved right now.{' '}
-          <button type="button" onClick={() => window.location.reload()} className="underline" style={{ color: 'var(--m-ink)' }}>
+          <button type="button" onClick={() => window.location.reload()} className="inline-flex min-h-11 items-center underline" style={{ color: 'var(--m-ink)' }}>
             Retry
           </button>
         </p>
       ) : (
         <p className="mt-2 text-xs" style={{ color: 'var(--m-slate-3)' }} data-portfolio-wallet="read">
           Then 1 credit a photo ·{' '}
-          <a href={SHOP_WALLET_HREF} className="font-semibold underline" style={{ color: 'var(--m-ink)' }}>
+          <a href={SHOP_WALLET_HREF} className="inline-flex min-h-11 items-center font-semibold underline" style={{ color: 'var(--m-ink)' }}>
             Shop wallet · {n(walletBalance)}
           </a>
         </p>
@@ -184,11 +184,11 @@ export function PortfolioForm({
           stallMs={20000}
         />
         {!dirty ? (
-          <ActionButton tone="brand" main disabled icon={Check} label="Save" className="w-full" />
+          <ActionButton tone="brand" main disabled icon={Check} label="Save" className="w-full !h-11" />
         ) : save.blocked && save.reason === 'short' ? (
-          <ActionButton tone="brand" main href={SHOP_WALLET_HREF} icon={Wallet} label={save.label} className="w-full" />
+          <ActionButton tone="brand" main href={SHOP_WALLET_HREF} icon={Wallet} label={save.label} className="w-full !h-11" />
         ) : save.blocked ? (
-          <ActionButton tone="brand" main waiting icon={Check} label={save.label} className="w-full" />
+          <ActionButton tone="brand" main waiting icon={Check} label={save.label} className="w-full !h-11" />
         ) : (
           <SupplierSubmit
             tone="brand"

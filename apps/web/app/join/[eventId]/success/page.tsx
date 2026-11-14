@@ -16,6 +16,7 @@ import { guestRoleLabel, type GuestRole } from '@/lib/guests';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { joinDoorMeta } from '@/lib/join-door-meta';
+import { actionButtonClass } from '@/components/action-button';
 
 export const metadata = { title: 'You\'re in' };
 
@@ -72,12 +73,12 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
       // in the first place.
       meta={joinDoorMeta(event)}
     >
-      <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-5">
+      <div className="rounded-xl bg-ink/[0.03] p-5">
         <p className="text-sm text-ink/70">You joined as</p>
         <p className="mt-1 text-lg font-medium text-ink">
           {guestRoleLabel((membership.role as GuestRole) ?? 'guest', roleNames)}
         </p>
-        <p className="mt-3 font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
+        <p className="mt-3 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           Event {event.public_id}
         </p>
       </div>
@@ -100,7 +101,7 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
             Your invitation is ready — your QR and everything shared with
             guests are waiting on it.
           </p>
-          <Link className="button-primary w-full sm:w-auto" href={`/${event.slug}`}>
+          <Link className={actionButtonClass('brand', { main: true, extra: 'w-full sm:w-auto !h-11' })} href={`/${event.slug}`}>
             Open your invitation
           </Link>
         </>
@@ -113,7 +114,7 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
             You&rsquo;ll find this event in your dashboard until its page is
             published.
           </p>
-          <Link className="button-primary w-full sm:w-auto" href="/dashboard">
+          <Link className={actionButtonClass('brand', { main: true, extra: 'w-full sm:w-auto !h-11' })} href="/dashboard">
             Go to your dashboard
           </Link>
         </>

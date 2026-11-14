@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { GUEST_REVIEW_REFUSAL_LINE } from '@/lib/guest-reviews';
+import { actionButtonClass } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * The guest review page's said states (prototype § 7: "never a silent empty form") — not on the door list, already
@@ -15,10 +17,12 @@ export function NotOnDoorList({ shopName, shopHref }: { shopName: string; shopHr
     <div className="space-y-3" data-guest-review="not-on-door-list">
       <h1 className="text-2xl font-semibold tracking-tight">{GUEST_REVIEW_REFUSAL_LINE.not_at_event}</h1>
       <p className="max-w-prose text-[15px] text-ink/70">
-        A guest review is for someone the door checked in. Open this from your own invitation on your phone, or ask the
-        welcome table to check you in.
+        A guest review is for someone the door checked in.{' '}
+        <InfoTip label="" ariaLabel="How to get checked in" align="start">
+          Open this from your own invitation on your phone, or ask the welcome table to check you in.
+        </InfoTip>
       </p>
-      <Link href={shopHref} className="button-secondary inline-flex h-11 items-center">
+      <Link href={shopHref} className={actionButtonClass('neutral', { extra: '!h-11' })}>
         Open {shopName}&rsquo;s page
       </Link>
     </div>
@@ -29,7 +33,7 @@ export function Said({ line, href, cta }: { line: string; href: string; cta: str
   return (
     <div className="sn-glass-bare rounded-xl p-4" data-guest-review="said">
       <p className="text-[15px]">{line}</p>
-      <Link href={href} className="button-secondary mt-3.5 inline-flex h-11 w-full items-center justify-center">
+      <Link href={href} className={actionButtonClass('neutral', { extra: 'mt-3.5 w-full !h-11' })}>
         {cta}
       </Link>
     </div>

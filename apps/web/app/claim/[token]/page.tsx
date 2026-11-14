@@ -21,6 +21,7 @@ import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 import { claimAlaga } from './actions';
+import { actionButtonClass } from '@/components/action-button';
 
 export const metadata = { title: 'Claim your profile' };
 
@@ -55,7 +56,7 @@ export default async function ClaimAlagaPage({ params, searchParams }: Props) {
         title="This link isn't active."
         sub="It may have expired, been revoked, or already been used. Ask the person who sent it to create a fresh one from their People page."
       >
-        <Link className="button-secondary" href="/">
+        <Link className={actionButtonClass('neutral', { extra: '!h-11' })} href="/">
           Back home
         </Link>
       </DoorShell>
@@ -80,7 +81,7 @@ export default async function ClaimAlagaPage({ params, searchParams }: Props) {
             : `Share it with the person taking over ${row.name}'s care — it can't be redeemed by you.`
         }
       >
-        <Link href="/dashboard?seg=people" className="button-secondary">
+        <Link href="/dashboard?seg=people" className={actionButtonClass('neutral', { extra: '!h-11' })}>
           Back to People
         </Link>
       </DoorShell>
@@ -103,10 +104,10 @@ export default async function ClaimAlagaPage({ params, searchParams }: Props) {
         </form>
       ) : (
         <DoorActions>
-          <Link href={`/login?next=${encodeURIComponent(`/claim/${token}`)}`} className="button-primary">
+          <Link href={`/login?next=${encodeURIComponent(`/claim/${token}`)}`} className={actionButtonClass('brand', { main: true, extra: '!h-11' })}>
             Sign in to continue
           </Link>
-          <Link href={`/signup?next=${encodeURIComponent(`/claim/${token}`)}`} className="button-secondary">
+          <Link href={`/signup?next=${encodeURIComponent(`/claim/${token}`)}`} className={actionButtonClass('neutral', { extra: '!h-11' })}>
             Create your account
           </Link>
         </DoorActions>

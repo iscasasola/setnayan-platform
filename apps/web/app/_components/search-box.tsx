@@ -21,6 +21,24 @@ import { Search, X } from 'lucide-react';
  * besides the word (`keep`), the word's name (`name`) and where the page lands (`hash`) are the caller's.
  * In a thumb row it is the row's field (`data-fit-field`, rule 3b keeps it at ≥ 60 %).
  */
+/**
+ * ⌨ WHAT IS BEING TYPED OUTLIVES A REMOUNT (supplier walk, 14 Nov: the clients search box CLEARED on the first
+ * keystroke while the page re-rendered). The box asks the server for the match by moving the address; on a page whose
+ * search row is portalled (`SupplierThumbRow` draws nothing on its first render), that re-render MOUNTS A NEW BOX — its
+ * state started again from `defaultValue`, the word the server had last seen (empty), and the keyboard dropped. The
+ * word being typed is held here, per page and field, for a few seconds after the last letter, so a box mounted in that
+ * window comes back with the word and the keyboard. Module state, browser only: the server never reads it.
+ */
+const TYPING = new Map<string, { value: string; at: number }>();
+const TYPING_HOLD_MS = 5000;
+export function typingHeld(key: string, now: number = Date.now()): string | null {
+  const t = TYPING.get(key);
+  return t && now - t.at < TYPING_HOLD_MS ? t.value : null;
+}
+export function holdTyping(key: string, value: string, now: number = Date.now()): void {
+  TYPING.set(key, { value, at: now });
+}
+
 export function SearchBox({
   placeholder,
   name = 'q',
@@ -50,14 +68,21 @@ export function SearchBox({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [value, setValue] = useState(defaultValue);
+  const key = `${pathname}|${name}`;
+  const [value, setValue] = useState(() => typingHeld(key) ?? defaultValue);
   const [pending, start] = useTransition();
   const field = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // A box mounted while the word was still being typed (a re-render remounted it) takes the keyboard back.
+  useEffect(() => {
+    if (typingHeld(key) !== null) field.current?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
+  }, []);
   // The page came back with another word (Back, a link): show it — unless the person is typing.
   useEffect(() => {
-    if (document.activeElement !== field.current) setValue(defaultValue);
+    if (document.activeElement !== field.current && typingHeld(key) === null) setValue(defaultValue);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the word the page was drawn with is the only trigger
   }, [defaultValue]);
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
@@ -108,6 +133,7 @@ export function SearchBox({
         data-search-input=""
         onChange={(e) => {
           const v = e.currentTarget.value;
+          holdTyping(key, v);
           setValue(v);
           if (timer.current) clearTimeout(timer.current);
           timer.current = setTimeout(() => go(v), wait);
@@ -120,6 +146,7 @@ export function SearchBox({
           aria-label="Clear the search"
           data-search-clear=""
           onClick={() => {
+            holdTyping(key, '');
             setValue('');
             go('');
             field.current?.focus();

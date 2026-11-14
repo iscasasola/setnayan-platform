@@ -69,7 +69,7 @@ const DEAL_WHO: Record<VendorDealRow['audience_type'], string> = {
 };
 
 const fmtDay = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+  new Date(iso).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric' });
 
 /** 'YYYY-MM-DD' → 'Dec 25, 2026', forced to UTC so the date-only column
  * always reads back as the calendar day it says (a Date parsed from a bare
@@ -1127,7 +1127,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
                       <option key={e.event_id} value={e.event_id}>
                         {e.display_name} ({typeName(e.event_type)}
                         {e.event_date
-                          ? `, ${new Date(e.event_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}`
+                          ? `, ${new Date(e.event_date).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric' })}`
                           : ''}
                         )
                       </option>
@@ -1241,7 +1241,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
               mono: true,
               cell: (g) =>
                 g.expiry
-                  ? new Date(g.expiry).toLocaleDateString('en-PH', {
+                  ? new Date(g.expiry).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
                       year: 'numeric',
                       month: 'short',
                       day: 'numeric',

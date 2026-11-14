@@ -43,12 +43,13 @@ test('the create-a-group action uses the side rule', () => {
   assert.match(action, /const teamSide = rawSide === 'bride' \|\| rawSide === 'groom' \? rawSide : 'both';/, 'the create ignores the side, or trusts any value');
 });
 
-test('the update bar reserves its height, so the last guest row can scroll clear of it', () => {
-  // Owner 2026-09-21: "i cannot see the bottom of the guest list."
+test('the update notice sits in the page flow, so the last guest row is never under it', () => {
+  // Owner 2026-09-21: "i cannot see the bottom of the guest list." The bar was fixed over the bottom and reserved its
+  // height; since the one notice system (owner approved 14 Nov 2026: "No bar fixed to the screen") it is a live notice
+  // at the very top, in flow — there is nothing to reserve and nothing can sit under it.
   const bar = read('app', '_components', 'stale-tab-notice.tsx');
-  assert.match(bar, /body\.style\.paddingBottom = `\$\{base \+ el\.getBoundingClientRect\(\)\.height\}px`/, 'the bar reserves no room');
-  assert.match(bar, /body\.style\.paddingBottom = before;/, 'the reserved room is never given back');
-  assert.match(bar, /ref=\{bar\}/, 'the measured element is not the bar');
+  assert.doesNotMatch(bar, /\bfixed\b/, 'the update notice is fixed over the page again');
+  assert.match(bar, /<LazyInlineNotice\b/, 'the update notice no longer renders through the one notice system');
 });
 
 test('the list ends with half a screen of room, so the last guest reaches the middle', () => {

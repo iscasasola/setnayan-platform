@@ -58,7 +58,7 @@ CREATE POLICY supplier_own_times_shop_read
 DROP POLICY IF EXISTS supplier_own_times_event_read ON public.supplier_own_times;
 CREATE POLICY supplier_own_times_event_read
   ON public.supplier_own_times FOR SELECT TO authenticated
-  USING (event_id IN (SELECT public.current_event_ids()) OR public.is_admin());
+  USING (event_id IN (SELECT public.current_event_ids()) OR (SELECT public.is_admin()));
 
 -- The shop writes its OWN row only, on an event it is booked for, signed as itself. Nobody else writes it.
 DROP POLICY IF EXISTS supplier_own_times_shop_insert ON public.supplier_own_times;
@@ -68,7 +68,7 @@ CREATE POLICY supplier_own_times_shop_insert
     (vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
       OR vendor_profile_id IN (SELECT public.current_vendor_ids()))
     AND event_id IN (SELECT public.current_vendor_booked_event_ids())
-    AND updated_by = auth.uid()
+    AND updated_by = (SELECT auth.uid())
   );
 
 DROP POLICY IF EXISTS supplier_own_times_shop_update ON public.supplier_own_times;
@@ -83,7 +83,7 @@ CREATE POLICY supplier_own_times_shop_update
     (vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
       OR vendor_profile_id IN (SELECT public.current_vendor_ids()))
     AND event_id IN (SELECT public.current_vendor_booked_event_ids())
-    AND updated_by = auth.uid()
+    AND updated_by = (SELECT auth.uid())
   );
 
 COMMENT ON TABLE public.supplier_own_times IS

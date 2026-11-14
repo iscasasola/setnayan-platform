@@ -1810,7 +1810,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'client-chat',
           title: 'Chat with your client',
-          body: 'Every message for this event stays here, so you can pick up the conversation any time. Phone numbers and emails are kept out of the chat.',
+          // 🧾 Cut 7 (2026-11-14): the quote can start right here.
+          body: 'Every message for this event stays here, so you can pick up the conversation any time. Phone numbers and emails are kept out of the chat. Tap ＋ and Make a quote to send a quote without leaving it.',
         },
         {
           anchor: 'client-quote',

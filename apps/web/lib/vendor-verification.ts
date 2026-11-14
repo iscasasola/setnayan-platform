@@ -298,7 +298,8 @@ export const DOC_SLOTS: readonly DocSlot[] = [
   {
     key: 'dti_certificate',
     number: 1,
-    label: 'DTI or SEC Registration',
+    // Labels match the owner-approved supplier papers demo (DECISION_LOG 7e4de291, 14 Nov 2026).
+    label: 'DTI or SEC registration',
     kind: 'upload',
     hint: 'DTI Business Name Certificate (sole proprietor) or SEC Registration (corporation / partnership). PDF / JPG / PNG up to 15 MB.',
     guideSlug: 'how-to-get-dti-sec-registration',
@@ -306,7 +307,7 @@ export const DOC_SLOTS: readonly DocSlot[] = [
   {
     key: 'bir_2303',
     number: 2,
-    label: 'BIR Form 2303 (Certificate of Registration)',
+    label: 'BIR 2303',
     kind: 'upload',
     hint: 'PDF / JPG / PNG up to 15 MB.',
     guideSlug: 'how-to-get-bir-2303',
@@ -314,7 +315,7 @@ export const DOC_SLOTS: readonly DocSlot[] = [
   {
     key: 'mayors_permit',
     number: 3,
-    label: "Mayor's Permit (current year)",
+    label: 'Business Permit',
     kind: 'upload',
     hint: 'PDF / JPG / PNG up to 15 MB.',
     guideSlug: 'how-to-get-mayors-permit',

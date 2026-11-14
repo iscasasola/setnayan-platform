@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7822
+# facts: 7835
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     635
-#   col       5632
-#   policy    1146
+#   tpriv     636
+#   col       5640
+#   policy    1150
 #   view      10
 #   func      395
 #
@@ -460,6 +460,7 @@ tpriv	public.stewardship_transfers|anon	SIUD
 tpriv	public.stewardship_transfers|authenticated	SIUD
 tpriv	public.supplier_media|authenticated	S
 tpriv	public.supplier_night_before_email_log|authenticated	SIUD
+tpriv	public.supplier_own_times|authenticated	SIU
 tpriv	public.supplier_page_photo_notices|authenticated	S
 tpriv	public.supplier_photo_originals|authenticated	SIUD
 tpriv	public.supplier_scan_claims|authenticated	SD
@@ -4599,6 +4600,14 @@ col	public.supplier_night_before_email_log.event_date	anon=- authenticated=SIU
 col	public.supplier_night_before_email_log.event_vendor_id	anon=- authenticated=SIU
 col	public.supplier_night_before_email_log.resend_id	anon=- authenticated=SIU
 col	public.supplier_night_before_email_log.sent_at	anon=- authenticated=SIU
+col	public.supplier_own_times.arrive_clock	anon=- authenticated=SIU
+col	public.supplier_own_times.call_clock	anon=- authenticated=SIU
+col	public.supplier_own_times.done_clock	anon=- authenticated=SIU
+col	public.supplier_own_times.event_id	anon=- authenticated=SIU
+col	public.supplier_own_times.filed_at	anon=- authenticated=SIU
+col	public.supplier_own_times.updated_at	anon=- authenticated=SIU
+col	public.supplier_own_times.updated_by	anon=- authenticated=SIU
+col	public.supplier_own_times.vendor_profile_id	anon=- authenticated=SIU
 col	public.supplier_page_photo_notices.event_id	anon=- authenticated=S
 col	public.supplier_page_photo_notices.notice_id	anon=- authenticated=S
 col	public.supplier_page_photo_notices.noticed_at	anon=- authenticated=S
@@ -7103,6 +7112,10 @@ policy	public.supplier_media|supplier_media_owner_insert	mode=PERMISSIVE cmd=INS
 policy	public.supplier_media|supplier_media_owner_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.supplier_media|supplier_media_owner_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.supplier_night_before_email_log|supplier_night_before_email_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.supplier_own_times|supplier_own_times_event_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin()) check=NULL
+policy	public.supplier_own_times|supplier_own_times_shop_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (updated_by = auth.uid()))
+policy	public.supplier_own_times|supplier_own_times_shop_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids))) check=NULL
+policy	public.supplier_own_times|supplier_own_times_shop_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids))) check=(((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (updated_by = auth.uid()))
 policy	public.supplier_page_photo_notices|supplier_page_photo_notices_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.supplier_photo_originals|supplier_photo_originals_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin)) check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin))
 policy	public.supplier_scan_claims|supplier_scan_claims_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL

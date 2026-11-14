@@ -1,7 +1,12 @@
 'use client';
 
 /**
- * VendorStatusUpdates — "report to coordinator", build plan §10 #2.
+ * VendorStatusUpdates — 📣 "POST AN UPDATE" (owner-approved cut 6, 2026-11-14; prototype
+ * `prototypes/supplier_eleven_jobs_cuts_2026-11-14_fable.html` § 6). It was "report to coordinator", build plan §10 #2,
+ * drawn only on the event's own day, below the tools. Now it is ONE button at the top of each booked event's page,
+ * every day, with what was posted underneath; the button opens a sheet with the same six statuses and note box. The
+ * couple reads the updates on their day (Home's day-of grid, "From your suppliers"); "Need help" files as work for
+ * the coordinator, whose floor inbox reads the same stream.
  *
  * One tap per preset, writing into the SAME stream the coordinator's inbox
  * reads (`public.event_day_requests`) — not a second channel. The vendor sees
@@ -27,35 +32,63 @@
  * coordinator, which is the property that ever mattered.
  */
 
-import { useCallback, useEffect, useState, useTransition } from 'react';
-import { Check, Loader2, MessageSquare, Radio } from 'lucide-react';
+import { useCallback, useEffect, useId, useState, useTransition } from 'react';
+import { Check, Loader2, Megaphone } from 'lucide-react';
 
+import { Explain } from '@/app/_components/explain';
+import { Sheet } from '@/app/_components/sheet';
 import {
   VENDOR_STATUS_PRESETS,
-  statusLabel,
+  presetByKey,
   type DayRequestRow,
 } from '@/lib/day-requests';
 import { getDayRequestsView, submitDayRequest, submitVendorStatusPreset } from '../actions';
 
-export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
-  const [ready, setReady] = useState(false);
-  const [active, setActive] = useState(false);
-  const [rows, setRows] = useState<DayRequestRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [sentKey, setSentKey] = useState<string | null>(null);
+/** Who reads a post — the sheet's one line, and the help answer's. */
+export const POST_AN_UPDATE_READERS = 'The couple sees it on their phone on the day. Need help also goes to their coordinator.';
+
+/** A posted row as the supplier reads it back: the status word, their note under it (if any). */
+export function ownUpdateLine(row: Pick<DayRequestRow, 'preset_key' | 'body'>): { status: string; note: string | null } {
+  const preset = presetByKey(row.preset_key);
+  if (!preset) return { status: 'Update', note: row.body };
+  return { status: preset.label, note: row.body === preset.body ? null : row.body };
+}
+
+function timeOf(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+export function VendorStatusUpdates({
+  eventId,
+  initial,
+}: {
+  eventId: string | null;
+  /** The labs' fixtures (`/dev/supplier-lab`): drawn as read, with no read of their own. Never passed by a real page. */
+  initial?: DayRequestRow[];
+}) {
+  const [ready, setReady] = useState(Boolean(initial));
+  const [active, setActive] = useState(Boolean(initial));
+  const [rows, setRows] = useState<DayRequestRow[]>(initial ?? []);
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<string | null>(null);
   const [note, setNote] = useState('');
-  const [noteSent, setNoteSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [posted, setPosted] = useState(false);
   const [pending, startTransition] = useTransition();
+  const headingId = useId();
+  const noteId = useId();
 
   const load = useCallback(async () => {
+    if (initial) return;
     if (!eventId) {
       setReady(true);
       return;
     }
     try {
       const view = await getDayRequestsView(eventId);
-      // `side` is null when the caller is not booked — render nothing rather
-      // than an empty console section they can't use.
+      // `side` is null when the caller is not booked — render nothing rather than a button they can't use.
       setActive(view.active && view.side !== null);
       setRows(view.rows);
     } catch {
@@ -63,174 +96,161 @@ export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
     } finally {
       setReady(true);
     }
-  }, [eventId]);
+  }, [eventId, initial]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  function send(key: string) {
-    if (!eventId) return;
+  function close() {
+    setOpen(false);
     setError(null);
-    startTransition(async () => {
-      const res = await submitVendorStatusPreset(eventId, key);
-      if (!res.ok) {
-        setError(res.error ?? 'Could not send that.');
-        return;
-      }
-      setSentKey(key);
-      await load();
-      // Clear the confirmation tick after a beat.
-      setTimeout(() => setSentKey((k) => (k === key ? null : k)), 2500);
-    });
   }
 
-  // ── SIX BUTTONS CANNOT SAY "THE CAKE IS MELTING NEAR THE LIGHTS" ───────────
-  //
-  // The presets are the fast path and stay exactly as they are. But they are a
-  // CLOSED list of six, so anything the list did not anticipate could not be
-  // reported at all — on the one surface built for reporting problems.
-  //
-  // Nothing new is authored here. `submitDayRequest` already ships, already
-  // files on the VENDOR lane (it derives the lane from the caller's own side,
-  // so a supplier can never post as the coordinator), and is already behind the
-  // same `coordinator_requests_inbox` control this component checks. The
-  // coordinator's own inbox has had a free-text box since it was built; a plain
-  // supplier just never got one. This is the wiring, not the feature.
-  function sendNote() {
+  // ── ONE POST, ONE ROW ──────────────────────────────────────────────────────
+  // A status (with or without a note) goes through the preset door, which keeps the status's KIND server-side; a note
+  // with no status is the shipped free-text door (`submitDayRequest`). Both file on the supplier's own lane.
+  function post() {
     if (!eventId) return;
     const body = note.trim();
-    if (!body) {
-      setError('Write something first.');
+    if (!picked && !body) {
+      setError('Pick a status or write a note.');
       return;
     }
     setError(null);
     startTransition(async () => {
-      const res = await submitDayRequest(eventId, body);
+      const res = picked ? await submitVendorStatusPreset(eventId, picked, body || null) : await submitDayRequest(eventId, body);
       if (!res.ok) {
-        setError(res.error ?? 'Could not send that.');
+        setError(res.error ?? 'Could not post that. Try again.');
         return;
       }
+      setOpen(false);
+      setPicked(null);
       setNote('');
-      setNoteSent(true);
+      setPosted(true);
       await load();
-      setTimeout(() => setNoteSent(false), 2500);
+      setTimeout(() => setPosted(false), 2500);
     });
   }
 
   // Dark control, no booking, or still resolving → render nothing at all.
   if (!ready || !active || !eventId) return null;
 
+  const mine = rows.filter((r) => r.origin === 'vendor').slice(0, 5);
+
   return (
-    <div>
-      <h2 className="sn-sec">Report to the coordinator</h2>
-      <div className="sn-tile mt-3 p-4 sm:p-6">
-        <p className="flex items-center gap-2 text-sm text-ink/65">
-          <Radio aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
-          One tap tells the coordinator where you are. They see it on their floor inbox
-          straight away.
+    <div data-post-an-update="" data-tour="hub-post-update" className="pt-3">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-mulberry px-4 text-[15px] font-semibold text-cream transition hover:bg-mulberry-600"
+        data-post-an-update-open=""
+      >
+        <Megaphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        Post an update
+      </button>
+      {posted ? (
+        <p className="pt-1.5 text-center text-[12.5px] text-ink/60" aria-live="polite">
+          <Check aria-hidden className="mr-1 inline h-3.5 w-3.5" strokeWidth={2.5} />
+          Posted
         </p>
+      ) : null}
 
-        {error ? (
-          <p role="alert" className="mt-3 rounded-lg bg-warn-600/10 px-3 py-2 text-sm text-warn-600">
-            {error}
-          </p>
-        ) : null}
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {VENDOR_STATUS_PRESETS.map((preset) => {
-            const justSent = sentKey === preset.key;
-            const urgent = preset.kind === 'issue';
+      <div className="flex items-center justify-between gap-2 pt-4">
+        <p className="home-k2">Your updates</p>
+        <Explain title="Your updates">
+          What you posted for this event. The couple sees each one on their phone on the day; Running late and Need help also
+          go to their coordinator’s inbox as something to act on.
+        </Explain>
+      </div>
+      {mine.length === 0 ? (
+        <p className="py-2 text-[13px] text-ink/55" data-post-an-update-empty="">
+          Nothing posted yet. On the day, tap Post an update when you arrive, finish setting up, or need a hand.
+        </p>
+      ) : (
+        <ul data-post-an-update-list="">
+          {mine.map((row) => {
+            const line = ownUpdateLine(row);
             return (
-              <button
-                key={preset.key}
-                type="button"
-                onClick={() => send(preset.key)}
-                disabled={pending}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition disabled:opacity-40 ${
-                  urgent
-                    ? 'border-warn-600/30 bg-warn-600/5 text-warn-600 hover:bg-warn-600/10'
-                    : 'border-ink/15 bg-white text-ink/80 hover:border-terracotta hover:text-ink'
-                }`}
-              >
-                {justSent ? (
-                  <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-                ) : pending ? (
-                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-                ) : null}
-                {justSent ? 'Sent' : preset.label}
-              </button>
+              <li key={row.request_id} className="border-b border-ink/10 py-2">
+                <p className="flex items-baseline justify-between gap-3">
+                  <span className={`text-[14px] font-semibold ${row.kind === 'issue' ? 'text-warn-600' : 'text-ink'}`}>{line.status}</span>
+                  <span className="shrink-0 font-mono text-[11px] text-ink/50">{timeOf(row.created_at)}</span>
+                </p>
+                {line.note ? <p className="text-[13px] leading-snug text-ink/65">{line.note}</p> : null}
+              </li>
             );
           })}
-        </div>
+        </ul>
+      )}
 
-        {/* Anything the six buttons cannot say. */}
-        <div className="mt-4 border-t border-ink/10 pt-4">
-          <label
-            htmlFor="day-note"
-            className="flex items-center gap-2 text-sm font-medium text-ink/80"
-          >
-            <MessageSquare aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
-            Something else?
+      <Sheet open={open} onClose={close} labelledById={headingId} rise>
+        <div className="px-5 pb-6 pt-5" data-post-an-update-sheet="">
+          <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
+            Post an update
+          </h2>
+          <div role="radiogroup" aria-label="Status" className="mt-3 flex flex-wrap gap-2">
+            {VENDOR_STATUS_PRESETS.map((preset) => {
+              const on = picked === preset.key;
+              const urgent = preset.kind === 'issue';
+              return (
+                <button
+                  key={preset.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setPicked(on ? null : preset.key)}
+                  disabled={pending}
+                  data-post-status={preset.key}
+                  className={`min-h-11 rounded-full border px-4 text-[14px] font-medium transition disabled:opacity-40 ${
+                    on
+                      ? 'border-mulberry bg-mulberry text-cream'
+                      : urgent
+                        ? 'border-warn-600/30 bg-warn-600/5 text-warn-600'
+                        : 'border-ink/15 bg-white text-ink/80'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
+          <label htmlFor={noteId} className="mt-4 block text-[13px] font-semibold text-ink">
+            Note <span className="font-normal text-ink/55">optional</span>
           </label>
-          <p className="mt-0.5 text-xs text-ink/55">
-            Type it and the coordinator sees it on their floor inbox with your name on it.
-          </p>
           <textarea
-            id="day-note"
+            id={noteId}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
+            maxLength={240}
             disabled={pending}
             placeholder="The cake is melting near the lights…"
-            className="mt-2 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none disabled:opacity-40"
+            className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-[15px] text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none disabled:opacity-40"
           />
-          <div className="mt-2 flex flex-wrap items-center gap-3">
+          <p className="pt-1 text-[12.5px] leading-snug text-ink/60">{POST_AN_UPDATE_READERS}</p>
+          {error ? (
+            <p role="alert" className="mt-2 text-[13px] font-semibold text-danger-700">
+              {error}
+            </p>
+          ) : null}
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={close} className="min-h-11 rounded-xl border border-ink/15 px-4 text-[14px] font-medium text-ink">
+              Cancel
+            </button>
             <button
               type="button"
-              onClick={sendNote}
-              disabled={pending || note.trim().length === 0}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2 text-sm font-medium text-cream transition hover:bg-mulberry-600 disabled:opacity-40"
+              onClick={post}
+              disabled={pending || (!picked && note.trim().length === 0)}
+              data-post-an-update-post=""
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-mulberry px-5 text-[14px] font-semibold text-cream transition hover:bg-mulberry-600 disabled:opacity-40"
             >
-              {pending ? (
-                <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-              ) : null}
-              Send to the coordinator
+              {pending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} /> : null}
+              Post
             </button>
-            {noteSent && !pending ? (
-              <span className="inline-flex items-center gap-1 text-xs text-ink/55">
-                <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-                Sent
-              </span>
-            ) : null}
           </div>
         </div>
-
-        {rows.length > 0 ? (
-          <ul className="mt-4 space-y-1.5 border-t border-ink/10 pt-4">
-            {rows.slice(0, 5).map((row) => (
-              <li key={row.request_id} className="flex items-center gap-2 text-sm">
-                <span
-                  aria-hidden
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                    row.status === 'resolved' ? 'bg-success-500' : 'bg-terracotta'
-                  }`}
-                />
-                <span
-                  className={`flex-1 truncate ${
-                    row.status === 'resolved' ? 'text-ink/40 line-through' : 'text-ink/70'
-                  }`}
-                >
-                  {row.body}
-                </span>
-                <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
-                  {statusLabel(row.status)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
+      </Sheet>
     </div>
   );
 }

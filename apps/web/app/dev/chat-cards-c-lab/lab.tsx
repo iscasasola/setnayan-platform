@@ -5,11 +5,13 @@
  *   ?m=quote|payment|logpay|form|answer|files|decision|ask|askcard|counter|countercard|plan|plancard|recount|book   the card
  *   ?m=rose     "Quote rose to N pax · +₱X" as both sides' streams draw it (PR-2) · ?m=balance  the Final balance growing
  *   ?m=fell     "Quote fell to N pax · −₱X" as both sides' streams draw it · ?m=drop  the Final balance shrinking (paid stays)
+ *   ?m=make     🧾 Make a quote (cut 7) — the short card a no-quote chat drops (&e=1: a shop with no card on)
  *   &e=1                                                                          its honest EMPTY state
  *   &step=N                                                                       open on step N (filled up to it)
  */
 import { notFound } from 'next/navigation';
 import { QuoteStepCard } from '@/app/_components/chat/cards/quote-step-card';
+import { MakeQuoteCard } from '@/app/_components/chat/cards/make-quote-card';
 import { PaymentStepCard } from '@/app/_components/chat/cards/payment-step-card';
 import { LogPaymentCard } from '@/app/_components/chat/cards/log-payment-card';
 import { FormAnswerCard, FormStepCard } from '@/app/_components/chat/cards/form-step-card';
@@ -108,6 +110,25 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
               empty
                 ? { quote: null }
                 : { quote: QUOTE, step, edits: step >= 3 ? [{ op: 'add', key: 'n1', label: 'Drone coverage', amountCentavos: C(5_000) }, { op: 'edit', key: 'l1', amountCentavos: C(9_800) }] : [] }
+            }
+          />
+        );
+      case 'make':
+        return (
+          <MakeQuoteCard
+            threadId={THREAD}
+            eventDate={EVENT_DAY}
+            seed={
+              empty
+                ? { cards: [] }
+                : {
+                    cards: [
+                      { id: 'c1', name: 'Garden centrepieces', fromCentavos: C(15_000) },
+                      { id: 'c2', name: 'Bridal bouquet', fromCentavos: C(4_500) },
+                      { id: 'c3', name: 'Ceremony arch', fromCentavos: C(12_000) },
+                    ],
+                    picked: ['c1'],
+                  }
             }
           />
         );

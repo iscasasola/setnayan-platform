@@ -12,6 +12,7 @@ import { LiveScheduleCard } from './live-schedule-card';
 import { CoordinatorBroadcastCard } from './coordinator-broadcast-card';
 import type { BroadcastCardData } from '@/lib/coordinator-broadcasts';
 import { GetHelpCard } from './get-help-card';
+import { SupplierUpdatesCard, type SupplierUpdateCardLine } from './supplier-updates-card';
 import type { SameDayVendor } from '@/lib/same-day-vendors';
 
 type Block = {
@@ -48,6 +49,11 @@ type Props = {
    * near the top. Null in the iPhone app, exactly as Your services draws no Papic row there.
    */
   papic?: ReactNode;
+  /**
+   * 📣 "From your suppliers" (cut 6, 2026-11-14) — what booked suppliers posted with Post an update. `undefined` = the
+   * day-of requests control is dark (no card); `null` = the read was refused (the card says so); `[]` = none yet.
+   */
+  supplierUpdates?: SupplierUpdateCardLine[] | null;
 };
 
 export function DayOfModeGrid({
@@ -61,6 +67,7 @@ export function DayOfModeGrid({
   liveWallActive = false,
   broadcast,
   papic = null,
+  supplierUpdates,
 }: Props) {
   return (
     <section
@@ -98,6 +105,7 @@ export function DayOfModeGrid({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <WhatsHappeningCard blocks={blocks} failed={blocksFailed} />
+        {supplierUpdates !== undefined ? <SupplierUpdatesCard lines={supplierUpdates} /> : null}
         <YourTableCard
           eventId={eventId}
           headTable={headTable}

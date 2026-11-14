@@ -535,6 +535,10 @@ async function setupBody(input: SetupInput): Promise<ReactNode> {
 
   return (
     <div>
+      {/* 📣 Post an update (cut 6, 2026-11-14) — the shipped status presets, as ONE button on top of every booked event's
+          page and every day (it was drawn only on the day, under the tools). Renders itself away when its control is
+          dark, or for the coordinator, who reads the inbox instead. */}
+      {input.kind !== 'coordinator' ? <VendorStatusUpdates eventId={booking.eventId} /> : null}
       <div id="hub-tools" className="scroll-mt-28" data-tour="hub-setup">
         <ModuleConfigurator eventId={booking.eventId} modules={tools} />
       </div>
@@ -720,10 +724,6 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
       {kind === 'photo' ? (
         <ShotListSection eventId={booking.eventId} eventName={coupleName} />
       ) : null}
-
-      {/* Report to the coordinator — one-tap status presets into the shared day-of requests stream (build plan §10 #2).
-          Renders itself away when its control is dark, or for the coordinator (who reads the inbox instead). */}
-      {kind !== 'coordinator' ? <VendorStatusUpdates eventId={booking.eventId} /> : null}
 
       {/* Capture for your website + their recap. */}
       <div>

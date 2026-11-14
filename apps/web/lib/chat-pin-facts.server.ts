@@ -18,6 +18,7 @@ import { resolveBudgetVisibility } from './budget-visibility';
 import { buildPinFacts, type PinFactInputs } from './chat-pin-facts';
 import type { PinFact } from './chat-pins';
 import { manilaTodayIsoFor } from './quote-valid-until';
+import { callTimeIsSet } from './supplier-own-times';
 import { logQueryError } from './supabase/error-detect';
 import { scheduleChangePinned } from './schedule-hand-in-hand';
 
@@ -93,16 +94,28 @@ export async function readChatPinFacts(
     return { proposalId: row.proposal_id, status: row.status, title: row.title, validUntil: row.valid_until, updatedAt: row.updated_at };
   })();
 
+  // 🕕 Cut 5 (2026-11-14): a call time the supplier kept BEFORE the hosts' program exists counts as set, so the pin
+  // turns Done. Read beside the shipped RPC (both sides' own RLS reads `supplier_own_times`); a refused read of it is
+  // not "set" — the pin keeps what the RPC says.
   const callTimeRead = booked
-    ? supabase
-        .rpc('chat_call_time_for', { p_event_id: args.eventId, p_vendor_profile_id: args.vendorProfileId })
-        .then(({ data, error }) => {
-          if (error) {
-            logQueryError('chatPins.callTime', error, { event_id: args.eventId }, 'graceful_degrade');
-            return null;
-          }
-          return { at: (data as string | null) ?? null };
-        })
+    ? Promise.all([
+        supabase.rpc('chat_call_time_for', { p_event_id: args.eventId, p_vendor_profile_id: args.vendorProfileId }),
+        supabase
+          .from('supplier_own_times')
+          .select('call_clock')
+          .eq('event_id', args.eventId)
+          .eq('vendor_profile_id', args.vendorProfileId)
+          .maybeSingle(),
+      ]).then(([{ data, error }, own]) => {
+        if (error) {
+          logQueryError('chatPins.callTime', error, { event_id: args.eventId }, 'graceful_degrade');
+          return null;
+        }
+        if (own.error) logQueryError('chatPins.ownCallTime', own.error, { event_id: args.eventId }, 'graceful_degrade');
+        const rpcAt = (data as string | null) ?? null;
+        const ownCall = own.error ? null : ((own.data as { call_clock: string | null } | null)?.call_clock ?? null);
+        return { at: callTimeIsSet(rpcAt, ownCall) ? (rpcAt ?? `own:${ownCall}`) : null };
+      })
     : Promise.resolve(null);
 
   const accessRead = supabase

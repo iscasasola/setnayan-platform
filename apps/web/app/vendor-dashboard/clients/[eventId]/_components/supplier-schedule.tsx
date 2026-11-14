@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CalendarPlus, Check, Clock, Eye, Lock, LockOpen, MapPin, MessageSquarePlus, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
@@ -27,6 +27,7 @@ import { markDay } from '@/lib/supplier-schedule-marks';
 import { SUPPLIER_WHERE_WORDS, whereAskVerdict, type SupplierOwnWhere, type WhereOption } from '@/lib/supplier-where';
 import type { CrewClash } from '@/lib/crew-elsewhere';
 import { formatCount } from '@/lib/format-number';
+import { OWN_TIMES_ROWS, OWN_TIMES_WAITING, ownTimesSlotInto, type OwnTimes } from '@/lib/supplier-own-times';
 
 /**
  * 🤝 THE SUPPLIER'S SCHEDULE VIEW — their part of the day (owner 2026-11-01, DECISION_LOG "SUPPLIERS GIVE THEIR PART FROM
@@ -90,6 +91,8 @@ export function SupplierSchedule({
   asked = [],
   where = [],
   elsewhere = {},
+  ownTimes,
+  eventDate = null,
   lab = false,
 }: {
   eventId: string;
@@ -110,6 +113,10 @@ export function SupplierSchedule({
   where?: SupplierOwnWhere[] | null;
   /** 🚗 Their crews on their OTHER events today, keyed by the moment here (slice 5); null = could not be checked (said). */
   elsewhere?: Record<string, CrewClash[]> | null;
+  /** 🕕 Your times (cut 5): kept before the program exists. null = could not be read (said); undefined = not read here. */
+  ownTimes?: OwnTimes | null;
+  /** The event day (yyyy-mm-dd) the times are on — "Your times · 12 Dec". */
+  eventDate?: string | null;
   lab?: boolean;
 }) {
   const send = useMemo(() => (lab ? labSend : realSend(eventId)), [lab, eventId]);
@@ -136,6 +143,20 @@ export function SupplierSchedule({
     else setSaid({ tone: 'bad', words: r.error });
     return r.ok;
   };
+
+  // 🕕 SLOT IN (cut 5): times kept before the program exists go into the first chapter they are linked to, once there is
+  // one — filed exactly as My times files them (the host OKs them, or Auto-agree puts them straight in). Once, then
+  // `filed_at` says so; a failed slot is said and tried again on the next visit.
+  const slotTried = useRef(false);
+  const slotInto = ownTimesSlotInto(ownTimes ?? null, linked.map((c) => c.block_id));
+  useEffect(() => {
+    if (!slotInto || !ownTimes || slotTried.current) return;
+    slotTried.current = true;
+    void send({ request: 'own_times', call: ownTimes.call ?? '', arrive: ownTimes.arrive ?? '', done: ownTimes.done ?? '', chapter_id: slotInto }).then((r) =>
+      after(r, 'Your times went to the hosts. They show once they OK them.'),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit, by design
+  }, [slotInto]);
 
   if (!day) {
     return (
@@ -255,7 +276,7 @@ export function SupplierSchedule({
       ) : null}
 
       {day.chapters.length === 0 ? (
-        <p className="text-sm text-ink/70">The hosts haven’t made their chapters yet. Your part shows here once they do.</p>
+        <OwnTimesForm own={ownTimes} eventDate={eventDate} send={send} />
       ) : shown.length === 0 ? (
         <p className="text-sm text-ink/70">
           The host hasn’t linked you to a chapter yet. Once they do, you can add your moments and times there.
@@ -969,6 +990,66 @@ function MyMomentSheet({
         )}
       </div>
     </Sheet>
+  );
+}
+
+/* ── 🕕 Your times, before the program exists (cut 5) ────────────────────────────────────────────────────────── */
+
+const dayWords = new Intl.DateTimeFormat('en-PH', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+/**
+ * The supplier's own call time, arrival and finish while the hosts have no program yet (prototype § 5, "before the
+ * program exists"): three time rows that save in place. They slot in as "<shop> arrives" / "<shop> is done" once a
+ * chapter they are linked to exists (the effect above), and the chat's "Set your call time" pin turns Done.
+ */
+function OwnTimesForm({ own, eventDate, send }: { own: OwnTimes | null | undefined; eventDate: string | null; send: Send }) {
+  const [times, setTimes] = useState({ call: own?.call ?? '', arrive: own?.arrive ?? '', done: own?.done ?? '' });
+  const [state, setState] = useState<{ tone: 'ok' | 'bad'; words: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const day = eventDate && /^\d{4}-\d{2}-\d{2}$/.test(eventDate) ? dayWords.format(Date.parse(`${eventDate}T00:00:00Z`)) : null;
+
+  const save = async (next: typeof times) => {
+    setBusy(true);
+    const r = await send({ request: 'own_times', call: next.call, arrive: next.arrive, done: next.done });
+    setBusy(false);
+    setState(r.ok ? { tone: 'ok', words: '✓ Saved' } : { tone: 'bad', words: r.error });
+    return r.ok ? { ok: true as const } : { ok: false as const, error: r.error };
+  };
+  const keep = (k: 'call' | 'arrive' | 'done') => (hhmm: string) => {
+    const next = { ...times, [k]: hhmm };
+    setTimes(next);
+    if (!next.call && !next.arrive && !next.done) return { ok: true as const };
+    return save(next);
+  };
+
+  return (
+    <section data-own-times="" data-tour="client-own-times" aria-label="Your times" className="space-y-1">
+      {own === null ? (
+        <p role="alert" className="text-sm font-semibold text-danger-700">
+          Your times couldn’t be read just now. Nothing is lost — pull to refresh.
+        </p>
+      ) : null}
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="home-k2">Your times{day ? ` · ${day}` : ''}</p>
+        <InfoTip label="How these work" labelClassName="text-xs text-ink/70" align="end">
+          Set your call time, when you arrive and when you’re done, even before the hosts build their program. Once they do,
+          your arrival and finish slot in as moments in it, and the hosts can still move them.
+        </InfoTip>
+      </div>
+      <FormRows width="short">
+        {OWN_TIMES_ROWS.map((r) => (
+          <TimeRow key={r.key} name={r.name} line={r.line} value={times[r.key]} clearable onKeep={keep(r.key)} data={`own-times-${r.key}`} />
+        ))}
+      </FormRows>
+      <p className="text-[13px] text-ink/70">{OWN_TIMES_WAITING}</p>
+      {busy ? (
+        <p className="text-xs text-ink/60">Saving…</p>
+      ) : state ? (
+        <p role={state.tone === 'bad' ? 'alert' : 'status'} data-own-times-said={state.tone} className={`text-sm ${state.tone === 'bad' ? 'font-semibold text-danger-700' : 'text-success-900'}`}>
+          {state.words}
+        </p>
+      ) : null}
+    </section>
   );
 }
 

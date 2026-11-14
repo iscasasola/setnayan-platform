@@ -12,6 +12,7 @@ import { EditorialsTab } from './editorials-tab';
 import { ChallengesTab } from './challenges-tab';
 import { memoriesHomeHref, type HomeSeg } from '@/lib/home-segments';
 import { Spotlight } from '@/app/_components/spotlight';
+import { InfoTip } from '@/app/_components/info-tip';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { formatCount } from '@/lib/format-number';
 import { MemoriesChapters } from './memories-chapters';
@@ -25,6 +26,10 @@ import {
   type ViewKey,
 } from '../_data/library-views';
 
+/** An "Also kept" view's section label (design template 2026-11-14, rule 2). */
+const KEPT_LABEL = 'text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
+const ALBUMS_TIP =
+  'One album per event — this is where a whole event downloads at once. Your memories themselves live in the lenses above.';
 
 /**
  * ALAALA — the account-level, CROSS-EVENT memory surface. This route is
@@ -201,10 +206,9 @@ export async function MemoriesSegment({
         {lens === 'people' && wall ? <div className="pt-3"><AlaalaLensBody lens="people" wall={wall} tiles={36} /></div> : null}
         {active === 'albums' ? (
           <div className="space-y-4 pt-3">
-            <p className="text-sm text-ink/60">
-              One card per event — this is where a whole event downloads at
-              once. Your memories themselves live in the lenses above.
-            </p>
+            <InfoTip label="Albums by event" labelAs="h2" labelClassName={KEPT_LABEL} align="start">
+              {ALBUMS_TIP}
+            </InfoTip>
             <PhotosTab userId={user.id} />
           </div>
         ) : null}
@@ -212,14 +216,14 @@ export async function MemoriesSegment({
         {active === 'editorials' ? <div className="pt-3"><EditorialsTab userId={user.id} /></div> : null}
         {active === 'vendors' ? (
           <div className="space-y-4 pt-3">
-            <p className="text-sm text-ink/60">
+            <InfoTip label="Saved suppliers" labelAs="h2" labelClassName={KEPT_LABEL} align="start">
               A shortlist isn&rsquo;t a memory — these live in{' '}
               <Link href="/dashboard" className="font-semibold text-ink underline decoration-ink/25 underline-offset-2 hover:decoration-ink">
                 Spaces on your home
               </Link>
               , beside your shop and consoles. They&rsquo;re shown here because this is
               where they&rsquo;ve always opened.
-            </p>
+            </InfoTip>
             <VendorsTab userId={user.id} />
           </div>
         ) : null}

@@ -209,7 +209,7 @@ export function SeatList({
       pointerEvents: 'none',
       background: 'var(--gs-paper, rgb(var(--color-cream)))',
       borderRadius: 'var(--m-r-md)',
-      boxShadow: '0 18px 34px -14px rgba(44,42,41,.55)',
+      boxShadow: '0 18px 34px -14px rgb(var(--color-ink) / .55)',
       transform: `translate(${r.left}px,${r.top}px) scale(1.02)`,
       willChange: 'transform',
     });

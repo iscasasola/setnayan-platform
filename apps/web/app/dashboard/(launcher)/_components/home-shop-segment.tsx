@@ -45,11 +45,11 @@ export async function HomeShopSegment({ shop, segs }: { shop: SwitcherShop; segs
         <VendorAvatar
           logoUrl={shop.logoUrl}
           initials={deriveVendorInitials(shop.name)}
-          className="block h-11 w-11 shrink-0 rounded-xl text-center text-[13px] font-semibold leading-[44px]"
+          className="block h-11 w-11 shrink-0 rounded-xl text-center text-[13px] font-semibold leading-[2.75rem]"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold text-ink">{shop.name}</p>
-          <p className="text-[13px] text-ink/60">
+          <p className="truncate text-base font-semibold text-ink">{shop.name}</p>
+          <p className="text-[13px] text-ink/70">
             {counts ? `${formatCount(counts.cards)} ${counts.cards === 1 ? 'service card' : 'service cards'} · ${formatCount(counts.online)} online` : 'Your shop'}
           </p>
         </div>
@@ -57,15 +57,15 @@ export async function HomeShopSegment({ shop, segs }: { shop: SwitcherShop; segs
 
       <Link
         href="/vendor-dashboard"
-        className="sn-press sn-reveal sn-glass-bare mt-4 flex min-h-[56px] items-center gap-3 rounded-2xl px-4 py-3 text-ink no-underline"
+        className="sn-press sn-reveal sn-glass-bare mt-4 flex min-h-14 items-center gap-3 rounded-2xl px-4 py-3 text-ink no-underline"
         data-home-shop-door=""
       >
-        <Store className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.8} aria-hidden />
+        <Store className="h-5 w-5 shrink-0 text-ink/70" strokeWidth={1.8} aria-hidden />
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-semibold">Open the Shop dashboard</span>
-          <span className="block text-[13px] text-ink/60">Today · Clients · Shop · Portfolio</span>
+          <span className="block text-base font-semibold">Open the Shop dashboard</span>
+          <span className="block text-[13px] text-ink/70">Today · Clients · Shop · Portfolio</span>
         </span>
-        <ChevronRight className="h-4 w-4 shrink-0 text-ink/40" aria-hidden />
+        <ChevronRight className="h-4 w-4 shrink-0 text-sn-accent" aria-hidden />
       </Link>
     </div>
   );

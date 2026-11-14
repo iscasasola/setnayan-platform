@@ -18,6 +18,10 @@
  * 📱 The phone answers, it does not edit (owner ruling 2026-08-26): the target
  * editor stands down below `lg`, and a line says where it went.
  * Frames only on what you press: rows are divided, not boxed.
+ *
+ * Re-drawn onto the approved drawing 2026-11-14 (insights.html › Slow loads): the lede and the measuring note live in
+ * ⓘs (T17), three numbers open the view, section heads carry their counts; the per-page table keeps the console
+ * table for its honest states, and its target editor is unchanged (computer only).
  */
 import { Laptop, Timer } from 'lucide-react';
 
@@ -39,10 +43,10 @@ import {
   type LoadRow,
 } from '@/lib/telemetry/load-timing';
 import { saveLoadTarget } from '@/app/admin/app-performance/actions';
+import { MIX_COLOURS, Note, Nums, One, Sec } from '../_components/insights-parts';
 
-const SERVER = 'var(--sn-ink-700)';
-const DOWNLOAD = 'var(--sn-gold-500)';
-const RENDER = 'var(--sn-ink-300)';
+/** The drawing's three series colours (accent · blue-grey · hairline grey) — tokens only. */
+const [SERVER, DOWNLOAD, RENDER] = MIX_COLOURS;
 
 const TARGET_NOTICE: Record<string, { text: string; bad: boolean }> = {
   saved: { text: 'Target saved.', bad: false },
@@ -104,41 +108,51 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
   const rowsUnread = data.errors.includes('load times unread');
 
   return (
-    <div className="space-y-10">
-      <div>
-        <PageMasthead title="Slow loads" className="mb-2" />
-        <p className="max-w-prose text-sm text-ink/65">
-          How long real people wait for a page — over its target is slow. Every page&apos;s target is{' '}
-          {formatMs(DEFAULT_TARGET_MS)} unless it has its own.
-        </p>
-      </div>
+    <div className="max-w-3xl">
+      <PageMasthead title="Slow loads" className="mb-0" />
+      <One label="Over its target is slow">
+        How long real people wait for a page — over its target is slow. Every page&apos;s target is{' '}
+        {formatMs(DEFAULT_TARGET_MS)} unless it has its own.
+      </One>
+
+      <Nums
+        data="slow-loads-figures"
+        items={[
+          { value: rowsUnread ? null : data.slow.length, label: 'over target · listed', tone: data.slow.length > 0 ? 'warn' : undefined },
+          { value: rowsUnread ? null : formatMs(data.overall.p50), label: 'p50 · every page' },
+          { value: rowsUnread ? null : formatMs(data.overall.p95), label: 'p95 · every page' },
+        ]}
+      />
 
       {notice ? (
-        <p role="status" className={`text-sm ${notice.bad ? 'text-danger-700' : 'text-[var(--sn-success)]'}`}>
+        <p role="status" className={`mt-2 text-sm ${notice.bad ? 'text-[var(--sn-danger)]' : 'text-[var(--sn-success-deep)]'}`}>
           {notice.text}
         </p>
       ) : null}
 
       {data.errors.length > 0 ? (
-        <p role="alert" className="text-sm text-danger-700">
+        <p role="alert" className="mt-2 rounded-lg bg-[var(--sn-warning-soft)] px-3 py-2 text-sm text-ink">
           Couldn&rsquo;t load all of this: {data.errors.join(' · ')}. This is not an all-clear.
         </p>
       ) : null}
 
       {/* ── 1 · the newest slow loads ─────────────────────────────────── */}
       <section aria-labelledby="slow-list">
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="slow-list" className="text-base font-semibold text-ink">
-            Over target, newest first
-          </h2>
-          <p className="flex flex-wrap items-center gap-3 text-[11px] text-ink/55">
-            <Legend color={SERVER} label="server" />
-            <Legend color={DOWNLOAD} label="download" />
-            <Legend color={RENDER} label="drawing" />
-          </p>
-        </div>
+        <Sec
+          id="slow-list"
+          title="Over target, newest first"
+          count={rowsUnread ? null : data.slow.length}
+          about="Each bar is where that load's time went: server · download · drawing."
+          right={
+            <span className="flex flex-wrap items-center gap-3 text-[11px] text-ink/55">
+              <Legend color={SERVER} label="server" />
+              <Legend color={DOWNLOAD} label="download" />
+              <Legend color={RENDER} label="drawing" />
+            </span>
+          }
+        />
         {rowsUnread ? null : data.slow.length === 0 ? (
-          <p className="text-sm text-ink/60">
+          <p className="text-[13px] text-ink/60">
             No load went over its target in the last {RETENTION_DAYS} days
             {data.overall.n === 0 ? ' — and none has been measured yet' : ''}.
           </p>
@@ -157,7 +171,7 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
                   </span>
                 </span>
                 <span>
-                  <span className="font-semibold tabular-nums text-danger-700">{formatMs(r.total_ms)}</span>
+                  <span className="font-semibold tabular-nums text-[var(--sn-danger)]">{formatMs(r.total_ms)}</span>
                   <span className="block text-[11px] text-ink/50">
                     {outcomeWord(r) ?? `target ${formatMs(r.target)}`}
                   </span>
@@ -177,18 +191,21 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
 
       {/* ── 2 · every page ────────────────────────────────────────────── */}
       <section aria-labelledby="per-page">
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="per-page" className="text-base font-semibold text-ink">
-            Every page
-          </h2>
-          <p className="text-[11px] text-ink/55">
-            {data.currentBuild
-              ? `Trend: build ${data.currentBuild.slice(0, 7)} vs ${data.previousBuild ? data.previousBuild.slice(0, 7) : 'no earlier build yet'}`
-              : 'Trend appears once two builds have loads'}
-          </p>
-        </div>
+        <Sec
+          id="per-page"
+          title="Every page"
+          count={rowsUnread ? null : data.pages.length}
+          about={`p50 / p95 over the last ${RETENTION_DAYS} days; a page needs ${MIN_N} measured loads before its percentiles show. A target is ${TARGET_MIN_MS / 1000}–${TARGET_MAX_MS / 1000} seconds; an empty one puts the page back on ${formatMs(DEFAULT_TARGET_MS)}.`}
+          right={
+            <span className="text-[11px] text-ink/55">
+              {data.currentBuild
+                ? `Trend: build ${data.currentBuild.slice(0, 7)} vs ${data.previousBuild ? data.previousBuild.slice(0, 7) : 'no earlier build yet'}`
+                : 'Trend appears once two builds have loads'}
+            </span>
+          }
+        />
 
-        <p className="mb-3 flex items-center gap-2 text-sm text-ink/60 lg:hidden">
+        <p className="mb-2 flex items-center gap-2 text-[13px] text-ink/60 lg:hidden">
           <Laptop aria-hidden strokeWidth={1.7} className="h-4 w-4 shrink-0 text-ink/45" />
           Targets are set on the computer.
         </p>
@@ -236,10 +253,10 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
                         max={TARGET_MAX_MS / 1000}
                         defaultValue={p.targetSet ? (p.target / 1000).toString() : ''}
                         placeholder={(DEFAULT_TARGET_MS / 1000).toFixed(1)}
-                        className="input-field h-8 w-20 py-0 text-sm tabular-nums"
+                        className="input-field h-11 w-20 py-0 text-sm tabular-nums"
                       />
                       <span className="text-[11px] text-ink/50">s</span>
-                      <button type="submit" className="button-secondary h-8 px-2.5 text-xs">
+                      <button type="submit" className="button-secondary min-h-11 px-3 text-xs">
                         Save
                       </button>
                     </form>
@@ -248,7 +265,7 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
                       <form action={saveLoadTarget}>
                         <input type="hidden" name="route" value={p.route} />
                         <input type="hidden" name="target_s" value="" />
-                        <button type="submit" className="h-8 px-1.5 text-xs text-ink/55 underline-offset-2 hover:underline">
+                        <button type="submit" className="min-h-11 px-1.5 text-xs text-ink/65 underline-offset-2 hover:underline">
                           Use {(DEFAULT_TARGET_MS / 1000).toFixed(1)} s
                         </button>
                       </form>
@@ -278,7 +295,7 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
               header: 'Over target',
               align: 'right',
               cell: (p) => (
-                <span className={`tabular-nums ${p.overPct !== null && p.overPct > 0.1 ? 'font-semibold text-danger-700' : ''}`}>
+                <span className={`tabular-nums ${p.overPct !== null && p.overPct > 0.1 ? 'font-semibold text-[var(--sn-danger)]' : ''}`}>
                   {pct(p.overPct)}
                 </span>
               ),
@@ -289,7 +306,7 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
               hideBelow: 'md',
               cell: (p) =>
                 p.trend ? (
-                  <span className={p.trend.pct > 0.05 ? 'text-danger-700' : p.trend.pct < -0.05 ? 'text-[var(--sn-success)]' : 'text-ink/60'}>
+                  <span className={p.trend.pct > 0.05 ? 'text-[var(--sn-danger)]' : p.trend.pct < -0.05 ? 'text-[var(--sn-success-deep)]' : 'text-ink/60'}>
                     {p.trend.pct > 0 ? '▲' : p.trend.pct < 0 ? '▼' : '='} {Math.abs(Math.round(p.trend.pct * 100))}%
                     <span className="block text-[11px] text-ink/45">
                       {formatMs(p.trend.previous)} → {formatMs(p.trend.current)}
@@ -303,14 +320,16 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
         />
       </section>
 
-      <footer className="border-t border-ink/10 pt-4 text-xs text-ink/55">
+      <Note label="How it is measured">
         Measured in each person&apos;s browser: a full page load to its largest content painted, an in-app tap to the new
         page&apos;s content painted. Every load over {formatMs(ALWAYS_SEND_MS)} is kept; about 1 in {SAMPLE_WEIGHT}{' '}
         faster ones is kept and counted ×{SAMPLE_WEIGHT}, so p50/p95 are the real traffic&apos;s. Pages are stored as
-        their route, never an address; nothing personal is kept. Last {RETENTION_DAYS} days · {formatCount(data.overall.n)}{' '}
-        measured
+        their route, never an address; nothing personal is kept.
+      </Note>
+      <p className="mt-1 text-[12px] text-ink/55">
+        Last {RETENTION_DAYS} days · {formatCount(data.overall.n)} measured
         {data.capped ? ' · the read hit its cap, so these are the newest loads only' : ''}.
-      </footer>
+      </p>
     </div>
   );
 }

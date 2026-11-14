@@ -67,21 +67,24 @@ export async function ConnectionLogsSurface() {
      empty island IS the all-clear — so the notice is the whole surface. */
   if (activeError || resolvedError) {
     return (
-      <div
-        role="alert"
-        className="rounded-card bg-[var(--sn-warning-soft)] p-6 text-center text-sm text-ink"
-      >
-        Couldn&rsquo;t load this — refresh to try again. This is not an all-clear.
+      <div className="max-w-3xl">
+        <div role="alert" className="rounded-lg bg-[var(--sn-warning-soft)] px-3 py-2 text-sm text-ink">
+          Couldn&rsquo;t load this — refresh to try again. This is not an all-clear.
+        </div>
       </div>
     );
   }
 
+  // One column, like every Insights view (approved drawing, insights.html › Problems): the grouped
+  // issues on top, "Every trace" (the client island, unchanged) under them.
   return (
-    <ConnectionLogsClient
-      initialActive={(activeData ?? []) as FaultLogRow[]}
-      initialResolved={(resolvedData ?? []) as FaultLogRow[]}
-      rowLimit={ROW_LIMIT}
-      problems={<ProblemsList />}
-    />
+    <div className="max-w-3xl">
+      <ConnectionLogsClient
+        initialActive={(activeData ?? []) as FaultLogRow[]}
+        initialResolved={(resolvedData ?? []) as FaultLogRow[]}
+        rowLimit={ROW_LIMIT}
+        problems={<ProblemsList />}
+      />
+    </div>
   );
 }

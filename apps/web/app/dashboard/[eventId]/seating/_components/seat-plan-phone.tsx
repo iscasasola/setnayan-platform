@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 import { Armchair, ArrowLeftRight, ArrowRight, Check, ChevronDown, ChevronRight, Link2, MoreHorizontal, RotateCw, Sparkles, Trash2, Ungroup } from 'lucide-react';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
@@ -11,7 +10,9 @@ import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { ChosenRow, FormRow, FormRows, TypedRow } from '@/app/_components/form-row';
 import { StatusLine } from '@/app/_components/status-line';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { Sheet } from '@/app/_components/sheet';
+import { Badge } from '@/app/_components/badge';
+import { useCloseOutside } from './close-outside';
 
 /**
  * 📱 THE SEAT PLAN ON A PHONE — its chrome (owner 2026-10-01, DECISION_LOG
@@ -72,14 +73,16 @@ function Pop({
   data: string;
   /** 🗂 R4: opened from the thumb row at the foot of the screen, the menu rises above it. */
   up?: boolean;
-  /** 🎚 A 40-px round (the Guests top row's rounds), not a word pill. */
+  /** 🎚 A 44-px round (the Guests top row's rounds), not a word pill. */
   round?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const oneOpenId = useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts; what opens inside is its child
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rule 9): a press outside (or Esc) closes it — no invisible full-page catcher.
+  const holdRef = useCloseOutside<HTMLDivElement>(open, () => setOpen(false));
   return (
     <OneOpenScope id={oneOpenId}>
-      <div className="relative shrink-0">
+      <div ref={holdRef} className="relative shrink-0">
         <button
           type="button"
           aria-haspopup="menu"
@@ -87,19 +90,18 @@ function Pop({
           aria-label={label}
           onClick={() => setOpen((v) => !v)}
           {...{ [data]: '' }}
-          className={`sn-press inline-flex items-center rounded-full border border-ink/15 bg-cream text-[13px] font-medium text-ink ${round ? 'h-10 w-10 justify-center' : 'h-11 gap-1 px-3.5'}`}
+          className={`sn-press inline-flex items-center rounded-full border border-ink/15 bg-cream text-[13px] font-medium text-ink ${round ? 'h-11 w-11 justify-center' : 'h-11 gap-1 px-3.5'}`}
         >
           {button}
         </button>
         {open ? (
           <>
-            <button type="button" aria-hidden tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" />
             <div
               role="menu"
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('[data-close]')) setOpen(false);
               }}
-              className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} z-50 ${up ? 'bottom-full mb-1' : 'mt-1'} w-[min(20rem,calc(100vw-2rem))] max-h-[65dvh] overflow-y-auto overscroll-contain rounded-xl bg-cream p-2 shadow-lg`}
+              className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} z-50 ${up ? 'bottom-full mb-1' : 'mt-1'} w-[min(20rem,calc(100vw-2rem))] max-h-[65dvh] overflow-y-auto overscroll-contain rounded-2xl bg-cream p-2 shadow-lg ring-1 ring-ink/10`}
             >
               {children}
             </div>
@@ -159,9 +161,11 @@ export function PhoneSeatPlanHead({
           count, no status line — the tool's head is its controls only (owner
           2026-10-05: "crowded above the sheet"). */}
       <div className="flex items-center gap-2">
-        <h2 className="min-w-0 truncate font-display text-[26px] leading-tight text-ink group-data-[details-mode=guided]/ws:hidden">Seat plan</h2>
-        <span data-seat-plan-count="" className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[11px] tabular-nums text-ink/60 group-data-[details-mode=guided]/ws:hidden">
-          {countLabel}
+        {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 1): the page's name lives in the pinned row — this title is for screen
+            readers only; the count stays, a soft chip. */}
+        <h2 className="sr-only text-ink group-data-[details-mode=guided]/ws:hidden">Seat plan</h2>
+        <span data-seat-plan-count="" className="shrink-0 group-data-[details-mode=guided]/ws:hidden">
+          <Badge tone="quiet">{countLabel}</Badge>
         </span>
         <span className="flex-1" />
         {trailing}
@@ -174,7 +178,7 @@ export function PhoneSeatPlanHead({
           {more}
         </Pop>
       </div>
-      <p data-seat-plan-status="" className="text-[12.5px] leading-snug text-ink/60 group-data-[details-mode=guided]/ws:hidden">
+      <p data-seat-plan-status="" className="text-[13px] leading-snug text-ink/70 group-data-[details-mode=guided]/ws:hidden">
         {status}
       </p>
       {toast ? <SeatToast toast={toast} /> : null}
@@ -186,7 +190,7 @@ export function PhoneSeatPlanHead({
           data="data-seat-plan-rules"
           button={
             <>
-              Rules <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/45" />
+              Rules <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/70" />
             </>
           }
         >
@@ -199,7 +203,7 @@ export function PhoneSeatPlanHead({
           onClick={onUnseated}
           data-seat-plan-unseated=""
           data-tour="seat-plan-unseated"
-          className={`sn-press inline-flex h-9 items-center gap-1 rounded-full px-3 text-[12.5px] font-semibold ${
+          className={`sn-press inline-flex h-11 items-center gap-1 rounded-full px-4 text-[13px] font-semibold ${
             unseated > 0 ? 'bg-terracotta/15 text-terracotta-800' : 'bg-success-50 text-success-700'
           }`}
         >
@@ -219,7 +223,7 @@ export function PhoneSeatPlanHead({
 export function PhoneSeatPlanFoot({ room, onOpen3D }: { room: string; onOpen3D: (() => void) | null }) {
   return (
     <div data-seat-plan-phone-foot="" className="flex shrink-0 flex-col gap-2 border-t border-ink/10 bg-cream px-4 py-2">
-      <p className="flex items-center justify-between gap-2 text-[11px] text-ink/55 group-data-[details-mode=guided]/ws:hidden">
+      <p className="flex items-center justify-between gap-2 text-xs text-ink/70 group-data-[details-mode=guided]/ws:hidden">
         <span className="min-w-0 truncate">{room}</span>
         <span className="shrink-0">pinch to zoom · tap a table</span>
       </p>
@@ -232,7 +236,7 @@ export function PhoneSeatPlanFoot({ room, onOpen3D }: { room: string; onOpen3D: 
         >
           <span className="min-w-0 flex-1">
             <span className="block text-[13px] font-semibold text-mulberry-700">Same layout in 3D ↗</span>
-            <span className="block text-[11.5px] text-ink/60">One plan, two views. Move a table here and it moves there.</span>
+            <span className="block text-xs text-ink/70">One plan, two views. Move a table here and it moves there.</span>
           </span>
         </button>
       ) : null}
@@ -268,36 +272,32 @@ export function MoveGuestSheet({
   onClose: () => void;
   busy: boolean;
 }) {
-  // Portalled to <body>: the Maker's panes may transform, and a fixed sheet
-  // inside a transformed parent would be clipped to it.
-  if (typeof document === 'undefined') return null;
-  return createPortal(
-    <div data-seat-plan-move="" className="fixed inset-0 z-[80] flex flex-col justify-end">
-      <OverlayBackdrop onClose={onClose} />
-      <div role="dialog" aria-label={`Move ${firstName} to…`} className="relative flex flex-col gap-3 rounded-t-2xl bg-cream px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-xl">
-        <span aria-hidden className="mx-auto h-1 w-10 rounded-full bg-ink/15" />
-        <h3 className="font-display text-xl text-ink">Move {firstName} to…</h3>
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rule 9): the house Sheet — its own portal to <body> (the Maker's panes may
+  // transform), grab handle, ✕, Esc and Back — instead of a hand-drawn overlay.
+  return (
+    <Sheet open onClose={onClose} labelledById="seat-plan-move-title" rise>
+      <div data-seat-plan-move="" className="flex flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+        <h3 id="seat-plan-move-title" className="pr-10 text-[17px] font-semibold text-ink">Move {firstName} to…</h3>
         <div className="flex items-center gap-3 border-b border-ink/10 pb-3">
-          <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/15 font-display text-terracotta-800">
+          <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/15 font-semibold text-terracotta-800">
             {initial}
           </span>
           <span className="min-w-0">
             {/* ✂ A guest's name wraps, never cut (owner v15). */}
             <span className="line-clamp-3 block text-[15px] text-ink [overflow-wrap:anywhere]">{fullName}</span>
-            <span className="block truncate text-[12px] text-ink/55">{sub}</span>
+            <span className="block truncate text-[13px] text-ink/70">{sub}</span>
           </span>
         </div>
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-ink/50">Table</p>
-        <PickMenu label="Table" value={value} options={options} onPick={onPick} dataAttr="data-seat-plan-move-table" className="w-full border border-ink/20" />
-        <p className="text-[12px] text-ink/60">
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Table</p>
+        <PickMenu label="Table" value={value} options={options} onPick={onPick} dataAttr="data-seat-plan-move-table" className="w-full" />
+        <p className="text-[13px] text-ink/70">
           {partyNote ? `${partyNote} ` : ''}Only tables with room are listed.
         </p>
         <span data-seat-plan-move-go="" className="flex">
           <ActionButton tone="brand" main waiting={busy} disabled={value === null && !busy} icon={ArrowRight} label="Move" onClick={onMove} className="w-full" />
         </span>
       </div>
-    </div>,
-    document.body,
+    </Sheet>
   );
 }
 
@@ -335,8 +335,8 @@ export function StudioSeatPlanHead({
         {countLabel !== null ? (
           <>
             {' '}
-            <span className="font-normal text-ink/55">· </span>
-            <span data-seat-plan-count="" className="font-normal tabular-nums text-ink/60">
+            <span className="font-normal text-ink/70">· </span>
+            <span data-seat-plan-count="" className="font-normal tabular-nums text-ink/70">
               {countLabel}
             </span>
           </>
@@ -394,7 +394,7 @@ export function StudioSeatPlanTools({
           data="data-seat-plan-rules"
           button={
             <>
-              Rules <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/45" />
+              Rules <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/70" />
             </>
           }
         >
@@ -466,7 +466,7 @@ export function PeopleSheet({
     >
       {open ? null : <div className="pointer-events-auto px-3 pb-2">{tools}</div>}
       <div
-        className={`pointer-events-auto flex min-h-0 flex-col rounded-t-2xl border-t border-ink/10 bg-cream ${open ? 'h-[72%] shadow-[0_-12px_30px_-18px_rgba(26,26,26,0.35)]' : ''}`}
+        className={`pointer-events-auto flex min-h-0 flex-col rounded-t-2xl border-t border-ink/10 bg-cream ${open ? 'h-[72%] shadow-xl' : ''}`}
       >
         <button
           type="button"
@@ -481,7 +481,7 @@ export function PeopleSheet({
           <span aria-hidden className="h-1 w-10 rounded-full bg-ink/20" />
           <span className="flex w-full items-center justify-between gap-2">
             <span data-seat-plan-people-count="">{peek}</span>
-            <ChevronDown aria-hidden className={`h-4 w-4 text-ink/50 transition-transform ${open ? '' : 'rotate-180'}`} />
+            <ChevronDown aria-hidden className={`h-4 w-4 text-ink/70 transition-transform ${open ? '' : 'rotate-180'}`} />
           </span>
         </button>
         {/* Mounted always (the list keeps its search and scroll); shown only when raised. */}

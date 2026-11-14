@@ -29,7 +29,7 @@ import {
   disputeOpenedAdminNotice,
   readOpenDisputeAnswer,
 } from '@/lib/booking-fee-dispute';
-import { emitNotification } from '@/lib/notification-emit';
+import { emitAdminNotice, emitNotification } from '@/lib/notification-emit';
 
 const words = (raw: FormDataEntryValue | null): string | null => {
   const t = typeof raw === 'string' ? raw.trim().slice(0, DISPUTE_TEXT_MAX) : '';
@@ -76,7 +76,7 @@ async function open(formData: FormData): Promise<void> {
       const notice = disputeOpenedAdminNotice(shop?.business_name ?? null);
       await Promise.all(
         ((admins ?? []) as { user_id: string }[]).map((a) =>
-          emitNotification({ userId: a.user_id, type: 'fee_dispute_opened', ...notice }),
+          emitAdminNotice({ userId: a.user_id, type: 'fee_dispute_opened', ...notice }),
         ),
       );
     } catch (e) {

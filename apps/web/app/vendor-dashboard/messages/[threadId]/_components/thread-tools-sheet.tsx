@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
 import { revealThreadTool } from '@/app/_components/chat/reveal-thread-tool';
 import {
   THREAD_TOOL_GROUPS,
@@ -142,10 +143,11 @@ const SHORTCUT_ROWS: readonly SheetRow[] = [
 function PageLabel({ page, first }: { page: PlusGroup; first: boolean }) {
   return (
     <li aria-hidden className={`flex items-center gap-2.5 pb-0.5 ${first ? 'pt-1' : 'pt-2'}`} data-plus-page={page}>
-      <span className="text-[11px] font-semibold uppercase leading-none tracking-[0.08em] text-ink/45">
+      {/* The template's section label (rule 2 · 13): small grey capitals at the dark grey, never ink at part strength. */}
+      <span className="text-[11.5px] font-bold uppercase leading-none tracking-[0.1em] text-[color:var(--m-slate-2)]">
         {page === NEGOTIATE_GROUP ? 'Negotiate' : pickedPageLabel(page)}
       </span>
-      <span className="h-px flex-1 bg-ink/10" />
+      <span className="h-px flex-1 bg-[color:var(--m-line)]" />
     </li>
   );
 }
@@ -181,7 +183,7 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
     if (row.group && row.group !== lastGroup) {
       const g = THREAD_TOOL_GROUPS.find((x) => x.key === row.group);
       items.push(
-        <li key={`group-${row.group}`} aria-hidden className="pb-1 pt-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/55" data-thread-tool-group={row.group}>
+        <li key={`group-${row.group}`} aria-hidden className="pb-1 pt-3 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]" data-thread-tool-group={row.group}>
           {g?.label}
         </li>,
       );
@@ -195,7 +197,11 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
       <span
         aria-hidden
         className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
-          shut ? 'bg-ink/[0.03] text-ink/25' : row.primary ? 'bg-sn-accent/10 text-sn-accent' : 'bg-ink/[0.05] text-sn-accent'
+          shut
+            ? 'bg-[color:var(--m-paper-2)] text-[color:var(--m-slate-4)]'
+            : row.primary
+              ? 'bg-sn-accent/10 text-sn-accent'
+              : 'bg-[color:var(--m-paper-2)] text-sn-accent'
         }`}
       >
         <Icon className="h-[17px] w-[17px]" strokeWidth={1.75} />
@@ -203,10 +209,10 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
     );
     const words = (
       <span className="min-w-0 flex-1">
-        <span className={`block truncate text-[15px] font-semibold leading-tight ${shut ? 'text-ink/40' : 'text-ink'}`}>
+        <span className={`block truncate text-[15px] font-semibold leading-tight ${shut ? 'text-[color:var(--m-slate-3)]' : 'text-ink'}`}>
           {row.label}
         </span>
-        <span className="mt-0.5 block truncate text-[13px] leading-tight text-ink/60">{row.line}</span>
+        <span className="mt-0.5 block truncate text-[13px] leading-tight text-[color:var(--m-slate-2)]">{row.line}</span>
       </span>
     );
     // 48 px tall (the 44-px press floor, with 2 px of air each side) — nine rows and eight topic labels fit a 390 × 844
@@ -219,8 +225,9 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
           <span role="button" aria-disabled="true" aria-describedby={reasonId} tabIndex={0} className={rowClass}>
             {lead}
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-semibold leading-tight text-ink/40">{row.label}</span>
-              <span id={reasonId} className="mt-0.5 block truncate text-[13px] leading-tight text-ink/45">
+              {/* Shut = the mid grey, at 13 px or larger only (rule 13). */}
+              <span className="block truncate text-[15px] font-semibold leading-tight text-[color:var(--m-slate-3)]">{row.label}</span>
+              <span id={reasonId} className="mt-0.5 block truncate text-[13px] leading-tight text-[color:var(--m-slate-3)]">
                 {shut.reason}
               </span>
             </span>
@@ -235,7 +242,7 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
           <Link href={row.href} className={`sn-press ${rowClass}`} onClick={() => setOpen(false)}>
             {lead}
             {words}
-            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/35" strokeWidth={2} />
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2.2} />
           </Link>
         ) : (
           <button
@@ -271,7 +278,7 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
           >
             {lead}
             {words}
-            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/35" strokeWidth={2} />
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2.2} />
           </button>
         )}
       </li>,
@@ -315,7 +322,7 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
         <span
           aria-hidden
           data-plus-circle=""
-          className={`grid h-10 w-10 place-items-center rounded-full ${gate.shut ? 'bg-ink/[0.06] text-ink/35' : 'bg-sn-accent text-white'}`}
+          className={`grid h-10 w-10 place-items-center rounded-full ${gate.shut ? 'bg-[color:var(--m-paper-2)] text-[color:var(--m-slate-3)]' : 'bg-sn-accent text-white'}`}
         >
           <Plus aria-hidden className="h-5 w-5" strokeWidth={2.2} />
         </span>
@@ -462,14 +469,15 @@ export function ComposerPlusSheet({ more = [], sheetMark = 'plain' }: { more?: r
  */
 export function AnswerAskButton() {
   return (
-    <button
+    // Rule 3 · the button piece in its amber tone (it needs you), never a hand-made pill in raw palette colours.
+    <ActionButton
       type="button"
+      tone="warn"
+      icon={Handshake}
+      label="They asked to book"
       onClick={() => revealThreadTool(['booking-ask'])}
       data-answer-ask=""
-      className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-warn-300 bg-warn-100 px-4 text-sm font-semibold text-warn-900"
-    >
-      <Handshake aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-      They asked to book
-    </button>
+      className="!min-h-11 shrink-0"
+    />
   );
 }

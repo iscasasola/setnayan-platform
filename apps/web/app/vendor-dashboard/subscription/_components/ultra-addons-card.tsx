@@ -35,13 +35,14 @@ export function UltraAddonsCard({
   if (rows !== null && rows.length === 0) return null;
   const ultra = TIER_LABEL.enterprise;
   return (
-    <section className="sn-card mt-5 p-5" data-ultra-addons="">
+    // Rule 2 · a section on the page with a hairline above, not a card.
+    <section className="mt-5 border-t border-[color:var(--m-line)] pt-4" data-ultra-addons="">
       <p className="text-base font-semibold text-ink">Bigger than {ultra}? Add more.</p>
-      <p className="mt-0.5 text-sm text-ink/60">
+      <p className="mt-0.5 text-sm text-[color:var(--m-slate-2)]">
         {canBuy ? 'Each one adds to your plan, every 4 weeks.' : `Only ${ultra} can add these.`}
       </p>
       {rows === null ? (
-        <p className="mt-3 text-sm text-ink/60" role="status">
+        <p className="mt-3 text-sm text-[color:var(--m-slate-2)]" role="status">
           We couldn’t read the add-on prices just now. Refresh to try again.
         </p>
       ) : (
@@ -52,21 +53,21 @@ export function UltraAddonsCard({
               <li key={r.sku} className="flex min-h-11 flex-wrap items-center gap-3 py-2.5" data-addon={r.kind}>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-ink">{r.label}</p>
-                  <p className="text-xs text-ink/60">
+                  <p className="text-[13px] text-[color:var(--m-slate-2)]">
                     {formatPhp(r.pricePhp)} / 4 weeks
                     {have > 0 ? ` · you have +${formatCount(have)}` : ''}
                   </p>
                 </div>
                 {canBuy ? (
                   r.buyHref ? (
-                    <Link href={r.buyHref} className="sn-press inline-flex min-h-11 items-center gap-1 text-sm font-medium text-ink">
+                    <Link href={r.buyHref} className="ab ab-brand !min-h-11">
                       Add one
                       <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
                     </Link>
                   ) : (
                     <form action={buyUltraAddOn}>
                       <input type="hidden" name="addon" value={r.kind} />
-                      <SubmitButton className="button-secondary inline-flex min-h-11 items-center gap-1 text-sm" pendingLabel="Starting…">
+                      <SubmitButton className="ab ab-brand !min-h-11" pendingLabel="Starting…">
                         <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
                         Add one
                       </SubmitButton>

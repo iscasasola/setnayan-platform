@@ -32,6 +32,7 @@ import { useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { UploadCloud } from 'lucide-react';
 import { useConfirm } from '@/app/_components/confirm-dialog';
+import { actionButtonClass } from '@/components/action-button';
 // 🔽 ANY SET OF CHOICES IS ONE DROPDOWN (owner rule) — the shipped PickMenu, never a native <select>.
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
@@ -376,7 +377,7 @@ export function StylistLibraryEditor({
           <button
             type="button"
             onClick={() => setNotice(null)}
-            className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700 hover:text-ink"
+            className={actionButtonClass('neutral', { quiet: true })}
             aria-label="Dismiss message"
           >
             Dismiss
@@ -389,7 +390,7 @@ export function StylistLibraryEditor({
           <button
             type="button"
             onClick={() => setActionError(null)}
-            className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700 hover:text-ink"
+            className={actionButtonClass('neutral', { quiet: true })}
             aria-label="Dismiss error"
           >
             Dismiss
@@ -399,8 +400,8 @@ export function StylistLibraryEditor({
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       {/* LEFT: upload + own-asset grid */}
       <div className="space-y-4">
-        <section className="rounded-xl border border-ink/15 bg-white/70 p-4">
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <section className="border-t border-[color:var(--m-line)] pt-4 first:border-t-0 first:pt-0">
+          <p className="mb-3 tabular-nums text-[12px] uppercase tracking-[0.2em] text-[color:var(--m-slate-2)]">
             Upload your design
           </p>
           <form
@@ -422,13 +423,13 @@ export function StylistLibraryEditor({
                   unoptimized
                   className="h-14 w-14 flex-shrink-0 rounded object-cover"
                 />
-                <span className="min-w-0 flex-1 text-sm text-ink/70">
+                <span className="min-w-0 flex-1 text-sm text-[color:var(--m-slate-2)]">
                   From your shop{shopPhoto.from === 'card' ? ' · a service card' : ' · your page'}
                 </span>
                 <button
                   type="button"
                   onClick={() => setShopPhotoRef(null)}
-                  className="min-h-11 flex-shrink-0 rounded-md border border-ink/20 px-3 py-1.5 text-xs font-medium text-ink"
+                  className={actionButtonClass('neutral', { extra: '!min-h-11 flex-shrink-0' })}
                 >
                   Use a file
                 </button>
@@ -461,14 +462,14 @@ export function StylistLibraryEditor({
                       unoptimized
                       className="h-24 w-24 rounded-md object-cover"
                     />
-                    <span className="max-w-full truncate text-sm font-medium text-ink/75">{pickedFile.name}</span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Tap to change</span>
+                    <span className="max-w-full truncate text-sm font-medium text-[color:var(--m-slate-2)]">{pickedFile.name}</span>
+                    <span className="tabular-nums text-[12px] uppercase tracking-[0.18em] text-[color:var(--m-slate-2)]">Tap to change</span>
                   </>
                 ) : (
                   <>
-                    <UploadCloud aria-hidden className="h-8 w-8 text-ink/45" strokeWidth={1.5} />
-                    <span className="text-sm font-medium text-ink/75">Drop a photo or tap to choose</span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                    <UploadCloud aria-hidden className="h-8 w-8 text-[color:var(--m-slate-2)]" strokeWidth={1.5} />
+                    <span className="text-sm font-medium text-[color:var(--m-slate-2)]">Drop a photo or tap to choose</span>
+                    <span className="tabular-nums text-[12px] uppercase tracking-[0.18em] text-[color:var(--m-slate-2)]">
                       PNG · JPEG · WEBP · AVIF
                     </span>
                   </>
@@ -488,7 +489,7 @@ export function StylistLibraryEditor({
                 Upload. Picking one only chooses the bytes: the part, the label, the tick, the screen and Setnayan's
                 review below are the same as for a file. */}
             {isGalleryUpload && shopPhotosFailed ? (
-              <p data-library-shop-photos-failed="" className="text-[11px] text-ink/60">
+              <p data-library-shop-photos-failed="" className="text-[12px] text-[color:var(--m-slate-2)]">
                 We couldn&rsquo;t load your shop&rsquo;s photos just now — reload in a moment, or pick a file.
               </p>
             ) : null}
@@ -498,7 +499,7 @@ export function StylistLibraryEditor({
                   type="button"
                   aria-expanded={shopPickerOpen}
                   onClick={() => setShopPickerOpen((o) => !o)}
-                  className="w-full rounded-md border border-ink/20 px-3 py-2 text-sm font-medium text-ink"
+                  className={actionButtonClass('neutral', { extra: 'w-full !min-h-11' })}
                 >
                   {shopPickerOpen ? 'Hide your shop’s photos' : `Choose from your shop’s photos (${formatCount(shopPhotos.length)})`}
                 </button>
@@ -535,7 +536,7 @@ export function StylistLibraryEditor({
                 posts through a hidden field of the same name, so `uploadStylistAsset` reads exactly what it did. */}
             <div className="space-y-2">
               <div className="flex min-w-0 items-center justify-between gap-3">
-                <span className="shrink-0 text-sm text-ink/65">Goes to</span>
+                <span className="shrink-0 text-sm text-[color:var(--m-slate-2)]">Goes to</span>
                 <input type="hidden" name="assetType" value={assetType} />
                 <PickMenu
                   label="Where this photo goes"
@@ -548,7 +549,7 @@ export function StylistLibraryEditor({
               </div>
               {isGalleryUpload ? (
                 <div className="flex min-w-0 items-center justify-between gap-3">
-                  <span className="shrink-0 text-sm text-ink/65">Part</span>
+                  <span className="shrink-0 text-sm text-[color:var(--m-slate-2)]">Part</span>
                   <input type="hidden" name="assetSubtype" value={uploadSlot} />
                   <PickMenu
                     label="Which part of the mood board"
@@ -583,7 +584,7 @@ export function StylistLibraryEditor({
                 record a promise the supplier never made — the same shape as the
                 onboarding consent this repo already had to unwind. The server
                 refuses the upload without it. */}
-            <label className="flex items-start gap-2 text-[11px] leading-snug text-ink/70">
+            <label className="flex items-start gap-2 text-[12px] leading-snug text-[color:var(--m-slate-2)]">
               <input
                 type="checkbox"
                 name="rightsWarranted"
@@ -598,20 +599,20 @@ export function StylistLibraryEditor({
             <button
               type="submit"
               disabled={isPending || !rightsWarranted || quotaExhausted}
-              className="w-full rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream disabled:opacity-50"
+              className={actionButtonClass('brand', { main: true, extra: 'w-full !min-h-11 disabled:opacity-50' })}
             >
               {isPending ? 'Uploading…' : 'Upload + tag'}
             </button>
 
             {isGalleryUpload ? (
-              <p className="text-[11px] text-ink/55">
+              <p className="text-[12px] text-[color:var(--m-slate-2)]">
                 {backCatalogueCap === 0
                   ? `You can add ${uploadSlotLabel} photos from events you were booked on, but not from your back catalogue. Those never count against any category.`
                   : `${uploadSlotLabel} back-catalogue photos: ${formatCount(usedInSelectedSlot)} of ${formatCount(backCatalogueCap)} used. Photos from events you were booked on never count, and this cap is per category — your other shelves have their own room.`}
               </p>
             ) : null}
 
-            <p className="text-[11px] text-ink/55">
+            <p className="text-[12px] text-[color:var(--m-slate-2)]">
               We watermark every photo with SETNAYAN on our side before storing
               it, and check it for QR codes and your own contact details —
               couples reach you through the credit under the photo, so those
@@ -639,16 +640,16 @@ export function StylistLibraryEditor({
         ) : null}
 
         {importableEditorial.length > 0 && gallerySlots.length > 0 ? (
-          <section className="rounded-xl border border-ink/15 bg-white/70 p-4">
-            <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <section className="border-t border-[color:var(--m-line)] pt-4 first:border-t-0 first:pt-0">
+            <p className="mb-1 tabular-nums text-[12px] uppercase tracking-[0.2em] text-[color:var(--m-slate-2)]">
               From events you worked
             </p>
-            <p className="mb-3 text-[11px] text-ink/55">
+            <p className="mb-3 text-[12px] text-[color:var(--m-slate-2)]">
               Your day-of photos from couples who picked you. These never count
               against your back-catalogue allowance.
             </p>
             <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
-              <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">Add to</span>
+              <span className="shrink-0 tabular-nums text-[12px] uppercase tracking-[0.15em] text-[color:var(--m-slate-2)]">Add to</span>
               <PickMenu
                 label="Add these photos to"
                 value={importSlot}
@@ -681,7 +682,7 @@ export function StylistLibraryEditor({
                     type="button"
                     disabled={isPending || photo.alreadyImported}
                     onClick={() => handleImport(photo.mediaId)}
-                    className="flex-shrink-0 rounded-md border border-mulberry px-3 py-1.5 text-xs font-medium text-mulberry disabled:opacity-50"
+                    className={actionButtonClass('brand', { extra: 'flex-shrink-0 disabled:opacity-50' })}
                   >
                     {photo.alreadyImported ? 'Added' : 'Add to Inspiration'}
                   </button>
@@ -691,12 +692,12 @@ export function StylistLibraryEditor({
           </section>
         ) : null}
 
-        <section className="rounded-xl border border-ink/15 bg-white/70 p-4">
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <section className="border-t border-[color:var(--m-line)] pt-4 first:border-t-0 first:pt-0">
+          <p className="mb-3 tabular-nums text-[12px] uppercase tracking-[0.2em] text-[color:var(--m-slate-2)]">
             My uploads ({assets.length})
           </p>
           {assets.length === 0 ? (
-            <p className="text-sm text-ink/55">
+            <p className="text-sm text-[color:var(--m-slate-2)]">
               No uploads yet — pick a file above to start.
             </p>
           ) : (
@@ -722,7 +723,7 @@ export function StylistLibraryEditor({
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-ink">{a.label}</p>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                      <p className="tabular-nums text-[12px] uppercase tracking-[0.15em] text-[color:var(--m-slate-2)]">
                         {assetWhere(a, gallerySlots)}
                         {' · '}
                         {a.rejected_at
@@ -748,7 +749,7 @@ export function StylistLibraryEditor({
             <header className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <h2 className="text-lg font-semibold text-ink">{selected.label}</h2>
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                <p className="tabular-nums text-[12px] uppercase tracking-[0.2em] text-[color:var(--m-slate-2)]">
                   {assetWhere(selected, gallerySlots)} ·{' '}
                   {selected.rejected_at
                     ? '✕ not published'
@@ -762,7 +763,7 @@ export function StylistLibraryEditor({
                   type="button"
                   onClick={handleSaveTags}
                   disabled={isPending}
-                  className="rounded-md bg-mulberry px-3 py-1.5 text-sm font-medium text-cream disabled:opacity-50"
+                  className={actionButtonClass('ok', { extra: '!min-h-11 disabled:opacity-50' })}
                 >
                   Save tags
                 </button>
@@ -770,7 +771,7 @@ export function StylistLibraryEditor({
                   type="button"
                   onClick={handleDelete}
                   disabled={isPending}
-                  className="rounded-md border border-danger-500 px-3 py-1.5 text-sm font-medium text-danger-600 disabled:opacity-50"
+                  className={actionButtonClass('danger', { extra: '!min-h-11 disabled:opacity-50' })}
                 >
                   Delete
                 </button>
@@ -793,7 +794,7 @@ export function StylistLibraryEditor({
               previewPalette={previewPalette}
             />
 
-            <details className="rounded-lg border border-ink/15 bg-white/70 p-3">
+            <details className="border-y border-[color:var(--m-line)] py-3">
               <summary className="cursor-pointer text-sm font-medium text-ink">
                 Preview palette (test how your tags look with different colors)
               </summary>
@@ -802,7 +803,7 @@ export function StylistLibraryEditor({
                   <div key={slotId} className="space-y-1">
                     <label
                       htmlFor={`preview-slot-${slotId}`}
-                      className="block text-center font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+                      className="block text-center tabular-nums text-[12px] uppercase tracking-[0.15em] text-[color:var(--m-slate-2)]"
                     >
                       Slot {slotId}
                     </label>
@@ -818,14 +819,14 @@ export function StylistLibraryEditor({
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-[11px] text-ink/55">
+              <p className="mt-2 text-[12px] text-[color:var(--m-slate-2)]">
                 Each couple sees their own colours here. Try a few to check your
                 tagged areas look right in any palette.
               </p>
             </details>
           </>
         ) : (
-          <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-ink/20 text-sm text-ink/55">
+          <div className="flex h-64 items-center justify-center text-[14px] text-[color:var(--m-slate-2)]">
             Upload a photo or pick one from your library to start tagging.
           </div>
         )}

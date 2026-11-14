@@ -75,7 +75,7 @@ test('the face is Page · View from the event menu tree', () => {
   assert.equal(face(`${B}/studio/papic/crew`), 'Today · Papic', 'a product page is named by its catalogue row');
   assert.equal(face(`${B}/vendors/v1/workspace`), 'Suppliers');
   assert.equal(face(`${B}/story`), 'Hub · Story Maker');
-  assert.equal(face(`${B}/galleries`), 'Memories · Galleries');
+  assert.equal(face(`${B}/galleries`), 'Memories · More from your day');
   assert.equal(face(`${B}/orders`), null, 'a page the menu does not hold is given a guessed name');
   const today = table.pillars.find((p) => p.key === 'home')!;
   assert.equal(today.views[0]!.exact, true, 'Today’s door matches every event page by prefix');

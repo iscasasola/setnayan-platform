@@ -62,6 +62,7 @@ import {
 } from '@/lib/moodboard-templates';
 import { formatCount } from '@/lib/format-number';
 
+import { InfoTip } from '@/app/_components/info-tip';
 type ApplyResult = {
   mode: ApplyMode;
   filledPaletteRoles: string[];
@@ -325,17 +326,17 @@ export function TemplateGallery({
   return (
     <section
       aria-label="Start from a designed theme"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-white/70 p-5"
+      className="border-t border-ink/10 space-y-4 py-5"
     >
       {/* ── STATE 1 · one calm choice ─────────────────────────────────── */}
       {step === 'intent' ? (
         <div className="space-y-3">
           <header className="space-y-1">
             <h2 className="text-xl font-semibold text-ink">How would you like to begin?</h2>
-            <p className="max-w-prose text-sm text-ink/65">
-              We can start you from a designed theme — a palette and a reception look chosen to
+            <InfoTip labelAs="p" label="We can start you from a designed theme" labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+              a palette and a reception look chosen to
               go together — or leave the board completely blank for you to build.
-            </p>
+            </InfoTip>
           </header>
           <div className="grid gap-3 sm:grid-cols-2">
             <ChoiceButton
@@ -360,7 +361,7 @@ export function TemplateGallery({
           <button
             type="button"
             onClick={() => setStep('mood')}
-            className="sn-press text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+            className="sn-press text-[12px] font-bold text-ink/70 underline underline-offset-2 hover:text-ink"
           >
             Browse designed themes anyway
           </button>
@@ -377,7 +378,7 @@ export function TemplateGallery({
           <button
             type="button"
             onClick={() => setStep('mood')}
-            className="sn-press text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+            className="sn-press text-[12px] font-bold text-ink/70 underline underline-offset-2 hover:text-ink"
           >
             Actually, show me some designed themes
           </button>
@@ -391,13 +392,13 @@ export function TemplateGallery({
             <button
               type="button"
               onClick={reset}
-              className="sn-press inline-flex items-center gap-1 text-xs font-medium text-ink/50 hover:text-ink"
+              className="sn-press inline-flex items-center gap-1 text-xs font-medium text-ink/70 hover:text-ink"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
               Back
             </button>
             <h2 className="text-xl font-semibold text-ink">First — how should the day feel?</h2>
-            <p className="text-sm text-ink/65">Pick the one closest to what you picture.</p>
+            <p className="text-sm text-ink/70">Pick the one closest to what you picture.</p>
           </header>
           <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {moodChoices.map((m) => (
@@ -415,7 +416,7 @@ export function TemplateGallery({
             <button
               type="button"
               onClick={() => setShowAllMoods(true)}
-              className="sn-press text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+              className="sn-press text-[12px] font-bold text-ink/70 underline underline-offset-2 hover:text-ink"
             >
               More feelings
             </button>
@@ -429,7 +430,7 @@ export function TemplateGallery({
             <button
               type="button"
               onClick={() => setStep('mood')}
-              className="sn-press inline-flex items-center gap-1 text-xs font-medium text-ink/50 hover:text-ink"
+              className="sn-press inline-flex items-center gap-1 text-xs font-medium text-ink/70 hover:text-ink"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
               Back
@@ -437,7 +438,7 @@ export function TemplateGallery({
             <h2 className="text-xl font-semibold text-ink">
               And where are you imagining it?
             </h2>
-            <p className="text-sm text-ink/65">
+            <p className="text-sm text-ink/70">
               {mood ? `${MOOD_LABELS[mood] ?? mood} — in what kind of setting?` : null}
             </p>
           </header>
@@ -454,7 +455,7 @@ export function TemplateGallery({
             <button
               type="button"
               onClick={() => setShowAllFamilies(true)}
-              className="sn-press text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+              className="sn-press text-[12px] font-bold text-ink/70 underline underline-offset-2 hover:text-ink"
             >
               More settings
             </button>
@@ -479,7 +480,7 @@ export function TemplateGallery({
                   couple tries all ten settings to learn one fact. `moodTotal`
                   is measured per fetch, so this copy corrects itself the day
                   the seed is regenerated. */}
-              <p className="text-sm text-ink/65">
+              <p className="text-sm text-ink/70">
                 {loading && templates.length === 0
                   ? 'Finding themes…'
                   : loadError
@@ -494,7 +495,7 @@ export function TemplateGallery({
             <button
               type="button"
               onClick={reset}
-              className="sn-press text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+              className="sn-press text-[12px] font-bold text-ink/70 underline underline-offset-2 hover:text-ink"
             >
               Start over
             </button>
@@ -530,9 +531,9 @@ export function TemplateGallery({
               const isApplying = applyingId === t.template_id && pending;
               const applied = appliedIds.has(t.template_id);
               return (
-                <div key={t.template_id} className="sn-tile space-y-2.5 p-4">
+                <div key={t.template_id} className="border-t border-ink/10 space-y-2.5 py-4">
                   <p className="text-sm font-semibold text-ink">{t.name}</p>
-                  <p className="line-clamp-3 text-xs text-ink/65">{t.description}</p>
+                  <p className="line-clamp-3 text-xs text-ink/70">{t.description}</p>
                   <div className="flex flex-wrap gap-2">
                     {swatches.map((hex) => (
                       <span key={hex} className="flex flex-col items-center gap-0.5">
@@ -541,7 +542,7 @@ export function TemplateGallery({
                           style={{ backgroundColor: hex }}
                           title={nearestColorName(hex) ?? hex}
                         />
-                        <span className="text-center text-[9px] leading-tight text-ink/50">
+                        <span className="text-center text-[12px] leading-tight text-ink/70">
                           {nearestColorName(hex) ?? hex}
                         </span>
                       </span>
@@ -570,7 +571,7 @@ export function TemplateGallery({
                       type="button"
                       onClick={() => apply(t, 'replace_all')}
                       disabled={isApplying}
-                      className="sn-press mt-1.5 block w-full text-center text-[11px] font-medium text-ink/50 underline underline-offset-2 hover:text-ink disabled:opacity-50"
+                      className="sn-press mt-1.5 block w-full text-center text-[12px] font-medium text-ink/70 underline underline-offset-2 hover:text-ink disabled:opacity-50"
                     >
                       or replace everything instead
                     </button>

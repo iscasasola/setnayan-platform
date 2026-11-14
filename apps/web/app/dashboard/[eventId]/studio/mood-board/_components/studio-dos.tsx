@@ -67,7 +67,7 @@ export function StudioDos({ eventId, dos, donts, incStarter = false, lookCanvas 
     <section data-mood-board-dress-lists="" className="flex flex-col">
       {lookCanvas ? <DosLook eventId={eventId} canvas={lookCanvas} /> : null}
       {incStarter ? (
-        <p role="note" data-inc-dress-code-starter="" className="px-1.5 pb-1 pt-3 text-[12.5px] text-ink/65">
+        <p role="note" data-inc-dress-code-starter="" className="px-1.5 pb-1 pt-3 text-[12.5px] text-ink/70">
           {INC_DRESS_CODE_STARTER_NOTE}
         </p>
       ) : null}
@@ -125,7 +125,7 @@ function DosList({ field, tone, initial }: { field: 'dos' | 'donts'; tone: 'do' 
           <ActionButton tone="neutral" icon={Plus} label="Add another" onClick={() => setRows((prev) => [...prev, row('')])} />
         </div>
       ) : (
-        <p className="px-1.5 pt-2 text-[12.5px] text-ink/55">That’s the cap — {LIST_MAX} keeps the list scannable for guests.</p>
+        <p className="px-1.5 pt-2 text-[12.5px] text-ink/70">That’s the cap — {LIST_MAX} keeps the list scannable for guests.</p>
       )}
     </div>
   );

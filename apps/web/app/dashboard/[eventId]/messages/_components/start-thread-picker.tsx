@@ -85,7 +85,7 @@ export function StartThreadPicker({
                     .join('')}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[16px] font-medium text-ink">{t.name}</span>
-                {pending && picked === t.vendorId ? <Loader2 aria-hidden className="h-4 w-4 animate-spin text-ink/50" /> : null}
+                {pending && picked === t.vendorId ? <Loader2 aria-hidden className="h-4 w-4 animate-spin text-ink/70" /> : null}
               </button>
             </li>
           ))}
@@ -110,7 +110,7 @@ export function StartThreadPicker({
           buttonText={pending ? 'Opening…' : 'Choose a supplier'}
           className="border border-ink/15"
         />
-        {pending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin text-ink/50" /> : null}
+        {pending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin text-ink/70" /> : null}
       </div>
       {err ? (
         <p role="alert" className="text-xs text-danger-700">

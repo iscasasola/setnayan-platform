@@ -10,13 +10,13 @@ import { findDoorHref } from '@/lib/suppliers-shell';
 export function CoupleChatsEmpty({ eventId }: { eventId: string }) {
   return (
     <div className="py-10 text-center" data-chats-empty="">
-      <MessageSquare aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
+      <MessageSquare aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/70" strokeWidth={1.5} />
       <p className="text-sm font-medium text-ink">No chats yet.</p>
-      <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
+      <p className="mx-auto mt-1 max-w-md text-xs text-ink/70">
         Tap ✎ to message one of this event&rsquo;s suppliers, or Ask for a quote on a supplier&rsquo;s page.
       </p>
       <div className="mt-4">
-        <Link href={findDoorHref(eventId)} className="button-secondary">
+        <Link href={findDoorHref(eventId)} className="ab ab-neutral">
           Find a supplier
         </Link>
       </div>

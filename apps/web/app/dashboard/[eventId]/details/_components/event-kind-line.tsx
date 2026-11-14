@@ -28,7 +28,7 @@ export function EventKindLine({ eventId, kind }: { eventId: string; kind: EventK
         The kind decides which suppliers and services cover this event, so every event needs a specific one. Your
         guests, suppliers and plans stay as they are.
       </InfoTip>
-      <p className="text-[13px] text-ink/65">
+      <p className="text-[13px] text-ink/70">
         {kind.generic
           ? 'Pick the specific kind of this event.'
           : `${firstAsked?.label ?? 'The kind you asked for'} is ready — switch this event to it.`}

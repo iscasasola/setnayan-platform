@@ -44,6 +44,7 @@ import {
 import { motifId, type ThemeTextReading } from '@/lib/theme-text-intent';
 import { MajorsEditor } from './majors-editor';
 
+import { InfoTip } from '@/app/_components/info-tip';
 export type ThemeIntentJump = {
   mood: MoodboardMoodTag | null;
   family: MoodboardStyleFamily | null;
@@ -89,7 +90,7 @@ function Chip({
       className={
         tone === 'kept'
           ? 'inline-flex items-center gap-1.5 rounded-full border border-terracotta/35 bg-terracotta/[0.07] py-1 pl-2.5 pr-1.5 text-xs font-medium text-ink'
-          : 'inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-ink/[0.03] px-2.5 py-1 text-xs text-ink/60'
+          : 'inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-ink/[0.03] px-2.5 py-1 text-xs text-ink/70'
       }
     >
       {swatch ? (
@@ -105,7 +106,7 @@ function Chip({
           type="button"
           onClick={onRemove}
           aria-label={`Remove ${label}`}
-          className="sn-press rounded-full p-0.5 text-ink/45 transition hover:bg-ink/10 hover:text-ink"
+          className="sn-press rounded-full p-0.5 text-ink/70 transition hover:bg-ink/10 hover:text-ink"
         >
           <X className="h-3 w-3" aria-hidden />
         </button>
@@ -245,15 +246,15 @@ export function ThemeCard({
   const understoodNothing = reading !== null && !keptAnything && dropped.size === 0;
 
   return (
-    <section id="theme" className="sn-tile scroll-mt-24 space-y-3 p-5 sm:p-6">
+    <section id="theme" className="border-t border-ink/10 scroll-mt-24 space-y-3 py-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
+        <p className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
           Overall theme
         </p>
         <button
           type="button"
           onClick={onSuggest}
-          className="inline-flex items-center gap-1.5 rounded-full border border-terracotta/40 px-3 py-1 text-xs font-medium text-terracotta-700 transition hover:bg-terracotta/10"
+          className="ab ab-neutral"
         >
           <Sparkles className="h-3.5 w-3.5" aria-hidden />
           Suggest for me
@@ -295,7 +296,7 @@ export function ThemeCard({
           <Wand2 className="h-3.5 w-3.5" aria-hidden />
           {readState === 'reading' ? 'Reading…' : 'Read my description'}
         </button>
-        <p aria-live="polite" className="text-xs text-ink/45">
+        <p aria-live="polite" className="text-xs text-ink/70">
           {status === 'saving'
             ? 'Saving…'
             : status === 'saved'
@@ -310,12 +311,12 @@ export function ThemeCard({
 
       {/* ── the reading, shown BEFORE anything changes ───────────────── */}
       {reading ? (
-        <div className="space-y-3 rounded-2xl border border-ink/10 bg-cream/40 p-4">
+        <div className="border-t border-ink/10 space-y-3 py-4">
           {understoodNothing ? (
-            <p className="text-sm text-ink/70">
-              We couldn’t place any of that yet — nothing on your board has changed. Try a colour,
+            <InfoTip labelAs="p" label="We couldn’t place any of that yet" labelClassName="text-sm text-ink/70" align="start">
+              nothing on your board has changed. Try a colour,
               a feeling (“cosy”, “engrande”, “classy”) or a detail (“capiz”, “fairy lights”).
-            </p>
+            </InfoTip>
           ) : (
             <>
               <p className="text-sm font-medium text-ink">
@@ -324,7 +325,7 @@ export function ThemeCard({
 
               {keptMoods.length > 0 ? (
                 <div className="space-y-1">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
+                  <p className="text-[12px] uppercase tracking-[0.16em] text-ink/70">
                     Feeling
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -341,7 +342,7 @@ export function ThemeCard({
 
               {keptFamilies.length > 0 ? (
                 <div className="space-y-1">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
+                  <p className="text-[12px] uppercase tracking-[0.16em] text-ink/70">
                     Setting
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -358,7 +359,7 @@ export function ThemeCard({
 
               {keptColours.length > 0 ? (
                 <div className="space-y-1">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
+                  <p className="text-[12px] uppercase tracking-[0.16em] text-ink/70">
                     Colours
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -376,7 +377,7 @@ export function ThemeCard({
 
               {keptMotifs.length > 0 ? (
                 <div className="space-y-1">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
+                  <p className="text-[12px] uppercase tracking-[0.16em] text-ink/70">
                     Details
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -398,7 +399,7 @@ export function ThemeCard({
               understood all of it. */}
           {reading.unrecognised.length > 0 ? (
             <div className="space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
+              <p className="text-[12px] uppercase tracking-[0.16em] text-ink/70">
                 We didn’t understand
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -406,7 +407,7 @@ export function ThemeCard({
                   <Chip key={w} label={w} tone="unknown" />
                 ))}
               </div>
-              <p className="text-xs text-ink/50">
+              <p className="text-xs text-ink/70">
                 These didn’t match anything we stock — they’re still in your description for your
                 suppliers to read.
               </p>
@@ -414,20 +415,20 @@ export function ThemeCard({
           ) : null}
 
           {reading.excluded.length > 0 ? (
-            <p className="text-xs text-ink/60">
+            <p className="text-xs text-ink/70">
               You ruled out: {reading.excluded.join(', ')} — we left those out.
             </p>
           ) : null}
 
           {reading.conflicts.map(([a, b]) => (
-            <p key={`${a}-${b}`} className="text-xs text-ink/60">
+            <p key={`${a}-${b}`} className="text-xs text-ink/70">
               You asked for both {MOOD_LABELS[a] ?? a} and {MOOD_LABELS[b] ?? b}. We kept both —
               remove one if you’d rather lean a single way.
             </p>
           ))}
 
           {reading.notes.map((n) => (
-            <p key={n} className="text-xs text-ink/60">
+            <p key={n} className="text-xs text-ink/70">
               {n}
             </p>
           ))}
@@ -448,11 +449,11 @@ export function ThemeCard({
                 setApplyMessage(null);
                 setDropped(new Set());
               }}
-              className="sn-press text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+              className="sn-press text-[12px] font-bold text-ink/70 underline underline-offset-2 hover:text-ink"
             >
               Dismiss
             </button>
-            <p className="text-xs text-ink/50">
+            <p className="text-xs text-ink/70">
               Nothing is changed until you press <span className="font-medium">Use these</span>.
             </p>
           </div>

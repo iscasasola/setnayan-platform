@@ -16,9 +16,9 @@
  */
 
 /** The word under a circle — the Attire dots' own type. */
-export const DOT_WORD = '-mt-1 max-w-[64px] text-center text-[10.5px] leading-tight text-ink/65';
+export const DOT_WORD = '-mt-1 max-w-[64px] text-center text-[12px] leading-tight text-ink/70';
 /** The colour's name under a main colour's slot word (prototype `.dotcol small.name`): the same type, quieter. */
-export const DOT_NAME = 'max-w-[64px] text-center text-[10.5px] leading-tight text-ink/50';
+export const DOT_NAME = 'max-w-[64px] text-center text-[12px] leading-tight text-ink/70';
 
 /**
  * 🎨 THE ROLE'S COLOUR CIRCLE — the one hand-made button for a colour a role wears (a zone's dot, a guest's option, a

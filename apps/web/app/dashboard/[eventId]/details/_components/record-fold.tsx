@@ -75,7 +75,7 @@ export function RecordFold({
       data-record-group={group}
       data-record-group-open={open ? '' : undefined}
       aria-label={title}
-      className="sn-tile overflow-hidden lg:overflow-visible"
+      className="border-t border-ink/10 overflow-hidden lg:overflow-visible pt-4"
     >
       <button
         type="button"
@@ -85,16 +85,16 @@ export function RecordFold({
         className="sn-press flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left lg:hidden"
       >
         <span className="shrink-0 text-[15px] font-semibold text-ink">{title}</span>
-        <span className={`min-w-0 flex-1 truncate text-[13px] text-ink/55 ${open ? 'invisible' : ''}`} data-record-summary="">
+        <span className={`min-w-0 flex-1 truncate text-[13px] text-ink/70 ${open ? 'invisible' : ''}`} data-record-summary="">
           {summary}
         </span>
         <ChevronDown
           aria-hidden
-          className={`h-4 w-4 shrink-0 text-ink/45 transition-transform duration-200 motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 shrink-0 text-ink/70 transition-transform duration-200 motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
           strokeWidth={1.75}
         />
       </button>
-      <h2 className="hidden px-5 pb-1 pt-4 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/60 lg:block">{title}</h2>
+      <h2 className="hidden px-5 pb-1 pt-4 text-[12px] uppercase tracking-[0.18em] text-ink/70 lg:block">{title}</h2>
       <div data-record-group-body="" className={`px-4 pb-3 sm:px-5 ${open ? '' : 'max-lg:hidden'}`}>
         <OneOpenScope id={id}>{children}</OneOpenScope>
       </div>

@@ -19,7 +19,7 @@ import { AskTheHosts } from './ask-the-hosts';
 export function YourAccess({ access, eventId, askedAt = null }: { access: OwnAccess; eventId: string; askedAt?: string | null }) {
   return (
     <div data-your-access="" className="space-y-1">
-      <p className="text-[12.5px] text-ink/60" data-your-access-role="">
+      <p className="text-[12.5px] text-ink/70" data-your-access-role="">
         <InfoTip label={`${access.roleWord}${access.lastDay ? ` · until ${accessDayLabel(access.lastDay)}` : ''}`} align="start">
           {OWN_ACCESS_TIP}
         </InfoTip>
@@ -28,7 +28,7 @@ export function YourAccess({ access, eventId, askedAt = null }: { access: OwnAcc
         {access.areas.map((cell) => (
           <li key={cell.area} className="flex min-h-11 items-center justify-between gap-3 py-1" data-area={cell.area} data-level={cell.choice}>
             <span className="min-w-0 text-[13px] text-ink/75">{cell.label}</span>
-            <span className={`shrink-0 text-[13px] ${cell.choice === 'off' ? 'text-ink/45' : 'font-medium text-ink'}`}>
+            <span className={`shrink-0 text-[13px] ${cell.choice === 'off' ? 'text-ink/70' : 'font-medium text-ink'}`}>
               {AREA_LEVEL_WORD[cell.choice]}
             </span>
           </li>

@@ -125,7 +125,7 @@ export function PartFinalizationPanel({
   }
 
   if (parts.length === 0) {
-    return <p className="text-xs text-ink/55">{emptyHint}</p>;
+    return <p className="text-xs text-ink/70">{emptyHint}</p>;
   }
 
   return (
@@ -139,7 +139,7 @@ export function PartFinalizationPanel({
         </p>
       ) : null}
 
-      <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-white">
+      <ul className="border-t border-ink/10 divide-y divide-ink/10 pt-4">
         {parts.map((part) => {
           const row = live.get(part.id) ?? null;
           const state = partFinalizationStateOf(row);
@@ -152,7 +152,7 @@ export function PartFinalizationPanel({
 
               {state === 'locked' ? (
                 <>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 text-[11px] font-medium text-success-900">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 text-[12px] font-medium text-success-900">
                     <Lock className="h-3 w-3" aria-hidden />
                     Agreed — settled
                   </span>
@@ -165,15 +165,15 @@ export function PartFinalizationPanel({
                       `lib/moodboard-finalization.test.ts`, never counted here.
                       */}
                   {part.freezesNothing ? (
-                    <span className="text-[11px] text-ink/50">
+                    <span className="text-[12px] text-ink/70">
                       recorded, but its colours still follow your main colours
                     </span>
                   ) : (
-                    <span className="text-[11px] text-ink/50">stops following your main colours</span>
+                    <span className="text-[12px] text-ink/70">stops following your main colours</span>
                   )}
                   {reopen === 'requested' ? (
                     <>
-                      <span className="text-[11px] text-warn-900">
+                      <span className="text-[12px] text-warn-900">
                         Re-open asked ·{' '}
                         {lockRequestFuseLabel(row?.reopen_expires_at ?? null) ?? 'waiting'}
                       </span>
@@ -181,7 +181,7 @@ export function PartFinalizationPanel({
                         type="button"
                         disabled={busy}
                         onClick={() => run(part.id, () => cancelReopenAction(row!.finalization_id))}
-                        className="rounded-full border border-ink/15 px-2.5 py-1 text-[11px] font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-50"
+                        className="rounded-full border border-ink/15 px-2.5 py-1 text-[12px] font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-50"
                       >
                         Never mind
                       </button>
@@ -189,13 +189,13 @@ export function PartFinalizationPanel({
                   ) : (
                     <>
                       {reopen === 'declined' ? (
-                        <span className="text-[11px] text-ink/55">
+                        <span className="text-[12px] text-ink/70">
                           They would rather keep it
                           {row?.reopen_decline_reason ? ` — “${row.reopen_decline_reason}”` : ''}
                         </span>
                       ) : null}
                       {reopen === 'expired' ? (
-                        <span className="text-[11px] text-ink/55">
+                        <span className="text-[12px] text-ink/70">
                           No answer to your last re-open — it stays as agreed
                         </span>
                       ) : null}
@@ -203,7 +203,7 @@ export function PartFinalizationPanel({
                         type="button"
                         disabled={busy}
                         onClick={() => run(part.id, () => reopenAction(row!.finalization_id))}
-                        className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-[11px] font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-50"
+                        className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-[12px] font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-50"
                       >
                         <Undo2 className="h-3 w-3" aria-hidden />
                         Ask to change it
@@ -213,24 +213,24 @@ export function PartFinalizationPanel({
                 </>
               ) : state === 'requested' ? (
                 <>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 text-[11px] font-medium text-warn-900">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 text-[12px] font-medium text-warn-900">
                     Waiting on your supplier
                   </span>
-                  <span className="text-[11px] text-ink/55">
+                  <span className="text-[12px] text-ink/70">
                     {lockRequestFuseLabel(row?.expires_at ?? null) ?? 'no deadline recorded'}
                   </span>
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => run(part.id, () => cancelAction(row!.finalization_id))}
-                    className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-[11px] font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-[12px] font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-50"
                   >
                     <X className="h-3 w-3" aria-hidden />
                     Withdraw
                   </button>
                 </>
               ) : part.blockerMessage ? (
-                <span className="text-[11px] text-ink/55">{part.blockerMessage}</span>
+                <span className="text-[12px] text-ink/70">{part.blockerMessage}</span>
               ) : (
                 <>
                   <ClosedRoundNote records={records} partId={part.id} />
@@ -240,7 +240,7 @@ export function PartFinalizationPanel({
                       type="button"
                       disabled={busy}
                       onClick={() => run(part.id, () => requestAction(part.id, s.vendorId))}
-                      className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-2.5 py-1 text-[11px] font-medium text-cream hover:bg-terracotta-800 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-2.5 py-1 text-[12px] font-medium text-cream hover:bg-terracotta-800 disabled:opacity-50"
                     >
                       <Check className="h-3 w-3" aria-hidden />
                       Ask {s.name}
@@ -277,10 +277,10 @@ function ClosedRoundNote({
   const last = closed[closed.length - 1];
   if (!last) return null;
   if (last.state === 'expired') {
-    return <span className="text-[11px] text-ink/55">Nobody answered last time</span>;
+    return <span className="text-[12px] text-ink/70">Nobody answered last time</span>;
   }
   return (
-    <span className="text-[11px] text-ink/55">
+    <span className="text-[12px] text-ink/70">
       Turned down{last.decline_reason ? ` — “${last.decline_reason}”` : ''}
     </span>
   );

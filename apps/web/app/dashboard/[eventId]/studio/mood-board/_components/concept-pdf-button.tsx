@@ -81,7 +81,7 @@ export function ConceptPdfButton({
         onClick={download}
         disabled={busy}
         aria-busy={busy}
-        className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
+        className="ab ab-neutral disabled:cursor-not-allowed"
       >
         {busy ? (
           <>

@@ -5,6 +5,7 @@ import { Archive, RotateCcw } from 'lucide-react';
 
 import { setEventArchived } from '../../archive-actions';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * put-away-card.tsx — the button that never existed.
  *
@@ -81,7 +82,7 @@ export function PutAwayCard({
 
   if (archived) {
     return (
-      <div className="rounded-2xl border border-ink/12 bg-white/60 p-5 sm:p-6">
+      <div className="border-t border-ink/10 py-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-base font-bold text-ink">
           <Archive aria-hidden className="h-[18px] w-[18px] text-[color:var(--sn-ink-400)]" />
           Put away
@@ -101,13 +102,12 @@ export function PutAwayCard({
 
           Owner found it by pressing the button. No test could have.
         */}
-        <p className="mt-2 max-w-prose text-sm text-ink/70">
-          {eventName} is off your active list, and its cameras and Memory lane are
-          quiet — no new photos come in while it is put away.{' '}
+        <InfoTip labelAs="p" label="is off your active list, and its cameras and Memory lane are quiet" labelNode={<>{eventName} is off your active list, and its cameras and Memory lane are quiet</>} labelClassName="text-sm text-ink/70" className="mt-2 max-w-prose" align="start">
+          no new photos come in while it is put away.{' '}
           <strong className="font-semibold text-ink">Nothing is deleted</strong> — every
           photo, the guest list and the page your guests use are all still here.
           Bring it back any time.
-        </p>
+        </InfoTip>
         {error ? (
           <p role="alert" className="mt-3 text-sm font-semibold text-[color:var(--sn-danger)]">
             {error}
@@ -127,7 +127,7 @@ export function PutAwayCard({
   }
 
   return (
-    <div className="rounded-2xl border border-ink/12 bg-white/60 p-5 sm:p-6">
+    <div className="border-t border-ink/10 py-5 sm:p-6">
       <h2 className="flex items-center gap-2 text-base font-bold text-ink">
         <Archive aria-hidden className="h-[18px] w-[18px] text-[color:var(--sn-ink-400)]" />
         Put this away
@@ -148,13 +148,12 @@ export function PutAwayCard({
         Says what STOPS and what STAYS, in that order — the stopping is the part
         they cannot discover any other way.
       */}
-      <p className="mt-2 max-w-prose text-sm text-ink/70">
-        Tidies {eventName} off your active list and stops its reminders.{' '}
-        <strong className="font-semibold text-ink">Nothing is deleted</strong> — every
+      <InfoTip labelAs="p" label="Tidies off your active list and stops its reminders. Nothing is deleted" labelNode={<>Tidies {eventName} off your active list and stops its reminders.{' '} <strong className="font-semibold text-ink">Nothing is deleted</strong></>} labelClassName="text-sm text-ink/70" className="mt-2 max-w-prose" align="start">
+        every
         photo, the guest list and the page your guests use all stay exactly as they
         are. The cameras and Memory lane go quiet, so no new photos come in until
         you bring it back — and you can do that any time.
-      </p>
+      </InfoTip>
       {error ? (
         <p role="alert" className="mt-3 text-sm font-semibold text-[color:var(--sn-danger)]">
           {error}

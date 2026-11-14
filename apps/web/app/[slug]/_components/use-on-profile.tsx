@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 
 /** The server action, HANDED IN by the page (`adoptSeatNameOnProfile` in
  *  dashboard/(account)/profile/actions.ts) rather than imported here — the same
@@ -48,18 +50,23 @@ export function UseOnProfile({
     );
   }
 
+  // 🔔 Inventory #35 — a To-do in the one notice system (owner approved 14 Nov 2026), drawn where it stands on Me: the
+  // name, then "Use this on your profile · Not now". The confirm stays below it.
   if (step === 'line') {
     return (
-      <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink/70" data-use-on-profile="line">
-        <span className="min-w-0">{name}</span>
-        <button
-          type="button"
-          onClick={() => setStep('confirm')}
-          className="min-h-11 font-medium text-terracotta-700 underline underline-offset-2"
-        >
-          Use this on your profile
-        </button>
-      </p>
+      <div data-use-on-profile="line">
+        <InlineNotice
+          kind="todo"
+          noticeKey={`use-on-profile:${guestId}`}
+          title={name}
+          actions={
+            <button type="button" onClick={() => setStep('confirm')} className={NOTICE_ACTION}>
+              Use this on your profile
+            </button>
+          }
+          onClose={() => setStep('gone')}
+        />
+      </div>
     );
   }
 

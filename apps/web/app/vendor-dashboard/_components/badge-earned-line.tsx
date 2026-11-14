@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { Share } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
-import { Notice, NoticeSlot, NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { Notice, NoticeSlot } from '@/app/_components/notices/notices';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { newlyEarned, type EarnedNews, type ShopBadgeFacts } from '@/lib/shop-badges';
 import { GiftMoments } from '@/app/_components/gift-moment/gift-moments';
 

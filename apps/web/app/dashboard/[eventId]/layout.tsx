@@ -819,7 +819,6 @@ export default async function EventLayout({ children, params }: Props) {
               <NoticeSlot place="top" className="mb-4" />
               {/* Live "free this weekend" promo announcement (self-gates to null
                   when PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
-              <PromoFreeWindowBanner />
               {/* "You are now a co-host…" · CONFIRM — shows until acknowledged
                   (owner 2026-09-28). Renders nothing for everyone else. */}
               <CohostWelcome eventId={eventId} userId={user.id} />
@@ -850,6 +849,10 @@ export default async function EventLayout({ children, params }: Props) {
                 </HomeCoverWordsProvider>
                 </EventTeamPresence>
               </LastSeenScope>
+              {/* Live "free this weekend" promo — an OFFER, registered for the END of the page (one notice system,
+                  owner approved 14 Nov 2026). Self-gates to null when PROMO_FREE_WINDOWS_ENABLED is off or nothing is live. */}
+              <PromoFreeWindowBanner />
+              <NoticeSlot place="end" className="mt-6" />
             </div>
           </div>
         </main>

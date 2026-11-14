@@ -3,6 +3,7 @@ import { Upload } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setPapicUploadsOpen } from '../actions';
 import { SettingRow } from './setting-row';
+import { uploadPhotoCostWords } from '../_lib/upload-credits';
 
 /**
  * WHO MAY ADD PHOTOS BY HAND — one quiet row, two states.
@@ -37,7 +38,7 @@ export function UploadsOpenChoice({
   back?: 'memories' | null;
 }) {
   const explanation = open
-    ? 'Photos and snippets can be added from a phone or laptop — older memories included. Each one uses a credit, the same as a camera shot.'
+    ? `Photos and snippets can be added from a phone or laptop — older memories included. ${uploadPhotoCostWords()}`
     : 'Only what your cameras capture goes into your Memories. Nothing can be added from a phone or laptop.';
 
   const control = (

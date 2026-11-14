@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { displayAccountEmail } from '@/lib/erasure/display-email';
 import { VendorCardTitle } from './vendor-card-title';
 import Image from 'next/image';
 import { Pencil, Trash2, BadgeCheck, Users, LayoutGrid } from 'lucide-react';
@@ -328,7 +329,7 @@ export async function VendorsSurface({
               },
               {
                 header: 'Contact',
-                cell: (r) => <span className="text-ink/70">{r.email ?? '—'}</span>,
+                cell: (r) => <span className="text-ink/70">{displayAccountEmail(r.email) ?? '—'}</span>,
               },
               {
                 header: 'Requested',

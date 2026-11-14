@@ -35,6 +35,7 @@ import { CATEGORY_LABELS, CATEGORY_ORDER, type ChallengeCategory } from '@/lib/p
 import { formatCount } from '@/lib/format-number';
 import { addLibraryChallengeAction, createCoupleChallengeAction } from '../actions';
 import type { PapicCardSeat } from '@/lib/papic-home-href';
+import { displayChallengePrompt } from '@/lib/papic-missions';
 
 type Read = { rows: PickerRow[]; total: number } | 'loading' | 'unread';
 
@@ -108,7 +109,7 @@ export function ChallengeAddSheet({
         </h2>
         {replacing ? (
           <p className="text-[13px] text-ink/60" data-papic-challenge-replacing="">
-            In place of “{replacing.prompt}” — photos already taken keep it.
+            In place of “{displayChallengePrompt(replacing.prompt)}” — photos already taken keep it.
           </p>
         ) : null}
         {capped ? (
@@ -176,7 +177,7 @@ export function ChallengeAddSheet({
                             {r.capture_kind === 'clip' ? 'Clip' : 'Photo'}
                           </span>
                         </span>
-                        <span className="block text-[12.5px] text-ink/55">{r.prompt}</span>
+                        <span className="block text-[12.5px] text-ink/55">{displayChallengePrompt(r.prompt)}</span>
                       </span>
                       <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45" disabled={capped}>
                         {slot ? 'Choose' : 'Add'}
@@ -226,7 +227,7 @@ export function ChallengeAddSheet({
         >
           {m ? (
             <span className={`min-w-0 text-[14px] ${m.is_active ? 'text-ink' : 'text-ink/50'}`}>
-              {m.prompt}
+              {displayChallengePrompt(m.prompt)}
               {m.capture_kind ? (
                 <span className="ml-1.5 inline-block rounded-full bg-ink/10 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-[0.08em] text-ink/60">
                   {m.capture_kind === 'clip' ? 'Clip' : 'Photo'}

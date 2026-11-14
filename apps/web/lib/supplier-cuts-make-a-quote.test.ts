@@ -61,5 +61,5 @@ test('(4) Full quotation opens today’s builder; the help answer exists', () =>
   const card = read('app/_components/chat/cards/make-quote-card.tsx');
   assert.match(card, /plusDoor\('vendor', 'build-quote', ''\)/);
   assert.match(card, /label="Full quotation"/);
-  assert.match(read('lib/help.ts'), /slug: 'make-a-quote-in-chat'/);
+  assert.match(read('lib/help/supplier-cuts.ts'), /slug: 'make-a-quote-in-chat'/);
 });

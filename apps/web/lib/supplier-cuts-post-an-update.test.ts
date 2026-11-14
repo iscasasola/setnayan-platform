@@ -76,7 +76,7 @@ test('(3) the couple reads the vendor lane on their day, through their own sessi
 test('(4) the sheet says who reads it, and the help answer exists', () => {
   const comp = read('app/vendor-dashboard/on-the-day/_components/vendor-status-updates.tsx');
   assert.match(comp, /POST_AN_UPDATE_READERS = 'The couple sees it on their phone on the day\. Need help also goes to their coordinator\.'/);
-  const help = read('lib/help.ts');
+  const help = read('lib/help/supplier-cuts.ts');
   assert.match(help, /slug: 'post-an-update'/);
   assert.match(help, /slug: 'supplier-updates-on-the-day'/);
 });

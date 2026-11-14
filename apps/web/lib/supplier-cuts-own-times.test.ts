@@ -61,5 +61,5 @@ test('(4) no new server action — the shipped schedule action, by request', () 
   assert.match(action, /request === 'own_times';/, 'own_times is not a sheet ask');
   assert.doesNotMatch(read('lib/supplier-own-times.ts'), /['"]use server['"]/);
   assert.match(read(VIEW), /request: 'own_times'/);
-  assert.match(read('lib/help.ts'), /slug: 'set-your-times'/);
+  assert.match(read('lib/help/supplier-cuts.ts'), /slug: 'set-your-times'/);
 });

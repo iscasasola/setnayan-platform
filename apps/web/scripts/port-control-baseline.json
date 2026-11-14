@@ -786,6 +786,7 @@
         "LockTile",
         "Moment",
         "PickMenu",
+        "PlanBuyCta",
         "PriceRowShell",
         "Shot",
         "TogetherRow",
@@ -808,6 +809,7 @@
         "InfoTip",
         "Link",
         "PickMenu",
+        "PlanBuyCta",
         "PlanQuiz",
         "PlanState",
         "Question",
@@ -2765,6 +2767,8 @@
         "admin/app-performance/_components/fx-css.ts",
         "admin/app-performance/_components/fx.tsx",
         "admin/app-performance/_components/health-now.tsx",
+        "admin/app-performance/_components/insights-param-pick.tsx",
+        "admin/app-performance/_components/insights-parts.tsx",
         "admin/app-performance/_components/won-lost-admin-card.tsx",
         "admin/app-performance/_surfaces/admin-totals-surface.tsx",
         "admin/app-performance/_surfaces/browser-blocks-surface.tsx",
@@ -2791,7 +2795,9 @@
       "destinations": [
         "/admin/[seg]",
         "/admin/app-performance?tab=[seg]",
-        "/admin/app-performance?tab=slow-loads"
+        "/admin/app-performance?tab=growth",
+        "/admin/app-performance?tab=slow-loads",
+        "/admin/money"
       ],
       "actions": [
         "addExpense",
@@ -2804,12 +2810,15 @@
         "AdminTotalsSurface",
         "AiAnswerCheckRow",
         "AiAnswerLogResult",
-        "BarListCard",
+        "Badge",
         "Breakdown",
-        "BreakdownCard",
+        "BreakdownFold",
         "BrowserBlocksSurface",
         "BucketBars",
+        "CardPick",
+        "CardToggle",
         "ChartCard",
+        "ChosenRow",
         "ChurnTable",
         "CockpitFx",
         "CockpitSurface",
@@ -2817,24 +2826,27 @@
         "ConnectionLogsSurface",
         "ConsoleTable",
         "ContextTile",
-        "ConversionCard",
+        "Conversion",
         "DayChart",
         "DeepHealth",
-        "DeltaChip",
         "DeltaPct",
         "ErrorState",
         "ExpensesZone",
-        "Figure",
+        "Facts",
+        "Fold",
         "FormFlash",
+        "FormRows",
         "Funnel",
         "FunnelTable",
         "FunnelsSurface",
         "GridPageSkeleton",
-        "GrowthCard",
+        "GrowthFold",
         "GrowthSurface",
         "HealthNow",
         "Icon",
         "IndexChart",
+        "InfoTip",
+        "InsightsParamPick",
         "IntelligenceSurface",
         "InterconnectionsSurface",
         "IssueRow",
@@ -2842,29 +2854,35 @@
         "LeadTable",
         "LeaderRow",
         "Legend",
+        "Line",
         "Link",
         "ListPageSkeleton",
         "MarketPulse",
-        "Metric",
         "MiniBars",
+        "Mix",
+        "Note",
+        "Nums",
         "OfflineDiagnosticLoader",
         "OfflineSurface",
+        "One",
         "OperationsHiringSurface",
         "PageMasthead",
         "ProblemsList",
         "ReadFailed",
         "RerunResult",
         "ResolveDriftButton",
-        "SectionHeading",
+        "Row",
+        "Rows",
+        "Sec",
         "SeoRerunButton",
         "SeoSurface",
+        "ShareFold",
         "ShareRows",
         "SignalRow",
         "SlowLoadsSurface",
         "SmokeTestPanel",
         "Sparkline",
         "StackedBars",
-        "StatTile",
         "StatusPill",
         "Suspense",
         "TablePageSkeleton",
@@ -2876,6 +2894,7 @@
         "WhatYouChange",
         "WiringNote",
         "WonLostAdminCard",
+        "Wraps",
         "ZoneHeading"
       ]
     },
@@ -3297,6 +3316,7 @@
         "ColoursEditor",
         "ColoursPreview",
         "FormRows",
+        "InfoTip",
         "JobKey",
         "LookAlikeLine",
         "PageMasthead",
@@ -3320,6 +3340,7 @@
       ],
       "blocks": [
         "ConsoleTable",
+        "InfoTip",
         "PageMasthead",
         "ReadFailed",
         "SubmitButton"
@@ -3356,9 +3377,11 @@
         "Block",
         "ConsoleTable",
         "ErrorState",
+        "FieldRow",
         "FieldTable",
         "Link",
-        "Row"
+        "Note",
+        "One"
       ]
     },
     "/admin/concierge-abuse": {
@@ -3458,29 +3481,45 @@
         "admin/data-privacy/page.tsx"
       ],
       "destinations": [
+        "/admin/compliance/data-sheet",
         "/admin/data-privacy/documents/[seg]",
-        "/admin/data-privacy?tab=controls"
+        "/admin/data-privacy?tab=checklist",
+        "/admin/data-privacy?tab=controls",
+        "/admin/data-privacy?tab=coverage",
+        "/admin/data-privacy?tab=deletions",
+        "/admin/data-privacy?tab=documents"
       ],
       "actions": [
         "formAction"
       ],
       "blocks": [
+        "Badge",
+        "ChosenRow",
         "ControlActionResult",
         "ControlActions",
         "ControlCard",
         "ControlsBoard",
         "CoveragePanel",
         "DeletionRunsPanel",
-        "Icon",
+        "Facts",
+        "Fold",
+        "FormRows",
+        "HTMLButtonElement",
+        "HTMLFormElement",
+        "InfoTip",
+        "InsightsParamPick",
+        "JobRow",
         "Link",
         "NpcChecklist",
         "NpcDocuments",
         "NpcTaskResult",
+        "One",
         "PageMasthead",
         "PrivacyControlStatus",
         "ReadFailed",
         "Row",
-        "StatusIcon",
+        "Rows",
+        "Sec",
         "TaskActions",
         "TaskCard"
       ]
@@ -3496,6 +3535,9 @@
       ],
       "blocks": [
         "DemandRadarCard",
+        "FormRow",
+        "FormRows",
+        "One",
         "PageMasthead"
       ]
     },
@@ -3508,7 +3550,9 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "CreateState",
+        "InfoTip",
         "ResultState"
       ]
     },
@@ -3669,6 +3713,7 @@
       "actions": [],
       "blocks": [
         "EditorialRow",
+        "InfoTip",
         "Link",
         "PageMasthead",
         "ReadFailed"
@@ -3791,6 +3836,7 @@
       ],
       "blocks": [
         "FormFlash",
+        "InfoTip",
         "PageMasthead",
         "ReadFailed",
         "SubmitButton"
@@ -3919,6 +3965,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ConsoleTable",
         "EditTrack",
         "HTMLAudioElement",
@@ -3929,6 +3976,7 @@
         "InfoTip",
         "MoodSelect",
         "PageMasthead",
+        "PickMenu",
         "Picked",
         "Sheet",
         "Switch",
@@ -4063,8 +4111,15 @@
         "setChannelVerified"
       ],
       "blocks": [
+        "Badge",
+        "Facts",
+        "Fold",
         "FormFlash",
+        "InfoTip",
+        "One",
         "PageMasthead",
+        "Row",
+        "Rows",
         "SubmitButton"
       ]
     },
@@ -4079,7 +4134,9 @@
         "uploadSlotIcon"
       ],
       "blocks": [
+        "ActionButton",
         "DynamicIcon",
+        "InfoTip",
         "NavAccountScope",
         "SlotRow",
         "SubmitButton"
@@ -4179,10 +4236,15 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "ConsoleTable",
         "OfflineDiagnostic",
+        "Row",
+        "Rows",
+        "Sec",
         "Status",
-        "StatusPill"
+        "StatusRow"
       ]
     },
     "/admin/onboarding": {
@@ -4202,6 +4264,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "Sec",
         "SmokeResult"
       ]
     },
@@ -4216,6 +4279,7 @@
       "blocks": [
         "EventLite",
         "FileUpload",
+        "InfoTip",
         "PageMasthead",
         "PakantaDeliver",
         "Result"
@@ -4236,9 +4300,10 @@
         "BackfillTilesButton",
         "ConsoleTable",
         "CopyRun",
-        "KpiStatCard",
+        "Facts",
         "OldPhotosButton",
-        "PageMasthead"
+        "PageMasthead",
+        "Sec"
       ]
     },
     "/admin/patiktok": {
@@ -4506,25 +4571,36 @@
     },
     "/admin/queues": {
       "files": [
+        "admin/queues/_components/card-decide.tsx",
         "admin/queues/_components/green-batch.tsx",
         "admin/queues/_components/queue-drawer.tsx",
         "admin/queues/_components/queues-triage-feed.tsx",
+        "admin/queues/_components/request-card-view.tsx",
         "admin/queues/loading.tsx",
         "admin/queues/page.tsx"
       ],
       "destinations": [],
       "actions": [
+        "action",
         "approvePaymentFromWorkList"
       ],
       "blocks": [
         "ActionButton",
+        "Badge",
+        "CardDecide",
         "ConfirmForm",
+        "FormPick",
         "GreenBatchAction",
         "Icon",
         "LaneChips",
         "Link",
         "PageMasthead",
+        "Picture",
+        "PostedFieldRow",
         "QueueDrawer",
+        "RequestCardView",
+        "Sheet",
+        "Show",
         "SubmitButton",
         "TriageRow",
         "TriageStrip"
@@ -4672,8 +4748,11 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ConsoleTable",
+        "InfoTip",
         "PageMasthead",
+        "PickMenu",
         "Result",
         "SearchMemoryTable"
       ]
@@ -4922,6 +5001,7 @@
         "updateSocialPostBody"
       ],
       "blocks": [
+        "ActionButton",
         "AutopilotStrip",
         "Banner",
         "CardPreview",
@@ -4933,12 +5013,14 @@
         "EmptyPage",
         "EmptyRow",
         "EvergreenItemCard",
+        "FieldPick",
         "FilterChip",
         "FlashBanner",
         "FormFlash",
         "HTMLInputElement",
         "Icon",
         "InfluencerAnalyticsPanel",
+        "InfoTip",
         "JobRow",
         "JournalSpotlightsSurface",
         "KpiStatCard",
@@ -5021,6 +5103,7 @@
         "updateOnboardingMusic"
       ],
       "blocks": [
+        "ActionButton",
         "Badge",
         "BrainSurface",
         "ChunkRowView",
@@ -5034,6 +5117,7 @@
         "HTMLInputElement",
         "Ico",
         "Icon",
+        "InfoTip",
         "KpiStatCard",
         "Link",
         "ListPageSkeleton",
@@ -5171,6 +5255,7 @@
         "Banner",
         "ConfirmForm",
         "FeedbackCard",
+        "FieldPick",
         "InfoTip",
         "PageMasthead",
         "RecommendationRow",
@@ -5777,12 +5862,15 @@
       ],
       "blocks": [
         "A",
+        "ActionButton",
         "AlaalaLensBody",
         "AlbumCard",
+        "Badge",
         "ChallengesTab",
         "Ctx",
         "EditorialCard",
         "EditorialsTab",
+        "EmptyState",
         "EventMonogram",
         "FacebookGlyph",
         "FavoriteRows",
@@ -5924,9 +6012,11 @@
         "ActionResult",
         "AddAlagaButton",
         "AddAlagaFields",
+        "Badge",
         "CardGroup",
         "CardLabel",
         "ChatOriginMark",
+        "ClearButton",
         "ConnectionTreeSection",
         "CopyButton",
         "DependentKind",
@@ -5977,9 +6067,11 @@
         "PinnedRow",
         "PlanTogether",
         "Popover",
+        "PostedPick",
         "PreviewRow",
         "RequestRow",
         "SamahanPeopleSection",
+        "Sheet",
         "Spotlight",
         "StayConfirmForm",
         "StayForm",
@@ -6307,6 +6399,7 @@
         "Image",
         "ImpactLines",
         "IncomingRequests",
+        "InfoTip",
         "InlineNotice",
         "Link",
         "MemoriesSegment",
@@ -6341,6 +6434,7 @@
         "StartPlanningLink",
         "StayForm",
         "SupplierRecordsNote",
+        "SwitchTrack",
         "TermsReacceptSheet",
         "Tile",
         "UnreadBellBadge",
@@ -6395,6 +6489,8 @@
         "dashboard/[eventId]/_components/details-guide-home-card.tsx",
         "dashboard/[eventId]/_components/device-frame.tsx",
         "dashboard/[eventId]/_components/event-dashboard.tsx",
+        "dashboard/[eventId]/_components/event-pin-places.ts",
+        "dashboard/[eventId]/_components/event-pinned-row.tsx",
         "dashboard/[eventId]/_components/event-rail-context.tsx",
         "dashboard/[eventId]/_components/event-rail-match-rows.ts",
         "dashboard/[eventId]/_components/event-settings-rows.tsx",
@@ -6625,6 +6721,7 @@
         "EventDayPrepCta",
         "EventMenuChild",
         "EventMonogram",
+        "EventPinnedRow",
         "EventRailContext",
         "EventScene",
         "EventSettingsEditor",
@@ -6655,6 +6752,7 @@
         "FourFlapEnvelope",
         "FreeVenueShortlistOffer",
         "GetHelpCard",
+        "GiftMoments",
         "GlanceDot",
         "GlanceLineText",
         "GlanceMeter",
@@ -6803,6 +6901,7 @@
         "PillButton",
         "PillThumb",
         "PillTrack",
+        "PinnedRow",
         "PlanMyselfSwitch",
         "PlanningRowResult",
         "PlanningTick",
@@ -7382,6 +7481,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "InfoTip",
         "PageMasthead",
         "RegenerateResult",
         "SubmitButton"
@@ -9280,6 +9380,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "Badge",
         "FirstVenueShortlistResult",
         "InlineNotice",
         "Link",
@@ -9376,6 +9477,7 @@
         "Answer",
         "Api",
         "AskSupplierSection",
+        "Badge",
         "BlockCard",
         "BlockSwipe",
         "BlockTimeEditor",
@@ -9462,6 +9564,7 @@
         "PlanningFilter",
         "PlanningFilterFrame",
         "PlanningTick",
+        "PostedPick",
         "PrepItemSwipe",
         "PrepKind",
         "PreparationAgendaView",
@@ -9545,6 +9648,7 @@
     },
     "/dashboard/[eventId]/seating": {
       "files": [
+        "dashboard/[eventId]/seating/_components/close-outside.ts",
         "dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx",
         "dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx",
         "dashboard/[eventId]/seating/_components/seat-list.tsx",
@@ -9585,6 +9689,7 @@
         "AddTablePanel",
         "AutoArrange",
         "AutoArrangeResult",
+        "Badge",
         "BannerSlot",
         "BarMenu",
         "BlueprintStudio",
@@ -9605,6 +9710,7 @@
         "DrawerSnap",
         "DropConfirmBubble",
         "DropConfirmState",
+        "EqualRow",
         "FormRow",
         "FormRows",
         "Fragment",
@@ -9630,7 +9736,6 @@
         "NotSharedWithYou",
         "Notice",
         "OneOpenScope",
-        "OverlayBackdrop",
         "PeekToast",
         "Pending",
         "PeopleSheet",
@@ -10785,6 +10890,7 @@
     },
     "/dashboard/[eventId]/studio/website-pro": {
       "files": [
+        "dashboard/[eventId]/studio/website-pro/_components/plan-offer.tsx",
         "dashboard/[eventId]/studio/website-pro/_components/pro-parts-body.tsx",
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
@@ -10797,7 +10903,9 @@
         "InlineCheckoutDrawer",
         "Link",
         "PaidMark",
-        "ProPartsBody"
+        "PlanOffer",
+        "ProPartsBody",
+        "UltraOffer"
       ]
     },
     "/dashboard/[eventId]/vendors": {
@@ -11849,6 +11957,7 @@
       "blocks": [
         "FileUpload",
         "Image",
+        "InfoTip",
         "Link",
         "PageMasthead",
         "SafeForm",
@@ -11999,11 +12108,15 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "Date",
         "HTMLFormElement",
+        "InfoTip",
         "MomentRow",
         "PageMasthead",
         "PhotoMomentsEditor",
+        "PickMenu",
         "UpdatePhotoMomentsResult"
       ]
     },
@@ -12024,6 +12137,7 @@
         "updateLandingPageVisibility"
       ],
       "blocks": [
+        "Badge",
         "Link",
         "PageMasthead",
         "SafeForm",
@@ -12042,6 +12156,7 @@
       ],
       "blocks": [
         "FileUpload",
+        "InfoTip",
         "PageMasthead",
         "SafeForm",
         "SubmitButton",
@@ -12102,6 +12217,8 @@
         "toggleWidgetVisibility"
       ],
       "blocks": [
+        "Badge",
+        "InfoTip",
         "Link",
         "PageMasthead",
         "PaidMark",
@@ -13504,6 +13621,7 @@
       "actions": [],
       "blocks": [
         "ChapterTimeline",
+        "ConnectionAnswer",
         "CreatorBadge",
         "CreatorInfluence",
         "CreatorTierChip",
@@ -13949,6 +14067,7 @@
         "FormRow",
         "FormRows",
         "Fragment",
+        "GiftMoments",
         "GrowthWindow",
         "GrowthWindowCtx.Provider",
         "GuidedTour",
@@ -16363,6 +16482,7 @@
         "/dashboard/profile",
         "/dashboard?hub=1",
         "/help",
+        "/help/how-booking-works",
         "/help/what-do-suppliers-pay-setnayan",
         "/vendor-dashboard/deep-search",
         "/vendor-dashboard/disputes",
@@ -16477,7 +16597,6 @@
         "ClientReferencesInput",
         "Collapsible",
         "CommitResult",
-        "ContactsStep",
         "CopyButton",
         "CouldNotLoad",
         "CouplePhotoShareReply",
@@ -16565,7 +16684,6 @@
         "PublicLineSaveResult",
         "PushToggle",
         "ReachMap",
-        "ReceiptLine",
         "RegNumberSaveResult",
         "RegistrationNumberLine",
         "RequestOnlyRow",

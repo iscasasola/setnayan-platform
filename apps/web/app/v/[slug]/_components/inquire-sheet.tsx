@@ -90,12 +90,13 @@ export function InquireSheet({
   const { openSignIn, panel } = useSignInPanel();
 
   const open = useCallback(
-    (at?: Step, picks?: string[]) => {
+    (at?: Step, picks?: string[], made?: string | null) => {
       setNote(null);
       setSent(null);
       // ☝ Only what they tapped — never the first service by default (Build 5 F4).
       setChosen(inquireOpeningPicks(services, picks));
-      setEventId(events.length === 1 ? (events[0]?.eventId ?? null) : null);
+      // 🆕 OWN-02: the event they just started is the one this ask is for.
+      setEventId(made && events.some((e) => e.eventId === made) ? made : events.length === 1 ? (events[0]?.eventId ?? null) : null);
       setStep(at ?? (general ? 'event' : 'services'));
     },
     [services, events, general],
@@ -139,7 +140,7 @@ export function InquireSheet({
     const ask = inquireResumeOf(window.location.search);
     if (!ask) return;
     // Picks already made → straight back to the event step; otherwise from the top.
-    open(ask.serviceIds.length > 0 || general ? 'event' : 'services', ask.serviceIds);
+    open(ask.serviceIds.length > 0 || general ? 'event' : 'services', ask.serviceIds, ask.eventId);
     // Once, on arrival — not again when the page refreshes its props.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -215,7 +216,13 @@ export function InquireSheet({
   };
 
   const hold = () => {
-    if (!eventId || (!general && chosen.length === 0)) return;
+    // 🔇 OWN-02 (walk 13 Nov): with two or more events nothing is picked, and a press on Send did nothing at all — no
+    // note, no movement. It now says what is missing, beside the button.
+    if (!eventId) {
+      setNote('Pick which event this is for first.');
+      return;
+    }
+    if (!general && chosen.length === 0) return;
     setNote(null);
     setStep('sending');
     const until = Date.now() + INQUIRE_UNDO_MS;
@@ -348,7 +355,7 @@ export function InquireSheet({
                     icon={Send}
                     label="Send"
                     onClick={hold}
-                    disabled={!eventId || (!general && chosen.length === 0)}
+                    disabled={!general && chosen.length === 0}
                     className={MAIN}
                     data-testid="inquire-send"
                   />

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { Plus, UsersRound } from 'lucide-react';
+import { ChevronRight, Plus, UsersRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -54,36 +54,37 @@ export async function SamahanPeopleSection({
       {heading ? (
         <header className="mb-3">
           {/* The People page's one heading style (the roster's rule). */}
-          <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]">
             Groups
           </h2>
         </header>
       ) : null}
 
       {!listed ? null : active.length > 0 ? (
-        <ul className="mb-4 space-y-2.5">
+        <ul className="mb-4 divide-y divide-ink/10 border-y border-ink/10">
           {active.map((c) => (
             <li key={c.community_id}>
               <Link
                 href={`/dashboard/samahan/${c.community_id}`}
-                className="flex items-center gap-3 rounded-xl border border-ink/10 bg-ink/[0.015] px-4 py-3 transition-colors hover:bg-ink/[0.04]"
+                className="flex min-h-14 items-center gap-3 py-2.5 transition-colors hover:bg-ink/[0.03]"
               >
-                <UsersRound aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
+                <UsersRound aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-ink">{c.name}</p>
-                  <p className="truncate text-xs text-ink/55">
+                  <p className="font-semibold text-ink">{c.name}</p>
+                  <p className="truncate text-[13px] text-ink/70">
                     {c.role === 'organizer' ? 'Organizer · ' : ''}
                     {`${formatCount(c.member_count)} ${c.member_count === 1 ? 'member' : 'members'}`}
                   </p>
                 </div>
+                <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={1.75} />
               </Link>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mb-4 rounded-lg bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
+        <p className="mb-4 text-sm text-ink/70">
           No group yet.{' '}
-          <Link href="/dashboard/samahan/new" className="font-medium underline underline-offset-2 hover:text-ink">
+          <Link href="/dashboard/samahan/new" className="inline-flex min-h-11 items-center font-semibold text-ink underline underline-offset-2">
             Create one
           </Link>{' '}
           and name it whatever your group calls itself.
@@ -92,22 +93,21 @@ export async function SamahanPeopleSection({
 
       {secondDegree.length > 0 ? (
         <div>
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]">
             Through your groups — second degree
           </p>
-          <ul className="mt-2 flex flex-wrap gap-2">
+          <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10">
             {secondDegree.map((p) => (
-              <li
-                key={p.member_row_id}
-                className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/60 dark:bg-raised py-1 pl-3 pr-1.5 text-xs text-ink/70"
-              >
-                <span>{p.display_name}</span>
-                <span className="text-ink/40">· {p.via.join(', ')}</span>
+              <li key={p.member_row_id} className="flex min-h-14 items-center gap-3 py-2">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-ink">{p.display_name}</span>
+                  <span className="block truncate text-[13px] text-ink/70">{p.via.join(', ')}</span>
+                </span>
                 {connectionsOn && !p.known ? (
                   <StayForm door="accPeople.proposeSamahanConnection" action={proposeSamahanConnection}>
                     <input type="hidden" name="member_row_id" value={p.member_row_id} />
                     <SubmitButton
-                      className="rounded-full border border-ink/15 bg-cream px-2 py-0.5 text-[0.7rem] font-medium text-ink/70 transition-colors hover:bg-ink/5"
+                      className="ab ab-brand inline-flex min-h-11 items-center justify-center gap-1.5"
                       pendingLabel="…"
                     >
                       {/* "Add", never "Connect" — the same request the rest of
@@ -208,13 +208,13 @@ export function GroupsFoldList({
   return (
     <div className="pb-3" data-people-groups="">
       <div className="mb-2 mt-1" data-groups-door="">
-        <Link href="/dashboard/samahan/new" className="button-secondary inline-flex min-h-11 items-center gap-2 text-sm">
+        <Link href="/dashboard/samahan/new" className="ab ab-neutral inline-flex min-h-11 items-center justify-center gap-1.5">
           <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           New group
         </Link>
       </div>
       {groups.length === 0 ? (
-        <p className="py-2 text-sm text-ink/60">
+        <p className={`py-2 text-sm ${unreadable ? 'text-[rgb(var(--color-warn))]' : 'text-ink/70'}`}>
           {unreadable
             ? 'We couldn’t load your groups just now. Nothing is lost — refresh in a moment.'
             : 'No group yet — name it whatever your group calls itself.'}

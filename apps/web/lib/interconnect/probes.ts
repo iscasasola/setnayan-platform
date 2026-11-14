@@ -110,7 +110,7 @@ const bookedVendorDeskReach: Probe = {
   // J7 · Event ↔ Vendor (booking), joint `event_vendors` — this probe watches
   // exactly that joint's two vocabularies, so the map can colour it live.
   jointId: 'J7',
-  title: 'Booked vendors can reach their day-of desks',
+  title: 'Booked suppliers can reach their day-of desks',
   run: async (): Promise<ProbeResult> => {
     const pairs = await fetchBookedPairs();
     const reachable = pairs.filter(deskIsReachable);
@@ -429,7 +429,7 @@ const paidOrderActivation: Probe = {
  */
 const vendorCalendarReach: Probe = {
   key: 'vendor-calendar-reach',
-  title: "Vendors' bookings reach their own calendar",
+  title: "Suppliers' bookings reach their own calendar",
   run: async (): Promise<ProbeResult> => {
     const admin = createAdminClient();
 

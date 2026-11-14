@@ -6,6 +6,9 @@ import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 import { formatCount } from '@/lib/format-number';
 import type { ShareYourWorkData } from './share-your-work-data';
+import { StoryNoteForm } from './story-note-form';
+import { storyPageHref } from '@/lib/ultra-story-pages';
+import type { ReactNode } from 'react';
 
 /**
  * 📣 SHARE YOUR WORK — Shop › Promote, row 4 (owner 2026-11-06, verbatim: *"Use fable to decide. Find the best location
@@ -40,7 +43,9 @@ function ShareRow({
   ogImage,
   filenameBase,
   data,
+  extra,
 }: {
+  extra?: ReactNode;
   row: Row;
   kicker: string;
   viewHref: string;
@@ -67,12 +72,13 @@ function ShareRow({
           <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         </Link>
       </div>
+      {extra}
     </li>
   );
 }
 
 export function ShareYourWork({ data }: { data: ShareYourWorkData }) {
-  const { stories, recaps, recapsGated } = data;
+  const { stories, recaps, recapsGated, ultra } = data;
   return (
     <section id="share" className="mt-8 scroll-mt-24" data-share-your-work="" aria-labelledby="share-your-work-title">
       <InfoTip label="Share your work" labelAs="h2" labelClassName="sn-sec" labelId="share-your-work-title" align="start">
@@ -109,6 +115,11 @@ export function ShareYourWork({ data }: { data: ShareYourWorkData }) {
                       ogImage={ogImage}
                       filenameBase={`${s.slug}-story`}
                       data="story"
+                      extra={
+                        ultra ? (
+                          <StoryNoteForm eventId={s.eventId} initial={ultra.notes[s.eventId] ?? ''} pageHref={storyPageHref(ultra.shopSlug, s.slug)} />
+                        ) : undefined
+                      }
                     />
                   );
                 })}

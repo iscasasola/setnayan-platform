@@ -1171,3 +1171,11 @@
 @media (max-width:1023px){
   .onbw #screen-congrats .dash-mono{transform:none;zoom:.78;margin:0 auto 10px;}
 }
+
+/* RW-57 · the closed "Add your own supplier" sheet sat parked just below the phone frame,
+   and focusing a low input scrolled the overflow:hidden .phone far enough to slide it
+   into view — where it stayed on every later step. `clip` cannot be scrolled at all,
+   and a closed sheet is not rendered (visibility flips only after the slide-out ends). */
+.onbw .phone{overflow:clip;}
+.onbw .sheet{visibility:hidden;transition:transform .32s cubic-bezier(.2,.7,.3,1),visibility 0s linear .32s;}
+.onbw .sheet.open{visibility:visible;transition:transform .32s cubic-bezier(.2,.7,.3,1),visibility 0s;}

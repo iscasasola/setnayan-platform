@@ -99,9 +99,10 @@ export type FeatureIconName = EventMenuIconName | FeatureExtraIconName;
  *                there is more than one rung).
  *   free-plus  — free to use; an optional upgrade from the lowest row.
  *
- * `inactiveRowsArePrices` exists for ONE ladder: Setnayan AI's B/C/D rows are
- * `is_active = false` by design (price-source only — see
- * `lib/setnayan-ai-type-pricing.ts`). Nothing else may set it.
+ * `inactiveRowsArePrices` was made for ONE ladder: Setnayan AI's B/C/D rows, `is_active = false` as price sources.
+ * Since the 2026-11-04 price sheet NO Setnayan AI row is on sale — the AI comes inside Event Plus, Event Pro and Event
+ * Ultra — so no feature page sets it any more (`setnayan-ai-is-priced-by-its-plans.test.ts` holds that). An off-sale
+ * row is never a public "From ₱…" (RW-149: the page read ₱265 from SETNAYAN_AI_D).
  */
 export type FeaturePrice =
   | { kind: 'free' }

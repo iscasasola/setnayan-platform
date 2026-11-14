@@ -223,7 +223,7 @@ test('6 · the long list, the piece bar and the tap-to-enlarge sheet are deleted
     assert.match(body.slice(0, body.indexOf('\n}\n')), /useRegisterSlide\([\s\S]*\);\s*return null;\s*$/, `${part} draws a row again instead of registering its slide`);
   }
   /* The lab's Details is the real Maker's — its Studio (the owner's phone), never Details' retired one-piece view. */
-  assert.match(read('app/dev/maker-lab/page.tsx'), /detailsLabNode\(\{ \.\.\.sp, studio: '1', /, 'the lab reaches another Prints view than the owner’s');
+  assert.match(read('app/dev/maker-lab/page.lab.tsx'), /detailsLabNode\(\{ \.\.\.sp, studio: '1', /, 'the lab reaches another Prints view than the owner’s');
 });
 
 test('7 · the Digital ticket’s three looks are on its slide — Classic ▾ beside View as ▾ — and not in Print settings', async () => {

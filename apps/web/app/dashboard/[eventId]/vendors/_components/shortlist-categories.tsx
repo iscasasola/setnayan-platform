@@ -22,6 +22,7 @@
  * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { ServiceFace } from '@/app/_components/service-face';
 import {
   Fragment,
@@ -383,7 +384,7 @@ const SLCAT_CSS = `
 .slcat .fold.flat .cat:not(.open)>.cat-collapse>.cat-body{padding-top:0;padding-bottom:0}
 .slcat .fold.flat .cat-l{gap:12px}
 .slcat .fold.flat .cat-ic{width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--m-r-full);background:rgba(169,131,75,.13)}
-.slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;flex:1 1 auto;min-width:6ch}
 .slcat .cat-yours{font-weight:400;font-size:15px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st{font-size:13px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st.ok{color:rgb(var(--color-ok))}
@@ -4213,21 +4214,29 @@ export function ShortlistCategories({
           2026-10-26): the date is already on the date · place line above, and "free that day" is in the ⓘ. A conflict,
           a narrowing build and "Booking these suppliers sets your date" still show here — they are news, not detail. */}
       {convergence && !(coverInHeader && convergence.tone === 'anchored') ? (
-        <div className={`convrg t-${convergence.tone}`} role="status">
-          <span className="cv-i" aria-hidden>
-            {convergence.tone === 'conflict' ? (
-              <CalendarX2 size={15} strokeWidth={1.9} />
-            ) : convergence.tone === 'converged' ? (
-              <CalendarCheck size={15} strokeWidth={1.9} />
-            ) : (
-              <CalendarDays size={15} strokeWidth={1.9} />
-            )}
-          </span>
-          <span className="cv-b">
-            <b>{convergence.headline}</b>
-            <span>{convergence.detail}</span>
-          </span>
-        </div>
+        // 🔔 Inventory #32 — a LIVE notice (info) in the one notice system (owner approved 14 Nov 2026), drawn where it
+        // stands (between the Coverage Strip and the bench): a fact about the build that is true right now, no close —
+        // it leaves when the build changes.
+        <InlineNotice
+          kind="live"
+          tone={convergence.tone === 'conflict' ? 'warning' : 'info'}
+          closable={false}
+          noticeKey={`build-date:${convergence.tone}`}
+          mark={
+            <span className="cv-i" aria-hidden>
+              {convergence.tone === 'conflict' ? (
+                <CalendarX2 size={15} strokeWidth={1.9} />
+              ) : convergence.tone === 'converged' ? (
+                <CalendarCheck size={15} strokeWidth={1.9} />
+              ) : (
+                <CalendarDays size={15} strokeWidth={1.9} />
+              )}
+            </span>
+          }
+          title={convergence.headline}
+          detail={convergence.detail}
+          className={`convrg-n t-${convergence.tone} mb-3.5`}
+        />
       ) : null}
       {/* The pre-replan bench keeps its bar above the folders. On the one-screen
           page the SAME dropdown sits in each open category's "More to compare"
@@ -4694,7 +4703,9 @@ export function ShortlistCategories({
                         <Explain title={t.label} label={categoryHintButtonLabel(t.label)} data="category-hint" className="cat-info">
                           {t.hint}
                         </Explain>
-                        {savedCanonical ? (
+                        {/* RW-89 (walk 13 Nov 2026): the saved search request is for FINDING a supplier — a booked row has
+                            found one, so it no longer offers "Your request" beside "Booked ✓". */}
+                        {savedCanonical && rowState?.kind !== 'booked' ? (
                           <ActionButton
                             tone="neutral"
                             quiet

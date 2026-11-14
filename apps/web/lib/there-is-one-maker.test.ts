@@ -94,7 +94,7 @@ test('3 · no caller hands a choice in — the launch page and the lab', () => {
   for (const u of uses) assert.ok(u === 'freeSwitch.offered' || u === 'freeSwitch.on', `the launch page reads ${u}`);
   assert.match(page, /viewAsFree=\{freeSwitch\.offered \? \{ on: freeSwitch\.on \} : null\}/);
   assert.equal((page.match(/freeSwitch\./g) ?? []).length, 2, 'the internal reading is used for something besides View as free');
-  for (const lab of ['app/dev/maker-lab/page.tsx', 'app/dev/maker-lab/maker-lab-shell.tsx']) {
+  for (const lab of ['app/dev/maker-lab/page.lab.tsx', 'app/dev/maker-lab/maker-lab-shell.tsx']) {
     assert.doesNotMatch(read(lab), /\b(stagesStudio|desktopColumns)=/, `${lab} hands the shell a Maker choice`);
   }
 });

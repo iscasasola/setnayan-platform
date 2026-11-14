@@ -59,7 +59,10 @@ import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Setnayan HQ' };
+/* 🏷 F-A-20 (admin walk, round 2): every admin tab reads "X · Admin". The admin pages name themselves "X · Admin", and
+   the site's own template then added "· Setnayan" ("Work · Admin · Setnayan"), while a page with no title read
+   "Setnayan HQ · Setnayan". Under the console the template is the page's own words, and a page with none reads "Admin". */
+export const metadata = { title: { absolute: 'Admin', template: '%s' } };
 
 /**
  * Admin layout — the console, under the ONE shell (slice 3, 2026-08-14).

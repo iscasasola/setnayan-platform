@@ -1780,6 +1780,9 @@ export function StageTools({
       <style>
         {`html:has([data-stage-tools]){${STAGE_PANEL_VARS}}` +
           STAGE_BAR_ROW_VARS +
+          /* 🔒 A locked tab: "🔒 Background" (Maker Edit shell v3, owner-approved 2026-11-13) — at EVERY width, so it sits
+             outside the phone-only block below (it was inside it, and the desktop's tabs lost their lock — W1, 2026-11-14). */
+          '[data-stage-tools] [data-stage-tool][data-stage-tool-locked]::before{content:"🔒\\00a0";font-size:.85em}' +
           '@media (max-width:1023.98px){' +
           '[data-maker-lower-third]:has(>[data-stage-tools])>:not([data-stage-tools]){display:none}' +
           '[data-maker-lower-third]:has(>[data-stage-tools]){transition:height 240ms cubic-bezier(.16,1,.3,1);background:var(--sp-paper)!important;border-top:0!important;padding:0!important;gap:0!important;box-shadow:none!important}' +
@@ -1815,8 +1818,6 @@ export function StageTools({
              above the keyboard — "Typing · Names" and Done over the one open field; everything else of it steps
              aside and it is only as tall as that. All by `:has()`: no state to fall out of step with the field. */
           '[data-stage-tools] [data-stage-keys]{display:none}' +
-          /* 🔒 A locked tab: "🔒 Background" (Maker Edit shell v3, owner-approved 2026-11-13). */
-          '[data-stage-tools] [data-stage-tool][data-stage-tool-locked]::before{content:"🔒\\00a0";font-size:.85em}' +
           '[data-stage-tools]:has([data-form-row-editing]) [data-stage-keys]{display:flex}' +
           '[data-stage-tools]:has([data-form-row-editing])>:is([data-stage-handle],[data-stage-caption],[data-stage-row],[data-stage-about]){display:none}' +
           '[data-stage-tools]:has([data-form-row-editing]){padding-bottom:8px}' +

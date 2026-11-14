@@ -24,10 +24,38 @@ import { useCallback, useEffect, useRef } from 'react';
  */
 const MARK = 'snLayer';
 
-/** Our entry is the one on top — never step back over somebody else's (a navigation the pop-up itself started). */
-const ours = () => Boolean((window.history.state as Record<string, unknown> | null)?.[MARK]);
+/** Who holds the entry on top — a layer's id, `true` (an entry marked before ids), or nothing. */
+/** The layer id marked on a history state (pure — `the-layer-back-is-owned.test.ts`). */
+export function layerHolder(state: unknown): unknown {
+  return (state as Record<string, unknown> | null)?.[MARK];
+}
+
+/**
+ * What a layer does to the history when it opens (pure): push its own entry when none is marked; take over an entry
+ * another layer marked (the screen it replaced); nothing when the entry is already its own (React's dev double-effect).
+ */
+export function layerOpens(state: unknown, id: string): { push: Record<string, unknown> } | { replace: Record<string, unknown> } | null {
+  const st = (state ?? {}) as Record<string, unknown>;
+  const held = st[MARK];
+  if (!held) return { push: { ...st, [MARK]: id } };
+  if (held !== id) return { replace: { ...st, [MARK]: id } };
+  return null;
+}
+
+/** Whether a layer's clean-up may step back through the entry on top: only while that layer still holds it (pure). */
+export function layerMayStepBack(state: unknown, id: string): boolean {
+  return layerHolder(state) === id;
+}
+
+let nextLayer = 0;
 
 export function useBackCloses(open: boolean, onClose: () => void): () => void {
+  /* 🪪 RW-146 (re-walk 14 Nov 2026): each layer marks the entry with ITS OWN id. A screen that is swapped for another
+     (a Maker's loading screen → the loaded one) hands the entry over: the new layer finds it marked and claims it, so
+     the old layer's deferred clean-up sees it is no longer the holder and does NOT step back — which used to close the
+     new layer about a second after it opened. Only the current holder ever steps back through the entry. */
+  const id = useRef(`layer-${++nextLayer}`);
+  const ours = () => layerMayStepBack(window.history.state, id.current);
   const pushed = useRef(false);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -38,7 +66,10 @@ export function useBackCloses(open: boolean, onClose: () => void): () => void {
     if (!open) return;
     const st = window.history.state as Record<string, unknown> | null;
     /* React's dev double-effect must not stack two entries for one opening. */
-    if (!(st && st[MARK])) window.history.pushState({ ...(st ?? {}), [MARK]: true }, '');
+    // An entry another layer marked (the screen this one replaced) is taken over, so that layer's clean-up leaves it be.
+    const step = layerOpens(st, id.current);
+    if (step && 'push' in step) window.history.pushState(step.push, '');
+    else if (step) window.history.replaceState(step.replace, '');
     pushed.current = true;
     const onPop = () => {
       if (!pushed.current) return;

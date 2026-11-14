@@ -184,6 +184,7 @@ export default async function HomePage({
           person: one('person'),
           left: one('left'),
           archived: one('archived'),
+          ask: one('ask'),
         }}
       />
     ) : seg === 'memories' ? (

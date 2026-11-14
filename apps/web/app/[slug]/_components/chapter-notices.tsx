@@ -1,3 +1,5 @@
+import { NOTICE_ACTION } from '@/app/_components/notices/notices';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { chapterWhen, chapterWhere, type InvitationChapter } from '@/lib/invitation-chapters';
 import {
   CHAPTER_ANSWER_FIELD,
@@ -25,50 +27,51 @@ export function ChapterNotices({
   removed: readonly { block_id: string; label: string }[];
 }) {
   if (added.length === 0 && removed.length === 0) return null;
+  // 🔔 Inventory #36 — News with replies (one notice system, owner approved 14 Nov 2026): "New on your invitation:
+  // <chapter> · I'll be there · Can't make it". The answers are the close, so it has no close word of its own; it
+  // leaves when the guest answers (the shipped reply action).
   return (
-    <div data-chapter-notices="" className="w-full space-y-4 border-y border-ink/12 py-4 text-left">
+    <div data-chapter-notices="" className="w-full space-y-2 text-left">
       {added.map((c) => (
-        <form key={c.block_id} action={action} data-chapter-added={c.block_id} className="space-y-2">
-          <input type="hidden" name={CHAPTER_ONLY_FIELD} value="1" />
-          <input type="hidden" name={CHAPTER_ID_FIELD} value={c.block_id} />
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mulberry">New on your invitation</p>
-          <p className="font-pahina text-xl font-light leading-snug text-ink">{c.label}</p>
-          <p className="text-sm text-ink/70">
-            {chapterWhen(c)} · {chapterWhere(c)}
-          </p>
-          <div className="flex flex-wrap gap-2 pt-1">
-            <button
-              type="submit"
-              name={CHAPTER_ANSWER_FIELD}
-              value="yes"
-              className="inline-flex min-h-[48px] items-center justify-center rounded-lg bg-mulberry px-6 text-sm font-semibold text-cream hover:bg-mulberry-600"
-            >
-              Yes, I’ll be there
-            </button>
-            <button
-              type="submit"
-              name={CHAPTER_ANSWER_FIELD}
-              value="no"
-              className="inline-flex min-h-[48px] items-center justify-center rounded-lg border border-ink/20 px-6 text-sm font-semibold text-ink hover:border-ink/40"
-            >
-              I can’t make it
-            </button>
-          </div>
-        </form>
+        <InlineNotice
+          key={c.block_id}
+          kind="news"
+          closable={false}
+          noticeKey={`chapter-added:${c.block_id}`}
+          title={`New on your invitation: ${c.label}`}
+          detail={`${chapterWhen(c)} · ${chapterWhere(c)}`}
+          actions={
+            <form action={action} data-chapter-added={c.block_id} className="flex flex-wrap justify-end gap-2">
+              <input type="hidden" name={CHAPTER_ONLY_FIELD} value="1" />
+              <input type="hidden" name={CHAPTER_ID_FIELD} value={c.block_id} />
+              <button type="submit" name={CHAPTER_ANSWER_FIELD} value="yes" className={NOTICE_ACTION}>
+                Yes, I’ll be there
+              </button>
+              <button type="submit" name={CHAPTER_ANSWER_FIELD} value="no" className={NOTICE_ACTION}>
+                I can’t make it
+              </button>
+            </form>
+          }
+        />
       ))}
       {removed.map((r) => (
-        <form key={r.block_id} action={action} data-chapter-removed={r.block_id} className="flex items-center justify-between gap-3">
-          <input type="hidden" name={CHAPTER_ONLY_FIELD} value="1" />
-          <input type="hidden" name={CHAPTER_ID_FIELD} value={r.block_id} />
-          <input type="hidden" name={CHAPTER_SEEN_FIELD} value="1" />
-          <p className="min-w-0 text-sm text-ink/80">{r.label} is no longer part of your invitation.</p>
-          <button
-            type="submit"
-            className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-lg border border-ink/20 px-5 text-sm font-semibold text-ink hover:border-ink/40"
-          >
-            OK
-          </button>
-        </form>
+        <InlineNotice
+          key={r.block_id}
+          kind="news"
+          closable={false}
+          noticeKey={`chapter-removed:${r.block_id}`}
+          title={`${r.label} is no longer part of your invitation.`}
+          actions={
+            <form action={action} data-chapter-removed={r.block_id}>
+              <input type="hidden" name={CHAPTER_ONLY_FIELD} value="1" />
+              <input type="hidden" name={CHAPTER_ID_FIELD} value={r.block_id} />
+              <input type="hidden" name={CHAPTER_SEEN_FIELD} value="1" />
+              <button type="submit" className={NOTICE_ACTION}>
+                OK
+              </button>
+            </form>
+          }
+        />
       ))}
     </div>
   );

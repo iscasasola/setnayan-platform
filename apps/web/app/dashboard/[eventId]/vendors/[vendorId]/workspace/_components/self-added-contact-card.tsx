@@ -34,7 +34,9 @@
  */
 
 import { useState, useTransition } from 'react';
-import { Check, Loader2, MapPin, Phone, User, Wallet } from 'lucide-react';
+import { Check, MapPin, Phone, User, Wallet } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   MANUAL_VENUE_ADDRESS_HINT,
   MANUAL_VENUE_ADDRESS_MAX,
@@ -47,9 +49,9 @@ import { saveSelfAddedServiceCard } from '../actions';
 const NOTE_MAX = 400;
 
 const FIELD =
-  'w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60';
+  'min-h-12 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2 text-[15px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60';
 const LEGEND =
-  'flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50';
+  'flex items-center gap-1.5 text-[13px] font-semibold text-ink';
 
 export function SelfAddedContactCard({
   eventId,
@@ -126,21 +128,23 @@ export function SelfAddedContactCard({
   }
 
   return (
-    <section
-      id="self-added-contact"
-      aria-labelledby="self-added-contact-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
-    >
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 1 · 2 · 3 · 7 · 13 · 15): no card and no serif heading — the section's
+    // grey capitals with "only you can see it" behind ⓘ, labelled fields, the payment notes as their own section (no
+    // box inside the box), the shared pill to save (grey while it saves, no spinner).
+    <section id="self-added-contact" aria-labelledby="self-added-contact-heading" className="space-y-4">
       <header className="space-y-1">
-        <h2 id="self-added-contact-heading" className="font-display text-lg italic text-ink">
-          Your details for {displayName}
+        <h2 id="self-added-contact-heading" className="mt-[18px]">
+          <InfoTip
+            label={`Your details for ${displayName}`}
+            labelAs="span"
+            labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
+            align="start"
+          >
+            You added {displayName} yourself, so this is yours to keep up to date. Only you can see it.
+          </InfoTip>
         </h2>
-        <p className="text-xs text-ink/55">
-          You added {displayName} yourself, so this is yours to keep up to date. Only you
-          can see it.
-        </p>
         {contactPerson || contactNumber ? null : (
-          <p className="text-xs text-ink/55" data-add-contact>
+          <p className="text-sm text-ink/70" data-add-contact>
             No contact yet. Add one so you can reach {displayName}.
           </p>
         )}
@@ -149,7 +153,7 @@ export function SelfAddedContactCard({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <label htmlFor="self-added-person" className={LEGEND}>
-            <User aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            <User aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.75} />
             Contact person
             {hasContactCard ? null : <span className="text-terracotta-700">*</span>}
           </label>
@@ -166,7 +170,7 @@ export function SelfAddedContactCard({
         </div>
         <div className="space-y-1.5">
           <label htmlFor="self-added-number" className={LEGEND}>
-            <Phone aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            <Phone aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.75} />
             Contact number
             {hasContactCard ? null : <span className="text-terracotta-700">*</span>}
           </label>
@@ -193,7 +197,7 @@ export function SelfAddedContactCard({
 
       <div className="space-y-1.5">
         <label htmlFor="self-added-address" className={LEGEND}>
-          <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+          <MapPin aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.75} />
           {addressRequired ? 'Exact address' : 'Address'}
           {addressRequired ? <span className="text-terracotta-700">*</span> : null}
         </label>
@@ -208,13 +212,13 @@ export function SelfAddedContactCard({
           onChange={(e) => touched(setAddress)(e.target.value)}
           className={`${FIELD} resize-y`}
         />
-        <p className="text-[11px] leading-snug text-ink/55">
+        <p className="text-[13px] leading-snug text-ink/70">
           {addressRequired
             ? MANUAL_VENUE_ADDRESS_HINT
             : 'Optional — handy for a commissary, showroom or studio.'}
         </p>
         {missingAddress ? (
-          <p className="text-[11px] leading-snug text-warn-800">
+          <p className="text-[13px] leading-snug text-warn-800">
             This is a venue, so the exact address is what your guests and your other
             suppliers are sent to. Add it now so nothing downstream has to guess.
           </p>
@@ -224,21 +228,24 @@ export function SelfAddedContactCard({
       {/* ── Payment notes ──────────────────────────────────────────────────
           Two plain text boxes on purpose. The copy tells the couple exactly
           what these are and are not; see the docblock. */}
-      <div className="space-y-3 rounded-xl border border-ink/10 bg-paper p-3.5">
-        <p className={LEGEND}>
-          <Wallet aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-          How you pay them
-        </p>
-        <p className="-mt-1.5 text-[11px] leading-snug text-ink/55">
-          Where you send the money — so you are not digging through messages on the
-          day. Setnayan does not send or track it, and nothing here creates a payment.
-          Due dates live in the payment plan.
+      <div className="space-y-3 border-t border-ink/10 pt-3">
+        <p className="flex items-center gap-1.5">
+          <Wallet aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.75} />
+          <InfoTip
+            label="How you pay them"
+            labelAs="span"
+            labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
+            align="start"
+          >
+            Where you send the money — so you are not digging through messages on the day. Setnayan does not send or
+            track it, and nothing here creates a payment. Due dates live in the payment plan.
+          </InfoTip>
         </p>
 
         <div className="space-y-1.5">
           <label
             htmlFor="self-added-payment-method"
-            className="block text-[11px] font-medium text-ink/70"
+            className="block text-[13px] font-semibold text-ink"
           >
             Payment method
           </label>
@@ -257,21 +264,9 @@ export function SelfAddedContactCard({
       </div>
 
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={pending}
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink transition-colors hover:border-terracotta/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
-        >
-          {pending ? (
-            <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-          ) : (
-            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          )}
-          Save their details
-        </button>
+        <ActionButton tone="brand" main icon={Check} label="Save their details" onClick={onSave} waiting={pending} />
         {saved && !pending ? (
-          <span className="inline-flex items-center gap-1 text-xs text-success-800">
+          <span className="inline-flex items-center gap-1 text-[13px] text-success-800">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
             Saved
           </span>
@@ -279,7 +274,7 @@ export function SelfAddedContactCard({
       </div>
 
       {err ? (
-        <p role="alert" className="text-[11px] leading-snug text-danger-900">
+        <p role="alert" className="text-[13px] leading-snug text-[rgb(var(--color-danger))]">
           {err}
         </p>
       ) : null}

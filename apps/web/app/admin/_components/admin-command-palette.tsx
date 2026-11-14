@@ -530,7 +530,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
         data-dock={dock}
         className={
           dock === 'bottom'
-            ? 'fixed inset-x-3 bottom-3 z-[61] flex flex-col-reverse overflow-hidden rounded-3xl border shadow-2xl lg:left-1/2 lg:right-auto lg:w-[620px] lg:-translate-x-1/2'
+            ? 'fixed inset-x-3 bottom-3 z-[61] flex flex-col-reverse overflow-hidden rounded-3xl shadow-2xl lg:left-1/2 lg:right-auto lg:w-[620px] lg:-translate-x-1/2'
             : 'fixed left-1/2 top-[11vh] z-[61] w-[min(620px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border shadow-2xl'
         }
         style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-paper, #FFFFFF)' }}

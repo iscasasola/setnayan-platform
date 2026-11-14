@@ -9,6 +9,7 @@
  * right shell with no flash and no server action. Both halves are real links to /admin as well, so a press with no
  * script still lands somewhere sensible.
  */
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Rows3, Search } from 'lucide-react';
 import { ADMIN_MODE_COOKIE, ADMIN_MODE_MAX_AGE, type AdminMode } from '@/lib/admin/admin-mode';
@@ -40,7 +41,7 @@ export function AdminModeToggle({ mode }: { mode: AdminMode }) {
       {HALVES.map(({ mode: m, label, Icon }) => {
         const on = m === mode;
         return (
-          <a
+          <Link
             key={m}
             href="/admin"
             role="radio"
@@ -60,7 +61,7 @@ export function AdminModeToggle({ mode }: { mode: AdminMode }) {
           >
             <Icon aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />
             <span className="hidden lg:inline">{label}</span>
-          </a>
+          </Link>
         );
       })}
     </div>

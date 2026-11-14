@@ -472,7 +472,7 @@ export async function SocialQueueSurface({
       {/* In-page anchor nav — the page is long; jump straight to a section. */}
       <nav
         aria-label="Page sections"
-        className="mb-6 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55"
+        className="mb-6 flex flex-wrap gap-x-4 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
       >
         <a href="#scheduled" className="hover:text-ink">Scheduled</a>
         <a href="#failed" className="hover:text-ink">Failed</a>
@@ -504,13 +504,13 @@ export async function SocialQueueSurface({
             const ev = eventMap[c.event_id];
             return (
               <li key={c.consent_id}>
-                <article className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+                <article className="space-y-3 bg-terracotta/5 py-4 border-t border-ink/10">
                   <header className="space-y-0.5">
                     <p className="text-sm font-semibold text-ink">
                       {SHARE_ARTIFACT_LABEL[c.artifact_type] ?? c.artifact_type} ·{' '}
                       {ev?.display_name || 'Unnamed event'}
                     </p>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                       Revoked {c.revoked_at?.slice(0, 10)} · posted {c.posted_at?.slice(0, 10)}
                     </p>
                   </header>
@@ -587,7 +587,7 @@ export async function SocialQueueSurface({
           {failedPosts.map((p) => {
             return (
               <li key={p.post_id}>
-                <article className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+                <article className="space-y-3 bg-terracotta/5 py-4 border-t border-ink/10">
                   <header className="flex items-start gap-3">
                     <CardPreview postId={p.post_id} />
                     <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
@@ -655,7 +655,7 @@ export async function SocialQueueSurface({
                   <SourceChip sourceType={p.source_type} />
                   <span className="min-w-0 truncate text-ink/80">{firstLine(p.body)}</span>
                 </span>
-                <span className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="flex items-center gap-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   <span>{formatPhInstant(postedAt)}</span>
                   {fb.post_url ? (
                     <a
@@ -692,7 +692,7 @@ export async function SocialQueueSurface({
       {/* ── Announce something — hand-written posts ── */}
       <section id="announce" className="mb-8 space-y-3">
         <div className="space-y-0.5">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Announce something
           </h2>
           <p className="text-xs text-ink/55">
@@ -711,7 +711,7 @@ export async function SocialQueueSurface({
                     key={`${s.date}-${s.title}`}
                     className="rounded-full border border-ink/15 bg-ink/[0.03] px-2.5 py-1 text-xs text-ink/70"
                   >
-                    <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                       {s.date}
                     </span>{' '}
                     {s.title}
@@ -770,7 +770,7 @@ export async function SocialQueueSurface({
       {/* ── Evergreen library — the content floor ── */}
       <section id="evergreen" className="mb-8 space-y-3">
         <div className="space-y-0.5">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Evergreen library · {evergreenItems.length}
           </h2>
           <p className="text-xs text-ink/55">
@@ -781,7 +781,7 @@ export async function SocialQueueSurface({
         </div>
 
         {evergreenItems.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-6 text-center text-sm text-ink/55">
+          <p className="border-dashed py-6 text-center text-sm text-ink/55 border-t border-ink/10">
             No evergreen items yet — add a few planning tips or feature
             spotlights below so the page never looks abandoned.
           </p>
@@ -796,8 +796,8 @@ export async function SocialQueueSurface({
         )}
 
         {/* Add a new item — same action, no item_id → insert. */}
-        <article className="space-y-3 rounded-xl border border-dashed border-ink/15 bg-white/50 p-5">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+        <article className="space-y-3 border-dashed py-5 border-t border-ink/10">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Add evergreen item
           </p>
           <form action={saveEvergreenItem} className="space-y-3">
@@ -849,7 +849,7 @@ export async function SocialQueueSurface({
 
       {/* ── Manual workflow & sources — the original copy-paste lane ── */}
       <div id="manual" className="mb-8 mt-12 space-y-1 border-t border-ink/15 pt-6">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Manual workflow &amp; sources
         </h2>
         <p className="text-xs text-ink/55">
@@ -897,11 +897,11 @@ export async function SocialQueueSurface({
                       <p className="text-sm font-semibold text-ink">
                         {SHARE_ARTIFACT_LABEL[c.artifact_type] ?? c.artifact_type}
                       </p>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                         {credit} · event {ev?.event_date ?? '—'}
                       </p>
                     </div>
-                    <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
+                    <span className="rounded-full bg-success-100 px-2 py-0.5 text-success-800 text-[12px] font-bold">
                       Ready
                     </span>
                   </header>
@@ -964,7 +964,7 @@ export async function SocialQueueSurface({
                   </span>{' '}
                   · {ev?.display_name || 'Unnamed event'} · event {ev?.event_date ?? 'date not set'}
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   {postableFrom ? `posts after ${postableFrom}` : 'needs an event date'}
                 </span>
               </li>
@@ -1014,12 +1014,12 @@ export async function SocialQueueSurface({
                           ? v.business_name || 'Unnamed supplier'
                           : `A new ${categoryLabel.toLowerCase()} in ${region}`}
                       </p>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                         {v.public_id} · verified · {proActive ? 'named (Pro+)' : 'unnamed (Free)'}
                       </p>
                     </div>
                     <span
-                      className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                      className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${
                         proActive
                           ? 'bg-success-100 text-success-800'
                           : 'bg-ink/8 text-ink/65'
@@ -1071,7 +1071,7 @@ export async function SocialQueueSurface({
                 <p className="text-sm font-semibold text-ink">
                   🎂 {u.display_name || 'A Setnayan member'}
                 </p>
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Birthday · {(u.birth_date ?? '').slice(5)}
                 </p>
                 <pre className="whitespace-pre-wrap rounded-md border border-ink/10 bg-ink/[0.03] px-3 py-2 font-sans text-xs text-ink/80">
@@ -1086,7 +1086,7 @@ export async function SocialQueueSurface({
                 <p className="text-sm font-semibold text-ink">
                   💍 {e.display_name || 'A Setnayan couple'}
                 </p>
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Anniversary · married {e.event_date}
                 </p>
                 <pre className="whitespace-pre-wrap rounded-md border border-ink/10 bg-ink/[0.03] px-3 py-2 font-sans text-xs text-ink/80">
@@ -1141,7 +1141,7 @@ function AutopilotStrip({
     <section id="autopilot" className="mb-8 space-y-4 sn-tile p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-0.5">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Autopilot
           </h2>
           <p className="text-xs text-ink/55">
@@ -1151,7 +1151,7 @@ function AutopilotStrip({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={`rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+            className={`rounded-full px-2.5 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${
               settings.autopublish_enabled
                 ? 'bg-success-100 text-success-800'
                 : 'bg-ink/8 text-ink/55'
@@ -1160,22 +1160,22 @@ function AutopilotStrip({
             Autopublish {settings.autopublish_enabled ? 'ON' : 'OFF'}
           </span>
           <span
-            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${fbChip.tone}`}
+            className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${fbChip.tone}`}
           >
             {fbChip.label}
           </span>
           <span
-            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${igChip.tone}`}
+            className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${igChip.tone}`}
           >
             {igChip.label}
           </span>
           <span
-            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${ttChip.tone}`}
+            className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${ttChip.tone}`}
             title="TikTok posts the 9:16 card as a Photo Mode post. Auto-posting needs an audited app + a per-account token; until then, post manually from the TikTok panel."
           >
             {ttChip.label}
           </span>
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+          <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             {settings.last_flush_at
               ? `last flush ${formatPhInstant(settings.last_flush_at)}`
               : 'no flush yet'}
@@ -1185,8 +1185,8 @@ function AutopilotStrip({
 
       {!fbConfigured ? (
         <p className="rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-xs text-warn-900">
-          Paste <span className="font-mono">META_PAGE_ID</span> +{' '}
-          <span className="font-mono">META_PAGE_ACCESS_TOKEN</span> into Vercel
+          Paste <span className="tabular-nums">META_PAGE_ID</span> +{' '}
+          <span className="tabular-nums">META_PAGE_ACCESS_TOKEN</span> into Vercel
           env to activate Facebook — see API_Integration_Checklist #21a. The
           switches below still save; nothing dispatches until the env lands.
         </p>
@@ -1194,11 +1194,11 @@ function AutopilotStrip({
 
       {!igConfigured ? (
         <p className="rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-xs text-warn-900">
-          For Instagram, also paste <span className="font-mono">IG_USER_ID</span>{' '}
+          For Instagram, also paste <span className="tabular-nums">IG_USER_ID</span>{' '}
           (the IG Business account linked to the Page) — the same{' '}
-          <span className="font-mono">META_PAGE_ACCESS_TOKEN</span> authorizes
-          it with the <span className="font-mono">instagram_basic</span> +{' '}
-          <span className="font-mono">instagram_content_publish</span> scopes.
+          <span className="tabular-nums">META_PAGE_ACCESS_TOKEN</span> authorizes
+          it with the <span className="tabular-nums">instagram_basic</span> +{' '}
+          <span className="tabular-nums">instagram_content_publish</span> scopes.
           Every post now carries a branded card image, which IG requires.
         </p>
       ) : null}
@@ -1206,8 +1206,8 @@ function AutopilotStrip({
       {settings.tiktok_enabled && !ttConfigured ? (
         <p className="rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-xs text-warn-900">
           TikTok auto-posting needs an audited app + OAuth token (
-          <span className="font-mono">TIKTOK_ACCESS_TOKEN</span>) + a verified{' '}
-          <span className="font-mono">PULL_FROM_URL</span> domain — see
+          <span className="tabular-nums">TIKTOK_ACCESS_TOKEN</span>) + a verified{' '}
+          <span className="tabular-nums">PULL_FROM_URL</span> domain — see
           API_Integration_Checklist #21c. Until then, post manually from the
           cards below.
         </p>
@@ -1304,7 +1304,7 @@ function TikTokManualPanel({ posts }: { posts: SocialPostRow[] }) {
   return (
     <section id="tiktok-manual" className="mb-8 space-y-3">
       <div className="space-y-0.5">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           TikTok — ready to post manually · {items.length}
         </h2>
         <p className="text-xs text-ink/55">
@@ -1315,7 +1315,7 @@ function TikTokManualPanel({ posts }: { posts: SocialPostRow[] }) {
       </div>
 
       {items.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-6 text-center text-sm text-ink/55">
+        <p className="border-dashed py-6 text-center text-sm text-ink/55 border-t border-ink/10">
           Nothing to post yet — composed posts appear here with their 9:16 card
           once the sweep has run.
         </p>
@@ -1339,7 +1339,7 @@ function TikTokManualPanel({ posts }: { posts: SocialPostRow[] }) {
                     <p className="truncate text-sm font-semibold text-ink">
                       {p.title || firstLine(p.body) || 'Untitled post'}
                     </p>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                       {SOURCE_LABEL[p.source_type] ?? p.source_type} · 9:16
                     </p>
                   </div>
@@ -1404,7 +1404,7 @@ function ScheduledPostCard({
         <SourceChip sourceType={post.source_type} />
       </header>
 
-      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         {post.scheduled_for
           ? `slot ${formatPhInstant(post.scheduled_for)}`
           : 'awaiting a governor slot'}
@@ -1417,7 +1417,7 @@ function ScheduledPostCard({
       </pre>
 
       {publishing ? (
-        <p className="animate-pulse font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+        <p className="animate-pulse text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           publishing…
         </p>
       ) : (
@@ -1512,14 +1512,14 @@ function EvergreenItemCard({ item }: { item: EvergreenItemRow }) {
       <header className="flex items-start justify-between gap-3">
         <p className="min-w-0 truncate text-sm font-semibold text-ink">{item.title}</p>
         <span
-          className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+          className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${
             item.is_active ? 'bg-success-100 text-success-800' : 'bg-ink/8 text-ink/55'
           }`}
         >
           {item.is_active ? 'Active' : 'Inactive'}
         </span>
       </header>
-      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         used {item.times_used}×
         {item.last_used_at ? ` · last ${formatPhDate(item.last_used_at)}` : ' · never used'}
       </p>
@@ -1587,7 +1587,7 @@ function SourceChip({ sourceType }: { sourceType: SocialSourceType }) {
   const label = SOURCE_LABEL[sourceType] ?? sourceType;
   return (
     <span
-      className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${tone}`}
+      className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${tone}`}
     >
       {label}
     </span>
@@ -1725,7 +1725,7 @@ function QueueSection({
   return (
     <section id={id} className="mb-8 space-y-3">
       <div className="space-y-0.5">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           {title} · {loadFailed ? '—' : formatCount(count)}
         </h2>
         <p className="text-xs text-ink/55">{hint}</p>
@@ -1735,7 +1735,7 @@ function QueueSection({
           Couldn&rsquo;t load this — refresh to try again.
         </p>
       ) : count === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-6 text-center text-sm text-ink/55">
+        <p className="border-dashed py-6 text-center text-sm text-ink/55 border-t border-ink/10">
           {empty}
         </p>
       ) : (

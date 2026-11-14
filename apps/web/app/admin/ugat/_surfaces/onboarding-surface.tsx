@@ -68,12 +68,12 @@ export async function OnboardingSurface({ searchParams }: Props) {
       />
 
       {sp.saved ? (
-        <div className="mb-6 flex items-center gap-2 rounded-xl border border-success-300/60 bg-success-50/60 px-4 py-3 text-sm text-success-800">
+        <div className="mb-6 flex items-center gap-2 border-success-300/60 bg-success-50/60 py-3 text-sm text-success-800 border-t border-ink/10">
           <CheckCircle2 className="h-4 w-4" strokeWidth={2} aria-hidden /> Saved.
         </div>
       ) : null}
       {sp.error ? (
-        <div className="mb-6 flex items-center gap-2 rounded-xl border border-terracotta/40 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+        <div className="mb-6 flex items-center gap-2 bg-terracotta/10 py-3 text-sm text-terracotta-700 border-t border-ink/10">
           <AlertTriangle className="h-4 w-4" strokeWidth={2} aria-hidden /> {sp.error}
         </div>
       ) : null}
@@ -87,13 +87,13 @@ export async function OnboardingSurface({ searchParams }: Props) {
           <div>
             <h2 className="text-lg font-semibold text-ink">Wedding</h2>
             <p className="text-xs text-ink/55">
-              <code className="rounded bg-ink/5 px-1 py-0.5 font-mono">/onboarding/wedding</code>
+              <code className="rounded bg-ink/5 px-1 py-0.5 tabular-nums">/onboarding/wedding</code>
             </p>
           </div>
         </header>
 
         {/* Background music */}
-        <div className="rounded-xl border border-ink/10 bg-white p-5">
+        <div className="py-5 border-t border-ink/10">
           <div className="mb-1 flex items-center gap-2">
             <Music className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden />
             <h3 className="sn-eye">
@@ -176,7 +176,7 @@ export async function OnboardingSurface({ searchParams }: Props) {
       </section>
 
       {/* ── FUTURE TYPES ───────────────────────────────────────────────── */}
-      <section className="mt-6 rounded-2xl border border-dashed border-ink/15 bg-white/50 p-5 text-sm text-ink/55">
+      <section className="mt-6 border-dashed py-5 text-sm text-ink/55 border-t border-ink/10">
         <p className="font-semibold text-ink/70">More onboarding flows</p>
         <p className="mt-1">
           As Setnayan opens new event types (birthday, celebration, corporate,

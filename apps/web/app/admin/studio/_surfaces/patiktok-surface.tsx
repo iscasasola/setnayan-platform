@@ -82,7 +82,7 @@ function StatusPill({ status }: { status: JobRow['status'] }) {
   const { Icon, cls, label } = map[status];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${cls}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${cls}`}
     >
       <Icon
         aria-hidden
@@ -141,7 +141,7 @@ export async function PatiktokSurface() {
       hideBelow: 'md',
       cell: (j) =>
         j.status === 'failed' && j.failure_reason ? (
-          <span className="inline-flex items-start gap-1 text-[11px] text-danger-700">
+          <span className="inline-flex items-start gap-1 text-[12px] text-danger-700">
             <AlertTriangle aria-hidden className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={1.75} />
             {j.failure_reason}
           </span>
@@ -202,7 +202,7 @@ export async function PatiktokSurface() {
         {STATUSES.map((s) => (
           <span
             key={s}
-            className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/70 px-3 py-1 font-mono uppercase tracking-[0.15em] text-ink/70"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/70 px-3 py-1 text-ink/70 text-[12px] font-bold"
           >
             {s} · {jobs ? formatCount(counts[s] ?? 0) : '—'}
           </span>

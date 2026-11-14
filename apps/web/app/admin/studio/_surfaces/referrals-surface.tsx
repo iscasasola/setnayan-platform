@@ -224,7 +224,7 @@ export async function ReferralsSurface() {
       ) : (
         <div
           role="alert"
-          className="rounded-xl border border-danger-200 bg-danger-50 p-5 text-sm text-danger-800"
+          className="border-danger-200 bg-danger-50 py-5 text-sm text-danger-800 border-t border-ink/10"
         >
           <p className="font-semibold">
             Couldn&rsquo;t read whether the referral program is on.
@@ -240,7 +240,7 @@ export async function ReferralsSurface() {
 
       {/* Admin-managed reward amount. */}
       <section className="sn-tile p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-ink/55">Reward per side</p>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Reward per side</p>
         <p className="mt-1 text-lg font-semibold text-ink">
           {rewardPhp === null ? '—' : `₱${rewardPhp.toLocaleString('en-PH')}`}
         </p>
@@ -275,7 +275,7 @@ export async function ReferralsSurface() {
       {labelsUnread ? (
         <p
           role="alert"
-          className="mb-3 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+          className="mb-3 border-t-[3px] bg-mulberry/5 py-4 text-sm text-ink/70 border-t border-ink/10"
         >
           <strong className="text-ink">Some names could not be read.</strong>{' '}
           A referral below shows a dash instead of the account it belongs to. The rows themselves are accurate — the names are

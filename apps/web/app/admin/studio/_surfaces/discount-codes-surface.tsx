@@ -409,7 +409,7 @@ export async function DiscountCodesSurface({
       {labelsUnread ? (
         <p
           role="alert"
-          className="mb-3 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+          className="mb-3 border-t-[3px] bg-mulberry/5 py-4 text-sm text-ink/70 border-t border-ink/10"
         >
           <strong className="text-ink">Some names could not be read.</strong>{' '}
           A code below shows a dash instead of who created it. The rows themselves are accurate — the names are
@@ -449,7 +449,7 @@ export async function DiscountCodesSurface({
 
 function Mono({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-sm tracking-wider" style={{ color: 'var(--m-ink)' }}>
+    <span className="text-sm tracking-wider tabular-nums" style={{ color: 'var(--m-ink)' }}>
       {children}
     </span>
   );

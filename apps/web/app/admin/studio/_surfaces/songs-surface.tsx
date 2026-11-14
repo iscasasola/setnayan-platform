@@ -92,7 +92,7 @@ export async function SongsSurface({
 
       {/* Merge two songs */}
       <form action={mergeSongsAction} className="space-y-3 sn-tile p-4">
-        <h2 className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <h2 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           <GitMerge aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Merge duplicates
         </h2>
         <p className="text-sm text-ink/60">
@@ -124,7 +124,7 @@ export async function SongsSurface({
           songs.map((s) => (
             <li key={s.song_id} className="flex items-center justify-between gap-2 px-4 py-2.5">
               <span className="flex min-w-0 items-baseline gap-2">
-                <span className="font-mono text-[11px] text-ink/40">#{s.song_id}</span>
+                <span className="text-[12px] text-ink/40 tabular-nums">#{s.song_id}</span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-ink/90">{s.title}</span>
                   <span className="block truncate text-xs text-ink/55">
@@ -151,8 +151,8 @@ export async function SongsSurface({
                     overlay={false}
                     className={
                       s.is_curated_pick
-                        ? 'rounded-full border border-mulberry/30 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-mulberry hover:bg-mulberry/10'
-                        : 'rounded-full border border-ink/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55 hover:bg-ink/5 hover:text-ink'
+                        ? 'rounded-full border border-mulberry/30 px-2.5 py-1 text-mulberry hover:bg-mulberry/10 text-[12px] font-bold'
+                        : 'rounded-full border border-ink/15 px-2.5 py-1 text-ink/55 hover:bg-ink/5 hover:text-ink text-[12px] font-bold'
                     }
                     aria-label={
                       s.is_curated_pick

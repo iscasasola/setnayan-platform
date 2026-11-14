@@ -36,7 +36,7 @@ export async function WebsiteSurface({ page: pageRaw }: { page?: string }) {
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm text-ink/75">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Page
           </span>
           <PageSelector currentPage={page} />
@@ -101,7 +101,7 @@ function PageSelector({ currentPage }: { currentPage: SiteWidgetPage }) {
 
 function EmptyPage({ page }: { page: SiteWidgetPage }) {
   return (
-    <div className="rounded-2xl border border-dashed border-ink/15 bg-white/50 p-10 text-center">
+    <div className="border-dashed py-10 text-center border-t border-ink/10">
       <p className="text-base font-medium text-ink/75">
         No widgets seeded for <code>{page}</code> yet.
       </p>

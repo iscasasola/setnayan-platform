@@ -83,7 +83,7 @@ export async function RecapsSurface({
         // A refused read is not "No published recaps yet" — public pages could be live.
         <ReadFailed what="the published recaps" />
       ) : rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-white/50 p-10 text-center">
+        <div className="border-dashed py-10 text-center border-t border-ink/10">
           <Globe aria-hidden className="mx-auto h-6 w-6 text-ink/40" strokeWidth={1.5} />
           <p className="mt-3 text-sm font-medium text-ink">No published recaps yet.</p>
           <p className="mt-1 text-sm text-ink/55">
@@ -107,7 +107,7 @@ export async function RecapsSurface({
               <li
                 key={recap.event_id as string}
                 id={`rc-${anchor}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-surface p-4"
+                className="flex flex-wrap items-center justify-between gap-3 bg-surface py-4 border-t border-ink/10"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink">{name}</p>

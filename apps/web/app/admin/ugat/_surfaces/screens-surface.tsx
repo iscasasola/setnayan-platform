@@ -33,7 +33,7 @@ function Badge({ tone, children }: { tone: 'ok' | 'warn' | 'muted'; children: st
         : 'bg-ink/5 text-ink/55';
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] ${cls}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.1em] ${cls}`}
     >
       {children}
     </span>
@@ -53,7 +53,7 @@ function ScreenRow({ s }: { s: UgatScreen }) {
   return (
     <li className="flex flex-col gap-1 border-t border-ink/10 py-2.5 sm:flex-row sm:items-start sm:gap-4">
       <div className="min-w-0 flex-1">
-        <p className="break-all font-mono text-[13px] text-ink">{s.route}</p>
+        <p className="break-all text-[13px] text-ink tabular-nums">{s.route}</p>
         <p className="mt-0.5 text-xs text-ink/55">
           {s.status === 'stub'
             ? `forwards to ${s.redirectsTo ?? 'another page'}`
@@ -102,7 +102,7 @@ export function ScreensSurface() {
       <dl className="mb-8 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map((x) => (
           <div key={x.label} className="border-t border-ink/10 pt-2">
-            <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">{x.label}</dt>
+            <dt className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">{x.label}</dt>
             <dd className={`text-2xl font-semibold tracking-tight ${x.warn ? 'text-warn-900' : 'text-ink'}`}>
               {x.value}
             </dd>
@@ -116,9 +116,9 @@ export function ScreensSurface() {
           <ul className="mt-2">
             {MAP.brokenDoors.map((b) => (
               <li key={`${b.from}${b.to}`} className="border-t border-ink/10 py-2 text-sm">
-                <span className="break-all font-mono text-[13px] text-ink">{b.to}</span>
+                <span className="break-all text-[13px] text-ink tabular-nums">{b.to}</span>
                 <span className="text-ink/55"> — written in </span>
-                <span className="break-all font-mono text-xs text-ink/70">{b.from}</span>
+                <span className="break-all text-xs text-ink/70 tabular-nums">{b.from}</span>
               </li>
             ))}
           </ul>

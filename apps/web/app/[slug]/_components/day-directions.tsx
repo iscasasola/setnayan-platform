@@ -1,4 +1,5 @@
 import { DirectionsMenu } from '@/app/_components/nav-links';
+import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import { venueSearchQuery, VENUE_ROLE_LABEL, type EventVenue } from '@/lib/event-venues';
 
 /**
@@ -21,7 +22,13 @@ import { venueSearchQuery, VENUE_ROLE_LABEL, type EventVenue } from '@/lib/event
  *
  * WHEN is the caller's (`directionsLead`, `_lib/hub-tabs.ts`); WHICH venue too:
  * `venues` is the event row's, already withheld by page.tsx for a reader the
- * precise location is not yet open to. Server-only markup: no client code.
+ * precise location is not yet open to (a withheld venue has no pin, so no map).
+ *
+ * 🗺 THE MAP CARD + ONE "GET DIRECTIONS" (owner-approved 2026-11-14,
+ * `prototypes/map_card_open_in_maps_2026-11-14_fable.html`, The Day screen):
+ * the place happening now gets the full map card above its name when it has a
+ * pin — the same `VendorLocationMap` the venue cards draw — and the dropdown
+ * became the one button whose sheet lists the map apps.
  */
 export function DayDirections({ venues }: { venues: readonly EventVenue[] }) {
   const open = venues.filter((v) => venueSearchQuery(v) || (v.latitude != null && v.longitude != null));
@@ -30,6 +37,7 @@ export function DayDirections({ venues }: { venues: readonly EventVenue[] }) {
     <section aria-label="Directions" data-day-directions="" className="space-y-3">
       {open.map((v) => (
         <article key={v.role} data-venue-role={v.role} className="sn-glass-bare space-y-3 rounded-2xl p-6">
+          <VendorLocationMap latitude={v.latitude ?? null} longitude={v.longitude ?? null} label={v.name ?? 'the venue'} deferUntilNear />
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
             {v.role === 'both' ? 'Getting there' : `Getting there · ${VENUE_ROLE_LABEL[v.role]}`}
           </p>

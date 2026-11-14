@@ -79,7 +79,6 @@ const running = (over: Partial<RunningPlanGift> = {}): RunningPlanGift => ({
   startsAt: new Date(NOW - 7 * DAY).toISOString(),
   endsAt: new Date(NOW + 21 * DAY).toISOString(),
   returnTier: 'pro',
-  freeTier: 'free',
   extend: false,
   ...over,
 });
@@ -100,7 +99,7 @@ test('the last week: ends in N days, Stay at the catalogue price, Go back to the
   // No price read → the button names no price, never a typed one.
   assert.equal(giftEndsSoonNotice(g, NOW, null)?.stay, 'Stay on Ultra');
   // No plan before the gift → back to Free; days added to its own plan → nothing to go back to.
-  assert.equal(giftEndsSoonNotice({ ...g, returnTier: null, freeTier: 'verified' }, NOW, null)?.goBack, 'Go back to Free');
+  assert.equal(giftEndsSoonNotice({ ...g, returnTier: null }, NOW, null)?.goBack, 'Go back to Free');
   assert.equal(giftEndsSoonNotice({ ...g, extend: true }, NOW, null)?.goBack, null);
   // One day left reads "1 day".
   assert.equal(giftEndsSoonNotice({ ...g, endsAt: new Date(NOW + 3_600_000).toISOString() }, NOW, null)?.title, 'Your Ultra gift ends in 1 day');

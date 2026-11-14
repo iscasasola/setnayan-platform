@@ -143,10 +143,8 @@ export type RunningPlanGift = {
   tier: ShopGiftPlanTier;
   startsAt: string;
   endsAt: string;
-  /** The plan the gift paused (handed back when it ends), or null — Free · Free · Verified. */
+  /** The plan the gift paused (handed back when it ends), or null — the shop goes back to Free. */
   returnTier: string | null;
-  /** The shop's Free word when there is no plan to go back to ("Free" · "Free · Verified"). */
-  freeTier: 'free' | 'verified';
   /** 'extend' — days added to the shop's own plan: there is nothing to go back to. */
   extend: boolean;
 };
@@ -184,7 +182,7 @@ export function giftEndsSoonNotice(
   const left = planGiftDaysLeft(g, nowMs);
   if (left === 0 || left > SHOP_PLAN_GIFT_ENDS_SOON_DAYS || Date.parse(g.startsAt) > nowMs) return null;
   const plan = shortPlanWord(g.tier);
-  const back = g.extend ? null : shortPlanWord(g.returnTier ?? g.freeTier);
+  const back = g.extend ? null : shortPlanWord(g.returnTier ?? 'free');
   const price =
     stayPricePhp != null && Number.isFinite(stayPricePhp)
       ? ` · ${formatPhp(stayPricePhp)}`

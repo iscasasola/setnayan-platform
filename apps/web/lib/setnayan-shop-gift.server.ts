@@ -130,7 +130,7 @@ export async function readShopGifts(
       .limit(20),
     admin
       .from('vendor_profiles')
-      .select('tier_state, tier_expires_at, tier_source, verification_state')
+      .select('tier_state, tier_expires_at, tier_source')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle(),
   ]);
@@ -139,7 +139,7 @@ export async function readShopGifts(
     return { ok: false };
   }
   const rows = (gifts.data ?? []) as GiftRow[];
-  const s = shop.data as { tier_state: string | null; tier_expires_at: string | null; tier_source: string | null; verification_state: string | null };
+  const s = shop.data as { tier_state: string | null; tier_expires_at: string | null; tier_source: string | null };
   const onPlan =
     !!s.tier_state && ['solo', 'pro', 'enterprise'].includes(s.tier_state) &&
     (!s.tier_expires_at || Date.parse(s.tier_expires_at) > nowMs);
@@ -193,7 +193,6 @@ export async function readShopGifts(
         startsAt: live.plan_starts_at!,
         endsAt: live.plan_ends_at!,
         returnTier: live.return_tier,
-        freeTier: s.verification_state === 'verified' ? 'verified' : 'free',
         extend: live.claim_choice === 'extend',
       }
     : null;

@@ -289,6 +289,8 @@ export function Sheet({
     const origin = riseOriginNow();
     originRef.current = origin && !root.contains(origin) ? origin : null;
     if (!parts || !originRef.current || typeof parts.panel.animate !== 'function') return;
+    // Opened again while its close was still playing: that close's held last frame must not outlive this open.
+    for (const a of [...parts.panel.getAnimations({ subtree: true }), ...(parts.backdrop?.getAnimations() ?? [])]) a.cancel();
     const reduced = prefersReducedMotionNow();
     void playGrow({ ...parts, shape: { el: parts.panel, frames: growFrames(boxOf(originRef.current), boxOf(parts.panel)) } }, { reduced });
     if (parts.backdrop && !reduced) parts.backdrop.animate(FADE_FRAMES, { ...growTiming('behind'), easing: 'linear' });

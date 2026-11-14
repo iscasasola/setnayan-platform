@@ -196,6 +196,17 @@ export function makerOwnScenesLine(used: number): string {
 /* ── the strip: a part added to a page is that page's ────────────────────── */
 
 /**
+ * 📖 POST EVENT LISTS ONLY ITS OWN SCENES (F-W2-44, the live walk after #7596: "Parts of this page · 26" held the Cover
+ * Scene, the Greeting, the Digital pass and the Love Story — another stage's pieces — and Memories twice). Post Event is
+ * ONE page, so every section drawn on its canvas that no list claimed became an "added" part of it — the old
+ * invitation's sections too. On Post Event a part is its own only when it is one of its scenes (`p:<scene>`) or the
+ * closing every stage's page ends with (`f:closing`). Every other stage: any section it draws.
+ */
+export function makerStageOwnsCanvas(stage: MakerStageKey, canvas: string): boolean {
+  return stage !== 'editorial' || canvas.startsWith('p:') || canvas === 'f:closing';
+}
+
+/**
  * The parts a tap can reach on this page: the page's own (in the approved
  * order, where drawn) plus any part the page draws that its default list does
  * not name — one the couple ADDED. An added part belongs to the page of the
@@ -216,7 +227,7 @@ export function makerPartsWithAdded(input: {
   const present = new Set(drawn);
   const own = makerPartsOnPage(stage, page).filter((k) => {
     const c = makerPartCanvasOn(stage, k);
-    return c !== null && present.has(c);
+    return c !== null && present.has(c) && makerStageOwnsCanvas(stage, c);
   });
   /* Which page claims each drawn canvas key, by the default lists. */
   const pageOfKey = new Map<string, string>();
@@ -231,6 +242,7 @@ export function makerPartsWithAdded(input: {
     if (pageOfKey.has(c)) return;
     const part = (Object.keys(MAKER_PARTS) as MakerPartKey[]).find((k) => makerPartCanvasOn(stage, k) === c);
     if (!part || own.includes(part) || added.includes(part)) return;
+    if (!makerStageOwnsCanvas(stage, c)) return;
     const before = drawn.slice(0, i).reverse().find((x) => pageOfKey.has(x));
     const after = drawn.slice(i + 1).find((x) => pageOfKey.has(x));
     const home = filed?.[c] ?? pageOfKey.get((before ?? after)!) ?? null;

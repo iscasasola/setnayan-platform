@@ -3772,7 +3772,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Share an album link
               </summary>
-              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="gallery_link" />
                 <input type="text" name="label" maxLength={200} placeholder="e.g. Full wedding album" className={shopInputClass} />
@@ -3788,7 +3788,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <FileText aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Upload a sample/proof
               </summary>
-              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="file" />
                 <input type="text" name="label" maxLength={200} placeholder="e.g. Edited preview" className={shopInputClass} />
@@ -3804,7 +3804,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <MessageSquarePlus aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Leave a note
               </summary>
-              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="note" />
                 <input type="text" name="label" maxLength={200} placeholder="Subject (optional)" className={shopInputClass} />
@@ -3819,7 +3819,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <PackageCheck aria-hidden className="h-3.5 w-3.5 text-ink/55" /> All delivered (sign-off)
               </summary>
-              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="signoff" />
                 <textarea name="payload" maxLength={4000} rows={2} placeholder="Closing note (optional) — e.g. Everything’s been delivered. Thank you!" className={shopInputClass} />

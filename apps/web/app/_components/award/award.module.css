@@ -1702,6 +1702,30 @@
   z-index: 4;
   pointer-events: none;
 }
+/* v53 — the No. 1 stage stays behind its plaque: one scene from the curtains to the plaque, never the app page.
+   No z-index: it is the dialog's first child, so it sits under the plaque and under the curtains layer. */
+.sinSet {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.awDlg.staged::backdrop {
+  background: #000;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+/* the share button follows the plaque up, never ahead of it (its own keyframes keep it centred) */
+.awDlg.staged .awShare {
+  animation: awInShare 0.5s 0.75s cubic-bezier(0.2, 1.15, 0.4, 1) both;
+}
+@keyframes awInShare {
+  from {
+    transform: translateX(-50%) translateY(24px) scale(0.96);
+    opacity: 0;
+  }
+}
 /* the plaque rises in under the leaving curtains (set after the seal's resting place has been measured) */
 .awDlg .awCard.awRise {
   animation: awIn 0.7s 0.1s cubic-bezier(0.2, 1.15, 0.4, 1) both;

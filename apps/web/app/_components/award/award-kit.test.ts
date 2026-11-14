@@ -264,6 +264,28 @@ test('14 · v50/v51 perf: nothing costly is drawn per frame; clamped clocks; the
   assert.doesNotMatch(vid, /scale:/, 'the story video stays full 1080×1920');
 });
 
+test('16 · v53 one scene: the bare set stays UNDER the No. 1 plaque; the curtains leave over it', () => {
+  const rig = stripComments(readFileSync(join(DIR, 'story-rig.ts'), 'utf8'));
+  const b = rig.slice(rig.indexOf('function base('), rig.indexOf("fadeText('AWARDED TO'"));
+  assert.match(b, /if \(ONLYSET\) return;\s*$/, 'the bare set stops right before the words');
+  assert.match(rig, /ONLYSET = true;\s*base\(DUR - B0\);\s*ONLYSET = false;/, 'prep builds the bare set');
+  const ex = rig.slice(rig.indexOf('rig.exit = '), rig.indexOf('rig.words = '));
+  assert.doesNotMatch(ex, /SNAP/, 'the exit layer draws only the curtains and valance');
+  assert.match(rig, /rig\.words = \(g, a\) => \{\s*if \(rig\.set\) g\.drawImage\(rig\.set, 0, 0, W, H\);/);
+  const plaque = stripComments(readFileSync(join(DIR, 'seal-plaque.tsx'), 'utf8'));
+  assert.match(plaque, /d\.insertBefore\(layer, d\.firstChild\);\s*d\.insertBefore\(st, d\.firstChild\);/, 'the set is the dialog\'s first child, under the plaque and the curtains layer');
+  assert.match(plaque, /drawSet\(0\);\s*layer\.remove\(\);/, 'the set stays (words gone) when the curtains layer goes');
+  assert.match(plaque, /st\.remove\(\);\s*d\.classList\.remove\(s\.staged!\);/, 'removed on close');
+  assert.doesNotMatch(plaque, /g\.fillRect\(0, 0, OW, T\)/, 'no letter-box bars on the curtains layer any more');
+  const hold = plaque.slice(plaque.indexOf("card.style.opacity = '0'"), plaque.indexOf("card.style.opacity = ''"));
+  assert.match(hold, /for \(let i = 0; i < 3; i\+\+\)/, 'the card is unseen during the 3-frame hold');
+  const css = readFileSync(join(DIR, 'award.module.css'), 'utf8');
+  const set = css.slice(css.indexOf('.sinSet {'), css.indexOf('}', css.indexOf('.sinSet {')));
+  assert.ok(set.length > 0 && !/z-index/.test(set), 'the set layer has no z-index');
+  assert.match(css, /\.awDlg\.staged::backdrop \{\s*background: #000;\s*backdrop-filter: none;/, 'a black backdrop, never the blurred app page');
+  assert.match(css, /\.awDlg\.staged \.awShare \{\s*animation: awInShare 0\.5s 0\.75s/, 'the share button follows the plaque up');
+});
+
 test('15 · v51 confetti meets the plaque: a third bounce, a third rest, the rest fall past; a resting piece lets go', async () => {
   const { ledgeDecide, ledgeRest } = await import('./confetti');
   type Piece = import('./confetti').Piece;

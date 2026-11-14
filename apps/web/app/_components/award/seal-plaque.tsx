@@ -175,6 +175,7 @@ export function SealPlaque({
         .catch(() => {});
     };
     let ov: HTMLCanvasElement | null = null;
+    let setLayer: HTMLCanvasElement | null = null;
     let card: HTMLElement | null = null;
 
     // mounted: the seal is held still on the board; only light moves over it
@@ -284,13 +285,14 @@ export function SealPlaque({
           const cy = oy + STORY_MY * k;
           const w = rig.dw * k;
           const h = rig.dh * k;
-          if (rig.exit && rig.exitStart && rig.pose && rig.medal && rig.confetti && rig.gone && rig.top && rig.vb) {
+          if (rig.exit && rig.exitStart && rig.pose && rig.medal && rig.confetti && rig.gone && rig.top && rig.vb && rig.words) {
             // v49 — No. 1: ONE continuous move, no cut. The same curtains and valance carry on, on a full-screen layer
             // over the plaque: the bunched curtains are hauled off the rail ends, the valance is hoisted out with its
             // tassels swinging, the stage dims away, the plaque rises in underneath and the medal (the very pixels
             // that were on the stage) flies into its slot. The confetti is not restarted: the plaque's canvas takes
             // the pieces that are already in the air.
             const exit = rig.exit;
+            const words = rig.words;
             const gone = rig.gone;
             const vtop = rig.top;
             const dpr = Math.min(1.5, window.devicePixelRatio || 1);
@@ -311,25 +313,31 @@ export function SealPlaque({
             const T0 = `translate(0px,${po.fy * k}px) scale(1) rotate(${po.rot}rad)`;
             fly.style.cssText = `left:${cx - fw / 2}px;top:${cy - fh / 2}px;width:${fw}px;height:${fh}px;transform:${T0}`;
             rig.exitStart({ top: oy / k });
+            // v53 — ONE scene (owner, on the phone: "two different scenes"). The stage no longer dissolves into the app
+            // page: its bare set stays on a layer UNDER the plaque for as long as the plaque is open; only the words on
+            // it fade. The curtains and valance stay on the layer ABOVE, hauled away in front of the plaque as it rises.
+            const st = document.createElement('canvas');
+            setLayer = st;
+            st.className = s.sinSet!;
+            st.width = OW;
+            st.height = OH;
+            const sg = st.getContext('2d');
+            let sa = -1;
+            const drawSet = (a: number) => {
+              if (!sg || a === sa) return;
+              sa = a;
+              sg.setTransform(1, 0, 0, 1, 0, 0);
+              sg.fillStyle = '#000';
+              sg.fillRect(0, 0, OW, OH);
+              sg.setTransform(k * dpr, 0, 0, k * dpr, ox * dpr, oy * dpr);
+              words(sg, a);
+            };
             const draw = (te: number) => {
               if (!g) return;
               const a = exitStageAlpha(te);
+              drawSet(a);
               g.setTransform(1, 0, 0, 1, 0, 0);
               g.clearRect(0, 0, OW, OH);
-              if (a > 0) {
-                // the letter-box bars go with the stage
-                g.globalAlpha = a;
-                g.fillStyle = '#000';
-                const L = ox * dpr + 1;
-                const T = oy * dpr + 1;
-                const R = (ox + STORY_W * k) * dpr - 1;
-                const B = (oy + STORY_H * k) * dpr - 1;
-                if (T > 1) g.fillRect(0, 0, OW, T);
-                if (B < OH - 1) g.fillRect(0, B, OW, OH - B);
-                if (L > 1) g.fillRect(0, 0, L, OH);
-                if (R < OW - 1) g.fillRect(R, 0, OW - R, OH);
-                g.globalAlpha = 1;
-              }
               g.setTransform(k * dpr, 0, 0, k * dpr, ox * dpr, oy * dpr);
               g.save();
               g.beginPath();
@@ -340,8 +348,17 @@ export function SealPlaque({
               g.restore();
             };
             draw(0);
-            d.classList.add(s.arriving!);
+            d.classList.add(s.arriving!, s.staged!);
             d.insertBefore(layer, d.firstChild);
+            d.insertBefore(st, d.firstChild);
+            d.addEventListener(
+              'close',
+              () => {
+                st.remove();
+                d.classList.remove(s.staged!);
+              },
+              { once: true },
+            );
             openPlaque();
             d.appendChild(fly);
             confetti({ P: rig.confetti(), k, ox, oy });
@@ -359,6 +376,8 @@ export function SealPlaque({
             // v51: a phone needs a moment to build the plaque — hold the stage still on the layer until it has painted,
             // THEN start the move, so the first heavy frame never eats the transition (owner: "it went straight to the
             // logo placing the plaque")
+            // (the plaque waits unseen while it holds: the stage is behind it now, not over it, so nothing else hides it)
+            if (card) card.style.opacity = '0';
             for (let i = 0; i < 3; i++) {
               await new Promise<void>((r2) => {
                 raf = requestAnimationFrame(() => r2());
@@ -367,6 +386,7 @@ export function SealPlaque({
               draw(0);
             }
             if (card) {
+              card.style.opacity = '';
               card.style.animation = '';
               card.classList.add(s.awRise!);
             }
@@ -387,6 +407,7 @@ export function SealPlaque({
               te += Math.min(0.05, (nw - lt) / 1000);
               lt = nw;
               if (dead || !d.open || te >= exitDur || gone()) {
+                drawSet(0);
                 layer.remove();
                 return;
               }
@@ -462,6 +483,8 @@ export function SealPlaque({
       d.classList.remove(s.arriving!, s.landed!);
       si.classList.remove(s.sinOut!);
       ov?.remove();
+      setLayer?.remove();
+      d.classList.remove(s.staged!);
       card?.classList.remove(s.awRise!);
       urls.forEach((u) => URL.revokeObjectURL(u));
     };

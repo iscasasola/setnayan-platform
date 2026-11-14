@@ -112,6 +112,10 @@ export type StoryRig = {
   exitStart?: (o?: { top?: number }) => void;
   /** Draws the exit at `te` seconds after it started onto `g` (the stage still fades by `a`); `simOnly` only steps the cloth. */
   exit?: (g: CanvasRenderingContext2D, te: number, a: number, simOnly?: boolean) => void;
+  /** v53: the bare set (gradient, glow, rays, sparkles — no medal, no words), built by `prep`. It stays BEHIND the plaque. */
+  set?: HTMLCanvasElement;
+  /** v53: draws the set, with the stage's words on it at alpha `a` (they fade; the set stays). */
+  words?: (g: CanvasRenderingContext2D, a: number) => void;
   /** How long the exit layer may live, seconds. */
   exitDur?: number;
   /** The medal's float pose at `t` (its offset and turn on the stage). */
@@ -227,6 +231,8 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
   let TZC: HTMLCanvasElement | null = null;
   // v52: set while warming the caches, so the warm-up never runs the cloth (it settled the cloth twice: a 0.9 s freeze)
   let WARM = false;
+  // v53: set while drawing the bare set — base() stops before the words
+  let ONLYSET = false;
   const mkCanvas = (w: number, h: number) => {
     const cv = document.createElement('canvas');
     cv.width = w;
@@ -385,6 +391,7 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       x.fillStyle = fl;
       x.fillRect(0, 0, W, H);
     }
+    if (ONLYSET) return;
     fadeText('AWARDED TO', '800 34px system-ui,sans-serif', 1290, 1.6, t, '#fff', 0.75, '4px');
     {
       const a = ease((t - 2.0) / 0.6);
@@ -1446,6 +1453,17 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       x = SNAP.getContext('2d') as Ctx;
       x.setTransform(KS, 0, 0, KS, 0, 0);
       base(DUR - B0);
+      // v53 — the bare set (glow, rays, sparkles; no medal, no words): it stays BEHIND the plaque, so the stage the
+      // curtains open on is the stage the plaque rises onto (owner, on the phone: "two different scenes")
+      const set = document.createElement('canvas');
+      set.width = SNAP.width;
+      set.height = SNAP.height;
+      rig.set = set;
+      x = set.getContext('2d') as Ctx;
+      x.setTransform(KS, 0, 0, KS, 0, 0);
+      ONLYSET = true;
+      base(DUR - B0);
+      ONLYSET = false;
       x = k0;
       rig.hide = h0;
     };
@@ -1455,19 +1473,23 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       rig.prep?.();
       rig.hide = true;
     };
-    rig.exit = (g, te, a, simOnly) => {
+    rig.exit = (g, te, _a, simOnly) => {
       simTo(DUR + te);
       if (simOnly) return;
       const k0 = x;
       x = g as Ctx;
+      // v53: only the curtains and valance — the stage itself is on the set layer under the plaque (rig.words)
+      for (const cu of CL) drawCurtain(cu, 1);
+      drawValance(1);
+      x = k0;
+    };
+    rig.words = (g, a) => {
+      if (rig.set) g.drawImage(rig.set, 0, 0, W, H);
       if (a > 0 && SNAP) {
         g.globalAlpha = a;
         g.drawImage(SNAP, 0, 0, W, H);
         g.globalAlpha = 1;
       }
-      for (const cu of CL) drawCurtain(cu, 1);
-      drawValance(1);
-      x = k0;
     };
     // in the app the cord starts hauling the curtains a beat before the medal leaves: a hanging cloth's hem only
     // follows its top after the pull has travelled down it (about 1.6 s here), so the tops go first and the hems whip

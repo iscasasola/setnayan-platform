@@ -789,11 +789,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       */
       (async (): Promise<{ data: unknown }> => {
         if (!isBooked || !feeUnlocked) return { data: null };
-        const { data: plan } = await admin
+        const { data: plan, error: planError } = await admin
           .from('event_floor_plan')
           .select('cocktail_enabled, cocktail_vendor_edit')
           .eq('event_id', eventId)
           .maybeSingle();
+        // A refused read shows no editor (the same as before this gate) — logged, never read as "switched off".
+        if (planError) logQueryError('vendor customer card: event_floor_plan (cocktail gate)', planError, { eventId }, 'graceful_degrade');
         if (!plan?.cocktail_enabled || !plan?.cocktail_vendor_edit) return { data: null };
         return supabase.rpc('get_vendor_cocktail_editor', { p_event_id: eventId });
       })(),

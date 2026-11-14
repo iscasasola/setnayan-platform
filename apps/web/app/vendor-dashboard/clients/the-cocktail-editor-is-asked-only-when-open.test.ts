@@ -17,7 +17,10 @@ test('the client page asks the cocktail editor only when booked, fee settled and
   const calls = PAGE.match(/rpc\('get_vendor_cocktail_editor'/g) ?? [];
   assert.equal(calls.length, 1, 'a second, ungated ask of the editor');
   const at = PAGE.indexOf("rpc('get_vendor_cocktail_editor'");
-  const before = PAGE.slice(Math.max(0, at - 600), at);
+  // The gate is the async block that ends in the ask — read from its own start, never a fixed window.
+  const start = PAGE.lastIndexOf('(async (): Promise<{ data: unknown }> => {', at);
+  assert.ok(start >= 0 && at - start < 1500, 'the ask is no longer inside its gate block');
+  const before = PAGE.slice(start, at);
   assert.match(before, /if \(!isBooked \|\| !feeUnlocked\) return \{ data: null \};/, 'asked before the shop is booked or the fee is settled');
   assert.match(before, /\.select\('cocktail_enabled, cocktail_vendor_edit'\)/);
   assert.match(before, /if \(!plan\?\.cocktail_enabled \|\| !plan\?\.cocktail_vendor_edit\) return \{ data: null \};/, 'asked while the couple has it closed');

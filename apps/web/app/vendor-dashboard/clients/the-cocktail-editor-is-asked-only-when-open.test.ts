@@ -18,8 +18,7 @@ test('the client page asks the cocktail editor only when booked, fee settled and
   assert.equal(calls.length, 1, 'a second, ungated ask of the editor');
   const at = PAGE.indexOf("rpc('get_vendor_cocktail_editor'");
   const before = PAGE.slice(Math.max(0, at - 600), at);
-  assert.match(before, /isBooked && feeUnlocked\s*\?/, 'asked before the shop is booked or the fee is settled');
+  assert.match(before, /if \(!isBooked \|\| !feeUnlocked\) return \{ data: null \};/, 'asked before the shop is booked or the fee is settled');
   assert.match(before, /\.select\('cocktail_enabled, cocktail_vendor_edit'\)/);
-  assert.match(before, /plan\?\.cocktail_enabled && plan\?\.cocktail_vendor_edit\s*\?/, 'asked while the couple has it closed');
-  assert.match(PAGE.slice(at, at + 200), /: \{ data: null \},\s*\)\s*: Promise\.resolve\(\{ data: null \}\),/);
+  assert.match(before, /if \(!plan\?\.cocktail_enabled \|\| !plan\?\.cocktail_vendor_edit\) return \{ data: null \};/, 'asked while the couple has it closed');
 });

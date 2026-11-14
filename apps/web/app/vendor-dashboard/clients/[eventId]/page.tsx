@@ -787,18 +787,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         This page asked it on EVERY client visit — inquiries included — so each ordinary "no editor here" was logged as a
         refused write. It is asked now only when all three are already true; otherwise the answer is known: no editor.
       */
-      isBooked && feeUnlocked
-        ? admin
-            .from('event_floor_plan')
-            .select('cocktail_enabled, cocktail_vendor_edit')
-            .eq('event_id', eventId)
-            .maybeSingle()
-            .then(({ data: plan }) =>
-              plan?.cocktail_enabled && plan?.cocktail_vendor_edit
-                ? supabase.rpc('get_vendor_cocktail_editor', { p_event_id: eventId })
-                : { data: null },
-            )
-        : Promise.resolve({ data: null }),
+      (async (): Promise<{ data: unknown }> => {
+        if (!isBooked || !feeUnlocked) return { data: null };
+        const { data: plan } = await admin
+          .from('event_floor_plan')
+          .select('cocktail_enabled, cocktail_vendor_edit')
+          .eq('event_id', eventId)
+          .maybeSingle();
+        if (!plan?.cocktail_enabled || !plan?.cocktail_vendor_edit) return { data: null };
+        return supabase.rpc('get_vendor_cocktail_editor', { p_event_id: eventId });
+      })(),
       // This org's booth poster for this event (its own table — one artwork per
       // vendor per event, not per booked service row). Admin-read: the page is
       // already booked/inquiry-gated above, and the row is scoped by

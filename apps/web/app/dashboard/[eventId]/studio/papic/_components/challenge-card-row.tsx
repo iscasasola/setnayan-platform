@@ -1,8 +1,10 @@
+import { displayChallengePrompt } from '@/lib/papic-missions';
 import { PapicStayForm } from './papic-stay-form';
 import { ChallengeAddSheet } from './challenge-add-sheet';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { setCoupleChallengeActiveAction } from '../actions';
 import type { PapicCardSeat } from '@/lib/papic-home-href';
+import { displayChallengePrompt } from '@/lib/papic-missions';
 
 type SlotMission = { mission_id: string; prompt: string; is_active: boolean; capture_kind?: string | null };
 
@@ -45,7 +47,7 @@ export function ChallengeCardRow({
           <input type="hidden" name="mission_id" value={m.mission_id} />
           <input type="hidden" name="active" value={m.is_active ? 'false' : 'true'} />
           {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
-          <button type="submit" role="switch" aria-checked={m.is_active} aria-label={m.prompt} className={SWITCH_BUTTON} disabled={!m.is_active && full} data-papic-challenge-switch="">
+          <button type="submit" role="switch" aria-checked={m.is_active} aria-label={displayChallengePrompt(m.prompt)} className={SWITCH_BUTTON} disabled={!m.is_active && full} data-papic-challenge-switch="">
             <SwitchTrack on={m.is_active} />
           </button>
         </PapicStayForm>

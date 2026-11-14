@@ -29,10 +29,10 @@ export function ShopBadgeRow({ tiles }: { tiles: BadgeTile[] | null }) {
   return (
     <section aria-labelledby="shop-badges-h" data-shop-badges="" data-tour="shop-badges" className="scroll-mt-24" id="badges">
       <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
-        <h2 id="shop-badges-h" className="sn-eye">
+        <h2 id="shop-badges-h" className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           Badges
         </h2>
-        <span className="text-[11.5px] text-ink/70">earned · in progress · not yet · tap one</span>
+        <span className="text-xs text-ink/70">earned · in progress · not yet · tap one</span>
       </div>
       {tiles === null ? (
         <p role="status" className="px-4 text-[13.5px] text-ink/70" data-shop-badges-unread="">
@@ -54,7 +54,7 @@ export function ShopBadgeRow({ tiles }: { tiles: BadgeTile[] | null }) {
                   <ImageBadge shape={t.shape} face={t.face} num={t.num} mini={t.mini} on={t.on} uid={`row-${t.key}`} size={56} />
                 </BadgeRing>
                 <b className="line-clamp-2 text-[12.5px] font-semibold leading-tight text-ink">{t.title}</b>
-                <small className={`text-[11.5px] leading-tight ${t.goal ? 'font-semibold text-[color:var(--m-orange-deep)]' : 'text-ink/70'}`}>{t.sub}</small>
+                <small className={`text-xs leading-tight ${t.goal ? 'font-semibold text-[color:var(--m-orange-deep)]' : 'text-ink/70'}`}>{t.sub}</small>
               </button>
             </li>
           ))}

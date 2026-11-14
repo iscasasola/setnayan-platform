@@ -81,6 +81,8 @@ export type AlbumPhoto = {
 export type WorkAlbum = {
   eventId: string;
   label: string;
+  /** "Wedding · Dec 2025" — kind and month only, never the venue: the caption on each photo (photos by service). */
+  kindMonth: string;
   /** For ordering only (never drawn). */
   sortDate: string;
   photos: AlbumPhoto[];
@@ -131,6 +133,12 @@ export function albumLabel(ev: AlbumEvent | undefined): string {
   return [formatEventTypeLabel(ev.eventType), venue, albumMonth(ev.eventDate)].filter(Boolean).join(' · ');
 }
 
+/** "Wedding · Dec 2025" — the photo caption (2026-11-14 photos by service: kind of event and month, never a name or venue). */
+export function kindMonthLabel(ev: AlbumEvent | undefined): string {
+  if (!ev) return 'A booked event';
+  return [formatEventTypeLabel(ev.eventType), albumMonth(ev.eventDate)].filter(Boolean).join(' · ');
+}
+
 /**
  * THEIR WORK — one album per booked event, newest first. An event with no photo is an album only when the work was
  * delivered ("delivered · no photos" — the honest line, never an empty grid). A Files photo joins its event's album
@@ -166,7 +174,7 @@ export function shopWorkAlbums(args: {
     const ph = (photos.get(eventId) ?? []).sort((a, b) => b.at.localeCompare(a.at));
     if (ph.length === 0 && !ev.delivered) continue;
     const facts = args.events.get(eventId);
-    out.push({ eventId, label: albumLabel(facts), sortDate: facts?.eventDate ?? '', photos: ph, delivered: ev.delivered, bookedOn: ev.bookedOn });
+    out.push({ eventId, label: albumLabel(facts), kindMonth: kindMonthLabel(facts), sortDate: facts?.eventDate ?? '', photos: ph, delivered: ev.delivered, bookedOn: ev.bookedOn });
   }
   return out.sort((a, b) => b.sortDate.localeCompare(a.sortDate) || a.eventId.localeCompare(b.eventId));
 }
@@ -246,3 +254,30 @@ export function toAlbumViews(
     };
   });
 }
+
+export type EventPhoto = { url: string; caption: string; event: string };
+
+/**
+ * Each card's event photos from ONE shop-wide read (`readShopWork`), the same album objects Their work holds. The
+ * event key is the album's place in that read ("e3") — enough to count events, and never the couple's event id.
+ */
+export function eventPhotosOf(
+  work: { albums: WorkAlbum[] } | null,
+  serviceIds: readonly string[],
+): Map<string, EventPhoto[] | null> {
+  const out = new Map<string, EventPhoto[] | null>();
+  if (!work) {
+    for (const id of serviceIds) out.set(id, null);
+    return out;
+  }
+  const keyOf = new Map(work.albums.map((a, i) => [a.eventId, `e${i}`]));
+  for (const id of serviceIds) {
+    const list: EventPhoto[] = [];
+    for (const ca of cardAlbums(work.albums, id)) {
+      for (const p of ca.photos) list.push({ url: p.url, caption: ca.album.kindMonth, event: keyOf.get(ca.album.eventId)! });
+    }
+    out.set(id, list);
+  }
+  return out;
+}
+

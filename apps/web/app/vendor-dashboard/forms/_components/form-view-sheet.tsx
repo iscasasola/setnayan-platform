@@ -69,7 +69,7 @@ export function FormViewSheet({
       rise
       foot={
         <div className="flex items-center gap-2 px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3" data-form-view-foot>
-          <ActionButton tone="neutral" icon={Pencil} label="Edit" onClick={() => onEdit(form)} className="flex-1" data-testid="form-view-edit" />
+          <ActionButton tone="neutral" icon={Pencil} label="Edit" onClick={() => onEdit(form)} className="flex-1 !h-11" data-testid="form-view-edit" />
           {sent ? (
             <p className="flex-1 text-center text-sm font-medium text-ink/70" data-form-view-sent>
               Sent · {formatDay(sent.sentAt)}
@@ -82,7 +82,7 @@ export function FormViewSheet({
               label="Send to chat"
               onClick={() => call('send')}
               waiting={pending}
-              className="flex-1"
+              className="flex-1 !h-11"
               data-testid="form-view-send"
             />
           ) : null}
@@ -137,7 +137,7 @@ export function FormViewSheet({
             label="Save to my library · reuse with other clients"
             onClick={() => call('keep')}
             waiting={pending}
-            className="w-full"
+            className="w-full !h-11"
             data-testid="form-view-keep"
           />
         ) : null}

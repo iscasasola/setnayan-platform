@@ -16,6 +16,8 @@ import { HomeShopSegment } from './_components/home-shop-segment';
 import { PeopleSegment } from '../(account)/people/_components/people-segment';
 import { MemoriesSegment } from '../(account)/library/_components/memories-segment';
 
+import { ActionButton } from '@/components/action-button';
+import { SwitchTrack } from '@/app/_components/switch-track';
 import Link from 'next/link';
 import { daysToGo } from '@/lib/countdown-target';
 import { redirect } from 'next/navigation';
@@ -1439,7 +1441,7 @@ async function EventsBoard({
           Now happening
         </SectionLabel>
         {happeningNow.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
+          <p className="py-3 text-sm text-ink/75">
             On the day itself, your event moves up here — and moves on by
             itself the morning after.
           </p>
@@ -1497,13 +1499,14 @@ async function EventsBoard({
             title="Start an event"
             body="Guests, suppliers, the day itself — everything you plan gathers here, soonest first."
             action={
-              <Link
+              <ActionButton
                 href="/dashboard/create-event"
-                className="sn-press inline-block rounded-full bg-ink px-[18px] py-[9px] text-[13px] font-semibold text-white transition-colors hover:bg-black"
-                data-tour="create-event"
-              >
-                Create an event
-              </Link>
+                tone="brand"
+                main
+                icon={<Plus aria-hidden />}
+                label="Create an event"
+                tour="create-event"
+              />
             }
           />
           {boardReadAnswered ? <PlanningExample /> : null}
@@ -1552,7 +1555,7 @@ async function EventsBoard({
             archived row. */}
         {showPutAway && putAway.length > 0 ? (
           <div className="mt-4 border-t border-dashed border-ink/12 pt-4">
-            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--sn-ink-400)]">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[color:var(--sn-ink-500)]">
               Put away
             </p>
             <CollectionGrid>
@@ -1652,7 +1655,7 @@ async function EventsBoard({
           {storiesMeasured ? 'Untold' : 'Ended'}
         </SectionLabel>
         {unwritten.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
+          <p className="py-3 text-sm text-ink/75">
             {storiesMeasured
               ? 'Events move here on their own once the day has passed — this is where you pick the ones to tell. Nothing you keep is ever taken away.'
               : 'Events move here on their own once the day has passed. Nothing you keep is ever taken away.'}
@@ -1727,7 +1730,7 @@ async function EventsBoard({
           Told
         </SectionLabel>
         {written.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
+          <p className="py-3 text-sm text-ink/75">
             {storiesMeasured
               ? 'The events you write up land here, as chapters of your story.'
               : 'This is where the events you have written up live.'}
@@ -1767,16 +1770,16 @@ async function EventsBoard({
             renders, so the guard asserting the board has that door is
             currently satisfied by dead code. Flagged, not fixed here. */}
         {written.length > 0 ? (
-          <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
+          <p className="mt-3 text-[13px] text-[color:var(--sn-ink-500)]">
             These days are told —{' '}
-            <Link href="/dashboard?seg=memories" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
+            <Link href="/dashboard?seg=memories" className="inline-flex min-h-11 items-center font-semibold text-sn-accent underline decoration-sn-accent/30 underline-offset-2 hover:text-ink">
               read them in Memories
             </Link>
             .
           </p>
         ) : (
-          <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
-            <Link href="/dashboard?seg=memories" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
+          <p className="mt-3 text-[13px] text-[color:var(--sn-ink-500)]">
+            <Link href="/dashboard?seg=memories" className="inline-flex min-h-11 items-center font-semibold text-sn-accent underline decoration-sn-accent/30 underline-offset-2 hover:text-ink">
               Open Memories
             </Link>
           </p>
@@ -1836,7 +1839,7 @@ function ShelfInfo({ children }: { children: string }) {
           🎯 The circle is the house ⓘ, class for class (`<InfoTip>`'s trigger — owner 2026-10-25, *"the (i) is not
           consistent across the app"*); `group-open:` stands in for InfoTip's `aria-expanded:`. A <details>, not
           InfoTip, so it still opens with JavaScript off. `there-is-one-info-dot.test.ts`. */}
-      <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] max-sm:fixed max-sm:left-[max(1rem,var(--sn-safe-l))] max-sm:right-[max(1rem,var(--sn-safe-r))] max-sm:top-auto max-sm:mt-2 max-sm:w-auto whitespace-normal rounded-xl border border-ink/12 bg-white p-3 text-[12.5px] font-normal leading-relaxed text-ink/75 shadow-lg">
+      <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] max-sm:fixed max-sm:left-[max(1rem,var(--sn-safe-l))] max-sm:right-[max(1rem,var(--sn-safe-r))] max-sm:top-auto max-sm:mt-2 max-sm:w-auto whitespace-normal rounded-xl border border-ink/12 bg-white p-3 text-[13px] font-normal leading-relaxed text-ink/75 shadow-sn-float">
         {children}
       </p>
     </details>
@@ -1856,28 +1859,16 @@ function ShelfInfo({ children }: { children: string }) {
  * that persists; looking at it again is not.
  */
 function PutAwaySwitch({ on, count }: { on: boolean; count: number }) {
+  /* The house switch (`SwitchTrack`, sheet rule 4) beside its words — no bordered pill of its own. */
   return (
     <Link
       href={on ? '/dashboard#events' : '/dashboard?putaway=1#events'}
       aria-pressed={on}
-      className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[11.5px] font-semibold transition ${
-        on
-          ? 'border-[color:var(--sn-mulberry-600)] text-ink'
-          : 'border-ink/15 text-[color:var(--sn-ink-500)] hover:border-ink/30 hover:text-ink'
+      className={`inline-flex min-h-11 shrink-0 items-center gap-2 text-[13px] font-semibold transition-colors duration-sn-control ${
+        on ? 'text-ink' : 'text-[color:var(--sn-ink-500)] hover:text-ink'
       }`}
     >
-      <span
-        aria-hidden
-        className={`relative h-[15px] w-[26px] rounded-full transition ${
-          on ? 'bg-[color:var(--sn-mulberry-600)]' : 'bg-ink/15'
-        }`}
-      >
-        <span
-          className={`absolute top-[2px] h-[11px] w-[11px] rounded-full bg-white shadow transition-all ${
-            on ? 'left-[13px]' : 'left-[2px]'
-          }`}
-        />
-      </span>
+      <SwitchTrack on={on} />
       {on ? 'Hide the ones I put away' : `Show the ${formatCount(count)} I put away`}
     </Link>
   );
@@ -1896,15 +1887,15 @@ function PutAwaySwitch({ on, count }: { on: boolean; count: number }) {
 function ClashNotice({ clashes }: { clashes: DateClash[] }) {
   if (clashes.length === 0) return null;
   return (
-    <ul className="mb-3 space-y-1.5">
+    <ul className="mb-3 divide-y divide-ink/10">
       {clashes.map((c) => (
         <li
           key={c.dayISO}
-          className="flex items-start gap-2 rounded-xl border border-[color:var(--sn-gold-700)]/25 bg-[color:var(--sn-gold-700)]/[0.06] px-3 py-2 text-[12.5px] leading-relaxed text-ink/80"
+          className="flex min-h-11 items-start gap-2 border-l-2 border-gold py-2 pl-3 text-sm leading-relaxed text-ink/80"
         >
           <CalendarClock
             aria-hidden
-            className="mt-[2px] h-3.5 w-3.5 shrink-0 text-[color:var(--sn-gold-700)]"
+            className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--sn-gold-700)]"
             strokeWidth={1.9}
           />
           <span>
@@ -1951,7 +1942,7 @@ function SectionLabel({
         </h2>
         {info ? <ShelfInfo>{info}</ShelfInfo> : null}
         {sub ? (
-          <span className="hidden shrink-0 text-xs text-[color:var(--sn-ink-400)] sm:inline">
+          <span className="hidden shrink-0 text-[13px] text-[color:var(--sn-ink-500)] sm:inline">
             {sub}
           </span>
         ) : null}
@@ -2549,7 +2540,7 @@ function PlanningHeaderActions({
   return (
     <span className="flex shrink-0 items-center gap-2.5">
       {count > 0 ? (
-        <span className="text-[12px] tracking-[0.04em] text-[color:var(--sn-ink-400)]">
+        <span className="text-[13px] tabular-nums text-[color:var(--sn-ink-500)]">
           {count === 1 ? '1 event' : `${formatCount(count)} events`}
         </span>
       ) : null}
@@ -2569,9 +2560,11 @@ function NewEventButton() {
     <Link
       href="/dashboard/create-event"
       aria-label="New event"
-      className="sn-press inline-grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full bg-ink text-white transition-colors hover:bg-black"
+      /* `actionButtonClass('brand', { iconOnly: true })` written out — this is a SERVER file and the helper lives in a
+         client module (the build-locked.tsx precedent). */
+      className="ab ab-brand icon-only shrink-0"
     >
-      <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+      <Plus aria-hidden strokeWidth={2.25} />
     </Link>
   );
 }

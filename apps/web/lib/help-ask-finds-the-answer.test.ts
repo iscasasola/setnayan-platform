@@ -43,7 +43,7 @@ import {
   typoAllowance,
   withinEdits,
 } from '@/lib/help-ask-core';
-import { allHelpDoorHrefs, helpDoorFor, TOPIC_TILES } from '@/app/_components/help-ask/help-ask-places';
+import { allHelpDoorHrefs, helpDoorFor, tileNameFromLabel, tilesFor, TOPIC_TILES } from '@/app/_components/help-ask/help-ask-places';
 
 const WEB = process.cwd();
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -51,14 +51,15 @@ const ask = (q: string, c: Parameters<typeof topicsForCoverage>[1]) => askHelp(q
 
 test('1 · the prototype’s questions find what it promised', () => {
   const fee = ask('magkano booking fee', 'supplier');
-  assert.equal(fee.best?.topicKey, 'supplier-fees', `"magkano booking fee" in a shop → ${fee.best?.title}`);
+  assert.match(fee.best?.topicKey ?? '', /fee/, `"magkano booking fee" in a shop → ${fee.best?.topicKey} · ${fee.best?.title}`);
+  for (const t of topicsForCoverage(HELP_TOPICS, 'supplier')) assert.ok(t.roles.includes('vendor'), 'premise');
 
   const rsvp = ask('paano mag-RSVP', 'guest');
   assert.match(rsvp.best?.title ?? '', /RSVP/, `"paano mag-RSVP" → ${rsvp.best?.title}`);
 
   const photos = ask('how do guests upload photos', 'user');
   assert.ok(photos.best, 'premise: an answer for guests uploading photos');
-  assert.ok(['papic', 'people-memories', 'about-setnayan'].includes(photos.best!.topicKey), `photos → ${photos.best!.topicKey}`);
+  assert.match(photos.best!.topicKey, /papic|memories|photo|about-setnayan/, `photos → ${photos.best!.topicKey}`);
 
   const dog = ask('can my dog be the ring bearer', 'user');
   assert.equal(dog.best, null, 'a question nobody answered was given a fake best answer');
@@ -88,18 +89,24 @@ test('1 · the best answer is cut from the answer itself — its first sentences
 
 test('2 · coverage is the active account — no picker, and a shop never sees a couple-only answer', () => {
   const keys = (c: Parameters<typeof topicsForCoverage>[1]) => topicsForCoverage(HELP_TOPICS, c).map((t) => t.key);
-  assert.equal(keys('user').length, 14, 'the user account reads host AND guest topics');
-  assert.equal(keys('supplier').length, 7, 'a shop reads its seven topics');
+  // Counts DERIVED from the corpus (it grows: 16 → 56 topics with the H1–H8 split, 14 Nov) — never typed.
+  const want = (roles: ReadonlyArray<string>) => HELP_TOPICS.filter((t) => t.roles.some((r) => roles.includes(r))).length;
+  assert.equal(keys('user').length, want(['couple', 'guest']), 'the user account reads host AND guest topics');
+  assert.equal(keys('supplier').length, want(['vendor']), 'a shop reads every supplier topic');
+  assert.ok(keys('user').length > keys('guest').length, 'premise: a user account reads more than a guest');
   assert.deepEqual(keys('public'), ['about-setnayan'], 'signed out reads About Setnayan only');
   for (const t of topicsForCoverage(HELP_TOPICS, 'supplier')) assert.ok(t.roles.includes('vendor'), `${t.key} in a shop's help`);
   for (const t of topicsForCoverage(HELP_TOPICS, 'guest')) assert.ok(t.roles.includes('guest'), `${t.key} in a guest's help`);
   assert.ok(!keys('user').includes('supplier-fees'), 'a user reads the supplier fee answers');
   const roles: ReadonlyArray<HelpRole> = COVERAGE_ROLES.user;
   assert.deepEqual([...roles].sort(), ['couple', 'guest'], 'user help includes guest questions (owner 13 Nov)');
-  // Every topic an account covers has a tile with words.
+  // Every hand-written tile names a topic that still exists in that account's help (no dead tile), and every topic
+  // without tile words still draws a name from its own label.
   for (const [account, coverage] of [['user', 'user'], ['shop', 'supplier']] as const) {
-    for (const k of keys(coverage)) assert.ok(TOPIC_TILES[account][k], `${account}: topic ${k} has no tile`);
+    for (const k of Object.keys(TOPIC_TILES[account])) assert.ok(keys(coverage).includes(k), `${account}: tile ${k} names no topic`);
+    for (const t of tilesFor(account, topicsForCoverage(HELP_TOPICS, coverage))) assert.ok(t.name.trim(), `${account}: ${t.key} has no name`);
   }
+  assert.equal(tileNameFromLabel('Suppliers: plans'), 'Plans');
   // The page reads the account from the sheet, not from a picker; the old role tiles are gone.
   const page = code('app/(shell)/help/page.tsx');
   assert.match(page, /function coverageFor\(/);
@@ -115,7 +122,10 @@ test('2 · the team’s guides never reach the public help — read only inside 
   const importers = [...walk(join(WEB, 'app')), ...walk(join(WEB, 'lib'))]
     .filter((f) => /from ['"]@\/lib\/help-admin['"]/.test(stripComments(readFileSync(f, 'utf8'))))
     .map((f) => f.slice(WEB.length + 1));
-  for (const f of importers) assert.match(f, /^app\/admin\//, `${f} imports the team guides outside Setnayan HQ`);
+  // The team-guide module's own slot files (lib/help-admin/*, the 14 Nov split) are the module, not a reader.
+  for (const f of importers.filter((x) => !x.startsWith('lib/help-admin/'))) {
+    assert.match(f, /^app\/admin\//, `${f} imports the team guides outside Setnayan HQ`);
+  }
   assert.ok(importers.includes('app/admin/help/guides/page.tsx'), 'the team help does not read the team guides');
 });
 

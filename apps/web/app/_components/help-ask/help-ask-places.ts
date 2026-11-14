@@ -108,11 +108,20 @@ export function helpDoorFor(account: TileAccount, topicKey: string, ctx: { event
   return ACCOUNT_DOORS[topicKey] ?? null;
 }
 
+/**
+ * A topic with no hand-written tile words (the H1–H8 slot topics, 14 Nov) shows its own label, without the audience
+ * prefix the active account already implies ("Suppliers: plans" in a shop's help reads "Plans") — no new writing.
+ */
+export function tileNameFromLabel(label: string): string {
+  const bare = label.replace(/^(Suppliers|Guest|Guests):\s*/i, '');
+  return bare.charAt(0).toUpperCase() + bare.slice(1);
+}
+
 /** The tiles in the prototype's order (Getting started first, About Setnayan last); a topic with no tile words keeps its corpus place at the end. */
 export function tilesFor(account: TileAccount, topics: ReadonlyArray<{ key: string; label: string }>): Array<{ key: string } & TopicTile> {
   const order = Object.keys(TOPIC_TILES[account]);
   const rank = (k: string) => (order.includes(k) ? order.indexOf(k) : order.length);
   return [...topics]
     .sort((a, b) => rank(a.key) - rank(b.key))
-    .map((t) => ({ key: t.key, ...(TOPIC_TILES[account][t.key] ?? { name: t.label, line: '' }) }));
+    .map((t) => ({ key: t.key, ...(TOPIC_TILES[account][t.key] ?? { name: tileNameFromLabel(t.label), line: '' }) }));
 }

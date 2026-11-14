@@ -1,6 +1,11 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { Check, Pencil, Plus, Unlink } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { PostedPick } from '@/app/dashboard/[eventId]/_components/posted-pick';
 import {
   linkCelebration,
   renameCluster,
@@ -51,12 +56,14 @@ export function ClusterTools({
   const anchored = members.find((m) => m.is_anchor) ?? null;
 
   return (
-    <section className="sn-tile space-y-6">
-      <h2 className="sn-sec">Manage this group</h2>
+    <section className="space-y-6">
+      <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]">
+        Manage this group
+      </h2>
 
       {error ? (
         <p
-          className="rounded-xl border border-ink/10 bg-white/40 px-3 py-2 text-sm text-red-700"
+          className="text-sm text-[rgb(var(--color-danger))]"
           role="alert"
         >
           {error}
@@ -65,13 +72,13 @@ export function ClusterTools({
 
       {/* ── add ──────────────────────────────────────────────────────────── */}
       <div>
-        <h3 className="text-sm font-medium text-ink">Add an event</h3>
+        <h3 className="text-sm font-semibold text-ink">Add an event</h3>
         {!linkableMeasured ? (
-          <p className="mt-1 text-sm text-ink-soft" role="status">
-            We could not load your other events just now. Refresh to try again.
+          <p className="mt-1 text-sm text-[rgb(var(--color-warn))]" role="status">
+            We could not load your other events just now — not the same as none. Refresh to try again.
           </p>
         ) : linkable.length === 0 ? (
-          <p className="mt-1 text-sm text-ink-soft">
+          <p className="mt-1 text-sm text-ink/75">
             You have no other events to add. An event can be in one group at a time.
           </p>
         ) : (
@@ -80,20 +87,13 @@ export function ClusterTools({
             action={(formData) => run(() => linkCelebration(formData))}
           >
             <input type="hidden" name="event_cluster_id" value={clusterId} />
-            <label className="sr-only" htmlFor="link-event">
-              Choose an event
-            </label>
-            <select id="link-event" name="event_id" required className="input-field flex-1">
-              <option value="">Choose an event…</option>
-              {linkable.map((e) => (
-                <option key={e.event_id} value={e.event_id}>
-                  {e.display_name}
-                </option>
-              ))}
-            </select>
-            <button type="submit" disabled={pending} className="button-primary disabled:opacity-50">
-              Add
-            </button>
+            <PostedPick
+              name="event_id"
+              label="Choose an event…"
+              options={linkable.map((e) => ({ key: e.event_id, label: e.display_name }))}
+              className="flex-1"
+            />
+            <ActionButton type="submit" tone="brand" icon={Plus} label="Add" disabled={pending} waiting={pending} />
           </form>
         )}
       </div>
@@ -101,45 +101,32 @@ export function ClusterTools({
       {/* ── anchor ───────────────────────────────────────────────────────── */}
       {membersMeasured && members.length > 0 ? (
         <div>
-          <h3 className="text-sm font-medium text-ink">The main event</h3>
-          <p className="sn-sec-sub">
+          <InfoTip label="The main event" labelAs="h3" labelClassName="text-sm font-semibold text-ink" align="start">
             The one the others are shown beside — usually the wedding. A group does not need one.
-          </p>
+          </InfoTip>
           <form
             className="mt-2 flex flex-col gap-2 sm:flex-row"
             action={(formData) => run(() => setClusterAnchor(formData))}
           >
             <input type="hidden" name="event_cluster_id" value={clusterId} />
-            <label className="sr-only" htmlFor="anchor-event">
-              Choose the main event
-            </label>
-            <select
-              id="anchor-event"
+            <PostedPick
               name="event_id"
-              defaultValue={anchored?.event_id ?? ''}
-              className="input-field flex-1"
-            >
-              <option value="">No main event</option>
-              {members.map((m) => (
-                <option key={m.event_id} value={m.event_id}>
-                  {m.display_name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              disabled={pending}
-              className="button-secondary disabled:opacity-50"
-            >
-              Save
-            </button>
+              label="Choose the main event"
+              initial={anchored?.event_id ?? ''}
+              options={[
+                { key: '', label: 'No main event' },
+                ...members.map((m) => ({ key: m.event_id, label: m.display_name })),
+              ]}
+              className="flex-1"
+            />
+            <ActionButton type="submit" tone="neutral" icon={Check} label="Save" disabled={pending} waiting={pending} />
           </form>
         </div>
       ) : null}
 
       {/* ── rename ───────────────────────────────────────────────────────── */}
       <div>
-        <h3 className="text-sm font-medium text-ink">Rename this group</h3>
+        <h3 className="text-sm font-semibold text-ink">Rename this group</h3>
         <form
           className="mt-2 flex flex-col gap-2 sm:flex-row"
           action={(formData) => run(() => renameCluster(formData))}
@@ -157,44 +144,50 @@ export function ClusterTools({
             maxLength={80}
             className="input-field flex-1"
           />
-          <button type="submit" disabled={pending} className="button-secondary disabled:opacity-50">
-            Rename
-          </button>
+          <ActionButton type="submit" tone="neutral" icon={Pencil} label="Rename" disabled={pending} waiting={pending} />
         </form>
       </div>
 
       {/* ── remove ───────────────────────────────────────────────────────── */}
       {membersMeasured && members.length > 0 ? (
         <div>
-          <h3 className="text-sm font-medium text-ink">Remove from this group</h3>
+          <InfoTip
+            label="Remove from this group"
+            labelAs="h3"
+            labelClassName="text-sm font-semibold text-ink"
+            align="start"
+          >
+            This only ungroups it. The event, its guests, its shots and its money are not touched.
+          </InfoTip>
           {/*
             🔑 SAY WHAT "REMOVE" DOES, BECAUSE THE WORD IS FRIGHTENING HERE.
             It deletes a label, not a wedding. Without this sentence a person
             reasonably reads the button as destroying the celebration.
           */}
-          <p className="sn-sec-sub">
-            This only ungroups it. The event, its guests, its shots and its money are not
-            touched.
-          </p>
-          <ul className="mt-2 space-y-2">
+          <ul className="mt-2 divide-y divide-ink/10">
             {members.map((m) => (
-              <li key={m.event_id} className="flex items-center justify-between gap-3">
-                <span className="min-w-0 truncate text-sm text-ink">{m.display_name}</span>
-                <form
-                  action={(formData) => run(() => unlinkCelebration(formData))}
-                  className="shrink-0"
-                >
-                  <input type="hidden" name="event_cluster_id" value={clusterId} />
-                  <input type="hidden" name="event_id" value={m.event_id} />
-                  <button
-                    type="submit"
-                    disabled={pending}
-                    className="button-secondary text-xs disabled:opacity-50"
-                  >
-                    Remove
-                  </button>
-                </form>
-              </li>
+              <SwipeToDelete
+                key={m.event_id}
+                as="li"
+                word="Remove"
+                icon={Unlink}
+                label={`Remove ${m.display_name} from this group`}
+                busy={pending}
+                disabled={pending}
+                radiusClass="rounded-none"
+                surfaceClass="bg-cream"
+                onDelete={(close) => {
+                  close();
+                  const formData = new FormData();
+                  formData.set('event_cluster_id', clusterId);
+                  formData.set('event_id', m.event_id);
+                  run(() => unlinkCelebration(formData));
+                }}
+              >
+                <span className="flex min-h-14 items-center py-1 text-sm text-ink">
+                  <span className="min-w-0 truncate">{m.display_name}</span>
+                </span>
+              </SwipeToDelete>
             ))}
           </ul>
         </div>

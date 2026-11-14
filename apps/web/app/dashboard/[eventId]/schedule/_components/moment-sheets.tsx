@@ -273,7 +273,7 @@ export function NewMomentSheet({
         <h3 id={headingId} className="sr-only">
           New moment in {c.label}
         </h3>
-        <p className="text-[13px] text-ink/60">{c.label}</p>
+        <p className="text-[13px] text-ink/70">{c.label}</p>
         <FormRows width="short">
           <TypedRow
             name="What"
@@ -587,7 +587,7 @@ export function MomentSheet({
              (its when / where / what is the supplier's part, so the trigger refuses any of it). The one door: Send them
              a request. Guarded by "a locked moment renders no editable inputs" (a-locked-part-refuses-the-host.test.ts). */
           <>
-            <p className="text-[13px] text-ink/60">{c.label}</p>
+            <p className="text-[13px] text-ink/70">{c.label}</p>
             <p role="note" data-moment-locked="" className="text-[13px] text-warn-900">
               {lockedHead(lockedShop)}
             </p>
@@ -636,7 +636,7 @@ export function MomentSheet({
           </>
         ) : stage === 'details' ? (
           <>
-            <p className="text-[13px] text-ink/60">{c.label}</p>
+            <p className="text-[13px] text-ink/70">{c.label}</p>
             <FormRows width="wide">
               <TypedRow
                 name="What"
@@ -784,7 +784,7 @@ export function MomentSheet({
             />
 
             <section data-moment-tasks={mine.length} aria-label="Tasks" className="mt-2 border-t border-ink/10 pt-3">
-              <h4 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Tasks at this moment</h4>
+              <h4 className="text-xs uppercase tracking-[0.06em] text-ink/70">Tasks at this moment</h4>
               {tasks === null ? (
                 <p role="alert" data-moment-tasks-failed="" className="mt-2 text-[13px] font-semibold text-danger-700">
                   The tasks couldn’t be read just now. Nothing is lost — close and open the moment again.
@@ -792,7 +792,7 @@ export function MomentSheet({
               ) : (
                 <>
                   {mine.length === 0 && drafts.length === 0 ? (
-                    <p className="mt-2 text-[13px] text-ink/60">Who does what at this moment — one line per supplier, crew or person.</p>
+                    <p className="mt-2 text-[13px] text-ink/70">Who does what at this moment — one line per supplier, crew or person.</p>
                   ) : null}
                   {mine.map((t) => (
                     <TaskEditor
@@ -910,20 +910,20 @@ function LockedMomentFacts({
           </div>
         ))}
       </dl>
-      <h4 className="mt-3 border-t border-ink/10 pt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Tasks at this moment</h4>
+      <h4 className="mt-3 border-t border-ink/10 pt-3 text-xs uppercase tracking-[0.06em] text-ink/70">Tasks at this moment</h4>
       {tasks === null ? (
         <p role="alert" className="mt-2 text-[13px] font-semibold text-danger-700">
           The tasks couldn’t be read just now. Nothing is lost — close and open the moment again.
         </p>
       ) : tasks.length === 0 ? (
-        <p className="mt-2 text-[13px] text-ink/60">No tasks at this moment.</p>
+        <p className="mt-2 text-[13px] text-ink/70">No tasks at this moment.</p>
       ) : (
         <ul className="divide-y divide-ink/10">
           {tasks.map((t) => (
             <li key={t.id} className="py-2 text-[14px]">
               <span className="block font-semibold">{t.who}</span>
               <span className="block">{t.what}</span>
-              {t.place ? <span className="block text-[13px] text-ink/60">{t.place}</span> : null}
+              {t.place ? <span className="block text-[13px] text-ink/70">{t.place}</span> : null}
             </li>
           ))}
         </ul>
@@ -952,7 +952,7 @@ function SearchHead({
   return (
     <li role="none" className="sticky top-0 z-[2] -mx-1.5 -mt-1.5 mb-1 bg-cream/95 p-1.5 dark:bg-raised/95">
       <div className="relative">
-        <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/45" strokeWidth={2} />
+        <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/70" strokeWidth={2} />
         <input
           className="min-h-11 w-full rounded-xl border border-ink/15 bg-cream pl-9 pr-3 text-[14px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none dark:bg-raised"
           type="search"
@@ -1017,7 +1017,7 @@ function ForRow({
       options={options}
       head={
         <SearchHead query={query} onQuery={setQuery} placeholder="Find a supplier or crew, or type a crew name" label="Find a supplier or crew" data="data-moment-for-search">
-          {query.trim() && options.length === 0 ? <p className="px-3 pt-2 text-[12px] text-ink/55">No supplier matches “{query.trim()}”.</p> : null}
+          {query.trim() && options.length === 0 ? <p className="px-3 pt-2 text-xs text-ink/70">No supplier matches “{query.trim()}”.</p> : null}
         </SearchHead>
       }
       doneNote="Tick a supplier, or one of their crew."
@@ -1139,8 +1139,8 @@ function TaskEditor({
   const whoText = whoF ? taskWhoWords(rowOf('', '', whoF, '', null, null, 0), names) : null;
   const head = (
     <SearchHead query={query} onQuery={setQuery} placeholder="Find a supplier, crew, role, group or person" label="Find who does it" data="data-task-who-search">
-      {who.people === null ? <p className="px-3 pt-2 text-[12px] text-danger-700">Your guests and groups couldn’t be read just now — suppliers and names in words still work.</p> : null}
-      {q && options.length === 1 ? <p className="px-3 pt-2 text-[12px] text-ink/55">Nobody matches “{query.trim()}” — add them in words below.</p> : null}
+      {who.people === null ? <p className="px-3 pt-2 text-xs text-danger-700">Your guests and groups couldn’t be read just now — suppliers and names in words still work.</p> : null}
+      {q && options.length === 1 ? <p className="px-3 pt-2 text-xs text-ink/70">Nobody matches “{query.trim()}” — add them in words below.</p> : null}
     </SearchHead>
   );
   const placeShown = taskPlace({ place }, { ...m, block_id: m.block_id }, c);
@@ -1245,7 +1245,7 @@ function TaskEditor({
         ) : null}
       </FormRows>
       {!task && (!whoF || !what.trim()) ? (
-        <p data-task-draft="" className="mt-1 text-[12px] text-ink/55">
+        <p data-task-draft="" className="mt-1 text-xs text-ink/70">
           Pick who and say what they do — it saves then.
         </p>
       ) : null}

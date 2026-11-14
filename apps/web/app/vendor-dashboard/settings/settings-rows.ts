@@ -41,7 +41,8 @@ export const SUPPLIER_HELP_ROWS: readonly { key: string; title: string; line: st
     key: 'booking',
     title: 'How booking works',
     line: 'They ask · you agree · the fee · they are told',
-    href: '/help?for=shop',
+    // H1 (2026-11-14): opens the answer itself (lib/help/supplier-1.ts slug 'how-booking-works'), not the /help index.
+    href: '/help/how-booking-works',
   },
   {
     key: 'paid',
@@ -59,6 +60,6 @@ export const SUPPLIER_HELP_ROWS: readonly { key: string; title: string; line: st
     key: 'talk',
     title: 'Talk to Setnayan',
     line: 'Send us a message — we answer within a business day',
-    href: '/help?for=shop#contact',
+    href: '/help#contact',
   },
 ];

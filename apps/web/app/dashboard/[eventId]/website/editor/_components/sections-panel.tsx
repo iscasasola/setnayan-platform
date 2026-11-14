@@ -233,7 +233,7 @@ export function SectionsPanel({
   if (rows.length === 0) {
     return (
       <div className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
-        <p className="text-[0.72rem] text-ink/55">
+        <p className="text-[12px] text-ink/75">
           Your sections will appear here once your event finishes setting up.
         </p>
       </div>
@@ -251,7 +251,7 @@ export function SectionsPanel({
   return (
     <div className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
       {only ? null : (
-        <p className="mb-2 text-[0.7rem] text-ink/50">
+        <p className="mb-2 text-[12px] text-ink/75">
           Drag-free ordering — move a section up or down, hide it, or let{' '}
           <span className="font-semibold text-ink/70">Auto</span> show it as soon as it has
           content.
@@ -273,7 +273,7 @@ export function SectionsPanel({
             <li key={row.widget_id} className="py-1.5">
               {makerPart ? null : (
               <div className="flex items-center gap-2">
-                <span className="min-w-0 flex-1 text-[0.76rem] font-semibold text-ink">
+                <span className="min-w-0 flex-1 text-[12px] font-semibold text-ink">
                   {catalog?.label ?? row.widget_type}
                 </span>
 
@@ -294,10 +294,10 @@ export function SectionsPanel({
                     <button
                       type="submit"
                       aria-label={row.is_visible ? `Hide ${catalog?.label}` : `Show ${catalog?.label}`}
-                      className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[0.65rem] font-medium ${
+                      className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[12px] font-medium ${
                         row.is_visible
                           ? 'border-success-300/70 bg-success-50 text-success-800'
-                          : 'border-ink/15 bg-cream text-ink/55'
+                          : 'border-ink/15 bg-cream text-ink/75'
                       }`}
                     >
                       {row.is_visible ? (
@@ -320,7 +320,7 @@ export function SectionsPanel({
                     type="submit"
                     disabled={i === 0}
                     aria-label={`Move ${catalog?.label} up`}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-ink/15 bg-cream text-ink/60 disabled:opacity-35"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-ink/15 bg-cream text-ink/75 disabled:opacity-35"
                   >
                     <ArrowUp aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                   </button>
@@ -334,7 +334,7 @@ export function SectionsPanel({
                     type="submit"
                     disabled={i === rows.length - 1}
                     aria-label={`Move ${catalog?.label} down`}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-ink/15 bg-cream text-ink/60 disabled:opacity-35"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-ink/15 bg-cream text-ink/75 disabled:opacity-35"
                   >
                     <ArrowDown aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                   </button>
@@ -375,12 +375,12 @@ export function SectionsPanel({
                                 ? 'Always show it.'
                                 : 'Keep it off your Event Hub.'
                         }
-                        className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[0.62rem] font-semibold capitalize ${
+                        className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-semibold capitalize ${
                           active
                             ? 'border-ink bg-ink text-cream'
                             : blocked
-                              ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/30'
-                              : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30'
+                              ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/75'
+                              : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
                         }`}
                       >
                         {blocked ? (
@@ -424,7 +424,7 @@ export function SectionsPanel({
                     <input type="hidden" name="return_to" value={back} />
                     <button
                       type="submit"
-                      className="inline-flex h-6 items-center rounded-full border border-ink/15 bg-cream px-2 text-[0.62rem] font-semibold text-ink/60 hover:border-ink/30"
+                      className="ab ab-neutral"
                     >
                       Reset how it moves
                     </button>
@@ -436,7 +436,7 @@ export function SectionsPanel({
                   const preset = canvas.preset ?? null;
                   return (
                     <div data-maker-part="animate" className="mt-2 border-t border-dashed border-ink/10 pt-2">
-                      <p className="mb-1 inline-flex items-center gap-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+                      <p className="mb-1 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                         How it moves
                         {proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null}
                       </p>
@@ -451,10 +451,10 @@ export function SectionsPanel({
                             <button
                               type="submit"
                               aria-pressed={preset === p}
-                              className={`inline-flex h-6 items-center rounded-full border px-2 text-[0.62rem] font-semibold ${
+                              className={`inline-flex h-6 items-center rounded-full border px-2 text-[12px] font-semibold ${
                                 preset === p
                                   ? 'border-ink bg-ink text-cream'
-                                  : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30'
+                                  : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
                               }`}
                             >
                               {HUB_MOTION_PRESET_LABEL[p]}
@@ -483,7 +483,7 @@ export function SectionsPanel({
                         const speed = canvas.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED;
                         if (i === rows.length - 1) {
                           return (
-                            <p className="mt-1.5 text-[0.56rem] text-ink/45">
+                            <p className="mt-1.5 text-[12px] text-ink/75">
                               Last section — nothing comes after it, so there is no transition to set.
                             </p>
                           );
@@ -491,7 +491,7 @@ export function SectionsPanel({
                         return (
                           <>
                             <div data-maker-part="transition" className="mt-1.5 flex flex-wrap items-center gap-1">
-                              <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                                 Into the next section
                               </span>
                               {HUB_TRANSITIONS.filter((t) => t !== 'scrub' || SCRUB_OUT_OFFERED).map((t) => {
@@ -510,12 +510,12 @@ export function SectionsPanel({
                                       aria-pressed={on}
                                       disabled={locked}
                                       title={locked ? 'Comes with Event Hub Pro.' : HUB_TRANSITION_HINT[t]}
-                                      className={`inline-flex h-5 items-center gap-1 rounded-full border px-2 text-[0.58rem] ${
+                                      className={`inline-flex h-5 items-center gap-1 rounded-full border px-2 text-[12px] ${
                                         on
                                           ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
                                           : locked
-                                            ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/30'
-                                            : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                            ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/75'
+                                            : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30'
                                       }`}
                                     >
                                       {locked ? (
@@ -529,7 +529,7 @@ export function SectionsPanel({
                               {transitionLocked && !proUsable && !hideLocked ? (
                                 <a
                                   href={`/dashboard/${eventId}/studio/website-pro`}
-                                  className="text-[0.58rem] font-semibold text-ink/60 underline underline-offset-2 hover:text-ink"
+                                  className="text-[12px] font-semibold text-ink/75 underline underline-offset-2 hover:text-ink"
                                 >
                                   Unlock with Event Hub Pro
                                 </a>
@@ -537,7 +537,7 @@ export function SectionsPanel({
                             </div>
                             {transition === 'auto' ? (
                               <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                                <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                                   Speed
                                 </span>
                                 {HUB_AUTO_SPEEDS.map((v) => {
@@ -554,10 +554,10 @@ export function SectionsPanel({
                                         type="submit"
                                         aria-pressed={on}
                                         disabled={transitionLocked && !proUsable && !on}
-                                        className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
+                                        className={`inline-flex h-5 items-center rounded-full border px-2 text-[12px] ${
                                           on
                                             ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
-                                            : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30 disabled:cursor-not-allowed disabled:text-ink/30'
+                                            : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30 disabled:cursor-not-allowed disabled:text-ink/30'
                                         }`}
                                       >
                                         {HUB_AUTO_SPEED_LABEL[v]}
@@ -565,12 +565,12 @@ export function SectionsPanel({
                                     </SafeForm>
                                   );
                                 })}
-                                <span className="text-[0.56rem] text-ink/45">
+                                <span className="text-[12px] text-ink/75">
                                   {HUB_TRANSITION_HINT.auto} Guests can pause it, and a tap stops it.
                                 </span>
                               </div>
                             ) : transition === 'scrub' ? (
-                              <p className="mt-1 text-[0.56rem] text-ink/45">
+                              <p className="mt-1 text-[12px] text-ink/75">
                                 {HUB_TRANSITION_HINT.scrub}
                               </p>
                             ) : null}
@@ -579,7 +579,7 @@ export function SectionsPanel({
                       })()}
                       {preset ? (
                         <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                          <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                          <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                             Timing
                           </span>
                           {(['auto', 'time', 'scrub'] as const).map((t) => {
@@ -595,10 +595,10 @@ export function SectionsPanel({
                                 <button
                                   type="submit"
                                   aria-pressed={on}
-                                  className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
+                                  className={`inline-flex h-5 items-center rounded-full border px-2 text-[12px] ${
                                     on
                                       ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
-                                      : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                      : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30'
                                   }`}
                                 >
                                   {t === 'auto' ? 'Auto' : HUB_TIMELINE_LABEL[t]}
@@ -641,7 +641,7 @@ export function SectionsPanel({
                             isAuto: boolean,
                           ) => (
                             <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                              <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                                 {label}
                               </span>
                               {(['auto', ...values] as const).map((v) => {
@@ -657,10 +657,10 @@ export function SectionsPanel({
                                     <button
                                       type="submit"
                                       aria-pressed={on}
-                                      className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
+                                      className={`inline-flex h-5 items-center rounded-full border px-2 text-[12px] ${
                                         on
                                           ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
-                                          : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                          : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30'
                                       }`}
                                     >
                                       {v === 'auto' ? 'Auto' : (labels[v] ?? v)}
@@ -697,7 +697,7 @@ export function SectionsPanel({
                           is the part a guest actually feels. */}
                       {preset ? (
                         <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                          <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                          <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                             Parts
                           </span>
                           {(['auto', 'together', 'one_after_another'] as const).map((q) => {
@@ -713,10 +713,10 @@ export function SectionsPanel({
                                 <button
                                   type="submit"
                                   aria-pressed={on}
-                                  className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
+                                  className={`inline-flex h-5 items-center rounded-full border px-2 text-[12px] ${
                                     on
                                       ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
-                                      : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                      : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30'
                                   }`}
                                 >
                                   {q === 'auto' ? 'Auto' : HUB_SEQUENCE_LABEL[q]}
@@ -766,7 +766,7 @@ export function SectionsPanel({
                        server component and the editor works without script, so
                        the confirm is a disclosure: the first tap only reveals
                        the real button. The row goes and the slot is free again. */
-                    <details className="mt-2 text-[0.66rem] text-ink/55">
+                    <details className="mt-2 text-[12px] text-ink/75">
                       <summary className="cursor-pointer select-none hover:text-ink/80">
                         Remove this section
                       </summary>
@@ -780,7 +780,7 @@ export function SectionsPanel({
                         <span>Its words and layout go with it.</span>
                         <button
                           type="submit"
-                          className="inline-flex h-7 items-center rounded-full bg-danger-600 px-3 text-[0.65rem] font-semibold text-white transition-colors hover:bg-danger-700"
+                          className="inline-flex h-7 items-center rounded-full bg-danger-600 px-3 text-[12px] font-semibold text-white transition-colors hover:bg-danger-700"
                         >
                           Remove for good
                         </button>
@@ -812,7 +812,7 @@ export function SectionsPanel({
                   return (
                     <>
                     {makerPart && !askTitle && !askBody ? (
-                      <p className="mt-2 text-[0.72rem] leading-relaxed text-ink/60" data-typed-here="own-scene">
+                      <p className="mt-2 text-[12px] leading-relaxed text-ink/75" data-typed-here="own-scene">
                         This scene&rsquo;s heading and words are typed right on the page — tap them there and type.
                       </p>
                     ) : (
@@ -839,7 +839,7 @@ export function SectionsPanel({
                             maxLength={CUSTOM_COLUMN_TITLE_MAX}
                             defaultValue={title}
                             placeholder={makerPart && !askBody ? 'Add a heading' : 'Heading (optional)'}
-                            className="min-h-[36px] w-full rounded-md border border-ink/15 bg-white px-2 text-[0.74rem] text-ink placeholder:text-ink/40"
+                            className="min-h-[36px] w-full rounded-md border border-ink/15 bg-white px-2 text-[12px] text-ink placeholder:text-ink/40"
                           />
                         </>
                       ) : null}
@@ -849,7 +849,7 @@ export function SectionsPanel({
                           body typed before binding stays editable here, so it
                           can still be cleared. */}
                       {letterBound ? (
-                        <p className="text-[0.66rem] text-ink/60" data-letter-words-under-content="">
+                        <p className="text-[12px] text-ink/75" data-letter-words-under-content="">
                           This scene&rsquo;s words are your special message from Details — change them under Content.
                         </p>
                       ) : !askBody ? null : (
@@ -864,13 +864,13 @@ export function SectionsPanel({
                             maxLength={CUSTOM_COLUMN_BODY_MAX}
                             defaultValue={body}
                             placeholder="Your own words — this section stays hidden until you write something."
-                            className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-[0.74rem] leading-relaxed text-ink placeholder:text-ink/40"
+                            className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-[12px] leading-relaxed text-ink placeholder:text-ink/40"
                           />
                         </>
                       )}
                       <button
                         type="submit"
-                        className="inline-flex h-7 items-center rounded-full bg-ink px-3 text-[0.65rem] font-semibold text-cream"
+                        className="ab ab-brand"
                       >
                         Save this section
                       </button>
@@ -886,7 +886,7 @@ export function SectionsPanel({
                         four arrangements would move nothing there — they are
                         hidden, and the template's own controls follow. */}
                     <div className="mt-2" hidden={Boolean(makerPart) || Boolean(sanitizeHubCanvas(row.config_json).template)}>
-                      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                         Layout
                       </p>
                       <div className="flex flex-wrap items-center gap-1">
@@ -901,10 +901,10 @@ export function SectionsPanel({
                             <button
                               type="submit"
                               aria-pressed={arrangement === a}
-                              className={`inline-flex h-6 items-center rounded-full border px-2 text-[0.62rem] font-semibold transition-colors ${
+                              className={`inline-flex h-6 items-center rounded-full border px-2 text-[12px] font-semibold transition-colors ${
                                 arrangement === a
                                   ? 'border-ink bg-ink text-cream'
-                                  : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30'
+                                  : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
                               }`}
                             >
                               {HUB_ARRANGEMENT_LABEL[a]}
@@ -968,7 +968,7 @@ export function SectionsPanel({
                           <input type="hidden" name="return_to" value={back} />
                           <button
                             type="submit"
-                            className="inline-flex h-6 items-center rounded-full border border-ink/15 bg-cream px-2 text-[0.62rem] font-semibold text-ink/60 hover:border-ink/30"
+                            className="ab ab-danger"
                           >
                             {canvas.kind === 'snippet'
                               ? 'Remove this section\u2019s video'
@@ -991,7 +991,7 @@ export function SectionsPanel({
                   const canvas = sanitizeHubCanvas(row.config_json);
                   return (
                     <div className="mt-2 border-t border-dashed border-ink/10 pt-2">
-                      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                         {/* A section of their own places its photo by Layout —
                             behind, beside, or not at all — so it is a Photo,
                             not always a background. Same field either way. */}
@@ -1018,10 +1018,10 @@ export function SectionsPanel({
                             <button
                               type="submit"
                               aria-pressed={canvas.kind === 'snippet'}
-                              className={`inline-flex h-9 items-center gap-1 rounded-md border px-2 text-[0.6rem] font-semibold ${
+                              className={`inline-flex h-9 items-center gap-1 rounded-md border px-2 text-[12px] font-semibold ${
                                 canvas.kind === 'snippet'
                                   ? 'border-ink bg-ink text-cream'
-                                  : 'border-ink/15 bg-cream text-ink/55 hover:border-ink/30'
+                                  : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
                               }`}
                             >
                               Your video
@@ -1092,7 +1092,7 @@ export function SectionsPanel({
                           const zoom = canvas.zoom ?? HUB_DEFAULT_ZOOM;
                           return (
                             <div className="mt-2">
-                              <p className="mb-1 font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                                 What to keep in frame
                               </p>
                               <div className="flex items-start gap-3">
@@ -1128,7 +1128,7 @@ export function SectionsPanel({
                                   </div>
                                 </div>
                                 <div>
-                                  <p className="mb-1 font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                  <p className="mb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                                     How close
                                   </p>
                                   <div className="flex flex-wrap gap-1">
@@ -1142,10 +1142,10 @@ export function SectionsPanel({
                                         <button
                                           type="submit"
                                           aria-pressed={zoom === z}
-                                          className={`inline-flex h-6 items-center rounded-full border px-2 text-[0.58rem] ${
+                                          className={`inline-flex h-6 items-center rounded-full border px-2 text-[12px] ${
                                             zoom === z
                                               ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
-                                              : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                              : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30'
                                           }`}
                                         >
                                           {z === 100 ? 'As it is' : z === 120 ? 'Closer' : 'Closest'}
@@ -1190,7 +1190,7 @@ export function SectionsPanel({
             triggerLabel="+ Add a scene"
           />
         ) : (
-          <p className="mt-2 text-[0.66rem] text-ink/45">
+          <p className="mt-2 text-[12px] text-ink/75">
             You have all six of your own sections. Remove one you are not using to add another.
           </p>
         )
@@ -1248,7 +1248,7 @@ function SectionColourChoices({
   const swatches = [HUB_GLASS_DEFAULT_TINT, ...colorChoices.filter((h) => h.toLowerCase() !== HUB_GLASS_DEFAULT_TINT)];
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-      <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/35">
+      <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
         Colour
       </span>
       {withNone && colourOn ? (
@@ -1261,7 +1261,7 @@ function SectionColourChoices({
           <input type="hidden" name="return_to" value={back} />
           <button
             type="submit"
-            className="inline-flex h-7 items-center rounded-md border border-ink/15 bg-cream px-2 text-[0.6rem] font-semibold text-ink/55 hover:border-ink/30"
+            className="inline-flex h-7 items-center rounded-md border border-ink/15 bg-cream px-2 text-[12px] font-semibold text-ink/75 hover:border-ink/30"
           >
             None
           </button>
@@ -1356,8 +1356,8 @@ function SceneBackgroundChoices({
   const painted = current !== null && current !== 'none';
   const shape = canvas.shape ?? HUB_DEFAULT_SCENE_SHAPE;
   const chip = (on: boolean) =>
-    `inline-flex h-9 items-center gap-1 rounded-md border px-2 text-[0.6rem] font-semibold ${
-      on ? 'border-ink bg-ink text-cream' : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30'
+    `inline-flex h-9 items-center gap-1 rounded-md border px-2 text-[12px] font-semibold ${
+      on ? 'border-ink bg-ink text-cream' : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
     }`;
   const hidden = (fields: Record<string, string>) => (
     <>
@@ -1371,7 +1371,7 @@ function SceneBackgroundChoices({
   );
   return (
     <div className="mt-2 border-t border-dashed border-ink/10 pt-2" data-scene-background="">
-      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">Background</p>
+      <p className="mb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Background</p>
       <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Scene background">
         {choices.map((c) =>
           c ? (

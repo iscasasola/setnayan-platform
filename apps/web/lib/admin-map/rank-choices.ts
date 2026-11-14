@@ -84,10 +84,12 @@ import { jobPrefillIsRead } from './prefill-consumers';
 // 152 since 2026-11-13 (on top of main's 150): two more PAGES, Admin › Categories › Service requests and one request's page (owner rulings
 // 13 Nov, service requests) — every page must still reach the model, so the rule above, raised by two (measured on the
 // merged tree — re-measure with the test, never trust this number).
-// 153 since 2026-11-13 (help ask-first, on top of main's 152): one more PAGE, Admin › Help (the team's ask-first help,
-// /admin/help/guides — owner "Three helps") — every page must still reach the model, so the rule above, raised by one
-// (measured with the test on this tree — re-measure on any merged tree, never trust this number).
-export const MODEL_CHOICE_CAP = 153;
+// 153 since 2026-11-14: one more PAGE, Admin › What can I ask? (`/admin/ask`, Focus | Full — owner approved 14 Nov) —
+// every page must still reach the model, so the rule above, raised by one.
+// 154 since 2026-11-14 (help ask-first, merged on top of main's 153): one more PAGE, Admin › Help (the team's
+// ask-first help, /admin/help/guides — owner "Three helps") — every page must still reach the model, so the rule above,
+// raised by one (measured with the test on the merged tree — re-measure on any merged tree, never trust this number).
+export const MODEL_CHOICE_CAP = 154;
 // 141 → 142 on 2026-10-02, measured with the probe this docblock describes:
 // "Categories & event types" folded six admin pages into one (88 pages now)
 // and the -y/-ies match let the owner's word "category" reach every job on

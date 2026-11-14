@@ -1,13 +1,6 @@
 import { Suspense, type ReactNode } from 'react';
-import Link from 'next/link';
-import {
-  DollarSign,
-  Gauge,
-  Gift,
-  Sparkles,
-  Camera,
-  Layers,
-} from 'lucide-react';
+import { Camera, Gauge, Layers, Link2, Sparkles, Wallet } from 'lucide-react';
+import { Rows, Sec, ViewRow } from '../catalogue/_components/catalogue-rows';
 import {
   TablePageSkeleton,
   GridPageSkeleton,
@@ -85,16 +78,6 @@ function coerceTab(v: string | undefined): Tab {
   away cannot be confused with it. The tab KEY is unchanged, so every existing
   deep link and redirect stub still resolves.
 */
-const TAB_STRIP: { key: Tab; label: string; icon: typeof DollarSign }[] = [
-  { key: 'pricing', label: 'Pricing', icon: DollarSign },
-  { key: 'setnayan-ai', label: 'Setnayan AI prices', icon: Sparkles },
-  { key: 'papic-shots', label: 'Papic shot prices', icon: Camera },
-  { key: 'price-bands', label: 'Market price bands', icon: Gauge },
-  { key: 'free-windows', label: 'Free windows', icon: Gift },
-  // Owner 2026-11-13 ("Yes, add both") — what each supplier and event plan includes (approved catalogue.html › Plan contents).
-  { key: 'plan-contents', label: 'Plan contents', icon: Layers },
-];
-
 const TAB_TITLE: Record<Tab, string> = {
   pricing: 'Pricing',
   'setnayan-ai': 'Setnayan AI prices',
@@ -201,34 +184,35 @@ export default async function CatalogStudioPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <nav
-        aria-label="Catalog sections"
-        className="mb-6 flex flex-wrap gap-1.5 border-b border-ink/10 pb-3"
-      >
-        {TAB_STRIP.map((t) => {
-          const active = t.key === tab;
-          const Icon = t.icon;
-          return (
-            <Link
-              key={t.key}
-              href={`/admin/pricing?tab=${t.key}`}
-              aria-current={active ? 'page' : undefined}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-terracotta/10 text-terracotta-700'
-                  : 'text-ink/65 hover:bg-ink/5 hover:text-ink'
-              }`}
-            >
-              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              {t.label}
-            </Link>
-          );
-        })}
-      </nav>
-
+      {/* ⚖ THE ONE SELECTOR (approved admin drawing, 14 Nov 2026 build · T2): which price view is open is chosen in
+          the pinned row's `Catalogue · View ▾`, at every width. The pill strip that sat here was a second selector for
+          the same choice, and is gone; every tab keeps its address (`?tab=…`), and each one is a view in
+          `lib/admin/admin-tabs.ts` (Free windows is Money's). */}
       <Suspense key={tab} fallback={tabSkeleton(tab)}>
         {activeSurface(tab, search)}
       </Suspense>
+
+      {tab === 'pricing' ? <ElsewhereInPrices /> : null}
     </div>
+  );
+}
+
+/**
+ * "Elsewhere in Prices" (approved drawing `catalogue.html`, screen `prices`): the other price views, one row each,
+ * under the price list. Each opens its own view — nothing priced is shown or typed here.
+ */
+function ElsewhereInPrices() {
+  return (
+    <section className="mx-auto mt-10 max-w-3xl" aria-label="Elsewhere in Prices">
+      <Sec label="Elsewhere in Prices" />
+      <Rows label="Elsewhere in Prices">
+        <ViewRow href="/admin/pricing?tab=plan-contents" icon={Layers} title="Plan contents" line="What each supplier and event plan includes" />
+        <ViewRow href="/admin/pricing?tab=setnayan-ai" icon={Sparkles} title="Setnayan AI prices" line="Every kind of event has a price" />
+        <ViewRow href="/admin/pricing?tab=papic-shots" icon={Camera} title="Papic shot prices" line="The ladder · per-type sizing" />
+        <ViewRow href="/admin/pricing?tab=price-bands" icon={Gauge} title="Market price bands" line="Computed, never hand-set" />
+        <ViewRow href="/admin/budget-planner" icon={Wallet} title="Budget benchmarks" line="Bands · seeded prices · engine" />
+        <ViewRow href="/admin/vendor-recommendations" icon={Link2} title="Supplier recommendations" line="Service → product map" />
+      </Rows>
+    </section>
   );
 }

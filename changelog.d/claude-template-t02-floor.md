@@ -1,4 +1,4 @@
-## 2026-11-14 · style(supplier-shop): T02 follow-up — every button at 44, every word at 12 or larger
+## 2026-11-14 · style(supplier): T02 + T04 size round — every button at 44, every word at 12 or larger
 
 Follow-up to #7641 (batch T02), from the controller's W1 walk of `/vendor-dashboard/shop` at 390 and 1280. Only T02's
 files that no open PR edits; shared `ActionButton` and tokens only; no new colour, motion, server action or migration.
@@ -12,6 +12,9 @@ files that no open PR edits; shared `ActionButton` and tokens only; no new colou
 - **Words at 12 or larger:** the `.sn-eye` section labels (10.5 px, gold) on Offers, Analytics, Badges, Bundles, Makers,
   Services and the offer editor are the template's section label (12 px, slate, bold capitals); 11.5 px captions →
   `text-xs`; the offer editor's question hints (10.4 px) → 12; every font size under 12 in `analytics-growing.css` → 12.
+- **T04 re-walk (RW-151 · RW-152), the files no open PR edits:** the branch map's Zoom in / Zoom out are 44 (were 40,
+  `branch-pin-map`); every `ActionButton` in `card-checks`, `customization-step` and `payment-schedule-editor` draws at
+  44. Their fields were already 44 (`min-h-11` / `input-field`) and their checkboxes sit in 44-high labels.
 - **Measured in the browser** (Playwright on the dev labs, 390 and 1280): the offers list, the offer editor, the
   analytics carousel and the forms pages now have **0** controls under 44 and **0** words under 12. What the shop tab
   still shows under the floor is drawn by files outside this batch — listed in the PR.

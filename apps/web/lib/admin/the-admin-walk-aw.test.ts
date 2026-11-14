@@ -13,6 +13,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { stripComments } from '@/lib/strip-comments';
+
 import {
   NOTHING_SENT_WORDS,
   hidePlaceholdersBesideLogged,
@@ -22,11 +24,7 @@ import {
 
 const WEB = process.cwd();
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
-const code = (rel: string) =>
-  read(rel)
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '')
-    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
+const code = (rel: string) => stripComments(read(rel));
 
 const placeholder = { status: 'pending', reference_number: null, screenshot_url: null };
 const logged = { status: 'pending', reference_number: 'TEST01', screenshot_url: null };

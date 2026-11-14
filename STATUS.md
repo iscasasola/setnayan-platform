@@ -13,6 +13,19 @@
 
 ---
 
+## 🎞 Motion system — built into the shared pieces (2026-11-14, branch `claude/motion-system`)
+
+The approved motion system (DECISION_LOG 2026-11-13) lives in the tokens (`globals.css` `--sn-dur-*` / `--sn-ease-emph`)
+and `lib/grow-motion.ts`, and reaches every page through PressFeel, RiseScreen, Sheet, Fold, `.sn-switch`, `.sn-chip`,
+`.input-field` and SwipeToDelete. **Skipped on purpose — open template / rise PRs are editing them:**
+`app/_components/picked/picked-shell.tsx` (#7595; gets the 360 ms via `RISE_MS`, not yet the 80 % mirror close) ·
+`app/_components/app-store/choose-plan-sheet.tsx`, `app/_components/iap/iap-{live-watch,papic,unlock}-sheet.tsx` (#7595) ·
+`app/open-shop/_components/plan-sheet.tsx`, `app/vendor-dashboard/_components/setup-offer-fold.tsx`,
+`app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx`,
+`app/vendor-dashboard/subscription/_components/{limits,plan}-sheet.tsx`, `app/_components/template-rows.tsx` (#7632) ·
+`app/vendor-dashboard/forms/_components/form-view-sheet.tsx` (#7663). Those that mount `Sheet` / `Fold` get the motion
+anyway; none needed a per-page edit. `rise-screen.tsx` (also in #7595) changed in two lines that merge cleanly with it.
+
 ## Verified production state — 2026-09-28
 
 - **Production = `main` = `6136cd2`** (merge of #6071). Re-measure: `curl -sL https://setnayan.com/api/health` (its `version`) vs `git log origin/main -1`.

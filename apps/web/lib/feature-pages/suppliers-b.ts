@@ -140,7 +140,7 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     moreHref: '/for-suppliers',
     evidence: [
       'app/vendor-dashboard/shop/_components/verify-section.tsx',
-      'app/vendor-dashboard/shop/_components/verify-pairs.tsx',
+      'app/vendor-dashboard/shop/_components/paper-upload-place.tsx',
       'app/vendor-dashboard/verify/page.tsx',
       'lib/vendor-tier-caps.ts',
     ],

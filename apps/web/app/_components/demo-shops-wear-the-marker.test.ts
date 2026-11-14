@@ -124,7 +124,7 @@ const SURFACES: Surface[] = [
     name: 'front page shop search results',
     file: 'app/_components/frontdoor/front-door-results.tsx',
     imports: /import \{ ShopCard \} from '\.\/front-door-feed';/,
-    draws: [/return <ShopCard s=\{s\} href=\{withShopArrival\(s\.href, \{ src: SHOP_ARRIVAL_SRC\.search \}\)\} \/>;/],
+    draws: [/return <ShopCard s=\{s\} href=\{withShopArrival\(s\.href, \{ src: SHOP_ARRIVAL_SRC\.search, q: query \}\)\} \/>;/],
   },
   {
     name: 'front page — each shop carries its demo fact',

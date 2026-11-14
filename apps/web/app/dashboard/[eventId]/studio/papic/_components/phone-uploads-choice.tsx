@@ -5,6 +5,7 @@ import { readPhoneUploadsSetting } from '@/lib/papic-phone-uploads.server';
 import { SettingRow } from './setting-row';
 import { PhoneUploadsHeldPicker } from './phone-uploads-held-picker';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * 📲 PHOTOS FROM GUESTS' PHONES — one row in Papic's settings (guest upload v2, approved 2026-11-13; prototype
  * `guest_phone_uploads_2026-11-13`, state "Couple — setting"). Its answer: "Right away" or "After I check".
@@ -30,10 +31,10 @@ export async function PhoneUploadsChoice({ eventId }: { eventId: string }) {
         sheetTitle="Photos from guests’ phones"
       >
         <div className="px-5 py-4">
-          <p className="mb-4 text-sm text-ink/65">
-            A guest can add photos they took on {day} from their own phone. Each one uses {per} from your pot, the same
+          <InfoTip labelAs="p" label="A guest can add photos they took on from their own phone." labelNode={<>A guest can add photos they took on {day} from their own phone.</>} labelClassName="text-sm text-ink/70" className="mb-4" align="start">
+            Each one uses {per} from your pot, the same
             as a photo you add yourself.
-          </p>
+          </InfoTip>
           {setting === null ? (
             <p className="text-sm text-danger-700" role="alert">
               Couldn’t check this setting just now. Close this and try again in a moment.

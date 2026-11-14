@@ -318,7 +318,7 @@ function LaneChips({
       key={label}
       href={href}
       aria-current={active ? 'true' : undefined}
-      className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+      className="sn-hit inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
       style={{
         borderColor: active ? '#8A6A2E' : 'var(--sn-line)',
         background: active ? 'var(--sn-paper)' : 'transparent',

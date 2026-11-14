@@ -33,7 +33,7 @@ function channels(hex: string): string {
  * Website Pro net-new manual site colours (Launch settings §4.4 · PR-C).
  *
  * ⚠ owner 2026-09-25 "okay drop the numbers" / bg-colour fix: background
- * colour is FREE and paints for EVERY event (Event Hub Pro feature list:
+ * colour is FREE and paints for EVERY event (Event Pro feature list:
  * "Free: … bg colour") — it used to be gated behind `proWatermarkHidden` along
  * with everything else here, so a free couple's saved `site_bg_color` was
  * silently never painted for a guest. The BUTTON colour joined it 2026-09-28

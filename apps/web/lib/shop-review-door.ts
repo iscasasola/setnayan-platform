@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { reviewState, type CompletionFields, type ReviewState } from '@/lib/completion-handshake';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { myPagePath } from '@/lib/supplier-qr-codes';
+import { myPagePath, OWN_LINK_SRC } from '@/lib/supplier-qr-codes';
 
 /**
  * ⭐ THE PRINTED REVIEWS CODE OPENS "LEAVE A REVIEW" (owner 2026-11-06, verbatim pick: "Write a review (Recommended)").
@@ -39,16 +39,20 @@ export function reviewDoorPath(slug: string): string {
 }
 
 /** Where a door lands, as a same-origin path. */
-export function reviewDoorTarget(door: ReviewDoor): string {
+export function reviewDoorTarget(door: ReviewDoor, src: string | null = null): string {
+  // 💳 RW-19 (walk 13 Nov 2026): the supplier's own Reviews code carries `?src=own`; every way on from the door keeps
+  // it, so a couple who lands on the shop from it and asks there is the supplier's own client, never Setnayan-sourced.
+  // Only the own tag is carried — the door never echoes a value it was handed.
+  const own = src === OWN_LINK_SRC ? `?src=${OWN_LINK_SRC}` : '';
   switch (door.kind) {
     case 'sign_in':
-      return `/login?next=${encodeURIComponent(door.next)}`;
+      return `/login?next=${encodeURIComponent(door.next + own)}`;
     case 'review':
       return `/dashboard/${encodeURIComponent(door.eventId)}/vendors/${encodeURIComponent(door.vendorId)}/review`;
     case 'moved':
-      return reviewDoorPath(door.slug);
+      return reviewDoorPath(door.slug) + own;
     case 'read':
-      return `${myPagePath(door.slug)}#reviews`;
+      return `${myPagePath(door.slug)}${own}#reviews`;
   }
 }
 

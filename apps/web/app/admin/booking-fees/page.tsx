@@ -14,6 +14,8 @@ import { ReviewMinForm } from './review-min-form';
 import { BookingsOpenForm } from './bookings-open-form';
 import { bookingsOpenFromSetting } from '@/lib/bookings-open';
 
+export const metadata = { title: 'Booking fees · Admin' };
+
 export const dynamic = 'force-dynamic';
 
 /**

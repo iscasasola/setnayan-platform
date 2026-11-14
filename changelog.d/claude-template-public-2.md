@@ -44,4 +44,8 @@ Left on purpose, and why:
 
 Shots (390, Now beside Proposed): `build-sessions/shots-template-public-2/`.
 
+**Ratchet (#7704, landed on main mid-PR):** `lib/template-score.baseline.json` lowered by its own `--write` (only
+ever lowers) — 15 rows, −105 by the official scorer (the table above is this builder's own count of the same formula;
+the official baseline is the one CI enforces).
+
 SPEC IMPACT: None — applies the approved template.

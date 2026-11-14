@@ -55,9 +55,16 @@ export type PublicProfileEvent = {
   event_date_precision: EventDatePrecision | null;
 };
 
+/** The account columns the profile reads — one list for both lookups (by slug, by public handle). */
+const PROFILE_USER_COLUMNS =
+  'user_id, display_name, first_name, last_name, slug, public_profile_enabled, followers_count, profile_view_count, profile_photo_url, profile_focal_x, profile_focal_y, profile_zoom';
+
 export type PublicProfileUser = {
   user_id: string;
   display_name: string | null;
+  /** The account's own name parts (`users.first_name` / `last_name`) — the name when no display name is set. */
+  first_name: string | null;
+  last_name: string | null;
   slug: string | null;
   public_profile_enabled: boolean | null;
   /** The stored ref — an `r2://…` object or a passthrough URL, NOT an <img src>. */
@@ -235,7 +242,7 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
         two; folding them would make one column do two jobs and quietly widen
         the narrower one.
       */
-      'user_id, display_name, slug, public_profile_enabled, followers_count, profile_view_count, profile_photo_url, profile_focal_x, profile_focal_y, profile_zoom',
+      PROFILE_USER_COLUMNS,
     )
     .ilike('slug', userSlug)
     .maybeSingle();
@@ -246,7 +253,7 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
           await admin
             .from('users')
             .select(
-              'user_id, display_name, slug, public_profile_enabled, followers_count, profile_view_count, profile_photo_url, profile_focal_x, profile_focal_y, profile_zoom',
+              PROFILE_USER_COLUMNS,
             )
             .eq('public_id', (userSlugRaw ?? '').toUpperCase())
             .maybeSingle()
@@ -263,6 +270,8 @@ async function finishResolve(
   const user: PublicProfileUser = {
     user_id: userRow.user_id as string,
     display_name: (userRow.display_name as string | null) ?? null,
+    first_name: (userRow.first_name as string | null) ?? null,
+    last_name: (userRow.last_name as string | null) ?? null,
     slug: (userRow.slug as string | null) ?? null,
     public_profile_enabled:
       (userRow.public_profile_enabled as boolean | null) ?? null,
@@ -308,3 +317,4 @@ export function mostRecentPublicChapter(
     return db.localeCompare(da);
   })[0]!;
 }
+

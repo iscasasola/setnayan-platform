@@ -119,7 +119,7 @@ test('a ?next= errand cannot outrank a bill in any onboarding flow', () => {
   const generic = stripComments(read(GENERIC));
   assert.match(
     generic,
-    /res\.paymentPath\s*\?\?\s*nextPath/,
+    /res\.paymentPath\s*\?\?\s*\(?nextPath/,
     'generic onboarding must offer the bill before the vendor errand',
   );
   assert.doesNotMatch(

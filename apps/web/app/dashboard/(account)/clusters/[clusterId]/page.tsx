@@ -4,7 +4,6 @@ import { Anchor, ArrowLeft, CalendarRange, Users, Wallet } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import {
   clusterSpan,
@@ -146,7 +145,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
         }
       />
 
-      <section className="rounded-[18px] bg-[color:var(--m-paper-2)] p-4">
+      <section className="rounded-card bg-[color:var(--m-paper-2)] p-4">
         <p className={`flex items-center gap-2 ${SECTION_LABEL}`}>
           <CalendarRange size={14} strokeWidth={1.75} aria-hidden />
           {cluster.display_name}
@@ -174,10 +173,9 @@ export default async function ClusterTimelinePage({ params }: Props) {
       <section>
         <p className={`flex items-center gap-2 ${SECTION_LABEL}`}>
           <Wallet size={14} strokeWidth={1.75} aria-hidden />
-          <InfoTip label="Planned across the group" align="start">
-            Budgets only. Papic shots stay with the event that bought them and are never pooled.
-          </InfoTip>
+          <span>Planned across the group</span>
         </p>
+        <p className="mt-1 text-[13px] text-ink-soft">Budgets only. Papic shots stay with the event that bought them and are never pooled.</p>
 
         {!budgets ? (
           <p className="mt-2 text-sm text-[rgb(var(--color-warn))]" role="status">
@@ -291,7 +289,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
 
       {/*
         7b · ONE PERSON, NOT THREE ROWS — the roster the resolver builds.
-        Shown only once the group has celebrations to hold guests.
+        Shown only once the group has events to hold guests.
 
         🛑 THREE STATES, AND ONLY ONE OF THEM IS "NOBODY". A refused read says
         so; an empty list is the only branch allowed to say there are no
@@ -301,10 +299,9 @@ export default async function ClusterTimelinePage({ params }: Props) {
         <section>
           <p className={`flex items-center gap-2 ${SECTION_LABEL}`}>
             <Users size={14} strokeWidth={1.75} aria-hidden />
-            <InfoTip label="Guests across the group" align="start">
-              Each event still keeps its own guest list. This only shows who is on more than one.
-            </InfoTip>
+            <span>Guests across the group</span>
           </p>
+          <p className="mt-1 text-[13px] text-ink-soft">Each event still keeps its own guest list. This only shows who is on more than one.</p>
 
           {!roster.measured ? (
             <p className="mt-2 text-sm text-[rgb(var(--color-warn))]" role="status">

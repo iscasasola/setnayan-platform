@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { Check, Pencil, Plus, Unlink } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { PostedPick } from '@/app/dashboard/[eventId]/_components/posted-pick';
 import {
   linkCelebration,
@@ -165,25 +166,28 @@ export function ClusterTools({
           */}
           <ul className="mt-2 divide-y divide-ink/10">
             {members.map((m) => (
-              <li key={m.event_id} className="flex min-h-14 items-center justify-between gap-3 py-1">
-                <span className="min-w-0 truncate text-sm text-ink">{m.display_name}</span>
-                <form
-                  action={(formData) => run(() => unlinkCelebration(formData))}
-                  className="shrink-0"
-                >
-                  <input type="hidden" name="event_cluster_id" value={clusterId} />
-                  <input type="hidden" name="event_id" value={m.event_id} />
-                  <ActionButton
-                    type="submit"
-                    tone="danger"
-                    icon={Unlink}
-                    label="Remove"
-                    name={`Remove ${m.display_name}`}
-                    disabled={pending}
-                    waiting={pending}
-                  />
-                </form>
-              </li>
+              <SwipeToDelete
+                key={m.event_id}
+                as="li"
+                word="Remove"
+                icon={Unlink}
+                label={`Remove ${m.display_name} from this group`}
+                busy={pending}
+                disabled={pending}
+                radiusClass="rounded-none"
+                surfaceClass="bg-cream"
+                onDelete={(close) => {
+                  close();
+                  const formData = new FormData();
+                  formData.set('event_cluster_id', clusterId);
+                  formData.set('event_id', m.event_id);
+                  run(() => unlinkCelebration(formData));
+                }}
+              >
+                <span className="flex min-h-14 items-center py-1 text-sm text-ink">
+                  <span className="min-w-0 truncate">{m.display_name}</span>
+                </span>
+              </SwipeToDelete>
             ))}
           </ul>
         </div>

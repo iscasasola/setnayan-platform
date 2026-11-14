@@ -371,7 +371,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
            different celebrant (the form's "Para kanino?" field), or archive the
            old event (the inline archive door — an undated in-planning event
            otherwise blocks forever). Invitation, not wall. */
-        <div className="mb-6 rounded-[18px] bg-[color:var(--m-paper-2)] p-4" role="alert">
+        <div className="mb-6 rounded-card bg-[color:var(--m-paper-2)] p-4" role="alert">
           <p className="font-sans text-xl font-semibold text-ink">Tuloy pa rin ang planning na ito</p>
           <p className="mt-2 text-sm leading-relaxed text-ink/70">
             <span className="font-medium text-ink">{blockedLifeEvent.displayName}</span> is already in

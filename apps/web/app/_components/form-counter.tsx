@@ -21,7 +21,13 @@ export function FormCounter({
   label,
   saveAfterMs,
   data,
+  blankUntilTouched = false,
 }: {
+  /**
+   * Post '' until a person taps − or ＋ — for a stored blank (it means "the plan's number") the screen must SHOW a number for,
+   * so opening and saving never writes a figure nobody chose. Left out, it posts the number it shows.
+   */
+  blankUntilTouched?: boolean;
   /** The form field it posts. */
   name: string;
   value: number;
@@ -35,6 +41,7 @@ export function FormCounter({
   data?: string;
 }) {
   const [n, setN] = useState(() => Math.min(max, Math.max(min, value)));
+  const [touched, setTouched] = useState(false);
   const field = useRef<HTMLInputElement>(null);
   const wait = useRef<ReturnType<typeof setTimeout> | null>(null);
   /* A new figure from the server (after a save) is the one shown. */
@@ -49,6 +56,7 @@ export function FormCounter({
     const next = Math.min(max, Math.max(min, n + by));
     if (next === n) return;
     setN(next);
+    setTouched(true);
     if (saveAfterMs === undefined) return;
     if (wait.current) clearTimeout(wait.current);
     wait.current = setTimeout(() => {
@@ -58,7 +66,7 @@ export function FormCounter({
   };
   return (
     <>
-      <input ref={field} type="hidden" name={name} value={n} />
+      <input ref={field} type="hidden" name={name} value={blankUntilTouched && !touched ? '' : n} />
       <Counter
         value={n}
         label={label}

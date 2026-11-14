@@ -55,9 +55,14 @@ test('the preview stays in view from 820 up, and is PINNED at the top on a phone
   }
   // 🔁 2026-11-09 (Build 3 Lane E): the 👁 button and its sheet are gone — the card is pinned under the row on a phone.
   assert.doesNotMatch(src, /setSheet\('preview'\)|id="canvas-preview"/, 'the 👁 preview sheet is back');
-  const pinned = src.slice(src.lastIndexOf('<div', src.indexOf('data-maker-card-pinned=""')), src.indexOf('data-maker-card-pinned=""'));
-  assert.match(pinned, /sticky top-0/, 'the phone card is not pinned');
-  assert.match(pinned, /md:hidden/, 'the pinned card doubles the side preview from 820 up');
+  /* 🔁 RE-AIMED 2026-11-14 (cut 3 of the supplier's eleven jobs, owner-approved — DECISION_LOG "THE SEVEN SUPPLIER CUTS
+     ARE APPROVED"): pinned, the phone's card left a ~60 px window for the fields at 390, so it sits behind ONE tap, "See it
+     as couples do", the same live face. Still a phone-only element (it never doubles the side preview from 820 up), and
+     still never the 👁 sheet that 9 Nov removed. */
+  const peek = src.slice(src.lastIndexOf('<div', src.indexOf('data-maker-card-peek=')), src.indexOf('data-maker-card-peek='));
+  assert.match(peek, /md:hidden/, 'the phone card doubles the side preview from 820 up');
+  assert.match(src, /data-maker-see-as-couples=""/, 'the phone lost its way to see the card');
+  assert.match(src, /\{peekOpen \? <div className="pb-1">\{cardFace\}<\/div> : null\}/, 'the phone card is not the live face');
 });
 
 test('every sheet docks right on a laptop, and keeps its veil on a phone', () => {

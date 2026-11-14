@@ -3,8 +3,8 @@
 import { useRef, useState } from 'react';
 import { ChevronDown, Gift, Layers, Plus, Tag, X } from 'lucide-react';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
-import { FormRows, TypedRow } from '@/app/_components/form-row';
-import { ActionButton } from '@/components/action-button';
+import { FormRows } from '@/app/_components/form-row';
+import { AddLineRow, LineRow } from '@/app/_components/form-row-line';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 
@@ -137,9 +137,12 @@ export function InclusionsEditor({
         },
       });
     };
+    /* 📐 ONE FORM (ruling 6058, prototype `card_maker_one_form_2026-11-11`): each line is ONE row whose words stand where a
+       row's name stands (`LineRow`), and "Add a line" is the list's last row (`AddLineRow`) — no floating pill. The hint
+       ("Every line is part of the price · swipe a line left to remove it") moved into the section's ⓘ in the maker. */
     return (
       <div data-inclusions-bare="">
-        <FormRows width="short">
+        <FormRows width="narrow">
           {rows.map((r, i) => (
             <SwipeToDelete
               key={r.key}
@@ -150,23 +153,21 @@ export function InclusionsEditor({
               onDelete={() => swipeOut(r)}
             >
               <div data-inclusion-line="">
-                <TypedRow
-                  name={`Included ${i + 1}`}
-                  value={r.label}
-                  empty="e.g. Same-day highlight reel"
-                  maxLength={80}
-                  fieldName="inclusion_label"
-                  onKeep={(t) => patch(r.key, { label: t })}
+                <LineRow
+                  words={r.label}
+                  wordsName={`Included ${i + 1}`}
+                  wordsField="inclusion_label"
+                  wordsMax={80}
+                  onKeepWords={(t) => patch(r.key, { label: t })}
                   data="inclusion-label"
                 />
               </div>
             </SwipeToDelete>
           ))}
+          <div data-inclusion-add="">
+            <AddLineRow label="Add a line" onAdd={add} data="inclusion-add" />
+          </div>
         </FormRows>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2" data-inclusion-add="">
-          <ActionButton tone="neutral" icon={Plus} label="Add a line" onClick={add} />
-          <span className="text-[12px] text-ink/55">{rows.length > 0 ? 'Every line is part of the price · swipe a line left to remove it.' : 'Every line is part of the price.'}</span>
-        </div>
       </div>
     );
   }

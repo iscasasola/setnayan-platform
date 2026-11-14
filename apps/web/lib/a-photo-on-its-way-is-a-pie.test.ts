@@ -65,7 +65,8 @@ test('(2) every ✕ on a gallery tile is ONE round 44 px target carrying a 24 px
   // Each ✕: from its own `<button` to its name (an arrow's `>` ends a tag for a simple pattern, so cut by hand).
   const closers = [...gallery.matchAll(/aria-label=\{`(?:Remove|Cancel) [^`]*`\}/g)].map((m) => gallery.slice(gallery.lastIndexOf('<button', m.index), m.index! + m[0].length));
   // The framed photo's own picture is pressable (tap opens the Frame step, 2026-11-04) — the tile, not a control on it.
-  assert.equal((gallery.match(/<button\b(?![^>]*data-reframe)/g) ?? []).length, 4, 'anti-vacuity: the gallery holds other buttons than its three ✕ and Try again');
+  // So is a `tiles` photo (the Card Maker's gallery, owner 2026-11-13: a tap opens the photo's sheet) — no ✕ on it.
+  assert.equal((gallery.match(/<button\b(?![^>]*data-(?:reframe|upload-tile-open))/g) ?? []).length, 4, 'anti-vacuity: the gallery holds other buttons than its three ✕ and Try again');
   assert.deepEqual(
     closers.map((b) => /aria-label=\{`(\w+) \$\{item\.(file\.name|filename)\}`\}/.exec(b)?.slice(1).join(' ')),
     ['Remove filename', 'Cancel filename', 'Remove file.name'],
@@ -100,6 +101,7 @@ test('(3) nobody else is restyled: the row layout keeps its spinner and bar, and
   const wearers = walk('app').filter((f) => f !== 'app/_components/file-upload.tsx' && /<FileUpload\b[^>]*?\svariant="gallery"/s.test(read(f)));
   assert.deepEqual(wearers.sort(), [
     'app/dashboard/[eventId]/website/our-story/_components/moment-order-cards.tsx',
+    'app/vendor-dashboard/services/_components/card-photo-gallery.tsx',
     'app/vendor-dashboard/services/_components/showcase-media-fields.tsx',
   ]);
 });

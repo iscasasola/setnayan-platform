@@ -16,7 +16,10 @@ export type SupplierUpdateCardLine = SupplierUpdateLine & { time: string };
  */
 export function SupplierUpdatesCard({ lines }: { lines: SupplierUpdateCardLine[] | null }) {
   return (
-    <article className="space-y-3 rounded-2xl border border-ink/10 bg-white p-5 shadow-sm" data-supplier-updates={lines === null ? 'unread' : lines.length}>
+    <article
+      className="space-y-3 rounded-2xl border border-ink/10 bg-white p-5 shadow-sm" // no-card-ok: one of the day-of grid's cards, the same box as Get help and What's happening beside it
+      data-supplier-updates={lines === null ? 'unread' : lines.length}
+    >
       <header className="flex items-center justify-between">
         <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
           <Megaphone aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

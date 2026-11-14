@@ -36,13 +36,12 @@ import { formatCount } from '@/lib/format-number';
  * Step 1 of the Get-verified stepper — the vendor's own document uploads.
  * Extracted 2026-07-03 from the retired `inline-documents-row.tsx` when
  * verification lifted out of the Profile checklist into its own section. The
- * Setnayan-run cards are GONE (owner: "we do not need this"): post-prune the
- * only non-upload slot is the Google Meet, which renders as Step 3 of the
- * stepper, never as a document card. Each upload auto-saves via
- * `updateDocUploadInline`; the 4 REQUIRED docs carry a "Required" chip.
+ * Setnayan-run cards are GONE (owner: "we do not need this"), and since
+ * 2026-11-14 so is the Google Meet — every slot is an upload. Each upload auto-saves via
+ * `updateDocUploadInline`; the 3 REQUIRED docs carry a "Required" chip.
  */
 /**
- * The optional items — DERIVED by subtracting the four paired papers from the
+ * The optional items — DERIVED by subtracting the three paired papers from the
  * vendor's own slots, never hand-listed. A fifth required paper would move
  * itself out of this list; a hand-written list would silently render it twice.
  */
@@ -73,7 +72,7 @@ export function DocsBody({
         </p>
       ) : null}
 
-      {/* ── THE FOUR REQUIRED PAPERS, each beside the details it proves ──
+      {/* ── THE THREE REQUIRED PAPERS, each beside the details it proves ──
           Owner 2026-09-09, ported from prototypes/shop_verification_2026-09-09.html.
           The standalone "Government registration number" box that used to sit
           here is GONE — it is the same column as the number beside the

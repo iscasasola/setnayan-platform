@@ -107,7 +107,7 @@ test('B1 · one row per REQUIRED_DOC_SLOT_KEYS, in DOC_SLOTS order — never a h
   const src = code('lib/setup-papers.ts');
   assert.match(src, /DOC_SLOTS\.filter\(\(s\) => REQUIRED_DOC_SLOT_KEYS\.has\(s\.key\)\)/, 'the rows are not read off REQUIRED_DOC_SLOT_KEYS');
   for (const k of REQUIRED_DOC_SLOT_KEYS) assert.doesNotMatch(src, new RegExp(`'${k}'`), `lib/setup-papers.ts hand-lists ${k}`);
-  // Drawn: four rows, keyed by the slots.
+  // Drawn: three rows (owner 2026-11-14, DECISION_LOG f69ec167 — bank proof retired), keyed by the slots.
   const html = await drawLab();
   const docs = between(html, 'data-setup-body="docs"', 'data-setup-body="qr"');
   assert.deepEqual([...docs.matchAll(/data-setup-paper="([a-z_0-9]+)"/g)].map((m) => m[1]), [...REQUIRED_DOC_SLOT_KEYS]);
@@ -117,36 +117,38 @@ test('B2 · each row’s state is read off the latest application — none · up
   const { setupPapers } = await import('@/lib/setup-papers');
   const one = { dti_certificate: { r2_key: 'vendors/x/verification/dti_certificate/a.pdf' } };
   const st = (status: string | null) => setupPapers({ measured: true, status, uploads: one })!.map((r) => r.state);
-  assert.deepEqual(st(null), ['none', 'none', 'none', 'none']);
-  assert.deepEqual(st('draft'), ['uploaded', 'none', 'none', 'none']);
-  assert.deepEqual(st('pending_review'), ['review', 'none', 'none', 'none']);
-  assert.deepEqual(st('in_review'), ['review', 'none', 'none', 'none']);
-  assert.deepEqual(st('approved'), ['approved', 'none', 'none', 'none']);
+  assert.deepEqual(st(null), ['none', 'none', 'none']);
+  assert.deepEqual(st('draft'), ['uploaded', 'none', 'none']);
+  assert.deepEqual(st('pending_review'), ['review', 'none', 'none']);
+  assert.deepEqual(st('in_review'), ['review', 'none', 'none']);
+  assert.deepEqual(st('approved'), ['approved', 'none', 'none']);
   // Sent back: the next upload starts a fresh draft with nothing in it — every paper needs a new copy.
-  assert.deepEqual(st('rejected'), ['new_copy', 'new_copy', 'new_copy', 'new_copy']);
-  assert.deepEqual(st('withdrawn'), ['none', 'none', 'none', 'none']);
+  assert.deepEqual(st('rejected'), ['new_copy', 'new_copy', 'new_copy']);
+  assert.deepEqual(st('withdrawn'), ['none', 'none', 'none']);
   // Only a draft's paper can be replaced in place; in review or approved nothing can be.
   assert.equal(setupPapers({ measured: true, status: 'draft', uploads: one })![0]!.ref, one.dti_certificate.r2_key);
   assert.ok(setupPapers({ measured: true, status: 'pending_review', uploads: one })!.every((r) => !r.editable));
-  // Drawn: "some" = one uploaded in a draft; "checking" = four under review; "fix" = the reason, said once.
+  // Drawn: "some" = one uploaded in a draft; "checking" = three under review; "fix" = the reason, said once.
   const some = between(await drawLab('some'), 'data-setup-body="docs"', 'data-setup-body="qr"');
   assert.match(some, /data-setup-paper="dti_certificate" data-paper-state="uploaded"/);
   // The row with a file: its thumbnail, "✓ Saved · <the file's own name>" (the shipped `filenameFromRef`), opens in place.
   assert.match(some, /data-setup-paper-thumb="image"/);
   assert.match(text(some), /Saved · dti-certificate\.jpg/);
   assert.equal((some.match(/data-setup-paper-open/g) ?? []).length, 1);
-  // No state pill: the line says it. The three without a file are one tap — Add, nothing to open first.
+  // No state pill: the line says it. The two without a file are one tap — Add, nothing to open first.
   assert.doesNotMatch(text(some), /Not sent yet/);
-  assert.equal((some.match(/data-testid="setup-paper-add"/g) ?? []).length, 3);
-  assert.match(text(some), /Required · 2 of 4 · PDF \/ JPG \/ PNG up to 15 MB/);
+  assert.equal((some.match(/data-testid="setup-paper-add"/g) ?? []).length, 2);
+  assert.match(text(some), /Required · 2 of 3 · PDF \/ JPG \/ PNG up to 15 MB/);
   const checking = between(await drawLab('checking'), 'data-setup-body="docs"', 'data-setup-body="qr"');
-  assert.equal((checking.match(/data-paper-state="review"/g) ?? []).length, 4);
+  assert.equal((checking.match(/data-paper-state="review"/g) ?? []).length, 3);
   assert.doesNotMatch(checking, /data-setup-paper-open|setup-paper-add/, 'a paper under review can still be replaced');
-  assert.equal((text(checking).match(/Under review · Setnayan checks it/g) ?? []).length, 4);
+  // Each held row says the design's word (Fable v8, 2026-11-14): "Waiting for Setnayan". Today's own "…Setnayan’s check"
+  // line and Get verified's one "Waiting for Setnayan — …" notice are not rows.
+  assert.equal((text(checking).match(/Waiting for Setnayan(?!’| —)/g) ?? []).length, 3);
   const fix = between(await drawLab('fix'), 'data-setup-body="docs"', 'data-setup-body="qr"');
-  assert.equal((fix.match(/data-paper-state="new_copy"/g) ?? []).length, 4);
-  assert.equal((fix.match(/data-testid="setup-paper-add"/g) ?? []).length, 4);
-  assert.equal((text(fix).match(/Needs a new copy/g) ?? []).length, 4);
+  assert.equal((fix.match(/data-paper-state="new_copy"/g) ?? []).length, 3);
+  assert.equal((fix.match(/data-testid="setup-paper-add"/g) ?? []).length, 3);
+  assert.equal((text(fix).match(/Needs a new copy/g) ?? []).length, 3);
   assert.match(text(fix), /Setnayan sent them back: The BIR 2303 photo is cut off at the bottom/);
 });
 

@@ -56,7 +56,8 @@ import { badgesForPrint, shopBadges, trackerSummary, type ShopBadgeFacts, type T
 import { ReviewReplies } from '@/app/vendor-dashboard/website/_components/review-replies';
 import type { GuestReviewsRead } from '@/lib/guest-reviews';
 import { setupPapers, type SetupPaper } from '@/lib/setup-papers';
-import { DOC_SLOTS, REQUIRED_DOC_SLOT_KEYS } from '@/lib/vendor-verification';
+import { DOC_SLOTS, REQUIRED_DOC_COUNT, REQUIRED_DOC_SLOT_KEYS } from '@/lib/vendor-verification';
+import { formatCount } from '@/lib/format-number';
 import type { ReviewWithCouple } from '@/lib/reviews';
 
 /** 💬 The lab's two reviews for Page › Reviews and stories' reply-in-place list — one waiting, one answered. */
@@ -146,7 +147,7 @@ const FIX: Record<Who, Fixture> = {
     email: 'nena@gmail.com',
     since: 2014,
     verified: true,
-    docsIn: 4,
+    docsIn: REQUIRED_DOC_COUNT,
     status: 'approved',
     pay: [
       { label: 'GCash', provider: 'GCash' },
@@ -180,7 +181,7 @@ const FIX: Record<Who, Fixture> = {
     email: 'hello@lumina.ph',
     since: 2019,
     verified: true,
-    docsIn: 4,
+    docsIn: REQUIRED_DOC_COUNT,
     status: 'approved',
     pay: [
       { label: 'BDO', provider: 'BDO' },
@@ -270,15 +271,10 @@ function detailsFixture(who: Who): DetailsData {
     status: f.status,
     vendorComplete: f.docsIn,
     vendorTotal: 8,
-    requiredIn: Math.min(f.docsIn, 4),
-    requiredDocsIn: f.docsIn === 4,
-    emailConfirmedAt: f.verified ? '2026-09-01T00:00:00Z' : '2026-10-01T00:00:00Z',
-    phoneConfirmedAt: f.verified ? '2026-09-01T00:00:00Z' : null,
-    meetScheduledAt: null,
+    requiredIn: Math.min(f.docsIn, REQUIRED_DOC_COUNT),
+    requiredDocsIn: f.docsIn >= REQUIRED_DOC_COUNT,
     decisionReason: null,
-    submitMissing: f.docsIn === 4 ? [] : ['the 4 required documents'],
-    validateEmail: 'verify@setnayan.com',
-    validatePhone: null,
+    submitMissing: f.docsIn >= REQUIRED_DOC_COUNT ? [] : [`the ${formatCount(REQUIRED_DOC_COUNT)} required documents`],
   };
   return {
     vendorId: `lab-${who}`,
@@ -333,7 +329,7 @@ function detailsFixture(who: Who): DetailsData {
     verifyMeasured: true,
     papers: labPapers(verify.status, f.docsIn),
     docsIn: f.docsIn,
-    docsTotal: 4,
+    docsTotal: REQUIRED_DOC_COUNT,
     branch: {
       city: f.city,
       branchLocations: 1,
@@ -358,7 +354,7 @@ function detailsFixture(who: Who): DetailsData {
     logoUnavailable: false,
     progress: detailsProgress({
       checklist,
-      docs: { measured: true, isVerified: f.verified, status: f.status, requiredIn: f.docsIn, requiredTotal: 4 },
+      docs: { measured: true, isVerified: f.verified, status: f.status, requiredIn: f.docsIn, requiredTotal: REQUIRED_DOC_COUNT },
       payMethods: methods.length,
     }),
   };
@@ -375,7 +371,7 @@ function detailsFixture(who: Who): DetailsData {
 /** 🧾 How the lab's papers stand (`&docs=`): none · some (one uploaded, a draft) · checking · fix · unread (the read refused). */
 export type LabDocs = 'none' | 'some' | 'checking' | 'fix' | 'unread';
 
-/** The lab's four papers — the first `n` on file, read by the SAME rule the page uses (`setupPapers`). */
+/** The lab's required papers — the first `n` on file, read by the SAME rule the page uses (`setupPapers`). */
 /** A lab paper's stored ref — the shape `/api/upload` writes (`<prefix>/<uuid>-<file name>`): the first is a photo, the rest PDFs. */
 const labPaperRef = (key: string, i: number) =>
   `r2://vendor-verification/vendors/lab-invited/verification/${key}/0b7d2c4e-5f61-4a8b-9c3d-2e1f0a9b8c7d-${i === 0 ? 'dti-certificate.jpg' : `${key}.pdf`}`;
@@ -392,7 +388,7 @@ export function labSetupDetails(docs: LabDocs = 'none', stage: 'fresh' | 'detail
   const d = invitedDetailsFixture();
   const checklist = stage === 'details' ? d.checklist.map((i) => ({ ...i, ok: true })) : d.checklist;
   const status = docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : docs === 'some' ? 'draft' : null;
-  const n = docs === 'none' || docs === 'unread' ? 0 : docs === 'some' ? 1 : docs === 'fix' ? 3 : 4;
+  const n = docs === 'none' || docs === 'unread' ? 0 : docs === 'some' ? 1 : docs === 'fix' ? 3 : REQUIRED_DOC_COUNT;
   return {
     ...d,
     checklist,
@@ -444,7 +440,7 @@ function invitedDetailsFixture(asked = false): DetailsData {
     verify: { ...base.verify, status: null, vendorComplete: 0, requiredIn: 0, requiredDocsIn: false } as DetailsData['verify'],
     progress: detailsProgress({
       checklist,
-      docs: { measured: true, isVerified: false, status: null, requiredIn: 0, requiredTotal: 4 },
+      docs: { measured: true, isVerified: false, status: null, requiredIn: 0, requiredTotal: REQUIRED_DOC_COUNT },
       payMethods: 0,
     }),
     fromInvite: true,
@@ -735,11 +731,8 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
                 row: d.progress.rows.find((r) => r.key === 'docs')!,
                 section: (
                   <VerifySection
-                    businessName={d.businessName}
                     vendorProfileId={d.vendorId}
                     isVerified={d.isVerified}
-                    profileComplete={d.profileComplete}
-                    profileFieldsLeft={d.fieldsLeft}
                     verify={d.verify}
                   />
                 ),

@@ -5,8 +5,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
-  businessProfileChecklist,
-  profileGaps,
   fetchOwnVendorProfile,
   type VendorProfileRow,
 } from '@/lib/vendor-profile';
@@ -24,18 +22,18 @@ import {
 import { notifyAdminsApplicationSubmitted } from '@/lib/vendor-status-notify';
 import {
   CLIENT_REFERENCES_MAX,
-  DOC_SLOTS,
   PORTFOLIO_MAX,
   SOCIAL_PLATFORM_KEYS,
   VENDOR_DOC_SLOTS,
   addBusinessDays,
-  countCompleteSlots,
   countCompleteVendorSlots,
   emptyClientReference,
   fetchLatestApplication,
   parsePortfolioRefs,
   parseVerificationState,
   recommendedApplicationType,
+  requiredDocsComplete,
+  seedDraftAfterSendBack,
   resolveApplicationFeeCentavos,
   verificationSubmitMissing,
   type ApplicationStatus,
@@ -76,7 +74,7 @@ export type InlineDocsPayload = {
   /** How many of the vendor's own 8 items are in. */
   vendorComplete: number;
   vendorTotal: number;
-  /** docs_complete — all 12 incl. the 4 Setnayan-run slots (the publish gate). */
+  /** docs_complete — the 3 required papers are in (2026-11-14: the one fact the admin queue reads). */
   allComplete: boolean;
   /** Government registration number the vendor typed (raw, for the input's
    *  current value). Null when never submitted. Soft-probed so a pre-migration
@@ -268,8 +266,9 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
   }
 
   // Fresh / rejected / withdrawn → create the single draft NOW so uploads share
-  // one row (starts empty). A transient insert failure degrades to an empty
-  // editable view; the first upload will retry the create.
+  // one row (empty, or — after a send-back that named its papers — seeded with
+  // the kept ones). A transient insert failure degrades to an empty editable
+  // view; the first upload will retry the create.
   const draft = await resolveEditableDraft(auth.supabase, auth.vendorProfileId);
   if (!draft.ok)
     return {
@@ -283,11 +282,11 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
     applicationId: draft.applicationId,
     status: 'draft',
     editable: true,
-    docMap: {},
-    seedDisplayUrls: {},
-    vendorComplete: 0,
+    docMap: draft.docMap,
+    seedDisplayUrls: await buildSeedDisplayUrls(draft.docMap, auth.vendorProfileId),
+    vendorComplete: countCompleteVendorSlots(draft.docMap),
     vendorTotal: VENDOR_TOTAL,
-    allComplete: false,
+    allComplete: requiredDocsComplete(draft.docMap),
     registrationNumberRaw: regNumber.raw,
     registrationNumberNeedsReview: regNumber.needsReview,
     identityValues: identity.values,
@@ -303,11 +302,11 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
 async function resolveEditableDraft(
   supabase: SupabaseClient,
   vendorProfileId: string,
-): Promise<{ ok: true; applicationId: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; applicationId: string; docMap: DocUploadMap } | { ok: false; error: string }> {
   const app = await fetchLatestApplication(supabase, vendorProfileId).catch(() => null);
   const status = (app?.status as ApplicationStatus | undefined) ?? null;
   if (status === 'draft' && app) {
-    return { ok: true, applicationId: app.application_id };
+    return { ok: true, applicationId: app.application_id, docMap: (app.doc_uploads ?? {}) as DocUploadMap };
   }
   if (status != null && LOCKED_STATUSES.has(status)) {
     return {
@@ -336,6 +335,11 @@ async function resolveEditableDraft(
     ) ?? 'initial';
   // Fee comes from service_catalog (inactive/missing SKU → ₱0), never hardcoded.
   const feeCentavos = await resolveApplicationFeeCentavos(supabase, recType);
+  // 📨 A SEND-BACK NAMES ONLY THE PAPER THAT NEEDS A NEW COPY (owner 2026-11-14, "Only the named one"): after a
+  // send-back the new draft keeps every paper the admin did NOT name, exactly as it was, and carries the named
+  // ones as markers with no file. A send-back made before that rule names nothing and starts empty, as before.
+  const seed: DocUploadMap =
+    status === 'rejected' ? seedDraftAfterSendBack((app?.doc_uploads ?? {}) as DocUploadMap) : {};
   const { data: inserted, error } = await supabase
     .from('vendor_verification_applications')
     .insert({
@@ -343,14 +347,15 @@ async function resolveEditableDraft(
       application_type: recType,
       fee_php_centavos: feeCentavos,
       status: 'draft',
-      doc_uploads: {},
+      doc_uploads: seed,
+      docs_complete: requiredDocsComplete(seed),
     })
     .select('application_id')
     .maybeSingle();
   if (error || !inserted) {
     return { ok: false, error: error?.message ?? 'Could not start your application.' };
   }
-  return { ok: true, applicationId: (inserted as { application_id: string }).application_id };
+  return { ok: true, applicationId: (inserted as { application_id: string }).application_id, docMap: seed };
 }
 
 // ---------------------------------------------------------------------------
@@ -517,13 +522,16 @@ export async function updateDocUploadInline(
       portfolioRefs: safePortfolioRefs,
     }),
   };
-  const completeCount = countCompleteSlots(nextUploads);
+  // 🧾 `docs_complete` = the three required papers are in (owner 2026-11-14, DECISION_LOG "VERIFICATION IS
+  // THREE PAPERS AND ONE SUBMIT"). It used to be "every DOC_SLOT", which counted the optional extras AND the
+  // admin-run Google Meet, so the admin queue's "Documents complete" could not turn true off a supplier's upload.
+  const requiredIn = requiredDocsComplete(nextUploads);
 
   const { error: updErr } = await auth.supabase
     .from('vendor_verification_applications')
     .update({
       doc_uploads: nextUploads,
-      docs_complete: completeCount >= DOC_SLOTS.length,
+      docs_complete: requiredIn,
       updated_at: new Date().toISOString(),
     })
     .eq('application_id', draft.applicationId);
@@ -536,7 +544,7 @@ export async function updateDocUploadInline(
     ok: true,
     vendorComplete: countCompleteVendorSlots(nextUploads),
     vendorTotal: VENDOR_TOTAL,
-    allComplete: completeCount >= DOC_SLOTS.length,
+    allComplete: requiredIn,
   };
 }
 
@@ -641,8 +649,10 @@ export type SubmitResult = { ok: true } | { ok: false; error: string };
  * Submit the vendor's draft application for review, INLINE (owner 2026-07-03:
  * the whole verification flow lives on My Shop — no /verify page). The
  * non-redirecting twin of `verify/actions.ts:submitApplication`, enforcing the
- * ONE shared gate (`verificationSubmitMissing`): complete profile + the 4
- * required documents + both VALIDATE contact confirmations. Flips
+ * ONE shared gate (`verificationSubmitMissing`): the 3 required documents and
+ * the registration number beside them — never the business profile, a VALIDATE
+ * confirmation or a Google Meet (all removed 2026-11-14, DECISION_LOG "VERIFICATION
+ * IS THREE PAPERS AND ONE SUBMIT"). The admin's approval is what verifies. Flips
  * draft → pending_review, stamps submitted_at + the 5-business-day SLA, advances
  * `vendor_profiles.verification_state` (via `markVendorPendingReview` /
  * service_role — a vendor's own client is refused by the DB guard, and that
@@ -662,15 +672,9 @@ export async function submitInlineForReview(
   }
 
   const uploads = (app.doc_uploads ?? {}) as DocUploadMap;
-  const regNumber = await fetchRegistrationNumberState(auth.supabase, auth.vendorProfileId);
-  const checklist = businessProfileChecklist(auth.profile);
-  const missing = verificationSubmitMissing({
-    profileComplete: checklist.complete,
-    onlyLogoMissing: profileGaps(checklist).onlyLogoMissing,
-    uploads,
-    // A collided number keeps raw (needs_review) → still "on file".
-    registrationNumberOnFile: Boolean(regNumber.raw),
-  });
+  // The three papers and nothing else (owner 2026-11-14): no typed registration number. A duplicate number is
+  // flagged to the admin by the reviewer check, never refused here.
+  const missing = verificationSubmitMissing({ uploads });
   if (missing.length > 0) {
     return { ok: false, error: `Not quite ready: ${missing.join(' · ').toLowerCase()}.` };
   }
@@ -751,7 +755,7 @@ export async function submitInlineForReview(
 // ---------------------------------------------------------------------------
 // THE TYPED DETAIL BESIDE THE PAPER THAT PROVES IT (owner 2026-09-09)
 //
-// Six `vendor_profiles` columns sit beside the four papers. They already
+// Six `vendor_profiles` columns sit beside the three papers. They already
 // existed and were never filled by anybody: measured against production
 // 2026-09-10, BOTH shops carry all six NULL. They are UPDATE-granted to
 // `authenticated` at COLUMN level and `anon` reaches none of them, so this

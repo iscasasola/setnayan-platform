@@ -78,25 +78,38 @@ type Props = {
   kmTag?: boolean;
   /** The credit is a link (false on the sample shop page, which must lead nowhere — RW-81). Default true. */
   credit?: boolean;
+  /**
+   * 🗺 THE MAP CARD'S SHAPE (map card follow-up, 2026-11-14 live re-walk): 9 : 5 and never taller than 250 px, like the
+   * one-pin map card (`MapCard`), instead of the dashboard's fixed 240 px height (which drew 3 : 2 on a phone). The
+   * public shop page passes it; the supplier's own Where you work map keeps its 240 px. Default false.
+   */
+  card?: boolean;
 };
 
-export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, muted = false, ariaLabel, kmTag = false, credit = true }: Props) {
+export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, muted = false, ariaLabel, kmTag = false, credit = true, card = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
+  const [boxHeight, setBoxHeight] = useState(0);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
-      for (const e of entries) setWidth(e.contentRect.width);
+      for (const e of entries) {
+        setWidth(e.contentRect.width);
+        setBoxHeight(e.contentRect.height);
+      }
     });
     ro.observe(el);
-    setWidth(el.getBoundingClientRect().width);
+    const box = el.getBoundingClientRect();
+    setWidth(box.width);
+    setBoxHeight(box.height);
     return () => ro.disconnect();
   }, []);
 
   const W = width;
-  const H = HEIGHT;
+  // The card's height comes from its CSS box (9 : 5, capped at 250 px); before the first measure, the 9 : 5 of the width.
+  const H = card ? boxHeight || Math.min(250, Math.round((W * 5) / 9)) : HEIGHT;
   const hasRing = Number.isFinite(radiusKm) && radiusKm > 0;
   const outer = outerKm !== null && Number.isFinite(outerKm) && outerKm > 0 ? outerKm : null;
   const inner = innerKm !== null && Number.isFinite(innerKm) && innerKm > 0 ? Math.min(innerKm, outer ?? innerKm) : null;
@@ -159,9 +172,9 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
   return (
     <div
       ref={ref}
-      className="relative w-full overflow-hidden rounded-xl"
+      className={`relative w-full overflow-hidden ${card ? 'aspect-[9/5] max-h-[250px]' : 'rounded-xl'}`}
       style={{
-        height: H,
+        height: card ? undefined : H,
         background: 'var(--m-paper-2)',
         filter: muted ? 'grayscale(1)' : undefined,
         opacity: muted ? 0.45 : undefined,

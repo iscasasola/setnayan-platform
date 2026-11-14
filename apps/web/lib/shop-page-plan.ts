@@ -36,6 +36,23 @@ export function shopReach(input: {
   return Number.isFinite(km) && km > 0 ? { kind: 'ring', km } : { kind: 'city_only' };
 }
 
+/**
+ * 📍 DOES THE SHOP HAVE A "WHERE"? (map card follow-up, live re-walk 2026-11-14.) The calm shop page's Where tab and
+ * its section are drawn only when there is something to put behind them: a pin (a map + Get directions) or an address
+ * or city (the reach line + a Get directions search). A shop with none of those got a "Where" tab that scrolled to an
+ * empty heading. One answer for the tab AND the section, so they can never disagree.
+ */
+export function shopHasWhere(place: {
+  latitude: number | null | undefined;
+  longitude: number | null | undefined;
+  address: string | null | undefined;
+  city: string | null | undefined;
+}): boolean {
+  const pinned =
+    place.latitude != null && place.longitude != null && Number.isFinite(place.latitude) && Number.isFinite(place.longitude);
+  return pinned || Boolean(place.address?.trim()) || Boolean(place.city?.trim());
+}
+
 /** The reach fact line's words. Null when there is no city to say it about. */
 export function shopReachLine(reach: ShopReach, city: string | null | undefined): string | null {
   const c = city?.trim();

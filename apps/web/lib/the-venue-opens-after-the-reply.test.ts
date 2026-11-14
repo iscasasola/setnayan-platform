@@ -15,9 +15,11 @@ import {
   VENUE_WITHHELD_LINE,
   eventDayHasArrived,
   hasReplied,
+  venueForViewer,
   venueIsOpen,
   withheldVenue,
 } from './venue-disclosure';
+import type { EventVenue } from './event-venues';
 
 const EVENT: {
   venue_name: string;
@@ -92,19 +94,62 @@ test('withholding closes the address AND both coordinates, and says so', () => {
   assert.equal(EVENT.venue_address, '12 Real Street, Manila', 'never mutates the row the host may still need');
 });
 
-test('the invitation page withholds by DEFAULT and opens in exactly one place', () => {
+test('the invitation page withholds by DEFAULT, opens for the HOST and on a guest’s reply, and nowhere else', () => {
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', 'page.tsx'), 'utf8');
   // 🏛💒 Since 2026-09-27 the row handed to SiteBody is `venuedEvent` — the event
-  // WITH its ceremony + reception venues (lib/event-venues.ts). Same rule, same
-  // two mounts; and `venuedEvent` may appear NOWHERE else, or an un-withheld
-  // copy of both addresses could reach a render without passing the gate.
-  assert.match(src, /event: withheldVenue\(venuedEvent\)/, 'the shared props carry the closed row');
+  // WITH its ceremony + reception venues (lib/event-venues.ts). `venuedEvent` may
+  // appear NOWHERE ungated, or an un-withheld copy of both addresses could reach a
+  // render without passing the gate.
+  // 🏠 UPDATED 2026-11-14 (map card re-walk): the shared props no longer close the row for EVERY viewer — they go
+  // through `venueForViewer` with the host's own server-verified capability, because the host's own hub was telling
+  // the host "The address and directions open as soon as you reply." The claim this guard holds is unchanged for
+  // everyone else: no host → the closed row; a See as sample → the closed row; a guest → only on their reply.
+  assert.match(
+    src,
+    /event: venueForViewer\(venuedEvent, \{ isHost: hostSeesOwnVenue \}\)/,
+    'the shared props carry the row closed unless the viewer is the host',
+  );
+  assert.match(
+    src,
+    /const hostSeesOwnVenue = Boolean\(ownerCapability\) && !isEditorCanvas && search\.as === undefined;/,
+    'the host is the page’s own verified capability, never the Maker canvas or a See as sample',
+  );
+  assert.match(src, /sampleViewer: seeAs,\s*(?:\/\/[^\n]*\n\s*)*event: withheldVenue\(venuedEvent\),/, 'a See as sample is drawn as a guest: closed');
   const opens = src.match(/event=\{venueOpen \? venuedEvent : withheldVenue\(venuedEvent\)\}/g) ?? [];
-  assert.equal(opens.length, 1, `exactly one branch opens the venue (found ${opens.length})`);
+  assert.equal(opens.length, 1, `exactly one guest branch opens the venue (found ${opens.length})`);
   const code = stripComments(src);
   const uses = code.match(/\bvenuedEvent\b/g) ?? [];
-  assert.equal(uses.length, 4, `venuedEvent: 1 definition + 3 gated uses, found ${uses.length}`);
-  assert.match(src, /venueIsOpen\(\{[\s\S]{0,160}rsvpStatus: guest\.rsvp_status/, 'and it opens on the guest’s own reply');
+  assert.equal(uses.length, 5, `venuedEvent: 1 definition + 4 gated uses, found ${uses.length}`);
+  assert.match(src, /venueIsOpen\(\{[\s\S]{0,260}rsvpStatus: guest\.rsvp_status/, 'and it opens on the guest’s own reply');
+  assert.match(src, /isHost: hostSeesOwnVenue && passStandingNow\.standing !== 'host_preview'/, 'a host who opened a guest’s pass sees that guest’s view');
+});
+
+test('the host sees the address, the map and Get directions; an unreplied guest still sees none of it (2026-11-14)', () => {
+  const venues: EventVenue[] = [
+    { role: 'ceremony', name: 'San Agustin Church', address: 'General Luna St, Intramuros', latitude: 14.589, longitude: 120.975 },
+  ];
+  const VENUED = { ...EVENT, venues };
+  // The host — whatever their own RSVP and however far off the day.
+  const host = venueForViewer(VENUED, { isHost: true });
+  assert.equal(host.venue_address, '12 Real Street, Manila');
+  assert.equal(host.venue_latitude, 14.6);
+  assert.equal(host.venue_withheld, undefined, 'no "opens as soon as you reply" line for the host');
+  assert.equal(host.venues[0]!.address, 'General Luna St, Intramuros');
+  assert.equal(host.venues[0]!.latitude, 14.589, 'the pin that draws the map and Get directions');
+  // The shared props' default viewer (not the host) and an unreplied guest: closed, exactly as before.
+  for (const viewer of [
+    { isHost: false },
+    { rsvpStatus: 'pending' as const, eventDate: '2026-12-18', now: FAR_OFF, timeZone: TZ },
+  ]) {
+    const guest = venueForViewer(VENUED, viewer);
+    assert.equal(guest.venue_address, null);
+    assert.equal(guest.venue_latitude, null);
+    assert.equal(guest.venue_longitude, null);
+    assert.equal(guest.venue_withheld, true, 'the withheld line speaks for the gap — and the widget then draws no Get directions');
+    assert.equal(guest.venues[0]!.address, null);
+    assert.equal(guest.venues[0]!.latitude, null);
+    assert.equal(guest.venues[0]!.longitude, null);
+  }
 });
 
 test('the widget drops the directions row when withheld — it searches BY NAME otherwise', () => {

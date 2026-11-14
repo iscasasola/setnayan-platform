@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { eventTilesForBooking } from '@/lib/vendor-event-roles';
 import { redirect } from 'next/navigation';
-import { ArrowRight, Users } from 'lucide-react';
+import { ChevronRight, Users } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -19,11 +19,6 @@ import { vendorDayOfFreeUntilIso, isVendorDayOfStillFree } from '@/lib/vendor-da
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { FloorClock } from './_components/floor-clock';
 import { LiveReviews } from '../../_components/live-reviews';
-import {
-  ConsoleEyebrow,
-  ConsoleHeading,
-  ConsolePlate,
-} from '../../_components/pahina-console';
 import { SpecializationSlot } from './_components/specialization-slot';
 import { registeredSpecializationSets } from './_components/specialization-registry';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
@@ -83,11 +78,11 @@ export const metadata = { title: 'Live · Hub' };
  * `_components/pahina-console.tsx`; see that file's header for the full
  * reasoning and the two contrast traps it handles.
  *
- * The obsidian FOCAL is deliberately kept on `.sn-tile-dark`: `FloorClock` is a
- * client component with hardcoded light-on-dark colours, `.sn-tile-dark` is the
- * mode-stable dark stock it was built against, and a day-of clock wants to be
- * the one glare-legible thing on the screen. It gains the Pahina gild hairline
- * and display face; it does not change what it does.
+ * The obsidian FOCAL is deliberately kept on `.sn-tile-dark` — the ONE framed
+ * thing on this screen (design template rule 2): a day-of clock wants to be the
+ * one glare-legible thing on a venue floor, and `SupplierSavedStrip` inside it
+ * draws light-on-dark. Every other block is a plain section on the page:
+ * a small grey capitals label and hairline rows (design template 2026-11-14).
  */
 
 /** PH wall-clock today (UTC+8) as 'YYYY-MM-DD'. */
@@ -345,27 +340,17 @@ export default async function VendorOnTheDayLivePage({
           `id="schedule"`: where a "Schedule moved" notice lands (lib/schedule-shift-notice.ts) — the clock's
           now/next, with the run of show under it. On a block that ALWAYS renders, so the link never misses. */}
       <div id="schedule" className="scroll-mt-4">
-        <div
-          aria-hidden
-          className="h-2 border border-b-0 border-ink/10 bg-gradient-to-r from-veil via-paper-deep to-gild/25"
-        />
-        <div className="sn-tile-dark sn-bloom relative p-5 sm:p-6">
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-2 border border-gild/20"
-          />
-          <div className="relative">
-            {/* 📶 The offline copy's mark (EV3) — this phone's own copy of the Event Hub, for a venue without signal. */}
-            <SupplierSavedStrip viewer={user.id} eventId={eventId} eventDate={booking.bookedDate} checkin={run != null} />
-            <p className="truncate font-pahina text-2xl font-light leading-snug tracking-tight text-paper">
-              {coupleName}
+        <div className="sn-tile-dark sn-bloom relative">
+          {/* 📶 The offline copy's mark (EV3) — this phone's own copy of the Event Hub, for a venue without signal. */}
+          <SupplierSavedStrip viewer={user.id} eventId={eventId} eventDate={booking.bookedDate} checkin={run != null} />
+          <p className="truncate text-lg font-semibold leading-snug">{coupleName}</p>
+          {place ? (
+            <p className="mt-0.5 truncate text-sm" style={{ color: 'color-mix(in srgb, var(--sn-gold-100) 72%, transparent)' }}>
+              {place}
             </p>
-            {place ? (
-              <p className="mt-0.5 truncate text-sm text-paper/60">{place}</p>
-            ) : null}
-            <div className="mt-4">
-              <FloorClock blocks={blocks} />
-            </div>
+          ) : null}
+          <div className="mt-4">
+            <FloorClock blocks={blocks} />
           </div>
         </div>
       </div>
@@ -375,13 +360,13 @@ export default async function VendorOnTheDayLivePage({
       {frame.nav.length > 0 ? (
         <nav
           aria-label="Console sections"
-          className="flex items-center gap-1 border-y border-ink/10 py-2"
+          className="flex items-center gap-1 overflow-x-auto border-y border-[color:var(--m-line)]"
         >
           {frame.nav.map((item) => (
             <a
-              key={item.id}
+              key={item.href}
               href={item.href}
-              className="rounded-full px-3 py-1 font-mono text-[0.66rem] uppercase tracking-[0.2em] text-ink/70 transition-colors hover:bg-veil hover:text-ink"
+              className="inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-sm font-semibold text-[color:var(--m-slate-2)] transition-colors duration-sn-control ease-sn hover:bg-[color:var(--m-paper-2)] hover:text-ink"
             >
               {item.label}
             </a>
@@ -391,63 +376,49 @@ export default async function VendorOnTheDayLivePage({
 
       {/* ── THE GENERIC KIT — every vendor, every tier, unchanged ─────────── */}
       <section id={frame.genericDomId} className="scroll-mt-4 space-y-4">
-        <ConsoleEyebrow>Your tools</ConsoleEyebrow>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">Your tools</h2>
 
         {/* Run of show (reused realtime header) */}
         {has('run_of_show') ? <RunOfShowHeader eventId={eventId} initial={blocks} /> : null}
 
         {/* 🚶 The Wedding March, read-only — the band and the coordinator only; nothing drawn when nobody walks. */}
         {march && (march.unread || marchWalkCount(marchShown) > 0) ? (
-          <ConsolePlate>
+          <div className="border-b border-[color:var(--m-line)] pb-3">
             <MarchRead sections={marchShown} unread={march.unread === true} />
-          </ConsolePlate>
+          </div>
         ) : null}
 
         {/* Headcount */}
         {has('pax_headcount') ? (
-          <ConsolePlate className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Users aria-hidden className="h-4 w-4 text-gild" strokeWidth={1.75} />
-              <ConsoleHeading as="h3">Headcount</ConsoleHeading>
+          <div className="border-b border-[color:var(--m-line)] pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">Headcount</h3>
+            <div className="flex min-h-14 items-center gap-3">
+              <Users aria-hidden className="h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.75} />
+              <div className="min-w-0">
+                <span className="block text-2xl font-bold tabular-nums text-ink">
+                  {formatCount(attending)} / {formatCount(invited)}
+                </span>
+                <span className="block text-sm text-[color:var(--m-slate-2)]">attending · pulled live from RSVPs</span>
+              </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="font-mono text-2xl font-bold text-ink">
-                {formatCount(attending)} / {formatCount(invited)}
-              </span>
-              <span className="text-sm text-ink/65">attending · pulled live from RSVPs</span>
-            </div>
-          </ConsolePlate>
+          </div>
         ) : null}
 
-        {/* Enabled-module quick links */}
+        {/* Enabled-module quick links — one hairline row each; the whole row opens. */}
         {linkModules.length > 0 ? (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <ul className="divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)]">
             {linkModules.map(({ mod, href }) => (
-              <Link
-                key={mod.id}
-                href={href}
-                className="sn-press group relative flex items-center justify-between gap-3 border border-ink/10 bg-paper-deep p-4 transition-colors hover:border-gild/40"
-              >
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute inset-1.5 border border-ink/[0.08]"
-                />
-                <span className="relative min-w-0">
-                  <span className="block font-pahina text-base font-light leading-snug tracking-tight text-ink">
-                    {mod.label}
+              <li key={mod.id}>
+                <Link href={href} className="sn-press flex min-h-14 items-center justify-between gap-3 py-2.5">
+                  <span className="min-w-0">
+                    <span className="block text-base font-semibold leading-snug text-ink">{mod.label}</span>
+                    <span className="mt-0.5 block text-sm leading-snug text-[color:var(--m-slate-2)]">{mod.blurb}</span>
                   </span>
-                  <span className="mt-0.5 block text-xs leading-relaxed text-ink/65">
-                    {mod.blurb}
-                  </span>
-                </span>
-                <ArrowRight
-                  aria-hidden
-                  className="relative h-5 w-5 shrink-0 text-ink/45 transition-colors group-hover:text-gild"
-                  strokeWidth={1.75}
-                />
-              </Link>
+                  <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         ) : null}
 
         {/* Live reviews */}

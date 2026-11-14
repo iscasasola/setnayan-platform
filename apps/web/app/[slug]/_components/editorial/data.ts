@@ -1814,7 +1814,8 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       // 24 is what `LivePhotoWall` draws; slicing here keeps the presigning to
       // the tiles that are actually rendered, as the day-of caller does.
       const snap = await getWallSnapshot(eventId, null, { limit: 24 });
-      photoWallPhotos = snap.tiles.map((t) => t.url).filter((u) => Boolean(u));
+      /* 📷 Memory lane on the story holds the day's photos only (F-W2-49) — the same window as the gallery. */
+      photoWallPhotos = snap.tiles.filter((t) => capturedOnTheDay(t.sortAt, dayWindow)).map((t) => t.url).filter((u) => Boolean(u));
     } catch {
       photoWallPhotos = [];
     }
@@ -1932,7 +1933,11 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     attending,
     replied,
     rsvpPct: typeof frozen.rsvp_pct === 'number' ? (frozen.rsvp_pct as number) : rsvpPct,
-    photos: typeof frozen.photos === 'number' ? (frozen.photos as number) : photos,
+    /* 📷 ONE COUNT OF THE DAY'S PHOTOS (F-W2-49, the walk after #7628: the gallery said nothing was shot on the day
+       while the cover, By the numbers, Memory lane and the Powered-by line all counted seven photos from four days
+       before). Where the event has a date, every "photos" figure on the story is the day-window count
+       (`dayPhotoCount`) — a frozen or all-time count may hold the shots from before the day. */
+    photos: typeof galleryDayTotal === 'number' ? galleryDayTotal : typeof frozen.photos === 'number' ? (frozen.photos as number) : photos,
     clips: typeof frozen.clips === 'number' ? (frozen.clips as number) : clips,
     // `chapters` is finalized after the timeline is built (dayChapters.length);
     // prefer a frozen value when present, else fill from the live count below.

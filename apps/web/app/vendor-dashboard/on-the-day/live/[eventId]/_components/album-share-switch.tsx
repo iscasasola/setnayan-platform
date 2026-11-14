@@ -17,7 +17,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Lock, Share2 } from 'lucide-react';
+import { Lock, Share } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { eventFilesAction } from '@/app/_actions/event-files-actions';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
@@ -111,7 +111,7 @@ export function AlbumShareSwitch({
             It fills your own scene. You can switch it off any time.
           </p>
           <div className="mt-2 flex gap-2">
-            <ActionButton tone="brand" main icon={Share2} label="Share" disabled={pending} onClick={() => send(true)} />
+            <ActionButton tone="brand" main icon={Share} label="Share" disabled={pending} onClick={() => send(true)} />
             <ActionButton tone="neutral" icon={Lock} label="Keep private" disabled={pending} onClick={() => send(false)} />
           </div>
         </div>

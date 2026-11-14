@@ -169,7 +169,8 @@ export function SealPlaque({
       if (!c || dead || variant !== 'no1') return;
       import(/* webpackChunkName: "award-story" */ './confetti')
         .then(({ awConfetti }) => {
-          if (!dead && d.open) stopConfetti = awConfetti(c, () => !dead && d.open, seed);
+          if (!dead && d.open)
+            stopConfetti = awConfetti(c, () => !dead && d.open, seed, () => [d.querySelector(`.${s.awCard}`), d.querySelector(`.${s.awPlate}`)]);
         })
         .catch(() => {});
     };
@@ -225,6 +226,8 @@ export function SealPlaque({
           const { storyRig, asImageSvg, INTRO_END, REVEAL_S, STORY_MY, STORY_W, STORY_H } = await import(/* webpackChunkName: "award-story" */ './story-rig');
           if (dead) return;
           const rig = await storyRig({
+            // v50: drawn at the size this screen actually shows (DPR capped at 1.5), not a full 1080×1920
+            scale: (Math.min(window.innerWidth, (window.innerHeight * 9) / 16) * Math.min(1.5, window.devicePixelRatio || 1)) / 1080,
             // v46: No. 1 opens on the velvet-curtain reveal (15 s); every other seal on the 4.6 s entrance
             reveal: variant === 'no1',
             svg,
@@ -238,15 +241,22 @@ export function SealPlaque({
           const END = rig.dur === REVEAL_S ? REVEAL_S : INTRO_END;
           rig.app?.();
           canvasHost.current?.replaceChildren(rig.canvas);
-          let t0 = performance.now();
+          // v51: a clamped clock — a slow phone frame advances the show by at most 50 ms, so nothing is skipped past
+          let tA = 0;
+          let lastN = performance.now();
           await new Promise<void>((res) => {
             const tk = () => {
               if (dead) return res();
-              let t = (performance.now() - t0) / 1000;
+              const nw = performance.now();
+              tA += Math.min(0.05, (nw - lastN) / 1000);
+              lastN = nw;
+              let t = tA;
               if (skip.current && t < END) {
-                t0 -= (END - t) * 1000;
+                tA = END;
                 t = END;
               }
+              // v51: build the exit's stage still ahead of the switch, not on the switch
+              if (rig.prep && t > END - 1.2) rig.prep();
               rig.frame(Math.min(t, END));
               if (t > END - 0.7 && tip.current) tip.current.style.opacity = '0';
               if (t >= END) res();
@@ -332,15 +342,25 @@ export function SealPlaque({
             const tgt: Element = art.current?.querySelector('svg') ?? mount.current ?? d;
             if (card) card.style.animation = 'none';
             const tb = tgt.getBoundingClientRect();
-            if (card) {
-              card.style.animation = '';
-              card.classList.add(s.awRise!);
-            }
             const mv = tgt.tagName.toLowerCase() === 'svg' ? (tgt.getAttribute('viewBox') || '').split(/[ ,]+/).map(Number) : [];
             const land = flightTarget(tb, mv, rig.vb, rig.dw, k, w);
             const dx = land.x - cx;
             const dy = land.y - cy;
             const sc = land.scale;
+            // v51: a phone needs a moment to build the plaque — hold the stage still on the layer until it has painted,
+            // THEN start the move, so the first heavy frame never eats the transition (owner: "it went straight to the
+            // logo placing the plaque")
+            for (let i = 0; i < 3; i++) {
+              await new Promise<void>((r2) => {
+                raf = requestAnimationFrame(() => r2());
+              });
+              if (dead) return;
+              draw(0);
+            }
+            if (card) {
+              card.style.animation = '';
+              card.classList.add(s.awRise!);
+            }
             const an = fly.animate(
               [
                 { transform: T0 },
@@ -349,10 +369,14 @@ export function SealPlaque({
               ],
               { duration: 1050, easing: 'cubic-bezier(.45,.05,.3,1)', fill: 'forwards' },
             );
-            const tx0 = performance.now();
+            // v51: the exit's clock is clamped too
+            let te = 0;
+            let lt = performance.now();
             const exitDur = rig.exitDur ?? 4;
             const tick = () => {
-              const te = (performance.now() - tx0) / 1000;
+              const nw = performance.now();
+              te += Math.min(0.05, (nw - lt) / 1000);
+              lt = nw;
               if (dead || !d.open || te >= exitDur || gone()) {
                 layer.remove();
                 return;

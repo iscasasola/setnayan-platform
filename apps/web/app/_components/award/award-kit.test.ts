@@ -216,6 +216,85 @@ test('13 · v49 the reveal carries on: rail springs, exit timing, the flight tar
   assert.match(plaque, /Math\.min\(r\.width \/ STORY_W, r\.height \/ STORY_H\)/, 'letter-box fix for every seal');
 });
 
+test('14 · v50/v51 perf: nothing costly is drawn per frame; clamped clocks; the stage still is built early', () => {
+  const rig = stripComments(readFileSync(join(DIR, 'story-rig.ts'), 'utf8'));
+  // the body of a nested `function name(` up to its matching brace
+  const body = (name: string) => {
+    const a = rig.indexOf(`function ${name}(`);
+    assert.ok(a >= 0, `${name} exists`);
+    let i = rig.indexOf('{', a);
+    let depth = 0;
+    for (let j = i; j < rig.length; j++) {
+      if (rig[j] === '{') depth++;
+      else if (rig[j] === '}' && --depth === 0) return rig.slice(i, j + 1);
+    }
+    throw new Error(`${name} never closes`);
+  };
+  for (const f of ['base', 'frame', 'drawCurtain', 'drawValance']) {
+    const b = body(f);
+    assert.doesNotMatch(b, /shadowBlur/, `${f}: no shadowBlur per frame (the glows are pre-rendered)`);
+    assert.doesNotMatch(b, /drawImage\(\s*im\b/, `${f}: the seal's SVG is never re-rasterised per frame`);
+  }
+  for (const f of ['drawCurtain', 'drawValance']) {
+    const b = body(f);
+    assert.equal((b.match(/=\s*vg\b/g) || []).length, 1, `${f}: the shade is filled once over the outline, not per strip`);
+  }
+  const dv = body('drawValance');
+  assert.doesNotMatch(dv.slice(dv.indexOf('c += 2)'), dv.indexOf('fillStyle = vg')), /\.stroke\(\)/, 'valance strips are not stroked');
+  assert.match(body('drawCurtain'), /new Float32Array\(n\)/, 'curtain point colours are numbers (Float32Array), not tuples');
+  assert.match(body('drawValance'), /c \+= 2\)/, 'one valance strip per two columns');
+  assert.match(rig, /c\.width = Math\.round\(W \* KS\)/, 'drawn at the size the screen shows');
+  assert.match(rig, /base\(4\);\s*frame\(2\);\s*frame\(0\);/, 'warm-up before the first shown frame');
+  assert.match(rig, /rig\.prep = \(\) =>/);
+  const plaque = stripComments(readFileSync(join(DIR, 'seal-plaque.tsx'), 'utf8'));
+  assert.equal((plaque.match(/Math\.min\(0\.05, /g) || []).length, 2, 'both the reveal and the exit clocks are clamped');
+  assert.match(plaque, /if \(rig\.prep && t > END - 1\.2\) rig\.prep\(\)/);
+  assert.match(plaque, /scale: \(Math\.min\(window\.innerWidth/);
+  const hold = plaque.indexOf('for (let i = 0; i < 3; i++)');
+  assert.ok(hold > 0 && hold < plaque.indexOf('card.classList.add(s.awRise!)') && hold < plaque.indexOf('fly.animate('), 'the stage holds 3 frames before the rise and the flight');
+  const vid = stripComments(readFileSync(join(DIR, 'story-video-impl.tsx'), 'utf8'));
+  assert.doesNotMatch(vid, /scale:/, 'the story video stays full 1080×1920');
+});
+
+test('15 · v51 confetti meets the plaque: a third bounce, a third rest, the rest fall past; a resting piece lets go', async () => {
+  const { ledgeDecide, ledgeRest } = await import('./confetti');
+  type Piece = import('./confetti').Piece;
+  const mk = (): Piece => ({ x: 100, y: 205, vx: 1, vy: 4, delay: 0, w: 8, h: 14, rot: 3.3, vr: 0.2, flip: 1, vf: 0.2, gold: true, strip: false, sway: 0, sw: 0.05, amp: 1, rain: true });
+  const L = { y: 200, l: 0, r: 300 };
+  const mid = (a: number, b: number) => (a + b) / 2;
+  const b = mk();
+  assert.equal(ledgeDecide(b, 195, L, 0, 0.1, 1, mid), 'bounce');
+  assert.equal(b.y, 199);
+  assert.ok(b.vy < 0, 'bounces up');
+  assert.equal(b.vr, -0.2 * 1.4);
+  assert.equal(ledgeDecide(b, 195, L, 0, 0.1, 1, mid), null, 'decides once per ledge');
+  assert.equal(b.done, 1);
+  const r = mk();
+  assert.equal(ledgeDecide(r, 195, L, 1, 0.5, 1, mid), 'rest');
+  assert.deepEqual([r.vx, r.vy, r.y, r.lg, r.st, r.done], [0, 0, 200, 1, 1600, 2]);
+  assert.ok(Math.abs(r.r0! - (Math.PI + 0)) < 1e-9, 'settles flat (nearest half-turn)');
+  assert.equal(ledgeDecide(mk(), 195, L, 0, 0.9, 1, mid), 'past');
+  assert.equal(ledgeDecide(mk(), 206, L, 0, 0.1, 1, mid), null, 'already below: no crossing');
+  assert.equal(ledgeDecide({ ...mk(), x: 1 }, 195, L, 0, 0.1, 1, mid), null, 'off the ledge end');
+  assert.equal(ledgeDecide({ ...mk(), vy: -2 }, 195, L, 0, 0.1, 1, mid), null, 'rising pieces pass up through');
+  // resting: it sits on the ledge's top, then lets go when its time is up, its ledge is gone, or it slides off
+  assert.equal(ledgeRest(r, L, 1, 1, mid), false);
+  assert.equal(r.y, 200 - 14 * 0.18);
+  r.st = 10;
+  assert.equal(ledgeRest(r, L, 1, 1, mid), true, 'time is up');
+  assert.deepEqual([r.st, r.vy], [0, 0.6]);
+  const g = mk();
+  ledgeDecide(g, 195, L, 0, 0.5, 1, mid);
+  assert.equal(ledgeRest(g, undefined, 1, 1, mid), true, 'its ledge is gone');
+  const sl = mk();
+  ledgeDecide(sl, 195, L, 0, 0.5, 1, mid);
+  sl.x = 305;
+  assert.equal(ledgeRest(sl, L, 1, 1, mid), true, 'slid off the end');
+  const cf = stripComments(readFileSync(join(DIR, 'confetti.ts'), 'utf8'));
+  assert.match(cf, /p\.done = 0;/, 'the bitmask resets when a piece re-enters at the top');
+  assert.match(cf, /now - lgAt < 250/, 'ledges re-measured every 250 ms');
+});
+
 test('5 · the full-screen badge names the shop, the GIVEN tier, and signs with the hallmark', async () => {
   const { BadgeFullscreen } = await import('./badge-fullscreen');
   const art = h('svg', { viewBox: '0 0 100 100' }, h('circle', { cx: 50, cy: 50, r: 40 }));

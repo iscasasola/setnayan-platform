@@ -55,7 +55,70 @@ export type Piece = {
   rain: boolean;
   /** v49: adopted from the reveal — its sway comes in over 0.8 s, so nothing jumps on the hand-over. */
   sd?: boolean;
+  /** v51: ledges this piece has already decided on (bit per ledge; cleared when it re-enters at the top). */
+  done?: number;
+  /** v51: ms left resting on a ledge (> 0 = resting). */
+  st?: number;
+  /** v51: which ledge it rests on. */
+  lg?: number;
+  /** v51: its slow slide while resting (px per frame). */
+  sl?: number;
+  /** v51: the angle it settles to while resting (flat, face up or face down, a little askew). */
+  r0?: number;
 };
+
+/** v51: the top edge of a plaque part the paper can land on, in canvas px. */
+export type Ledge = { y: number; l: number; r: number };
+
+/**
+ * v51 — confetti meets the plaque. A piece falling across a ledge (crossing its top edge between its ends, once per
+ * ledge) decides ONCE: about a third bounce off, a third land and rest a while, the rest fall past in front.
+ * `u` is the roll in [0, 1). Returns what it decided.
+ */
+export function ledgeDecide(p: Piece, py: number, L: Ledge, li: number, u: number, dpr: number, rnd: (a: number, b: number) => number): 'bounce' | 'rest' | 'past' | null {
+  if (!(p.vy > 0 && py <= L.y && p.y > L.y && p.x > L.l + 3 * dpr && p.x < L.r - 3 * dpr) || (p.done ?? 0) & (1 << li)) return null;
+  p.done = (p.done ?? 0) | (1 << li);
+  if (u < 0.33) {
+    p.y = L.y - 1;
+    p.vy = -p.vy * rnd(0.25, 0.5);
+    p.vx += rnd(-1.6, 1.6) * dpr;
+    p.vr = -p.vr * 1.4;
+    p.vf *= 1.3;
+    return 'bounce';
+  }
+  if (u < 0.66) {
+    p.st = rnd(600, 2600);
+    p.lg = li;
+    p.y = L.y;
+    p.vx = 0;
+    p.vy = 0;
+    p.sl = rnd(-0.06, 0.06) * dpr;
+    p.r0 = Math.round(p.rot / Math.PI) * Math.PI + rnd(-0.35, 0.35);
+    return 'rest';
+  }
+  return 'past';
+}
+
+/**
+ * v51: one frame of a resting piece — it slides a touch, stops flipping, settles flat on the ledge's top. It lets go
+ * (falls on, slowly, with a fresh flip) when its time is up, when its ledge is gone, or when it slides off an end.
+ * Returns true when it was released this frame.
+ */
+export function ledgeRest(p: Piece, L: Ledge | undefined, dt: number, dpr: number, rnd: (a: number, b: number) => number): boolean {
+  p.st = (p.st ?? 0) - dt * 16.67;
+  p.x += (p.sl ?? 0) * dt;
+  p.flip *= Math.pow(0.9, dt);
+  p.rot += ((p.r0 ?? p.rot) - p.rot) * 0.1 * dt;
+  if (L) p.y = L.y - p.h * 0.18;
+  if (!L || p.st <= 0 || p.x < L.l - 4 || p.x > L.r + 4) {
+    p.st = 0;
+    p.vy = 0.6 * dpr;
+    p.vx = (p.sl ?? 0) * 3;
+    p.vf = (Math.random() < 0.5 ? -1 : 1) * rnd(0.12, 0.24);
+    return true;
+  }
+  return false;
+}
 
 /**
  * v49: when the reveal hands over, these ARE its pieces — same place, same speed, same turn, same size, mid-air.
@@ -92,7 +155,7 @@ export function adoptRevealPieces(seed: ConfettiSeed, dpr: number, rnd: (a: numb
  * Rains confetti on `c` while `alive()` holds; returns a stop function. With a `seed` (the No. 1 reveal handing over)
  * it adopts the reveal's live pieces instead of firing the cannons; unseeded (Reduce Motion) it is unchanged.
  */
-export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: ConfettiSeed): () => void {
+export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: ConfettiSeed, ledgeEls?: () => readonly (Element | null)[]): () => void {
   const dpr = Math.min(1.5, window.devicePixelRatio || 1);
   const W = (c.width = Math.round(window.innerWidth * dpr));
   const H = (c.height = Math.round(window.innerHeight * dpr));
@@ -149,6 +212,29 @@ export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: Co
   let raf = 0;
   let stopped = false;
   let last = t0;
+  // v51: ledges the paper can land on (canvas px), re-measured while the plaque rises
+  let LG: Ledge[] = [];
+  let lgAt = -1e9;
+  const ledges = (now: number) => {
+    if (!ledgeEls || now - lgAt < 250) return;
+    lgAt = now;
+    LG = [];
+    for (const e of ledgeEls()) {
+      if (!e) continue;
+      const r = e.getBoundingClientRect();
+      if (r.width > 0) LG.push({ y: r.top * dpr, l: r.left * dpr, r: r.right * dpr });
+    }
+  };
+  const paint = (p: Piece) => {
+    const k = Math.abs(Math.cos(p.flip));
+    const ky = Math.max(0.08, k);
+    const cr = Math.cos(p.rot);
+    const sr = Math.sin(p.rot);
+    x.setTransform(cr, sr, -sr * ky, cr * ky, p.x, p.y);
+    x.fillStyle = (p.gold ? GOLD : BLACK)[Math.min(15, Math.round(k * 15))]!;
+    if (p.strip) x.fillRect(-p.w * 0.22, -p.h * 0.9, p.w * 0.44, p.h * 1.8);
+    else x.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+  };
   const clear = () => {
     x.setTransform(1, 0, 0, 1, 0, 0);
     x.clearRect(0, 0, W, H);
@@ -159,8 +245,15 @@ export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: Co
     const dt = Math.min(2.5, (now - last) / 16.67) || 1;
     last = now;
     clear();
+    ledges(now);
     for (const p of P) {
       if (t < p.delay) continue;
+      if ((p.st ?? 0) > 0) {
+        ledgeRest(p, LG[p.lg ?? -1], dt, dpr, rnd);
+        paint(p);
+        continue;
+      }
+      const py = p.y;
       p.vy += g * dt;
       const fall = p.vy > 0;
       p.vy *= Math.pow(fall ? 0.9 : 0.982, dt);
@@ -170,7 +263,12 @@ export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: Co
       p.y += p.vy * dt;
       p.rot += p.vr * dt;
       p.flip += p.vf * dt;
+      if (p.vy > 0)
+        for (let li = 0; li < LG.length; li++) {
+          if (ledgeDecide(p, py, LG[li]!, li, Math.random(), dpr, rnd)) break;
+        }
       if (p.y > H + 30) {
+        p.done = 0;
         // rain re-enters just above the top; a burst piece re-enters anywhere across one screen above it (then rains)
         p.y = p.rain ? -rnd(10, 40) * dpr : -rnd(20, H);
         p.rain = true;
@@ -180,14 +278,7 @@ export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: Co
       }
       if (p.x < -40) p.x = W + 30;
       else if (p.x > W + 40) p.x = -30;
-      const k = Math.abs(Math.cos(p.flip));
-      const ky = Math.max(0.08, k);
-      const cr = Math.cos(p.rot);
-      const sr = Math.sin(p.rot);
-      x.setTransform(cr, sr, -sr * ky, cr * ky, p.x, p.y);
-      x.fillStyle = (p.gold ? GOLD : BLACK)[Math.min(15, Math.round(k * 15))]!;
-      if (p.strip) x.fillRect(-p.w * 0.22, -p.h * 0.9, p.w * 0.44, p.h * 1.8);
-      else x.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      paint(p);
     }
     raf = requestAnimationFrame(step);
   };

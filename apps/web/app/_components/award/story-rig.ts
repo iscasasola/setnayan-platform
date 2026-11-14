@@ -83,6 +83,11 @@ export type StoryInput = {
    * the seal bursts in behind them, black-and-gold confetti keeps falling, the valance stays. Makes the scene 15 s.
    */
   reveal?: boolean;
+  /**
+   * v50: the canvas is drawn at this fraction of 1080×1920 (≤ 1). The in-app entrance passes what the screen actually
+   * shows (`min(innerWidth, innerHeight·9/16)·min(1.5, dpr)/1080`); the story video keeps 1 (full 1080×1920).
+   */
+  scale?: number;
 };
 
 export type StoryRig = {
@@ -99,6 +104,8 @@ export type StoryRig = {
   /** v49: the shared video dips to dark over its last 0.5 s, so it loops with no cut (the recorder sets it). */
   loop?: boolean;
   // ── v49, the No. 1 reveal only (undefined for every other award) ──
+  /** v51: builds the stage still (medal hidden) ahead of the switch, so the exit's first frame is light. */
+  prep?: () => void;
   /** In the app (not the video): the cord starts hauling the curtains a beat (EXLEAD) before the medal leaves. */
   app?: () => void;
   /** Starts the exit: the medal leaves the stage (it flies as its own layer); `top` = the letter-box above the picture, in canvas px. */
@@ -161,9 +168,11 @@ type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
 export async function storyRig(o: StoryInput): Promise<StoryRig> {
   const W = STORY_W;
   const H = STORY_H;
+  // v50: drawn at the size the screen shows (the scene is still laid out in 1080×1920 units, scaled by KS)
+  const KS = Math.min(1, o.scale || 1);
   const c = document.createElement('canvas');
-  c.width = W;
-  c.height = H;
+  c.width = Math.round(W * KS);
+  c.height = Math.round(H * KS);
   // `let`: the No. 1 exit draws the same curtains and valance on another canvas for a while
   let x = c.getContext('2d') as Ctx;
   const tc = o.tone;
@@ -210,6 +219,77 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
     x.fillText(txt, W / 2, y + (1 - a) * 28);
     x.restore();
   };
+  // ── v50: everything costly is drawn ONCE into its own canvas, then blitted (owner: "Super laggy… everything is like
+  // pausing"). Re-rasterising the seal's SVG every frame was the stall; a shadowBlur per frame was the rest. ──
+  let IMC: HTMLCanvasElement | null = null;
+  let SNC: HTMLCanvasElement | null = null;
+  let HMC: HTMLCanvasElement | null = null;
+  let TZC: HTMLCanvasElement | null = null;
+  const mkCanvas = (w: number, h: number) => {
+    const cv = document.createElement('canvas');
+    cv.width = w;
+    cv.height = h;
+    return cv;
+  };
+  /** The seal, rasterised once into a 900×858 bitmap. */
+  function sealBitmap(): HTMLCanvasElement {
+    if (IMC) return IMC;
+    IMC = mkCanvas(900, 858);
+    IMC.getContext('2d')?.drawImage(im, (900 - dw) / 2, (858 - dh) / 2, dw, dh);
+    return IMC;
+  }
+  /** The shop's name with its glow (drawn at y 1400 → 140 in this 220-tall strip). */
+  function shopBitmap(): HTMLCanvasElement {
+    if (SNC) return SNC;
+    SNC = mkCanvas(W, 220);
+    const g = SNC.getContext('2d');
+    if (g) {
+      g.shadowColor = tc;
+      g.shadowBlur = 30;
+      g.font = '600 92px Georgia,serif';
+      g.fillStyle = '#fff';
+      g.textAlign = 'center';
+      g.fillText(o.shopName, W / 2, 140);
+    }
+    return SNC;
+  }
+  /** The gold SETNAYAN hallmark block (y 1560–1840 of the scene). */
+  function hallmarkBitmap(): HTMLCanvasElement {
+    if (HMC) return HMC;
+    HMC = mkCanvas(W, 280);
+    const g = HMC.getContext('2d') as Ctx | null;
+    if (g) {
+      g.translate(0, -1560);
+      g.font = '700 40px Georgia,serif';
+      g.letterSpacing = '10px';
+      const tw = g.measureText('SETNAYAN').width;
+      const lx = W / 2 - (64 + 22 + tw) / 2;
+      g.shadowColor = 'rgba(232,184,74,.55)';
+      g.shadowBlur = 18;
+      g.save();
+      g.translate(lx, 1622);
+      g.scale(0.016, -0.016);
+      g.translate(0, -4000);
+      g.fillStyle = gd;
+      g.fill(mk);
+      g.restore();
+      g.textAlign = 'left';
+      g.fillStyle = gd;
+      g.fillText('SETNAYAN', lx + 86, 1668);
+      g.shadowBlur = 0;
+      g.textAlign = 'center';
+      g.font = '600 22px system-ui,sans-serif';
+      g.letterSpacing = '6px';
+      g.fillStyle = '#E8C670';
+      g.globalAlpha = 0.85;
+      const hm = 'AN EXCLUSIVE SETNAYAN ' + o.word;
+      g.fillText(hm, W / 2, 1742);
+      const hw = g.measureText(hm).width / 2;
+      g.fillRect(W / 2 - hw - 110, 1734, 80, 1.5);
+      g.fillRect(W / 2 + hw + 30, 1734, 80, 1.5);
+    }
+    return HMC;
+  }
   const REV = !!o.reveal;
   const rig: StoryRig = { canvas: c, frame, dw, dh, hide: false, dur: REV ? REVEAL_S : STORY_S };
   const DUR = rig.dur;
@@ -268,7 +348,7 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
     const rot = t > 1.05 ? medalPose(t).rot : (1 - t / 1.05) * -0.5;
     b.clearRect(0, 0, 900, 858);
     b.globalCompositeOperation = 'source-over';
-    b.drawImage(im, (900 - dw) / 2, (858 - dh) / 2, dw, dh);
+    b.drawImage(sealBitmap(), 0, 0);
     const sw = (((t - 1.6) % 3.2) + 3.2) % 3.2;
     if (t > 1.6 && sw < 1.1) {
       const sx = -300 + (sw / 1.1) * 1500;
@@ -304,45 +384,21 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       x.fillRect(0, 0, W, H);
     }
     fadeText('AWARDED TO', '800 34px system-ui,sans-serif', 1290, 1.6, t, '#fff', 0.75, '4px');
-    x.save();
-    x.shadowColor = tc;
-    x.shadowBlur = 30;
-    fadeText(o.shopName, '600 92px Georgia,serif', 1400, 2.0, t, '#fff');
-    x.restore();
+    {
+      const a = ease((t - 2.0) / 0.6);
+      if (a > 0) {
+        x.globalAlpha = a;
+        x.drawImage(shopBitmap(), 0, 1400 - 140 + (1 - a) * 28);
+        x.globalAlpha = 1;
+      }
+    }
     fadeText(o.line1, '500 40px system-ui,sans-serif', 1475, 2.6, t, '#fff', 0.8);
     if (o.line2) fadeText(o.line2, '500 40px system-ui,sans-serif', 1530, 2.9, t, '#fff', 0.8);
     const ha = ease((t - 3.4) / 0.7);
     if (ha > 0) {
-      x.save();
       x.globalAlpha = ha;
-      x.font = '700 40px Georgia,serif';
-      x.letterSpacing = '10px';
-      const tw = x.measureText('SETNAYAN').width;
-      const lx = W / 2 - (64 + 22 + tw) / 2;
-      x.shadowColor = 'rgba(232,184,74,.55)';
-      x.shadowBlur = 18;
-      x.save();
-      x.translate(lx, 1622);
-      x.scale(0.016, -0.016);
-      x.translate(0, -4000);
-      x.fillStyle = gd;
-      x.fill(mk);
-      x.restore();
-      x.textAlign = 'left';
-      x.fillStyle = gd;
-      x.fillText('SETNAYAN', lx + 86, 1668);
-      x.shadowBlur = 0;
-      x.textAlign = 'center';
-      x.font = '600 22px system-ui,sans-serif';
-      x.letterSpacing = '6px';
-      x.fillStyle = '#E8C670';
-      x.globalAlpha = ha * 0.85;
-      const hm = 'AN EXCLUSIVE SETNAYAN ' + o.word;
-      x.fillText(hm, W / 2, 1742);
-      const hw = x.measureText(hm).width / 2;
-      x.fillRect(W / 2 - hw - 110, 1734, 80, 1.5);
-      x.fillRect(W / 2 + hw + 30, 1734, 80, 1.5);
-      x.restore();
+      x.drawImage(hallmarkBitmap(), 0, 1560);
+      x.globalAlpha = 1;
     }
     fadeText('setnayan.com', '500 24px system-ui,sans-serif', 1810, 3.9, t, '#fff', 0.5, '2px');
   }
@@ -618,8 +674,10 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
           N[v + 2] = N[v + 2]! + nz;
         }
       }
-    // each point's lit colour, kept as numbers (the prototype formats then re-parses the same values)
-    const col: [number, number, number][] = new Array(n);
+    // each point's lit colour as numbers, not strings: no garbage per frame (v50)
+    const CRr = new Float32Array(n);
+    const CGg = new Float32Array(n);
+    const CBb = new Float32Array(n);
     for (let v = 0; v < n; v++) {
       const k = v * 3;
       const nn = Math.hypot(N[k]!, N[k + 1]!, N[k + 2]!) || 1;
@@ -629,7 +687,9 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       const dif = Math.max(0, nx * LT[0] + ny * LT[1] + nz * LT[2]);
       const rim = Math.pow(1 - nz, 1.5);
       const sh = (0.08 + 1.25 * Math.pow(dif, 1.3)) * spot;
-      col[v] = [Math.min(255, 150 * sh + 230 * rim * 0.45) | 0, Math.min(255, 8 * sh + 62 * rim * 0.45) | 0, Math.min(255, 30 * sh + 84 * rim * 0.45) | 0];
+      CRr[v] = Math.min(255, 150 * sh + 230 * rim * 0.45);
+      CGg[v] = Math.min(255, 8 * sh + 62 * rim * 0.45);
+      CBb[v] = Math.min(255, 30 * sh + 84 * rim * 0.45);
     }
     // velvet folds run top to bottom, so each fold is painted as ONE strip down the whole cloth (it follows every point
     // of the simulated edge), shaded across by its two edge colours, then darkened under the valance and at the floor
@@ -639,10 +699,10 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       let g0 = 0;
       let b0 = 0;
       for (let r = 2; r < CR - 2; r++) {
-        const m = col[r * CC + c]!;
-        r0 += m[0];
-        g0 += m[1];
-        b0 += m[2];
+        const v = r * CC + c;
+        r0 += CRr[v]! | 0;
+        g0 += CGg[v]! | 0;
+        b0 += CBb[v]! | 0;
       }
       const nr = CR - 4;
       cs.push(`rgb(${(r0 / nr) | 0},${(g0 / nr) | 0},${(b0 / nr) | 0})`);
@@ -685,9 +745,29 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       x.strokeStyle = g;
       x.lineWidth = 1;
       x.stroke();
-      x.fillStyle = vg;
-      x.fill();
     }
+    // v50: the shade under the valance and at the floor, filled ONCE over the curtain's outline (not once per fold)
+    x.beginPath();
+    for (let c = 0; c < CC; c++) {
+      const v = P[c]!;
+      if (c) x.lineTo(v[0], v[1]);
+      else x.moveTo(v[0], v[1]);
+    }
+    for (let r = 1; r < CR; r++) {
+      const v = P[r * CC + CC - 1]!;
+      x.lineTo(v[0], v[1]);
+    }
+    for (let c = CC - 2; c >= 0; c--) {
+      const v = P[(CR - 1) * CC + c]!;
+      x.lineTo(v[0], v[1]);
+    }
+    for (let r = CR - 2; r > 0; r--) {
+      const v = P[r * CC]!;
+      x.lineTo(v[0], v[1]);
+    }
+    x.closePath();
+    x.fillStyle = vg;
+    x.fill();
     // the gold edge braid on the stage-centre edge and the bullion fringe on the hem, riding the cloth
     x.lineCap = 'round';
     x.strokeStyle = '#d9a93f';
@@ -1002,31 +1082,42 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
     vg.addColorStop(1, 'rgba(0,0,0,.34)');
     const B0r = (VR - 1) * VN;
     const M = (VR >> 1) * VN;
-    for (let c = 0; c < VN - 1; c++) {
+    // v50: one strip per two columns with a 3-stop gradient (slightly overlapped, no stroke), and the shade filled ONCE
+    for (let c = 0; c < VN - 1; c += 2) {
+      const c2 = Math.min(VN - 1, c + 2);
       const A = P[M + c]!;
-      const B = P[M + c + 1]!;
+      const B = P[M + c2]!;
       x.beginPath();
       for (let r = 0; r < VR; r++) {
         const v = P[r * VN + c]!;
-        if (r) x.lineTo(v[0], v[1]);
-        else x.moveTo(v[0], v[1]);
+        if (r) x.lineTo(v[0] - 0.8, v[1]);
+        else x.moveTo(v[0] - 0.8, v[1]);
       }
       for (let r = VR - 1; r >= 0; r--) {
-        const v = P[r * VN + c + 1]!;
-        x.lineTo(v[0], v[1]);
+        const v = P[r * VN + c2]!;
+        x.lineTo(v[0] + 0.8, v[1]);
       }
       x.closePath();
       const g = x.createLinearGradient(A[0], A[1], B[0] === A[0] ? B[0] + 0.01 : B[0], B[1]);
       g.addColorStop(0, cs[c]!);
-      g.addColorStop(1, cs[c + 1]!);
+      g.addColorStop(0.5, cs[c + 1]!);
+      g.addColorStop(1, cs[c2]!);
       x.fillStyle = g;
       x.fill();
-      x.strokeStyle = g;
-      x.lineWidth = 1.5;
-      x.stroke();
-      x.fillStyle = vg;
-      x.fill();
     }
+    x.beginPath();
+    for (let c = 0; c < VN; c++) {
+      const v = P[c]!;
+      if (c) x.lineTo(v[0], v[1]);
+      else x.moveTo(v[0], v[1]);
+    }
+    for (let c = VN - 1; c >= 0; c--) {
+      const v = P[B0r + c]!;
+      x.lineTo(v[0], v[1]);
+    }
+    x.closePath();
+    x.fillStyle = vg;
+    x.fill();
     // the gold band, riding the cloth
     x.lineCap = 'butt';
     x.lineJoin = 'round';
@@ -1225,19 +1316,58 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       const ky = Math.max(0.08, k);
       const cr = Math.cos(c.r);
       const sr = Math.sin(c.r);
-      x.setTransform(cr, sr, -sr * ky, cr * ky, c.x, c.y);
+      x.setTransform(cr * KS, sr * KS, -sr * ky * KS, cr * ky * KS, c.x * KS, c.y * KS);
       const l = (10 + k * k * 70) | 0;
       x.fillStyle = c.gold ? VGOLD[Math.round(k * 7)]! : `rgb(${l},${l},${(16 + k * k * 70) | 0})`;
       x.fillRect(-c.sw / 2, -c.sh / 2, c.sw, c.sh);
     }
-    x.setTransform(1, 0, 0, 1, 0, 0);
+    x.setTransform(KS, 0, 0, KS, 0, 0);
   }
   const gd2 = x.createLinearGradient(0, 760, 0, 1100);
   gd2.addColorStop(0, '#fff3c4');
   gd2.addColorStop(0.4, '#e9c56a');
   gd2.addColorStop(0.6, '#b8861e');
   gd2.addColorStop(1, '#f7dc8e');
+  /** v48 words on their dark pool, outlined and glowing (y 380–1340 of the scene), drawn once (v50). */
+  function teaserBitmap(): HTMLCanvasElement {
+    if (TZC) return TZC;
+    TZC = mkCanvas(W, 960);
+    const g = TZC.getContext('2d') as Ctx | null;
+    if (g) {
+      g.translate(0, -380);
+      // a dark pool behind the words so gold never sits straight on red velvet
+      g.save();
+      g.translate(W / 2, 950);
+      g.scale(1, 0.62);
+      const pool = g.createRadialGradient(0, 0, 0, 0, 0, 560);
+      pool.addColorStop(0, 'rgba(4,2,3,.88)');
+      pool.addColorStop(0.6, 'rgba(4,2,3,.7)');
+      pool.addColorStop(1, 'rgba(4,2,3,0)');
+      g.fillStyle = pool;
+      g.fillRect(-560, -560, 1120, 1120);
+      g.restore();
+      g.textAlign = 'center';
+      g.lineJoin = 'round';
+      g.strokeStyle = 'rgba(6,3,4,.9)';
+      g.fillStyle = gd2;
+      g.shadowColor = 'rgba(0,0,0,.9)';
+      g.shadowBlur = 22;
+      const T = (f: string, ls: string, lw: number, s2: string, y: number) => {
+        g.font = f;
+        g.letterSpacing = ls;
+        g.lineWidth = lw;
+        g.strokeText(s2, W / 2, y);
+        g.fillText(s2, W / 2, y);
+      };
+      T('600 48px Georgia,serif', '12px', 8, 'AND THE', 790);
+      T('700 124px Georgia,serif', '6px', 12, 'No. 1', 925);
+      T('600 54px Georgia,serif', '8px', 8, 'SUPPLIER OF THE YEAR', 1020);
+      T('600 54px Georgia,serif', '8px', 8, 'IS…', 1100);
+    }
+    return TZC;
+  }
   function frame(t: number) {
+    x.setTransform(KS, 0, 0, KS, 0, 0);
     if (!REV || !VA) return base(t);
     if (t < B0) {
       // the same dark the stage opens on, so nothing steps when the stage lights
@@ -1266,37 +1396,9 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       x.restore();
       const ta = Math.min(1, Math.max(0, (t - 0.9) / 0.7)) * (1 - Math.max(0, (t - OPEN0 + 0.3) / 0.5));
       if (ta > 0) {
-        x.save();
         x.globalAlpha = ta;
-        // v48: a dark pool behind the words so gold never sits straight on red velvet
-        x.save();
-        x.translate(W / 2, 950);
-        x.scale(1, 0.62);
-        const pool = x.createRadialGradient(0, 0, 0, 0, 0, 560);
-        pool.addColorStop(0, 'rgba(4,2,3,.88)');
-        pool.addColorStop(0.6, 'rgba(4,2,3,.7)');
-        pool.addColorStop(1, 'rgba(4,2,3,0)');
-        x.fillStyle = pool;
-        x.fillRect(-560, -560, 1120, 1120);
-        x.restore();
-        x.textAlign = 'center';
-        x.lineJoin = 'round';
-        x.strokeStyle = 'rgba(6,3,4,.9)';
-        x.fillStyle = gd2;
-        x.shadowColor = 'rgba(0,0,0,.9)';
-        x.shadowBlur = 22;
-        const T = (f: string, ls: string, lw: number, s: string, y: number) => {
-          x.font = f;
-          x.letterSpacing = ls;
-          x.lineWidth = lw;
-          x.strokeText(s, W / 2, y);
-          x.fillText(s, W / 2, y);
-        };
-        T('600 48px Georgia,serif', '12px', 8, 'AND THE', 790);
-        T('700 124px Georgia,serif', '6px', 12, 'No. 1', 925);
-        T('600 54px Georgia,serif', '8px', 8, 'SUPPLIER OF THE YEAR', 1020);
-        T('600 54px Georgia,serif', '8px', 8, 'IS…', 1100);
-        x.restore();
+        x.drawImage(teaserBitmap(), 0, 380);
+        x.globalAlpha = 1;
       }
     }
     if (t > OPEN0 + 1.3) vconf(t - (OPEN0 + 1.3));
@@ -1311,6 +1413,12 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       x.fillRect(0, 0, W, H);
     }
   }
+  // v50: warm every cache and settle the cloth BEFORE the first shown frame, so nothing is built mid-show
+  if (REV) {
+    base(4);
+    frame(2);
+    frame(0);
+  }
   if (REV) {
     rig.vb = vb;
     rig.medal = bc;
@@ -1320,17 +1428,27 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
     // the exit (in the app only): the stage is kept as one still, the medal is gone from it (it flies as its own
     // layer), and from here the curtains run off the rail ends and the valance is hoisted, drawn on whatever canvas is
     // handed in
+    // v51: the stage still (medal hidden) is built ahead of the switch — the reveal loop calls this in its last 1.2 s —
+    // so the exit's first frame is light (owner: it went "straight to the logo placing the plaque")
+    rig.prep = () => {
+      if (SNAP) return;
+      const h0 = rig.hide;
+      rig.hide = true;
+      SNAP = document.createElement('canvas');
+      SNAP.width = Math.round(W * KS);
+      SNAP.height = Math.round(H * KS);
+      const k0 = x;
+      x = SNAP.getContext('2d') as Ctx;
+      x.setTransform(KS, 0, 0, KS, 0, 0);
+      base(DUR - B0);
+      x = k0;
+      rig.hide = h0;
+    };
     rig.exitStart = (o2) => {
       EX = DUR;
       LIFT = 340 + Math.max(0, (o2 && o2.top) || 0);
+      rig.prep?.();
       rig.hide = true;
-      SNAP = document.createElement('canvas');
-      SNAP.width = W;
-      SNAP.height = H;
-      const k0 = x;
-      x = SNAP.getContext('2d') as Ctx;
-      base(DUR - B0);
-      x = k0;
     };
     rig.exit = (g, te, a, simOnly) => {
       simTo(DUR + te);
@@ -1339,7 +1457,7 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       x = g as Ctx;
       if (a > 0 && SNAP) {
         g.globalAlpha = a;
-        g.drawImage(SNAP, 0, 0);
+        g.drawImage(SNAP, 0, 0, W, H);
         g.globalAlpha = 1;
       }
       for (const cu of CL) drawCurtain(cu, 1);

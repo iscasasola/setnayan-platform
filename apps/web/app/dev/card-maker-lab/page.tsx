@@ -70,7 +70,7 @@ const LAB_GIFT_PACKS: ShopGiftPack[] = [
   { code: 'PAPIC_GUEST', title: 'Papic credits for their guests', kind: 'papic', credits: 100, srpCentavos: 0, giftPriceCentavos: null },
   { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 0, giftPriceCentavos: null },
 ];
-const LAB_GIFT_FREE: FreeByKind = { papic: 300, event_plus: 0, event_pro: 0, event_ultra: 0 };
+const LAB_GIFT_FREE: FreeByKind = { papic: 300, event_plus: 0, event_pro: 0 };
 
 type Shop = {
   name: string;

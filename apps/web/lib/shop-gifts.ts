@@ -32,21 +32,16 @@
 import { bookingFeePhp, type BookingFeeSchedule } from './booking-fee';
 import { EVENT_PLUS_SKU, FULL_PRO_SKU } from './hub-parts';
 import { giftLimitPctOrDefault } from './setnayan-gift';
-import { EVENT_ULTRA_SKU } from './event-ultra';
 
-/**
- * What a gift is: Papic credits, or one Event Plus / Event Pro / Event Ultra unlock. The migrations' CHECKs say the same
- * four (💎 Ultra: owner 2026-11-13, "Gifting Ultra: yes" — migration 20271345200551).
- */
-export type ShopGiftKind = 'papic' | 'event_plus' | 'event_pro' | 'event_ultra';
+/** What a gift is: Papic credits, or one Event Plus / Event Pro unlock. The migration's CHECKs say the same three. */
+export type ShopGiftKind = 'papic' | 'event_plus' | 'event_pro';
 
-export const SHOP_GIFT_KINDS: readonly ShopGiftKind[] = ['papic', 'event_plus', 'event_pro', 'event_ultra'];
+export const SHOP_GIFT_KINDS: readonly ShopGiftKind[] = ['papic', 'event_plus', 'event_pro'];
 
 /** The couple product each unlock kind is (a `platform_retail_catalog_v2.service_code`). */
 export const SHOP_GIFT_UNLOCK_CODE: Readonly<Record<Exclude<ShopGiftKind, 'papic'>, string>> = {
   event_plus: EVENT_PLUS_SKU,
   event_pro: FULL_PRO_SKU,
-  event_ultra: EVENT_ULTRA_SKU,
 };
 
 /** The kind of a giftable product code, or null when it cannot be gifted. */
@@ -55,27 +50,11 @@ export function shopGiftKindOf(code: string | null | undefined): ShopGiftKind | 
   if (/^PAPIC_GUEST(_[A-Z0-9]+)?$/.test(code)) return 'papic';
   if (code === SHOP_GIFT_UNLOCK_CODE.event_plus) return 'event_plus';
   if (code === SHOP_GIFT_UNLOCK_CODE.event_pro) return 'event_pro';
-  if (code === SHOP_GIFT_UNLOCK_CODE.event_ultra) return 'event_ultra';
   return null;
 }
 
-/**
- * What the couple's event already holds, from the app's entitlement chain — Event Pro includes everything Plus has, and
- * Event Ultra everything Pro has.
- */
-export type EventHolds = 'none' | 'plus' | 'pro' | 'ultra';
-
-/**
- * Can an event that holds `has` still take a gift of `kind`? An unlock never lands on an event that already holds that
- * plan or a higher one — except that an Ultra gift reaching a Plus or Pro event gives full Ultra (owner 2026-11-13).
- * The delivery door (`shop_gift_deliver_unlocks_for_booking`) applies the same rule.
- */
-export function eventCanTake(kind: ShopGiftKind, has: EventHolds): boolean {
-  if (kind === 'papic') return true;
-  if (has === 'ultra') return false;
-  if (has === 'pro') return kind === 'event_ultra';
-  return true;
-}
+/** What the couple's event already holds, from the app's entitlement chain — Event Pro includes everything Plus has. */
+export type EventHolds = 'none' | 'plus' | 'pro';
 
 /** The order key a GIFT purchase is minted under — `vendor_gift__<couple product code>`. */
 export const SHOP_GIFT_KEY_PREFIX = 'vendor_gift__';
@@ -109,7 +88,7 @@ export type ShopGiftPack = {
 
 /**
  * Packs from the catalogue rows (`fetchShopPapicPacks` + `fetchShopGiftUnlockRows`): the Papic packs smallest first,
- * then Event Plus, then Event Pro, then Event Ultra. Bad rows — and any code that cannot be gifted — are dropped.
+ * then Event Plus, then Event Pro. Bad rows — and any code that cannot be gifted — are dropped.
  */
 export function shopGiftPacksFrom(
   rows: ReadonlyArray<{ code: string; title: string; credits: number; pricePhp: number; giftPricePhp?: number | null }>,
@@ -181,13 +160,12 @@ export function giftLimitCentavos(totalCentavos: number, schedule: BookingFeeSch
  * what is free to offer at all. Null when either could not be read — then no line is treated as a reward.
  */
 export function rewardFreeByKind(
-  reward: Readonly<Partial<Record<ShopGiftKind, { earned: number; used: number }>>> | null,
+  reward: Readonly<Record<ShopGiftKind, { earned: number; used: number }>> | null,
   free: FreeByKind | null,
 ): FreeByKind | null {
   if (!reward || !free) return null;
-  // A kind the reader did not answer for counts as no reward (never as stock to hand out).
-  const left = (k: ShopGiftKind) => Math.max(0, Math.min(free[k] ?? 0, (reward[k]?.earned ?? 0) - (reward[k]?.used ?? 0)));
-  return { papic: left('papic'), event_plus: left('event_plus'), event_pro: left('event_pro'), event_ultra: left('event_ultra') };
+  const left = (k: ShopGiftKind) => Math.max(0, Math.min(free[k], reward[k].earned - reward[k].used));
+  return { papic: left('papic'), event_plus: left('event_plus'), event_pro: left('event_pro') };
 }
 
 /** The stock a shop can still offer: balance − what live quotes hold. `null` = could not be read. */
@@ -215,7 +193,6 @@ export function freeByKind(stocks: ShopGiftStocks | null): FreeByKind | null {
     papic: freeCredits(stocks.papic) ?? 0,
     event_plus: freeCredits(stocks.event_plus) ?? 0,
     event_pro: freeCredits(stocks.event_pro) ?? 0,
-    event_ultra: freeCredits(stocks.event_ultra) ?? 0,
   };
 }
 
@@ -224,8 +201,8 @@ export type QuoteGiftsVerdict = {
   lines: ShopGiftPack[];
   /** Papic credits only. */
   credits: number;
-  /** Event Plus / Event Pro / Event Ultra unlocks on the quote. */
-  unlocks: { event_plus: number; event_pro: number; event_ultra: number };
+  /** Event Plus / Event Pro unlocks on the quote. */
+  unlocks: { event_plus: number; event_pro: number };
   /** At the price couples pay. */
   valueCentavos: number;
   limitCentavos: number;
@@ -252,7 +229,6 @@ export function allocateRewardLines(lines: readonly ShopGiftPack[], rewardFree: 
     papic: Math.max(0, rewardFree?.papic ?? 0),
     event_plus: Math.max(0, rewardFree?.event_plus ?? 0),
     event_pro: Math.max(0, rewardFree?.event_pro ?? 0),
-    event_ultra: Math.max(0, rewardFree?.event_ultra ?? 0),
   };
   const out = lines.map(() => false);
   const order = lines.map((_, i) => i).sort((a, b) => lines[b]!.srpCentavos - lines[a]!.srpCentavos || a - b);
@@ -273,7 +249,7 @@ export function allocateRewardLines(lines: readonly ShopGiftPack[], rewardFree: 
  * @param codes    the packs added, one entry per pack (two Papic 1000 ⇒ the code twice)
  * @param limitPct the live gift limit (`ShopGiftQuoteBasis.limitPct`, Admin › Gifts) — binds the BOUGHT lines only
  * @param free     what is free to offer of each kind, from `freeByKind` — `null` (stock unread) judges as short
- * @param eventHas what the couple's event already holds — `eventCanTake` says which unlocks it can still take
+ * @param eventHas what the couple's event already holds — an event with Event Pro cannot take Plus or Pro
  * @param rewardFree what is left of the shop's BADGE-REWARD stock, per kind — those lines sit outside the limit
  */
 export function judgeQuoteGifts(
@@ -303,7 +279,7 @@ export function judgeQuoteGifts(
   }
   const need = (k: ShopGiftKind) => lines.reduce((s, p) => s + (p.kind === k ? p.credits : 0), 0);
   const credits = need('papic');
-  const unlocks = { event_plus: need('event_plus'), event_pro: need('event_pro'), event_ultra: need('event_ultra') };
+  const unlocks = { event_plus: need('event_plus'), event_pro: need('event_pro') };
   const valueCentavos = lines.reduce((s, p) => s + p.srpCentavos, 0);
   const rewardLines = allocateRewardLines(lines, rewardFree);
   const fromReward = lineOfCode.map((i) => i >= 0 && rewardLines[i] === true);
@@ -328,7 +304,7 @@ export function judgeQuoteGifts(
 
   if (unknown) return { ...base, state: 'unknown_pack' };
   if (lines.length === 0) return { ...base, state: 'none' };
-  if (lines.some((p) => !eventCanTake(p.kind, eventHas))) return { ...base, state: 'already_has' };
+  if (eventHas === 'pro' && unlocks.event_plus + unlocks.event_pro > 0) return { ...base, state: 'already_has' };
   if (!alwaysAllowed && boughtCentavos > limitCentavos) return { ...base, state: 'over_limit' };
   for (const k of SHOP_GIFT_KINDS) {
     const have = free?.[k] ?? 0;
@@ -345,7 +321,7 @@ export type ShopGiftQuoteBasis = {
   limitPct: number;
   /** Free to offer on THIS quote, per kind (this event's old holds left out). Null = could not be read. */
   free: FreeByKind | null;
-  /** What the couple's event already holds — Plus, Pro and Ultra gifts read it. */
+  /** What the couple's event already holds — Plus and Pro gifts read it. */
   eventHas: EventHolds;
   /** What is left of the shop's BADGE-REWARD stock, per kind (outside the limit). Null / absent = none counted. */
   rewardFree?: FreeByKind | null;
@@ -377,9 +353,7 @@ export function addGiftMenu(
   return packs.map((p) => {
     const v = judgeQuoteGifts([...codes, p.code], packs, totalCentavos, schedule, limitPct, free, eventHas, rewardFree);
     if (v.state === 'ok') return { code: p.code, title: p.title, ok: true, why: null };
-    if (v.state === 'already_has') {
-      return { code: p.code, title: p.title, ok: false, why: `Their event already has ${eventHas === 'ultra' ? 'Event Ultra' : 'Event Pro'}` };
-    }
+    if (v.state === 'already_has') return { code: p.code, title: p.title, ok: false, why: 'Their event already has Event Pro' };
     if (v.state === 'over_limit') return { code: p.code, title: p.title, ok: false, why: 'Over this booking’s gift limit' };
     if (v.state === 'short') return { code: p.code, title: p.title, ok: false, why: 'Not enough in your stock · buy first' };
     return { code: p.code, title: p.title, ok: false, why: 'Not on sale right now' };
@@ -391,7 +365,7 @@ export function giftCount(n: number): string {
   return new Intl.NumberFormat('en-PH', { maximumFractionDigits: 0 }).format(n);
 }
 
-/** Unlock titles on a quote, in order — the catalogue's own titles ("Event Plus", "Event Pro", "Event Ultra"). */
+/** Unlock titles on a quote, in order — the catalogue's own titles ("Event Plus", "Event Pro"). */
 export type GiftUnlockTitles = readonly string[];
 
 /**

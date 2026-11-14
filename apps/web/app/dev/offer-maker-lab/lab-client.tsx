@@ -38,7 +38,7 @@ function data(empty: boolean): OfferMakerData {
       schedule: { rate: 0.05, tailRate: 0.01, tier1LimitPhp: 100000, minPhp: 50 },
       limitPct: 40,
       paysGiftPrice: true,
-      free: { papic: 7800, event_plus: 0, event_pro: 0, event_ultra: 0 },
+      free: { papic: 7800, event_plus: 0, event_pro: 0 },
       addons: [
         { id: 1, cardId: 'c1', label: 'Extra hour', fromPhp: 8000 },
         { id: 2, cardId: 'c1', label: '50 more cocktails', fromPhp: 6500 },

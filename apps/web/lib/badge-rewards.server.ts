@@ -160,7 +160,6 @@ export async function readRewardNames(admin: SupabaseClient): Promise<RewardName
     papic: alwaysAllowedPack(packs)?.title ?? FALLBACK_REWARD_NAMES.papic,
     event_plus: packs.find((p) => p.kind === 'event_plus')?.title ?? FALLBACK_REWARD_NAMES.event_plus,
     event_pro: packs.find((p) => p.kind === 'event_pro')?.title ?? FALLBACK_REWARD_NAMES.event_pro,
-    event_ultra: packs.find((p) => p.kind === 'event_ultra')?.title ?? FALLBACK_REWARD_NAMES.event_ultra,
   };
 }
 

@@ -143,7 +143,6 @@ export const GIFT_KIND_WORD: Readonly<Record<ShopGiftKind, string>> = {
   papic: 'Papic photos',
   event_plus: 'Event Plus',
   event_pro: 'Event Pro',
-  event_ultra: 'Event Ultra',
 };
 
 /**

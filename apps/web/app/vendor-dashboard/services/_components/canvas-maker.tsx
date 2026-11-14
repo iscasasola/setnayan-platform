@@ -250,6 +250,8 @@ export function CanvasMaker({
   detailsSlot = null,
   detailsKind = null,
   recordSlot = null,
+  portfolioSlot = null,
+  portfolioLine = null,
   editing = null,
   bookedNow,
   deleteGate = null,
@@ -317,6 +319,13 @@ export function CanvasMaker({
   detailsKind?: string | null;
   /** The card's collected record, server-rendered (`CardRecordSection`), on the edit sheet. */
   recordSlot?: ReactNode;
+  /**
+   * 🃏📸 What this card collected from its bookings (`CardPortfolioSection`, frames 72 · 74 · 75), server-rendered on
+   * the edit sheet — ONLY while the record flag is on. Null → the fold says what it always said.
+   */
+  portfolioSlot?: ReactNode;
+  /** The Portfolio fold's summary when `portfolioSlot` is drawn (`portfolioSummary`). */
+  portfolioLine?: string | null;
   /** An existing card → the edit sheet: Save, the Live switch, delete and copy. */
   editing?: MakerEditing | null;
   /**
@@ -789,9 +798,9 @@ export function CanvasMaker({
     ...schedules.map((s) => ({ key: s.id, label: `${s.name} schedule` })),
   ];
   const sharedSchedule = schedules.find((s) => s.id === scheduleChoice) ?? null;
-  const scheduleLine = sharedSchedule
-    ? `Shares ${sharedSchedule.name}${sharedSchedule.perDay ? ` · ${formatCount(sharedSchedule.perDay)} a day` : ''}`
-    : 'Its own';
+  // RW-67 (walk 13 Nov 2026): the schedule's own "N a day" is said ONCE — on the daily field below, as the number that
+  // holds — not here as a third number beside the card's limit and the plan's.
+  const scheduleLine = sharedSchedule ? `Shares ${sharedSchedule.name}` : 'Its own';
 
   // ── 🏷 the one question ───────────────────────────────────────────────────
   const ask = !isEdit && category ? (coverageAsk[category] ?? null) : null;
@@ -1465,9 +1474,13 @@ export function CanvasMaker({
                         help={
                           (editing?.slots.length ?? 0) > 0
                             ? 'Time slots below set how many at once instead.'
-                            : bookingsPerDate?.help
-                              ? `Blank = up to your plan's number. ${bookingsPerDate.help}`
-                              : 'Blank = the schedule decides.'
+                            : /* RW-67: ONE answer. A shared schedule's own number is what holds (a booking takes a
+                                 place on the schedule), so it is the one said — never three numbers side by side. */
+                              sharedSchedule?.perDay
+                              ? `It shares the ${sharedSchedule.name} schedule, which takes ${formatCount(sharedSchedule.perDay)} ${sharedSchedule.perDay === 1 ? 'event' : 'events'} a day — that is the number that holds.`
+                              : bookingsPerDate?.help
+                                ? `Blank = up to your plan's number. ${bookingsPerDate.help}`
+                                : 'Blank = the schedule decides.'
                         }
                       >
                         <input
@@ -1555,12 +1568,14 @@ export function CanvasMaker({
                     </div>
                   </Fold>
 
-                  <Fold data="m-portfolio" title="Portfolio · collected" line="Albums from events this card was booked for · read-only" lead={<SubIcon><Images aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <Fold data="m-portfolio" title="Portfolio · collected" line={portfolioLine ?? 'Albums from events this card was booked for · read-only'} lead={<SubIcon><Images aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
                     <div className="pb-4 pt-1">
-                      <p className="text-[14px] text-ink/65">
-                        Each booked event’s album lands here and in Their work on your page. Your cover photos are never
-                        shown as proof.
-                      </p>
+                      {portfolioSlot ?? (
+                        <p className="text-[14px] text-ink/65">
+                          Each booked event’s album lands here and in Their work on your page. Your cover photos are never
+                          shown as proof.
+                        </p>
+                      )}
                     </div>
                   </Fold>
 

@@ -328,8 +328,22 @@ const securityHeaders = [
   },
 ];
 
+/*
+ * ─── THE /dev LABS ARE NOT BUILT FOR PRODUCTION (2026-11-14) ─────────────────
+ * Every route file under app/dev is named `page.lab.tsx` / `layout.lab.tsx` / `route.lab.ts`.
+ * `next dev` (labs, `E2E_LABS=1`, the lab e2e specs) treats `lab.tsx`/`lab.ts` as page extensions;
+ * `next build` / `next start` (NODE_ENV=production — Vercel production AND previews) do not, so the
+ * labs are never compiled: no page, no .rsc route, no server-action id counts toward Vercel's
+ * 2,048-route cap. The `notFound()` gate in app/dev/layout.lab.tsx stays as the second lock.
+ * Held by app/dev/the-labs-never-ship.test.ts.
+ */
+const PAGE_EXTENSIONS = ['tsx', 'ts', 'jsx', 'js'];
+const LAB_PAGE_EXTENSIONS = ['lab.tsx', 'lab.ts'];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  pageExtensions:
+    process.env.NODE_ENV === 'production' ? PAGE_EXTENSIONS : [...LAB_PAGE_EXTENSIONS, ...PAGE_EXTENSIONS],
   /*
    * WHICH BUILD THIS BUNDLE IS, readable from the browser.
    *

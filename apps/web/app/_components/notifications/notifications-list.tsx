@@ -38,6 +38,7 @@ import {
   placeLineText,
   placeMarkLetter,
   placeLineWords,
+  placeMissingWords,
   resolveNotificationPlace,
   type NotificationPlace,
   type NotificationPlaceFacts,
@@ -179,6 +180,7 @@ export function NotificationsList({ items, returnTo, emptyState, onRead, inset =
                   key={n.notification_id}
                   item={n}
                   place={resolveNotificationPlace(n, places)}
+                  missing={placeMissingWords(n, places)}
                   returnTo={returnTo}
                   onRead={onRead}
                   now={now}
@@ -213,13 +215,16 @@ const PLACE_WORDS = 'min-w-0 truncate text-[11.5px] leading-[1.2] tracking-[0.01
 function NotificationItem({
   item: n,
   place,
+  missing,
   returnTo,
   onRead,
   now,
 }: {
   item: NotificationRow;
-  /** Which part this notice is from, or null when it cannot be said (drawn as "Place didn't load"). */
+  /** Which part this notice is from, or null when it cannot be said (drawn with `missing`). */
   place: NotificationPlace | null;
+  /** Why there is no place, in words (`placeMissingWords`) — "Place didn't load" only when the read really failed. */
+  missing: string;
   returnTo: string;
   onRead?: (notificationId: string) => void;
   now: Date;
@@ -247,7 +252,7 @@ function NotificationItem({
   }, [menu]);
 
   const open = shift <= -REVEAL / 2;
-  const words = placeLineWords(place);
+  const words = placeLineWords(place, missing);
   // A notice whose event was removed marks read and stays here — its link is dead (the drawing's § 6).
   const lands = eventWasRemoved(n.related_url, n.event_id) ? null : n.related_url;
   const rowStyle = {
@@ -426,7 +431,7 @@ function NotificationItem({
           <span className="min-w-0 flex-1">
             <span className="mb-0.5 block">
               <InfoTip
-                label={placeLineText(place)}
+                label={placeLineText(place, missing)}
                 labelNode={<PlaceWords words={words} unread={unread} />}
                 labelClassName={`${PLACE_WORDS} invisible`}
                 ariaLabel="Where this opens"

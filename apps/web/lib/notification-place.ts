@@ -179,15 +179,48 @@ export function placeMarkLetter(event: { monogram_text: string | null; display_n
 
 // ── the words ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** The quiet line above the title: **name** · stance — or the "didn't load" words. Never blank. */
-export function placeLineWords(place: NotificationPlace | null): { name: string; stance: string | null; missing: boolean } {
-  if (!place) return { name: PLACE_DIDNT_LOAD, stance: null, missing: true };
+/** A place that WAS read and is simply no longer this reader's — said as what it is, never as a failed load. */
+export const PLACE_EVENT_REMOVED = 'An event that was removed';
+export const PLACE_EVENT_NOT_YOURS = 'An event you’re no longer on';
+export const PLACE_SHOP_GONE = 'A shop you no longer run';
+export const PLACE_SHOP_ONE_OF = 'One of your shops';
+
+/**
+ * Why a row has no place, in words (W3 finding F-W3-27, 2026-11-14: "6+ notices read 'Place didn't load'").
+ * Measured on prod: every one of those rows was a place that HAD loaded — 26 notices about events since deleted and
+ * 8 shop notices for an account that no longer has a shop. "Didn't load" there was a lie about a read that worked.
+ * Only a read that really failed (facts null) keeps PLACE_DIDNT_LOAD.
+ */
+export function placeMissingWords(
+  row: { related_url: string | null; event_id?: string | null },
+  facts: NotificationPlaceFacts | null | undefined,
+): string {
+  const eventId = row.event_id ?? null;
+  const part = notificationPart(row.related_url, eventId);
+  if (part === 'event') {
+    if (eventWasRemoved(row.related_url, eventId)) return PLACE_EVENT_REMOVED;
+    // The batched read answered, and this event is not in it: RLS no longer lets this login see it.
+    if (facts?.events && eventId && !facts.events.has(eventId)) return PLACE_EVENT_NOT_YOURS;
+  }
+  if (part === 'shop' && facts?.who) {
+    if (facts.who.shops.length === 0) return PLACE_SHOP_GONE;
+    if (facts.who.shops.length > 1) return PLACE_SHOP_ONE_OF;
+  }
+  return PLACE_DIDNT_LOAD;
+}
+
+/** The quiet line above the title: **name** · stance — or why there is none (`placeMissingWords`). Never blank. */
+export function placeLineWords(
+  place: NotificationPlace | null,
+  missing: string = PLACE_DIDNT_LOAD,
+): { name: string; stance: string | null; missing: boolean } {
+  if (!place) return { name: missing, stance: null, missing: true };
   return { name: place.name, stance: place.stance, missing: false };
 }
 
 /** The place line as one string — the ⓘ's label and the row's accessible name. */
-export function placeLineText(place: NotificationPlace | null): string {
-  const w = placeLineWords(place);
+export function placeLineText(place: NotificationPlace | null, missing: string = PLACE_DIDNT_LOAD): string {
+  const w = placeLineWords(place, missing);
   return w.stance ? `${w.name} · ${w.stance}` : w.name;
 }
 

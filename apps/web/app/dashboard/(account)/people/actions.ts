@@ -809,18 +809,24 @@ export async function confirmConnection(
   // their row just quietly changes state the next time they load the page.
   if (rows.length > 0) {
     const admin = createAdminClient();
-    const [{ data: asker }, { data: me }] = await Promise.all([
+    const [{ data: asker }, { data: me }, { data: myAccount }] = await Promise.all([
       admin
         .from('people')
         .select('claimed_by_user_id')
         .eq('person_id', rows[0]!.from_person_id)
         .maybeSingle(),
       admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
+      // The account's own name — the person node's `display_name` is empty for every confirmed connection measured on
+      // prod (2026-11-14, 8 of 8 read "They confirmed your connection"; W3 finding F-W3-27). Same fallback as the
+      // label path above.
+      admin.from('users').select('display_name').eq('user_id', user.id).maybeSingle(),
     ]);
     const askerUserId = (asker as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id;
     if (askerUserId) {
       const myName =
-        firstNameOf((me as { display_name: string | null } | null)?.display_name) ?? 'They';
+        firstNameOf((me as { display_name: string | null } | null)?.display_name) ??
+        firstNameOf((myAccount as { display_name: string | null } | null)?.display_name) ??
+        'They';
       await emitNotification({
         userId: askerUserId,
         type: 'connection_confirmed',

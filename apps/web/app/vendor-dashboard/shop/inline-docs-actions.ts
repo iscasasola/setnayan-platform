@@ -543,7 +543,7 @@ async function countsFor(admin: SupabaseClient, applicationId: string) {
   return {
     vendorComplete: countCompleteVendorSlots(map),
     vendorTotal: VENDOR_TOTAL,
-    allComplete: countCompleteSlots(map) >= DOC_SLOTS.length,
+    allComplete: requiredDocsComplete(map),
   };
 }
 

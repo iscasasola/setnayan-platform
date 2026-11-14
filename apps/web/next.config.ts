@@ -745,11 +745,13 @@ const nextConfig: NextConfig = {
       // 2026-11-14 — the bank account proof is no longer a verification paper
       // (owner, DECISION_LOG f69ec167: "delete bank account proof. we do not
       // need that. just the 3. DTI/SEC, BIR, Mayor's/Business Permit"). Its
-      // guide was removed; the address is kept and lands on the Getting
-      // verified help, which lists the three papers, instead of a 404.
+      // guide was removed; the address is kept and lands on the verification
+      // answer, which names the three papers, instead of a 404. (It pointed at
+      // /help#getting-verified until main split lib/help.ts into lib/help/*.ts,
+      // which put that section out of the root map's sight.)
       {
         source: '/help/how-to-prepare-bank-account-proof',
-        destination: '/help?role=vendor#getting-verified',
+        destination: '/help/how-are-vendors-verified',
         permanent: true,
       },
       /*

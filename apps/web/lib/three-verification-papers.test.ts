@@ -9,7 +9,7 @@
  *   2 · a supplier with those three sees nothing missing about papers and can submit;
  *   3 · a shop that uploaded a bank proof earlier still reads the same — the stored key is simply not counted;
  *   4 · no supplier-facing sentence still asks for, counts or names a bank proof;
- *   5 · the retired guide's address is kept and forwards to the Getting verified help (never a 404);
+ *   5 · the retired guide's address is kept and forwards to the verification answer (never a 404);
  *   6 · payout settings are untouched — a supplier's GCash / bank payout method is a different thing.
  *
  * The admin half ("the admin can approve with three") is held in `lib/verification-checks.test.ts`, beside the
@@ -120,7 +120,7 @@ test('4 · no supplier-facing sentence asks for, counts or names a bank proof �
   assert.match(read('app/vendor-dashboard/_components/setup-papers.tsx'), /The three required papers/);
 });
 
-test('5 · the retired guide is gone from Help, and its address forwards to Getting verified', () => {
+test('5 · the retired guide is gone from Help, and its address forwards to the verification answer', () => {
   const slug = 'how-to-prepare-bank-account-proof';
   assert.equal(findHelpArticle(slug), undefined, 'the bank-proof guide is back in Help');
   assert.ok(!ALL_HELP_ARTICLES.some(({ article }) => /bank (account )?proof/i.test(`${article.title} ${article.body}`)));
@@ -131,10 +131,13 @@ test('5 · the retired guide is gone from Help, and its address forwards to Gett
   const config = stripComments(read('next.config.ts'));
   assert.match(
     config,
-    /source:\s*'\/help\/how-to-prepare-bank-account-proof',\s*destination:\s*'\/help\?role=vendor#getting-verified',\s*permanent:\s*true/,
+    /source:\s*'\/help\/how-to-prepare-bank-account-proof',\s*destination:\s*'\/help\/how-are-vendors-verified',\s*permanent:\s*true/,
     'the old guide address no longer forwards to the verification help',
   );
-  assert.match(read('lib/help/topics-existing.ts'), /key: 'getting-verified'/, 'the forward points at a Help section that no longer exists');
+  // The forward lands on a real answer, and that answer names the three papers.
+  const landing = findHelpArticle('how-are-vendors-verified');
+  assert.ok(landing, 'the forward points at a Help answer that no longer exists');
+  assert.match(landing.article.body, /DTI or SEC registration, BIR 2303 and a Mayor’s or Business Permit/);
 });
 
 test('6 · payout settings are not part of this ruling — the payout method keeps its bank option', () => {

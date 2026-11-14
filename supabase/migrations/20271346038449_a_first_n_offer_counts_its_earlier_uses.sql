@@ -46,6 +46,8 @@ AS $$
    WHERE x.id IS NOT NULL;
 $$;
 
+REVOKE ALL ON FUNCTION public.quote_offer_ids(JSONB) FROM PUBLIC, anon, authenticated;
+
 /** How many couples (events) have this shop's offer on a live quote — optionally leaving one event out. */
 CREATE OR REPLACE FUNCTION public.offer_uses(p_vendor_profile_id UUID, p_offer_public_id TEXT, p_except_event UUID DEFAULT NULL)
 RETURNS INT

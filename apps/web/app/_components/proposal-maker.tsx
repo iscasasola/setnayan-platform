@@ -777,12 +777,10 @@ export function ProposalMaker({
               detail: viewerPromo.terms,
               amount_centavos: -money.discount,
             }
-          : {
-              label: 'Discount',
-              detail: discountReason,
-              amount_centavos: -money.discount,
-              // 🧾 OWN-01: this discount IS the card's offer, untouched (a hand-edited figure clears `cardOfferId`) —
-              // the line names it, so the offer's "first N" count sees this couple.
+          : // 🧾 OWN-01: when this discount IS the card's offer, untouched (a hand-edited figure clears
+            // `cardOfferId`), the line names it, so the offer's "first N" count sees this couple.
+            {
+              ...{ label: 'Discount', detail: discountReason, amount_centavos: -money.discount },
               ...(cardOfferId ? { from_offer_id: cardOfferId } : {}),
             },
       );

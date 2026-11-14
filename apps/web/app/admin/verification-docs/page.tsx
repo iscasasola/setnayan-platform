@@ -3,7 +3,8 @@ import { FileWarning, ShieldCheck, HelpCircle } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { buildVerificationDocsReport, verificationDocSupplierNames } from '@/lib/verification-docs-server';
+import { buildVerificationDocsReport } from '@/lib/verification-docs-server';
+import { verificationDocSupplierNames } from '@/lib/verification-doc-suppliers.server';
 import {
   formatDocSize,
   verificationDocShelves,

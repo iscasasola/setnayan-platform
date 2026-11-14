@@ -35,7 +35,7 @@ test('F-A-08 · each verification paper names its supplier (or says the name cou
   assert.match(page, /verificationDocSupplierNames\(/);
   assert.match(page, /data-doc-supplier=""/);
   assert.match(page, /Supplier name couldn’t load/);
-  assert.match(code('lib/verification-docs-server.ts'), /\.from\('vendor_profiles'\)\s*\.select\('vendor_profile_id, business_name'\)/);
+  assert.match(code('lib/verification-doc-suppliers.server.ts'), /\.from\('vendor_profiles'\)\s*\.select\('vendor_profile_id, business_name'\)/);
 });
 
 test('F-A-10 · Payouts offers no escrow stage filters', () => {

@@ -40,7 +40,7 @@ function readSeen(vendorId: string): string[] {
 
 export function BadgeEarnedLine({
   factsUrl = '/api/vendor/badges?view=facts',
-  giftsUrl = '/api/gift-moments?shop=1',
+  giftsUrl = '/api/unwrap?shop=1',
   labFiles,
 }: {
   factsUrl?: string;

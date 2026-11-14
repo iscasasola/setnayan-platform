@@ -20,7 +20,7 @@
  *   claim       (choiceId) => Promise<unknown> — sends THE claim; resolves to the server's answer
  *               ({status:'claimed'|'already'|'refused'}); anything else (a throw, a 5xx) reads as "No connection" and
  *               Try again sends the SAME claim again (safe: the database key makes a repeat land on the same claim).
- *               Default: POST /api/gift-moments {source, ref}.
+ *               Default: POST /api/unwrap {source, ref}.
  *   onOpened    the person tapped it open (the host remembers it, so it comes back open).
  *   onClaimed   (choiceId) => void — the claim is in: go where the gift landed (Redeem's destination).
  *   onLater     Later / ✕ / Esc / a tap on the dark — shuts the moment; the gift keeps waiting as its notice line.
@@ -62,9 +62,9 @@ export type GiftMomentProps = {
 
 const REDEEM: readonly GiftChoice[] = [{ id: 'redeem', label: CLAIM_WORDS.redeem, main: true }];
 
-/** The default claim: the one door, POST /api/gift-moments. A non-2xx that is not a refusal reads as "no answer". */
+/** The default claim: the one door, POST /api/unwrap. A non-2xx that is not a refusal reads as "no answer". */
 export async function postGiftClaim(view: Pick<GiftMomentView, 'source' | 'ref'>): Promise<unknown> {
-  const r = await fetch('/api/gift-moments', {
+  const r = await fetch('/api/unwrap', {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'content-type': 'application/json', accept: 'application/json' },

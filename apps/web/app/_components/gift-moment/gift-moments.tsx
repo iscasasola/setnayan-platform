@@ -20,7 +20,7 @@ import type { GiftMomentView } from '@/lib/gift-moment';
  * 🎁 THE GIFT MOMENTS ON A PAGE — what plays by itself, and what waits (owner 2026-11-14; drawing
  * QSMD9BaefarMRNQAnMFiND §6 "Claiming it later").
  *
- *   · Asks `url` (GET /api/gift-moments?event=… on a couple's Home, ?shop=1 on supplier Today) AFTER the page has
+ *   · Asks `url` (GET /api/unwrap?event=… on a couple's Home, ?shop=1 on supplier Today) AFTER the page has
  *     drawn — the page's own reads never grow, and a failed read draws nothing (never "no gifts").
  *   · PLAYS BY ITSELF only what THIS ACCOUNT has never seen (each host once — remembered by the one notice memory,
  *     so it follows them to a new phone), oldest first; two shops' gifts play back to back, "1 of 2", never merged.

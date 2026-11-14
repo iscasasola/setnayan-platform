@@ -1,9 +1,10 @@
 /**
- * 🎁 THE GIFT MOMENT — which ones play, which ones wait, and what the claim's answer means. PURE and IMPORT-FREE on
- * purpose: `app/_components/gift-moment/gift-moments.tsx` sits in the first load of Home and supplier Today, so this
+ * 🎁 THE GIFT MOMENT — which ones play, which ones wait, and what the claim's answer means. PURE and LIGHT on
+ * purpose (its one import is the pure number formatter): `app/_components/gift-moment/gift-moments.tsx` sits in the first load of Home and supplier Today, so this
  * file must not pull the badge tables in (`lib/gift-moment.ts` composes the words and re-exports all of this).
  */
 import type { GiftMomentView } from './gift-moment';
+import { formatCount } from './format-number';
 
 /** The notice-memory key that says THIS ACCOUNT has seen the moment (each host once — follows them to a new phone). */
 export function giftMomentSeenKey(v: Pick<GiftMomentView, 'key'>): string {
@@ -37,7 +38,7 @@ export function momentsWaiting(views: readonly GiftMomentView[]): GiftMomentView
 
 /** "1 of 2" — only when more than one plays back to back. */
 export function queueCounter(index: number, total: number): string | null {
-  return total > 1 ? `${index + 1} of ${total}` : null;
+  return total > 1 ? `${formatCount(index + 1)} of ${formatCount(total)}` : null;
 }
 
 /* ── the claim ────────────────────────────────────────────────────────────────────────────────────────────────── */

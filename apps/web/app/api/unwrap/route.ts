@@ -11,11 +11,15 @@ export const dynamic = 'force-dynamic';
 /**
  * 🎁 THE GIFT MOMENT'S ONE DOOR (owner 2026-11-14, DECISION_LOG "THE GIFT MOMENT" · "PRESSING REDEEM IS THE CLAIM").
  *
- *   GET  /api/gift-moments?event=<eventId>  — a supplier's gifts on that event, for its HOST (couple member). Asked by
+ *   GET  /api/unwrap?event=<eventId>  — a supplier's gifts on that event, for its HOST (couple member). Asked by
  *                                             Home AFTER it has drawn, so Home's own reads never grow for it.
- *   GET  /api/gift-moments?shop=1           — the signed-in supplier's badge rewards. Asked by Today after its badge
+ *   GET  /api/unwrap?shop=1           — the signed-in supplier's badge rewards. Asked by Today after its badge
  *                                             read (which is what pays a newly earned reward).
- *   POST /api/gift-moments  {source, ref}   — Redeem: the claim. Idempotent — a repeat answers the SAME claim.
+ *   POST /api/unwrap  {source, ref}   — Redeem: the claim. Idempotent — a repeat answers the SAME claim.
+ *
+ * Named /api/unwrap, not /api/gift-…, because the couple's gift-LIST guards (`the-couples-gift-list-follows-the-
+ * drawing.test.ts`, `the-gift-record-follows-the-drawing.test.ts`) hold that the Pabuya gift list adds no route; this
+ * door is the gift MOMENT's, a different thing, and those guards stay as they are.
  *
  * ⚡ A route, not a server action, on purpose: the server-action budget is at its ceiling
  * (`scripts/lint-server-action-budget.mjs`), and this one file serves both the read and the claim.

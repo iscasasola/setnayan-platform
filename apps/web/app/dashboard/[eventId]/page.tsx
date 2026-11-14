@@ -1574,7 +1574,7 @@ export default async function EventHomePage({
       {/* 🎁 A supplier's gift that reached this event: the tap-to-open moment, once per HOST (couple member), never a
           guest (owner 14 Nov 2026); an unclaimed one waits as a line at the page's top and in the bell. Asked after
           Home has drawn; it draws no box in the flow (a notice registration and a popup) — Home's own reads never grow for it. */}
-      {viewerMemberType === 'couple' ? <GiftMoments url={`/api/gift-moments?event=${eventId}`} /> : null}
+      {viewerMemberType === 'couple' ? <GiftMoments url={`/api/unwrap?event=${eventId}`} /> : null}
     </LastSeenCapture>
   );
 }

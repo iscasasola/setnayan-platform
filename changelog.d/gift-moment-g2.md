@@ -21,6 +21,6 @@ EIGHT PICKS"; drawing artifact QSMD9BaefarMRNQAnMFiND §6).
 - **Later:** an unclaimed gift waits as ONE notice line, "🎁 A gift from <giver> is waiting · Open", with no close
   word, at the page's top (Today's `earned` slot; the event pages' top slot on Home) AND in the bell (new
   `bell` flag on a notice). Open brings the popup back.
-- **One door, no new server action** (the budget is at its ceiling): `GET/POST /api/gift-moments`.
+- **One door, no new server action** (the budget is at its ceiling): `GET/POST /api/unwrap`.
 
 SPEC IMPACT: None — builds the 2026-11-14 approved design as ruled; no ruling changed.

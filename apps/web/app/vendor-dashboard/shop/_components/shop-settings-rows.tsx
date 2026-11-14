@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { BadgeCheck, Bell, ExternalLink, Gem, Users, type LucideIcon } from 'lucide-react';
 import { Badge } from '@/app/_components/badge';
 import { Fold } from '@/app/_components/fold';
 import { formatCount } from '@/lib/format-number';
@@ -7,6 +6,7 @@ import type { DetailsRow } from '@/lib/supplier-details';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { PushToggle } from '../../notifications/push-toggle';
 import { SHOP_GEAR_TITLE, YOUR_PAGE_HREF } from './shop-gear-sections';
+import { SettingsSection } from '@/app/_components/settings/settings-section';
 
 /**
  * 🏪 THE SHOP ⚙'S FOLDS, drawn (owner 2026-10-31, verbatim *"Yes follow your recommendation"* — DECISION_LOG "SHOP ⚙ —
@@ -24,10 +24,12 @@ import { SHOP_GEAR_TITLE, YOUR_PAGE_HREF } from './shop-gear-sections';
  * settings?"*): the Shop page has no loose rows under its cover any more — Your page is the ⚙'s first row ("what couples
  * see · all your reviews inside", its own door to `/vendor-dashboard/website`), and Your details is the top-right
  * account sheet's (`supplier-avatar-rows.ts`). 🔒 lib/my-shop-doors-keep-every-control.test.ts
+ *
+ * 🧭 SETTINGS V2 (owner 2026-11-13, *"one setting shell approved"*; prototype § 7): the same five things, now under the
+ * ONE section heading (Your page · Plan and team · Papers · Notifications), with NO icon tile in front of a row (a frame on
+ * something you cannot press). The notification switches leave their fold — one tap, not two; the `notifications`
+ * anchor stays, so a deep link still lands there.
  */
-
-const ic = (Icon: LucideIcon) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
-const lead = (Icon: LucideIcon) => <span className="mr-1 flex">{ic(Icon)}</span>;
 
 export function ShopSettingsRows({
   pageLive = true,
@@ -57,33 +59,36 @@ export function ShopSettingsRows({
 }) {
   const docsChecking = docs.row.state === 'checking';
   return (
-    <div className="divide-y divide-ink/10" data-shop-settings-body="">
+    <div className="px-4" data-shop-settings-body="">
+      <SettingsSection title="Your page" data="shop-your-page">
       <div data-shop-gear-page="">
         <DatesRow
           data="shop-gear-page"
           tour="shop-your-page"
-          lead={lead(ExternalLink)}
           title="Your page"
           line={pageLive ? 'What couples see, part by part · all your reviews inside' : 'What couples will see · not shown yet · all your reviews inside'}
           href={YOUR_PAGE_HREF}
         />
       </div>
-      <Fold anchor="plan" lead={lead(Gem)} data="shop-gear-plan" title={SHOP_GEAR_TITLE.plan} line={planLine}>
+      </SettingsSection>
+      <SettingsSection title="Plan and team" data="shop-plan-team">
+      <Fold anchor="plan" data="shop-gear-plan" title={SHOP_GEAR_TITLE.plan} line={planLine}>
         <div className="space-y-3 pb-4" data-shop-gear="plan">
           <DatesRow data="shop-gear-wallet" title={wallet.title} line={wallet.line} />
           {plan}
         </div>
       </Fold>
 
-      <Fold anchor="team" lead={lead(Users)} data="shop-gear-team" title={SHOP_GEAR_TITLE.team} line="Who else manages the shop, and what each can open">
+      <Fold anchor="team" data="shop-gear-team" title={SHOP_GEAR_TITLE.team} line="Who else manages the shop, and what each can open">
         <div className="pb-4" data-shop-gear="team">
           {team}
         </div>
       </Fold>
+      </SettingsSection>
 
+      <SettingsSection title="Papers" data="shop-papers">
       <Fold
         anchor="docs"
-        lead={lead(BadgeCheck)}
         data="shop-gear-docs"
         title={SHOP_GEAR_TITLE.docs}
         line={
@@ -116,15 +121,18 @@ export function ShopSettingsRows({
           {docs.section}
         </div>
       </Fold>
+      </SettingsSection>
 
-      <Fold anchor="notifications" lead={lead(Bell)} data="shop-gear-notifications" title={SHOP_GEAR_TITLE.notifications} line="This phone · email">
-        <div className="pb-3" data-shop-gear="notifications">
-          <div className="py-2" data-shop-gear-push="">
-            <PushToggle />
+      <div id="notifications" className="scroll-mt-24">
+        <SettingsSection title={SHOP_GEAR_TITLE.notifications} data="shop-notifications">
+          <div data-shop-gear="notifications">
+            <div className="py-2" data-shop-gear-push="">
+              <PushToggle />
+            </div>
+            <DatesRow data="shop-gear-email" title="Email" line="Bookings · payments · messages after your yes" />
           </div>
-          <DatesRow data="shop-gear-email" title="Email" line="Bookings · payments · messages after your yes" />
-        </div>
-      </Fold>
+        </SettingsSection>
+      </div>
     </div>
   );
 }

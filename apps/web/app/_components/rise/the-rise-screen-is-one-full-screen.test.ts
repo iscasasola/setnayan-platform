@@ -98,7 +98,7 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-test('4 · ONE part: nobody else draws a risen screen; a ⚙ rises through the shared door, the rest keep their sheet', async () => {
+test('4 · ONE part: nobody else draws a risen screen; every ⚙ rises through the shared door (one named exception)', async () => {
   const drawers = walk(join(WEB, 'app'))
     .filter((p) => /data-rise-screen=/.test(stripComments(readFileSync(p, 'utf8'))))
     .map((p) => relative(WEB, p));
@@ -106,19 +106,21 @@ test('4 · ONE part: nobody else draws a risen screen; a ⚙ rises through the s
 
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MenuSettingsButton } = await import('@/app/_components/menu-settings-button');
-  const draw = (rise: boolean) =>
+  // 🧭 SETTINGS V2 (owner 2026-11-13, "one setting shell approved"): rise is the ONLY frame — every ⚙ rises; the one
+  // exception is `inLayer` (the picked client, already a risen layer; its in-place swap is the next step).
+  const draw = (inLayer: boolean) =>
     renderToStaticMarkup(
-      React.createElement(MenuSettingsButton, { menu: 'shop', open: true, onOpenChange: () => {}, rise }, React.createElement('p', null, 'rows')),
+      React.createElement(MenuSettingsButton, { menu: 'shop', open: true, onOpenChange: () => {}, inLayer }, React.createElement('p', null, 'rows')),
     );
-  const risen = draw(true);
-  assert.match(risen, /data-rise-screen="settings-shop"/, 'the ⚙ with `rise` does not open the risen screen');
+  const risen = draw(false);
+  assert.match(risen, /data-rise-screen="settings-shop"/, 'a ⚙ does not open the risen screen');
   assert.match(risen, /data-menu-settings-sheet="shop"/, 'the risen ⚙ lost its rows’ hook');
   assert.match(risen, />rows</);
   assert.match(risen, /Shop settings/, 'the risen ⚙ is not headed by the menu’s own name');
-  assert.doesNotMatch(risen, /data-sheet=""/, 'the risen ⚙ still opens the popup sheet');
-  // Every other ⚙ is as it was — the popup sheet frame, no risen screen.
-  const sheet = draw(false);
-  assert.doesNotMatch(sheet, /data-rise-screen/);
+  assert.doesNotMatch(risen, /data-sheet=""/, 'a ⚙ still opens the popup sheet');
+  assert.doesNotMatch(code('app/_components/menu-settings-button.tsx'), /\brise\??:/, 'the `rise` switch is back — rise is the only frame');
+  // Inside a layer that already rose, never a second risen screen on top.
+  assert.doesNotMatch(draw(true), /data-rise-screen/, 'a ⚙ opened inside a risen layer stacks a second full screen');
 });
 
 test('5 · the Shop tab map: every door rises into the ONE screen — no popup sheet left; View shop stays in the app', () => {
@@ -140,7 +142,9 @@ test('5 · the Shop tab map: every door rises into the ONE screen — no popup s
   assert.match(fn(files.badges, 'BadgeSheet'), /<RiseScreen\b/, 'a badge does not rise');
   assert.match(fn(files.analytics, 'GraphCard'), /<RiseScreen\b/, 'an analytics card does not rise');
   // ⚙ — the pinned row's and the cover's (`?gear=1`) — through the ONE door, risen.
-  assert.match(code('app/vendor-dashboard/shop/_components/shop-settings.tsx'), /<MenuSettingsButton menu="shop" rise\b/, 'the Shop ⚙ opens a popup sheet');
+  // (Settings v2: rise is the only frame, so the Shop ⚙ rises without a switch — and never as `inLayer`.)
+  assert.match(code('app/vendor-dashboard/shop/_components/shop-settings.tsx'), /<MenuSettingsButton menu="shop" open=/, 'the Shop ⚙ lost its one door');
+  assert.doesNotMatch(code('app/vendor-dashboard/shop/_components/shop-settings.tsx'), /<MenuSettingsButton[^>]*\binLayer\b/, 'the Shop ⚙ opens a popup sheet');
   // View shop: both doors are buttons that rise the page in the app; the only new tab is "Open in browser ↗" inside it.
   assert.match(files.cover, /onClick=\{\(\) => setViewOpen\(true\)\}[\s\S]{0,260}data-view-shop=""/, 'View shop does not rise');
   assert.match(files.cover, /onClick=\{\(\) => setViewOpen\(true\)\}[\s\S]{0,260}data-view-shop-pin=""/, 'the pinned row’s View shop does not rise');

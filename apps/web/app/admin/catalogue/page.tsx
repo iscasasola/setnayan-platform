@@ -30,7 +30,12 @@ type PriceCount = { onSale: number; off: number } | null;
 
 async function countPrices(admin: ReturnType<typeof createAdminClient>): Promise<PriceCount> {
   const tables = ['platform_retail_catalog_v2', 'platform_package_catalog', 'vendor_billing_catalog'] as const;
-  const reads = await Promise.all(tables.map((t) => admin.from(t).select('is_active')));
+  // Written out one by one so the select-column scan can check each table's column (lib/security).
+  const reads = await Promise.all([
+    admin.from('platform_retail_catalog_v2').select('is_active'),
+    admin.from('platform_package_catalog').select('is_active'),
+    admin.from('vendor_billing_catalog').select('is_active'),
+  ]);
   let onSale = 0;
   let off = 0;
   for (const [i, res] of reads.entries()) {

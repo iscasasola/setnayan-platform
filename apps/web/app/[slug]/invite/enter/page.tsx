@@ -291,7 +291,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
         // already carry display_name · monogram_text · monogram_color · the two
         // SVGs · role_palette): the pass drawn below wears the event's look —
         // lib/qr-look.server.ts.
-        `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, print_details, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, monogram_studio_config, std_invitation_launch_date`,
+        `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, print_details, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, monogram_studio_config, std_invitation_launch_date, date_candidates`,
       )
       .ilike('slug', slug)
       .maybeSingle(),

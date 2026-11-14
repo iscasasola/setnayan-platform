@@ -53,3 +53,31 @@ test('F-W1-47 · a client with ONE candidate day files under that day, not under
   assert.match(page, /onlyCandidateByEvent\.set\(e\.event_id, onlyCandidateDay\(e\.date_candidates\)\)/);
   assert.match(page, /onlyCandidateDate: onlyCandidateByEvent\.get\(eventId\) \?\? null,/);
 });
+
+test('RW-59 · an event dated only by its one picked day: the Hub and the reply page read ONE reply window', async () => {
+  const { replyWindow, REPLY_WINDOW_EVENT_COLUMNS } = await import('./reply-window');
+  // /w3-barkada-hangout as measured in prod (14 Nov 2026): a get-together, no event_date, one candidate, default ask.
+  const raw = {
+    event_type: 'simple_event',
+    event_date: null,
+    event_end_date: null,
+    launch_mode: 'auto',
+    manual_phase: null,
+    std_invitation_launch_date: null,
+    guest_list_edit_deadline: null,
+    rsvp_ask_config: null,
+    date_candidates: ['2026-12-20'],
+  };
+  const face = { phasesEnabled: true, solemn: false };
+  const now = Date.parse('2026-11-14T03:00:00.000Z');
+  const { withPickedDate } = await import('./event-anchor');
+  // The Hub's loader dates the row (withPickedDate) before asking; the reply page passes the raw row. Same answer.
+  const hub = replyWindow(withPickedDate(raw), now, 'Asia/Manila', face);
+  const replyPage = replyWindow(raw, now, 'Asia/Manila', face);
+  assert.deepEqual(replyPage, hub, 'the reply page and the Hub disagree about the window');
+  // Every reader that selects the window's own columns now carries the picked day.
+  assert.match(REPLY_WINDOW_EVENT_COLUMNS, /\bdate_candidates\b/);
+  for (const f of ['app/[slug]/invite/reply/page.tsx', 'app/[slug]/invite/enter/page.tsx']) {
+    assert.match(code(f), /std_invitation_launch_date[^`]*date_candidates`/, f);
+  }
+});

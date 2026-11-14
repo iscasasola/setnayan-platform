@@ -15,6 +15,7 @@
  * Client-only, on the device: no fetch, no write. Mount it to open it; `onClose` unmounts it.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
+import { X } from 'lucide-react';
 import { SetnayanMark } from '../setnayan-mark-icon';
 import s from './award.module.css';
 import { badgeStack } from './fit';
@@ -378,7 +379,7 @@ export function BadgeFullscreen({ art, tier, title, lines, shopName, awardedOn, 
         <small>An exclusive Setnayan badge</small>
       </div>
       <button ref={xBtn} type="button" className={s.bzX} aria-label="Close" onClick={(e) => (e.stopPropagation(), close())}>
-        ×
+        <X aria-hidden size={22} strokeWidth={2} />
       </button>
     </dialog>
   );

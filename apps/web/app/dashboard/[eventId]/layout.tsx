@@ -35,6 +35,8 @@ import {
   eventRailMatchRows,
   type EventRailInputs,
 } from './_components/event-rail-match-rows';
+import { EventPinnedRow } from './_components/event-pinned-row';
+import { eventPinTable } from './_components/event-pin-places';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -816,6 +818,11 @@ export default async function EventLayout({ children, params }: Props) {
             <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
               {/* 🔔 THE EVENT PAGES' TOP for notices (one notice system, owner approved 14 Nov 2026): the live band and
                   at most two lines; the rest wait in the bell. Every event page has exactly this one top slot. */}
+              {/* 📌 THE ONE PINNED ROW (design template rule 1, owner-approved 14 Nov 2026): `Page · View ▾` at the top
+                  of every event page, mounted HERE once — the way the admin and supplier layouts carry theirs. It
+                  draws nothing on the Home (its cover band) and on the pages that keep their own first row
+                  (`EVENT_OWN_ROW`). Built from the SAME inputs as the rail, so the two name one place. */}
+              <EventPinnedRow table={eventPinTable(eventRailInputs)} />
               <NoticeSlot place="top" className="mb-4" />
               {/* Live "free this weekend" promo announcement (self-gates to null
                   when PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}

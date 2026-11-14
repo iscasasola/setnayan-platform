@@ -36,6 +36,7 @@ import { FlashAutoWallToggle } from './_components/flash-auto-wall-toggle';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
 
+import { InfoTip } from '@/app/_components/info-tip';
 export const metadata = { title: 'Memory lane' };
 export const dynamic = 'force-dynamic';
 
@@ -87,16 +88,16 @@ export default async function LiveWallConsolePage({
     // copy intentionally absent (read at purchase surfaces from the catalog).
     return (
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-        <div className="rounded-2xl border border-ink/10 bg-surface p-8 text-center">
+        <div className="border-t border-ink/10 bg-surface py-8 text-center">
           <MonitorPlay aria-hidden className="mx-auto h-8 w-8 text-terracotta" strokeWidth={1.75} />
           <h1 className="mt-3 text-lg font-semibold text-ink">Memory lane</h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-ink/60">
-            Project your guests&rsquo; photos at the venue in real time — a collage that
+          <InfoTip labelAs="p" label="Project your guests&rsquo; photos at the venue in real time" labelClassName="text-sm text-ink/70" className="mx-auto mt-2 max-w-md" align="start">
+            a collage that
             fills itself as the night unfolds. Memory lane is a Papic add-on.
-          </p>
+          </InfoTip>
           <Link
             href={studioHubHref(eventId)}
-            className="mt-5 inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
+            className="ab ab-brand ab-main mt-5"
           >
             <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />
             See it in Add-ons
@@ -275,15 +276,15 @@ export default async function LiveWallConsolePage({
         }
       />
 
-      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+      <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <WallModeControl eventId={eventId} override={override} resolved={resolved} />
           <dl className="flex items-center gap-5">
             {stats.map((s) => (
               <div key={s.label} className="text-center">
                 <dt className="sr-only">{s.label}</dt>
-                <dd className="font-mono text-lg font-semibold text-ink">{s.value}</dd>
-                <dd className="flex items-center gap-1 text-[11px] text-ink/50">
+                <dd className="text-lg font-semibold tabular-nums text-ink">{s.value}</dd>
+                <dd className="flex items-center gap-1 text-[12px] text-ink/70">
                   {s.icon}
                   {s.label}
                 </dd>
@@ -321,22 +322,21 @@ export default async function LiveWallConsolePage({
             event?.live_photo_wall_visibility as string | null,
           )}
         />
-        <p className="mt-3 text-xs text-ink/50">
-          Projector URL:{' '}
-          <span className="font-mono text-[12px] text-ink/70">/wall/{eventId}</span> — open
+        <InfoTip labelAs="p" label="Projector URL: /wall/" labelNode={<>Projector URL:{' '} <span className="font-mono text-[12px] text-ink/70">/wall/{eventId}</span></>} labelClassName="text-xs text-ink/70" className="mt-3" align="start">
+          open
           it on any TV or projector browser and enter a screen code. Memory lane also
           plays on your guests&rsquo; own phones unless you switch that off above.
-        </p>
+        </InfoTip>
       </section>
 
-      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+      <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-sm font-semibold text-ink">Guest Stories (Photo Notes)</h2>
-            <p className="mt-0.5 text-xs text-ink/50">
-              Flash stories (⚡, ≤50 chars) can auto-post to Memory lane after 5 seconds — you can
+            <InfoTip labelAs="p" label="Flash stories (⚡, ≤50 chars) can auto-post to Memory lane after 5 seconds" labelClassName="text-xs text-ink/70" className="mt-0.5" align="start">
+              you can
               kill any one from the queue. Stories (≤280 chars) always go to review first.
-            </p>
+            </InfoTip>
           </div>
           <FlashAutoWallToggle eventId={eventId} enabled={flashAutoWall} />
         </div>

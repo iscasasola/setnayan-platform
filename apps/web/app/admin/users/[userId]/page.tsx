@@ -4,27 +4,40 @@ import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-n
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
 import {
-  ArrowLeft,
-  CalendarHeart,
+  Ban,
   Download,
-  Eye,
   Gift,
+  KeyRound,
   Lock,
-  Receipt,
-  ShieldCheck,
-  LifeBuoy,
-  Activity as ActivityIcon,
-  Scale,
-  UserRound,
-  Store,
-  Sparkle,
+  LogOut,
+  MailCheck,
+  Trash2,
+  UserMinus,
+  UserPlus,
+  XCircle,
 } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { Badge, type BadgeTone } from '@/app/_components/badge';
+import { ConfirmForm } from '@/app/_components/confirm-form';
+import { ActionButton } from '@/components/action-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { logAdminDataAccess } from '@/lib/admin-data-access';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ReadFailed } from '../../_components/read-failed';
+import {
+  RecordBack,
+  RecordEmpty,
+  RecordFacts,
+  RecordFold,
+  RecordFolds,
+  RecordHead,
+  RecordInitials,
+  RecordNote,
+  RecordRow,
+  RecordRows,
+  RecordSection,
+} from '../../_components/record-kit';
 import { formatPhp, PAYMENT_STATUS_LABEL } from '@/lib/orders';
 import {
   fetchCompGrantsForUser,
@@ -32,33 +45,37 @@ import {
   describeScope,
   describeSource,
   formatRetailValueCentavos,
+  type CompGrantRow,
 } from '@/lib/comp-grants';
+import { normalizeAccountTab, type AccountCardTab, type LifecycleStep } from './_components/account-card-nav';
 import {
-  AccountTabs,
-  LifecycleStrip,
-  normalizeAccountTab,
-  type LifecycleStep,
-} from './_components/account-card-nav';
+  blacklistUser,
+  confirmUserEmail,
+  deleteUser,
+  forceSignOutUser,
+  resetUserPassword,
+  revokeCompGrant,
+  toggleTeamMember,
+} from '../actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { AccountHoldSection } from './_components/account-hold-section';
 import { formatCount } from '@/lib/format-number';
+
 export const metadata = { title: 'Account · Admin' };
 
 /**
- * Admin Account Card — the HQ-facing per-user consolidated view (wave 4 of the
- * Customer Card respine · owner-approved 2026-07-03). Reachable by clicking a
- * user's email/name on /admin/users. Supersedes draft PR #2051.
+ * 👤 THE PERSON RECORD — People › Accounts › a person (owner 14 Nov 2026, "Yes, queue the builds": the approved
+ * 13 Nov drawing `Setnayan-specs/prototypes/admin_pub/people.html`, screen `person`).
  *
- * ⏸ ONE EXCEPTION since 2026-11-13: the Account hold section (Suspend / Unsuspend, owner "Yes, add both"), placed
- * here by the approved prototype (people.html › Person › Actions) — _components/account-hold-section.tsx.
+ * One page of folds, in the drawing's order: Profile · Events · Orders & payments · Comps · Problems · Activity ·
+ * Access · Flags · Admin log. It replaces the old five-tab rail (Overview · Money · Support · Activity · Privacy):
+ * nothing was dropped, only moved — and an old `?tab=` address opens the fold that now holds that tab
+ * (`FOLD_FOR_TAB`). The users-list row actions the drawing moves here (Confirm email · Temporary password ·
+ * Sign out everywhere · Team · Blacklist · Delete · Comps) call the SAME server actions as the list; those actions
+ * still land on People › Accounts with their result banner (their redirects live in `../actions.ts`).
  *
- * Otherwise VIEW-ONLY by design — no write actions of any kind. Every account mutation
- * (confirm email · reset password · blacklist · delete · issue/revoke comp)
- * stays on the per-user action rows on /admin/users. This page only READS, so
- * an admin can see everything the platform has gathered about an account in one
- * place. Reads use the service-role admin client (this route is gated by
- * app/admin/layout.tsx, same as every /admin/* page).
+ * ⏸ Account hold (Suspend / Unsuspend, #7584) keeps its own section, unchanged — _components/account-hold-section.tsx.
  *
  * HARD PRIVACY WALL (owner-locked admin account-access model 2026-06-22):
  * this page NEVER renders chat/message bodies, shared thread files, face
@@ -66,13 +83,26 @@ export const metadata = { title: 'Account · Admin' };
  * The lint-admin-chat-guard enforces this at build time (it forbids the
  * message-body/attachment/face-vector readers anywhere under app/admin/**), so
  * this card can never quietly add one. A footer note restates the exclusions.
+ *
+ * ⚖ HONEST READS: every list says "Couldn't read" instead of its empty line when its own read was refused — the
+ * comps included (it used to `.catch(() => [])`, so a refused read printed "No comp grants.").
  */
+
+/** An old `?tab=` address opens the fold that now holds that tab. */
+const FOLD_FOR_TAB: Record<AccountCardTab, string> = {
+  overview: 'profile',
+  money: 'money',
+  support: 'problems',
+  activity: 'activity',
+  governance: 'access',
+};
 
 // --- small formatters --------------------------------------------------------
 
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
+  return new Date(iso).toLocaleDateString('en-PH', {
+    timeZone: 'Asia/Manila',
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -93,14 +123,14 @@ const MEMBER_TYPE_LABEL: Record<string, string> = {
   vendor: 'Supplier',
 };
 
-const ORDER_STATUS_LABEL: Record<string, { label: string; tone: string }> = {
-  draft: { label: 'Draft', tone: 'bg-ink/5 text-ink/60' },
-  submitted: { label: 'Needs quote', tone: 'bg-amber-100 text-amber-800' },
-  awaiting_payment: { label: 'Awaiting payment', tone: 'bg-amber-100 text-amber-800' },
-  paid: { label: 'Paid', tone: 'bg-success-100 text-success-800' },
-  fulfilled: { label: 'Fulfilled', tone: 'bg-success-100 text-success-800' },
-  cancelled: { label: 'Cancelled', tone: 'bg-ink/5 text-ink/50' },
-  refunded: { label: 'Refunded', tone: 'bg-mulberry/10 text-mulberry' },
+const ORDER_STATUS_LABEL: Record<string, { label: string; tone: BadgeTone }> = {
+  draft: { label: 'Draft', tone: 'quiet' },
+  submitted: { label: 'Needs quote', tone: 'wait' },
+  awaiting_payment: { label: 'Awaiting payment', tone: 'wait' },
+  paid: { label: 'Paid', tone: 'ok' },
+  fulfilled: { label: 'Fulfilled', tone: 'ok' },
+  cancelled: { label: 'Cancelled', tone: 'quiet' },
+  refunded: { label: 'Refunded', tone: 'no' },
 };
 
 const PAID_STATUSES = new Set(['paid', 'fulfilled']);
@@ -228,8 +258,31 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
   );
 
   // --- comp grants -----------------------------------------------------------
-  const grants = await fetchCompGrantsForUser(admin, userId).catch(() => []);
-  const activeGrants = grants.filter((g) => !g.revoked_at);
+  // null = the read failed — NOT "no comps" (it used to `.catch(() => [])`).
+  let grants: CompGrantRow[] | null = null;
+  try {
+    grants = await fetchCompGrantsForUser(admin, userId);
+  } catch (err) {
+    logQueryError('AdminAccountCardPage (comp grants)', err);
+  }
+  const activeGrants = (grants ?? []).filter((g) => !g.revoked_at);
+
+  // --- a team grant already waiting on a second admin -------------------------
+  // The same read the users list makes: without it, "Add to team" would look exactly as it did before it was
+  // pressed. null = not measured — the button then stays, and a second press is refused by toggleTeamMember's own
+  // one-pending-request check, never doubled.
+  let teamGrantPending: boolean | null = null;
+  if (!user.is_team_member && !user.is_internal) {
+    const { data: pending, error: pendingError } = await admin
+      .from('admin_approval_requests')
+      .select('target_user_id')
+      .eq('action_type', 'grant_team_member')
+      .eq('status', 'pending')
+      .gt('expires_at', new Date().toISOString())
+      .eq('target_user_id', userId);
+    if (pendingError) logQueryError('AdminAccountCardPage (pending team grant)', pendingError);
+    else teamGrantPending = (pending ?? []).length > 0;
+  }
 
   // --- orders + payments (Money) ---------------------------------------------
   const { data: orders, error: ordersError } = await admin
@@ -384,600 +437,595 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
   const isAdminAcct =
     user.is_internal || user.is_team_member || user.account_type === 'admin';
 
+  const isInternal = Boolean(user.is_internal);
+  const isDeleted = Boolean(user.deleted_at);
+  // 🔒 F-W2 (#7677): an erased account's stored placeholder address is shown as words, never as the raw value.
+  const email = displayAccountEmail(user.email as string | null) ?? null;
+  const openFold = FOLD_FOR_TAB[tab];
+  const supportFailed = Boolean(helpError || disputesError || reportsError || abuseError);
+  const supportCount =
+    (helpTickets ?? []).length + (disputes ?? []).length + (userReports ?? []).length + (abuseFlags ?? []).length;
+  const unpaidOrders = (orders ?? []).filter((o) => o.status === 'awaiting_payment').length;
+  const lastReached = [...lifecycle].reverse().find((s) => s.reached);
+
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mb-4">
-        <Link
-          href="/admin/users"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/60 hover:text-ink"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-          All users
-        </Link>
-      </div>
-
-      {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
-          The owner removed the row that repeats the menu item you just tapped.
-          The name below is the RECORD — it is the content, it is why you
-          opened this page, and hiding it would be deleting data rather than
-          chrome. So the visible name stays exactly as it looked, and only its
-          `<h1>` moves to the masthead, which carries the same words at zero
-          pixels. One heading, in the document, where a screen reader and a
-          skip link can find it. */}
+    <div className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6">
+      <RecordBack href="/admin/accounts?tab=users" label="All users" />
+      {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME. The visible name is the RECORD; only its
+          `<h1>` moves to the masthead, which carries the same words at zero pixels. */}
       <PageMasthead titleNode={displayName} />
-      {/* Sticky header + strip + tab rail */}
-      <div className="sticky top-0 z-10 -mx-4 border-b border-ink/10 bg-white/70 px-4 pb-3 pt-1 backdrop-blur sm:mx-0 sm:rounded-t-2xl sm:px-6">
-        <header className="flex flex-wrap items-start gap-4 py-4">
-          <div
-            aria-hidden
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-ink text-lg font-semibold text-cream"
-          >
-            {initials(user.display_name as string, user.email as string)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-serif text-2xl text-ink">{displayName}</p>
-            <p className="mt-0.5 truncate text-sm text-ink/60">{displayAccountEmail(user.email as string | null) ?? '—'}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {roleByEvent.size > 0 && [...new Set([...roleByEvent.values()])].includes('couple') ? (
-                <span className="inline-flex items-center gap-1 rounded-md bg-success-100 px-2 py-1 text-xs font-medium text-success-800">
-                  <UserRound className="h-3 w-3" strokeWidth={2} aria-hidden />
-                  Host
-                </span>
-              ) : null}
-              {vendorProfileIds.length > 0
-                ? (vendorProfiles ?? []).map((v) => (
-                    <span
-                      key={v.vendor_profile_id as string}
-                      className="inline-flex items-center gap-1 rounded-md bg-[var(--sn-info-soft)] px-2 py-1 text-xs font-medium text-[color:var(--sn-info)]"
-                    >
-                      <Store className="h-3 w-3" strokeWidth={2} aria-hidden />
-                      Supplier member · {(v.business_name as string) ?? 'Supplier'}
-                    </span>
-                  ))
-                : null}
-              {rolesUnread ? (
-                <span
-                  role="alert"
-                  className="rounded-md bg-[var(--sn-warning-soft)] px-2 py-1 text-xs font-medium text-ink"
-                >
-                  Couldn&rsquo;t read all roles
-                </span>
-              ) : null}
-              {user.is_internal ? (
-                <span className="rounded-md bg-[var(--sn-info-soft)] px-2 py-1 text-xs font-medium text-[color:var(--sn-info)]">
-                  🟣 Internal
-                </span>
-              ) : null}
-              {user.is_team_member ? (
-                <span className="rounded-md bg-success-100 px-2 py-1 text-xs font-medium text-success-800">
-                  Team member
-                </span>
-              ) : null}
-              {isAdminAcct ? (
-                <span className="rounded-md bg-ink/15 px-2 py-1 text-xs font-medium text-ink">
-                  Admin
-                </span>
-              ) : null}
-              {/* Account status */}
-              {user.suspended_at && !user.deleted_at ? (
-                <span className="rounded-md bg-[var(--sn-warning-soft)] px-2 py-1 text-xs font-medium text-ink">
-                  ⏸ Suspended
-                </span>
-              ) : user.deleted_at ? (
-                <span className="rounded-md bg-mulberry/10 px-2 py-1 text-xs font-medium text-mulberry">
-                  Deleted {fmtDate(user.deleted_at as string)}
-                </span>
-              ) : (
-                <span className="rounded-md bg-success-50 px-2 py-1 text-xs font-medium text-success-700">
-                  Active
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-2.5 py-1 text-xs text-ink/60">
-              <Eye className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-              Read-only
-            </span>
-            <span className="text-[11px] text-ink/45">Joined {fmtDate(user.created_at as string)}</span>
-            <span className="font-mono text-[10px] text-ink/40">{user.public_id as string}</span>
-          </div>
-        </header>
-
-        <LifecycleStrip steps={lifecycle} />
-
-        <div className="mt-3">
-          <AccountTabs userId={userId} active={tab} />
-        </div>
-      </div>
-
-      {/* Tab body */}
-      <div className="mt-6 space-y-6">
-        {tab === 'overview' ? (
+      <RecordHead
+        small={`Person · ${(user.public_id as string | null) ?? 'no public ID'}`}
+        name={displayName}
+        lead={<RecordInitials text={initials(user.display_name as string, email)} />}
+        line={`${email ?? '—'} · Joined ${fmtDate(user.created_at as string)}`}
+        badges={
           <>
-            {/* ⏸ Account hold (owner 2026-11-13 — prototype people.html cfm-suspend-person · cfm-unsuspend-person) */}
-            {!user.deleted_at ? (
-              <AccountHoldSection
-                userId={userId}
-                name={displayName}
-                isInternal={Boolean(user.is_internal)}
-                suspendedAt={(user.suspended_at as string | null) ?? null}
-                suspendedUntil={(user.suspended_until as string | null) ?? null}
-                suspendedReason={(user.suspended_reason as string | null) ?? null}
-                flash={{
-                  suspended: sp.suspended === '1',
-                  unsuspended: sp.unsuspended === '1',
-                  undoReason: sp.undo_reason ?? null,
-                  undoUntil: sp.undo_until ?? null,
-                  error: sp.suspend_error ?? null,
-                }}
-              />
+            {roleByEvent.size > 0 && [...new Set([...roleByEvent.values()])].includes('couple') ? (
+              <Badge tone="ok">Host</Badge>
             ) : null}
-            {/* Profile & flags */}
-            <section className="sn-tile p-5">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
-                <ShieldCheck className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
-                Profile &amp; flags
-              </h2>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
-                <div>
-                  <dt className="text-xs text-ink/50">Account type</dt>
-                  <dd className="text-ink">{user.account_type as string}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-ink/50">Onboarding</dt>
-                  <dd className="text-ink">{onboarded ? 'Completed' : 'Not finished'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-ink/50">Last login</dt>
-                  <dd className="text-ink">{fmtDate(user.last_login_at as string)}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-ink/50">Marketing consent</dt>
-                  <dd className="text-ink">{user.marketing_opt_in ? 'Opted in' : 'Opted out'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-ink/50">Internal</dt>
-                  <dd className="text-ink">{user.is_internal ? 'Yes' : 'No'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-ink/50">Team member</dt>
-                  <dd className="text-ink">{user.is_team_member ? 'Yes' : 'No'}</dd>
-                </div>
-              </dl>
-              <p className="mt-3 text-xs text-ink/45">
-                Change these on the{' '}
-                <Link href="/admin/users" className="underline hover:text-ink">
-                  Users list
-                </Link>{' '}
-                — this card is read-only.
-              </p>
-            </section>
-
-            {/* Events & roles */}
-            <section className="sn-tile p-5">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
-                <CalendarHeart className="h-4 w-4 text-gold" strokeWidth={1.75} aria-hidden />
-                Events &amp; roles
-                <span className="font-normal text-ink/40">({eventsUnread ? '—' : (events ?? []).length})</span>
-              </h2>
-              {eventsUnread ? (
-                <ReadFailed what="this account’s events" />
-              ) : (events ?? []).length === 0 ? (
-                <p className="text-sm text-ink/50">Not a member of any event yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {(events ?? []).map((e) => {
-                    const role = roleByEvent.get(e.event_id as string);
-                    return (
-                      <li
-                        key={e.event_id as string}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ink/[0.03] px-3 py-2"
-                      >
-                        <span className="min-w-0 truncate text-sm text-ink">
-                          <Link
-                            href={`/admin/events/${(e.public_id as string | null) ?? (e.event_id as string)}`}
-                            className="underline-offset-2 hover:underline"
-                          >
-                            {(e.display_name as string) ?? 'Untitled event'}
-                          </Link>
-                          {e.archived ? (
-                            <span className="ml-2 text-xs text-ink/40">(archived)</span>
-                          ) : null}
-                        </span>
-                        <span className="flex items-center gap-3 text-xs text-ink/55">
-                          <span className="rounded bg-ink/5 px-1.5 py-0.5 font-medium text-ink/70">
-                            {MEMBER_TYPE_LABEL[role ?? ''] ?? role ?? '—'}
-                          </span>
-                          <span>{typeName(e.event_type as string | null)}</span>
-                          <span>{fmtDate(e.event_date as string)}</span>
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-
-            {/* Entitlements / comp grants */}
-            <section className="sn-tile p-5">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
-                <Gift className="h-4 w-4 text-mulberry" strokeWidth={1.75} aria-hidden />
-                Entitlements &amp; comps
-                <span className="font-normal text-ink/40">({activeGrants.length} active)</span>
-              </h2>
-              {grants.length === 0 ? (
-                <p className="text-sm text-ink/50">No comp grants.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {grants.map((g) => (
-                    <li
-                      key={g.grant_id}
-                      className={`rounded-lg px-3 py-2 text-sm ${
-                        g.revoked_at ? 'bg-ink/[0.02] opacity-60' : 'bg-ink/[0.03]'
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-medium text-ink/80">
-                          {describeScope(g.scope, g.scoped_skus)}
-                          {/* Reach, never omitted — see describeReach's note. */}
-                          <span className="font-normal text-ink/55">
-                            {' · '}
-                            {describeReach(g)}
-                          </span>
-                        </span>
-                        <span className="text-xs text-ink/55">
-                          {formatRetailValueCentavos(g.retail_value_centavos)} ·{' '}
-                          {describeSource(g.source)}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-xs text-ink/50">
-                        {g.rationale ?? 'No rationale recorded.'} · {fmtDate(g.created_at)}
-                        {g.revoked_at ? ` · revoked ${fmtDate(g.revoked_at)}` : ''}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            {(vendorProfiles ?? []).map((v) => (
+              <Badge key={v.vendor_profile_id as string} tone="quiet">
+                Supplier member · {(v.business_name as string) ?? 'Supplier'}
+              </Badge>
+            ))}
+            {rolesUnread ? <Badge tone="wait">Couldn&rsquo;t read all roles</Badge> : null}
+            {isInternal ? <Badge tone="quiet">🟣 Internal</Badge> : null}
+            {user.is_team_member ? <Badge tone="ok">Team member</Badge> : null}
+            {isAdminAcct ? <Badge tone="quiet">Admin</Badge> : null}
+            {user.suspended_at && !isDeleted ? (
+              <Badge tone="wait">⏸ Suspended</Badge>
+            ) : isDeleted ? (
+              <Badge tone="no">Deleted {fmtDate(user.deleted_at as string)}</Badge>
+            ) : (
+              <Badge tone="ok">Active</Badge>
+            )}
           </>
-        ) : null}
+        }
+      />
 
-        {tab === 'money' ? (
-          <>
-            <section className="sn-tile p-5">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="flex items-center gap-2 text-sm font-medium text-ink">
-                  <Receipt className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
-                  Orders
-                  <span className="font-normal text-ink/40">({ordersUnread ? '—' : (orders ?? []).length})</span>
-                </h2>
-                <Link
-                  href="/admin/payments"
-                  className="text-xs font-medium text-mulberry underline hover:text-ink"
-                >
-                  Reconcile in Payments
-                </Link>
-              </div>
-              {ordersUnread ? (
-                <ReadFailed what="this account’s orders" />
-              ) : (orders ?? []).length === 0 ? (
-                <p className="text-sm text-ink/50">No orders placed.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {(orders ?? []).map((o) => {
-                    const st = ORDER_STATUS_LABEL[o.status as string] ?? {
-                      label: o.status as string,
-                      tone: 'bg-ink/5 text-ink/60',
-                    };
-                    const total =
-                      (o.confirmed_total_php as number | null) ??
-                      (o.requested_total_php as number | null);
-                    return (
-                      <li
-                        key={o.order_id as string}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ink/[0.03] px-3 py-2 text-sm"
-                      >
-                        <span className="min-w-0">
-                          <span className="text-ink">
-                            {(o.description as string) ?? (o.service_key as string) ?? 'Order'}
-                          </span>
-                          <span className="ml-2 font-mono text-[11px] text-ink/45">
-                            {(o.reference_code as string) ?? (o.public_id as string)}
-                          </span>
-                        </span>
-                        <span className="flex items-center gap-3">
-                          <span className="text-ink/70">{formatPhp(total)}</span>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${st.tone}`}
-                          >
-                            {st.label}
-                          </span>
-                          <span className="text-[11px] text-ink/45">
-                            {fmtDate(o.created_at as string)}
-                          </span>
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-
-            <section className="sn-tile p-5">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
-                <Receipt className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
-                Logged payments
-                <span className="font-normal text-ink/40">({paymentsUnread ? '—' : (payments ?? []).length})</span>
-              </h2>
-              {paymentsUnread ? (
-                <ReadFailed what="this account’s payments" />
-              ) : (payments ?? []).length === 0 ? (
-                <p className="text-sm text-ink/50">No payments logged.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {(payments ?? []).map((p) => (
-                    <li
-                      key={p.payment_id as string}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ink/[0.03] px-3 py-2 text-sm"
-                    >
-                      <span className="text-ink/70">
-                        {formatPhp(p.amount_php as number)} · {channelWord(p.channel as string | null)}
-                      </span>
-                      <span className="flex items-center gap-3 text-xs text-ink/55">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            p.status === 'matched'
-                              ? 'bg-success-100 text-success-800'
-                              : p.status === 'rejected'
-                                ? 'bg-mulberry/10 text-mulberry'
-                                : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {paymentStatusWord(p.status as string)}
-                        </span>
-                        <span>{fmtDate((p.reviewed_at as string) ?? (p.created_at as string))}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section className="sn-tile p-5">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
-                <Receipt className="h-4 w-4 text-mulberry" strokeWidth={1.75} aria-hidden />
-                Refunds
-                <span className="font-normal text-ink/40">({refundsUnread ? '—' : (refunds ?? []).length})</span>
-              </h2>
-              {refundsUnread ? (
-                <ReadFailed what="this account’s refunds" />
-              ) : (refunds ?? []).length === 0 ? (
-                <p className="text-sm text-ink/50">No refunds issued.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {(refunds ?? []).map((r) => (
-                    <li
-                      key={r.refund_id as string}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ink/[0.03] px-3 py-2 text-sm"
-                    >
-                      <span className="text-ink/70">
-                        {formatRetailValueCentavos(r.refund_amount_centavos as number)}
-                      </span>
-                      <span className="flex items-center gap-3 text-xs text-ink/55">
-                        <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-medium text-ink/70">
-                          {r.status as string}
-                        </span>
-                        <span>{fmtDate((r.refunded_at as string) ?? (r.created_at as string))}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </>
-        ) : null}
-
-        {tab === 'support' ? (
-          <>
-            <p className="text-xs text-ink/50">
-              Read-only slices of this account&rsquo;s support history. Take action from the queue
-              each row links to.
-            </p>
-
-            <SupportSection
-              icon={<LifeBuoy className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />}
-              title="Help tickets"
-              loadFailed={Boolean(helpError)}
-              count={(helpTickets ?? []).length}
-              href="/admin/help"
-              hrefLabel="Open Help queue"
-              empty="No help tickets."
-              rows={(helpTickets ?? []).map((t) => ({
-                key: t.message_id as string,
-                primary: (t.subject as string) ?? (t.topic as string) ?? 'Ticket',
-                status: t.status as string,
-                at: (t.resolved_at as string) ?? (t.created_at as string),
-              }))}
-            />
-
-            <SupportSection
-              icon={<Scale className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />}
-              title="Disputes opened"
-              loadFailed={Boolean(disputesError)}
-              count={(disputes ?? []).length}
-              href="/admin/disputes"
-              hrefLabel="Open Disputes queue"
-              empty="No disputes opened."
-              rows={(disputes ?? []).map((d) => ({
-                key: d.dispute_id as string,
-                primary: (d.category as string) ?? 'Dispute',
-                status: d.status as string,
-                at: (d.resolved_at as string) ?? (d.created_at as string),
-              }))}
-            />
-
-            <SupportSection
-              icon={<ShieldCheck className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />}
-              title="Reports filed"
-              loadFailed={Boolean(reportsError)}
-              count={(userReports ?? []).length}
-              href="/admin/user-reports"
-              hrefLabel="Open Reports queue"
-              empty="No reports filed."
-              rows={(userReports ?? []).map((r) => ({
-                key: r.report_id as string,
-                primary: `${(r.target_type as string) ?? 'report'} · ${(r.reason as string) ?? ''}`,
-                status: r.status as string,
-                at: (r.reviewed_at as string) ?? (r.created_at as string),
-              }))}
-            />
-
-            <SupportSection
-              icon={<Sparkle className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />}
-              title="AI abuse flags"
-              loadFailed={Boolean(abuseError)}
-              count={(abuseFlags ?? []).length}
-              href="/admin/concierge-abuse"
-              hrefLabel="Open abuse queue"
-              empty="No abuse flags."
-              rows={(abuseFlags ?? []).map((f) => ({
-                key: f.flag_id as string,
-                primary: `Similarity ${Math.round((f.similarity_score as number) * 100)}%`,
-                status: f.status as string,
-                at: (f.reviewed_at as string) ?? (f.created_at as string),
-              }))}
-            />
-          </>
-        ) : null}
-
-        {tab === 'activity' ? (
-          <section className="rounded-2xl border border-ink/10 bg-paper p-5">
-            <h2 className="mb-4 flex items-center gap-2 text-sm font-medium text-ink">
-              <ActivityIcon className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
-              Activity · newest first
-            </h2>
-            {ordersUnread || paymentsUnread || adminActionsError ? (
-              <div className="mb-3">
-                <ReadFailed what="part of this account’s history, so the timeline below may be missing entries" />
-              </div>
-            ) : null}
-            <ActivityTimeline
-              items={buildActivity({
-                createdAt: user.created_at as string,
-                onboardedAt: (user.tour_completed_at as string) ?? null,
-                firstJoinAt,
-                orders: (orders ?? []).map((o) => ({
-                  id: o.order_id as string,
-                  label: (o.description as string) ?? (o.service_key as string) ?? 'Order',
-                  status: o.status as string,
-                  at: o.created_at as string,
-                })),
-                payments: (payments ?? []).map((p) => ({
-                  id: p.payment_id as string,
-                  status: p.status as string,
-                  at: (p.paid_at as string) ?? (p.created_at as string),
-                })),
-                adminActions: (adminActions ?? []).map((a) => ({
-                  id: a.audit_log_id as string,
-                  action: a.action as string,
-                  at: a.created_at as string,
-                })),
-              })}
-            />
-          </section>
-        ) : null}
-
-        {tab === 'governance' ? (
-          <>
-            {/* RA 10173 — a "send me my data" request that reached the DPO by
-                email, or from someone who can't sign in (audit 2026-09-30 §2e).
-                A plain link to a route handler: no client code, no server
-                action. The file is the one Profile › Download my data makes,
-                minus message text; downloading it is logged above. */}
-            <section className="sn-tile p-5">
-              <h2 className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
-                <Download className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
-                Their data
-              </h2>
-              <p className="mb-3 text-xs text-ink/55">
-                For a data request sent to us. The same file they get from Profile, without the
-                text of their messages. Downloading it is recorded on this account.
-              </p>
-              <a
-                href={`/admin/users/${userId}/export`}
-                download
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-ink px-4 text-sm font-medium text-cream hover:bg-ink/90"
-              >
-                <Download className="h-4 w-4" strokeWidth={2} aria-hidden />
-                Download their data
-              </a>
-            </section>
-
-            <section className="sn-tile p-5">
-              <h2 className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
-                <Eye className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
-                Who viewed this account
-              </h2>
-              <p className="mb-3 text-xs text-ink/50">
-                RA 10173 right-to-know trail — every admin read of this account&rsquo;s data.
-              </p>
-              {accessLogUnread ? (
-                <ReadFailed what="who viewed this account" />
-              ) : (accessLog ?? []).length === 0 ? (
-                <p className="text-sm text-ink/50">No admin views recorded yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {(accessLog ?? []).map((r) => {
-                    const v = r.admin_user_id ? viewerById.get(r.admin_user_id as string) : null;
-                    return (
-                      <li
-                        key={r.access_log_id as string}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ink/[0.03] px-3 py-2 text-sm"
-                      >
-                        <span className="min-w-0 truncate text-ink/80">
-                          {v?.name ?? v?.email ?? 'Unknown admin'}
-                        </span>
-                        <span className="flex items-center gap-3 text-xs text-ink/55">
-                          <span className="font-mono text-[11px] text-ink/45">
-                            {surfaceWord(r.surface as string | null)}
-                          </span>
-                          <span>{fmtDate(r.created_at as string)}</span>
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-
-            <section className="rounded-2xl border border-dashed border-ink/15 bg-paper/60 p-5">
-              <h2 className="mb-1 flex items-center gap-2 text-sm font-medium text-ink/70">
-                <Lock className="h-4 w-4 text-ink/40" strokeWidth={1.75} aria-hidden />
-                Consent-to-fix &amp; account takeover
-              </h2>
-              <p className="text-sm text-ink/50">
-                A logged, user-notified takeover (and the consent-to-fix handshake) land with
-                Phases 2&ndash;3 of the account-access model. When live, those sessions will appear
-                here alongside the read trail above.
-              </p>
-            </section>
-          </>
-        ) : null}
-      </div>
-
-      {/* Privacy-wall footer */}
-      <footer className="mt-8 rounded-2xl border border-ink/10 bg-ink/[0.02] p-4">
-        <p className="flex items-start gap-2 text-xs text-ink/55">
-          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/40" strokeWidth={2} aria-hidden />
+      {isInternal ? (
+        <p className="mt-2 flex items-start gap-2 rounded-lg bg-ink/[0.04] px-3 py-2 text-sm text-ink">
+          <Lock className="mt-0.5 h-4 w-4 flex-none" strokeWidth={1.9} aria-hidden />
           <span>
-            This view deliberately excludes chat &amp; message bodies, shared thread files, face
-            recognition data, and raw behavioral data — even for HQ staff. Only counts and statuses
-            are shown. Reading a message needs the account owner&rsquo;s consent or a logged,
-            notified takeover. This page is read-only; account changes stay on the Users list.
+            <b>This is an internal account (§ 10a)</b> — it already carries a permanent grant for every Setnayan
+            service. Locked (internal): no delete, no blacklist, no per-SKU comps, no suspend.
           </span>
         </p>
-      </footer>
+      ) : null}
+
+      {/* ⏸ Account hold (owner 2026-11-13 — prototype people.html cfm-suspend-person · cfm-unsuspend-person) */}
+      {!isDeleted ? (
+        <div className="mt-3">
+          <AccountHoldSection
+            userId={userId}
+            name={displayName}
+            isInternal={isInternal}
+            suspendedAt={(user.suspended_at as string | null) ?? null}
+            suspendedUntil={(user.suspended_until as string | null) ?? null}
+            suspendedReason={(user.suspended_reason as string | null) ?? null}
+            flash={{
+              suspended: sp.suspended === '1',
+              unsuspended: sp.unsuspended === '1',
+              undoReason: sp.undo_reason ?? null,
+              undoUntil: sp.undo_until ?? null,
+              error: sp.suspend_error ?? null,
+            }}
+          />
+        </div>
+      ) : null}
+
+      <div className="mt-3">
+        <RecordFacts
+          label="Account lifecycle"
+          items={[
+            [
+              'Account lifecycle',
+              <span key="l">
+                {lifecycle.map((s, i) => (
+                  <span key={s.key} className={s.reached ? 'text-ink' : 'text-ink/45'}>
+                    {i > 0 ? ' → ' : ''}
+                    {s === lastReached ? <b>{s.label}</b> : s.label}
+                  </span>
+                ))}
+              </span>,
+            ],
+          ]}
+        />
+      </div>
+
+      <RecordFolds>
+        <RecordFold
+          title="Profile"
+          anchor="profile"
+          defaultOpen={openFold === 'profile'}
+          summary={`${(user.account_type as string) ?? '—'} · onboarding ${onboarded ? 'completed' : 'not finished'}`}
+        >
+          <RecordFacts
+            items={[
+              ['Account type', (user.account_type as string) ?? '—'],
+              ['Onboarding', onboarded ? 'Completed' : 'Not finished'],
+              ['Last login', fmtDate(user.last_login_at as string)],
+              ['Marketing consent', user.marketing_opt_in ? 'Opted in' : 'Opted out'],
+              ['Internal', isInternal ? 'Yes' : 'No'],
+              ['Team member', user.is_team_member ? 'Yes' : 'No'],
+              ['Public ID', (user.public_id as string | null) ?? '—'],
+            ]}
+          />
+          <RecordNote>Internal and Team member are changed under Flags below.</RecordNote>
+        </RecordFold>
+
+        <RecordFold
+          title="Events"
+          anchor="events"
+          summary={eventsUnread ? 'Couldn’t read' : formatCount((events ?? []).length)}
+        >
+          {eventsUnread ? (
+            <ReadFailed what="this account’s events" />
+          ) : (events ?? []).length === 0 ? (
+            <RecordEmpty>Not a member of any event yet.</RecordEmpty>
+          ) : (
+            <RecordRows label="Events and roles">
+              {(events ?? []).map((e) => {
+                const role = roleByEvent.get(e.event_id as string);
+                return (
+                  <RecordRow
+                    key={e.event_id as string}
+                    href={`/admin/events/${(e.public_id as string | null) ?? (e.event_id as string)}`}
+                    title={(e.display_name as string) ?? 'Untitled event'}
+                    line={[
+                      MEMBER_TYPE_LABEL[role ?? ''] ?? role ?? '—',
+                      typeName(e.event_type as string | null),
+                      fmtDate(e.event_date as string),
+                      e.archived ? '(archived)' : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  />
+                );
+              })}
+            </RecordRows>
+          )}
+        </RecordFold>
+
+        <RecordFold
+          title="Orders & payments"
+          anchor="money"
+          defaultOpen={openFold === 'money'}
+          summary={
+            ordersUnread
+              ? 'Couldn’t read'
+              : `${formatCount((orders ?? []).length)} orders${unpaidOrders > 0 ? ` · ${formatCount(unpaidOrders)} awaiting payment` : ''}`
+          }
+        >
+          <RecordSection
+            label={`Orders (${ordersUnread ? '—' : formatCount((orders ?? []).length)})`}
+            right={
+              <Link href="/admin/payments" className="font-semibold text-mulberry underline-offset-2 hover:underline">
+                Reconcile in Payments ›
+              </Link>
+            }
+          >
+            {ordersUnread ? (
+              <ReadFailed what="this account’s orders" />
+            ) : (orders ?? []).length === 0 ? (
+              <RecordEmpty>No orders placed.</RecordEmpty>
+            ) : (
+              <RecordRows label="Orders">
+                {(orders ?? []).map((o) => {
+                  const st = ORDER_STATUS_LABEL[o.status as string] ?? { label: o.status as string, tone: 'quiet' as BadgeTone };
+                  const total =
+                    (o.confirmed_total_php as number | null) ?? (o.requested_total_php as number | null);
+                  return (
+                    <RecordRow
+                      key={o.order_id as string}
+                      title={(o.description as string) ?? (o.service_key as string) ?? 'Order'}
+                      line={`${(o.reference_code as string) ?? (o.public_id as string)} · ${fmtDate(o.created_at as string)}`}
+                      right={
+                        <>
+                          <b className="tabular-nums text-ink">{formatPhp(total)}</b>
+                          <Badge tone={st.tone}>{st.label}</Badge>
+                        </>
+                      }
+                    />
+                  );
+                })}
+              </RecordRows>
+            )}
+          </RecordSection>
+
+          <RecordSection label={`Logged payments (${paymentsUnread ? '—' : formatCount((payments ?? []).length)})`}>
+            {paymentsUnread ? (
+              <ReadFailed what="this account’s payments" />
+            ) : (payments ?? []).length === 0 ? (
+              <RecordEmpty>No payments logged.</RecordEmpty>
+            ) : (
+              <RecordRows label="Logged payments">
+                {(payments ?? []).map((p) => (
+                  <RecordRow
+                    key={p.payment_id as string}
+                    title={`${formatPhp(p.amount_php as number)} · ${channelWord(p.channel as string | null)}`}
+                    line={fmtDate((p.reviewed_at as string) ?? (p.created_at as string))}
+                    right={
+                      <Badge tone={p.status === 'matched' ? 'ok' : p.status === 'rejected' ? 'no' : 'wait'}>
+                        {paymentStatusWord(p.status as string)}
+                      </Badge>
+                    }
+                  />
+                ))}
+              </RecordRows>
+            )}
+          </RecordSection>
+
+          <RecordSection label={`Refunds (${refundsUnread ? '—' : formatCount((refunds ?? []).length)})`}>
+            {refundsUnread ? (
+              <ReadFailed what="this account’s refunds" />
+            ) : (refunds ?? []).length === 0 ? (
+              <RecordEmpty>No refunds issued.</RecordEmpty>
+            ) : (
+              <RecordRows label="Refunds">
+                {(refunds ?? []).map((r) => (
+                  <RecordRow
+                    key={r.refund_id as string}
+                    title={formatRetailValueCentavos(r.refund_amount_centavos as number)}
+                    line={fmtDate((r.refunded_at as string) ?? (r.created_at as string))}
+                    right={<Badge tone="quiet">{r.status as string}</Badge>}
+                  />
+                ))}
+              </RecordRows>
+            )}
+          </RecordSection>
+        </RecordFold>
+
+        <RecordFold
+          title="Comps"
+          anchor="comps"
+          summary={grants === null ? 'Couldn’t read' : `${formatCount(activeGrants.length)} active`}
+        >
+          {grants === null ? (
+            <ReadFailed what="this account’s comp grants — it may already hold the very thing you are about to gift" />
+          ) : grants.length === 0 ? (
+            <RecordEmpty>No comp grants.</RecordEmpty>
+          ) : (
+            <RecordRows label="Entitlements and comps">
+              {grants.map((g) => (
+                <RecordRow
+                  key={g.grant_id}
+                  muted={Boolean(g.revoked_at)}
+                  title={`${describeScope(g.scope, g.scoped_skus)} · ${describeReach(g)}`}
+                  line={`${formatRetailValueCentavos(g.retail_value_centavos)} · ${describeSource(g.source)} · ${
+                    g.rationale ?? 'No rationale recorded.'
+                  } · ${fmtDate(g.created_at)}${g.revoked_at ? ` · revoked ${fmtDate(g.revoked_at)}` : ''}`}
+                  right={
+                    g.revoked_at ? null : (
+                      <ConfirmForm
+                        action={revokeCompGrant}
+                        title="Revoke this grant?"
+                        confirmLabel="Revoke"
+                        message={`Revoke comp grant ${g.public_id}? This stops future uses but doesn't refund any order that's already used it.`}
+                      >
+                        <input type="hidden" name="grant_id" value={g.grant_id} />
+                        <input type="hidden" name="reason" value="Revoked from the admin person record" />
+                        <ActionButton tone="danger" icon={<XCircle aria-hidden strokeWidth={1.9} />} label="Revoke" type="submit" />
+                      </ConfirmForm>
+                    )
+                  }
+                />
+              ))}
+            </RecordRows>
+          )}
+          <div className="mt-3">
+            {isInternal ? (
+              <ActionButton tone="neutral" icon={<Gift aria-hidden strokeWidth={1.9} />} label="Give a comp" type="button" disabled />
+            ) : (
+              <ActionButton
+                tone="brand"
+                icon={<Gift aria-hidden strokeWidth={1.9} />}
+                label="Give a comp"
+                href={`/admin/accounts?tab=users&q=${encodeURIComponent(email ?? userId)}&expand=${userId}#grants-${userId}`}
+              />
+            )}
+          </div>
+        </RecordFold>
+
+        <RecordFold
+          title="Problems"
+          anchor="problems"
+          defaultOpen={openFold === 'problems'}
+          summary={supportFailed ? 'Couldn’t read all' : `${formatCount(supportCount)} · support history`}
+        >
+          <RecordNote>Read-only slices of this account&rsquo;s support history. Take action from the queue each row links to.</RecordNote>
+          <SupportSection
+            title="Help tickets"
+            loadFailed={Boolean(helpError)}
+            icon={null}
+            count={(helpTickets ?? []).length}
+            href="/admin/help"
+            hrefLabel="Open Help queue"
+            empty="No help tickets."
+            rows={(helpTickets ?? []).map((t) => ({
+              key: t.message_id as string,
+              primary: (t.subject as string) ?? (t.topic as string) ?? 'Ticket',
+              status: t.status as string,
+              at: (t.resolved_at as string) ?? (t.created_at as string),
+            }))}
+          />
+          <SupportSection
+            title="Disputes opened"
+            loadFailed={Boolean(disputesError)}
+            icon={null}
+            count={(disputes ?? []).length}
+            href="/admin/disputes"
+            hrefLabel="Open Disputes queue"
+            empty="No disputes opened."
+            rows={(disputes ?? []).map((d) => ({
+              key: d.dispute_id as string,
+              primary: (d.category as string) ?? 'Dispute',
+              status: d.status as string,
+              at: (d.resolved_at as string) ?? (d.created_at as string),
+            }))}
+          />
+          <SupportSection
+            title="Reports filed"
+            loadFailed={Boolean(reportsError)}
+            icon={null}
+            count={(userReports ?? []).length}
+            href="/admin/user-reports"
+            hrefLabel="Open Reports queue"
+            empty="No reports filed."
+            rows={(userReports ?? []).map((r) => ({
+              key: r.report_id as string,
+              primary: `${(r.target_type as string) ?? 'report'} · ${(r.reason as string) ?? ''}`,
+              status: r.status as string,
+              at: (r.reviewed_at as string) ?? (r.created_at as string),
+            }))}
+          />
+          <SupportSection
+            title="AI abuse flags"
+            loadFailed={Boolean(abuseError)}
+            icon={null}
+            count={(abuseFlags ?? []).length}
+            href="/admin/concierge-abuse"
+            hrefLabel="Open abuse queue"
+            empty="No abuse flags."
+            rows={(abuseFlags ?? []).map((f) => ({
+              key: f.flag_id as string,
+              primary: `Similarity ${Math.round((f.similarity_score as number) * 100)}%`,
+              status: f.status as string,
+              at: (f.reviewed_at as string) ?? (f.created_at as string),
+            }))}
+          />
+        </RecordFold>
+
+        <RecordFold title="Activity" anchor="activity" defaultOpen={openFold === 'activity'} summary="newest first">
+          {ordersUnread || paymentsUnread || adminActionsError ? (
+            <ReadFailed what="part of this account’s history, so the timeline below may be missing entries" />
+          ) : null}
+          <ActivityTimeline
+            items={buildActivity({
+              createdAt: user.created_at as string,
+              onboardedAt: (user.tour_completed_at as string) ?? null,
+              firstJoinAt,
+              orders: (orders ?? []).map((o) => ({
+                id: o.order_id as string,
+                label: (o.description as string) ?? (o.service_key as string) ?? 'Order',
+                status: o.status as string,
+                at: o.created_at as string,
+              })),
+              payments: (payments ?? []).map((p) => ({
+                id: p.payment_id as string,
+                status: p.status as string,
+                at: (p.paid_at as string) ?? (p.created_at as string),
+              })),
+              adminActions: (adminActions ?? []).map((a) => ({
+                id: a.audit_log_id as string,
+                action: a.action as string,
+                at: a.created_at as string,
+              })),
+            })}
+          />
+        </RecordFold>
+
+        <RecordFold
+          title="Access"
+          anchor="access"
+          defaultOpen={openFold === 'access'}
+          summary="confirm email · temporary password · sign out · their data"
+        >
+          <RecordRows label="Access">
+            {!isInternal && !isDeleted ? (
+              <>
+                <RecordRow
+                  title="Confirm email"
+                  line="Force-confirm (idempotent — useful when the email doesn’t arrive)"
+                  right={
+                    <form action={confirmUserEmail}>
+                      <input type="hidden" name="user_id" value={userId} />
+                      <ActionButton tone="neutral" icon={<MailCheck aria-hidden strokeWidth={1.9} />} label="Confirm email" type="submit" />
+                    </form>
+                  }
+                />
+                <RecordRow
+                  title="Temporary password"
+                  line="Shown once, at the top of People › Accounts · copy it then"
+                  right={
+                    <ConfirmForm
+                      action={resetUserPassword}
+                      title="Generate a temporary password?"
+                      confirmLabel="Generate"
+                      destructive={false}
+                      message={`A temporary password for ${email ?? 'this user'} is shown once, at the top of People › Accounts. Share it via a secure channel (DM, in person, encrypted); they sign in with it, then change it from Profile → Personal info → Change password. Never in the URL, never emailed.`}
+                    >
+                      <input type="hidden" name="user_id" value={userId} />
+                      <ActionButton tone="warn" icon={<KeyRound aria-hidden strokeWidth={1.9} />} label="Generate" type="submit" />
+                    </ConfirmForm>
+                  }
+                />
+                <RecordRow
+                  title="Sign out everywhere"
+                  line="Every device · data untouched · for compromised accounts"
+                  right={
+                    <ConfirmForm
+                      action={forceSignOutUser}
+                      title="Revoke all sessions?"
+                      confirmLabel="Sign out everywhere"
+                      message={`Force sign-out ${email ?? 'this user'}? They are signed out on EVERY device immediately — use for compromised accounts. Their data is untouched; they can log back in.`}
+                    >
+                      <input type="hidden" name="user_id" value={userId} />
+                      <ActionButton tone="danger" icon={<LogOut aria-hidden strokeWidth={1.9} />} label="Sign out" type="submit" />
+                    </ConfirmForm>
+                  }
+                />
+              </>
+            ) : null}
+            {/* RA 10173 — a "send me my data" request that reached the DPO by email, or from someone who can't sign
+                in. A plain link to a route handler: no client code, no server action. Downloading it is logged. */}
+            <RecordRow
+              title="Their data"
+              line="For a data request sent to us. The same file they get from Profile, without the text of their messages. Downloading it is recorded on this account."
+              right={
+                <a
+                  href={`/admin/users/${userId}/export`}
+                  download
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-ink px-4 text-sm font-medium text-cream hover:bg-ink/90"
+                >
+                  <Download className="h-4 w-4" strokeWidth={2} aria-hidden />
+                  Download their data
+                </a>
+              }
+            />
+          </RecordRows>
+
+          <RecordSection label="Who viewed this account">
+            <RecordNote>RA 10173 right-to-know trail — every admin read of this account&rsquo;s data.</RecordNote>
+            {accessLogUnread ? (
+              <ReadFailed what="who viewed this account" />
+            ) : (accessLog ?? []).length === 0 ? (
+              <RecordEmpty>No admin views recorded yet.</RecordEmpty>
+            ) : (
+              <RecordRows label="Who viewed this account">
+                {(accessLog ?? []).map((r) => {
+                  const v = r.admin_user_id ? viewerById.get(r.admin_user_id as string) : null;
+                  return (
+                    <RecordRow
+                      key={r.access_log_id as string}
+                      title={v?.name ?? v?.email ?? 'Unknown admin'}
+                      line={`${surfaceWord(r.surface as string | null)} · ${fmtDate(r.created_at as string)}`}
+                    />
+                  );
+                })}
+              </RecordRows>
+            )}
+          </RecordSection>
+          <RecordNote>
+            Consent-to-fix &amp; account takeover: a logged, user-notified takeover (and the consent-to-fix handshake)
+            land with Phases 2&ndash;3 of the account-access model. When live, those sessions will appear here alongside
+            the read trail above.
+          </RecordNote>
+        </RecordFold>
+
+        <RecordFold title="Flags" anchor="flags" summary="internal · team member · blacklist · delete">
+          <RecordRows label="Flags">
+            <RecordRow
+              title="Internal (§ 10a)"
+              line="Owner/spouse tier — a permanent unlimited-use grant that bypasses billing."
+              right={<Badge tone="quiet">{isInternal ? 'Internal' : 'Not internal'}</Badge>}
+            />
+            {isInternal ? (
+              <RecordRow title="Everything else" line="Locked (internal)" />
+            ) : isDeleted ? null : (
+              <>
+                <RecordRow
+                  title="Team member"
+                  line={
+                    user.is_team_member
+                      ? 'Full Setnayan HQ console access. Removing is immediate.'
+                      : 'Adding opens a two-admin approval.'
+                  }
+                  right={
+                    !user.is_team_member && teamGrantPending ? (
+                      <ActionButton tone="neutral" icon={<UserPlus aria-hidden strokeWidth={1.9} />} label="Team · waiting on 2nd admin" href="/admin/approvals" />
+                    ) : (
+                      <form action={toggleTeamMember}>
+                        <input type="hidden" name="user_id" value={userId} />
+                        <input type="hidden" name="desired" value={user.is_team_member ? 'false' : 'true'} />
+                        <ActionButton
+                          tone="neutral"
+                          icon={user.is_team_member ? <UserMinus aria-hidden strokeWidth={1.9} /> : <UserPlus aria-hidden strokeWidth={1.9} />}
+                          label={user.is_team_member ? 'Remove from team' : 'Add to team'}
+                          type="submit"
+                        />
+                      </form>
+                    )
+                  }
+                />
+                <RecordRow
+                  title="Blacklist"
+                  line="Hard-delete AND block the email from signing up again. Reverse via People › Blocked → Unblacklist."
+                  right={
+                    <ConfirmForm
+                      action={blacklistUser}
+                      title="Blacklist this email?"
+                      confirmLabel="Blacklist & delete"
+                      message={`Blacklist ${email ?? 'this user'}? The user is hard-deleted AND the email is permanently blocked from signing up again. Reverse via the Blacklisted filter → Unblacklist.`}
+                    >
+                      <input type="hidden" name="user_id" value={userId} />
+                      <ActionButton tone="danger" icon={<Ban aria-hidden strokeWidth={1.9} />} label="Blacklist" type="submit" />
+                    </ConfirmForm>
+                  }
+                />
+                <RecordRow
+                  title="Delete account"
+                  line="Their identity is gone · the email is freed for re-signup · not reversible from here"
+                  right={
+                    <ConfirmForm
+                      action={deleteUser}
+                      title="Hard-delete this account?"
+                      confirmLabel="Delete permanently"
+                      message={`Hard-delete ${email ?? 'this user'}? Their auth identity is gone; all related data cascade-deletes; the EMAIL is freed for re-signup (e.g., switching from supplier to customer). Not reversible from this page.`}
+                    >
+                      <input type="hidden" name="user_id" value={userId} />
+                      <ActionButton tone="danger" icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Delete" type="submit" />
+                    </ConfirmForm>
+                  }
+                />
+              </>
+            )}
+          </RecordRows>
+        </RecordFold>
+
+        <RecordFold
+          title="Admin log"
+          anchor="admin-log"
+          summary={adminActionsError ? 'Couldn’t read' : `${formatCount((adminActions ?? []).length)} actions on this account`}
+        >
+          {adminActionsError ? (
+            <ReadFailed what="the admin actions on this account" />
+          ) : (adminActions ?? []).length === 0 ? (
+            <RecordEmpty>No admin action on this account yet.</RecordEmpty>
+          ) : (
+            <RecordRows label="Admin actions on this account">
+              {(adminActions ?? []).map((a) => (
+                <RecordRow
+                  key={a.audit_log_id as string}
+                  title={(a.action as string).replace(/_/g, ' ')}
+                  line={fmtDate(a.created_at as string)}
+                />
+              ))}
+            </RecordRows>
+          )}
+        </RecordFold>
+      </RecordFolds>
+
+      {/* Privacy-wall footer */}
+      <p className="mt-6 flex items-start gap-2 text-xs text-ink/55">
+        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/40" strokeWidth={2} aria-hidden />
+        <span>
+          This view deliberately excludes chat &amp; message bodies, shared thread files, face recognition data, and raw
+          behavioral data — even for HQ staff. Only counts and statuses are shown. Reading a message needs the account
+          owner&rsquo;s consent or a logged, notified takeover.
+        </span>
+      </p>
     </div>
   );
 }
@@ -985,7 +1033,6 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
 // --- Support section (read-only, links into the queue) -----------------------
 
 function SupportSection({
-  icon,
   title,
   count,
   href,
@@ -1004,46 +1051,27 @@ function SupportSection({
   rows: { key: string; primary: string; status: string; at: string | null }[];
 }) {
   return (
-    <section className="rounded-2xl border border-ink/10 bg-paper p-5">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-sm font-medium text-ink">
-          {icon}
-          {title}
-          <span className="font-normal text-ink/40">({loadFailed ? '—' : formatCount(count)})</span>
-        </h2>
-        <Link href={href} className="text-xs font-medium text-mulberry underline hover:text-ink">
-          {hrefLabel}
+    <RecordSection
+      label={`${title} (${loadFailed ? '—' : formatCount(count)})`}
+      right={
+        <Link href={href} className="font-semibold text-mulberry underline-offset-2 hover:underline">
+          {hrefLabel} ›
         </Link>
-      </div>
+      }
+    >
       {loadFailed ? (
         <ReadFailed what={`${title.toLowerCase()}`} />
       ) : rows.length === 0 ? (
-        <p className="text-sm text-ink/50">{empty}</p>
+        <RecordEmpty>{empty}</RecordEmpty>
       ) : (
-        <ul className="space-y-2">
+        <RecordRows label={title}>
           {rows.map((r) => (
-            <li
-              key={r.key}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ink/[0.03] px-3 py-2 text-sm"
-            >
-              <span className="min-w-0 truncate text-ink/80">{r.primary}</span>
-              <span className="flex items-center gap-3 text-xs text-ink/55">
-                <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-medium text-ink/70">
-                  {r.status}
-                </span>
-                <span>{fmtDateShort(r.at)}</span>
-              </span>
-            </li>
+            <RecordRow key={r.key} title={r.primary} line={fmtDate(r.at)} right={<Badge tone="quiet">{r.status}</Badge>} />
           ))}
-        </ul>
+        </RecordRows>
       )}
-    </section>
+    </RecordSection>
   );
-}
-
-function fmtDateShort(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // --- Activity timeline -------------------------------------------------------
@@ -1080,23 +1108,17 @@ function buildActivity(input: {
 
 function ActivityTimeline({ items }: { items: ActivityItem[] }) {
   if (items.length === 0) {
-    return <p className="text-sm text-ink/50">Nothing has happened on this account yet.</p>;
+    return <RecordEmpty>Nothing has happened on this account yet.</RecordEmpty>;
   }
   return (
-    <ul className="space-y-3">
+    <RecordRows label="Activity, newest first">
       {items.map((e) => (
-        <li key={e.id} className="flex items-start gap-3">
-          <span
-            aria-hidden
-            className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-ink/25"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-ink">{e.title}</p>
-            {e.detail ? <p className="text-xs text-ink/55">{e.detail}</p> : null}
-          </div>
-          <span className="shrink-0 text-[11px] text-ink/45">{fmtDateShort(e.at)}</span>
-        </li>
+        <RecordRow
+          key={e.id}
+          title={e.title}
+          line={e.detail ? `${e.detail} · ${fmtDate(e.at)}` : fmtDate(e.at)}
+        />
       ))}
-    </ul>
+    </RecordRows>
   );
 }

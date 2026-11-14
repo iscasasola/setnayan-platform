@@ -35,6 +35,7 @@ import {
 } from '@/lib/chat-cards';
 import type { AutoBalanceMeta, InstallmentDraft } from '@/lib/proposal-payment-schedule';
 import { openDecision } from '@/lib/chat-decisions';
+import type { MakeQuoteCardOption } from '@/lib/make-a-quote';
 
 type Fail = { ok: false };
 
@@ -189,6 +190,30 @@ export async function loadQuoteForCard(threadId: string): Promise<QuoteRead> {
     pax,
     requote: gate.data === 'deal_locked' ? 'deal_locked' : gate.data === 'lock_requested' ? 'lock_requested' : 'ok',
     },
+  };
+}
+
+// ── 🧾 Make a quote (cut 7, 2026-11-14) · the shop's own active cards, for the short card ──────────────────────────
+
+/** The shop's active service cards, by its own session (RLS: a shop reads its own cards). For the chat's Make a quote. */
+export async function loadCardsForMakeQuote(threadId: string): Promise<{ ok: true; cards: MakeQuoteCardOption[] } | Fail> {
+  const supabase = createClient();
+  const { data: thread, error: tErr } = await supabase.from('chat_threads').select('vendor_profile_id').eq('thread_id', threadId).maybeSingle();
+  if (tErr || !thread) return refused('make quote · thread', tErr);
+  const { data, error } = await supabase
+    .from('vendor_services')
+    .select('vendor_service_id, title, category, starting_price_php')
+    .eq('vendor_profile_id', (thread as { vendor_profile_id: string }).vendor_profile_id)
+    .eq('is_active', true)
+    .order('created_at', { ascending: true });
+  if (error) return refused('make quote · cards', error);
+  return {
+    ok: true,
+    cards: ((data ?? []) as { vendor_service_id: string; title: string | null; category: string | null; starting_price_php: number | null }[]).map((r) => ({
+      id: r.vendor_service_id,
+      name: r.title?.trim() || 'Service card',
+      fromCentavos: r.starting_price_php == null ? null : Math.round(Number(r.starting_price_php) * 100),
+    })),
   };
 }
 

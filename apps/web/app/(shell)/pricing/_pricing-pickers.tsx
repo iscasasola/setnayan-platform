@@ -65,6 +65,7 @@ export function PriceRowShell({
   figure,
   included = false,
   hiddenUntilOpen = false,
+  action = null,
 }: {
   name: string;
   tip: string;
@@ -72,6 +73,8 @@ export function PriceRowShell({
   figure: ReactNode;
   included?: boolean;
   hiddenUntilOpen?: boolean;
+  /** 💰 RW-13: a plan row's buy door (`PlanBuyCta`), under the line. Absent on every other row. */
+  action?: ReactNode;
 }) {
   return (
     <li
@@ -83,6 +86,7 @@ export function PriceRowShell({
       </InfoTip>
       <span className={`whitespace-nowrap font-pahina text-terracotta-700 ${included ? 'text-[17px]' : 'text-xl'}`}>{figure}</span>
       <p className="col-start-1 m-0 text-[13.5px] leading-snug text-ink/65">{what}</p>
+      {action ? <div className="col-span-2 mt-2">{action}</div> : null}
     </li>
   );
 }

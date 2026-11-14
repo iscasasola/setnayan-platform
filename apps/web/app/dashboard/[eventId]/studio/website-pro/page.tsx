@@ -9,6 +9,7 @@ import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { EVENT_PLUS_SKU, HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
 import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
+import { isPlanKey } from '@/lib/plan-buy-doors';
 import { ProPartsBody } from './_components/pro-parts-body';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { UNLOCK_AND_APPLY_PARAM } from '@/lib/hub-pro-effects';
@@ -65,7 +66,7 @@ const HERO = addOnHeroCopy('website-pro');
  * Event Hub PRO is the top tier, so there's no cross-sell line up from it.
  */
 
-type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string; then?: string; buy?: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string; then?: string; buy?: string; plan?: string }> };
 
 const WEBSITE_HUB_HREF = (eventId: string) => `/dashboard/${eventId}/website`;
 
@@ -153,6 +154,8 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
       partPricePhp={partPricePhp}
       fullPhp={prices?.full ?? null}
       buy={search.buy}
+      // 💰 RW-13: a public plan door (`lib/plan-buy-doors.ts`) opens this page at one plan's card. A closed value.
+      focusPlan={isPlanKey(search.plan) ? search.plan : null}
       settings={settings}
       vatRatePct={vatRatePct}
       plans={plans}

@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { PlanBuyCta } from '@/app/_components/marketing/plan-buy-cta';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -474,6 +475,10 @@ export default async function PricingPage() {
                         </ul>
                       }
                     />
+                    {/* 💰 RW-13: Event Pro's buy door — into the event's plan screen, like Plus and Ultra below. */}
+                    <div className="col-span-2 mt-2">
+                      <PlanBuyCta plan="pro" />
+                    </div>
                   </li>
                   {/* 💎 Event Ultra (owner 2026-11-13) — the next rung, in the same list. Canvas prints are part of it but
                       are not said until the Our Day poster ships (see ULTRA_PEEK, front-door-landing-data.ts). */}
@@ -483,6 +488,7 @@ export default async function PricingPage() {
                       tip={`Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, Patiktok and ${prices.planCredits.ultra != null ? `${formatCount(prices.planCredits.ultra)} Papic credits` : 'more Papic credits'}. One unlock covers everyone on the event.`}
                       what="Everything in Pro — and your day shared live and kept."
                       figure={<Figure php={prices.ultra} />}
+                      action={<PlanBuyCta plan="ultra" />}
                     />
                   ) : null}
                 </ul>
@@ -557,6 +563,7 @@ export default async function PricingPage() {
                     tip={`Setnayan AI — suggests verified suppliers by fit, then watches your deadlines, budget and dates — with ${prices.planCredits.plus != null ? `${formatCount(prices.planCredits.plus)} Papic credits` : 'Papic credits'} for your guests’ cameras. Event Pro includes everything in Event Plus.`}
                     what="Setnayan AI and Papic credits, for this event."
                     figure={<Figure php={prices.plus} />}
+                    action={<PlanBuyCta plan="plus" />}
                   />
                 </ul>
               </>

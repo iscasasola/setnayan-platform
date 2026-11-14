@@ -13,3 +13,5 @@
   visual change. Held by `lib/the-shared-controls-press-at-44.test.ts`.
 
 SPEC IMPACT: None
+
+Also (AW-13, now that #7712 has landed): the admin Work list's lane chips get `sn-hit`, so they press at 46 px instead of 30. The drawing is unchanged, and a guard in `lib/the-shared-controls-press-at-44.test.ts` holds it.

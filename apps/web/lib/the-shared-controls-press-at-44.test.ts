@@ -238,3 +238,17 @@ test('ⓘ every .sn-dot-btn button in app/ presses at 44 × 44', async () => {
   // InfoTip + the schedule's hand-drawn ⓘ and its icon buttons: a count of 0 would mean the scan read nothing.
   assert.ok(n >= 5, `found only ${n} .sn-dot-btn buttons — the scan is not reading the tree`);
 });
+
+/*
+ * 🏷 THE ADMIN WORK LIST'S LANE CHIPS PRESS AT 44 (walkthrough AW-13, 2026-11-14): each lane filter chip
+ * (`LaneChips` in `app/admin/queues/_components/queues-triage-feed.tsx`) was drawn — and pressed — 30 px tall. It wears
+ * `.sn-hit` now: the chip keeps its drawing, its press reaches 46 around it.
+ */
+test('admin Work list: the lane chips press at 44 without growing the chip', () => {
+  const src = stripComments(read('app/admin/queues/_components/queues-triage-feed.tsx'));
+  const m = src.match(/aria-current=\{active \? 'true' : undefined\}\s*className="([^"]+)"/);
+  assert.ok(m, 'the lane chip link is gone or no longer reads as one className — the guard cannot see it');
+  const cls = m![1]!;
+  const p = press(cls);
+  assert.ok(p.height >= 44, `a lane chip presses at ${p.height}px — under the 44-px floor (classes: ${cls})`);
+});

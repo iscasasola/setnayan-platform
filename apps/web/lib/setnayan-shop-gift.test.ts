@@ -9,6 +9,7 @@ import {
   planGiftEndedLine,
   planGiftEndingWords,
   planGiftNoticeStage,
+  setnayanShopGiftMomentView,
   shopGiftMomentWords,
   shortPlanWord,
   type RunningPlanGift,
@@ -120,4 +121,17 @@ test('what a press says', () => {
   assert.equal(claimedWords('now', 'enterprise'), 'You’re on Supplier Ultra now.');
   assert.equal(claimedWords('after', 'pro'), 'Supplier Pro starts when your plan ends.');
   assert.equal(claimedWords('extend', 'enterprise'), '28 days added to your Supplier Ultra.');
+});
+
+test('the moment G2 plays: Setnayan on the seal, the gift’s own words, where it landed', () => {
+  const v = setnayanShopGiftMomentView({ ...plan({ choices: ['start'] }), giftId: 'g1', sentAt: '2026-11-14T04:00:00Z' });
+  assert.equal(v.source, 'setnayan_gift');
+  assert.deepEqual(v.seal, { kind: 'setnayan' });
+  assert.equal(v.headline, 'Setnayan sent you Supplier Ultra');
+  assert.equal(v.received, 'Supplier Ultra on your own shop, for 28 days');
+  assert.equal(v.redeemHref, '/vendor-dashboard/subscription');
+  assert.equal(v.claimedAt, null);
+  const st = setnayanShopGiftMomentView({ ...plan({ choices: ['stock'] }), type: 'stock', stockLine: '3 × Papic 1000' });
+  assert.equal(st.redeemHref, '/vendor-dashboard/shop/promote#gifts');
+  assert.equal(st.received, '3 × Papic 1000 to give your couples');
 });

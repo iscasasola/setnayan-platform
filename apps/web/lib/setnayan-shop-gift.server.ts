@@ -191,6 +191,7 @@ export async function readShopGifts(
     currentTier: onPlan ? s.tier_state : null,
     choices: choiceLists[i] ?? [],
     claimed: false,
+    sentAt: r.sent_at,
   }));
 
   // The gift running now: a started plan gift whose days are on the clock, while the shop's plan is still its write

@@ -18,6 +18,7 @@
 import { formatCount } from './format-number';
 import { formatPhp } from './php';
 import { planWord } from './vendor-plan-change-words';
+import { giftMomentKey, type GiftMomentView } from './gift-moment';
 
 /** What a shop can press on a Setnayan gift (the database's `setnayan_shop_gift_choices`). */
 export type ShopGiftChoice = 'stock' | 'start' | 'now' | 'after' | 'extend';
@@ -54,16 +55,6 @@ export const SHOP_GIFT_SEAL = { kicker: 'A gift for your shop', from: 'A gift fr
 /** The waiting line on Today after Later ("Today, after Later"): no Got it — only claiming closes it. */
 export const SHOP_GIFT_WAITING = { line: '🎁 A gift from Setnayan is waiting', open: 'Open' } as const;
 
-/** The claim's three states (drawing, "Claiming the gift"). */
-export const SHOP_GIFT_CLAIM_WORDS = {
-  claiming: 'Claiming…',
-  offline: 'The claim didn’t reach us. Try again sends the same claim, so it can never become a second gift.',
-  tryAgain: 'Try again',
-  claimed: 'Claimed',
-  later: 'Later',
-  close: 'Close',
-} as const;
-
 /** A gift as the moment draws it. */
 export type ShopGiftView = {
   giftId: string;
@@ -78,6 +69,8 @@ export type ShopGiftView = {
   /** What the database lets the shop press now. Empty = the gift waits (another gift is running). */
   choices: readonly ShopGiftChoice[];
   claimed: boolean;
+  /** When Setnayan sent it (the moment's "landed" time). */
+  sentAt?: string;
 };
 
 export type ShopGiftButton = { choice: ShopGiftChoice; label: string; main: boolean };
@@ -208,6 +201,33 @@ export function planGiftEndingWords(
 /** The one plain line on the day a plan gift ends (no line for days added to the shop's own plan — nothing changes). */
 export function planGiftEndedLine(g: { tier: string; returnTier: string | null }): string {
   return `Your ${planWord(g.tier)} gift has ended. Your shop is back on ${planWord(g.returnTier ?? 'free')}.`;
+}
+
+/**
+ * 🎁 THE MOMENT G2 PLAYS for a Setnayan gift to a shop (`app/_components/gift-moment/gift-moment.tsx`, reused unchanged
+ * — its docblock: "G3 reuses this piece … build a `GiftMomentView`, pass your choices"). Setnayan's mark on the seal;
+ * the words are this file's; the buttons are the choices the database allows (`shopGiftMomentWords`).
+ */
+export function setnayanShopGiftMomentView(g: ShopGiftView): GiftMomentView {
+  const w = shopGiftMomentWords(g);
+  return {
+    source: 'setnayan_gift',
+    ref: g.giftId,
+    key: giftMomentKey('setnayan_gift', g.giftId),
+    giverName: 'Setnayan',
+    seal: { kind: 'setnayan' },
+    eyebrow: SHOP_GIFT_SEAL.kicker,
+    fromLine: 'From Setnayan',
+    headline: w.title,
+    received: w.what,
+    detail: w.lines[0] ?? null,
+    landedLine: w.lines[1] ?? null,
+    badge: null,
+    redeemHref: g.type === 'stock' ? '/vendor-dashboard/shop/promote#gifts' : '/vendor-dashboard/subscription',
+    waitingLine: 'A gift from Setnayan is waiting',
+    landedAt: g.sentAt ?? '',
+    claimedAt: null,
+  };
 }
 
 /** What a finished press says, for the toast under the moment. */

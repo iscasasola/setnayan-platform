@@ -19,7 +19,6 @@ import {
   REPLY_ASK_COPY,
   REPLY_ASK_REASK_MS,
   readLastAnswer,
-  rememberAnswer,
   replyAskMode,
   type ReplyAskInput,
 } from './reply-push-ask';
@@ -78,11 +77,11 @@ test('5 · iPhone Safari in a tab is told how, never offered a dead Yes', () => 
   assert.match(REPLY_ASK_COPY.iosHow, /Add to Home Screen/);
 });
 
-test('6 · the remembered answer round-trips, and a blocked storage never throws', () => {
+test('6 · the older remembered answer is read (as the notice\'s legacy), and a blocked storage never throws', () => {
   const box = new Map<string, string>();
   const storage = { getItem: (k: string) => box.get(k) ?? null, setItem: (k: string, v: string) => void box.set(k, v) };
   assert.equal(readLastAnswer(storage), null);
-  rememberAnswer(storage, NOW);
+  storage.setItem('setnayan_reply_push_ask_v1', String(NOW));
   assert.equal(readLastAnswer(storage), NOW);
   const blocked = {
     getItem: () => {
@@ -93,6 +92,5 @@ test('6 · the remembered answer round-trips, and a blocked storage never throws
     },
   };
   assert.equal(readLastAnswer(blocked), null);
-  assert.doesNotThrow(() => rememberAnswer(blocked, NOW));
   assert.equal(readLastAnswer(null), null);
 });

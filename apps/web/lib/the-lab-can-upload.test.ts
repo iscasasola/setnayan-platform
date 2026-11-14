@@ -201,7 +201,7 @@ test('(3) the seam is the lab’s alone: only app/dev provides the stand-in, onl
      with storage stood in. It lives under app/dev, and its page refuses production first (asserted below). */
   const LAB_SENDER = 'app/dev/supplier-lab/photo-mark-lab.tsx';
   assert.deepEqual([...senders].sort(), ['app/dashboard/[eventId]/launch/_components/studio-tools.tsx', SLOTS, LAB_SENDER].sort(), 'another uploader was handed a stand-in for storage');
-  assert.match(read('app/dev/supplier-lab/page.tsx'), /export default async function SupplierLabPage\([\s\S]*?\}\) \{\s*if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/);
+  assert.match(read('app/dev/supplier-lab/page.lab.tsx'), /export default async function SupplierLabPage\([\s\S]*?\}\) \{\s*if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/);
   // The slots hand on ONLY what the context holds — null (everywhere but the lab) means real storage.
   const slots = read(SLOTS);
   assert.match(slots, /export const SlotsUploadStandIn = createContext<UploadSend \| null>\(null\);/);
@@ -211,7 +211,7 @@ test('(3) the seam is the lab’s alone: only app/dev provides the stand-in, onl
   // The fixtures are drawn by the lab's pages only, and the lab's route refuses production before anything else.
   const drawers = files.filter((f) => /studio-lab-fixtures/.test(read(f)));
   assert.ok(drawers.length > 0 && drawers.every((f) => f.startsWith('app/dev/')), `the lab's fixtures are drawn outside the lab: ${drawers.join(', ')}`);
-  assert.match(read('app/dev/maker-lab/page.tsx'), /export default async function MakerLabPage\([^)]*\)[^{]*\{\s*if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/);
+  assert.match(read('app/dev/maker-lab/page.lab.tsx'), /export default async function MakerLabPage\([^)]*\)[^{]*\{\s*if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/);
 });
 
 test('(4) the lab keeps what was added: the same moment form, applied in memory by the server’s own function; the photo drawn from the browser’s memory', () => {

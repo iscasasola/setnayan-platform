@@ -3,7 +3,12 @@
  * 2026-11-10). The per-lab `the-lab-never-ships.test.ts` files each hold one page; this holds the WHOLE
  * segment, so a lab added tomorrow cannot ship on the live site by forgetting its own line.
  *
- *   1. `app/dev/layout.tsx` calls `notFound()` in production as its FIRST statement.
+ *   0. THE FIRST LOCK (2026-11-14): the labs are not BUILT for production. `next.config.ts` adds
+ *      `lab.tsx`/`lab.ts` to `pageExtensions` only outside production, and every route file under
+ *      `app/dev` is named `page.lab.tsx` / `layout.lab.tsx` / `route.lab.ts` — so `next build` never
+ *      compiles a lab page, .rsc route or server-action id (Vercel's 2,048-route cap). No file outside
+ *      `app/dev` (tests aside) imports from it, or a lab module would be pulled back into the build.
+ *   1. THE SECOND LOCK: `app/dev/layout.lab.tsx` calls `notFound()` in production as its FIRST statement.
  *   2. Every page whose URL starts `/dev` lives in `app/dev/` (a route group such as
  *      `app/(labs)/dev/x/page.tsx` would serve `/dev/x` from OUTSIDE the gated layout).
  *   3. Every `route.ts` handler under `/dev` lives in `app/dev` and refuses production as the FIRST
@@ -47,8 +52,63 @@ const APP_FILES = walk(APP);
 const underDev = (f: string) => f.startsWith(DEV + sep);
 const servesDev = (f: string) => /^\/dev(\/|$)/.test(urlOf(f));
 
-test('app/dev/layout.tsx calls notFound() in production before anything else', () => {
-  const src = stripComments(readFileSync(join(DEV, 'layout.tsx'), 'utf8'));
+const NEXT_SPECIAL = /^(page|layout|route|loading|error|not-found|template|default|global-error)\.[cm]?[jt]sx?$/;
+
+test('next.config.ts gives the lab extensions to next dev only — a production build never sees a lab route', () => {
+  const cfg = stripComments(readFileSync(join(WEB, 'next.config.ts'), 'utf8'));
+  assert.match(cfg, /const PAGE_EXTENSIONS = \['tsx', 'ts', 'jsx', 'js'\];/, 'the production page extensions changed');
+  assert.match(cfg, /const LAB_PAGE_EXTENSIONS = \['lab\.tsx', 'lab\.ts'\];/, 'the lab page extensions changed');
+  assert.match(
+    cfg,
+    /pageExtensions:\s*process\.env\.NODE_ENV === 'production' \? PAGE_EXTENSIONS : \[\.\.\.LAB_PAGE_EXTENSIONS, \.\.\.PAGE_EXTENSIONS\],/,
+    'pageExtensions no longer drops the labs from the production build',
+  );
+});
+
+test('every route file under app/dev is a .lab file — a plain page.tsx/layout.tsx/route.ts there would be built for production', () => {
+  const plain = APP_FILES.filter((f) => underDev(f) && NEXT_SPECIAL.test(f.slice(f.lastIndexOf(sep) + 1))).map((f) => relative(WEB, f));
+  assert.deepEqual(plain, [], `rename these to <name>.lab.<ext>: ${plain.join(', ')}`);
+  const labs = APP_FILES.filter((f) => underDev(f) && /[/\\]page\.lab\.tsx$/.test(f));
+  assert.ok(labs.length > 50, `only ${labs.length} lab pages found — the scan is reading the wrong folder`);
+  const strays = walk(APP)
+    .concat(['lib', 'components'].flatMap((d) => { try { return walk(join(WEB, d)); } catch { return []; } }))
+    .filter((f) => /\.lab\.[jt]sx?$/.test(f) && !underDev(f))
+    .map((f) => relative(WEB, f));
+  assert.deepEqual(strays, [], `a .lab file outside app/dev is invisible to the production build: ${strays.join(', ')}`);
+});
+
+test('nothing outside app/dev imports a lab file (tests aside) — that would pull lab code back into production', () => {
+  const files = ['app', 'lib', 'components']
+    .flatMap((d) => { try { return walk(join(WEB, d)); } catch { return []; } })
+    .filter((f) => /\.[cm]?[jt]sx?$/.test(f) && !isTest(f) && !underDev(f));
+  const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*)['"][^'"]*(?:@\/app\/dev\/|(?:^|\/)app\/dev\/|\.\.\/dev\/)/m;
+  // Test fixtures in lib/ that only tests reach (site-body-fixture ← stage-pages-fixture ← site-body-fixture-render).
+  const TEST_ONLY_FIXTURES = new Set(['lib/site-body-fixture.ts']);
+  const hits = files
+    .filter((f) => IMPORT.test(stripComments(readFileSync(f, 'utf8'))))
+    .map((f) => relative(WEB, f).split(sep).join('/'))
+    .filter((f) => !TEST_ONLY_FIXTURES.has(f));
+  assert.deepEqual(hits, [], `production code imports from app/dev: ${hits.join(', ')}`);
+  for (const fixture of TEST_ONLY_FIXTURES) {
+    const name = fixture.slice(fixture.lastIndexOf('/') + 1).replace(/\.tsx?$/, '');
+    const reach = (n: string) =>
+      files.filter((f) => new RegExp(`['"][^'"]*/${n}['"]`).test(stripComments(readFileSync(f, 'utf8')))).map((f) => relative(WEB, f).split(sep).join('/'));
+    const seen = new Set<string>([fixture]);
+    const queue = [name];
+    while (queue.length) {
+      for (const f of reach(queue.shift()!)) {
+        if (seen.has(f)) continue;
+        seen.add(f);
+        queue.push(f.slice(f.lastIndexOf('/') + 1).replace(/\.tsx?$/, ''));
+      }
+    }
+    const shipped = [...seen].filter((f) => f.startsWith('app/') || f.startsWith('components/'));
+    assert.deepEqual(shipped, [], `${fixture} imports app/dev and is now reached by shipped code: ${shipped.join(', ')}`);
+  }
+});
+
+test('app/dev/layout.lab.tsx calls notFound() in production before anything else', () => {
+  const src = stripComments(readFileSync(join(DEV, 'layout.lab.tsx'), 'utf8'));
   assert.match(src, /import \{ notFound \} from 'next\/navigation';/, 'notFound is not imported');
   const at = src.indexOf('export default function');
   assert.ok(at >= 0, 'the /dev layout has no default export — nothing gates the labs');
@@ -62,14 +122,14 @@ test('app/dev/layout.tsx calls notFound() in production before anything else', (
 });
 
 test('every page served under /dev lives inside app/dev (under the gated layout)', () => {
-  const pages = APP_FILES.filter((f) => /[/\\]page\.[jt]sx?$/.test(f) && servesDev(f));
+  const pages = APP_FILES.filter((f) => /[/\\]page(\.lab)?\.[jt]sx?$/.test(f) && servesDev(f));
   assert.ok(pages.length > 0, 'no /dev pages found — the scan is reading the wrong folder');
   const outside = pages.filter((f) => !underDev(f)).map((f) => relative(WEB, f));
   assert.deepEqual(outside, [], `these pages serve /dev/* from outside app/dev/layout.tsx: ${outside.join(', ')}`);
 });
 
 test('every route handler under /dev is inside app/dev and refuses production first (a layout never wraps route.ts)', () => {
-  const handlers = APP_FILES.filter((f) => /[/\\]route\.[jt]sx?$/.test(f) && servesDev(f));
+  const handlers = APP_FILES.filter((f) => /[/\\]route(\.lab)?\.[jt]sx?$/.test(f) && servesDev(f));
   const outside = handlers.filter((f) => !underDev(f)).map((f) => relative(WEB, f));
   assert.deepEqual(outside, [], `route handlers serve /dev/* from outside app/dev: ${outside.join(', ')}`);
   const open: string[] = [];

@@ -11,7 +11,6 @@ app/_components/report-page-button.tsx
 app/_components/requirements-modal.tsx
 app/admin/fraud/_components/wipe-ban-dialog.tsx
 app/dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx
-app/dashboard/[eventId]/_components/cohost-welcome.tsx
 app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
 app/dashboard/[eventId]/_components/vendor-direct-pay.tsx
 app/dashboard/[eventId]/invitation/_components/guest-invite-modal.tsx
@@ -22,8 +21,6 @@ app/dashboard/[eventId]/schedule/_components/emcee-script-button.tsx
 app/dashboard/[eventId]/sponsors/_components/add-sponsor-modal.tsx
 app/dashboard/[eventId]/sponsors/_components/edit-sponsor-modal.tsx
 app/dashboard/[eventId]/sponsors/_components/invitation-template-modal.tsx
-app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx
-app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx
 app/papic/_components/papic-buy-shell.tsx
 app/pay/[reference]/_components/pay-panel.tsx
 app/tour/budget/_components/tour-budget-planner.tsx

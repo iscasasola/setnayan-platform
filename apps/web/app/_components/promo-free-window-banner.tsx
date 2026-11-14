@@ -1,4 +1,4 @@
-import { Gift } from 'lucide-react';
+import { Notice } from '@/app/_components/notices/notices';
 import { getCoupleFreeWindowBanners } from '@/lib/promo-free-windows';
 
 /**
@@ -22,25 +22,20 @@ export async function PromoFreeWindowBanner() {
     day: 'numeric',
   }).format(new Date(promo.ends_at));
 
+  // 🔔 Inventory #3 · #15 — ONE offer line for both sides (one notice system, owner approved 14 Nov 2026: "Merge"):
+  // ◆ the deal's own title, the rest behind the ⓘ, "Not now" (back after 30 days; the window also ends by itself).
+  // Registered for the END of the page.
   return (
-    <div
-      role="status"
-      className="mb-5 flex items-start gap-3 rounded-xl border border-terracotta/25 bg-terracotta/5 px-4 py-3 text-sm text-ink"
-    >
-      <Gift
-        aria-hidden
-        strokeWidth={1.75}
-        className="mt-0.5 h-5 w-5 shrink-0 text-terracotta-700"
-      />
-      <div className="min-w-0">
-        <p className="font-semibold text-terracotta-700">{promo.title}</p>
-        {promo.blurb ? (
-          <p className="mt-0.5 text-ink/75">{promo.blurb}</p>
-        ) : null}
-        <p className="mt-0.5 text-xs text-ink/55">
-          Free through {endsLabel} — already applied, no code needed.
-        </p>
-      </div>
-    </div>
+    <Notice
+      kind="offer"
+      noticeKey={`free-window:${promo.promo_window_id}`}
+      title={promo.title}
+      detail={
+        <>
+          {promo.blurb ? <span className="block">{promo.blurb}</span> : null}
+          <span className="block">{`Free through ${endsLabel} — already applied, no code needed.`}</span>
+        </>
+      }
+    />
   );
 }

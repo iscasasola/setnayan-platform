@@ -446,8 +446,13 @@ export function ServicesTakeover({
       {/* The page's name: the shared masthead's h1 (screen readers, every
           width). `<PageMasthead>` is the shipped component — never re-drawn. */}
       <PageMasthead title="Suppliers" />
-      {/* 📐 Design template rule 1 (14 Nov 2026): no visible title row at any width — the page's name lives in the
-          pinned row and the h1 above already says it; the 1024-px serif "Suppliers" restated the menu. */}
+      {/* …and a visible title row from 1024 px only. On a phone the bottom
+          bar names the page and the Maker has no title row either (owner
+          2026-10-07). aria-hidden: the h1 above already says it. 📐 Design template rule 1 (14 Nov 2026): in the
+          body face, not a serif — the owner's desktop name row stays (your-team-phone-first.test.ts pins it). */}
+      <p aria-hidden className="mb-1 hidden text-[28px] font-bold leading-none text-ink lg:block">
+        Suppliers
+      </p>
 
       {/* ── THE DATE · PLACE LINE — plain content now: it scrolls away under the pinned row (owner 2026-10-27,
           "suppliers, make that 2 row pinned collapse to 1 row" → "pinned approve", Suppliers A). It is still the

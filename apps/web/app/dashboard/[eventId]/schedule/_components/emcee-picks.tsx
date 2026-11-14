@@ -38,7 +38,7 @@ function EmceePicksUnread() {
   return (
     // 📐 Design template rule 6: a failed read is one amber line with no box — never mistakable for "none".
     <p role="alert" className="py-2 text-sm text-warn-800">
-      Couldn&rsquo;t check what your host has planned — if they suggested anything, it hasn&rsquo;t gone away. Reload in
+      We couldn&rsquo;t check what your host has planned — if they suggested anything, it hasn&rsquo;t gone away. Reload in
       a moment.
     </p>
   );

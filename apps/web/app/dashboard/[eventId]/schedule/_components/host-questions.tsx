@@ -143,7 +143,7 @@ function HostQuestionsUnread() {
   return (
     // 📐 Design template rule 6: a failed read is one amber line with no box — never mistakable for "none".
     <p role="alert" className="py-2 text-sm text-warn-800">
-      Couldn&rsquo;t load your host&rsquo;s questions — anything you already answered is safe. Reload in a moment.
+      We couldn&rsquo;t load your host&rsquo;s questions — anything you already answered is safe. Reload in a moment.
     </p>
   );
 }

@@ -221,7 +221,7 @@ function PreparationRow({
       </span>
       <span
         className={`mt-0.5 font-mono text-xs uppercase tracking-[0.06em] ${
-          done || eventIsOver ? 'text-ink/70' : overdue ? 'text-danger-600' : 'text-terracotta'
+          done || eventIsOver ? 'text-ink/40' : overdue ? 'text-danger-600' : 'text-terracotta'
         }`}
       >
         {done ? 'Done' : item.daysFromNow === null ? 'Set one' : eventIsOver ? '' : relativeTag(item.daysFromNow)}

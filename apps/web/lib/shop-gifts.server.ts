@@ -78,12 +78,13 @@ export async function fetchShopGiftPacks(admin: SupabaseClient): Promise<ShopGif
  * 📦 The BUY 10, GET 1 FREE bundles on sale (owner 2026-11-14) — admin-managed catalogue rows whose
  * `bundle_of_service_code` / `bundle_quantity` say which pack and how many. Only bundles whose pack is on sale today
  * (`shopGiftBundlesFrom`). Null on a read failure — the Buy sheet then says so rather than show no bundles.
+ * 🔒 `admin` is the service-role client, like every catalogue reader here (`retired_at` is not granted to a session).
  */
 export async function fetchShopGiftBundles(
-  client: SupabaseClient,
+  admin: SupabaseClient,
   packs: readonly ShopGiftPack[],
 ): Promise<ShopGiftBundle[] | null> {
-  const { data, error } = await client
+  const { data, error } = await admin
     .from('platform_retail_catalog_v2')
     .select('service_code, title, retail_price_php, is_active, retired_at, bundle_of_service_code, bundle_quantity')
     .not('bundle_of_service_code', 'is', null);

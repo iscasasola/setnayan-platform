@@ -45,7 +45,7 @@ import {
 import { getDayRequestsView, submitDayRequest, submitVendorStatusPreset } from '../actions';
 
 /** Who reads a post — the sheet's one line, and the help answer's. */
-export const POST_AN_UPDATE_READERS = 'The couple sees it on their Event Hub. Need help also goes to their coordinator.';
+export const POST_AN_UPDATE_READERS = 'The couple sees it on their phone on the day. Need help also goes to their coordinator.';
 
 /** A posted row as the supplier reads it back: the status word, their note under it (if any). */
 export function ownUpdateLine(row: Pick<DayRequestRow, 'preset_key' | 'body'>): { status: string; note: string | null } {
@@ -159,7 +159,7 @@ export function VendorStatusUpdates({
       <div className="flex items-center justify-between gap-2 pt-4">
         <p className="home-k2">Your updates</p>
         <Explain title="Your updates">
-          What you posted for this event. The couple sees each one on their Event Hub; Running late and Need help also
+          What you posted for this event. The couple sees each one on their phone on the day; Running late and Need help also
           go to their coordinator’s inbox as something to act on.
         </Explain>
       </div>

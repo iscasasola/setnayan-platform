@@ -45,6 +45,7 @@ import { isNoteOnlySuggestion } from '@/lib/schedule-ros';
 import { shiftWall } from '@/lib/schedule-chapters';
 import { crewFromText, momentMinutes, momentStartIn, timesRequests } from '@/lib/supplier-schedule';
 import { isOwnClock } from '@/lib/supplier-own-times';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Vendor Suggest flow on the shared day-of timeline — feature-access program
@@ -755,11 +756,13 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
       if (!r.ok) return { ok: false, error: r.code === '42501' ? 'You can only give times for the chapters you are linked to.' : NOT_SENT_WORDS };
       if (r.outcome === 'applied') applied += 1;
     }
-    await supabase
+    // The requests are in; a failed stamp only means the next visit offers to slot them again — said in the log.
+    const { error: filedErr } = await supabase
       .from('supplier_own_times')
       .update({ filed_at: new Date().toISOString(), updated_by: user.id })
       .eq('event_id', eventId)
       .eq('vendor_profile_id', profile.vendor_profile_id);
+    if (filedErr) logQueryError('suggestScheduleChange.ownTimesFiled', filedErr, { event_id: eventId }, 'graceful_degrade');
     return done({ ok: true, outcome: applied === wanted.length ? 'applied' : 'waits' });
   }
 

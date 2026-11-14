@@ -451,7 +451,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'post-an-update',
         title: 'Post an update for an event',
-        body: 'Open the event in your Hub and tap Post an update at the top. Pick On site, Setup done, Ready to start, Packed up, Running late or Need help, add a note if you like, and tap Post. The couple sees it on their Event Hub; Running late and Need help also go to their coordinator as something to act on. What you posted shows under the button.',
+        body: 'Open the event in your Hub and tap Post an update at the top. Pick On site, Setup done, Ready to start, Packed up, Running late or Need help, add a note if you like, and tap Post. The couple sees it on their Home on the day; Running late and Need help also go to their coordinator as something to act on. What you posted shows under the button.',
       },
       {
         // 🧾 Make a quote in the chat (cut 7, 2026-11-14).

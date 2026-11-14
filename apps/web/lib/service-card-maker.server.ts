@@ -118,7 +118,7 @@ export async function loadMakerContext(
 
   const [ownRowsRes, tierRes, tree, vendorCoverages, eventTypes, poolsRes, poolCatsRes, giftPacks, giftStock, checkRules] = await Promise.all([
     supabase.from('vendor_services').select('category').eq('vendor_profile_id', vendorProfileId),
-    supabase.from('vendor_profiles').select('tier_state, is_founder').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
+    supabase.from('vendor_profiles').select('tier_state, is_founder, services').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
     getCoverageTaxonomy().catch(() => [] as CoverageParent[]),
     fetchVendorCoverages(supabase, vendorProfileId).catch(() => []),
     getVendorServableEventTypes().catch(() => []),
@@ -145,7 +145,7 @@ export async function loadMakerContext(
   const cardsByCategory: Record<string, number> = {};
   for (const c of ownCategories) cardsByCategory[c] = (cardsByCategory[c] ?? 0) + 1;
 
-  const tierRow = tierRes.data as { tier_state?: string | null; is_founder?: boolean | null } | null;
+  const tierRow = tierRes.data as { tier_state?: string | null; is_founder?: boolean | null; services?: string[] | null } | null;
   // The plan's allowances PLUS the Ultra add-ons the shop bought (owner 2026-11-06), the same read as the save's.
   const baseCaps = await fetchCapsWithAddOns(supabase, vendorProfileId, tierRow?.tier_state);
   const bookingsPerDate = {
@@ -161,7 +161,16 @@ export async function loadMakerContext(
   const leaves = buildLeafIndex(tree);
   // The families already claimed — cards ∪ coverages, the SAME union the save counts (coverageParents() reads the
   // coverages again; they are already here).
-  const coveredLeafSet = new Set(vendorCoverages.map((c) => c.canonical_service));
+  /* 🧰 THE KIND PICKED AT SIGN-UP COUNTS AS COVERED (owner-approved 2026-11-14, cut 3 of the supplier's eleven jobs —
+     DECISION_LOG "THE SEVEN SUPPLIER CUTS ARE APPROVED": "never re-ask the category picked at sign-up"). A one-kind
+     sign-up writes `vendor_profiles.services` but no coverage row (`app/open-shop/actions.ts` writes coverages only
+     when services were ADDED), so the maker opened on the whole catalogue and then asked "Add Florals to what you
+     do?". Its live leaves now stand beside the coverage rows: listed under "What you cover", pre-picked when it is
+     the shop's one kind, and never asked about. Nothing is written — the read only. */
+  const signupLeaves = (tierRow?.services ?? []).filter(
+    (s, i, all) => leaves.label.has(s) && all.indexOf(s) === i && !vendorCoverages.some((c) => c.canonical_service === s),
+  );
+  const coveredLeafSet = new Set([...vendorCoverages.map((c) => c.canonical_service), ...signupLeaves]);
   const existingParents = new Set<string>([
     ...ownCategories.flatMap((c) => parentsOfKind(c, leaves)),
     ...[...coveredLeafSet].map((l) => leaves.folder.get(l)).filter((f): f is string => Boolean(f)),
@@ -195,6 +204,17 @@ export async function loadMakerContext(
       why: st.standing === 'locked' ? st.why : undefined,
     };
   });
+  /* 🧰 …and the kind picked at sign-up, beside them (cut 3) — the same row shape, so it is listed and pre-picked alike. */
+  const signupKindOptions = signupLeaves.map((kind) => {
+    const st = standingOf(kind);
+    return {
+      value: kind,
+      label: coverageLabels ? coverageLabels.leafLabel(kind) : humanizeKind(kind),
+      standing: st.standing === 'locked' ? ('locked' as const) : ('covered' as const),
+      why: st.standing === 'locked' ? st.why : undefined,
+    };
+  });
+  coverageKindOptions.push(...signupKindOptions);
   const leadWithOwnWords = coverageKindOptions.some((o) => o.standing === 'covered');
   // "Something else" — the LIVE taxonomy (Admin › Categories), one fold per top-level group (owner 2026-11-04: "why
   // is it that i only see these categories when we have a whole spectrum"; 2026-10-26 "the taxonomy has one source").

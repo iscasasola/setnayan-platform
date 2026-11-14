@@ -10,8 +10,8 @@
  *   3. reduced motion: no fade — q is 0 or 1;
  *   4. the old fold toggle (`usePinFold`) only loses callers (each page slice moves its row here);
  *   5. the event Home reads "stuck" through the same shared hook — its own markup and 52 px untouched;
- *   6. the rise — the one 700 ms open/close motion (520 ms until owner 2026-11-10 "0.7s") — and its exact reverse;
- *   7. the tokens: `--sn-pin-h` 44 px, `--sn-dur-rise` reads the family 700 ms (`--sn-pill-dur`).
+ *   6. the rise — the one 360 ms open/close motion (motion system, owner 2026-11-13; 700 ms from 2026-11-10, 520 before) — and its reverse;
+ *   7. the tokens: `--sn-pin-h` 44 px, `--sn-dur-rise` reads the motion system's open (`--sn-dur-open`, 360 ms).
  *
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-08): the fade window 48 → 96 (red: test 1); a `useState` written on
  * scroll in collapsing-top.tsx (red: test 2); `usePinFold(` added to a new file (red: test 4); `direction: reverse ?
@@ -137,9 +137,10 @@ test('the event Home reads "stuck" through the shared hook — its 52-px line an
   assert.match(hook, /isStuck\(window\.scrollY, el\.getBoundingClientRect\(\)\.top, parseFloat\(getComputedStyle\(el\)\.top\)\)/);
 });
 
-test('the rise: 700 ms on (.2,.8,.2,1), the close the exact reverse; 120 ms cross-fade under reduced motion', () => {
-  assert.equal(RISE_MS, 700);
-  assert.equal(RISE_EASE, 'cubic-bezier(.2,.8,.2,1)');
+test('the rise: 360 ms on the emphasized (.2,0,0,1), the close the reverse at 80 %; 120 ms cross-fade under reduced motion', () => {
+  // 🎞 2026-11-13 "Motion system approved": the faster numbers replace the 0.7 s rise.
+  assert.equal(RISE_MS, 360);
+  assert.equal(RISE_EASE, 'cubic-bezier(.2,0,0,1)');
   assert.equal(RISE_REDUCED_MS, 120);
   const f = riseFrames({ left: 16, top: 400, width: 343, height: 64 }, { left: 0, top: 0, width: 375, height: 812 });
   assert.deepEqual(f[1], { transform: 'none' }, 'it does not end at rest');
@@ -149,10 +150,10 @@ test('the rise: 700 ms on (.2,.8,.2,1), the close the exact reverse; 120 ms cros
   assert.equal((src.match(/direction: reverse \? 'reverse' : 'normal'/g) ?? []).length, 2, 'the close is not the same frames played backwards');
 });
 
-test('the tokens: the pinned row is 44 px, the rise reads the 700-ms family speed', () => {
+test('the tokens: the pinned row is 44 px, the rise reads the motion system’s open', () => {
   const css = read('app/globals.css');
   assert.match(css, /--sn-pin-h: {7}44px;/);
-  assert.match(css, /--sn-dur-rise: {4}var\(--sn-pill-dur\);/);
-  assert.match(css, /--sn-pill-dur: {4}700ms;/);
-  assert.match(css, /--sn-ease-rise: {3}cubic-bezier\(\.2,\.8,\.2,1\);/);
+  assert.match(css, /--sn-dur-rise: {4}var\(--sn-dur-open\);/);
+  assert.match(css, /--sn-dur-open: {6}360ms;/);
+  assert.match(css, /--sn-ease-rise: {3}var\(--sn-ease-emph\);/);
 });

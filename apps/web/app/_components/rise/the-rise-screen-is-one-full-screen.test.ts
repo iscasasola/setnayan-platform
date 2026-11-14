@@ -80,7 +80,7 @@ test('3 · a full-screen modal on the pop layer; bars away; the house modal cont
   assert.match(SCREEN, /const close = useBackCloses\(true, playClose\);/, 'the phone’s Back leaves the page');
   assert.match(SCREEN, /riseOriginNow\(\)/, 'the screen does not rise out of what was tapped');
   assert.equal([...SCREEN.matchAll(/riseScreenMotion\(rectOf\(originRef\.current\), viewport\(\), prefersReducedMotion\(\)\)/g)].length, 2, 'the open and the close are not the same motion');
-  assert.match(SCREEN, /el\.animate\(m\.frames, \{ \.\.\.m\.timing, direction: 'reverse', fill: 'forwards' \}\)/, 'the close is not the open played backwards');
+  assert.match(SCREEN, /playRiseScreen\(el, m, originRef\.current, \{ close: true, reduced: prefersReducedMotion\(\) \}\)/, 'the close is not the open played backwards (the mirror at 80 %, lib/rise-screen.ts)');
   assert.match(SCREEN, /window\.addEventListener\(TAB_RESELECT_EVENT, on\)/, 'a tab re-tap no longer gets past an open screen');
   // The head: ✕ first (left), the title over its one line, the ⓘ last (the settings prototype's `.fs-head`).
   const head = SCREEN.slice(SCREEN.indexOf('data-rise-head'), SCREEN.indexOf('data-rise-body'));

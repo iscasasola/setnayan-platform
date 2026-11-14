@@ -54,7 +54,8 @@ test('2 · the house speed and spring, one motion, and none at all under reduced
   assert.match(block, /\.sn-composer-box \{ transition: margin var\(--sn-pill-dur\) var\(--sn-pill-spring\); \}/);
   assert.doesNotMatch(block.slice(0, block.indexOf('@media')), /\d+m?s\b(?![^;]*var)/, 'a hand-typed duration in the composer slide');
   assert.match(block, /@media \(prefers-reduced-motion: reduce\) \{\s*\.sn-composer-tools,\s*\.sn-composer-tools > \*,\s*\.sn-composer-box \{ transition: none; \}/, 'reduced motion still moves');
-  assert.match(css, /--sn-pill-dur:\s*700ms;/, 'the house speed is no longer 0.7 s');
+  // 🎞 Owner 2026-11-13, "Motion system approved": the faster numbers replace the 0.7 s family speed.
+  assert.match(css, /--sn-pill-dur:\s*var\(--sn-dur-release\);/, 'the house speed is no longer the motion system’s release');
   // The unmount after the slide reads the SAME token — no number typed in the component either.
   const src = read('app/_components/chat-send-form.tsx');
   assert.match(src, /pressMs\(getComputedStyle\(document\.documentElement\)\.getPropertyValue\('--sn-pill-dur'\)\)/);

@@ -158,12 +158,17 @@ const config: Config = {
         // ⚠ Named, never `duration-[…ms]`: with `tailwindcss-animate` loaded an arbitrary `duration-[…]` is ambiguous
         // (transition- or animation-duration) and Tailwind emits NOTHING for it.
         'sn-pill': 'var(--sn-pill-dur)',
+        // 🎞 The approved motion system (2026-11-13): a row opens in 320 ms, shuts in 260 ms.
+        'sn-row-open': 'var(--sn-dur-row-open)',
+        'sn-row-shut': 'var(--sn-dur-row-shut)',
       },
       transitionTimingFunction: {
         sn: 'var(--sn-ease)',
         'sn-out': 'var(--sn-ease-out)',
         // A landing with a small overshoot — the pill selector's thumb.
         'sn-spring': 'var(--sn-pill-spring)',
+        // 🎞 The approved motion system (2026-11-13): anything that travels or opens.
+        'sn-emph': 'var(--sn-ease-emph)',
       },
       colors: {
         // Themeable surface tokens — values resolve at runtime from CSS vars

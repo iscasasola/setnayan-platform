@@ -9,15 +9,22 @@
  * cross-fade (no movement). The numbers are tokens too (`--sn-dur-rise`, `--sn-ease-rise`, `--sn-dur-rise-reduced` in
  * globals.css) for anything drawn in CSS.
  *
+ * ⚡ SUPERSEDED NUMBERS (owner 2026-11-13, DECISION_LOG "Motion system approved"): the rise is now 360 ms on the emphasized
+ * curve `cubic-bezier(.2,0,0,1)` and closes as the mirror at 80 % (`lib/grow-motion.ts`); the 700 ms above is history.
+ *
  * Consumers: the picked client in Clients (it rises from the tapped list row and falls back into it). Neutral module —
  * the frames are pure (tested); `riseFromRect` uses the Web Animations API and does nothing on the server.
  * 🔒 app/_components/collapsing-top/the-top-scrolls-up-and-locks.test.ts (the rise's numbers and its reverse)
- * 🔒 lib/the-rise-is-0-7s.test.ts (700 ms, one number, nobody keeps their own)
+ * 🔒 lib/the-motion-system-is-shared.test.ts (one number, nobody keeps their own)
  */
 
-export const RISE_MS = 700;
-export const RISE_EASE = 'cubic-bezier(.2,.8,.2,1)';
-export const RISE_REDUCED_MS = 120;
+import { EASE_EMPH, TIMING } from '@/lib/motion-timing';
+
+// 🎞 2026-11-13 "Motion system approved": the faster numbers REPLACE the 0.7 s rise — the shape opens in 360 ms on the
+// emphasized curve; the numbers live in `lib/grow-motion.ts` (mirroring `--sn-dur-open` / `--sn-ease-emph`).
+export const RISE_MS = TIMING.openMs;
+export const RISE_EASE = EASE_EMPH;
+export const RISE_REDUCED_MS = TIMING.reducedMs;
 
 export type RiseRect = { left: number; top: number; width: number; height: number };
 
@@ -74,5 +81,7 @@ export function riseFromRect(el: HTMLElement, from: RiseRect, { reverse = false 
   }
   const to = el.getBoundingClientRect();
   el.style.transformOrigin = '0 0';
-  return el.animate(riseFrames(from, to), { duration: RISE_MS, easing: RISE_EASE, direction: reverse ? 'reverse' : 'normal', fill: 'both' });
+  // The close is the mirror at 80 % (2026-11-13): the same frames backwards, in four fifths of the time.
+  const duration = reverse ? Math.round(RISE_MS * TIMING.closeRatio) : RISE_MS;
+  return el.animate(riseFrames(from, to), { duration, easing: RISE_EASE, direction: reverse ? 'reverse' : 'normal', fill: 'both' });
 }

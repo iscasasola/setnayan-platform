@@ -157,7 +157,8 @@ test('(5) it slides at the family’s speed with the family’s spring — and n
   /* Server and first paint: above the screen (so the slide down is seen), the transition already on it. */
   assert.match(html, /data-down="false" style="transform:translateY\(calc\(-100% - 12px - env\(safe-area-inset-top\) - 24px\)\);transition:transform calc\(var\(--sn-pill-dur\) \* 0\.52\) var\(--sn-pill-spring\)"/);
   const css = read('app/globals.css');
-  assert.match(css, /--sn-pill-dur:\s*700ms;/);
+  // 🎞 The family speed is the motion system's release since 2026-11-13 ("Motion system approved").
+  assert.match(css, /--sn-pill-dur:\s*var\(--sn-dur-release\);/);
   assert.match(css, /--sn-pill-spring:/, 'anti-vacuity: the spring token is gone');
 });
 

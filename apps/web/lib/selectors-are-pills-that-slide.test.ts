@@ -280,8 +280,10 @@ test('(3) it lands with a bounce and pulses once on a pick — transform, size, 
   // ONE SPEED for the family, in ONE place: the thumb's travel, the words, the pulse; the ring is a multiple of it.
   const css = raw('app/globals.css');
   assert.equal((css.match(/--sn-pill-dur:/g) ?? []).length, 1, 'the family’s speed is declared more than once');
-  const ms = Number(/--sn-pill-dur:\s*(\d+)ms;/.exec(css)?.[1]);
-  assert.equal(ms, 700, `the speed (${ms} ms) is not the owner’s “0.7 seconds” (after trying normal · in between · slow on the gallery)`);
+  // 🎞 2026-11-13 "Motion system approved": the faster numbers replace the 0.7 s press family — it reads the RELEASE.
+  assert.match(css, /--sn-pill-dur:\s*var\(--sn-dur-release\);/, 'the family’s speed is not the motion system’s release');
+  const ms = Number(/--sn-dur-release:\s*(\d+)ms;/.exec(css)?.[1]);
+  assert.equal(ms, 280, `the release (${ms} ms) is not the approved 280 ms`);
   const tw = raw('tailwind.config.ts');
   assert.match(tw, /'sn-pill': 'var\(--sn-pill-dur\)'/, '`duration-sn-pill` does not read the token');
   assert.match(tw, /'sn-spring': 'var\(--sn-pill-spring\)'/);

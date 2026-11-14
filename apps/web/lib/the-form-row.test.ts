@@ -329,7 +329,10 @@ test('(9) the fold opens downward, its arrow turns, one is open at a time — an
   const src = read(FOLD);
   assert.match(src, /const scope = useOneOpen\(open, setOpen\);/, 'opening one fold does not close another');
   assert.match(src, /<OneOpenScope id=\{scope\}>\{children\}<\/OneOpenScope>/, 'a dropdown opened inside the fold would close it');
-  assert.match(src, /duration-sn-pill/);
+  // 🎞 Motion system 2026-11-13: 320 ms open, 260 shut, on the emphasized curve.
+  assert.match(src, /duration-sn-row-open/);
+  assert.match(src, /duration-sn-row-shut/);
+  assert.match(src, /ease-sn-emph/);
 });
 
 test('(9b) an answer made of parts is ONE row whose pill opens them under it — mounted while shut, out of reach', async () => {

@@ -118,7 +118,9 @@ function useSlimPin(on: boolean, depth: number) {
  *     opened INSIDE it never closes it — `OneOpenScope`);
  *   · what is inside STAYS MOUNTED while shut (a field in it keeps its words and its place in a form) — it is only
  *     out of reach (`inert`) and out of sight;
- *   · the height moves on `grid-template-rows` at the press family's one speed; nothing moves under "reduce motion".
+ *   · 🎞 the height moves on `grid-template-rows` — 320 ms open, 260 ms shut, emphasized, the arrow with it — and what
+ *     is inside arrives in three steps 40 ms apart (`fold.css`; the approved motion system, 2026-11-13); under "reduce
+ *     motion" it opens at once and its content fades in 120 ms.
  *
  * Neutral: it knows no screen, and writes no colour of its own.
  */
@@ -351,7 +353,7 @@ export function Fold({
       {rises ? (
         <ChevronRight aria-hidden className="h-4 w-4 flex-none text-sn-accent" strokeWidth={2} />
       ) : (
-        <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform duration-sn-pill ease-sn-spring motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+        <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform ease-sn-emph motion-reduce:transition-none ${open ? 'rotate-180 duration-sn-row-open' : 'duration-sn-row-shut'}`} strokeWidth={2} />
       )}
     </button>
   );
@@ -395,11 +397,11 @@ export function Fold({
         id={id}
         data-fold-body=""
         inert={!open}
-        className={`grid transition-[grid-template-rows] duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+        className={`grid transition-[grid-template-rows] ease-sn-emph motion-reduce:transition-none ${open ? 'grid-rows-[1fr] duration-sn-row-open' : 'grid-rows-[0fr] duration-sn-row-shut'}`}
       >
         {/* 4 px of room each side, so a row's focus ring and an open field's highlight are not cut by the fold's edge. */}
         {/* min-w-0: once a `popovers` fold stops clipping, its widest row must not widen the fold past the screen. */}
-        <div className={`-mx-1 min-h-0 min-w-0 ${popovers && open && settled ? 'overflow-visible' : 'overflow-hidden'} px-1 transition-opacity duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`-mx-1 min-h-0 min-w-0 ${popovers && open && settled ? 'overflow-visible' : 'overflow-hidden'} px-1 transition-opacity ease-sn-emph motion-reduce:transition-none ${open ? 'opacity-100 duration-0' : 'opacity-0 duration-sn-row-shut'}`} data-fold-inner="">
           <FoldClips.Provider value={!(popovers && open && settled)}>
           <FoldDepth.Provider value={open ? depth + 1 : depth}>
             <OneOpenScope id={scope}>{children}</OneOpenScope>

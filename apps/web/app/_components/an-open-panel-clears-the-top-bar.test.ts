@@ -66,7 +66,9 @@ test('below the line nothing is lifted (the phone sheet rises from the bottom, u
 test('the Sheet still wears the hook the lift reads, on its one root', () => {
   const sheet = read('app/_components/sheet.tsx');
   assert.match(sheet, /aria-modal="true"[\s\S]{0,120}data-sheet=""\s*className=\{at\.root\}/, 'the Sheet root lost `data-sheet` — the page is never lifted');
-  assert.match(sheet, /if \(!open\) return null;/, 'a closed Sheet now stays in the tree — the page would stay lifted');
+  // 🎞 Since the motion system (2026-11-13) a closed Sheet stays only while its mirrored close plays (`present`), then leaves.
+  assert.match(sheet, /if \(!open && !present\) return null;/, 'a closed Sheet now stays in the tree — the page would stay lifted');
+  assert.match(sheet, /if \(live\) setPresent\(false\);/, 'a closed Sheet never leaves the tree after its close');
 });
 
 /* ══ 🔝 EVERY FULL-SCREEN POP-UP IS DRAWN ON <body> (owner, live phone 2026-10-29) ══════════════════════════════════════

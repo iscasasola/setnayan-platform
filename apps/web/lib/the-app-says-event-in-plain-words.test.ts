@@ -5,6 +5,7 @@ import { join, relative } from 'node:path';
 import ts from 'typescript';
 import { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN, getDayOfPhase } from '@/lib/day-of-mode';
 import { HUB_OPEN_WINDOW_PLAIN, hasDayToday, phTodayIso } from '@/lib/vendor-day-picker';
+import { publicHelpSourceText } from '@/lib/help-sources.test-helper';
 
 /**
  * THE APP SAYS "EVENT", AND SAYS WHEN THINGS OPEN IN WORDS A PERSON USES.
@@ -274,6 +275,6 @@ test('day-of mode says when it starts and ends — and the words match getDayOfP
   // the pages that say it read the constant
   const FEATURES = 'app/features/_sections/_HowItWorks.tsx';
   assert.equal(usesOf(FEATURES, readFileSync(join(WEB, FEATURES), 'utf8'), 'DAY_OF_STARTS_PLAIN'), 2, '/features says when day-of starts in two places');
-  const help = readFileSync(join(WEB, 'lib/help.ts'), 'utf8');
+  const help = publicHelpSourceText(); // help split 2026-11-14: every lib/help/*.ts
   assert.match(help, /Available from \$\{DAY_OF_STARTS_PLAIN\} until \$\{DAY_OF_ENDS_PLAIN\}/);
 });

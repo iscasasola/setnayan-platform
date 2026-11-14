@@ -26,7 +26,8 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import { X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
+import { ActionButton, EqualRow } from '@/components/action-button';
 import {
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
@@ -126,13 +127,13 @@ export function ContextDock({
         className={
           variant === 'inline'
             ? `border-b pb-3 pt-1 ${TONE_RING[tone]}`
-            : `fixed inset-x-0 bottom-0 z-50 border-t bg-cream/95 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.12)] backdrop-blur-sm ${TONE_RING[tone]}`
+            : `fixed inset-x-0 bottom-0 z-50 border-t bg-cream/95 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-3 shadow-xl backdrop-blur-sm ${TONE_RING[tone]}`
         }
         style={variant === 'inline' ? undefined : { paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         <div className="mx-auto flex max-w-md flex-col gap-2.5">
           {name !== undefined ? (
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-ink/55">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-ink/70">
               {glyph}
               <span className="min-w-0 flex-1 truncate">{name}</span>
               {onDismiss ? (
@@ -140,7 +141,7 @@ export function ContextDock({
                   type="button"
                   onClick={onDismiss}
                   aria-label="Close"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -157,13 +158,13 @@ export function ContextDock({
   const barBlock = (
     <div
       ref={barRef}
-      className={`pointer-events-auto flex max-w-[min(92vw,32rem)] items-center gap-1.5 rounded-xl border bg-cream/95 px-1.5 py-1 shadow-lg backdrop-blur-sm ${TONE_RING[tone]}`}
+      className={`pointer-events-auto flex max-w-[min(92vw,32rem)] items-center gap-1.5 rounded-full border bg-cream/95 px-1.5 py-1 shadow-lg backdrop-blur-sm ${TONE_RING[tone]}`}
     >
       {glyph !== undefined || name !== undefined ? (
-        <span className="ml-1 flex min-w-0 max-w-[8rem] shrink items-center gap-1 text-ink/55">
+        <span className="ml-1 flex min-w-0 max-w-[8rem] shrink items-center gap-1 text-ink/70">
           {glyph}
           {name !== undefined ? (
-            <span className="min-w-0 truncate text-[11px] font-medium">{name}</span>
+            <span className="min-w-0 truncate text-xs font-medium">{name}</span>
           ) : null}
         </span>
       ) : null}
@@ -322,9 +323,9 @@ export function ShapePicker({
         : null;
 
   return (
-    <div className="w-full rounded-xl border border-ink/10 bg-ink/[0.03] p-2">
+    <div className="w-full border-t border-ink/10 pt-2">
       <div className="mb-1.5 flex items-center justify-between px-1">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">
+        <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           {mode === 'create' ? 'Table shape' : 'Change shape'}
         </span>
         {onCancel ? (
@@ -335,9 +336,9 @@ export function ShapePicker({
               onCancel();
             }}
             aria-label="Close shape picker"
-            className="rounded-md p-1 text-ink/40 hover:bg-ink/5"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-4 w-4" />
           </button>
         ) : null}
       </div>
@@ -347,7 +348,7 @@ export function ShapePicker({
           if (types.length === 0) return null;
           return (
             <div key={fam.shape}>
-              <p className="px-1 pb-1 font-mono text-[9px] uppercase tracking-[0.14em] text-ink/40">
+              <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                 {fam.label}
               </p>
               <div className="grid grid-cols-2 gap-1.5">
@@ -359,7 +360,7 @@ export function ShapePicker({
                       type="button"
                       onClick={() => choose(t.type)}
                       aria-pressed={active}
-                      className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition ${
+                      className={`flex min-h-11 items-center gap-2 rounded-xl border px-2 py-1.5 text-left transition ${
                         active
                           ? 'border-terracotta bg-terracotta/[0.06] text-ink'
                           : 'border-ink/12 text-ink/70 hover:border-terracotta/50 hover:bg-ink/[0.03]'
@@ -367,13 +368,13 @@ export function ShapePicker({
                     >
                       <ShapeGlyph
                         shape={t.shapeHint}
-                        className={`h-4 w-4 shrink-0 ${active ? 'text-terracotta-700' : 'text-ink/45'}`}
+                        className={`h-4 w-4 shrink-0 ${active ? 'text-terracotta-700' : 'text-ink/70'}`}
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-xs font-medium leading-tight">
                           {t.label}
                         </span>
-                        <span className="block font-mono text-[9px] text-ink/45">
+                        <span className="block text-xs text-ink/70">
                           {formatCount(t.defaultCapacity)} seats
                         </span>
                       </span>
@@ -388,38 +389,37 @@ export function ShapePicker({
       {gated && pending ? (
         <div className="mt-2 border-t border-ink/10 pt-2">
           <p
-            className={`mb-2 px-1 text-[11px] leading-snug ${
-              seatedCount > newCap ? 'text-warn-800' : 'text-ink/60'
+            className={`mb-2 px-1 text-xs leading-snug ${
+              seatedCount > newCap ? 'text-warn-800' : 'text-ink/70'
             }`}
           >
             {value === pending
               ? `Already a ${TABLE_TYPE_LABEL[pending].toLowerCase()}.`
               : `Change to ${TABLE_TYPE_LABEL[pending].toLowerCase()} — ${impact}.`}
           </p>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
+          <EqualRow>
+            <ActionButton
+              tone="neutral"
+              icon={X}
+              label="Cancel"
               onClick={() => {
                 setPending(null);
                 onPreview?.(null);
               }}
-              className="rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink hover:bg-ink/5"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
+            />
+            <ActionButton
+              tone="brand"
+              main
+              icon={Check}
+              label="Apply"
               onClick={() => {
                 onPreview?.(null);
                 if (pending !== value) onApply(pending);
                 setPending(null);
               }}
               disabled={pending === value}
-              className="rounded-lg bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-50"
-            >
-              Apply
-            </button>
-          </div>
+            />
+          </EqualRow>
         </div>
       ) : null}
     </div>

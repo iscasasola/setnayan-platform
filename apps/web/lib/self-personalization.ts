@@ -1,6 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { getCurrentUser } from '@/lib/auth';
+import { realNameOrNull } from '@/lib/no-name';
 import { createClient } from '@/lib/supabase/server';
 import {
   isCivilStatus,
@@ -82,10 +83,9 @@ export const getSelfPersonalization = cache(
       // The name they call themselves. Read here because a birthday with no
       // celebrant typed on it is THEIR OWN, and the details screen was asking
       // them to type a name the account already holds.
-      displayName:
-        typeof data.display_name === 'string' && data.display_name.trim()
-          ? data.display_name.trim()
-          : null,
+      // 👤 OWN-03 (live 14 Nov): a STAND-IN is no name. This account's display name was "Someone —", and a birthday
+      // "for you" saved it as the celebrant — which the supplier then read as the celebrant's name (`realNameOrNull`).
+      displayName: typeof data.display_name === 'string' ? realNameOrNull(data.display_name.trim()) : null,
       // The formal name, for the forms that ask first + last apart (the wedding's "Which one is you?").
       firstName: typeof data.first_name === 'string' && data.first_name.trim() ? data.first_name.trim() : null,
       lastName: typeof data.last_name === 'string' && data.last_name.trim() ? data.last_name.trim() : null,

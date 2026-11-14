@@ -18,7 +18,14 @@
   and closed — nothing sent, and its last words were "Sending". Undo is the one way not to send now; closing sends at
   once and the sheet stays to say whether it went. Back from "Start a new event", the event just made is picked (the
   sheet remembers the couple's events as they leave, in sessionStorage; two new or none → nothing is guessed).
-- Guards: `apps/web/lib/an-inquiry-never-drops-in-silence.test.ts` ·
+- **OWN-03** On a supplier's event lines, "They added this to their plan" sat beside services the couple never
+  picked: "their plan" counted the shop's OWN row, which the inquiry itself wrote under the first pick's category. It
+  now counts only the couple's rows. The Celebrant read "Someone —": a birthday "for you" saved the account's display
+  name as the celebrant, and that name was the stand-in. The account name now passes `realNameOrNull` at the source
+  (`lib/self-personalization.ts`), and the supplier's Celebrant line refuses a stand-in when reading it back.
+  The event already saved with it reads "Not named yet" now.
+- Guards: `apps/web/lib/a-supplier-reads-the-couples-own-plan.test.ts` ·
+  `apps/web/lib/an-inquiry-never-drops-in-silence.test.ts` ·
   `apps/web/tests/db/a-first-n-offer-counts-its-earlier-uses.db.test.ts` (sabotage: the refusal removed → the
   second couple is let through, red) · `apps/web/lib/a-first-n-offer-names-the-couple-who-has-it.test.ts`.
 

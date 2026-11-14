@@ -3836,7 +3836,6 @@
       ],
       "blocks": [
         "FormFlash",
-        "InfoTip",
         "PageMasthead",
         "ReadFailed",
         "SubmitButton"

@@ -963,10 +963,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         heldServiceOfAsk(supabase, lockRequest.event_vendor_id),
       ]))
     : null;
-  const feeBillsP = startRead(Promise.all([
-    fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE),
-    resolveFeeEnforcement(),
-  ]));
+  const feeBillsP = startRead(fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE));
   const clientWaivedP = startRead(fetchWaivedFeeCharges(
     admin,
     profile.vendor_profile_id,
@@ -1062,7 +1059,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
   // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
-  const [clientFeeBillsRead, feeEnforced] = await feeBillsP;
+  // The lock state is the gate's own answer (`resolveFeeEnforcement()` is `cache()`d — already asked by the fee gate).
+  const [clientFeeBillsRead, feeEnforced] = await Promise.all([feeBillsP, resolveFeeEnforcement()]);
   const clientFeeBills: DueFeeBill[] =
     clientFeeBillsRead === FEE_BILLS_UNREADABLE
       ? []

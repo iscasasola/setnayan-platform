@@ -19,6 +19,7 @@ export function LibraryLab({
   shopName,
   view,
   cardsByPart,
+  startSlot = null,
 }: {
   assets: LabLibraryAsset[];
   shopPhotos: ShopPhotoChoice[];
@@ -28,6 +29,8 @@ export function LibraryLab({
   view: 'supplier' | 'review';
   /** 🔗 The lab shop's cards per part ("Which of your services is this?"). */
   cardsByPart?: StylistLibraryEditorProps['cardsByPart'];
+  /** 🧰 The part the form starts on — the lab shop's own kind (`slotForShopKind`, cut 4). */
+  startSlot?: string | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -97,6 +100,7 @@ export function LibraryLab({
         importableEditorial={[]}
         importableEditorialFailed={false}
         cardsByPart={cardsByPart}
+        startSlot={startSlot}
         actions={{
           uploadStylistAsset: async (fd) => {
             // The shipped action RETURNS its refusals; the lab's server stand-in throws them, so turn them the same way.

@@ -42,7 +42,7 @@ export default async function StylistMoodboardLibraryPage() {
     if (access.reason === 'no_shop') redirect('/vendor-dashboard');
     redirect('/vendor-dashboard/shop');
   }
-  const { profile, slots } = access;
+  const { profile, slots, ownSlot } = access;
 
   const admin = createAdminClient();
   const { data: rows, error: rowsError } = await admin
@@ -185,6 +185,7 @@ export default async function StylistMoodboardLibraryPage() {
       <StylistLibraryEditor
         initialAssets={assets}
         gallerySlots={slots}
+        startSlot={ownSlot}
         shopPhotos={shopPhotos.photos}
         shopPhotosFailed={shopPhotos.failed}
         backCatalogueCap={cap}

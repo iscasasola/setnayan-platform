@@ -127,6 +127,7 @@ import { cardChoicesByPart } from '@/lib/inspiration-card-link';
 import { formatPhpRounded } from '@/lib/php';
 import { canonicalServicesForSlot } from '@/lib/moodboard-gallery';
 import { uploadableSlotsForShop } from '@/lib/moodboard-gallery-upload';
+import { slotForShopKind } from '@/lib/moodboard-library-access';
 import { SuggestLab } from './suggest-lab';
 import { CouplePhotosLab } from './couple-photos-lab';
 import { LAB_SUGGEST_COUPLE, LAB_SUGGEST_FIVE } from './suggestion-lab-fixture';
@@ -437,6 +438,7 @@ export default async function SupplierLabPage({
           gallerySlots={uploadableSlotsForShop(LAB_LIBRARY_SHOP.services, fallbackInspirationParts())}
           shopName={LAB_LIBRARY_SHOP.business_name}
           cardsByPart={labCardsByPart(uploadableSlotsForShop(LAB_LIBRARY_SHOP.services, fallbackInspirationParts()).map((s) => s.key))}
+          startSlot={slotForShopKind(uploadableSlotsForShop(LAB_LIBRARY_SHOP.services, fallbackInspirationParts()), LAB_LIBRARY_SHOP.services, fallbackInspirationParts(), (t) => canonicalServicesForTile(t as Parameters<typeof canonicalServicesForTile>[0]))}
         />
       </div>
     );

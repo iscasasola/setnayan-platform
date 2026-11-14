@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchOwnVendorProfile, type VendorProfileRow } from '@/lib/vendor-profile';
 import { uploadableSlotsForShop } from '@/lib/moodboard-gallery-upload';
+import { tradesForSlot } from '@/lib/moodboard-gallery';
+import { getCanonicalBuckets, servicesInTile } from '@/lib/vendor-counts';
 import type { PhotoPartGroup } from '@/lib/inspiration-slots';
 import type { InspirationPartsSnapshot } from '@/lib/inspiration-parts';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
@@ -42,6 +44,8 @@ export type MoodboardLibraryAccess =
       profile: VendorProfileRow;
       /** The slots this shop may upload into, already labelled, in the couple's order (`uploadableSlotsForShop`). Never empty. */
       slots: Array<{ key: string; label: string; group: PhotoPartGroup }>;
+      /** 🧰 The part the upload form starts on — the shop's OWN kind of work (`slotForShopKind`, filled by the resolver); null = the first slot. */
+      ownSlot: string | null;
     }
   | { allowed: false; reason: 'not_signed_in' | 'no_shop' | 'no_supplying_trade' };
 
@@ -68,7 +72,33 @@ export function moodboardLibraryAccessForProfile(
   if (!profile) return { allowed: false, reason: 'no_shop' };
   const slots = uploadableSlotsForShop(profile.services, parts);
   if (slots.length === 0) return { allowed: false, reason: 'no_supplying_trade' };
-  return { allowed: true, profile, slots };
+  return { allowed: true, profile, slots, ownSlot: null };
+}
+
+/**
+ * 🧰 THE PART STARTS ON THE SHOP'S OWN KIND (owner-approved 2026-11-14, cut 4 of the supplier's eleven jobs —
+ * DECISION_LOG "THE SEVEN SUPPLIER CUTS ARE APPROVED"). The form used to open on the FIRST part the shop may fill, so
+ * a florist landed on Table linens. Now: the shop's services in their own order (the first is the one picked at
+ * sign-up), and for each the first part (in the couple's order) LED by that service's trade — a florist starts on
+ * Bridal bouquet. Null when none matches — the form keeps the first.
+ */
+export function slotForShopKind(
+  slots: ReadonlyArray<{ key: string }>,
+  services: readonly string[] | null | undefined,
+  parts: InspirationPartsSnapshot,
+  /** A trade's services — the live taxonomy's (`servicesInTile`), never the const buckets (`one-source-buckets.test.ts`). */
+  servicesOfTile: (tile: string) => readonly string[],
+): string | null {
+  /* A part's LEAD trade (`tradesForSlot`'s first) is whose work it shows; every part a florist may fill lists the
+     florist's services, so "does it take this service" cannot tell Table linens from Bridal bouquet — its lead can. */
+  for (const service of services ?? []) {
+    const hit = slots.find((s) => {
+      const lead = tradesForSlot(s.key, parts)[0];
+      return lead ? servicesOfTile(lead).includes(service) : false;
+    });
+    if (hit) return hit.key;
+  }
+  return null;
 }
 
 /**
@@ -80,6 +110,10 @@ export async function resolveMoodboardLibraryAccess(
   userId: string | null | undefined,
 ): Promise<MoodboardLibraryAccess> {
   if (!userId) return { allowed: false, reason: 'not_signed_in' };
-  const [profile, parts] = await Promise.all([fetchOwnVendorProfile(supabase, userId), getInspirationParts()]);
-  return moodboardLibraryAccessForProfile(profile, parts);
+  const [profile, parts, buckets] = await Promise.all([fetchOwnVendorProfile(supabase, userId), getInspirationParts(), getCanonicalBuckets()]);
+  const access = moodboardLibraryAccessForProfile(profile, parts);
+  /* 🧰 The part the form starts on — the shop's own kind, read off the LIVE taxonomy (cut 4). */
+  return access.allowed
+    ? { ...access, ownSlot: slotForShopKind(access.slots, access.profile.services, parts, (tile) => servicesInTile(buckets, tile)) }
+    : access;
 }

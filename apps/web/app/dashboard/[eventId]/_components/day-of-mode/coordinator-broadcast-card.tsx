@@ -12,6 +12,11 @@ import {
   type BroadcastSenderRole,
 } from '@/lib/coordinator-broadcasts';
 import { formatCount } from '@/lib/format-number';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
+
+const LABEL = 'inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
 
 /**
  * Coordinator P3 (Coordinator_Role_Feature_Spec_2026-07-18 §P3) — the day-of
@@ -98,42 +103,33 @@ function LiveBroadcastCard({
     });
   };
 
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 6 · 7 · 13 · 14 · 15): no box and no boxes inside it — grey capitals,
+  // one hairline row per broadcast (who · when in plain grey words), an empty or refused read is one line; the two
+  // presses are the shared pills (44 px floor, a grey "waiting" instead of a dimmed button); the hints are 13 px.
   return (
-    <article className="space-y-3 rounded-2xl border border-ink/15 bg-cream/40 p-5">
-      <header className="flex items-center justify-between">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
-          <Megaphone aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Coordinator broadcast
-        </p>
-      </header>
+    <section aria-labelledby="day-of-broadcast" className="space-y-2">
+      <h2 id="day-of-broadcast" className={LABEL}>
+        <Megaphone aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={2} />
+        Coordinator broadcast
+      </h2>
 
       {!broadcast.broadcastsMeasured ? (
-        <div className="rounded-md bg-cream/60 p-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-            Last broadcast
-          </p>
-          <p className="mt-1 text-sm text-ink/55">
-            We couldn&rsquo;t load recent broadcasts right now. Refresh in a
-            moment.
-          </p>
-        </div>
+        <p role="status" className="py-2 text-sm text-warn-800">
+          We couldn&rsquo;t load recent broadcasts right now. Refresh in a
+          moment.
+        </p>
       ) : broadcast.items.length === 0 ? (
-        <div className="rounded-md bg-cream/60 p-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-            Last broadcast
-          </p>
-          <p className="mt-1 text-sm text-ink/55">
-            No broadcast yet — updates from the planning team will appear here.
-          </p>
-        </div>
+        <p className="py-2 text-sm text-ink/75">
+          No broadcast yet — updates from the planning team will appear here.
+        </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-ink/10">
           {broadcast.items.map((item) => (
-            <li key={item.broadcastId} className="rounded-md bg-cream/60 p-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+            <li key={item.broadcastId} className="min-h-14 py-2.5">
+              <p className="text-[15px] text-ink">{item.body}</p>
+              <p className="mt-0.5 text-[13px] text-ink/75">
                 {SENDER_LABEL[item.senderRole]} · {formatTime(item.createdAt)}
               </p>
-              <p className="mt-1 text-sm text-ink/80">{item.body}</p>
             </li>
           ))}
         </ul>
@@ -146,49 +142,45 @@ function LiveBroadcastCard({
             maxLength={BROADCAST_MAX_LENGTH}
             rows={2}
             placeholder="Send an update to everyone — “Dinner is moving up 15 minutes.”"
-            className="w-full rounded-md border border-ink/15 bg-white/70 px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta/50 focus:outline-none"
+            className="input-field w-full text-sm"
           />
           {composeError ? (
-            <p className="text-[11px] text-terracotta-700">{composeError}</p>
+            <p role="alert" className="text-[13px] text-danger-700">{composeError}</p>
           ) : null}
-          <button
-            type="button"
+          <ActionButton
+            tone="brand"
+            icon={Send}
+            label={isPending ? 'Sending…' : 'Broadcast'}
             onClick={handleSend}
-            disabled={isPending}
-            className="inline-flex items-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-1.5 text-sm font-medium text-cream transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            {isPending ? 'Sending…' : 'Broadcast'}
-          </button>
+            waiting={isPending}
+          />
 
           <div className="border-t border-ink/10 pt-2">
-            <button
-              type="button"
+            <ActionButton
+              tone="neutral"
+              icon={Mail}
+              label={`Email call-times to suppliers${broadcast.callTimeCount > 0 ? ` (${broadcast.callTimeCount})` : ''}`}
               onClick={handleEmailCallTimes}
-              disabled={isPending || !broadcast.emailConfigured || broadcast.callTimeCount === 0}
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream/60 px-3 py-1.5 text-sm text-ink/80 transition-colors hover:border-ink/30 disabled:opacity-50"
-            >
-              <Mail aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              Email call-times to suppliers
-              {broadcast.callTimeCount > 0 ? ` (${broadcast.callTimeCount})` : ''}
-            </button>
+              waiting={isPending}
+              disabled={!broadcast.emailConfigured || broadcast.callTimeCount === 0}
+            />
             {broadcast.callTimeCount === 0 ? (
-              <p className="mt-1 text-[11px] text-ink/45">
+              <p className="mt-1 text-[13px] text-ink/75">
                 Tag suppliers as responsible on schedule rows to derive their call
                 times.
               </p>
             ) : !broadcast.emailConfigured ? (
-              <p className="mt-1 text-[11px] text-ink/45">
+              <p className="mt-1 text-[13px] text-ink/75">
                 Email sending is not configured yet — call times stay in-app.
               </p>
             ) : null}
             {emailStatus ? (
-              <p className="mt-1 text-[11px] text-ink/60">{emailStatus}</p>
+              <p role="status" className="mt-1 text-[13px] text-ink">{emailStatus}</p>
             ) : null}
           </div>
         </div>
       ) : null}
-    </article>
+    </section>
   );
 }
 
@@ -200,40 +192,30 @@ function CoordinatorBroadcastStub() {
   const [optedIn, setOptedIn] = useState(true);
 
   return (
-    <article data-coming-soon className="space-y-3 rounded-2xl border border-dashed border-ink/20 bg-ink/[0.02] p-5">
-      <header className="flex items-center justify-between">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
-          <Megaphone aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Coordinator broadcast
-        </p>
-        <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-          Coming soon
-        </span>
+    <section data-coming-soon aria-labelledby="day-of-broadcast" className="space-y-2">
+      <header className="flex min-h-11 items-center justify-between gap-2">
+        <h2 id="day-of-broadcast" className={LABEL}>
+          <Megaphone aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={2} />
+          <InfoTip label="Coordinator broadcast" labelAs="span" align="start">
+            Composer ships with iteration 0019 (force-majeure comms) and 0023 (admin escalation).
+          </InfoTip>
+        </h2>
+        <Badge tone="quiet">Coming soon</Badge>
       </header>
 
-      <div className="rounded-md bg-cream/60 p-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Last broadcast
-        </p>
-        <p className="mt-1 text-sm text-ink/55">
-          No broadcast yet — your coordinator can send updates here on the day.
-        </p>
-      </div>
+      <p className="py-2 text-sm text-ink/75">
+        No broadcast yet — your coordinator can send updates here on the day.
+      </p>
 
-      <label className="flex items-center justify-between gap-3 rounded-md border border-ink/10 bg-cream/60 px-3 py-2 text-sm">
-        <span className="text-ink/70">Receive broadcasts on this device</span>
+      <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 border-t border-ink/10 text-[15px] text-ink">
+        <span>Receive broadcasts on this device</span>
         <input
           type="checkbox"
           checked={optedIn}
           onChange={(e) => setOptedIn(e.target.checked)}
-          className="h-4 w-4 cursor-pointer accent-terracotta"
+          className="h-5 w-5 cursor-pointer accent-terracotta"
         />
       </label>
-
-      <p className="text-[11px] text-ink/45">
-        Composer ships with iteration 0019 (force-majeure comms) and 0023
-        (admin escalation).
-      </p>
-    </article>
+    </section>
   );
 }

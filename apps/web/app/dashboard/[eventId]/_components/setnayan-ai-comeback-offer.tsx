@@ -123,23 +123,21 @@ export function SetnayanAiComebackOffer({
   const discounted = comebackPhp != null && pctOff != null && !remaining.isPast;
 
   return (
-    <div className="mt-4 rounded-2xl border border-mulberry/30 bg-mulberry/[0.05] px-4 py-4 sm:px-5">
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 13 · 14): the offer is the one framed next step on the warm surface
+    // (no tinted bordered box); its eyebrow is grey capitals, not a typewriter; the price and the countdown are in the
+    // words' own font, bold, with even digits; the buy is the one main terracotta pill (`ab ab-brand ab-main`).
+    <div className="mt-4 rounded-card bg-[var(--m-paper-2)] px-4 py-4">
       <div className="flex items-start gap-3">
-        <span
-          aria-hidden
-          className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-mulberry text-cream"
-        >
-          <Sparkles className="h-4 w-4" strokeWidth={2} />
-        </span>
+        <Sparkles aria-hidden className="mt-1 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-mulberry">
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             {discounted ? `${pctOff}% off · today only` : 'Setnayan AI'}
           </p>
           <p className="mt-0.5 text-base font-semibold text-ink">
             {discounted ? (
               <>
                 Setnayan AI, {pctOff}% off for the next{' '}
-                <span className="font-mono tabular-nums">
+                <span className="tabular-nums">
                   {remaining.hours > 0 ? `${pad(remaining.hours)}:` : ''}
                   {pad(remaining.minutes)}:{pad(remaining.seconds)}
                 </span>
@@ -150,7 +148,7 @@ export function SetnayanAiComebackOffer({
           </p>
           <ul className="mt-2 space-y-1">
             {BENEFIT_LINES.map((line) => (
-              <li key={line} className="text-sm text-ink/65">
+              <li key={line} className="text-sm text-ink/75">
                 {line}
               </li>
             ))}
@@ -158,16 +156,16 @@ export function SetnayanAiComebackOffer({
         </div>
       </div>
       <div className="mt-3.5 flex flex-wrap items-center gap-3">
-        <p className="text-sm text-ink/70">
+        <p className="text-sm text-ink/75">
           {/* The strike-through is the DISCOUNT's, so it goes with it. Showing
               a struck price beside an identical live one reads as a fake
               markdown, which is the one thing a lapsed offer must not do. */}
           {discounted ? (
-            <span className="mr-1.5 text-ink/40 line-through">
+            <span className="mr-1.5 text-ink/75 line-through">
               ₱{Math.round(regularPhp).toLocaleString('en-PH')}
             </span>
           ) : null}
-          <span className="font-mono text-lg font-bold text-ink">
+          <span className="text-lg font-bold tabular-nums text-ink">
             ₱{Math.round(discounted ? comebackPhp! : regularPhp).toLocaleString('en-PH')}
           </span>
         </p>
@@ -182,7 +180,7 @@ export function SetnayanAiComebackOffer({
           triggerLabel={
             discounted ? `Unlock Setnayan AI · ${pctOff}% off` : 'Unlock Setnayan AI'
           }
-          triggerClassName="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-6 py-2.5 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90 disabled:opacity-70"
+          triggerClassName="ab ab-brand ab-main"
         />
       </div>
     </div>

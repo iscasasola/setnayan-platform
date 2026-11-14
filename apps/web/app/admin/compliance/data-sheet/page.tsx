@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { FileText, Pencil } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -10,6 +10,7 @@ import {
 import type { SubProcessor } from '../actions';
 import { ErrorState } from '@/app/_components/states/error-state';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { Note, One } from '@/app/admin/app-performance/_components/insights-parts';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -20,6 +21,10 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 // and_NPC_Registration_Sheet). The owner can copy/print this to file with the
 // NPC. Live scale counts are pulled server-side to fill the "scale of
 // processing" section. Everything is server-rendered — no client JS needed.
+//
+// Drawn to the Insights drawing (admin_pub/insights.html › Privacy & NPC › NPC data sheet): the explanation in the
+// opening ⓘ, "Edit the facts" as the one press, the field sheets as hairline rows with no card around them. The
+// visible <h1> stays (a printed filing needs its heading — see admin-page-starts-at-its-content.test.ts).
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'NPC data sheet · Admin' };
@@ -41,12 +46,12 @@ function Row({ field, value }: { field: string; value: unknown }) {
     <tr className="border-b border-ink/10 last:border-0 align-top">
       <th
         scope="row"
-        className="w-1/3 py-2 pr-4 text-left text-sm font-medium text-ink/70"
+        className="w-1/3 py-2 pr-4 text-left text-sm font-normal text-ink/55"
       >
         {field}
       </th>
       <td
-        className={`py-2 text-sm ${missing ? 'italic text-ink/40' : 'text-ink/90'} whitespace-pre-wrap`}
+        className={`py-2 text-sm font-semibold ${missing ? 'italic text-[var(--sn-warning-deep)]' : 'text-ink'} whitespace-pre-wrap`}
       >
         {display}
       </td>
@@ -69,19 +74,22 @@ function Row({ field, value }: { field: string; value: unknown }) {
  * and sub-processors — ARE records lists and DID convert.
  */
 function FieldTable({ children }: { children: React.ReactNode }) {
+  // No frame (T18 — read-only facts carry no card): a hairline above and between, nothing around.
   return (
-    <div className="sn-tile overflow-x-auto !p-0">
-      <table className="w-full border-collapse px-4">
-        <tbody className="[&_th]:pl-4 [&_td]:pr-4">{children}</tbody>
+    <div className="overflow-x-auto border-t border-ink/10">
+      <table className="w-full border-collapse">
+        <tbody>{children}</tbody>
       </table>
     </div>
   );
 }
 
+const SEC_HEAD = 'text-[11px] font-bold uppercase tracking-[0.12em] text-ink/55';
+
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-2">
-      <h2 className="text-base font-semibold tracking-tight text-ink">{title}</h2>
+    <section>
+      <h2 className={`${SEC_HEAD} flex min-h-11 items-center pb-1 pt-4`}>{title}</h2>
       <FieldTable>{children}</FieldTable>
     </section>
   );
@@ -161,27 +169,27 @@ export default async function ComplianceDataSheetPage() {
   const totalSubjects = users == null || guests == null ? null : users + guests;
 
   return (
-    <section className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/admin/settings?tab=compliance"
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--m-orange-2)]"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Back to Compliance
-      </Link>
-
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+    <section className="mx-auto max-w-3xl px-4 py-6 sm:px-6" data-npc-data-sheet="">
+      <header>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-ink">
           <FileText aria-hidden className="h-6 w-6" strokeWidth={1.75} /> NPC data sheet
         </h1>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          The stored compliance facts laid out as the NPC Data Processing System
-          registration fields. Copy or print this to file with the National
-          Privacy Commission. Empty fields show{' '}
-          <span className="italic text-ink/50">{TBD}</span> — settle them on the
-          Compliance page before filing. This is the data to file, not the filing
-          itself.
-        </p>
+        <One label="The data to file, not the filing">
+          The stored compliance facts laid out as the NPC Data Processing System registration fields.
+          Copy or print this to file with the National Privacy Commission.
+          Empty fields show {TBD} — settle them on the Compliance page before filing. This is the data to file, not
+          the filing itself.
+        </One>
       </header>
+
+      <div className="my-2 flex flex-wrap gap-2 print:hidden">
+        <Link
+          href="/admin/settings?tab=compliance"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/15 px-4 text-sm font-semibold text-ink hover:bg-ink/[0.03]"
+        >
+          <Pencil aria-hidden className="h-4 w-4 text-[var(--sn-accent)]" strokeWidth={2} /> Edit the facts
+        </Link>
+      </div>
 
       {/* The field sheet below is deliberately NOT a ConsoleTable — see the
           FieldTable docblock. But it still owes the distinction, and it cannot
@@ -227,10 +235,8 @@ export default async function ComplianceDataSheetPage() {
           holds against the schema. Do NOT re-type the categories here: a second
           copy is how the written record came to name four kinds of person while
           the code collected from five. */}
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold tracking-tight text-ink">
-          B.3 — Scale of processing
-        </h2>
+      <section>
+        <h2 className={`${SEC_HEAD} flex min-h-11 items-center pb-1 pt-4`}>B.3 — Scale of processing</h2>
         <FieldTable>
           <Row field="Total number of employees" value={f.headcount} />
           <Row field="Staff with data access" value={f.staff_with_data_access} />
@@ -238,9 +244,7 @@ export default async function ComplianceDataSheetPage() {
           <Row field="Active biometric face vectors (live)" value={faces ?? 'Couldn’t count right now — refresh to try again'} />
         </FieldTable>
 
-        <h3 className="pt-1 text-sm font-semibold tracking-tight text-ink">
-          Categories of data subjects
-        </h3>
+        <h3 className={`${SEC_HEAD} flex min-h-11 items-center pb-1 pt-3`}>Categories of data subjects</h3>
         {/* `readPermitted` is honestly `true` for a third reason again: this
             renders from `lib/data-subject-register`, a local constant, so there
             is no read to refuse and no permission to prove. It is a records list
@@ -316,10 +320,8 @@ export default async function ComplianceDataSheetPage() {
         <Row field="Breach contacts" value={f.breach_contacts} />
       </Block>
 
-      <section className="space-y-2">
-        <h2 className="text-base font-semibold tracking-tight text-ink">
-          B.8 — Sub-processors / cross-border transfers
-        </h2>
+      <section>
+        <h2 className={`${SEC_HEAD} flex min-h-11 items-center pb-1 pt-4`}>B.8 — Sub-processors / cross-border transfers</h2>
         <ConsoleTable
           rows={subs}
           readPermitted
@@ -364,10 +366,10 @@ export default async function ComplianceDataSheetPage() {
         <Row field="DPIA adoption dates" value={f.dpia_adoption_dates} />
       </Block>
 
-      <p className="text-xs text-ink/45">
-        Not a substitute for legal review. Finalize with the DPO and Philippine
-        counsel before adoption or submission to the NPC.
-      </p>
+      <Note label="Not a substitute for legal review">
+        Not a substitute for legal review. Finalize with the DPO and Philippine counsel before adoption or submission to
+        the NPC.
+      </Note>
     </section>
   );
 }

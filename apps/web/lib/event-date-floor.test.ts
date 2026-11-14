@@ -1,6 +1,8 @@
 /**
  * 💍 NO EVENT BEFORE DECEMBER 19, 2026 — THE FOUNDERS' WEDDING IS THE FIRST.
  * (owner 2026-11-01, DECISION_LOG; `lib/event-date-floor.ts`)
+ * 🔓 SWITCHED OFF FOR EVERYONE 2026-11-14 (owner: "just remove that rule for everyone"). Half 1 now holds the
+ * switch OFF; half 2 still holds that every door ASKS, so turning it back on is one line.
  *
  * Two halves, both held here:
  *
@@ -22,6 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   EVENT_DATE_FLOOR_MESSAGE,
+  EVENT_DATE_FLOOR_ON,
   FIRST_EVENT_DAY,
   candidatesOnOrAfterFirstEventDay,
   eventDateFloorRefusal,
@@ -32,55 +35,38 @@ import {
 
 const ROOT = path.resolve(__dirname, '..');
 
-/* ── 1 · the rule ─────────────────────────────────────────────────────────── */
+/* ── 1 · the rule — SWITCHED OFF for everyone (owner 2026-11-14: "just remove that rule for everyone") ─────── */
 
-test('a normal account is refused December 18, 2026 — in the owner’s words', () => {
-  assert.equal(eventDateFloorRefusal({ date: '2026-12-18', exempt: false }), EVENT_DATE_FLOOR_MESSAGE);
-  assert.equal(eventDateFloorRefusal({ date: '2026-11-05', exempt: false }), EVENT_DATE_FLOOR_MESSAGE);
+test('the floor is off: the one switch reads false', () => {
+  assert.equal(EVENT_DATE_FLOOR_ON, false);
 });
 
-test('a normal account is allowed December 19, 2026 and later', () => {
-  assert.equal(FIRST_EVENT_DAY, '2026-12-19');
-  assert.equal(eventDateFloorRefusal({ date: '2026-12-19', exempt: false }), null);
-  assert.equal(eventDateFloorRefusal({ date: '2027-06-12', exempt: false }), null);
-});
-
-test('an internal (founders’) account is allowed any date', () => {
-  for (const d of ['2026-12-18', '2026-11-05', '2026-12-19', '2027-02-14']) {
+test('off, no date is refused — for any account, new or moved, day, month or year', () => {
+  for (const d of ['2026-12-18', '2026-11-05', '2026-11-14', '2026-12-19', '2027-06-12']) {
+    assert.equal(eventDateFloorRefusal({ date: d, exempt: false }), null, d);
     assert.equal(eventDateFloorRefusal({ date: d, exempt: true }), null, d);
+    assert.equal(isBeforeFirstEventDay(d), false, d);
   }
-  assert.equal(eventDatesFloorRefusal(['2026-12-01', '2026-12-18'], true), null);
-});
-
-test('an existing event keeps its date until it is changed — then the rule applies', () => {
   const prior = { date: '2026-12-05', precision: 'day' };
-  assert.equal(eventDateFloorRefusal({ date: '2026-12-05', precision: 'day', prior, exempt: false }), null, 'unchanged');
-  assert.equal(eventDateFloorRefusal({ date: '2026-12-06', precision: 'day', prior, exempt: false }), EVENT_DATE_FLOOR_MESSAGE, 'moved');
-  assert.equal(eventDateFloorRefusal({ date: '2026-12-20', precision: 'day', prior, exempt: false }), null, 'moved past it');
-});
-
-test('a month or year is read at its last day; clearing a date is always allowed', () => {
-  assert.equal(eventDateFloorRefusal({ date: '2026-12-01', precision: 'month', exempt: false }), null, 'December 2026 reaches the 19th');
-  assert.equal(eventDateFloorRefusal({ date: '2026-11-01', precision: 'month', exempt: false }), EVENT_DATE_FLOOR_MESSAGE);
-  assert.equal(eventDateFloorRefusal({ date: '2026-01-01', precision: 'year', exempt: false }), null);
-  assert.equal(isBeforeFirstEventDay('2026-11'), true, 'a bare month');
+  assert.equal(eventDateFloorRefusal({ date: '2026-12-06', precision: 'day', prior, exempt: false }), null, 'moved');
+  assert.equal(eventDateFloorRefusal({ date: '2026-11-01', precision: 'month', exempt: false }), null, 'a month');
+  assert.equal(isBeforeFirstEventDay('2026-11'), false, 'a bare month');
   assert.equal(eventDateFloorRefusal({ date: null, exempt: false }), null);
 });
 
-test('candidate days: one before the first day refuses the list; narrowing drops it', async () => {
-  assert.equal(eventDatesFloorRefusal(['2027-01-09', '2026-12-18'], false), EVENT_DATE_FLOOR_MESSAGE);
-  assert.equal(eventDatesFloorRefusal(['2026-12-19', null, '2027-01-09'], false), null);
-  assert.deepEqual(await candidatesOnOrAfterFirstEventDay(['2026-12-12', '2026-12-26'], async () => false), ['2026-12-26']);
-  assert.deepEqual(await candidatesOnOrAfterFirstEventDay(['2026-12-12', '2026-12-26'], async () => true), ['2026-12-12', '2026-12-26']);
+test('off, a list of candidate days is never refused and never narrowed', async () => {
+  assert.equal(eventDatesFloorRefusal(['2027-01-09', '2026-12-18'], false), null);
+  assert.deepEqual(await candidatesOnOrAfterFirstEventDay(['2026-12-12', '2026-12-26'], async () => false), ['2026-12-12', '2026-12-26']);
 });
 
-test('a picker starts on the first day for a normal account, today for the founders', () => {
-  assert.equal(eventDateMinFor('2026-11-01', false), '2026-12-19');
-  assert.equal(eventDateMinFor('2026-11-01', true), '2026-11-01');
+test('off, every picker starts today for every account', () => {
+  assert.equal(eventDateMinFor('2026-11-14', false), '2026-11-14');
+  assert.equal(eventDateMinFor('2026-11-14', true), '2026-11-14');
   assert.equal(eventDateMinFor('2027-03-01', false), '2027-03-01');
 });
 
-test('the refusal is the owner’s sentence, verbatim', () => {
+test('the day and the owner’s sentence are kept, so switching it back on is one line', () => {
+  assert.equal(FIRST_EVENT_DAY, '2026-12-19');
   assert.equal(
     EVENT_DATE_FLOOR_MESSAGE,
     "Thank you for planning with Setnayan! Our very first event is our founders' wedding on December 18, 2026 — and we'd love for them to open the doors. Events start from December 19, 2026. Pick that day or later, and we can't wait to be part of yours.",

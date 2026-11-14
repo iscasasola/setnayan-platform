@@ -88,7 +88,7 @@ export function OpeningLineField({
         ))}
       </div>
       {field}
-      <p className="text-xs text-ink/50">Pick one to fill the box, then change anything — what you save is your text.</p>
+      <p className="text-xs text-ink/70">Pick one to fill the box, then change anything — what you save is your text.</p>
     </div>
   );
 }

@@ -3,7 +3,8 @@
 import { formatCount } from '@/lib/format-number';
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Send } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, ChevronsRight, PencilLine, Send } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { PreviewStageLink } from './maker-play-menu';
 import { useMaker } from './maker-context';
@@ -109,8 +110,8 @@ export function GuideHead({
     <header data-details-guide-head={step.key} className={compact ? 'flex shrink-0 flex-col gap-0.5 px-4 pb-1 pt-2.5 sm:px-6' : 'flex flex-col gap-0.5'}>
       {bare ? null : (
         <>
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">{eyebrow}</p>
-          <h2 className={compact ? 'font-serif text-lg text-ink' : 'font-serif text-2xl text-ink'}>{step.title}</h2>
+          <p className="text-[12px] uppercase tracking-[0.2em] text-ink/70">{eyebrow}</p>
+          <h2 className={compact ? 'text-[17px] font-semibold text-ink' : 'text-xl font-semibold text-ink'}>{step.title}</h2>
         </>
       )}
       {/* 🔓 The setup's line under every step — what filling it in turns on (filled in, never a paywall). */}
@@ -157,8 +158,8 @@ export function GuideReady({
     >
       <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
         <header className="flex flex-col gap-0.5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">{roundName(plan, round)}</p>
-          <h2 className="font-serif text-2xl text-ink">{left ? 'Almost ready' : 'Ready'}</h2>
+          <p className="text-[12px] uppercase tracking-[0.2em] text-ink/70">{roundName(plan, round)}</p>
+          <h2 className="text-xl font-semibold text-ink">{left ? 'Almost ready' : 'Ready'}</h2>
           <p className="text-[14px] text-ink/75" data-details-guide-ready-line="">
             {left ? (
               <>
@@ -171,7 +172,7 @@ export function GuideReady({
             )}
           </p>
         </header>
-        <ul className="flex flex-col divide-y divide-ink/10 rounded-lg bg-white/80 px-3 shadow-[0_1px_2px_rgba(40,34,24,.06)]">
+        <ul className="flex flex-col divide-y divide-ink/10 rounded-lg bg-white/80 px-3 shadow-sn-sm">
           {steps.map((s) => (
             <li key={s.key}>
               <button
@@ -183,11 +184,11 @@ export function GuideReady({
               >
                 <span>
                   {s.title}
-                  {s.optional ? <span className="ml-1.5 text-[12px] text-ink/55">optional</span> : null}
+                  {s.optional ? <span className="ml-1.5 text-[12px] text-ink/70">optional</span> : null}
                 </span>
                 <span
                   className={`shrink-0 text-[13px] font-semibold ${
-                    s.state === 'done' ? 'text-success-700' : s.state === 'left' ? 'text-terracotta-700' : 'text-ink/55'
+                    s.state === 'done' ? 'text-success-700' : s.state === 'left' ? 'text-terracotta-700' : 'text-ink/70'
                   }`}
                 >
                   {s.state === 'done' ? '✓ set' : s.state === 'left' ? '○ not yet' : 'Look over'}
@@ -211,11 +212,11 @@ export function GuideReady({
                   >
                     <span className="flex flex-col">
                       {l.title}
-                      <span className="text-[12px] text-ink/60">{l.guests ? gearText(GUIDE_GUESTS_LINE) : l.view ? GUIDE_VIEW_LINE[l.view] : l.unlocks}</span>
+                      <span className="text-[12px] text-ink/70">{l.guests ? gearText(GUIDE_GUESTS_LINE) : l.view ? GUIDE_VIEW_LINE[l.view] : l.unlocks}</span>
                     </span>
                     <span
                       className={`shrink-0 text-[13px] font-semibold ${
-                        l.state === 'done' ? 'text-success-700' : l.state === 'left' ? 'text-terracotta-700' : 'text-ink/55'
+                        l.state === 'done' ? 'text-success-700' : l.state === 'left' ? 'text-terracotta-700' : 'text-ink/70'
                       }`}
                     >
                       {l.state === 'done' ? '✓ set' : l.guests ? (l.state === 'left' ? '○ not yet' : 'Look over') : 'Add names ›'}
@@ -299,17 +300,14 @@ export function GuideLinkScreen({
     <section data-details-guide-link={link} aria-label={l?.title ?? 'Step'} className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
         <div className="mx-auto flex w-full max-w-xl flex-col gap-3">
-          <h2 className="font-serif text-2xl text-ink">{l?.title}</h2>
-          <p className={`text-[13px] font-semibold ${l?.state === 'done' ? 'text-success-700' : l?.state === 'left' ? 'text-terracotta-700' : 'text-ink/55'}`}>
+          <h2 className="text-xl font-semibold text-ink">{l?.title}</h2>
+          <p className={`text-[13px] font-semibold ${l?.state === 'done' ? 'text-success-700' : l?.state === 'left' ? 'text-terracotta-700' : 'text-ink/70'}`}>
             {l?.state === 'done' ? '✓ set' : l?.state === 'left' ? '○ not yet' : 'Look over'}
           </p>
           {l?.guests || l?.view ? <p className="text-[14px] text-ink/75">{l.shows}</p> : null}
           {href ? (
-            <Link
-              href={href}
-              data-details-guide-link-go={link}
-              className="sn-press inline-flex min-h-11 items-center justify-center self-start rounded-full bg-ink px-5 text-[15px] font-semibold text-cream"
-            >
+            /* The shared pill's look (design template 14 Nov 2026, rule 3) on a Link — its words can carry the ⚙ glyph. */
+            <Link href={href} data-details-guide-link-go={link} className={actionButtonClass('brand', { main: true, extra: 'self-start' })}>
               {l?.guests ? gearText(GUIDE_GUESTS_GO) : l?.view ? GUIDE_VIEW_GO[l.view] : l?.state === 'done' ? 'Open your guest list ›' : 'Add names ›'}
             </Link>
           ) : null}
@@ -348,47 +346,20 @@ export function GuideFoot({
           <span className="basis-full">
             {warning === 'skip' ? 'You changed something on this step.' : 'You changed something here that isn’t saved yet.'}
           </span>
-          <button type="button" onClick={onKeepEditing} className="sn-press min-h-10 rounded-full bg-white px-3 font-semibold text-ink">
-            Keep editing
-          </button>
-          <button type="button" onClick={onGoAnyway} className="sn-press min-h-10 rounded-full px-3 font-semibold underline underline-offset-2">
-            {warning === 'skip' ? 'Skip anyway' : 'Go on without saving'}
-          </button>
+          <ActionButton tone="neutral" icon={PencilLine} label="Keep editing" onClick={onKeepEditing} />
+          <ActionButton tone="warn" icon={ArrowRight} label={warning === 'skip' ? 'Skip anyway' : 'Go on without saving'} onClick={onGoAnyway} />
         </div>
       ) : null}
       <div className="flex items-center gap-2">
         {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            data-details-guide-back=""
-            className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full border border-ink/15 bg-white px-3.5 text-[14px] font-semibold text-ink"
-          >
-            <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Back
-          </button>
+          <ActionButton tone="neutral" icon={ChevronLeft} label="Back" onClick={onBack} data-details-guide-back="" />
         ) : null}
         <span className="flex-1" />
         {onSkip ? (
-          <button
-            type="button"
-            onClick={onSkip}
-            data-details-guide-skip=""
-            className="sn-press inline-flex min-h-11 items-center px-2 text-[14px] font-semibold text-terracotta-700 underline underline-offset-2"
-          >
-            Skip for now
-          </button>
+          <ActionButton tone="neutral" quiet icon={ChevronsRight} label="Skip for now" onClick={onSkip} data-details-guide-skip="" />
         ) : null}
         {onNext ? (
-          <button
-            type="button"
-            onClick={onNext}
-            data-details-guide-next=""
-            className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full bg-ink px-5 text-[15px] font-semibold text-cream"
-          >
-            Next
-            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </button>
+          <ActionButton tone="brand" main icon={ChevronRight} label="Next" onClick={onNext} data-details-guide-next="" />
         ) : null}
       </div>
     </div>

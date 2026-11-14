@@ -60,12 +60,12 @@ export function StudioColourField({
         onClick={() => setOpen(true)}
         className="sn-press relative mb-2 flex min-h-11 w-full items-center gap-2.5 rounded-full bg-cream py-1 pl-1.5 pr-3 text-left ring-1 ring-ink/10"
       >
-        <span aria-hidden className="h-[30px] w-[30px] shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]" style={{ backgroundColor: value }} />
+        <span aria-hidden className="h-[30px] w-[30px] shrink-0 rounded-full ring-1 ring-inset ring-ink/10" style={{ backgroundColor: value }} />
         <span className="flex min-w-0 flex-1 flex-col leading-tight">
           <b className="text-[13.5px] font-semibold text-ink">{name}</b>
-          <small className="text-[11px] text-ink/50">{job}</small>
+          <small className="text-[12px] text-ink/70">{job}</small>
         </span>
-        <span className="font-mono text-[11px] text-ink/50">{value}</span>
+        <span className="text-[12px] text-ink/70">{value}</span>
         <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 text-gild" strokeWidth={2} />
       </button>
       {open ? (

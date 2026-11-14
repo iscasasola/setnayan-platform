@@ -91,7 +91,7 @@ export function SoftPost({ autosave = false }: { autosave?: boolean } = {}) {
       role="status"
       aria-live="polite"
       data-soft-post={state}
-      className={`text-xs ${state === 'error' ? 'text-terracotta-700' : 'text-ink/65'}`}
+      className={`text-xs ${state === 'error' ? 'text-terracotta-700' : 'text-ink/70'}`}
     >
       {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved.' : state === 'error' ? 'That did not save. Nothing changed — please try again.' : null}
     </span>

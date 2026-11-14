@@ -1,7 +1,10 @@
 'use client';
 
 import { use, useMemo, useState } from 'react';
-import { Star } from 'lucide-react';
+import { CalendarCheck, CalendarSearch, Star } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { Badge } from '@/app/_components/badge';
 import type { MatrixDate, ScheduleMatrix } from '@/lib/schedule-matrix';
 import { formatCount } from '@/lib/format-number';
 import { fittingDates } from '@/lib/date-fits-booked';
@@ -84,20 +87,20 @@ export function FindDateCandidates({ matrix }: { matrix: Promise<ScheduleMatrix 
   const ranked = useRanked(m ?? { hasDate: false, hasShortlist: false, exactDate: false, offPlatformCount: 0, dates: [] });
   if (!m) return <Unread />;
   if (!m.hasDate) {
-    return <p className="text-sm text-ink/65">Choose a month on the right — its Saturdays appear here, ranked by how many of your suppliers are free.</p>;
+    return <p className="text-sm text-ink/70">Choose a month on the right — its Saturdays appear here, ranked by how many of your suppliers are free.</p>;
   }
-  if (ranked.length === 0) return <p className="text-sm text-ink/65" data-find-date-none-fit="">{NONE_FIT}</p>;
+  if (ranked.length === 0) return <p className="text-sm text-ink/70" data-find-date-none-fit="">{NONE_FIT}</p>;
   const shown = all ? ranked : ranked.slice(0, TOP);
   const current = picked ?? ranked[0]?.dateKey ?? null;
   return (
     <section className="flex w-full max-w-xl flex-col gap-2" data-find-date-candidates="">
-      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
+      <p className="text-[12px] uppercase tracking-[0.18em] text-ink/70">
         {m.exactDate ? 'Your date' : `The days you're considering — ranked by your suppliers`}
       </p>
       {!m.hasShortlist ? (
-        <p className="text-xs text-ink/55">You haven&apos;t picked any suppliers yet, so every day below is open.</p>
+        <p className="text-xs text-ink/70">You haven&apos;t picked any suppliers yet, so every day below is open.</p>
       ) : null}
-      <ol className="flex flex-col gap-2">
+      <ol className="flex flex-col divide-y divide-ink/10 border-y border-ink/10">
         {shown.map((d, i) => (
           <li key={d.dateKey}>
             <button
@@ -105,23 +108,23 @@ export function FindDateCandidates({ matrix }: { matrix: Promise<ScheduleMatrix 
               aria-pressed={d.dateKey === current}
               onClick={() => setPicked(d.dateKey)}
               data-find-date-candidate={d.dateKey}
-              className={`sn-press flex min-h-14 w-full items-center gap-3 rounded-xl bg-white/85 px-4 py-3 text-left shadow-[0_1px_2px_rgba(40,34,24,.06)] ${
-                d.dateKey === current ? 'ring-2 ring-ink' : ''
+              className={`sn-press flex min-h-14 w-full items-center gap-3 px-1 py-3 text-left ${
+                d.dateKey === current ? 'bg-ink/[0.05] shadow-[inset_3px_0_0_rgb(var(--color-ink))]' : ''
               }`}
             >
-              <span className="w-5 shrink-0 font-mono text-[11px] text-ink/45">{i + 1}</span>
+              <span className="w-5 shrink-0 text-[12px] text-ink/70">{i + 1}</span>
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="text-lg font-semibold tracking-tight text-ink">{d.label}</span>
-                  <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">{d.dow}</span>
+                  <span className="text-[12px] uppercase tracking-[0.18em] text-ink/70">{d.dow}</span>
                   {d.isBest ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[11px] font-medium text-terracotta-700">
+                    <Badge tone="ok" data="best-match">
                       <Star aria-hidden className="h-3 w-3" strokeWidth={2.25} />
                       Best match
-                    </span>
+                    </Badge>
                   ) : null}
                 </span>
-                <span className="mt-0.5 block text-sm text-ink/60">{coverageHeadline(d)}</span>
+                <span className="mt-0.5 block text-sm text-ink/70">{coverageHeadline(d)}</span>
               </span>
             </button>
           </li>
@@ -173,14 +176,14 @@ export function FindDatePicked({
       {date ? (
         <>
           <div>
-            <p className="font-serif text-lg text-ink">
-              {date.label} <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">{date.dow}</span>
+            <p className="text-[17px] font-semibold text-ink">
+              {date.label} <span className="text-[12px] uppercase tracking-[0.18em] text-ink/70">{date.dow}</span>
             </p>
-            <p className="text-sm text-ink/60">{coverageHeadline(date)}</p>
+            <p className="text-sm text-ink/70">{coverageHeadline(date)}</p>
           </div>
           {date.categories.length ? (
             <div>
-              <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">Who works together</p>
+              <p className="mb-1 text-[12px] uppercase tracking-[0.18em] text-ink/70">Who works together</p>
               <ul className="divide-y divide-ink/[0.06]">
                 {date.categories.map((cat) => (
                   <CategoryLine key={cat.category} cat={cat} />
@@ -189,18 +192,19 @@ export function FindDatePicked({
               <p className="mt-2 text-sm font-medium text-ink/75">{comboSummary(date)}</p>
             </div>
           ) : null}
-          <button
-            type="button"
+          <ActionButton
+            tone="brand"
+            main
+            icon={CalendarCheck}
+            label={`Use ${date.label}`}
             onClick={() => onUse(date.dateKey)}
             data-find-date-use={date.dateKey}
-            className="inline-flex min-h-11 w-fit items-center rounded-xl bg-mulberry px-4 text-sm font-medium text-white"
-          >
-            Use {date.label}
-          </button>
+            className="w-fit"
+          />
         </>
       ) : null}
       {!date && m.hasDate && !m.exactDate ? (
-        <p className="text-sm text-ink/65" data-find-date-none-fit="">
+        <p className="text-sm text-ink/70" data-find-date-none-fit="">
           {NONE_FIT}
         </p>
       ) : null}
@@ -217,10 +221,13 @@ export function FindDatePicked({
         </div>
       ) : null}
       {m.offPlatformCount > 0 ? (
-        <p className="text-xs text-ink/55">
-          {formatCount(m.offPlatformCount)} of your suppliers {m.offPlatformCount === 1 ? 'is' : 'are'} not on Setnayan — we can&apos;t see
-          their calendar, so they show as &ldquo;confirm directly.&rdquo;
-        </p>
+        <InfoTip
+          label={`${formatCount(m.offPlatformCount)} of your suppliers ${m.offPlatformCount === 1 ? 'is' : 'are'} not on Setnayan`}
+          labelClassName="text-[13px] text-ink/70"
+          align="start"
+        >
+          We can&apos;t see their calendar, so they show as &ldquo;confirm directly.&rdquo;
+        </InfoTip>
       ) : null}
       <MonthPick
         onMonth={onMonth}
@@ -256,17 +263,17 @@ function MonthPick({ onMonth, prompt, error, pending }: { onMonth: (month: strin
       <p className="text-sm text-ink/70">{prompt}</p>
       <div className="flex flex-wrap items-center gap-2">
         <input type="month" min={min} value={month} onChange={(e) => setMonth(e.target.value)} aria-label="The month you are considering" className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink" />
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          icon={CalendarSearch}
+          label={pending ? 'Saving…' : 'Compare its Saturdays'}
           disabled={!month || pending}
+          waiting={pending}
           onClick={() => onMonth(month)}
-          className="inline-flex min-h-11 items-center rounded-xl bg-mulberry px-4 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {pending ? 'Saving…' : 'Compare its Saturdays'}
-        </button>
+        />
       </div>
       {error ? (
-        <p role="alert" className="text-xs text-danger-800">
+        <p role="alert" className="text-[13px] text-danger-800">
           {error}
         </p>
       ) : null}

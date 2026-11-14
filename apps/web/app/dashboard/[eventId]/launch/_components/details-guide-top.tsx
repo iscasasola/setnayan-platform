@@ -1,6 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { ListChecks } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { fieldTouched } from '@/lib/guided-step-touch';
 import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import {
@@ -112,7 +114,7 @@ export function GuideTop({
       }}
       buttonText={progressLabel(plan, at)}
       dataAttr="data-details-guide-steps"
-      className="font-mono !text-[12px] tracking-[0.04em]"
+      className="!text-[12px] tracking-[0.04em]"
     />
   );
   if (inSheet) {
@@ -132,14 +134,7 @@ export function GuideTop({
       </span>
       {steps}
       <span className="flex-1" />
-      <button
-        type="button"
-        onClick={onAllItems}
-        data-details-guide-all=""
-        className="sn-press inline-flex min-h-10 shrink-0 items-center rounded-full bg-ink/[0.07] px-3.5 text-[13px] font-semibold text-ink hover:bg-ink/10"
-      >
-        All items
-      </button>
+      <ActionButton tone="neutral" icon={ListChecks} label="All items" onClick={onAllItems} data-details-guide-all="" className="shrink-0" />
       {tour}
     </div>
   );
@@ -158,8 +153,8 @@ export function WhatsLeftDoor({ label, onOpen }: { label: string; onOpen: () => 
         data-details-guide-open=""
         className="sn-press flex min-h-11 w-[112px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-terracotta-700/10 px-1.5 py-1.5 text-center text-terracotta-800 lg:w-full lg:flex-row lg:justify-start lg:gap-2 lg:px-2.5 lg:text-left"
       >
-        <span className="text-[11.5px] font-semibold leading-tight lg:text-[13.5px]">What’s left</span>
-        <small className="text-[10.5px] leading-tight text-terracotta-800/80 lg:text-[12px]">{label}</small>
+        <span className="text-[12px] font-semibold leading-tight lg:text-[13.5px]">What’s left</span>
+        <small className="text-[12px] leading-tight text-terracotta-800 ">{label}</small>
       </button>
     </li>
   );

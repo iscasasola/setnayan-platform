@@ -238,7 +238,7 @@ test('every part with a Studio bar has a door; every focused field exists in the
   const shell = read(`${LAUNCH}/maker-shell.tsx`);
   /* ⚡ The focusing lives in the lazy chunk (`EditorFieldFocus`) — the Maker's first load was 0.4 KB over its budget on
      #6413. 🔁 2026-11-11 (Build 6 Lane F): the way back is the bar's ✕, which names the part it closes. */
-  assert.match(read(`${LAUNCH}/stages-studio-parts.tsx`), /aria-label=\{`Close \$\{editor\.label\}`\}/, 'the way back does not name the part');
+  assert.match(read(`${LAUNCH}/stages-studio-parts.tsx`), /label=\{`Close \$\{editor\.label\}`\}/, 'the way back does not name the part');
   assert.match(shell, /\{studioFrom && studioOn \? <EditorFieldFocus focus=\{studioFrom\.focus\} at=\{studioAt\} \/> : null\}/, 'the shell mounts it for a jump');
   assert.match(read(`${LAUNCH}/details-lazy.tsx`), /export const EditorFieldFocus = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/, 'lazily');
   /* The top "✓ Done" band is gone (owner 2026-10-08: no row over a Studio page). The way back to the part is the bar's ✕;

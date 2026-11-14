@@ -3,7 +3,8 @@
  * "THE SHOP PAGE HAS ONE MAIN BUTTON — INQUIRE": the four equal "Do it from here" doors are replaced by one door and
  * three quiet lines; prototype `public_pages_three_2026-11-13`, `.cando`).
  *
- *   Check a date — the ONE door here (the shipped `CheckADateLink`, to `/v/[slug]/dates`);
+ *   Check a date — a line, NOT a door: RW-269 (owner-seen 14 Nov) — the door here repeated the header's Check a date
+ *   beside "Add to your event", so the page showed it twice; the header's is the one;
  *   the chat · Add to your event · Book a package — supporting copy, NOT buttons. Each says what that step does, and the
  *   real control lives where it belongs: Inquire + Add in the calling card, Book on each package card next to its price.
  *   The chat line never says "Inquire" (owner 13 Nov, "Yes, only one": one Inquire label on the page, the button).
@@ -12,10 +13,8 @@
  * never shows a Check a date (owner 13 Nov, "date check only for verified").
  */
 import { MessageCircle, Package, Plus } from 'lucide-react';
-import { CheckADateLink } from './check-a-date-link';
 
-/** `checkHref` null — the sample shop page (`SampleShopPage`): the door drawn, with no calendar behind it. */
-export function ShopCanDoPanel({ checkHref, hasPackages }: { checkHref: string | null; hasPackages: boolean }) {
+export function ShopCanDoPanel({ hasPackages }: { hasPackages: boolean }) {
   return (
     <div
       data-shop-can-do=""
@@ -24,7 +23,6 @@ export function ShopCanDoPanel({ checkHref, hasPackages }: { checkHref: string |
       <div className="grid justify-items-start gap-2.5">
         <p className="text-[1.02rem] font-semibold leading-tight text-ink">What their own website can&rsquo;t do</p>
         <p className="text-[0.88rem] text-ink/75">Check a date against their real calendar, not a contact form.</p>
-        <CheckADateLink href={checkHref} className="button-secondary inline-flex items-center gap-2" />
       </div>
       <ul className="grid gap-2 border-t border-ink/10 pt-3 text-[0.86rem] text-ink/75 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
         <li className="flex items-start gap-2.5">

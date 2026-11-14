@@ -1,3 +1,4 @@
+import { distinctShopServices } from '@/lib/distinct-shop-services';
 import Link from 'next/link';
 import { OWN_LINK_SRC } from '@/lib/supplier-qr-codes';
 import { readOverdueTopUpEventIds, readPageRefsFromEvents } from '@/lib/booking-fee-top-up.server';
@@ -27,6 +28,7 @@ import { createClient } from '@/lib/supabase/server';
 import {
   SERVICE_GROUPS,
   displayServiceLabel,
+  isCanonicalService,
   resolveVendorDisplayName,
   serviceGroupOf,
   VENDOR_PLACEHOLDER_PHOTO,
@@ -1416,8 +1418,15 @@ export async function renderVendorBySlug({
   const portfolioUrls = portfolioPhotos.map((p) => p.url);
   const showPortfolio = isSectionVisible(pageSections, 'portfolio');
   const showTrustedBy = isSectionVisible(pageSections, 'trusted_by');
-  const orderedServices = orderFeaturedFirst(
+  // 🧹 RW-267 (re-walk 14 Nov 2026): one chip per service — "Lights & Sound" was listed twice, the second the shop's
+  // own service under an older key spelling. The key the category list knows wins (`distinctShopServices`, RW-167).
+  const distinctServiceKeys = distinctShopServices(
     vendor.services,
+    Object.fromEntries(vendor.services.filter(isCanonicalService).map((k) => [k, displayServiceLabel(k)])),
+    displayServiceLabel,
+  ).map((s) => s.key);
+  const orderedServices = orderFeaturedFirst(
+    distinctServiceKeys,
     canPersonalizePage ? microsite.featuredServiceIds : [],
   );
   // Pro hero override — a chosen portfolio photo leads the page as a banner.
@@ -2787,7 +2796,6 @@ export async function renderVendorBySlug({
 
         {cinematicHero && bookable ? (
           <ShopCanDoPanel
-            checkHref={checkDateHref}
             hasPackages={vendorPackages.length > 0}
           />
         ) : null}

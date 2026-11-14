@@ -471,10 +471,13 @@ export function RequestOnlyRow({
   const [sent, setSent] = useState(false);
   const pending = pendingAtLoad || sent;
   const inputId = `ask-${item.key}`;
+  // 🖼 RW-268 — a logo is a picture, not words: the ask carries an upload (the editor's own uploader), and the
+  // stored `r2://` key is the requested value an admin can apply. A text box here filed nothing usable.
+  const isLogo = field === 'logo_url';
 
   async function send() {
     if (!value.trim()) {
-      toast.error('Tell us what it should say.');
+      toast.error(isLogo ? 'Choose the new logo first.' : 'Tell us what it should say.');
       return;
     }
     const fd = new FormData();
@@ -524,9 +527,25 @@ export function RequestOnlyRow({
       </div>
       <Collapsible open={open && !pending}>
         <div className={flat ? 'space-y-2 pb-3 pl-9' : 'space-y-2 border-t px-3 pb-3 pt-3'} style={{ borderColor: 'var(--m-line)' }}>
-          <label htmlFor={inputId} className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            What it should be — Setnayan checks it, then changes it for you.
+          <label htmlFor={isLogo ? undefined : inputId} className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            {isLogo ? 'Your new logo — Setnayan checks it, then changes it for you.' : 'What it should be — Setnayan checks it, then changes it for you.'}
           </label>
+          {isLogo ? (
+            <div className="space-y-2" data-logo-ask-upload="">
+              <FileUpload
+                bucket="media"
+                pathPrefix={`vendors/${data.vendorProfileId}/logo`}
+                name="requested_logo"
+                maxSizeMB={SHOP_LOGO_UPLOAD.maxSizeMB}
+                compressImage
+                acceptedTypes={[...SHOP_LOGO_UPLOAD.acceptedTypes]}
+                variant="square"
+                roundPreview
+                onChange={(v) => setValue(Array.isArray(v) ? (v[0] ?? '') : (v ?? ''))}
+              />
+              <ActionButton tone="brand" icon={Send} label="Send" onClick={() => void send()} waiting={sending} disabled={sending || !value} />
+            </div>
+          ) : (
           <div className="flex flex-wrap items-center gap-2">
             <input
               id={inputId}
@@ -543,6 +562,7 @@ export function RequestOnlyRow({
             />
             <ActionButton tone="brand" icon={Send} label="Send" onClick={() => void send()} waiting={sending} disabled={sending} />
           </div>
+          )}
         </div>
       </Collapsible>
     </li>

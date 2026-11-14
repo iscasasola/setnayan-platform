@@ -1,5 +1,7 @@
 'use client';
 
+import { RequestOnlyRow } from './editable-row';
+import { ADMIN_SET_UP_ROW_FIELD } from '@/lib/vendor-corrections';
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Crop, Eye, Images, Upload, type LucideIcon } from 'lucide-react';
@@ -120,6 +122,19 @@ export function LogoPhotoMenu({
 }) {
   const [files, setFiles] = useState<File[] | null>(null);
   const [editing, setEditing] = useState(false);
+  /* 🖼 RW-265: a VERIFIED shop's logo changes by request (`identityLockOf` → `logo_url`). Upload and Adjust would only be
+     refused by the server, so the menu offers the same "Ask to change" row the shop's other locked details use. */
+  if (isVerified && logoItem && logoUrl) {
+    return (
+      <div data-photo-menu="logo" data-photo-menu-locked="">
+        <ul>
+          <SeeRow word="See profile photo" url={logoUrl} none="No logo yet" album="Your logo" data="logo-see" />
+        </ul>
+        <p className="pt-2 text-[12.5px] text-ink/70">Your shop is verified, so your logo changes by request.</p>
+        <RequestOnlyRow item={logoItem} data={logoFields} field={ADMIN_SET_UP_ROW_FIELD.logo} pending={false} flat />
+      </div>
+    );
+  }
   if ((files || editing) && logoItem) {
     return (
       <div className="space-y-3" data-photo-menu="logo-frame">

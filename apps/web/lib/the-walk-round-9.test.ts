@@ -116,3 +116,33 @@ test('RW-264 · the couple’s Suppliers row reads the shop’s current name, no
   const page = code('app/dashboard/[eventId]/vendors/page.tsx');
   assert.match(page, /vendor_id: v\.vendor_id,\s*vendor_name: mk\?\.name \?\? v\.vendor_name,/);
 });
+
+test('RW-265 · a verified shop’s logo changes by request — the menu never offers an upload the server refuses', async () => {
+  const { ADMIN_SET_UP_ROW_FIELD, identityLockOf, rowAsks } = await import('./vendor-corrections');
+  assert.equal(ADMIN_SET_UP_ROW_FIELD.logo, 'logo_url');
+  const verified = identityLockOf({ public_visibility: 'verified', created_by_admin_user_id: null, user_id: 'u' });
+  // The Details screens' logo row becomes "Ask to change" for a verified shop.
+  assert.equal(rowAsks('logo', true, { requestOnly: verified.requestOnly, pending: [] }), 'ask');
+  // An unverified shop's logo stays its own to change.
+  const open = identityLockOf({ public_visibility: 'hidden', created_by_admin_user_id: null, user_id: 'u' });
+  assert.equal(rowAsks('logo', true, { requestOnly: open.requestOnly, pending: [] }), null);
+  const menu = code('app/vendor-dashboard/shop/_components/photo-menus.tsx');
+  assert.match(menu, /if \(isVerified && logoItem && logoUrl\) \{/);
+  assert.match(menu, /<RequestOnlyRow item=\{logoItem\} data=\{logoFields\} field=\{ADMIN_SET_UP_ROW_FIELD\.logo\}/);
+});
+
+test('RW-267 · the public shop lists each service once', () => {
+  const page = code('app/v/[slug]/page.tsx');
+  assert.match(page, /const distinctServiceKeys = distinctShopServices\(\s*vendor\.services,/);
+  assert.match(page, /orderFeaturedFirst\(\s*distinctServiceKeys,/);
+});
+
+test('RW-268 · the logo "Ask to change" uploads a picture and files its key, not a typed line', () => {
+  const row = code('app/vendor-dashboard/shop/_components/editable-row.tsx');
+  const ask = row.slice(row.indexOf('export function RequestOnlyRow'), row.indexOf('function StatusChip'));
+  assert.match(ask, /const isLogo = field === 'logo_url';/);
+  assert.match(ask, /\{isLogo \? \(\s*<div className="space-y-2" data-logo-ask-upload="">\s*<FileUpload\s+bucket="media"\s+pathPrefix=\{`vendors\/\$\{data\.vendorProfileId\}\/logo`\}/);
+  assert.match(ask, /onChange=\{\(v\) => setValue\(Array\.isArray\(v\) \? \(v\[0\] \?\? ''\) : \(v \?\? ''\)\)\}/);
+  assert.match(ask, /fd\.set\('requested_value', value\);/);
+  assert.match(ask, /isLogo \? 'Choose the new logo first\.'/);
+});

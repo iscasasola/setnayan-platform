@@ -17,6 +17,14 @@
   - A Lights & Sound card is no longer "Filled for a florist": in the design family only florals, decor and styling
     take the florist's defaults (`supplierTypeForKind`); the rest fall to 'other'.
   - The couple's Suppliers row reads the shop's current name after a rename (`mk.name`, the hybrid-anonymity answer).
+- **RW-265** A verified shop's logo menu offered "Replace photo", which the server then refused. It now shows the logo
+  and an "Ask to change" request row, like every other locked field.
+- **RW-267** The public shop listed a service twice when two stored keys meant the same service (`distinctShopServices`,
+  as the Event Hub's list already does).
+- **RW-268** The logo "Ask to change" had only a text box, and an admin can apply only an image key. It now carries the
+  editor's own uploader; the uploaded key is what the request files.
+- **RW-269** "Check a date" appeared twice on a verified shop page. The About panel keeps its line but loses its button;
+  the one beside "Add to your event" stays.
 - Guard: `apps/web/lib/the-walk-round-9.test.ts`.
 
 SPEC IMPACT: None.

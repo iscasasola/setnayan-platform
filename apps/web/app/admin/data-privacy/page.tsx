@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CheckCircle2, Circle, Ban, Archive, Download, FileText, FolderArchive } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, Download, FolderArchive } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { relativeTime } from '@/lib/activity';
@@ -15,6 +15,7 @@ import {
   type PrivacyControlRow,
   type PrivacyControlStatus,
 } from '@/lib/data-privacy-controls';
+import { computePrivacyCoverage } from '@/lib/privacy-coverage';
 import { NPC_DOCUMENTS, NPC_DOC_GROUP_LABEL, type NpcDocGroup } from '@/lib/npc-documents';
 import { ControlActions } from './_components/control-actions';
 import { CoveragePanel } from './_components/coverage-panel';
@@ -22,16 +23,18 @@ import { NpcChecklist } from './_components/npc-checklist';
 import { DeletionRunsPanel } from './_components/deletion-runs-panel';
 import { fetchPeriodicJobLedger } from '@/lib/periodic-job-health';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { Fold } from '@/app/_components/fold';
+import { Badge, Facts, One, Row, Rows, Sec } from '@/app/admin/app-performance/_components/insights-parts';
 import { ReadFailed } from '../_components/read-failed';
 
 export const metadata = { title: 'Data privacy & NPC filing · Admin' };
 export const dynamic = 'force-dynamic';
 
 /**
- * /admin/data-privacy — the Data Privacy & NPC Filing hub (RA 10173).
+ * /admin/data-privacy — the Data Privacy & NPC Filing hub (RA 10173). Insights › Privacy & NPC.
  *
- * One surface, four tabs:
- *   - Controls        the live control board — approve each privacy-sensitive
+ * One surface, five views (`?tab=`):
+ *   - Controls        the landing — approve each privacy-sensitive
  *                     capability; the flip records approved_by/at (audit trail).
  *                     Features read `status='active'` from data_privacy_controls
  *                     (isDataPrivacyControlActive), so activation is an in-app
@@ -50,6 +53,10 @@ export const dynamic = 'force-dynamic';
  *   - Documents       the DPO-prepared NPC submission PDFs (drafts pending
  *                     external counsel review before lodging).
  *
+ * Drawn to the approved Insights drawing (admin_pub/insights.html › Privacy & NPC): the controls on the landing, the
+ * other four views and the NPC data sheet rise from the "Filing" rows (the old tab strip went — one selector, never a
+ * pill row). Each sub-view opens with a "‹ Privacy & NPC" press back to the landing.
+ *
  * /admin/npc-readiness redirects into ?tab=checklist (the old separate surface).
  *
  * Auth: /admin layout gates non-admins; requireAdmin() re-asserts here.
@@ -61,19 +68,16 @@ type TabKey = 'controls' | 'coverage' | 'deletions' | 'checklist' | 'documents';
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'controls', label: 'Controls' },
   { key: 'coverage', label: 'Coverage & drift' },
-  { key: 'deletions', label: 'Deletions' },
+  { key: 'deletions', label: 'Deletions — did they actually run?' },
   { key: 'checklist', label: 'NPC checklist' },
-  { key: 'documents', label: 'Documents' },
+  { key: 'documents', label: 'NPC submission documents' },
 ];
 
-const STATUS_META: Record<
-  PrivacyControlStatus,
-  { label: string; tone: 'active' | 'off' | 'blocked' | 'retired'; icon: typeof CheckCircle2 }
-> = {
-  active: { label: 'Active', tone: 'active', icon: CheckCircle2 },
-  inactive: { label: 'Off', tone: 'off', icon: Circle },
-  blocked: { label: 'Blocked', tone: 'blocked', icon: Ban },
-  retired: { label: 'Retired', tone: 'retired', icon: Archive },
+const STATUS_META: Record<PrivacyControlStatus, { label: string; tone: 'ok' | 'danger' | 'info' | undefined }> = {
+  active: { label: 'Active', tone: 'ok' },
+  inactive: { label: 'Off', tone: undefined },
+  blocked: { label: 'Blocked', tone: 'danger' },
+  retired: { label: 'Retired', tone: 'info' },
 };
 
 export default async function DataPrivacyPage({
@@ -87,50 +91,82 @@ export default async function DataPrivacyPage({
 
   const admin = createAdminClient();
   const { ok: controlsOk, controls } = await fetchDataPrivacyControlsMeasured(admin);
-  // Only read the job ledger for the tab that shows it — this page is
-  // force-dynamic and the other four tabs have no use for it.
+  // Only read the job ledger for the view that shows it — this page is
+  // force-dynamic and the other four views have no use for it.
   const jobLedger = active === 'deletions' ? await fetchPeriodicJobLedger(admin) : null;
   const activeCount = controls.filter((c) => c.status === 'active').length;
   const retiredCount = controls.filter((c) => c.status === 'retired').length;
   const liveTotal = controls.length - retiredCount;
 
+  // The Filing row's line is computed from the controls already read — no new read. A refused read says "—".
+  const coverage = controlsOk
+    ? computePrivacyCoverage(
+        new Set(controls.filter((c) => c.status === 'active').map((c) => c.control_key)),
+        new Set(controls.filter((c) => c.status === 'retired').map((c) => c.control_key)),
+      )
+    : null;
+
+  const subTitle = TABS.find((t) => t.key === active)?.label ?? '';
+
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
       <PageMasthead
         title="Data Privacy & NPC Filing"
       />
 
-      {/* Tab bar */}
-      <nav
-        className="mb-6 flex gap-1 overflow-x-auto border-b"
-        style={{ borderColor: 'var(--m-line)' }}
-        aria-label="Compliance sections"
-      >
-        {TABS.map((t) => {
-          const isActive = t.key === active;
-          return (
-            <Link
-              key={t.key}
-              href={t.key === 'controls' ? '/admin/data-privacy' : `/admin/data-privacy?tab=${t.key}`}
-              scroll={false}
-              aria-current={isActive ? 'page' : undefined}
-              className="-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-semibold transition-colors"
-              style={
-                isActive
-                  ? { borderColor: 'var(--m-ink)', color: 'var(--m-ink)' }
-                  : { borderColor: 'transparent', color: 'var(--m-slate-3)' }
-              }
-            >
-              {t.label}
-            </Link>
-          );
-        })}
-      </nav>
+      {active !== 'controls' ? (
+        <div className="mb-1 flex min-h-11 items-center gap-2">
+          <Link
+            href="/admin/data-privacy"
+            scroll={false}
+            className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-sm font-semibold text-[var(--sn-accent)] hover:bg-ink/[0.03]"
+          >
+            <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2.2} /> Privacy &amp; NPC
+          </Link>
+          <span className="text-[13px] text-ink/55" aria-current="page">
+            · {subTitle}
+          </span>
+        </div>
+      ) : null}
 
       {/* 🔑 On a refused read every control is the catalog default — "Off". A board
           full of Off switches is a claim that nothing is protected. */}
       {active === 'controls' ? (
         controlsOk ? <ControlsBoard controls={controls} /> : <ReadFailed what="the privacy controls" />
+      ) : null}
+
+      {active === 'controls' ? (
+        <section data-privacy-filing="">
+          <Sec
+            title="Filing"
+            about="Where the switches meet the NPC filing: coverage and drift, whether the promised deletions ran, the pre-filing checklist, the submission documents, and the data sheet."
+          />
+          <Rows label="Filing">
+            <Row
+              title="Coverage & drift"
+              href="/admin/data-privacy?tab=coverage"
+              tone={coverage === null ? 'warn' : coverage.undeclaredActive.length > 0 ? 'warn' : undefined}
+              sub={
+                coverage === null
+                  ? 'Couldn’t read the controls — not the same as none'
+                  : `${coverage.declaredCount} of ${coverage.privacySensitiveTotal} privacy-sensitive controls declared${coverage.undeclaredActive.length > 0 ? ` · ${coverage.undeclaredActive.length} live but not declared` : ''}`
+              }
+              trail={controlsOk ? `${activeCount} of ${liveTotal} active` : '—'}
+            />
+            <Row
+              title="Deletions — did they actually run?"
+              href="/admin/data-privacy?tab=deletions"
+              sub="each retention job’s last run"
+            />
+            <Row title="NPC checklist" href="/admin/data-privacy?tab=checklist" sub="the counsel-prepared pre-filing worklist" />
+            <Row
+              title="NPC submission documents"
+              href="/admin/data-privacy?tab=documents"
+              sub={`${NPC_DOCUMENTS.length} PDFs · the complete packet`}
+            />
+            <Row title="NPC data sheet" href="/admin/compliance/data-sheet" sub="the stored facts as the NPC registration fields" />
+          </Rows>
+        </section>
       ) : null}
 
       {active === 'coverage' ? (
@@ -152,6 +188,9 @@ export default async function DataPrivacyPage({
  * through /admin/data-privacy/documents/[key] — internal compliance docs, never
  * public. These are DPO-prepared drafts pending external counsel review before
  * actual lodging (per the dossier's own filing gate).
+ *
+ * The rows are the Insights hairline rows, drawn here rather than with `Row` because each must keep
+ * `prefetch={false}` — a document row is a PDF download, never something to fetch ahead.
  */
 function NpcDocuments() {
   const packet = NPC_DOCUMENTS.find((d) => d.group === 'packet');
@@ -159,60 +198,48 @@ function NpcDocuments() {
   const groups: NpcDocGroup[] = ['executive', 'pack', 'companion', 'audit'];
 
   return (
-    <section>
-      <h2 className="sn-sec flex items-center gap-2">
-        <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> NPC submission documents
-      </h2>
-      <p className="mt-1 max-w-2xl text-sm" style={{ color: 'var(--m-slate-2)' }}>
-        The DPO-prepared filing set for the National Privacy Commission, as PDFs. Download the full
-        packet or any single document. These are <strong>drafts pending external counsel review</strong>{' '}
-        before lodging — internal only, never shared publicly.
-      </p>
+    <section data-npc-documents="">
+      <One label="Drafts · internal only">
+        The DPO-prepared filing set for the National Privacy Commission, as PDFs. Download the full packet or any single
+        document. These are drafts pending external counsel review before lodging — internal only, never shared
+        publicly.
+      </One>
 
       {packet ? (
-        <Link
-          href={`/admin/data-privacy/documents/${packet.key}`}
-          prefetch={false}
-          className="sn-tile sn-press mt-4 flex items-center justify-between gap-4"
-        >
-          <span className="flex items-start gap-3">
-            <FolderArchive aria-hidden className="mt-0.5 h-5 w-5 shrink-0" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
-            <span>
-              <span className="block text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-                {packet.title}
-              </span>
-              <span className="mt-0.5 block text-sm" style={{ color: 'var(--m-slate-2)' }}>
-                Every pack document below, merged into one PDF. The Data Privacy Summary is separate.
-              </span>
-            </span>
+        <div className="my-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link
+            href={`/admin/data-privacy/documents/${packet.key}`}
+            prefetch={false}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--sn-accent)] px-4 text-sm font-semibold text-[var(--sn-on-accent)] hover:opacity-90"
+          >
+            <FolderArchive aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            {packet.title}
+          </Link>
+          <span className="text-[13px] text-ink/60">
+            Every pack document below, merged into one PDF. The Data Privacy Summary is separate.
           </span>
-          <Download aria-hidden className="h-5 w-5 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
-        </Link>
+        </div>
       ) : null}
 
       {groups.map((g) => {
         const docs = rest.filter((d) => d.group === g);
         if (docs.length === 0) return null;
         return (
-          <div key={g} className="mt-5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate-3)' }}>
-              {NPC_DOC_GROUP_LABEL[g]}
-            </p>
-            <ul className="mt-2 space-y-1.5">
+          <div key={g}>
+            <Sec title={NPC_DOC_GROUP_LABEL[g]} count={docs.length} />
+            <ul aria-label={NPC_DOC_GROUP_LABEL[g]} className="[&>li:first-child]:border-t-0">
               {docs.map((d) => (
-                <li key={d.key}>
+                <li key={d.key} className="border-t border-ink/10">
                   <Link
                     href={`/admin/data-privacy/documents/${d.key}`}
                     prefetch={false}
-                    className="sn-tile sn-press flex items-center justify-between gap-3 py-2.5"
+                    className="grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 py-2 text-left hover:bg-ink/[0.02] focus-visible:outline-2 focus-visible:outline-[var(--sn-accent)]"
                   >
-                    <span className="flex items-center gap-2.5">
-                      <FileText aria-hidden className="h-4 w-4 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
-                      <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                        {d.title}
-                      </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[15px] font-semibold leading-tight text-ink">{d.title}</span>
+                      <span className="mt-px block text-[13px] text-ink/65">PDF</span>
                     </span>
-                    <Download aria-hidden className="h-4 w-4 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
+                    <Download aria-hidden className="h-4 w-4 text-[var(--sn-accent)]" strokeWidth={2} />
                   </Link>
                 </li>
               ))}
@@ -225,7 +252,7 @@ function NpcDocuments() {
 }
 
 /**
- * The control board, rendered as risk-grouped sections (biometric → vendor →
+ * The control board, rendered as risk-grouped sections (biometric → supplier-mediated →
  * automated/AI → coordinator → onboarding → activation switches), with any
  * RETIRED controls pulled into their own muted section at the bottom so a
  * parked, feature-less control never sits among the live switches.
@@ -233,6 +260,7 @@ function NpcDocuments() {
 function ControlsBoard({ controls }: { controls: PrivacyControlRow[] }) {
   const live = controls.filter((c) => c.status !== 'retired');
   const retired = controls.filter((c) => c.status === 'retired');
+  const activeNow = live.filter((c) => c.status === 'active').length;
 
   /*
    * ⚠ A TEMPORARY APPROVAL THAT LOOKS PERMANENT IS THE DEFECT THIS ANSWERS.
@@ -248,26 +276,31 @@ function ControlsBoard({ controls }: { controls: PrivacyControlRow[] }) {
   const banner = reviewBanner(summary);
 
   return (
-    <div className="space-y-8">
+    <div data-privacy-controls="">
       {banner ? (
         <p
-          className="rounded-xl border px-4 py-3.5 text-sm leading-relaxed"
-          style={
-            summary.overdue > 0
-              ? { borderColor: 'var(--sn-danger, #b42318)', background: 'rgba(180,35,24,0.06)', color: 'var(--sn-danger, #b42318)' }
-              : { borderColor: 'var(--m-orange-deep)', background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }
-          }
+          role="status"
+          className={`my-2 flex items-start gap-2 text-sm leading-relaxed ${summary.overdue > 0 ? 'text-[var(--sn-danger)]' : 'text-[var(--sn-warning-deep)]'}`}
         >
-          {banner}
+          <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
+          <span>{banner}</span>
         </p>
       ) : null}
+
+      <Sec
+        title="Controls"
+        about="Approve privacy-sensitive capabilities. Activation switches (not privacy-sensitive) sit in their own group; retired controls are parked for audit lineage and fail-closed everywhere."
+        count={controls.length}
+        right={`${activeNow} active`}
+      />
+
       {PRIVACY_CONTROL_GROUP_ORDER.map((g) => {
         const rows = live.filter((c) => c.group === g);
         if (rows.length === 0) return null;
         return (
           <section key={g}>
-            <h2 className="sn-sec">{PRIVACY_CONTROL_GROUP_LABEL[g]}</h2>
-            <ul className="mt-3 space-y-3">
+            <Sec title={PRIVACY_CONTROL_GROUP_LABEL[g]} count={rows.length} />
+            <ul className="[&>li:first-child]:border-t-0">
               {rows.map((c) => (
                 <ControlCard key={c.control_key} control={c} />
               ))}
@@ -278,14 +311,12 @@ function ControlsBoard({ controls }: { controls: PrivacyControlRow[] }) {
 
       {retired.length > 0 ? (
         <section>
-          <h2 className="sn-sec flex items-center gap-2" style={{ color: 'var(--m-slate-3)' }}>
-            <Archive aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Retired
-          </h2>
-          <p className="mt-1 max-w-2xl text-sm" style={{ color: 'var(--m-slate-3)' }}>
-            Feature removed or never built — parked for audit lineage. Fail-closed everywhere
-            (nothing reads a retired control as active). Restore to bring it back onto the board.
-          </p>
-          <ul className="mt-3 space-y-3">
+          <Sec
+            title="Retired"
+            count={retired.length}
+            about="Feature removed or never built — parked for audit lineage. Fail-closed everywhere (nothing reads a retired control as active). Restore to bring it back onto the board."
+          />
+          <ul className="[&>li:first-child]:border-t-0">
             {retired.map((c) => (
               <ControlCard key={c.control_key} control={c} />
             ))}
@@ -296,80 +327,53 @@ function ControlsBoard({ controls }: { controls: PrivacyControlRow[] }) {
   );
 }
 
+/** The one line under a control's name: its approval and review standing, or its note. */
+function controlLine(c: PrivacyControlRow): { text: string; tone?: 'warn' | 'danger' } {
+  if (c.status === 'active' && c.approved_at) {
+    // The row has to carry it too: a board-level count tells you SOMETHING is provisional, never WHICH.
+    const standing = approvalStanding({ status: c.status, reviewBy: c.review_by });
+    const base = `Approved ${relativeTime(c.approved_at)}${c.note ? ` · “${c.note}”` : ''}`;
+    if (standing === 'overdue') return { text: `${base} · review was due ${c.review_by ?? '(date unreadable)'}`, tone: 'danger' };
+    if (standing === 'provisional') return { text: `${base} · temporary — review by ${c.review_by}`, tone: 'warn' };
+    return { text: base };
+  }
+  if (c.status === 'retired') return { text: c.note ? `Note: “${c.note}”` : 'Feature removed or never built · fail-closed everywhere' };
+  return { text: c.note ? `Note: “${c.note}”` : c.category };
+}
+
 function ControlCard({ control: c }: { control: PrivacyControlRow }) {
   const meta = STATUS_META[c.status];
-  const StatusIcon = meta.icon;
-  const toneColor =
-    meta.tone === 'active'
-      ? 'var(--sn-success, #157347)'
-      : meta.tone === 'blocked'
-        ? 'var(--sn-danger, #b42318)'
-        : 'var(--m-slate-3)';
+  const line = controlLine(c);
 
   return (
-    <li className="sn-tile" style={c.status === 'retired' ? { opacity: 0.72 } : undefined}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold"
-              style={{ color: toneColor, background: 'var(--m-line-soft)' }}
-            >
-              <StatusIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              {meta.label}
-            </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate-3)' }}>
-              {c.category}
-            </span>
-          </div>
-          <h2 className="mt-2 text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-            {c.title}
-          </h2>
-          <p className="mt-1 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-            {c.description}
-          </p>
-          {c.risk_note ? (
-            <p
-              className="mt-2 rounded-md px-3 py-2 text-xs"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-            >
-              <strong>Why it’s sensitive:</strong> {c.risk_note}
-            </p>
-          ) : null}
-          {c.status === 'active' && c.approved_at ? (
-            <p className="mt-2 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Approved {relativeTime(c.approved_at)}
-              {c.note ? ` · “${c.note}”` : ''}
-              {/* The card has to carry it too: a board-level count tells you
-                  SOMETHING is provisional, never WHICH. */}
-              {(() => {
-                const standing = approvalStanding({ status: c.status, reviewBy: c.review_by });
-                if (standing === 'overdue') {
-                  return (
-                    <>
-                      {' · '}
-                      <strong style={{ color: 'var(--sn-danger, #b42318)' }}>
-                        review was due {c.review_by ?? '(date unreadable)'}
-                      </strong>
-                    </>
-                  );
-                }
-                if (standing === 'provisional') {
-                  return <>{` · temporary — review by ${c.review_by}`}</>;
-                }
-                return null;
-              })()}
-            </p>
-          ) : c.note ? (
-            <p className="mt-2 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Note: “{c.note}”
-            </p>
-          ) : null}
-        </div>
-
-        {/* Approve / turn off / block — in-place via useActionState, no page nav */}
+    <li className="border-t border-ink/10" data-privacy-control={c.control_key}>
+      <Fold
+        title={c.title}
+        line={line.text}
+        aside={<Badge tone={meta.tone}>{meta.label}</Badge>}
+        data="privacy-control"
+      >
+        <Facts
+          rows={[
+            ['Status', meta.label],
+            ['Category', c.category],
+            ['What it does', c.description],
+            ...(c.risk_note ? ([['Why it’s sensitive', c.risk_note]] as [string, string][]) : []),
+            ...(line.tone
+              ? ([
+                  [
+                    'Review',
+                    <span key="review" className={line.tone === 'danger' ? 'text-[var(--sn-danger)]' : 'text-[var(--sn-warning-deep)]'}>
+                      {line.text}
+                    </span>,
+                  ],
+                ] as [string, React.ReactNode][])
+              : []),
+          ]}
+        />
+        {/* Approve / turn off / block / retire / restore — in-place via useActionState, no page nav */}
         <ControlActions control={c} />
-      </div>
+      </Fold>
     </li>
   );
 }

@@ -219,7 +219,7 @@ test('1a · exactly three places draw the button — one mount each, and each is
     [GUEST_TICKET]: 1,
     [POPUP]: 1,
     [THANK_YOU]: 1,
-    'app/dev/maker-lab/guest/page.tsx': 1,
+    'app/dev/maker-lab/guest/page.lab.tsx': 1,
     'app/dev/me-lab/save-offer-lab.tsx': 1,
   });
 

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1874
+# ledger: 1876
 # tables: 502
-# columns: 6087
-# notnull: 3673
+# columns: 6089
+# notnull: 3674
 [ledger]
 20260512000000
 20260513000000
@@ -1881,8 +1881,10 @@
 20271344065097
 20271344452857
 20271344488042
+20271344732290
 20271344860040
 20271345020514
+20271345220516
 20271345227050
 20271345334309
 20271345494976
@@ -3963,6 +3965,7 @@ events.papic_guest_spend_floor_points
 events.papic_ltd_cap_php
 events.papic_mini_cap_php
 events.papic_on
+events.papic_phone_uploads_held
 events.papic_quality_tier
 events.papic_storage_target
 events.papic_style
@@ -5132,6 +5135,7 @@ papic_guest_captures.id
 papic_guest_captures.media_type
 papic_guest_captures.moderation_state
 papic_guest_captures.orig_bytes
+papic_guest_captures.phone_upload
 papic_guest_captures.points_cost
 papic_guest_captures.poster_r2_key
 papic_guest_captures.preserved_at
@@ -9184,6 +9188,7 @@ events.papic_guest_capture_early
 events.papic_guest_spend_ceiling_on
 events.papic_ltd_cap_php
 events.papic_mini_cap_php
+events.papic_phone_uploads_held
 events.papic_quality_tier
 events.papic_storage_target
 events.papic_style

@@ -1107,8 +1107,7 @@ function ApplicationCard({
 
       {(['dti_certificate', 'bir_2303', 'mayors_permit'] as const).some((k) => typedBySupplier(application.doc_uploads?.[k] as DocUpload)) ? (
         <p className="rounded-md border border-warn-300 bg-warn-50 px-3 py-2 text-xs font-medium text-warn-900">
-          Typed by the supplier — a paper could not be read in 3 tries. Compare what they typed with the kept file, then
-          approve or ask for a clearer copy.
+          Typed by the supplier after 3 tries. Compare it with the kept file by hand.
         </p>
       ) : null}
 

@@ -16,6 +16,7 @@
 // data-load. Self-gates on papicGamesEnabled(); renders null when the flag is
 // off. Mounted after BoothPosterCard (booked-only) on the client-event card.
 
+import { ActionButton } from '@/components/action-button';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { InfoTip } from '@/app/_components/info-tip';
 import Link from 'next/link';
@@ -138,13 +139,14 @@ export async function VendorChallengeSection({
               Submit for the couple&rsquo;s okay
             </SubmitButton>
           </StayForm>
-          <Link
-            href={`/vendor-dashboard/clients/${eventId}/challenge-photos`}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta-700 hover:text-terracotta-800"
-          >
-            <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />
-            View shared photos
-          </Link>
+          <div className="mt-3">
+            <ActionButton
+              tone="info"
+              href={`/vendor-dashboard/clients/${eventId}/challenge-photos`}
+              icon={<ImageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />}
+              label="View shared photos"
+            />
+          </div>
         </>
       ) : (
         // Not ready → the honest reason. "not_subscribed" is the only one the
@@ -156,7 +158,7 @@ export async function VendorChallengeSection({
           {ready.reason === 'not_subscribed' ? (
             <Link
               href="/vendor-dashboard/subscription"
-              className="mt-2 inline-flex items-center gap-1.5 font-semibold text-link underline"
+              className="mt-2 inline-flex min-h-11 items-center gap-1.5 font-semibold text-link underline"
             >
               Turn on Papic Challenges
             </Link>

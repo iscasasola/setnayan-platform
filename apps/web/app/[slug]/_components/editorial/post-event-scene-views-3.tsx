@@ -153,14 +153,8 @@ export function RoadScene({
             </li>
           );
         })}
-        {dayMs !== null ? (
-          <li className="relative">
-            <span aria-hidden className="absolute -left-[22px] top-2.5 h-2.5 w-2.5 rounded-full bg-terracotta" />
-            <span className="block font-serif text-[1.9rem] leading-none text-terracotta-700">
-              0<span className={`${MICRO} ml-2`}>the day</span>
-            </span>
-          </li>
-        ) : null}
+        {/* (No "0 · the day" stop — F-W2-48, the walk after #7628: a stop with no step on it read as an empty row.
+            The road ends on its last real step; the day itself is the story's own next scene.) */}
       </ol>
     </div>
   );

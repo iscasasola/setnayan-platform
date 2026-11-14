@@ -1,7 +1,11 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Sparkles, CalendarDays, Store } from 'lucide-react';
+import { CalendarDays, CalendarPlus, LogIn, Plus, Store, UserPlus } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TEMPLATE_SUBLINE, TemplateSection } from '@/app/_components/template-rows';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { listHostEvents, coerceVendorCategory } from '@/lib/vendor-couple-invite';
@@ -120,9 +124,9 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
   const statusMessage = status ? STATUS_COPY[status] ?? null : null;
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6">
-      {/* Vendor identity */}
-      <div className="rounded-3xl border border-ink/10 bg-cream p-6 text-center">
+    <div className="mx-auto w-full max-w-lg px-4 py-8 sm:px-6">
+      {/* Supplier identity — rule 13: the top of the page, on the warm surface. */}
+      <div className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-6 text-center">
         {logoDisplayUrl ? (
           <Image
             src={logoDisplayUrl}
@@ -132,68 +136,72 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
             className="mx-auto h-20 w-20 rounded-2xl object-cover"
           />
         ) : (
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-ink/5">
-            <Store className="h-8 w-8 text-ink/40" strokeWidth={1.5} />
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-[color:var(--m-line)]">
+            <Store aria-hidden className="h-8 w-8 text-[color:var(--m-slate-2)]" strokeWidth={1.5} />
           </div>
         )}
-        <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
+        <p className="mt-4 text-[13px] font-semibold text-[color:var(--m-slate-2)]">
           {categoryLabel} · invites you{eventTypeLabel ? ` · ${eventTypeLabel}` : ''}
         </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">
           {vendor.business_name}
         </h1>
         {vendor.tagline ? (
-          <p className="mt-1 text-sm text-ink/60">{vendor.tagline}</p>
+          <p className={`mt-1 ${TEMPLATE_SUBLINE}`}>{vendor.tagline}</p>
         ) : null}
         {vendor.location_city ? (
-          <p className="mt-1 text-xs text-ink/45">{vendor.location_city}</p>
+          <p className={`mt-1 ${TEMPLATE_SUBLINE}`}>{vendor.location_city}</p>
         ) : null}
       </div>
 
       {statusMessage ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-xl border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <p role="alert" className="mt-4 py-2 text-[14px] font-semibold" style={{ color: 'rgb(var(--color-warn))' }}>
           {statusMessage}
         </p>
       ) : null}
 
-      {/* Action zone — depends on auth + event state */}
-      <div className="mt-6">
+      {/* Action zone — depends on auth + event state. Rule 2: no card; the one next step is the main button. */}
+      <div className="mt-4">
         {!user ? (
           // Signed out → sign up / sign in, returning to this page.
-          <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
-            <Sparkles className="mx-auto h-5 w-5 text-terracotta" strokeWidth={1.75} />
-            <p className="mt-2 text-sm text-ink/70">
-              Create your free Setnayan plan to save {vendor.business_name} to
-              your event — and manage your whole wedding in one place.
-            </p>
+          <div className="space-y-3 text-center">
+            <div className="flex justify-center text-[15px] font-semibold text-ink">
+              <InfoTip label={`Save ${vendor.business_name} to your event`}>
+                Create your free Setnayan plan — and manage your whole wedding in one place.
+              </InfoTip>
+            </div>
             <Link
               href={`/signup?as=couple&next=${encodeURIComponent(nextPath)}`}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
+              className={`${actionButtonClass('brand', { main: true })} w-full`}
+              data-tone="brand"
+              data-main=""
             >
-              Sign up free & add this supplier
+              <UserPlus aria-hidden strokeWidth={1.9} />
+              <span>Sign up free & add this supplier</span>
             </Link>
-            <Link
+            <ActionButton
+              tone="neutral"
+              quiet
+              icon={<LogIn aria-hidden />}
+              label="I already have an account"
               href={`/login?next=${encodeURIComponent(nextPath)}`}
-              className="mt-3 inline-block text-sm text-ink/60 underline hover:text-link"
-            >
-              I already have an account
-            </Link>
+            />
           </div>
         ) : hostEvents.length === 0 ? (
           // Signed in, no event yet → create one, returning here to finish.
-          <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
-            <p className="text-sm text-ink/70">
+          <div className="space-y-3 text-center">
+            <p className={TEMPLATE_SUBLINE}>
               Create your {eventTypeLabel ? `${eventTypeLabel.toLowerCase()} ` : ''}
               event first, then we’ll add {vendor.business_name} to its shortlist.
             </p>
             <Link
               href={`/dashboard/create-event?next=${encodeURIComponent(nextPath)}`}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
+              className={`${actionButtonClass('brand', { main: true })} w-full`}
+              data-tone="brand"
+              data-main=""
             >
-              Create your {eventTypeLabel ? `${eventTypeLabel.toLowerCase()} ` : ''}event
+              <CalendarPlus aria-hidden strokeWidth={1.9} />
+              <span>Create your {eventTypeLabel ? `${eventTypeLabel.toLowerCase()} ` : ''}event</span>
             </Link>
           </div>
         ) : (
@@ -204,56 +212,55 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
               <input type="hidden" name="cat" value={pickedCategory} />
             ) : null}
             {et ? <input type="hidden" name="et" value={et} /> : null}
-            <p className="text-sm font-medium text-ink/80">
-              Add to which event?
-            </p>
-            <fieldset className="space-y-2">
-              {hostEvents.map((ev, i) => (
-                <label
-                  key={ev.event_id}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-ink/15 bg-white/60 px-4 py-3 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5"
-                >
-                  <input
-                    type="radio"
-                    name="event_id"
-                    value={ev.event_id}
-                    defaultChecked={i === 0}
-                    className="accent-terracotta"
-                  />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium">
-                      {ev.display_name ?? 'Untitled event'}
-                      {ev.is_primary ? (
-                        <span className="ml-2 rounded bg-ink/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/50">
-                          Primary
-                        </span>
-                      ) : null}
+            <TemplateSection label="Add to which event?" first>
+              <fieldset className="[&>label+label]:border-t [&>label+label]:border-[color:var(--m-line)]">
+                <legend className="sr-only">Add to which event?</legend>
+                {hostEvents.map((ev, i) => (
+                  <label
+                    key={ev.event_id}
+                    className="flex min-h-14 cursor-pointer items-center gap-3 py-2"
+                  >
+                    <input
+                      type="radio"
+                      name="event_id"
+                      value={ev.event_id}
+                      defaultChecked={i === 0}
+                      className="h-5 w-5 accent-mulberry"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2 truncate text-[15px] font-semibold text-ink">
+                        <span className="truncate">{ev.display_name ?? 'Untitled event'}</span>
+                        {ev.is_primary ? <Badge tone="quiet">Primary</Badge> : null}
+                      </span>
+                      <span className={`mt-0.5 flex items-center gap-1 ${TEMPLATE_SUBLINE}`}>
+                        <CalendarDays aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        {ev.event_date ? formatEventDate(ev.event_date, 'en-PH') : 'Date TBD'}
+                      </span>
                     </span>
-                    <span className="mt-0.5 flex items-center gap-1 text-xs text-ink/50">
-                      <CalendarDays className="h-3 w-3" strokeWidth={1.75} />
-                      {ev.event_date ? formatEventDate(ev.event_date, 'en-PH') : 'Date TBD'}
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </fieldset>
+                  </label>
+                ))}
+              </fieldset>
+            </TemplateSection>
             <SubmitButton
               pendingLabel="Adding…"
-              className="w-full rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
+              className={`${actionButtonClass('brand', { main: true })} w-full`}
             >
               Add {vendor.business_name} to my plan
             </SubmitButton>
-            <Link
-              href={`/dashboard/create-event?next=${encodeURIComponent(nextPath)}`}
-              className="block text-center text-xs text-ink/50 underline hover:text-link"
-            >
-              or create a new event
-            </Link>
+            <div className="text-center">
+              <ActionButton
+                tone="neutral"
+                quiet
+                icon={<Plus aria-hidden />}
+                label="or create a new event"
+                href={`/dashboard/create-event?next=${encodeURIComponent(nextPath)}`}
+              />
+            </div>
           </form>
         )}
       </div>
 
-      <p className="mt-6 text-center text-[11px] text-ink/40">
+      <p className={`mt-6 text-center ${TEMPLATE_SUBLINE}`}>
         Adding a supplier to your plan is free. You can remove them any time.
       </p>
     </div>

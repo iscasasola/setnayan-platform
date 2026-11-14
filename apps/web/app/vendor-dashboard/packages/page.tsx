@@ -1,6 +1,16 @@
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
 import { Plus, Package as PackageIcon } from 'lucide-react';
+
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import {
+  TEMPLATE_MONEY,
+  TemplateEmpty,
+  TemplateFail,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -50,71 +60,51 @@ export default async function VendorPackagesPage() {
   const rows = packages ?? [];
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
-      <header className="mb-6">
-        <h1 className="mt-1 font-serif text-2xl text-ink/90">Your packages</h1>
-        <p className="mt-2 max-w-xl text-sm text-ink/60">
-          A package is a bundle a couple can make their own — they swap what they
-          want, drop what they don&rsquo;t, and you see exactly what they picked
-          before you quote.
-        </p>
-      </header>
+    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 py-4 sm:px-6">
+      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
+      <h1 className="sr-only">Your packages</h1>
 
-      <Link
+      <ActionButton
+        tone="brand"
+        main
+        icon={<Plus aria-hidden strokeWidth={2} />}
+        label="Build a package"
         href="/vendor-dashboard/packages/new"
-        className="mb-5 inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-sm text-cream"
-      >
-        <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-        Build a package
-      </Link>
+      />
 
-      {!measured ? (
-        <p
-          role="alert"
-          className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
-        >
-          <strong className="text-ink">We couldn&rsquo;t load your packages.</strong>{' '}
-          This does not mean you have none, and nothing has been removed from
-          your page &mdash; reload in a moment before building anything again.
-        </p>
-      ) : rows.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-ink/15 p-8 text-center text-sm text-ink/50">
-          No packages yet. Build one and it appears on your page for couples to
-          customize.
-        </p>
-      ) : (
-        <ul className="space-y-2">
-          {rows.map((p) => (
-            <li key={p.package_id}>
-              <Link
+      <TemplateSection
+        label="Your packages"
+        first
+        tip="A bundle a couple can make their own — they swap and drop items, and you see exactly what they picked before you quote."
+      >
+        {!measured ? (
+          <TemplateFail data="packages" retryHref="/vendor-dashboard/packages">
+            We couldn&rsquo;t load your packages. This does not mean you have none, and nothing
+            has been removed from your page — reload in a moment before building anything again.
+          </TemplateFail>
+        ) : rows.length === 0 ? (
+          <TemplateEmpty data="packages">
+            No packages yet. Build one and it appears on your page for couples to customize.
+          </TemplateEmpty>
+        ) : (
+          <TemplateRows label="Your packages">
+            {rows.map((p) => (
+              <TemplateRow
+                key={p.package_id}
                 href={`/vendor-dashboard/packages/${p.package_id}`}
-                className="flex items-center gap-3 rounded-xl border border-ink/10 bg-cream p-4 hover:border-ink/20"
-              >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
-                  <PackageIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm text-ink/85">
-                    {p.package_name}
+                lead={
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--m-paper-2)] text-terracotta">
+                    <PackageIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   </span>
-                  <span className="block font-mono text-[11px] text-ink/45">
-                    {formatCentavosPhp(p.total_price_centavos)}
-                  </span>
-                </span>
-                <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.12em] ${
-                    p.is_active
-                      ? 'bg-success-50 text-success-700'
-                      : 'bg-ink/[0.05] text-ink/45'
-                  }`}
-                >
-                  {p.is_active ? 'Live' : 'Draft'}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+                }
+                title={p.package_name}
+                line={<span className={TEMPLATE_MONEY}>{formatCentavosPhp(p.total_price_centavos)}</span>}
+                right={<Badge tone={p.is_active ? 'ok' : 'quiet'}>{p.is_active ? 'Live' : 'Draft'}</Badge>}
+              />
+            ))}
+          </TemplateRows>
+        )}
+      </TemplateSection>
     </div>
   );
 }

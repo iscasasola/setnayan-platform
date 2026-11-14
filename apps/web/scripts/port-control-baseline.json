@@ -12093,20 +12093,6 @@
         "DemoCaptureReel"
       ]
     },
-    "/dev/story-suppliers-lab": {
-      "files": [
-        "dev/story-suppliers-lab/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "PeopleWhoMadeIt",
-        "PortfolioAlbumSection",
-        "SupplierStoriesScene",
-        "UltraSupplierScene",
-        "VendorCredit"
-      ]
-    },
     "/forgot-password": {
       "files": [
         "forgot-password/actions.ts",

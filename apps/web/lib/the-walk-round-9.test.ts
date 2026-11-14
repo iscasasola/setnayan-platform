@@ -146,3 +146,16 @@ test('RW-268 · the logo "Ask to change" uploads a picture and files its key, no
   assert.match(ask, /fd\.set\('requested_value', value\);/);
   assert.match(ask, /isLogo \? 'Choose the new logo first\.'/);
 });
+
+test('RW-269 · Check a date shows once — the About panel keeps its line, not a second door', () => {
+  const panel = code('app/v/[slug]/_components/shop-can-do-panel.tsx');
+  assert.doesNotMatch(panel, /<CheckADateLink\b/);
+  assert.match(panel, /Check a date against their real calendar/);
+  assert.equal((code('app/v/[slug]/page.tsx').match(/<CheckADateLink\b/g) ?? []).length, 1);
+});
+
+test('RW-270 · on a phone the calling card’s column is the card’s width, so the map and Directions stay inside', () => {
+  const page = code('app/v/[slug]/page.tsx');
+  assert.match(page, /<section className=\{SHOP_CARD_SECTION_CLASS\}>\s*<Logo [^>]*\/>[\s{}]*<div className="w-full min-w-0 space-y-2">/);
+  assert.match(code('app/v/[slug]/_components/sample-shop-page.tsx'), /<div className="w-full min-w-0 space-y-2">/, 'the sample drew it the same way');
+});

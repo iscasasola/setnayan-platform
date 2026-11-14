@@ -2447,7 +2447,10 @@ export async function renderVendorBySlug({
           >
         <section className={SHOP_CARD_SECTION_CLASS}>
           <Logo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />
-          <div className="min-w-0 space-y-2">
+          {/* 📐 RW-270 (owner-seen 14 Nov, 390 px): `w-full`, as the sample card (`SampleShopPage`) — in the phone's
+              column flex (`items-start`) a fit-content column grew to its widest line and dragged the map and the
+              Directions row past the right gutter, cutting the map's credit. Pinned to the card's width, they fit. */}
+          <div className="w-full min-w-0 space-y-2">
             {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
                 system + /tmp/setnayan-keynote-template/components/vendor-
                 microsite.jsx hero typography. Italic-serif headline matches

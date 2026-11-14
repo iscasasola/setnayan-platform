@@ -25,6 +25,9 @@
   editor's own uploader; the uploaded key is what the request files.
 - **RW-269** "Check a date" appeared twice on a verified shop page. The About panel keeps its line but loses its button;
   the one beside "Add to your event" stays.
+- **RW-270** At 390 px the verified shop's map and Directions row ran past the right edge and the map's credit was cut.
+  The calling card's text column now takes the card's width (as the sample card already did), so a long line can no
+  longer widen it. Measured on a local mock: with a wide line, map right edge 582 → 356 on a 390 screen.
 - Guard: `apps/web/lib/the-walk-round-9.test.ts`.
 
 SPEC IMPACT: None.

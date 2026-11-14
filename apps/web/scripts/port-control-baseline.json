@@ -16559,9 +16559,9 @@
       "destinations": [
         "/dashboard/profile",
         "/dashboard?hub=1",
-        "/help",
         "/help/how-booking-works",
         "/help/what-do-suppliers-pay-setnayan",
+        "/help?for=shop",
         "/vendor-dashboard/deep-search",
         "/vendor-dashboard/disputes",
         "/vendor-dashboard/notifications",

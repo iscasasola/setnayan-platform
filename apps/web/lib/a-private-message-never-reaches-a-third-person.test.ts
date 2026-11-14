@@ -80,7 +80,7 @@ const NAMES_THE_COLUMN_AS_METADATA: Record<string, string> = {
   'lib/chat-private.ts': 'the ONE place the column’s name is written (CHAT_PRIVATE_RECIPIENT_COLUMN) — a constant, no I/O',
   'lib/chat.ts': 'fetchMessages SELECTS the column on the caller’s client so a bubble can be drawn private; the session callers are bound by the restrictive policy, the one service-role caller filters (test below)',
   'app/dev/_components/lab-picked-chat.tsx': 'a dev-lab fixture row (no database; production 404s /dev)',
-  'app/dev/event-group-chat-lab/page.tsx': 'dev-lab fixture rows for the event group chat (no database; production 404s /dev)',
+  'app/dev/event-group-chat-lab/page.lab.tsx': 'dev-lab fixture rows for the event group chat (no database; production 404s /dev)',
   // A READ FILTER, not a writer: the admin replies as a demo shop through the service role, so it keeps only the shop's
   // own view — proved by 'a service-role read of a thread keeps only what its viewer may read' below.
   'app/admin/demo-vendors/inquiries/[threadId]/page.tsx': 'filters a service-role thread read down to the shop’s own view',

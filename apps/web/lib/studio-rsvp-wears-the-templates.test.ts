@@ -455,7 +455,7 @@ test('(9) the rest of the stage: Celebration ▾ in a Form row with the Pro mark
 
 test('(10) the lab: its RSVP stand-in screens carry the real pages’ part marks and bridge; a picked day is not read as refused', async () => {
   const { RSVP_CANVAS_SECTIONS, RSVP_WORD_SECTION, rsvpPartOfTap } = await import('../app/[slug]/_components/rsvp-canvas-parts');
-  const lab = read('app/dev/maker-lab/guest/page.tsx');
+  const lab = read('app/dev/maker-lab/guest/page.lab.tsx');
   const at = lab.indexOf('if (rsvp) {');
   assert.ok(at > 0, 'anti-vacuity: the lab’s RSVP stand-in was not found');
   const screens = lab.slice(at, lab.indexOf('\n  return (', at + 20));

@@ -86,6 +86,7 @@ import { LabPlusSeed } from '@/app/dev/_components/lab-plus-seed';
 import type { PinFact } from '@/lib/chat-pins';
 import { decisionPinBodies } from '@/app/_components/chat/decision-pin-bodies';
 import { filedAttachmentOf, type FiledMessage } from '@/lib/chat-decisions';
+import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 
 /** &decide=media — the filed rows (sample files: nothing real; hrefs through `chatAttachmentHref` only). */
 function labMediaFiled(): FiledMessage[] {
@@ -166,7 +167,7 @@ const NOW = new Date('2026-10-14T04:00:00Z');
 /** `&doors=` — the quote's offer and bundle doors, as `readQuoteDoors` hands them (fixture offers; nobody real). */
 function labQuoteDoors(v: string | string[] | undefined): QuoteDoors | null {
   if (v === 'locked') {
-    const need = { kind: 'verify' as const, progress: papersProgress({ done: 2, of: 4 }) };
+    const need = { kind: 'verify' as const, progress: papersProgress({ done: 2, of: REQUIRED_DOC_COUNT }) };
     return { offers: { kind: 'locked', need }, bundles: { kind: 'locked', need } };
   }
   if (!v) return null;

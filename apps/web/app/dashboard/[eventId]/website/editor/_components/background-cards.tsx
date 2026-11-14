@@ -364,9 +364,9 @@ export function BgCard({
       {/* `w-0 min-w-full`: the name never widens the card — the picture's fixed width is the card's. */}
       <span data-bg-card-name="" className={`flex min-h-[18px] w-0 min-w-full items-center justify-center gap-1 text-center text-[12px] ${looks.on ? 'font-semibold' : 'font-medium'}`}>
         <span className="truncate">{name}</span>
-        {note ? <small className="shrink-0 text-[11px] font-normal text-ink/50">· {note}</small> : null}
+        {note ? <small className="shrink-0 text-[12px] font-normal text-ink/75">· {note}</small> : null}
         {pro ? (
-          <span aria-label="Event Hub Pro" className="shrink-0 text-[10px] text-ink/45">
+          <span aria-label="Event Hub Pro" className="shrink-0 text-[12px] text-ink/75">
             ◆
           </span>
         ) : null}

@@ -73,6 +73,7 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { isMoodboardSlotPosition, MOODBOARD_SLOT_POSITIONS } from '@/lib/moodboard-slots';
@@ -528,6 +529,22 @@ async function completeVendorPickFromMarketplace(
       vendorProfileId: marketplaceVendorIdRaw,
     });
     if (demoRefusal) throw new Error(demoRefusal);
+  }
+  // ⬜ A day the supplier closed: no ask, no book (owner 2026-11-14, `lib/closed-day.server.ts`). The wizard names no
+  // card, so the day must be closed for the shop as a whole. Day-precise events only; fails open.
+  {
+    const { data: dayRow } = await supabase
+      .from('events')
+      .select('event_date, event_date_precision')
+      .eq('event_id', eventIdRaw)
+      .maybeSingle();
+    const d = dayRow as { event_date?: string | null; event_date_precision?: string | null } | null;
+    if (
+      d?.event_date_precision === 'day' &&
+      (await closedDayRefusal({ vendorProfileId: marketplaceVendorIdRaw, serviceId: null, day: d.event_date })) === 'closed'
+    ) {
+      throw new Error(CLOSED_DAY_COUPLE_MESSAGE);
+    }
   }
 
   // Insert event_vendors row with status='contracted' directly · the

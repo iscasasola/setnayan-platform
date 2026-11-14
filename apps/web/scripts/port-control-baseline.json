@@ -2962,11 +2962,14 @@
     },
     "/admin/catalogue": {
       "files": [
+        "admin/catalogue/_components/catalogue-home-view.tsx",
         "admin/catalogue/_components/catalogue-rows.tsx",
+        "admin/catalogue/_components/hub-views.tsx",
         "admin/catalogue/loading.tsx",
         "admin/catalogue/page.tsx"
       ],
       "destinations": [
+        "/admin/background-videos",
         "/admin/budget-planner",
         "/admin/catalogue/design-kit",
         "/admin/catalogue/media",
@@ -2977,18 +2980,27 @@
         "/admin/categories?list=event-types",
         "/admin/categories?list=hub-tools",
         "/admin/categories?list=religions",
+        "/admin/colours",
+        "/admin/hub-music",
         "/admin/pricing",
         "/admin/pricing?tab=papic-shots",
         "/admin/pricing?tab=plan-contents",
         "/admin/pricing?tab=price-bands",
         "/admin/pricing?tab=setnayan-ai",
+        "/admin/studio?tab=moodboard-library",
+        "/admin/studio?tab=patiktok",
         "/admin/studio?tab=real-stories",
-        "/admin/vendor-recommendations"
+        "/admin/studio?tab=reveal-studio",
+        "/admin/studio?tab=songs",
+        "/admin/studio?tab=website",
+        "/admin/vendor-recommendations",
+        "/admin/website-media"
       ],
       "actions": [],
       "blocks": [
         "ActionButton",
         "Badge",
+        "CatalogueHomeView",
         "CataloguePage",
         "Icon",
         "InfoTip",
@@ -3006,54 +3018,30 @@
       "files": [
         "admin/catalogue/design-kit/page.tsx"
       ],
-      "destinations": [
-        "/admin/colours"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "CataloguePage",
-        "PageMasthead",
-        "Rows",
-        "Sec",
-        "ViewRow"
+        "DesignKitView"
       ]
     },
     "/admin/catalogue/media": {
       "files": [
         "admin/catalogue/media/page.tsx"
       ],
-      "destinations": [
-        "/admin/background-videos",
-        "/admin/studio?tab=moodboard-library",
-        "/admin/studio?tab=songs",
-        "/admin/website-media"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "CataloguePage",
-        "PageMasthead",
-        "Rows",
-        "Sec",
-        "ViewRow"
+        "MediaView"
       ]
     },
     "/admin/catalogue/templates": {
       "files": [
         "admin/catalogue/templates/page.tsx"
       ],
-      "destinations": [
-        "/admin/hub-music",
-        "/admin/studio?tab=patiktok",
-        "/admin/studio?tab=reveal-studio",
-        "/admin/studio?tab=website"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "CataloguePage",
-        "PageMasthead",
-        "Rows",
-        "Sec",
-        "ViewRow"
+        "TemplatesView"
       ]
     },
     "/admin/categories": {

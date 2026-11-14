@@ -1844,7 +1844,6 @@
         "RevealOverlay",
         "RevealOverlayServer",
         "RevealParticles",
-        "ReviewsEmptyState",
         "ReviewsWall",
         "RigidFlaps",
         "RigidReveal",
@@ -10446,6 +10445,7 @@
     },
     "/dashboard/[eventId]/studio/papic/recap": {
       "files": [
+        "dashboard/[eventId]/studio/papic/recap/_components/guest-phone-review.tsx",
         "dashboard/[eventId]/studio/papic/recap/_components/recap-drive-nudge.tsx",
         "dashboard/[eventId]/studio/papic/recap/_components/recap-social-feature-toggle.tsx",
         "dashboard/[eventId]/studio/papic/recap/actions.ts",
@@ -10458,19 +10458,25 @@
         "/dashboard/[seg]/studio/papic/magazine"
       ],
       "actions": [
+        "action",
         "publishRecap",
         "unpublishRecap"
       ],
       "blocks": [
+        "ActionButton",
         "DriveSafetyPanel",
+        "GuestPhoneReview",
+        "InfoTip",
         "Link",
         "ListPageSkeleton",
         "Notice",
         "PageMasthead",
+        "PublishRecapForm",
         "ReadRefusedNotice",
         "RecapDriveNudge",
         "RecapSocialFeatureToggle",
         "ShareButtons",
+        "Sheet",
         "Stat",
         "SubmitButton",
         "SwitchTrack"
@@ -12306,7 +12312,9 @@
       "blocks": [
         "AddServicePicker",
         "CanvasMaker",
-        "SetupOfferFold"
+        "CardPortfolioSection",
+        "SetupOfferFold",
+        "TheirWorkList"
       ]
     },
     "/dev/card-moderation-lab": {
@@ -13202,22 +13210,29 @@
       "files": [
         "dev/papic-camera-lab/lab-camera.tsx",
         "dev/papic-camera-lab/lab-challenges.tsx",
+        "dev/papic-camera-lab/lab-phone-review.tsx",
         "dev/papic-camera-lab/page.tsx"
       ],
       "destinations": [
         "/dev/papic-camera-lab"
       ],
-      "actions": [],
+      "actions": [
+        "noop"
+      ],
       "blocks": [
         "Blob",
         "ChallengeRow",
+        "GuestPhoneReview",
         "LabCamera",
         "LabChallenges",
         "LabPageSpotlight",
+        "LabPhoneReview",
         "PapicBuyShell",
         "PapicCaptureController",
         "PapicGuestCapture",
         "PapicSeatCapture",
+        "PhoneUploadsHeldPicker",
+        "PublishRecapForm",
         "UndoToastHost",
         "UploaderSnapshot"
       ]
@@ -14867,6 +14882,7 @@
     },
     "/papic/guest": {
       "files": [
+        "papic/guest/_components/add-from-phone-sheet.tsx",
         "papic/guest/_components/camera-focus-corners.tsx",
         "papic/guest/_components/guest-camera-tools.tsx",
         "papic/guest/_components/my-shots-sheet.tsx",
@@ -14884,6 +14900,8 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "AddFromPhoneSheet",
         "ArmedChallenge",
         "Blob",
         "CameraColumn",
@@ -14891,6 +14909,7 @@
         "CardFrame",
         "ChallengeFollowUp",
         "ChallengePill",
+        "Config",
         "DayOfFaceEnroll",
         "DoorShell",
         "EventMonogram",
@@ -14904,6 +14923,8 @@
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "HTMLDivElement",
+        "HTMLInputElement",
+        "HTMLVideoElement",
         "InfoTip",
         "Link",
         "MediaRecorder",
@@ -14915,8 +14936,11 @@
         "PapicGuestCapture",
         "PapicStyle",
         "PapicUploadChip",
+        "Phase",
         "PickMenu",
-        "TagScannerOverlay"
+        "Sheet",
+        "TagScannerOverlay",
+        "TrimView"
       ]
     },
     "/papic/join/[token]": {
@@ -15565,6 +15589,7 @@
         "AxisStat",
         "BackButton",
         "CardHidesRead",
+        "CardPortfolioSection",
         "CardRecordSection",
         "CardReviewsBlock",
         "CheckADateLink",
@@ -18185,7 +18210,9 @@
       ],
       "blocks": [
         "CanvasMaker",
+        "CardPortfolioSection",
         "CardRecordSection",
+        "CardRecordUnread",
         "HallsUsesPick",
         "Link",
         "RefinementsEditor"
@@ -18292,6 +18319,24 @@
       "blocks": [
         "TellUsSearch",
         "TellUsWhatYouDoView"
+      ]
+    },
+    "/vendor-dashboard/services/their-work": {
+      "files": [
+        "vendor-dashboard/services/their-work/page.tsx",
+        "vendor-dashboard/services/their-work/their-work-list.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/services/[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "BackButton",
+        "Fold",
+        "Link",
+        "Strip",
+        "TheirOwnUploadsView",
+        "TheirWorkList"
       ]
     },
     "/vendor-dashboard/settings": {

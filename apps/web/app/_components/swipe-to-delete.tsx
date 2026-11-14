@@ -209,7 +209,7 @@ export function SwipeToDelete({
             // No transform at rest: a transform (even translateX(0)) makes this box the frame for every
             // `position: fixed` inside the row, and the row's own sheets would be cut to the row.
             transform: tx === 0 && !dragging ? undefined : `translateX(${tx}px)`,
-            transition: dragging ? 'none' : 'transform 0.2s ease',
+            transition: dragging ? 'none' : 'transform var(--sn-dur-snap) var(--sn-ease-emph)', // 🎞 snap 220 ms (motion system 2026-11-13)
             touchAction: 'pan-y',
           }}
         >
@@ -312,7 +312,7 @@ export function useSwipeReveal({ enabled = true, reveal = SWIPE_REVEAL_PX }: { e
   /** The row's own movement — none at rest (a transform would frame every `position: fixed` inside the row). */
   const rowStyle: CSSProperties = {
     transform: tx === 0 && !dragging ? undefined : `translateX(${tx}px)`,
-    transition: dragging ? 'none' : 'transform 0.2s ease',
+    transition: dragging ? 'none' : 'transform var(--sn-dur-snap) var(--sn-ease-emph)', // 🎞 snap 220 ms (motion system 2026-11-13)
     touchAction: 'pan-y',
   };
   return { tx, open: tx !== 0, close: () => setTx(0), rowProps, rowStyle, reveal };

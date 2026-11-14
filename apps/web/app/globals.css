@@ -3577,16 +3577,42 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      gallery: *"0.7 seconds"*). A pill selector's thumb, its press pulse and its words' cross-fade, a switch's knob,
      and every control's spring back from a press all read THIS; a ring runs 1.3 × it. To change how the whole
      family feels, change this line. */
-  --sn-pill-dur:    700ms;
+  /* ⚡ 2026-11-13 "Motion system approved" (owner: *"motion approved"*): the faster numbers REPLACE the 0.7 s press
+     family — the family now springs back in the approved RELEASE time, so this reads `--sn-dur-release`. */
+  --sn-pill-dur:    var(--sn-dur-release);
   --sn-pill-spring: cubic-bezier(.34,1.56,.64,1);
+  /* 🎞 THE MOTION SYSTEM — the approved timing table, ONE place (DECISION_LOG 2026-11-13 "Motion system approved",
+     prototype `approved_2026-11-13/grow-full-screen-fable.html` § 6 "One timing table — every motion in the app reads
+     from this"). Two curves only: EMPHASIZED for anything that travels or opens, the house SPRING for anything that lets
+     go. Only transform and opacity move, except a row's / field's own height (grid rows) and the grow's clip (one layer).
+     `lib/grow-motion.ts` mirrors these for the Web Animations API. 🔒 lib/the-motion-system-is-shared.test.ts */
+  --sn-ease-emph:        cubic-bezier(.2,0,0,1);
+  --sn-dur-press:     100ms;   /* press in: scale .97 (a row .985) + shade, on touch-down */
+  --sn-dur-release:   280ms;   /* release: back to 1 on the house spring, on lift */
+  --sn-dur-grow-press: 120ms;  /* the press before a grow */
+  --sn-dur-open:      360ms;   /* the grow's shape, the label's travel, the page behind stepping back */
+  --sn-dur-close:     calc(var(--sn-dur-open) * .8); /* close = the mirror at 80 % */
+  --sn-dur-step:      40ms;    /* content arrives in three steps, 40 ms apart */
+  --sn-dur-step-first: 120ms;  /* a row's content: the first step, after the row starts opening */
+  --sn-dur-step-fade: 160ms;   /* … each step fades in this long */
+  --sn-dur-step-move: 200ms;   /* … and rises 8 px this long */
+  --sn-dur-row-open:  320ms;   /* a row expands (grid rows), chevron with it */
+  --sn-dur-row-shut:  260ms;
+  --sn-dur-toggle:    260ms;   /* a switch's knob, with overshoot */
+  --sn-dur-chip:      220ms;   /* a chip's fill slides in (180 out) */
+  --sn-dur-chip-out:  180ms;
+  --sn-dur-field:     260ms;   /* a field's focus line */
+  --sn-dur-snap:      220ms;   /* a swiped row snaps back */
+  --sn-dur-fade-reduced: 120ms;
   /* ⤴ THE RISE — the ONE open/close motion of a sheet or a picked row (THE ONE BUILD spec §0.6, 8 Nov 2026: the close
-     the EXACT reverse, no jump over 40 px, no pause over 90 ms). Its LENGTH is the family speed — owner 2026-11-10
-     (DECISION_LOG "SIX ANSWERS" (2), *"0.7s"*): Rise full screen runs 0.7 s, so it reads `--sn-pill-dur` and has no
-     number of its own. `lib/rise-motion.ts` (`RISE_MS`) mirrors it for the Web Animations API; under reduced motion it
-     is a 120 ms cross-fade. 🔒 lib/the-rise-is-0-7s.test.ts */
-  --sn-dur-rise:    var(--sn-pill-dur);
-  --sn-ease-rise:   cubic-bezier(.2,.8,.2,1);
-  --sn-dur-rise-reduced: 120ms;
+     the EXACT reverse, no jump over 40 px, no pause over 90 ms). Its LENGTH was 0.7 s (owner 2026-11-10); since the
+     motion system (owner 2026-11-13, *"motion approved"* — "the faster numbers REPLACE the 0.7 s rise") it is the
+     grow's 360 ms open on the emphasized curve, closing as the mirror at 80 %, and has no number of its own.
+     `lib/rise-motion.ts` (`RISE_MS`) mirrors it for the Web Animations API; under reduced motion it is a 120 ms
+     cross-fade. 🔒 lib/the-motion-system-is-shared.test.ts */
+  --sn-dur-rise:    var(--sn-dur-open);
+  --sn-ease-rise:   var(--sn-ease-emph);
+  --sn-dur-rise-reduced: var(--sn-dur-fade-reduced);
   /* 📌 THE PINNED ROW'S HEIGHT — the one 44-px line a collapsing top leaves on screen (v108/v110). A sticky day heading
      under it stands at `top: var(--sn-pin-h)`. 🔒 app/_components/collapsing-top/the-top-scrolls-up-and-locks.test.ts */
   --sn-pin-h:       44px;
@@ -5452,7 +5478,8 @@ html.dark [data-art='candlelight'] {
    (A press rings the track: the track also wears `sn-press-ring`, drawn by `app/_components/press-feel.tsx`.) */
 .sn-switch {
   background-color: rgb(var(--color-ink) / 0.2);
-  transition: background-color var(--sn-pill-dur) var(--sn-ease);
+  /* 🎞 Toggle (motion system 2026-11-13): the fill in 260 ms, emphasized; the knob 260 ms with overshoot (below). */
+  transition: background-color var(--sn-dur-toggle) var(--sn-ease-emph);
 }
 /* Dark (PR 4, 2026-10-13): "off" is the approved template's dark line (`--line2`, the page's ink at 28 %) — at 20 % the
    track sank into the card. `:where()` keeps it at the base rule's weight, so "on" (the accent, below) still wins. */
@@ -5465,7 +5492,7 @@ html.dark [data-art='candlelight'] {
 }
 .sn-switch::after,
 .sn-switch > .sn-switch-knob {
-  transition-duration: var(--sn-pill-dur);
+  transition-duration: var(--sn-dur-toggle);
   transition-timing-function: var(--sn-pill-spring);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -6668,6 +6695,11 @@ div:has(> [data-apply-pro-sheet]),
     border-color: var(--sn-gold-500);
     box-shadow: 0 0 0 3px var(--sn-gold-100);
   }
+  /* 🎞 Field focus (motion system 2026-11-13): the focus line arrives in 260 ms on the emphasized curve. */
+  .input-field {
+    transition-duration: var(--sn-dur-field);
+    transition-timing-function: var(--sn-ease-emph);
+  }
 }
 
 /* Hover lifts (proto .cmd:hover -2px · .tile.glass:hover -3px · .ev:hover -4px)
@@ -7102,8 +7134,10 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
   padding: 8px 14px; border-radius: var(--sn-r-pill);
   font: 600 13px var(--sn-font); cursor: pointer;
   background: var(--sn-surface); border: 1px solid var(--sn-line); color: var(--sn-ink-700);
-  transition: border-color var(--sn-dur-control), color var(--sn-dur-control);
+  /* 🎞 Chip (motion system 2026-11-13): picked in 220 ms, let go in 180, emphasized. */
+  transition: border-color var(--sn-dur-chip-out) var(--sn-ease-emph), color var(--sn-dur-chip-out) var(--sn-ease-emph), background-color var(--sn-dur-chip-out) var(--sn-ease-emph);
 }
+.sn-chip.selected { transition-duration: var(--sn-dur-chip); }
 .sn-chip:hover { border-color: var(--sn-gold-500); color: var(--sn-gold-700); }
 .sn-chip.selected { background: var(--sn-gold-100); border-color: transparent; color: var(--sn-gold-700); font-weight: 700; }
 .sn-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--sn-r-pill); font: 700 12px var(--sn-font); }
@@ -10160,7 +10194,7 @@ input.sn-switch:focus-visible {
    weigh more than one utility; it says the same two things that rule says. WHAT moves (`left`, `transform`) stays
    each drawing's own — this never names a transition-property, or a knob moved by the other one would stop moving. */
 .sn-switch.sn-switch::after {
-  transition-duration: var(--sn-pill-dur);
+  transition-duration: var(--sn-dur-toggle);
   transition-timing-function: var(--sn-pill-spring);
 }
 

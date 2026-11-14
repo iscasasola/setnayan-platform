@@ -36,7 +36,7 @@ import { InSheet } from '@/app/_components/sheet';
 import { usePortalHost } from '@/lib/use-portal-host';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
-import { riseOriginNow, riseScreenMotion, watchRiseOrigins, type RiseRect } from '@/lib/rise-screen';
+import { playRiseScreen, riseOriginNow, riseScreenMotion, watchRiseOrigins, type RiseRect } from '@/lib/rise-screen';
 import { prefersReducedMotion } from '@/app/_components/picked/picked-motion';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { TAB_RESELECT_EVENT, useChromeAway } from '@/app/_components/nav/use-chrome-away';
@@ -101,7 +101,8 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
     if (!el || !host) return;
     originRef.current = riseOriginNow();
     const m = riseScreenMotion(rectOf(originRef.current), viewport(), prefersReducedMotion());
-    if (m && typeof el.animate === 'function') el.animate(m.frames, m.timing);
+    // 🎞 The approved grow (2026-11-13): shape, page behind, label, three steps, chrome last — `lib/rise-screen.ts`.
+    if (m && typeof el.animate === 'function') void playRiseScreen(el, m, originRef.current, { reduced: prefersReducedMotion() });
     // Once, when the portal lands.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host]);
@@ -114,7 +115,7 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
     const el = rootRef.current;
     const m = riseScreenMotion(rectOf(originRef.current), viewport(), prefersReducedMotion());
     if (!el || !m || typeof el.animate !== 'function') return done();
-    el.animate(m.frames, { ...m.timing, direction: 'reverse', fill: 'forwards' }).finished.then(done, done);
+    playRiseScreen(el, m, originRef.current, { close: true, reduced: prefersReducedMotion() }).then(done, done);
   }, []);
 
   // ← The phone's Back closes the screen, not the page; ✕ and Esc step back through the same entry.

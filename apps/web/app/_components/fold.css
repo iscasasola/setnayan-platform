@@ -52,3 +52,38 @@
 [data-fold-pin][data-slim] [data-fold-end] {
   display: none;
 }
+
+/* 🎞 A ROW OPENS (the approved motion system, owner 2026-11-13 — DECISION_LOG "Motion system approved", prototype
+   `approved_2026-11-13/grow-full-screen-fable.html` "Row expands"): `fold.tsx` moves the height on grid rows (320 ms
+   open, 260 shut, emphasized) and turns the arrow with it; here what is inside arrives in THREE STEPS, 40 ms apart —
+   the first block, the second, the rest — each rising 8 px as it fades in. Shutting, they go together, quickly. Only
+   transform and opacity; one fold's own content only (`>`), never a fold nested inside it. Reduced motion: no rise,
+   a 120 ms fade. 🔒 lib/the-motion-system-is-shared.test.ts */
+[data-fold] > [data-fold-body] > [data-fold-inner] > * {
+  transition:
+    opacity var(--sn-dur-step) linear,
+    transform var(--sn-dur-row-shut) var(--sn-ease-emph);
+}
+[data-fold]:not([data-fold-open]) > [data-fold-body] > [data-fold-inner] > * {
+  opacity: 0;
+  transform: translateY(8px);
+}
+[data-fold][data-fold-open] > [data-fold-body] > [data-fold-inner] > * {
+  transition:
+    opacity var(--sn-dur-step-fade) linear var(--sn-fold-step),
+    transform var(--sn-dur-step-move) var(--sn-ease-emph) var(--sn-fold-step);
+  --sn-fold-step: var(--sn-dur-step-first);
+}
+[data-fold][data-fold-open] > [data-fold-body] > [data-fold-inner] > :nth-child(2) {
+  --sn-fold-step: calc(var(--sn-dur-step-first) + var(--sn-dur-step));
+}
+[data-fold][data-fold-open] > [data-fold-body] > [data-fold-inner] > :nth-child(n + 3) {
+  --sn-fold-step: calc(var(--sn-dur-step-first) + 2 * var(--sn-dur-step));
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-fold] > [data-fold-body] > [data-fold-inner] > *,
+  [data-fold][data-fold-open] > [data-fold-body] > [data-fold-inner] > * {
+    transform: none;
+    transition: opacity var(--sn-dur-fade-reduced) linear;
+  }
+}

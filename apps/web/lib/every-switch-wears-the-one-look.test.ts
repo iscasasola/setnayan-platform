@@ -78,7 +78,7 @@ test('(2) a real checkbox is the same switch — terracotta on, the approved siz
   /* The speed and the spring it takes are the track rule’s (same element, lower weight, not overridden above). */
   const family = RULES.find(([sels]) => sels.includes('.sn-switch::after'));
   assert.ok(family, 'no rule gives a switch’s knob the family’s speed');
-  assert.match(family[1], /transition-duration: var\(--sn-pill-dur\);\s*transition-timing-function: var\(--sn-pill-spring\);/);
+  assert.match(family[1], /transition-duration: var\(--sn-dur-toggle\);\s*transition-timing-function: var\(--sn-pill-spring\);/);
   /* Order: the track's colours come first, the input's "on" after — so `:checked` is never repainted grey. */
   assert.ok(css.indexOf('input.sn-switch:checked {') > css.indexOf('.sn-switch {'), 'the input’s “on” is declared before the track’s grey');
 });
@@ -114,10 +114,10 @@ test('(3b) no switch relies on a utility for its knob’s speed — the family�
   const outranks = declarationsOf('.sn-switch.sn-switch::after');
   assert.deepEqual(
     outranks.split(';').map((d) => d.trim()).filter(Boolean),
-    ['transition-duration: var(--sn-pill-dur)', 'transition-timing-function: var(--sn-pill-spring)'],
+    ['transition-duration: var(--sn-dur-toggle)', 'transition-timing-function: var(--sn-pill-spring)'],
     'the outranking rule says more (or less) than the family’s speed and spring',
   );
-  /* It says exactly what the family's own rule says — one speed, declared once (`--sn-pill-dur`). */
+  /* It says exactly what the family's own rule says — one speed, declared once (`--sn-dur-toggle`, 260 ms, motion system 2026-11-13). */
   const family = RULES.find(([sels]) => sels.includes('.sn-switch::after'));
   assert.ok(family && family[1].replace(/\s+/g, ' ').trim() === outranks.replace(/\s+/g, ' ').trim(), 'the two knob rules disagree');
 

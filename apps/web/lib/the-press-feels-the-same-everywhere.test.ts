@@ -48,25 +48,34 @@ const selectorsBefore = (lastSelector: string): string[] => {
     .filter(Boolean);
 };
 
-test('(1) ONE listener plays the press — the dip to .93 and the spring back — on every control the app owns; it composes with any transition', async () => {
+test('(1) ONE listener plays the press — in on touch-down, held, out on lift (motion system 2026-11-13) — on every control the app owns; it composes with any transition', async () => {
   const { PRESS_TARGETS, pressMs } = await import('../app/_components/press-feel');
   // The same seven the stylesheet's universal press names.
   assert.deepEqual(PRESS_TARGETS.split(',').map((x) => x.trim()), ['button', "[role='button']", 'a.button', '.sn-press', "input[type='submit']", "input[type='button']", 'summary']);
   const src = read('app/_components/press-feel.tsx');
-  // ONE delegated listener on the document — never one per element — and it is taken off again.
-  assert.equal((src.match(/addEventListener\(/g) ?? []).length, 1, 'more than one listener');
-  assert.match(src, /document\.addEventListener\('pointerdown', onDown, true\);\s*return \(\) => document\.removeEventListener\('pointerdown', onDown, true\);/);
-  assert.doesNotMatch(src, /querySelectorAll\([^)]*\)\.forEach|\.addEventListener\('(?:click|pointerup|touchstart)/, 'a listener per element, or a second trigger');
-  // The dip and the spring: Web Animations (it composes with a control's own `transition-colors` — nothing snaps).
-  assert.match(src, /el\.animate\(\[\{ scale: 1 \}, \{ scale: 0\.93, offset: 0\.35 \}, \{ scale: 1 \}\], \{ duration: ms, easing: SPRING \}\);/);
-  assert.match(src, /const SPRING = 'cubic-bezier\(\.34,1\.56,\.64,1\)';/);
-  // At the family's ONE speed, read from the token — never a number of its own.
-  assert.match(src, /const ms = pressMs\(getComputedStyle\(document\.documentElement\)\.getPropertyValue\('--sn-pill-dur'\)\);/);
-  assert.deepEqual([pressMs('700ms'), pressMs(' 700ms '), pressMs('0.7s'), pressMs('460ms'), pressMs(''), pressMs('none')], [700, 700, 700, 460, 700, 700]);
+  // ONE delegated listener for the press on the document — never one per element — and the lift on the window; all
+  // taken off again.
+  assert.equal((src.match(/addEventListener\(/g) ?? []).length, 4, 'a listener more than the press, the lift, a cancelled touch and a lost focus');
+  assert.match(src, /document\.addEventListener\('pointerdown', onDown, true\);/);
+  assert.match(src, /window\.addEventListener\('pointerup', release, true\);/);
+  assert.match(src, /window\.addEventListener\('pointercancel', release, true\);/);
+  assert.equal((src.match(/removeEventListener\(/g) ?? []).length, 4, 'a listener is left on the page');
+  assert.doesNotMatch(src, /querySelectorAll\([^)]*\)\.forEach|\.addEventListener\('(?:click|touchstart)/, 'a listener per element, or a second trigger');
+  // IN: Web Animations (it composes with a control's own `transition-colors` — nothing snaps), to .97 / a row .985,
+  // in the approved press time, eased out, held (fill forwards).
+  assert.match(src, /el\.animate\(\[\{ scale: 1 \}, \{ scale \}\], \{ duration: inMs, easing: 'ease-out', fill: 'forwards' \}\)/);
+  assert.match(src, /const scale = pressScale\(r\.width, el\.matches\(PRESS_ROWS\)\);/);
+  assert.match(src, /const inMs = token\('--sn-dur-press', TIMING\.pressMs\);/);
+  // OUT: back to 1 on the house spring, in the approved release time.
+  assert.match(src, /h\.el\.animate\(\[\{ scale: h\.scale \}, \{ scale: 1 \}\], \{ duration: ms, easing: SPRING \}\);/);
+  assert.match(src, /const ms = token\('--sn-dur-release', TIMING\.releaseMs\);/);
+  assert.match(src, /const SPRING = EASE_SPRING;/);
+  assert.deepEqual([pressMs('280ms'), pressMs(' 280ms '), pressMs('0.28s'), pressMs('460ms'), pressMs(''), pressMs('none'), pressMs('', 100)], [280, 280, 280, 460, 280, 280, 100]);
   // No timer, no dependency, no state: a few hundred bytes in the root layout.
   assert.doesNotMatch(src, /setTimeout|setInterval|requestAnimationFrame|useState|framer-motion/);
-  // + the one list of what a scrim is (owner 2026-10-29: a scrim is never dipped) — a string constant, no code.
-  assert.deepEqual([...src.matchAll(/from '([^']+)'/g)].map((m) => m[1]), ['react', '@/lib/scrim']);
+  // + the one list of what a scrim is (owner 2026-10-29: a scrim is never dipped) — a string constant, no code — and the
+  // motion system's numbers (`lib/grow-motion.ts`, the timing table).
+  assert.deepEqual([...src.matchAll(/from '([^']+)'/g)].map((m) => m[1]), ['react', '@/lib/scrim', '@/lib/grow-motion']);
   // Mounted ONCE, in the root layout — and nowhere else.
   const layout = read('app/layout.tsx');
   assert.equal((layout.match(/<PressFeel \/>/g) ?? []).length, 1);
@@ -82,7 +91,7 @@ test('(1) ONE listener plays the press — the dip to .93 and the spring back �
   assert.doesNotMatch(css, /:not\(\.sn-editorial \*\) \{\s*transition: scale var\(--sn-pill-dur\)/, 'a second press mechanism (a CSS spring beside the listener)');
 });
 
-test('(2) the ONE exemption is the guest’s Event Hub; a disabled control and “reduce motion” get nothing', async () => {
+test('(2) the ONE exemption is the guest’s Event Hub; a disabled control gets nothing; “reduce motion” gets the shade alone', async () => {
   const { pressable } = await import('../app/_components/press-feel');
   const el = (inGuest: boolean, disabled: boolean) => ({ closest: (sel: string) => (sel === '.sn-editorial' && inGuest ? {} : null), matches: (sel: string) => sel.includes(':disabled') && disabled });
   assert.equal(pressable(el(false, false)), true);
@@ -94,7 +103,9 @@ test('(2) the ONE exemption is the guest’s Event Hub; a disabled control and �
      2026-10-29). Held in full by `lib/one-scrim.test.ts`. */
   const scrim = { closest: () => null, matches: (sel: string) => sel.includes('[data-overlay-backdrop]') };
   assert.equal(pressable(scrim), false, 'the scrim dips on a tap — its edges flash as a frame of the page');
-  assert.match(src, /if \(still\.matches \|\| !\(e\.target instanceof Element\)\) return;/, 'the press plays under “reduce motion”');
+  // Reduced motion (the timing table): the shade only, no scale — and no ring.
+  assert.match(src, /const dip = still\.matches \? null : el\.animate\(/, 'the press scales under “reduce motion”');
+  assert.match(src, /if \(still\.matches\) return;\s*const ringed/, 'the ring plays under “reduce motion”');
   assert.match(src, /if \(!el \|\| !pressable\(el\) \|\| !el\.animate\) return;/);
   // An EXCLUSION, never a list of surfaces — a new screen gets the feel by default.
   assert.doesNotMatch(src, /app-surface|dashboard|admin|vendor/);
@@ -118,7 +129,7 @@ test('(3) the ring is opt-in and drawn by the listener — a transient element o
   assert.match(src, /position:fixed;pointer-events:none;/);
   assert.match(src, /border:2px solid rgb\(var\(--sn-accent\) \/ \.45\);border-radius:\$\{getComputedStyle\(ringed\)\.borderRadius\}/);
   assert.match(src, /\.onfinish = \(\) => ring\.remove\(\);/, 'a ring is left in the page after it fades');
-  assert.match(src, /ring\.animate\(\[\{ opacity: 1, transform: 'scale\(1\)' \}, \{ opacity: 0, transform: `scale\(\$\{1 \+ 20 \/ r\.width\}, \$\{1 \+ 20 \/ r\.height\}\)` \}\], \{ duration: ms \* 1\.3, easing: 'ease-out' \}\)/);
+  assert.match(src, /ring\.animate\(\[\{ opacity: 1, transform: 'scale\(1\)' \}, \{ opacity: 0, transform: `scale\(\$\{1 \+ 20 \/ rr\.width\}, \$\{1 \+ 20 \/ rr\.height\}\)` \}\], \{ duration: ms \* 1\.3, easing: 'ease-out' \}\)/);
   assert.doesNotMatch(src, /boxShadow|box-shadow/, 'the ring animates paint');
   // No `::after` any more — so a control that already draws with ::after can wear it (the ⓘ's halo, a clipped card).
   assert.doesNotMatch(css, /\.sn-press-ring[^{]*::(?:after|before)/, 'the ring is drawn twice (CSS and the listener)');
@@ -130,12 +141,15 @@ test('(3) the ring is opt-in and drawn by the listener — a transient element o
   assert.ok(STUDIO_SWITCH_TRACK.split(/\s+/).includes('sn-press-ring'));
 });
 
-test('(4) ONE speed for the family, declared once — 0.7 seconds', () => {
+test('(4) ONE speed for the family, declared once — the motion system’s release (0.7 s until 2026-11-13)', () => {
   assert.equal((css.match(/--sn-pill-dur:/g) ?? []).length, 1, 'the family’s speed is declared more than once');
-  assert.match(css, /--sn-pill-dur:\s*700ms;/, 'the speed is not the owner’s 0.7 seconds');
-  // The press, the pill thumb's pulse and the switch all read it — none carries a number of its own.
-  for (const reader of [rule('.sn-pill-thumb[data-pulse]'), rule('.sn-switch'), rule('.sn-switch > .sn-switch-knob')]) {
-    assert.match(reader, /var\(--sn-pill-dur\)/, 'a member of the family has its own speed');
+  // 🎞 Owner 2026-11-13, "Motion system approved": the faster numbers REPLACE the 0.7 s press family.
+  assert.match(css, /--sn-pill-dur:\s*var\(--sn-dur-release\);/, 'the family’s speed is not the approved release');
+  assert.match(css, /--sn-dur-release:\s*280ms;/);
+  // The pill thumb's pulse reads it; the switch reads the table's own toggle time — none carries a number of its own.
+  assert.match(rule('.sn-pill-thumb[data-pulse]'), /var\(--sn-pill-dur\)/, 'the pill has its own speed');
+  for (const reader of [rule('.sn-switch'), rule('.sn-switch > .sn-switch-knob')]) {
+    assert.match(reader, /var\(--sn-dur-toggle\)/, 'a switch has its own speed');
   }
 });
 
@@ -146,7 +160,7 @@ test('(5) the Maker’s four switches wear ONE look — grey off, terracotta on,
   assert.match(on, /background-color: rgb\(var\(--sn-accent\)\);/, 'a switch that is on is not the accent');
   assert.deepEqual(selectorsBefore('.peer:checked ~ .sn-switch'), [".sn-switch[data-on='true']", '.peer:checked ~ .sn-switch'], 'a switch can be on another way');
   const knob = rule('.sn-switch > .sn-switch-knob');
-  assert.match(knob, /transition-duration: var\(--sn-pill-dur\);\s*transition-timing-function: var\(--sn-pill-spring\);/);
+  assert.match(knob, /transition-duration: var\(--sn-dur-toggle\);\s*transition-timing-function: var\(--sn-pill-spring\);/);
   // The four: each wears the class, none keeps a colour of its own (no green, no red, no second terracotta).
   const OWN = /bg-success-\d+|--sp-ok|bg-emerald|bg-green|bg-red|bg-danger|peer-checked:bg-|aria-checked:bg-/;
   assert.ok(STUDIO_SWITCH_TRACK.split(/\s+/).includes('sn-switch'), 'StudioSwitch');

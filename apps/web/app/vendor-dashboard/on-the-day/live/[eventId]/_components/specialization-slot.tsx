@@ -6,6 +6,7 @@ import { formatWallClock } from '@/lib/schedule-datetime-local';
 import type { VendorSpecializationSet } from '@/lib/vendor-specialization-gate';
 import { ActionButton } from '@/components/action-button';
 import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import { SPECIALIZATION_SURFACES } from './specialization-registry';
 import { formatCount } from '@/lib/format-number';
 
@@ -56,6 +57,13 @@ function RunOfDay({
 }) {
   const run = roleRunOfDay({ blocks, set, bookedCategories });
   if (run.entries.length === 0) return null;
+  const yoursWords = `${formatCount(run.yoursCount)} of ${formatCount(run.entries.length)} moments are yours in this role.`;
+  const yoursLine = (
+    <>
+      <strong className="text-ink">{formatCount(run.yoursCount)}</strong> of {formatCount(run.entries.length)} moments are
+      yours in this role.
+    </>
+  );
 
   return (
     <div>
@@ -70,24 +78,29 @@ function RunOfDay({
         </p>
       ) : (
         <p className="mt-2 text-sm leading-relaxed text-[color:var(--m-slate-2)]">
-          <strong className="text-ink">{formatCount(run.yoursCount)}</strong> of {formatCount(run.entries.length)} moments are
-          yours in this role. The rest are here so nothing surprises you.
-          {run.callTime ? (
-            <>
-              {' '}
-              Be on site by{' '}
-              <strong className="text-ink">
-                {/* The venue WALL CLOCK, read off the stored components (`formatWallClock`), never re-zoned:
-                    `call_time` is derived from the schedule's wall clock, so it is already the venue's time.
-                    Translating it into Manila added eight hours on top — this line once told an emcee to be on
-                    site by 9:00 PM for a 2:00 PM ceremony, and the run-of-day beneath it agreed with the error. */}
-                {formatWallClock(run.callTime.call_time, { hour12: true }) || '—'}
-              </strong>{' '}
-              — {run.callTime.lead_minutes} min before {run.callTime.anchor_label}.
-            </>
-          ) : null}
+          <InfoTip
+            label={yoursWords}
+            labelNode={yoursLine}
+            ariaLabel="About your run of day"
+            align="start"
+          >
+            The rest are here so nothing surprises you.
+          </InfoTip>
         </p>
       )}
+      {!run.empty && run.callTime ? (
+        <p className="mt-1 text-sm leading-relaxed text-[color:var(--m-slate-2)]">
+          Be on site by{' '}
+          <strong className="text-ink">
+            {/* The venue WALL CLOCK, read off the stored components (`formatWallClock`), never re-zoned:
+                `call_time` is derived from the schedule's wall clock, so it is already the venue's time.
+                Translating it into Manila added eight hours on top — this line once told an emcee to be on
+                site by 9:00 PM for a 2:00 PM ceremony, and the run-of-day beneath it agreed with the error. */}
+            {formatWallClock(run.callTime.call_time, { hour12: true }) || '—'}
+          </strong>{' '}
+          — {run.callTime.lead_minutes} min before {run.callTime.anchor_label}.
+        </p>
+      ) : null}
 
       <ol className="mt-2 divide-y divide-[color:var(--m-line)]">
         {run.entries.map((e) => (

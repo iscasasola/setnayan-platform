@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
-import { strongestPartnershipKind } from '@/lib/vendor-partnership-kinds';
+import { strongestPartnershipKind, PARTNERSHIP_RANK } from '@/lib/vendor-partnership-kinds';
 
 export type TrustedByRelationship =
   | 'accredited'
@@ -19,6 +19,13 @@ export type TrustedByVendor = {
    */
   href: string | null;
   relationshipType: TrustedByRelationship;
+  /**
+   * 🖼 The endorser's STORED logo (`vendor_profiles.logo_url` — an `r2://` tag, not an address) for its round shop
+   * profile photo, the same logo circle as the shop card (owner 2026-11-14, "make trusted by the shop profile
+   * photos?"). The page signs it (`resolveDisplayUrl`); null → the circle shows initials. ALSO null for a still-hidden
+   * endorser: a logo would name the shop the hybrid-anonymity gate is withholding — the same reason `href` is null.
+   */
+  logoRef: string | null;
 };
 
 /**
@@ -84,7 +91,7 @@ export async function fetchTrustedByVendors(
   const { data: profiles, error: profErr } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,business_name,business_slug,location_city,services,name_revealed_at,screen_name,tier_state,verification_state',
+      'vendor_profile_id,business_name,business_slug,location_city,services,name_revealed_at,screen_name,tier_state,verification_state,logo_url',
     )
     .in('vendor_profile_id', [...relByVendor.keys()]);
   if (profErr) {
@@ -117,7 +124,15 @@ export async function fetchTrustedByVendors(
       displayName,
       href: nameRevealed && slug ? `/v/${slug}` : null,
       relationshipType: relByVendor.get(p.vendor_profile_id as string) ?? 'general',
+      logoRef: nameRevealed ? ((p.logo_url as string | null) ?? null) : null,
     });
   }
-  return out.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  // 🔢 STRONGEST FIRST (owner 2026-11-14, "A SHOP PAGE ENDS WITH ITS PARTNERS"): by what the couple gets —
+  // `PARTNERSHIP_RANK`, the one order every surface reads — then by name, so two partners of one kind keep a stable
+  // order. Was: by name alone.
+  return out.sort(
+    (a, b) =>
+      PARTNERSHIP_RANK[b.relationshipType] - PARTNERSHIP_RANK[a.relationshipType] ||
+      a.displayName.localeCompare(b.displayName),
+  );
 }

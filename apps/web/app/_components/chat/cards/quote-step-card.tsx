@@ -24,6 +24,7 @@ import { applyQuoteEdits, deltaWords, floorRefusal, linesTotal, planLedger, toPr
 import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
 import { ChatCardShell, ChatStepCard, type ChatCardStep } from '../chat-step-card';
 import { loadQuoteForCard, type QuoteForCard } from './card-calls';
+import { MakeQuoteCard } from './make-quote-card';
 import { CouldNotLoad, EmptyLine, LedgerStrip, Loading, Problem, type Read } from './card-bits';
 
 type Op = 'add' | 'edit' | 'remove';
@@ -67,7 +68,8 @@ export function QuoteStepCard({
   if (read.at === 'loading') return shell(<Loading />);
   if (read.at === 'failed') return shell(<CouldNotLoad what="your quote" onRetry={load} />);
   const q = read.data;
-  if (!q) return shell(<EmptyLine line="No quote in this chat yet — send one from your service card first." />);
+  // 🧾 No quote out yet (cut 7, 2026-11-14): the short Make a quote card, never a dead "No quote in this chat yet".
+  if (!q) return <MakeQuoteCard threadId={threadId} eventDate={eventDate} onClose={onClose} onSent={onSent} />;
   if (q.locks.quote) return shell(<EmptyLine line="Your quotation is final — unlock it in Details to change it." />);
   if (q.requote === 'deal_locked') return shell(<EmptyLine line="This booking is already locked at the accepted quote — use a change order instead of a new quote." />);
   if (q.requote === 'lock_requested') return shell(<EmptyLine line="They asked to lock at the quote they accepted. Answer that first." />);

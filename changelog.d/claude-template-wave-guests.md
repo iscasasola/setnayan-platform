@@ -17,6 +17,6 @@ only (`ActionButton`/`actionButtonClass`, `Sheet`, `InfoTip`, `PickMenu`/`Posted
   lose their card border; Switch to 2D is the shared pill.
 - **Access requests · Manpower · People** — rows not cards, the shared main pill (no spinner), the BIR note behind ⓘ,
   typewriter captions → the section label.
-- Port baseline regenerated (the sponsor modals' `OverlayBackdrop` left the route — they are house Sheets now).
+- Port baseline regenerated and `drawn-in-place.baseline.txt` loses the three sponsor modals (they are house Sheets now — the ratchet only shrinks).
 
 SPEC IMPACT: None — implements the approved design template (Setnayan-specs `prototypes/design_template_sheet_2026-11-14_fable.html`); no decision changed.

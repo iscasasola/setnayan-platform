@@ -191,7 +191,7 @@ test('§6 · the couple’s page carries no event id', () => {
   for (const id of ['E1', 'E2', 'E3', 'HALF', 'SDE']) assert.ok(!json.includes(`"${id}"`) && !json.includes(`-${id}`), `${id} leaked`);
   assert.ok(views.every((v) => v.href === null));
   const shop = read('app/v/[slug]/page.tsx');
-  assert.match(shop, /toAlbumViews\(cardAlbums\(work\.albums, id\)\)/, 'the shop page must pass no href (an href carries the event id)');
+  assert.match(shop, /toAlbumViews\(cardAlbums\(shopWork\.albums, id\)\)/, 'the shop page must pass no href (an href carries the event id)');
   assert.equal(albumLabel(EVENTS.get('E1')), 'Debut · Tagaytay Highlands · Aug 2026');
 });
 
@@ -202,7 +202,8 @@ test('§7 · the flag: OFF reads nothing new and draws nothing new', () => {
   assert.match(edit, /albums === undefined \? null :/, 'flag off → no portfolio slot (the fold says what it always said)');
   assert.match(read('app/vendor-dashboard/services/their-work/page.tsx'), /if \(!cardRecordEnabled\(\)\) notFound\(\);/);
   const shop = read('app/v/[slug]/page.tsx');
-  assert.match(shop, /albumsByService: Map<string, AlbumView\[\] \| null> \| null = cardRecordEnabled\(\)/);
+  assert.match(shop, /const shopWork = cardRecordEnabled\(\)\s*\? await readShopWork\(/);
+  assert.match(shop, /albumsByService: Map<string, AlbumView\[\] \| null> \| null =\s*shopWork === undefined\s*\? null/);
   assert.match(shop, /albumsByService \? \{ \.\.\.card, eventWork:/, 'flag off → no card carries eventWork');
   const maker = read('app/vendor-dashboard/services/_components/canvas-maker.tsx');
   assert.match(maker, /\{portfolioSlot \?\? \(/, 'with no slot the Portfolio fold keeps its shipped words');

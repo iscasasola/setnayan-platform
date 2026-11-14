@@ -36,6 +36,7 @@ import { CATEGORY_LABELS, CATEGORY_ORDER, type ChallengeCategory } from '@/lib/p
 import { formatCount } from '@/lib/format-number';
 import { addLibraryChallengeAction, createCoupleChallengeAction } from '../actions';
 import type { PapicCardSeat } from '@/lib/papic-home-href';
+import { displayChallengePrompt } from '@/lib/papic-missions';
 
 type Read = { rows: PickerRow[]; total: number } | 'loading' | 'unread';
 

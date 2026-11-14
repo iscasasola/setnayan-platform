@@ -2364,6 +2364,16 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'column', table: 'shop_badge_upgrades', column: 'reward_key' },
       { kind: 'check', table: 'shop_badge_upgrades', name: 'shop_badge_upgrades_started_together', mentions: 'ends_at' },
       { kind: 'no_column', table: 'shop_badge_upgrades', column: 'price_php' },
+      // 🎁 SETNAYAN GIFTS TO A SHOP (owner 2026-11-14) — gift stock (lands through shop_badge_reward_grant, key
+      // 'setnayan_gift:<gift_id>', outside the 40% limit) or one 28-day block of the shop's own plan, which pauses the
+      // plan it was on and hands it back (sweep_vendor_tier_expiry · setnayan_plan_gift_return). Claimed once:
+      // claimed_at is set only while NULL. A count and a plan, never a price.
+      { kind: 'table', table: 'setnayan_shop_gifts' },
+      { kind: 'fk', table: 'setnayan_shop_gifts', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'setnayan_shop_gifts', column: 'claimed_at' },
+      { kind: 'column', table: 'setnayan_shop_gifts', column: 'return_tier' },
+      { kind: 'check', table: 'setnayan_shop_gifts', name: 'setnayan_shop_gifts_claim_whole', mentions: 'claim_choice' },
+      { kind: 'no_column', table: 'setnayan_shop_gifts', column: 'price_php' },
     ],
     chain: 18,
     pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],

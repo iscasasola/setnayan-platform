@@ -29,6 +29,7 @@ import {
   fetchVendorPhotoChallengePricePhp,
 } from '@/lib/vendor-photo-challenge';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { sendSetnayanShopGift } from '@/lib/setnayan-shop-gift.server';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -444,6 +445,10 @@ function wantsGiftsReturn(formData: FormData): boolean {
  */
 export async function setVendorTier(formData: FormData): Promise<void> {
   const { adminUserId } = await requireAdmin();
+  // 🎁 The same shop panel also SENDS a Setnayan gift (owner 14 Nov 2026) — gift stock, or 28 days of a plan the shop
+  // chooses when to start. A branch of this action rather than a new export (the server-action budget is at its
+  // ceiling); nothing is granted here — the shop's own press is the claim (`setnayan_shop_gift_claim`).
+  if (String(formData.get('op') ?? '') === 'setnayan_gift') return sendSetnayanGiftFromPanel(formData, adminUserId);
   const vendorId = String(formData.get('vendor_id') ?? '').trim();
   const tier = String(formData.get('tier_state') ?? '').trim();
   if (vendorId.length === 0) throw new Error('Missing vendor_id.');
@@ -833,4 +838,38 @@ export async function setVendorFoundingSupplier(formData: FormData): Promise<voi
   revalidatePath(`/admin/vendors/${vendorId}/plan`);
   revalidatePath('/admin/vendors');
   redirect(`/admin/vendors/${vendorId}/plan?founding=${next ? 'granted' : 'removed'}`);
+}
+
+/** The panel's "Send a Setnayan gift" form (see `setVendorTier`). Lands back on the panel with ?shop_gift=sent|<error>. */
+async function sendSetnayanGiftFromPanel(formData: FormData, adminUserId: string): Promise<void> {
+  const vendorId = String(formData.get('vendor_id') ?? '').trim();
+  if (!/^[0-9a-f-]{36}$/i.test(vendorId)) throw new Error('Missing vendor_id.');
+  const what = String(formData.get('gift') ?? '').trim();
+  const note = String(formData.get('note') ?? '').trim() || null;
+  const admin = createAdminClient();
+  const res = what.startsWith('plan:')
+    ? await sendSetnayanShopGift(admin, { vendorProfileId: vendorId, adminUserId, type: 'plan', tier: what.slice(5), note })
+    : what.startsWith('stock:')
+      ? await sendSetnayanShopGift(admin, {
+          vendorProfileId: vendorId,
+          adminUserId,
+          type: 'stock',
+          packCode: what.slice(6),
+          units: Number(formData.get('units') ?? 1),
+          note,
+        })
+      : ({ ok: false, error: 'Pick a gift to send.' } as const);
+  if (res.ok) {
+    const { error: auditErr } = await admin.from('admin_audit_log').insert({
+      action: 'setnayan_shop_gift_sent',
+      target_id: vendorId,
+      actor_user_id: adminUserId,
+      metadata: { gift_id: res.giftId, gift: what, units: Number(formData.get('units') ?? 1), note },
+    });
+    if (auditErr) console.error('[sendSetnayanGiftFromPanel] audit log insert failed', auditErr.message);
+  }
+  revalidatePath('/admin/gifts');
+  redirect(
+    `/admin/gifts?grant_vendor=${vendorId}&shop_gift=${res.ok ? 'sent' : encodeURIComponent(res.error)}#setnayan-shop-gift`,
+  );
 }

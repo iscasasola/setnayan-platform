@@ -51,6 +51,7 @@ export const NOTIFICATION_EMAIL_REASONS: Partial<Record<NotificationType, string
   chat_message: R('you have a new message on Setnayan'),
   waitlist_picked: R('a supplier is holding a date for you from their waitlist'),
   vendor_credit_expiring: R("your shop's prepaid credit is about to expire"),
+  vendor_plan_gift_ending: R("the plan Setnayan gave your shop is about to end"),
   payment_info_sent: R('a payment plan for your booking is ready'),
   payment_confirmed: R('a payment on your booking was confirmed'),
   payment_cleared: R('the payments on your booking are complete'),

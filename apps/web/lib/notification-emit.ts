@@ -112,6 +112,12 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     asserts NON-membership for exactly that reason.
   */
   'vendor_credit_expiring',
+  /*
+    🎁 A SETNAYAN PLAN GIFT ENDS IN 7 DAYS / 1 DAY. OWNER'S WORD, 14 Nov 2026 (DECISION_LOG "A GIFTED SUPPLIER PLAN
+    SAYS 'ENDS SOON' 7 DAYS BEFORE AND AGAIN 1 DAY BEFORE": "an in-app notice + email 7 days before … and again 1
+    day before"). Transactional — the shop's own plan — so NOT marketing-gated. Two per gift, ever.
+  */
+  'vendor_plan_gift_ending',
   // Payment lifecycle (Phase 2 PR-B, 2026-06-20). The transactional money
   // signals the couple should get an email for: their payment plan is ready
   // (info_sent), a payment was confirmed by the vendor, and the plan cleared.

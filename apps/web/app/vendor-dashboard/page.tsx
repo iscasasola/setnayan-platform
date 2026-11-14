@@ -46,6 +46,9 @@ import { BadgeEarnedLine } from './_components/badge-earned-line';
 import { ClaimWaitLines } from './_components/claim-wait-lines';
 import { readClaimWaits } from '@/lib/claim-access-wait.server';
 import { StayOnTodayLine } from './_components/stay-on-today-line';
+import { SetnayanShopGiftLines } from './_components/setnayan-shop-gift-lines';
+import { readShopGifts } from '@/lib/setnayan-shop-gift.server';
+import { readPersonalInvitePlanPrices } from '@/lib/personal-invite-prices.server';
 import { manilaToday } from '@/lib/std-views';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -303,6 +306,12 @@ export default async function VendorOverviewPage({
   const claimWaitsP = readClaimWaits(user.id).catch(() => ({ ok: false }) as const);
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
+  // 🎁 Setnayan's gifts to this shop (owner 14 Nov 2026) — waiting to be opened, or a plan gift running; the Stay
+  // price is the catalogue's. Started here, read at the end; a refusal is drawn as a refusal, never as "no gift".
+  const shopGiftsP = readPersonalInvitePlanPrices()
+    .catch(() => null)
+    .then((prices) => readShopGifts(createAdminClient(), vendorProfileId, Date.now(), prices))
+    .catch(() => ({ ok: false }) as const);
   /*
     🧰 A shop not yet approved draws its six steps in place (below). Their reads hang off the ONE shop-row read — they
     start the moment it says "not verified", beside the slow desk read, never a wave after it
@@ -528,7 +537,10 @@ export default async function VendorOverviewPage({
     : null;
   // 🎁 A plan Setnayan gave (prototype supplier_personal_invite_2026-10-23 B6 · C2): the Shop line names it, and in
   // its last week a door row says when it ends. Off the same one shop-row read; a failed read says nothing.
-  const gift = shopRow
+  // A Setnayan plan gift running now draws its own line and notice (`SetnayanShopGiftLines`) — the comp words below
+  // would say the same plan twice, so they stand down while it runs.
+  const shopGifts = await shopGiftsP;
+  const gift = shopRow && !(shopGifts.ok && shopGifts.running)
     ? planGiftOf(
         { tier_state: shopRow.tierState, tier_source: shopRow.tierSource, tier_expires_at: shopRow.tierExpiresAt },
         Date.now(),
@@ -717,6 +729,7 @@ export default async function VendorOverviewPage({
           with no explanation. Its lasting status line is drawn by the screen, under the Next card. */}
       {outcome ? <SupplierToast text={outcome.text} tone={outcome.tone} retry={genericFailure.has(outcome.text)} line={false} /> : null}
 
+      <SetnayanShopGiftLines read={shopGifts} now={renderNow} />
       <ClaimWaitLines read={await claimWaitsP} />
       <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <SupplierTodayScreen

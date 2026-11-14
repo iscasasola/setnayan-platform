@@ -249,6 +249,8 @@ export type NotificationType =
     for this without carrying one for themselves.
   */
   | 'vendor_credit_expiring'
+  // 🎁 A Setnayan plan gift ends in 7 days / 1 day (owner 14 Nov 2026) — `maybeSweepPlanGiftEndingNotices`.
+  | 'vendor_plan_gift_ending'
   // Added 2026-06-20 (Vendor lifecycle Phase 3→4 spine) alongside migration
   // 20270205806123_add_completion_accepted_notification_type.sql. Fired
   // (vendor-recipient) from vendors/[vendorId]/review/actions.ts →
@@ -703,6 +705,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   client_refund_recorded: 'Refund recorded',
   waitlist_picked: 'Your date is being held',
   vendor_credit_expiring: 'Your credit is about to expire',
+  vendor_plan_gift_ending: 'Your plan gift is ending',
   // Vendor lifecycle Phase 3→4 spine (2026-06-20).
   completion_accepted: 'Service confirmed',
   // Admin reconciliation signal (2026-06-24) — couple orders + vendor
@@ -905,6 +908,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   waitlist_picked: 'bg-warn-100 text-warn-900',
   // Amber, not red: the money is still there. Red is for something already lost.
   vendor_credit_expiring: 'bg-warn-100 text-warn-900',
+  vendor_plan_gift_ending: 'bg-warn-100 text-warn-900',
   // A logged payment awaiting the vendor's confirm = action-needed → amber.
   payment_logged: 'bg-warn-100 text-warn-900',
   // A confirmed payment = a positive money-in confirmation → emerald

@@ -45,7 +45,7 @@ export function ShopReachMap({
   // 🗺 THE SAME MAP CARD (approved 2026-11-14): the ring map gets the card's frame, its corner credit and the round
   // bigger-map button where "View larger map →" was. `mapHref === null` (the sample) draws neither door.
   return (
-    <div data-shop-reach-map="" className="relative overflow-hidden rounded-card border border-ink/15">
+    <div data-shop-reach-map="" className="relative overflow-hidden rounded-card border border-ink/15">{/* no-card-ok: the approved map card's frame (2026-11-14) — the map is the only framed thing on the page */}
       <ReachMap
         lat={lat}
         lng={lng}

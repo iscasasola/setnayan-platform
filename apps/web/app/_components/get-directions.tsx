@@ -194,7 +194,7 @@ export function GetDirections({ title, address, copyText, links, look }: Props) 
                 }}
                 className="flex min-h-[58px] w-full items-center gap-3 border-t border-ink/10 px-4 py-2 text-left transition-colors first-of-type:border-t-0 active:bg-ink/5 data-[busy]:bg-ink/5"
               >
-                <span aria-hidden className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg border border-ink/15 bg-ink/5 text-ink/70">
+                <span aria-hidden className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg bg-ink/5 text-ink/70">
                   {a.key === 'geo' ? <LayoutGrid className="h-5 w-5" strokeWidth={1.9} /> : <Navigation className="h-5 w-5" strokeWidth={1.9} />}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -278,7 +278,7 @@ function SendRow({
       aria-busy={busy || undefined}
       className={`flex min-h-[58px] w-full items-center gap-3 px-4 py-2 text-left transition-colors active:bg-ink/5 ${first ? '' : 'border-t border-ink/10'} ${busy ? 'bg-ink/5' : ''}`}
     >
-      <span aria-hidden className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg border border-ink/15 bg-ink/5 text-ink/70">
+      <span aria-hidden className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg bg-ink/5 text-ink/70">
         {icon}
       </span>
       <span className="min-w-0 flex-1">

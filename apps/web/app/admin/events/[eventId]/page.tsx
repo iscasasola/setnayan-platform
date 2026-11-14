@@ -473,7 +473,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
         <RecordFold title="Suppliers" anchor="suppliers" summary={supplierSummary}>
       {/* 🧮 Who each supplier counts (owner 2026-11-04) — each per-head service's count and its rule. */}
       <div data-admin-service-counts="">
-        <h3 className="flex min-h-9 items-center pb-1 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2,#6A6E76)]">Who each supplier counts</h3>
+        <h3 className="flex min-h-9 items-center pb-1 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Who each supplier counts</h3>
         {serviceCounts === null ? (
           <p role="alert" className="text-sm text-mulberry">
             {COULD_NOT_LOAD} the suppliers&rsquo; counts — the read was refused, so this is not &ldquo;none&rdquo;.
@@ -505,7 +505,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
 
       {/* 🔒 Suppliers' schedule — the CHANGE LOCK (audit D7), read-only */}
       <div data-admin-supplier-locks="">
-        <h3 className="flex min-h-9 items-center pb-1 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2,#6A6E76)]">Suppliers&rsquo; schedule</h3>
+        <h3 className="flex min-h-9 items-center pb-1 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Suppliers&rsquo; schedule</h3>
         {supplierLocks === null ? (
           <p role="alert" className="text-sm text-mulberry">
             {COULD_NOT_LOAD} the booked suppliers — the read was refused, so this is not &ldquo;no suppliers&rdquo;.
@@ -529,7 +529,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
 
       {/* 🎟 Suppliers' scans — the claim scanner's record at this event; Remove takes back one recorded in error. */}
       <div data-admin-supplier-scans="">
-        <h3 className="flex min-h-9 items-center pb-1 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2,#6A6E76)]">Suppliers&rsquo; scans</h3>
+        <h3 className="flex min-h-9 items-center pb-1 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Suppliers&rsquo; scans</h3>
         {supplierScans === null ? (
           <p role="alert" className="text-sm text-mulberry">
             {COULD_NOT_LOAD} the suppliers&rsquo; scans — the read failed, so this is not &ldquo;no scans&rdquo;.

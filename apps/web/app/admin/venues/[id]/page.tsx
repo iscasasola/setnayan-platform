@@ -93,7 +93,7 @@ export default async function EditVenuePage({ params }: Props) {
         />
       </div>
 
-      <div className="mt-8 border-t border-[color:var(--m-line,#E2DED4)] pt-2">
+      <div className="mt-8 border-t border-[color:var(--m-line)] pt-2">
         <RecordSection label="Remove">
           <RecordNote>
             Deleting a venue removes it from the marketplace Paired-Venue panel immediately. Couples with this venue in

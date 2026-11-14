@@ -209,7 +209,7 @@ function Venue() {
       <RecordBack href="#" label="Venues" />
       <RecordHead small="Venue · Catholic Church" name="Manila Cathedral" />
       <RecordNote>The shared venue form draws here (slug · type · name · city · address · latitude · longitude · ceremony types · source note).</RecordNote>
-      <div className="mt-8 border-t border-[color:var(--m-line,#E2DED4)] pt-2">
+      <div className="mt-8 border-t border-[color:var(--m-line)] pt-2">
         <RecordSection label="Remove">
           <RecordNote>Deleting a venue removes it from the marketplace Paired-Venue panel immediately. Not reversible.</RecordNote>
           <div className="mt-3"><ActionButton tone="danger" icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Remove the venue" type="button" /></div>

@@ -28,8 +28,8 @@ import type { ReactNode } from 'react';
 import { Fold } from '@/app/_components/fold';
 
 /** The line under a row's name — dark grey, never ink at half strength. */
-export const RECORD_SUBLINE = 'text-[13px] leading-snug text-[color:var(--m-slate-2,#6A6E76)]';
-const HAIRLINE = 'border-[color:var(--m-line,#E2DED4)]';
+export const RECORD_SUBLINE = 'text-[13px] leading-snug text-[color:var(--m-slate-2)]';
+const HAIRLINE = 'border-[color:var(--m-line)]';
 
 /** The way back to the list this record was opened from. */
 export function RecordBack({ href, label }: { href: string; label: string }) {
@@ -93,7 +93,7 @@ export function RecordFacts({
   label?: string;
 }) {
   return (
-    <dl aria-label={label} data-record-facts="" className="[&>div+div]:border-t [&>div+div]:border-[color:var(--m-line,#E2DED4)]">
+    <dl aria-label={label} data-record-facts="" className="[&>div+div]:border-t [&>div+div]:border-[color:var(--m-line)]">
       {items.map(([name, value]) => (
         <div key={name} className="flex min-h-11 items-baseline gap-3 py-2">
           <dt className={`flex-none ${RECORD_SUBLINE}`}>{name}</dt>
@@ -160,7 +160,7 @@ export function RecordSection({
 
 export function RecordRows({ children, label }: { children: ReactNode; label?: string }) {
   return (
-    <ul aria-label={label} className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line,#E2DED4)]">
+    <ul aria-label={label} className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
       {children}
     </ul>
   );

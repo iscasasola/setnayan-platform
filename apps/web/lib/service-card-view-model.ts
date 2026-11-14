@@ -130,6 +130,19 @@ export type ServiceCard = {
    */
   eventWork?: AlbumView[] | null;
   /**
+   * 📸 PHOTOS BY SERVICE (owner 2026-11-14, DECISION_LOG d8ec0922): the card's SERVICE — the kind it is filed under
+   * (`vendor_services.category`) and the words a couple reads for it ("Lights & Sound"). The view groups every card of
+   * one service together; the key is the grouping, never shown.
+   */
+  serviceKey?: string;
+  serviceLabel?: string;
+  /**
+   * 📸 The photos of the events this card was booked on, each captioned kind · month ("Wedding · Dec 2025") — the
+   * same photos `eventWork` draws, one entry per photo. `event` is an opaque per-page key (never an event id) so the
+   * view can count events. Absent when the record flag is off · null = the read was refused.
+   */
+  eventPhotos?: { url: string; caption: string; event: string }[] | null;
+  /**
    * SUP-4 (2026-09-18): the supplier said yes to the Setnayan gift on this card
    * (`vendor_services.includes_setnayan_gift`). Drives the ONE shared gift line
    * (`SetnayanGiftLine`), so a couple sees it while CHOOSING, not only once a
@@ -325,6 +338,8 @@ export function toServiceCard(
   return {
     id: row.vendor_service_id,
     label,
+    serviceKey: row.category,
+    serviceLabel: displayServiceLabel(row.category),
     priceLabel,
     meta: crewParts.length > 0 ? crewParts.join(' · ') : null,
     discountLabel: best?.label ?? null,

@@ -49,6 +49,13 @@ export const FREE_BOOKING_LIMIT = 1;
  */
 export const FIRST_BOOKING_ON_US = 'Your first booking from Setnayan is on us.';
 
+/**
+ * 💳 WHEN THE FEE IS CHARGED — the lock's rule in one sentence (the fee TRIGGER is the lock: a couple Setnayan brought
+ * agrees to book). Said by the fee bill and the Money tour alike, never retyped (walk RW-20, 13 Nov 2026: the tour said
+ * "due after the day", which no code does).
+ */
+export const BOOKING_FEE_CHARGED_WHEN = 'Setnayan charges this once a couple we brought you agrees to book.';
+
 /** The same sentence as a mid-sentence clause, without the full stop. */
 export const FIRST_BOOKING_ON_US_CLAUSE = 'your first booking from Setnayan is on us';
 

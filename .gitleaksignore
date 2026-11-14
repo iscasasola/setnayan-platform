@@ -169,6 +169,9 @@ d209b39a72bf3b56fb1a108fac1b04c4e724550f:apps/web/lib/iap/products.test.ts:gener
 # Same list, one entry longer (2026-11-13): Event Ultra joined the supplier gift products (`EVENT_ULTRA`), so the IAP
 # test's list of gift service codes was re-written in the commit that added it. Catalogue codes, not credentials.
 8ea5a66da78187d16391eee2d67c7f42f1812ddc:apps/web/lib/iap/products.test.ts:generic-api-key:261
+# …and the revert of that commit (2026-11-14, the Ultra gift split out to #7652) re-adds the original list on the
+# same line. Same catalogue codes, not credentials.
+308b2c087f229e62a4f44c343d15807889d8261c:apps/web/lib/iap/products.test.ts:generic-api-key:261
 
 # #7292 (2026-11-05): Papic pack service codes (PAPIC_GUEST_1K / _150) in a test and a dev-lab fixture, read as a
 # keyword plus a high-entropy value. Catalogue codes, not credentials. Pinned for their introducing commits.

@@ -70,7 +70,7 @@ export function DropConfirmBubble({
         // Keep taps on the bubble from starting a canvas pan / raycast beneath it
         // (it renders inside the 2D canvas container).
         onPointerDown={(e) => e.stopPropagation()}
-        className={`pointer-events-auto ${tx} ${ty} flex w-[max-content] max-w-[240px] flex-col gap-2 rounded-xl border border-ink/15 bg-cream px-3 py-2.5 text-ink shadow-xl motion-safe:transition-opacity`}
+        className={`pointer-events-auto ${tx} ${ty} flex w-[max-content] max-w-60 flex-col gap-2 rounded-2xl bg-cream px-3 py-2.5 text-ink shadow-xl ring-1 ring-ink/10 motion-safe:transition-opacity`}
       >
         <p className="text-xs font-medium leading-snug">
           {reject ? state.message : 'Drop here?'}

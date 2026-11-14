@@ -56,7 +56,7 @@ export default function HubPickBody({ eventId, preset = null }: { eventId: strin
   }
   if (!read.ok) {
     return (
-      <p role="status" className="py-3 text-[13px] text-ink/65" data-home-hub-pick-refused={read.reason}>
+      <p role="status" className="py-3 text-[13px] text-warn-800" data-home-hub-pick-refused={read.reason}>
         {read.reason === 'not_host'
           ? 'Only the hosts can change what your Event Hub shows.'
           : 'What your Event Hub shows couldn’t load. Open the Maker to change it.'}
@@ -127,7 +127,7 @@ export default function HubPickBody({ eventId, preset = null }: { eventId: strin
         })}
       </div>
       {line ? (
-        <p role="alert" className="text-[12.5px] font-semibold text-danger-700" data-home-hub-line="">
+        <p role="alert" className="text-[13px] font-semibold text-danger-700" data-home-hub-line="">
           {line}
         </p>
       ) : null}

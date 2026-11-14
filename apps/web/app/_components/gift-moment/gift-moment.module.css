@@ -1,0 +1,130 @@
+/*
+ * 🎁 THE GIFT MOMENT'S MOTION (owner 2026-11-14; drawing QSMD9BaefarMRNQAnMFiND §6 "frame by frame").
+ * Every length and curve is one the app already has (globals.css "motion"); nothing is typed here:
+ *
+ *   shake        one "enter" (--sn-dur-enter) on the standard ease — 2°, 4°, 6°, then 8° and a little swell
+ *   burst        one "enter" on the ease-out — the wrapper's pieces fly out and fade
+ *   gold flash   one "elem" (--sn-dur-elem), in the touch glow's own colour
+ *   opened box   one "enter" on the press spring (--sn-pill-spring) — a small overshoot, then rest
+ *   confetti     two "enter"s (≈1.3 s) on the ease-out
+ *   words        THE rise (--sn-dur-rise / --sn-ease-rise), one "elem" after the burst
+ *   reduce motion  nothing moves: one short fade (--sn-dur-rise-reduced), the app's reduced-motion fade
+ */
+
+.stage {
+  position: relative;
+  width: min(68vw, 300px);
+  aspect-ratio: 1 / 1;
+  margin-inline: auto;
+}
+@media (min-width: 768px) {
+  .stage {
+    width: 340px;
+  }
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+}
+
+.shake {
+  transform-origin: 50% 88%;
+  animation: gm-shake var(--sn-dur-enter) var(--sn-ease);
+}
+@keyframes gm-shake {
+  0% { transform: rotate(0deg); }
+  14% { transform: rotate(-2deg); }
+  28% { transform: rotate(2deg); }
+  42% { transform: rotate(-4deg); }
+  56% { transform: rotate(4deg); }
+  70% { transform: rotate(-6deg); }
+  84% { transform: rotate(6deg); }
+  100% { transform: rotate(-8deg) scale(1.06); }
+}
+
+.shard {
+  animation: gm-shard var(--sn-dur-enter) var(--sn-ease-out) forwards;
+}
+@keyframes gm-shard {
+  from { transform: none; opacity: 1; }
+  to { transform: translate(var(--gm-dx), var(--gm-dy)) rotate(var(--gm-rot)); opacity: 0; }
+}
+
+.flash {
+  position: absolute;
+  inset: -18%;
+  border-radius: var(--m-r-full);
+  pointer-events: none;
+  background: radial-gradient(circle, color-mix(in srgb, var(--m-orange) 55%, transparent), transparent 66%);
+  opacity: 0;
+  animation: gm-flash var(--sn-dur-elem) var(--sn-ease-out);
+}
+@keyframes gm-flash {
+  0% { opacity: 0; transform: scale(0.6); }
+  40% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.2); }
+}
+
+.opened {
+  animation: gm-open var(--sn-dur-enter) var(--sn-pill-spring) backwards;
+}
+@keyframes gm-open {
+  from { transform: scale(0.4); opacity: 0; }
+}
+
+.rise {
+  animation: gm-rise var(--sn-dur-rise) var(--sn-ease-rise) var(--sn-dur-elem) backwards;
+}
+@keyframes gm-rise {
+  from { opacity: 0; transform: translateY(16px); }
+}
+
+.confetti {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.bit {
+  position: absolute;
+  top: -3vh;
+  width: 8px;
+  height: 12px;
+  border-radius: var(--m-r-xs);
+  opacity: 0;
+  animation: gm-fall calc(var(--sn-dur-enter) * 2) var(--sn-ease-out) var(--gm-delay) forwards;
+}
+@keyframes gm-fall {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  100% { opacity: 0.15; transform: translate(var(--gm-drift), 108vh) rotate(var(--gm-spin)); }
+}
+
+/* The pressed button sinks and dims (the claim is out). */
+.pressed {
+  transform: scale(0.97);
+  opacity: 0.75;
+}
+
+.fade {
+  animation: gm-fade var(--sn-dur-rise-reduced) linear backwards;
+}
+@keyframes gm-fade {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shake,
+  .shard,
+  .flash,
+  .bit {
+    animation: none;
+  }
+  .opened,
+  .rise {
+    animation: gm-fade var(--sn-dur-rise-reduced) linear backwards;
+  }
+  .confetti {
+    display: none;
+  }
+}

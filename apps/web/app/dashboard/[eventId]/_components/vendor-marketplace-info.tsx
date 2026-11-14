@@ -571,8 +571,7 @@ function ReviewsCard({
         </h2>
         {vendorProfileSlug ? (
           <ShopLink
-            slug={vendorProfileSlug}
-            hash="#reviews"
+            href={`/v/${vendorProfileSlug}#reviews`}
             className="inline-flex min-h-11 items-center text-sm font-semibold text-sn-accent"
             target="_blank"
             rel="noopener noreferrer"

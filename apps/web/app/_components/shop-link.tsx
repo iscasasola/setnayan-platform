@@ -12,11 +12,15 @@ import type { ComponentProps } from 'react';
 
 import { SHOP_ARRIVAL_SRC, withShopArrival } from '@/lib/shop-back';
 
-export function shopHrefFrom(slug: string, from: string | null, hash = ''): string {
-  return withShopArrival(`/v/${encodeURIComponent(slug)}${hash}`, { src: from ? SHOP_ARRIVAL_SRC.page : null, from });
+/**
+ * The shop address (`/v/<slug>`, optionally with `#section`) carrying the page it was pressed on. Callers write the
+ * address as a LITERAL (`href={`/v/${slug}`}`) so the route map (`port:baseline`, `ugat:screens`) still sees the door.
+ */
+export function shopHrefFrom(href: string, from: string | null): string {
+  return withShopArrival(href, { src: from ? SHOP_ARRIVAL_SRC.page : null, from });
 }
 
-export function ShopLink({ slug, hash = '', ...rest }: { slug: string; hash?: string } & Omit<ComponentProps<typeof Link>, 'href'>) {
+export function ShopLink({ href, ...rest }: { href: string } & Omit<ComponentProps<typeof Link>, 'href'>) {
   const from = usePathname();
-  return <Link href={shopHrefFrom(slug, from, hash)} {...rest} />;
+  return <Link href={shopHrefFrom(href, from)} {...rest} />;
 }

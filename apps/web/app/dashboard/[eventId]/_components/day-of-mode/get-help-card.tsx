@@ -45,7 +45,7 @@ export function GetHelpCard({ sameDayVendors = [] }: { sameDayVendors?: SameDayV
                   : v.locationCity ?? v.region ?? null;
               const service = v.services?.[0] ?? null;
               const meta = [service, where].filter(Boolean).join(' · ');
-              const href = v.slug ? v.slug : null;
+              const href = v.slug ? `/v/${v.slug}` : null;
               const inner = (
                 <>
                   <span className="min-w-0">
@@ -72,7 +72,7 @@ export function GetHelpCard({ sameDayVendors = [] }: { sameDayVendors?: SameDayV
                 <li key={v.vendorProfileId}>
                   {href ? (
                     <ShopLink
-                      slug={href}
+                      href={href}
                       className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 px-3 py-2 transition-colors hover:border-terracotta/40 hover:bg-terracotta/[0.03]"
                     >
                       {inner}

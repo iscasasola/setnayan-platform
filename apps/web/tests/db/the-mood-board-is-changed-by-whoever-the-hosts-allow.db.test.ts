@@ -105,8 +105,8 @@ async function seat(eventId: string, uid: string, role: string, perms: unknown):
 /** A shop owned by `uid`, booked (contracted) on this event, and a 'vendor' member of it. */
 async function bookedShop(uid: string, name: string, services: string[] = ['styling']): Promise<void> {
   const vp = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, $2, 'Manila', $3::text[], 'verified', NOW()) RETURNING vendor_profile_id`,
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES ($1, $2, 'Manila', $3::text[], 'verified', NOW(), 'verified') RETURNING vendor_profile_id`,
     [uid, name, services],
   );
   await db.query(

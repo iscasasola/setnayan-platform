@@ -82,8 +82,8 @@ const HEX = ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F', '#FFFFFF'];
 async function shop(email: string, name: string, link: boolean): Promise<{ owner: string; card: string }> {
   const owner = await newUser(email);
   const vp = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, $2, 'Manila', ARRAY['florals']::text[], 'verified', NOW()) RETURNING vendor_profile_id`,
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES ($1, $2, 'Manila', ARRAY['florals']::text[], 'verified', NOW(), 'verified') RETURNING vendor_profile_id`,
     [owner, name],
   );
   const shopId = vp.rows[0]!.vendor_profile_id;

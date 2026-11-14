@@ -149,7 +149,7 @@ before(async () => {
 
   // A booking needs a verified shop (the vendor_not_verified trigger).
   await db.query(
-    `UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = now()
+    `UPDATE public.vendor_profiles SET verification_state = 'verified', public_visibility = 'verified', last_verified_at = now()
       WHERE vendor_profile_id = $1`,
     [F.vendorId],
   );

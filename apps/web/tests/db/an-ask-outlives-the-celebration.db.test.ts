@@ -59,8 +59,8 @@ async function seed(tag: string): Promise<World> {
   const mk = async (uid: string, name: string) => {
     const vp = (await db.query<{ vendor_profile_id: string }>(
       `INSERT INTO public.vendor_profiles
-         (user_id, business_name, location_city, services, verification_state, last_verified_at)
-       VALUES ($1,$2,'Manila',ARRAY['photography']::text[],'verified',NOW())
+         (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+       VALUES ($1,$2,'Manila',ARRAY['photography']::text[],'verified',NOW(), 'verified')
        RETURNING vendor_profile_id`, [uid, name])).rows[0]!.vendor_profile_id;
     await db.query(
       `INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role)

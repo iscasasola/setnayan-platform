@@ -58,8 +58,8 @@ async function createUser(email: string, accountType: 'customer' | 'vendor' = 'c
 
 async function createVendor(userId: string, name: string, services: string[]) {
   const r = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, $2, 'Manila', $3::text[], 'verified', NOW())
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES ($1, $2, 'Manila', $3::text[], 'verified', NOW(), 'verified')
      RETURNING vendor_profile_id`,
     [userId, name, services],
   );

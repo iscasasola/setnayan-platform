@@ -135,8 +135,8 @@ before(async () => {
   const mkShop = async (uid: string, name: string, services: string): Promise<string> =>
     (
       await db.query<{ v: string }>(
-        `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-         VALUES ($1, $2, 'Manila', ARRAY[$3]::text[], 'verified', NOW())
+        `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+         VALUES ($1, $2, 'Manila', ARRAY[$3]::text[], 'verified', NOW(), 'verified')
          -- A vendor sign-up already made the shop row (on_auth_user_created): fill it in.
          ON CONFLICT (user_id) DO UPDATE SET business_name = EXCLUDED.business_name, location_city = EXCLUDED.location_city,
            services = EXCLUDED.services, verification_state = EXCLUDED.verification_state, last_verified_at = EXCLUDED.last_verified_at

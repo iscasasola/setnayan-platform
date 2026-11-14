@@ -40,8 +40,8 @@ async function supplier(key: string, category: string, basis: 'per_pax' | 'fixed
   const uid = await newUser(`${key}@whocounts.test`);
   const vpid = (
     await db.query<{ v: string }>(
-      `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-       VALUES ($1, $2, 'Manila', ARRAY[$3]::text[], 'verified', NOW()) RETURNING vendor_profile_id AS v`,
+      `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+       VALUES ($1, $2, 'Manila', ARRAY[$3]::text[], 'verified', NOW(), 'verified') RETURNING vendor_profile_id AS v`,
       [uid, `${key} Co`, category],
     )
   ).rows[0]!.v;

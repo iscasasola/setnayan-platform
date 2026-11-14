@@ -247,9 +247,15 @@ test('the phone shows EXACTLY the set the laptop ranks — the owner\'s sentence
 });
 
 test('the palette really uses the sentence ranker, and its scorer matches this copy', () => {
-  const src = readFileSync(join(HERE, 'admin-command-palette.tsx'), 'utf8');
-  assert.match(src, /rankBySentence\(all, q, score, 30\)/, 'the palette stopped ranking sentences');
-  assert.match(src, /unknownNote/, 'the palette stopped reporting unmatched words');
+  const palette = readFileSync(join(HERE, 'admin-command-palette.tsx'), 'utf8');
+  // The palette ranks through ONE shared function (ASK-BRAIN, 14 Nov 2026), which ranks sentences with the shipped
+  // scorer — so the scorer bands below are read from where they now live.
+  assert.match(palette, /rankPalette\(all, q, ADMIN_JOBS, ADMIN_ROUTES, picks\)/, 'the palette stopped ranking through the shared function');
+  assert.match(palette, /unknownNote/, 'the palette stopped reporting unmatched words');
+  const rank = readFileSync(join(HERE, '..', '..', '..', 'lib', 'admin-map', 'palette-rank.ts'), 'utf8');
+  assert.match(rank, /rankBySentence\(all, query, paletteScore, PALETTE_HIT_LIMIT\)/, 'the box stopped ranking sentences');
+  assert.match(rank, /export const PALETTE_HIT_LIMIT = 30;/);
+  const src = readFileSync(join(HERE, '..', '..', '..', 'lib', 'admin-map', 'palette-score.ts'), 'utf8');
   // The copied scorer above must stay identical to the shipped one.
   // 🪤 THIS LIST IS WHAT MAKES THE COPY HONEST, and it was one band short. A
   // mutation moving the ROW band (`raw / 3` → `raw * 3`) — which would let one
@@ -263,6 +269,6 @@ test('the palette really uses the sentence ranker, and its scorer matches this c
     "if (d.source === 'map') return raw / 2;",
     "if (d.source === 'row') return raw / 3;",
   ]) {
-    assert.ok(src.includes(band), `the palette's scorer changed (${band}) — update the copy here`);
+    assert.ok(src.includes(band), `the box's scorer changed (${band}) — update the copy here`);
   }
 });

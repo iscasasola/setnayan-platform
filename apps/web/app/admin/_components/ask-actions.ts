@@ -15,6 +15,8 @@ import {
   askTheModel,
   recallPhrase,
   rememberPhrase,
+  rememberPick,
+  forgetPhrase,
   aiConfigured,
   type AskResult,
 } from '@/lib/admin-map/ask-the-admin';
@@ -40,8 +42,23 @@ export type AskAnswer =
 export async function askTheAdmin(
   question: string,
   choices: { label: string; href: string }[],
+  /**
+   * ASK-BRAIN (14 Nov 2026) — the same door teaches the box what an admin picked, or forgets it. Not a new action:
+   * the one admin-gated route to the phrase memory, as the owner asked ("reuse the existing write path").
+   * Never navigates, decides or changes anything beyond that one memory row.
+   */
+  learn?: { picked: { href: string; label: string } } | { forget: true },
 ): Promise<AskAnswer> {
   await requireAdmin();
+
+  if (learn) {
+    if ('forget' in learn) {
+      await forgetPhrase(question);
+      return { ok: false, reason: 'nothing' };
+    }
+    await rememberPick(question, learn.picked);
+    return { ok: false, reason: 'nothing' };
+  }
 
   const remembered = await recallPhrase(question);
   if (remembered) return { ok: true, answer: remembered };

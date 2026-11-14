@@ -29,7 +29,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 
-import { skuAnchorId } from './sku-anchor';
+import { priceRowFor } from './sku-anchor';
 
 export type AdminRow = {
   /** What the row is called, e.g. `Papic — add 3,000 credits`. */
@@ -67,20 +67,7 @@ export async function fetchAdminRows(): Promise<AdminRow[]> {
   if (priceRes.error) {
     logQueryError('fetchAdminRows (platform_retail_catalog_v2)', priceRes.error);
   } else {
-    for (const r of priceRes.data ?? []) {
-      const code = String(r.service_code);
-      const title = String(r.title ?? code);
-      const active = r.is_active === true;
-      rows.push({
-        label: title,
-        href: `/admin/pricing?tab=pricing#${skuAnchorId(code)}`,
-        // The code itself is searchable: an admin who knows PAPIC_GUEST_10K
-        // should find it by typing that, and underscores become spaces so the
-        // words inside a code are reachable too.
-        hay: `${title} ${code} ${code.replace(/_/g, ' ')} price prices`.toLowerCase(),
-        hint: active ? 'price' : 'price · off sale',
-      });
-    }
+    for (const r of priceRes.data ?? []) rows.push(priceRowFor(r));
   }
 
   // Folders + categories (tiles) — the DB-backed read-through with its own

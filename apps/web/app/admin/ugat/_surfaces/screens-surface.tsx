@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 // Ugat Studio surface — the SCREENS layer of the Ugat map (slice 1 · 2026-10-02).
 //
 // Owner, DECISION_LOG 2026-10-02 "ONE MAP OF THE APP": every page of the host,
@@ -93,11 +94,13 @@ export function ScreensSurface() {
   return (
     <div className="mx-auto w-full max-w-5xl">
       <PageMasthead title="Root map · Screens" />
-      <p className="mb-6 mt-1 max-w-2xl text-sm text-ink/70">
-        Every page of the host, guest and supplier apps, the ways in to each one, and the part of
+      <div className="mb-6 mt-1 max-w-2xl">
+        <InfoTip label="What this tab shows" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Every page of the host, guest and supplier apps, the ways in to each one, and the part of
         the entity map it belongs to — read from the code each time it changes. A page with no door
         can only be reached by typing its address.
-      </p>
+        </InfoTip>
+      </div>
 
       <dl className="mb-8 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map((x) => (

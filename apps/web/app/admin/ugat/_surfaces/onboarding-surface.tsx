@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 // Ugat Studio surface — the body of the former onboarding page,
 // re-homed 2026-07-10. actions/_components stay in /admin/onboarding; the legacy
 // route is now a redirect into /admin/ugat?tab=.
@@ -100,14 +101,16 @@ export async function OnboardingSurface({ searchParams }: Props) {
               Background music
             </h3>
           </div>
-          <p className="mb-3 text-sm text-ink/60">
-            A soft, low-volume soundtrack while couples go through the wedding
+          <div className="mb-3">
+            <InfoTip label="About the onboarding music" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              A soft, low-volume soundtrack while couples go through the wedding
             onboarding. It never blasts on — it starts quietly on the first tap
             and each couple can mute it. Upload an{' '}
             <strong>owned / AI-generated</strong> track only (e.g. your Suno
             instrumental) — Setnayan serves the file, so it must be music you own
             the rights to. Leave empty for no music.
-          </p>
+            </InfoTip>
+          </div>
 
           {settingsReadFailed ? (
             <div role="alert" className="mb-3 rounded-card bg-[var(--sn-warning-soft)] p-4 text-sm text-ink">
@@ -178,12 +181,14 @@ export async function OnboardingSurface({ searchParams }: Props) {
       {/* ── FUTURE TYPES ───────────────────────────────────────────────── */}
       <section className="mt-6 border-dashed py-5 text-sm text-ink/55 border-t border-ink/10">
         <p className="font-semibold text-ink/70">More onboarding flows</p>
-        <p className="mt-1">
-          As Setnayan opens new event types (birthday, celebration, corporate,
+        <div className="mt-1">
+          <InfoTip label="About new event types" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            As Setnayan opens new event types (birthday, celebration, corporate,
           and more), each gets its own settings section here — same shape as
           Wedding above. When a second flow needs its own music or knobs, the
           storage moves to a per-type table; today Wedding is the only flow.
-        </p>
+          </InfoTip>
+        </div>
       </section>
     </div>
   );

@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
 import { BookOpen, TrendingUp } from 'lucide-react';
@@ -356,12 +357,14 @@ export async function StorytellersSurface({
           />
 
           {rows && rows.length > 0 ? (
-            <p className="mt-4 text-xs text-ink/70">
-              Lower order numbers show first on the shelf. Leave the order blank to sort after the
+            <div className="mt-4">
+              <InfoTip label="About the order" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+                Lower order numbers show first on the shelf. Leave the order blank to sort after the
               numbered ones (then by most-recently featured). Unfeaturing also clears the order. A
               report resolved as &ldquo;hide&rdquo; in User Reports unfeatures the chapter
               automatically.
-            </p>
+              </InfoTip>
+            </div>
           ) : null}
         </>
       )}
@@ -428,13 +431,15 @@ function InfluencerAnalyticsPanel({ analytics: a }: { analytics: InfluencerAnaly
         /* Gated "not enough activity yet" state — shows progress, no numbers. */
         <div className="border-dashed bg-ink/[0.02] py-5 text-sm text-ink/70 border-t border-ink/10">
           <p className="font-medium text-ink/80">Not enough activity yet.</p>
-          <p className="mt-1">
-            Influencer analytics unlock once storytellers have driven{' '}
+          <div className="mt-1">
+            <InfoTip label="About influencer analytics" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              Influencer analytics unlock once storytellers have driven{' '}
             <strong className="text-ink">{ADMIN_INFLUENCER_ANALYTICS_MIN_UNLOCKS}</strong>{' '}
             attributed, supplier-unlocked inquiries platform-wide. So far:{' '}
             <strong className="text-ink">{formatCount(a.totalInquiriesDriven)}</strong> of{' '}
             {ADMIN_INFLUENCER_ANALYTICS_MIN_UNLOCKS}.
-          </p>
+            </InfoTip>
+          </div>
         </div>
       ) : (
         <div className="space-y-6">
@@ -451,10 +456,12 @@ function InfluencerAnalyticsPanel({ analytics: a }: { analytics: InfluencerAnaly
               free since #3531 and creator outreach became free with the token
               retirement (2026-08-07), so the figure could only ever read 0 while
               implying outreach still costs something. */}
-          <p className="text-xs text-ink/70">
-            Reaching a storyteller and unlocking a creator-referred inquiry are both free.
+          <div>
+            <InfoTip label="About reaching storytellers" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              Reaching a storyteller and unlocking a creator-referred inquiry are both free.
             Discounts settle off-platform and are never shown.
-          </p>
+            </InfoTip>
+          </div>
 
           {/* Top creators by inquiries driven — aggregate names only. */}
           <div>

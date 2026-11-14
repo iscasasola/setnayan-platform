@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { FieldPick } from '@/app/admin/_components/field-pick';
 import { ActionButton } from '@/components/action-button';
 /**
@@ -163,10 +164,12 @@ export async function JournalSpotlightsSurface({
       {/* Attach form */}
       <section className="mb-8 py-5 border-t border-ink/10">
         <h2 className="text-base font-semibold text-ink">Credit a supplier in an article</h2>
-        <p className="mt-1 text-sm text-ink/60">
-          Pick a Journal article and paste the supplier&rsquo;s profile ID. The
+        <div className="mt-1">
+          <InfoTip label="How to credit a supplier" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Pick a Journal article and paste the supplier&rsquo;s profile ID. The
           credit starts as a draft (hidden) until approved.
-        </p>
+          </InfoTip>
+        </div>
         <form
           action={attachSpotlight}
           className="mt-4 grid gap-3 sm:grid-cols-2"

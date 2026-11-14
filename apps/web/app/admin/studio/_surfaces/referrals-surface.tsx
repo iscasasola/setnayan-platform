@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * ReferralsSurface — couple referral rewards monitor, inside the tabbed
  * /admin/studio studio (Studio Studio slice 3 · Marketing lane).
@@ -229,12 +230,14 @@ export async function ReferralsSurface() {
           <p className="font-semibold">
             Couldn&rsquo;t read whether the referral program is on.
           </p>
-          <p className="mt-1">
-            The switch is hidden rather than shown unchecked: an unticked box saves as
+          <div className="mt-1">
+            <InfoTip label="Why the switch is hidden" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              The switch is hidden rather than shown unchecked: an unticked box saves as
             &ldquo;off&rdquo;, so a switch drawn from a read that failed could turn the whole
             program off. Reload. If it repeats, the settings read is being refused rather than
             returning nothing.
-          </p>
+            </InfoTip>
+          </div>
         </div>
       )}
 
@@ -255,10 +258,12 @@ export async function ReferralsSurface() {
             reward vouchers are minted until an owner sets a reward amount on platform settings.
           </p>
         ) : (
-          <p className="mt-1 text-sm text-ink/60">
-            Each qualifying referral mints two single-use vouchers of this value (100% off up to
+          <div className="mt-1">
+            <InfoTip label="About the reward" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              Each qualifying referral mints two single-use vouchers of this value (100% off up to
             ₱{rewardPhp.toLocaleString('en-PH')} on any covered SKU), one per side.
-          </p>
+            </InfoTip>
+          </div>
         )}
       </section>
 

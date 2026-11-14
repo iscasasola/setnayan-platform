@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { GitMerge, Search } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
@@ -53,11 +54,13 @@ export async function SongsSurface({
           because it is not guessable from the words. */}
       <PageMasthead title="Master song catalogue" />
       <div className="space-y-3">
-        <p className="max-w-prose text-sm text-ink/70">
-          The shared song list suppliers and couples pick from. Merge near-duplicates
+        <div className="max-w-prose">
+          <InfoTip label="What this tab does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            The shared song list suppliers and couples pick from. Merge near-duplicates
           (supplier-typed variants like &quot;Perfect&quot; vs &quot;Perfect - Ed Sheeran&quot;) so the
           compatibility overlap stays clean, and remove junk entries.
-        </p>
+          </InfoTip>
+        </div>
         {/*
           Says what the two states MEAN, because the list fills up from the
           bands and the difference is not guessable from the words. Owner
@@ -65,12 +68,14 @@ export async function SongsSurface({
           not from us. but we can place songs that are common for now so they
           can also list them down."
         */}
-        <p className="max-w-prose text-sm text-ink/55">
-          <strong className="font-semibold text-ink/75">In the list</strong> means a song
+        <div className="max-w-prose">
+          <InfoTip label="About the popular list" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            <strong className="font-semibold text-ink/75">In the list</strong> means a song
           shows in the couple&rsquo;s &ldquo;most popular&rdquo; browse and in a band&rsquo;s
           starter repertoire. Everything else still exists and is still findable by
           searching its name — bands add their own as they go.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {error ? (
@@ -95,10 +100,12 @@ export async function SongsSurface({
         <h2 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           <GitMerge aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Merge duplicates
         </h2>
-        <p className="text-sm text-ink/60">
-          The <strong>duplicate</strong> is deleted; every repertoire / pick that used it
+        <div>
+          <InfoTip label="What merging does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            The <strong>duplicate</strong> is deleted; every repertoire / pick that used it
           re-points to the <strong>canonical</strong>. Find both IDs in the list below.
-        </p>
+          </InfoTip>
+        </div>
         <MergeSongsFields songs={songs} />
       </form>
 

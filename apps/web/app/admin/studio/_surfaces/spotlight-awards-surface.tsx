@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { FieldPick } from '@/app/admin/_components/field-pick';
 import { ActionButton } from '@/components/action-button';
 /**
@@ -118,11 +119,13 @@ export async function SpotlightAwardsSurface({
       {/* Owner sign-off note — homepage featuring is gated, not auto. */}
       <div className="mb-6 flex items-start gap-3 border-warn-300/70 bg-warn-50 py-3 border-t border-ink/10">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-warn-700" strokeWidth={1.75} aria-hidden />
-        <p className="text-sm text-ink/80">
-          Homepage featuring is <strong>off by default</strong>. The public
+        <div>
+          <InfoTip label="About homepage featuring" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Homepage featuring is <strong>off by default</strong>. The public
           homepage strip shows only the awards you feature here — nothing is
           auto-injected onto the live site. Featuring awaits owner sign-off.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {/* Recompute + stat row */}
@@ -197,11 +200,13 @@ export async function SpotlightAwardsSurface({
       {/* Add-by-hand */}
       <section className="mt-8 py-5 border-t border-ink/10">
         <h2 className="text-base font-semibold text-ink">Add an award by hand</h2>
-        <p className="mt-1 text-sm text-ink/60">
-          Award a supplier directly — useful for the <strong>Rising Star</strong>{' '}
+        <div className="mt-1">
+          <InfoTip label="About awarding directly" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Award a supplier directly — useful for the <strong>Rising Star</strong>{' '}
           recognition, which has no automatic formula yet. Paste the supplier&rsquo;s
           profile ID.
-        </p>
+          </InfoTip>
+        </div>
         <ManualAddForm period={period} />
       </section>
     </div>

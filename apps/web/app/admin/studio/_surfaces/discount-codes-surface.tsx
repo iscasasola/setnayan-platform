@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { BADGE_CLASS, badgeStyle } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 /**
@@ -431,11 +432,13 @@ export async function DiscountCodesSurface({
         }}
       />
 
-      <p className="text-xs text-ink/70">
-        Codes apply at checkout when couples paste them into the &ldquo;Have a code?&rdquo; field.
+      <div>
+        <InfoTip label="How codes work" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Codes apply at checkout when couples paste them into the &ldquo;Have a code?&rdquo; field.
         Receipts show the net paid amount — no separate discount line. Disabling a code lets
         existing redemptions keep their special price.
-      </p>
+        </InfoTip>
+      </div>
     </div>
   );
 }

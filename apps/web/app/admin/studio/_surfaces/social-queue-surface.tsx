@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -773,11 +774,13 @@ export async function SocialQueueSurface({
           <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Evergreen library · {evergreenItems.length}
           </h2>
-          <p className="text-xs text-ink/55">
-            The scheduler uses these to keep the page alive — if nothing posts
+          <div>
+            <InfoTip label="About evergreen posts" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              The scheduler uses these to keep the page alive — if nothing posts
             for 3 days, the least-recently-used active item goes out (60-day
             no-repeat).
-          </p>
+            </InfoTip>
+          </div>
         </div>
 
         {evergreenItems.length === 0 ? (
@@ -852,11 +855,13 @@ export async function SocialQueueSurface({
         <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Manual workflow &amp; sources
         </h2>
-        <p className="text-xs text-ink/55">
-          The fallback lane — copy a drafted caption, post it by hand, then
+        <div>
+          <InfoTip label="About posting by hand" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            The fallback lane — copy a drafted caption, post it by hand, then
           stamp the card so it leaves the queue (and so the sweep never
           composes a duplicate).
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {/* ── Couple creations ready to post ── */}
@@ -1144,10 +1149,12 @@ function AutopilotStrip({
           <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Autopilot
           </h2>
-          <p className="text-xs text-ink/55">
-            The sweep always composes + schedules; dispatch only runs while the
+          <div>
+            <InfoTip label="How the sweep works" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              The sweep always composes + schedules; dispatch only runs while the
             master switch is on. Flushes piggyback on page views, ~10 min apart.
-          </p>
+            </InfoTip>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span
@@ -1307,11 +1314,13 @@ function TikTokManualPanel({ posts }: { posts: SocialPostRow[] }) {
         <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           TikTok — ready to post manually · {items.length}
         </h2>
-        <p className="text-xs text-ink/55">
-          Auto-posting is gated until the app is audited. Until then: download
+        <div>
+          <InfoTip label="About TikTok posting" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Auto-posting is gated until the app is audited. Until then: download
           the 9:16 card, open TikTok, attach it as a Photo post, paste the
           caption. ~30 seconds each.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {items.length === 0 ? (

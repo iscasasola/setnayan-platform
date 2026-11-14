@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import Link from 'next/link';
 import { ExternalLink, Globe } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -63,10 +64,12 @@ export async function RecapsSurface({
           somebody's guests' photographs, and the only control is take it
           down — an operator needs both facts before pressing anything. */}
       <PageMasthead title="Recaps" />
-      <p className="max-w-prose text-sm text-ink/70">
-        Every couple-published Auto-Recap that&rsquo;s live right now. These are public pages with
+      <div className="max-w-prose">
+        <InfoTip label="What this tab shows" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Every couple-published Auto-Recap that&rsquo;s live right now. These are public pages with
         guest photos and messages — take one down if you need to (the couple can re-publish).
-      </p>
+        </InfoTip>
+      </div>
 
       {ok ? (
         <p className="rounded-md border border-success-300 bg-success-50 px-4 py-3 text-sm text-success-900">

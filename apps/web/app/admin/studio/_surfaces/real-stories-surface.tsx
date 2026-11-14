@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
@@ -288,11 +289,13 @@ export async function RealStoriesSurface({
           />
 
           {rows && rows.length > 0 ? (
-            <p className="mt-4 text-xs text-ink/70">
-              Lower order numbers show first; the lowest-numbered featured wedding is the hero.
+            <div className="mt-4">
+              <InfoTip label="About the order" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+                Lower order numbers show first; the lowest-numbered featured wedding is the hero.
               Leave the order blank to let it sort after the numbered ones (then by
               most-recently featured). Unfeaturing also clears the order.
-            </p>
+              </InfoTip>
+            </div>
           ) : null}
         </>
       )}
@@ -300,13 +303,15 @@ export async function RealStoriesSurface({
       {/* Honesty note — the curated sample is not in this list. */}
       <div className="mt-10 py-5 text-sm text-ink/70 border-t border-ink/10">
         <p className="font-medium text-ink">About the sample showcase</p>
-        <p className="mt-1">
-          The &ldquo;Maria &amp; Juan&rdquo; entry on /realstories is a clearly labelled{' '}
+        <div className="mt-1">
+          <InfoTip label="About the sample entry" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            The &ldquo;Maria &amp; Juan&rdquo; entry on /realstories is a clearly labelled{' '}
           <strong className="font-semibold">sample</strong> — a built-in illustration of the
           format, not a real client — so it can&rsquo;t be featured here. It shows only while
           there are no real published Real Stories, and disappears on its own once a real one is
           featured.
-        </p>
+          </InfoTip>
+        </div>
       </div>
     </div>
   );

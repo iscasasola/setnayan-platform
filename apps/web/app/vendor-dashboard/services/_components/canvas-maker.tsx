@@ -94,6 +94,8 @@ import { AddonsEditor, type AddonDraft } from './addons-editor';
 import { PaymentScheduleEditor } from './payment-schedule-editor';
 import { ServiceCardFace } from './service-card-face';
 import { commitVendorService, deleteVendorService } from '../actions';
+import { CopyToBranch } from './copy-to-branch';
+import { branchCopyTargets } from '@/lib/branch-copy';
 import { canPublishService, inclusionsAreSet } from '@/lib/service-publish-gate';
 import { priceWaitsFor, priceWaitsLine } from '@/lib/price-waits';
 import { BOOKED_PRICE_STAYS_SUPPLIER, saysBookedPriceStays } from '@/lib/booked-price-words';
@@ -1614,6 +1616,8 @@ export function CanvasMaker({
                             <span className="flex items-center gap-2"><Copy aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />Start another from this</span>
                             <ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />
                           </Link>
+                          {/* 🏢 Copy to another branch (owner 2026-11-14, item 10) — only with another location to go to. */}
+                          <CopyToBranch {...branchCopyProps(editing, initial, branches)} />
                           <button
                             type="button"
                             onClick={() => setSheet('delete')}
@@ -2303,4 +2307,26 @@ function CanvasSheet({
     </div>,
     document.body,
   );
+}
+
+/**
+ * 🏢 What "Copy to another branch" needs from the maker (owner 2026-11-14, item 10): where else the card may go (every
+ * usable location but its own — `branchCopyTargets`, the same rule the server re-checks), its location's name, and its
+ * headline price on its own basis for the "<here> is ₱X" line.
+ */
+function branchCopyProps(
+  editing: MakerEditing,
+  initial: CanvasInitial | null,
+  branches: { id: string; label: string; usable?: boolean }[],
+) {
+  const targets = branchCopyTargets(
+    branches.map((b) => ({ id: b.id, label: b.label, status: b.usable === false ? 'expired' : 'active' })),
+    editing.branchId || null,
+  );
+  const here = editing.branchId ? (branches.find((b) => b.id === editing.branchId)?.label ?? 'This branch') : 'Main';
+  const p = initial?.pricing;
+  const basis = p?.pricing_basis ?? 'fixed';
+  const herePricePhp = basis === 'per_pax' ? (p?.per_pax_price_php ?? null) : basis === 'per_hour' ? (p?.hour_base_php ?? null) : (p?.starting_price_php ?? null);
+  const priceWord = basis === 'per_pax' ? 'Per guest there' : basis === 'per_hour' ? 'Base price there' : 'Price there';
+  return { serviceId: editing.serviceId, targets, hereLabel: here, herePricePhp, priceWord };
 }

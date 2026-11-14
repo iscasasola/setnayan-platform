@@ -41,6 +41,17 @@ CREATE INDEX IF NOT EXISTS vendor_event_story_notes_event_idx
 
 ALTER TABLE public.vendor_event_story_notes ENABLE ROW LEVEL SECURITY;
 
+-- Grants by column, the way this schema grants (a stranger never reads the table; the public page reads it
+-- server-side with the service role).
+REVOKE ALL ON public.vendor_event_story_notes FROM PUBLIC, anon, authenticated;
+GRANT SELECT (note_id, vendor_profile_id, event_id, body, written_by_user_id, created_at, updated_at)
+  ON public.vendor_event_story_notes TO authenticated;
+GRANT INSERT (vendor_profile_id, event_id, body, written_by_user_id, updated_at),
+      UPDATE (body, written_by_user_id, updated_at),
+      DELETE
+  ON public.vendor_event_story_notes TO authenticated;
+GRANT ALL ON public.vendor_event_story_notes TO service_role;
+
 DROP POLICY IF EXISTS vendor_event_story_notes_vendor_manage ON public.vendor_event_story_notes;
 CREATE POLICY vendor_event_story_notes_vendor_manage
   ON public.vendor_event_story_notes FOR ALL
@@ -75,6 +86,10 @@ BEGIN
       CHECK (cardinality(whole_branch_keys) <= 64);
   END IF;
 END $$;
+
+-- vendor_team_members is granted to `authenticated` column by column (measured in production 2026-11-14: 9 columns),
+-- so a new column is invisible to the Team screen until it is named. The admin-write RLS policy still decides WHO.
+GRANT SELECT (whole_branch_keys), UPDATE (whole_branch_keys) ON public.vendor_team_members TO authenticated;
 
 COMMENT ON COLUMN public.vendor_team_members.whole_branch_keys IS
   'Shop › Team "Whole branch" (owner 2026-11-14, item 9): the branches this person works in full — a vendor_branches.branch_id as text, or ''main'' for cards filed under no branch. The person still sees exactly their vendor_service_agents rows; vendor_services_whole_branch_agents() adds the row for every card filed at such a branch later.';
@@ -117,6 +132,10 @@ ALTER TABLE public.vendor_services
 CREATE INDEX IF NOT EXISTS vendor_services_branch_copy_of_idx
   ON public.vendor_services (branch_copy_of)
   WHERE branch_copy_of IS NOT NULL;
+
+-- Readable by the shop (the create gate counts with it); never writable from the app — only
+-- copy_vendor_service_to_branch() sets it. vendor_services is granted column by column (49 columns, 2026-11-14).
+GRANT SELECT (branch_copy_of) ON public.vendor_services TO authenticated;
 
 COMMENT ON COLUMN public.vendor_services.branch_copy_of IS
   'Copy to another branch (owner 2026-11-14, item 10): the card this one is the same service as, at another branch. A row with this set does NOT use up a card — the create gate (commitVendorService) and the plan picker (lib/service-plan-hold.ts) skip it. Its price, calendar and team are its own. ON DELETE SET NULL: when the original goes, the copy is simply a card.';

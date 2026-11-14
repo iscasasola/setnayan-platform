@@ -817,7 +817,9 @@ export async function createVendorService(formData: FormData) {
   const { data: existingRows } = await supabase
     .from('vendor_services')
     .select('category')
-    .eq('vendor_profile_id', profile.vendor_profile_id);
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    // A "Copy to another branch" card is the same service at another location — it uses no card (owner 2026-11-14).
+    .is('branch_copy_of', null);
   const existing = (existingRows ?? []) as { category: VendorCategory }[];
 
   // (1) Services-per-leaf cap (#1, owner 2026-06-07): FREE 2 · VERIFIED 2 ·
@@ -2013,7 +2015,9 @@ export async function commitVendorService(formData: FormData) {
     const { data: existingRows } = await supabase
       .from('vendor_services')
       .select('category')
-      .eq('vendor_profile_id', profile.vendor_profile_id);
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      // A "Copy to another branch" card uses no card (owner 2026-11-14, SIMPLER SUPPLIER PLANS item 10).
+      .is('branch_copy_of', null);
     const existing = (existingRows ?? []) as { category: VendorCategory }[];
 
     if (caps.servicesPerLeaf !== Infinity) {

@@ -177,19 +177,29 @@ test('"Venue to be confirmed" never appears above a map that confirms it', () =>
   );
 });
 
-test('the OpenStreetMap host stays reachable, and the pin says who needs it', () => {
-  // The general iframe sweep in lib/csp-embeds-are-allowed.test.ts covers this
-  // too. This is the second surface to depend on the origin, and the reason to
-  // assert it HERE is that the earlier failure was invisible: the embed answers
-  // 200, the markup is perfect, and a CSP refusal renders an empty grey panel
-  // with nothing logged.
+test('the OpenStreetMap tile host stays reachable, and the pin says who needs it', () => {
+  // 🗺 CLAIM MOVED WITH THE DESIGN (map card approved 2026-11-14): the map card draws OSM's TILES as images — the
+  // embed iframe, and with it the venue map's need for `frame-src`, is gone. What the venue map (and the shop page's
+  // map) now needs is image loads from `https://tile.openstreetmap.org`: the ENFORCED policy must not restrict
+  // images without it (today it is frame-only), and the report-only DRAFT's `img-src` must carry it, so the day the
+  // draft is enforced the maps do not silently become empty grey boxes. The reason to assert it HERE is unchanged: a
+  // CSP refusal is invisible — the markup is perfect and the map is a grey box with nothing logged.
   const config = read('next.config.ts');
   const enforced = /key: 'Content-Security-Policy',[\s\S]{0,200}?"([^"]*)"/.exec(config)?.[1] ?? '';
   assert.notEqual(enforced, '', 'no enforced CSP found');
+  const enforcedImg = /img-src ([^;]*)/.exec(enforced)?.[1];
+  const enforcedDefault = /default-src ([^;]*)/.exec(enforced)?.[1];
+  for (const list of [enforcedImg ?? enforcedDefault].filter((l): l is string => l != null)) {
+    assert.match(list, /https:\/\/tile\.openstreetmap\.org/, 'the ENFORCED CSP now restricts images without the OSM tile host');
+  }
+  const draftImg = /"img-src ([^"]*)"/.exec(config)?.[1] ?? '';
+  assert.notEqual(draftImg, '', 'no draft img-src found');
   assert.match(
-    enforced,
-    /frame-src[^"]*openstreetmap\.org/,
-    'openstreetmap.org left the enforced frame-src — the venue map on every ' +
-      'invitation AND the location map on every shop page silently become empty grey panels',
+    draftImg,
+    /https:\/\/tile\.openstreetmap\.org/,
+    'tile.openstreetmap.org left the draft img-src — enforcing it would blank the venue map on every invitation AND ' +
+      'the location map on every shop page',
   );
+  const tiles = code('lib/scene-map-tiles.ts');
+  assert.match(tiles, /https:\/\/tile\.openstreetmap\.org\//, 'the map card draws its tiles from that host');
 });

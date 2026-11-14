@@ -705,7 +705,21 @@ export function readEventDate(row: {
   event_date?: string | null;
   date_candidates?: readonly (string | null | undefined)[] | null;
 }): string | null {
-  return row.event_date ?? singlePickedDate(row.event_type, row.date_candidates);
+  return row.event_date ?? onePickedDay(row);
+}
+
+/**
+ * 📅 CYC-03 (walk 13 Nov): ONE STORY ABOUT THE DATE. Suppliers said "1 date · Dec 19" (it reads `date_candidates`) while
+ * the event's header said "No date yet" (it reads `event_date`, filled in only for a fixed-date-INPUT type) — a birthday
+ * (`person_birthdate`) or a wedding with exactly one picked day fell between the two. On READ, one well-formed picked day
+ * is the event's date for every type — the rule the owner set for weddings on 14 Nov (`singlePickedWeddingDate`, "Yes,
+ * save it"). Two or more picks stay options everywhere. Nothing stored is changed.
+ */
+export function onePickedDay(row: {
+  event_type?: string | null;
+  date_candidates?: readonly (string | null | undefined)[] | null;
+}): string | null {
+  return singlePickedDate(row.event_type, row.date_candidates) ?? singlePickedWeddingDate(row.date_candidates);
 }
 
 /**
@@ -723,6 +737,6 @@ export function withPickedDate<
   },
 >(row: T): T {
   if (row.event_date) return row;
-  const picked = singlePickedDate(row.event_type, row.date_candidates);
+  const picked = onePickedDay(row);
   return picked ? { ...row, event_date: picked, event_date_precision: 'day' } : row;
 }

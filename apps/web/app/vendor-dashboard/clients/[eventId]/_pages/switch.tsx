@@ -22,6 +22,7 @@ import { QuotationPage } from './quotation';
 import { PaymentPage } from './payment';
 import { FormsPage } from './forms';
 import { FilesPage } from './files';
+import { EventFilesSection } from './event-files';
 import { HubPage } from './hub';
 import { ReportPage } from './report';
 
@@ -65,6 +66,9 @@ export function pickedPageBodies(i: PickedPageInputs): Record<PickedClientPage, 
         chatFilesMeasured={i.files.chatFilesMeasured}
         threadId={ctx.threadId}
         isBooked={ctx.isBooked}
+        // 📁🏷 The board (Piece 3b) — the quoted-service groups, Select and the photo sheet's "Tag to inspiration"
+        // (#7622). Without it the live Files page drew only the shared-files list (CHAT-03).
+        board={<EventFilesSection ctx={ctx} mode="files" />}
       />,
     ),
     hub: only('hub', <HubPage ctx={ctx} shipped={shipped.hub} />),

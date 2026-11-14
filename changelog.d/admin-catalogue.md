@@ -1,0 +1,12 @@
+## 2026-11-14 · feat(admin): Catalogue inner screens — Home, the Templates · Media · Design kit hubs, one New category form, grouped View ▾
+
+Owner, 14 Nov 2026: *"Yes, queue the builds"* — the approved admin drawing (`Setnayan-specs/prototypes/admin_pub/catalogue.html`), area build A3 (Catalogue: Prices · Categories & event types · Templates & media).
+
+- **Catalogue Home** — `/admin/catalogue`, the tab's new landing: the Next card (the oldest supplier request for a service we lack, with Open · All requests), a number strip (categories · services · asking), then every view in the drawing's four sections. Counts come through the Categories page's own loaders and the three price tables (rows on sale / switched off — no price is read or typed). A refused read prints "—" and the Next card says some lists didn't read; "Nothing waits on you" only when the requests were read and are none.
+- **Hubs** — `/admin/catalogue/templates` (Reveal Studio · Patiktok · Website · Event Hub music), `/admin/catalogue/media` (Songs · Mood-board library · Front-door videos · Website media), `/admin/catalogue/design-kit` (Colours). Each row rises to the shipped page; each shipped page keeps its address and now lights its hub's view. The drawing's NEW rows (Cards & themes, Fonts, Icons, Backgrounds, Palettes, Card motifs) and GONE row (Mood-board renders) are not drawn — no shipped page behind them.
+- **View ▾ grouped** as drawn: Home · Categories & event types · Prices (adds Plan contents) · Templates & media · Content. Nothing removed from the tab — the fourteen template/media/colour pages moved into their hub's `match`.
+- **One New category form** — the Catalogue ＋ opens `/admin/categories?new=category`: the same `createTaxonomyNode` form the admin search box prepares (`lib/admin-map/prefill-consumers.ts` unchanged and still green), now drawn to the template — house dropdown for the group (no native select), "Name it", near-match warning, Add. A prepared form still never presses itself.
+- **Prices** — the pill tab strip on `/admin/pricing` is gone (a second selector for what `Catalogue · View ▾` already picks, at every width); every `?tab=` keeps working. "Elsewhere in Prices" rows sit under the price list.
+- `/dev/admin-catalogue-lab` draws all of it on fixtures (busy · empty · fail) for 390/1280 walks.
+
+SPEC IMPACT: `FEATURE_REGISTER.md` needs rows for `/admin/catalogue`, `/admin/catalogue/templates`, `/admin/catalogue/media`, `/admin/catalogue/design-kit` (the register check runs only where the corpus is on disk).

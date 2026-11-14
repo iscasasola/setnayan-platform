@@ -149,6 +149,10 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
   { route: '/admin/gifts', tab: 'people', note: 'Gifts & comps to people and shops.' },
 
   // ── CATALOGUE — what the app offers, and how it looks ─────────────────────
+  { route: '/admin/catalogue', tab: 'catalogue', note: 'The Catalogue tab’s Home — what waits, and every view (14 Nov 2026).' },
+  { route: '/admin/catalogue/templates', tab: 'catalogue', note: 'Hub: Reveal Studio · Patiktok · Website · Event Hub music.' },
+  { route: '/admin/catalogue/media', tab: 'catalogue', note: 'Hub: songs · mood-board library · front-door videos · website media.' },
+  { route: '/admin/catalogue/design-kit', tab: 'catalogue', note: 'Hub: colours.' },
   { route: '/admin/colours', tab: 'catalogue', note: 'How the app looks — its colours by job (owner 2026-11-12).' },
   {
     route: '/admin/categories',

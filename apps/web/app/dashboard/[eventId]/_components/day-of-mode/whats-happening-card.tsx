@@ -116,33 +116,24 @@ export function WhatsHappeningCard({ blocks, runStateTrigger = false, failed = f
   );
 
   return (
-    // The day-of obsidian focal (Glass PR-2, § 1.3): on the event day the
-    // DayOfModeGrid's "Happening now" card is the single `.sn-tile-dark` — the
-    // "Big Day" focal on the dashboard below steps down to glass so the one-
-    // obsidian-per-view rule holds.
-    <article className="sn-tile-dark space-y-3">
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 13 · 14 · 2): the day's ONE thing that matters now — the top of the page on
+    // the warm surface (`--m-paper-2`, which flips in dark), its name big in full ink; no dark tile with typed colour
+    // codes, no 10 px typewriter captions. The live dot stays the house gold (an edge/icon, never words).
+    <article className="space-y-2 rounded-[18px] bg-[var(--m-paper-2)] p-4">
       <header className="flex items-center justify-between">
-        <p className="sn-eye">
-          <Activity aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <h2 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
+          <Activity aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
           Happening now
-        </p>
-        <span
-          className="sn-live-dot inline-flex h-2 w-2 rounded-full"
-          style={{ background: 'var(--sn-gold-300)' }}
-        />
+        </h2>
+        <span aria-hidden className="sn-live-dot inline-flex h-2 w-2 rounded-full bg-terracotta" />
       </header>
 
       {failed ? (
-        <ScheduleUnread tone="dark" />
+        <ScheduleUnread />
       ) : state.kind === 'active' ? (
         <>
-          <h3
-            className="text-xl font-extrabold tracking-tight"
-            style={{ color: '#F3ECDF' }}
-          >
-            {state.block.label}
-          </h3>
-          <div className="space-y-1 text-sm" style={{ color: 'rgba(243,236,223,.7)' }}>
+          <h3 className="text-2xl font-extrabold tracking-tight text-ink">{state.block.label}</h3>
+          <div className="space-y-1 text-sm text-ink/75">
             <p className="inline-flex items-center gap-1.5">
               <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Started at{' '}
@@ -153,12 +144,7 @@ export function WhatsHappeningCard({ blocks, runStateTrigger = false, failed = f
               {state.block.end_at ? ` · ends ${formatClock(state.block.end_at)}` : null}
             </p>
             {state.hostSet ? (
-              <p
-                className="font-mono text-[10px] uppercase tracking-[0.18em]"
-                style={{ color: 'var(--sn-gold-300)' }}
-              >
-                Live · set by your hosts
-              </p>
+              <p className="text-[13px] font-semibold text-ink">Live · set by your hosts</p>
             ) : null}
             {state.block.location ? (
               <p className="inline-flex items-center gap-1.5">
@@ -167,7 +153,7 @@ export function WhatsHappeningCard({ blocks, runStateTrigger = false, failed = f
               </p>
             ) : null}
             {state.nextBlockStart !== null ? (
-              <p className="pt-1 text-xs" style={{ color: 'var(--sn-gold-300)' }}>
+              <p className="pt-1 text-[13px] font-semibold text-ink">
                 Next block {formatRelativeMs(state.nextBlockStart - venueNowMs())}
               </p>
             ) : null}
@@ -175,21 +161,11 @@ export function WhatsHappeningCard({ blocks, runStateTrigger = false, failed = f
         </>
       ) : state.kind === 'between' ? (
         <>
-          <p
-            className="font-mono text-[10px] uppercase tracking-[0.18em]"
-            style={{ color: 'rgba(243,236,223,.55)' }}
-          >
-            Up next
-          </p>
-          <h3
-            className="text-xl font-extrabold tracking-tight"
-            style={{ color: '#F3ECDF' }}
-          >
-            {state.nextBlock.label}
-          </h3>
-          <p className="text-sm" style={{ color: 'rgba(243,236,223,.7)' }}>
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Up next</p>
+          <h3 className="text-2xl font-extrabold tracking-tight text-ink">{state.nextBlock.label}</h3>
+          <p className="text-sm text-ink/75">
             Starts{' '}
-            <span className="font-medium" style={{ color: '#F3ECDF' }}>
+            <span className="font-semibold text-ink">
               {/* Host-set "between moments" can run past the planned start —
                   "5 min ago" would read broken, so soften to "any moment". */}
               {state.hostSet &&
@@ -203,21 +179,18 @@ export function WhatsHappeningCard({ blocks, runStateTrigger = false, failed = f
             {formatClock(state.nextBlock.start_at)}
           </p>
           {state.nextBlock.location ? (
-            <p
-              className="inline-flex items-center gap-1.5 text-sm"
-              style={{ color: 'rgba(243,236,223,.7)' }}
-            >
+            <p className="inline-flex items-center gap-1.5 text-sm text-ink/75">
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               {state.nextBlock.location}
             </p>
           ) : null}
         </>
       ) : state.kind === 'wrapped' ? (
-        <p className="text-sm" style={{ color: 'rgba(243,236,223,.7)' }}>
+        <p className="text-sm text-ink/75">
           The program has wrapped — thank you for celebrating with us.
         </p>
       ) : (
-        <p className="text-sm" style={{ color: 'rgba(243,236,223,.6)' }}>
+        <p className="text-sm text-ink/75">
           No active schedule block. Add one in Schedule to see live updates here.
         </p>
       )}

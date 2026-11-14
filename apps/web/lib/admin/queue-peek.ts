@@ -10,7 +10,10 @@ import { r2KeysInSlot } from '@/lib/verification-checks-server';
 import { DOC_SLOTS, type DocUpload } from '@/lib/vendor-verification';
 import { approvalActionLabel } from '@/lib/admin-approvals';
 import { SELF_REVIEW_SIGNAL_TONE, type SelfReviewSignal } from '@/lib/self-review-gate';
+import { ugatRecordHref } from '@/lib/ugat/record-href';
+import type { PaymentLightRow } from '@/lib/admin/green-payments';
 import {
+  personInitials,
   PAYOUT_METHOD_LABEL,
   channelWords,
   chatFlagWhat,
@@ -846,29 +849,39 @@ async function correctionCard(
   };
 }
 
-function paymentCard(
-  row: { who: string; amountPhp: number; channel: string | null; referenceNumber: string | null; createdAt: string; paymentId: string; verdict?: string; light: { light: 'green' | 'amber'; why?: string } },
-  hasProof: boolean,
-): RequestCard {
+function paymentCard(row: PaymentLightRow, hasProof: boolean): RequestCard {
   const amount = formatCentavosPhp(Math.round((row.amountPhp ?? 0) * 100));
+  const payer = row.payerName ?? row.who;
+  // 🔑 Walk RW-301 (5): an order already PAID still had a pending payment row, so the card offered Confirm on money the
+  // order no longer waits for. It is said as paid and offers nothing; the row stays counted until the desk settles it.
+  const orderPaid = row.orderStatus === 'paid';
   const facts: Array<{ label: string; value: string; tone?: 'ok' | 'warn' }> = [
     { label: 'Amount', value: amount },
     { label: 'Sent by', value: channelWords(row.channel) },
   ];
   if (row.referenceNumber) facts.push({ label: 'Reference', value: row.referenceNumber });
-  if (row.verdict) facts.push({ label: 'Their receipt', value: row.verdict, tone: row.light.light === 'green' ? 'ok' : 'warn' });
-  if (row.light.light === 'amber' && hasProof && row.light.why) facts.push({ label: 'Why held', value: row.light.why, tone: 'warn' });
+  if (orderPaid) facts.push({ label: 'Order', value: 'Already paid', tone: 'ok' });
+  // Walk RW-301 (2): no picture ⇒ no line about reading one. The receipt read speaks only when a picture was sent.
+  if (row.verdict && row.hasScreenshot) {
+    facts.push({ label: 'Their receipt', value: row.verdict, tone: row.light.light === 'green' ? 'ok' : 'warn' });
+  }
+  if (!orderPaid && row.light.light === 'amber' && hasProof && row.light.why) {
+    facts.push({ label: 'Why held', value: row.light.why, tone: 'warn' });
+  }
   return {
-    title: `${row.who} sent a payment of ${amount}`,
+    title: `${payer} sent a payment of ${amount}`,
     chip: 'Payment',
-    initials: initialsOf(row.who),
+    initials: personInitials(row.payerName, row.who),
     at: row.createdAt,
-    who: row.who,
+    who: row.payerName && row.payerName !== row.who ? `${row.payerName} · ${row.who}` : row.who,
     quote: null,
     show: [{ kind: 'facts', rows: facts }],
     shopHref: null,
-    recordHref: '/admin/payments',
-    act: hasProof
+    // Walk RW-301 (4): the order's OWN record (the payments desk filtered to it), not the whole list.
+    recordHref: ugatRecordHref({ kind: 'order', publicId: row.orderPublicId ?? null }),
+    act: orderPaid
+      ? undefined
+      : hasProof
       ? {
           kind: 'payment',
           id: row.paymentId,
@@ -883,9 +896,11 @@ function paymentCard(
           ],
         }
       : undefined,
-    footNote: hasProof
-      ? undefined
-      : 'No reference or screenshot yet — nothing to check the money against. Open the record to see the order.',
+    footNote: orderPaid
+      ? 'This order is already paid — nothing to confirm here. Open the record to settle this payment.'
+      : hasProof
+        ? undefined
+        : 'No reference or screenshot yet — nothing to check the money against. Open the record to see the order.',
   };
 }
 

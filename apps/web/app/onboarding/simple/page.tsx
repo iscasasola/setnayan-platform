@@ -16,7 +16,8 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { CREATION_ASKS, resolveSetupSteps } from '@/lib/onboarding/flow-config';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 
-export const metadata = { title: 'Create a Simple Event' };
+// RW-65 / re-walk 14 Nov: the type's shown name is Get-together (the create tile, the page's own label).
+export const metadata = { title: 'Create a Get-together' };
 
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';

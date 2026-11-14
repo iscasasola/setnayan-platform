@@ -76,8 +76,8 @@ async function newShop(a: ShopArgs = {}): Promise<string> {
   const v = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles
        (user_id, business_name, location_city, services, verification_state, last_verified_at,
-        registration_number_raw, contact_phone, is_demo)
-     VALUES ($1, $2, 'Manila', ARRAY['photography']::text[], 'verified', NOW(), $3, $4, $5)
+        registration_number_raw, contact_phone, is_demo, public_visibility)
+     VALUES ($1, $2, 'Manila', ARRAY['photography']::text[], 'verified', NOW(), $3, $4, $5, 'verified')
      RETURNING vendor_profile_id`,
     [userId, `Shop ${uniq()}`, a.reg ?? null, a.phone ?? null, a.demo ?? false],
   );

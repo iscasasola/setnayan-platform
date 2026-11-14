@@ -207,7 +207,7 @@ export default async function EventPeoplePage({ params }: Props) {
     <section className="sn-col space-y-6">
       <PageMasthead title="Who is here" />
 
-      <p className="font-mono text-[13px] uppercase tracking-[0.14em] text-ink/60">{headline}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">{headline}</p>
 
       {groups.length === 0 ? (
         // Not a Denied frame and not an Empty one: nothing about this event is
@@ -231,21 +231,21 @@ export default async function EventPeoplePage({ params }: Props) {
                   href={g.href}
                   className="sn-tile sn-press flex items-center gap-4 p-4 text-left"
                 >
-                  <Users aria-hidden className="h-5 w-5 shrink-0 text-ink/45" strokeWidth={1.75} />
+                  <Users aria-hidden className="h-5 w-5 shrink-0 text-ink/70" strokeWidth={1.75} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold text-ink">{g.label}</span>
-                    <span className="mt-0.5 block text-[12.5px] text-ink/55">{g.blurb}</span>
+                    <span className="mt-0.5 block text-[12.5px] text-ink/70">{g.blurb}</span>
                     <span
                       className={
                         g.count === null
-                          ? 'mt-1.5 block font-mono text-[12px] text-ink/45'
-                          : 'mt-1.5 block font-mono text-[13px] font-bold text-ink'
+                          ? 'mt-1.5 block text-[12px] text-ink/70 tabular-nums'
+                          : 'mt-1.5 block text-[13px] font-bold text-ink tabular-nums'
                       }
                     >
                       {groupCountLabel(g.count, copy.noun, copy.pluralNoun)}
                     </span>
                   </span>
-                  <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-ink/35" strokeWidth={1.75} />
+                  <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
                 </Link>
               </li>
             );

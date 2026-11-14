@@ -121,6 +121,42 @@ function useFillToFoot(ref: React.RefObject<HTMLElement | null>) {
   }, [ref]);
 }
 
+/**
+ * A chat reads from the bottom: it opens on the newest line and STAYS there while it settles (RW-276, re-walk 14 Nov:
+ * the group chat opened at the top). Landing once on mount was not enough — the box is re-fitted after it mounts
+ * (`useFillToFoot`, at 250 ms and 1 s) and collages and event cards load in later, each moving the bottom away from a
+ * scroll position that was set once. While the reader has not scrolled up, every size change re-pins the newest line;
+ * once they scroll up, nothing moves under them. A new message re-pins.
+ */
+function useStickToNewest(ref: React.RefObject<HTMLElement | null>, count: number) {
+  const stuck = useRef(true);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const pin = () => {
+      if (stuck.current) el.scrollTop = el.scrollHeight;
+    };
+    const onScroll = () => {
+      stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+    };
+    pin();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(pin);
+    ro?.observe(el);
+    if (el.firstElementChild) ro?.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      ro?.disconnect();
+    };
+  }, [ref]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    stuck.current = true;
+    el.scrollTop = el.scrollHeight;
+  }, [ref, count]);
+}
+
 function MessageBubble({
   m,
   first,
@@ -274,11 +310,7 @@ export function GroupChatroom({
   );
 
   useFillToFoot(chatRef);
-  // A chat reads from the bottom: land on the newest line.
-  useEffect(() => {
-    const el = chatRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [items.length]);
+  useStickToNewest(chatRef, items.length);
   // From 1024 (no dock) the row sits under the reading column, not across the rail.
   useEffect(() => {
     const el = hostRef.current;
@@ -510,7 +542,13 @@ export function GroupChatroom({
                     buttonText="Add"
                     options={plusOptions}
                     dataAttr="data-group-plus"
-                    trigger={<Plus aria-hidden className="h-5 w-5" strokeWidth={2} />}
+                    /* RW-276: wrapped, as the row's own ＋ face (`ActionFace`) — a BARE svg inside a round's menu button is
+                       hidden by `thumb-row.module.css` (`.menu button[aria-haspopup='listbox'] > svg`), so the ＋ drew blank. */
+                    trigger={
+                      <span aria-hidden className="inline-flex" data-group-plus-face="">
+                        <Plus className="h-5 w-5" strokeWidth={2} />
+                      </span>
+                    }
                     className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/80"
                     onPick={(k) => {
                       if (k === 'story') return record();

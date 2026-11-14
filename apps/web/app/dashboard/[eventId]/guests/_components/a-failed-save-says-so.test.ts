@@ -123,7 +123,7 @@ test('(2b) all three pages say it through that one function — never the raw va
   const pages: Array<[string, string]> = [
     ['the list’s panel', read('..', 'page.tsx')],
     ['the card page', read('..', '[guestId]', 'page.tsx')],
-    ['the dev lab', readFileSync(join(HERE, '..', '..', '..', '..', 'dev', 'guests-lab', 'page.tsx'), 'utf8')],
+    ['the dev lab', readFileSync(join(HERE, '..', '..', '..', '..', 'dev', 'guests-lab', 'page.lab.tsx'), 'utf8')],
   ];
   for (const [name, src] of pages) {
     assert.match(src, /guestCardErrorCopy\(/, `${name} does not use the card’s error copy`);

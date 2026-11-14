@@ -29,9 +29,10 @@ async function newVendor(email: string, state: 'unverified' | 'verified'): Promi
     [email],
   );
   const v = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
      VALUES ($1, 'Closed Gate Vendor', 'Manila', ARRAY['photography']::text[], $2::public.vendor_verification_state,
-             CASE WHEN $2 = 'verified' THEN NOW() END)
+             CASE WHEN $2 = 'verified' THEN NOW() END,
+             (CASE WHEN $2 = 'verified' THEN 'verified' ELSE 'hidden' END)::public.vendor_public_visibility)
      RETURNING vendor_profile_id`,
     [u.rows[0]!.id, state],
   );

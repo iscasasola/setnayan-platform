@@ -51,7 +51,9 @@ test('the DSLR line types no price — CAMERA_BRIDGE is retired, so it offers no
 test('the seat-limit message reads the live seat fee', () => {
   const src = code('app/vendor-dashboard/team/actions.ts');
   assert.ok(!/Add a seat \(₱/.test(src), 'the seat fee is typed in the message');
-  assert.match(src, /Add a seat \(\$\{formatPhp\(await fetchSeatFeePhp\(supabase\)\)\}/);
+  // 2026-11-13: the fee is read once into `seatFee` — the catalogue row or null (then the hint names no figure).
+  assert.match(src, /const seatFee = [^;]*await fetchSeatFeePhp\(supabase\)/);
+  assert.match(src, /Add a seat \(\$\{formatPhp\(seatFee\)\}/);
 });
 
 test('the onboarding promo is the ONE admin number — no typed constant anywhere (owner d18)', () => {

@@ -1,3 +1,6 @@
+import { InfoTip } from '@/app/_components/info-tip';
+import { FieldPick } from '@/app/admin/_components/field-pick';
+import { ActionButton } from '@/components/action-button';
 import { Gavel, Filter, ShieldCheck, PackageCheck } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -350,12 +353,14 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
         title="Disputes"
       />
 
-      <p className="mb-6 rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-xs text-ink/70">
-        Use <span className="font-semibold">Resolve</span> on any open row to
+      <div className="mb-6">
+        <InfoTip label="How to resolve" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Use <span className="font-semibold">Resolve</span> on any open row to
         record the outcome (couple / supplier / withdrawn) with a note. The
         opener is notified automatically. A standalone detail page with the
         full evidence trail is the next refresh.
-      </p>
+        </InfoTip>
+      </div>
 
       <StatsBanner
         stats={stats}
@@ -430,7 +435,7 @@ function StatsBanner({
       <KpiStatCard label="Resolved · supplier" value={stats.resolved_for_vendor} />
       <KpiStatCard label="Resolved · couple" value={stats.resolved_for_couple} />
       <KpiStatCard label="Withdrawn" value={stats.withdrawn} />
-      <p className="col-span-2 mt-1 text-[11px] text-ink/70 sm:col-span-4">
+      <p className="col-span-2 mt-1 text-[12px] text-ink/70 sm:col-span-4">
         {!measured
           ? `Counts for ${quarterLabel} could not be read — these are not zero, they are unknown.`
           : truncated
@@ -451,44 +456,22 @@ function FilterStrip({
   return (
     <form
       method="get"
-      className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3"
+      className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3"
       aria-label="Dispute filters"
     >
       <div className="flex items-center gap-2 text-ink/60">
         <Filter aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em]">Filter</span>
+        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Filter</span>
       </div>
       <label className="flex flex-1 flex-col gap-1 text-xs text-ink/60 sm:flex-row sm:items-center sm:gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em]">Status</span>
-        <select
-          name="status"
-          defaultValue={status}
-          className="input-field min-w-[12rem]"
-        >
-          {STATUS_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Status</span>
+        <FieldPick name="status" label="Status" defaultValue={status} options={STATUS_FILTER_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} />
       </label>
       <label className="flex flex-1 flex-col gap-1 text-xs text-ink/60 sm:flex-row sm:items-center sm:gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em]">Category</span>
-        <select
-          name="category"
-          defaultValue={category}
-          className="input-field min-w-[12rem]"
-        >
-          {CATEGORY_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Category</span>
+        <FieldPick name="category" label="Category" defaultValue={category} options={CATEGORY_FILTER_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} />
       </label>
-      <button type="submit" className="button-secondary self-start sm:self-auto">
-        Apply
-      </button>
+      <ActionButton tone="neutral" type="submit" icon={<Filter aria-hidden />} label="Apply" className="self-start sm:self-auto" />
     </form>
   );
 }
@@ -547,7 +530,7 @@ function DisputesTable({
             <>
               <p className="font-medium text-ink">{r.public_id}</p>
               {!r.counts_toward_demotion ? (
-                <p className="mt-1 font-sans text-[10px] uppercase tracking-[0.15em] text-ink/70">
+                <p className="mt-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Excluded from demotion count
                 </p>
               ) : null}
@@ -583,7 +566,7 @@ function DisputesTable({
         {
           header: 'Category',
           cell: (r) => (
-            <span className="inline-flex items-center whitespace-nowrap rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+            <span className="inline-flex items-center whitespace-nowrap rounded-full bg-ink/5 px-2 py-0.5 text-ink/70 text-[12px] font-bold">
               {CATEGORY_LABEL[r.category]}
             </span>
           ),
@@ -599,18 +582,18 @@ function DisputesTable({
                 <p title={r.description}>{truncate(r.description, 80)}</p>
                 {r.vendor_contest ? (
                   <details className="mt-2">
-                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-mulberry">
+                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[12px] font-medium text-mulberry">
                       <Gavel aria-hidden className="h-3 w-3" strokeWidth={2} />
                       Supplier&apos;s response
                     </summary>
-                    <p className="mt-1.5 whitespace-pre-wrap rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
+                    <p className="mt-1.5 whitespace-pre-wrap rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[12px] text-ink/80">
                       {r.vendor_contest}
                     </p>
                   </details>
                 ) : null}
                 {acks.length > 0 ? (
                   <details className="mt-2">
-                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-mulberry">
+                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[12px] font-medium text-mulberry">
                       <ShieldCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
                       Reservation policy evidence ({acks.length})
                     </summary>
@@ -626,7 +609,7 @@ function DisputesTable({
                 />
                 {handovers.length > 0 ? (
                   <details className="mt-2">
-                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-mulberry">
+                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[12px] font-medium text-mulberry">
                       <PackageCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
                       Delivery handover ({handovers.length})
                     </summary>
@@ -645,7 +628,7 @@ function DisputesTable({
           header: 'Status',
           cell: (r) => (
             <span
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${STATUS_TONE[r.status]}`}
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${STATUS_TONE[r.status]}`}
             >
               {STATUS_LABEL[r.status]}
             </span>
@@ -677,20 +660,17 @@ function DisputesTable({
                   className="mt-2 space-y-2"
                 >
                   <input type="hidden" name="dispute_id" value={r.dispute_id} />
-                  <select
+                  <FieldPick
                     name="resolution"
-                    defaultValue=""
+                    label="Resolution outcome"
+                    placeholder="Choose outcome…"
                     required
-                    className="input-field text-xs"
-                    aria-label="Resolution outcome"
-                  >
-                    <option value="" disabled>
-                      Choose outcome…
-                    </option>
-                    <option value="resolved_for_couple">Resolved · couple</option>
-                    <option value="resolved_for_vendor">Resolved · supplier</option>
-                    <option value="withdrawn">Withdrawn</option>
-                  </select>
+                    options={[
+                      { key: 'resolved_for_couple', label: 'Resolved · couple' },
+                      { key: 'resolved_for_vendor', label: 'Resolved · supplier' },
+                      { key: 'withdrawn', label: 'Withdrawn' },
+                    ]}
+                  />
                   <textarea
                     name="resolution_notes"
                     rows={2}
@@ -733,8 +713,8 @@ function PolicyEvidence({ ack }: { ack: PolicyAcknowledgement }) {
       ? `₱${Math.round(p.downpayment_amount_php).toLocaleString('en-PH')}`
       : null;
   return (
-    <li className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
-      <p className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-terracotta-700">
+    <li className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[12px] text-ink/80">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         Acknowledged {acknowledgedAt}
       </p>
       <ul className="mt-1 space-y-0.5">
@@ -775,8 +755,8 @@ function HandoverEvidence({ handover }: { handover: HandoverEvidenceRow }) {
   const deliveredAt = fmtPhDate(handover.deliveredAt);
   const ackedAt = fmtPhDate(handover.coupleAcknowledgedAt);
   return (
-    <li className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
-      <p className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-terracotta-700">
+    <li className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[12px] text-ink/80">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         {kindLabel} · delivered {deliveredAt}
       </p>
       {handover.label ? <p className="mt-0.5 text-ink/70">{handover.label}</p> : null}
@@ -820,7 +800,7 @@ const TIER_CHIP_TONE: Record<VendorTier, string> = {
 function TierChip({ tier }: { tier: VendorTier }) {
   return (
     <span
-      className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.15em] ${TIER_CHIP_TONE[tier]}`}
+      className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${TIER_CHIP_TONE[tier]}`}
       title={`Supplier tier · ${TIER_LABEL[tier]}`}
     >
       {TIER_LABEL[tier]}

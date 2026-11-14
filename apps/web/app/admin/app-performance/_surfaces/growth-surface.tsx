@@ -159,7 +159,7 @@ export async function GrowthSurface({ searchParams }: Props) {
         <Sec
           id="growth-conversion"
           title="Guest → account conversion"
-          about="How many invited guests went on to hold a Setnayan account. A conversion is a guest-list entry that became tied to a real Setnayan account (joined by QR scan or invite link). Rate is converted ÷ all non-removed guests, all-time."
+          about="How many invited guests went on to hold a Setnayan account. A conversion is a guest-list entry that became tied to a real Setnayan account (joined by QR scan or invite link). Rate is converted guests ÷ all non-removed guests, all-time — both counted over the same guests."
         />
         <Conversion c={stats.conversion} rangeLabel={rangeLabel} failed={convFailed} />
       </section>
@@ -266,7 +266,8 @@ function Conversion({
         data="growth-conversion"
         rows={[
           ['Conversion rate', ratePct],
-          ['Converted', `${nf.format(c.converted)} / ${nf.format(c.totalGuests)}`],
+          // AW-8: say what is counted — guests (the label's own denominator), never a bare "/ N".
+          ['Converted', `${nf.format(c.converted)} of ${nf.format(c.totalGuests)} guests`],
           ['New this period', `${c.newInRange >= 0 ? '+' : ''}${nf.format(c.newInRange)}`],
           ['Median time to convert', median],
         ]}

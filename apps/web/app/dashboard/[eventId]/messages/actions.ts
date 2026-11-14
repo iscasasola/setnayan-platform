@@ -185,6 +185,7 @@ export async function startThreadByVendorEmail(formData: FormData) {
  * refusal comes back to the list with a sentence, never a silent bounce.
  */
 export async function openGroupChat(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const kind = formData.get('group_kind');
   const key = formData.get('group_key');

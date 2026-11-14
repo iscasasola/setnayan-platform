@@ -535,7 +535,6 @@ export function RequestOnlyRow({
               <FileUpload
                 bucket="media"
                 pathPrefix={`vendors/${data.vendorProfileId}/logo`}
-                name="requested_logo"
                 maxSizeMB={SHOP_LOGO_UPLOAD.maxSizeMB}
                 compressImage
                 acceptedTypes={[...SHOP_LOGO_UPLOAD.acceptedTypes]}

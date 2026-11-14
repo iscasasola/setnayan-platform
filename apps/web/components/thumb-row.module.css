@@ -94,6 +94,6 @@
    textarea grew INSIDE a box that did not — the second line was hidden. A seat holding a textarea grows with it (from 44
    up, the composer caps itself at ~5 lines) and the row's other seats sit at its foot, as a chat's do. Search boxes (an
    <input>) are untouched. Held by `lib/the-walk-round-9.test.ts`. */
-.fieldNode:has(textarea) { height: auto; min-height: 44px; border-radius: 22px; }
+.fieldNode:has(textarea) { height: auto; min-height: 44px; border-radius: var(--m-r-lg); }
 .fieldNode:has(textarea) > * { height: auto; min-height: 44px; }
 .row:has(> .fieldNode textarea) { align-items: flex-end; }

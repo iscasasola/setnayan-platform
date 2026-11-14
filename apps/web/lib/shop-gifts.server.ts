@@ -531,6 +531,8 @@ export type ShopGiftLedgerRow = {
   /** 🔢 On a Papic row: which pack and how many (signed) — Papic is counted in packs since 2026-11-14. */
   packCode: string | null;
   packs: number | null;
+  /** The pack's catalogue title ("Papic 1000"); null when it is no longer on the catalogue. */
+  packTitle?: string | null;
   eventId: string | null;
   eventName: string | null;
   orderReference: string | null;
@@ -571,6 +573,7 @@ export async function fetchShopGiftLedger(admin: SupabaseClient, limit = 200): P
     events: { display_name: string | null } | null;
     orders: { reference_code: string | null } | null;
   };
+  const titles = new Map(((await fetchShopGiftPacks(admin)) ?? []).map((p) => [p.code, p.title]));
   return ((data ?? []) as unknown as Row[]).map((r) => ({
     entryId: r.entry_id,
     vendorProfileId: r.vendor_profile_id,
@@ -581,6 +584,7 @@ export async function fetchShopGiftLedger(admin: SupabaseClient, limit = 200): P
     unlocksSku: r.unlocks_sku,
     packCode: r.pack_code ?? null,
     packs: r.packs ?? null,
+    packTitle: r.pack_code ? (titles.get(r.pack_code) ?? null) : null,
     eventId: r.event_id,
     eventName: r.events?.display_name ?? null,
     orderReference: r.orders?.reference_code ?? null,

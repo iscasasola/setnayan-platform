@@ -56,7 +56,7 @@ test('the quote verdict counts Ultra units and refuses only where the event cann
     { code: 'EVENT_ULTRA', title: 'Event Ultra', credits: 1, pricePhp: 2 },
   ]);
   assert.deepEqual(packs.map((p) => p.kind), ['papic', 'event_ultra'], 'Ultra sorts after the other kinds');
-  const free = { papic: 0, event_plus: 0, event_pro: 0, event_ultra: 1 };
+  const free = { papic: 0, event_plus: 0, event_pro: 0, event_ultra: 1, packs: {} };
   const bigTotal = 100_000_000; // centavos: a limit large enough that only the take rule decides
   const onPro = judgeQuoteGifts(['EVENT_ULTRA'], packs, bigTotal, BOOKING_FEE, 100, free, 'pro');
   assert.equal(onPro.state, 'ok');

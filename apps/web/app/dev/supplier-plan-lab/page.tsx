@@ -638,12 +638,12 @@ function giftsFixture(fail: boolean, inApp = false) {
 }
 
 const LAB_GIFT_LEDGER = [
-  { entryId: 'e6', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'given' as const, giftKind: 'event_plus' as const, unlocksSku: 'COUPLE_WEBSITE_PRO', delta: -1, eventId: 'ev1', eventName: 'Ana & Miguel', orderReference: null, landed: true, createdAt: '2026-11-05T07:00:00Z' },
-  { entryId: 'e5', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, giftKind: 'event_plus' as const, unlocksSku: null, delta: 3, eventId: null, eventName: null, orderReference: 'SN-9VQD', landed: false, createdAt: '2026-11-05T05:00:00Z' },
-  { entryId: 'e4', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'given' as const, giftKind: 'papic' as const, unlocksSku: null, delta: -1150, eventId: 'ev1', eventName: 'Ana & Miguel', orderReference: null, landed: true, createdAt: '2026-11-04T06:00:00Z' },
-  { entryId: 'e3', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, giftKind: 'papic' as const, unlocksSku: null, delta: 2000, eventId: null, eventName: null, orderReference: 'SN-8Q2K', landed: false, createdAt: '2026-11-02T05:00:00Z' },
-  { entryId: 'e2', vendorProfileId: 'v2', shopName: 'Lente Studio', kind: 'reversal' as const, giftKind: 'papic' as const, unlocksSku: null, delta: -150, eventId: null, eventName: null, orderReference: 'SN-7XRT', landed: false, createdAt: '2026-11-01T05:00:00Z' },
-  { entryId: 'e1', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, giftKind: 'papic' as const, unlocksSku: null, delta: 150, eventId: null, eventName: null, orderReference: 'SN-6PLM', landed: false, createdAt: '2026-10-30T05:00:00Z' },
+  { entryId: 'e6', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'given' as const, giftKind: 'event_plus' as const, unlocksSku: 'COUPLE_WEBSITE_PRO', packCode: null, packs: null, delta: -1, eventId: 'ev1', eventName: 'Ana & Miguel', orderReference: null, landed: true, createdAt: '2026-11-05T07:00:00Z' },
+  { entryId: 'e5', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, giftKind: 'event_plus' as const, unlocksSku: null, packCode: null, packs: null, delta: 3, eventId: null, eventName: null, orderReference: 'SN-9VQD', landed: false, createdAt: '2026-11-05T05:00:00Z' },
+  { entryId: 'e4', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'given' as const, giftKind: 'papic' as const, unlocksSku: null, packCode: 'PAPIC_GUEST_1K', packs: -1, delta: -1000, eventId: 'ev1', eventName: 'Ana & Miguel', orderReference: null, landed: true, createdAt: '2026-11-04T06:00:00Z' },
+  { entryId: 'e3', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, giftKind: 'papic' as const, unlocksSku: null, packCode: 'PAPIC_GUEST_1K', packs: 2, delta: 2000, eventId: null, eventName: null, orderReference: 'SN-8Q2K', landed: false, createdAt: '2026-11-02T05:00:00Z' },
+  { entryId: 'e2', vendorProfileId: 'v2', shopName: 'Lente Studio', kind: 'reversal' as const, giftKind: 'papic' as const, unlocksSku: null, packCode: 'PAPIC_GUEST_150', packs: -1, delta: -150, eventId: null, eventName: null, orderReference: 'SN-7XRT', landed: false, createdAt: '2026-11-01T05:00:00Z' },
+  { entryId: 'e1', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, giftKind: 'papic' as const, unlocksSku: null, packCode: 'PAPIC_GUEST_150', packs: 1, delta: 150, eventId: null, eventName: null, orderReference: 'SN-6PLM', landed: false, createdAt: '2026-10-30T05:00:00Z' },
 ];
 const LAB_GIFT_HOLDS = [
   { proposalId: 'p1', shopName: 'Saysay Catering', eventName: 'Bea & Carlo', status: 'sent', credits: 1000, plus: 1, pro: 0, ultra: 0 },

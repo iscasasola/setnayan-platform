@@ -207,7 +207,11 @@ export function shopGiftBundlesFrom(rows: readonly ShopGiftBundleRow[], packs: r
  * buys at today's list price ("buy 10, get 1 free" ⇒ 1). Never below 0 — a mispriced bundle says no free pack rather
  * than invent one.
  */
-export function bundleFreePacks(b: Pick<ShopGiftBundle, 'pack' | 'quantity' | 'priceCentavos'>): number {
+export function bundleFreePacks(b: {
+  pack: Pick<ShopGiftPack, 'srpCentavos'>;
+  quantity: number;
+  priceCentavos: number;
+}): number {
   if (b.pack.srpCentavos <= 0) return 0;
   const paidFor = Math.ceil(b.priceCentavos / b.pack.srpCentavos);
   return Math.max(0, b.quantity - paidFor);
@@ -217,7 +221,11 @@ export function bundleFreePacks(b: Pick<ShopGiftBundle, 'pack' | 'quantity' | 'p
  * Admin › Pricing's note on a bundle: the price it equals at today's list price ("ten at today's list price"), or a
  * warning when the two drifted apart (the bundle is not a whole number of packs at list any more).
  */
-export function bundleListNote(b: Pick<ShopGiftBundle, 'pack' | 'quantity' | 'priceCentavos'>): { ok: boolean; text: string } {
+export function bundleListNote(b: {
+  pack: Pick<ShopGiftPack, 'srpCentavos' | 'title'>;
+  quantity: number;
+  priceCentavos: number;
+}): { ok: boolean; text: string } {
   const srp = b.pack.srpCentavos;
   const n = srp > 0 ? b.priceCentavos / srp : NaN;
   if (Number.isInteger(n) && n > 0 && n < b.quantity) {

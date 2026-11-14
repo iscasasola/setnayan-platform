@@ -23,7 +23,8 @@
 --      ownership aliases read ORDERS only, so the gift door must say it here).
 --   5. papic_events_past_fullres_clock: a GIFTED plan's fullres_extra_keep_days counts like a bought one.
 -- No badge step pays Ultra yet (owner: "Ultra kind, no step yet") — that is lib/badge-rewards.ts, not SQL.
--- No price is typed: what a shop pays for an Ultra gift is the EVENT_ULTRA row (gift_price_php, else the list price).
+-- No price is typed: what a shop pays for an Ultra gift is the EVENT_ULTRA row's LIST price (retail_price_php) —
+-- one price per gift, owner 2026-11-14 ("we only have the 10+1"); gift_price_php is not a price anywhere.
 --
 -- KEEP IDEMPOTENT. 🛑 NEVER APPLIED BY HAND. The pipeline pushes this file (CLAUDE.md).
 -- ============================================================================

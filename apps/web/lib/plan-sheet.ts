@@ -34,7 +34,7 @@ import { allowance, planGivesLines, type PlanLine } from './vendor-plan-rows';
 
 /** The limits a shop can press + past — each read from the plan table (Lane B "Door 1" list). */
 export const PLAN_LIMITS = [
-  { key: 'bookingsPerDate', title: 'Bookings a day per card', thing: 'bookings a day on a card' },
+  { key: 'bookingsPerDate', title: 'Bookings a day per service, at each branch', thing: 'bookings a day for a service' },
   { key: 'cardsPerCategory', title: 'Cards per category', thing: 'cards in a category' },
   { key: 'mainCategories', title: 'Main categories', thing: 'main categories' },
   { key: 'teamSeats', title: 'Team seats', thing: 'team seats' },

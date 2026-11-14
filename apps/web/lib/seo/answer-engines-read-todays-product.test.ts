@@ -108,10 +108,10 @@ test('llms.txt lists every live feature page (bar the ones unlisted until proven
 });
 
 // SABOTAGE: hand-type a cell in the llms.txt supplier table, or drop a planTable group → RED.
-test('the supplier plans in llms.txt are Lane J’s plan table, cell for cell, under Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra', () => {
+test('the supplier plans in llms.txt are Lane J’s plan table, cell for cell, under Free · Plus · Pro · Ultra (Verified joins Free, 2026-11-14)', () => {
   const body = renderOn();
-  assert.ok(body.includes(`| | ${TABLE_TIERS.map(tableTierName).join(' | ')} |`), 'the plan header is not Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra');
-  assert.equal(TABLE_TIERS.map(tableTierName).join(' · '), 'Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra');
+  assert.ok(body.includes(`| | ${TABLE_TIERS.map(tableTierName).join(' | ')} |`), 'the plan header is not Free · Plus · Pro · Ultra');
+  assert.equal(TABLE_TIERS.map(tableTierName).join(' · '), 'Free · Plus · Pro · Ultra');
   const groups = planTable({ paywallOn: false, prices: { monthly: {}, annual: {}, bySku: {} } });
   for (const g of groups) {
     for (const r of g.rows) {

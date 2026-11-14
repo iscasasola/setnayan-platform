@@ -20,6 +20,7 @@ import {
 import Image from 'next/image';
 import { X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { SwitchTrack } from '@/app/_components/switch-track';
 import { bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FEE_SLIDER, type GrowLine, type GrowTier } from './supplier-front-data';
 import s from './supplier-front.module.css';
@@ -528,57 +529,113 @@ export function FeeStory({ schedule, steps, payoff }: { schedule: BookingFeeSche
 
 /* ───────────────────────── 13 · Grow: Solo · Pro · Ultra ───────────────────────── */
 
-export type GrowCard = {
-  tier: GrowTier;
+/** One plan card of the picker (drawing § 1): Free, or a paid plan with its own "Pay for the year" switch. */
+export type PlanCard = {
+  key: 'free' | GrowTier;
   name: string;
-  /** The catalog's 4-week price, or null when it could not be read. */
+  /** The catalogue's 4-week price, or null when it could not be read. Free: its own zero. */
   price: string | null;
-  /** The catalog's year price, or null. */
+  /** The catalogue's year price, or null (Free has none). */
   year: string | null;
+  /** What the year saves against 13 blocks of 4 weeks, or null. */
+  save: string | null;
+  /** Free's words, or a paid plan's spec line. */
   spec: string;
-  plus: string;
+  plus: string | null;
   lines: GrowLine[];
-  /** Ruling 5735: this plan's shop-page preview row (`PlanPagePreview`), at the panel's foot so it switches with the tab. */
+  cta: string;
+  /** Ruling 5735: this plan's shop-page preview row (`PlanPagePreview`). */
   preview?: ReactNode;
 };
 
-export function GrowTiers({ cards, start }: { cards: readonly GrowCard[]; start: GrowTier }) {
-  const [on, setOn] = useState<GrowTier>(start);
+/** A paid card's price + its year switch. The switch is the card's own (drawing § 1: "Each keeps its own year switch"). */
+function PlanPrice({ c }: { c: PlanCard }) {
+  const [yearOn, setYearOn] = useState(false);
+  if (c.key === 'free') {
+    return (
+      <p className={s.pickPrice}>
+        {c.price ?? '—'} <small>always</small>
+      </p>
+    );
+  }
+  const showYear = yearOn && c.year !== null;
   return (
     <>
-      <div className={s.tiers} role="tablist" aria-label="Grow plans">
+      <p className={s.pickPrice} aria-live="polite">
+        {showYear ? c.year : (c.price ?? '—')} <small>{showYear ? 'a year' : 'every 4 weeks'}</small>
+      </p>
+      {c.year ? (
+        <button type="button" role="switch" aria-checked={yearOn} className={s.pickYear} onClick={() => setYearOn((v) => !v)}>
+          <span>
+            {yearOn ? `Paying for the year${c.save ? ` · you save ${c.save}` : ''}` : `Pay for the year${c.save ? `, save ${c.save}` : ''}`}
+            <small>{yearOn ? `${c.price ?? '—'} every 4 weeks if you switch off` : `${c.year} a year`}</small>
+          </span>
+          <SwitchTrack on={yearOn} />
+        </button>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * THE PLAN PICKER (owner-approved 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS", drawing § 1): four tabs — Free ·
+ * Plus · Pro · Ultra — and the open plan's card on a phone; the four cards side by side from 960. Every figure arrives
+ * from the catalogue (the page read it); every line from the code that applies it.
+ */
+export function PlanPicker({ cards, start, href }: { cards: readonly PlanCard[]; start: PlanCard['key']; href: string }) {
+  const [on, setOn] = useState<PlanCard['key']>(start);
+  return (
+    <>
+      <div className={`${s.tiers} ${s.pickTabs}`} role="tablist" aria-label="Plans">
         {cards.map((c) => (
           <button
-            key={c.tier}
+            key={c.key}
             type="button"
             role="tab"
-            id={`sf-tab-${c.tier}`}
+            id={`sf-tab-${c.key}`}
             className={s.tier}
-            aria-selected={c.tier === on}
-            aria-controls={`sf-t-${c.tier}`}
-            onClick={() => setOn(c.tier)}
+            aria-selected={c.key === on}
+            aria-controls={`sf-t-${c.key}`}
+            onClick={() => setOn(c.key)}
           >
             <b>{c.name}</b>
             <span>{c.price ?? '—'}</span>
-            <small>{c.year ? `${c.year} a year` : 'Price unavailable'}</small>
           </button>
         ))}
       </div>
-      {cards.map((c) => (
-        <div key={c.tier} className={s.tdetail} id={`sf-t-${c.tier}`} role="tabpanel" aria-labelledby={`sf-tab-${c.tier}`} hidden={c.tier !== on}>
-          <p className={s.spec}>{c.spec}</p>
-          <p className={s.tplus}>{c.plus}</p>
-          <ul className={s.tlist}>
-            {c.lines.map((l) => (
-              <li key={l.text}>
-                {l.lead ? <b>{l.text}</b> : l.text}
-                {l.tail ?? null}
-              </li>
-            ))}
-          </ul>
-          {c.preview ?? null}
-        </div>
-      ))}
+      <div className={s.pickCards}>
+        {cards.map((c) => (
+          <div
+            key={c.key}
+            className={s.pickCard}
+            id={`sf-t-${c.key}`}
+            role="tabpanel"
+            aria-labelledby={`sf-tab-${c.key}`}
+            data-shown={c.key === on}
+            data-open={c.key === on}
+            data-first={c.key === start}
+          >
+            <p className={s.pickName}>{c.name}</p>
+            <PlanPrice c={c} />
+            <p className={s.spec}>{c.spec}</p>
+            {c.plus ? <p className={s.tplus}>{c.plus}</p> : null}
+            {c.lines.length ? (
+              <ul className={s.tlist}>
+                {c.lines.map((l) => (
+                  <li key={l.text}>
+                    {l.lead ? <b>{l.text}</b> : l.text}
+                    {l.tail ?? null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <a className={`${s.btn} ${s.btnSm} ${s.pickCta}`} href={href} data-sf-cta="">
+              {c.cta}
+            </a>
+            {c.preview ?? null}
+          </div>
+        ))}
+      </div>
     </>
   );
 }

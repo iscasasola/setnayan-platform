@@ -155,7 +155,7 @@ async function asUser<T>(uid: string | null, fn: () => Promise<T>, role = 'authe
 
 // ── 1 · THE ROWS ──────────────────────────────────────────────────────────────
 
-test('1a · the unlock is on sale at ₱499.00 / 4 weeks and ₱4,990.00 / year', async () => {
+test('1a · the unlock keeps its rows at ₱499.00 / 4 weeks and ₱4,990.00 / year — off sale since it folded into Plus (2026-11-14)', async () => {
   const r = await db.query<{ sku_code: string; price_php: string; offering_type: string; is_active: boolean }>(
     `SELECT sku_code, price_php::text, offering_type, is_active FROM public.vendor_billing_catalog
       WHERE sku_code IN ('vendor_specialized_tools','vendor_specialized_tools_annual') ORDER BY sku_code`,
@@ -163,8 +163,8 @@ test('1a · the unlock is on sale at ₱499.00 / 4 weeks and ₱4,990.00 / year'
   assert.deepEqual(
     r.rows.map((x) => [x.sku_code, Number(x.price_php), x.offering_type, x.is_active]),
     [
-      ['vendor_specialized_tools', 499, 'vendor_addon_recurring', true],
-      ['vendor_specialized_tools_annual', 4990, 'vendor_addon_recurring', true],
+      ['vendor_specialized_tools', 499, 'vendor_addon_recurring', false],
+      ['vendor_specialized_tools_annual', 4990, 'vendor_addon_recurring', false],
     ],
   );
 });
@@ -192,8 +192,8 @@ test('1b · the three add-ons it replaces are RETIRED, never deleted, and point 
 
 // ── 2 · THE GRANT ─────────────────────────────────────────────────────────────
 
-test('2a · a live paid window opens the paid tools for a verified Verified or Solo shop — at any event', async () => {
-  for (const tier of ['verified', 'solo']) {
+test('2a · a live paid window opens the paid tools for a verified Verified shop — at any event (Plus includes them, 2026-11-14)', async () => {
+  for (const tier of ['verified']) {
     const { vpid } = await newShop({ tier });
     assert.equal(await unlocked(vpid, null), false, `${tier}: nothing bought, nothing open`);
     await setWindow(vpid, FUTURE());
@@ -203,8 +203,9 @@ test('2a · a live paid window opens the paid tools for a verified Verified or S
   }
 });
 
-test('2b · Pro and Ultra include it — no purchase; a lapsed plan does not', async () => {
-  for (const tier of ['pro', 'enterprise']) {
+test('2b · Plus, Pro and Ultra include it — no purchase; a lapsed plan does not', async () => {
+  // Plus joined 2026-11-14 (DECISION_LOG "SIMPLER SUPPLIER PLANS": "Specialized tools included from Plus").
+  for (const tier of ['solo', 'pro', 'enterprise']) {
     const { vpid } = await newShop({ tier });
     assert.equal(await unlocked(vpid, null), true, tier);
     const lapsed = await newShop({ tier, tierExpires: PAST() });
@@ -213,7 +214,7 @@ test('2b · Pro and Ultra include it — no purchase; a lapsed plan does not', a
 });
 
 test('2c · an unverified shop or a Free tier gets nothing from a window', async () => {
-  const unverified = await newShop({ tier: 'solo', verified: false });
+  const unverified = await newShop({ tier: 'verified', verified: false });
   await setWindow(unverified.vpid, FUTURE());
   assert.equal(await unlocked(unverified.vpid, null), false, 'unverified');
   const free = await newShop({ tier: 'free' });

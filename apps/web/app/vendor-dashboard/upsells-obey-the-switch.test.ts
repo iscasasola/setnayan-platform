@@ -61,8 +61,6 @@ const NOT_THE_SWITCH: Record<string, string> = {
   'subscription/_components/papic-challenge-card.tsx': 'the Plans page cards',
   'subscription/_components/plan-sheet.tsx': 'the Plans page’s own plan rows (Build 5 Lane B) — buying a plan is its job; hiding Upgrade behind the paywall switch would leave the Plan page with nothing to buy',
   'subscription/ai-addon-actions.ts': 'Vendor AI add-on checkout',
-  'shop/_components/voice-match-card.tsx': 'Voice-match is Vendor AI — Advanced, a separately sold add-on',
-  'shop/autoreply-actions.ts': 'Voice-match is Vendor AI — Advanced, a separately sold add-on',
   // The gate component: it only ever renders where a caller asked the switch
   // (property 2 below checks every mount).
   '_components/tier-gate.tsx': 'the gate component itself; its mounts are checked',

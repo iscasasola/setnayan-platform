@@ -77,7 +77,7 @@ export async function voicedReplyText(input: VoicedReplyInput): Promise<VoiceSer
     const [{ data: levelRow }, { data: configRow }, { data: templateRows }] = await Promise.all([
       input.admin
         .from('vendor_profiles')
-        .select('ai_addon_level')
+        .select('ai_addon_level, tier_state, tier_expires_at')
         .eq('vendor_profile_id', input.vendorProfileId)
         .maybeSingle(),
       input.admin
@@ -100,9 +100,11 @@ export async function voicedReplyText(input: VoicedReplyInput): Promise<VoiceSer
 
     return serveVoicedReply({
       flagEnabled,
+      // Ultra includes the smarter level (2026-11-14); a bought Advanced window still counts until it runs out.
       advancedActive: vendorAiAdvancedActive({
         level: (levelRow as { ai_addon_level?: string | null } | null)?.ai_addon_level ?? null,
         windowActive: input.addonActive,
+        plan: levelRow as { tier_state?: string | null; tier_expires_at?: string | null } | null,
       }),
       mode: (configRow as { mode?: string | null } | null)?.mode ?? null,
       neutralText: input.neutralText,

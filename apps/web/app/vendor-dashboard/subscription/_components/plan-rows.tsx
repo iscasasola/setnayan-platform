@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BadgeCheck, Camera, CircleX, HardDrive, Images, ReceiptText, Star, Store, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, Camera, CircleX, HardDrive, Images, ReceiptText, Search, Star, Store, Users, type LucideIcon } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
@@ -17,7 +17,8 @@ import type { PlanLine, PlanRowBadge } from '@/lib/vendor-plan-rows';
  *   Booking fee — the live schedule · "N of 5 used" / Waived   (`bookingFeeRow`)
  *   What <plan> gives you ▾ — read from the plan table         (`planGivesLines`)
  *   Receipts ▾ — paid plan orders, each to /receipts/<id>
- *   Add-ons › (#add-ons — the shipped cards below) · Papic credits › (Event Hub) · Featured by Setnayan ·
+ *   Deep Search › (every plan) · Extra seats and branches › (Ultra) · what was bought before the 2026-11-14 fold,
+ *   while it runs · Papic credits › (Event Hub) · Featured by Setnayan ·
  *   Cancel the plan (nothing renews by itself). (The "Custom plan ›" row went 2026-11-06 with the Custom plan.)
  *
  * Presentational: every value arrives read; nothing here fetches or writes. The page and `/dev/supplier-plan-lab`
@@ -42,6 +43,9 @@ export function PlanRows({
   gift = null,
   photosLine = null,
   storageLine = null,
+  deepSearch = null,
+  extras = null,
+  bought = [],
   titled = true,
 }: {
   tier: string;
@@ -69,6 +73,12 @@ export function PlanRows({
    * be read. null = the plan has no allowance and the row is not drawn.
    */
   storageLine?: string | null;
+  /** 💳 Deep Search, the one thing every plan still buys (2026-11-14): its catalogue price; null = not drawn. */
+  deepSearch?: { line: string } | null;
+  /** 💳 Ultra's extra seats and branches (2026-11-14); null on every other plan. */
+  extras?: { line: string } | null;
+  /** 💳 Add-ons bought before they folded into the plans, while they still run (item 11). */
+  bought?: readonly { key: string; title: string; line: string }[];
   /** False inside the Shop ⚙'s "Plan and billing" fold — the fold names it (2026-10-31). */
   titled?: boolean;
 }) {
@@ -143,7 +153,18 @@ export function PlanRows({
           </Fold>
         </div>
 
-        <DatesRow data="plan-add-ons" lead={ic(Store)} title="Add-ons" line="AI replies · 3D booth · Papic Challenges · Deep Search" href="#add-ons" />
+        {/* 💳 The "Add-ons" row became what is left to buy (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS",
+            drawing § 3): Deep Search on every plan; on Ultra, extra seats and branches. The chatbot, specialized tools,
+            3D booth and Papic Challenges are not bought any more — they are under "What <plan> gives you". */}
+        {deepSearch ? (
+          <DatesRow data="plan-deep-search" lead={ic(Search)} title="Deep Search" line={deepSearch.line} href="/vendor-dashboard/deep-search" />
+        ) : null}
+        {extras ? (
+          <DatesRow data="plan-extras" lead={ic(Users)} title="Extra seats and branches" line={extras.line} href="/vendor-dashboard/team" />
+        ) : null}
+        {bought.map((b) => (
+          <DatesRow key={b.key} data="plan-bought" lead={ic(Store)} title={b.title} line={b.line} />
+        ))}
         <DatesRow
           data="plan-papic-credits"
           lead={ic(Camera)}
@@ -159,8 +180,8 @@ export function PlanRows({
           data="plan-boost"
           lead={ic(Star)}
           title="Featured by Setnayan"
-          line={featured ? 'Setnayan features your work in its stories' : 'Setnayan features Supplier Pro shops in its stories'}
-          badge={featured ? { tone: 'ok', word: 'On' } : { tone: 'quiet', word: 'Supplier Pro' }}
+          line={featured ? 'Setnayan features your work in its stories' : 'Setnayan features Pro shops in its stories'}
+          badge={featured ? { tone: 'ok', word: 'On' } : { tone: 'quiet', word: 'Pro' }}
         />
         <DatesRow
           data="plan-cancel"

@@ -3,15 +3,16 @@
  *
  * Held:
  *   · THE PLAN SHEET (Build 5 · Lane B, Door 2, owner 10 Nov): the plans are ROWS THAT OPEN IN PLACE (`Fold`), the
- *     shop's own first and open, each other one with What changes and What you pay; the cycle is ONE dropdown
- *     (`PickMenu`, "Pay every"); never cards, never a pill track, never the bare "Your plan ▾" dropdown again;
+ *     shop's own first and open, each other one with What changes and What you pay; the cycle is ONE switch, "Pay for
+ *     the year" (2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS"; was the "Pay every ▾" dropdown); never cards,
+ *     never a pill track, never the bare "Your plan ▾" dropdown again;
  *   · an unverified shop sees every paid plan with the shared 🔒 (`LockButton`), never a hidden one;
  *   · Pay posts ONLY `sku_code` to the shipped `startSubscriptionPurchase` (the RPC re-reads the price);
  *   · prices arrive from the catalogue — no peso is typed in the page or the picker;
  *   · the booking-fee line is the LIVE standing through `bookingFeeRow` (never `FEE_RATE`, never a flat ₱);
  *   · "What <plan> gives you" is `planGivesLines` (TIER_CAPS) — not typed copy;
- *   · every job keeps its door: receipts → /receipts, add-ons (the shipped cards stay, under #add-ons),
- *     Papic credits → the Event Hub, the scheduled-change notice (Keep my current plan).
+ *   · every job keeps its door: receipts → /receipts, Deep Search → its own page, Ultra's extra seats and branches →
+ *     Team (the folded add-on cards left 2026-11-14), Papic credits → the Event Hub, the scheduled-change notice.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,11 +27,11 @@ const PAGE = stripComments(readFileSync(join(HERE, '_components', 'plan-screen.t
 const PICKER = stripComments(readFileSync(join(HERE, '_components/plan-sheet.tsx'), 'utf8'));
 const ROWS = stripComments(readFileSync(join(HERE, '_components/plan-rows.tsx'), 'utf8'));
 
-test('the plans are rows that open in place, and the cycle is one dropdown', () => {
+test('the plans are rows that open in place, and the cycle is one switch', () => {
   assert.match(PICKER, /<Fold\b[\s\S]*?defaultOpen=\{isCurrent\}/);
   assert.match(PICKER, /What changes/);
   assert.match(PICKER, /What you pay/);
-  assert.match(PICKER, /<PickMenu\s+label="Pay every"/);
+  assert.match(PICKER, /role="switch"[\s\S]*?aria-label="Pay for the year"[\s\S]*?<SwitchTrack on=\{cycle === 'annual'\} \/>/);
   assert.doesNotMatch(PICKER, /<PickMenu\s+label="Your plan"/, 'the bare plan dropdown is back');
   assert.match(PICKER, /<LockButton\b[\s\S]*?lock="plans"/);
   assert.ok(!existsSync(join(HERE, '_components/subscription-cards.tsx')), 'the plan cards are back');
@@ -47,8 +48,7 @@ test('Pay posts only the SKU — never an amount', () => {
 });
 
 test('no peso is typed on the plan screen', () => {
-  const ULTRA = stripComments(readFileSync(join(HERE, '_components/ultra-addons-card.tsx'), 'utf8'));
-  for (const [name, src] of [['page.tsx', PAGE], ['plan-sheet.tsx', PICKER], ['plan-rows.tsx', ROWS], ['ultra-addons-card.tsx', ULTRA]] as const) {
+  for (const [name, src] of [['page.tsx', PAGE], ['plan-sheet.tsx', PICKER], ['plan-rows.tsx', ROWS]] as const) {
     assert.doesNotMatch(src, /₱\s?\d/, `${name} types a peso amount`);
   }
 });
@@ -67,15 +67,14 @@ test('every job keeps its door', () => {
   assert.match(ROWS, /href=\{r\.receiptId \? `\/receipts\/\$\{r\.receiptId\}` : null\}/);
   // The Custom plan door went 2026-11-06 with the plan itself (owner: "from the app") — it must not come back.
   assert.doesNotMatch(ROWS, /subscription\/custom/);
-  assert.match(ROWS, /href="#add-ons"/);
-  assert.match(PAGE, /id="add-ons"/);
+  // 💳 2026-11-14 ("SIMPLER SUPPLIER PLANS"): the add-on cards folded into the plans; what is left to buy is a row each.
+  assert.match(ROWS, /title="Deep Search"[\s\S]*?href="\/vendor-dashboard\/deep-search"/);
+  assert.match(ROWS, /title="Extra seats and branches"[\s\S]*?href="\/vendor-dashboard\/team"/);
+  assert.match(PAGE, /fetchVendorAddonPricePhp\(supabase, 'deep_search_about_you', currentTier\)/);
   assert.match(PAGE, /<PlanRows/);
-  assert.match(PAGE, /<AiAddonCard/);
-  assert.match(PAGE, /<BoothAddonCard/);
-  assert.match(PAGE, /<PapicChallengeCard/);
-  // Every Ultra add-on, from the catalogue (owner 2026-11-06, "ULTRA ADD-ON PRICES").
-  assert.match(PAGE, /<UltraAddonsCard rows=\{ultraRows\}/);
-  assert.match(PAGE, /ultraAddOns\(supabase\)/);
+  for (const gone of ['AiAddonCard', 'BoothAddonCard', 'PapicChallengeCard', 'UltraAddonsCard']) {
+    assert.doesNotMatch(PAGE, new RegExp(`<${gone}\\b`), `${gone} is back — it folded into the plans`);
+  }
   assert.match(ROWS, /href="\/vendor-dashboard\/on-the-day"/);
   assert.match(PAGE, /<PlanChangeNotice/);
 });

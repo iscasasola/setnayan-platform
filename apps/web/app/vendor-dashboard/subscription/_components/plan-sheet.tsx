@@ -6,7 +6,7 @@
  * plan and active until"*; approved prototype `settings_full_screen_2026-11-10/settings-full-screen.html`, Plans).
  *
  * The bare "Your plan ▾" dropdown is replaced by ONE list of plans that open in place (`Fold`):
- *   · Pay every ▾  — 28 days · A year (one dropdown; every price below follows it);
+ *   · Pay for the year ⏻ — one switch (2026-11-14; was the "Pay every ▾" menu); every price below follows it;
  *   · Your plan    — first and open: "Solo · your plan · Active until 8 Dec 2026", what it gives you (each limit), the
  *                    next payment;
  *   · each other   — a row that opens to WHAT CHANGES (each limit now → after, then what else changes) and WHAT YOU PAY
@@ -24,7 +24,7 @@
  */
 import { useState } from 'react';
 import { BadgeCheck, CalendarDays, Gem, Sparkles, Wallet } from 'lucide-react';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { Fold } from '@/app/_components/fold';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
@@ -77,8 +77,8 @@ export type SheetPlan = {
 };
 
 const lead = (Icon: typeof Gem) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
-const CYCLE_WORD: Record<Cycle, string> = { monthly: '28 days', annual: 'a year' };
-const EVERY_WORD: Record<Cycle, string> = { monthly: 'every 28 days', annual: 'every year' };
+const CYCLE_WORD: Record<Cycle, string> = { monthly: '4 weeks', annual: 'a year' };
+const EVERY_WORD: Record<Cycle, string> = { monthly: 'every 4 weeks', annual: 'every year' };
 
 function LimitRow({ l, compare }: { l: LimitChange; compare: boolean }) {
   return (
@@ -157,6 +157,22 @@ export function PlanSheet({
 }) {
   const [cycle, setCycle] = useState<Cycle>(startCycle);
   const anyPaid = plans.some((p) => p.paid);
+  // The year switch's words: the shop's own paid plan (else the first paid one listed), what a year saves against
+  // thirteen blocks of 4 weeks — both prices are the catalogue's, as the rows below print them.
+  const ownPaid = plans.find((p) => p.key === current && p.paid) ?? null;
+  const basis = ownPaid ?? plans.find((p) => p.paid) ?? null;
+  const mo = basis?.price.monthly;
+  const yr = basis?.price.annual;
+  const save = mo !== undefined && yr !== undefined && mo * 13 > yr ? mo * 13 - yr : null;
+  const yearTitle = ownPaid ? (cycle === 'annual' ? 'Paying for the year' : 'Paying every 4 weeks') : 'Pay for the year';
+  const yearLine =
+    cycle === 'annual'
+      ? save !== null
+        ? `${ownPaid ? 'You save' : `${basis?.name ?? 'A plan'} saves`} ${formatPhp(save)} · prices below are for a year`
+        : 'Prices below are for a year'
+      : save !== null
+        ? `Switch to the year and save ${formatPhp(save)}${ownPaid ? '' : ` on ${basis?.name ?? 'a plan'}`}`
+        : 'A year is ten blocks’ price';
 
   const button = (p: SheetPlan, kind: 'renew' | 'up' | 'down') => {
     const price = p.price[cycle];
@@ -191,24 +207,26 @@ export function PlanSheet({
   return (
     <div data-plan-sheet="">
       {anyPaid ? (
+        /* 💳 THE YEAR SWITCH (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS" item 2; drawing § 3): one
+           switch — "Pay for the year", a year = 10 blocks' price — the same switch as the public page, in place of the
+           "Pay every ▾" menu. Every price below follows it. The saving is the shop's own plan's catalogue prices. */
         <DatesRow
           data="plan-cycle"
           lead={lead(CalendarDays)}
-          title="Pay every"
-          line="Prices below follow this choice"
+          title={yearTitle}
+          line={yearLine}
           end={
-            <PickMenu
-              label="Pay every"
-              value={cycle}
-              options={[
-                { key: 'monthly', label: '28 days' },
-                { key: 'annual', label: 'A year' },
-              ]}
-              onPick={(k) => setCycle(k === 'annual' ? 'annual' : 'monthly')}
-              dataAttr="data-plan-cycle-menu"
-              compact
-              className="!min-h-11"
-            />
+            <button
+              type="button"
+              role="switch"
+              aria-checked={cycle === 'annual'}
+              aria-label="Pay for the year"
+              className={SWITCH_BUTTON}
+              onClick={() => setCycle((c) => (c === 'annual' ? 'monthly' : 'annual'))}
+              data-plan-cycle-switch=""
+            >
+              <SwitchTrack on={cycle === 'annual'} />
+            </button>
           }
         />
       ) : null}

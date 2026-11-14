@@ -21,7 +21,8 @@ import { formatCount } from '@/lib/format-number';
 import { LOCKS, LOCK_KEYS } from '@/lib/locks';
 import { PLAN_LIMITS, limitOf, limitWords } from '@/lib/plan-sheet';
 import { allowance } from '@/lib/vendor-plan-rows';
-import { TIER_CAPS } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
+import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import { tierPaysGiftPrice } from '@/lib/shop-gifts';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
@@ -86,7 +87,12 @@ test('every limit cell is the entitlement code — in both states of the plan pa
       const r = row(g, `limit:${l.key}`);
       for (const t of TABLE_TIERS) {
         const v = limitOf(t, l.key, paywallOn);
-        const want = l.key === 'reach' && v === 0 ? FREE_FINDABLE.replace(/^f/, 'F') : v === 0 ? 'None' : limitWords(l.key, v);
+        const say = (n: number) => (l.key === 'reach' && n === 0 ? FREE_FINDABLE.replace(/^f/, 'F') : n === 0 ? 'None' : limitWords(l.key, n));
+        // 2026-11-14 "Verified joins Free": where the verified step differs, the Free cell says both — each through the
+        // same entitlement reader.
+        const ver = limitOf('verified', l.key, paywallOn);
+        const want =
+          t === 'free' && ver !== v ? `${say(v)}; ${ver === 0 ? 'none' : limitWords(l.key, ver)} once Verified` : say(v);
         assert.equal(r.cells[t].text, want, `${l.key} · ${t} · paywall ${paywallOn}: the table says ${r.cells[t].text}`);
       }
     }
@@ -117,6 +123,9 @@ test('the plan-feature rows are TIER_CAPS, the tools row is the unlock rule, gif
   yes('tool:intel', (t) => TIER_CAPS[t].marketIntel);
   yes('tool:theft', (t) => TIER_CAPS[t].theftWatch);
   yes('tool:specialized', (t) => SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(t));
+  // 2026-11-14: the chatbot is the plan's (PLAN_CHATBOT_LEVEL — the inbox gate's own table), no longer a price.
+  yes('tool:chatbot', (t) => (PLAN_CHATBOT_LEVEL[t] ?? 'none') !== 'none');
+  assert.equal(TABLE_TIERS.join(' · '), 'free · solo · pro · enterprise', 'Verified joins Free — four columns');
   const gift = row(g, 'money:gift');
   for (const t of TABLE_TIERS) assert.equal(gift.cells[t].text, tierPaysGiftPrice(t) ? 'Gift price' : 'List price', `gift · ${t}`);
 });
@@ -130,9 +139,12 @@ test('every price cell is the price the page read — or "—" when it read noth
   assert.equal(row(g, 'price:4w').cells.pro.text, SENT('pro-mo'));
   assert.equal(row(g, 'price:yr').cells.enterprise.text, SENT('ent-yr'));
   for (const t of TABLE_TIERS) {
-    assert.equal(row(g, 'money:deep').cells[t].text, `${SENT(vendorAddonSkuCode('deep_search_about_you', t))} a search`);
-    assert.equal(row(g, 'money:chatbot').cells[t].text, `${SENT(vendorAddonSkuCode('ai_chatbot_basic', t))} / 4 weeks`);
+    assert.equal(row(g, 'buy:deep').cells[t].text, `${SENT(vendorAddonSkuCode('deep_search_about_you', t))} a search`);
+    const sb = row(g, 'buy:seatbranch').cells[t];
+    if (canBuyExtraSeats(t) && canBuyExtraBranches(t)) assert.match(sb.text, /₱SENT:vendor_extra_seat|₱SENT:vendor_additional_branch/);
+    else assert.equal(sb.kind, 'no', `${t} is offered a seat or branch it cannot buy`);
   }
+  assert.equal(row(g, 'price:yr').cells.free.kind, 'no', 'Free has nothing to pay for a year');
   const none = planTable({ paywallOn: true, prices: { monthly: {}, annual: {}, bySku: {} } });
   const blank = rowsOf(none).flatMap((r) => TABLE_TIERS.map((t) => r.cells[t].text)).filter((t) => t.includes('₱'));
   assert.deepEqual(blank, [], 'an unread catalogue still printed a peso');
@@ -141,7 +153,8 @@ test('every price cell is the price the page read — or "—" when it read noth
   const buyable = ULTRA_ADDON_ORDER.filter((k) => (['solo', 'pro', 'enterprise'] as const).some((t) => canBuyUltraAddOn(k, t)));
   assert.deepEqual(lines.map((l) => l.kind), buyable);
   for (const l of lines) assert.equal(l.price, SENT(ultraAddOnSku(l.kind)));
-  assert.ok(lines.length >= 6, `anti-vacuity: Ultra's add-on list shrank to ${lines.length}`);
+  // 2026-11-14 ("SIMPLER SUPPLIER PLANS"): only the extra seat and the extra branch are left to buy on top of Ultra.
+  assert.deepEqual(lines.map((l) => l.kind), ['seat', 'branch'], 'the add-ons left to buy are the seat and the branch');
 });
 
 test('a lock is printed only when the app enforces it — and every enforced one is', () => {

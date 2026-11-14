@@ -596,3 +596,46 @@
   .dock { display: none; }
   .close { padding-block: 160px 96px; }
 }
+
+/* ===== the simpler plans (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS", drawing §§ 1–2) ===== */
+/* the comparison: the table from 720, one plan at a time with chips below it */
+.cmpWide { display: none; }
+.cmpNarrow { display: grid; gap: 10px; padding-inline: 16px; }
+@media (min-width: 720px) { .cmpWide { display: block; } .cmpNarrow { display: none; } }
+.cmpTint { background: color-mix(in srgb, var(--sf-accent) 5%, var(--sf-paper)); }
+.cmp thead th.cmpTint { background: color-mix(in srgb, var(--sf-accent) 7%, var(--sf-paper)); }
+.cmpColNote { display: block; margin-top: 2px; font-weight: 500; font-size: .74rem; color: var(--sf-muted); }
+.cmpChips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.cmpChip { min-height: 44px; padding: 0 16px; border-radius: var(--m-r-full); border: 1px solid var(--sf-line); background: var(--sf-paper); color: var(--sf-ink); font: inherit; font-size: .92rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.cmpChip[aria-selected="true"] { background: var(--sf-ink); color: var(--sf-paper); border-color: var(--sf-ink); }
+.cmpList { display: grid; gap: 2px; }
+.cmpListNote { margin: 0; font-size: .84rem; color: var(--sf-muted); }
+.cmpListHead { margin: 14px 0 4px; font-family: var(--sf-mono); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--sf-accent); font-weight: 700; }
+.cmpListRow { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--sf-line); font-size: .9rem; color: var(--sf-ink); line-height: 1.35; }
+.cmpListRow > span:first-child { min-width: 0; }
+.cmpListRow > span:last-child { text-align: right; color: var(--sf-text); max-width: 55%; }
+
+/* the plan picker: four tabs and one card on a phone; four cards side by side from 960 */
+.pickTabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.pickTabs .tier { padding: 10px 4px; }
+.pickTabs .tier span { font-size: 1rem; }
+.pickTabs .tier[aria-selected="true"] { padding: 9px 3px; }
+.pickCards { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+.pickCard { background: var(--sf-paper); border: 1px solid var(--sf-line); border-radius: var(--sf-r); padding: 18px; display: grid; gap: 8px; align-content: start; min-width: 0; box-shadow: var(--sf-shadow); }
+.pickCard[data-open="true"] { border-color: var(--sf-accent); }
+.pickCard[data-shown="false"] { display: none; }
+.pickName { font-weight: 800; font-size: 1.15rem; color: var(--sf-ink); }
+.pickPrice { font-size: 1.9rem; font-weight: 800; letter-spacing: -.02em; color: var(--sf-accent); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pickPrice small { font-size: .86rem; font-weight: 500; letter-spacing: 0; color: var(--sf-muted); margin-left: 4px; }
+.pickYear { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 10px 12px; border-radius: var(--m-r-md); background: var(--sf-soft); color: var(--sf-ink); font: inherit; font-size: .9rem; text-align: left; border: 0; cursor: pointer; width: 100%; }
+.pickYear small { display: block; font-size: .8rem; color: var(--sf-muted); }
+.pickCta { margin-top: 6px; width: 100%; }
+.pickMore { display: grid; gap: 8px; font-size: .9rem; }
+.pickMore a { color: var(--sf-accent); font-weight: 700; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+@media (min-width: 960px) {
+  .pickTabs { display: none; }
+  .pickCards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .pickCard[data-shown="false"] { display: grid; }
+  .pickCard[data-open="true"] { border-color: var(--sf-line); }
+  .pickCard[data-first="true"] { border-color: var(--sf-accent); }
+}

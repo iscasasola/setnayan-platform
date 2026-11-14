@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FileUpload } from '@/app/_components/file-upload';
+import { InfoTip } from '@/app/_components/info-tip';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPaymentProof } from '../actions';
 import { payAmount } from '@/lib/pay-amount';
@@ -228,7 +229,7 @@ export function PayPanel({
                     <p key={c.id} className="text-sm text-ink/70">
                       <span className="block text-xs text-ink/55">{c.label}</span>
                       {c.number && (
-                        <span className="font-mono text-[15px] font-semibold text-ink">
+                        <span className="text-[15px] font-semibold tabular-nums tracking-wide text-ink">
                           {c.number}
                         </span>
                       )}
@@ -237,7 +238,7 @@ export function PayPanel({
                   ))}
                 <p className="text-sm text-ink/70">
                   Amount to send:{' '}
-                  <span className="font-mono font-semibold text-ink">{payAmount(amountPhp)}</span>
+                  <span className="font-semibold tabular-nums text-ink">{payAmount(amountPhp)}</span>
                 </p>
               </>
             )}
@@ -247,7 +248,7 @@ export function PayPanel({
 
       {/* ── STAGE 2 ──────────────────────────────────────────────────────── */}
       <div hidden={stage !== 2}>
-        <section id="payCard" className="sn-tile mt-5 scroll-mt-4 p-6">
+        <section id="payCard" className="mt-5 scroll-mt-4 border-t border-ink/10 pt-6">
           <StepHead n={2} title="Pay this exact amount" />
           {/*
             🔑 EVERY RAIL CLOSED. Both personal accounts are at their monthly
@@ -302,10 +303,12 @@ export function PayPanel({
             </>
           )}
 
-          <p className="mt-4 text-[11px] leading-relaxed text-ink/55">
-            Paying on the same phone? Save the code to your photos first &mdash; your wallet&rsquo;s
-            scanner can open it from your photos. Sending to BDO from another bank usually costs you
-            a ₱10&ndash;₱15 transfer fee; GCash to GCash is free.
+          <p className="mt-4 text-xs leading-relaxed text-ink/70">
+            Paying on the same phone? Save the code to your photos first.{' '}
+            <InfoTip label="" ariaLabel="About paying on the same phone" align="start">
+              Your wallet&rsquo;s scanner can open it from your photos. Sending to BDO from another bank usually costs
+              you a ₱10&ndash;₱15 transfer fee; GCash to GCash is free.
+            </InfoTip>
           </p>
 
           <div className="mt-5 flex flex-col gap-2">
@@ -336,7 +339,7 @@ export function PayPanel({
           unmounted afterwards. See `shouldMountProof`. */}
       {proofMounted && (
         <div hidden={stage !== PROOF_STAGE}>
-          <section id="proofCard" className="sn-tile mt-5 scroll-mt-4 p-6">
+          <section id="proofCard" className="mt-5 scroll-mt-4 border-t border-ink/10 pt-6">
             <StepHead n={3} title="Send your proof" />
             {resubmitNotice && (
               <p className="mb-4 rounded-lg border border-mulberry/40 bg-mulberry/[0.06] p-3 text-sm text-ink">
@@ -344,7 +347,7 @@ export function PayPanel({
               </p>
             )}
             {proofSent ? (
-              <div className="rounded-xl border border-mulberry bg-white p-5 text-center">
+              <div className="rounded-xl bg-white p-5 text-center">
                 <h2 className="text-lg font-semibold text-ink">We&rsquo;re checking your payment</h2>
                 <p className="mt-2 text-sm text-ink/65">
                   You&rsquo;ll get an email once it&rsquo;s confirmed &mdash; usually within 24 hours.
@@ -566,7 +569,7 @@ function ProofForm({
       </p>
 
       {preview && (
-        <div className="rounded-xl border border-mulberry bg-white p-3 text-center">
+        <div className="rounded-xl bg-white p-3 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={preview}
@@ -634,7 +637,7 @@ function ProofForm({
           pattern="[A-Za-z0-9][A-Za-z0-9 \-]{3,63}"
           placeholder="••••••"
           required={requiresReference}
-          className="input-field font-mono tracking-[0.2em]"
+          className="input-field tabular-nums tracking-[0.2em]"
         />
         <span className="mt-1.5 block text-xs text-ink/55">
           On your receipt it looks like 0043457367694 &mdash; the last six is enough, and you can
@@ -704,7 +707,7 @@ function StickyBar({
   return (
     <div data-glass-row="pay-bar" className="sn-glass-row fixed inset-x-0 bottom-0 z-40 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))]">
       <div className="mx-auto flex max-w-[560px] items-center gap-3">
-        <span className="whitespace-nowrap font-mono text-[17px] font-bold text-ink">
+        <span className="whitespace-nowrap text-[17px] font-bold tabular-nums text-ink">
           <span className="block font-sans text-[11px] font-normal text-ink/55">
             {proofSent ? 'Checking' : 'To pay'}
           </span>

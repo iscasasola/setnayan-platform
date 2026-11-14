@@ -16,6 +16,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { isShopLive } from '@/lib/vendor-visibility';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { claimVendorInviteToEvent } from './actions';
+import { actionButtonClass } from '@/components/action-button';
 
 export const metadata = {
   title: 'Add a supplier to your plan',
@@ -122,7 +123,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6">
       {/* Vendor identity */}
-      <div className="rounded-3xl border border-ink/10 bg-cream p-6 text-center">
+      <div className="rounded-3xl bg-[color:var(--m-paper-2)] p-6 text-center">
         {logoDisplayUrl ? (
           <Image
             src={logoDisplayUrl}
@@ -136,7 +137,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
             <Store className="h-8 w-8 text-ink/40" strokeWidth={1.5} />
           </div>
         )}
-        <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
+        <p className="mt-4 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           {categoryLabel} · invites you{eventTypeLabel ? ` · ${eventTypeLabel}` : ''}
         </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">
@@ -153,7 +154,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
       {statusMessage ? (
         <p
           role="alert"
-          className="mt-4 rounded-xl border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+          className="mt-4 rounded-xl bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
           {statusMessage}
         </p>
@@ -163,7 +164,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
       <div className="mt-6">
         {!user ? (
           // Signed out → sign up / sign in, returning to this page.
-          <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
+          <div className="rounded-2xl p-5 text-center">
             <Sparkles className="mx-auto h-5 w-5 text-terracotta" strokeWidth={1.75} />
             <p className="mt-2 text-sm text-ink/70">
               Create your free Setnayan plan to save {vendor.business_name} to
@@ -171,7 +172,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
             </p>
             <Link
               href={`/signup?as=couple&next=${encodeURIComponent(nextPath)}`}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
+              className={actionButtonClass('brand', { main: true, extra: 'mt-4 w-full !h-11' })}
             >
               Sign up free & add this supplier
             </Link>
@@ -184,14 +185,14 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
           </div>
         ) : hostEvents.length === 0 ? (
           // Signed in, no event yet → create one, returning here to finish.
-          <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
+          <div className="rounded-2xl p-5 text-center">
             <p className="text-sm text-ink/70">
               Create your {eventTypeLabel ? `${eventTypeLabel.toLowerCase()} ` : ''}
               event first, then we’ll add {vendor.business_name} to its shortlist.
             </p>
             <Link
               href={`/dashboard/create-event?next=${encodeURIComponent(nextPath)}`}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
+              className={actionButtonClass('brand', { main: true, extra: 'mt-4 w-full !h-11' })}
             >
               Create your {eventTypeLabel ? `${eventTypeLabel.toLowerCase()} ` : ''}event
             </Link>

@@ -9,6 +9,7 @@ import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { readClaimAccountVerdict } from '@/lib/claim-account-gate.server';
+import { actionButtonClass } from '@/components/action-button';
 
 const VENDOR_CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
@@ -291,7 +292,7 @@ export default async function FinalizeClaimPage({ params }: Props) {
 function ErrorShell({ title, body }: { title: string; body?: string }) {
   return (
     <DoorShell tone="dead_end" eyebrow="Claim" title={title} sub={body}>
-      <Link href="/login" className="button-secondary">
+      <Link href="/login" className={actionButtonClass('neutral', { extra: '!h-11' })}>
         Back to sign in
       </Link>
     </DoorShell>
@@ -315,7 +316,7 @@ function NotASupplierShell({ token, email, business }: { token: string; email: s
       sub={`You're signed in${who}, a personal account with no shop. The link for ${name} has not been used. Open your account menu to switch to (or add) the supplier's account, then open the invite again.`}
     >
       <div className="flex flex-wrap gap-3" data-claim-refused="not-a-supplier">
-        <Link href={`/vendor/claim/${token}`} className="button-secondary">
+        <Link href={`/vendor/claim/${token}`} className={actionButtonClass('neutral', { extra: '!h-11' })}>
           Open the invite again
         </Link>
       </div>

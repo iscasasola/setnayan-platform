@@ -7,13 +7,14 @@ import { fetchClaimLandingByToken, readInviteOffer } from '@/lib/vendor-invites'
 import { doorOffer, offerFromInvite } from '@/lib/personal-invite-offer';
 import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
 import { VENDOR_CATEGORY_LABEL, displayServiceLabel, type VendorCategory } from '@/lib/vendors';
-import { ActionButton } from '@/components/action-button';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { supplierCommissionShort } from '@/lib/commission-promise';
 import { claimDatePhrase } from '@/lib/claim-invite-words';
 import { claimDoorHref } from '@/lib/claim-door';
 import { CoupleLinkDoor, Perk, SnapshotField, TeamInviteDoor } from './_components/claim-parts';
+import { InfoTip } from '@/app/_components/info-tip';
 
 export const metadata = {
   title: 'Claim your Setnayan profile',
@@ -209,15 +210,17 @@ export default async function VendorClaimPage({ params }: Props) {
               words — and the eyebrow stays the one doorway colour. */}
           <div className="rounded-lg bg-success-50 p-4 text-sm text-ink/75 ring-1 ring-inset ring-success-200">
             <p className="leading-relaxed">
-              On connect, this engagement appears in your Clients pipeline at the Inquiry
-              stage. Chat unlocks immediately. <strong>No duplicate profile created.</strong>
+              On connect, this engagement appears in your Clients pipeline at the Inquiry stage.{' '}
+              <InfoTip label="" ariaLabel="What connecting does" align="start">
+                Chat unlocks immediately. No duplicate profile created.
+              </InfoTip>
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <Link
               href={signInUrl}
-              className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
+              className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
             >
               Sign in &amp; connect
             </Link>
@@ -258,7 +261,7 @@ export default async function VendorClaimPage({ params }: Props) {
             No package, inclusions, milestones, or meetings. Vendor sees those
             the moment they finish signup. */}
         <section className="rounded-xl bg-cream p-5 ring-1 ring-inset ring-ink/10">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             What they&rsquo;ve recorded
           </p>
           <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -290,7 +293,7 @@ export default async function VendorClaimPage({ params }: Props) {
 
         {/* Why-claim strip — vendor-value pitch. */}
         <section className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             What you get
           </p>
           <ul className="divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
@@ -306,7 +309,7 @@ export default async function VendorClaimPage({ params }: Props) {
         <div className="flex flex-wrap gap-3">
           <Link
             href={signupUrl}
-            className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
+            className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
           >
             Claim &amp; sign up
           </Link>

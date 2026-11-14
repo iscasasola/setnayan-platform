@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { CopyButton } from '@/app/_components/copy-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { actionButtonClass } from '@/components/action-button';
 import { createClient } from '@/lib/supabase/server';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -236,22 +238,22 @@ export default async function PayPage({ params, searchParams }: Props) {
     picture gets the code, the amount and the form returned to them. Nothing
     here is a one-way door.
     */
-    <section className="sn-tile p-6">
+    <section className="rounded-card bg-[color:var(--m-paper-2)] p-6" data-pay-summary="">
     <div className="mb-4 flex items-center gap-2.5">
       {!waiting && (
         <span className="grid h-6 w-6 place-items-center rounded-full bg-ink text-[12px] font-bold text-white">
           1
         </span>
       )}
-      <span className="sn-eye">
+      <span className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
         {waiting ? 'What you bought' : 'You’re paying for'}
       </span>
     </div>
 
     <h1 className="text-2xl font-semibold leading-tight text-ink">{payable.title}</h1>
-    {payable.who && <p className="mt-1 text-sm text-ink/60">{payable.who}</p>}
+    {payable.who && <p className="mt-1 text-sm text-ink/70">{payable.who}</p>}
 
-    <p className="mt-4 font-mono text-[40px] font-bold leading-none tracking-tight text-ink">
+    <p className="mt-4 text-[40px] font-bold leading-none tracking-tight tabular-nums text-ink">
       {payAmount(payable.amountPhp)}
     </p>
 
@@ -259,7 +261,7 @@ export default async function PayPage({ params, searchParams }: Props) {
       <div className="mt-5 border-t border-ink/10 pt-3 text-sm">
         {payable.rows.map((r) => (
           <div key={r.label} className="flex justify-between gap-4 py-1.5">
-            <span className="text-ink/60">{r.label}</span>
+            <span className="text-ink/70">{r.label}</span>
             <span className="text-ink">{r.value}</span>
           </div>
         ))}
@@ -274,8 +276,10 @@ export default async function PayPage({ params, searchParams }: Props) {
         role="status"
         className="mt-5 border-t border-ink/10 pt-3 text-sm text-ink/70"
       >
-        We couldn&rsquo;t load the list of what this covers just now. The total
-        above is still what you owe — refresh the page to see the list.
+        We couldn&rsquo;t load the list of what this covers just now.{' '}
+        <InfoTip label="" ariaLabel="What this means" align="start">
+          The total above is still what you owe — refresh the page to see the list.
+        </InfoTip>
       </p>
     )}
 
@@ -288,7 +292,7 @@ export default async function PayPage({ params, searchParams }: Props) {
             the one screen where a payer has to copy it correctly. Everywhere
             else `sn-eye` is followed by a block element, which is why this is
             the only place it showed. */}
-        <p className="sn-eye mb-0.5 block">Your reference</p>
+        <p className="sn-eye mb-0.5 block !text-xs !text-[color:var(--m-slate-2)]">Your reference</p>
         <code className="block font-mono text-[17px] font-semibold tracking-wide text-ink">
           {payable.reference}
         </code>
@@ -297,11 +301,11 @@ export default async function PayPage({ params, searchParams }: Props) {
         <CopyButton value={payable.reference} label="Copy" />
       </div>
     </div>
-    <p className="mt-2 text-xs text-ink/55">{words.note}</p>
+    <p className="mt-2 text-xs text-ink/70">{words.note}</p>
 
     {!waiting && (
       <div className="mt-5 border-t border-ink/10 pt-4">
-        <p className="sn-eye mb-2">What happens next</p>
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)] mb-2">What happens next</p>
         <Step n={1}>{words.scanStep}</Step>
         <Step n={2}>Send us the screenshot and the last 6 digits of your reference number.</Step>
         <Step n={3}>{activates}</Step>
@@ -314,10 +318,10 @@ export default async function PayPage({ params, searchParams }: Props) {
   if (payable.status !== 'awaiting_payment') {
     return (
       <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6">
-        <section className="sn-tile p-6 text-center">
-          <p className="sn-eye">{payable.status === 'settled' ? 'Paid' : 'Closed'}</p>
+        <section className="p-6 text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">{payable.status === 'settled' ? 'Paid' : 'Closed'}</p>
           <h1 className="mt-2 text-xl font-semibold text-ink">{payable.title}</h1>
-          <p className="mt-3 text-sm text-ink/65">
+          <p className="mt-3 text-sm text-ink/70">
             {payable.status === 'settled'
               ? "This one is settled — there's nothing left to send. Thank you."
               : 'This order was cancelled, so please don’t send anything for it.'}
@@ -338,11 +342,18 @@ export default async function PayPage({ params, searchParams }: Props) {
   return (
     <main className="mx-auto max-w-[560px] px-4 pb-32 pt-6">
       {setup ? (
-        <p className="mb-4 rounded-[var(--m-r-lg)] border border-terracotta/30 bg-terracotta/[0.07] px-4 py-3 text-sm leading-relaxed text-ink">
+        <p className="mb-4 rounded-[var(--m-r-lg)] bg-terracotta/[0.07] px-4 py-3 text-sm leading-relaxed text-ink">
           <span className="font-semibold">Last step.</span>{' '}
-          {waiting
-            ? 'Your event is set up and live. We just need to confirm this payment.'
-            : 'Your event is already set up and its free credits are live. Settle this and the extras you picked switch on too.'}
+          {waiting ? (
+            'Your event is set up and live. We just need to confirm this payment.'
+          ) : (
+            <>
+              Your event is already set up and its free credits are live.{' '}
+              <InfoTip label="" ariaLabel="What settling switches on" align="end">
+                Settle this and the extras you picked switch on too.
+              </InfoTip>
+            </>
+          )}
         </p>
       ) : (
         payable.back && (
@@ -356,22 +367,24 @@ export default async function PayPage({ params, searchParams }: Props) {
       )}
       {waiting && summary}
       {waiting && (
-        <section className="sn-tile mt-5 border-mulberry p-6 text-center">
+        <section className="mt-5 rounded-card bg-[color:var(--m-paper-2)] p-6 text-center">
           <h2 className="text-lg font-semibold text-ink">
             We&rsquo;re verifying your purchase
           </h2>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-ink/65">
-            Please allow up to 24 hours. You&rsquo;ll get an email the moment it&rsquo;s
-            confirmed — there&rsquo;s nothing else for you to do.
+          <p className="mx-auto mt-2 max-w-sm text-sm text-ink/70">
+            Please allow up to 24 hours.{' '}
+            <InfoTip label="" ariaLabel="What happens next" align="center">
+              You&rsquo;ll get an email the moment it&rsquo;s confirmed — there&rsquo;s nothing else for you to do.
+            </InfoTip>
           </p>
-          <p className="mt-4 text-xs text-ink/50">
+          <p className="mt-4 text-xs text-ink/70">
             {activates}
           </p>
         </section>
       )}
 
       {search.error && (
-        <p className="sn-tile mt-4 border-mulberry/40 p-4 text-sm text-ink">{search.error}</p>
+        <p role="alert" className="mt-4 text-sm font-medium text-danger-700">{search.error}</p>
       )}
 
       {/*
@@ -387,7 +400,7 @@ export default async function PayPage({ params, searchParams }: Props) {
         this block differently.
       */}
       {search.recheck && (
-        <p className="sn-tile mt-4 border-[color:var(--sn-warning)]/40 bg-[var(--sn-warning-soft)] p-4 text-sm text-[color:var(--sn-warning-deep)]">
+        <p className="mt-4 rounded-card bg-[var(--sn-warning-soft)] p-4 text-sm text-[color:var(--sn-warning-deep)]">
           {search.recheck}
         </p>
       )}
@@ -411,13 +424,15 @@ export default async function PayPage({ params, searchParams }: Props) {
           {payable.eventId && <input type="hidden" name="event_id" value={payable.eventId} />}
           <button
             type="submit"
-            className="text-sm text-ink/60 underline underline-offset-4 hover:text-ink"
+            className="text-sm text-ink/70 underline underline-offset-4 hover:text-ink"
           >
             I don&rsquo;t want these after all — remove them
           </button>
-          <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-ink/45">
-            Your event and its free credits stay live. You can add these any time
-            from your studio — at the normal price, without the set-up discount.
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink/70">
+            Your event and its free credits stay live.{' '}
+            <InfoTip label="" ariaLabel="Adding them later" align="center">
+              You can add these any time from your studio — at the normal price, without the set-up discount.
+            </InfoTip>
           </p>
         </form>
       )}
@@ -446,19 +461,19 @@ export default async function PayPage({ params, searchParams }: Props) {
       {waiting &&
         (setup && payable.eventId ? (
           <div className="mt-5 text-center">
-            <Link href={`/dashboard/${payable.eventId}`} className="button-primary inline-flex">
+            <Link href={`/dashboard/${payable.eventId}`} className={actionButtonClass('brand', { main: true, extra: '!h-11' })}>
               Finish setting up
             </Link>
-            <p className="mt-2 text-xs text-ink/45">
+            <p className="mt-2 text-xs text-ink/70">
               Nothing else to do here — we&rsquo;ll email you the moment it&rsquo;s confirmed.
             </p>
           </div>
         ) : payable.back ? (
           <div className="mt-5 text-center">
-            <Link href={payable.back.href} className="button-primary inline-flex">
+            <Link href={payable.back.href} className={actionButtonClass('brand', { main: true, extra: '!h-11' })}>
               {payable.back.label}
             </Link>
-            <p className="mt-2 text-xs text-ink/45">
+            <p className="mt-2 text-xs text-ink/70">
               Nothing else to do here — we&rsquo;ll email you the moment it&rsquo;s confirmed.
             </p>
           </div>

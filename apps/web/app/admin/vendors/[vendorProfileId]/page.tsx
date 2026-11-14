@@ -2,7 +2,18 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
-import { ArrowLeft, Wallet } from 'lucide-react';
+import { Layers, Pencil, ShieldCheck, Users, Wallet } from 'lucide-react';
+import { Badge } from '@/app/_components/badge';
+import { ActionButton } from '@/components/action-button';
+import {
+  RecordBack,
+  RecordFacts,
+  RecordFold,
+  RecordFolds,
+  RecordHead,
+  RecordNote,
+  RecordSection,
+} from '@/app/admin/_components/record-kit';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -40,9 +51,17 @@ export const dynamic = 'force-dynamic';
  * data, and only one of them is true. Held by
  * lib/admin-supplier-page-is-honest.test.ts.
  *
+ * 📇 THE SHOP RECORD (owner 14 Nov 2026, "Yes, queue the builds" — the approved 13 Nov drawing
+ * `Setnayan-specs/prototypes/admin_pub/people.html`, screen `shop`). The head, the facts, the demo-shop switch, then
+ * one fold each: Verification · Plan · Services · Money · Team. Every "Open record" door for a shop (a Work request
+ * card, a search row, the Accounts list) lands HERE — `/admin/vendors/<vendor_profile_id or S89V-…>`; `#cards`
+ * still lands on the cards (the Services fold opens with the page).
+ *
  * Read-only on purpose: every change lives on the page that already owns it
  * (Plan, Team, Verify, Payouts, Edit for an unclaimed shop). This page links
- * there; it does not grow a second copy of any of those forms.
+ * there; it does not grow a second copy of any of those forms. (The drawing folds
+ * Plan and Team INTO this page; /plan and /team are being edited by open PRs, so
+ * their forms move here — and their addresses redirect — once those land.)
  *
  * ONE EXCEPTION, because no other page owns it (admin minimum for the 7 Nov
  * 2026 supplier registration): "Service cards" (#cards) lists every card of the
@@ -254,164 +273,164 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
   const verification = parseVerificationState(shop.verification_state);
   const name = (shop.business_name as string | null)?.trim() || 'Supplier without a name';
 
-  const facts: Array<{ label: string; value: ReactNode }> = [
-    {
-      label: 'Run by',
-      value: ownerId && !ownerRead?.error ? (
-        <Link href={`/admin/users/${ownerId}`} className="underline underline-offset-2 hover:text-ink">
-          {ownerLabel}
-        </Link>
-      ) : (
-        ownerLabel
-      ),
-    },
-    { label: 'City', value: (shop.location_city as string | null) || '—' },
-    // One definition of live (lib/vendor-visibility.ts): `is_published` is a
-    // dead column nothing in the approval flow sets.
-    { label: 'Shows in search', value: shopIsLive ? 'Yes' : 'No' },
-    // "Demo shop" is no longer a read-only fact here: it is the "Sample shop" switch under this list.
-    { label: 'Joined', value: fmtDate(shop.created_at as string | null) },
-  ];
+  const runBy: ReactNode =
+    ownerId && !ownerRead?.error ? (
+      <Link href={`/admin/users/${ownerId}`} className="font-semibold text-mulberry underline-offset-2 hover:underline">
+        {ownerLabel} ›
+      </Link>
+    ) : (
+      ownerLabel
+    );
+  const planSummary = `${TIER_LABEL[tier]} · ${
+    shop.tier_expires_at ? `until ${fmtDate(shop.tier_expires_at as string)}` : 'no end date'
+  }`;
+  const liveCards = (cards ?? []).filter((c) => c.status === 'live').length;
+  const downCards = (cards ?? []).filter((c) => c.status === 'taken_down').length;
+  const servicesSummary =
+    cards === null
+      ? COULD_NOT_LOAD
+      : `${formatCount(cards.length)} cards · ${formatCount(liveCards)} live${downCards > 0 ? ` · ${formatCount(downCards)} taken down` : ''}`;
+  const payoutSummary =
+    payouts === null ? COULD_NOT_LOAD : payouts.length === 0 ? 'no payouts' : `${formatCount(payouts.length)} newest payouts`;
 
   return (
-    <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6">
-      <Link
-        href="/admin/accounts?tab=vendors"
-        className="inline-flex min-h-[44px] items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        All suppliers
-      </Link>
-
+    <main className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6">
+      <RecordBack href="/admin/accounts?tab=vendors" label="All suppliers" />
       {/* The record's name IS the content here, so the masthead carries it. */}
       <PageMasthead titleNode={name} />
-      <div className="space-y-1">
-        <p className="font-serif text-2xl text-ink">{name}</p>
-        <p className="font-mono text-[11px] text-ink/55">{shop.public_id as string}</p>
+      <RecordHead
+        small={`Shop${ownerId ? '' : ' · unclaimed'} · ${shop.public_id as string}${slug ? ` · /v/${slug}` : ''}`}
+        name={name}
+        badges={
+          <>
+            <Badge tone={verification === 'verified' ? 'ok' : 'quiet'}>{VERIFICATION_STATE_LABEL[verification]}</Badge>
+            <Badge tone={shopIsLive ? 'ok' : 'quiet'}>{shopIsLive ? 'Shows in search' : 'Not in search'}</Badge>
+          </>
+        }
+      />
+
+      <RecordFacts
+        label="Shop"
+        items={[
+          ['Run by', runBy],
+          ['City', (shop.location_city as string | null) || '—'],
+          // One definition of live (lib/vendor-visibility.ts): `is_published` is a dead column nothing in the
+          // approval flow sets.
+          ['Shows in search', shopIsLive ? 'Yes' : 'No'],
+          ['Joined', fmtDate(shop.created_at as string | null)],
+        ]}
+      />
+      {!ownerId ? (
+        <div className="mt-2">
+          <ActionButton tone="brand" icon={<Pencil aria-hidden strokeWidth={1.9} />} label="Edit this unclaimed shop" href={`/admin/vendors/${shopId}/edit`} />
+        </div>
+      ) : null}
+      {/* 🧪 Sample shop (owner, 6 Nov 2026) — one switch, saves in place; writes `is_demo`. */}
+      <div className="mt-3">
+        <SampleShopSwitch shopId={shopId} initial={shop.is_demo === true} />
       </div>
 
-      <section className="sn-tile p-5">
-        <h2 className="mb-3 text-sm font-medium text-ink">Shop</h2>
-        <dl className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
-          {facts.map((f) => (
-            <div key={f.label}>
-              <dt className="text-xs text-ink/55">{f.label}</dt>
-              <dd className="text-ink">{f.value}</dd>
-            </div>
-          ))}
-        </dl>
-        {/* 🧪 Sample shop (owner, 6 Nov 2026) — one switch, saves in place; writes `is_demo`. */}
-        <div className="mt-4">
-          <SampleShopSwitch shopId={shopId} initial={shop.is_demo === true} />
-        </div>
-        {!ownerId ? (
-          <Link
-            href={`/admin/vendors/${shopId}/edit`}
-            className="mt-4 inline-flex min-h-[44px] items-center rounded-lg bg-ink/5 px-4 text-sm font-medium text-ink hover:bg-ink/10"
-          >
-            Edit this unclaimed shop
-          </Link>
-        ) : null}
-      </section>
+      <RecordFolds>
+        <RecordFold title="Verification" anchor="verification" summary={`${VERIFICATION_STATE_LABEL[verification]} · ${applicationCell}`}>
+          <RecordFacts
+            items={[
+              ['State', VERIFICATION_STATE_LABEL[verification]],
+              ['Latest application', applicationCell],
+            ]}
+          />
+          <div className="mt-3">
+            <ActionButton tone="brand" icon={<ShieldCheck aria-hidden strokeWidth={1.9} />} label="Verification queue" href="/admin/verify" />
+          </div>
+        </RecordFold>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="sn-tile p-5">
-          <h2 className="text-xs text-ink/55">Plan</h2>
-          <p className="mt-1 text-base font-medium text-ink">{TIER_LABEL[tier]}</p>
-          <p className="text-xs text-ink/55">
-            {shop.tier_expires_at ? `Until ${fmtDate(shop.tier_expires_at as string)}` : 'No end date'}
-          </p>
-          <Link
-            href={`/admin/vendors/${shopId}/plan`}
-            className="mt-3 inline-flex min-h-[44px] items-center text-sm font-medium text-ink underline underline-offset-2"
-          >
-            Change plan
-          </Link>
-        </div>
-        <div className="sn-tile p-5">
-          <h2 className="text-xs text-ink/55">Team</h2>
-          <p className="mt-1 text-base font-medium text-ink">{teamCell}</p>
-          <Link
-            href={`/admin/vendors/${shopId}/team`}
-            className="mt-3 inline-flex min-h-[44px] items-center text-sm font-medium text-ink underline underline-offset-2"
-          >
-            See team
-          </Link>
-        </div>
-        <div className="sn-tile p-5">
-          <h2 className="text-xs text-ink/55">Verification</h2>
-          <p className="mt-1 text-base font-medium text-ink">{VERIFICATION_STATE_LABEL[verification]}</p>
-          <p className="text-xs text-ink/55">{applicationCell}</p>
-          <Link
-            href="/admin/verify"
-            className="mt-3 inline-flex min-h-[44px] items-center text-sm font-medium text-ink underline underline-offset-2"
-          >
-            Verification queue
-          </Link>
-        </div>
-      </section>
+        <RecordFold title="Plan" anchor="plan" summary={planSummary}>
+          <RecordFacts
+            items={[
+              ['Tier', TIER_LABEL[tier]],
+              ['Subscription ends', shop.tier_expires_at ? fmtDate(shop.tier_expires_at as string) : 'No end date'],
+            ]}
+          />
+          <RecordNote>Tier, end date, founding supplier and SKU comps are set on the plan page.</RecordNote>
+          <div className="mt-3">
+            <ActionButton tone="brand" icon={<Layers aria-hidden strokeWidth={1.9} />} label="Change plan" href={`/admin/vendors/${shopId}/plan`} />
+          </div>
+        </RecordFold>
 
-      {cardResult ? (
-        <p role="status" className="rounded-lg bg-success-100 p-3 text-sm text-success-900">
-          {cardResult}
-        </p>
-      ) : null}
-      {cardError ? (
-        <p role="alert" className="rounded-lg bg-danger-100 p-3 text-sm text-danger-900">
-          {cardError}
-        </p>
-      ) : null}
-      <ServiceCardsSection shopId={shopId} cards={cards} cap={CARD_CAP} />
+        <RecordFold title="Services" anchor="services" defaultOpen summary={servicesSummary}>
+          {cardResult ? (
+            <p role="status" className="mb-2 rounded-lg bg-success-100 p-3 text-sm text-success-900">
+              {cardResult}
+            </p>
+          ) : null}
+          {cardError ? (
+            <p role="alert" className="mb-2 rounded-lg bg-danger-100 p-3 text-sm text-danger-900">
+              {cardError}
+            </p>
+          ) : null}
+          <ServiceCardsSection shopId={shopId} cards={cards} cap={CARD_CAP} />
+        </RecordFold>
 
-      <section className="space-y-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-medium text-ink">Payouts</h2>
-          <Link
-            href={`/admin/payouts?filter=all&vendor=${shopId}`}
-            className="inline-flex min-h-[44px] items-center text-sm font-medium text-ink underline underline-offset-2"
+        <RecordFold title="Money" anchor="money" summary={payoutSummary}>
+          <RecordSection
+            label="Payouts"
+            right={
+              <Link
+                href={`/admin/payouts?filter=all&vendor=${shopId}`}
+                className="font-semibold text-mulberry underline-offset-2 hover:underline"
+              >
+                All their payouts ›
+              </Link>
+            }
           >
-            All their payouts
-          </Link>
-        </div>
-        <ConsoleTable
-          rows={payouts}
-          readPermitted
-          readError={payoutRead.error}
-          reads="this supplier's payouts"
-          cap={PAYOUT_CAP}
-          label="Newest payouts to this supplier"
-          minWidth="32rem"
-          rowKey={(p) => p.payout_id}
-          empty={{
-            Icon: Wallet,
-            title: 'No payouts yet',
-            // F-A-09: apply-then-pay — couples pay suppliers directly; only a legacy booking ever paid through Setnayan.
-            blurb: 'Couples pay suppliers directly, so nothing is paid out here. Only an older booking paid through Setnayan would show.',
-          }}
-          columns={[
-            {
-              header: 'Payout',
-              mono: true,
-              cell: (p) => p.public_id ?? '—',
-            },
-            {
-              header: 'Stage',
-              hideBelow: 'md',
-              cell: (p) => (p.payout_stage ? PAYOUT_STAGE_LABEL[p.payout_stage] : '—'),
-            },
-            {
-              header: 'Amount',
-              align: 'right',
-              cell: (p) => formatCentavosPhp(p.vendor_net_centavos ?? p.amount_centavos),
-            },
-            {
-              header: 'Status',
-              cell: (p) =>
-                p.paid_at ? `Paid ${fmtDate(p.paid_at)}` : p.on_hold ? 'On hold' : `Due ${fmtDate(p.scheduled_at)}`,
-            },
-          ]}
-        />
-      </section>
+            <ConsoleTable
+              rows={payouts}
+              readPermitted
+              readError={payoutRead.error}
+              reads="this supplier's payouts"
+              cap={PAYOUT_CAP}
+              label="Newest payouts to this supplier"
+              minWidth="18rem"
+              rowKey={(p) => p.payout_id}
+              empty={{
+                Icon: Wallet,
+                title: 'No payouts yet',
+                // F-A-09: apply-then-pay — couples pay suppliers directly; only a legacy booking ever paid through Setnayan.
+                blurb: 'Couples pay suppliers directly, so nothing is paid out here. Only an older booking paid through Setnayan would show.',
+              }}
+              columns={[
+                {
+                  header: 'Payout',
+                  mono: true,
+                  cell: (p) => p.public_id ?? '—',
+                },
+                {
+                  header: 'Stage',
+                  hideBelow: 'md',
+                  cell: (p) => (p.payout_stage ? PAYOUT_STAGE_LABEL[p.payout_stage] : '—'),
+                },
+                {
+                  header: 'Amount',
+                  align: 'right',
+                  cell: (p) => formatCentavosPhp(p.vendor_net_centavos ?? p.amount_centavos),
+                },
+                {
+                  header: 'Status',
+                  cell: (p) =>
+                    p.paid_at ? `Paid ${fmtDate(p.paid_at)}` : p.on_hold ? 'On hold' : `Due ${fmtDate(p.scheduled_at)}`,
+                },
+              ]}
+            />
+          </RecordSection>
+        </RecordFold>
+
+        <RecordFold title="Team" anchor="team" summary={teamCell}>
+          <RecordFacts items={[['People on the team', teamCell]]} />
+          <RecordNote>Read-only — admin governance stays with the store&rsquo;s own admins.</RecordNote>
+          <div className="mt-3">
+            <ActionButton tone="neutral" icon={<Users aria-hidden strokeWidth={1.9} />} label="See team" href={`/admin/vendors/${shopId}/team`} />
+          </div>
+        </RecordFold>
+      </RecordFolds>
     </main>
   );
 }

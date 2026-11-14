@@ -423,21 +423,21 @@ export default async function AdminIntegrityWatchPage({
             return (
               <li
                 key={r.id}
-                className="rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm"
+                className="bg-surface py-4 border-t border-ink/10"
               >
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status]}`}
+                    className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${STATUS_TONE[r.status]}`}
                   >
                     {STATUS_LABEL[r.status]}
                   </span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${scoreTone(r.score)}`}
+                    className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${scoreTone(r.score)}`}
                   >
                     Score {r.score}/100
                   </span>
-                  <span className="font-mono text-[10px] text-ink/45">{r.public_id}</span>
-                  <span className="text-[11px] text-ink/50">{relativeTime(r.created_at)}</span>
+                  <span className="text-[12px] text-ink/45 tabular-nums">{r.public_id}</span>
+                  <span className="text-[12px] text-ink/50">{relativeTime(r.created_at)}</span>
                 </div>
 
                 <p className="text-sm text-ink/85">
@@ -451,7 +451,7 @@ export default async function AdminIntegrityWatchPage({
                     {chips.map((c, i) => (
                       <span
                         key={i}
-                        className="rounded-full bg-ink/[0.05] px-2 py-0.5 text-[11px] text-ink/65"
+                        className="rounded-full bg-ink/[0.05] px-2 py-0.5 text-[12px] text-ink/65"
                       >
                         {c}
                       </span>

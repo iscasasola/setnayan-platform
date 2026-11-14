@@ -109,7 +109,7 @@ export async function PaymentDisputesSection() {
           {rows.map((r) => {
             const receipt = receiptByPayment.get(r.payment_id) ?? null;
             return (
-              <li key={r.payment_id} className="rounded-xl border border-ink/10 bg-white p-4">
+              <li key={r.payment_id} className="py-4 border-t border-ink/10">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="text-sm font-medium text-ink">
                     {nameByBooking.get(r.vendor_id)?.trim() || 'Unnamed supplier'}

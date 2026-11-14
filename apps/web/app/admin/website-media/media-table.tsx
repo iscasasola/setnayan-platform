@@ -193,7 +193,7 @@ export function MediaTable({
                 <>
                   <div className="break-all font-medium text-ink">{fileName(row.key)}</div>
                   {folder ? (
-                    <div className="break-all text-[11px] text-ink/70">{folder}</div>
+                    <div className="break-all text-[12px] text-ink/70">{folder}</div>
                   ) : null}
                 </>
               );
@@ -222,7 +222,7 @@ export function MediaTable({
               const style = USAGE_STYLE[row.usage];
               return (
                 <span
-                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium ${style.className}`}
+                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[12px] font-medium ${style.className}`}
                   title={row.unknownReason ?? style.hint}
                 >
                   <style.Icon className="h-3 w-3" aria-hidden />

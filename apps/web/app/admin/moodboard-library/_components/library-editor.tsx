@@ -340,7 +340,7 @@ export function LibraryEditor({ initialAssets }: Props) {
           <button
             type="button"
             onClick={() => setActionError(null)}
-            className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700 hover:text-ink"
+            className="hover:text-ink text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
             aria-label="Dismiss error"
           >
             Dismiss
@@ -352,8 +352,8 @@ export function LibraryEditor({ initialAssets }: Props) {
       <div className="space-y-4">
         {/* Random Higgsfield prompt generator (owner directive 2026-05-21:
            "we can just click generate and it will make one everytime") */}
-        <section className="rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
-          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-mulberry">
+        <section className="bg-terracotta/5 py-4 border-t border-ink/10">
+          <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Random Higgsfield prompt
           </p>
           <p className="mb-3 text-xs text-ink/65">
@@ -372,14 +372,14 @@ export function LibraryEditor({ initialAssets }: Props) {
           {randomPrompt && (
             <div className="space-y-2 rounded-md border border-ink/15 bg-white p-3">
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Label
                 </p>
                 <p className="text-sm font-medium text-ink">{randomPrompt.label}</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="grid grid-cols-2 gap-2 text-[12px]">
                 <div>
-                  <p className="font-mono uppercase tracking-[0.15em] text-ink/55">Type</p>
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Type</p>
                   <p className="text-ink">
                     {randomPrompt.assetType}
                     {' · '}
@@ -387,19 +387,19 @@ export function LibraryEditor({ initialAssets }: Props) {
                   </p>
                 </div>
                 <div>
-                  <p className="font-mono uppercase tracking-[0.15em] text-ink/55">Model</p>
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Model</p>
                   <p className="text-ink">
                     {randomPrompt.recommendedModel} · {randomPrompt.aspectRatio}
                   </p>
                 </div>
               </div>
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Accent · {randomPrompt.primaryAccentColor} on {randomPrompt.primaryAccentRegion}
                 </p>
               </div>
               <details>
-                <summary className="cursor-pointer font-mono text-[11px] uppercase tracking-[0.15em] text-ink/65">
+                <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Prompt
                 </summary>
                 <p className="mt-2 whitespace-pre-wrap rounded border border-ink/10 bg-cream p-2 text-xs text-ink/80">
@@ -417,8 +417,8 @@ export function LibraryEditor({ initialAssets }: Props) {
           )}
         </section>
 
-        <section className="rounded-xl border border-ink/15 bg-cream p-4">
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <section className="py-4 border-t border-ink/10">
+          <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Upload new
           </p>
           <form
@@ -479,8 +479,8 @@ export function LibraryEditor({ initialAssets }: Props) {
           </form>
         </section>
 
-        <section className="rounded-xl border border-ink/15 bg-cream p-4">
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <section className="py-4 border-t border-ink/10">
+          <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Library ({assets.length})
           </p>
           {assets.length === 0 ? (
@@ -508,7 +508,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-ink">{a.label}</p>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                         {a.asset_type}
                         {a.asset_subtype ? ` · ${a.asset_subtype}` : ''}
                         {' · '}
@@ -542,7 +542,7 @@ export function LibraryEditor({ initialAssets }: Props) {
             <header className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <h2 className="text-lg font-semibold text-ink">{selected.label}</h2>
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   {selected.asset_type}
                   {selected.asset_subtype ? ` · ${selected.asset_subtype}` : ''} · {selected.source}
                 </p>
@@ -604,7 +604,7 @@ export function LibraryEditor({ initialAssets }: Props) {
 
             {selected.rejected_at ? (
               <div className="rounded-lg border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em]">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Rejected · the supplier sees this
                 </p>
                 <p className="mt-1">{selected.rejection_reason}</p>
@@ -664,7 +664,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                   <div key={slotId} className="space-y-1">
                     <label
                       htmlFor={`preview-slot-${slotId}`}
-                      className="block text-center font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+                      className="block text-center text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
                     >
                       Slot {slotId}
                     </label>
@@ -680,14 +680,14 @@ export function LibraryEditor({ initialAssets }: Props) {
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-[11px] text-ink/55">
+              <p className="mt-2 text-[12px] text-ink/55">
                 These are the colors that will be applied to each tagged slot when previewing.
                 In production this comes from the host&apos;s master palette.
               </p>
             </details>
           </>
         ) : (
-          <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-ink/20 text-sm text-ink/55">
+          <div className="flex h-64 items-center justify-center border-dashed text-sm text-ink/55 border-t border-ink/10">
             Upload a photo or pick one from the library to begin tagging.
           </div>
         )}

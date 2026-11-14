@@ -282,7 +282,7 @@ function Metric({
     <div className={`flex items-center justify-between rounded-xl border bg-white/70 px-4 py-3 ${tone}`}>
       <div className="flex items-center gap-2">
         {icon}
-        <span className="font-mono text-[11px] uppercase tracking-[0.15em]">{label}</span>
+        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">{label}</span>
       </div>
       <span className="text-xl font-semibold">{value}</span>
     </div>
@@ -298,7 +298,7 @@ function QueueTab({
 }) {
   if (flags.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
+      <p className="border-dashed py-8 text-center text-sm text-ink/55 border-t border-ink/10">
         No pending flags. The queue is clear.
       </p>
     );
@@ -314,7 +314,7 @@ function QueueTab({
           <li key={f.flag_id} className="sn-tile p-4">
             <header className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-1">
-                <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Flagged · {new Date(f.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
                 </p>
                 <h2 className="text-lg font-semibold tracking-tight text-ink">
@@ -344,7 +344,7 @@ function QueueTab({
                 <input type="hidden" name="flag_id" value={f.flag_id} />
                 <label
                   htmlFor={`clear-${f.flag_id}`}
-                  className="block font-mono text-[11px] uppercase tracking-[0.15em] text-success-900"
+                  className="block text-success-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
                 >
                   Clear as false positive (notes ≥ 10 chars)
                 </label>
@@ -372,7 +372,7 @@ function QueueTab({
                 <input type="hidden" name="flag_id" value={f.flag_id} />
                 <label
                   htmlFor={`confirm-${f.flag_id}`}
-                  className="block font-mono text-[11px] uppercase tracking-[0.15em] text-danger-900"
+                  className="block text-danger-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
                 >
                   Confirm abuse (notes ≥ 20 chars)
                 </label>
@@ -403,7 +403,7 @@ function QueueTab({
 function EnforcementTab({ users }: { users: UserBrief[] }) {
   if (users.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
+      <p className="border-dashed py-8 text-center text-sm text-ink/55 border-t border-ink/10">
         No accounts under enforcement.
       </p>
     );
@@ -421,7 +421,7 @@ function EnforcementTab({ users }: { users: UserBrief[] }) {
               {u.phone ? <p className="text-xs text-ink/55">Phone: {u.phone}</p> : null}
               <StrikePill count={u.concierge_abuse_strike_count} level={u.concierge_enforcement_level} />
               {u.concierge_enforcement_at ? (
-                <p className="text-[11px] text-ink/45">
+                <p className="text-[12px] text-ink/45">
                   Enforced {new Date(u.concierge_enforcement_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
                 </p>
               ) : null}
@@ -439,7 +439,7 @@ function EnforcementTab({ users }: { users: UserBrief[] }) {
             <input type="hidden" name="user_id" value={u.user_id} />
             <label
               htmlFor={`lift-${u.user_id}`}
-              className="block font-mono text-[11px] uppercase tracking-[0.15em] text-success-900"
+              className="block text-success-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
             >
               Lift enforcement — appeal reversal (notes ≥ 10 chars). Decrements strike by 1.
             </label>
@@ -475,7 +475,7 @@ function SimilarityBar({ score }: { score: number }) {
         : 'bg-success-500';
   return (
     <div className="flex flex-col items-end gap-1">
-      <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+      <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         Similarity
       </span>
       <div className="flex items-center gap-2">
@@ -502,7 +502,7 @@ function SignalsTable({ signals }: { signals: Record<string, unknown> }) {
   }
   return (
     <div className="rounded-md border border-ink/10 bg-white/70 p-3">
-      <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+      <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         Signals fired
       </p>
       <ul className="space-y-1 text-xs">
@@ -510,7 +510,7 @@ function SignalsTable({ signals }: { signals: Record<string, unknown> }) {
           <li key={k} className="flex justify-between gap-2">
             <span className="text-ink/65">{labelizeSignal(k)}</span>
             <span
-              className={`rounded-full px-2 py-0.5 font-mono text-[10px] ${
+              className={`rounded-full px-2 py-0.5 font-mono text-[12px] ${
                 v === true
                   ? 'bg-danger-100 text-danger-800'
                   : 'bg-ink/10 text-ink/55'
@@ -535,7 +535,7 @@ function MatchedAccounts({ users }: { users: UserBrief[] }) {
   }
   return (
     <div className="rounded-md border border-ink/10 bg-white/70 p-3">
-      <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+      <p className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         <UsersIcon aria-hidden className="h-3 w-3" strokeWidth={1.75} />
         Matched accounts ({users.length})
       </p>
@@ -563,7 +563,7 @@ function StrikePill({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${ENFORCEMENT_LEVEL_TONE[level]}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${ENFORCEMENT_LEVEL_TONE[level]}`}
     >
       {formatCount(count)} {count === 1 ? 'strike' : 'strikes'} · {ENFORCEMENT_LEVEL_LABEL[level]}
     </span>

@@ -69,7 +69,7 @@ function Banner({ search }: { search: Awaited<Props['searchParams']> }) {
         ? 'That action was missing a required field — nothing changed.'
         : "Something went wrong writing to the database — we've logged it. Try again.";
     return (
-      <div className="mb-6 rounded-2xl border border-danger-300/60 bg-danger-50/80 p-4">
+      <div className="mb-6 border-danger-300/60 bg-danger-50/80 py-4 border-t border-ink/10">
         <p className="text-sm text-danger-900">{msg}</p>
       </div>
     );
@@ -92,7 +92,7 @@ function Banner({ search }: { search: Awaited<Props['searchParams']> }) {
                   : null;
   if (!ok) return null;
   return (
-    <div className="mb-6 rounded-2xl border border-success-300/60 bg-success-50/80 p-4">
+    <div className="mb-6 border-success-300/60 bg-success-50/80 py-4 border-t border-ink/10">
       <p className="text-sm text-success-900">{ok}</p>
     </div>
   );
@@ -232,7 +232,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
 
       <Banner search={search} />
 
-      <div className="mb-8 grid grid-cols-2 gap-2 rounded-2xl border border-ink/10 bg-paper p-4 sm:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-2 py-4 sm:grid-cols-4 border-t border-ink/10">
         <Stat label="Leaves with recs" value={String(groupedLeaves.length)} />
         <Stat label="Active recs" value={String(activeCount)} />
         <Stat label="Total recs" value={String(recs.length)} />
@@ -256,7 +256,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
                   <span className="text-sm font-semibold text-ink">
                     {leafLabel.get(leafId) ?? leafId}
                   </span>
-                  <code className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                  <code className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                     {leafId}
                   </code>
                 </h3>
@@ -310,7 +310,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-ink/10 bg-white/70 p-3">
-      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
+      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">{label}</p>
       <p className="mt-1 text-lg font-semibold tracking-tight text-ink">{value}</p>
     </div>
   );

@@ -382,7 +382,7 @@ export default async function AdminUserReportsPage({
             return (
               <li
                 key={r.report_id}
-                className="flex flex-col gap-4 rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm sm:flex-row"
+                className="flex flex-col gap-4 bg-surface py-4 sm:flex-row border-t border-ink/10"
               >
                 <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-ink/[0.04]">
                   {url ? (
@@ -393,7 +393,7 @@ export default async function AdminUserReportsPage({
                       className={`h-full w-full object-cover ${meta?.hidden ? 'opacity-40 grayscale' : ''}`}
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-center text-[10px] text-ink/40">
+                    <div className="flex h-full w-full items-center justify-center text-center text-[12px] text-ink/40">
                       {TARGET_SHORT[r.target_type] ?? r.target_type}
                     </div>
                   )}
@@ -402,19 +402,19 @@ export default async function AdminUserReportsPage({
                 <div className="min-w-0 flex-1 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status]}`}
+                      className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${STATUS_TONE[r.status]}`}
                     >
                       {STATUS_LABEL[r.status]}
                     </span>
-                    <span className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium text-terracotta-700">
+                    <span className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[12px] font-medium text-terracotta-700">
                       {REASON_LABEL[r.reason] ?? r.reason}
                     </span>
                     {meta?.hidden && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-ink/10 px-2 py-0.5 text-[11px] text-ink/60">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-ink/10 px-2 py-0.5 text-[12px] text-ink/60">
                         <EyeOff aria-hidden className="h-3 w-3" strokeWidth={2} /> Hidden
                       </span>
                     )}
-                    <span className="font-mono text-[10px] text-ink/45">{r.public_id}</span>
+                    <span className="text-[12px] text-ink/45 tabular-nums">{r.public_id}</span>
                   </div>
                   <p className="text-sm text-ink/80">
                     {reporter} reported {TARGET_PHRASE[r.target_type] ?? `a ${r.target_type}`}
@@ -430,7 +430,7 @@ export default async function AdminUserReportsPage({
                     <span className="text-ink/50">{relativeTime(r.created_at)}</span>
                   </p>
                   {(r.target_type === 'event' || r.target_type === 'user_profile') && (
-                    <p className="font-mono text-[10px] text-ink/45">
+                    <p className="text-[12px] text-ink/45 tabular-nums">
                       {r.target_type === 'event' ? 'event' : 'user'} {r.target_id}
                     </p>
                   )}
@@ -463,12 +463,12 @@ export default async function AdminUserReportsPage({
                           </span>
                         )}
                         {' '}
-                        <span className="font-mono text-[10px] text-ink/45">{r.target_id}</span>
+                        <span className="text-[12px] text-ink/45 tabular-nums">{r.target_id}</span>
                       </p>
                     );
                   })()}
                   {r.target_type === 'ai_output' && (
-                    <p className="font-mono text-[10px] text-ink/45">
+                    <p className="text-[12px] text-ink/45 tabular-nums">
                       generation {r.target_id}
                     </p>
                   )}

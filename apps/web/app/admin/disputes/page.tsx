@@ -430,7 +430,7 @@ function StatsBanner({
       <KpiStatCard label="Resolved · supplier" value={stats.resolved_for_vendor} />
       <KpiStatCard label="Resolved · couple" value={stats.resolved_for_couple} />
       <KpiStatCard label="Withdrawn" value={stats.withdrawn} />
-      <p className="col-span-2 mt-1 text-[11px] text-ink/70 sm:col-span-4">
+      <p className="col-span-2 mt-1 text-[12px] text-ink/70 sm:col-span-4">
         {!measured
           ? `Counts for ${quarterLabel} could not be read — these are not zero, they are unknown.`
           : truncated
@@ -456,10 +456,10 @@ function FilterStrip({
     >
       <div className="flex items-center gap-2 text-ink/60">
         <Filter aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em]">Filter</span>
+        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Filter</span>
       </div>
       <label className="flex flex-1 flex-col gap-1 text-xs text-ink/60 sm:flex-row sm:items-center sm:gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em]">Status</span>
+        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Status</span>
         <select
           name="status"
           defaultValue={status}
@@ -473,7 +473,7 @@ function FilterStrip({
         </select>
       </label>
       <label className="flex flex-1 flex-col gap-1 text-xs text-ink/60 sm:flex-row sm:items-center sm:gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em]">Category</span>
+        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Category</span>
         <select
           name="category"
           defaultValue={category}
@@ -547,7 +547,7 @@ function DisputesTable({
             <>
               <p className="font-medium text-ink">{r.public_id}</p>
               {!r.counts_toward_demotion ? (
-                <p className="mt-1 font-sans text-[10px] uppercase tracking-[0.15em] text-ink/70">
+                <p className="mt-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Excluded from demotion count
                 </p>
               ) : null}
@@ -583,7 +583,7 @@ function DisputesTable({
         {
           header: 'Category',
           cell: (r) => (
-            <span className="inline-flex items-center whitespace-nowrap rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+            <span className="inline-flex items-center whitespace-nowrap rounded-full bg-ink/5 px-2 py-0.5 text-ink/70 text-[12px] font-bold">
               {CATEGORY_LABEL[r.category]}
             </span>
           ),
@@ -599,18 +599,18 @@ function DisputesTable({
                 <p title={r.description}>{truncate(r.description, 80)}</p>
                 {r.vendor_contest ? (
                   <details className="mt-2">
-                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-mulberry">
+                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[12px] font-medium text-mulberry">
                       <Gavel aria-hidden className="h-3 w-3" strokeWidth={2} />
                       Supplier&apos;s response
                     </summary>
-                    <p className="mt-1.5 whitespace-pre-wrap rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
+                    <p className="mt-1.5 whitespace-pre-wrap rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[12px] text-ink/80">
                       {r.vendor_contest}
                     </p>
                   </details>
                 ) : null}
                 {acks.length > 0 ? (
                   <details className="mt-2">
-                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-mulberry">
+                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[12px] font-medium text-mulberry">
                       <ShieldCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
                       Reservation policy evidence ({acks.length})
                     </summary>
@@ -626,7 +626,7 @@ function DisputesTable({
                 />
                 {handovers.length > 0 ? (
                   <details className="mt-2">
-                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-mulberry">
+                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[12px] font-medium text-mulberry">
                       <PackageCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
                       Delivery handover ({handovers.length})
                     </summary>
@@ -645,7 +645,7 @@ function DisputesTable({
           header: 'Status',
           cell: (r) => (
             <span
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${STATUS_TONE[r.status]}`}
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${STATUS_TONE[r.status]}`}
             >
               {STATUS_LABEL[r.status]}
             </span>
@@ -733,8 +733,8 @@ function PolicyEvidence({ ack }: { ack: PolicyAcknowledgement }) {
       ? `₱${Math.round(p.downpayment_amount_php).toLocaleString('en-PH')}`
       : null;
   return (
-    <li className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
-      <p className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-terracotta-700">
+    <li className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[12px] text-ink/80">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         Acknowledged {acknowledgedAt}
       </p>
       <ul className="mt-1 space-y-0.5">
@@ -775,8 +775,8 @@ function HandoverEvidence({ handover }: { handover: HandoverEvidenceRow }) {
   const deliveredAt = fmtPhDate(handover.deliveredAt);
   const ackedAt = fmtPhDate(handover.coupleAcknowledgedAt);
   return (
-    <li className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
-      <p className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-terracotta-700">
+    <li className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[12px] text-ink/80">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         {kindLabel} · delivered {deliveredAt}
       </p>
       {handover.label ? <p className="mt-0.5 text-ink/70">{handover.label}</p> : null}
@@ -820,7 +820,7 @@ const TIER_CHIP_TONE: Record<VendorTier, string> = {
 function TierChip({ tier }: { tier: VendorTier }) {
   return (
     <span
-      className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.15em] ${TIER_CHIP_TONE[tier]}`}
+      className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${TIER_CHIP_TONE[tier]}`}
       title={`Supplier tier · ${TIER_LABEL[tier]}`}
     >
       {TIER_LABEL[tier]}

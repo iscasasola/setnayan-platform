@@ -167,7 +167,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
       <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
         <label
           htmlFor="filter"
-          className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55"
+          className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
         >
           Filter
         </label>
@@ -193,7 +193,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
       {eventsError || handlersError ? (
         <p
           role="alert"
-          className="mb-4 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+          className="mb-4 border-t-[3px] bg-mulberry/5 py-4 text-sm text-ink/70 border-t border-ink/10"
         >
           <strong className="text-ink">Some names could not be read.</strong>{' '}
           {eventsError ? 'Event names are missing, so rows show a dash. ' : ''}
@@ -232,7 +232,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
             cell: (f) => (
               <Link
                 href={`/admin/force-majeure/${f.flag_id}`}
-                className="font-mono text-[11px] uppercase tracking-[0.15em] text-link hover:underline"
+                className="text-link hover:underline text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
               >
                 {f.public_id}
               </Link>
@@ -245,7 +245,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
               return (
                 <>
                   <p className="font-medium text-ink">{ev?.display_name ?? '—'}</p>
-                  <p className="font-mono text-[10px] text-ink/70">{ev?.public_id ?? ''}</p>
+                  <p className="text-[12px] text-ink/70 tabular-nums">{ev?.public_id ?? ''}</p>
                 </>
               );
             },
@@ -258,7 +258,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
             header: 'Status',
             cell: (f) => (
               <span
-                className={`whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${FLAG_STATUS_TONE[f.status]}`}
+                className={`whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${FLAG_STATUS_TONE[f.status]}`}
               >
                 {FLAG_STATUS_LABEL[f.status]}
               </span>

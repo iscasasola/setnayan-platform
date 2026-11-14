@@ -223,7 +223,7 @@ export function VoucherForm({
           pattern="[A-Za-z0-9]{8}"
           autoCapitalize="characters"
           spellCheck={false}
-          className="mt-2 block w-full rounded-md border px-3 py-2 font-mono text-sm uppercase tracking-wider"
+          className="mt-2 block w-full rounded-md border px-3 py-2 text-sm text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
           style={{
             background: isEdit ? 'var(--m-paper-2)' : 'var(--m-paper)',
             borderColor: 'var(--m-line)',
@@ -512,7 +512,7 @@ export function VoucherForm({
             Array.from(grouped.entries()).map(([category, items]) => (
               <fieldset key={category}>
                 <legend
-                  className="text-xs font-semibold uppercase tracking-wider"
+                  className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
                   style={{ color: 'var(--m-orange-2)' }}
                 >
                   {category}
@@ -553,13 +553,13 @@ export function VoucherForm({
                             {s.display_name}
                           </span>
                           <span
-                            className="ml-1 font-mono text-xs"
+                            className="ml-1 text-xs tabular-nums"
                             style={{ color: 'var(--m-slate)' }}
                           >
                             ({s.sku_code})
                           </span>
                           {/* Price + live discount preview · ₱ formatted en-PH */}
-                          <span className="mt-0.5 block font-mono text-xs">
+                          <span className="mt-0.5 block text-xs tabular-nums">
                             {showPreview ? (
                               <>
                                 <span

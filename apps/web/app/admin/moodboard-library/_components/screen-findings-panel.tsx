@@ -53,7 +53,7 @@ export function ScreenFindingsPanel({ findings }: ScreenFindingsPanelProps) {
         data-outcome="none"
         className="rounded-lg border border-ink/15 bg-cream p-3"
       >
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Content screen
         </p>
         <p className="mt-1 text-sm text-ink/65">
@@ -75,7 +75,7 @@ export function ScreenFindingsPanel({ findings }: ScreenFindingsPanelProps) {
           : 'border-danger-300 bg-danger-50'
       }`}
     >
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         Content screen
       </p>
       <p className="mt-1 text-sm font-medium text-ink">
@@ -89,7 +89,7 @@ export function ScreenFindingsPanel({ findings }: ScreenFindingsPanelProps) {
             data-hit-kind={hit.kind}
             className="text-sm text-ink/80"
           >
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
               {HIT_SEVERITY[hit.kind] === 'block' ? 'Blocked' : 'Flagged'}
             </span>{' '}
             <span>We found {hit.label}</span>
@@ -108,7 +108,7 @@ export function ScreenFindingsPanel({ findings }: ScreenFindingsPanelProps) {
       ) : null}
 
       <details className="mt-2">
-        <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+        <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Text read off the photo
         </summary>
         <p className="mt-1 whitespace-pre-wrap rounded border border-ink/10 bg-white p-2 text-xs text-ink/80">

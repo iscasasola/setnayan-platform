@@ -329,21 +329,21 @@ export default async function AdminRepostWatchPage({
             return (
               <li
                 key={r.id}
-                className="rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm"
+                className="bg-surface py-4 border-t border-ink/10"
               >
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status]}`}
+                    className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${STATUS_TONE[r.status]}`}
                   >
                     {STATUS_LABEL[r.status]}
                   </span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${distanceTone(r.hamming_distance)}`}
+                    className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${distanceTone(r.hamming_distance)}`}
                   >
                     Hamming {r.hamming_distance}/64
                   </span>
-                  <span className="font-mono text-[10px] text-ink/45">{r.public_id}</span>
-                  <span className="text-[11px] text-ink/50">
+                  <span className="text-[12px] text-ink/45 tabular-nums">{r.public_id}</span>
+                  <span className="text-[12px] text-ink/50">
                     {relativeTime(r.created_at)}
                   </span>
                 </div>
@@ -351,7 +351,7 @@ export default async function AdminRepostWatchPage({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {/* Likely reposter — the NEW upload. */}
                   <div className="space-y-1.5">
-                    <p className="text-xs font-medium uppercase tracking-wide text-terracotta-700">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                       Newly uploaded
                     </p>
                     <div className="aspect-video w-full overflow-hidden rounded-xl bg-ink/[0.04]">
@@ -363,7 +363,7 @@ export default async function AdminRepostWatchPage({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] text-ink/40">
+                        <div className="flex h-full w-full items-center justify-center text-[12px] text-ink/40">
                           image unavailable
                         </div>
                       )}
@@ -377,7 +377,7 @@ export default async function AdminRepostWatchPage({
 
                   {/* Likely victim — first seen. */}
                   <div className="space-y-1.5">
-                    <p className="text-xs font-medium uppercase tracking-wide text-ink/60">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                       Seen earlier on
                     </p>
                     <div className="aspect-video w-full overflow-hidden rounded-xl bg-ink/[0.04]">
@@ -389,7 +389,7 @@ export default async function AdminRepostWatchPage({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] text-ink/40">
+                        <div className="flex h-full w-full items-center justify-center text-[12px] text-ink/40">
                           image unavailable
                         </div>
                       )}
@@ -476,7 +476,7 @@ export default async function AdminRepostWatchPage({
             <QrCode className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
             <h2 className="text-lg font-semibold tracking-tight">QR-in-media guard</h2>
             {qrOpen.length > 0 && (
-              <span className="rounded-full bg-warn-100 px-2 py-0.5 text-[11px] font-medium text-warn-900">
+              <span className="rounded-full bg-warn-100 px-2 py-0.5 text-[12px] font-medium text-warn-900">
                 {qrOpen.length} open
               </span>
             )}
@@ -519,11 +519,11 @@ export default async function AdminRepostWatchPage({
               return (
                 <li
                   key={`qr-${r.id}`}
-                  className="rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm"
+                  className="bg-surface py-4 border-t border-ink/10"
                 >
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${
                         r.status === 'open'
                           ? 'bg-warn-100 text-warn-900'
                           : r.status === 'removed'
@@ -537,10 +537,10 @@ export default async function AdminRepostWatchPage({
                           ? 'Removed'
                           : 'Cleared'}
                     </span>
-                    <span className="font-mono text-[10px] text-ink/45">
+                    <span className="text-[12px] text-ink/45 tabular-nums">
                       {r.public_id}
                     </span>
-                    <span className="text-[11px] text-ink/50">
+                    <span className="text-[12px] text-ink/50">
                       {relativeTime(r.created_at)}
                     </span>
                   </div>
@@ -555,7 +555,7 @@ export default async function AdminRepostWatchPage({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] text-ink/40">
+                        <div className="flex h-full w-full items-center justify-center text-[12px] text-ink/40">
                           image unavailable
                         </div>
                       )}
@@ -566,11 +566,11 @@ export default async function AdminRepostWatchPage({
                         {' · '}
                         <span className="text-ink/55">{QR_SURFACE_LABEL[r.surface]}</span>
                       </p>
-                      <p className="break-all font-mono text-xs text-ink/60">
+                      <p className="break-all text-xs text-ink/60 tabular-nums">
                         QR → {r.decoded_payload}
                       </p>
                       {r.resolved_url && (
-                        <p className="break-all font-mono text-xs text-terracotta-700">
+                        <p className="break-all text-xs text-terracotta-700 tabular-nums">
                           resolves to → {r.resolved_url}
                         </p>
                       )}

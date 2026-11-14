@@ -99,7 +99,7 @@ export default async function EventDeletionsPage() {
           {open.map((r) => (
             <li
               key={r.id as string}
-              className="rounded-xl border border-ink/15 bg-white p-4"
+              className="py-4 border-t border-ink/10"
             >
               <p className="text-base font-bold text-ink">
                 {r.event_name as string}

@@ -171,7 +171,7 @@ export default async function AdminWebsiteMediaPage() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-wider text-[var(--m-slate,#6a6e76)]">
+      <div className="text-[var(--m-slate,#6a6e76)] text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         {label}
       </div>
       <div className="text-[15px] font-semibold text-[var(--m-ink,#1b1a17)] tabular-nums">

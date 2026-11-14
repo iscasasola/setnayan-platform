@@ -196,23 +196,23 @@ export default async function AdminChatFlagsPage({
             return (
               <li
                 key={r.flag_id}
-                className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm"
+                className="flex flex-col gap-3 bg-surface py-4 border-t border-ink/10"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status]}`}
+                    className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${STATUS_TONE[r.status]}`}
                   >
                     {STATUS_LABEL[r.status]}
                   </span>
                   {(r.categories ?? []).map((c) => (
                     <span
                       key={c}
-                      className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium text-terracotta-700"
+                      className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[12px] font-medium text-terracotta-700"
                     >
                       {CATEGORY_LABEL[c] ?? c}
                     </span>
                   ))}
-                  <span className="font-mono text-[10px] text-ink/45">{r.public_id}</span>
+                  <span className="text-[12px] text-ink/45 tabular-nums">{r.public_id}</span>
                 </div>
 
                 <p className="text-sm text-ink/80">

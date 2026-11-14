@@ -44,7 +44,7 @@ function GuestReviewAdminRow({ row }: { row: AdminGuestReviewRow }) {
       data-guest-review-admin={hidden ? 'hidden' : 'shown'}
     >
       <div className="min-w-0 space-y-1">
-        <p className="font-mono text-[11px] uppercase tracking-[0.15em]">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           {row.rating_overall}★ · {row.vendor_name ?? 'A shop'} · {row.shown_name} · {row.created_at.slice(0, 10)}
           {hidden ? ' · hidden' : ''}
         </p>

@@ -246,7 +246,7 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
     <div className="space-y-4">
       {/* Canvas area */}
       <div
-        className="relative inline-block max-w-full cursor-crosshair overflow-hidden rounded-xl border border-ink/15 bg-ink/5"
+        className="relative inline-block max-w-full cursor-crosshair overflow-hidden bg-ink/5 border-t border-ink/10"
         onClick={handleCanvasClick}
         onMouseMove={handleCanvasMove}
         onMouseLeave={() => setHoverHex(null)}
@@ -266,18 +266,18 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
       {/* Sample readout */}
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Hover
           </span>
           <ColorChip hex={hoverHex} />
-          <span className="font-mono text-xs text-ink/65">{hoverHex ?? '—'}</span>
+          <span className="text-xs text-ink/65 tabular-nums">{hoverHex ?? '—'}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Picked
           </span>
           <ColorChip hex={pickedHex} />
-          <span className="font-mono text-xs text-ink/65">{pickedHex ?? '—'}</span>
+          <span className="text-xs text-ink/65 tabular-nums">{pickedHex ?? '—'}</span>
         </div>
         {pickedHex && (
           <span className="text-xs text-ink/55">
@@ -289,10 +289,10 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
       {/* Tolerance slider */}
       <div className="space-y-1">
         <div className="flex items-center justify-between text-xs text-ink/65">
-          <label htmlFor="tolerance" className="font-mono uppercase tracking-[0.2em] text-[11px]">
+          <label htmlFor="tolerance" className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Tolerance (ΔE-ish)
           </label>
-          <span className="font-mono">{tolerance}</span>
+          <span className="tabular-nums">{tolerance}</span>
         </div>
         <input
           id="tolerance"
@@ -309,7 +309,7 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
 
       {/* Region label input */}
       <div className="space-y-1">
-        <label htmlFor="region-label" className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <label htmlFor="region-label" className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Region label (e.g. &ldquo;drapery&rdquo;, &ldquo;cocktail dress&rdquo;)
         </label>
         <input
@@ -324,7 +324,7 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
 
       {/* Slot pills */}
       <div className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Palette slots</p>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Palette slots</p>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
           {slotsArr.map((slotId) => {
             const slot = map[slotId];
@@ -341,13 +341,13 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
                 }`}
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                     Slot {slotId}
                   </span>
                   <ColorChip hex={slot?.sampledHex ?? null} small />
                 </div>
                 {slot ? (
-                  <div className="text-center text-[10px] text-ink/55">
+                  <div className="text-center text-[12px] text-ink/55">
                     {slot.sampledHex}
                     <br />
                     {slot.regionLabel ?? 'no label'}
@@ -355,7 +355,7 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
                     tol {slot.toleranceDe}
                   </div>
                 ) : (
-                  <div className="text-center text-[10px] text-ink/40">empty</div>
+                  <div className="text-center text-[12px] text-ink/40">empty</div>
                 )}
                 {slot && (
                   <button
@@ -364,7 +364,7 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
                       e.stopPropagation();
                       loadSlot(slotId);
                     }}
-                    className="text-[10px] uppercase tracking-[0.15em] text-mulberry hover:underline"
+                    className="text-[12px] uppercase tracking-[0.15em] text-mulberry hover:underline"
                   >
                     Load
                   </button>
@@ -376,7 +376,7 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
                       e.stopPropagation();
                       clearSlot(slotId);
                     }}
-                    className="text-[10px] uppercase tracking-[0.15em] text-ink/50 hover:underline"
+                    className="text-[12px] uppercase tracking-[0.15em] text-ink/50 hover:underline"
                   >
                     Clear
                   </button>

@@ -157,7 +157,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
       ) : null}
 
       <section className="mb-10">
-        <h2 className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/70">
+        <h2 className="mb-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Pending {pending ? `(${pending.length})` : '(not measured)'}
         </h2>
         {/* The pending queue is a card list, not a table — ConsoleTable does not
@@ -196,7 +196,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
               return (
                 <li
                   key={req.request_id}
-                  className="space-y-3 rounded-xl border border-danger-200/60 bg-danger-50/40 p-4"
+                  className="space-y-3 border-danger-200/60 bg-danger-50/40 py-4 border-t border-ink/10"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
@@ -207,7 +207,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                         {' · filed '}
                         {relativeTime(req.created_at)}
                       </p>
-                      <p className="font-mono text-[11px] text-ink/45">{req.request_id}</p>
+                      <p className="text-[12px] text-ink/45 tabular-nums">{req.request_id}</p>
                       {req.reason ? (
                         <p className="mt-1 text-sm text-ink/70">
                           <span className="text-ink/45">Reason given:</span> {req.reason}
@@ -292,7 +292,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
       </section>
 
       <section>
-        <h2 className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/70">
+        <h2 className="mb-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Recently reviewed
         </h2>
         <ConsoleTable
@@ -318,7 +318,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                 return (
                   <>
                     <p className="font-medium text-ink">{displayAccountEmail(u?.email) ?? '—'}</p>
-                    <p className="font-mono text-[11px] text-ink/70">{req.request_id}</p>
+                    <p className="text-[12px] text-ink/70 tabular-nums">{req.request_id}</p>
                   </>
                 );
               },
@@ -327,7 +327,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
               header: 'Status',
               cell: (req) => (
                 <span
-                  className={`whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                  className={`whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${
                     req.status === 'approved'
                       ? 'bg-danger-100 text-danger-800'
                       : req.status === 'rejected'

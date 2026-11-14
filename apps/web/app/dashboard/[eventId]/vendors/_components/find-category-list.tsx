@@ -68,7 +68,7 @@ export function FindCategoryList({
         >
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[15px] font-medium text-ink">{c.label}</span>
-            {sub ? <span className="block text-[12.5px] text-ink/55">{sub}</span> : null}
+            {sub ? <span className="block text-[12.5px] text-ink/70">{sub}</span> : null}
           </span>
           <ChevronRight className="h-4 w-4 shrink-0 text-ink/35" aria-hidden />
         </Link>
@@ -79,7 +79,7 @@ export function FindCategoryList({
   return (
     <div data-find-category-list="">
       {!bookedMeasured ? (
-        <p role="alert" className="mt-3 text-[13px] text-ink/60">
+        <p role="alert" className="mt-3 text-[13px] text-ink/70">
           We couldn&rsquo;t check what you&rsquo;ve booked — reload in a moment.
         </p>
       ) : null}

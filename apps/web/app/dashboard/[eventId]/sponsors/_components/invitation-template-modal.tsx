@@ -4,8 +4,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Copy, Mail, Send, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { StayForm } from '@/app/_components/stay-form';
-import { useModalA11y } from '@/lib/use-modal-a11y';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { Sheet } from '@/app/_components/sheet';
+import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 
 type Props = {
   /** Identifies this sponsor in the global "open modal for X" dance. */
@@ -44,7 +45,6 @@ export function InvitationTemplateModal({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const headingId = useId();
 
-  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
   // Reset message + copied state when opening a fresh modal.
   useEffect(() => {
@@ -81,46 +81,31 @@ export function InvitationTemplateModal({
       </button>
 
       {open ? (
-        <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={headingId}
-          className="fixed inset-0 z-50 flex items-end justify-center p-3 focus:outline-none sm:items-center sm:p-6"
-        >
-          <OverlayBackdrop onClose={() => setOpen(false)} />
-          <div
-            className="relative max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-2xl"
-          >
-            <header className="flex items-start justify-between gap-3 border-b border-ink/10 bg-cream/80 px-5 py-4">
+        /* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 9): the house Sheet — handle, title, ✕, Esc and Back. */
+        <Sheet open onClose={() => setOpen(false)} labelledById={headingId} rise>
+          <div ref={dialogRef}>
+            <header className="flex items-start justify-between gap-3 px-5 pb-2 pt-4 pr-14">
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+                <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Pamamanhikan-style invitation
                 </p>
                 <h2
                   id={headingId}
-                  className="font-display text-2xl italic text-ink"
+                  className="text-[17px] font-semibold text-ink"
                 >
                   Invite {triggerLabel}
                 </h2>
-                <p className="mt-1 text-xs text-ink/55">
-                  Edit freely. Copy to clipboard and send via Messenger, Viber,
-                  email, or paper. Mark sent when you&apos;ve delivered it.
-                </p>
+                <div className="mt-1 text-xs text-ink/70">
+                  <InfoTip label="Edit freely." labelAs="span" labelClassName="text-ink/70" align="start">
+                    Copy to clipboard and send via Messenger, Viber, email, or paper. Mark sent when you’ve delivered it.
+                  </InfoTip>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close"
-                className="rounded-md p-1 text-ink/50 hover:bg-ink/5 hover:text-ink"
-              >
-                <X aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </button>
             </header>
 
             <div className="space-y-3 px-5 py-4">
               <label className="block">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Message
                 </span>
                 <textarea
@@ -133,15 +118,8 @@ export function InvitationTemplateModal({
               </label>
 
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={copyToClipboard}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-ink/40"
-                >
-                  <Copy aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {copied ? 'Copied' : 'Copy to clipboard'}
-                </button>
-                <p className="text-[11px] text-ink/55">
+                <ActionButton tone="info" icon={Copy} label={copied ? 'Copied' : 'Copy to clipboard'} onClick={copyToClipboard} />
+                <p className="text-xs text-ink/70">
                   <Mail aria-hidden className="mr-1 inline h-3 w-3" strokeWidth={1.75} />
                   Automated email delivery ships in a future update — for now
                   you send the message yourself.
@@ -149,20 +127,14 @@ export function InvitationTemplateModal({
               </div>
             </div>
 
-            <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-ink/10 bg-cream/60 px-5 py-3">
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-md px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5"
-              >
-                Cancel
-              </button>
+            <footer className="flex flex-wrap items-center justify-end gap-2 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+              <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setOpen(false)} />
               <StayForm door="sponsors.sendInvitation" action={formAction} onSaved={() => setOpen(false)}>
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="sponsor_id" value={sponsorId} />
                 <SubmitButton
                   pendingLabel="Marking sent…"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600"
+                  className={actionButtonClass('brand', { main: true })}
                 >
                   <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Mark invitation sent
@@ -170,7 +142,7 @@ export function InvitationTemplateModal({
               </StayForm>
             </footer>
           </div>
-        </div>
+        </Sheet>
       ) : null}
     </>
   );

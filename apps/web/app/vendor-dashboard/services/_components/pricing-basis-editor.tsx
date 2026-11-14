@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { TypedRow } from '@/app/_components/form-row';
 
 /**
  * Pricing-basis editor (service-card redesign · Phase 3a). The three ways a
@@ -68,12 +69,41 @@ export function PricingBasisEditor({
    * Every field keeps its shipped name and posts once. Omitted (`part="all"`, no `basis`) = byte-for-byte as before.
    */
   basis?: Basis;
-  part?: 'all' | 'main' | 'more';
+  /** `row` — the maker's one form (ruling 6058): `main` as ONE typed Form row (`TypedRow`, amount), same field names. */
+  part?: 'all' | 'main' | 'more' | 'row';
 }) {
   const isCrewMeals = category === 'crew_meals';
   const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
   const [ownBasis, setBasis] = useState<Basis>(defaults.pricing_basis ?? 'fixed');
   const basis = controlledBasis ?? ownBasis;
+  if (part === 'row') {
+    /* 📐 THE CARD MAKER AS ONE FORM (ruling 6058): the same one number, as ONE typed row of the maker's list — its name
+       "Price · shown as “from”", the shipped help moved into the ⓘ, the same field name per basis. Keyed by basis so a
+       switch shows THAT basis's figure. */
+    const [field, value, help] =
+      basis === 'fixed'
+        ? (['starting_price_php', defaults.starting_price_php, 'Whole pesos — couples see it as “from”.'] as const)
+        : basis === 'per_pax'
+          ? (['per_pax_price_php', defaults.per_pax_price_php, isCrewMeals ? 'Your per-meal rate.' : 'Your per-head rate.'] as const)
+          : (['hour_base_php', defaults.hour_base_php, 'Covers your minimum hours (set under Price · more).'] as const);
+    return (
+      <>
+        <input type="hidden" name="pricing_basis" value={basis} />
+        <TypedRow
+          key={basis}
+          name={basis === 'per_pax' ? `Price, per ${perPaxUnit}` : 'Price'}
+          about={{ title: 'Price · shown as “from”', words: help }}
+          value={value == null ? '' : String(value)}
+          amount
+          empty="Add"
+          fieldName={field}
+          onKeep={() => undefined}
+          data="price"
+          attrs={{ 'data-maker-price-field': field }}
+        />
+      </>
+    );
+  }
   if (part === 'main') {
     return (
       <div className="space-y-2">

@@ -74,13 +74,13 @@ export function SceneSlotsPanel({
   return (
     <div className="mt-2 space-y-2 border-t border-dashed border-ink/10 pt-2" data-scene-slots="">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">Template</p>
-        <p className="text-[0.7rem] font-medium text-ink/80">
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Template</p>
+        <p className="text-[12px] font-medium text-ink/80">
           {t.approved ? '★ ' : ''}
           {t.id} · {t.name}
         </p>
       </div>
-      {t.builtOn ? <p className="text-[0.62rem] text-ink/55">{SCENE_BUILT_ON_LABEL[t.builtOn]}.</p> : null}
+      {t.builtOn ? <p className="text-[12px] text-ink/75">{SCENE_BUILT_ON_LABEL[t.builtOn]}.</p> : null}
       <SceneTemplatePicker
         overlay
         action={saveAction}
@@ -102,7 +102,7 @@ export function SceneSlotsPanel({
             const current = urlOf(slot.media);
             return (
               <div key={i} className="flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex w-16 items-center gap-1 text-[0.62rem] text-ink/55">
+                <span className="inline-flex w-16 items-center gap-1 text-[12px] text-ink/75">
                   {t.clip ? 'Clip' : t.media > 1 ? `Photo ${i + 1}` : 'Photo'}
                   {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
                 </span>
@@ -112,7 +112,7 @@ export function SceneSlotsPanel({
                     <HubDraftField />
                     <button
                       type="submit"
-                      className="inline-flex h-9 items-center rounded-md border border-ink/15 bg-cream px-2 text-[0.6rem] font-semibold text-ink/60 hover:border-ink/30"
+                      className="inline-flex h-9 items-center rounded-md border border-ink/15 bg-cream px-2 text-[12px] font-semibold text-ink/75 hover:border-ink/30"
                     >
                       Take it off
                     </button>
@@ -122,7 +122,7 @@ export function SceneSlotsPanel({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={current} alt="" className="h-9 w-12 rounded-md border-2 border-ink object-cover" />
                 ) : slot.kind === 'snippet' ? (
-                  <span className="inline-flex h-9 items-center rounded-md border-2 border-ink px-2 text-[0.6rem] font-semibold text-ink">
+                  <span className="inline-flex h-9 items-center rounded-md border-2 border-ink px-2 text-[12px] font-semibold text-ink">
                     Your video
                   </span>
                 ) : null}
@@ -135,14 +135,14 @@ export function SceneSlotsPanel({
                         <button
                           type="submit"
                           aria-pressed={slot.kind === 'snippet'}
-                          className="inline-flex h-9 items-center rounded-md border border-ink/15 bg-cream px-2 text-[0.6rem] font-semibold text-ink/60 hover:border-ink/30"
+                          className="inline-flex h-9 items-center rounded-md border border-ink/15 bg-cream px-2 text-[12px] font-semibold text-ink/75 hover:border-ink/30"
                         >
                           Your video
                         </button>
                       </SafeForm>
                     ) : null}
                     {t.clip && !videoChoice ? (
-                      <span className="text-[0.6rem] text-ink/50">
+                      <span className="text-[12px] text-ink/75">
                         Add a short clip at the top of your Event Hub first, then choose it here.
                       </span>
                     ) : null}
@@ -167,7 +167,7 @@ export function SceneSlotsPanel({
                       );
                     })}
                     {photoChoices.length === 0 && !t.clip ? (
-                      <span className="text-[0.6rem] text-ink/50">
+                      <span className="text-[12px] text-ink/75">
                         Add your photos in Photos you add first, then choose them here.
                       </span>
                     ) : null}
@@ -183,7 +183,7 @@ export function SceneSlotsPanel({
       {/* ══ HOW A CLIP PLAYS — only once a clip is in the scene. ══ */}
       {hasSnippet && usable ? (
         <div className="flex flex-wrap items-center gap-1">
-          <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">Clip</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Clip</span>
           {(
             [
               ['loop', undefined, 'Loops quietly'],
@@ -202,8 +202,8 @@ export function SceneSlotsPanel({
                 <button
                   type="submit"
                   aria-pressed={on}
-                  className={`inline-flex h-6 items-center rounded-full border px-2 text-[0.6rem] ${
-                    on ? 'border-ink/60 bg-ink/5 font-semibold text-ink' : 'border-ink/12 bg-cream text-ink/55 hover:border-ink/30'
+                  className={`inline-flex h-6 items-center rounded-full border px-2 text-[12px] ${
+                    on ? 'border-ink/60 bg-ink/5 font-semibold text-ink' : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30'
                   }`}
                 >
                   {text}
@@ -233,7 +233,7 @@ export function SceneSlotsPanel({
                   maxLength={HUB_SLOT_HEAD_MAX}
                   defaultValue={slot.head ?? ''}
                   placeholder={`${blockWords.head} ${i + 1}`}
-                  className="min-h-[34px] w-full rounded-md border border-ink/15 bg-white px-2 text-[0.72rem] text-ink placeholder:text-ink/40"
+                  className="min-h-[34px] w-full rounded-md border border-ink/15 bg-white px-2 text-[12px] text-ink placeholder:text-ink/40"
                 />
                 <label className="sr-only" htmlFor={`slot-text-${row.widget_id}-${i}`}>
                   {blockWords.text} {i + 1}
@@ -245,9 +245,9 @@ export function SceneSlotsPanel({
                   maxLength={HUB_SLOT_TEXT_MAX}
                   defaultValue={slot.text ?? ''}
                   placeholder={blockWords.text}
-                  className="w-full rounded-md border border-ink/15 bg-white px-2 py-1 text-[0.72rem] leading-relaxed text-ink placeholder:text-ink/40"
+                  className="w-full rounded-md border border-ink/15 bg-white px-2 py-1 text-[12px] leading-relaxed text-ink placeholder:text-ink/40"
                 />
-                <button type="submit" className="inline-flex h-7 items-center rounded-full bg-ink px-3 text-[0.62rem] font-semibold text-cream">
+                <button type="submit" className="ab ab-brand">
                   Save
                 </button>
               </SafeForm>

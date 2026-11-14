@@ -16,8 +16,9 @@
   - ⚠ Quotes sent before this carry no `from_offer_id` and are not counted (the two on record are the owner's test shop).
 - **OWN-02** The shop's Inquire sheet dropped an ask in silence: closing it during "Sending in N s…" cleared the timer
   and closed — nothing sent, and its last words were "Sending". Undo is the one way not to send now; closing sends at
-  once and the sheet stays to say whether it went. Back from "Start a new event", the event just made is picked (the
-  sheet remembers the couple's events as they leave, in sessionStorage; two new or none → nothing is guessed).
+  once and the sheet stays to say whether it went. (The other half — back from "Start a new event", the event just made
+  is picked — shipped on main in d91c199 via the resume URL's event id; this branch's own version of it was dropped in
+  the merge.)
 - **OWN-03** On a supplier's event lines, "They added this to their plan" sat beside services the couple never
   picked: "their plan" counted the shop's OWN row, which the inquiry itself wrote under the first pick's category. It
   now counts only the couple's rows. The Celebrant read "Someone —": a birthday "for you" saved the account's display

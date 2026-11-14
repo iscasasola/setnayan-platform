@@ -2,6 +2,7 @@
 
 import { ChevronDown, Gift } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { ChosenRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { giftLine, giftMenu, giftTip, type GiftHost, type GiftPick } from '@/lib/gift-pick';
 import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
@@ -25,7 +26,13 @@ export function GiftPickRow({
   free,
   dataAttr,
   className = '',
+  row = false,
 }: {
+  /**
+   * 📐 As ONE Form row (the service Card Maker as one form, ruling 6058): "Gift · optional" on the left, the dropdown as
+   * the list's pill on the right (`ChosenRow`); the tips and the line about the pick move into the row's ⓘ.
+   */
+  row?: boolean;
   host: GiftHost;
   value: GiftPick;
   onPick: (next: GiftPick) => void;
@@ -39,6 +46,34 @@ export function GiftPickRow({
 }) {
   const options = giftMenu(packs, free, value);
   const picked = options.find((o) => o.key === value);
+  if (row) {
+    return (
+      <ChosenRow
+        name="Gift"
+        about={{
+          title: 'Gifts',
+          words: (
+            <>
+              {giftTip(host).map((t) => (
+                <span key={t} className="mt-1 block first:mt-0">
+                  {t}
+                </span>
+              ))}
+              <span className="mt-1 block" data-gift-hint="">
+                {giftLine(host, value, packs, free)}
+              </span>
+            </>
+          ),
+        }}
+        value={value}
+        options={options}
+        onPick={(k) => onPick(k as GiftPick)}
+        buttonText={picked?.label ?? 'No gift'}
+        dataAttr={dataAttr}
+        attrs={{ 'data-gift-row': host }}
+      />
+    );
+  }
   return (
     <div className={className} data-gift-row={host}>
       <div className="mb-1.5 flex items-center gap-2 text-[14px] font-medium text-ink">

@@ -566,7 +566,8 @@
   justify-content: center;
   flex-direction: column;
   gap: 14px;
-  background: rgba(8, 6, 4, 0.86);
+  /* an opaque black stage for the 9:16 story, like the reveal's — not a see-through pop-up dark */
+  background: #000;
   padding: 16px;
   color: #fff;
 }
@@ -707,9 +708,9 @@
   color: #2a1a08;
 }
 .awDlg::backdrop {
-  background: rgba(12, 10, 8, 0.62);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: var(--sn-scrim);
+  backdrop-filter: blur(var(--sn-scrim-blur));
+  -webkit-backdrop-filter: blur(var(--sn-scrim-blur));
 }
 /* a closed dialog stays hidden (these classes set a display of their own) */
 .awDlg:not([open]),

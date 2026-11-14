@@ -31,6 +31,9 @@ export type TicketSpec = {
   holo?: boolean;
 };
 
+/** The claim burst's four sparks — the ticket's own art, like its faces and rims (copied verbatim from the prototype). */
+export const TICKET_BURST: readonly string[] = ['#FFD860', '#fff', '#E0405E', '#86E9D3'];
+
 export const TICKET_SPECS = {
   papic150: { w: 'PAPIC', n: '150', s: 'CREDITS', ic: 'cam', face: ['#F7A08F', '#D63A55', '#5E0D24'], rim: 'bronze' },
   papic1000: { w: 'PAPIC', n: '1000', s: 'CREDITS', ic: 'cam', face: ['#F7A08F', '#C92F4E', '#55091F'], rim: 'silver' },

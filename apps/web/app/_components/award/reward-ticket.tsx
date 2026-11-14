@@ -15,7 +15,7 @@
  */
 import { useRef, useState, type CSSProperties } from 'react';
 import s from './award.module.css';
-import { TICKET_H, TICKET_SPECS, TICKET_W, ticketDataUri, type TicketKind, type TicketSpec } from './ticket-svg';
+import { TICKET_BURST, TICKET_H, TICKET_SPECS, TICKET_W, ticketDataUri, type TicketKind, type TicketSpec } from './ticket-svg';
 import { prefersReducedMotion } from './shared';
 
 export type RewardTicketState = 'locked' | 'ready' | 'claimed';
@@ -41,7 +41,6 @@ export const TICKET_COPY = {
   foot: 'A gift from Setnayan, for you to give.',
 } as const;
 
-const BURST = ['#FFD860', '#fff', '#E0405E', '#86E9D3'];
 
 export function RewardTicket({ kind, spec, label, state, onClaim, className }: RewardTicketProps) {
   const print = spec ?? (TICKET_SPECS as Record<string, TicketSpec>)[kind];
@@ -99,7 +98,7 @@ export function RewardTicket({ kind, spec, label, state, onClaim, className }: R
     phase === 'claiming' ? (
       <span key={burst} className={s.rwFx} style={{ left: '50%', top: '42%' }} aria-hidden="true">
         {Array.from({ length: 16 }, (_, k) => (
-          <i key={k} style={{ '--a': `${k * 22.5}deg`, '--d': `${40 + (k % 3) * 18}px`, background: BURST[k % 4] } as CSSProperties} />
+          <i key={k} style={{ '--a': `${k * 22.5}deg`, '--d': `${40 + (k % 3) * 18}px`, background: TICKET_BURST[k % 4] } as CSSProperties} />
         ))}
       </span>
     ) : null;

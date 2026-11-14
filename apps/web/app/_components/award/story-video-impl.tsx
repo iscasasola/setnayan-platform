@@ -11,6 +11,7 @@
  * (default: the scene's own — 15 with the reveal, else 10).
  */
 import { useEffect, useRef, useState } from 'react';
+import { SaveFileLink } from '../save-file-link';
 import s from './award.module.css';
 import { pickStoryMime, storyRig, type StoryInput } from './story-rig';
 import { useModalDialog } from './shared';
@@ -35,7 +36,7 @@ export function StoryVideoImpl({ input, label, fileName = 'setnayan-badge', reve
   const bar = useRef<HTMLElement>(null);
   const [made, setMade] = useState<Made | null>(null);
   const cancelled = useRef(false);
-  const saveRef = useRef<HTMLAnchorElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // one run per effect (StrictMode mounts twice in dev): `dead` is this run's, `cancelled` is the person's Cancel
@@ -114,7 +115,7 @@ export function StoryVideoImpl({ input, label, fileName = 'setnayan-badge', reve
   }, []);
 
   useEffect(() => {
-    if (made) saveRef.current?.focus();
+    if (made) rowRef.current?.querySelector<HTMLAnchorElement>('a')?.focus();
   }, [made]);
 
   const close = () => {
@@ -140,10 +141,10 @@ export function StoryVideoImpl({ input, label, fileName = 'setnayan-badge', reve
             // eslint-disable-next-line @next/next/no-img-element
             <img alt="Your story picture" src={made.url} />
           )}
-          <div className={s.styRow}>
-            <a ref={saveRef} className={`${s.styBtn} ${s.stySave}`} href={made.url} download={made.file.name}>
+          <div className={s.styRow} ref={rowRef}>
+            <SaveFileLink className={`${s.styBtn} ${s.stySave}`} href={made.url} filename={made.file.name}>
               Save {made.video ? 'video' : 'picture'}
-            </a>
+            </SaveFileLink>
             {made.canShare ? (
               <button
                 type="button"

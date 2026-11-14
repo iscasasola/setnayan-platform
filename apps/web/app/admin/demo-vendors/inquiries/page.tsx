@@ -46,7 +46,7 @@ const ROW_LIMIT = 300;
 function fmt(iso: string | null): string {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleString('en-PH', {
+    return new Date(iso).toLocaleString('en-PH', { timeZone: 'Asia/Manila',
       month: 'short',
       day: '2-digit',
       hour: '2-digit',

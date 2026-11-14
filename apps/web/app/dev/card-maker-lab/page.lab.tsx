@@ -344,7 +344,7 @@ export default async function CardMakerLabPage({
           <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">‹ Shop</span>
         </div>
         <h1 className="text-[22px] font-semibold text-ink">Their work</h1>
-        <p className="mt-1 text-[14px] text-ink/60">One album per event · newest first · type · venue · month · no names</p>
+        <p className="mt-1 text-[14px] text-ink/60">Photos from the events this card was booked for</p>
         <TheirWorkList albums={sp.work === 'unread' ? null : LAB_THEIR_WORK} own={LAB_THEIR_OWN} retryHref="/dev/card-maker-lab?work=1" />
       </div>
     );

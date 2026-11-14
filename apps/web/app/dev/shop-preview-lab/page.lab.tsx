@@ -7,6 +7,7 @@
  *   ?reason=documents|in_review|listing|demo   which banner (default: demo — SetnaProd's state)
  *   ?view=stranger                             the not-found page a stranger gets for the same address
  *   ?view=inspiration                          🔗🖼 Services (each card's looks strip) + the Inspiration section (2026-10-30)
+ *   ?view=photos[&owner=1][&state=fail]       📸 photos by service — the service names + the Portfolio row (owner 2026-11-14)
  *   ?view=card                                 🃏 one full card — tap it: the Service card grown (Build 5 Lane C)
  *   ?view=card&work=1|unread                   🃏📸 …with the photos of the events booked on it inside Events (record flag ON)
  *   ?events=N                                  the shop's badge pills under its name, as the page draws them
@@ -23,17 +24,28 @@ import { shopBadges } from '@/lib/shop-badges';
 import { ServicesGallery } from '@/app/v/[slug]/_components/services-gallery';
 import { ShopInspirationSection } from '@/app/v/[slug]/_components/shop-inspiration-section';
 import { GrownOwnerLab } from './grown-owner-lab';
+import { PhotosByServiceLab } from './photos-by-service-lab';
 import { LAB_GROWN_CARD, LAB_INSPIRATION_CARDS, LAB_INSPIRATION_TILES } from './inspiration-lab-fixture';
 import { LAB_COUPLE_EVENT_WORK } from '../card-albums-lab-fixture/fixture';
 
 export default async function ShopPreviewLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reason?: string; view?: string; events?: string; work?: string }>;
+  searchParams: Promise<{ reason?: string; view?: string; events?: string; work?: string; owner?: string; state?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   if (sp.view === 'stranger') return <SlugNotFound />;
+  if (sp.view === 'photos') {
+    /* 📸 Photos by service (owner 2026-11-14): the gallery's service names (Ⓐ) + the Portfolio row (Ⓑ), on fixtures. */
+    return (
+      <main className="min-h-dvh bg-cream" data-lab-photos-by-service="">
+        <article className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+          <PhotosByServiceLab owner={sp.owner === '1'} fail={sp.state === 'fail'} />
+        </article>
+      </main>
+    );
+  }
   if (sp.view === 'card') {
     /* 🃏 The shop page's Services with ONE full card and the details flag ON — tap it and it grows (Build 5 Lane C). */
     return (

@@ -23,6 +23,8 @@ export type InspirationTile = {
   part: string;
   /** The linked card on THIS page: its name, its price line and its anchor. null = the shop only. */
   card: { label: string; priceLabel: string; anchorId: string } | null;
+  /** 🏷 A photo tagged from Files: its event as type · venue · month (DECISION_LOG 2026-11-14, ruling 4). */
+  eventLine?: string | null;
 };
 
 export function ShopInspirationSection({ tiles, shopName }: { tiles: readonly InspirationTile[]; shopName: string }) {
@@ -59,6 +61,11 @@ export function ShopInspirationSection({ tiles, shopName }: { tiles: readonly In
                   <span className="block truncate text-ink/60">
                     {t.card.label} · {t.card.priceLabel}
                   </span>
+                  {t.eventLine ? (
+                    <span className="block text-ink/60" data-inspiration-event-line="">
+                      {t.eventLine}
+                    </span>
+                  ) : null}
                 </span>
               </a>
             ) : (
@@ -67,6 +74,11 @@ export function ShopInspirationSection({ tiles, shopName }: { tiles: readonly In
                 <span className="block px-0.5 pb-1 pt-1.5 text-[12.5px] leading-snug">
                   <b className="block font-medium text-ink">{t.part}</b>
                   <span className="block truncate text-ink/60">{shopName} · no card yet</span>
+                  {t.eventLine ? (
+                    <span className="block text-ink/60" data-inspiration-event-line="">
+                      {t.eventLine}
+                    </span>
+                  ) : null}
                 </span>
               </div>
             )}

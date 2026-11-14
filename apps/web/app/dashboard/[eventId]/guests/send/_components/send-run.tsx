@@ -367,7 +367,14 @@ export function SendRun({
     <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center" data-send-run-done="">
       <Check aria-hidden className="h-9 w-9 text-success-600" strokeWidth={2} />
       <p className="font-display text-2xl text-ink">
-        {sendable.length === 0 ? 'Nobody to send to yet.' : leftCount === 0 ? 'Everyone has their invite.' : `${formatCount(sentCount)} sent.`}
+        {sendable.length === 0
+          ? 'Nobody to send to yet.'
+          : leftCount === 0
+            ? // ✉ F-W2-25: "has their invite" only when each one WAS sent one — an answer marked by hand is not a send.
+              sendable.every((g) => sentNow(g))
+              ? 'Everyone has their invite.'
+              : 'Nobody left to invite.'
+            : `${formatCount(sentCount)} sent.`}
       </p>
       {laterIn.length ? (
         <ActionButton

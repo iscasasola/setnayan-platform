@@ -55,6 +55,12 @@ const SCAN_DIRS = ['story', 'editorial'];
  */
 const ALLOWED = new Map<string, string>([
   [
+    'story/story-suppliers.tsx :: input[type=search]',
+    'SEARCH THE SUPPLIERS IN THIS STORY (owner 2026-11-13, "story with many suppliers": a search field when there are ' +
+      'more than 20). It filters the supplier list the sheet is already showing, by shop name or service, in the ' +
+      'browser — nothing is sent, and it can only ever match shops already listed. It never takes or finds a person.',
+  ],
+  [
     'story/find-in-this-day.tsx :: input[type=search]',
     'FIND IN THIS DAY (`01` §8). A search over the page a reader is already ' +
       'looking at. Its placeholder names a minute, a shop and a word — never a ' +

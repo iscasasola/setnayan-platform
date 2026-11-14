@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7834
+# facts: 7846
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     636
-#   col       5639
-#   policy    1147
+#   tpriv     637
+#   col       5647
+#   policy    1150
 #   view      10
 #   func      398
 #
@@ -529,6 +529,7 @@ tpriv	public.vendor_deep_search_uses|anon	SIUD
 tpriv	public.vendor_deep_search_uses|authenticated	SIUD
 tpriv	public.vendor_disputes|authenticated	SIUD
 tpriv	public.vendor_event_access_grants|authenticated	SIUD
+tpriv	public.vendor_event_album_shares|authenticated	SIU
 tpriv	public.vendor_event_set_songs|authenticated	SIUD
 tpriv	public.vendor_event_sets|authenticated	SIUD
 tpriv	public.vendor_event_unlocks|anon	SIUD
@@ -5153,6 +5154,11 @@ col	public.vendor_event_access_grants.granted_by	anon=- authenticated=SIU
 col	public.vendor_event_access_grants.grantee_user_id	anon=- authenticated=SIU
 col	public.vendor_event_access_grants.revoked_at	anon=- authenticated=SIU
 col	public.vendor_event_access_grants.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_event_album_shares.asked_at	anon=- authenticated=SIU
+col	public.vendor_event_album_shares.event_id	anon=- authenticated=SIU
+col	public.vendor_event_album_shares.shared	anon=- authenticated=SIU
+col	public.vendor_event_album_shares.updated_at	anon=- authenticated=SIU
+col	public.vendor_event_album_shares.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_event_set_songs.created_at	anon=- authenticated=SIU
 col	public.vendor_event_set_songs.position	anon=- authenticated=SIU
 col	public.vendor_event_set_songs.set_id	anon=- authenticated=SIU
@@ -5481,10 +5487,13 @@ col	public.vendor_papic_portfolio_photos.created_at	anon=- authenticated=SI
 col	public.vendor_papic_portfolio_photos.credits_spent	anon=- authenticated=SI
 col	public.vendor_papic_portfolio_photos.event_id	anon=- authenticated=SI
 col	public.vendor_papic_portfolio_photos.hidden_at	anon=- authenticated=SI
+col	public.vendor_papic_portfolio_photos.media_kind	anon=- authenticated=SI
 col	public.vendor_papic_portfolio_photos.nsfw_checked	anon=- authenticated=SI
 col	public.vendor_papic_portfolio_photos.photo_id	anon=- authenticated=SI
 col	public.vendor_papic_portfolio_photos.r2_object_key	anon=- authenticated=SI
+col	public.vendor_papic_portfolio_photos.size_bytes	anon=- authenticated=SI
 col	public.vendor_papic_portfolio_photos.vendor_profile_id	anon=- authenticated=SI
+col	public.vendor_papic_portfolio_photos.video_r2_key	anon=- authenticated=SI
 col	public.vendor_partnerships.accepted_at	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.additional_fee_centavos	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.admin_verified	anon=SIU authenticated=SIU
@@ -7223,6 +7232,9 @@ policy	public.vendor_event_access_grants|vendor_event_access_grants_grantee_read
 policy	public.vendor_event_access_grants|vendor_event_access_grants_manage_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)))
 policy	public.vendor_event_access_grants|vendor_event_access_grants_manage_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=NULL
 policy	public.vendor_event_access_grants|vendor_event_access_grants_manage_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids))
+policy	public.vendor_event_album_shares|vendor_event_album_shares_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))
+policy	public.vendor_event_album_shares|vendor_event_album_shares_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.vendor_event_album_shares|vendor_event_album_shares_vendor_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))
 policy	public.vendor_event_set_songs|vendor_event_set_songs_act_manage	mode=PERMISSIVE cmd=ALL roles=authenticated using=(EXISTS ( SELECT 1 FROM vendor_event_sets s WHERE ((s.set_id = vendor_event_set_songs.set_id) AND ((s.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (s.event_id IN ( SELECT current_vendor_dayof_grant_event_ids() AS current_vendor_dayof_grant_event_ids)) OR ( SELECT is_admin() AS is_admin))))) check=(EXISTS ( SELECT 1 FROM vendor_event_sets s WHERE ((s.set_id = vendor_event_set_songs.set_id) AND ((s.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (s.event_id IN ( SELECT current_vendor_dayof_grant_event_ids() AS current_vendor_dayof_grant_event_ids)) OR ( SELECT is_admin() AS is_admin)))))
 policy	public.vendor_event_set_songs|vendor_event_set_songs_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM vendor_event_sets s WHERE ((s.set_id = vendor_event_set_songs.set_id) AND (s.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))))) check=NULL
 policy	public.vendor_event_sets|vendor_event_sets_act_manage	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (event_id IN ( SELECT current_vendor_dayof_grant_event_ids() AS current_vendor_dayof_grant_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (event_id IN ( SELECT current_vendor_dayof_grant_event_ids() AS current_vendor_dayof_grant_event_ids)) OR ( SELECT is_admin() AS is_admin))

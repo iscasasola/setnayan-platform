@@ -4,6 +4,8 @@ import { r2SignedGet, R2_BUCKETS } from '@/lib/r2';
 import { parseR2Ref } from '@/lib/nsfw-screen';
 import { visiblePortfolioPhotos, portfolioAlbumSummary } from '@/lib/vendor-papic-portfolio-album';
 import { PortfolioImportForm } from './portfolio-import-form';
+import { AlbumShareSwitch } from './album-share-switch';
+import { STORAGE_UPGRADE_HREF } from '@/lib/supplier-storage';
 import { PutOnMyPageButton } from '@/app/vendor-dashboard/collections/_components/put-on-my-page-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SUPPLIER_PAGE_NOTICE_DAYS, supplierPageNoticeState, type SupplierPageNoticeRow, type SupplierPageNoticeState } from '@/lib/supplier-page-notice';
@@ -28,6 +30,9 @@ export async function PortfolioAlbumSection({
   eventId,
   creditsLeft,
   canPutOnPage = false,
+  vendorProfileId,
+  eventEnded = false,
+  coupleName = 'the couple',
 }: {
   supabase: SupabaseClient;
   eventId: string;
@@ -35,10 +40,16 @@ export async function PortfolioAlbumSection({
   creditsLeft: number | null;
   /** Owners and admins only — the page is an owner room, and `putAlbumPhotoOnMyPage` refuses everyone else. */
   canPutOnPage?: boolean;
+  /** The shop this album belongs to — its plan and its share switch are read for it (owner 2026-11-13). */
+  vendorProfileId?: string;
+  /** The event's day has passed — an Ultra that never answered is asked once to share. */
+  eventEnded?: boolean;
+  /** Whose story the album would join ("Share your album to <couple>'s story?"). */
+  coupleName?: string;
 }) {
   const { data, error } = await supabase
     .from('vendor_papic_portfolio_photos')
-    .select('photo_id, event_id, r2_object_key, credits_spent, created_at, hidden_at, nsfw_checked')
+    .select('photo_id, event_id, r2_object_key, credits_spent, created_at, hidden_at, nsfw_checked, media_kind')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })
     .limit(60);
@@ -58,6 +69,28 @@ export async function PortfolioAlbumSection({
   }
 
   const photos = visiblePortfolioPhotos(data ?? []);
+
+  // 🎬 The share switch (owner 2026-11-13): the shop's plan and this event's share row, under the shop's OWN session
+  // (`vendor_event_album_shares_vendor_read`). A failed read shows no switch rather than a wrong one — "Off" on a
+  // shared album would be a lie about who can see it.
+  let share: { ready: boolean; isUltra: boolean; shared: boolean; asked: boolean } = { ready: false, isUltra: false, shared: false, asked: false };
+  if (vendorProfileId) {
+    const [planRead, shareRead] = await Promise.all([
+      supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
+      supabase.from('vendor_event_album_shares').select('shared, asked_at').eq('vendor_profile_id', vendorProfileId).eq('event_id', eventId).maybeSingle(),
+    ]);
+    if (planRead.error) console.error('[supabase-error] portfolio-album-section.tsx · from:vendor_profiles.select', planRead.error);
+    if (shareRead.error) console.error('[supabase-error] portfolio-album-section.tsx · from:vendor_event_album_shares.select', shareRead.error);
+    if (!planRead.error && planRead.data && !shareRead.error) {
+      const row = shareRead.data as { shared: boolean; asked_at: string | null } | null;
+      share = {
+        ready: true,
+        isUltra: (planRead.data as { tier_state: string | null }).tier_state === 'enterprise',
+        shared: row?.shared === true,
+        asked: Boolean(row?.asked_at),
+      };
+    }
+  }
 
   // ⏳ Where each photo stands on the way to the page (the 7-day guest notice, owner 2026-10-03) — read under the
   // supplier's OWN session (`supplier_page_photo_notices_vendor_read`). A failed read offers the button again, and a
@@ -103,7 +136,15 @@ export async function PortfolioAlbumSection({
         <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
         {/* Title + one short line; the rest in the ⓘ (house rule). The old line said "never their guests" — no longer
             true of a photo you put on your page: the event's guests are shown it first (owner 2026-10-03). */}
-        <InfoTip label="Only you see this album. A photo you put on your page goes up after the guests’ notice." labelClassName="text-xs" align="start">
+        <InfoTip
+          label={
+            share.isUltra && share.shared
+              ? 'Shared to this event’s story. Switch it off to keep it private.'
+              : 'Only you see this album. A photo you put on your page goes up after the guests’ notice.'
+          }
+          labelClassName="text-xs"
+          align="start"
+        >
           Each photo you import spends one Papic credit. When you put one on your page, everyone at this event is told
           on their guests’ page and has {SUPPLIER_PAGE_NOTICE_DAYS} days to remove it. If nobody does, it goes up on your
           page by itself. A guest can still remove it later, and a photo taken down at a guest&rsquo;s request comes
@@ -111,7 +152,26 @@ export async function PortfolioAlbumSection({
         </InfoTip>
       </div>
 
-      <PortfolioImportForm eventId={eventId} canImport={canImport} />
+      {share.ready ? (
+        <AlbumShareSwitch
+          eventId={eventId}
+          shared={share.shared}
+          isUltra={share.isUltra}
+          canManage={canPutOnPage}
+          askNow={eventEnded && share.isUltra && !share.asked && !share.shared}
+          coupleName={coupleName}
+          returnPath={`/vendor-dashboard/on-the-day/live/${eventId}/papic`}
+          upgradeHref={STORAGE_UPGRADE_HREF}
+        />
+      ) : null}
+
+      <PortfolioImportForm
+        eventId={eventId}
+        canImport={canImport}
+        creditsLeft={creditsLeft}
+        // 🎬 Videos go into the album a Supplier Ultra can share (owner 2026-11-13); other plans import photos.
+        vendorProfileId={share.ready && share.isUltra ? (vendorProfileId ?? null) : null}
+      />
 
       {tiles.length > 0 ? (
         <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -122,6 +182,7 @@ export async function PortfolioAlbumSection({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
                 ) : null}
+                {photo.isVideo ? <span aria-label="Video" className="absolute bottom-1.5 left-1.5 rounded-full bg-ink/70 px-1.5 text-xs text-cream">▶</span> : null}
               </div>
               {/* One tap puts THIS photo on your page (owner 2026-10-15, "SIX OWNER ANSWERS" (3)) — after the guests'
                   7-day notice (owner 2026-10-03); a copy in your page's gallery, the album keeps its private one. */}

@@ -331,6 +331,18 @@ export const TOPICS_EXISTING: HelpTopic[] = [
     roles: ['couple', 'vendor'],
     articles: [
       {
+        // Owner 2026-11-13 (specs DECISION_LOG "every booked supplier is tappable", "order by supplier plan",
+        // "story with many suppliers", "Supplier Ultra scenes") — the story's own ⓘ says the short version.
+        slug: 'story-suppliers',
+        title: 'How are our suppliers shown in our event story?',
+        body: 'After the day, your story lists everyone who made it in “The people who made it”. Suppliers booked on Setnayan come first, ordered by their plan — Supplier Ultra, then Supplier Pro, Supplier Plus, Verified and Free — and a supplier you added yourself is named, with no link. The story shows the first eight; “See all” opens the full list, grouped by plan, with a search box when there are more than 20. Every booked supplier can be tapped: Supplier Pro and Supplier Ultra open a card with their cover, rating, best work and a Book button, the rest open their shop. Each Supplier Ultra that shares its album from your event also gets its own scene in your story.',
+      },
+      {
+        slug: 'share-album-to-story',
+        title: 'Supplier: how do I share my album to an event’s story?',
+        body: 'On Supplier Ultra, open the event in On the day → What you shot. Under “Your private portfolio”, turn on “Share this album to the event’s story”. The photos and videos in that album then fill your own scene in the event’s story, with your shop name, your Supplier Ultra badge and a button to your shop. It is off until you turn it on, and you can turn it off any time. After the event you are asked once whether to share. The album counts toward your plan’s storage. On other plans you are listed in the story with no scene of your own.',
+      },
+      {
         slug: 'people-page',
         title: 'What is People?',
         body: 'People, a section of Home, is everyone you are connected to on Setnayan. The counts at the top — connected, waiting for them, asking you — each show just those people when you tap them. Type a name in the field at the bottom to find someone, or to invite them if they are not on Setnayan yet. ≡ opens Groups, Following and Followers, and the other sections of Home. Nobody is connected until they say yes.',

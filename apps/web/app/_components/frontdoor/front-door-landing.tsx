@@ -133,39 +133,11 @@ export function frontPageSample(now: Date): FrontPageSample | null {
 
 /* ─── The two plan prices, from the price list ─────────────────────────────────────────────────────── */
 
-/** Event Plus, Event Pro and Event Ultra, in pesos — null when the row is not on sale or could not be read. */
-export type PlanPrices = { plus: number | null; pro: number | null; ultra: number | null };
-
-/** The service codes the plan cards read. Event Pro IS `COUPLE_WEBSITE_PRO`. 💎 Event Ultra: owner 2026-11-13. */
-export const PLAN_PRICE_CODES = { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO', ultra: 'EVENT_ULTRA' } as const;
-
-/**
- * Picks the two prices out of the customer catalogue (`fetchV2CustomerCatalog`, active rows only). Never a
- * fallback figure: a missing, inactive or non-positive row is null, and the card then names no price.
- */
-export function planPricesFrom(
-  rows: ReadonlyArray<{ service_code: string; retail_price_php: number | null }>,
-): PlanPrices {
-  const php = (code: string): number | null => {
-    const v = Number(rows.find((r) => r.service_code === code)?.retail_price_php);
-    return Number.isFinite(v) && v > 0 ? v : null;
-  };
-  return { plus: php(PLAN_PRICE_CODES.plus), pro: php(PLAN_PRICE_CODES.pro), ultra: php(PLAN_PRICE_CODES.ultra) };
-}
-
-/**
- * The credits Event Plus and Event Pro grant, from the same rows (`included_papic_credits` — the number the
- * activation hook tops the event up to). Never typed: an unread or empty row is null and the card names no number.
- */
-export function planCreditsFrom(
-  rows: ReadonlyArray<{ service_code: string; included_papic_credits?: number | null }>,
-): Pick<PlanFacts, 'plusCredits' | 'proCredits' | 'ultraCredits'> {
-  const n = (code: string): number | null => {
-    const v = Number(rows.find((r) => r.service_code === code)?.included_papic_credits);
-    return Number.isFinite(v) && v > 0 ? v : null;
-  };
-  return { plusCredits: n(PLAN_PRICE_CODES.plus), proCredits: n(PLAN_PRICE_CODES.pro), ultraCredits: n(PLAN_PRICE_CODES.ultra) };
-}
+/* Moved to `lib/event-plans.ts` (2026-11-13) so the in-app plan screen reads the SAME helpers; re-exported here so
+   every existing import keeps working. 💎 Event Ultra (#7601) lives there too. */
+export { PLAN_PRICE_CODES, planPricesFrom, planCreditsFrom, type PlanPrices } from '@/lib/event-plans';
+import { PLAN_SIGN_IN_HREF } from '@/lib/plan-buy-doors';
+import type { PlanPrices } from '@/lib/event-plans';
 
 function PlanPrice({ php }: { php: number | null }) {
   if (php === null) return <span className="fl-price fl-price-none">per event</span>;
@@ -562,6 +534,10 @@ export function FrontDoorLanding({
             <Link className="fl-btn fl-btn-line" href="/start">
               Start free, upgrade any time
             </Link>
+            {/* 💰 RW-13: already have an event? Sign in and buy Event Plus for it (`lib/plan-buy-doors.ts`). */}
+            <Link className="mt-2 block text-center text-[13.5px] font-semibold text-terracotta-700" href={PLAN_SIGN_IN_HREF} data-plan-buy="plus" data-plan-buy-state="signed-out">
+              Have an event? Sign in to get Event Plus
+            </Link>
           </Expandable>
 
           <Expandable as="article" className="fl-plan fl-plan-pro">
@@ -587,6 +563,10 @@ export function FrontDoorLanding({
             <ExpandButton className="fl-ptoggle" more={`See all ${formatCount(proCount)} features`} less="Show less" chevron />
             <Link className="fd-btn-terra fl-btn" href="/start">
               Start free, upgrade any time
+            </Link>
+            {/* 💰 RW-13: already have an event? Sign in and buy Event Pro for it (`lib/plan-buy-doors.ts`). */}
+            <Link className="mt-2 block text-center text-[13.5px] font-semibold text-terracotta-700" href={PLAN_SIGN_IN_HREF} data-plan-buy="pro" data-plan-buy-state="signed-out">
+              Have an event? Sign in to get Event Pro
             </Link>
           </Expandable>
 
@@ -619,6 +599,10 @@ export function FrontDoorLanding({
               <ExpandButton className="fl-ptoggle" more={`See all ${formatCount(ultraCount)} features`} less="Show less" chevron />
               <Link className="fl-btn fl-btn-line" href="/start">
                 Start free, upgrade any time
+              </Link>
+              {/* 💰 RW-13: already have an event? Sign in and buy Event Ultra for it (`lib/plan-buy-doors.ts`). */}
+              <Link className="mt-2 block text-center text-[13.5px] font-semibold text-terracotta-700" href={PLAN_SIGN_IN_HREF} data-plan-buy="ultra" data-plan-buy-state="signed-out">
+                Have an event? Sign in to get Event Ultra
               </Link>
             </Expandable>
           ) : null}

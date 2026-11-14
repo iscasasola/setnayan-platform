@@ -126,12 +126,34 @@ test('the scan actually found pairs — this guard is not vacuous', () => {
   // behind an `if`) would make the whole file pass while testing NOTHING. The
   // floor is deliberately below today's count so ordinary churn does not trip
   // it, but a collapse to zero or near-zero does.
+  //
+  // 💰 2026-11-13 (truth sweep, owner: "no typed prices"): three paired fallbacks were DELETED — `SEAT_FEE_PHP`,
+  // `BRANCH_FEE_PHP`, `VENDOR_3D_BOOTH_EVENT_FALLBACK_PHP` — their readers now answer null and the sale is refused.
+  // A deleted fallback cannot drift, so the count fell 7 → 4 by removing prices, not by the scan going blind. The
+  // floor follows that deletion, and a SECOND, independent check below now catches the blindness itself: a loose
+  // count of every `export const …FALLBACK_PHP / …FEE_PHP` in lib/ must equal what the strict scan saw.
   const { pairs } = scanPairs();
   assert.ok(
-    pairs.length >= 5,
+    pairs.length >= 4,
     `only ${pairs.length} fallback/SKU pairs were scanned out of lib/ — the scan has stopped seeing them, ` +
       `so every comparison below is vacuous. Fix the scan, do not lower this floor.`,
   );
+});
+
+test('the strict scan sees every fallback a loose read of lib/ can find — a reformat cannot hide one', () => {
+  // Numeric declarations only, in any spelling (`: number`, `1_490`, odd spacing). Object-shaped fallbacks (the AI tier
+  // ladders in setnayan-ai-type-pricing.ts) are a different shape, held by ai-tier-ladder-matches-the-catalog.db.test.ts.
+  const loose = /export\s+const\s+[A-Z0-9_]*(?:FALLBACK_PHP|FEE_PHP)\s*(?::\s*number\s*)?=\s*[0-9]/g;
+  const strict = /^export const [A-Z0-9_]*(?:FALLBACK_PHP|FEE_PHP) = \d+;/gm;
+  const missed: string[] = [];
+  for (const file of readdirSync(LIB)) {
+    if (!file.endsWith('.ts') || file.includes('.test.')) continue;
+    const src = readFileSync(join(LIB, file), 'utf8');
+    const a = (src.match(loose) ?? []).length;
+    const b = (src.match(strict) ?? []).length;
+    if (a !== b) missed.push(`${file} (${a} declared, ${b} scanned)`);
+  }
+  assert.deepEqual(missed, [], `fallback(s) the scan cannot read, so nothing compares them: ${missed.join(', ')}`);
 });
 
 test('every file with a peso fallback is either paired or exempt WITH A REASON', () => {
@@ -174,8 +196,11 @@ test('no hardcoded fallback disagrees with its live catalog row', async () => {
   // A second floor, for the case where every SKU stopped resolving (a rename in
   // the catalog, a replay that seeded nothing) — that would empty `drift` and
   // read as a pass.
+  // 💰 2026-11-13: 4 → 2 because three of the compared fallbacks were DELETED (seat, branch, per-event booth — see
+  // the first test), not because rows stopped resolving. The case this floor exists for — a rename or an empty
+  // seed — is now ALSO caught per pair, by name, in the test below (every paired code must have a catalogue row).
   assert.ok(
-    compared >= 4,
+    compared >= 2,
     `only ${compared} fallbacks had a live catalog row to compare against — the comparison is near-vacuous`,
   );
 
@@ -194,3 +219,15 @@ test('no hardcoded fallback disagrees with its live catalog row', async () => {
  * Custom supplier plan itself, owner: "from the app". A deleted fallback cannot drift, and the scan above still covers
  * every `*_FALLBACK_PHP` / `*_FEE_PHP` constant left in lib/.)
  */
+
+test('every paired fallback names a code the catalogue actually has (active or retired) — a rename cannot hide it', async () => {
+  const { pairs } = scanPairs();
+  const unknown: string[] = [];
+  for (const p of pairs) {
+    const v = await db.query(`SELECT 1 FROM public.vendor_billing_catalog WHERE sku_code = $1`, [p.sku]);
+    if (v.rows.length) continue;
+    const r = await db.query(`SELECT 1 FROM public.platform_retail_catalog_v2 WHERE service_code = $1`, [p.sku]);
+    if (!r.rows.length) unknown.push(`${p.file}: ${p.constName} → ${p.sku}`);
+  }
+  assert.deepEqual(unknown, [], `fallback(s) paired with a code no catalogue row carries: ${unknown.join('; ')}`);
+});

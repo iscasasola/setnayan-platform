@@ -182,7 +182,7 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
             q: 'Do you want help choosing suppliers?',
             line: 'A team suggested by fit, and your plan watched.',
             item: 'Event Plus',
-            tip: `Setnayan AI suggests verified suppliers by how well they fit your event, then tracks deadlines, payments, budget and dates. It comes with Event Plus, ${peso(p.plus)}, with Papic credits for your guests — and with Event Pro.`,
+            tip: `Setnayan AI suggests verified suppliers by how well they fit your event, then tracks deadlines, payments, budget and dates. It comes with Event Plus, ${peso(p.plus)}, with Papic credits for your guests — and with Event Pro and Event Ultra.`,
             tool: true,
             php: p.plus,
           }

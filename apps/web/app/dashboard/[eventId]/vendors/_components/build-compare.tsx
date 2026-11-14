@@ -37,6 +37,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   savePlanBuildNamed,
   deleteBudgetBuild,
@@ -391,7 +392,7 @@ export function BuildCompare({
             section names itself twice). Flag-ON only: with the replan OFF this
             component still renders standalone-ish copy, so it keeps its own h2. */}
         {replan ? null : (
-          <h2 className="font-display text-2xl italic text-ink">Compare your plans</h2>
+          <h2 className="text-[17px] font-semibold leading-snug text-ink">Compare your plans</h2>
         )}
         <p className="text-sm text-ink/60">
           {replan
@@ -409,7 +410,7 @@ export function BuildCompare({
           compares plans. A MOVE: flag ON this renders nothing, and
           `TeamSavePlan` is the only save bar on the page. */}
       {replan ? null : (
-        <div className="sn-tile space-y-2 p-4">
+        <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
             <Bookmark className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
             Save your current plan as
@@ -453,7 +454,7 @@ export function BuildCompare({
           USED to be inside the save card above — which, now that the card lives
           on the team, would have left every error on this panel invisible.
           Flag OFF this renders nothing: the card's own line (unchanged) has it. */}
-      {replan && err ? <p className="text-xs text-danger-700">{err}</p> : null}
+      {replan && err ? <p role="alert" className="text-[13px] font-semibold text-danger-700">{err}</p> : null}
 
       {/* ── PR-F · the Plans list: named rows + a first-class Load ───────────
           Each saved plan is a NAMED row you can load straight back into your
@@ -461,8 +462,8 @@ export function BuildCompare({
           Its counterpart, "Clear candidates", now lives on Your team (PR-E ·
           spec §8.3) — the surface that owns the team owns emptying it. */}
       {replan ? (
-        <div className="sn-tile space-y-2 p-4">
-          <h3 className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+        <div className="space-y-2">
+          <h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Your saved plans
           </h3>
           {!savedBuildsMeasured ? (
@@ -472,7 +473,7 @@ export function BuildCompare({
               saved has been lost.
             </p>
           ) : orderedBuilds.length === 0 ? (
-            <p className="text-sm text-ink/55">
+            <p className="text-[15px] text-ink/70">
               No saved plans yet. Add candidates to your build, then save your suppliers under a name.
             </p>
           ) : (
@@ -493,15 +494,19 @@ export function BuildCompare({
                     onDelete={(close) => void onDelete(b.build_id, title, close)}
                     disabled={pending}
                   >
-                  <div className="flex flex-wrap items-center justify-between gap-2 py-2">
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+                  <div className="flex min-h-[56px] flex-wrap items-center justify-between gap-2 py-2">
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">
                       {title}
                     </span>
-                    <span className="font-mono text-[11px] tabular-nums text-ink/55">
+                    <span className="text-[13px] font-semibold tabular-nums text-ink/70">
                       {peso(b.total_php)}
                     </span>
-                    <button
-                      type="button"
+                    <ActionButton
+                      tone="neutral"
+                      quiet
+                      icon={Pencil}
+                      label="Rename"
+                      name={`Rename ${title}`}
                       // §7a "make renaming easy": load this plan's name into the
                       // Save-As bar with itself pre-selected as the overwrite
                       // target — typing + Save renames it in place (the shipped
@@ -520,14 +525,12 @@ export function BuildCompare({
                         goToBuildTab('build');
                       }}
                       disabled={pending}
-                      aria-label={`Rename ${title}`}
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-ink/45 transition hover:text-terracotta-700 disabled:opacity-50"
-                    >
-                      <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                      Rename
-                    </button>
-                    <button
-                      type="button"
+                    />
+                    <ActionButton
+                      tone="info"
+                      icon={FolderOpen}
+                      label="Load"
+                      name={`Load ${title}`}
                       onClick={() => onApply(b.snapshot, 'build', title)}
                       disabled={pending || !loadable}
                       title={
@@ -535,11 +538,7 @@ export function BuildCompare({
                           ? undefined
                           : 'Nothing to load — every supplier in this plan is either booked already or no longer on your shortlist.'
                       }
-                      className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/75 transition hover:border-terracotta/50 hover:text-terracotta-700 disabled:opacity-40"
-                    >
-                      <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                      Load
-                    </button>
+                    />
                   </div>
                   </SwipeToDelete>
                 );
@@ -547,9 +546,9 @@ export function BuildCompare({
             </ul>
           )}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink/8 pt-2">
-            <span className="text-xs text-ink/50">
+            <span className="text-[13px] text-ink/70">
               Current team{' '}
-              <span className="font-mono tabular-nums text-ink/70">{peso(currentPlan.totalPhp)}</span>
+              <span className="font-semibold tabular-nums text-ink">{peso(currentPlan.totalPhp)}</span>
             </span>
           </div>
         </div>
@@ -557,17 +556,17 @@ export function BuildCompare({
 
       {/* Side-by-side comparison */}
       {rows.length === 0 ? (
-        <div className="sn-tile px-4 py-10 text-center text-sm text-ink/60">
+        <p className="py-3 text-[15px] text-ink/70" data-compare-empty="">
           {replan
             ? 'No suppliers yet. Add some candidates from your Saved list, then save them under a name to compare plans side by side.'
             : 'No suppliers in your plan yet. Shortlist some and add them on the Build tab, then save a plan to compare versions side by side.'}
-        </div>
+        </p>
       ) : (
-        <div className="sn-tile overflow-x-auto p-0">
+        <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-ink/[0.03] text-left">
-                <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                <th className="px-3 py-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Category
                 </th>
                 {columns.map((c) => {
@@ -582,7 +581,7 @@ export function BuildCompare({
                   return (
                     <th
                       key={c.key}
-                      className="px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55"
+                      className="px-2 py-2 text-right text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
                     >
                       <div className={c.isCurrent ? 'text-terracotta-700' : 'text-ink/70'}>
                         {c.title}
@@ -595,7 +594,7 @@ export function BuildCompare({
                               onClick={() => onApply(c.snapshot, 'build', c.title)}
                               disabled={pending || !canApply}
                               aria-label={replan ? `Load ${c.title}` : `Modify with ${c.title}`}
-                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta-700 disabled:opacity-40"
+                              className="inline-flex items-center gap-0.5 text-[12px] normal-case tracking-normal text-ink/40 hover:text-terracotta-700 disabled:opacity-40"
                             >
                               {replan ? (
                                 <>
@@ -614,7 +613,7 @@ export function BuildCompare({
                               onClick={() => onApply(c.snapshot, 'lock', c.title)}
                               disabled={pending || !canApply}
                               aria-label={`Book ${c.title}`}
-                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta-700 disabled:opacity-40"
+                              className="inline-flex items-center gap-0.5 text-[12px] normal-case tracking-normal text-ink/40 hover:text-terracotta-700 disabled:opacity-40"
                             >
                               <Lock className="h-3 w-3" strokeWidth={1.75} aria-hidden /> book
                             </button>
@@ -623,13 +622,13 @@ export function BuildCompare({
                               onClick={() => onDelete(c.key, c.title)}
                               disabled={pending}
                               aria-label={`Delete ${c.title}`}
-                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/35 hover:text-danger-600 disabled:opacity-50"
+                              className="inline-flex items-center gap-0.5 text-[12px] normal-case tracking-normal text-ink/35 hover:text-danger-600 disabled:opacity-50"
                             >
                               <Trash2 className="h-3 w-3" strokeWidth={1.75} aria-hidden /> delete
                             </button>
                           </div>
                           {!canApply ? (
-                            <span className="text-[9px] normal-case tracking-normal text-ink/30">
+                            <span className="text-[12px] normal-case tracking-normal text-ink/30">
                               Re-save to enable
                             </span>
                           ) : null}
@@ -656,7 +655,7 @@ export function BuildCompare({
                       </td>
                       <td
                         colSpan={columns.length}
-                        className="px-2 py-2 text-center text-[11px] leading-snug text-ink/70"
+                        className="px-2 py-2 text-center text-[12px] leading-snug text-ink/70"
                       >
                         <span className="font-medium text-ink">{r.vendorName}</span>
                         <span className="tabular-nums"> · {peso(r.costPhp)}</span>
@@ -692,7 +691,7 @@ export function BuildCompare({
                   <td className="px-3 py-2 text-ink/80">
                     {r.label}
                     {sameEverywhere ? (
-                      <span className="ml-1.5 whitespace-nowrap text-[10px] text-ink/40">
+                      <span className="ml-1.5 whitespace-nowrap text-[12px] text-ink/40">
                         — same in every plan
                       </span>
                     ) : null}
@@ -729,12 +728,12 @@ export function BuildCompare({
                                 </button>
                               ) : null}
                             </div>
-                            <div className="tabular-nums text-[11px] text-ink/55">
+                            <div className="tabular-nums text-[12px] text-ink/55">
                               {peso(p.costPhp)}
                               {p.locked ? ' · booked' : ''}
                             </div>
                             {hasInclusions && isOpen ? (
-                              <div className="mt-0.5 text-[10px] leading-snug text-ink/45">
+                              <div className="mt-0.5 text-[12px] leading-snug text-ink/45">
                                 {inclusions.map((inc, i) => (
                                   <span key={`${cellKey}-inc-${i}`}>
                                     {i === 0 ? '+ ' : ', '}
@@ -759,17 +758,17 @@ export function BuildCompare({
                   const ou = overUnder(c.total);
                   return (
                     <td key={c.key} className="px-2 py-2 text-right">
-                      <div className="font-display text-base italic text-ink">{peso(c.total)}</div>
-                      {ou ? <div className={`text-[10px] ${ou.tone}`}>{ou.text}</div> : null}
+                      <div className="text-[15px] font-bold tabular-nums text-ink">{peso(c.total)}</div>
+                      {ou ? <div className={`text-[12px] ${ou.tone}`}>{ou.text}</div> : null}
                     </td>
                   );
                 })}
               </tr>
               {availability ? (
                 <tr className="border-t border-ink/10">
-                  <td className="px-3 py-2 align-top text-[11px] leading-snug text-ink/55">
+                  <td className="px-3 py-2 align-top text-[12px] leading-snug text-ink/55">
                     Dates that work
-                    <span className="block text-[10px] text-ink/40">in {availability.windowLabel}</span>
+                    <span className="block text-[12px] text-ink/40">in {availability.windowLabel}</span>
                   </td>
                   {columns.map((c) => {
                     const a = availability.byColumn[c.key];
@@ -777,17 +776,17 @@ export function BuildCompare({
                       <td key={c.key} className="px-2 py-2 text-right align-top">
                         {!a || a.connectedCount === 0 ? (
                           <span
-                            className="text-[10px] text-ink/35"
+                            className="text-[12px] text-ink/35"
                             title="No Setnayan-connected suppliers in this build to check calendars for"
                           >
                             —
                           </span>
                         ) : a.conflictText ? (
-                          <span className="block text-[10px] leading-snug text-danger-700">
+                          <span className="block text-[12px] leading-snug text-danger-700">
                             {a.conflictText}
                           </span>
                         ) : (
-                          <span className="block text-[10px] leading-snug text-success-700">
+                          <span className="block text-[12px] leading-snug text-success-700">
                             {formatCount(a.totalAvailable)} day{a.totalAvailable === 1 ? '' : 's'} free
                             {a.dayLabels.length > 0
                               ? ` · ${a.dayLabels.join(' · ')}${a.moreCount > 0 ? ` +${formatCount(a.moreCount)}` : ''}`
@@ -805,9 +804,9 @@ export function BuildCompare({
                   plan can be affordable and still be impossible. */}
               {anchoredDate ? (
                 <tr className="border-t border-ink/10">
-                  <td className="px-3 py-2 align-top text-[11px] leading-snug text-ink/55">
+                  <td className="px-3 py-2 align-top text-[12px] leading-snug text-ink/55">
                     On your date
-                    <span className="block text-[10px] text-ink/40">
+                    <span className="block text-[12px] text-ink/40">
                       {anchoredDate.dateLabel}
                     </span>
                   </td>
@@ -817,17 +816,17 @@ export function BuildCompare({
                       <td key={c.key} className="px-2 py-2 text-right align-top">
                         {!a || a.checkedCount === 0 ? (
                           <span
-                            className="text-[10px] text-ink/35"
+                            className="text-[12px] text-ink/35"
                             title="No Setnayan-connected suppliers in this plan to check calendars for"
                           >
                             —
                           </span>
                         ) : a.bookedNames.length === 0 ? (
-                          <span className="block text-[10px] leading-snug text-success-700">
+                          <span className="block text-[12px] leading-snug text-success-700">
                             Everyone here is free
                           </span>
                         ) : (
-                          <span className="block text-[10px] leading-snug text-danger-700">
+                          <span className="block text-[12px] leading-snug text-danger-700">
                             {a.bookedNames.join(', ')} booked that day
                           </span>
                         )}
@@ -841,24 +840,22 @@ export function BuildCompare({
         </div>
       )}
 
-      {replan ? (
-        <p className="text-xs text-ink/45">
-          <span className="text-success-700">●</span> Booked picks are{' '}
-          <span className="text-ink/70">pinned identical rows</span> — every plan has them. The rows
-          below are your <span className="text-ink/70">candidates</span>: save different candidate
-          sets under different names, compare them here, then book the winner.{' '}
-          <span className="text-ink/70">Load</span> puts a saved plan’s candidates back into your
-          build — your booked suppliers are never touched.
-        </p>
-      ) : (
-        <p className="text-xs text-ink/45">
-          <span className="text-terracotta-700">Current</span> is your live plan. Save it as a new named
-          build to bank a version, then change your picks and save another to compare. Use{' '}
-          <span className="text-ink/70">Modify</span> to load a saved plan back into your working
-          build, or <span className="text-ink/70">Book</span> to load it and head to the Book tab to
-          finalize those suppliers.
-        </p>
-      )}
+      {/* 📐 The legend explains — so it sits behind the ⓘ (design template rule 7), every word kept. */}
+      <InfoTip label="How plans work" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+        {replan ? (
+          <>
+            Booked picks are pinned identical rows — every plan has them. The rows below are your candidates: save
+            different candidate sets under different names, compare them here, then book the winner. Load puts a saved
+            plan’s candidates back into your build — your booked suppliers are never touched.
+          </>
+        ) : (
+          <>
+            Current is your live plan. Save it as a new named build to bank a version, then change your picks and save
+            another to compare. Use Modify to load a saved plan back into your working build, or Book to load it and
+            head to the Book tab to finalize those suppliers.
+          </>
+        )}
+      </InfoTip>
     </div>
   );
 }

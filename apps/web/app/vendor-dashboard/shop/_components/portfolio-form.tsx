@@ -127,7 +127,7 @@ export function PortfolioForm({
       </div>
 
       {walletBalance == null ? (
-        <p className="mt-2 text-xs" style={{ color: 'var(--m-slate-3)' }} role="status" data-portfolio-wallet="unread">
+        <p className="mt-2 text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} role="status" data-portfolio-wallet="unread">
           Your shop wallet couldn&rsquo;t be read, so only free photos can be saved right now.{' '}
           <button type="button" onClick={() => window.location.reload()} className="underline" style={{ color: 'var(--m-ink)' }}>
             Retry

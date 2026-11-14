@@ -179,6 +179,8 @@ export async function fetchExpensesOverview(): Promise<ExpensesOverview> {
   } catch (e) {
     // The table may not exist yet on an environment that hasn't run the
     // migration — degrade to the honest empty state, never blank the page.
+    // Logged, so the screen's "the reason is in the logs" is true (F-A-12 moved the raw message off the screen).
+    console.error('[admin/expenses] overview read failed:', e);
     return { ...empty, error: e instanceof Error ? e.message : String(e) };
   }
 }

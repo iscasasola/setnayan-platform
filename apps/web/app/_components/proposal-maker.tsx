@@ -85,7 +85,7 @@ import {
   type LineFold,
 } from '@/lib/quote-money';
 import { firstPaymentOf, giftName, type OfferGift } from '@/lib/offers';
-import { cardMakerFromQuote, quoteDraftKey, QUOTE_CARD_PARAM } from '@/lib/quote-card-return';
+import { cardMakerFromQuote, quoteDraftKey, quoteSentKey, QUOTE_CARD_PARAM, QUOTE_SENT_NOTICES } from '@/lib/quote-card-return';
 import { parseSavedQuoteDraft } from '@/lib/saved-quote';
 import type { QuoteBundleSeed } from '@/lib/quote-from-bundle';
 import type { QuoteDoors } from '@/lib/quote-doors';
@@ -1267,6 +1267,49 @@ export function ProposalMaker({
     window.location.assign(cardMakerFromQuote(`${window.location.pathname}${window.location.search}`));
   }
 
+  /*
+    🧾 RW-24 (walk 13 Nov 2026): KEEP THE QUOTE ACROSS A REFUSED SEND. Send posts and the action redirects with a notice;
+    a refusal (an inquiry not yet accepted, no validity date, …) used to come back to an empty maker. The quote as it
+    was is kept on this device as Send is pressed, forgotten once the notice says it went, and put back otherwise.
+  */
+  function keepQuoteOnSend() {
+    try {
+      window.sessionStorage.setItem(
+        quoteSentKey(threadId),
+        JSON.stringify({ draft: draftForSave(), title, minPax, hours, picked: cards.filter((c) => pickedCards[c.id]).map((c) => c.id), offerId: appliedOfferId }),
+      );
+    } catch {
+      /* a private window keeps nothing — the notice still says why */
+    }
+  }
+
+  /** The quote kept at the last Send, put back when that send did not go. True when one was put back. */
+  function restoreQuoteAfterRefusal(): boolean {
+    let kept: { draft?: unknown; title?: string; minPax?: number; hours?: number; picked?: string[]; offerId?: string | null } | null = null;
+    try {
+      const notice = new URLSearchParams(window.location.search).get('notice');
+      const raw = window.sessionStorage.getItem(quoteSentKey(threadId));
+      if (!raw) return false;
+      window.sessionStorage.removeItem(quoteSentKey(threadId));
+      if (notice && QUOTE_SENT_NOTICES.has(notice)) return false;
+      kept = JSON.parse(raw);
+    } catch {
+      return false;
+    }
+    const draft = kept ? parseSavedQuoteDraft(kept.draft) : null;
+    if (!draft) return false;
+    applySavedDraft(draft);
+    if (kept?.title) setTitle(kept.title);
+    if (typeof kept?.minPax === 'number' && kept.minPax > 0) setMinPax(kept.minPax);
+    if (typeof kept?.hours === 'number' && kept.hours > 0) setHours(kept.hours);
+    if (kept?.offerId) setAppliedOfferId(kept.offerId);
+    const picked = (kept?.picked ?? []).filter((id) => cards.some((c) => c.id === id));
+    setPickedCards(Object.fromEntries(picked.map((id) => [id, true])));
+    setFrom('blank');
+    setDoorNote('Your quote is as you left it — it was not sent.');
+    return true;
+  }
+
   /** Back from the Card Maker with `?quote_card=` — the kept draft, then the new card's lines added to it. */
   function returnWithNewCard(cardId: string) {
     let kept: { draft?: unknown; title?: string; minPax?: number; hours?: number; picked?: string[]; offerId?: string | null } | null = null;
@@ -1335,6 +1378,7 @@ export function ProposalMaker({
         returnWithNewCard(newCard);
         return;
       }
+      if (restoreQuoteAfterRefusal()) return;
       if (revision) return;
       const first = askedCardId && cards.some((c) => c.id === askedCardId) ? askedCardId : cards.length === 1 ? cards[0]!.id : null;
       if (first) startFrom(`card:${first}`);
@@ -1485,6 +1529,7 @@ export function ProposalMaker({
       ref={formRef}
       id={formId}
       action={sendCustomProposalFromChat}
+      onSubmit={keepQuoteOnSend}
       // data-flow — the Problems list counts open → edit → send → sent here
       // (lib/telemetry/flows.ts, "supplier_quote").
       data-flow="supplier-quote"

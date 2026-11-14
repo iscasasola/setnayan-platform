@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatPhp } from '@/lib/php';
 import type { ReactNode } from 'react';
 import { Check, ChevronRight, MessageSquare, X } from 'lucide-react';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
@@ -79,7 +80,13 @@ export function EventLinesBody({ lines }: { lines: EventLines }) {
         cells={[
           { k: 'Location', v: unread ? null : (lines.location ?? 'Not set yet'), wide: true },
           { k: 'Date', v: unread ? null : (lines.date ?? 'Not set yet') },
-          { k: 'Est. pax', v: unread ? null : lines.pax ? formatCount(lines.pax) : 'Not set yet' },
+          // 👥 RW-08: a claimed per-guest booking shows the guests the couple counts and its total — what they read.
+          lines.perGuest
+            ? { k: 'Guests counted', v: unread ? null : formatCount(lines.perGuest.guests) }
+            : { k: 'Est. pax', v: unread ? null : lines.pax ? formatCount(lines.pax) : 'Not set yet' },
+          ...(lines.perGuest && lines.perGuest.totalPhp != null
+            ? [{ k: 'Total · priced per guest', v: unread ? null : formatPhp(lines.perGuest.totalPhp) }]
+            : []),
         ]}
       />
 

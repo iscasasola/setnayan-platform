@@ -20,34 +20,34 @@ export function SupplierCountTile({ count, names = null }: { count: SupplierHead
       <div className="mt-3 grid grid-cols-2 gap-4">
         <div>
           <p className="text-3xl font-semibold tracking-tight tabular-nums">{count.counted}</p>
-          <div className="text-sm text-ink/60">
+          <div className="text-sm text-ink/70">
             <InfoTip label={countNoun(count.category)} align="start">
               {breakdownWords(count)}
             </InfoTip>
           </div>
         </div>
         <div>
-          <p className="text-3xl font-semibold tracking-tight tabular-nums text-ink/45">{count.attending}</p>
-          <p className="text-sm text-ink/60">attending the event</p>
+          <p className="text-3xl font-semibold tracking-tight tabular-nums text-ink/70">{count.attending}</p>
+          <p className="text-sm text-ink/70">attending the event</p>
         </div>
       </div>
       <dl className="mt-3 text-sm">
         <div className="flex items-start justify-between gap-3 border-t border-ink/10 py-2">
-          <dt className="text-ink/55">Their rule</dt>
+          <dt className="text-ink/70">Their rule</dt>
           <dd className="text-right font-medium" data-supplier-count-rule="">{ruleWords(count.mode, labels)}</dd>
         </div>
         <div className="flex items-start justify-between gap-3 border-t border-ink/10 py-2">
-          <dt className="text-ink/55">Not counted</dt>
+          <dt className="text-ink/70">Not counted</dt>
           <dd className="text-right font-medium">
             {count.notCounted} {count.notCounted === 1 ? 'guest' : 'guests'}
-            <small className="block text-xs font-normal text-ink/50">The couple picked them · names stay private</small>
+            <small className="block text-xs font-normal text-ink/70">The couple picked them · names stay private</small>
           </dd>
         </div>
         <div className="flex items-start justify-between gap-3 border-t border-ink/10 py-2">
-          <dt className="text-ink/55">Moves with</dt>
+          <dt className="text-ink/70">Moves with</dt>
           <dd className="text-right font-medium">
             Every reply
-            <small className="block text-xs font-normal text-ink/50">The number updates as guests answer</small>
+            <small className="block text-xs font-normal text-ink/70">The number updates as guests answer</small>
           </dd>
         </div>
       </dl>

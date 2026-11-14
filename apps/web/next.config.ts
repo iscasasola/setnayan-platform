@@ -714,6 +714,10 @@ const nextConfig: NextConfig = {
   // was open at rename time) keep working instead of 404-ing.
   async redirects() {
     return [
+      // F-A-19 (admin walk 13 Nov 2026): `/admin/vendors/verification` was read as a shop id by
+      // `/admin/vendors/[vendorProfileId]` and drew a soft 404. The one verification address is /admin/verify
+      // (owner-approved). Temporary, exact source only.
+      { source: '/admin/vendors/verification', destination: '/admin/verify', permanent: false },
       // 2026-08-11 — Papic became ONE product, so the help article
       // 'Papic Pool or Papic One — which one do I want?' answers a question that
       // no longer exists. It was rewritten (how do I make sure one person never
@@ -743,6 +747,9 @@ const nextConfig: NextConfig = {
       */
       { source: '/how-it-works', destination: '/features', permanent: true },
       { source: '/tl/how-it-works', destination: '/tl/features', permanent: true },
+      // 🖼 The supplier's Portfolio lives at /vendor-dashboard/collections; the word a supplier types is "portfolio"
+      // (walk 13 Nov 2026, F-W1-64: /vendor-dashboard/portfolio was a 404). Temporary, exact source only.
+      { source: '/vendor-dashboard/portfolio', destination: '/vendor-dashboard/collections', permanent: false },
       /*
         ⚠ `/why-setnayan` HAD NO TAGLISH TWIN — it was English-only, which is
         part of why it was merged: the frame now HAS a Taglish edition it never

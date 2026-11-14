@@ -24,7 +24,7 @@ import { fetchPeriodicJobLedger } from '@/lib/periodic-job-health';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ReadFailed } from '../_components/read-failed';
 
-export const metadata = { title: 'Data Privacy & NPC Filing · Admin' };
+export const metadata = { title: 'Data privacy & NPC filing · Admin' };
 export const dynamic = 'force-dynamic';
 
 /**

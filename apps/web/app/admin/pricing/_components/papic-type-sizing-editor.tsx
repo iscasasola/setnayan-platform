@@ -93,7 +93,7 @@ export function PapicTypeSizingEditor({
               disabled={recomputing}
               className="shrink-0 rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/75 hover:bg-ink/10 hover:text-ink disabled:opacity-60"
             >
-              {recomputing ? 'Recomputing…' : 'Recompute from finished celebrations'}
+              {recomputing ? 'Recomputing…' : 'Recompute from finished events'}
             </button>
           </form>
         </div>

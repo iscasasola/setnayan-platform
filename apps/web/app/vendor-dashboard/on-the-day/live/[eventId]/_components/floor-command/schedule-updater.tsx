@@ -21,7 +21,8 @@
  */
 
 import { useState, useTransition } from 'react';
-import { Clock, Loader2, PlayCircle, SkipForward } from 'lucide-react';
+import { Clock, PlayCircle, SkipForward } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 import type { AdvanceAction } from '@/lib/floor-command';
 import type { ChangeablePart, CrewSkipAsk } from '@/lib/change-the-schedule';
@@ -86,7 +87,7 @@ export function ScheduleUpdater({
           <Clock aria-hidden className="h-4 w-4 shrink-0 text-gild" strokeWidth={1.75} />
           The running order
         </h4>
-        <span className="text-xs text-ink/55">
+        <span className="text-sm tabular-nums text-[color:var(--m-slate-2)]">
           {remaining} {remaining === 1 ? 'block' : 'blocks'} left
           {drift ? ` · ${drift}` : ''}
         </span>
@@ -96,39 +97,34 @@ export function ScheduleUpdater({
           it is the frame for everything below it, not a footnote to be found
           after the schedule has already been moved. */}
       {onLoan ? (
-        <p className="text-xs leading-snug text-ink/55">
-          This is the couple&rsquo;s running order, shared with you for tonight. Anything you
-          move here moves it for everyone.
+        <p className="text-sm leading-snug text-[color:var(--m-slate-2)]">
+          The couple&rsquo;s running order, shared with you for tonight. What you move here moves for everyone.
         </p>
       ) : null}
 
       {action.kind === 'empty' ? (
-        <p className="text-sm text-ink/55">
+        <p className="text-sm text-[color:var(--m-slate-2)]">
           The couple hasn’t built a run-of-show yet, so there’s nothing to call.
         </p>
       ) : action.kind === 'all_done' ? (
-        <p className="text-sm text-ink/55">Every block has run. Nothing left to call.</p>
+        <p className="text-sm text-[color:var(--m-slate-2)]">Every block has run. Nothing left to call.</p>
       ) : (
         <>
-          <button
-            type="button"
+          <ActionButton
+            tone="brand"
+            main
+            icon={action.kind === 'start' ? PlayCircle : SkipForward}
+            label={
+              action.kind === 'start'
+                ? `Start ${action.label}`
+                : action.nextLabel
+                  ? `Finish ${action.label} → ${action.nextLabel}`
+                  : `Finish ${action.label}`
+            }
             onClick={advance}
-            disabled={pending}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 py-3 text-sm font-medium text-cream transition hover:bg-ink/90 disabled:opacity-40"
-          >
-            {pending ? (
-              <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-            ) : action.kind === 'start' ? (
-              <PlayCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            ) : (
-              <SkipForward aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            )}
-            {action.kind === 'start'
-              ? `Start ${action.label}`
-              : action.nextLabel
-                ? `Finish ${action.label} → ${action.nextLabel}`
-                : `Finish ${action.label}`}
-          </button>
+            waiting={pending}
+            className="w-full"
+          />
 
           <ChangeTheSchedule eventId={eventId} parts={parts} className="w-full" />
           <CrewAsks eventId={eventId} asks={crewAsks} />
@@ -136,7 +132,7 @@ export function ScheduleUpdater({
       )}
 
       {error ? (
-        <p role="alert" className="rounded-lg bg-warn-600/10 px-3 py-2 text-sm text-warn-600">
+        <p role="alert" className="text-sm font-semibold text-danger-700">
           {error}
         </p>
       ) : null}

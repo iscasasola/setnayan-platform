@@ -2,13 +2,14 @@
 // re-homed here (2026-07-10) so the App Performance menu is ONE tabbed
 // studio. Its actions/_components stay under /admin/intelligence; the legacy
 // route is now a redirect into /admin/app-performance?tab={tab}.
+import { manilaDayLabel, manilaStampLabel } from '@/lib/admin/manila-stamp';
+import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
 import { cookies } from 'next/headers';
 import { Radar, AlertTriangle, Banknote, Trophy } from 'lucide-react';
 import {
   fetchIntelligenceStats,
   buildDemoIntelligenceStats,
   STALE_WINDOW_OPTIONS,
-  eventTypeLabel,
   regionLabel,
   CHURN_ROW_CAP,
   LEAD_ROW_CAP,
@@ -69,11 +70,13 @@ function parseWindow(raw: string | undefined): StaleWindowKey {
 
 function fmtDate(iso: string | null): string {
   if (!iso) return 'Never';
-  return iso.slice(0, 10);
+  return manilaDayLabel(iso);
 }
 
 export async function IntelligenceSurface({ searchParams }: Props) {
   const { quiet: rawQuiet, demo: rawDemo } = await searchParams;
+  // 🏷 F-A-15: event types by their admin-managed names ("Get-together"), never "simple event".
+  const typeName = await readEventTypeNames();
   const windowKey = parseWindow(rawQuiet);
   const staleDays =
     STALE_WINDOW_OPTIONS.find((o) => o.value === windowKey)?.days ?? 14;
@@ -140,7 +143,7 @@ export async function IntelligenceSurface({ searchParams }: Props) {
           Apply
         </button>
         <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Refreshed {stats.generatedAt.slice(0, 16).replace('T', ' ')} UTC
+          Refreshed {manilaStampLabel(stats.generatedAt)}
         </span>
       </form>
 
@@ -164,6 +167,7 @@ export async function IntelligenceSurface({ searchParams }: Props) {
           rows={stats.churn}
           readError={stats.churnError}
           staleDays={staleDays}
+          typeName={typeName}
         />
       </section>
 
@@ -174,7 +178,7 @@ export async function IntelligenceSurface({ searchParams }: Props) {
           title="Market pulse"
           blurb="Planned budgets, where events are happening, and what kinds of events the platform is hosting. Non-archived events only."
         />
-        <MarketPulse market={stats.market} />
+        <MarketPulse market={stats.market} typeName={typeName} />
       </section>
 
       {/* ── LEAD SCORES ────────────────────────────────────────────── */}
@@ -184,7 +188,7 @@ export async function IntelligenceSurface({ searchParams }: Props) {
           title="Lead scores"
           blurb="Engagement-ranked active events (0–100). Couples who set a budget AND ran seating Auto-arrange concentrate in the top tier — the warmest upsell list on the platform."
         />
-        <LeadTable rows={stats.leads} readError={stats.leadsError} />
+        <LeadTable rows={stats.leads} readError={stats.leadsError} typeName={typeName} />
       </section>
     </div>
   );
@@ -220,7 +224,9 @@ function ChurnTable({
   rows,
   readError,
   staleDays,
+  typeName,
 }: {
+  typeName: EventTypeName;
   rows: ChurnRiskRow[] | null;
   readError: string | null;
   staleDays: number;
@@ -247,7 +253,7 @@ function ChurnTable({
             <>
               <span className="font-medium text-ink">{r.eventName}</span>
               <span className="block text-xs text-ink/70">
-                {eventTypeLabel(r.eventType)} · {r.publicId}
+                {typeName(r.eventType)} · {r.publicId}
               </span>
             </>
           ),
@@ -311,7 +317,7 @@ function ChurnTable({
   );
 }
 
-function MarketPulse({ market }: { market: MarketAnalytics | null }) {
+function MarketPulse({ market, typeName }: { market: MarketAnalytics | null; typeName: EventTypeName }) {
   if (!market) {
     return (
       <div className="sn-row p-5">
@@ -359,7 +365,7 @@ function MarketPulse({ market }: { market: MarketAnalytics | null }) {
           empty="No events yet."
           rows={market.eventTypes.map((t) => ({
             key: t.eventType,
-            label: eventTypeLabel(t.eventType),
+            label: typeName(t.eventType),
             count: t.events,
           }))}
         />
@@ -478,9 +484,11 @@ function leadSignals(r: LeadScoreRow): string[] {
 function LeadTable({
   rows,
   readError,
+  typeName,
 }: {
   rows: LeadScoreRow[] | null;
   readError: string | null;
+  typeName: EventTypeName;
 }) {
   return (
     <ConsoleTable
@@ -524,7 +532,7 @@ function LeadTable({
             <>
               <span className="font-medium text-ink">{r.eventName}</span>
               <span className="block text-xs text-ink/70">
-                {eventTypeLabel(r.eventType)} · {r.eventDate ?? 'date TBD'}
+                {typeName(r.eventType)} · {r.eventDate ?? 'date TBD'}
               </span>
             </>
           ),

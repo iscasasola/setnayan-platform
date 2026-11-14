@@ -62,6 +62,11 @@ export type OurPrices = {
   plus: number | null;
   /** 💎 Event Ultra — EVENT_ULTRA (owner 2026-11-13). Absent until its row is on sale. */
   ultra: number | null;
+  /**
+   * The Papic credits each plan includes — the row's `included_papic_credits` (RW-12, 2026-11-14). Null when the row
+   * is not on sale, unread, or carries none: then the page names no number.
+   */
+  planCredits: { plus: number | null; pro: number | null; ultra: number | null };
   /** The Event Pro parts that have an active, priced row, in `HUB_PARTS` order. */
   hubParts: Array<{ id: string; name: string; php: number }>;
   /** Papic credit rungs (PAPIC_GUEST*), cheapest first — the label is the row's own words ("add 100 credits"). */
@@ -102,6 +107,10 @@ export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: re
     const n = r ? Number(r.retail_price_php) : NaN;
     return usable(n) ? n : null;
   };
+  const credits = (code: string): number | null => {
+    const n = Number(row(code)?.included_papic_credits);
+    return usable(n) ? n : null;
+  };
   const extraByCode = new Map(extras.map((r) => [r.service_code, r]));
 
   const hubParts = HUB_PARTS.flatMap((part) => {
@@ -140,6 +149,7 @@ export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: re
     pro: twoPrices(row('COUPLE_WEBSITE_PRO') ?? null),
     plus: php('EVENT_PLUS'),
     ultra: php('EVENT_ULTRA'),
+    planCredits: { plus: credits('EVENT_PLUS'), pro: credits('COUPLE_WEBSITE_PRO'), ultra: credits('EVENT_ULTRA') },
     hubParts,
     papicRungs,
     liveWatch: php('LIVE_STUDIO'),

@@ -8,6 +8,7 @@
  *   ?view=stranger                             the not-found page a stranger gets for the same address
  *   ?view=inspiration                          🔗🖼 Services (each card's looks strip) + the Inspiration section (2026-10-30)
  *   ?view=card                                 🃏 one full card — tap it: the Service card grown (Build 5 Lane C)
+ *   ?view=card&work=1|unread                   🃏📸 …with the photos of the events booked on it inside Events (record flag ON)
  *   ?events=N                                  the shop's badge pills under its name, as the page draws them
  *                                              (`lib/shop-badges.ts`: Verified · the step N reached · ★ 4.8 from 31)
  */
@@ -23,11 +24,12 @@ import { ServicesGallery } from '@/app/v/[slug]/_components/services-gallery';
 import { ShopInspirationSection } from '@/app/v/[slug]/_components/shop-inspiration-section';
 import { GrownOwnerLab } from './grown-owner-lab';
 import { LAB_GROWN_CARD, LAB_INSPIRATION_CARDS, LAB_INSPIRATION_TILES } from './inspiration-lab-fixture';
+import { LAB_COUPLE_EVENT_WORK } from '../card-albums-lab-fixture/fixture';
 
 export default async function ShopPreviewLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reason?: string; view?: string; events?: string }>;
+  searchParams: Promise<{ reason?: string; view?: string; events?: string; work?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -38,7 +40,14 @@ export default async function ShopPreviewLabPage({
       <main className="min-h-dvh bg-cream" data-lab-grown-card="">
         <article className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
           <ServicesGallery
-            groups={[{ key: 'bar', label: 'Bar & drinks', cards: [LAB_GROWN_CARD] }]}
+            groups={[
+              {
+                key: 'bar',
+                label: 'Bar & drinks',
+                // 🃏📸 &work=1 — the photos of the events booked on this card, inside Events (record flag ON) · &work=unread — the refusal said.
+                cards: [sp.work === '1' ? { ...LAB_GROWN_CARD, eventWork: LAB_COUPLE_EVENT_WORK } : sp.work === 'unread' ? { ...LAB_GROWN_CARD, eventWork: null } : LAB_GROWN_CARD],
+              },
+            ]}
             detailsEnabled
             inquireMode="focus"
             shopName="Bloom & Co."

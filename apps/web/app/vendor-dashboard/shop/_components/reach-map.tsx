@@ -33,7 +33,13 @@ import { useEffect, useRef, useState } from 'react';
 const TILE = 256;
 const HEIGHT = 240;
 /** The reach ring's colour — its fill, its stroke and its "N km" tag share this one value. */
-const RING_COLOUR = 'var(--m-terracotta, #b65d3c)';
+const RING_COLOUR = 'rgb(var(--color-terracotta))';
+/**
+ * 🗺 THE MAP'S OWN WHITE — the halo behind a ring's words and the "N km" tag's chip sit on OpenStreetMap's tiles, which
+ * are drawn light whatever the app's theme, so this white is the tiles' colour, not a theme colour: a token would turn
+ * dark in dark mode and the words would vanish into the halo. Kept literal on purpose (template rule 14's map case).
+ */
+const ON_TILES = 'white';
 /** Equatorial metres-per-pixel at zoom 0 (Web-Mercator, 256px tiles). */
 const MPP_Z0 = 156543.03392;
 
@@ -150,8 +156,8 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
       x={W / 2}
       y={Math.max(14, y)}
       textAnchor="middle"
-      className="text-[12px] font-medium"
-      style={{ fill: colour, paintOrder: 'stroke', stroke: 'rgba(255,255,255,.9)', strokeWidth: 3 }}
+      className="text-xs font-semibold"
+      style={{ fill: colour, paintOrder: 'stroke', stroke: ON_TILES, strokeOpacity: 0.9, strokeWidth: 3 }}
     >
       {text}
     </text>
@@ -160,11 +166,10 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
   return (
     <div
       ref={ref}
-      className="relative w-full overflow-hidden rounded-xl border"
+      className="relative w-full overflow-hidden rounded-xl"
       style={{
         height: H,
-        borderColor: 'var(--m-line)',
-        background: '#e6ebed',
+        background: 'var(--m-paper-2)',
         filter: muted ? 'grayscale(1)' : undefined,
         opacity: muted ? 0.45 : undefined,
       }}
@@ -224,14 +229,14 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
                 width={58}
                 height={22}
                 rx={11}
-                fill="#fff"
+                fill={ON_TILES}
                 fillOpacity={0.92}
               />
               <text
                 x={Math.min(W - 62, W / 2 + ringPx * 0.7 - 4) + 29}
                 y={Math.max(8, H / 2 - ringPx * 0.7 - 22) + 15}
                 textAnchor="middle"
-                className="text-[11px] font-semibold"
+                className="text-xs font-semibold"
                 style={{ fill: RING_COLOUR }}
               >
                 {`${radiusKm} km`}
@@ -269,10 +274,10 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
             <path
               d="M11 0C4.9 0 0 4.9 0 11c0 8.2 11 19 11 19s11-10.8 11-19C22 4.9 17.1 0 11 0z"
               style={{ fill: 'rgb(var(--sn-accent))' }}
-              stroke="#fff"
+              stroke="rgb(var(--sn-on-accent))"
               strokeWidth={1.5}
             />
-            <circle cx={11} cy={11} r={4} fill="#fff" />
+            <circle cx={11} cy={11} r={4} style={{ fill: 'rgb(var(--sn-on-accent))' }} />
             </g>
           </g>
         </svg>
@@ -282,7 +287,7 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
         href="https://www.openstreetmap.org/copyright"
         target="_blank"
         rel="noreferrer"
-        className="absolute bottom-0 right-0 bg-white/75 px-1 text-[10px] leading-tight text-ink/60 hover:underline"
+        className="absolute bottom-0 right-0 bg-white/75 px-1 text-xs leading-tight text-ink-on-light hover:underline"
       >
         © OpenStreetMap
       </a>

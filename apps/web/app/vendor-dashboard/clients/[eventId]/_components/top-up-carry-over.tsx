@@ -61,31 +61,31 @@ export function TopUpCarryOver({
       />
       <Sheet open={open} onClose={() => setOpen(false)} labelledById="top-up-carry-over-title" title="Settle to accept" rise>
         <div data-top-up-carry-over="" className="space-y-1 px-5 pb-5">
-          <p id="top-up-carry-over-title" className="text-[14px] text-ink/70">
+          <p id="top-up-carry-over-title" className="text-sm text-ink/70">
             A booking fee top-up from a past event is still unsettled. Settle it and this booking can be accepted.
           </p>
           <dl className="mt-2">
             <div className="flex min-h-11 items-center justify-between gap-3 border-t border-ink/10 py-2">
-              <dt className="min-w-0 text-[14.5px] text-ink/70">
+              <dt className="min-w-0 text-[15px] text-ink/70">
                 This booking&rsquo;s fee
-                <small className="block text-[12px] text-ink/50">{thisBookingFee ?? 'Made when you accept'}</small>
+                <small className="block text-xs text-ink/70">{thisBookingFee ?? 'Made when you accept'}</small>
               </dt>
-              <dd className="shrink-0 text-[14.5px] text-ink/60">At your yes</dd>
+              <dd className="shrink-0 text-[15px] text-ink/70">At your yes</dd>
             </div>
             <div className="flex min-h-11 items-center justify-between gap-3 border-t border-ink/10 py-2">
-              <dt className="min-w-0 text-[14.5px] text-ink/70">
+              <dt className="min-w-0 text-[15px] text-ink/70">
                 Still owed · top-up
-                <small className="block text-[12px] text-ink/50">
+                <small className="block text-xs text-ink/70">
                   {owed.coupleName ? `${owed.coupleName} · ` : ''}
                   {owed.dueOn ? `due ${formatDueDate(owed.dueOn)}` : 'overdue'}
                 </small>
               </dt>
-              <dd className="shrink-0 text-[14.5px] font-semibold" style={{ color: 'rgb(var(--color-warn))' }}>
+              <dd className="shrink-0 text-[15px] font-semibold text-warn-800">
                 {feePesos(owed.amountPhp)}
               </dd>
             </div>
             <div className="flex min-h-14 items-center justify-between gap-3 border-t-2 border-ink/15 py-2 font-semibold">
-              <dt className="text-[16px] text-ink">To settle now</dt>
+              <dt className="text-base text-ink">To settle now</dt>
               <dd className="text-[22px] text-ink">{feePesos(owed.amountPhp)}</dd>
             </div>
           </dl>

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { pageName } from '@/lib/telemetry/problem-line';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Problems · how rows become the list a person reads, and how many there are. Pure of `server-only` on purpose: the
@@ -50,7 +51,10 @@ export async function countOpenProblems(
     .select('kind,action,label,page,hit_count,day_count,reopened_count,first_seen,last_seen,id')
     .eq('status', 'open')
     .limit(5000);
-  if (error) return { count: null, oldestAt: null };
+  if (error) {
+    logQueryError('countOpenProblems: app_fault_issues', error, {}, 'graceful_degrade');
+    return { count: null, oldestAt: null };
+  }
   const merged = mergeSameProblem((data ?? []) as Record<string, unknown>[]);
   const oldestAt = merged.reduce<string | null>((o, r) => {
     const f = (r.first_seen as string | null) ?? null;

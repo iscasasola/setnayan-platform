@@ -60,10 +60,17 @@ function timeOf(iso: string): string {
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
-  const [ready, setReady] = useState(false);
-  const [active, setActive] = useState(false);
-  const [rows, setRows] = useState<DayRequestRow[]>([]);
+export function VendorStatusUpdates({
+  eventId,
+  initial,
+}: {
+  eventId: string | null;
+  /** The labs' fixtures (`/dev/supplier-lab`): drawn as read, with no read of their own. Never passed by a real page. */
+  initial?: DayRequestRow[];
+}) {
+  const [ready, setReady] = useState(Boolean(initial));
+  const [active, setActive] = useState(Boolean(initial));
+  const [rows, setRows] = useState<DayRequestRow[]>(initial ?? []);
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -74,6 +81,7 @@ export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
   const noteId = useId();
 
   const load = useCallback(async () => {
+    if (initial) return;
     if (!eventId) {
       setReady(true);
       return;
@@ -88,7 +96,7 @@ export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
     } finally {
       setReady(true);
     }
-  }, [eventId]);
+  }, [eventId, initial]);
 
   useEffect(() => {
     void load();

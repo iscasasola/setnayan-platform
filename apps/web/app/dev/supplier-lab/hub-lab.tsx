@@ -34,6 +34,14 @@ import {
 } from '@/app/vendor-dashboard/on-the-day/_components/hub-screen';
 import { HubThumbRow } from '@/app/vendor-dashboard/on-the-day/_components/hub-thumb-row';
 import { ModuleConfigurator } from '@/app/vendor-dashboard/on-the-day/_components/module-configurator';
+import { VendorStatusUpdates } from '@/app/vendor-dashboard/on-the-day/_components/vendor-status-updates';
+import type { DayRequestRow } from '@/lib/day-requests';
+
+/** 📣 Cut 6's fixtures — two updates already posted. */
+const LAB_UPDATES: DayRequestRow[] = [
+  { request_id: 'u2', origin: 'vendor', kind: 'status_update', status: 'open', body: 'Our setup is complete and ready.', preset_key: 'setup_done', author_user_id: 'lab', author_vendor_profile_id: 'lab', created_at: '2026-12-18T07:42:00Z' },
+  { request_id: 'u1', origin: 'vendor', kind: 'status_update', status: 'open', body: 'We have arrived on site.', preset_key: 'on_site', author_user_id: 'lab', author_vendor_profile_id: 'lab', created_at: '2026-12-18T05:10:00Z' },
+];
 import { AccessGrants } from '@/app/vendor-dashboard/on-the-day/_components/access-grants';
 import { CheckinDeskRows, MessageEveryoneRows, SeatFinderRow } from '@/app/vendor-dashboard/_components/events-you-run-rows';
 import type { EventYouRun } from '@/lib/events-you-run';
@@ -195,6 +203,7 @@ export async function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string })
   } else {
     body = (
       <div>
+        <VendorStatusUpdates eventId={event.eventId} initial={LAB_UPDATES} />
         <div id="hub-tools" className="scroll-mt-28">
           <ModuleConfigurator eventId={event.eventId} modules={modules} />
         </div>

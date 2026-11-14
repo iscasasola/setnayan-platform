@@ -10,3 +10,14 @@ Owner-approved supplier cut 6 (DECISION_LOG "THE SEVEN SUPPLIER CUTS ARE APPROVE
 - Guard: `lib/supplier-cuts-post-an-update.test.ts`.
 
 SPEC IMPACT: None (implements the approved prototype; the DECISION_LOG row already records it).
+
+## 2026-11-14 · feat(supplier): cut 7 — ＋ → Make a quote, in the chat, good for 14 days
+
+Owner-approved supplier cut 7 (same DECISION_LOG row; prototype § 7). The walk: a quote could not be made in the chat — with no quote out, ＋ only opened the full builder (or, by its "Change quote" card, said "No quote in this chat yet" with no way forward), and Send stayed dim until a hidden "How long is it valid?" was set.
+
+- With no quote out, ＋ → **Make a quote** drops a short card in the chat: tick your cards (each with its own "from" price), **Your offer** (starts at their sum, typeable), **Good until** — FILLED at 14 days, or the event day if that comes first, shown as "Nov 28 · 14 days" and changeable — and an optional note. **Send quote** posts the shipped `sendCustomProposalFromChat`, so it lands as the quote card the chat already shows. **Full quotation** opens today's builder (discounts, payment schedule, travel, crew meal stay there). No new server action; the cards are read in the browser by the shop's own session (`loadCardsForMakeQuote`).
+- `lib/make-a-quote.ts` (the words and arithmetic, pure) · `app/_components/chat/cards/make-quote-card.tsx` · the no-quote branch of `quote-step-card.tsx` · the ＋ row `MAKE_A_QUOTE_LABEL` in `lib/chat-plus.ts` (a card now; its door is still the builder).
+- Help answer `make-a-quote-in-chat`; ⓘ on Good until and on Full quotation.
+- Guards: new `lib/supplier-cuts-make-a-quote.test.ts`; re-aimed `lib/chat-plus-sends-a-quote-first.test.ts` (claim kept: a no-quote chat never drops a dead card; the builder keeps its name and door).
+
+SPEC IMPACT: None.

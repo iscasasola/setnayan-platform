@@ -447,6 +447,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         title: 'Post an update for an event',
         body: 'Open the event in your Hub and tap Post an update at the top. Pick On site, Setup done, Ready to start, Packed up, Running late or Need help, add a note if you like, and tap Post. The couple sees it on their Event Hub; Running late and Need help also go to their coordinator as something to act on. What you posted shows under the button.',
       },
+      {
+        // 🧾 Make a quote in the chat (cut 7, 2026-11-14).
+        slug: 'make-a-quote-in-chat',
+        title: 'Make a quote from the chat',
+        body: 'In a chat with no quote yet, tap ＋ and Make a quote. Pick your cards, check Your offer, and look at Good until — it is filled in for 14 days (or the event day, if that comes first) and you can change it. Add a note if you like and tap Send quote; it lands in the chat as your quote. For discounts, a payment schedule, travel or crew meals, tap Full quotation.',
+      },
     ],
   },
   {

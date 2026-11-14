@@ -609,6 +609,14 @@ export default async function HomeLab({
           headTable={null}
           nearbyTables={[]}
           liveWallActive={!store}
+          supplierUpdates={
+            q.before === '1'
+              ? undefined
+              : [
+                  { id: 'b', supplier: 'Liwanag Florals', status: 'Setup done', note: 'Arch and aisle are in. Centrepieces go on at 4.', at: '', time: '3:42 PM', urgent: false },
+                  { id: 'a', supplier: 'Liwanag Florals', status: 'On site', note: null, at: '', time: '1:10 PM', urgent: false },
+                ]
+          }
           papic={
             q.before === '1' ? null : (
               <DayPapicRow

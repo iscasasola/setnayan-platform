@@ -16,6 +16,7 @@ import {
   FEE_ORDERS_UNREADABLE,
 } from '@/lib/vendor-booking-fees.server';
 import {
+  feeOrderDescriptionNow,
   feeOrderTotalPhp,
   sumFeeOrderTotalsPhp,
   vendorBookingFeePayPath,
@@ -219,7 +220,7 @@ function FeeGroup({
                     </span>
                   </p>
                   <p className="mt-0.5 truncate text-xs text-ink/55">
-                    {o.description || 'Setnayan booking fee'} · {fmtDate(o.created_at)}
+                    {feeOrderDescriptionNow(o.description, o.status) || 'Setnayan booking fee'} · {fmtDate(o.created_at)}
                   </p>
                 </div>
                 <span

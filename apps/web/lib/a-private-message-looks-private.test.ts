@@ -262,7 +262,7 @@ test('7 · the ＋ is not rendered while a private recipient is set; the row is 
   // The box itself is the sky tint while private (v8.3), the house grey again after ×.
   const field = (m: string) => m.slice(m.lastIndexOf('<textarea', m.indexOf('name="body"')), m.indexOf('>', m.indexOf('name="body"')));
   assert.ok(field(priv).includes(PRIVATE_BOX_FILL), 'the private box is not the sky tint');
-  assert.ok(!field(back).includes(PRIVATE_BOX_FILL) && field(back).includes('bg-ink/[0.06]'), 'the tint outlived ×');
+  assert.ok(!field(back).includes(PRIVATE_BOX_FILL) && field(back).includes('bg-[color:var(--m-paper-2)]'), 'the tint outlived ×'); // the house fill — the template's warm surface token since 2026-11-14 (was ink at 6 %)
   assert.doesNotMatch(sendBtn(priv), /sn-accent|mulberry|terracotta/, 'Send keeps the brand colour while private');
   assert.match(sendBtn(back), /text-sn-accent/, 'Send did not go back to the brand');
   // The private composer row draws no brand class anywhere.

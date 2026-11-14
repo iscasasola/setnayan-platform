@@ -26,6 +26,14 @@ import { categoryForTile } from '@/lib/shortlist-taxonomy';
 import type { WeddingTile } from '@/lib/taxonomy';
 import { formatPhpRounded } from '@/lib/php';
 import { computeVendorFit, type FitCheck } from '@/lib/vendor-fit-qr';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import {
+  TEMPLATE_MONEY,
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { addVendorFromFit } from './actions';
 
@@ -178,8 +186,8 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6">
-      {/* Vendor identity */}
-      <div className="rounded-3xl border border-ink/10 bg-cream p-6 text-center">
+      {/* Vendor identity — the top of the page, on the warm surface (rule 13). */}
+      <div className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-6 text-center">
         {logoUrl ? (
           <Image
             src={logoUrl}
@@ -189,35 +197,37 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
             className="mx-auto h-20 w-20 rounded-2xl object-cover"
           />
         ) : (
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-ink/5">
-            <Store className="h-8 w-8 text-ink/40" strokeWidth={1.5} />
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-[color:var(--m-paper)]">
+            <Store aria-hidden className="h-8 w-8 text-[color:var(--m-slate-2)]" strokeWidth={1.5} />
           </div>
         )}
-        <p className="mt-4 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
-          <Sparkles className="h-3 w-3" strokeWidth={2} /> Fit check
+        <p className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-[color:var(--m-slate-2)]">
+          <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Fit check
         </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">{displayName}</h1>
-        <div className="mt-1 flex items-center justify-center gap-3 text-sm text-ink/60">
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{displayName}</h1>
+        <div className={`mt-1 flex items-center justify-center gap-3 ${TEMPLATE_SUBLINE}`}>
           {market.location_city ? (
             <span className="inline-flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5" strokeWidth={1.75} /> {market.location_city}
+              <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> {market.location_city}
             </span>
           ) : null}
           {rating != null && rating > 0 ? (
             <span className="inline-flex items-center gap-1">
-              <Star className="h-3.5 w-3.5 fill-warn-400 text-warn-500" strokeWidth={1.75} />
+              <Star aria-hidden className="h-3.5 w-3.5 fill-warn-400 text-warn-500" strokeWidth={1.75} />
               {rating.toFixed(1)}
               {market.review_count ? ` (${market.review_count})` : ''}
             </span>
           ) : null}
         </div>
         {startingPricePhp != null ? (
-          <p className="mt-2 font-mono text-xs text-ink/70">Starts at {formatPhpRounded(startingPricePhp)}</p>
+          <p className="mt-2 text-[15px] text-ink">
+            Starts at <span className={TEMPLATE_MONEY}>{formatPhpRounded(startingPricePhp)}</span>
+          </p>
         ) : null}
       </div>
 
       {err ? (
-        <p role="alert" className="mt-4 rounded-xl border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+        <p role="alert" className="mt-4 text-[14px] font-semibold" style={{ color: 'rgb(var(--color-warn))' }}>
           Couldn’t add them to that event. Please try again.
         </p>
       ) : null}
@@ -225,38 +235,41 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
       {/* Action zone */}
       <div className="mt-6">
         {!user ? (
-          <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
-            <p className="text-sm text-ink/70">
+          <div className="text-center">
+            <p className={TEMPLATE_SUBLINE}>
               Sign in to check whether {displayName} fits your event’s date, venue, and budget — and add them to your shortlist.
             </p>
-            <Link
-              href={`/signup?as=couple&next=${encodeURIComponent(nextPath)}`}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
-            >
-              Sign up free & check the fit
-            </Link>
+            <span className="mt-4 flex [&_.ab]:w-full">
+              <ActionButton
+                tone="brand"
+                main
+                href={`/signup?as=couple&next=${encodeURIComponent(nextPath)}`}
+                icon={<Sparkles aria-hidden />}
+                label="Sign up free & check the fit"
+              />
+            </span>
             <Link
               href={`/login?next=${encodeURIComponent(nextPath)}`}
-              className="mt-3 inline-block text-sm text-ink/60 underline hover:text-link"
+              className="mt-2 inline-flex min-h-11 items-center text-[14px] font-medium text-link underline"
             >
               I already have an account
             </Link>
           </div>
         ) : hostEvents.length === 0 ? (
-          <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
-            <p className="text-sm text-ink/70">Create your event first, then we’ll check the fit.</p>
-            <Link
-              href={`/dashboard/create-event?next=${encodeURIComponent(nextPath)}`}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
-            >
-              Set up your event
-            </Link>
+          <div className="text-center">
+            <p className={TEMPLATE_SUBLINE}>Create your event first, then we’ll check the fit.</p>
+            <span className="mt-4 flex [&_.ab]:w-full">
+              <ActionButton
+                tone="brand"
+                main
+                href={`/dashboard/create-event?next=${encodeURIComponent(nextPath)}`}
+                icon={<CalendarCheck2 aria-hidden />}
+                label="Set up your event"
+              />
+            </span>
           </div>
         ) : (
-          <div className="rounded-2xl border border-ink/10 bg-white/60 p-5">
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
-              Check against your event
-            </p>
+          <TemplateSection label="Check against your event" first data="fit-event">
             <div className="flex flex-wrap gap-2">
               {hostEvents.map((e) => {
                 const on = activeEvent?.event_id === e.event_id;
@@ -264,8 +277,9 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
                   <Link
                     key={e.event_id}
                     href={`${nextPath}?event=${encodeURIComponent(e.event_id)}`}
-                    className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                      on ? 'border-transparent bg-ink text-cream' : 'border-ink/15 text-ink/70 hover:bg-ink/5'
+                    aria-current={on ? 'true' : undefined}
+                    className={`inline-flex min-h-11 items-center rounded-full border px-4 text-[14px] font-medium ${
+                      on ? 'border-transparent bg-ink text-cream' : 'border-[color:var(--m-line)] text-ink hover:bg-[color:var(--m-paper-2)]'
                     }`}
                   >
                     {e.display_name ?? 'Your event'}
@@ -275,54 +289,50 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
             </div>
 
             {verdictChecks ? (
-              <div className="mt-5">
-                <div
-                  className={`rounded-xl px-4 py-3 text-sm font-medium ${
-                    verdictFits
-                      ? 'bg-success-50 text-success-800'
-                      : 'bg-warn-100 text-warn-900'
-                  }`}
-                >
+              <div className="mt-4">
+                <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold text-ink">
+                  <Badge tone={verdictFits ? 'ok' : 'wait'}>{verdictFits ? 'Fits' : 'Check the flags'}</Badge>
                   {verdictFits
                     ? `${displayName} fits ${activeEvent?.display_name ?? 'your event'}.`
                     : `Worth a look — check the flags below for ${activeEvent?.display_name ?? 'your event'}.`}
-                </div>
-                <ul className="mt-3 space-y-2">
+                </p>
+                <ul className="mt-2 [&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
                   {verdictChecks.map((c) => {
                     const Icon = checkIcon(c.key);
-                    const tone =
-                      c.ok === true ? 'text-success-700' : c.ok === false ? 'text-warn-800' : 'text-ink/45';
+                    const color =
+                      c.ok === true ? 'rgb(var(--color-ok))' : c.ok === false ? 'rgb(var(--color-warn))' : 'var(--m-slate-2)';
                     return (
-                      <li key={c.key} className="flex items-center gap-2 text-sm">
-                        <Icon className={`h-4 w-4 ${tone}`} strokeWidth={1.75} />
-                        <span className="flex-1 text-ink/75">{c.label}</span>
+                      <li key={c.key} className="flex min-h-11 items-center gap-2 py-2 text-[15px]">
+                        <Icon aria-hidden className="h-4 w-4" style={{ color }} strokeWidth={1.75} />
+                        <span className="flex-1 text-ink">{c.label}</span>
                         {c.ok === true ? (
-                          <Check className="h-4 w-4 text-success-600" strokeWidth={2.25} />
+                          <Check aria-label="Fits" className="h-4 w-4" style={{ color }} strokeWidth={2.25} />
                         ) : c.ok === false ? (
-                          <X className="h-4 w-4 text-warn-600" strokeWidth={2.25} />
+                          <X aria-label="Flag" className="h-4 w-4" style={{ color }} strokeWidth={2.25} />
                         ) : null}
                       </li>
                     );
                   })}
                 </ul>
 
-                <form action={addVendorFromFit} className="mt-5">
+                <form action={addVendorFromFit} className="mt-4">
                   <input type="hidden" name="event_id" value={activeEvent!.event_id} />
                   <input type="hidden" name="marketplace_vendor_id" value={vendorId} />
                   <input type="hidden" name="category" value={category} />
                   <input type="hidden" name="ref" value={ref} />
-                  <SubmitButton className="w-full rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90">
-                    Add to my shortlist
+                  <SubmitButton className={actionButtonClass('brand', { main: true, extra: 'w-full' })}>
+                    <Check aria-hidden />
+                    <span className="lbl">Add to my shortlist</span>
                   </SubmitButton>
                 </form>
-                <p className="mt-3 text-center text-[11px] text-ink/45">
+                <p className={`mt-3 text-center ${TEMPLATE_SUBLINE}`}>
                   Flags are a heads-up, not a block — you can always add and decide later.
                 </p>
               </div>
             ) : (
-              <p className="mt-4 text-sm text-ink/55">Pick an event above to see the fit.</p>
+              <TemplateEmpty data="fit-verdict">Pick an event above to see the fit.</TemplateEmpty>
             )}
-          </div>
+          </TemplateSection>
         )}
       </div>
     </div>

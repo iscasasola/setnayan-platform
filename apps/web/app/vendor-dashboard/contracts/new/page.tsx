@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
+import { CardPick } from '../../services/requests/_components/card-pick';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
@@ -43,113 +47,105 @@ export default async function NewVendorContractPage({ searchParams }: Props) {
       : '';
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6">
-      <Link
-        href="/vendor-dashboard/contracts"
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/65 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to contracts
+    <div className="mx-auto w-full max-w-2xl space-y-2">
+      {/* A plain <Link> wearing the shared button's class, so the back-link guard still sees where it lands. */}
+      <Link href="/vendor-dashboard/contracts" className={actionButtonClass('neutral', { quiet: true })}>
+        <ArrowLeft aria-hidden strokeWidth={2} />
+        <span>Back to contracts</span>
       </Link>
 
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Upload a contract</h1>
-        <p className="mt-1 text-sm text-ink/65">
-          PDF only, up to {formatFileSize(CONTRACT_MAX_BYTES)}. After upload you can
-          review, then send to the couple for signature.
-        </p>
-      </header>
+      {/* The heading stays visible: this route's own loading.tsx (FormPageSkeleton title) promises it. The explaining
+          line moved behind its ⓘ (rule 7). */}
+      <h1 className="text-xl font-semibold tracking-tight text-ink">
+        <InfoTip label="Upload a contract">
+          {`PDF only, up to ${formatFileSize(CONTRACT_MAX_BYTES)}. After upload you can review, then send to the couple for signature.`}
+        </InfoTip>
+      </h1>
 
-      {eventOptions.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-warn-300/60 bg-warn-50 p-6 text-sm text-warn-900">
-          You need to be in conversation with a couple before uploading a
-          contract. Open a chat with a couple from your{' '}
-          <Link href="/vendor-dashboard/messages" className="font-medium underline">
-            messages
-          </Link>{' '}
-          first.
-        </div>
-      ) : (
-        <form action={uploadVendorContract} className="space-y-5">
-          <div className="space-y-1.5">
-            <label htmlFor="event_id" className="block text-sm font-medium text-ink">
-              For which event? <span className="text-terracotta-700">*</span>
-            </label>
-            <select
-              id="event_id"
-              name="event_id"
-              required
-              className="input-field"
-              defaultValue={defaultEventId}
-            >
-              <option value="" disabled>
-                Pick an event…
-              </option>
-              {eventOptions.map((o) => (
-                <option key={o.event_id} value={o.event_id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
+      <div className="pt-2">
+        {eventOptions.length === 0 ? (
+          <p className="py-3 text-[14px]" style={{ color: 'rgb(var(--color-warn))' }}>
+            You need to be in conversation with a couple before uploading a contract. Open a chat with a couple from
+            your{' '}
+            <Link href="/vendor-dashboard/messages" className="font-semibold underline">
+              messages
+            </Link>{' '}
+            first.
+          </p>
+        ) : (
+          <form action={uploadVendorContract} className="space-y-5">
+            <div className="space-y-1.5">
+              <p className="block text-[14px] font-semibold text-ink">
+                For which event? <span className="text-terracotta-700">*</span>
+              </p>
+              <CardPick
+                cards={eventOptions.map((o) => ({ id: o.event_id, title: o.label ?? 'Untitled event' }))}
+                fieldName="event_id"
+                label="For which event?"
+                placeholder="Pick an event…"
+                initial={defaultEventId}
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="title" className="block text-sm font-medium text-ink">
-              Contract title <span className="text-terracotta-700">*</span>
-            </label>
-            <input
-              id="title"
-              name="title"
-              type="text"
-              required
-              maxLength={200}
-              placeholder="Wedding photography package — June 14, 2027"
-              className="input-field"
-            />
-          </div>
+            <div className="space-y-1.5">
+              <label htmlFor="title" className="block text-[14px] font-semibold text-ink">
+                Contract title <span className="text-terracotta-700">*</span>
+              </label>
+              <input
+                id="title"
+                name="title"
+                type="text"
+                required
+                maxLength={200}
+                placeholder="Wedding photography package — June 14, 2027"
+                className="input-field"
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="description" className="block text-sm font-medium text-ink">
-              Description (optional)
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              maxLength={2000}
-              rows={3}
-              placeholder="Brief note for the couple (not on the contract PDF)."
-              className="input-field"
-            />
-          </div>
+            <div className="space-y-1.5">
+              <label htmlFor="description" className="block text-[14px] font-semibold text-ink">
+                Description (optional)
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                maxLength={2000}
+                rows={3}
+                placeholder="Brief note for the couple (not on the contract PDF)."
+                className="input-field"
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="file" className="block text-sm font-medium text-ink">
-              Contract PDF <span className="text-terracotta-700">*</span>
-            </label>
-            <input
-              id="file"
-              name="file"
-              type="file"
-              accept="application/pdf,.pdf"
-              required
-              className="block w-full text-sm text-ink file:mr-4 file:rounded-md file:border-0 file:bg-terracotta-700 file:px-4 file:py-2 file:text-sm file:font-medium file:text-cream hover:file:bg-terracotta-700"
-            />
-            <p className="text-xs text-ink/55">
-              PDF only · max {formatFileSize(CONTRACT_MAX_BYTES)} ·
-              you and the couple will both sign in-app after upload.
-            </p>
-          </div>
+            <div className="space-y-1.5">
+              <label htmlFor="file" className="block text-[14px] font-semibold text-ink">
+                Contract PDF <span className="text-terracotta-700">*</span>
+              </label>
+              <input
+                id="file"
+                name="file"
+                type="file"
+                accept="application/pdf,.pdf"
+                required
+                className="block w-full text-[14px] text-ink file:mr-4 file:min-h-11 file:rounded-full file:border file:border-[color:var(--m-line)] file:bg-[color:var(--m-paper-2)] file:px-4 file:text-[14px] file:font-semibold file:text-ink"
+              />
+              <p className={TEMPLATE_SUBLINE}>
+                PDF only · max {formatFileSize(CONTRACT_MAX_BYTES)} · you and the couple will both sign in-app after
+                upload.
+              </p>
+            </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Uploading…">
-              Upload draft
-            </SubmitButton>
-            <Link href="/vendor-dashboard/contracts" className="button-secondary w-full sm:w-auto">
-              Cancel
-            </Link>
-          </div>
-        </form>
-      )}
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <SubmitButton className={`${actionButtonClass('brand', { main: true })} w-full sm:w-auto`} pendingLabel="Uploading…">
+                Upload draft
+              </SubmitButton>
+              <Link href="/vendor-dashboard/contracts" className={actionButtonClass('neutral')}>
+                <X aria-hidden strokeWidth={1.9} />
+                <span>Cancel</span>
+              </Link>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

@@ -186,7 +186,7 @@ const CLOSE_WORDS_THAT_ARE_NOT_NOTICES: Record<string, { n: number; why: string 
   'app/v/[slug]/_components/service-details-sheet.tsx': { n: 2, why: SHEET },
   'app/vendor-dashboard/clients/[eventId]/_components/supplier-suggest-board.tsx': { n: 1, why: FLOW },
   'app/vendor-dashboard/clients/[eventId]/_components/top-up-carry-over.tsx': { n: 1, why: FLOW },
-  'app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx': { n: 2, why: FLOW },
+  'app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx': { n: 1, why: FLOW },
   'app/vendor-dashboard/moodboard-library/_components/stylist-library-editor.tsx': { n: 6, why: FLOW },
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-card.tsx': { n: 1, why: FLOW },
   'app/vendor-dashboard/services/_components/canvas-maker.tsx': { n: 1, why: FLOW },

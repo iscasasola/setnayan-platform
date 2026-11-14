@@ -109,7 +109,7 @@ export function InviteHelperSheet({
         <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
           Invite a helper
         </h2>
-        <p className="mt-1 text-[13.5px] text-ink/60">They sign in on their own phone with their Setnayan account. {seatLine}.</p>
+        <p className="mt-1 text-[13.5px] text-[color:var(--m-slate-2)]">They sign in on their own phone with their Setnayan account. {seatLine}.</p>
         <form
           ref={form}
           action={action}

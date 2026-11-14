@@ -76,7 +76,7 @@ export function SupplierToast({
       <p
         role="status"
         data-supplier-outcome={tone}
-        className={`mb-3 flex items-start gap-2 text-[13px] leading-snug ${tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/70'}`}
+        className={`mb-3 flex items-start gap-2 text-[13px] leading-snug ${tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-[color:var(--m-slate-2)]'}`}
       >
         {tone === 'bad' ? <TriangleAlert aria-hidden className="mt-px h-4 w-4 flex-none" strokeWidth={2.2} /> : null}
         <span>{text}</span>

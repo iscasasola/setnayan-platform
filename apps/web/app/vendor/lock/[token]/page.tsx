@@ -19,6 +19,14 @@ import { formatEventDate } from '@/lib/events';
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import {
+  TEMPLATE_MONEY,
+  TEMPLATE_SUBLINE,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 import { claimLockedQr } from './actions';
 import { formatCount } from '@/lib/format-number';
 
@@ -124,22 +132,19 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
       tok.status === 'claimed' && user && tok.claimed_by_user_id === user.id;
     return (
       <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6 text-center">
-        <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" strokeWidth={1.5} />
+        <CheckCircle2 aria-hidden className="mx-auto h-10 w-10" style={{ color: 'rgb(var(--color-ok))' }} strokeWidth={1.5} />
         <h1 className="mt-4 text-2xl font-semibold tracking-tight">
           {tok.status === 'claimed' ? 'Already locked in' : 'This QR is no longer valid'}
         </h1>
-        <p className="mt-2 text-sm text-ink/60">
+        <p className={`mt-2 ${TEMPLATE_SUBLINE}`}>
           {tok.status === 'claimed'
             ? `${vendor.business_name} has already been locked to an event with this QR.`
             : 'This Locked QR was cancelled by the supplier.'}
         </p>
         {mineAndClaimed && tok.claimed_event_id ? (
-          <Link
-            href={`/dashboard/${tok.claimed_event_id}/vendors`}
-            className="mt-5 inline-flex items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
-          >
-            Go to your suppliers
-          </Link>
+          <span className="mt-5 inline-flex">
+            <ActionButton tone="brand" main href={`/dashboard/${tok.claimed_event_id}/vendors`} icon={<Store aria-hidden />} label="Go to your suppliers" />
+          </span>
         ) : null}
       </div>
     );
@@ -170,8 +175,8 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6">
-      {/* Vendor + deal identity */}
-      <div className="rounded-3xl border border-ink/10 bg-cream p-6 text-center">
+      {/* Vendor + deal identity — the top of the page, on the warm surface (rule 13). */}
+      <div className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-6 text-center">
         {logoDisplayUrl ? (
           <Image
             src={logoDisplayUrl}
@@ -181,76 +186,61 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
             className="mx-auto h-20 w-20 rounded-2xl object-cover"
           />
         ) : (
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-ink/5">
-            <Store className="h-8 w-8 text-ink/40" strokeWidth={1.5} />
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-[color:var(--m-paper)]">
+            <Store aria-hidden className="h-8 w-8 text-[color:var(--m-slate-2)]" strokeWidth={1.5} />
           </div>
         )}
-        <p className="mt-4 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
-          <Lock className="h-3 w-3" strokeWidth={2} /> {categoryLabel}
+        <p className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-[color:var(--m-slate-2)]">
+          <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> {categoryLabel}
           {eventTypeLabel ? ` · ${eventTypeLabel}` : ''}
         </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">{vendor.business_name}</h1>
-        {vendor.tagline ? <p className="mt-1 text-sm text-ink/60">{vendor.tagline}</p> : null}
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{vendor.business_name}</h1>
+        {vendor.tagline ? <p className={`mt-1 ${TEMPLATE_SUBLINE}`}>{vendor.tagline}</p> : null}
       </div>
 
       {/* Deal summary */}
-      <div className="mt-4 rounded-2xl border border-ink/10 bg-white/60 p-5">
-        <div className="flex items-baseline justify-between">
-          <span className="text-sm text-ink/60">Total</span>
-          <span className="text-lg font-semibold text-ink">
-            {total != null ? formatPhp(total) : '—'}
-          </span>
-        </div>
-        <div className="mt-1 flex items-baseline justify-between">
-          <span className="text-sm text-ink/60">First payment received</span>
-          <span className="text-sm font-medium text-emerald-700">{formatPhp(paid)}</span>
-        </div>
-        {agreedDate ? (
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-sm text-ink/60">Wedding date</span>
-            <span className="text-sm font-medium text-ink">
-              {formatEventDate(agreedDate, 'en-PH')}
-            </span>
-          </div>
-        ) : null}
-        {schedule.length > 0 && (
-          <div className="mt-4 border-t border-ink/10 pt-3">
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
-              Payment schedule
-            </p>
-            <ul className="space-y-1.5">
-              {schedule.map((r, i) => (
-                <li key={i} className="flex items-baseline justify-between gap-3 text-sm">
-                  <span className="min-w-0 truncate text-ink/80">
-                    {r.label || `Payment ${i + 1}`}
-                    <span className="ml-1 text-ink/40">
-                      ·{' '}
-                      {r.due_date
-                        ? formatEventDate(r.due_date, 'en-PH')
-                        : (DUE_ANCHOR_LABELS[(r.due_anchor as DueAnchor)] ?? '')}
-                    </span>
-                  </span>
-                  <span className="shrink-0 font-medium text-ink">{rowAmount(r)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {scope ? (
-          <div className="mt-4 border-t border-ink/10 pt-3">
-            <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
-              What you availed
-            </p>
-            <p className="whitespace-pre-wrap text-sm text-ink/80">{scope}</p>
-          </div>
-        ) : null}
-      </div>
+      <TemplateSection label="The deal" data="lock-deal">
+        <TemplateRows label="The deal">
+          <TemplateRow title="Total" right={<span className={TEMPLATE_MONEY}>{total != null ? formatPhp(total) : '—'}</span>} />
+          <TemplateRow
+            title="First payment received"
+            right={
+              <span className={TEMPLATE_MONEY} style={{ color: 'rgb(var(--color-ok))' }}>
+                {formatPhp(paid)}
+              </span>
+            }
+          />
+          {agreedDate ? (
+            <TemplateRow title="Wedding date" right={<span className="text-[15px] font-semibold text-ink">{formatEventDate(agreedDate, 'en-PH')}</span>} />
+          ) : null}
+        </TemplateRows>
+      </TemplateSection>
+      {schedule.length > 0 && (
+        <TemplateSection label="Payment schedule" data="lock-schedule">
+          <TemplateRows label="Payment schedule">
+            {schedule.map((r, i) => (
+              <TemplateRow
+                key={i}
+                title={r.label || `Payment ${i + 1}`}
+                line={
+                  r.due_date
+                    ? formatEventDate(r.due_date, 'en-PH')
+                    : (DUE_ANCHOR_LABELS[(r.due_anchor as DueAnchor)] ?? '')
+                }
+                right={<span className={TEMPLATE_MONEY}>{rowAmount(r)}</span>}
+              />
+            ))}
+          </TemplateRows>
+        </TemplateSection>
+      )}
+      {scope ? (
+        <TemplateSection label="What you availed" data="lock-scope">
+          <p className="whitespace-pre-wrap py-2 text-[15px] text-ink">{scope}</p>
+        </TemplateSection>
+      ) : null}
 
       {statusMessage ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-xl border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <p role="alert" className="mt-4 text-[14px] font-semibold" style={{ color: 'rgb(var(--color-warn))' }}>
           {statusMessage}
         </p>
       ) : null}
@@ -258,20 +248,23 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
       {/* Action zone */}
       <div className="mt-6">
         {!user ? (
-          <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
-            <p className="text-sm text-ink/70">
+          <div className="text-center">
+            <p className={TEMPLATE_SUBLINE}>
               Create your free Setnayan plan to lock in {vendor.business_name} and
               track this payment schedule.
             </p>
-            <Link
-              href={`/signup?as=couple&next=${encodeURIComponent(nextPath)}`}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
-            >
-              Sign up free & lock it in
-            </Link>
+            <span className="mt-4 flex [&_.ab]:w-full">
+              <ActionButton
+                tone="brand"
+                main
+                href={`/signup?as=couple&next=${encodeURIComponent(nextPath)}`}
+                icon={<Lock aria-hidden />}
+                label="Sign up free & lock it in"
+              />
+            </span>
             <Link
               href={`/login?next=${encodeURIComponent(nextPath)}`}
-              className="mt-3 inline-block text-sm text-ink/60 underline hover:text-link"
+              className="mt-2 inline-flex min-h-11 items-center text-[14px] font-medium text-link underline"
             >
               I already have an account
             </Link>
@@ -288,7 +281,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
         )}
       </div>
 
-      <p className="mt-6 text-center text-[11px] text-ink/40">
+      <p className={`mt-6 text-center ${TEMPLATE_SUBLINE}`}>
         Locking a supplier records your booking and payment plan. This QR works once.
       </p>
     </div>
@@ -357,16 +350,19 @@ async function ClaimForm({
 
   if (hostEvents.length === 0) {
     return (
-      <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
-        <p className="text-sm text-ink/70">
+      <div className="text-center">
+        <p className={TEMPLATE_SUBLINE}>
           Create your event first, then we’ll lock the supplier into it.
         </p>
-        <Link
-          href={`/dashboard/create-event?event_type=${encodeURIComponent(eventTypeKey)}&next=${encodeURIComponent(nextPath)}`}
-          className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
-        >
-          Set up your event
-        </Link>
+        <span className="mt-4 flex [&_.ab]:w-full">
+          <ActionButton
+            tone="brand"
+            main
+            href={`/dashboard/create-event?event_type=${encodeURIComponent(eventTypeKey)}&next=${encodeURIComponent(nextPath)}`}
+            icon={<CalendarDays aria-hidden />}
+            label="Set up your event"
+          />
+        </span>
       </div>
     );
   }
@@ -420,35 +416,35 @@ async function ClaimForm({
   return (
     <form action={claimLockedQr} className="space-y-3">
       <input type="hidden" name="token" value={token} />
-      <p className="text-sm font-medium text-ink/80">Lock into which event?</p>
-      <fieldset className="space-y-2">
+      <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Lock into which event?</p>
+      <fieldset className="[&>label+label]:border-t [&>label+label]:border-[color:var(--m-line)]">
         {hostEvents.map((ev, i) => {
           const r = resolutions[i];
           return (
             <label
               key={ev.event_id}
-              className="flex cursor-pointer items-start gap-3 rounded-xl border border-ink/15 bg-white/60 px-4 py-3 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5"
+              className="flex min-h-14 cursor-pointer items-start gap-3 py-3"
             >
               <input
                 type="radio"
                 name="event_id"
                 value={ev.event_id}
                 defaultChecked={i === 0}
-                className="mt-1 accent-terracotta"
+                className="mt-1 h-5 w-5 accent-mulberry"
               />
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium">
+                <span className="block truncate text-[15px] font-semibold text-ink">
                   {ev.display_name ?? 'Untitled event'}
                 </span>
-                <span className="mt-0.5 flex items-center gap-1 text-xs text-ink/50">
-                  <CalendarDays className="h-3 w-3" strokeWidth={1.75} />
+                <span className={`mt-0.5 flex items-center gap-1 ${TEMPLATE_SUBLINE}`}>
+                  <CalendarDays aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   {ev.event_date ? formatEventDate(ev.event_date, 'en-PH') : 'Date TBD'}
                 </span>
                 {r ? (
-                  <span className="mt-1.5 block text-xs">
-                    <span className="text-ink/70">{r.message}</span>
+                  <span className={`mt-1.5 block ${TEMPLATE_SUBLINE}`}>
+                    <span>{r.message}</span>
                     {r.warn ? (
-                      <span className="mt-0.5 block font-medium text-terracotta-700">
+                      <span className="mt-0.5 block font-semibold" style={{ color: 'rgb(var(--color-warn))' }}>
                         {r.warn}
                       </span>
                     ) : null}
@@ -459,11 +455,9 @@ async function ClaimForm({
           );
         })}
       </fieldset>
-      <SubmitButton
-        pendingLabel="Locking…"
-        className="w-full rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
-      >
-        Lock it in
+      <SubmitButton pendingLabel="Locking…" className={actionButtonClass('brand', { main: true, extra: 'w-full' })}>
+        <Lock aria-hidden />
+        <span className="lbl">Lock it in</span>
       </SubmitButton>
     </form>
   );

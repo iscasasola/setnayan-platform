@@ -4,6 +4,9 @@ import { EVENT_DATE_FLOOR_MESSAGE, eventDateFloorRefusal, eventDateMinFor } from
 import { useEffect, useRef, useState } from 'react';
 import { Trash2, Upload, Check, Loader2, AlertTriangle, Search, X, Info, Plus } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { actionButtonClass } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { MAX_SCHEDULE_ITEMS } from '@/lib/vendor-service-payment-schedules';
 import type { LockQuoteLine, LockScheduleRow } from '@/lib/vendor-locked-qr';
@@ -66,10 +69,10 @@ function todayIso(): string {
 
 type DateStatusTone = 'green' | 'sky' | 'amber' | 'red';
 const DATE_STATUS_TONE: Record<DateStatusTone, string> = {
-  green: 'bg-green-50 text-green-800',
-  sky: 'bg-sky-50 text-sky-800',
-  amber: 'bg-amber-50 text-amber-800',
-  red: 'bg-rose-50 text-rose-800',
+  green: 'bg-[rgb(var(--color-ok)/0.09)] text-[rgb(var(--color-ok))]',
+  sky: 'bg-[rgb(var(--color-info)/0.09)] text-[rgb(var(--color-info))]',
+  amber: 'bg-[rgb(var(--color-warn)/0.09)] text-[rgb(var(--color-warn))]',
+  red: 'bg-[rgb(var(--color-danger)/0.09)] text-[rgb(var(--color-danger))]',
 };
 
 /** Turn the advisory calendar read into a single headline chip. Precedence
@@ -411,7 +414,7 @@ export function LockedQrGenerator({
       <input type="hidden" name="total_php" value={total} />
       <input type="hidden" name="initial_paid_php" value={initialPaid} />
 
-      <div className="grid grid-cols-1 gap-4 rounded-2xl border border-ink/10 bg-white/60 p-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2" data-locked-qr-client="">
           {/* The shared one-line row (lint:field-template): inside this <form> it posts its kept words as `client_name`. */}
           <FormRows width="wide">
@@ -429,24 +432,20 @@ export function LockedQrGenerator({
           </FormRows>
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="event_type" className="block text-sm font-medium text-ink/80">
-            Event
-          </label>
-          <select
-            id="event_type"
-            name="event_type"
-            className="input-field w-full"
+          <p className="block text-sm font-medium text-ink">Event</p>
+          {/* Template rule 4: a set of choices is ONE PickMenu; the hidden field posts what it picked. */}
+          <input type="hidden" name="event_type" value={eventType} />
+          <PickMenu
+            label="Event"
             value={eventType}
-            onChange={(e) => setEventType(e.target.value)}
-          >
-            <option value="">Any event type</option>
-            {eventTypes.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
+            options={[{ key: '', label: 'Any event type' }, ...eventTypes.map((t) => ({ key: t.value, label: t.label }))]}
+            onPick={setEventType}
+            dataAttr="data-locked-qr-event-type"
+            className="w-full"
+          />
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="event_date" className="block text-sm font-medium text-ink/80">
+          <label htmlFor="event_date" className="block text-sm font-medium text-ink">
             {eventDateLabel} <span className="text-terracotta-700">*</span>
           </label>
           <input
@@ -459,7 +458,7 @@ export function LockedQrGenerator({
             value={eventDate}
             onChange={(e) => setEventDate(e.target.value)}
           />
-          <p className="text-xs text-ink/50">A Locked QR means you&apos;ve agreed on a date.</p>
+          <p className="text-xs text-[color:var(--m-slate-2)]">A Locked QR means you&apos;ve agreed on a date.</p>
           {/* 💍 The first-event-day rule, said beside the date (lib/event-date-floor.ts). */}
           {eventDateFloorRefusal({ date: eventDate, exempt: dateExempt }) ? (
             <p role="alert" data-event-date-floor="" className="text-xs text-danger-700">
@@ -467,7 +466,7 @@ export function LockedQrGenerator({
             </p>
           ) : null}
           {dateStatusLoading && !dateStatus && (
-            <p className="flex items-center gap-1.5 text-xs text-ink/40">
+            <p className="flex items-center gap-1.5 text-xs text-[color:var(--m-slate-2)]">
               <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
               Checking your calendar…
             </p>
@@ -485,7 +484,7 @@ export function LockedQrGenerator({
                     <span>{d.text}</span>
                   </p>
                   {dateStatus.waitlistCount > 0 && (
-                    <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-800">
+                    <p className="flex items-start gap-1.5 rounded-lg bg-[rgb(var(--color-warn)/0.09)] px-2.5 py-2 text-xs text-[rgb(var(--color-warn))]">
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
                       <span>
                         {formatCount(dateStatus.waitlistCount)} couple
@@ -498,7 +497,7 @@ export function LockedQrGenerator({
             })()}
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="total_php" className="block text-sm font-medium text-ink/80">
+          <label htmlFor="total_php" className="block text-sm font-medium text-ink">
             Total value (₱)
           </label>
           <input
@@ -513,13 +512,13 @@ export function LockedQrGenerator({
             aria-describedby={lines.length > 0 ? 'total_from_quote' : undefined}
           />
           {lines.length > 0 ? (
-            <p id="total_from_quote" className="text-xs text-ink/55" data-locked-qr-total-from-quote="">
+            <p id="total_from_quote" className="text-xs text-[color:var(--m-slate-2)]" data-locked-qr-total-from-quote="">
               The quotation&rsquo;s Total — change a line below to change it.
             </p>
           ) : null}
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="initial_paid_php" className="block text-sm font-medium text-ink/80">
+          <label htmlFor="initial_paid_php" className="block text-sm font-medium text-ink">
             Initial paid / first payment (₱)
           </label>
           <input
@@ -543,10 +542,10 @@ export function LockedQrGenerator({
           Selected picks pin to the top (tap to remove); the rest live in a
           searchable, height-capped list so a vendor offering many services
           isn't bombarded with every chip at once. */}
-      <div className="space-y-3 rounded-2xl border border-ink/10 bg-white/60 p-5">
-        <p className="text-sm font-medium text-ink/80">
+      <div className="space-y-3 border-t border-[color:var(--m-line)] pt-5">
+        <p className="text-sm font-medium text-ink">
           Service(s) <span className="text-terracotta-700">*</span>
-          <span className="ml-1 font-normal text-ink/45">— pick every service this deal covers</span>
+          <span className="ml-1 font-normal text-[color:var(--m-slate-2)]">— pick every service this deal covers</span>
         </p>
 
         {/* Selected — always visible; tap to remove. */}
@@ -567,13 +566,13 @@ export function LockedQrGenerator({
             ))}
           </div>
         ) : (
-          <p className="text-xs text-ink/45">None picked yet — search below and tap to add.</p>
+          <p className="text-xs text-[color:var(--m-slate-2)]">None picked yet — search below and tap to add.</p>
         )}
 
         {/* Search the rest. */}
         <div className="relative">
           <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/35"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--m-slate-2)]"
             strokeWidth={1.75}
             aria-hidden
           />
@@ -589,7 +588,7 @@ export function LockedQrGenerator({
 
         {/* Height-capped list of the remaining (unselected) services. */}
         {availableServices.length > 0 ? (
-          <div className="max-h-56 overflow-y-auto rounded-xl border border-ink/10 bg-white p-2">
+          <div className="max-h-56 overflow-y-auto rounded-md border border-[color:var(--m-line)] bg-white p-2">
             {shownServices.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {shownServices.map((s) => (
@@ -597,21 +596,21 @@ export function LockedQrGenerator({
                     key={s.value}
                     type="button"
                     onClick={() => toggleService(s.value)}
-                    className="inline-flex items-center rounded-full border border-ink/15 bg-white px-3 py-1.5 text-sm text-ink/70 transition hover:border-ink/30"
+                    className="inline-flex items-center rounded-full border border-ink/15 bg-white px-3 py-1.5 text-sm text-[color:var(--m-slate-2)] transition hover:border-ink/30"
                   >
                     {prettyServiceLabel(s.label)}
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="px-1 py-2 text-sm text-ink/45">No services match that search.</p>
+              <p className="px-1 py-2 text-sm text-[color:var(--m-slate-2)]">No services match that search.</p>
             )}
           </div>
         ) : serviceRefs.length > 0 ? (
-          <p className="text-xs text-ink/45">All your services are selected.</p>
+          <p className="text-xs text-[color:var(--m-slate-2)]">All your services are selected.</p>
         ) : null}
 
-        <p className="text-xs text-ink/45">
+        <p className="text-xs text-[color:var(--m-slate-2)]">
           {serviceRefs.length} selected · {services.length} total
         </p>
 
@@ -619,17 +618,17 @@ export function LockedQrGenerator({
           every price editable — the Total above is their sum. Stored with the code (`quote_line_items`).
           It lives INSIDE the Services box, under a divider — not a box of its own (lint:no-card): the lines ARE the
           picks above, priced, so one box holds the pick and the quotation it makes. */}
-      <div className="space-y-3 border-t border-ink/10 pt-4" data-locked-qr-quote="">
+      <div className="space-y-3 border-t border-[color:var(--m-line)] pt-4" data-locked-qr-quote="">
         <div className="flex items-baseline justify-between gap-3">
-          <p className="text-sm font-medium text-ink/80">Quotation</p>
+          <p className="text-sm font-medium text-ink">Quotation</p>
           <p className="text-sm font-semibold tabular-nums text-ink" data-locked-qr-quote-total="">
             {lines.length > 0 ? `Total ₱${withThousands(String(linesTotal))}` : 'No lines yet'}
           </p>
         </div>
         {lines.length === 0 ? (
-          <p className="text-xs text-ink/55">Pick a service above and its line appears here — or add your own.</p>
+          <p className="text-xs text-[color:var(--m-slate-2)]">Pick a service above and its line appears here — or add your own.</p>
         ) : (
-          <ul className="divide-y divide-ink/10">
+          <ul className="divide-y divide-[color:var(--m-line)]">
             {lines.map((l, i) => (
               <li key={l.key} className="flex items-center gap-2 py-2" data-locked-qr-quote-line={i}>
                 <input // field-ok: one cell of a quotation LINE (what · ₱) — a two-cell line the one-line Form row cannot draw; same shape as the payment rows below
@@ -653,7 +652,7 @@ export function LockedQrGenerator({
                 <button
                   type="button"
                   aria-label={`Remove ${l.label || 'this line'}`}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink/55"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--m-slate-2)]"
                   onClick={() => setLines((prev) => prev.filter((x) => x.key !== l.key))}
                 >
                   <X className="h-4 w-4" strokeWidth={2} aria-hidden />
@@ -674,8 +673,8 @@ export function LockedQrGenerator({
       </div>
 
       {/* What the couple availed — the scope of work frozen onto the couple's plan. */}
-      <div className="space-y-1.5 rounded-2xl border border-ink/10 bg-white/60 p-5">
-        <label htmlFor="service_description" className="block text-sm font-medium text-ink/80">
+      <div className="space-y-1.5 border-t border-[color:var(--m-line)] pt-5">
+        <label htmlFor="service_description" className="block text-sm font-medium text-ink">
           What the couple availed <span className="text-terracotta-700">*</span>
         </label>
         <textarea
@@ -689,23 +688,23 @@ export function LockedQrGenerator({
           value={serviceDescription}
           onChange={(e) => setServiceDescription(e.target.value)}
         />
-        <p className="text-xs text-ink/50">
+        <p className="text-xs text-[color:var(--m-slate-2)]">
           Frozen onto their plan — the couple sees this as their scope of work.
         </p>
       </div>
 
       {/* Payment schedule */}
-      <div className="rounded-2xl border border-ink/10 bg-white/60 p-5">
+      <div className="border-t border-[color:var(--m-line)] pt-5">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-ink">Payment schedule</h2>
-          <span className="text-xs text-ink/45">Frozen onto the couple&apos;s plan at scan</span>
+          <span className="text-xs text-[color:var(--m-slate-2)]">Frozen onto the couple&apos;s plan at scan</span>
         </div>
         <div className="mt-3 space-y-3">
           {rows.map((r, i) => {
             const isDownpayment = i === 0;
             const badDate = r.date !== '' && !dateInRange(r.date);
             return (
-              <div key={i} className="rounded-xl border border-ink/10 p-3">
+              <div key={i} className="border-t border-[color:var(--m-line)] pt-3 first:border-t-0 first:pt-0">
                 <div className="flex items-center gap-2">
                   <input
                     aria-label="Payment name"
@@ -718,7 +717,7 @@ export function LockedQrGenerator({
                     <button
                       type="button"
                       onClick={() => setRows((prev) => prev.filter((_, idx) => idx !== i))}
-                      className="rounded-lg p-2 text-ink/40 hover:bg-ink/5 hover:text-terracotta-700"
+                      className="rounded-lg p-2 text-[color:var(--m-slate-2)] hover:bg-ink/5 hover:text-terracotta-700"
                       aria-label="Remove payment"
                     >
                       <Trash2 className="h-4 w-4" strokeWidth={1.75} />
@@ -727,7 +726,7 @@ export function LockedQrGenerator({
                 </div>
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div className="space-y-1">
-                    <label className="block text-[11px] font-medium uppercase tracking-wide text-ink/45">
+                    <label className="block text-xs font-medium uppercase tracking-wide text-[color:var(--m-slate-2)]">
                       Date
                     </label>
                     <input
@@ -741,7 +740,7 @@ export function LockedQrGenerator({
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="block text-[11px] font-medium uppercase tracking-wide text-ink/45">
+                    <label className="block text-xs font-medium uppercase tracking-wide text-[color:var(--m-slate-2)]">
                       Amount (₱)
                     </label>
                     <input
@@ -757,7 +756,7 @@ export function LockedQrGenerator({
                   </div>
                 </div>
                 {isDownpayment ? (
-                  <p className="mt-2 text-xs text-ink/45">
+                  <p className="mt-2 text-xs text-[color:var(--m-slate-2)]">
                     Auto-filled from “Initial paid / first payment” above.
                   </p>
                 ) : badDate ? (
@@ -771,20 +770,20 @@ export function LockedQrGenerator({
         </div>
 
         {rows.length >= MAX_SCHEDULE_ITEMS && remaining > 0 && (
-          <p className="mt-3 text-xs text-ink/45">
+          <p className="mt-3 text-xs text-[color:var(--m-slate-2)]">
             Maximum payments reached — adjust the amounts so the balance reaches ₱0.
           </p>
         )}
 
         {/* Balance guide — must reach ₱0 before the QR can be issued. */}
-        <div className="mt-4 flex items-center justify-between border-t border-ink/10 pt-3 text-sm">
-          <span className="text-ink/60">
+        <div className="mt-4 flex items-center justify-between border-t border-[color:var(--m-line)] pt-3 text-sm">
+          <span className="text-[color:var(--m-slate-2)]">
             {remaining < 0 ? 'Over-scheduled by' : 'Remaining to schedule'}
           </span>
           <span
             className={
               remaining === 0 && totalNum > 0
-                ? 'font-semibold text-emerald-700'
+                ? 'font-semibold text-[rgb(var(--color-ok))]'
                 : 'font-semibold text-terracotta-700'
             }
           >
@@ -794,29 +793,27 @@ export function LockedQrGenerator({
       </div>
 
       {/* Contract — pick one of the vendor's saved contracts to attach. */}
-      <div className="space-y-1.5 rounded-2xl border border-ink/10 bg-white/60 p-5">
-        <label htmlFor="source_contract_id" className="block text-sm font-medium text-ink/80">
+      <div className="space-y-1.5 border-t border-[color:var(--m-line)] pt-5">
+        <p className="block text-sm font-medium text-ink">
           Contract {contracts.length > 0 && <span className="text-terracotta-700">*</span>}
-        </label>
+        </p>
         {contracts.length > 0 ? (
           <>
-            <select
-              id="source_contract_id"
-              className="input-field w-full"
-              value={contractId}
-              onChange={(e) => setContractId(e.target.value)}
-            >
-              <option value="" disabled>Pick a contract</option>
-              {contracts.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
-            <p className="text-xs text-ink/50">
+            <PickMenu
+              label="Contract"
+              value={contractId || null}
+              buttonText={contractId ? undefined : 'Pick a contract'}
+              options={contracts.map((c) => ({ key: c.value, label: c.label }))}
+              onPick={setContractId}
+              dataAttr="data-locked-qr-contract"
+              className="w-full"
+            />
+            <p className="text-xs text-[color:var(--m-slate-2)]">
               A copy is attached to the couple&apos;s booking for e-signature when they scan.
             </p>
           </>
         ) : (
-          <p className="rounded-lg bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
+          <p className="rounded-lg bg-ink/[0.03] px-3 py-2 text-xs text-[color:var(--m-slate-2)]">
             No saved contracts yet — you can generate without one, or add a contract under{' '}
             <span className="font-medium">Contracts</span> to attach it here.
           </p>
@@ -824,19 +821,19 @@ export function LockedQrGenerator({
       </div>
 
       {/* Proof of payment (required) + optional remembrance photo */}
-      <div className="space-y-4 rounded-2xl border border-ink/10 bg-white/60 p-5">
+      <div className="space-y-4 border-t border-[color:var(--m-line)] pt-5">
         <div>
           <h2 className="text-sm font-semibold text-ink">
             Proof of payment <span className="text-terracotta-700">*</span>
           </h2>
-          <p className="mt-1 text-xs text-ink/50">
+          <p className="mt-1 text-xs text-[color:var(--m-slate-2)]">
             Upload the receipt/screenshot of the first payment you received.
           </p>
-          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm text-ink/75 hover:border-terracotta">
+          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm text-[color:var(--m-slate-2)] hover:border-terracotta">
             {proof.busy ? (
               <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
             ) : proof.ref ? (
-              <Check className="h-4 w-4 text-emerald-600" strokeWidth={2} />
+              <Check className="h-4 w-4 text-[rgb(var(--color-ok))]" strokeWidth={2} />
             ) : (
               <Upload className="h-4 w-4" strokeWidth={1.75} />
             )}
@@ -851,18 +848,18 @@ export function LockedQrGenerator({
           </label>
           {proof.err && <p className="mt-2 text-xs text-terracotta-700">{proof.err}</p>}
         </div>
-        <div className="border-t border-ink/10 pt-4">
+        <div className="border-t border-[color:var(--m-line)] pt-4">
           <h2 className="text-sm font-semibold text-ink">
-            Remembrance photo <span className="font-normal text-ink/45">(optional)</span>
+            Remembrance photo <span className="font-normal text-[color:var(--m-slate-2)]">(optional)</span>
           </h2>
-          <p className="mt-1 text-xs text-ink/50">
+          <p className="mt-1 text-xs text-[color:var(--m-slate-2)]">
             A keepsake photo saved with this booking.
           </p>
-          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm text-ink/75 hover:border-terracotta">
+          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm text-[color:var(--m-slate-2)] hover:border-terracotta">
             {remembrance.busy ? (
               <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
             ) : remembrance.ref ? (
-              <Check className="h-4 w-4 text-emerald-600" strokeWidth={2} />
+              <Check className="h-4 w-4 text-[rgb(var(--color-ok))]" strokeWidth={2} />
             ) : (
               <Upload className="h-4 w-4" strokeWidth={1.75} />
             )}
@@ -882,15 +879,17 @@ export function LockedQrGenerator({
       <SubmitButton
         pendingLabel="Generating…"
         disabled={!canGenerate}
-        className="w-full rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90 disabled:opacity-60"
+        className={actionButtonClass('brand', { main: true, extra: 'w-full' })}
       >
         Generate Locked QR
       </SubmitButton>
       {!canGenerate && (
-        <p className="-mt-2 text-center text-xs text-ink/45">
-          Complete every field — service(s), event date, scope, total, first payment, the full payment
-          schedule (balance at ₱0), a contract, and the payment proof — to generate the QR.
-        </p>
+        <div className="-mt-2 flex justify-center">
+          <InfoTip label="Complete every field to generate the QR" align="center" labelClassName="text-[13px] text-[color:var(--m-slate-2)]">
+            Service(s), event date, scope, total, first payment, the full payment schedule (balance at ₱0), a contract,
+            and the payment proof.
+          </InfoTip>
+        </div>
       )}
     </form>
   );

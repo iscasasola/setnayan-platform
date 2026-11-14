@@ -5,6 +5,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEventsDetailed } from '@/lib/vendor-room-access';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { formatCount } from '@/lib/format-number';
+import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateSection } from '@/app/_components/template-rows';
 import { ShopSegments } from '../../shop/_components/shop-segments';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { albumEventRows } from '@/lib/album-event-rows';
@@ -79,32 +80,35 @@ export default async function AlbumsByEventPage({
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-albums="">
       <ShopSegments on="gallery" gearBody={shopGearBody(sp)} />
-      <h1 className="sn-h1">Albums by event</h1>
-      <p className="text-[15px] text-ink/70">
+      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
+      <h1 className="sr-only">Albums by event</h1>
+      <p className={`text-[15px] ${TEMPLATE_SUBLINE}`}>
         Only you see these. Open one and tap <b className="font-semibold text-ink">Put on my page</b> on a photo.
       </p>
       {!papicOn ? (
-        <p className="rounded-xl bg-ink/5 p-3 text-sm text-ink/70" data-albums-off="">
-          Albums open here once Papic for suppliers is switched on.
-        </p>
+        <TemplateEmpty data="albums-off">
+          <span data-albums-off="">Albums open here once Papic for suppliers is switched on.</span>
+        </TemplateEmpty>
       ) : upcoming.length + past.length === 0 ? (
-        <p className="text-sm text-ink/60">No booked events yet — an album fills when a couple shares their Papic photos with you.</p>
+        <TemplateEmpty data="albums">
+          No booked events yet — an album fills when a couple shares their Papic photos with you.
+        </TemplateEmpty>
       ) : (
         <>
           {!room.complete ? (
-            <p role="status" className="text-[13px] text-ink/60">Some bookings could not be read just now — the list may be short.</p>
+            <p role="status" className="text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
+              Some bookings could not be read just now — the list may be short.
+            </p>
           ) : null}
           {past.length > 0 ? (
-            <div>
-              <h2 className="sn-eye">Past · {formatCount(past.length)}</h2>
-              <div className="divide-y divide-ink/10">{past.map(row)}</div>
-            </div>
+            <TemplateSection label="Past" first right={formatCount(past.length)}>
+              <div className="divide-y divide-[color:var(--m-line)]">{past.map(row)}</div>
+            </TemplateSection>
           ) : null}
           {upcoming.length > 0 ? (
-            <div>
-              <h2 className="sn-eye">Coming up · {formatCount(upcoming.length)}</h2>
-              <div className="divide-y divide-ink/10">{upcoming.map(row)}</div>
-            </div>
+            <TemplateSection label="Coming up" first={past.length === 0} right={formatCount(upcoming.length)}>
+              <div className="divide-y divide-[color:var(--m-line)]">{upcoming.map(row)}</div>
+            </TemplateSection>
           ) : null}
         </>
       )}

@@ -138,9 +138,9 @@ export function SupplierSuggestBoard({
     /* Three or more photos in the line: the count drops to its own line under them, read whole (as the couple's). */
     const crowded = part.photos.length + mineHere.length >= 3;
     return (
-      <section key={part.slotKey} data-suggest-part={part.slotKey} className={`flex flex-col gap-1 py-3.5 ${first ? '' : 'border-t border-ink/10'}`}>
+      <section key={part.slotKey} data-suggest-part={part.slotKey} className={`flex flex-col gap-1 py-3.5 ${first ? '' : 'border-t border-[color:var(--m-line)]'}`}>
         <h3 className="font-serif text-[21px] font-medium leading-tight text-ink">{part.label}</h3>
-        {part.line ? <p className="text-[14px] text-ink/60">{part.line}</p> : null}
+        {part.line ? <p className="text-[14px] text-[color:var(--m-slate-2)]">{part.line}</p> : null}
         {part.colour ? (
           <span className="flex flex-wrap items-start">
             <NamedColourDot label={`${part.label} — ${part.colour.name ?? 'its colour'}`} colour={part.colour.hex} name={part.colour.name} data={`suggest-${part.slotKey}`} />
@@ -164,7 +164,7 @@ export function SupplierSuggestBoard({
               onClick={() => void takeBack(s)}
             />
           ))}
-          <span className="ml-1 min-w-0 flex-1 truncate text-[14px] text-ink/60" data-suggest-count={crowded ? undefined : part.slotKey}>
+          <span className="ml-1 min-w-0 flex-1 truncate text-[14px] text-[color:var(--m-slate-2)]" data-suggest-count={crowded ? undefined : part.slotKey}>
             {crowded ? '' : supplierCountLine(part.photos.length, mineHere.length)}
           </span>
           {part.canSuggest ? (
@@ -181,7 +181,7 @@ export function SupplierSuggestBoard({
           ) : null}
         </div>
         {crowded ? (
-          <p className="text-[14px] text-ink/60" data-suggest-count={part.slotKey}>
+          <p className="text-[14px] text-[color:var(--m-slate-2)]" data-suggest-count={part.slotKey}>
             {supplierCountLine(part.photos.length, mineHere.length)}
           </p>
         ) : null}
@@ -193,7 +193,7 @@ export function SupplierSuggestBoard({
     <div data-supplier-suggest-board="" className="flex flex-col">
       <header className="pb-3.5 pt-1">
         <h1 className="text-[30px] font-semibold leading-[1.1] tracking-[-0.01em] text-ink">{couple}</h1>
-        {eventLine ? <p className="mt-1.5 text-[15px] text-ink/60">{eventLine}</p> : null}
+        {eventLine ? <p className="mt-1.5 text-[15px] text-[color:var(--m-slate-2)]">{eventLine}</p> : null}
         <p className="mt-2.5 text-[15px] text-ink" data-suggest-role="">{roleLine}</p>
       </header>
 
@@ -203,12 +203,12 @@ export function SupplierSuggestBoard({
         </p>
       ) : null}
       {poolNote ? (
-        <p role="status" data-suggest-pool="" className="px-1.5 pb-2 text-[13px] text-ink/65">
+        <p role="status" data-suggest-pool="" className="px-1.5 pb-2 text-[13px] text-[color:var(--m-slate-2)]">
           {poolNote}
         </p>
       ) : null}
       {mine === null ? (
-        <p role="status" className="px-1.5 pb-2 text-[13px] text-ink/65" data-suggest-unread="">
+        <p role="status" className="px-1.5 pb-2 text-[13px] text-[color:var(--m-slate-2)]" data-suggest-unread="">
           We couldn’t read the photos you sent just now — reopen this in a moment.
         </p>
       ) : null}
@@ -323,7 +323,7 @@ function SuggestSheet({
     <StudioPopup label={suggestionFor(part.label)} onClose={onClose}>
       <div className="flex flex-col gap-2 px-3 pb-2" data-suggest-sheet={part.slotKey}>
         <InspirationCardPick choices={cards} value={card} onChange={setCard} dataAttr="data-suggest-card" withHiddenField={false} />
-        <label className="flex items-start gap-2 text-[12px] leading-snug text-ink/70" data-suggest-pool-tick="">
+        <label className="flex items-start gap-2 text-[13px] leading-snug text-[color:var(--m-slate-2)]" data-suggest-pool-tick="">
           <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <span>
             <b className="font-medium text-ink">{POOL_TICK_LEAD}</b> {RIGHTS_WARRANTY_TEXT}
@@ -339,11 +339,11 @@ function SuggestSheet({
           shop.failed ? (
             <p role="alert" className="text-[13px] text-danger-700">We couldn’t read your shop’s photos just now — please try again in a moment.</p>
           ) : shop.photos.length === 0 ? (
-            <p className="text-[13px] text-ink/65">Your shop has no photos yet — add them on your shop page, or upload one here.</p>
+            <p className="text-[13px] text-[color:var(--m-slate-2)]">Your shop has no photos yet — add them on your shop page, or upload one here.</p>
           ) : (
             <div className="grid grid-cols-3 gap-2 pt-1" data-suggest-shop-photos="">
               {shop.photos.map((p) => (
-                <button key={p.ref} type="button" aria-label="Suggest this photo" onClick={() => onPick(p.ref, extra)} className="sn-press block aspect-square overflow-hidden rounded-xl bg-ink/5">
+                <button key={p.ref} type="button" aria-label="Suggest this photo" onClick={() => onPick(p.ref, extra)} className="sn-press block aspect-square overflow-hidden rounded-xl bg-[color:var(--m-paper-2)]">
                   {/* eslint-disable-next-line @next/next/no-img-element -- the shop's own photo */}
                   <img src={p.url} alt="" className="h-full w-full object-cover" />
                 </button>

@@ -103,7 +103,7 @@ test('Booking fees: a refused order/payment read is "status unknown", never "Nev
   assert.match(s, /billingUnread = true;/);
   assert.equal([...s.matchAll(/billingUnread = true;/g)].length, 2, 'both the order read and the payment read must set it');
   assert.match(s, /unbilledCharges\.length > 0 && !billingUnread/, 'the unbilled verdict must not run over an unread bill');
-  assert.match(s, /\) : billingUnread \? \(\s*<span[^>]*>\s*Status unknown/);
+  assert.match(s, /\) : billingUnread \? \(\s*<(?:span|Badge)[^>]*>\s*Status unknown/);
   assert.match(s, /\/admin\/payments\?filter=all&q=\$\{encodeURIComponent\(/, '"Check their payment" must deep-link to the order');
   assert.doesNotMatch(s, /href="\/admin\/payments"/);
 });

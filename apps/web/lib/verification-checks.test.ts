@@ -846,3 +846,25 @@ test('the payout mismatch reaches the grant warning (it warns, it does not refus
   assert.equal(s.mismatched, 1);
   assert.match(grantWarning(s) ?? '', /1 check disagrees/);
 });
+
+// 2026-11-14 · the typed registration number is no longer a supplier step before Submit (DECISION_LOG "VERIFICATION
+// IS THREE PAPERS AND ONE SUBMIT"; "ONE UPLOAD PLACE": the number is READ off the paper). The duplicate-business check
+// stays on the admin's side — "any doubt goes to the admin" ("CLEAN PAPERS VERIFY THE SHOP ON SUBMIT") — and says
+// which shop: "Same registration number as <shop>".
+test('2026-11-14 · a duplicate registration number reaches the admin, named — "Same registration number as <shop>"', () => {
+  const r = byKey(
+    runVerificationChecks(cleanFacts({ registrationNumberDuplicate: true, registrationNumberHeldAlsoBy: ['Riverside Catering'] }), NOW),
+    'registration_number',
+  );
+  assert.equal(r.outcome, 'mismatch', 'a shared number reached the admin as anything but a disagreement');
+  assert.equal(r.detail, 'Same registration number as Riverside Catering.');
+  const unnamed = byKey(
+    runVerificationChecks(cleanFacts({ registrationNumberDuplicate: true, registrationNumberHeldAlsoBy: [] }), NOW),
+    'registration_number',
+  );
+  assert.equal(unnamed.detail, 'Same registration number as another shop on Setnayan.');
+  // No number on file is the reviewer's to read off the certificate — never a request for the shop to type one.
+  const none = byKey(runVerificationChecks(cleanFacts({ registrationNumberRaw: null }), NOW), 'registration_number');
+  assert.equal(none.outcome, 'manual');
+  assert.doesNotMatch(none.reason ?? '', /has not typed|enter it/i);
+});

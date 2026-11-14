@@ -815,33 +815,21 @@ export function seedDraftAfterSendBack(rejectedUploads: DocUploadMap | null | un
  * The ONE submit gate for verification. Owner 2026-11-14 (DECISION_LOG "VERIFICATION
  * IS THREE PAPERS AND ONE SUBMIT"): *"submit the 3 documents and press submit. that's
  * it. no other steps needed. we wait for admin cofirmation first."* — and, on the
- * profile gate, *"Yes, remove it"*. So submitting asks for the 3 required papers
- * (plus the registration number typed beside the DTI/SEC paper, the anti-farm key).
- * It does NOT ask for a complete business profile, a VALIDATE contact confirmation
- * or a Google Meet — all three were removed from this gate on 2026-11-14. The
+ * profile gate, *"Yes, remove it"*. So submitting asks for the 3 required papers and
+ * NOTHING else. It does NOT ask for a complete business profile, a VALIDATE contact
+ * confirmation, a Google Meet, or a typed registration number — all four were removed
+ * from this gate on 2026-11-14. The number is READ off the DTI/SEC paper (DECISION_LOG
+ * "ONE UPLOAD PLACE"), never typed as a step; a duplicate number is the admin's call
+ * ("CLEAN PAPERS VERIFY THE SHOP ON SUBMIT": any doubt goes to the admin), raised by
+ * the reviewer check `registration_number` in `lib/verification-checks.ts`. The
  * admin's approval is the only thing that verifies. Shared by the Get-verified section (renders
  * the reasons) and `submitInlineForReview` (enforces them) so client copy and
  * server validation can never drift. Empty = ready to submit.
  */
-export function verificationSubmitMissing(input: {
-  uploads: DocUploadMap;
-  /**
-   * Whether the vendor has submitted a government registration number
-   * (`vendor_profiles.registration_number_raw IS NOT NULL`). This is the
-   * anti-farm identity key — required to submit so a shop can't get verified
-   * (and start its perk window) under no comparable identity at all. Optional
-   * for backward-compatibility: only enforced when explicitly `false`. A
-   * COLLIDED number still counts as "on file" (it routes to admin review, not a
-   * hard block), so a vendor whose number duplicated another's can still submit.
-   */
-  registrationNumberOnFile?: boolean;
-}): string[] {
+export function verificationSubmitMissing(input: { uploads: DocUploadMap }): string[] {
   const missing: string[] = [];
   if (!requiredDocsComplete(input.uploads)) {
     missing.push('Upload your DTI/SEC, BIR 2303, and Business Permit');
-  }
-  if (input.registrationNumberOnFile === false) {
-    missing.push('Add your government registration number');
   }
   return missing;
 }

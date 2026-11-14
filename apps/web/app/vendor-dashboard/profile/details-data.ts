@@ -215,22 +215,6 @@ export async function loadDetailsData(
     verifyMeasured = false;
     return null;
   });
-  const registrationRead = (async () => {
-    try {
-      // `vendor_profiles_self`, never the table: `registration_number_raw` is off `authenticated`'s column allowlist
-      // (the shop page's own note, moved with the read).
-      const { data, error } = await supabase
-        .from('vendor_profiles_self')
-        .select('registration_number_raw')
-        .eq('vendor_profile_id', vendorId)
-        .maybeSingle();
-      if (error) logQueryError('VendorDetails.registrationOnFile', error, { vendorId }, 'graceful_degrade');
-      return Boolean((data as { registration_number_raw?: string | null } | null)?.registration_number_raw);
-    } catch {
-      return false;
-    }
-  })();
-
   const logoRead = (async () => {
     try {
       const url = profile.logo_url ? await displayUrlForStoredAsset(profile.logo_url) : null;
@@ -304,12 +288,11 @@ export async function loadDetailsData(
   // Never throws: an unread list is logged where it is read and comes back `null` (the notes then wait for the save).
   const fairWordsRead = loadClaimWordsFor(vendorId);
 
-  const [own, businessStartDate, app, registrationOnFile, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay, deepSearch, lastDeepSearch, fairWords] =
+  const [own, businessStartDate, app, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay, deepSearch, lastDeepSearch, fairWords] =
     await Promise.all([
       ownRead,
       startDateRead,
       appRead,
-      registrationRead,
       logoRead,
       vocabRead,
       correctionsRead,
@@ -338,10 +321,7 @@ export async function loadDetailsData(
     requiredDocsIn: requiredDocsComplete(uploads),
     // A send-back that named its papers says its reason on those papers only (owner 2026-11-14, "Only the named one").
     decisionReason: sentBackSlotKeys(uploads).length > 0 ? null : ((app?.decision_reason as string | null) ?? null),
-    submitMissing: verificationSubmitMissing({
-      uploads,
-      registrationNumberOnFile: registrationOnFile,
-    }),
+    submitMissing: verificationSubmitMissing({ uploads }),
   };
   const requiredIn = verify.requiredIn;
   const isVerified = profile.public_visibility === 'verified';

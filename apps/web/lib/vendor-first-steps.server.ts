@@ -77,12 +77,11 @@ export async function fetchVendorFirstStepsState(
     const open = moodboardLibraryAccessForProfile(profile, parts).allowed;
     return { open, count: open ? await countOwnLibraryPhotos((profile as { user_id?: string | null }).user_id ?? null) : undefined };
   });
-  const [application, serviceRead, customerCount, registrationNumberOnFile, shopWideDaysOff, library] =
+  const [application, serviceRead, customerCount, shopWideDaysOff, library] =
     await Promise.all([
       fetchLatestApplication(supabase, vendorProfileId).catch(() => null),
       readVendorServiceCards(supabase, vendorProfileId),
       countVendorCustomers(vendorProfileId),
-      hasRegistrationNumber(supabase, vendorProfileId),
       // Step 4 — a shop-wide day off belongs to no schedule, so Today's schedules read cannot see it. Asked only
       // here, on a shop not yet approved (the one that sees this rail), and only when the caller counted the rest.
       known.blocks ? countShopWideDaysOff(supabase, vendorProfileId) : Promise.resolve(0),
@@ -125,10 +124,7 @@ export async function fetchVendorFirstStepsState(
     docsTotal: REQUIRED_DOC_COUNT,
     // The ONE source of truth for why Submit is refused, shared with the
     // Get-verified stepper so the rail can never invent a different reason.
-    submitMissing: verificationSubmitMissing({
-      uploads,
-      registrationNumberOnFile,
-    }),
+    submitMissing: verificationSubmitMissing({ uploads }),
     customerCount,
     notAvailableCount: (known.blocks?.notAvailable ?? 0) + shopWideDaysOff,
     outsideCount: known.blocks?.outside ?? 0,
@@ -259,28 +255,3 @@ async function isShopVerified(
   }
 }
 
-/**
- * Soft probe — `registration_number_raw` landed in its own migration, so a
- * pre-migration read must degrade to "not on file" rather than crash the
- * Overview. Mirrors the identical guarded read on My Shop.
- */
-async function hasRegistrationNumber(
-  supabase: SupabaseClient,
-  vendorProfileId: string,
-): Promise<boolean> {
-  try {
-    const { data } = await supabase
-      // `vendor_profiles_self` (migration 20271217955839), never the table —
-      // the column is off `authenticated`'s allowlist and the catch below
-      // swallows the refusal into a silent "not on file".
-      .from('vendor_profiles_self')
-      .select('registration_number_raw')
-      .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle();
-    return Boolean(
-      (data as { registration_number_raw?: string | null } | null)?.registration_number_raw,
-    );
-  } catch {
-    return false;
-  }
-}

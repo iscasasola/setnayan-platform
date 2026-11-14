@@ -455,15 +455,17 @@ function checkRegistrationNumber(f: CheckFacts): CheckResult {
     return manual(
       key,
       label,
-      'No registration number has been submitted.',
-      'The shop has not typed a registration number, so there is nothing to compare. Read it off the DTI/SEC certificate and enter it.',
+      'No registration number is on file yet.',
+      'Since 2026-11-14 the shop is never asked to type the number (DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"); it is read off the DTI/SEC paper. Nothing has been read yet, so there is nothing to compare. Read it off the certificate.',
     );
   }
   if (f.registrationNumberDuplicate) {
     return mismatch(
       key,
       label,
-      'This registration number is already on another shop.',
+      f.registrationNumberHeldAlsoBy.length > 0
+        ? `Same registration number as ${list(f.registrationNumberHeldAlsoBy)}.`
+        : 'Same registration number as another shop on Setnayan.',
       {
         label: 'The number this shop gave us',
         value: raw,

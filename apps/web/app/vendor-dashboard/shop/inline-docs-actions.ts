@@ -672,12 +672,9 @@ export async function submitInlineForReview(
   }
 
   const uploads = (app.doc_uploads ?? {}) as DocUploadMap;
-  const regNumber = await fetchRegistrationNumberState(auth.supabase, auth.vendorProfileId);
-  const missing = verificationSubmitMissing({
-    uploads,
-    // A collided number keeps raw (needs_review) → still "on file".
-    registrationNumberOnFile: Boolean(regNumber.raw),
-  });
+  // The three papers and nothing else (owner 2026-11-14): no typed registration number. A duplicate number is
+  // flagged to the admin by the reviewer check, never refused here.
+  const missing = verificationSubmitMissing({ uploads });
   if (missing.length > 0) {
     return { ok: false, error: `Not quite ready: ${missing.join(' · ').toLowerCase()}.` };
   }

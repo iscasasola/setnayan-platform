@@ -21,6 +21,13 @@ Owner (specs DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"): *"veri
 - The shop cover chip reads "Get verified · n of 3 papers" (was "n of 2" steps).
 - Database: no CHECK, trigger or function requires a profile, a VALIDATE stamp or a Meet before submit or approve (the only verification triggers are the self-grant guards, which keep the admin's approval the only way to verified). No migration.
 
+### Widened 2026-11-14 · no typed registration number before Submit
+
+Controller, relaying the corpus (DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT": "no other steps needed"; "ONE UPLOAD PLACE": the app reads name · number · dates off the paper and shows them read-only — the supplier never types or confirms them):
+
+- `verificationSubmitMissing` takes the uploads alone; "Add your government registration number" is gone. Its callers (`submitInlineForReview`, `profile/details-data.ts`, `lib/vendor-first-steps.server.ts`) no longer read `registration_number_raw` for the gate (the two reads that existed only for it are removed).
+- The duplicate-business check stays on the admin's side ("CLEAN PAPERS VERIFY THE SHOP ON SUBMIT" — any doubt goes to the admin): the reviewer check `registration_number` now says **"Same registration number as <shop>"**, and a shop with no number on file is the reviewer's to read off the certificate, never a request to type one. The automatic read itself is B7's (#7624); no field was put back on the supplier.
+
 ### Widened 2026-11-14 · a send-back names only the paper that needs a new copy
 
 Owner (specs DECISION_LOG "A SEND-BACK NAMES ONLY THE PAPER THAT NEEDS A NEW COPY"): *"Only the named one"*.

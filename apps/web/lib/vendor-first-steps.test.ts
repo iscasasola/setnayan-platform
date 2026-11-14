@@ -170,7 +170,7 @@ test('nothing outside the papers blocks the documents step — the profile gate 
   // An unfinished profile used to block this step with "Finish your business profile"; it never does now.
   const rail = buildFirstStepsRail({
     ...FRESH,
-    submitMissing: ['Add your government registration number'],
+    submitMissing: ['Upload your DTI/SEC, BIR 2303, and Business Permit'],
   });
   const docs = rail.steps.find((s) => s.key === 'documents');
   assert.equal(docs?.blockedBy, null, 'the documents step is blocked from outside the papers again');

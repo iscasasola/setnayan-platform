@@ -104,7 +104,7 @@ test('2 · the logo is the second first step, out of "fields left" — and, sinc
   assert.deepEqual(onlyLogo, { fieldsLeft: 0, logoMissing: true, onlyLogoMissing: true });
   const allIn = Object.fromEntries([...REQUIRED_DOC_SLOT_KEYS].map((k) => [k, { r2_key: `k/${k}` }]));
   assert.deepEqual(
-    verificationSubmitMissing({ uploads: allIn, registrationNumberOnFile: true }),
+    verificationSubmitMissing({ uploads: allIn }),
     [],
     'a shop with the three papers in cannot submit',
   );

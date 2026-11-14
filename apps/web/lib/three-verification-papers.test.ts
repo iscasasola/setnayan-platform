@@ -63,10 +63,10 @@ test('1 · the required papers are exactly DTI/SEC · BIR 2303 · Mayor’s/Busi
 test('2 · with the three papers, nothing about papers is missing and the supplier can submit', () => {
   assert.equal(requiredDocsComplete(THREE), true);
   assert.equal(countCompleteRequiredSlots(THREE), 3);
-  assert.deepEqual(verificationSubmitMissing({ uploads: THREE, registrationNumberOnFile: true }), []);
+  assert.deepEqual(verificationSubmitMissing({ uploads: THREE }), []);
   // Two papers still stop the submit — and the sentence names only the three.
   const two = { dti_certificate: THREE.dti_certificate, bir_2303: THREE.bir_2303 } as DocUploadMap;
-  const missing = verificationSubmitMissing({ uploads: two, registrationNumberOnFile: true });
+  const missing = verificationSubmitMissing({ uploads: two });
   assert.equal(missing.length, 1);
   assert.equal(missing[0], 'Upload your DTI/SEC, BIR 2303, and Business Permit');
   assert.doesNotMatch(missing.join(' '), /bank/i);
@@ -81,7 +81,7 @@ test('3 · a shop that sent a bank proof earlier reads exactly the same — the 
   assert.equal(countCompleteRequiredSlots(THREE_PLUS_OLD_BANK_PROOF), countCompleteRequiredSlots(THREE));
   assert.equal(countCompleteSlots(THREE_PLUS_OLD_BANK_PROOF), countCompleteSlots(THREE));
   assert.deepEqual(
-    verificationSubmitMissing({ uploads: THREE_PLUS_OLD_BANK_PROOF, registrationNumberOnFile: true }),
+    verificationSubmitMissing({ uploads: THREE_PLUS_OLD_BANK_PROOF }),
     [],
   );
   const rows = setupPapers({ measured: true, status: 'approved', uploads: THREE_PLUS_OLD_BANK_PROOF })!;
@@ -140,4 +140,23 @@ test('6 · payout settings are not part of this ruling — the payout method kee
   // A supplier's payout method (GCash / bank, to RECEIVE couple payments) is a separate setting and stays.
   const payout = read('lib/verification-checks.ts');
   assert.match(payout, /function checkPayoutAccountName/, 'the payout-name check was removed with the bank proof');
+});
+
+/* ── 2026-11-14 · NO TYPED REGISTRATION NUMBER BEFORE SUBMIT ─────────────────────────────────────────────────────
+   Controller relaying the corpus (DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT": "no other steps needed";
+   "ONE UPLOAD PLACE": the app READS name · number · dates off the paper, the supplier never types or confirms them).
+   The duplicate-business check stays — on the admin's side ("CLEAN PAPERS VERIFY THE SHOP ON SUBMIT": any doubt goes
+   to the admin), named: "Same registration number as <shop>" — held in `lib/verification-checks.test.ts`. */
+test('7 · Submit asks for the three papers and nothing else — no typed registration number', () => {
+  // The gate takes the uploads alone: there is no input left to ask for a number.
+  assert.deepEqual(verificationSubmitMissing({ uploads: THREE }), []);
+  const src = stripComments(read('lib/vendor-verification.ts'));
+  assert.doesNotMatch(src, /registrationNumberOnFile|Add your government registration number/, 'Submit asks for a typed registration number again');
+  for (const rel of [
+    'app/vendor-dashboard/shop/inline-docs-actions.ts',
+    'app/vendor-dashboard/profile/details-data.ts',
+    'lib/vendor-first-steps.server.ts',
+  ]) {
+    assert.match(stripComments(read(rel)), /verificationSubmitMissing\(\{ uploads \}\)/, `${rel} feeds the submit gate more than the papers`);
+  }
 });

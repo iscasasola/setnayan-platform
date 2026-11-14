@@ -1,6 +1,7 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Plus } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -50,19 +51,24 @@ export default async function VendorContractsPage() {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Contracts</h1>
-          <p className="mt-1 text-sm text-ink/65">
-            Upload a contract PDF and make it visible to the couple for
-            reference. Signing happens between you and the couple externally —
-            Setnayan hosts the file but does not facilitate signatures.
-          </p>
+          <InfoTip
+            label="Upload a contract PDF and make it visible to the couple for reference."
+            labelAs="p"
+            className="mt-1"
+            labelClassName="text-sm text-[color:var(--m-slate-2)]"
+            align="start"
+          >
+            Signing happens between you and the couple externally — Setnayan hosts the file but does not facilitate
+            signatures.
+          </InfoTip>
         </div>
-        <Link
+        <ActionButton
           href="/vendor-dashboard/contracts/new"
-          className="button-primary inline-flex items-center justify-center gap-2 text-sm"
-        >
-          <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Upload new contract
-        </Link>
+          tone="brand"
+          main
+          icon={<Plus aria-hidden />}
+          label="Upload new contract"
+        />
       </header>
 
       {contracts.length === 0 ? (

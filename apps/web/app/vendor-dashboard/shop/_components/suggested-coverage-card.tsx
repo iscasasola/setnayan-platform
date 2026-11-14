@@ -116,7 +116,7 @@ export function SuggestedCoverageCard({
               className="inline-flex min-h-11 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors disabled:opacity-60"
               style={
                 active
-                  ? { borderColor: 'var(--m-accent-deep)', background: 'var(--m-accent-deep)', color: '#fff' }
+                  ? { borderColor: 'var(--m-accent-deep)', background: 'var(--m-accent-deep)', color: 'rgb(var(--sn-on-accent))' }
                   : { borderColor: 'var(--m-line)', color: 'var(--m-ink)' }
               }
               aria-pressed={active}

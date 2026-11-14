@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarPlus, Check, Clock, Eye, Lock, LockOpen, MapPin, MessageSquarePlus, Plus, Trash2, Undo2, X } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Check, ChevronRight, Clock, Eye, Lock, LockOpen, MapPin, MessageSquarePlus, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { Sheet } from '@/app/_components/sheet';
@@ -302,9 +302,10 @@ export function SupplierSchedule({
                         type="button"
                         data-my-moment={m.block_id}
                         onClick={() => setSheet({ kind: 'moment', chapter: c, moment: m })}
-                        className="sn-press my-1 flex min-h-11 w-full items-start gap-3 rounded-xl border border-ink/15 px-3 py-2 text-left"
+                        className="sn-press flex min-h-14 w-full items-start gap-3 px-3 py-2 text-left"
                       >
                         <MomentLine m={m} tasksRead={tasksRead} clashes={elsewhere?.[m.block_id] ?? []} />
+                        <ChevronRight aria-hidden className="mt-0.5 h-4 w-4 flex-none self-center text-mulberry" strokeWidth={2.2} />
                       </button>
                     ) : (
                       <div data-their-moment={m.block_id} aria-disabled="true" className="flex min-h-11 items-start gap-3 px-3 py-2 opacity-55">
@@ -348,7 +349,7 @@ export function SupplierSchedule({
         </p>
       ) : asked.filter((a) => !answeredNow.includes(a.suggestion_id)).length > 0 ? (
         <section data-asked-of-you="" aria-label="Asked of you">
-          <InfoTip label="Asked of you" labelAs="h3" labelClassName="font-mono text-xs uppercase tracking-[0.2em] text-ink/70" align="start">
+          <InfoTip label="Asked of you" labelAs="h3" labelClassName="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]" align="start">
             The hosts or their coordinator ask you to change your times. Accept moves the moment on their schedule at
             once; Decline tells them, with your reason.
           </InfoTip>
@@ -382,7 +383,7 @@ export function SupplierSchedule({
 
       {day.otherWaiting.length > 0 ? (
         <section aria-label="Also waiting for the host">
-          <h3 className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">Also waiting</h3>
+          <h3 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Also waiting</h3>
           <ul className="mt-1 divide-y divide-ink/10">
             {day.otherWaiting.map((r) => (
               <WaitingRow
@@ -399,7 +400,7 @@ export function SupplierSchedule({
 
       {answered.length > 0 ? (
         <section aria-label="Your answered requests">
-          <h3 className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">Answered</h3>
+          <h3 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Answered</h3>
           <ul className="mt-1 space-y-1">
             {answered.map((r) => (
               <li key={r.suggestion_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">

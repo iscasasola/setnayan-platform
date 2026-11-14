@@ -133,11 +133,13 @@ test('A VERIFIED SHOP CAN STILL REACH ITS PAPERS — no early return may come ba
   );
   // The badge card survives, as a branch rather than a return.
   assert.match(src, /\{isVerified \? \(/);
-  // …and the documents step opens for them.
-  assert.match(src, /isVerified \|\| profileComplete/);
+  // …and the documents step opens for them — for every shop, verified or not, with papers missing. Since the
+  // profile gate was removed (owner 2026-11-14, "Yes, remove it") nothing but missing papers decides it.
+  assert.match(src, /useState<boolean>\(\(\) => !verify\.requiredDocsIn && !submitted\)/);
+  assert.doesNotMatch(src, /profileComplete/, 'the papers step is gated on the business profile again');
 });
 
-test('the pairs cover exactly the four papers the submit gate requires', () => {
+test('the pairs cover exactly the three papers the submit gate requires (owner 2026-11-14, DECISION_LOG f69ec167)', () => {
   const src = stripComments(read(PAIRS));
   for (const pair of VERIFICATION_PAIRS) {
     assert.ok(
@@ -148,6 +150,7 @@ test('the pairs cover exactly the four papers the submit gate requires', () => {
   }
   // No paper may be hand-named in the screen — the list is the model's.
   for (const slot of ['bir_2303', 'mayors_permit', 'bank_account_proof']) {
+    // bank_account_proof stays in this list on purpose: it was retired 2026-11-14 and must not be hand-added back.
     assert.ok(!new RegExp(`'${slot}'`).test(src), `verify-pairs hand-names ${slot}`);
   }
 });

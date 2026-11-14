@@ -13,8 +13,10 @@
  * order count prints "—" plus the same sentence — never 0, which would read as
  * a fact about the business (app/admin/admin-reads-say-couldnt-read.test.ts).
  *
- * Server component, no client code: the chart is static SVG; the range is a
- * GET form. Frames only on what you press — sections are divided, not boxed.
+ * Server component; the chart is static SVG. The range is the one dropdown row
+ * (`InsightsParamPick`), which moves `?range=` — the old native select + Apply
+ * GET form went (approved drawing, insights.html › Visits; one-selector rule).
+ * Drawn with the shared Insights parts — frames only on what you press.
  */
 import { Footprints } from 'lucide-react';
 
@@ -23,6 +25,8 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { ReadFailed } from '@/app/admin/_components/read-failed';
 import { formatCount } from '@/lib/format-number';
 import { GROWTH_RANGE_OPTIONS, type GrowthRangeKey } from '@/lib/admin/growth-stats';
+import { Mix, Note, Nums, One, Sec } from '../_components/insights-parts';
+import { InsightsParamPick } from '../_components/insights-param-pick';
 import {
   countryLabel,
   deviceLabel,
@@ -129,16 +133,6 @@ function ShareRows({ rows, label }: { rows: { key: string; label: string; value:
   );
 }
 
-function Figure({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="min-w-0 py-3">
-      <dt className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">{label}</dt>
-      <dd className="mt-1 text-2xl font-semibold tabular-nums text-ink">{value}</dd>
-      {sub ? <dd className="text-[12px] text-ink/55">{sub}</dd> : null}
-    </div>
-  );
-}
-
 export function VisitsView({ stats, range }: { stats: VisitStats; range: GrowthRangeKey }) {
   const { summary } = stats;
   const unread = summary === null;
@@ -149,68 +143,52 @@ export function VisitsView({ stats, range }: { stats: VisitStats; range: GrowthR
   const funnelUnread = unread || stats.signUps === null || stats.paidOrders === null;
 
   return (
-    <div className="space-y-10">
-      <PageMasthead
-        title="Visits"
-        className="mb-2"
-        actions={
-          stats.demo ? (
-            <span className="rounded-full border border-warn-300/70 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-warn-800">
-              Illustrative demo data
-            </span>
-          ) : null
-        }
-      />
+    <div className="max-w-3xl">
+      <PageMasthead title="Visits" className="mb-0" />
+      {stats.demo ? (
+        <One label="Illustrative demo data">
+          Sample figures so you can see the shape of this view before real data accrues. Turn demo data off to see live
+          counts.
+        </One>
+      ) : null}
 
-      {/* Range picker — GET form, no client JS (the Growth tab's own). */}
-      <form method="get" className="flex flex-wrap items-center gap-2">
-        <input type="hidden" name="tab" value="visits" />
-        <label htmlFor="visits-range" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-          Range
-        </label>
-        <select id="visits-range" name="range" defaultValue={range} className="input-field h-11 max-w-[14rem] py-0 text-sm">
-          {GROWTH_RANGE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="button-secondary h-11 px-4 text-sm">
-          Apply
-        </button>
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          {countedSince ? `Counting since ${countedSince}` : `Since ${stats.sinceDay}`}
-        </span>
-      </form>
+      {/* Range — the one dropdown (approved drawing: fr('Range', …)), never a native select with an Apply. */}
+      <InsightsParamPick
+        name="Range"
+        param="range"
+        value={range}
+        options={GROWTH_RANGE_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
+        about={countedSince ? `Counting since ${countedSince}.` : `Since ${stats.sinceDay}.`}
+      />
 
       {/* ── 1 · the four numbers + the funnel line ─────────────────────── */}
       <section aria-labelledby="visits-numbers">
         <h2 id="visits-numbers" className="sr-only">
           Visits in this range
         </h2>
-        <dl className="grid grid-cols-2 gap-x-6 divide-ink/10 border-y border-ink/10 sm:grid-cols-4" data-testid="visits-figures">
-          <Figure label="Visitors" value={unread ? '—' : formatCount(t.visitors)} sub="counted once a day" />
-          <Figure label="Page views" value={unread ? '—' : formatCount(t.views)} />
-          <Figure label="Sign-ups" value={stats.signUps === null ? '—' : formatCount(stats.signUps)} />
-          <Figure label="Paid orders" value={stats.paidOrders === null ? '—' : formatCount(stats.paidOrders)} />
-        </dl>
-        {unread ? (
-          <div className="mt-3">
-            <ReadFailed what="the visits" />
-          </div>
-        ) : null}
+        <Nums
+          data="visits-figures"
+          testId="visits-figures"
+          items={[
+            { value: unread ? null : t.visitors, label: 'visitors · counted once a day' },
+            { value: unread ? null : t.views, label: 'page views' },
+            { value: stats.signUps, label: 'sign-ups', href: '/admin/app-performance?tab=growth' },
+            { value: stats.paidOrders, label: 'paid orders', href: '/admin/money' },
+          ]}
+        />
+        {unread ? <ReadFailed what="the visits" /> : null}
         {stats.signUps === null ? (
-          <div className="mt-3">
+          <div className="mt-2">
             <ReadFailed what="the sign-ups" />
           </div>
         ) : null}
         {stats.paidOrders === null ? (
-          <div className="mt-3">
+          <div className="mt-2">
             <ReadFailed what="the paid orders" />
           </div>
         ) : null}
         {funnelUnread ? null : (
-          <p className="mt-3 text-sm text-ink/75" data-testid="visits-funnel">
+          <p className="mt-1 text-[13px] text-ink/70" data-testid="visits-funnel">
             <span className="font-semibold tabular-nums text-ink">{formatCount(t.visitors)}</span> visitors →{' '}
             <span className="font-semibold tabular-nums text-ink">{formatCount(stats.signUps ?? 0)}</span> sign-ups (
             {pct(share(stats.signUps ?? 0, t.visitors))}) →{' '}
@@ -221,37 +199,34 @@ export function VisitsView({ stats, range }: { stats: VisitStats; range: GrowthR
       </section>
 
       {unread ? null : (
-        <>
-          {/* ── 2 · per day ───────────────────────────────────────────── */}
-          <section aria-labelledby="visits-per-day">
-            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id="visits-per-day" className="text-base font-semibold text-ink">
-                Per day
-              </h2>
-              <p className="flex flex-wrap items-center gap-3 text-[11px] text-ink/55">
+        <section aria-labelledby="visits-per-day">
+          <Sec
+            id="visits-per-day"
+            title="Per day"
+            about="Visitors as the line, page views as the bars, on one shared scale."
+            right={
+              <span className="flex flex-wrap items-center gap-3 text-[11px] text-ink/55">
                 <Legend color={VISITORS} label="visitors" line />
                 <Legend color={VIEWS} label="page views" />
-              </p>
-            </div>
-            {t.views === 0 ? (
-              <p className="text-sm text-ink/60">No visits counted in this range yet.</p>
-            ) : (
-              <DayChart days={days} />
-            )}
-          </section>
-        </>
+              </span>
+            }
+          />
+          {t.views === 0 ? (
+            <p className="text-[13px] text-ink/60">No visits counted in this range yet.</p>
+          ) : (
+            <DayChart days={days} />
+          )}
+        </section>
       )}
 
       {/* ── 3 · top pages ─────────────────────────────────────────── */}
       <section aria-labelledby="visits-pages">
-        <h2 id="visits-pages" className="mb-3 text-base font-semibold text-ink">
-          Top pages
-        </h2>
+        <Sec id="visits-pages" title="Top pages" />
         <ConsoleTable
           label="Top pages"
           reads="visits"
           rows={summary ? summary.pages : null}
-        readError={summary ? null : { message: 'The visits could not be read (the server log says why).' }}
+          readError={summary ? null : { message: 'The visits could not be read (the server log says why).' }}
           rowKey={(p) => p.path}
           readPermitted
           minWidth="18rem"
@@ -272,68 +247,57 @@ export function VisitsView({ stats, range }: { stats: VisitStats; range: GrowthR
         />
       </section>
 
-
       {unread ? null : (
         <>
-
           {/* ── 4 · where they came from · phone or computer · country ─── */}
-          <div className="grid gap-10 lg:grid-cols-3">
-            <section aria-labelledby="visits-sources">
-              <h2 id="visits-sources" className="mb-3 text-base font-semibold text-ink">
-                Where visitors came from
-              </h2>
-              {summary.sources.length === 0 ? (
-                <p className="text-sm text-ink/60">No visitors counted in this range yet.</p>
-              ) : (
-                <ShareRows
-                  label="Visitors by source"
-                  rows={summary.sources.map((s) => ({ key: `${s.source}|${s.utm_source}`, label: sourceLabel(s), value: s.visitors }))}
-                />
-              )}
-            </section>
+          <section aria-labelledby="visits-sources">
+            <Sec id="visits-sources" title="Where visitors came from" />
+            {summary.sources.length === 0 ? (
+              <p className="text-[13px] text-ink/60">No visitors counted in this range yet.</p>
+            ) : (
+              <ShareRows
+                label="Visitors by source"
+                rows={summary.sources.map((s) => ({ key: `${s.source}|${s.utm_source}`, label: sourceLabel(s), value: s.visitors }))}
+              />
+            )}
+          </section>
 
-            <section aria-labelledby="visits-devices">
-              <h2 id="visits-devices" className="mb-3 text-base font-semibold text-ink">
-                Phone or computer
-              </h2>
-              {deviceTotal === 0 ? (
-                <p className="text-sm text-ink/60">No visitors counted in this range yet.</p>
-              ) : (
-                <ul aria-label="Visitors by device" className="divide-y divide-ink/10 border-y border-ink/10" data-testid="visits-devices">
-                  {summary.devices.map((d) => (
-                    <li key={d.device} className="flex items-baseline justify-between gap-4 py-2.5 text-sm">
-                      <span className="text-ink">{deviceLabel(d.device)}</span>
-                      <span className="tabular-nums text-ink/80">
-                        {pct(share(d.visitors, deviceTotal))}
-                        <span className="ml-2 text-[12px] text-ink/50">{formatCount(d.visitors)}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section aria-labelledby="visits-countries">
-              <h2 id="visits-countries" className="mb-3 text-base font-semibold text-ink">
-                Countries
-              </h2>
-              {summary.countries.length === 0 ? (
-                <p className="text-sm text-ink/60">No visitors counted in this range yet.</p>
-              ) : (
-                <ShareRows
-                  label="Visitors by country"
-                  rows={summary.countries.map((c) => ({ key: c.country || '—', label: countryLabel(c.country), value: c.visitors }))}
+          <section aria-labelledby="visits-devices">
+            <Sec id="visits-devices" title="Phone or computer" />
+            {deviceTotal === 0 ? (
+              <p className="text-[13px] text-ink/60">No visitors counted in this range yet.</p>
+            ) : (
+              <div data-testid="visits-devices">
+                <Mix
+                  label="Visitors by device"
+                  parts={summary.devices.map((d) => ({
+                    label: deviceLabel(d.device),
+                    value: d.visitors,
+                    legend: `${deviceLabel(d.device)} ${pct(share(d.visitors, deviceTotal))} · ${formatCount(d.visitors)}`,
+                  }))}
                 />
-              )}
-            </section>
-          </div>
+              </div>
+            )}
+          </section>
+
+          <section aria-labelledby="visits-countries">
+            <Sec id="visits-countries" title="Countries" />
+            {summary.countries.length === 0 ? (
+              <p className="text-[13px] text-ink/60">No visitors counted in this range yet.</p>
+            ) : (
+              <ShareRows
+                label="Visitors by country"
+                rows={summary.countries.map((c) => ({ key: c.country || '—', label: countryLabel(c.country), value: c.visitors }))}
+              />
+            )}
+          </section>
         </>
       )}
 
-      <p className="max-w-prose border-t border-ink/10 pt-4 text-[12px] text-ink/55">
-        Counted on our own database — no cookie, nothing kept in the visitor&apos;s browser, and not in the iPhone or Android
-        app. A visitor is counted once a day; the same person on two days counts twice.
-      </p>
+      <Note label="No cookie">
+        Counted on our own database — no cookie, nothing kept in the visitor&apos;s browser, and not in the iPhone or
+        Android app. A visitor is counted once a day; the same person on two days counts twice.
+      </Note>
     </div>
   );
 }

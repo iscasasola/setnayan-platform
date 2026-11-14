@@ -61,7 +61,7 @@ export function FindInspirationRow({ board, href }: { board: FindInspiration; hr
               </span>
             ))
           ) : (
-            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-ink/[0.06] text-ink/45">
+            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-ink/[0.06] text-ink/70">
               <Plus className="h-4 w-4" strokeWidth={2} />
             </span>
           )}
@@ -69,14 +69,14 @@ export function FindInspirationRow({ board, href }: { board: FindInspiration; hr
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-semibold text-ink">{W.rowTitle}</span>
           <span
-            className={`block text-[13px] leading-snug ${board.read === 'unread' ? 'text-terracotta-700' : 'text-ink/60'}`}
+            className={`block text-[13px] leading-snug ${board.read === 'unread' ? 'text-terracotta-700' : 'text-ink/70'}`}
             role={board.read === 'unread' ? 'alert' : undefined}
             data-find-inspiration-line=""
           >
             {inspirationRowLine(board)}
           </span>
         </span>
-        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
+        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
       </Link>
       <Explain title={W.rowTitle} data="find-inspiration">
         {W.info}
@@ -116,7 +116,7 @@ export function FindInspirationStrip({
   return (
     <div className="mb-3" data-find-inspiration-strip={tile}>
       <div className="mb-1.5 flex items-baseline justify-between">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">{head}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">{head}</p>
         {parts.length > 0 ? (
           <Link href={href} scroll={false} className="inline-flex min-h-11 items-center px-1 text-[13px] font-medium text-terracotta-700">
             {more} ›
@@ -133,19 +133,19 @@ export function FindInspirationStrip({
                   <img src={p.cover} alt="" loading="lazy" className="h-full w-full object-cover" />
                 ) : null}
                 {p.onList ? (
-                  <span className="absolute left-1.5 top-1.5 rounded-full bg-cream px-1.5 py-0.5 text-[12px] font-semibold text-success-900" data-find-inspiration-onlist="">
+                  <span className="absolute left-1.5 top-1.5 rounded-full bg-cream px-1.5 py-0.5 text-xs font-semibold text-success-900" data-find-inspiration-onlist="">
                     {W.onList}
                   </span>
                 ) : null}
               </span>
               <span className="mt-1 block truncate text-[13px] font-medium text-ink">{p.label}</span>
-              <span className="block text-[12px] text-ink/55">{partCountLine(p.count)}</span>
+              <span className="block text-xs text-ink/70">{partCountLine(p.count)}</span>
             </Link>
           </li>
         ))}
         <li className="w-[104px] shrink-0 snap-start" data-find-inspiration-add="">
           <Link href={href} scroll={false} className="block rounded-xl p-1 hover:bg-ink/[0.04]">
-            <span className="flex h-[104px] items-center justify-center rounded-lg bg-ink/[0.04] text-ink/50">
+            <span className="flex h-[104px] items-center justify-center rounded-lg bg-ink/[0.04] text-ink/70">
               <Plus className="h-5 w-5" strokeWidth={1.9} aria-hidden />
             </span>
             <span className="mt-1 block text-[13px] font-medium text-ink">{W.addPart}</span>
@@ -189,12 +189,12 @@ export function FindLikedIdeas({
   const ask = cardVerbWords('ask');
   return (
     <div className="mb-3" data-find-liked={tile}>
-      <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
         {W.likedHead}
         {liked.length > 0 ? ` · ${formatCount(liked.length)}` : ''}
       </p>
       {liked.length === 0 ? (
-        <p className="text-[13px] text-ink/55" data-find-liked-empty="">
+        <p className="text-[13px] text-ink/70" data-find-liked-empty="">
           {likedEmptyLine(label)}
         </p>
       ) : (
@@ -207,7 +207,7 @@ export function FindLikedIdeas({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.imageUrl} alt={p.part} loading="lazy" className="h-full w-full object-cover" />
                 </span>
-                <span className="mt-1 block truncate text-[12.5px] text-ink/60">{p.part}</span>
+                <span className="mt-1 block truncate text-[12.5px] text-ink/70">{p.part}</span>
                 {from && p.onList ? (
                   <button
                     type="button"
@@ -235,7 +235,7 @@ export function FindLikedIdeas({
                   </>
                 ) : (
                   <>
-                    <span className="block text-[12.5px] text-ink/55" data-find-liked-source={p.vendorProfileId ? 'unread' : 'community'}>
+                    <span className="block text-[12.5px] text-ink/70" data-find-liked-source={p.vendorProfileId ? 'unread' : 'community'}>
                       {likedSourceWord(p)}
                     </span>
                     <button

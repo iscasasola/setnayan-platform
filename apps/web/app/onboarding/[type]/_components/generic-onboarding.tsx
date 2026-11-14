@@ -1,5 +1,6 @@
 'use client';
 
+import { withNewInquireEvent } from '@/lib/shop-inquire';
 import { EVENT_DATE_FLOOR_MESSAGE, eventDatesFloorRefusal, isBeforeFirstEventDay } from '@/lib/event-date-floor';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import {
@@ -241,6 +242,9 @@ const TOP_RING =
   '-my-1.5 -ml-1.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink disabled:opacity-40 focus-visible:outline-none [&:focus-visible>span]:ring-2 [&:focus-visible>span]:ring-mulberry';
 const TOP_RING_FACE =
   'inline-flex h-[34px] w-[34px] items-center justify-center rounded-full border border-ink/20 transition-colors hover:border-ink';
+
+/** CYC-04: two forward steps closer together than this are one tap landing twice (a person cannot read a card faster). */
+export const FORWARD_HOLD_MS = 450;
 
 export function GenericOnboarding(props: Props) {
   const {
@@ -910,15 +914,23 @@ export function GenericOnboarding(props: Props) {
     return out;
   }, [eventType, honoree, knownBirthdayAge, momentForSelf, selfName, derivedMilestone]);
 
+  // 👤 CYC-02 (walk 13 Nov): what THIS effect last wrote. A value that still equals it was never typed by the person —
+  // it is ours, so a newer fact replaces it. Step 1 answered "Test" after the account name had been filled in as the
+  // celebrant: the field was no longer a hole, so step 3 kept the account holder's name over the person they named.
+  const lastDerived = useRef<Record<string, unknown>>({});
   useEffect(() => {
     if (!hydrated) return;
     const keys = Object.keys(derivedSpecialty);
     if (keys.length === 0) return;
+    const before = lastDerived.current;
+    lastDerived.current = derivedSpecialty;
     setSpecialtyValues((v) => {
       // `''`, `null` and `undefined` are all "unanswered"; a real 0 is not, and
       // a birthday age can never be 0 anyway. Comparing against the hole rather
       // than against falsiness is what keeps a typed answer safe.
-      const holes = keys.filter((k) => v[k] === undefined || v[k] === null || v[k] === '');
+      const holes = keys.filter(
+        (k) => v[k] === undefined || v[k] === null || v[k] === '' || (k in before && v[k] === before[k] && v[k] !== derivedSpecialty[k]),
+      );
       if (holes.length === 0) return v;
       const next = { ...v };
       for (const k of holes) next[k] = derivedSpecialty[k];
@@ -968,8 +980,17 @@ export function GenericOnboarding(props: Props) {
     age: knownBirthdayAge,
   });
 
+  // 👆 CYC-04 (walk 13 Nov): "Use a theme picture for now" answers AND moves on, and the next card ("Pick a look") opens
+  // with its own quick answer in the same spot — so the phone's one tap could land twice and "Pick a look" went by
+  // unseen. A forward step taken within FORWARD_HOLD_MS of the last one is the same tap, not a second answer.
+  const lastForwardAt = useRef(0);
   const go = useCallback(
     (delta: number) => {
+      if (delta > 0) {
+        const now = Date.now();
+        if (now - lastForwardAt.current < FORWARD_HOLD_MS) return;
+        lastForwardAt.current = now;
+      }
       setError(null);
       setStep((s) => {
         const clamp = (n: number) => Math.max(0, Math.min(screens.length - 1, n));
@@ -1138,7 +1159,7 @@ export function GenericOnboarding(props: Props) {
         // The guests card picks the landing (`setupLanding`): a way to add
         // them opens the Guest list; "later" lands on Home.
         router.replace(
-          res.paymentPath ?? nextPath ?? setupLanding(res.eventId, engine && setupAnswers ? needsSetup(setupAnswers) : null),
+          res.paymentPath ?? (nextPath ? withNewInquireEvent(nextPath, res.eventId) : null) ?? setupLanding(res.eventId, engine && setupAnswers ? needsSetup(setupAnswers) : null),
         );
         return;
       }

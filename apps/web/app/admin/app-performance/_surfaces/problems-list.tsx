@@ -8,14 +8,24 @@
  * once a newer build is live and they stop recurring for 48 h, and reopen if
  * they come back. Then "where people stop" for the guided flows.
  *
- * Server component, no client JS and no server action: the read is
- * `readFaultIssues()` (lib/telemetry/fault-issues.server.ts), the same one the
- * controller uses to feed the change tracker. Rendered inside the existing
- * Connection Logs surface — no new page, no new route.
+ * Server component, no server action: the read is `readFaultIssues()`
+ * (lib/telemetry/fault-issues.server.ts), the same one the controller uses to
+ * feed the change tracker. Rendered inside the existing Connection Logs
+ * surface — no new page, no new route.
+ *
+ * Drawn to the approved drawing (admin_pub/insights.html › Problems, 14 Nov
+ * 2026): the explanation lives in the opening ⓘ, each issue is a hairline row
+ * that opens in place (the house `Fold`) onto its facts and its folded trace,
+ * "Where people stop" and "Recently closed" are folds too — no cards (T18).
  */
 
+import type { ReactNode } from 'react';
+
+import { Fold } from '@/app/_components/fold';
 import { formatCount } from '@/lib/format-number';
 import { readFaultIssues, type FaultIssue } from '@/lib/telemetry/fault-issues.server';
+
+import { Badge, Facts, One, Sec } from '../_components/insights-parts';
 
 function ago(iso: string): string {
   const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
@@ -26,54 +36,45 @@ function ago(iso: string): string {
 }
 
 function IssueRow({ issue }: { issue: FaultIssue }) {
+  const seen = `${formatCount(issue.hit_count)} times · first ${ago(issue.first_seen)} · last ${ago(issue.last_seen)}`;
+  const facts: [string, ReactNode][] = [
+    ['Kind', issue.kind],
+    ['What', <span key="what" className="break-all font-mono text-[13px]">{issue.action}</span>],
+  ];
+  if (issue.page) facts.push(['Page', <span key="page" className="break-all font-mono text-[13px]">{issue.page}</span>]);
+  if (issue.message) facts.push(['Error', <span key="error" className="break-words font-mono text-[13px]">{issue.message}</span>]);
+  facts.push(['Seen', seen]);
+  facts.push([
+    'Build',
+    <span key="build" className="font-mono text-[13px]">
+      {issue.last_build_sha ? issue.last_build_sha.slice(0, 7) : 'unknown'}
+      {issue.first_build_sha && issue.first_build_sha !== issue.last_build_sha
+        ? ` (first on ${issue.first_build_sha.slice(0, 7)})`
+        : ''}
+    </span>,
+  ]);
   return (
-    <li className="m-card px-4 py-3">
-      <details>
-        <summary className="cursor-pointer list-none text-sm leading-snug text-[#1B1A17]">
-          <span className="font-medium">{issue.line}</span>
-          {issue.reopened_count > 0 ? (
-            <span className="ml-2 rounded-full bg-danger-100 px-2 py-0.5 text-[11px] text-danger-800">
-              came back ×{formatCount(issue.reopened_count)}
-            </span>
-          ) : null}
-        </summary>
-        <dl className="mt-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs text-ink/75">
-          <dt className="text-ink/50">Kind</dt>
-          <dd>{issue.kind}</dd>
-          <dt className="text-ink/50">What</dt>
-          <dd className="break-all font-mono">{issue.action}</dd>
-          {issue.page ? (
-            <>
-              <dt className="text-ink/50">Page</dt>
-              <dd className="break-all font-mono">{issue.page}</dd>
-            </>
-          ) : null}
-          {issue.message ? (
-            <>
-              <dt className="text-ink/50">Error</dt>
-              <dd className="break-words font-mono">{issue.message}</dd>
-            </>
-          ) : null}
-          <dt className="text-ink/50">Seen</dt>
-          <dd>
-            {formatCount(issue.hit_count)} times · first {ago(issue.first_seen)} · last {ago(issue.last_seen)}
-          </dd>
-          <dt className="text-ink/50">Build</dt>
-          <dd className="font-mono">
-            {issue.last_build_sha ? issue.last_build_sha.slice(0, 7) : 'unknown'}
-            {issue.first_build_sha && issue.first_build_sha !== issue.last_build_sha
-              ? ` (first on ${issue.first_build_sha.slice(0, 7)})`
-              : ''}
-          </dd>
-          <dt className="text-ink/50">Trace</dt>
-          <dd>
-            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded bg-[#1B1A17]/5 p-2 font-mono text-[11px]">
-              {JSON.stringify(issue.last_trace, null, 2)}
-            </pre>
-          </dd>
-        </dl>
-      </details>
-    </li>
+    <Fold
+      data="problem-issue"
+      className="border-t border-ink/10"
+      title={issue.line}
+      line={seen}
+      wrap
+      aside={
+        issue.reopened_count > 0 ? (
+          <Badge tone="danger">came back ×{formatCount(issue.reopened_count)}</Badge>
+        ) : undefined
+      }
+    >
+      <div className="pb-3">
+        <Facts rows={facts} />
+        <Fold title="Trace" summary="JSON" className="border-t border-ink/10">
+          <pre className="mb-2 max-h-64 overflow-auto whitespace-pre-wrap break-all rounded bg-ink/5 p-2 font-mono text-[11px] text-ink/80">
+            {JSON.stringify(issue.last_trace, null, 2)}
+          </pre>
+        </Fold>
+      </div>
+    </Fold>
   );
 }
 
@@ -81,66 +82,75 @@ export async function ProblemsList() {
   const read = await readFaultIssues();
   if (!read.ok) {
     return (
-      <div role="alert" className="rounded-card bg-[var(--sn-warning-soft)] p-6 text-center text-sm text-ink">
+      <div role="alert" className="rounded-lg bg-[var(--sn-warning-soft)] px-3 py-2 text-sm text-ink">
         Couldn&rsquo;t load the Problems list — refresh to try again. This is not an all-clear.
       </div>
     );
   }
   return (
-    <section aria-label="Problems" className="space-y-4">
-      <p className="max-w-2xl text-sm leading-relaxed text-ink/70">
-        Every failed action, tap that did nothing, and dead end — grouped, most-hit first. An issue
-        closes itself once a newer build is live and it has not come back for 48 hours.
-      </p>
+    <section aria-label="Problems">
+      <One label="Most-hit first · closes itself">
+        Every failed action, tap that did nothing, and dead end — grouped, most-hit first. An issue closes itself once a
+        newer build is live and it has not come back for 48 hours.
+      </One>
 
+      <Sec title="Open" count={read.open.length} />
       {read.open.length === 0 ? (
-        <p className="m-card px-4 py-3 text-sm text-ink/70">
-          Nothing open. Every recorded problem has stopped happening.
-        </p>
+        <div className="border-t border-ink/10 py-3">
+          <p className="text-[15px] font-semibold text-ink">Nothing open.</p>
+          <p className="text-[13px] text-ink/65">Every recorded problem has stopped happening.</p>
+        </div>
       ) : (
-        <ul className="space-y-2">
+        <div data-insights-rows="problems-open">
           {read.open.map((i) => (
             <IssueRow key={i.id} issue={i} />
           ))}
-        </ul>
+        </div>
       )}
 
       {read.dropOffs.length > 0 ? (
-        <div className="space-y-2">
-          <h2 className="m-label-mono text-[11px] uppercase tracking-[0.18em] text-[#8A6B39]">
-            Where people stop
-          </h2>
-          <ul className="space-y-2">
+        <>
+          <Sec
+            title="Where people stop"
+            about="Each flow’s steps: how many reached each step and how many stopped there. The worst step is marked."
+          />
+          <div data-insights-rows="problems-drop-offs">
             {read.dropOffs.map((d) => (
-              <li key={d.flow} className="m-card px-4 py-3">
-                <details>
-                  <summary className="cursor-pointer list-none text-sm font-medium text-[#1B1A17]">{d.line}</summary>
-                  <ol className="mt-2 space-y-0.5 text-xs text-ink/75">
-                    {d.steps
-                      .filter((s) => s.reached > 0)
-                      .map((s) => (
-                        <li key={s.step} className={d.worst?.step === s.step ? 'font-semibold text-danger-800' : ''}>
-                          {s.step.replace(/_/g, ' ')} — {formatCount(s.reached)} reached
-                          {s.stoppedHere > 0 ? ` · ${formatCount(s.stoppedHere)} stopped here` : ''}
-                        </li>
-                      ))}
-                  </ol>
-                </details>
-              </li>
+              <Fold key={d.flow} data="problem-flow" className="border-t border-ink/10" title={d.line} wrap>
+                <ol className="pb-3">
+                  {d.steps
+                    .filter((s) => s.reached > 0)
+                    .map((s) => (
+                      <li
+                        key={s.step}
+                        className={`border-t border-ink/10 py-2 text-[13px] ${
+                          d.worst?.step === s.step ? 'font-semibold text-[var(--sn-danger)]' : 'text-ink/75'
+                        }`}
+                      >
+                        {s.step.replace(/_/g, ' ')} — {formatCount(s.reached)} reached
+                        {s.stoppedHere > 0 ? ` · ${formatCount(s.stoppedHere)} stopped here` : ''}
+                      </li>
+                    ))}
+                </ol>
+              </Fold>
             ))}
-          </ul>
-        </div>
+          </div>
+        </>
       ) : null}
 
       {read.closed.length > 0 ? (
-        <details className="text-sm">
-          <summary className="cursor-pointer text-ink/60">Recently closed ({read.closed.length})</summary>
-          <ul className="mt-2 space-y-2 opacity-70">
+        <Fold
+          data="problems-closed"
+          className="mt-3 border-y border-ink/10"
+          title={`Recently closed (${read.closed.length})`}
+          summary="stopped happening for 48 h on a newer build"
+        >
+          <div className="opacity-70">
             {read.closed.map((i) => (
               <IssueRow key={i.id} issue={i} />
             ))}
-          </ul>
-        </details>
+          </div>
+        </Fold>
       ) : null}
     </section>
   );

@@ -26,6 +26,7 @@
  * 🔑 A label is type · venue · month — never a couple's name, never a date. A private event shows no venue.
  * 🔑 A card's own cover/showcase photos are the SUPPLIER'S OWN — "yours, not from an event", never proof.
  */
+import { albumInspirations, type AlbumInspiration, type TagPart } from '@/lib/inspiration-tags';
 import { formatCount } from './format-number';
 import { formatEventTypeLabel } from './reviews';
 
@@ -236,11 +237,20 @@ export const workAlbumAnchor = (eventId: string) => `album-${eventId}`;
  * What a screen draws for one album — NO event id, no card id (the couple's page must never carry a couple's event id
  * in its payload). `href` is set only on the supplier's own screens.
  */
-export type AlbumView = { key: string; label: string; line: string; urls: string[]; more: number; href: string | null };
+export type AlbumView = {
+  key: string;
+  label: string;
+  line: string;
+  urls: string[];
+  more: number;
+  href: string | null;
+  /** 🏷 Frame 6 (DECISION_LOG 2026-11-14): which inspirations this album's photos are in, with a count. Supplier screens only. */
+  inspirations?: AlbumInspiration[];
+};
 
 export function toAlbumViews(
   albums: readonly CardAlbum[],
-  opts: { href?: ((eventId: string) => string) | null } = {},
+  opts: { href?: ((eventId: string) => string) | null; tags?: ReadonlyMap<string, readonly TagPart[]> | null } = {},
 ): AlbumView[] {
   return albums.map((a, i) => {
     const urls = a.photos.slice(0, ALBUM_STRIP_MAX).map((p) => p.url);
@@ -251,6 +261,7 @@ export function toAlbumViews(
       urls,
       more: Math.max(0, a.photos.length - urls.length),
       href: opts.href ? opts.href(a.album.eventId) : null,
+      ...(opts.tags ? { inspirations: albumInspirations(a.photos.map((p) => p.key), opts.tags) } : {}),
     };
   });
 }

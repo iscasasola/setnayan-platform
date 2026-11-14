@@ -13,6 +13,7 @@ import {
 } from '@/lib/agreed-total-and-its-changes';
 import { lockMayOverwritePlan, redateOnLockInstalments } from '@/lib/self-added-payment-plan';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
+import { scheduleRowsFromAcceptedQuote } from '@/lib/accepted-quote-plan';
 
 /**
  * lib/booking-payment-plan.server.ts — THE PAYMENT PLAN OF A BOOKING IS FROZEN
@@ -149,6 +150,27 @@ export async function freezePaymentPlanAtBooking(
       console.error(`[${tag}] payment-plan schedule read failed:`, rowsErr.message);
     }
     scheduleRows = (rows ?? []) as PaymentScheduleItemRow[];
+  }
+
+  // 🔴 PAY-01 (live, 14 Nov 2026): no service schedule ⇒ the plan is the ACCEPTED QUOTE's schedule — the
+  // amounts both sides agreed to — before any estimate. Without this, a quote reading "20% on lock" froze a
+  // 50/50 plan. See `lib/accepted-quote-plan.ts`. A refused read keeps the old fallback (logged).
+  if (scheduleRows.length === 0 && booking.marketplace_vendor_id) {
+    const { data: quote, error: quoteErr } = await planAdmin
+      .from('vendor_proposals')
+      .select('payment_schedule')
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', booking.marketplace_vendor_id)
+      .eq('status', 'accepted')
+      .order('resolved_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    if (quoteErr) {
+      console.error(`[${tag}] payment-plan accepted-quote read failed:`, quoteErr.message);
+    }
+    scheduleRows = scheduleRowsFromAcceptedQuote(
+      (quote as { payment_schedule?: unknown } | null)?.payment_schedule,
+    );
   }
 
   // Default-seed: a marketplace vendor with a known total but NO configured

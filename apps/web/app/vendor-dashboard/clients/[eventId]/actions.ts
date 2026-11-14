@@ -44,6 +44,7 @@ import { answerScheduleAsk } from '@/lib/schedule-ask.server';
 import { isNoteOnlySuggestion } from '@/lib/schedule-ros';
 import { shiftWall } from '@/lib/schedule-chapters';
 import { crewFromText, momentMinutes, momentStartIn, timesRequests } from '@/lib/supplier-schedule';
+import { isOwnClock } from '@/lib/supplier-own-times';
 
 /**
  * Vendor Suggest flow on the shared day-of timeline — feature-access program
@@ -470,6 +471,10 @@ export async function deleteClientNote(formData: FormData) {
  *                       the host OKs; Auto-agree applies it at once. The host hears it in the app only.
  *   'lock' · 'unlock' — 🔒 CHANGE LOCK (audit D7, 20271303409352): the host's later changes to their part are refused
  *                       by the database until they unlock. Their own requests still go through.
+ *   'own_times'       — 🕕 Your times (owner-approved cut 5, 2026-11-14): the call time, arrival and finish, kept on
+ *                       `supplier_own_times` (migration 20271346335702) BEFORE the hosts build their program. With a
+ *                       `chapter_id` (a chapter they are linked to, once there is one) the arrival and finish also slot
+ *                       in — filed exactly as My times files them — and `filed_at` records it.
  *
  * Every write is the database's to allow (`schedule_suggestions_vendor_insert`, 20271263061583 + 20271300619930): own
  * items only for an edit or a delete, own linked chapters only for an add, words only on anybody else's. After an ask
@@ -506,6 +511,23 @@ function venueHoursFromForm(
   return { ok: true, start, end: endRaw || null, ingress, egress };
 }
 
+/** 🕕 Your times as posted: three wall clocks ('HH:MM' or blank). At least one; a bad one is refused, never guessed. */
+function ownTimesFromForm(
+  fd: FormData,
+): { ok: true; call: string | null; arrive: string | null; done: string | null } | { ok: false; error: string } {
+  const read = (k: string): string | null | 'bad' => {
+    const v = String(fd.get(k) ?? '').trim();
+    if (!v) return null;
+    return isOwnClock(v) ? v : 'bad';
+  };
+  const call = read('call');
+  const arrive = read('arrive');
+  const done = read('done');
+  if (call === 'bad' || arrive === 'bad' || done === 'bad') return { ok: false, error: 'That time could not be read — pick it again.' };
+  if (!call && !arrive && !done) return { ok: false, error: 'Add a call time, an arrival or a finish first.' };
+  return { ok: true, call, arrive, done };
+}
+
 export async function suggestScheduleChange(formData: FormData): Promise<SupplierScheduleAnswer | void> {
   const eventId = formData.get('event_id');
   const quiet = formData.get('quiet') === '1';
@@ -513,7 +535,13 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   const note = formData.get('note');
   const isMark = request === 'seen' || request === 'confirm' || request === 'lock' || request === 'unlock';
   const sheetAsk =
-    request === 'take_back' || isMark || request === 'times' || request === 'answer' || request === 'hours' || request === 'where';
+    request === 'take_back' ||
+    isMark ||
+    request === 'times' ||
+    request === 'answer' ||
+    request === 'hours' ||
+    request === 'where' ||
+    request === 'own_times';
   if (typeof eventId !== 'string' || (!sheetAsk && !quiet && (typeof note !== 'string' || note.trim().length === 0))) {
     if (quiet) return { ok: false, error: NOT_SENT_WORDS };
     redirect('/vendor-dashboard/clients');
@@ -677,6 +705,64 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   }
 
   // ── My times — an arrive and a done per linked chapter ───────────────────────────────────────────────────────────
+  // ── 🕕 Your times — kept before the program exists; slotted in once a linked chapter does (cut 5) ─────────────
+  if (request === 'own_times') {
+    const own = ownTimesFromForm(formData);
+    if (!own.ok) return { ok: false, error: own.error };
+    // RLS: the shop's own row, on an event it is booked for, signed as this user (supplier_own_times_shop_*).
+    const { error: saveErr } = await supabase.from('supplier_own_times').upsert(
+      {
+        event_id: eventId,
+        vendor_profile_id: profile.vendor_profile_id,
+        call_clock: own.call,
+        arrive_clock: own.arrive,
+        done_clock: own.done,
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'event_id,vendor_profile_id' },
+    );
+    if (saveErr) return { ok: false, error: NOT_SENT_WORDS };
+    const chapterId = nullIfBlank(formData.get('chapter_id'), 64);
+    if (!chapterId || (!own.arrive && !own.done)) return done({ ok: true, outcome: 'done' });
+    const { data: chapter } = await supabase
+      .from('event_schedule_blocks')
+      .select('block_id, start_at, time_tba')
+      .eq('event_id', eventId)
+      .eq('block_id', chapterId)
+      .is('parent_block_id', null)
+      .maybeSingle();
+    if (!chapter) return done({ ok: true, outcome: 'done' });
+    let applied = 0;
+    const wanted = timesRequests({
+      shop: supplierName,
+      chapter: chapter as { block_id: string; start_at: string | null },
+      arrive: own.arrive ?? '',
+      done: own.done ?? '',
+    });
+    for (const t of wanted) {
+      const r = await ask({
+        kind: 'new',
+        block_id: null,
+        proposed_label: t.label,
+        proposed_start_at: t.start,
+        proposed_end_at: t.end,
+        proposed_location: null,
+        proposed_parent_block_id: t.parent,
+        note: t.label,
+        itemLabel: t.label,
+      });
+      if (!r.ok) return { ok: false, error: r.code === '42501' ? 'You can only give times for the chapters you are linked to.' : NOT_SENT_WORDS };
+      if (r.outcome === 'applied') applied += 1;
+    }
+    await supabase
+      .from('supplier_own_times')
+      .update({ filed_at: new Date().toISOString(), updated_by: user.id })
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', profile.vendor_profile_id);
+    return done({ ok: true, outcome: applied === wanted.length ? 'applied' : 'waits' });
+  }
+
   if (request === 'times') {
     const ids = formData.getAll('chapter_id').filter((v): v is string => typeof v === 'string' && v.length > 0).slice(0, 40);
     const { data: chapters } = ids.length

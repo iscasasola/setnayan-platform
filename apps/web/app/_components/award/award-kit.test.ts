@@ -150,7 +150,7 @@ test('12 · the approved seal words: No. 1 has its own body, titles match the pr
   assert.doesNotMatch(src, /4\.99|4\.96|236|214/, 'the demo record numbers stay out');
   assert.deepEqual(sealPlaqueCopy('no1', 2031).how, c.no1.how.map(([l]) => l));
   // verbatim against the prototype, when the corpus is on this machine (CI does not have it)
-  const proto = join(homedir(), 'Documents/Claude/Projects/Setnayan/prototypes/supplier_badges_2026-11-15/badge-milestones_v48.html');
+  const proto = join(homedir(), 'Documents/Claude/Projects/Setnayan/prototypes/supplier_badges_2026-11-15/badge-milestones_v53.html');
   if (existsSync(proto)) {
     const html = readFileSync(proto, 'utf8');
     const block = html.slice(html.indexOf('const AWARD_TXT={'), html.indexOf('function openSeal('));

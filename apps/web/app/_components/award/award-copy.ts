@@ -38,7 +38,7 @@ export function AWARD_COPY(year: number | string): Record<SealKind, SealCopy> {
     medal: {
       title: 'Top 10 Supplier',
       eyebrow: `Setnayan · ${year}`,
-      body: 'Congratulations! You are one of the ten best-rated suppliers on Setnayan this year. This medal cannot be bought or voted for. You earned it one celebration at a time, through couples who booked, paid and came back to tell us their day went beautifully. Thank you for being excellent, every weekend of the year.',
+      body: 'Congratulations! You are one of the ten best-rated suppliers on Setnayan this year. This medal cannot be bought or voted for. You earned it one event at a time, through couples who booked, paid and came back to tell us their day went beautifully. Thank you for being excellent, every weekend of the year.',
       how: [
         ['Loved: among the ten highest review scores of the year (rating and number of reviews together)', true],
         ['Reliable: at least 10 events completed through Setnayan this year, none cancelled by the shop', true],

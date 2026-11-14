@@ -51,6 +51,8 @@ export function PhotosByServiceSheet({
 }) {
   const headingId = useId();
   const router = useRouter();
+  // one-render: keep (retry) — Try again re-reads a page whose read failed; no server action ran before it.
+  const retry = () => router.refresh();
   const [mine, setMine] = useState<ServicePrivatePhotos | null>(null);
   const [more, setMore] = useState<Record<string, boolean>>({});
   const [picked, setPicked] = useState<ServicePhoto | null>(null);
@@ -125,10 +127,10 @@ export function PhotosByServiceSheet({
           </p>
         ) : null}
         {mine?.status === 'unread' ? (
-          <Failed words="Couldn’t load your album just now." onRetry={() => router.refresh()} />
+          <Failed words="Couldn’t load your album just now." onRetry={retry} />
         ) : null}
 
-        {view.unread ? <Failed words="Couldn’t load these photos just now." onRetry={() => router.refresh()} /> : null}
+        {view.unread ? <Failed words="Couldn’t load these photos just now." onRetry={retry} /> : null}
 
         {total === 0 && !view.unread ? (
           <div data-photos-by-service-state="empty">

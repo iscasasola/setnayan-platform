@@ -3014,7 +3014,14 @@ export async function renderVendorBySlug({
           /* Hybrid-anonymity (V2.1 amendment #2): pass displayLabel so
              the services section's section heading + per-service
              cards' "by {vendor}" copy don't leak the hidden name. */
-          <ServicesPricingSection {...servicesProps} />
+          <ServicesPricingSection
+            {...servicesProps}
+            /* Said again here, where the section is drawn, so the page's own guards read them in place
+               (the same values as in `servicesProps`, which photos by service reads). */
+            ownerCheckFor={viewerCuratesCards ? vendor.vendor_profile_id : null}
+            inquireMode={canMessage ? 'anchor' : 'none'}
+            cardRecordRating={cardRecordRatingFromTrusted(trustedReviewStats)}
+          />
         ) : null}
 
         {/* 🧺 THE ONE LIVE CARD, THEN WHAT WAITS (prototype `.more`). The count is a READ — services on plan hold

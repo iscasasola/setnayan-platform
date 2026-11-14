@@ -1,8 +1,9 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { r2SignedGet, R2_BUCKETS } from '@/lib/r2';
+import { R2_BUCKETS } from '@/lib/r2';
 import { parseR2Ref } from '@/lib/nsfw-screen';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { viewerRunsShop } from '@/lib/service-card-hides.server';
 import { kindMonthLabel } from '@/lib/card-portfolio-albums';
 import { supplierPageNoticeState } from '@/lib/supplier-page-notice';
@@ -101,8 +102,9 @@ export async function readServicePrivatePhotos(vendorProfileId: string, serviceK
     if (notice?.state === 'on_page') continue;
     const cards = (cardsOfEvent.get(p.event_id) ?? []).filter((id) => (byCard[id]?.length ?? 0) < PRIVATE_PER_CARD_MAX);
     if (cards.length === 0) continue;
+    // The album lives in the PUBLIC media bucket; the shared signer signs that bucket only (never a private one).
     const { key } = parseR2Ref(p.r2_object_key);
-    const url = await r2SignedGet({ bucket: R2_BUCKETS.media, key, expiresIn: 3600 }).catch((e) => {
+    const url = await displayUrlForStoredAsset(`r2://${R2_BUCKETS.media}/${key}`).catch((e) => {
       logQueryError('servicePrivate.sign', e, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
       return null;
     });

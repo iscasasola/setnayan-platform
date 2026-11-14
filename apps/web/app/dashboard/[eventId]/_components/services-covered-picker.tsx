@@ -73,7 +73,7 @@ function SearchHead({ query, onQuery, empty, word = 'categories' }: { query: str
   return (
     <li role="none" className="sticky top-0 z-[2] -mx-1.5 -mt-1.5 mb-1 bg-cream/95 p-1.5">
       <div className="relative">
-        <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/45" strokeWidth={2} />
+        <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/70" strokeWidth={2} />
         <input className="min-h-11 w-full rounded-xl border border-ink/15 bg-cream pl-9 pr-3 text-[14px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
           type="search"
           inputMode="search"
@@ -85,7 +85,7 @@ function SearchHead({ query, onQuery, empty, word = 'categories' }: { query: str
         />
       </div>
       {empty ? (
-        <p className="px-3 pt-2 text-[12px] text-ink/55">{word === 'services' ? 'Nothing by that name.' : `No category matches “${query.trim()}”.`}</p>
+        <p className="px-3 pt-2 text-xs text-ink/70">{word === 'services' ? 'Nothing by that name.' : `No category matches “${query.trim()}”.`}</p>
       ) : null}
     </li>
   );
@@ -264,11 +264,11 @@ function ServiceLines({
       ))}
 
       {read === 'loading' ? (
-        <p className="text-[12px] text-ink/55" data-covers-loading="">
+        <p className="text-xs text-ink/70" data-covers-loading="">
           Loading services…
         </p>
       ) : read === 'failed' ? (
-        <p role="alert" className="text-[12px] text-danger-900" data-covers-failed="">
+        <p role="alert" className="text-xs text-danger-900" data-covers-failed="">
           The list of services did not load. The one you opened this from is kept — close this and open it again to add
           more.
         </p>
@@ -305,7 +305,7 @@ function ServiceLines({
                 <span className="min-w-0 flex-1 py-2">
                   <span className="block text-[15px] text-ink">{labelOf(tile)}</span>
                   {tile === openedFrom ? (
-                    <span className="block text-[12px] text-ink/55">the row you opened this from</span>
+                    <span className="block text-xs text-ink/70">the row you opened this from</span>
                   ) : null}
                 </span>
               </div>
@@ -313,7 +313,7 @@ function ServiceLines({
           ))}
         </ul>
       ) : null}
-      {n > 0 ? <p className="text-[12.5px] text-ink/55">Swipe a service left to remove it.</p> : null}
+      {n > 0 ? <p className="text-[12.5px] text-ink/70">Swipe a service left to remove it.</p> : null}
 
       {toast ? (
         <PeekToast
@@ -459,11 +459,11 @@ function AlsoCoversPicker({
       ))}
 
       {read === 'loading' ? (
-        <p className="text-[12px] text-ink/55" data-covers-loading="">
+        <p className="text-xs text-ink/70" data-covers-loading="">
           Loading categories…
         </p>
       ) : read === 'failed' ? (
-        <p role="alert" className="text-[12px] text-danger-900" data-covers-failed="">
+        <p role="alert" className="text-xs text-danger-900" data-covers-failed="">
           The category list did not load. What they already cover is kept — close this and open it again to add more.
         </p>
       ) : (
@@ -480,7 +480,7 @@ function AlsoCoversPicker({
         />
       )}
 
-      <p className="flex flex-wrap items-center gap-1 text-[12px] text-ink/60" data-covers-line="">
+      <p className="flex flex-wrap items-center gap-1 text-xs text-ink/70" data-covers-line="">
         {ownTile ? (
           <span className="inline-flex items-center gap-1 font-medium text-ink/75" title="This is the category you added them under" data-covers-own={ownTile}>
             <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
@@ -538,13 +538,13 @@ function AlsoCoversPicker({
       ) : null}
 
       {moveErr ? (
-        <p role="alert" className="text-[12px] text-danger-900" data-move-error="">
+        <p role="alert" className="text-xs text-danger-900" data-move-error="">
           {moveErr}
         </p>
       ) : null}
 
       {chosen.length > 0 ? (
-        <p className="flex items-center gap-1 text-[12px] text-ink/50">
+        <p className="flex items-center gap-1 text-xs text-ink/70">
           <Check aria-hidden className="h-3 w-3" strokeWidth={2.2} />
           One booking, one price — counted once across all of these.
         </p>

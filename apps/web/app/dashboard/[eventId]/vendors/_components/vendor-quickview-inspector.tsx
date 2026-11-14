@@ -136,7 +136,7 @@ export function VendorQuickViewInspector({
             <Badge tone="quiet">Considering</Badge>
           )}
           {v.city ? (
-            <span className="inline-flex items-center gap-1 text-[12px] text-ink/60">
+            <span className="inline-flex items-center gap-1 text-xs text-ink/70">
               <MapPin size={13} strokeWidth={1.75} aria-hidden /> {v.city}
             </span>
           ) : null}
@@ -146,12 +146,12 @@ export function VendorQuickViewInspector({
         {v.isVerified || v.isSetnayan ? (
           <div className="flex flex-wrap gap-2">
             {v.isSetnayan ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-mulberry/10 px-2.5 py-1 text-[12px] font-semibold text-mulberry">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-mulberry/10 px-2.5 py-1 text-xs font-semibold text-mulberry">
                 <Sparkles size={12} strokeWidth={2} aria-hidden /> Setnayan
               </span>
             ) : null}
             {v.isVerified ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[12px] font-semibold text-success-900">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success-900">
                 <BadgeCheck size={12} strokeWidth={2} aria-hidden /> Verified
               </span>
             ) : null}
@@ -167,7 +167,7 @@ export function VendorQuickViewInspector({
             <Star size={15} strokeWidth={1.75} className="text-terracotta" aria-hidden />
             <span className="font-semibold text-ink">{v.rating.toFixed(1)}</span>
             {v.reviewCount != null ? (
-              <span className="text-ink/55">
+              <span className="text-ink/70">
                 · {formatCount(v.reviewCount)} {v.reviewCount === 1 ? 'review' : 'reviews'}
               </span>
             ) : null}
@@ -185,7 +185,7 @@ export function VendorQuickViewInspector({
             {fits.map((f, i) => (
               <span
                 key={i}
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
                   f.cls === 'ok'
                     ? 'bg-success-100 text-success-900'
                     : f.cls === 'muted'
@@ -202,7 +202,7 @@ export function VendorQuickViewInspector({
         {/* Price — the vendor's quoted total, when there is one. */}
         {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
           <div className="border-t border-ink/10 pt-3">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Your price</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Your price</p>
             <p className="mt-0.5 text-[17px] font-semibold leading-snug text-ink">
               {formatPhp(v.totalCostPhp)}
             </p>

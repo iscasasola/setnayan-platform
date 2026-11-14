@@ -44,8 +44,8 @@ import { BookedStandInCtx } from './booked-stand-ins';
 import { OwnPayWays } from './own-pay-ways';
 import { formatPhp } from '@/lib/php';
 
-const K2 = 'text-[12px] uppercase tracking-[0.14em] text-ink/55';
-const MUTE = 'text-[13px] leading-snug text-ink/60';
+const K2 = 'text-xs uppercase tracking-[0.06em] text-ink/70';
+const MUTE = 'text-[13px] leading-snug text-ink/70';
 
 type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'not_booked' } | { kind: 'ok'; data: PaySheetData };
 
@@ -154,7 +154,7 @@ export function PaySheet({
                     >
                       <span className="min-w-0">
                         <b className="block font-semibold text-ink">{row.label}</b>
-                        <span className="block text-ink/55">Due {row.dueText}</span>
+                        <span className="block text-ink/70">Due {row.dueText}</span>
                       </span>
                       <b className="shrink-0 font-semibold tabular-nums text-ink">{pesoFromCentavos(row.amountCentavos)}</b>
                     </li>

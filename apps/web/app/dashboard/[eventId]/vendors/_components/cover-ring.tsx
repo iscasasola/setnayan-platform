@@ -71,13 +71,13 @@ export function CoverCount() {
   if (!ring) return null;
   if (ring.total <= 0) {
     return (
-      <span data-cover-count="" data-cover-empty="" className="font-sans text-[13px] tracking-normal text-ink/60">
+      <span data-cover-count="" data-cover-empty="" className="font-sans text-[13px] tracking-normal text-ink/70">
         {COVER_NOTHING_YET}
       </span>
     );
   }
   return (
-    <span data-cover-count="" className="font-sans text-[13px] font-medium tracking-normal text-ink/60">
+    <span data-cover-count="" className="font-sans text-[13px] font-medium tracking-normal text-ink/70">
       <Count value={ring.covered} id="sup-ring-covered" /> of <Count value={ring.total} id="sup-ring-total" />
       {/* At 320 the row keeps "6 of 12" and lets the word go — Find ▾, the next page and ⚙ never wrap (2026-11-12). */}
       <span className="max-[359px]:sr-only"> covered</span>

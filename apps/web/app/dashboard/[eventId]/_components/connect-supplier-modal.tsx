@@ -71,7 +71,7 @@ export function ConnectSupplierModal({
   return createPortal(
     <Sheet open onClose={onClose} labelledById="connect-supplier-heading" rise>
       <div className="px-5 pb-5 pt-5" data-connect-supplier="">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Connect</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Connect</p>
         <h2 id="connect-supplier-heading" className="pr-10 text-[20px] font-semibold tracking-[-0.01em] text-ink">
           {vendorName}
         </h2>
@@ -80,7 +80,7 @@ export function ConnectSupplierModal({
         </p>
         <div className="mt-4 border-t border-ink/10 pt-4">
           {invite === undefined ? (
-            <p className="text-[13px] text-ink/55" aria-live="polite">
+            <p className="text-[13px] text-ink/70" aria-live="polite">
               Checking for an existing link…
             </p>
           ) : (

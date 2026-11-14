@@ -8,6 +8,7 @@
 import Link from 'next/link';
 import { CalendarClock } from 'lucide-react';
 import { APPOINTMENT_KIND_LABEL, type AppointmentKind } from '@/lib/appointments';
+import { Badge, type BadgeTone } from '@/app/_components/badge';
 
 export type ScheduleMeeting = {
   appointment_id: string;
@@ -34,9 +35,9 @@ function formatWhen(iso: string | null): string {
   }).format(d);
 }
 
-const STATUS: Record<ScheduleMeeting['status'], { label: string; cls: string }> = {
-  confirmed: { label: 'Confirmed', cls: 'bg-success-100 text-success-900' },
-  proposed: { label: 'Awaiting', cls: 'bg-warn-100 text-warn-900' },
+const STATUS: Record<ScheduleMeeting['status'], { label: string; tone: BadgeTone }> = {
+  confirmed: { label: 'Confirmed', tone: 'ok' },
+  proposed: { label: 'Awaiting', tone: 'wait' },
 };
 
 export function VendorMeetingsSection({
@@ -49,26 +50,26 @@ export function VendorMeetingsSection({
   if (meetings.length === 0) return null;
 
   return (
-    <section className="mb-6 rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm sm:p-5">
-      <div className="mb-3 flex items-center gap-2">
-        <CalendarClock className="h-4 w-4 text-mulberry" strokeWidth={1.75} aria-hidden />
-        <h2 className="text-base font-semibold text-ink">Meetings with suppliers</h2>
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 5): no card — the section's grey capitals, plain hairline rows (a
+    // row with a chat opens it, terracotta ›), the state a soft chip.
+    <section className="mb-6">
+      <div className="mb-1 mt-[18px] flex items-center gap-2">
+        <CalendarClock className="h-4 w-4 text-ink/70" strokeWidth={1.75} aria-hidden />
+        <h2 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Meetings with suppliers</h2>
       </div>
-      <ul className="space-y-2">
+      <ul className="divide-y divide-ink/10">
         {meetings.map((m) => {
           const s = STATUS[m.status];
           const row = (
-            <div className="flex items-center gap-3 rounded-xl border border-ink/10 border-l-[3px] border-l-mulberry bg-cream px-3 py-2.5">
+            <div className="flex min-h-14 items-center gap-3 py-2.5">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-ink">{m.label}</p>
+                <p className="truncate text-[15px] font-semibold text-ink">{m.label}</p>
                 <p className="truncate text-[13px] text-ink/65">
                   {m.vendorName} · {APPOINTMENT_KIND_LABEL[m.kind]} · {formatWhen(m.scheduled_at)}
                 </p>
               </div>
-              <span
-                className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${s.cls}`}
-              >
-                {s.label}
+              <span className="ml-auto shrink-0">
+                <Badge tone={s.tone}>{s.label}</Badge>
               </span>
             </div>
           );
@@ -88,7 +89,7 @@ export function VendorMeetingsSection({
           );
         })}
       </ul>
-      <p className="mt-3 text-[11px] text-ink/45">
+      <p className="mt-3 text-xs text-ink/70">
         Confirmed in your chat with each supplier — changes there update this list.
       </p>
     </section>

@@ -21,7 +21,7 @@
 
 import { useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowRight, CalendarHeart, Check, Loader2, Lock, PartyPopper, Plus, RotateCcw, X } from 'lucide-react';
+import { ArrowRight, CalendarHeart, Check, Hourglass, Lock, PartyPopper, Plus, RotateCcw, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
@@ -36,10 +36,11 @@ function portal(node: React.ReactNode): React.ReactNode {
 
 /** The ✕ in a lock popup's corner — a 44-px target (2026-10-12 look sweep). */
 export const LOCK_POPUP_CLOSE =
-  'absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-60';
+  'absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-60';
 
 /** The spinner a pressed answer wears while the booking is written. */
-export const LOCK_PENDING_ICON = <Loader2 aria-hidden className="animate-spin" strokeWidth={2} />;
+/** While a lock is on its way: a still hourglass, never a spinner (design template rule 15). */
+export const LOCK_PENDING_ICON = <Hourglass aria-hidden strokeWidth={2} />;
 
 /**
  * LockPopup — THE ONE FRAME OF EVERY POP-UP IN THE BOOKING FLOW (2026-10-12 look sweep; `INTERACTION_RULES.md` § 9,
@@ -252,8 +253,8 @@ export function LockMilestoneToast({
           <h3 className="text-sm font-semibold text-ink">
             Congratulations! You have picked a {milestone.pickedLabel}!
           </h3>
-          {milestone.dateLocked ? <p className="text-xs text-ink/60">Your date is now booked. 🎉</p> : null}
-          {finalize ? <p className="text-xs text-ink/60">{finalize.helper}</p> : null}
+          {milestone.dateLocked ? <p className="text-xs text-ink/70">Your date is now booked. 🎉</p> : null}
+          {finalize ? <p className="text-xs text-ink/70">{finalize.helper}</p> : null}
           {asks ? (
             <p className="pt-1 text-xs font-medium text-ink/70">
               Done with {groupLabel ?? 'this service'}, or add another?

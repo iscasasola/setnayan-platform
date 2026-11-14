@@ -140,7 +140,7 @@ export function SupplierConnectPanel({
 
   return (
     <div data-supplier-connect="">
-      <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink/65">{words.heading}</p>
+      <p className="text-xs font-medium uppercase tracking-[0.06em] text-ink/65">{words.heading}</p>
       <p className="mt-1 text-[13px] leading-snug text-ink/65">{words.how}</p>
 
       {invite ? (
@@ -154,7 +154,7 @@ export function SupplierConnectPanel({
             />
           </div>
           <p
-            className="mt-2 select-all break-all text-center font-mono text-[12px] text-ink/70"
+            className="mt-2 select-all break-all text-center text-xs text-ink/70"
             aria-label="Their claim link"
             data-claim-link-url=""
           >
@@ -178,7 +178,7 @@ export function SupplierConnectPanel({
             <SupplierShareButton eventId={eventId} vendorId={vendorId} vendorName={vendorName} prepareOnMount />
           </div>
           {saved === 'failed' ? (
-            <p role="alert" className="mt-1.5 text-center text-[12px] text-danger-800">
+            <p role="alert" className="mt-1.5 text-center text-xs text-danger-800">
               The picture could not be saved. Copy the link instead.
             </p>
           ) : null}
@@ -197,7 +197,7 @@ export function SupplierConnectPanel({
       )}
 
       {err ? (
-        <p role="alert" className="mt-1.5 text-[12px] text-danger-800">
+        <p role="alert" className="mt-1.5 text-xs text-danger-800">
           {err}
         </p>
       ) : null}
@@ -267,12 +267,12 @@ function ConnectTop({
               <ActionButton tone="neutral" iconOnly icon={copied ? Check : Copy} label={copied ? 'Copied' : 'Copy link'} onClick={onCopy} />
               <SupplierShareButton eventId={eventId} vendorId={vendorId} vendorName={vendorName} iconOnly prepareOnMount />
             </div>
-            <p className="mt-1 text-[12px] text-ink/60">{copied ? 'Link copied' : 'Not joined yet'}</p>
-            <p className="select-all break-all font-mono text-[12px] text-ink/55" aria-label="Their claim link" data-claim-link-url="">
+            <p className="mt-1 text-xs text-ink/70">{copied ? 'Link copied' : 'Not joined yet'}</p>
+            <p className="select-all break-all text-xs text-ink/70" aria-label="Their claim link" data-claim-link-url="">
               {invite.url.replace(/^https?:\/\//, '')}
             </p>
             {saved === 'failed' ? (
-              <p role="alert" className="mt-1 text-[12px] text-danger-800">
+              <p role="alert" className="mt-1 text-xs text-danger-800">
                 The picture could not be saved. Copy the link instead.
               </p>
             ) : null}
@@ -286,7 +286,7 @@ function ConnectTop({
           </div>
         )}
         {err ? (
-          <p role="alert" className="mt-1.5 text-[12px] text-danger-800">
+          <p role="alert" className="mt-1.5 text-xs text-danger-800">
             {err}
           </p>
         ) : null}
@@ -310,7 +310,7 @@ function ConnectTop({
             className="block aspect-square w-full max-w-[300px] rounded-xl bg-white p-2 [&>svg]:h-full [&>svg]:w-full" // no-card-ok: the QR's quiet zone
             dangerouslySetInnerHTML={{ __html: invite.qrSvg }}
           />
-          <p className="text-center text-xs text-ink/55">{vendorName} scans this to create their account</p>
+          <p className="text-center text-xs text-ink/70">{vendorName} scans this to create their account</p>
           <ActionButton
             tone="brand"
             main

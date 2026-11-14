@@ -84,14 +84,14 @@ export function Tip({ children, align = 'center' }: { children: ReactNode; align
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         onBlur={() => setOpen(false)}
-        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
+        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-xs font-semibold leading-none text-ink/70 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
       >
         <span aria-hidden="true">i</span>
       </button>
       {open ? (
         <span
           role="tooltip"
-          className={`absolute top-[calc(100%+6px)] z-[70] w-max max-w-[15rem] rounded-md bg-ink px-2.5 py-1.5 text-left text-[11px] font-normal normal-case leading-snug tracking-normal text-cream shadow-lg ${
+          className={`absolute top-[calc(100%+6px)] z-[70] w-max max-w-[15rem] rounded-md bg-ink px-2.5 py-1.5 text-left text-xs font-normal normal-case leading-snug tracking-normal text-cream shadow-lg ${
             align === 'end' ? 'right-0' : 'left-1/2 -translate-x-1/2'
           }`}
         >
@@ -127,7 +127,7 @@ export function Switch({
     >
       <span className="min-w-0">
         <span className="block text-sm font-medium text-ink">{label}</span>
-        {hint ? <span className="block text-xs text-ink/55">{hint}</span> : null}
+        {hint ? <span className="block text-xs text-ink/70">{hint}</span> : null}
       </span>
       <span
         aria-hidden
@@ -167,16 +167,16 @@ export function Stepper({
         type="button"
         onClick={onMinus}
         aria-label={minusLabel}
-        className="sn-dot-btn grid h-10 w-10 place-items-center rounded-md text-[15px] text-ink/65 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06] lg:h-8 lg:w-8"
+        className="sn-dot-btn grid h-11 w-11 place-items-center rounded-full text-[15px] text-ink/70 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06]"
       >
         −
       </button>
-      <span className="px-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink/45">{unit}</span>
+      <span className="px-1.5 text-xs font-bold uppercase tracking-[0.06em] text-ink/70">{unit}</span>
       <button
         type="button"
         onClick={onPlus}
         aria-label={plusLabel}
-        className="sn-dot-btn grid h-10 w-10 place-items-center rounded-md text-[15px] text-ink/65 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06] lg:h-8 lg:w-8"
+        className="sn-dot-btn grid h-11 w-11 place-items-center rounded-full text-[15px] text-ink/70 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06]"
       >
         +
       </button>
@@ -187,7 +187,7 @@ export function Stepper({
 /** The small uppercase label the prototype calls `.eye`. */
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <span data-eyebrow="" className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/55">{children}</span>
+    <span data-eyebrow="" className="text-xs font-bold uppercase tracking-[0.06em] text-ink/70">{children}</span>
   );
 }
 
@@ -212,12 +212,12 @@ export function ToolButton({
       title={label}
       onClick={onClick}
       className={`sn-dot-btn relative grid h-9 w-9 place-items-center rounded-md transition-colors ${
-        active ? 'bg-ink text-cream' : 'text-ink/60 hover:bg-ink/[0.06] hover:text-ink'
+        active ? 'bg-ink text-cream' : 'text-ink/70 hover:bg-ink/[0.06] hover:text-ink'
       }`}
     >
       {children}
       {badge && badge > 0 ? (
-        <span className="absolute right-1 top-1 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-mulberry px-0.5 text-[9px] font-bold text-white">
+        <span className="absolute right-1 top-1 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-mulberry px-0.5 text-xs font-bold text-white">
           {badge}
         </span>
       ) : null}

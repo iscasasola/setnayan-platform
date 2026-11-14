@@ -274,7 +274,7 @@ export function BookedWhereLine({ where }: { where: SupplierWhere | null }) {
   if (!where || where.kind === 'unread' || where.kind === 'no_chapters') return null;
   if (where.kind === 'everywhere') {
     return (
-      <span className="block truncate text-[13px] text-ink/55" data-where-line="everywhere">
+      <span className="block truncate text-[13px] text-ink/70" data-where-line="everywhere">
         {WHERE_WORDS.everywhere}
       </span>
     );
@@ -284,7 +284,7 @@ export function BookedWhereLine({ where }: { where: SupplierWhere | null }) {
       {WHERE_WORDS.needsOne}
     </span>
   ) : (
-    <span className="block truncate text-[13px] text-ink/55" data-where-line="set">
+    <span className="block truncate text-[13px] text-ink/70" data-where-line="set">
       {where.names}
     </span>
   );

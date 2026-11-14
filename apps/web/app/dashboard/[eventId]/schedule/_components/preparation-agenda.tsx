@@ -27,6 +27,7 @@ import {
   TaskDateButton,
 } from './schedule-lazy';
 import { formatCount } from '@/lib/format-number';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * PreparationAgendaView — read-only render of the Preparation mode on
@@ -128,7 +129,7 @@ export function PreparationAgendaView({
         >
           <h2
             id={`prep-month-${group.key}`}
-            className="sticky top-0 z-[1] -mx-1 bg-cream/85 px-1 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 backdrop-blur"
+            className="sticky top-0 z-[1] -mx-1 bg-cream/85 px-1 py-1 text-xs uppercase tracking-[0.06em] text-ink/70 backdrop-blur"
           >
             {group.label}
             <span className="ml-2 text-ink/35 group-data-[plan-filter=todo]/plan:hidden">
@@ -215,12 +216,12 @@ function PreparationRow({
 
   const dateColumn = (
     <>
-      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+      <span className="text-xs uppercase tracking-[0.06em] text-ink/70">
         {item.date ? monthDay(item.date) : 'No date'}
       </span>
       <span
-        className={`mt-0.5 font-mono text-[9px] uppercase tracking-[0.16em] ${
-          done || eventIsOver ? 'text-ink/40' : overdue ? 'text-danger-600' : 'text-terracotta'
+        className={`mt-0.5 font-mono text-xs uppercase tracking-[0.06em] ${
+          done || eventIsOver ? 'text-ink/70' : overdue ? 'text-danger-600' : 'text-terracotta'
         }`}
       >
         {done ? 'Done' : item.daysFromNow === null ? 'Set one' : eventIsOver ? '' : relativeTag(item.daysFromNow)}
@@ -230,8 +231,8 @@ function PreparationRow({
 
   const text = (
     <div className="min-w-0 flex-1">
-      <p className={`truncate text-sm font-medium ${done ? 'text-ink/45 line-through' : 'text-ink'}`}>{item.title}</p>
-      <p className="truncate text-xs text-ink/55">{item.subtitle}</p>
+      <p className={`truncate text-sm font-medium ${done ? 'text-ink/70 line-through' : 'text-ink'}`}>{item.title}</p>
+      <p className="truncate text-xs text-ink/70">{item.subtitle}</p>
     </div>
   );
 
@@ -279,7 +280,7 @@ function PreparationRow({
         {/* A task's second line already names its area — no chip repeating it, so the title keeps the width (390). */}
         {item.source === 'task' ? null : (
         <span
-          className={`max-w-[7rem] truncate rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] ${chipStylesFor(
+          className={`max-w-[7rem] truncate rounded-full px-2 py-0.5 font-mono text-xs uppercase tracking-[0.06em] ${chipStylesFor(
             display,
           )}`}
           title={chipLabel}
@@ -288,7 +289,7 @@ function PreparationRow({
         </span>
         )}
         {item.amountPhp !== undefined ? (
-          <span className="font-mono text-xs text-ink/70">
+          <span className="text-xs text-ink/70">
             ₱{Math.round(item.amountPhp).toLocaleString('en-PH')}
           </span>
         ) : null}
@@ -318,8 +319,8 @@ function PreparationLegend({
     (s) => sourceCounts[s] > 0,
   );
   return (
-    <section className="rounded-xl border border-terracotta/20 bg-terracotta/[0.04] p-3 sm:p-4">
-      <p className="text-xs text-ink/70">
+    <section className="py-1">
+      <p className="text-[13px] text-ink/70">
         This agenda fills in automatically from your{' '}
         {present.map((s, i) => (
           <span key={s}>
@@ -362,25 +363,22 @@ function PreparationEmptyState({
   eventWord: 'wedding' | 'event';
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
-      <CalendarRange aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-      <p className="text-sm font-medium text-ink">Nothing to prepare yet.</p>
-      <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
+    // 📐 Design template rule 6 · 7: empty is one plain line where the rows would be — no dashed box, no icon tile; the
+    // "how it fills" explaining sits behind the ⓘ.
+    <div className="py-2">
+      <InfoTip label="Nothing to prepare yet." labelAs="p" labelClassName="text-sm text-ink/70" align="start">
         {hasEventDate
           ? `As you add supplier payment due dates, schedule supplier meetings, or start your paperwork, those dated steps will gather here automatically — sorted by month, all the way up to your ${eventWord} day. You can also add your own steps below.`
           : `Set your ${eventWord} date first, then add supplier payment due dates and start your paperwork. Those dated steps will gather here automatically, sorted by month. You can also add your own steps below.`}
-      </p>
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+      </InfoTip>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <AddPreparationItem eventId={eventId} />
-        <Link
-          href={`/dashboard/${eventId}/budget`}
-          className="rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/50 hover:text-terracotta-700"
-        >
+        <Link href={`/dashboard/${eventId}/budget`} className="ab ab-neutral inline-flex min-h-11 items-center justify-center">
           Open budget
         </Link>
         <Link
           href={`/dashboard/${eventId}/paperwork`}
-          className="rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/50 hover:text-terracotta-700"
+          className="ab ab-neutral inline-flex min-h-11 items-center justify-center"
         >
           Open paperwork
         </Link>

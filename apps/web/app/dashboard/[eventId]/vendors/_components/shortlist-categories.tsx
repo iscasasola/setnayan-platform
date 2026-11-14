@@ -309,14 +309,14 @@ import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 const SLCAT_CSS = `
 /* 📋 The opened category's parts (owner 2026-11-12, the organized-Find prototype). */
-.slcat .planh{margin:4px 0 2px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgb(var(--color-ink)/.5)}
+.slcat .planh{margin:4px 0 2px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgb(var(--color-ink)/.7)}
 .slcat .slstripe{margin:10px 0 4px;font-size:12.5px;font-weight:600;color:rgb(var(--color-ink)/.7)}
 .slcat .donerow{display:flex;width:100%;min-height:44px;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;padding:0 2px;border-top:1px solid rgb(var(--color-ink)/.1);font-size:14px;font-weight:500;color:rgb(var(--color-ink));text-align:left}
 .slcat .slempty{padding:16px 0 8px}
 .slcat .slempty .se-t{font-size:15px;font-weight:600;color:rgb(var(--color-ink))}
-.slcat .slempty .se-s{margin-top:2px;font-size:13.5px;line-height:1.45;color:rgb(var(--color-ink)/.6)}
+.slcat .slempty .se-s{margin-top:2px;font-size:13.5px;line-height:1.45;color:rgb(var(--color-ink)/.7)}
 
-.slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
+.slcat{--paper:var(--m-paper);--ink:var(--m-ink);--ink-soft:#4F535B;
   /* --ink-faint was USED SEVEN TIMES IN THIS STYLESHEET AND DEFINED NOWHERE
      (2026-09-09). An undefined custom property makes the declaration invalid at
      computed-value time, so every one of those rules fell back to INHERITED ink
@@ -325,7 +325,7 @@ const SLCAT_CSS = `
      Same family as the --font-serif and --sn-warn traps this repo has
      already paid for: rejected, not thrown, and the only symptom is an absence. */
   --ink-faint:#6B7079;
-  --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);
+  --gold:var(--m-orange);--gold-deep:var(--m-orange-2);
   /* THE ONLY GOLD THAT MAY CARRY TEXT. globals.css already worked this out and
      wrote the answer next to the token: #A9834B / #8A6B39 score 3.37:1 / 4.21:1
      on the pale gold wash — below the 4.5:1 AA floor — and #5C4726 clears it.
@@ -333,9 +333,9 @@ const SLCAT_CSS = `
      gold tints is 4.18:1 and 4.33:1, and --gold-text is 7.43:1 and 7.70:1.
      --gold-deep keeps its job as a FILL (white on it is fine); this is for
      letters. */
-  --gold-text:var(--m-orange-deep,#5C4726);
-  --mulberry:var(--m-mulberry,#1B1A17);--line:var(--m-line,rgba(30,26,18,.12));
-  --line-soft:rgba(30,26,18,.07);--card:#fff;
+  --gold-text:var(--m-orange-deep);
+  --mulberry:var(--m-mulberry);--line:var(--m-line,rgb(var(--color-ink)/.12));
+  --line-soft:rgb(var(--color-ink)/.07);--card:#fff;
   /* Card EDGE + resting lift (visual parity 2026-07-28).
      The bench sits on the app-wide .sn-ambient ground. The original defect: the
      champagne wash's base midpoint (#E3DDCF) was within (2,1,2) RGB of the
@@ -354,7 +354,7 @@ const SLCAT_CSS = `
      1.14:1. At .14 we beat it on the card side (1.33) but LOST on the page
      side (1.10); .20 gives edge|card 1.52 and edge|page 1.26 — clear of the
      reference on both. (Card|page is 1.25 vs the reference's 1.12.) */
-  --edge:rgba(30,26,18,.2);
+  --edge:rgb(var(--color-ink)/.2);
   --edge-lift:0 1px 2px rgba(30,26,18,.05),0 6px 18px -14px rgba(30,26,18,.35);
   --edge-lift-open:0 10px 26px -16px rgba(30,26,18,.42);
   --serif:var(--font-display),"Cormorant Garamond",Georgia,serif;
@@ -383,7 +383,7 @@ const SLCAT_CSS = `
    template's row is its line, centred (owner 2026-10-21). It comes back the moment the row opens. */
 .slcat .fold.flat .cat:not(.open)>.cat-collapse>.cat-body{padding-top:0;padding-bottom:0}
 .slcat .fold.flat .cat-l{gap:12px}
-.slcat .fold.flat .cat-ic{width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--m-r-full);background:rgba(169,131,75,.13)}
+.slcat .fold.flat .cat-ic{width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--m-r-full);background:rgb(var(--color-terracotta)/.13)}
 .slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;flex:1 1 auto;min-width:6ch}
 .slcat .cat-yours{font-weight:400;font-size:15px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st{font-size:13px;color:var(--ink-soft);white-space:nowrap}
@@ -415,7 +415,7 @@ const SLCAT_CSS = `
    showing between the pinned block and the head (controller's walk at 375,
    2026-10-08). Same duration, same curve as the bar, so they travel as one. */
 .slcat .fold.flat .cat.open>.cat-head-row{transition:top .3s ease-out}
-html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
+html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:rgb(var(--color-cream))}
 .slcat .fold.flat .cat.open .cat-collapse{transition-delay:.12s}
 .slcat .fold.flat .cat.open .cat-ic{animation:slcat-pop 420ms var(--ease)}
 @keyframes slcat-pop{0%{transform:scale(1)}35%{transform:scale(1.28) rotate(-6deg)}60%{transform:scale(.92) rotate(4deg)}100%{transform:scale(1) rotate(0)}}
@@ -439,9 +439,9 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
 .slcat .fold.flat .vcw{transition:transform 90ms ease-out,border-color 90ms ease-out}
 .slcat button.vc{appearance:none;-webkit-appearance:none;font:inherit;color:inherit;text-align:left;width:100%;margin:0;padding:0;min-height:0;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.slcat .fold.flat .vcw:has(>.vc:active){transform:none}.slcat .fold.flat .vcw{transition:none}}
-.slcat .verb-err,.slcat .verb-ok{margin:4px 0 0;font-size:11.5px;line-height:1.35;color:var(--ink-soft)}
+.slcat .verb-err,.slcat .verb-ok{margin:4px 0 0;font-size:12px;line-height:1.35;color:var(--ink-soft)}
 .slcat .verb-err{color:rgb(var(--color-danger))}
-.slcat .verbs .verb-err,.slcat .verbs .verb-slot>p,.slcat .verbs .verb-slot>span{position:absolute;left:0;right:0;top:100%;margin:4px 0 0;font-size:11.5px;line-height:1.35}
+.slcat .verbs .verb-err,.slcat .verbs .verb-slot>p,.slcat .verbs .verb-slot>span{position:absolute;left:0;right:0;top:100%;margin:4px 0 0;font-size:12px;line-height:1.35}
 /* THE SERVICE CARD (owner 2026-10-07 · PR2) — inside a flat row the couple's
    cards are a LIST of service cards, not a sideways rail: an 80×112 cover, the
    service's name and offer, who and where, the price, what is included and what
@@ -466,28 +466,28 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
 .slcat .fold.flat .vc .incl{margin-top:0;padding-top:0}
 .slcat .fold.flat .vc .stand{margin-top:2px}
 .slcat .sc-name{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-family:var(--sans);font-size:14px;font-weight:600;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
-.slcat .sc-disc{font-size:10px;font-weight:500;line-height:1.3;padding:2px 8px;border-radius:var(--m-r-full);background:rgba(46,125,79,.1);color:#1F5C39}
-.slcat .sc-own{font-size:11.5px;color:var(--ink-soft)}
+.slcat .sc-disc{font-size:12px;font-weight:500;line-height:1.3;padding:2px 8px;border-radius:var(--m-r-full);background:rgb(var(--color-ok)/.1);color:#1F5C39}
+.slcat .sc-own{font-size:12px;color:var(--ink-soft)}
 .slcat .sc-rec{font-size:12px;line-height:1.35;color:var(--ink-soft)}
 .slcat .sc-link{font-size:12px;font-weight:500;line-height:1.35;color:var(--ink-soft)}
 .slcat .sc-link.t-warn{color:#8a5a12}
 .slcat .sc-link.t-danger{color:#a3342b}
-.slcat .sc-link.t-ok{color:#2e7d4f}
+.slcat .sc-link.t-ok{color:rgb(var(--color-ok))}
 html.dark .slcat .sc-link.t-warn{color:#e2b968}
 html.dark .slcat .sc-link.t-danger{color:#f0958c}
 html.dark .slcat .sc-link.t-ok{color:#7bc79a}
 .slcat .sc-price{font-size:12.5px;font-weight:500;color:var(--m-orange-2,var(--gold-deep))}
 .slcat .sc-price.none{color:var(--ink-soft);font-weight:400}
-.slcat .sc-inc{display:flex;align-items:flex-start;gap:4px;font-size:11.5px;font-weight:500;line-height:1.35;color:#2e7d4f}
+.slcat .sc-inc{display:flex;align-items:flex-start;gap:4px;font-size:12px;font-weight:500;line-height:1.35;color:rgb(var(--color-ok))}
 .slcat .sc-inc>svg,.slcat .sc-not>svg{flex:none;margin-top:2px}
-.slcat .sc-not{display:flex;align-items:flex-start;gap:4px;font-size:11px;line-height:1.35;padding:3px 8px;border-radius:var(--m-r-xs);background:rgba(169,131,75,.16);color:#6F5A2E}
-.slcat .sc-gift{display:flex;align-items:center;gap:4px;margin:0;font-size:10.5px;line-height:1.35;color:var(--m-orange-2,var(--gold-deep))}
-html.dark .slcat .sc-disc{color:#7bc79a;background:rgba(46,125,79,.18)}
+.slcat .sc-not{display:flex;align-items:flex-start;gap:4px;font-size:12px;line-height:1.35;padding:3px 8px;border-radius:var(--m-r-xs);background:rgb(var(--color-terracotta)/.16);color:#6F5A2E}
+.slcat .sc-gift{display:flex;align-items:center;gap:4px;margin:0;font-size:12px;line-height:1.35;color:var(--m-orange-2,var(--gold-deep))}
+html.dark .slcat .sc-disc{color:#7bc79a;background:rgb(var(--color-ok)/.18)}
 html.dark .slcat .sc-inc{color:#7bc79a}
-html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
+html.dark .slcat .sc-not{color:#e2b968;background:rgb(var(--color-terracotta)/.2)}
 /* The sunk tiers keep their labelled dividers — laid flat, as rules. */
 .slcat .fold.flat .raildiv{align-self:auto;padding:6px 0 0}
-.slcat .fold.flat .raildiv>span{display:block;width:100%;writing-mode:horizontal-tb;transform:none;border-left:0;border-top:0.5px solid rgba(169,131,75,.42);padding:7px 0 0}
+.slcat .fold.flat .raildiv>span{display:block;width:100%;writing-mode:horizontal-tb;transform:none;border-left:0;border-top:0.5px solid rgb(var(--color-terracotta)/.42);padding:7px 0 0}
 .slcat .fold.flat .raildiv.hard>span{border-top-color:rgba(194,78,37,.45)}
 .slcat .fold.flat .arrctl{justify-content:flex-start}
 .slcat .fold.flat .vcw .verbs{margin-top:0}
@@ -507,7 +507,7 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 /* FIND v4 (owner 2026-10-29) — the count line's Clear, a card's service line, and a shop's other cards tucked under
    its first ("also <Service> · <card>"): a hairline-indented line inside the shop's place, its own price and Save. */
 .slcat .mrcount{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
-.slcat .sc-svc{font-size:11.5px;font-weight:500;line-height:1.3;color:var(--ink-soft)}
+.slcat .sc-svc{font-size:12px;font-weight:500;line-height:1.3;color:var(--ink-soft)}
 .slcat .cat.open>.cat-head-row [data-row-state='planned'],.slcat .cat.open>.cat-head-row [data-row-state='booked']{display:none}
 .slcat .cat-svc.on{color:var(--m-orange-2,var(--gold-deep));font-weight:600}
 .slcat .findbest{margin:2px 0 12px}
@@ -515,7 +515,7 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .findbest .fb-rail{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:0 0 4px}
 .slcat .findbest .fb-c{flex:0 0 min(82%,320px);scroll-snap-align:start;display:flex;flex-direction:column;gap:4px}
 .slcat .findbest .fb-c>.vcw{flex:1 1 auto}
-.slcat .findbest .fb-n{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .findbest .fb-n{font-family:var(--sans);font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft)}
 .slcat .mralso{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-4px 0 0 18px;padding:8px 0 8px 12px;border-left:1px solid var(--line)}
 .slcat .mralso.is-dim{opacity:.6}
 .slcat .mralso .mra-t{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -523,28 +523,28 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .mralso .mra-n i{font-style:normal;font-weight:500;color:var(--ink-soft)}
 /* ── Level 1 · folder card (collapsible) ── */
 .slcat .fold{margin:0 0 10px;background:var(--card);border:1px solid var(--edge);border-radius: var(--m-r-md);overflow:hidden;box-shadow:var(--edge-lift);transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
-.slcat .fold.open{box-shadow:var(--edge-lift-open);border-color:rgba(30,26,18,.28)}
+.slcat .fold.open{box-shadow:var(--edge-lift-open);border-color:rgb(var(--color-ink)/.28)}
 .slcat .fold-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:transparent;border:0;cursor:pointer;padding:13px 16px;font:inherit;text-align:left;min-height:48px}
 /* Folder head LEFT — icon + name. min-width:0 so the name can still ellipsis
    when the summary pills on the right are wide (mobile). */
 .slcat .fold-l{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto}
-.slcat .fold-ic{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;border-radius:var(--m-r-full);background:rgba(169,131,75,.1);color:var(--gold-deep);transition:background .22s var(--ease)}
-.slcat .fold.open .fold-ic{background:rgba(169,131,75,.2)}
+.slcat .fold-ic{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;border-radius:var(--m-r-full);background:rgb(var(--color-terracotta)/.1);color:var(--gold-deep);transition:background .22s var(--ease)}
+.slcat .fold.open .fold-ic{background:rgb(var(--color-terracotta)/.2)}
 /* Deliberately NOT truncated: the long folder names ("Insurance & Protection",
    "Logistics & Safety") must stay readable on a narrow phone, so the name keeps
    its shipped WRAPPING behaviour. '.fold-l' carries min-width:0 so the flex
    shrink that makes that wrap possible still happens with the icon present. */
-.slcat .fold-nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);line-height:1.15;letter-spacing:.01em;min-width:0}
+.slcat .fold-nm{font-family:var(--sans);font-style:normal;font-size:18px;font-weight:600;color:var(--ink);line-height:1.15;letter-spacing:.01em;min-width:0}
 .slcat .fold.open .fold-nm{color:var(--mulberry)}
 .slcat .fold-rt{display:flex;align-items:center;gap:11px;flex:0 0 auto}
-.slcat .fold-meta{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .fold-meta{font-family:var(--sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
 .slcat .fold-meta.has{color:var(--gold-deep)}
 .slcat .fold-chev{color:var(--ink-soft);transition:transform .24s var(--ease),color .24s var(--ease);flex:0 0 auto}
 .slcat .fold.open .fold-chev{transform:rotate(180deg);color:var(--mulberry)}
 
 /* ── Level 2 · category rows inside an open folder (connecting rail) ── */
 .slcat .fold-body{position:relative;padding:0 0 8px}
-.slcat .fold-body::before{content:'';position:absolute;left:22px;top:0;bottom:14px;width:2px;background:rgba(30, 26, 18,.16);border-radius: var(--m-r-xs);pointer-events:none}
+.slcat .fold-body::before{content:'';position:absolute;left:22px;top:0;bottom:14px;width:2px;background:rgb(var(--color-ink)/.16);border-radius: var(--m-r-xs);pointer-events:none}
 /* smooth expand/collapse (2026-07-10): the body is ALWAYS mounted inside a
    grid-rows wrapper, so toggling the parent's .open class animates height 0fr↔1fr
    BOTH ways. overflow clips the body while collapsing; a delayed visibility flip
@@ -592,7 +592,7 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .cat-nm{font-family:var(--sans);font-weight:600;font-size:14px;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .slcat .cat.open .cat-nm{color:var(--mulberry)}
 .slcat .cat-rt{display:flex;align-items:center;gap:9px;flex:0 0 auto}
-.slcat .cat-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
+.slcat .cat-count{font-family:var(--sans);font-size:12px;letter-spacing:.04em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
 /* "saved request" icon — view/edit the couple's saved requirements for this leaf */
 .slcat .cat-chev{color:var(--ink-soft);transition:transform .22s var(--ease);flex:0 0 auto}
 .slcat .cat.open .cat-chev{transform:rotate(180deg);color:var(--mulberry)}
@@ -609,17 +609,17 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc[data-inspector-selected='true'],.slcat .vc[data-inspector-selected='true']:hover{border-color:transparent;box-shadow:0 0 0 2px var(--gold),0 10px 28px -18px rgba(0,0,0,.4)}
 .slcat .vc .img{height:108px;flex:0 0 108px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
 .slcat .vc .img img{width:100%;height:100%;object-fit:cover}
-.slcat .vc .ini{font-family:var(--serif);font-style:italic;font-size:26px;color:rgba(255,255,255,.7)}
-.slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:4px 8px}
+.slcat .vc .ini{font-family:var(--sans);font-style:normal;font-size:26px;color:rgba(255,255,255,.7)}
+.slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:4px 8px}
 /* reason-labeled sort — the "why it's here" ribbon (top-left of the card) */
-.slcat .vc .rpill{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:var(--m-r-full);padding:4px 8px;line-height:1}
+.slcat .vc .rpill{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:var(--m-r-full);padding:4px 8px;line-height:1}
 .slcat .vc .rpill.ok{color:#fff;background:var(--gold-deep)}
 .slcat .vc .rpill.soft{color:var(--ink);background:rgba(255,255,255,.82);backdrop-filter:blur(2px)}
 html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,26,18,.7)}
 /* sort toggle — pill segmented control (databerry "Brand addition / Upcoming" feel) */
 .slcat .sortbar{display:flex;align-items:center;gap:9px;margin:0 0 13px;flex-wrap:wrap}
-.slcat .sortbar-lbl{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
-.slcat .sortseg{display:inline-flex;gap:3px;padding:3px;background:rgba(30,26,18,.05);border:0.5px solid var(--line);border-radius:var(--m-r-full)}
+.slcat .sortbar-lbl{font-family:var(--sans);font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .sortseg{display:inline-flex;gap:3px;padding:3px;background:rgb(var(--color-ink)/.05);border:0.5px solid var(--line);border-radius:var(--m-r-full)}
 .slcat .sortseg button{appearance:none;-webkit-appearance:none;border:0;cursor:pointer;font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-soft);background:transparent;border-radius:var(--m-r-full);padding:6px 13px;transition:background .18s var(--ease),color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
 .slcat .sortseg button:active{transform:scale(.96)}
 .slcat .sortseg button.on{color:#fff;background:var(--mulberry)}
@@ -632,11 +632,11 @@ html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,26,18,.7)}
    point, not decoration: a lens is a recommendation with a reason pill, a plain
    sort is a comparator the couple asked for. */
 .slcat .sortsep{width:1px;height:16px;background:var(--line);flex:0 0 auto}
-html.dark .slcat .sortseg{background:rgba(251,251,250,.05)}
-html.dark .slcat .sortseg button.on{color:#17160F;background:#E5794E}
+html.dark .slcat .sortseg{background:rgb(var(--color-ink)/.05)}
+html.dark .slcat .sortseg button.on{color:rgb(var(--color-cream));background:rgb(var(--color-mulberry))}
 /* bench search — client-side filter over categories + considered suppliers */
 .slcat .bench-search{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:0 13px;height:42px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
-.slcat .bench-search:focus-within{border-color:rgba(30,26,18,.28);box-shadow:0 0 0 3px rgba(30,26,18,.06)}
+.slcat .bench-search:focus-within{border-color:rgb(var(--color-ink)/.28);box-shadow:0 0 0 3px rgba(30,26,18,.06)}
 .slcat .bench-search svg{color:var(--ink-faint);flex:0 0 auto}
 .slcat .bench-search input{flex:1;min-width:0;border:0;background:none;outline:none;font:inherit;font-family:var(--sans);font-size:14px;color:var(--ink)}
 .slcat .bench-search input::placeholder{color:var(--ink-faint)}
@@ -644,7 +644,7 @@ html.dark .slcat .sortseg button.on{color:#17160F;background:#E5794E}
 .slcat .bench-search .bs-x{flex:0 0 auto;display:grid;place-items:center;width:40px;height:40px;margin-right:-11px;border:0;background:none;padding:0;cursor:pointer}
 .slcat .bench-search .bs-x span{color:var(--ink-faint)}
 .slcat .bench-empty{padding:26px 16px;text-align:center;color:var(--ink-faint);font-size:13px}
-html.dark .slcat .bench-search{background:#232019}
+html.dark .slcat .bench-search{background:rgb(var(--color-raised))}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}
 .slcat .vc .vn{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.2}
 /* The unread counter (owner 2026-09-22). Inline beside the name it belongs to,
@@ -657,45 +657,45 @@ html.dark .slcat .bench-search{background:#232019}
 .slcat .unrd{display:inline-flex;align-items:center;justify-content:center;
   min-width:17px;height:17px;padding:0 5px;margin-left:6px;border-radius:var(--m-r-full);
   background:var(--terracotta-700,#9c4221);color:#fff;
-  font-family:var(--sans);font-weight:700;font-size:10.5px;line-height:1;
+  font-family:var(--sans);font-weight:700;font-size:12px;line-height:1;
   font-variant-numeric:tabular-nums;vertical-align:middle;flex:0 0 auto}
 .slcat .cat-l .unrd,.slcat .fold-meta .unrd{margin-left:7px}
-.slcat .vc .sub{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;letter-spacing:.03em;color:var(--ink-soft)}
-.slcat .vc .stars{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:9px;color:var(--gold-deep)}
+.slcat .vc .sub{display:flex;align-items:center;gap:5px;font-family:var(--sans);font-size:12px;letter-spacing:.03em;color:var(--ink-soft)}
+.slcat .vc .stars{display:flex;align-items:center;gap:3px;font-family:var(--sans);font-size:12px;color:var(--gold-deep)}
 .slcat .vc .badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
-.slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft)}
-.slcat .vc .bdg.verified{color:#1F5C39;background:rgba(46,125,79,.1)}
+.slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgb(var(--color-ink)/.06);color:var(--ink-soft)}
+.slcat .vc .bdg.verified{color:#1F5C39;background:rgb(var(--color-ok)/.1)}
 /* OUR OWN NAME WAS THE LEAST READABLE TEXT ON THE BENCH — 3.89:1, worse than
    either pairing the design review flagged, and behind no flag at all.
    --mulberry here falls back to ink, but the GLOBAL --m-mulberry wins and is
    the terracotta #C24E25, so this was terracotta on a 10% ink wash. #A83E19 is
    the same hue two steps down: 5.09:1. */
-.slcat .vc .bdg.setnayan{color:#A83E19;background:rgba(30, 26, 18,.1)}
+.slcat .vc .bdg.setnayan{color:#A83E19;background:rgb(var(--color-ink)/.1)}
 /* ── fit-badges (2026-07-09): live reach + budget checks on the bench ── */
 .slcat .vc .fits{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
-.slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
-.slcat .vc .fit.ok{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.slcat .vc .fit.warn{color:#6F5A2E;background:rgba(169,131,75,.16)}
+.slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
+.slcat .vc .fit.ok{color:rgb(var(--color-ok));background:rgb(var(--color-ok)/.1)}
+.slcat .vc .fit.warn{color:#6F5A2E;background:rgb(var(--color-terracotta)/.16)}
 .slcat .vc .fit.muted{color:rgb(var(--color-ink) / .7);background:rgb(var(--color-ink) / .06)}
-html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
-html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
-.slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
+html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgb(var(--color-ok)/.18)}
+html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgb(var(--color-terracotta)/.2)}
+.slcat .vc .price{font-family:var(--sans);font-style:normal;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
 .slcat .vc [data-price-basis-line]{margin-top:auto;padding-top:4px}
 .slcat .vc [data-price-basis-line] .price{margin-top:0;padding-top:0}
-.slcat .vc .incl{font-size:11px;font-weight:600;color:#2e7d4f;margin-top:auto;padding-top:4px}
+.slcat .vc .incl{font-size:12px;font-weight:600;color:rgb(var(--color-ok));margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the suppliers) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
 .slcat .act>*{flex:1;min-height:182px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;border-radius: var(--m-r-md);text-decoration:none;font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
 .slcat .act>*:active{transform:scale(.97)}
-.slcat .act.find>*{background:rgba(30, 26, 18,.05);border:1.5px dashed rgba(30, 26, 18,.4);color:var(--mulberry)}
-.slcat .act.manual>*{background:rgba(30,26,18,.03);border:1.5px dashed var(--line);color:var(--ink-soft)}
-.slcat .act .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4;padding:0 8px}
+.slcat .act.find>*{background:rgb(var(--color-ink)/.05);border:1.5px dashed rgb(var(--color-ink)/.4);color:var(--mulberry)}
+.slcat .act.manual>*{background:rgb(var(--color-ink)/.03);border:1.5px dashed var(--line);color:var(--ink-soft)}
+.slcat .act .at{font-family:var(--sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4;padding:0 8px}
 /* empty category — Find + Add-manually share a row */
 .slcat .find-set{display:flex;flex-wrap:wrap;gap:8px;padding:2px 16px 2px 0}
 .slcat .fr{display:flex;align-items:center;gap:9px;flex:1 1 150px;padding:12px 14px;border-radius: var(--m-r-md);text-decoration:none;color:inherit;font:inherit;cursor:pointer;text-align:left;appearance:none;-webkit-appearance:none;transition:transform .13s cubic-bezier(.2,.7,.2,1)}
 .slcat .fr:active{transform:scale(.99)}
-.slcat .fr.find{border:1.5px dashed rgba(30, 26, 18,.32);background:rgba(30, 26, 18,.03)}
-.slcat .fr.manual{border:1.5px dashed var(--line);background:rgba(30,26,18,.025)}
+.slcat .fr.find{border:1.5px dashed rgb(var(--color-ink)/.32);background:rgb(var(--color-ink)/.03)}
+.slcat .fr.manual{border:1.5px dashed var(--line);background:rgb(var(--color-ink)/.025)}
 .slcat .fr .fr-i{display:inline-flex;flex:0 0 auto}
 .slcat .fr.find .fr-i,.slcat .fr.find .fr-t{color:var(--mulberry)}
 .slcat .fr.manual .fr-i,.slcat .fr.manual .fr-t{color:var(--ink-soft)}
@@ -709,13 +709,13 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
    "grey-beige box" beside the white folder cards. Same paper, same edge, same
    lift as '.fold' — one surface language down the whole bench. */
 .slcat .plan-strip{margin:0 0 14px;padding:13px 15px;background:var(--card);border:1px solid var(--edge);border-radius:var(--m-r-md);box-shadow:var(--edge-lift)}
-.slcat .plan-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--gold-deep);margin:0 0 9px;display:flex;align-items:center;gap:6px}
+.slcat .plan-eyebrow{font-family:var(--sans);font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--gold-deep);margin:0 0 9px;display:flex;align-items:center;gap:6px}
 .slcat .plan-chips{display:flex;flex-wrap:wrap;gap:7px}
 .slcat .plan-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-full);font:inherit;font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;transition:border-color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
-.slcat .plan-chip:hover{border-color:rgba(30,26,18,.32)}
+.slcat .plan-chip:hover{border-color:rgb(var(--color-ink)/.32)}
 .slcat .plan-chip:active{transform:scale(.97)}
 .slcat .plan-chip .pc-dot{width:6px;height:6px;border-radius:var(--m-r-full);background:var(--gold);flex:0 0 auto}
-.slcat .plan-chip.done .pc-dot{background:#2e7d4f}
+.slcat .plan-chip.done .pc-dot{background:rgb(var(--color-ok))}
 
 /* ── Coverage Strip v2 (Explore Replan PR-B · flag-gated) ──────────────────
    Same .plan-strip shell as the chip strip it upgrades — only the CONTENTS
@@ -724,12 +724,12 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .cov-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 4px}
 .slcat .cov-hl{display:flex;align-items:center;gap:10px;min-width:0}
 .slcat .cov-hl b{font-family:var(--sans);font-size:13.5px;font-weight:700;color:var(--ink)}
-.slcat .cov-cnt{font-family:var(--mono);font-size:10.5px;color:var(--gold-deep);flex:0 0 auto}
+.slcat .cov-cnt{font-family:var(--sans);font-size:12px;color:var(--gold-deep);flex:0 0 auto}
 .slcat .cov-ring{width:34px;height:34px;flex:0 0 auto}
 .slcat .cov-ring circle{fill:none;stroke-width:3.4}
 .slcat .cov-ring .tr{stroke:var(--line)}
 .slcat .cov-ring .pr{stroke:var(--gold);stroke-linecap:round;transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset .4s var(--ease)}
-.slcat .cov-ring text{font-family:var(--mono);font-size:9px;fill:var(--gold-deep);font-weight:700}
+.slcat .cov-ring text{font-family:var(--sans);font-size:12px;fill:var(--gold-deep);font-weight:700}
 @media (prefers-reduced-motion:reduce){.slcat .cov-ring .pr{transition:none}}
 .slcat .cov-strip{display:flex;gap:10px;overflow-x:auto;padding:8px 2px 4px;scrollbar-width:none}
 .slcat .cov-strip::-webkit-scrollbar{display:none}
@@ -749,33 +749,33 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
   .slcat .fold-ic,.slcat .cat-ic,.slcat .ctile .ic,.slcat .ctile .lb,
   .slcat .fold-chev,.slcat .cat-chev,.slcat .fold{transition:none}
 }
-.slcat .ctile .lb{font-family:var(--sans);font-size:9.5px;line-height:1.15;text-align:center;color:var(--ink-soft);max-width:66px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.slcat .ctile.st-exploring .ic,.slcat .ctile.st-picked .ic{border-style:solid;border-color:var(--gold);background:rgba(169,131,75,.1);color:var(--gold-deep)}
+.slcat .ctile .lb{font-family:var(--sans);font-size:12px;line-height:1.15;text-align:center;color:var(--ink-soft);max-width:66px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.slcat .ctile.st-exploring .ic,.slcat .ctile.st-picked .ic{border-style:solid;border-color:var(--gold);background:rgb(var(--color-terracotta)/.1);color:var(--gold-deep)}
 .slcat .ctile.st-picked .lb{color:var(--gold-deep)}
-.slcat .ctile.st-asked .ic{border-style:dashed;border-width:2px;border-color:var(--gold);background:rgba(169,131,75,.08);color:var(--gold-deep)}
+.slcat .ctile.st-asked .ic{border-style:dashed;border-width:2px;border-color:var(--gold);background:rgb(var(--color-terracotta)/.08);color:var(--gold-deep)}
 .slcat .ctile.st-asked .lb{color:var(--gold-deep)}
-.slcat .ctile.st-locked .ic{border-style:solid;border-width:2.5px;border-color:var(--gold);background:rgba(169,131,75,.16);color:var(--gold-deep);box-shadow:0 2px 8px rgba(169,131,75,.3)}
+.slcat .ctile.st-locked .ic{border-style:solid;border-width:2.5px;border-color:var(--gold);background:rgb(var(--color-terracotta)/.16);color:var(--gold-deep);box-shadow:0 2px 8px rgba(169,131,75,.3)}
 .slcat .ctile.st-locked .lb{color:var(--gold-deep);font-weight:700}
-.slcat .ctile.st-covered .ic{border-style:solid;border-width:2.5px;border-color:#2e7d4f;background:rgba(46,125,79,.12);color:#2e7d4f}
-.slcat .ctile.st-covered .lb{color:#2e7d4f;font-weight:700}
+.slcat .ctile.st-covered .ic{border-style:solid;border-width:2.5px;border-color:rgb(var(--color-ok));background:rgb(var(--color-ok)/.12);color:rgb(var(--color-ok))}
+.slcat .ctile.st-covered .lb{color:rgb(var(--color-ok));font-weight:700}
 .slcat .ctile.is-next .ic{outline:2.5px solid var(--gold);outline-offset:2.5px}
-.slcat .ctile .mini{position:absolute;right:-3px;bottom:-3px;min-width:17px;height:17px;padding:0 3px;border-radius:var(--m-r-full);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9.5px;font-weight:700;color:#fff;border:2px solid var(--card)}
-.slcat .ctile .mini.dn{background:#2e7d4f}
+.slcat .ctile .mini{position:absolute;right:-3px;bottom:-3px;min-width:17px;height:17px;padding:0 3px;border-radius:var(--m-r-full);display:flex;align-items:center;justify-content:center;font-family:var(--sans);font-size:12px;font-weight:700;color:#fff;border:2px solid var(--card)}
+.slcat .ctile .mini.dn{background:rgb(var(--color-ok))}
 .slcat .ctile .mini.lk{background:var(--gold-deep)}
 .slcat .ctile .mini.ak{background:var(--card);color:var(--gold-deep);border-color:var(--gold);border-style:dashed}
 .slcat .ctile .mini.bd{background:var(--card);color:var(--gold-deep);border-color:var(--gold)}
-.slcat .ctile .nx{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:7.5px;letter-spacing:.12em;background:var(--gold-deep);color:#fff;border-radius:var(--m-r-full);padding:1px 6px;font-weight:700;line-height:1.6}
+.slcat .ctile .nx{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-family:var(--sans);font-size:12px;letter-spacing:.12em;background:var(--gold-deep);color:#fff;border-radius:var(--m-r-full);padding:1px 6px;font-weight:700;line-height:1.6}
 /* folder-head summary pills — "● N locked · N to decide · ＋N more" */
 .slcat .fsum{display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 /* 10px, not 9px: at 9px mono these read as texture rather than as the counts
    they are — the reference sets them at 10.5px. */
-.slcat .fsum .s{font-family:var(--mono);font-size:10px;letter-spacing:.03em;border-radius:var(--m-r-full);padding:2.5px 9px;font-weight:700;white-space:nowrap;line-height:1.5}
-.slcat .fsum .s.lk{background:rgba(169,131,75,.16);color:var(--gold-text)}
-.slcat .fsum .s.td{background:rgba(30,26,18,.07);color:var(--ink-soft)}
+.slcat .fsum .s{font-family:var(--sans);font-size:12px;letter-spacing:.03em;border-radius:var(--m-r-full);padding:2.5px 9px;font-weight:700;white-space:nowrap;line-height:1.5}
+.slcat .fsum .s.lk{background:rgb(var(--color-terracotta)/.16);color:var(--gold-text)}
+.slcat .fsum .s.td{background:rgb(var(--color-ink)/.07);color:var(--ink-soft)}
 .slcat .fsum .s.ad{border:1px dashed var(--line);color:var(--ink-soft)}
-.slcat .fsum .s.dn{background:rgba(46,125,79,.12);color:#2e7d4f}
-html.dark .slcat .ctile .mini.bd{background:#232019}
-html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
+.slcat .fsum .s.dn{background:rgb(var(--color-ok)/.12);color:rgb(var(--color-ok))}
+html.dark .slcat .ctile .mini.bd{background:rgb(var(--color-raised))}
+html.dark .slcat .fsum .s.td{background:rgb(var(--color-ink)/.08)}
 
 /* ── Adaptive category set + per-category ⓘ (Explore Replan PR-C · gated) ──
    Three quiet affordances on the SHIPPED accordion, not a new surface: the ⓘ
@@ -795,7 +795,7 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
    class-name sweep cannot see. danger-700, like every other error here. */
 .slcat .plan-err{font-family:var(--sans);font-size:12px;line-height:1.45;color:rgb(var(--color-danger));text-align:right;flex:1 1 200px}
 .slcat .addpool{margin:10px 14px 2px 34px;padding-top:10px;border-top:1px dashed var(--line)}
-.slcat .addpool .ap-t{margin:0 0 8px;font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .addpool .ap-t{margin:0 0 8px;font-family:var(--sans);font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
 .slcat .addpool .ap-chips{display:flex;flex-wrap:wrap;gap:7px}
 .slcat .addchip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;background:transparent;border:1px dashed var(--line);border-radius:var(--m-r-full);font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:border-color .18s var(--ease),color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
 .slcat .addchip:hover{border-color:var(--gold);color:var(--gold-deep)}
@@ -805,10 +805,10 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 
 
 /* "In your plan" marker beside a category name */
-.slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+.slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgb(var(--color-terracotta)/.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 /* Free first-venue-shortlist marker (owner 2026-07-09 · Pricing.md § 00) —
    presentational chip on the venue category while its shortlist is empty */
-.slcat .cat-free{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mulberry);background:rgba(30,26,18,.08);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+.slcat .cat-free{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mulberry);background:rgb(var(--color-ink)/.08);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 
 /* ── Three-action card (Explore Replan slice D · flag-gated) ────────────────
    The prototype drew these as emoji + red pills; production draws them in the
@@ -821,35 +821,35 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 .slcat .vcw>.vc{flex:1 1 auto;width:100%;min-width:0;scroll-snap-align:none}
 .slcat .vacts{display:flex;flex-direction:column;gap:5px}
 .slcat .vact-slot{display:flex;flex-direction:column}
-.slcat .vact{display:inline-flex;align-items:center;justify-content:center;gap:5px;width:100%;padding:8px 9px;border:1px solid transparent;border-radius:var(--m-r-sm);font:inherit;font-family:var(--sans);font-size:11.5px;font-weight:600;line-height:1.15;text-align:center;text-decoration:none;cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
+.slcat .vact{display:inline-flex;align-items:center;justify-content:center;gap:5px;width:100%;padding:8px 9px;border:1px solid transparent;border-radius:var(--m-r-sm);font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;line-height:1.15;text-align:center;text-decoration:none;cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
 .slcat .vact:active{transform:scale(.97)}
 .slcat .vact:disabled{opacity:.55;cursor:default}
 .slcat .vact.primary{background:var(--mulberry);color:#fff;border-color:var(--mulberry)}
 .slcat .vact.ghost{background:var(--card);color:var(--ink);border-color:var(--line)}
-.slcat .vact.ghost:hover{border-color:rgba(30,26,18,.3)}
-.slcat .vact.quiet{background:rgba(169,131,75,.1);color:var(--gold-deep);border-color:rgba(169,131,75,.42)}
-.slcat .vact.quiet:hover{background:rgba(169,131,75,.17)}
-.slcat .vact.on{background:rgba(169,131,75,.14);color:var(--gold-deep);border-color:rgba(169,131,75,.42);cursor:default}
-.slcat .vact.note{background:transparent;color:var(--ink-soft);border-style:dashed;border-color:var(--line);font-weight:500;font-size:10.5px;cursor:default;text-align:left;justify-content:flex-start}
+.slcat .vact.ghost:hover{border-color:rgb(var(--color-ink)/.3)}
+.slcat .vact.quiet{background:rgb(var(--color-terracotta)/.1);color:var(--gold-deep);border-color:rgb(var(--color-terracotta)/.42)}
+.slcat .vact.quiet:hover{background:rgb(var(--color-terracotta)/.17)}
+.slcat .vact.on{background:rgb(var(--color-terracotta)/.14);color:var(--gold-deep);border-color:rgb(var(--color-terracotta)/.42);cursor:default}
+.slcat .vact.note{background:transparent;color:var(--ink-soft);border-style:dashed;border-color:var(--line);font-weight:500;font-size:12px;cursor:default;text-align:left;justify-content:flex-start}
 /* Self-added supplier · inline price (owner 2026-09-20 — "they can just list
    manually"). Wears the card's own scale so it reads as one more control in
    the .vacts stack, not a form bolted on. */
 .slcat .vact-inline-price{display:flex;flex-direction:column;gap:4px}
-.slcat .vact-inline-price-row{display:flex;align-items:center;gap:4px;padding:5px 7px;border:1px solid var(--line);border-radius:var(--m-r-sm);background:var(--card);font-size:11.5px;font-weight:600;color:var(--ink)}
+.slcat .vact-inline-price-row{display:flex;align-items:center;gap:4px;padding:5px 7px;border:1px solid var(--line);border-radius:var(--m-r-sm);background:var(--card);font-size:12px;font-weight:600;color:var(--ink)}
 .slcat .vact-inline-price-row input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;color:inherit;padding:2px 0}
 .slcat .vact-inline-price-row input::placeholder{color:var(--ink-soft);font-weight:500}
 .slcat .vact-inline-price-row button{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:none;border:0;border-radius:var(--m-r-sm);background:var(--mulberry);color:#fff;cursor:pointer}
 .slcat .vact-inline-price-row button:disabled{opacity:.55;cursor:default}
-.slcat .vact-inline-price-err{margin:0;font-family:var(--sans);font-size:10px;line-height:1.3;color:var(--danger-900,#7f1d1d)}
-.slcat .vact-inline-price-more{font-family:var(--mono);font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);text-decoration:none;text-align:center;padding:2px}
+.slcat .vact-inline-price-err{margin:0;font-family:var(--sans);font-size:12px;line-height:1.3;color:var(--danger-900,#7f1d1d)}
+.slcat .vact-inline-price-more{font-family:var(--sans);font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);text-decoration:none;text-align:center;padding:2px}
 .slcat .vact-inline-price-more:hover,.slcat .vact-inline-price-more:focus{color:var(--ink);text-decoration:underline}
-.slcat .vact.mini{flex:0 0 auto;width:auto;padding:8px 10px;background:transparent;color:var(--ink-soft);border-color:var(--line);font-size:10.5px;font-weight:500}
+.slcat .vact.mini{flex:0 0 auto;width:auto;padding:8px 10px;background:transparent;color:var(--ink-soft);border-color:var(--line);font-size:12px;font-weight:500}
 .slcat .vact.mini:hover{color:var(--ink)}
 .slcat .vact-pair{display:flex;gap:5px;align-items:stretch}
 .slcat .vact-pair>.vact.on{flex:1 1 auto;min-width:0}
-.slcat .vact-err{font-family:var(--sans);font-size:10.5px;line-height:1.3;color:#9a3325;margin:4px 0 0}
+.slcat .vact-err{font-family:var(--sans);font-size:12px;line-height:1.3;color:#9a3325;margin:4px 0 0}
 html.dark .slcat .vact-err{color:#e9a99d}
-html.dark .slcat .vact.primary{background:#E5794E;color:#17160F;border-color:#E5794E}
+html.dark .slcat .vact.primary{background:rgb(var(--color-mulberry));color:rgb(var(--color-cream));border-color:rgb(var(--color-mulberry))}
 /* Locked names on a COLLAPSED category row (decision #8) — the row answers
    "who did we choose here?" without opening the rail. Its LOOK is the app's row
    template's second line ('FORM_ROW_SUBLINE', on the element), under the name
@@ -865,22 +865,22 @@ html.dark .slcat .vact.primary{background:#E5794E;color:#17160F;border-color:#E5
    Amber, never red: the supplier is fine, it is the couple's build that narrowed
    past them, and un-narrowing it is one tap away. Flag OFF ⇒ no banner, no
    .is-dim, no divider, and none of these selectors ever match. */
-.slcat .convrg{display:flex;gap:10px;align-items:flex-start;margin:0 0 14px;padding:11px 13px;border:0.5px solid var(--line);border-radius:var(--m-r-md);background:rgba(30,26,18,.035)}
+.slcat .convrg{display:flex;gap:10px;align-items:flex-start;margin:0 0 14px;padding:11px 13px;border:0.5px solid var(--line);border-radius:var(--m-r-md);background:rgb(var(--color-ink)/.035)}
 .slcat .convrg .cv-i{flex:0 0 auto;display:flex;color:var(--gold-deep);margin-top:1px}
 .slcat .convrg .cv-b{display:flex;flex-direction:column;gap:2px;min-width:0}
 .slcat .convrg .cv-b b{font-family:var(--sans);font-size:12.5px;font-weight:600;line-height:1.3;color:var(--ink)}
-.slcat .convrg .cv-b span{font-family:var(--sans);font-size:11px;line-height:1.4;color:var(--ink-soft)}
-.slcat .convrg.t-converged{border-color:rgba(169,131,75,.45);background:rgba(169,131,75,.1)}
-.slcat .convrg.t-conflict{border-color:rgba(169,131,75,.45);background:rgba(169,131,75,.14)}
+.slcat .convrg .cv-b span{font-family:var(--sans);font-size:12px;line-height:1.4;color:var(--ink-soft)}
+.slcat .convrg.t-converged{border-color:rgb(var(--color-terracotta)/.45);background:rgb(var(--color-terracotta)/.1)}
+.slcat .convrg.t-conflict{border-color:rgb(var(--color-terracotta)/.45);background:rgb(var(--color-terracotta)/.14)}
 .slcat .convrg.t-conflict .cv-i,.slcat .convrg.t-converged .cv-i{color:var(--gold-deep)}
-html.dark .slcat .convrg{background:rgba(251,251,250,.04)}
+html.dark .slcat .convrg{background:rgb(var(--color-ink)/.04)}
 html.dark .slcat .convrg .cv-b b{color:var(--ink)}
-html.dark .slcat .convrg.t-converged,html.dark .slcat .convrg.t-conflict{background:rgba(169,131,75,.16);border-color:rgba(169,131,75,.4)}
+html.dark .slcat .convrg.t-converged,html.dark .slcat .convrg.t-conflict{background:rgb(var(--color-terracotta)/.16);border-color:rgb(var(--color-terracotta)/.4)}
 
 /* The sink divider — a vertical rule INSIDE the horizontal rail, so the sunk
    cards stay in the same carousel the couple is already scrolling. */
 .slcat .raildiv{flex:0 0 auto;display:flex;align-items:center;align-self:stretch;padding:0 4px;scroll-snap-align:start}
-.slcat .raildiv>span{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--mono);font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--gold-deep);border-left:0.5px solid rgba(169,131,75,.42);padding:8px 0 8px 7px;white-space:nowrap}
+.slcat .raildiv>span{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--sans);font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--gold-deep);border-left:0.5px solid rgb(var(--color-terracotta)/.42);padding:8px 0 8px 7px;white-space:nowrap}
 
 /* DIM, never removed (decision #3): the card stays viewable and its Inquire
    leg stays live — only Add-to-build and Lock stand down. */
@@ -888,14 +888,14 @@ html.dark .slcat .convrg.t-converged,html.dark .slcat .convrg.t-conflict{backgro
 .slcat .vcw.is-dim:hover>.vc,.slcat .vcw.is-dim:focus-within>.vc{opacity:1;filter:none}
 
 /* The supplier's own free days, in the same mono voice as the price/meta rows. */
-.slcat .vc .freedays{display:block;font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;line-height:1.3;color:var(--ink-soft);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slcat .vc .freedays{display:block;font-family:var(--sans);font-size:12px;letter-spacing:.03em;line-height:1.3;color:var(--ink-soft);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* The withheld build CTA — a reason, not an error. Wraps, unlike .vact.note. */
-.slcat .vact.note.clash{align-items:flex-start;gap:6px;border-color:rgba(169,131,75,.42);color:var(--gold-deep);white-space:normal}
+.slcat .vact.note.clash{align-items:flex-start;gap:6px;border-color:rgb(var(--color-terracotta)/.42);color:var(--gold-deep);white-space:normal}
 .slcat .vact.note.clash svg{flex:0 0 auto;margin-top:1px}
 .slcat .vact-note-txt{display:flex;flex-direction:column;gap:1px;min-width:0;text-align:left}
 .slcat .vact-note-txt b{font-weight:600;color:var(--gold-deep)}
-.slcat .vact-note-txt>span{color:var(--ink-soft);font-weight:500;font-size:10px;line-height:1.35}
+.slcat .vact-note-txt>span{color:var(--ink-soft);font-weight:500;font-size:12px;line-height:1.35}
 html.dark .slcat .vact.note.clash{color:#e2b968}
 
 /* ── HARD tier · "Not available on your date" (PR-G2 · owner 2026-09-11) ─────
@@ -918,24 +918,24 @@ html.dark .slcat .vact.note.unavailable .vact-note-txt b{color:#EC8A5F}
 .slcat .vact.note.withheld .vact-note-txt b{color:var(--ink)}
 html.dark .slcat .vact-note-txt b{color:#e2b968}
 
-html.dark .slcat .cat-free{color:#E5794E;background:rgba(229,121,78,.14)}
+html.dark .slcat .cat-free{color:rgb(var(--color-mulberry));background:rgba(229,121,78,.14)}
 /* Dark: the card IS lighter than the page here (#2A2E36 on ink-black), so the
    surface separates on its own and a black drop shadow buys nothing — both
    lifts are neutralised via the vars below, which keeps '.fold.open' free to
    change border-colour as its open cue. */
 html.dark .slcat .plan-strip{background:var(--card)}
-html.dark .slcat .plan-chip{background:#232019}
+html.dark .slcat .plan-chip{background:rgb(var(--color-raised))}
 /* --gold-deep (#8A6B39) is too dark to read on the dark card; the bench already
    uses #e2b968 as its dark gold everywhere else (.fit.warn, .vact.note.clash),
    so the row icons follow it rather than inventing a shade. */
 /* The open cue in dark mode. '.fold.open' sets a DARK border (fine on white,
    invisible on the dark card) and its shadow is neutralised above, so without this
    an open folder in dark mode had no edge change at all. */
-html.dark .slcat .fold.open{border-color:rgba(251,251,250,.3)}
+html.dark .slcat .fold.open{border-color:rgb(var(--color-ink)/.3)}
 html.dark .slcat .fold-ic{background:rgba(226,185,104,.14);color:#e2b968}
 html.dark .slcat .fold.open .fold-ic{background:rgba(226,185,104,.24)}
 html.dark .slcat .cat.open .cat-ic{color:#e2b968}
-html.dark .slcat{--paper:#1E1C15;--ink:#FBFBFA;--ink-soft:#B3AEA3;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#232019;--edge:rgba(251,251,250,.16);--edge-lift:none;--edge-lift-open:none}
+html.dark .slcat{--paper:#1E1C15;--ink:#FBFBFA;--ink-soft:#B3AEA3;--line:rgb(var(--color-ink)/.16);--line-soft:rgb(var(--color-ink)/.1);--card:rgb(var(--color-raised));--edge:rgb(var(--color-ink)/.16);--edge-lift:none;--edge-lift-open:none}
 /* THE DARK BLOCK RE-POINTED EVERY NEUTRAL AND FORGOT THE GOLDS (2026-09-09).
    --paper, --ink, --ink-soft, --line, --card and --edge all get a dark value
    here; --gold and --gold-deep did not, so every gold thing on the bench kept a
@@ -955,7 +955,7 @@ html.dark .slcat .vc .bdg.verified{color:#7BD3A0}
    down already sets it to #C99DB0 and, being later, wins — measured 5.95:1 on
    its own tint over the dark card, which passes. A rule added here would be
    DEAD and would read to the next person as if it were doing the work. */
-html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#E5794E}
+html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:rgb(var(--color-mulberry))}
 
 /* ── ROW 2 · the inline "More in {category}" rail (owner 2026-09-06) ─────────
    Deliberately QUIETER than row 1: a tinted well with a hairline top rule, so
@@ -965,14 +965,14 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .morerow{margin-top:12px;padding:11px 0 3px;border-top:1px solid var(--line-soft);animation:slcat-mr .22s cubic-bezier(.2,.7,.2,1)}
 @keyframes slcat-mr{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .slcat .morehead{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:0 16px 9px 0}
-.slcat .morehead .mt{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
+.slcat .morehead .mt{font-family:var(--sans);font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
 
 /* The row-2 card's action pair. Save is the primary; Inquire sits beside it.
    There is no third slot, and that absence is the constraint: no Lock, no Add
    to build — the bench does not carry that machinery. */
 .slcat .mrc .mra{display:flex;flex-direction:column;gap:5px}
 .slcat .mrc.is-busy{opacity:.7;pointer-events:none}
-.slcat .mrsaved{font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;line-height:1.35;color:#2e7d4f}
+.slcat .mrsaved{font-family:var(--sans);font-size:12px;letter-spacing:.03em;line-height:1.35;color:rgb(var(--color-ok))}
 
 /* Notes under the row: the loading line, the empty state, and the count of
    sunk cards. Said once here rather than printed on every card. */
@@ -980,8 +980,8 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 /* "Your order" — the couple's own arrangement is in force on this rail. Same
    treatment as .cat-plan, which the contrast guard already measures, so this
    label starts life on a wash that is known to carry its own text. */
-.slcat .arrl{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
-.slcat .arrt{font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
+.slcat .arrl{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgb(var(--color-terracotta)/.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+.slcat .arrt{font-family:var(--sans);font-size:12px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
 /* The per-card move controls, shown only while the rail is in rearrange mode.
    The handle is the shipped proposal-maker shape (a draggable grip beside a
    drop-target row); the two arrows are the SAME move, reachable without a mouse
@@ -989,8 +989,8 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .arrctl{display:flex;align-items:center;justify-content:center;gap:6px;padding:2px 0}
 .slcat .arrh{cursor:grab;user-select:none;font-size:15px;line-height:1;color:var(--ink-soft);padding:0 2px}
 .slcat .vcw.is-grabbed{opacity:.45}
-.slcat .mrnote{padding:8px 16px 2px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
-.slcat .mrerr{padding:0 16px 8px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:#8C3A3A}
+.slcat .mrnote{padding:8px 16px 2px 0;font-family:var(--sans);font-size:12px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
+.slcat .mrerr{padding:0 16px 8px 0;font-family:var(--sans);font-size:12px;letter-spacing:.04em;line-height:1.5;color:#8C3A3A}
 html.dark .slcat .mrsaved{color:#7FBF9A}
 html.dark .slcat .mrerr{color:#E39A9A}
 
@@ -998,13 +998,13 @@ html.dark .slcat .mrerr{color:#E39A9A}
 /* --card, not --m-paper: the app-wide paper has no dark value, so this one
    panel stayed white in dark mode while its text inherited near-white ink —
    1.09:1, invisible. */
-.slcat .fd-pop{display:block;margin:4px 0 2px;padding:7px 9px;border:1px solid rgba(169,131,75,.35);
+.slcat .fd-pop{display:block;margin:4px 0 2px;padding:7px 9px;border:1px solid rgb(var(--color-terracotta)/.35);
   border-radius:var(--m-r-sm);background:var(--card)}
-.slcat .fd-pop-t{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.05em;
+.slcat .fd-pop-t{display:block;font-family:var(--sans);font-size:12px;letter-spacing:.05em;
   text-transform:uppercase;color:var(--gold-text);margin-bottom:4px}
 .slcat .fd-chip{display:inline-block;margin:2px 4px 0 0;padding:1px 7px;border-radius:var(--m-r-full);
-  background:rgba(27,26,23,.06);font-family:var(--mono);font-size:9.5px}
-.slcat .fd-out{display:block;margin-top:3px;font-size:9.5px;color:var(--gold-deep)}
+  background:rgba(27,26,23,.06);font-family:var(--sans);font-size:9.5px}
+.slcat .fd-out{display:block;margin-top:3px;font-size:12px;color:var(--gold-deep)}
 
 /* ── WHERE YOU STAND ────────────────────────────────────────────────────────
    The one line this stream adds to the card, ported from the binding prototype
@@ -1020,8 +1020,8 @@ html.dark .slcat .mrerr{color:#E39A9A}
    five contrast failures on this file happened. Both pairings are pinned in
    the-bench-is-legible.test.ts and measured in both themes. */
 .slcat .vc .stand{margin-top:auto;padding-top:6px;border-top:1px dashed var(--line);
-  font-size:10.5px;line-height:1.45;color:var(--ink-soft)}
-.slcat .vc .stand .lab{display:block;font-family:var(--mono);font-size:8px;letter-spacing:.12em;
+  font-size:12px;line-height:1.45;color:var(--ink-soft)}
+.slcat .vc .stand .lab{display:block;font-family:var(--sans);font-size:12px;letter-spacing:.12em;
   text-transform:uppercase;color:var(--gold-text);margin-bottom:2px}
 .slcat .vc .stand .line{display:block}
 .slcat .vc .stand b{color:var(--ink);font-weight:600}
@@ -1086,11 +1086,11 @@ html.dark .slcat .mrerr{color:#E39A9A}
 .slcat .sc-price,.slcat .sc-gift{color:var(--gold-deep)}
 .slcat .vc .incl,.slcat .mrsaved{color:rgb(var(--color-ok))}
 .slcat .vact-inline-price-err,.slcat .mrerr,.slcat .vact-err{color:rgb(var(--color-danger))}
-html.dark .slcat .vc .rpill.ok{color:#17160F}
-html.dark .slcat .vc .bdg{background:rgba(251,251,250,.1);color:var(--ink-soft)}
+html.dark .slcat .vc .rpill.ok{color:rgb(var(--color-cream))}
+html.dark .slcat .vc .bdg{background:rgb(var(--color-ink)/.1);color:var(--ink-soft)}
 html.dark .slcat .vc .bdg.verified{color:#6FCF97;background:rgba(111,207,151,.14)}
-html.dark .slcat .vc .bdg.setnayan{color:#E5794E;background:rgba(229,121,78,.14)}
-html.dark .slcat .fd-chip{background:rgba(251,251,250,.1)}
+html.dark .slcat .vc .bdg.setnayan{color:rgb(var(--color-mulberry));background:rgba(229,121,78,.14)}
+html.dark .slcat .fd-chip{background:rgb(var(--color-ink)/.1)}
 /* the accent in dark is the accent (the old wine #C99DB0 is retired) */
 html.dark .slcat .sortseg button.on,html.dark .slcat .vact.primary{background:rgb(var(--sn-accent));border-color:rgb(var(--sn-accent));color:rgb(var(--sn-on-accent))}
 html.dark .slcat .cat-free{color:rgb(var(--sn-accent));background:rgba(229,121,78,.14)}
@@ -2034,7 +2034,7 @@ function InlineMoreCard({
         photos={svc?.photos ?? null}
         coverCorner={
           v.boosted ? (
-            <span className="inline-block rounded-full bg-mulberry px-2 py-0.5 text-[9px] uppercase tracking-wide text-cream">
+            <span className="inline-block rounded-full bg-mulberry px-2 py-0.5 text-xs uppercase tracking-wide text-cream">
               Featured
             </span>
           ) : null
@@ -2047,11 +2047,11 @@ function InlineMoreCard({
             {/* Hybrid anonymity — the placeholder is a taxonomy-and-city string, and without this line a couple
                 reads it as a fake listing. Same sentence the full sheet shows, for the same reason. */}
             {v.nameAnonymized ? (
-              <span className="text-[11px] text-[var(--m-slate-2)]">Real name shown after they reply</span>
+              <span className="text-xs text-[var(--m-slate-2)]">Real name shown after they reply</span>
             ) : null}
             {/* No stars for a shop with 0 reviews — "New", never "0.0" (owner ruling 2026-09-11). */}
             {v.rating == null && typeof v.reviewCount === 'number' ? (
-              <span className="text-[11px] text-[var(--m-slate-2)]">{NEW_TO_SETNAYAN_LABEL}</span>
+              <span className="text-xs text-[var(--m-slate-2)]">{NEW_TO_SETNAYAN_LABEL}</span>
             ) : null}
             {/* Constraint 2 — the SAME badge row 1 draws, from the same function. Amber, never red. */}
             {sunk ? (
@@ -5322,10 +5322,12 @@ export function ShortlistCategories({
           >
             <OverlayBackdrop onClose={closeReqModal} />
             <div className="relative z-10 flex w-full items-center justify-center rounded-t-3xl border border-ink/10 bg-cream px-5 py-10 tab:w-full tab:max-w-lg tab:rounded-2xl">
-              <span
-                className="h-6 w-6 animate-spin rounded-full border-2 border-mulberry border-t-transparent"
-                aria-hidden
-              />
+              {/* A shimmer in the request's own shape, never a spinner (design template rule 15). */}
+              <span aria-hidden className="flex w-full flex-col gap-3">
+                <span className="sn-skeleton h-5 w-2/3 rounded-full" />
+                <span className="sn-skeleton h-12 w-full rounded-xl" />
+                <span className="sn-skeleton h-12 w-full rounded-xl" />
+              </span>
             </div>
           </div>
         ) : (

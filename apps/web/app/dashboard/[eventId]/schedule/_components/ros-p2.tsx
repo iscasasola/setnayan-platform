@@ -43,6 +43,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import type { SupplierStandingWord } from '@/lib/booked-by-payment';
 import { supplierOnItem } from './day-types';
 import type { TimesMark } from '@/lib/supplier-schedule-marks';
+import { PostedPick } from '@/app/dashboard/[eventId]/_components/posted-pick';
 import {
   bulkRetimeScheduleBlocks,
   loadScheduleTemplate,
@@ -93,7 +94,7 @@ export function RosLensBar({
   );
   return (
     <div className="sn-row flex flex-wrap items-center gap-2 px-4 py-3">
-      <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+      <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.06em] text-ink/70">
         <Filter aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         View as
       </span>
@@ -107,7 +108,7 @@ export function RosLensBar({
           label={v.vendor_name}
         />
       ))}
-      <span className="basis-full text-xs text-ink/50">
+      <span className="basis-full text-xs text-ink/70">
         Every view is a live filter over this one master timeline — edit the
         master and each slice updates itself.
       </span>
@@ -122,7 +123,7 @@ function LensChip({ href, active, label }: { href: string; active: boolean; labe
       className={`rounded-full px-3 py-1 text-xs font-medium ${
         active
           ? 'bg-ink text-cream'
-          : 'border border-ink/15 bg-white text-ink/60 hover:text-ink'
+          : 'border border-ink/15 bg-white text-ink/70 hover:text-ink'
       }`}
     >
       {label}
@@ -154,8 +155,8 @@ export function RosLensPreview({
   return (
     <section className="sn-row space-y-3 p-4">
       <header className="space-y-1">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{title}</p>
-        <p className="text-xs text-ink/55">
+        <p className="text-xs uppercase tracking-[0.06em] text-ink/70">{title}</p>
+        <p className="text-xs text-ink/70">
           Read-only preview · {view.length} row{view.length === 1 ? '' : 's'}.
           {lens.kind === 'guest'
             ? ' Guests see public blocks on the Event Hub.'
@@ -163,7 +164,7 @@ export function RosLensPreview({
         </p>
       </header>
       {view.length === 0 ? (
-        <p className="rounded-md bg-ink/[0.03] p-3 text-sm text-ink/60">
+        <p className="rounded-md bg-ink/[0.03] p-3 text-sm text-ink/70">
           {lens.kind === 'guest'
             ? 'No public blocks yet — flip a block to “Show to guests” on the master.'
             : 'Nothing tagged to this supplier yet — assign them a row on the master.'}
@@ -173,7 +174,7 @@ export function RosLensPreview({
           {view.map((b) => (
             <li key={b.block_id} className={`py-2 ${b.parent_block_id ? 'pl-6' : ''}`}>
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                <span className="w-40 shrink-0 font-mono text-xs tabular-nums text-ink/60">
+                <span className="w-40 shrink-0 text-xs tabular-nums text-ink/70">
                   {/* ⏭ A TBA row has no clock: a chapter is "Time TBA", a moment "Right after" — never its stored start. */}
                   {b.time_tba === true
                     ? b.parent_block_id
@@ -185,12 +186,12 @@ export function RosLensPreview({
                 </span>
                 <span className="text-sm font-medium text-ink">{b.label}</span>
                 {meta.get(b.block_id)?.responsible_party ? (
-                  <span className="text-xs text-ink/55">
+                  <span className="text-xs text-ink/70">
                     · {meta.get(b.block_id)!.responsible_party}
                   </span>
                 ) : null}
               </div>
-              {b.location ? <p className="mt-0.5 text-xs text-ink/50">{b.location}</p> : null}
+              {b.location ? <p className="mt-0.5 text-xs text-ink/70">{b.location}</p> : null}
             </li>
           ))}
         </ol>
@@ -222,24 +223,20 @@ export function BulkRetimePanel({
         <input type="hidden" name="event_id" value={eventId} />
         <label className="space-y-1">
           <span className="block text-xs font-medium text-ink">From block</span>
-          <select name="from_block_id" required className="input-field">
-            {topLevel.map((b) => (
-              <option key={b.block_id} value={b.block_id}>
-                {b.label}
-              </option>
-            ))}
-          </select>
+          <PostedPick
+            name="from_block_id"
+            label="From block"
+            initial={topLevel[0]?.block_id ?? ''}
+            options={topLevel.map((b) => ({ key: b.block_id, label: b.label }))}
+          />
         </label>
         <label className="space-y-1">
           <span className="block text-xs font-medium text-ink">Through (optional)</span>
-          <select name="to_block_id" defaultValue="" className="input-field">
-            <option value="">End of day</option>
-            {topLevel.map((b) => (
-              <option key={b.block_id} value={b.block_id}>
-                {b.label}
-              </option>
-            ))}
-          </select>
+          <PostedPick
+            name="to_block_id"
+            label="Through"
+            options={[{ key: '', label: 'End of day' }, ...topLevel.map((b) => ({ key: b.block_id, label: b.label }))]}
+          />
         </label>
         <label className="space-y-1">
           <span className="block text-xs font-medium text-ink">Shift by (minutes)</span>
@@ -254,7 +251,7 @@ export function BulkRetimePanel({
             className="input-field"
           />
         </label>
-        <p className="text-xs text-ink/55 sm:col-span-2">
+        <p className="text-xs text-ink/70 sm:col-span-2">
           Moves the chosen block and everything after it (parts travel with
           their parent) by the same amount — positive pushes later, negative
           pulls earlier. Durations are kept.
@@ -281,21 +278,21 @@ export function TemplatePicker({
   return (
     <section className="sn-row space-y-3 p-4">
       <header className="space-y-1">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.06em] text-ink/70">
           <LayoutTemplate aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Start from a template
         </p>
-        <p className="max-w-prose text-xs text-ink/55">
+        <p className="max-w-prose text-xs text-ink/70">
           Load a run-of-show skeleton, then reshape every block. Templates only
           load into an empty schedule — they never overwrite what you&rsquo;ve built.
         </p>
       </header>
-      <ul className="grid gap-3 sm:grid-cols-3">
+      <ul className="divide-y divide-ink/10">
         {templates.map((t) => (
-          <li key={t.id} className="flex flex-col rounded-xl border border-ink/10 bg-white p-3">
-            <p className="text-sm font-semibold text-ink">{t.label}</p>
-            <p className="mt-1 flex-1 text-xs text-ink/60">{t.description}</p>
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+          <li key={t.id} className="flex min-h-14 flex-col py-3">
+            <p className="text-[15px] font-semibold text-ink">{t.label}</p>
+            <p className="mt-1 flex-1 text-[13px] text-ink/70">{t.description}</p>
+            <p className="mt-2 text-xs uppercase tracking-[0.06em] text-ink/70">
               {t.rows.length} blocks
             </p>
             <form action={loadScheduleTemplate} className="mt-2">
@@ -337,7 +334,7 @@ export function ResponsiblePartyEditor({
     [party, ...taggedNames].filter(Boolean).join(' · ') || 'Assign responsible party';
   return (
     <details className="text-xs">
-      <summary className="inline-flex cursor-pointer items-center gap-1 text-ink/55 hover:text-ink">
+      <summary className="inline-flex cursor-pointer items-center gap-1 text-ink/70 hover:text-ink">
         <UserCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         {summaryText}
       </summary>
@@ -360,27 +357,21 @@ export function ResponsiblePartyEditor({
         {vendors.length > 0 ? (
           <label className="space-y-1">
             <span className="block font-medium text-ink">Tag booked suppliers</span>
-            <select
+            <PostedPick
               name="responsible_vendor_ids"
-              multiple
-              size={Math.min(vendors.length, 4)}
-              defaultValue={[...taggedIds]}
-              className="input-field h-auto"
-            >
-              {vendors.map((v) => (
-                <option key={v.vendor_id} value={v.vendor_id}>
-                  {supplierOnItem(v)}
-                </option>
-              ))}
-            </select>
-            <span className="block text-[11px] text-ink/50">
+              label="Tag booked suppliers"
+              many
+              initialMany={[...taggedIds]}
+              options={vendors.map((v) => ({ key: v.vendor_id, label: supplierOnItem(v) }))}
+            />
+            <span className="block text-xs text-ink/70">
               Tagged suppliers get this row in their filtered run-of-show slice.
             </span>
           </label>
         ) : null}
         <div>
           <SubmitButton
-            className="rounded-md bg-ink px-3 py-1 text-xs font-semibold text-cream hover:bg-ink/85"
+            className="ab ab-brand inline-flex min-h-11 items-center justify-center"
             pendingLabel="Saving…"
           >
             Save

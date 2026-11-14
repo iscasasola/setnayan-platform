@@ -107,7 +107,7 @@ export function ViewAsMenu({
         options.length > SEARCH_FROM ? (
           <li role="none" className="sticky top-0 z-[2] -mx-1.5 -mt-1.5 mb-1 bg-cream/95 p-1.5 dark:bg-raised">
             <div className="relative">
-              <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/45" strokeWidth={2} />
+              <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/70" strokeWidth={2} />
               <input
                 className="min-h-11 w-full rounded-xl border border-ink/15 bg-cream pl-9 pr-3 text-[14px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none dark:bg-raised"
                 type="search"
@@ -119,7 +119,7 @@ export function ViewAsMenu({
                 data-view-as-search=""
               />
             </div>
-            {q && shown.length <= 1 ? <p className="px-3 pt-2 text-[12px] text-ink/55">Nobody on the schedule matches “{query.trim()}”.</p> : null}
+            {q && shown.length <= 1 ? <p className="px-3 pt-2 text-xs text-ink/70">Nobody on the schedule matches “{query.trim()}”.</p> : null}
           </li>
         ) : undefined
       }
@@ -253,23 +253,23 @@ function fileSlug(words: string): string {
 
 /** 👤 A named guest's card, as their Event Hub › Me draws it: their call, their chapters, their lines (theirs marked). */
 function PersonCard({ card }: { card: YourSchedule }) {
-  if (card.kind === 'none') return <p className="py-3 text-[14px] text-ink/55">No chapter is on their invitation yet, so they see no schedule.</p>;
+  if (card.kind === 'none') return <p className="py-3 text-[14px] text-ink/70">No chapter is on their invitation yet, so they see no schedule.</p>;
   return (
     <div data-view-as-card={card.stage}>
-      <p className="text-[13px] text-ink/60">
+      <p className="text-[13px] text-ink/70">
         {card.stage === 'after' ? 'Their full schedule — released.' : 'Before Release they see their chapters and their call, not the lines.'}
       </p>
       {card.call ? (
         <div data-view-as-call="" className="pt-2">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">{card.call.label}</p>
-          <p className="font-display text-[28px] leading-tight text-ink">{card.call.time}</p>
-          {card.call.note ? <p className="text-[13px] text-ink/60">{card.call.note}</p> : null}
+          <p className="text-xs uppercase tracking-[0.06em] text-ink/70">{card.call.label}</p>
+          <p className="text-[28px] font-bold leading-tight tabular-nums text-ink">{card.call.time}</p>
+          {card.call.note ? <p className="text-[13px] text-ink/70">{card.call.note}</p> : null}
         </div>
       ) : null}
       {card.chapters.map((c) => (
         <section key={c.id} data-view-as-chapter={c.id} className="pt-3">
-          <h3 className="font-display text-[18px] leading-tight text-ink">{c.name}</h3>
-          <p className="text-[13px] text-ink/60">{c.line}</p>
+          <h3 className="text-[17px] font-semibold leading-tight text-ink">{c.name}</h3>
+          <p className="text-[13px] text-ink/70">{c.line}</p>
           {c.lines.length > 0 ? (
             <ul className="mt-1 border-t border-ink/10">
               {c.lines.map((l) => (
@@ -280,7 +280,7 @@ function PersonCard({ card }: { card: YourSchedule }) {
                       {l.title}
                       {l.mine ? <span className="ml-1.5 text-xs font-semibold text-terracotta-700">theirs</span> : null}
                     </span>
-                    {l.sub ? <span className="block text-[13px] text-ink/60">{l.sub}</span> : null}
+                    {l.sub ? <span className="block text-[13px] text-ink/70">{l.sub}</span> : null}
                   </span>
                 </li>
               ))}
@@ -288,7 +288,7 @@ function PersonCard({ card }: { card: YourSchedule }) {
           ) : null}
         </section>
       ))}
-      {card.footnote ? <p className="pt-3 text-[13px] text-ink/55">{card.footnote}</p> : null}
+      {card.footnote ? <p className="pt-3 text-[13px] text-ink/70">{card.footnote}</p> : null}
     </div>
   );
 }
@@ -305,26 +305,26 @@ function Day({ lens, day }: { lens: ViewLens; day: ViewDay }) {
   return (
     <>
       {day.tasksUnread ? (
-        <p role="alert" data-view-as-unread="" className="text-[13px] font-semibold text-danger-700">
+        <p role="alert" data-view-as-unread="" className="text-[13px] font-semibold text-warn-800">
           The tasks couldn’t be read just now, so this may be missing lines. Try again in a moment.
         </p>
       ) : null}
       {day.call ? (
         <div data-view-as-call="" className="pt-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Call time</p>
-          <p className="font-display text-[28px] leading-tight text-ink">{day.call.time}</p>
-          <p className="text-[13px] text-ink/60">{day.call.where}</p>
+          <p className="text-xs uppercase tracking-[0.06em] text-ink/70">Call time</p>
+          <p className="text-[28px] font-bold leading-tight tabular-nums text-ink">{day.call.time}</p>
+          <p className="text-[13px] text-ink/70">{day.call.where}</p>
         </div>
       ) : null}
-      {day.chapters.length === 0 && !day.tasksUnread ? <p className="py-3 text-[14px] text-ink/55">{empty}</p> : null}
+      {day.chapters.length === 0 && !day.tasksUnread ? <p className="py-3 text-[14px] text-ink/70">{empty}</p> : null}
       {day.chapters.map(({ chapter: c, rows }) => (
         <section key={c.block_id} data-view-as-chapter={c.block_id} className="pt-3">
-          <h3 className="font-display text-[18px] leading-tight text-ink">{c.label}</h3>
-          <p className="text-[13px] text-ink/60" data-view-as-when={c.time_tba ? 'tba' : 'set'}>
+          <h3 className="text-[17px] font-semibold leading-tight text-ink">{c.label}</h3>
+          <p className="text-[13px] text-ink/70" data-view-as-when={c.time_tba ? 'tba' : 'set'}>
             {c.time_tba ? TIME_TBA : chapterWhen(c)} · {chapterWhere(c)}
           </p>
           {rows.length === 0 ? (
-            <p className="py-2 text-[14px] text-ink/55">{lens.kind === 'coord' ? 'No moments in it yet.' : 'Nothing shown to guests in it yet.'}</p>
+            <p className="py-2 text-[14px] text-ink/70">{lens.kind === 'coord' ? 'No moments in it yet.' : 'Nothing shown to guests in it yet.'}</p>
           ) : (
             <ul className="mt-1 border-t border-ink/10">
               {rows.map((r) => (
@@ -335,7 +335,7 @@ function Day({ lens, day }: { lens: ViewLens; day: ViewDay }) {
                       {r.title}
                       {r.mine ? <span data-view-as-mine="" className="ml-1.5 text-xs font-semibold text-terracotta-700">theirs</span> : null}
                     </span>
-                    {r.sub ? <span className="block text-[13px] text-ink/60">{r.sub}</span> : null}
+                    {r.sub ? <span className="block text-[13px] text-ink/70">{r.sub}</span> : null}
                     {r.clash ? <span className="block text-[13px] font-semibold text-danger-700">In two places at once</span> : null}
                   </span>
                 </li>

@@ -610,7 +610,7 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .img{height:108px;flex:0 0 108px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
 .slcat .vc .img img{width:100%;height:100%;object-fit:cover}
 .slcat .vc .ini{font-family:var(--serif);font-style:italic;font-size:26px;color:rgba(255,255,255,.7)}
-.slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:4px 8px}
+.slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:4px 8px}
 /* reason-labeled sort — the "why it's here" ribbon (top-left of the card) */
 .slcat .vc .rpill{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:var(--m-r-full);padding:4px 8px;line-height:1}
 .slcat .vc .rpill.ok{color:#fff;background:var(--gold-deep)}
@@ -663,7 +663,7 @@ html.dark .slcat .bench-search{background:#232019}
 .slcat .vc .sub{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;letter-spacing:.03em;color:var(--ink-soft)}
 .slcat .vc .stars{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:9px;color:var(--gold-deep)}
 .slcat .vc .badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
-.slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft)}
+.slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:12px;letter-spacing:.02em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft)}
 .slcat .vc .bdg.verified{color:#1F5C39;background:rgba(46,125,79,.1)}
 /* OUR OWN NAME WAS THE LEAST READABLE TEXT ON THE BENCH — 3.89:1, worse than
    either pairing the design review flagged, and behind no flag at all.
@@ -673,7 +673,7 @@ html.dark .slcat .bench-search{background:#232019}
 .slcat .vc .bdg.setnayan{color:#A83E19;background:rgba(30, 26, 18,.1)}
 /* ── fit-badges (2026-07-09): live reach + budget checks on the bench ── */
 .slcat .vc .fits{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
-.slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
+.slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:12px;letter-spacing:.02em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
 .slcat .vc .fit.ok{color:#2e7d4f;background:rgba(46,125,79,.1)}
 .slcat .vc .fit.warn{color:#6F5A2E;background:rgba(169,131,75,.16)}
 .slcat .vc .fit.muted{color:rgb(var(--color-ink) / .7);background:rgb(var(--color-ink) / .06)}
@@ -1616,12 +1616,12 @@ function VendorCard({
           <span className="badges">
             {v.isSetnayan ? (
               <span className="bdg setnayan">
-                <Sparkles size={9} strokeWidth={2} aria-hidden /> Setnayan
+                <Sparkles size={12} strokeWidth={2} aria-hidden /> Setnayan
               </span>
             ) : null}
             {v.isVerified ? (
               <span className="bdg verified">
-                <BadgeCheck size={9} strokeWidth={2} aria-hidden /> Verified
+                <BadgeCheck size={12} strokeWidth={2} aria-hidden /> Verified
               </span>
             ) : null}
           </span>

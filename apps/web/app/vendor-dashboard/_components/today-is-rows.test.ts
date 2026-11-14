@@ -196,7 +196,7 @@ test('1 · Needs you today lists every ask ONCE, in the Next card’s old order 
   const rows = needRows(html);
   assert.deepEqual(rows.map(([k]) => k), ['dc1', 'm1', 'a1', 'q1'], 'not every ask once, in pickSupplierNext’s order');
   const t = text(html);
-  assert.match(t, /Needs you today 4 · 12 MN – 12 MN/, 'the heading does not count the list it heads');
+  assert.match(t, /Needs you today 4\b(?! ·)/, 'the heading does not count the list it heads');
   assert.match(t, /4 tasks today/, 'the cover’s chip is not the list’s length');
   assert.doesNotMatch(t, /\b\d of \d\b/, 'a "1 of 3" queue number is back — the Next card is retired (v103)');
   assert.doesNotMatch(html, /data-today-next=/, 'the Next card is drawn again');
@@ -217,7 +217,7 @@ test('1e · every unpaid booking fee is a row of Needs you today — before Comi
   const html = await render({ needsAnswer: [REPLY], upcoming: [{ ...today, date: '2026-10-05', inDays: 3 }], bills: true });
   const needs = html.slice(html.indexOf('data-today-needs='), html.indexOf('data-today-coming-up'));
   assert.equal((needs.match(/data-testid="booking-fee-bill"/g) ?? []).length, 2, 'not every unpaid fee is drawn in Needs you today');
-  assert.match(text(html), /Needs you today 3 · 12 MN – 12 MN/, 'the fee rows are not counted');
+  assert.match(text(html), /Needs you today 3\b(?! ·)/, 'the fee rows are not counted');
   const coming = html.slice(html.indexOf('data-today-coming-up'), html.indexOf('data-today-shop'));
   assert.doesNotMatch(coming, /booking-fee-bill/, 'a fee row is drawn under Coming up');
   assert.doesNotMatch(await render({ needsAnswer: [REPLY] }), /data-today-need-bills/, 'no bill, yet a bills block');

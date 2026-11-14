@@ -7,6 +7,7 @@ import {
   mostRecentPublicChapter,
 } from '@/lib/public-profile';
 import { renderProfileOgJpeg } from '@/lib/social/profile-card';
+import { realNameOrNull } from '@/lib/no-name';
 
 /**
  * GET /api/og/u/[slug] — the Open Graph share card for a public account profile
@@ -63,7 +64,7 @@ export async function GET(
       return Response.redirect(DEFAULT_OG, 302);
     }
 
-    const displayName = resolved.user.display_name?.trim() || 'A Setnayan profile';
+    const displayName = realNameOrNull(resolved.user.display_name) || 'A Setnayan profile';
     const subtitle =
       publicEvents.length >= 2
         ? 'A collection of events'

@@ -3069,7 +3069,7 @@ function OverviewTab(props: {
           )}
           <Link
             href={`/vendor-dashboard/clients/${eventId}/mood-board`}
-            className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-mulberry hover:underline"
+            className="mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-mulberry hover:underline"
           >
             Open mood board →
           </Link>

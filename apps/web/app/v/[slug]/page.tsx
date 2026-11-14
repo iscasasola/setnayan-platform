@@ -2835,7 +2835,6 @@ export async function renderVendorBySlug({
 
         {cinematicHero && bookable ? (
           <ShopCanDoPanel
-            checkHref={checkDateHref}
             hasPackages={vendorPackages.length > 0}
           />
         ) : null}

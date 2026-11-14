@@ -1986,8 +1986,8 @@ export function ChatMessageStream({
                           href={`/proposals/${card.publicId}`}
                           className={
                             quoteState.primary.kind === 'review_accept' && !quoteState.offerAcceptUpdate
-                              ? 'inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600'
-                              : `inline-flex h-9 items-center rounded-lg border border-ink/20 px-4 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]${
+                              ? 'inline-flex min-h-11 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600'
+                              : `inline-flex min-h-11 items-center rounded-lg border border-ink/20 px-4 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]${
                                   quoteState.offerAcceptUpdate ? ' flex-1 justify-center whitespace-nowrap !px-2' : ''
                                 }`
                           }
@@ -2008,7 +2008,7 @@ export function ChatMessageStream({
                             <input type="hidden" name="return_to" value={returnPathFor(m)} />
                             <SubmitButton
                               pendingLabel="Accepting…"
-                              className="inline-flex h-9 w-full items-center justify-center whitespace-nowrap rounded-lg bg-mulberry px-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
+                              className="inline-flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-mulberry px-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
                             >
                               Accept the update
                             </SubmitButton>
@@ -2027,7 +2027,7 @@ export function ChatMessageStream({
                         */}
                         {quoteState.offerLock && lockTarget && !bookingsOpen ? (
                           <p role="status" data-bookings-open-soon="" className="text-sm text-ink/70">
-                            <span className="inline-flex h-9 items-center rounded-lg bg-ink/[0.06] px-4 font-medium text-ink/60">
+                            <span className="inline-flex min-h-11 items-center rounded-lg bg-ink/[0.06] px-4 font-medium text-ink/60">
                               {BOOKINGS_OPEN_SOON}
                             </span>
                             <span className="mt-1.5 block">{BOOKINGS_CLOSED_COUPLE_MESSAGE}</span>
@@ -2046,13 +2046,13 @@ export function ChatMessageStream({
                                   : `Book ${counterpartyLabel}`
                               }
                               pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Booking…'}
-                              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
+                              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
                               wrapperClassName="flex w-full flex-col items-start"
                             />
                           ) : (
                             <Link
                               href={lockTarget.benchHref}
-                              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+                              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
                             >
                               Book on your Suppliers page
                             </Link>
@@ -2086,7 +2086,7 @@ export function ChatMessageStream({
                         {quoteState.offerRevise && reviseHref ? (
                           <Link
                             href={reviseHref}
-                            className="inline-flex h-9 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry hover:bg-mulberry/[0.06]"
+                            className="inline-flex min-h-11 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry hover:bg-mulberry/[0.06]"
                           >
                             {quoteState.reviseLabel}
                           </Link>
@@ -2114,7 +2114,7 @@ export function ChatMessageStream({
                           quoteState.offerCounter ? (
                             <Link
                               href={counterHref}
-                              className="inline-flex h-9 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry hover:bg-mulberry/[0.06]"
+                              className="inline-flex min-h-11 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry hover:bg-mulberry/[0.06]"
                             >
                               Counter-offer
                             </Link>
@@ -2167,7 +2167,7 @@ export function ChatMessageStream({
                               <input type="hidden" name="thread_id" value={threadId} />
                               <button
                                 type="submit"
-                                className="inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+                                className="inline-flex min-h-11 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
                               >
                                 Confirm it reached you
                               </button>

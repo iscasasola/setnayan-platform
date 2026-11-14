@@ -32,7 +32,7 @@ export function ShopBadgeRow({ tiles }: { tiles: BadgeTile[] | null }) {
         <h2 id="shop-badges-h" className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           Badges
         </h2>
-        <span className="text-xs text-ink/70">earned · in progress · not yet · tap one</span>
+        <span className="text-xs text-ink/70">Tap a badge to see how it&rsquo;s earned</span>
       </div>
       {tiles === null ? (
         <p role="status" className="px-4 text-[13.5px] text-ink/70" data-shop-badges-unread="">

@@ -54,6 +54,7 @@ import { SectionBar, type SectionTab } from '@/app/u/_components/section-bar';
 import { formatCount } from '@/lib/format-number';
 import { readProfileViewer, relationLine, viewerKnowsThem, type ProfileViewer } from '@/lib/profile-viewer';
 import { pictureFrameStyle, readProfilePhotoFrame } from '@/lib/picture-frame';
+import { realNameOrNull } from '@/lib/no-name';
 
 // Public account profile · setnayan.com/u/[user-slug].
 //
@@ -119,7 +120,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  const name = resolved.user.display_name?.trim() || 'Setnayan';
+  const name = realNameOrNull(resolved.user.display_name) || 'Setnayan';
   const canonicalSlug = resolved.user.slug ?? userSlug;
   // Personalized share card (name + most-recent public hero) — item #7c. The OG
   // route re-checks the SAME enabled + ≥1-public-chapter gate before rendering a
@@ -542,7 +543,9 @@ export default async function AccountProfilePage({ params }: Props) {
   // empty state, where printing it would confirm "this slug exists and belongs
   // to <name>". A creator with a published chapter timeline counts as content.
   const hasPublicContent = mode !== 'empty' || hasChapters;
-  const displayName = user.display_name?.trim() || 'Events';
+  // Walk 14 Nov 2026: a stored stand-in ("Someone —") is no name — every name on this page goes through `realNameOrNull`.
+  const realName = realNameOrNull(user.display_name);
+  const displayName = realName || 'Events';
   // A viewer who knows them already reads their name on People — the page says it too. Everyone else keeps
   // the name-free heading on an empty profile (no name oracle).
   const knowsThem = viewerKnowsThem(viewer);
@@ -550,9 +553,9 @@ export default async function AccountProfilePage({ params }: Props) {
   const heading = hasPublicContent
     ? displayName
     : knowsThem
-      ? user.display_name?.trim() || 'Someone on Setnayan'
+      ? realName || 'A Setnayan member'
       : 'A Setnayan profile';
-  const firstName = (user.display_name?.trim() || '').split(/\s+/)[0] || 'they';
+  const firstName = (realName || '').split(/\s+/)[0] || 'they';
 
   /*
     🧭 THE SECTIONS, AND THE BAR THAT MOVES BETWEEN THEM (owner 13 Nov 2026, "SIMPLER TO MOVE AROUND" — prototype
@@ -607,7 +610,7 @@ export default async function AccountProfilePage({ params }: Props) {
           photoStyle={pictureFrameStyle(readProfilePhotoFrame(user))}
           initials={initialsFor(heading)}
           heading={heading}
-          handle={`${host}/u/${canonicalSlug}`}
+          handle={user.slug ? `${host}/u/${canonicalSlug}` : null /* no slug → no address line: the raw S89U-… handle is not a name (walk 14 Nov 2026) */}
           relation={relation || null}
           badge={hasChapters ? <CreatorBadge size="md" /> : null}
           audience={
@@ -762,7 +765,7 @@ export default async function AccountProfilePage({ params }: Props) {
             nothing; the island says "them" when it has nothing. */}
         <MutualDays
           profileUserId={user.user_id}
-          profileName={hasPublicContent || knowsThem ? (user.display_name?.trim() || null) : null}
+          profileName={hasPublicContent || knowsThem ? realName : null}
         />
 
         {hasChapters ? (

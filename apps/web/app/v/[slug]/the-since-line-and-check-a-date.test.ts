@@ -33,6 +33,9 @@ test('Check a date sits in the action row, after Add to your event and before Sh
   assert.ok(gate > add && gate < door, 'Check a date is not inside its own bookable gate — an unverified shop would show it');
   // One door: the Pro desktop rail it also sat in was retired 2026-10-30 (slice 4 — the whole card column is sticky now).
   assert.equal((PAGE.match(/<CheckADateLink/g) ?? []).length, 1, 'Check a date is on the action row only');
+  // Walk 14 Nov 2026: the About panel ("What their own website can't do") drew a second Check a date under the header one.
+  const panel = stripComments(readFileSync(join(HERE, '_components', 'shop-can-do-panel.tsx'), 'utf8'));
+  assert.doesNotMatch(panel, /<CheckADateLink\b/, 'the About panel draws a second Check a date button');
 });
 
 test('Check a date opens the live landing (#7007) — never a 404', () => {

@@ -524,22 +524,18 @@ function AnalyticsPlaceholder() {
   );
 }
 
-/** The services head's line: "Bundles first, then every service you do, by category · 1 bundle · 2 cards · 1 live". */
-function servicesLine(d: ShopData): string {
-  const parts = ['Bundles first, then every service you do, by category'];
-  const c = servicesCompact(d);
-  return c ? `${parts[0]} · ${c}` : parts[0]!;
-}
-/** "1 bundle · 2 cards · 1 live" — what the compressed row keeps. Unread counts are left out, never 0. */
+/** The services head's line — one plain sentence; the counts live in the pinned row. */
+const SERVICES_LINE = 'Your bundles first, then each service you offer.';
+/** "1 bundle · 2 cards · 1 live" — what the compressed row keeps. Unread and zero counts are left out, never "0 bundles". */
 function servicesCompact(d: ShopData): string {
   const n = (x: number, one: string, many: string) => `${formatCount(x)} ${x === 1 ? one : many}`;
   const bits: string[] = [];
-  if (packageAuthoringEnabled() && d.bundles) bits.push(n(d.bundles.length, 'bundle', 'bundles'));
+  if (packageAuthoringEnabled() && d.bundles && d.bundles.length > 0) bits.push(n(d.bundles.length, 'bundle', 'bundles'));
   const cards = cardsOf(d);
-  if (cards !== null) {
+  if (cards !== null && cards > 0) {
     bits.push(n(cards, 'card', 'cards'));
     const live = (d.serviceRows ?? []).filter((r) => r.live).length;
-    if (cards > 0) bits.push(`${formatCount(live)} live`);
+    if (live > 0) bits.push(`${formatCount(live)} live`);
   }
   return bits.join(' · ');
 }
@@ -722,7 +718,7 @@ async function ShopHome({
             cards · Tools picker, no "Add a service or coverage" dropdown, no second "+ Add a service" link. */}
         <section className="px-4 pt-3" id="services" aria-labelledby="shop-services-h" data-shop-services="" data-tour="shop-services">
           <ShopServicesHead
-            line={servicesLine(data)}
+            line={SERVICES_LINE}
             compact={servicesCompact(data)}
             serviceHref={SERVICE_MAKER_HREF}
             bundlesOn={packageAuthoringEnabled()}

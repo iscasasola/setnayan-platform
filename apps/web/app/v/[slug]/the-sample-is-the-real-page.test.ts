@@ -55,7 +55,7 @@ test('one Inquire, and a drawing has no door to a shop that does not exist', () 
   assert.equal((SAMPLE.match(/^\s*Inquire\s*$/gm) ?? []).length, 1, 'the sample draws more than one Inquire');
   assert.doesNotMatch(SAMPLE, /<(a|Link)\b[^>]*href=/, 'the sample links somewhere — it is a drawing');
   assert.match(SAMPLE, /<OpenDatesPeek days=\{samplePeekDays\(todayInManila\(\)\)\} checkHref=\{null\} \/>/);
-  assert.match(SAMPLE, /<ShopCanDoPanel checkHref=\{null\}/);
+  assert.match(SAMPLE, /<ShopCanDoPanel hasPackages=\{false\}/);
   assert.match(SAMPLE, /<CheckADateLink href=\{null\}/);
   // RW-81 (walk 13 Nov 2026): the map's "View larger map →" too — every map the sample draws passes `mapHref={null}`,
   // and both map components honour it by drawing no <a>.

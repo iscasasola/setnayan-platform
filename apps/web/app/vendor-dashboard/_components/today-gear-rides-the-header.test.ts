@@ -5,7 +5,7 @@
  * today's settings be inside header"*): *"Today settings yes"*. Today's ⚙ sits top-right on the photo header like
  * Shop's and Portfolio's; once the header has scrolled away it rides onto the right end of the pinned "Needs you today"
  * row — Portfolio's shipped `pin` (`useHeroPin`), the house pinned-row template. It is no longer beside the hours
- * ("N · 12 MN – 12 MN") mid-page. Same ⚙, same sheet — only its place moves.
+ * (the "N" count) mid-page. Same ⚙, same sheet — only its place moves.
  *
  * ── THE PROPERTIES ──────────────────────────────────────────────────────────
  *   1. Header on screen (the server render / first paint): exactly ONE ⚙, in the hero's top-right slot on the cover;
@@ -55,7 +55,7 @@ async function view() {
 const parts = (html: string) => ({
   cover: html.slice(html.indexOf('data-today-cover=""'), html.indexOf('</header>')),
   pin: html.slice(html.indexOf('data-today-needs-pin=""'), html.indexOf('data-today-needs-rows')),
-  hours: html.indexOf('12 MN – 12 MN'),
+  hours: html.indexOf('data-today-needs-count=""'),
 });
 
 test('1 · header on screen: the one ⚙ is top-right on the header, never beside the hours', async () => {

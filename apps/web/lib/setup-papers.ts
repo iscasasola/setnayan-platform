@@ -5,8 +5,8 @@
  * `open-shop-redesign.html` v21 `paneDocs`): "Upload each document (one row per required paper)." Each row saves the
  * moment its file is in and says where that paper stands.
  *
- * 🔑 THE ROWS ARE `REQUIRED_DOC_SLOT_KEYS`, NEVER A HAND LIST. The four papers (owner 2026-07-03) and their words
- * live in `lib/vendor-verification.ts` `DOC_SLOTS`; a fifth required paper appears here by itself, a retired one
+ * 🔑 THE ROWS ARE `REQUIRED_DOC_SLOT_KEYS`, NEVER A HAND LIST. The three papers (owner 2026-07-03; bank proof retired 2026-11-14, DECISION_LOG f69ec167) and their words
+ * live in `lib/vendor-verification.ts` `DOC_SLOTS`; a new required paper appears here by itself, a retired one
  * leaves by itself. 🔒 app/vendor-dashboard/_components/the-papers-and-the-qr-hold.test.ts
  *
  * 🔑 A REFUSED READ IS NEVER "NONE". The latest application is read by `loadDetailsData` with a measured flag
@@ -19,13 +19,18 @@
  *   uploaded   in the draft — saved, not sent for review yet
  *   review     sent: `pending_review` / `in_review`
  *   approved   the application was approved
- *   new_copy   Setnayan sent the papers back (`rejected`). The next upload starts a NEW draft with nothing in it
- *              (`resolveEditableDraft`), so every paper truly needs a new copy — not only the one the reason names.
+ *   new_copy   Setnayan sent this paper back. Since 2026-11-14 (owner, DECISION_LOG "A SEND-BACK NAMES ONLY THE
+ *              PAPER THAT NEEDS A NEW COPY": "Only the named one") a send-back NAMES its papers
+ *              (`doc_uploads[slot].sent_back`): only those read "Needs a new copy", each with the reason; the others
+ *              keep their state ("Uploaded" — they ride into the next draft, `seedDraftAfterSendBack`). A send-back
+ *              made before that names nothing, and then every paper needs a new copy, as it always did.
  */
 import {
   DOC_SLOTS,
   REQUIRED_DOC_SLOT_KEYS,
   isSlotComplete,
+  sentBackOf,
+  sentBackSlotKeys,
   type DocUpload,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
@@ -43,13 +48,15 @@ export type SetupPaper = {
   ref: string | null;
   /** Whether a file can be added or replaced now (nothing is in review or approved). */
   editable: boolean;
+  /** The send-back's reason — on a NAMED paper only, never on the papers it did not name. */
+  reason: string | null;
 };
 
 /** The word for each state, as the row's badge says it. */
 export const PAPER_STATE_WORD: Readonly<Record<PaperState, string>> = {
   none: 'Not sent yet',
   uploaded: 'Uploaded',
-  review: 'Under review',
+  review: 'Waiting for Setnayan',
   approved: 'Approved',
   new_copy: 'Needs a new copy',
 };
@@ -76,13 +83,22 @@ export function setupPapers(input: { measured: boolean; status: string | null; u
   const status = input.status;
   const uploads = input.uploads ?? {};
   const editable = !(status != null && LOCKED.has(status));
+  // A send-back that names its papers (2026-11-14) vs one made before, which named none and sent all of them back.
+  const namesPapers = sentBackSlotKeys(uploads).length > 0;
   return DOC_SLOTS.filter((s) => REQUIRED_DOC_SLOT_KEYS.has(s.key)).map((slot, i) => {
     const v = uploads[slot.key];
     const present = isSlotComplete(slot.key, v);
+    const sentBack = sentBackOf(v);
+    // The named paper: on the sent-back application itself, and in the next draft until a new copy replaces it.
+    const named = sentBack !== null && (status === 'rejected' || (status === 'draft' && !present));
     const state: PaperState =
-      status === 'rejected'
+      named || (status === 'rejected' && !namesPapers)
         ? 'new_copy'
-        : !present
+        : status === 'rejected'
+          ? present
+            ? 'uploaded'
+            : 'none'
+          : !present
           ? 'none'
           : status === 'pending_review' || status === 'in_review'
             ? 'review'
@@ -98,6 +114,7 @@ export function setupPapers(input: { measured: boolean; status: string | null; u
       state,
       ref: status === 'draft' && present ? refOf(v) : null,
       editable,
+      reason: named ? sentBack.reason : null,
     };
   });
 }

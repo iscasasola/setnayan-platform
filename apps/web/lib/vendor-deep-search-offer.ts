@@ -10,7 +10,6 @@ import { deepSearchStillKept } from '@/lib/deep-search-findings';
 import {
   deepSearchEligibility,
   resolveDeepSearchPricePhp,
-  VENDOR_DEEP_SEARCH_FALLBACK_PHP,
 } from '@/lib/vendor-deep-search-addon';
 
 /**
@@ -31,12 +30,13 @@ export type DeepSearchOffer = {
   /** The plan this offer was priced for — the caller asks the paywall switch with it (`vendorPaywallApplies`, at
    *  the call site where `upsells-obey-the-switch.test.ts` can see the question being asked). */
   tier: string | null;
-  /** What Run charges — the catalogue's one per-search price (never ₱0). */
-  pricePhp: number;
+  /** What Run charges — the catalogue's one per-search price (never ₱0); null when the row did not read — then no
+   *  figure is shown (💰 owner 2026-11-13: no typed prices; never a remembered fallback on screen). */
+  pricePhp: number | null;
   /** This shop's per-search price on its plan (= `pricePhp`; kept for the page's history column). */
-  cyclePricePhp: number;
-  /** Both sides of the band, for the ⓘ (one row on both sides since 2026-11-09). */
-  band: { entryPhp: number; growthPhp: number };
+  cyclePricePhp: number | null;
+  /** Both sides of the band, for the ⓘ (one row on both sides since 2026-11-09); null where unread. */
+  band: { entryPhp: number | null; growthPhp: number | null };
   openRails: readonly OpenRail[];
 };
 
@@ -57,9 +57,9 @@ export async function loadDeepSearchOffer(
   // Both sides of the band, READ from the catalogue (one row on both sides since 2026-11-09).
   const bandRead = await fetchVendorAddonBandPrices(supabase, 'deep_search_about_you');
 
-  // A side that did not read falls back to the runner's own fallback (the same one its charge uses).
+  // A side that did not read shows NO figure (truth sweep 2026-11-13) — never a remembered one.
   const ownSide = vendorAddonPriceBand(tier) === 'growth' ? bandRead.growthPhp : bandRead.entryPhp;
-  const cyclePricePhp = resolveDeepSearchPricePhp({ cyclePricePhp: ownSide ?? VENDOR_DEEP_SEARCH_FALLBACK_PHP });
+  const cyclePricePhp = ownSide == null ? null : resolveDeepSearchPricePhp({ cyclePricePhp: ownSide });
   // The rails matter only for a shop that can run it; an unverified shop never shows them.
   const openRails = eligible ? openRailOptions(await fetchPlatformSettings(supabase)) : [];
 

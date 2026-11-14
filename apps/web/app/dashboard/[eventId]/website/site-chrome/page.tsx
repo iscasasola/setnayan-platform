@@ -9,6 +9,7 @@ import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { updateSiteChrome } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { WebsiteProLock } from '../_components/website-pro-lock';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
@@ -100,7 +101,7 @@ export default async function SiteChromeEditorPage({
         {saved ? (
           <div
             role="status"
-            className="inline-flex items-center gap-2 rounded-md border border-success-300/60 bg-success-50 px-3 py-2 text-sm text-success-800"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-success-800"
           >
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Saved — your guests will see this on your Event Hub.
@@ -109,7 +110,7 @@ export default async function SiteChromeEditorPage({
         {error ? (
           <div
             role="alert"
-            className="rounded-md border border-red-300/60 bg-red-50 px-3 py-2 text-sm text-red-800"
+            className="text-sm font-semibold text-danger-700"
           >
             {error}
           </div>
@@ -128,15 +129,15 @@ export default async function SiteChromeEditorPage({
             description="Add a soft looping song guests can play while they browse your Event Hub. It's part of Event Hub PRO."
           />
         ) : (
-          <fieldset className="space-y-3 sn-tile p-5">
-            <legend className="sn-eye flex items-center gap-2 px-1">
-              <Music aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Background music
+          // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 7 · 13): grey capitals with the explaining lines behind the ⓘ; no tiles.
+          <fieldset className="space-y-3">
+            <legend className="flex items-center gap-2">
+              <Music aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+              <InfoTip label="Background music" labelAs="span" labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70" align="start">
+                A looping song while guests browse. It never plays on its own — a small “Play music” button lets each
+                guest start or pause it.
+              </InfoTip>
             </legend>
-            <p className="text-sm text-ink/60">
-              A looping song while guests browse. It never plays on its own — a
-              small “Play music” button lets each guest start or pause it.
-            </p>
             <FileUpload
               bucket="media"
               pathPrefix={`events/${eventId}/site-music`}
@@ -173,17 +174,15 @@ export default async function SiteChromeEditorPage({
             description="A short clip of the two of you looping at the top of your Event Hub, in place of our photo. It's part of Event Hub PRO."
           />
         ) : (
-        <fieldset className="space-y-3 sn-tile p-5">
-          <legend className="sn-eye flex items-center gap-2 px-1">
-            <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Video hero
+        <fieldset className="space-y-3 border-t border-ink/10 pt-5">
+          <legend className="flex items-center gap-2">
+            <Video aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+            <InfoTip label="Video hero" labelAs="span" labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70" align="start">
+              A short, silent clip that loops behind your monogram instead of a still photo. Keep it brief and lightly
+              compressed. If you set both a hero photo and a video, the video wins (the photo becomes its first-frame
+              poster).
+            </InfoTip>
           </legend>
-          <p className="text-sm text-ink/60">
-            A short, silent clip that loops behind your monogram instead of a
-            still photo. Keep it brief and lightly compressed. If you set both a
-            hero photo and a video, the video wins (the photo becomes its
-            first-frame poster).
-          </p>
           <FileUpload
             bucket="media"
             pathPrefix={`events/${eventId}/hero-video`}
@@ -201,7 +200,7 @@ export default async function SiteChromeEditorPage({
         </fieldset>
         )}
 
-        <SubmitButton pendingLabel="Saving…" className="button-primary">Save music &amp; video</SubmitButton>
+        <SubmitButton pendingLabel="Saving…" className="ab ab-brand ab-main">Save music &amp; video</SubmitButton>
       </SafeForm>
     </section>
   );

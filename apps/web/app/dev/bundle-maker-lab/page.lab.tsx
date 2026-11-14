@@ -23,6 +23,7 @@ import { PACKAGE_CANONICAL_TO_VENDOR_CATEGORY } from '@/lib/vendor-packages';
 import type { DraftPackage } from '@/lib/package-authoring';
 import { PackageEditor, type BundleCard } from '@/app/vendor-dashboard/packages/_components/package-editor';
 import { BundleMakerLocked } from '@/app/vendor-dashboard/packages/_components/bundle-maker-locked';
+import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 
 const CANONICAL_SERVICES = Object.keys(PACKAGE_CANONICAL_TO_VENDOR_CATEGORY)
   .map((value) => ({ value, label: value.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase()) }))
@@ -89,7 +90,7 @@ export default async function BundleMakerLabPage({ searchParams }: { searchParam
   if (process.env.NODE_ENV === 'production') notFound();
   const { s = 'filled' } = await searchParams;
   if (s === 'locked') {
-    return <BundleMakerLocked need={{ kind: 'verify', progress: papersProgress({ done: 2, of: 4 }) }} closeHref="/dev/bundle-maker-lab" />;
+    return <BundleMakerLocked need={{ kind: 'verify', progress: papersProgress({ done: 2, of: REQUIRED_DOC_COUNT }) }} closeHref="/dev/bundle-maker-lab" />;
   }
   const initial = s === 'filled' || s === 'frozen' ? FILLED : EMPTY;
   return (

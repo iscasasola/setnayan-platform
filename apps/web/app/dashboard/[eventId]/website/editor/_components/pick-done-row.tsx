@@ -17,7 +17,7 @@ export function PickDoneRow({ note, button, onDone }: { note?: string; button: b
     return (
       <li role="none" data-pick-done-row="" className="mt-1 flex items-center gap-2.5 border-t border-ink/10 px-1 pb-0.5 pt-2">
         <ActionButton tone="ok" icon={Check} label="Done" data-testid="pick-done" onClick={onDone} />
-        <span className="text-[12.5px] text-ink/55">{words}</span>
+        <span className="text-[12.5px] text-ink/75">{words}</span>
       </li>
     );
   }
@@ -27,7 +27,7 @@ export function PickDoneRow({ note, button, onDone }: { note?: string; button: b
         type="button"
         data-pick-done=""
         onClick={onDone}
-        className="flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-[13px] text-ink/60 hover:bg-ink/5"
+        className="flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-[13px] text-ink/75 hover:bg-ink/5"
       >
         <span>{words}</span>
         <span className="font-semibold text-ink">Done ✓</span>

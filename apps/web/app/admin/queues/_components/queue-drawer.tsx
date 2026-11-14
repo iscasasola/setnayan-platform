@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Check, ChevronRight, ShieldAlert } from 'lucide-react';
-import type { QueuePeek } from '@/lib/admin/queue-peek';
+import { JUDGEMENT_QUEUES, type QueuePeek } from '@/lib/admin/queue-peek';
+import { ActionButton } from '@/components/action-button';
+import { RequestCardView } from './request-card-view';
 import {
   approvePaymentFromWorkList,
   agreeToRequestFromWorkList,
@@ -70,6 +72,7 @@ export function QueueDrawer({
   href,
   label,
   backTo,
+  late,
 }: {
   peek: QueuePeek;
   /** The queue's own page — always offered, even when an action exists. */
@@ -77,22 +80,30 @@ export function QueueDrawer({
   label: string;
   /** The exact list URL to return to on a refusal — keeps lane + open state. */
   backTo: string;
+  /** The queue is past its promised time — every card in it carries the red edge. */
+  late?: boolean;
 }) {
   if (peek.judgementNote) {
+    /* ➕ The card's two no-button footers (admin request cards, owner 2026-11-14): a JUDGEMENT opens the case (the
+       2026-08-05 lock — no one-click answer about a person or their money); work DONE ELSEWHERE opens where it is. */
+    const judgement = Object.values(JUDGEMENT_QUEUES).includes(peek.judgementNote);
     return (
       <div className="border-t border-[color:var(--sn-line-soft,#F1ECE3)] px-4 py-3">
-        <p className="flex items-start gap-2 text-xs text-[color:var(--sn-ink-500)]">
-          <ShieldAlert aria-hidden className="mt-px h-4 w-4 shrink-0" strokeWidth={1.75} />
-          <span>{peek.judgementNote}</span>
-        </p>
-        <Link
-          href={href}
-          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold underline underline-offset-2"
-          style={{ color: 'var(--sn-ink-900)' }}
-        >
-          Open {label}
-          <ChevronRight aria-hidden className="h-3.5 w-3.5" />
-        </Link>
+        <article className="sn-tile p-4" data-request-card={judgement ? 'open-the-case' : 'done-elsewhere'}>
+          <p className="flex items-start gap-2 text-sm text-[color:var(--sn-ink-500)]">
+            <ShieldAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+            <span>{peek.judgementNote}</span>
+          </p>
+          <div className="mt-3">
+            <ActionButton
+              tone="neutral"
+              icon={<ChevronRight />}
+              label={judgement ? 'Open the case' : `Open ${label}`}
+              name={judgement ? `Open the case — ${label}` : `Open ${label}`}
+              href={href}
+            />
+          </div>
+        </article>
       </div>
     );
   }
@@ -129,9 +140,15 @@ export function QueueDrawer({
 
   const more = peek.total - peek.items.length;
 
+  const nowMs = Date.now();
   return (
     <div className="border-t border-[color:var(--sn-line-soft,#F1ECE3)] px-4 py-1">
-      {peek.items.map((it) => (
+      {peek.items.map((it) =>
+        it.card ? (
+          <div key={it.id} className="py-2">
+            <RequestCardView card={it.card} back={backTo} late={late} nowMs={nowMs} />
+          </div>
+        ) : (
         <div
           key={it.id}
           className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[color:var(--sn-line-soft,#F1ECE3)] py-3 last:border-b-0"
@@ -244,7 +261,8 @@ export function QueueDrawer({
             </Link>
           </span>
         </div>
-      ))}
+        ),
+      )}
 
       {more > 0 ? (
         <p className="py-2.5 text-xs text-[color:var(--sn-ink-500)]">

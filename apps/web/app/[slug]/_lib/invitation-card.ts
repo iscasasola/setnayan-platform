@@ -50,8 +50,22 @@ export function mastheadEyebrow(words: Pick<EventWords, 'solemn'>): string | nul
   return words.solemn ? null : HUB_CARD_EYEBROWS.one;
 }
 
+/**
+ * 🎴 THE LINE UNDER THE NAME (walk 13 Nov 2026, F-W3-24 — "the hero still uses the event name as the host").
+ *
+ * "<name> invites you to celebrate" is true only when the name on the card IS a person: the couple (two names) or the
+ * celebrant the event is about (a birthday's "Ate Joy at 30", a debut). On a type whose word is a HOST or an ORGANIZER
+ * (`organizerIsHonoree === false` — a Get-together, a reunion, a corporate night), the name on the card is the EVENT'S
+ * OWN TITLE: "Barkada lunch invites you to celebrate" made the event its own host. Those read "join us to celebrate" —
+ * nobody named who was not named. Absent (an older caller) keeps the shipped words.
+ */
+export function invitationLine(words: Pick<EventWords, 'twoPeople' | 'eventWord'> & Partial<Pick<EventWords, 'organizerIsHonoree'>>): string {
+  if (words.twoPeople) return `invite you to celebrate their ${words.eventWord}`;
+  return words.organizerIsHonoree === false ? 'join us to celebrate' : 'invites you to celebrate';
+}
+
 export function invitationCard(input: {
-  words: Pick<EventWords, 'solemn' | 'twoPeople' | 'eventWord'>;
+  words: Pick<EventWords, 'solemn' | 'twoPeople' | 'eventWord'> & Partial<Pick<EventWords, 'organizerIsHonoree'>>;
   /** The programme's first moment, as stored (the event's own wall-clock). */
   firstStartAt: string | null | undefined;
   /** That moment's own title ("Guests arrive") — the time never stands alone. */
@@ -61,9 +75,7 @@ export function invitationCard(input: {
   if (words.solemn) return null;
   return {
     eyebrow: words.twoPeople ? HUB_CARD_EYEBROWS.twoPeople : HUB_CARD_EYEBROWS.one,
-    line: words.twoPeople
-      ? `invite you to celebrate their ${words.eventWord}`
-      : 'invites you to celebrate',
+    line: invitationLine(words),
     // The programme's own formatter, so the card, the pass and the run of show
     // read one clock (the pass once added eight hours by converting twice).
     // 🏷 NEVER AN UNLABELED TIME (guest text audit 2026-09-30): a bare "2:30 PM"

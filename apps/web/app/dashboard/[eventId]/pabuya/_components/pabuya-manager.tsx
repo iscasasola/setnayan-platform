@@ -255,9 +255,8 @@ export function PabuyaManager({
             changed a pixel. */}
         {!eventWasRead ? (
           <div role="status">
-            <InfoTip labelAs="p" label="We couldn&rsquo;t load your event details just now." labelNode={<><span className="font-semibold"> We couldn&rsquo;t load your event details just now.</>} labelClassName="rounded-xl border border-warn-300/60 bg-warn-50 px-3 py-2 text-sm leading-relaxed text-warn-900" align="start">
-              </span>{' '}
-              Your gift methods below are correct and saved — but your
+            <InfoTip labelAs="p" label="We couldn&rsquo;t load your event details just now. Your gift methods below are correct and saved" labelNode={<><span className="font-semibold"> We couldn&rsquo;t load your event details just now. </span>{' '} Your gift methods below are correct and saved</>} labelClassName="rounded-xl border border-warn-300/60 bg-warn-50 px-3 py-2 text-sm leading-relaxed text-warn-900" align="start">
+              but your
               event&rsquo;s name and whether its page is live aren&rsquo;t
               shown on this screen until it loads. Reload in a moment; nothing
               here has changed.

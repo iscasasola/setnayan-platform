@@ -480,7 +480,7 @@ const DOORS: Array<[file: string, gate: RegExp[]]> = [
       /\) : apple \? \(\s*<div className="pt-1">\s*<IapUnlockSheet\b/,
       /\) : apple && !appleOnSale \? \(/,
       /const settings = storeShell \? STORE_SHELL_NO_PAY_SETTINGS : await fetchPlatformSettings\(supabase\);/,
-      /<p data-web-only="" className="text-xs text-ink\/55">\s*Need a custom reel template\?/,
+      /<div data-web-only="">\s*<InfoTip labelAs="p" label="Need a custom reel template\?"/,
     ],
   ],
   [

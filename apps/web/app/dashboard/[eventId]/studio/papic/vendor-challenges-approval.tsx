@@ -43,9 +43,8 @@ export async function VendorChallengesApproval({ eventId }: { eventId: string })
     );
     return (
       <div role="alert">
-        <InfoTip labelAs="p" label="We couldn&rsquo;t check whether a supplier is waiting on your okay." labelNode={<><strong className="text-ink"> We couldn&rsquo;t check whether a supplier is waiting on your okay.</>} labelClassName="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70" align="start">
-          </strong>{' '}
-          Nothing has gone live without you. Reload in a moment.
+        <InfoTip labelAs="p" label="We couldn&rsquo;t check whether a supplier is waiting on your okay. Nothing has gone live without you." labelNode={<><strong className="text-ink"> We couldn&rsquo;t check whether a supplier is waiting on your okay. </strong>{' '} Nothing has gone live without you.</>} labelClassName="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70" align="start">
+          Reload in a moment.
         </InfoTip>
       </div>
     );

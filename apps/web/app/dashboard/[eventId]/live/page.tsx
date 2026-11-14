@@ -294,13 +294,22 @@ export default async function LiveWallConsolePage({
         </div>
 
         {(faceblockGuests ?? 0) > 0 ? (
-          <InfoTip labelAs="p" label="FaceBlock is on for ." labelNode={<><ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 flex-none text-terracotta" strokeWidth={2} /> <span> <span className="font-medium text-ink"> FaceBlock is on for {formatCount(faceblockGuests)}{' '} {faceblockGuests === 1 ? 'guest' : 'guests'}.</>} labelClassName="flex items-start gap-2 rounded-lg bg-ink/[0.04] px-3 py-2.5 text-sm text-ink/75" className="mt-4" align="start">
-            </span>{' '}
-            Every photo is projected with faces blurred; photos still waiting for
-            their blurred copy stay off Memory lane automatically.{' '}
-            {formatCount(bakedCount)}/{formatCount(feed?.length ?? 0)} recent tiles are blur-ready.
+          <p className="mt-4 flex items-start gap-2 rounded-lg bg-ink/[0.04] px-3 py-2.5 text-sm text-ink/75">
+            <ShieldCheck
+              aria-hidden
+              className="mt-0.5 h-4 w-4 flex-none text-terracotta"
+              strokeWidth={2}
+            />
+            <span>
+              <span className="font-medium text-ink">
+                FaceBlock is on for {formatCount(faceblockGuests)}{' '}
+                {faceblockGuests === 1 ? 'guest' : 'guests'}.
+              </span>{' '}
+              Every photo is projected with faces blurred; photos still waiting for
+              their blurred copy stay off Memory lane automatically.{' '}
+              {formatCount(bakedCount)}/{formatCount(feed?.length ?? 0)} recent tiles are blur-ready.
             </span>
-          </InfoTip>
+          </p>
         ) : null}
 
         <LiveWallControls

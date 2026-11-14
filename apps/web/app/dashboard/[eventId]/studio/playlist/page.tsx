@@ -165,11 +165,19 @@ export default async function PlaylistPage({ params }: Props) {
       {/* Sync status chip · whether a Music vendor is already booked. */}
       {bookedMusic ? (
         <div className="mb-6 rounded-xl border border-success-300/50 bg-success-50/60 p-4">
-          <InfoTip labelAs="p" label="Synced with — they&apos;ll see this lineup in their Setnayan workspace." labelNode={<><Sparkles aria-hidden className="mt-0.5 h-4 w-4 flex-shrink-0 text-success-700" strokeWidth={2} /> <span className="leading-relaxed"> Synced with{' '} <strong className="font-medium">{bookedMusic.vendor_name}</strong>{' '} — they&apos;ll see this lineup in their Setnayan workspace.</>} labelClassName="inline-flex items-start gap-2 text-sm text-success-900" align="start">
-            Edit
-            anytime; they&apos;ll always see your latest picks.
+          <p className="inline-flex items-start gap-2 text-sm text-success-900">
+            <Sparkles
+              aria-hidden
+              className="mt-0.5 h-4 w-4 flex-shrink-0 text-success-700"
+              strokeWidth={2}
+            />
+            <span className="leading-relaxed">
+              Synced with{' '}
+              <strong className="font-medium">{bookedMusic.vendor_name}</strong>{' '}
+              — they&apos;ll see this lineup in their Setnayan workspace. Edit
+              anytime; they&apos;ll always see your latest picks.
             </span>
-          </InfoTip>
+          </p>
         </div>
       ) : (
         <div className="mb-6 sn-row p-4">

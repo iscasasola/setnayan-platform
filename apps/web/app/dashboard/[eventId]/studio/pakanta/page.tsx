@@ -188,10 +188,8 @@ export default async function PakantaPage({ params }: Props) {
 
       {!draftMeasured ? (
         <div role="alert">
-          <InfoTip labelAs="p" label="We couldn&rsquo;t load the answers you saved before." labelNode={<><strong className="text-ink"> We couldn&rsquo;t load the answers you saved before.</>} labelClassName="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70" align="start">
-            </strong>{' '}
-            The form below is showing empty because of that, not because your
-            answers are gone. Reload before filling it in again &mdash; saving now
+          <InfoTip labelAs="p" label="We couldn&rsquo;t load the answers you saved before. The form below is showing empty because of that, not because your answers are gone." labelNode={<><strong className="text-ink"> We couldn&rsquo;t load the answers you saved before. </strong>{' '} The form below is showing empty because of that, not because your answers are gone.</>} labelClassName="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70" align="start">
+            Reload before filling it in again &mdash; saving now
             would replace what you wrote.
           </InfoTip>
         </div>

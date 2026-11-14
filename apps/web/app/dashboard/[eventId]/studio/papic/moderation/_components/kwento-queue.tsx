@@ -41,10 +41,8 @@ export async function KwentoQueue({ eventId }: { eventId: string }) {
     );
     return (
       <div role="alert">
-        <InfoTip labelAs="p" label="We couldn&rsquo;t load your guests&rsquo; messages." labelNode={<><strong className="text-ink"> We couldn&rsquo;t load your guests&rsquo; messages.</>} labelClassName="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70" align="start">
-          </strong>{' '}
-          This does not mean nobody has written one, and nothing has been shown on
-          Memory lane without you. Reload in a moment.
+        <InfoTip labelAs="p" label="We couldn&rsquo;t load your guests&rsquo; messages. This does not mean nobody has written one, and nothing has been shown on Memory lane without you." labelNode={<><strong className="text-ink"> We couldn&rsquo;t load your guests&rsquo; messages. </strong>{' '} This does not mean nobody has written one, and nothing has been shown on Memory lane without you.</>} labelClassName="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70" align="start">
+          Reload in a moment.
         </InfoTip>
       </div>
     );

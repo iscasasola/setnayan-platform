@@ -2,7 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Film, Loader2, UploadCloud } from 'lucide-react';
+import { Film, Loader2, UploadCloud, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { albumVideoCostWords, albumVideoCredits } from '@/lib/album-video-cost';
 import { extractClipPosterBytes } from '@/lib/clip-poster';
 
@@ -200,21 +201,8 @@ export function PortfolioImportForm({
             A video costs three times what Papic charges for the same seconds.
           </p>
           <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={importVideo}
-              className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-sm font-semibold text-cream transition hover:bg-ink/90"
-            >
-              Import
-            </button>
-            <button
-              type="button"
-              onClick={() => setPending(null)}
-              className="sn-press inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold"
-              style={{ color: 'var(--m-slate-1)' }}
-            >
-              Cancel
-            </button>
+            <ActionButton tone="brand" main icon={UploadCloud} label="Import" onClick={importVideo} />
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setPending(null)} />
           </div>
         </div>
       ) : null}

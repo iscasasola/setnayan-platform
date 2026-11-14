@@ -17,6 +17,8 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { Lock, Share2 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { eventFilesAction } from '@/app/_actions/event-files-actions';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -87,7 +89,8 @@ export function AlbumShareSwitch({
         </summary>
         <p className="mt-2 text-sm" style={{ color: 'var(--m-slate-2)' }}>
           <b>Problem.</b> Your plan lists you in the story, with no scene of your own.
-          <br />
+        </p>
+        <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
           <b>Solution.</b> Move to Supplier Ultra. Your album then fills your own scene.
         </p>
         <Link href={upgradeHref} className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--m-slate-1)' }}>
@@ -108,12 +111,8 @@ export function AlbumShareSwitch({
             It fills your own scene. You can switch it off any time.
           </p>
           <div className="mt-2 flex gap-2">
-            <button type="button" disabled={pending} onClick={() => send(true)} className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-sm font-semibold text-cream transition hover:bg-ink/90">
-              Share
-            </button>
-            <button type="button" disabled={pending} onClick={() => send(false)} className="sn-press inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold" style={{ color: 'var(--m-slate-1)' }}>
-              Keep private
-            </button>
+            <ActionButton tone="brand" main icon={Share2} label="Share" disabled={pending} onClick={() => send(true)} />
+            <ActionButton tone="neutral" icon={Lock} label="Keep private" disabled={pending} onClick={() => send(false)} />
           </div>
         </div>
       ) : null}

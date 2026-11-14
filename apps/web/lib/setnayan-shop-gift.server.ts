@@ -330,20 +330,31 @@ export async function maybeSweepPlanGiftEndingNotices(): Promise<void> {
       const col = stage === 1 ? 'ends_soon_1_sent_at' : 'ends_soon_7_sent_at';
       if (r[col]) continue;
       // Claim this stage (and, at the 1-day stage, the 7-day mark too) — only while still unsent.
-      const { data: claimed } = await admin
+      const { data: claimed, error: claimErr } = await admin
         .from('setnayan_shop_gifts')
         .update(stage === 1 ? { ends_soon_1_sent_at: nowIso, ends_soon_7_sent_at: r.ends_soon_7_sent_at ?? nowIso } : { ends_soon_7_sent_at: nowIso })
         .eq('gift_id', r.gift_id)
         .is(col, null)
         .select('gift_id');
+      if (claimErr) {
+        console.error('[supabase-error] setnayan-shop-gift: ends-soon claim refused', claimErr);
+        continue; // unclaimed, so the next sweep tries this stage again
+      }
       if (!claimed || claimed.length === 0) continue;
 
       // The shop must still be on the gift's plan (a plan bought or set since is the shop's own — nothing to say).
-      const { data: shop } = await admin
+      const { data: shop, error: shopErr } = await admin
         .from('vendor_profiles')
         .select('user_id, tier_state, tier_expires_at')
         .eq('vendor_profile_id', r.vendor_profile_id)
         .maybeSingle();
+      if (shopErr) {
+        console.error('[supabase-error] setnayan-shop-gift: ends-soon shop read refused', shopErr);
+        // Hand the stage back so the next sweep sends it — a refused read must not cost the shop its notice.
+        const { error: undoErr } = await admin.from('setnayan_shop_gifts').update({ [col]: null }).eq('gift_id', r.gift_id);
+        if (undoErr) console.error('[supabase-error] setnayan-shop-gift: ends-soon claim release refused', undoErr);
+        continue;
+      }
       const sh = (shop ?? null) as { user_id: string | null; tier_state: string | null; tier_expires_at: string | null } | null;
       if (!sh?.user_id || sh.tier_state !== r.plan_tier || Date.parse(sh.tier_expires_at ?? '') !== Date.parse(r.plan_ends_at)) continue;
 

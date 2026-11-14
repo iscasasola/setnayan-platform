@@ -12,14 +12,15 @@
  *
  * ⚠ Q5's "STAYS BOOKABLE" IS SUPERSEDED (owner 2026-11-14, DECISION_LOG "THE
  *   RENEWAL DAY IS 30 MARCH" · "AFTER 30 MARCH, AN UNRENEWED SHOP KEEPS ITS
- *   EXISTING BOOKINGS" · the approved papers demo 7e4de291): a shop whose
- *   renewal day passed unrenewed becomes Free · Unverified — it KEEPS every
- *   existing booking and takes NO NEW ones. That is not decided here: the daily
- *   pass stamps `papers_lapsed_at` (lib/papers-lapse.server.ts, migration
- *   20271345631375), which every app booking door (`shopBookingRefusal` →
- *   'papers_lapsed') AND the booking trigger read, and which drops the shop from
- *   every list (`papers_current`). `verification_state` is still never touched
- *   at a deadline, for the reason below. Reminders now come at 60, 30 and 7 days.
+ *   EXISTING BOOKINGS", corrected by DECISION_LOG 481b9b6b): a shop whose
+ *   renewal day passed unrenewed DROPS OUT OF SEARCH AND DISCOVER — no new
+ *   couples find it — and keeps its bookings, its hand-imported clients and the
+ *   events that already inquired. That is not decided here: the daily pass stamps
+ *   `papers_lapsed_at` (lib/papers-lapse.server.ts, migration 20271345631375),
+ *   which drops the shop from every list (`papers_current`). No booking door and
+ *   not the booking trigger reads it (the inquired-before-lapse path is
+ *   unconfirmed, so it stays as today). `verification_state` is still never
+ *   touched at a deadline, for the reason below. Reminders: 60, 30 and 7 days.
  *
  * ── WHY THE BADGE IS A SEPARATE QUESTION FROM "IS THE SHOP LIVE" ───────────
  * In this codebase `verification_state = 'verified'` is three things at once:
@@ -116,9 +117,9 @@ export function badgeDeadlineMs(raw: string | null | undefined): number | null {
  * THE ONE PREDICATE for "does this shop wear the Verified badge right now?"
  *
  * Verified, and its badge deadline (if it has one) has not passed. It says
- * NOTHING about whether the shop is listed or bookable — those are
- * `verification_state` plus the papers stamp (`papers_lapsed_at`, read by
- * `shopBookingRefusal`, the booking trigger and `FINDABLE_SHOP_GATE`).
+ * NOTHING about whether the shop is listed or bookable — bookable stays on
+ * `verification_state`; listed also reads the papers stamp (`papers_current`,
+ * in `FINDABLE_SHOP_GATE`).
  */
 export function hasVerifiedBadge(facts: BadgeFacts, now: Date = new Date()): boolean {
   if (facts.verification_state !== 'verified') return false;

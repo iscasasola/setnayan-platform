@@ -1,33 +1,34 @@
 -- unrenewed_papers_pause_new_bookings
 -- ============================================================================
--- AFTER 30 MARCH, AN UNRENEWED SHOP KEEPS ITS EXISTING BOOKINGS AND TAKES NO
--- NEW ONES. Owner rulings 2026-11-14 ("THE RENEWAL DAY IS 30 MARCH" · "AFTER 30
--- MARCH, AN UNRENEWED SHOP KEEPS ITS EXISTING BOOKINGS" — "Keep them, block
--- new") and the owner's answer B (PR #7624): the lapse is a STAMP, never a
--- change of `verification_state`.
+-- AFTER 30 MARCH, AN UNRENEWED SHOP DROPS OUT OF SEARCH AND DISCOVER — AND
+-- KEEPS EVERYTHING ELSE. Owner rulings 2026-11-14 ("THE RENEWAL DAY IS 30
+-- MARCH" · DECISION_LOG 481b9b6b, which CORRECTS "refuse every new request"):
+-- no new couples FIND the shop; it can still import clients by hand, keep
+-- working with events that already inquired, and every existing booking stays.
+-- (The file keeps its first name: a migration's name is its identity.)
 --
--- ── WHY NOT FLIP verification_state (measured, PR #7624) ────────────────────
+-- ── WHY A STAMP AND NOT verification_state (measured, PR #7624) ──────────────
 -- `vendor_profiles_public_read` and `vendor_services_public_read` show a shop
 -- only while it is verified, and NO policy lets a couple read a shop it has
 -- booked. Flipping the state would blank the couple's schedule, contracts,
--- package booking and pay page for a shop they already booked, and refuse an
--- ask still waiting for the supplier's yes. So the state stays; this stamp
--- decides "no new bookings":
+-- package booking and pay page for a shop they already booked. So the state
+-- stays, and this stamp decides only "is the shop in the lists":
 --
 --   1. vendor_profiles.papers_lapsed_at — WHEN the papers lapsed. Written only by
---      the daily badge pass (service role, lib/verified-badge-sweep.ts) and
+--      the daily badge pass (service role, lib/papers-lapse.server.ts) and
 --      cleared only by an approval (lib/verification-decision.server.ts).
 --      Guarded below: a shop cannot clear (or set) its own.
 --   2. vendor_profiles.papers_current — generated `papers_lapsed_at IS NULL`, so
---      every couple-facing list can drop a lapsed shop with the same `.match()`
+--      every couple-facing list drops a lapsed shop with the same `.match()`
 --      gate it already applies (lib/findable-shop.ts FINDABLE_SHOP_GATE).
 --   3. vendor_market_stats — the 20271320303985 body VERBATIM, papers_current
 --      appended (the lists read it there too).
---   4. enforce_booking_requires_verified_vendor — the 20271335513615 body
---      verbatim plus ONE rule: a lapsed shop is refused for an ask made AFTER
---      the lapse; an ask made before it may still be answered. Already-confirmed
---      bookings were never re-checked and still are not (the grandfather clause
---      above the new rule is unchanged).
+--   4. vendor_profiles_self re-projected (its projection is frozen at CREATE).
+--
+-- ⛔ NOT TOUCHED: the booking trigger. Whether an event that inquired before
+-- the lapse can still be booked after it is UNCONFIRMED by the owner
+-- (481b9b6b), so that path stays exactly as it is today. ADD-ONLY: two
+-- columns, one guard trigger, one view re-created with a column appended.
 -- ============================================================================
 
 -- ── 1 · the stamp, and the boolean the lists read ──────────────────────────
@@ -38,7 +39,7 @@ ALTER TABLE public.vendor_profiles
   ADD COLUMN IF NOT EXISTS papers_current BOOLEAN GENERATED ALWAYS AS (papers_lapsed_at IS NULL) STORED;
 
 COMMENT ON COLUMN public.vendor_profiles.papers_lapsed_at IS
-  'When this shop''s papers lapsed: its renewal day (next_renewal_due_at, 30 March) passed with no renewed approval. While set, the shop takes NO NEW bookings and leaves every couple-facing list; existing bookings and asks made before this moment are untouched (owner 2026-11-14, "Keep them, block new"). verification_state is NOT changed. Written only by the daily badge pass (service role); cleared by an approval. A shop cannot write it (guard_vendor_papers_lapsed_at).';
+  'When this shop''s papers lapsed: its renewal day (next_renewal_due_at, 30 March) passed with no renewed approval. While set, the shop leaves search, Discover and every couple-facing list (papers_current); it keeps its existing bookings, its hand-imported clients and the events that already inquired (owner 2026-11-14, DECISION_LOG 481b9b6b). verification_state is NOT changed and the booking trigger does not read it. Written only by the daily badge pass (service role); cleared by an approval. A shop cannot write it (guard_vendor_papers_lapsed_at).';
 
 COMMENT ON COLUMN public.vendor_profiles.papers_current IS
   'Generated: papers_lapsed_at IS NULL. Read with is_findable by every couple-facing list (lib/findable-shop.ts FINDABLE_SHOP_GATE).';
@@ -145,95 +146,10 @@ COMMENT ON VIEW public.vendor_market_stats IS
   'security_invoker = true. Carries NO contact column since 20271221366210 '
   '(a shop is reached through Setnayan, never around it). Carries is_findable '
   'since 20271320303985 (the one listing rule) and papers_current since '
-  '20271345631375 (a shop whose papers lapsed takes no new bookings). Used by '
+  '20271345631375 (a shop whose papers lapsed leaves the lists). Used by '
   '/vendors + Explore + Concierge wizard vendor-pick cards.';
 
--- ── 4 · the booking gate: verbatim + the lapse rule ─────────────────────────
-CREATE OR REPLACE FUNCTION public.enforce_booking_requires_verified_vendor()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_confirmed CONSTANT public.vendor_status[] :=
-    ARRAY['contracted','deposit_paid','delivered','complete']::public.vendor_status[];
-  v_state      TEXT;
-  v_visibility TEXT;
-  v_suspended  TIMESTAMPTZ;
-  v_banned     TIMESTAMPTZ;
-  v_found      BOOLEAN;
-  v_reason     TEXT;
-  v_lapsed     TIMESTAMPTZ;
-  v_asked_at   TIMESTAMPTZ;
-BEGIN
-  -- Off-platform / manual vendors have no verification concept — never gated.
-  IF NEW.marketplace_vendor_id IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  -- Only gate the TRANSITION into a confirmed/booked status.
-  IF NOT (NEW.status = ANY (v_confirmed)) THEN
-    RETURN NEW;
-  END IF;
-
-  -- Grandfathering: on UPDATE, skip when the row was ALREADY confirmed (a
-  -- lifecycle advance or any edit of an existing lock), so we never retroactively
-  -- break — or re-validate — an already-booked vendor.
-  IF TG_OP = 'UPDATE' AND OLD.status = ANY (v_confirmed) THEN
-    RETURN NEW;
-  END IF;
-
-  SELECT vp.verification_state::text, vp.public_visibility::text, vp.fraud_suspended_at, vp.fraud_banned_at, TRUE,
-         vp.papers_lapsed_at
-    INTO v_state, v_visibility, v_suspended, v_banned, v_found, v_lapsed
-    FROM public.vendor_profiles vp
-   WHERE vp.vendor_profile_id = NEW.marketplace_vendor_id;
-
-  -- Fail-closed, ban first (a banned shop is also suspended).
-  v_reason := CASE
-    WHEN v_found IS NOT TRUE                  THEN 'missing'
-    WHEN v_banned IS NOT NULL                 THEN 'banned'
-    WHEN v_suspended IS NOT NULL              THEN 'suspended'
-    WHEN v_state IS DISTINCT FROM 'verified'  THEN 'not_verified'
-    WHEN v_visibility = 'archived'            THEN 'not_listed'
-    ELSE NULL
-  END;
-
-  -- 📄 PAPERS NOT RENEWED BY 30 MARCH (owner "Keep them, block new", 2026-11-14).
-  -- A NEW ask is refused; an ask made BEFORE the lapse may still be answered.
-  -- "When it was asked" is the row's creation — read off OLD on an UPDATE, so a
-  -- write that moves created_at cannot pass itself off as an older ask.
-  IF v_reason IS NULL AND v_lapsed IS NOT NULL THEN
-    IF TG_OP = 'UPDATE' THEN
-      v_asked_at := OLD.created_at;
-    END IF;
-    IF v_asked_at IS NULL OR v_asked_at > v_lapsed THEN
-      v_reason := 'papers_lapsed';
-    END IF;
-  END IF;
-
-  IF v_reason IS NOT NULL THEN
-    RAISE EXCEPTION
-      'vendor_not_verified: this vendor cannot be booked (reason=%, marketplace_vendor_id=%, state=%, visibility=%)',
-      v_reason, NEW.marketplace_vendor_id, COALESCE(v_state, 'missing'), COALESCE(v_visibility, 'missing')
-      USING ERRCODE = 'check_violation',
-            HINT = 'Only a verified, listed shop with no fraud suspension or ban can be locked by a couple.';
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-
-
-COMMENT ON FUNCTION public.enforce_booking_requires_verified_vendor() IS
-  'Owner 2026-07-24 + Lane G item 1 (2026-11-10) + 2026-11-14 ("Keep them, block new"): a MARKETPLACE vendor can only be booked/locked (event_vendors.status → contracted/deposit_paid/delivered/complete) when vendor_profiles.verification_state = ''verified'' AND fraud_suspended_at IS NULL AND fraud_banned_at IS NULL AND public_visibility <> ''archived'' AND — when papers_lapsed_at is set — the ask (event_vendors.created_at, read off OLD on an UPDATE) was made before the lapse. Fires only on the transition INTO a confirmed status (grandfathers existing locks). Off-platform vendors (marketplace_vendor_id IS NULL) are never gated. Refusal: check_violation, message prefix "vendor_not_verified:".';
-
-REVOKE ALL ON FUNCTION public.enforce_booking_requires_verified_vendor() FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.enforce_booking_requires_verified_vendor() FROM anon;
-REVOKE ALL ON FUNCTION public.enforce_booking_requires_verified_vendor() FROM authenticated;
-
--- ── 5 · the shop's own view re-projected (its projection is frozen at CREATE) ─
+-- ── 4 · the shop's own view re-projected (its projection is frozen at CREATE) ─
 -- The 20271334860034 block verbatim, with the two new columns added to its
 -- anti-vacuity check — so the shop's own dashboard can read its papers stamp.
 DROP VIEW IF EXISTS public.vendor_profiles_self;

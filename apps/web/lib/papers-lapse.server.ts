@@ -15,16 +15,16 @@ import {
  * server half of `lib/papers-lapse.ts`, run by the existing daily badge pass
  * (`runVerifiedBadgeDeadlineSweep`). No new scheduler.
  *
- * What a lapse DOES (owner "Keep them, block new", answer B):
- *   · `papers_lapsed_at` is stamped → the shop leaves every couple-facing list
- *     (`FINDABLE_SHOP_GATE` reads `papers_current`), every app booking door
- *     refuses a NEW ask (`shopBookingRefusal` → 'papers_lapsed', which also
- *     closes the Locked QR), and the database trigger refuses a confirm on any
- *     ask made AFTER the stamp;
+ * What a lapse DOES (owner DECISION_LOG 481b9b6b, correcting "block new"):
+ *   · `papers_lapsed_at` is stamped → the shop leaves search, Discover and every
+ *     couple-facing list (`FINDABLE_SHOP_GATE` reads `papers_current`);
  *   · a free "verified" plan becomes "free" (paid plans are left alone);
  *   · the supplier is told once, in-app and by email.
- * What it does NOT do: touch `verification_state` or `public_visibility`, or any
- * booking, chat, payment, schedule or Event Hub row.
+ * What it does NOT do: refuse any booking request (the app's booking gate and the
+ * database trigger do not read the stamp — whether an event that inquired before
+ * the lapse can be booked after it is unconfirmed, so it stays as today), stop
+ * hand-imported clients, or touch `verification_state`, `public_visibility`, or
+ * any booking, chat, payment, schedule or Event Hub row.
  *
  * 🔁 IDEMPOTENT: the stamp is a conditional write (`papers_lapsed_at IS NULL`),
  * and only a row that write actually changed is told. A second run changes

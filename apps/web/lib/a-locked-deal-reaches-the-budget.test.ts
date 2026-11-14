@@ -150,7 +150,6 @@ function stubAdmin(verified: boolean, rpcStatus = 'changed', rpcSink: { calls: R
       public_visibility: 'verified',
       fraud_suspended_at: null,
       fraud_banned_at: null,
-      papers_lapsed_at: null,
     },
     error: null,
   });

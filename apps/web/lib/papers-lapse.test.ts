@@ -8,8 +8,8 @@ import { PAPERS_LAPSED_NOTICE, papersLapseDue } from './papers-lapse';
 import { papersDueIn } from './papers-due';
 
 /**
- * AFTER 30 MARCH — "Keep them, block new" (owner 2026-11-14, answer B). The
- * database half is tests/db/unrenewed-papers-pause-new-bookings.db.test.ts.
+ * AFTER 30 MARCH — out of search and Discover, everything else kept (owner 2026-11-14, answer B, corrected by
+ * DECISION_LOG 481b9b6b). The database half is tests/db/unrenewed-papers-pause-new-bookings.db.test.ts.
  */
 
 const WEB = join(new URL('.', import.meta.url).pathname, '..');
@@ -54,10 +54,10 @@ test('renewing restores the shop: an approval clears the stamp (and the free pla
   assert.match(approve, /tier_state: 'verified' as const/);
 });
 
-test('the supplier is told in the owner’s words', () => {
+test('the supplier is told what really happens (481b9b6b: out of search; bookings and clients kept)', () => {
   assert.equal(
     PAPERS_LAPSED_NOTICE.body,
-    'Your papers weren’t renewed by 30 March. You keep your current bookings; new bookings are paused until you upload your renewed papers.',
+    'Your papers weren’t renewed by 30 March, so your shop is out of search and Discover. You keep your current bookings and clients, and you can keep working with couples who already asked. Upload your renewed papers to be found again.',
   );
   const sweep = stripComments(readFileSync(join(WEB, 'lib', 'verified-badge-sweep.ts'), 'utf8'));
   assert.match(sweep, /await stampLapsedPapers\(admin, now\)/, 'the daily pass does not run the lapse');
@@ -84,4 +84,11 @@ test('a permit printed "valid until 31 Dec" never takes the badge off on 1 Janua
     const src = stripComments(readFileSync(join(WEB, f), 'utf8'));
     assert.ok(!/expirationDate|expiresOn|permit_valid_until/.test(src), `${f} reads a paper's printed expiry`);
   }
+});
+
+test('481b9b6b: the lapse never refuses a booking — the app gate and the trigger do not read the stamp', () => {
+  const vis = stripComments(readFileSync(join(WEB, 'lib', 'vendor-visibility.ts'), 'utf8'));
+  assert.ok(!/papers_lapsed/.test(vis), 'the booking gate reads the papers stamp again');
+  const mig = stripComments(readFileSync(join(WEB, '..', '..', 'supabase', 'migrations', '20271345631375_unrenewed_papers_pause_new_bookings.sql'), 'utf8').replace(/--[^\n]*/g, ''));
+  assert.ok(!/enforce_booking_requires_verified_vendor/.test(mig), 'the lapse migration re-emits the booking trigger');
 });

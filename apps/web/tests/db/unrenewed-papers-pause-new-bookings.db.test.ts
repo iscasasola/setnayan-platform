@@ -1,14 +1,16 @@
 /**
- * AFTER 30 MARCH, AN UNRENEWED SHOP KEEPS ITS EXISTING BOOKINGS AND TAKES NO NEW
- * ONES — migration 20271345631375 (owner "Keep them, block new", answer B on PR #7624).
+ * AFTER 30 MARCH, AN UNRENEWED SHOP DROPS OUT OF SEARCH AND DISCOVER AND KEEPS
+ * EVERYTHING ELSE — migration 20271345631375 (owner answer B on PR #7624,
+ * corrected by DECISION_LOG 481b9b6b).
  *
  * Proves, on the replayed schema:
  *   1. an EXISTING booking keeps working after the lapse — a confirmed row can still
  *      move along (contracted → deposit_paid → delivered), and the shop is still
  *      readable through the public policy (verification_state was never touched);
  *   2. an ask made BEFORE the lapse may still be answered (considering → contracted);
- *   3. a NEW ask is refused (an ask made after the lapse, or a direct confirmed insert);
- *   4. renewing (clearing the stamp) restores the shop: it books again, and
+ *   3. the booking trigger does NOT read the stamp (the inquired-before-lapse path is
+ *      unconfirmed, so it stays as today);
+ *   4. renewing (clearing the stamp) restores the shop to the lists:
  *      `papers_current` reads true;
  *   5. a shop cannot clear (or set) its own stamp;
  *   6. `papers_current` follows the stamp and the marketplace view carries it.
@@ -116,23 +118,19 @@ test('2 · an ask made BEFORE the lapse may still be answered', async () => {
   assert.equal(await setStatus(pending, 'contracted'), null, 'the supplier’s yes to an older ask goes through');
 });
 
-test('3 · a NEW ask is refused — made after the lapse, or confirmed directly', async () => {
+test('3 · the booking trigger does NOT read the stamp — booking stays exactly as it is today (481b9b6b)', async () => {
+  // Owner 2026-11-14 (DECISION_LOG 481b9b6b): a lapsed shop only drops out of search and Discover. Whether an event
+  // that inquired before the lapse can still be booked after it is UNCONFIRMED, so that path is left as it is today:
+  // the trigger does not read papers_lapsed_at at all — an ask before OR after the stamp books like any other.
   const { vendorId } = await newShop('new@lapse.test');
   await lapse(vendorId, '2027-03-30T16:00:00Z');
   const event = await newEvent();
   const later = await ask(event, vendorId, 'considering', '2027-04-02T00:00:00Z');
-  const err = await setStatus(later, 'contracted');
-  assert.match(String(err), /vendor_not_verified: .*reason=papers_lapsed/);
-  const event2 = await newEvent();
-  await assert.rejects(ask(event2, vendorId, 'contracted'), /reason=papers_lapsed/);
-  // A write that moves created_at back does not pass itself off as an older ask.
-  await assert.rejects(
-    db.query(
-      `UPDATE public.event_vendors SET status = 'contracted', created_at = '2026-01-01' WHERE vendor_id = $1`,
-      [later],
-    ),
-    /papers_lapsed/,
+  assert.equal(await setStatus(later, 'contracted'), null, 'the trigger refused on the papers stamp');
+  const src = await db.query<{ src: string }>(
+    `SELECT prosrc AS src FROM pg_proc WHERE proname = 'enforce_booking_requires_verified_vendor'`,
   );
+  assert.ok(!/papers_lapsed/.test(src.rows[0]!.src), 'the booking trigger reads the papers stamp');
 });
 
 test('4 · renewing restores the shop at once', async () => {

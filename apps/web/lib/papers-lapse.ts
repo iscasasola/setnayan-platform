@@ -1,10 +1,11 @@
 /**
- * papers-lapse.ts — AFTER 30 MARCH, AN UNRENEWED SHOP KEEPS ITS BOOKINGS AND
- * TAKES NO NEW ONES. The pure half.
+ * papers-lapse.ts — AFTER 30 MARCH, AN UNRENEWED SHOP DROPS OUT OF SEARCH AND
+ * DISCOVER, AND KEEPS EVERYTHING ELSE. The pure half.
  *
  * Owner rulings 2026-11-14 — "THE RENEWAL DAY IS 30 MARCH" · "AFTER 30 MARCH,
- * AN UNRENEWED SHOP KEEPS ITS EXISTING BOOKINGS" ("Keep them, block new") — and
- * the owner's answer B on PR #7624: the lapse is a STAMP
+ * AN UNRENEWED SHOP KEEPS ITS EXISTING BOOKINGS", corrected by DECISION_LOG
+ * 481b9b6b: the shop only drops out of search and Discover) — and the owner's
+ * answer B on PR #7624: the lapse is a STAMP
  * (`vendor_profiles.papers_lapsed_at`, migration 20271345631375), never a change
  * of `verification_state`, because the couples who already booked the shop read
  * it through policies that require `verified`.
@@ -34,10 +35,14 @@ export function papersLapseDue(row: LapseCandidate, now: Date): boolean {
   return now.getTime() > ms;
 }
 
-/** The one message, in-app and by email (owner's words, controller 2026-11-14). */
+/**
+ * The one message, in-app and by email. Reworded for DECISION_LOG 481b9b6b (the earlier text said "new bookings are
+ * paused", which is no longer what happens): the shop leaves search and Discover; bookings, clients and the events
+ * that already inquired stay. ⚠ The words are this build's — the owner has not yet read them.
+ */
 export const PAPERS_LAPSED_NOTICE = {
-  title: 'New bookings are paused',
-  body: 'Your papers weren’t renewed by 30 March. You keep your current bookings; new bookings are paused until you upload your renewed papers.',
+  title: 'New couples can’t find you in search for now',
+  body: 'Your papers weren’t renewed by 30 March, so your shop is out of search and Discover. You keep your current bookings and clients, and you can keep working with couples who already asked. Upload your renewed papers to be found again.',
 } as const;
 
 /** The audit action written once per lapse (and the record that the notice went out). */

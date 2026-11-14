@@ -25,6 +25,7 @@ import {
 import type { ConflictField, ConflictService } from '@/lib/personalization-conflicts';
 import { ceremonyChoicesFor } from '@/lib/ceremony-choices';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * GovernedFields — the four governed personalization fields on the
  * Personalization page, with the change-flow conflict warning.
@@ -505,32 +506,24 @@ export function GovernedFields({
             }
           />
         ))}
-        <p className="text-xs text-ink/60">
-          Your {names.join(' and ')} {names.length === 1 ? 'is' : 'are'} set, because a supplier is booked on it.{' '}
-          <Link href="/help" className="font-medium text-terracotta underline-offset-2 hover:underline">
-            Contact support
-          </Link>{' '}
-          to change it — we’ll work it out with your booked suppliers.
-        </p>
+        <InfoTip labelAs="p" label="Your set, because a supplier is booked on it. Contact support to change it" labelNode={<>Your {names.join(' and ')} {names.length === 1 ? 'is' : 'are'} set, because a supplier is booked on it.{' '} <Link href="/help" className="font-medium text-terracotta underline-offset-2 hover:underline"> Contact support </Link>{' '} to change it</>} labelClassName="text-xs text-ink/70" align="start">
+          we’ll work it out with your booked suppliers.
+        </InfoTip>
       </div>
     );
   }
   if (locked) {
     return (
       <div className="space-y-2.5">
-        <div className="flex items-start gap-2 rounded-xl border border-ink/10 bg-paper px-3.5 py-2.5">
-          <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
-          <p className="text-xs text-ink/60">
-            You’ve booked suppliers, so your wedding type, venues, guest count, and date are fixed.{' '}
-            <Link href="/help" className="font-medium text-terracotta underline-offset-2 hover:underline">
-              Contact support
-            </Link>{' '}
-            to change any of them — we’ll coordinate with your booked suppliers.
-          </p>
+        <div className="border-t border-ink/10 flex items-start gap-2 px-3.5 py-2.5">
+          <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
+          <InfoTip labelAs="p" label="You’ve booked suppliers, so your wedding type, venues, guest count, and date are fixed. Contact support to change any of them" labelNode={<>You’ve booked suppliers, so your wedding type, venues, guest count, and date are fixed.{' '} <Link href="/help" className="font-medium text-terracotta underline-offset-2 hover:underline"> Contact support </Link>{' '} to change any of them</>} labelClassName="text-xs text-ink/70" align="start">
+            we’ll coordinate with your booked suppliers.
+          </InfoTip>
         </div>
         <LockedRow label="Wedding type" value={ceremonyDisplay(ceremony)} />
         {secondaryCeremony ? (
-          <p className="pl-1 text-xs text-ink/50">
+          <p className="pl-1 text-xs text-ink/70">
             Also honoring a {ceremonyDisplay(secondaryCeremony).toLowerCase()}.
           </p>
         ) : null}
@@ -571,7 +564,7 @@ export function GovernedFields({
 
       {/* Non-Chinese secondary overlays (rare) stay a read-only note. */}
       {secondaryCeremony && secondaryCeremony !== CHINESE_SECONDARY_KEY ? (
-        <p className="pl-1 text-xs text-ink/50">
+        <p className="pl-1 text-xs text-ink/70">
           Also honoring a {ceremonyDisplay(secondaryCeremony).toLowerCase()}.
         </p>
       ) : null}
@@ -580,7 +573,7 @@ export function GovernedFields({
           non-Chinese, non-mixed primary). The common Tsinoy church-primary +
           Chinese tea ceremony case. */}
       {overlayEligible ? (
-        <div className="rounded-xl border border-ink/10 bg-paper px-3.5 py-2.5">
+        <div className="border-t border-ink/10 px-3.5 py-2.5">
           <label className="flex items-start gap-2.5">
             <input
               type="checkbox"
@@ -591,7 +584,7 @@ export function GovernedFields({
             />
             <span className="text-sm text-ink/80">
               We’re also holding a Chinese tea ceremony
-              <span className="mt-0.5 block text-xs text-ink/50">
+              <span className="mt-0.5 block text-xs text-ink/70">
                 Adds the Chinese tradition layer — date guidance, seating, and a
                 tea-ceremony guide — alongside your{' '}
                 {ceremonyDisplay(ceremony).toLowerCase()}.
@@ -642,7 +635,7 @@ export function GovernedFields({
             </option>
           ))}
         </select>
-        <p className="text-[11px] text-ink/50">
+        <p className="text-[12px] text-ink/70">
           Where you’ll marry. Your reception venue is set separately below.
         </p>
       </EditableRow>
@@ -669,7 +662,7 @@ export function GovernedFields({
             </option>
           ))}
         </select>
-        <p className="text-[11px] text-ink/50">
+        <p className="text-[12px] text-ink/70">
           Where your guests will eat and celebrate.
         </p>
       </EditableRow>
@@ -714,7 +707,7 @@ export function GovernedFields({
           className={SELECT_CLASS}
         />
         {embedded ? null : (
-        <p className="text-[11px] text-ink/50">
+        <p className="text-[12px] text-ink/70">
           Need a flexible window or year/month only?{' '}
           <Link
             href={`/dashboard/${eventId}/date-selection`}
@@ -730,7 +723,7 @@ export function GovernedFields({
 
       {/* Shared editor footer — appears under whichever row is open. */}
       {open && (!autoRow || phase === 'confirm' || error) ? (
-        <div className="space-y-3 rounded-xl border border-ink/10 bg-paper p-3.5">
+        <div className="border-t border-ink/10 space-y-3 p-3.5">
           {phase === 'confirm' ? (
             <div className="space-y-2.5">
               <div className="flex items-start gap-2">
@@ -768,7 +761,7 @@ export function GovernedFields({
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-ink">{c.vendor_name}</p>
-                      <p className="text-[11px] uppercase tracking-wide text-ink/45">
+                      <p className="text-[12px] uppercase tracking-wide text-ink/70">
                         {titleCase(c.category)}
                         {c.raw_status ? ` · ${titleCase(c.raw_status)}` : ''}
                       </p>
@@ -820,7 +813,7 @@ export function GovernedFields({
                   type="button"
                   onClick={checkAndSave}
                   disabled={pending}
-                  className="inline-flex items-center justify-center rounded-xl bg-mulberry px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                  className="ab ab-brand ab-main"
                 >
                   {/* "Check & save" names the booked-vendor conflict check. The
                       ceremony venue does not run one, so it must not claim to —
@@ -875,11 +868,11 @@ function EditableRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-ink/10 bg-paper px-3.5 py-2.5">
+    <div className="border-t border-ink/10 px-3.5 py-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm text-ink/80">
           {label}
-          <span className="ml-1.5 text-ink/55">· {value ?? 'Not set'}</span>
+          <span className="ml-1.5 text-ink/70">· {value ?? 'Not set'}</span>
           {saved ? (
             <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-success-700">
               <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -906,10 +899,10 @@ function EditableRow({
 
 function LockedRow({ label, value }: { label: string; value: string | null }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-ink/10 bg-paper px-3.5 py-2.5">
+    <div className="border-t border-ink/10 flex items-center justify-between gap-4 px-3.5 py-2.5">
       <span className="text-sm text-ink/70">{label}</span>
       <span className="text-right text-sm font-medium text-ink/85">
-        {value ?? <span className="font-normal text-ink/40">Not set</span>}
+        {value ?? <span className="font-normal text-ink/70">Not set</span>}
       </span>
     </div>
   );

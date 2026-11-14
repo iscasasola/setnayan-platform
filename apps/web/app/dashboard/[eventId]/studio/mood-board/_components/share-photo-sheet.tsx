@@ -187,19 +187,19 @@ export function SharePhotoSheet({
         ) : null}
 
         {!opts ? (
-          <p className="text-[13px] text-ink/55" aria-live="polite">Reading your suppliers…</p>
+          <p className="text-[13px] text-ink/70" aria-live="polite">Reading your suppliers…</p>
         ) : opts.status !== 'ok' ? (
           <p role="alert" className="text-[13px] text-danger-700">
             {opts.status === 'gone' ? 'This photo is no longer on your board.' : 'Your suppliers could not be read just now. Nothing was sent — try again in a moment.'}
           </p>
         ) : !opts.shareable ? (
-          <p className="text-[13px] text-ink/65">Only a photo you uploaded yourself can be shared with a supplier.</p>
+          <p className="text-[13px] text-ink/70">Only a photo you uploaded yourself can be shared with a supplier.</p>
         ) : opts.cards.length === 0 ? (
-          <p className="text-[13px] text-ink/65">Add your supplier to your event first — their service cards then show here.</p>
+          <p className="text-[13px] text-ink/70">Add your supplier to your event first — their service cards then show here.</p>
         ) : (
           <div className="flex flex-col gap-3">
             <label className="flex flex-col gap-1">
-              <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">Their service card</span>
+              <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/70">Their service card</span>
               <PickMenu
                 label="Their service card"
                 value={card}
@@ -210,7 +210,7 @@ export function SharePhotoSheet({
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">Credit on the photo</span>
+              <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/70">Credit on the photo</span>
               <PickMenu
                 label="Credit on the photo"
                 value={credit}
@@ -221,7 +221,7 @@ export function SharePhotoSheet({
               />
             </label>
             <label className="flex flex-col gap-1" data-share-photo-audience="">
-              <span className="flex items-center gap-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">
+              <span className="flex items-center gap-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/70">
                 Who sees it on their card
                 <Explain title="Who sees it">
                   {COUPLE_PHOTO_AUDIENCES.map((a) => `${COUPLE_PHOTO_AUDIENCE_LABEL[a]}: ${COUPLE_PHOTO_AUDIENCE_HINT[a]}`).join(' ')} Your supplier
@@ -272,7 +272,7 @@ export function SharePhotoSheet({
               <li key={s.shareId} className="flex min-h-12 flex-wrap items-center gap-2 py-2" data-share-photo-state={s.state}>
                 <span className="min-w-0 flex-1 text-[13px] leading-tight">
                   <b className="block font-medium text-ink">{coupleShareStateLine(s.state, s.shop)}</b>
-                  <span className="text-ink/55">
+                  <span className="text-ink/70">
                     {s.serviceTitle} · {s.credit}
                   </span>
                 </span>

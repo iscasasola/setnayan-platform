@@ -83,11 +83,11 @@ export async function MemoriesSettings({
       <section className="flex items-center justify-between gap-3 py-3" data-memories-setting="download-all">
         <span className="min-w-0">
           <span className="block text-[15px] font-semibold text-ink">Download all</span>
-          <span className="block text-[12.5px] text-ink/60">Zips by chapter, with each size shown first</span>
+          <span className="block text-[12.5px] text-ink/70">Zips by chapter, with each size shown first</span>
         </span>
         <Link
           href={`/dashboard/${eventId}/memories/download-all`}
-          className="inline-flex min-h-[44px] shrink-0 items-center rounded-full border border-ink/15 px-4 text-[14px] font-medium text-ink"
+          className="ab ab-neutral shrink-0"
         >
           Open
         </Link>
@@ -100,7 +100,7 @@ export async function MemoriesSettings({
               keep the 720p copy. Keep full resolution keeps every original too. A yearly service, priced from the
               catalogue.
             </InfoTip>
-            <span className="block text-[12.5px] text-ink/60">
+            <span className="block text-[12.5px] text-ink/70">
               {owns ? 'Active · every original kept' : 'Off · 3 months after the event we keep the 720p copy'}
             </span>
           </span>
@@ -117,7 +117,7 @@ export async function MemoriesSettings({
               triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-terracotta/40 px-3.5 py-2 text-[13px] font-medium text-terracotta hover:bg-terracotta/5"
             />
           ) : (
-            <HardDrive aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
+            <HardDrive aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
           )}
         </section>
       )}

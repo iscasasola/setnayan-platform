@@ -113,14 +113,14 @@ export function AskTheHosts({
                 <h2 id={titleId} className="pr-10 text-[20px] font-semibold tracking-[-0.01em] text-ink">
                   Ask the hosts
                 </h2>
-                <p className="mt-1 text-[13px] text-ink/65">
+                <p className="mt-1 text-[13px] text-ink/70">
                   <InfoTip label={ASK_HOSTS_LINE} align="start">
                     {ASK_HOSTS_TIP}
                   </InfoTip>
                 </p>
                 <div className="mt-4 flex flex-col gap-4 border-t border-ink/10 pt-4">
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[13px] text-ink/60">More on</span>
+                    <span className="text-[13px] text-ink/70">More on</span>
                     <PickMenu
                       label="Which part you want more on"
                       value={part}
@@ -129,7 +129,7 @@ export function AskTheHosts({
                       dataAttr="data-ask-the-hosts-part"
                     />
                   </div>
-                  <label className="flex flex-col gap-1.5 text-[13px] text-ink/60">
+                  <label className="flex flex-col gap-1.5 text-[13px] text-ink/70">
                     What do you need? (optional)
                     <input
                       type="text"

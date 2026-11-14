@@ -825,7 +825,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     saveAction: saveRolePalette,
   };
   const lastSaved = event.mood_board_updated_at ? (
-    <p className="text-xs text-ink/55">Last saved {new Date(event.mood_board_updated_at).toLocaleString()}</p>
+    <p className="text-xs text-ink/70">Last saved {new Date(event.mood_board_updated_at).toLocaleString()}</p>
   ) : null;
   /* Overall Theme — the card that opens the canvas — and the theme gallery
      under it. The wrapper is a client boundary so a feeling+setting READ OUT OF
@@ -853,7 +853,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
           Upload up to 3 photos per category — drag one onto another slot to reorder. We pull a matching palette
           colour from each upload automatically.
         </InfoTip>
-        <p className="max-w-prose text-sm text-ink/65">Drop the looks you love — a venue, a backdrop, a bouquet, an outfit.</p>
+        <p className="max-w-prose text-sm text-ink/70">Drop the looks you love — a venue, a backdrop, a bouquet, an outfit.</p>
       </header>
       <InspirationBoard
         eventId={eventId}
@@ -868,7 +868,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     <section id="palette" className="scroll-mt-24 space-y-4">
       <header>
         <h2 className="text-2xl font-semibold text-ink">Palette</h2>
-        <p className="text-sm text-ink/65">Derived live from your main colours above — change a role to make it yours.</p>
+        <p className="text-sm text-ink/70">Derived live from your main colours above — change a role to make it yours.</p>
       </header>
       <PaletteSection visibleKeys={Array.from(visibleKeys)} venueLabel={venueLabel} />
     </section>
@@ -877,10 +877,10 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
      this is what they AGREE with a supplier. A part that has been agreed stops
      following the main colours, which is why the two are shown together. */
   const peopleAgreed = (
-    <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-4">
+    <div className="border-t border-ink/10 space-y-2 py-4">
       <header className="space-y-0.5">
         <h3 className="text-base font-medium text-ink">Agreed with your supplier</h3>
-        <p className="max-w-prose text-xs text-ink/60">
+        <p className="max-w-prose text-xs text-ink/70">
           Ask the supplier who will make it to sign off on a look. Once they agree, that part stops changing when you
           edit your main colours — and it takes both of you to re-open it.
         </p>
@@ -900,23 +900,23 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     <section id="reception" className="scroll-mt-24 space-y-4">
       <header>
         <h2 className="text-2xl font-semibold text-ink">Your reception design</h2>
-        <p className="text-sm text-ink/65">
+        <p className="text-sm text-ink/70">
           Ceiling, backdrop, stage, tables, walls, and more — designed together with your Seat Plan now, since
           it&rsquo;s really the same room.
         </p>
       </header>
-      <div className="rounded-xl border border-ink/10 bg-white p-4">
+      <div className="border-t border-ink/10 py-4">
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink/75">
           {receptionSummary.map((p) => (
             <span key={p.id}>
               <span className="font-medium text-ink">{p.label}:</span>{' '}
-              {p.value || <span className="text-ink/45">Not set</span>}
+              {p.value || <span className="text-ink/70">Not set</span>}
             </span>
           ))}
         </div>
         {/* No link out of the Maker (owner rule: the field sits where you are). */}
         {inMaker ? (
-          <p className="mt-3 text-sm text-ink/65">You design the room in your Seat plan.</p>
+          <p className="mt-3 text-sm text-ink/70">You design the room in your Seat plan.</p>
         ) : (
           <Link
             href={`/dashboard/${eventId}/seating/lab`}
@@ -930,10 +930,10 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   );
   /* MB12 — the same handshake, for the room and the things in it. */
   const roomAgreed = (
-    <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-4">
+    <div className="border-t border-ink/10 space-y-2 py-4">
       <header className="space-y-0.5">
         <h3 className="text-base font-medium text-ink">Agreed with your supplier</h3>
-        <p className="max-w-prose text-xs text-ink/60">
+        <p className="max-w-prose text-xs text-ink/70">
           Ask the stylist, florist or venue who will build it to sign off. Nothing is settled until they say yes, and
           re-opening it takes both of you.
         </p>
@@ -955,7 +955,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     <section id="colors" className="scroll-mt-24 space-y-3">
       <header>
         <h3 className="text-base font-medium text-ink/80">In your colors</h3>
-        <p className="text-xs text-ink/55">A quick preview of your attire, ceremony, and flowers in your chosen palette.</p>
+        <p className="text-xs text-ink/70">A quick preview of your attire, ceremony, and flowers in your chosen palette.</p>
       </header>
       <MoodboardBoard sections={sections} compact />
     </section>
@@ -963,7 +963,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   const shareWords = (
     <header className="space-y-1">
       <h2 className="text-2xl font-semibold text-ink">Share with your suppliers</h2>
-      <p className="max-w-prose text-sm text-ink/65">
+      <p className="max-w-prose text-sm text-ink/70">
         Send your booked suppliers a heads-up that your mood board is ready, so they can match their styling, decor,
         and booth to your palette and reception design. They see a read-only view — your palette, design, and
         inspirations, no guest details.
@@ -1059,7 +1059,7 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
         {storeShell ? null : (
           <Link
             href={studioHubHref(eventId)}
-            className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
+            className="text-xs uppercase tracking-[0.2em] text-ink/70 hover:text-terracotta"
           >
             ‹ Back to add-ons
           </Link>
@@ -1076,7 +1076,7 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
             <a
               key={l.href}
               href={l.href}
-              className="whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium text-ink/60 transition hover:bg-ink/5 hover:text-ink"
+              className="whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/5 hover:text-ink"
             >
               {l.label}
             </a>

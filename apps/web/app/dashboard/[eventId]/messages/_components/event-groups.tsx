@@ -26,7 +26,7 @@ import {
   type GroupPersonKind,
 } from '@/lib/chat-groups';
 
-const GROUP_HEAD = 'pb-0.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50';
+const GROUP_HEAD = 'pb-0.5 pt-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/70';
 
 export async function EventGroups({ supabase, eventId }: { supabase: SupabaseClient; eventId: string }) {
   const mine = await supabase.rpc('chat_group_my_kind', { p_event_id: eventId });
@@ -57,11 +57,11 @@ export function GroupsList({ rows, newGroup }: { rows: readonly GroupListRow[] |
         ) : null}
       </div>
       {rows === null ? (
-        <p role="status" className="py-2 text-[13px] text-ink/60">
+        <p role="status" className="py-2 text-[13px] text-ink/70">
           Couldn&rsquo;t load your groups just now &mdash; this does not mean you have none. Reload in a moment.
         </p>
       ) : rows.length === 0 ? (
-        <p className="py-2 text-[13px] text-ink/60">No group chats yet.</p>
+        <p className="py-2 text-[13px] text-ink/70">No group chats yet.</p>
       ) : (
         <ul>
           {rows.map((g) => {
@@ -82,13 +82,13 @@ export function GroupsList({ rows, newGroup }: { rows: readonly GroupListRow[] |
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline gap-2">
                       <span className={`min-w-0 flex-1 truncate text-[15px] text-ink ${g.unread ? 'font-bold' : 'font-semibold'}`}>{g.group_name}</span>
-                      {g.last_at && !left ? <span className="shrink-0 text-[12px] text-ink/55">{formatChatTimestamp(g.last_at)}</span> : null}
+                      {g.last_at && !left ? <span className="shrink-0 text-[12px] text-ink/70">{formatChatTimestamp(g.last_at)}</span> : null}
                     </span>
-                    <span className="block truncate text-[12px] text-ink/55">
+                    <span className="block truncate text-[12px] text-ink/70">
                       {formatCount(g.member_count)} inside · {groupListLine(g)}
                     </span>
                     {preview ? (
-                      <span className={`block truncate text-[13px] ${g.unread ? 'font-semibold text-ink' : 'text-ink/65'}`}>{preview}</span>
+                      <span className={`block truncate text-[13px] ${g.unread ? 'font-semibold text-ink' : 'text-ink/70'}`}>{preview}</span>
                     ) : null}
                   </span>
                   {g.unread ? <span aria-label="Unread" className="h-2.5 w-2.5 shrink-0 rounded-full bg-sn-accent" /> : null}

@@ -146,7 +146,7 @@ test('nothing in Your event sends the couple elsewhere to finish it', () => {
     assert.doesNotMatch(read(`${L}${f}`), /<Link\b|href=|↗/, `${f}: a link-out`);
   }
   const governed = read('app/dashboard/[eventId]/details/_components/governed-fields.tsx');
-  assert.match(governed, /\{embedded \? null : \(\s*<p className="text-\[11px\] text-ink\/50">\s*Need a flexible window/, 'in place, the date row drops "More date options"');
+  assert.match(governed, /\{embedded \? null : \(\s*<p className="text-\[12px\] text-ink\/70">\s*Need a flexible window/, 'in place, the date row drops "More date options"');
 });
 
 test('no typed wedding word in the Your event editors and parts', () => {

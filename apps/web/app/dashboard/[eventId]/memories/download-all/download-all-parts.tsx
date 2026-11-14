@@ -97,7 +97,7 @@ export function DownloadAllParts({ eventId, rows }: { eventId: string; rows: rea
                 {r.chapterLabel}
                 {r.of > 1 ? ` · part ${formatCount(r.part)} of ${formatCount(r.of)}` : ''}
               </span>
-              <span className="block text-[13px] text-ink/60">
+              <span className="block text-[13px] text-ink/70">
                 {r.countWords} · about {r.sizeWords}
               </span>
               {st.k === 'error' ? (

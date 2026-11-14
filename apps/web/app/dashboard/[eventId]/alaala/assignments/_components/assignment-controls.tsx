@@ -6,6 +6,7 @@ import { useSaveLoader } from '@/components/sd-loader';
 import type { KwentoMomentKey } from '@/lib/kwento-moments';
 import { formatCount } from '@/lib/format-number';
 
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 type Guest = { guestId: string; name: string };
 type Assignment = { assignmentId: string; guestId: string; guestName: string; nudgeCount: number };
 
@@ -46,30 +47,25 @@ export function GuestPicker({
 
   return (
     <div className="flex items-center gap-2">
-      <select
+      <PickMenu
+        label="Pick a guest…"
         value={selectedGuestId}
-        onChange={(e) => setSelectedGuestId(e.target.value)}
-        disabled={pending}
-        className="min-w-0 flex-1 rounded-md border px-2 py-1.5 text-[13px]"
-        style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)', color: 'var(--m-ink)' }}
-      >
-        <option value="">Pick a guest…</option>
-        {guests.map((g) => (
-          <option key={g.guestId} value={g.guestId}>
-            {g.name}
-          </option>
-        ))}
-      </select>
+        onPick={(v) => {
+          if (!pending) setSelectedGuestId(v);
+        }}
+        dataAttr="data-alaala-pick-guest"
+        className="min-w-0 flex-1"
+        options={guests.map((g) => ({ key: g.guestId, label: g.name }))}
+      />
       <button
         type="button"
         onClick={assign}
         disabled={!selectedGuestId || pending}
-        className="shrink-0 rounded-md px-3 py-1.5 text-[13px] font-medium transition disabled:opacity-40"
-        style={{ background: 'var(--m-mulberry)', color: '#fff' }}
+        className="ab ab-brand ab-main shrink-0"
       >
         {pending ? 'Assigning…' : 'Assign'}
       </button>
-      {error ? <p className="text-[11px] text-danger-600">{error}</p> : null}
+      {error ? <p className="text-[12px] text-danger-600">{error}</p> : null}
     </div>
   );
 }
@@ -125,8 +121,7 @@ export function AssignmentRow({
         </span>
         {assignment.nudgeCount > 0 ? (
           <span
-            className="rounded-full px-1.5 py-0.5 font-mono text-[10px]"
-            style={{ background: 'var(--m-paper)', color: 'var(--m-slate-2)', border: '1px solid var(--m-line)' }}
+            className="rounded-full bg-ink/[0.07] px-2 py-0.5 text-[12px] font-semibold text-ink/70"
           >
             {formatCount(assignment.nudgeCount)} nudge{assignment.nudgeCount !== 1 ? 's' : ''} sent
           </span>
@@ -157,7 +152,7 @@ export function AssignmentRow({
         >
           {removePending ? '…' : 'Remove'}
         </button>
-        {nudgeError ? <p className="text-[11px] text-danger-600">{nudgeError}</p> : null}
+        {nudgeError ? <p className="text-[12px] text-danger-600">{nudgeError}</p> : null}
       </div>
     </div>
   );

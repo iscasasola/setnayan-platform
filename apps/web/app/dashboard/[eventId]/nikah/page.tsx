@@ -11,6 +11,7 @@ import { readNikahImam } from '../_components/nikah-imam';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { NIKAH_NAME } from '@/lib/home-first-screen';
 
+import { InfoTip } from '@/app/_components/info-tip';
 export const dynamic = 'force-dynamic';
 
 export const metadata = { title: NIKAH_NAME };
@@ -82,9 +83,11 @@ export default async function NikahEssentialsPage({ params }: { params: Promise<
           imamNote={nikahImamNote}
         />
       ) : (
-        <p role="status" className="sn-tile text-sm text-ink/70">
-          We couldn&rsquo;t load your guest list just now, so we can&rsquo;t say which essentials are in place. Reload to try again.
-        </p>
+        <div role="status">
+          <InfoTip labelAs="p" label="We couldn&rsquo;t load your guest list just now, so we can&rsquo;t say which essentials are in place." labelClassName="sn-tile text-sm text-ink/70" align="start">
+            Reload to try again.
+          </InfoTip>
+        </div>
       )}
     </section>
   );

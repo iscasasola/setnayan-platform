@@ -40,6 +40,7 @@ import {
 } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * What an UNOWNED film needs to be paid for at "Save to my phone" (2026-09-30).
  * `null` = the event holds the Thank-You Video, and the film saves freely.
@@ -139,7 +140,7 @@ export function ThankYouMaker({
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+    <section className="border-t border-ink/10 space-y-4 py-5 sm:p-6">
       <p className="text-sm text-ink/70">
         Using <span className="font-medium">{formatCount(plan.photos.length)}</span>{' '}
         {plan.photos.length === 1 ? 'photo' : 'photos'}
@@ -156,7 +157,7 @@ export function ThankYouMaker({
             <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />
             Making your film… {Math.round(progress * 100)}%
           </p>
-          <p className="text-xs text-ink/50">
+          <p className="text-xs text-ink/70">
             This happens on your phone, so keep this screen open.
           </p>
         </div>
@@ -228,7 +229,7 @@ export function ThankYouMaker({
           // `bg-mulberry` IS the CTA terracotta (#C24E25 · cream label 4.61:1 AA).
           // `bg-terracotta` resolves to the light gold #A9834B and gives 3.37:1 —
           // the contrast lint caught it, and the fix is the FILL, not the label.
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry/90"
+          className="ab ab-brand ab-main"
         >
           <Film className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           {phase === 'done' || phase === 'error' ? 'Make it again' : 'Make the film'}
@@ -246,10 +247,12 @@ export function ThankYouMaker({
 function SavePanel({ eventId, checkout }: { eventId: string; checkout: ThankYouSaveCheckout }) {
   if (checkout.pending) {
     return (
-      <p role="status" className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70">
-        Your Thank-You Video payment is being confirmed. Once it is, come back and
-        make the film again — it will save straight to your phone.
-      </p>
+      <div role="status">
+        <InfoTip labelAs="p" label="Your Thank-You Video payment is being confirmed." labelClassName="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70" align="start">
+          Once it is, come back and
+          make the film again — it will save straight to your phone.
+        </InfoTip>
+      </div>
     );
   }
   if (checkout.apple) {
@@ -292,7 +295,7 @@ function SavePanel({ eventId, checkout }: { eventId: string; checkout: ThankYouS
         triggerLabel={priceLabel ? `Save to my phone · ${priceLabel}` : 'Save to my phone'}
         triggerClassName="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
       />
-      <p className="text-[11px] text-ink/55">
+      <p className="text-[12px] text-ink/70">
         Once your payment is confirmed, make the film again here and it saves
         straight to your phone.
       </p>

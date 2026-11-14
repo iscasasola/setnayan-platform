@@ -40,7 +40,7 @@ export function AutoPaletteSheet({
           >
             <span className="flex items-baseline justify-between gap-2">
               <b className="text-[14.5px] font-semibold text-ink">{s.name}</b>
-              {s.best ? <small className="text-[11px] font-bold text-success-700">best match</small> : null}
+              {s.best ? <small className="text-[12px] font-bold text-success-700">best match</small> : null}
             </span>
             <span className="flex gap-1.5" aria-hidden>
               {s.five.map((c, i) => (

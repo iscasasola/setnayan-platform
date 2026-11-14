@@ -200,7 +200,7 @@ export function GalleryPicker({
       {studio ? (
         <div className="space-y-2" data-gallery-search="">
           <label className="flex min-h-11 items-center gap-2 rounded-full bg-ink/5 px-4">
-            <Search aria-hidden className="h-4 w-4 shrink-0 text-ink/50" />
+            <Search aria-hidden className="h-4 w-4 shrink-0 text-ink/70" />
             <span className="sr-only">Search ideas</span>
             <input
               type="search"
@@ -252,7 +252,7 @@ export function GalleryPicker({
               them as one grey grid is the failure this whole build arc is
               about. `withheld` is measured per fetch, so the third sentence
               corrects itself the day those shops get verified. */}
-          <p className="text-sm text-ink/65">
+          <p className="text-sm text-ink/70">
             {loading && assets.length === 0
               ? 'Finding photos…'
               : loadError
@@ -268,7 +268,7 @@ export function GalleryPicker({
           <button
             type="button"
             onClick={onClose}
-            className="sn-press text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+            className="sn-press text-[12px] font-bold text-ink/70 underline underline-offset-2 hover:text-ink"
           >
             Close
           </button>
@@ -292,13 +292,13 @@ export function GalleryPicker({
       ) : null}
 
       {free === null && assets.length > 0 ? (
-        <p className="text-xs text-ink/60">
+        <p className="text-xs text-ink/70">
           This slot already holds its three photos — remove one to save another.
         </p>
       ) : null}
 
       {hiddenByMatch > 0 ? (
-        <p className="text-xs text-ink/60" data-gallery-match-hidden="">
+        <p className="text-xs text-ink/70" data-gallery-match-hidden="">
           {formatCount(hiddenByMatch)} {hiddenByMatch === 1 ? 'photo is' : 'photos are'} hidden — not near your colours.
         </p>
       ) : null}
@@ -309,7 +309,7 @@ export function GalleryPicker({
           const isSaving = savingId === asset.assetId && pending;
           const saved = savedIds.has(asset.assetId);
           return (
-            <li key={asset.assetId} className="sn-tile space-y-2 p-2">
+            <li key={asset.assetId} className="border-t border-ink/10 space-y-2 p-2">
               <button
                 type="button"
                 onClick={() => setOpened(asset)}
@@ -331,17 +331,17 @@ export function GalleryPicker({
               {/* THE CREDIT. Never conditional, never abbreviated: a gallery
                   photo whose shop is not named is a stock photo, and the
                   server withholds those rather than sending them here. */}
-              <p className="px-0.5 text-[11px] font-semibold leading-tight text-ink">
+              <p className="px-0.5 text-[12px] font-semibold leading-tight text-ink">
                 {asset.credit}
               </p>
               {/* 🏷 Ruling (4): a photo tagged from Files names its event as type · venue · month — never a name. */}
               {asset.eventLine ? (
-                <p className="px-0.5 text-[10.5px] leading-tight text-ink/65" data-gallery-event-line="">
+                <p className="px-0.5 text-[12px] leading-tight text-ink/70" data-gallery-event-line="">
                   {asset.eventLine}
                 </p>
               ) : null}
               {asset.label ? (
-                <p className="line-clamp-2 px-0.5 text-[10px] text-ink/60">{asset.label}</p>
+                <p className="line-clamp-2 px-0.5 text-[12px] text-ink/70">{asset.label}</p>
               ) : null}
               <div className="flex flex-wrap gap-1 px-0.5">
                 {asset.swatches.slice(0, 6).map((hex, i) => (
@@ -357,7 +357,7 @@ export function GalleryPicker({
                 type="button"
                 onClick={() => save(asset)}
                 disabled={isSaving || free === null || saved}
-                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-terracotta/40 px-3 py-1.5 text-[11px] font-medium text-terracotta-700 transition hover:bg-terracotta/10 disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-terracotta/40 px-3 py-1.5 text-[12px] font-medium text-terracotta-700 transition hover:bg-terracotta/10 disabled:opacity-50"
               >
                 {saved ? (
                   <>
@@ -377,7 +377,7 @@ export function GalleryPicker({
                   href={`/v/${asset.shopSlug}`}
                   target="_blank"
                   rel="noopener"
-                  className="sn-press inline-flex min-h-9 w-full items-center justify-center rounded-full px-3 text-[11px] font-semibold text-ink/70 hover:bg-ink/5"
+                  className="sn-press inline-flex min-h-9 w-full items-center justify-center rounded-full px-3 text-[12px] font-semibold text-ink/70 hover:bg-ink/5"
                   data-gallery-shop=""
                 >
                   Shop ›
@@ -399,7 +399,7 @@ export function GalleryPicker({
             <img src={opened.imageUrl} alt={opened.label || `Supplier photo — ${opened.credit}`} className="w-full rounded-xl object-contain" />
             <dl className="space-y-1.5 text-[14px]">
               <div className="flex gap-2">
-                <dt className="w-28 flex-none text-ink/55">From</dt>
+                <dt className="w-28 flex-none text-ink/70">From</dt>
                 <dd className="min-w-0 text-ink">
                   {opened.shopSlug ? (
                     <a href={`/v/${opened.shopSlug}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
@@ -412,7 +412,7 @@ export function GalleryPicker({
               </div>
               {opened.eventLine ? (
                 <div className="flex gap-2" data-gallery-from-event="">
-                  <dt className="w-28 flex-none text-ink/55">From this event</dt>
+                  <dt className="w-28 flex-none text-ink/70">From this event</dt>
                   <dd className="min-w-0 text-ink">
                     {opened.shopSlug ? (
                       <a href={`/v/${opened.shopSlug}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
@@ -426,7 +426,7 @@ export function GalleryPicker({
               ) : null}
               {opened.alsoIn && opened.alsoIn.length > 0 ? (
                 <div className="flex gap-2" data-gallery-also-in="">
-                  <dt className="w-28 flex-none text-ink/55">Also in</dt>
+                  <dt className="w-28 flex-none text-ink/70">Also in</dt>
                   <dd className="min-w-0 text-ink">{opened.alsoIn.map((x) => x.label).join(' · ')}</dd>
                 </div>
               ) : null}
@@ -451,7 +451,7 @@ export function GalleryPicker({
           is told the shelf is partly hidden rather than left to assume the
           gallery is small. */}
       {assets.length > 0 && withheld > 0 ? (
-        <p className="flex items-center gap-1.5 text-[11px] text-ink/55">
+        <p className="flex items-center gap-1.5 text-[12px] text-ink/70">
           <ImageOff className="h-3 w-3" aria-hidden />
           {withheld} more {withheld === 1 ? 'photo' : 'photos'} here {withheld === 1 ? 'is' : 'are'}{' '}
           waiting on its shop&rsquo;s verification.

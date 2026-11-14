@@ -159,7 +159,7 @@ export function MarkEverywhere({ svg }: { svg: string }) {
           type="button"
           aria-label="Close"
           onClick={() => setOpen(false)}
-          className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/15 text-white/90 backdrop-blur-sm hover:bg-black/25"
+          className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/15 text-white/90 backdrop-blur-sm hover:bg-black/25"
         >
           ✕
         </button>
@@ -173,18 +173,20 @@ export function MarkEverywhere({ svg }: { svg: string }) {
               <p className="text-sm font-semibold text-ink" data-testid="scene-label">
                 {active.label}
               </p>
-              <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-ink/45">
+              <span className="text-[13px] tabular-nums text-ink/75">
                 {formatCount(scene + 1)} / {formatCount(scenes.length)} · tap to continue
               </span>
             </div>
           </button>
         ) : (
           <div className="space-y-4 px-6 py-8 text-center" data-testid="everywhere-final">
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-gold-deep">Set na &rsquo;yan.</p>
+            {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 3 · 13): the brand line is the grey-capital label, not a gold
+                typewriter; Done is the one main pill; the scene counter is plain grey words with even digits. */}
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Set na &rsquo;yan.</p>
             <h3 className="text-2xl font-semibold tracking-tight text-ink">
               Your mark is now on your QR codes, your Event Hub, and your film.
             </h3>
-            <p className="mx-auto max-w-sm text-sm text-ink/65">
+            <p className="mx-auto max-w-sm text-sm text-ink/75">
               Every invitation, every table QR, your Event Hub&rsquo;s hero, and your
               save-the-date now carry this monogram — automatically.
             </p>
@@ -199,7 +201,7 @@ export function MarkEverywhere({ svg }: { svg: string }) {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
+                className="ab ab-brand ab-main"
               >
                 Done
               </button>

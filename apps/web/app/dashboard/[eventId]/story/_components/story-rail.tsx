@@ -86,7 +86,7 @@ export function StoryRail({
             >
               {s.label}
               {s.chip ? (
-                <span className="ml-2 font-mono text-xs tabular-nums text-ink/60">{s.chip}</span>
+                <span className="ml-2 text-xs tabular-nums text-ink/75">{s.chip}</span>
               ) : null}
             </button>
           ))}
@@ -113,8 +113,8 @@ export function StoryRail({
                 <span className="flex-1">{s.label}</span>
                 {s.chip ? (
                   <span
-                    className={`ml-auto rounded-full px-2 py-0.5 font-mono text-xs tabular-nums ${
-                      s.hot ? 'bg-mulberry-600 text-white' : 'bg-ink/[0.06] text-ink/60'
+                    className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${
+                      s.hot ? 'bg-mulberry-600 text-white' : 'bg-ink/[0.06] text-ink/75'
                     }`}
                   >
                     {s.chip}
@@ -129,14 +129,14 @@ export function StoryRail({
           The meter. Its number comes from the page — this does not recount the desk, because two
           places counting one thing is how they come to disagree.
         */}
-        <div className="mt-5 rounded-xl border border-dashed border-ink/15 p-3">
-          <p className="font-display text-xl italic text-ink">
-            {pct}%<span className="ml-1.5 font-sans text-xs not-italic text-ink/60">of the desk decided</span>
+        <div className="mt-5 border-t border-ink/10 pt-3">
+          <p className="text-xl font-bold tabular-nums text-ink">
+            {pct}%<span className="ml-1.5 text-[13px] font-normal text-ink/75">of the desk decided</span>
           </p>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink/[0.08]">
             <i className="block h-full rounded-full bg-mulberry-600" style={{ width: `${pct}%` }} />
           </div>
-          <p className="mt-2.5 text-xs leading-relaxed text-ink/60">
+          <p className="mt-2.5 text-[13px] leading-relaxed text-ink/75">
             Nothing goes into the story until you say so.
           </p>
         </div>

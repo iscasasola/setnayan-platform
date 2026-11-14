@@ -117,9 +117,11 @@ export function WhatsNextStep({
     });
   };
 
-  const card = 'rounded-2xl border border-ink/10 bg-cream/40 p-5 sm:p-6';
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 13): a step is a plain block under a hairline, not a tinted card;
+  // captions are grey capitals; the one start is the main pill.
+  const card = 'border-t border-ink/10 pt-5';
   const eyebrow =
-    'block font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-ink/45';
+    'block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
   const tile = (on: boolean) =>
     `rounded-xl border p-4 text-left transition ${
       on ? 'border-burgundy/40 bg-burgundy/5' : 'border-ink/10 bg-white hover:border-ink/25'
@@ -129,11 +131,11 @@ export function WhatsNextStep({
     <section className={card} aria-labelledby="whats-next-heading">
       <h2 id="whats-next-heading" className="font-display text-lg italic text-ink">
         What&rsquo;s next{' '}
-        <span className="align-middle font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-ink/40">
+        <span className="align-middle text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           Optional
         </span>
       </h2>
-      <p className="mt-0.5 max-w-prose text-sm leading-relaxed text-ink/60">
+      <p className="mt-0.5 max-w-prose text-sm leading-relaxed text-ink/75">
         <strong className="font-semibold text-ink/80">
           A story is finished on its own.
         </strong>{' '}
@@ -155,10 +157,10 @@ export function WhatsNextStep({
           >
             <span className={eyebrow}>Where you are now</span>
             <span className="mt-1 block text-sm font-semibold text-ink">Nothing yet</span>
-            <span className="mt-0.5 block font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/50">
+            <span className="mt-0.5 block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
               The story ends on your words
             </span>
-            <span className="mt-1.5 block text-xs leading-relaxed text-ink/55">
+            <span className="mt-1.5 block text-xs leading-relaxed text-ink/75">
               The back cover stays quiet. No next edition, nothing promised,
               nobody told anything. You can name one years later and this page
               simply gains a door &mdash; or never, which is also a finished
@@ -188,7 +190,7 @@ export function WhatsNextStep({
               <span className="mt-1 block text-sm font-semibold text-ink">
                 {candidate.label}
               </span>
-              <span className="mt-0.5 block font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/50">
+              <span className="mt-0.5 block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                 {candidate.dateLabel
                   ? `${candidate.dateLabel}${
                       candidate.inDays === null ? '' : ` · ${inDaysWords(candidate.inDays)}`
@@ -197,10 +199,10 @@ export function WhatsNextStep({
                     ? 'When there is someone to celebrate'
                     : 'Pick a day'}
               </span>
-              <span className="mt-1.5 block text-xs leading-relaxed text-ink/55">
+              <span className="mt-1.5 block text-xs leading-relaxed text-ink/75">
                 {TIMING_WHY[candidate.timing]}
               </span>
-              <span className="mt-2 block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+              <span className="mt-2 block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                 {TIMING_BADGE[candidate.timing]}
               </span>
             </button>
@@ -231,7 +233,7 @@ export function WhatsNextStep({
       ) : null}
 
       {current ? (
-        <p className="mt-3 text-xs leading-relaxed text-ink/55">
+        <p className="mt-3 text-xs leading-relaxed text-ink/75">
           {TIMING_WHY[current.timing]}
         </p>
       ) : null}
@@ -246,7 +248,7 @@ export function WhatsNextStep({
       {current ? (
         <div className="mt-4 rounded-xl border border-ink/10 bg-white/70 p-4">
           <span className={eyebrow}>What No. 2 inherits from this story</span>
-          <ul className="mt-2 space-y-1 text-xs leading-relaxed text-ink/65">
+          <ul className="mt-2 space-y-1 text-xs leading-relaxed text-ink/75">
             <li>
               <strong className="font-semibold text-ink/80">
                 Your names and your monogram
@@ -285,29 +287,29 @@ export function WhatsNextStep({
         >
           {backCover ? (
             <>
-              <span className="block font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/45">
+              <span className="block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                 Vol. I &middot; No. 2 &middot; not yet written
               </span>
               <span className="mt-1 block font-display text-xl italic text-ink">
                 {backCover.title}
               </span>
-              <span className="mt-0.5 block font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/55">
+              <span className="mt-0.5 block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                 {backCover.when}
                 {backCover.sub ? ` · ${backCover.sub}` : ''}
               </span>
-              <span className="mt-2 block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+              <span className="mt-2 block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                 &larr; Previously &middot; No. 1
               </span>
             </>
           ) : (
             <>
-              <span className="block font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/40">
+              <span className="block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                 No next edition announced
               </span>
-              <span className="mt-1 block font-display text-xl italic text-ink/45">
+              <span className="mt-1 block font-display text-xl italic text-ink/75">
                 The chronicle stays open
               </span>
-              <span className="mt-0.5 block text-xs text-ink/45">
+              <span className="mt-0.5 block text-xs text-ink/75">
                 Name one whenever you like.
               </span>
             </>
@@ -320,7 +322,7 @@ export function WhatsNextStep({
               type="button"
               onClick={startItNow}
               disabled={pending}
-              className="sn-press rounded-full bg-burgundy px-4 py-2 text-sm font-bold text-white transition-opacity disabled:opacity-60"
+              className="ab ab-brand ab-main"
             >
               Start it now
             </button>
@@ -334,7 +336,7 @@ export function WhatsNextStep({
           </div>
         ) : null}
 
-        <p className="mt-3 text-xs leading-relaxed text-ink/55">
+        <p className="mt-3 text-xs leading-relaxed text-ink/75">
           {current ? (
             <>
               It is on the back cover and{' '}

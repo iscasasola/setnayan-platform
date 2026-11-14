@@ -37,8 +37,8 @@ import {
   boothBrandedAtEvent,
   boothEventOrderState,
   VENDOR_3D_BOOTH_EVENT_SKU_CODE,
-  VENDOR_3D_BOOTH_EVENT_FALLBACK_PHP,
   EVENT_BRANDED_BOOTH_VENDOR_IDS_RPC,
+  fetchVendor3dBoothEventPricePhp,
 } from './vendor-3d-booth-event-pricing';
 
 const ROOT = join(import.meta.dirname, '..');
@@ -108,14 +108,32 @@ test('the migration seeds the SKU with an EXISTING vocabulary value and a scoped
   assert.ok(/price_php intentionally NOT overwritten/.test(sql), 'admin-managed price');
 });
 
-test('one FALLBACK and one SKU_CODE in the pricing module — the db test can pair them', () => {
+test('NO typed fallback price in the pricing module — the catalogue row or nothing (owner 2026-11-13)', () => {
+  // Was: "one FALLBACK, paired by the db test". The ₱500 fallback was shown on a client's booth section and charged
+  // by the buy action whenever the row did not read. A paired fallback is still a typed price; it is gone.
   const src = readFileSync(join(ROOT, 'lib/vendor-3d-booth-event-pricing.ts'), 'utf8');
-  const fallbacks = src.match(/^export const [A-Z0-9_]*FALLBACK_PHP = \d+;/gm) ?? [];
-  const skus = src.match(/^export const [A-Z0-9_]*SKU_CODE = '[a-z0-9_]+';/gm) ?? [];
-  assert.equal(fallbacks.length, 1, 'exactly one fallback');
-  assert.equal(skus.length, 1, 'exactly one sku code');
-  assert.equal(VENDOR_3D_BOOTH_EVENT_FALLBACK_PHP, 500);
+  assert.equal((src.match(/^export const [A-Z0-9_]*FALLBACK_PHP = \d+;/gm) ?? []).length, 0, 'no fallback price');
   assert.equal(VENDOR_3D_BOOTH_EVENT_SKU_CODE, 'vendor_3d_booth_event');
+});
+
+test('the per-event price reader answers null — never a figure — when the row cannot give one', async () => {
+  const client = (result: { data: unknown; error: unknown }) => {
+    const b: Record<string, unknown> = {};
+    for (const m of ['from', 'select', 'eq', 'maybeSingle']) b[m] = () => b;
+    b.then = (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve);
+    return b as never;
+  };
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(await fetchVendor3dBoothEventPricePhp(client({ data: null, error: { code: '42501' } })), null, 'refused');
+    assert.equal(await fetchVendor3dBoothEventPricePhp(client({ data: null, error: null })), null, 'missing');
+    assert.equal(await fetchVendor3dBoothEventPricePhp(client({ data: { price_php: 500, is_active: false }, error: null })), null, 'retired');
+    assert.equal(await fetchVendor3dBoothEventPricePhp(client({ data: { price_php: 0, is_active: true }, error: null })), null, 'unpriced');
+    assert.equal(await fetchVendor3dBoothEventPricePhp(client({ data: { price_php: '750', is_active: true }, error: null })), 750, 'the row');
+  } finally {
+    console.error = quiet;
+  }
 });
 
 test('every session-client caller of fetchBooths hands over the admin reader', () => {

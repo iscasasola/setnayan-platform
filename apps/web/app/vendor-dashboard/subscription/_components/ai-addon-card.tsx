@@ -34,6 +34,8 @@ import { paidMarkLabel } from '@/lib/paid-mark';
 
 const IDLE: VendorAiAddonActionState = { status: 'idle' };
 const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
+/** "₱X / N days", or — when the catalogue row did not read — the cadence with no figure. */
+const per = (n: number | null, days: string = '28') => (n !== null ? `${peso(n)} / ${days} days` : `billed every ${days} days`);
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-PH', {
@@ -59,7 +61,8 @@ export type AiAddonCardProps = {
   /** ai_addon_expires_at, when set. */
   expiresAt: string | null;
   /** Standing renewal price (₱1,500) from the admin-managed catalog. */
-  pricePhp: number;
+  /** The catalogue price; null when unread — then no figure is shown (owner 2026-11-13: no typed prices). */
+  pricePhp: number | null;
   /** vendorAutoReplyEnabled() — the GLOBAL master switch. When OFF the whole
    *  add-on is hidden: no card renders (and the server action rejects),
    *  because the assistant can't answer anyone until it's turned on platform-wide.
@@ -127,9 +130,9 @@ export function AiAddonCard(props: AiAddonCardProps) {
           </p>
           <p className="mt-2 text-sm font-medium text-ink">
             {trialAvailable ? (
-              <>Free first 28-day cycle, then {peso(pricePhp)} / 28 days.</>
+              <>Free first 28-day cycle, then {per(pricePhp)}.</>
             ) : (
-              <>{peso(pricePhp)} / 28 days.</>
+              <>{pricePhp !== null ? `${per(pricePhp)}.` : 'Billed every 28 days.'}</>
             )}
           </p>
           {active && expiresAt ? (
@@ -181,8 +184,8 @@ export function AiAddonCard(props: AiAddonCardProps) {
             {trialAvailable
               ? 'Turn on Vendor AI — free first cycle'
               : active
-                ? `Renew — ${peso(pricePhp)} / 28 days`
-                : `Reactivate — ${peso(pricePhp)} / 28 days`}
+                ? `Renew — ${per(pricePhp)}`
+                : `Reactivate — ${per(pricePhp)}`}
           </SubmitButton>
 
           {/* Apply-then-pay instructions after a paid order was started. */}

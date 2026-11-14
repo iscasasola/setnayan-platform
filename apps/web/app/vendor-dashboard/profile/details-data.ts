@@ -24,7 +24,7 @@ import {
   verificationSubmitMissing,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
-import { fetchVendorBranches, fetchBranchFeePhp, branchAutoRadiusKm, BRANCH_FEE_PHP, type VendorBranchView } from '@/lib/vendor-branches';
+import { fetchVendorBranches, fetchBranchFeePhp, branchAutoRadiusKm, type VendorBranchView } from '@/lib/vendor-branches';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailDetails } from '@/lib/payment-channels';
 import { tierCaps, asVendorTier, isTierAtLeast, canBuyExtraBranches } from '@/lib/vendor-tier-caps';
@@ -133,7 +133,8 @@ export type DetailsData = {
     innerRadiusKm: number | null;
     outerRadiusKm: number | null;
     branches: VendorBranchView[];
-    branchFeePhp: number;
+    /** The live `vendor_additional_branch` price; null when unread or not sold to this shop — no figure shown. */
+    branchFeePhp: number | null;
     branchAutoRadius: number;
     branchPay: PayInfo;
     /** Verified — an unverified shop's 0 km says why. */
@@ -237,7 +238,7 @@ export async function loadDetailsData(
   });
   const branchPayRead = (async () => {
     const own = await ownRead;
-    let branchFeePhp = BRANCH_FEE_PHP;
+    let branchFeePhp: number | null = null;
     let branchPay: PayInfo = { accounts: [], open: [] };
     // Only an Ultra shop's manager can BUY a branch (owner 2026-11-04 — Pro's are included, no fee), so only it pays
     // for the fee + rails reads.
@@ -245,7 +246,7 @@ export async function loadDetailsData(
       const [fee, settings] = await Promise.all([
         fetchBranchFeePhp(supabase).catch((err) => {
           logQueryError('VendorDetails.branchFee', err, { vendorId });
-          return BRANCH_FEE_PHP;
+          return null;
         }),
         fetchPlatformSettings(supabase).catch((err) => {
           logQueryError('VendorDetails.platformSettings', err, { vendorId });

@@ -5,6 +5,7 @@ import { USER_1_TOPICS } from '@/lib/help/user-1';
 import { USER_2_TOPICS } from '@/lib/help/user-2';
 import { USER_3_TOPICS } from '@/lib/help/user-3';
 import { USER_4_TOPICS } from '@/lib/help/user-4';
+import { SUPPLIER_FIRST_STEPS_TOPICS } from '@/lib/help/supplier-first-steps';
 import { HELP_NOT_IN_THE_APP } from '@/lib/help/not-in-the-app';
 
 /**
@@ -108,6 +109,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
   ...USER_2_TOPICS,
   ...USER_3_TOPICS,
   ...USER_4_TOPICS,
+  ...SUPPLIER_FIRST_STEPS_TOPICS,
 ];
 
 // ───────────────────────────────────────────────────────────────────────────

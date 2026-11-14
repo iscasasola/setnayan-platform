@@ -95,7 +95,7 @@ export function CouplePhotosList({
                   data-couple-photo-answer={r.shareId}
                 >
                   <small className="px-0.5 text-xs font-semibold leading-[1.1] text-ink/70">Shared by the couple</small>
-                  <ActionButton tone="brand" main icon={Check} label="Approve" name={`Approve the photo for ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, true)} />
+                  <ActionButton tone="brand" main icon={Check} label="Approve" name={`Approve the photo for ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, true)} className="!h-11" />
                 </div>
               ) : (
                 <span className="absolute bottom-1 left-1 right-1 z-[1] w-fit max-w-full rounded-lg bg-cream/95 px-1.5 py-0.5 text-xs font-semibold leading-[1.2] text-[rgb(var(--color-ok))] shadow-sm" data-couple-photo-on-card="">
@@ -110,9 +110,9 @@ export function CouplePhotosList({
                 {r.audienceLabel ? <span className="block truncate text-ink/70">Seen by: {r.audienceLabel}</span> : null}
               </span>
               {r.state === 'waiting' ? (
-                <ActionButton tone="neutral" quiet iconOnly icon={X} label="Decline" name={`Decline the photo for ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, false)} />
+                <ActionButton tone="neutral" quiet iconOnly icon={X} label="Decline" name={`Decline the photo for ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, false)} className="!h-11 !w-11" />
               ) : (
-                <ActionButton tone="neutral" quiet iconOnly icon={Undo2} label="Take off" name={`Take the photo off ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, false)} />
+                <ActionButton tone="neutral" quiet iconOnly icon={Undo2} label="Take off" name={`Take the photo off ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, false)} className="!h-11 !w-11" />
               )}
             </div>
             {said[r.shareId] ? (

@@ -973,7 +973,7 @@ function HistorySection({ history }: { history: PricingHistoryEntryProp[] }) {
           {history.map((h, i) => (
             <li key={i} className="flex items-baseline gap-2.5 border-b border-ink/5 py-1 text-[12.5px] last:border-b-0">
               <span className="min-w-[84px] font-mono text-[11px] text-ink/50">
-                {new Date(h.date).toLocaleDateString('en-PH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                {new Date(h.date).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
               <span className="font-mono tabular-nums">{h.summary}</span>
               <span className="ml-auto text-[11.5px] text-ink/50">{h.who}</span>

@@ -3,8 +3,7 @@
 import { PictureFrameControl } from '@/app/_components/picture-frame-control';
 import { DEFAULT_LOGO_FRAME, logoFrameStyle, SHOP_LOGO_UPLOAD, shopLogoLimitsWords, type LogoFrame } from '@/lib/open-shop-logo';
 import { useActionState, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { ArrowRight, Check, ChevronDown, MapPin, Pencil, Plus, Send, X } from 'lucide-react';
+import { Check, ChevronDown, MapPin, Pencil, Plus, Send, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import 'leaflet/dist/leaflet.css';
 
@@ -325,7 +324,7 @@ export function EditableRow({
         <ActionButton
           ref={triggerRef}
           tone={isOpen ? 'neutral' : 'brand'}
-          icon={isOpen ? <ChevronDown className="rotate-180" strokeWidth={2} aria-hidden /> : item.ok ? Pencil : Plus}
+          icon={isOpen ? <ChevronDown className="rotate-180 !h-11" strokeWidth={2} aria-hidden /> : item.ok ? Pencil : Plus}
           label={isOpen ? 'Close' : item.ok ? 'Edit' : 'Add'}
           onClick={() => {
             if (isOpen) {
@@ -374,7 +373,7 @@ export function EditableRow({
                   'Saves automatically when you close.'
                 )}
               </span>
-              <ActionButton tone="neutral" icon={X} label="Cancel" onClick={cancel} />
+              <ActionButton tone="neutral" icon={X} label="Cancel" onClick={cancel} className="!h-11" />
             </div>
           </form>
         </div>
@@ -419,23 +418,14 @@ export function ServiceCoverageRow({
               : 'Pick what you serve from our category tree'}
           </span>
         </span>
-        <Link
+        {/* The shared pill button at the 44 px floor (was a 12 px text link-button). Same words, same address. */}
+        <ActionButton
+          tone="brand"
+          icon={item.ok ? Pencil : Plus}
+          label={item.ok ? 'Manage' : 'Add'}
           href="/vendor-dashboard/services"
-          className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta-700 transition-colors hover:bg-[color:var(--m-orange-4)]"
-        >
-          {item.ok ? (
-            <>
-              <Pencil className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-              Manage
-            </>
-          ) : (
-            <>
-              <Plus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-              Add
-            </>
-          )}
-          <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-        </Link>
+          className="shrink-0 !h-11"
+        />
       </div>
     </li>
   );
@@ -518,7 +508,7 @@ export function RequestOnlyRow({
             label={open ? 'Close' : 'Ask to change'}
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
-            className="shrink-0"
+            className="shrink-0 !h-11"
           />
         )}
       </div>
@@ -541,7 +531,7 @@ export function RequestOnlyRow({
               }}
               className="input-field min-w-0 flex-1 text-sm"
             />
-            <ActionButton tone="brand" icon={Send} label="Send" onClick={() => void send()} waiting={sending} disabled={sending} />
+            <ActionButton tone="brand" icon={Send} label="Send" onClick={() => void send()} waiting={sending} disabled={sending} className="!h-11" />
           </div>
         </div>
       </Collapsible>
@@ -1184,7 +1174,7 @@ function HqAddressControl({ data, onDirty }: { data: ProfileFieldData; onDirty: 
         className="input-field"
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <ActionButton tone="neutral" icon={MapPin} label="Find on map" onClick={() => void findOnMap()} waiting={searching} disabled={searching} />
+        <ActionButton tone="neutral" icon={MapPin} label="Find on map" onClick={() => void findOnMap()} waiting={searching} disabled={searching} className="!h-11" />
         {pin ? (
           <span className="text-xs tabular-nums" style={{ color: 'var(--m-slate-3)' }}>
             {pin.lat.toFixed(6)}, {pin.lng.toFixed(6)}

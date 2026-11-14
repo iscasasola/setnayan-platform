@@ -540,7 +540,7 @@ function PlanRows({ plan, own }: { plan: NonNullable<BookedPlan>; own: boolean }
       : `Payment plan${own ? ' · your record' : plan.estimated ? ' · estimated' : ''}`;
   return (
     <div data-booked-plan={plan.kind}>
-      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink/55">{head}</p>
+      <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-ink/55">{head}</p>
       <ul className="mt-0.5">
         {plan.rows.map((r, i) => (
           <li

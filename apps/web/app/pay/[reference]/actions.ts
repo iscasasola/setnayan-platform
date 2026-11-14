@@ -264,6 +264,26 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
     back(reference, 'error', "We couldn't record that just now. Please try again.");
   }
 
+  // 🧾 RW-46/47 (walk 13 Nov 2026): THE BILL'S PLACEHOLDER GIVES WAY TO THE REAL PAYMENT. Minting the bill wrote a
+  // pending row with no reference and no screenshot (so the bill reached /admin/payments — `paymentWasLogged`). Now a
+  // real one is logged, the placeholder only doubled the admin's queue ("NO REFERENCE GIVEN" beside the real row) and
+  // stayed pending after the real one was approved. It is removed — scoped to THIS order, to pending rows carrying
+  // neither a reference nor a screenshot, never the row just written. A failed removal is logged, never fatal: the
+  // queue also hides a placeholder beside a logged row.
+  if (!error) {
+    const newId = (inserted as { payment_id: string } | null)?.payment_id ?? null;
+    let sweep = moneyWriter
+      .from('payments')
+      .delete()
+      .eq('order_id', payable.orderId)
+      .eq('status', 'pending')
+      .is('reference_number', null)
+      .is('screenshot_url', null);
+    if (newId) sweep = sweep.neq('payment_id', newId);
+    const { error: sweepError } = await sweep;
+    if (sweepError) console.error('[pay] placeholder payment row was not removed', { orderId: payable.orderId, sweepError });
+  }
+
   // ── SOMEBODY HAS TO BE TOLD ───────────────────────────────────────────────
   // 🚨 THIS PAGE NOTIFIED NOBODY ON ITS FIRST CUT. The couple-side action it
   // replaces has always alerted the admins who can confirm a payment, and a

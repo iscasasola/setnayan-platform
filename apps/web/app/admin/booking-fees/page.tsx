@@ -1,3 +1,4 @@
+import { paymentWasLogged } from '@/lib/payment-logged';
 import { Receipt } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -111,7 +112,8 @@ export default async function AdminBookingFeesPage() {
   // a failure here must not blank the page, because the amounts above are the
   // point and they are already in hand.
   const vendorNames = new Map<string, string>();
-  const paidRefs = new Map<string, { hasProof: boolean; orderId: string; orderPublicId: string | null }>();
+  // `billedCentavos`: the ORDER's total — the fee plus any gift on the bill (RW-45). Null when no bill was read.
+  const paidRefs = new Map<string, { hasProof: boolean; orderId: string; orderPublicId: string | null; billedCentavos: number | null }>();
   // The order and payment reads decide "never billed" — if either was refused we
   // do not know, and "Never billed" over a supplier who WAS billed is a false
   // accusation about money.
@@ -133,13 +135,19 @@ export default async function AdminBookingFeesPage() {
     const keys = charges.map((c) => bookingFeeLockServiceKey(c.charge_id));
     const { data: orders, error: ordersErr } = await admin
       .from('orders')
-      .select('order_id, public_id, service_key')
+      .select('order_id, public_id, service_key, requested_total_php, confirmed_total_php')
       .in('service_key', keys);
     if (ordersErr) {
       logQueryError('admin/booking-fees (orders)', ordersErr);
       billingUnread = true;
     }
-    const orderRows = (orders ?? []) as { order_id: string; public_id: string | null; service_key: string }[];
+    const orderRows = (orders ?? []) as {
+      order_id: string;
+      public_id: string | null;
+      service_key: string;
+      requested_total_php: number | string | null;
+      confirmed_total_php: number | string | null;
+    }[];
 
     if (orderRows.length > 0) {
       const { data: pays, error: paysErr } = await admin
@@ -153,24 +161,24 @@ export default async function AdminBookingFeesPage() {
         logQueryError('admin/booking-fees (payments)', paysErr);
         billingUnread = true;
       }
-      const byOrder = new Map<string, { reference_number: string | null; screenshot_url: string | null }>();
+      // 🧾 RW-46/47: an order can hold the bill's own placeholder row AND the logged one — proof is "ANY row logged",
+      // never whichever row the read happened to return last.
+      const loggedOrders = new Set<string>();
       for (const p of (pays ?? []) as {
         order_id: string;
         reference_number: string | null;
         screenshot_url: string | null;
       }[]) {
-        byOrder.set(p.order_id, p);
+        if (paymentWasLogged(p)) loggedOrders.add(p.order_id);
       }
       for (const o of orderRows) {
-        const p = byOrder.get(o.order_id);
+        const billedPhp = Number(o.confirmed_total_php ?? o.requested_total_php);
         paidRefs.set(o.service_key, {
           orderId: o.order_id,
           orderPublicId: o.public_id ?? null,
-          // Same definition of proof the work list uses: non-EMPTY, not merely
-          // non-null. A blank string is what an empty form field posts.
-          hasProof:
-            (p?.reference_number != null && p.reference_number.trim() !== '') ||
-            (p?.screenshot_url != null && p.screenshot_url.trim() !== ''),
+          // Same definition of proof the work list uses: non-EMPTY, not merely non-null (`paymentWasLogged`).
+          hasProof: loggedOrders.has(o.order_id),
+          billedCentavos: Number.isFinite(billedPhp) && billedPhp > 0 ? Math.round(billedPhp * 100) : null,
         });
       }
     }
@@ -211,7 +219,11 @@ export default async function AdminBookingFeesPage() {
   if (switchErr) logQueryError('admin/booking-fees.bookings_open', switchErr);
   const bookingsOpen = switchErr ? null : bookingsOpenFromSetting((switchRow as { bookings_open?: unknown } | null)?.bookings_open);
 
-  const owedTotal = charges.reduce((s, c) => s + num(c.amount_charged_centavos), 0);
+  // 💳 RW-45 (walk 13 Nov 2026): what a supplier OWES is the bill — the fee plus the Papic gift on it — never the fee
+  // alone (₱1,337.50 shown against a ₱1,818.90 bill). A charge with no bill yet owes its fee.
+  const owedOf = (c: (typeof charges)[number]) =>
+    paidRefs.get(bookingFeeLockServiceKey(c.charge_id))?.billedCentavos ?? num(c.amount_charged_centavos);
+  const owedTotal = charges.reduce((s, c) => s + owedOf(c), 0);
   const withProof = charges.filter(
     (c) => paidRefs.get(bookingFeeLockServiceKey(c.charge_id))?.hasProof,
   ).length;
@@ -298,7 +310,9 @@ export default async function AdminBookingFeesPage() {
               // undefined exactly when no order row exists for the charge — i.e. when nobody was ever asked.
               const missing = notBilled.get(c.charge_id) ?? null;
               const name = vendorNames.get(c.vendor_profile_id) ?? 'A supplier';
-              const fee = formatCentavosPhp(num(c.amount_charged_centavos));
+              // 💳 RW-45: what the supplier owes is the BILL — the fee plus any Papic gift on it (`owedOf`).
+              const owed = owedOf(c);
+              const fee = formatCentavosPhp(owed);
               const paymentHref = pay
                 ? `/admin/payments?filter=all&q=${encodeURIComponent(pay.orderPublicId ?? c.public_id ?? '')}`
                 : null;
@@ -315,6 +329,9 @@ export default async function AdminBookingFeesPage() {
                       </span>
                     ) : (
                       <>
+                        {owed > num(c.amount_charged_centavos)
+                          ? `Fee ${formatCentavosPhp(num(c.amount_charged_centavos))} + gift ${formatCentavosPhp(owed - num(c.amount_charged_centavos))} · `
+                          : ''}
                         On a {formatCentavosPhp(num(c.proposal_amount_centavos))} booking · {days === 0 ? 'today' : `${days}d`}
                       </>
                     )

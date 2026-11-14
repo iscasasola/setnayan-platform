@@ -17,6 +17,7 @@ import { shopInitials } from '@/lib/shop-initials';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { formatCount } from '@/lib/format-number';
 import { DATE_FIT_WORDS } from '@/lib/calendar-truth';
+import { Badge } from '@/app/_components/badge';
 
 /**
  * VendorQuickViewInspector — the desktop inspector body for a Shortlist "bench"
@@ -118,25 +119,21 @@ export function VendorQuickViewInspector({
     >
       <div className="space-y-4">
         {/* Hero image / initials — mirrors the card's photo ladder. */}
-        <div className="flex h-32 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[#3a3f47] to-[#565b63]">
+        <div className="flex h-32 items-center justify-center overflow-hidden rounded-xl bg-[var(--m-paper-2)]">
           {v.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={v.photoUrl} alt="" className="h-full w-full object-cover" />
           ) : (
-            <span className="font-serif text-4xl italic text-cream/70">{initials(v.name)}</span>
+            <span className="text-3xl font-semibold text-ink/70">{initials(v.name)}</span>
           )}
         </div>
 
         {/* Status + identity chips */}
         <div className="flex flex-wrap items-center gap-2">
           {v.status === 'locked' ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-mulberry px-2.5 py-1 text-[11px] font-bold text-cream">
-              ★ Chosen
-            </span>
+            <Badge tone="ok">★ Chosen</Badge>
           ) : (
-            <span className="rounded-full border border-ink/12 px-2.5 py-1 text-[11px] font-medium text-ink/55">
-              Considering
-            </span>
+            <Badge tone="quiet">Considering</Badge>
           )}
           {v.city ? (
             <span className="inline-flex items-center gap-1 text-[12px] text-ink/60">
@@ -149,12 +146,12 @@ export function VendorQuickViewInspector({
         {v.isVerified || v.isSetnayan ? (
           <div className="flex flex-wrap gap-2">
             {v.isSetnayan ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-mulberry/10 px-2.5 py-1 text-[11px] font-semibold text-mulberry">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-mulberry/10 px-2.5 py-1 text-[12px] font-semibold text-mulberry">
                 <Sparkles size={12} strokeWidth={2} aria-hidden /> Setnayan
               </span>
             ) : null}
             {v.isVerified ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[11px] font-semibold text-success-900">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[12px] font-semibold text-success-900">
                 <BadgeCheck size={12} strokeWidth={2} aria-hidden /> Verified
               </span>
             ) : null}
@@ -188,7 +185,7 @@ export function VendorQuickViewInspector({
             {fits.map((f, i) => (
               <span
                 key={i}
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ${
                   f.cls === 'ok'
                     ? 'bg-success-100 text-success-900'
                     : f.cls === 'muted'
@@ -205,8 +202,8 @@ export function VendorQuickViewInspector({
         {/* Price — the vendor's quoted total, when there is one. */}
         {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
           <div className="border-t border-ink/10 pt-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">Your price</p>
-            <p className="mt-0.5 font-serif text-2xl italic font-semibold text-ink">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Your price</p>
+            <p className="mt-0.5 text-[17px] font-semibold leading-snug text-ink">
               {formatPhp(v.totalCostPhp)}
             </p>
           </div>

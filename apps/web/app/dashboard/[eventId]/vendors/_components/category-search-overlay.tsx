@@ -59,29 +59,29 @@ const CSS = `
      (app/layout.tsx), so point at the variable that actually resolves. */
   --serif:var(--font-editorial-display,ui-serif,Georgia,serif);--sans:var(--font-sans,'Manrope',system-ui,sans-serif);--mono:var(--font-mono,'DM Mono',ui-monospace,monospace);
   background:var(--paper);color:var(--ink);font-family:var(--sans);
-  animation:csov-up .3s cubic-bezier(.2,.7,.2,1)}
+  animation:csov-up var(--sn-dur-rise) var(--sn-ease-rise)}
 @keyframes csov-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .csov *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 .csov .head{flex:0 0 auto;padding:12px 18px 12px;border-bottom:1px solid var(--line);background:var(--paper)}
 /* The close: a 44-px target (the popup rule). */
-.csov .x{width:44px;height:44px;min-height:44px;margin-left:-6px;border-radius:var(--m-r-full);border:0;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s}
+.csov .x{width:44px;height:44px;min-height:44px;margin-left:-6px;border-radius:var(--m-r-full);border:0;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;transition:transform var(--sn-dur-micro) var(--sn-ease),background var(--sn-dur-control) var(--sn-ease)}
 .csov .x:active{transform:scale(.92);background:rgb(var(--color-ink) / .06)}
-.csov .title{font-family:var(--serif);font-style:italic;font-size:27px;line-height:1.04;color:var(--ink)}
-.csov .scope{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-soft);margin-top:6px}
+.csov .title{font-size:20px;font-weight:600;line-height:1.15;color:var(--ink)}
+.csov .scope{font-size:12px;letter-spacing:.04em;color:var(--ink-soft);margin-top:6px}
 .csov .results{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 16px 18px}
 /* A result is READ, not pressed — it sits on the page and ends in a divider; only its Add is framed. */
 .csov .r{display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--line);padding:12px 0}
-.csov .r .img{flex:0 0 64px;height:64px;border-radius: var(--m-r-md);background:rgb(var(--color-ink) / .06);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-style:italic;font-size:20px;font-weight:600;color:var(--ink-soft);overflow:hidden}
+.csov .r .img{flex:0 0 64px;height:64px;border-radius: var(--m-r-md);background:rgb(var(--color-ink) / .06);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:20px;font-weight:600;color:var(--ink-soft);overflow:hidden}
 .csov .r .img img{width:100%;height:100%;object-fit:cover}
 .csov .r .meta{flex:1 1 auto;min-width:0}
-.csov .r .vn{font-family:var(--serif);font-style:italic;font-size:17px;font-weight:600;line-height:1.12;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.csov .r .sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px;font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;color:var(--ink-soft)}
+.csov .r .vn{font-size:15px;font-weight:600;line-height:1.12;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csov .r .sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px;font-size:12px;letter-spacing:.04em;color:var(--ink-soft)}
 .csov .r .stars{color:var(--ink);letter-spacing:0}
 .csov .r .badge{display:inline-flex;flex:0 0 auto;align-self:center;min-height:0;align-items:center;gap:3px;border-radius: var(--m-r-full);padding:2px 6px;line-height:1.4;white-space:nowrap;text-transform:uppercase;color:var(--ink);background:rgb(var(--color-ink) / .08)}
 .csov .r .badge.vrf{color:rgb(var(--ok));background:rgb(var(--ok) / .12)}
 /* Paid-placement disclosure + hybrid-anonymity hint — quiet, ink-soft so
    they read as clarifications, not alarms. */
-.csov .r .disclose{display:block;width:100%;margin-top:4px;font-family:var(--mono);font-size:8px;letter-spacing:.04em;color:var(--ink-soft)}
+.csov .r .disclose{display:block;width:100%;margin-top:4px;font-size:12px;letter-spacing:.04em;color:var(--ink-soft)}
 .csov .r .badge.mt{font-weight:600}
 .csov .r .badge.mt.good{color:rgb(var(--ok));background:rgb(var(--ok) / .12)}
 .csov .r .badge.mt.fair{color:var(--ink-soft);background:rgb(var(--color-ink) / .05)}
@@ -107,24 +107,24 @@ const CSS = `
 .csov .tally-warn{font-family:var(--sans);font-size:12px;line-height:1.4;color:var(--ink-soft);border-bottom:1px solid var(--line);padding:12px 0}
 .csov .r .sub .faraway{color:rgb(var(--warn))}
 .csov .farther-btn{display:flex;justify-content:center;margin:14px 0}
-.csov .farther-divider{display:flex;align-items:center;gap:10px;margin:6px 2px 4px;color:var(--ink-soft);font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase}
+.csov .farther-divider{display:flex;align-items:center;gap:10px;margin:6px 2px 4px;color:var(--ink-soft);font-size:12px;letter-spacing:.04em;text-transform:uppercase}
 .csov .farther-divider::before,.csov .farther-divider::after{content:"";flex:1;height:1px;background:var(--line)}
 .csov .empty.sm{font-size:13px;padding:18px 16px}
 .csov .r .add{flex:0 0 auto;align-self:center}
-.csov .empty{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--ink-soft);text-align:center;padding:40px 20px}
+.csov .empty{font-size:15px;color:var(--ink-soft);text-align:center;padding:40px 20px}
 /* Last-minute unlock CTA — capability framing, calm opportunity tone (NOT an
    alarm / "locked" treatment). Only renders on the §4 edge-#2 empty state. */
 .csov .lm-cta{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:40px 22px}
-.csov .lm-cta .lead{font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.2;color:var(--ink)}
+.csov .lm-cta .lead{font-weight:600;font-size:18px;line-height:1.2;color:var(--ink)}
 .csov .lm-cta .sub{font-family:var(--sans);font-size:13px;line-height:1.45;color:var(--ink-soft);max-width:30ch}
 /* Smart-sort "raise your budget?" nudge — a quiet note above the list (read,
    not pressed: on the page, ending in a divider). Calm, advisory tone (never a
    block); only rendered behind NEXT_PUBLIC_SMART_SORT_ENABLED. */
 .csov .budget-nudge{display:flex;flex-direction:column;gap:7px;border-bottom:1px solid var(--line);padding:12px 0 14px}
-.csov .budget-nudge .lead{font-family:var(--serif);font-style:italic;font-size:16px;line-height:1.15;color:var(--ink)}
+.csov .budget-nudge .lead{font-weight:600;font-size:16px;line-height:1.15;color:var(--ink)}
 .csov .budget-nudge .sub{font-family:var(--sans);font-size:12.5px;line-height:1.4;color:var(--ink-soft)}
 .csov .budget-nudge .ab{align-self:flex-start}
-.csov .loading{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);text-align:center;padding:30px 20px}
+.csov .loading{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);text-align:center;padding:30px 20px}
 .csov .foot{flex:0 0 auto;display:flex;gap:10px;align-items:center;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--paper)}
 .csov .searchwrap{flex:1 1 auto;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius: var(--m-r-full);background:var(--card);padding:0 14px;min-height:44px}
 .csov .searchwrap input{flex:1;border:0;outline:0;background:transparent;font-family:var(--sans);font-size:14px;color:var(--ink);min-width:0}
@@ -132,14 +132,14 @@ const CSS = `
 .csov .filterwrap{position:relative;flex:0 0 auto;display:flex}
 .csov .filterwrap .dot{position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:rgb(var(--sn-accent));box-shadow:0 0 0 2px var(--paper);pointer-events:none}
 /* filter bottom-sheet — the dark behind it is the popup rule's \`sn-popup-dark\` (dark AND blurred); a tap on it closes. */
-.csov .fscrim{position:absolute;inset:0;z-index:5;animation:csov-fade .2s ease}
+.csov .fscrim{position:absolute;inset:0;z-index:5;animation:csov-fade var(--sn-dur-elem) var(--sn-ease)}
 @keyframes csov-fade{from{opacity:0}to{opacity:1}}
-.csov .fsheet{position:absolute;left:0;right:0;bottom:0;z-index:6;max-height:88dvh;overflow-y:auto;background:var(--card);border-radius:22px 22px 0 0;padding:18px 18px calc(20px + env(safe-area-inset-bottom,0px));box-shadow:0 -16px 40px -20px rgba(0,0,0,.4);animation:csov-up .25s cubic-bezier(.2,.7,.2,1)}
-.csov .fsheet h4{font-family:var(--serif);font-style:italic;font-size:20px;color:var(--ink);margin-bottom:6px}
+.csov .fsheet{position:absolute;left:0;right:0;bottom:0;z-index:6;max-height:88dvh;overflow-y:auto;background:var(--card);border-radius:22px 22px 0 0;padding:18px 18px calc(20px + env(safe-area-inset-bottom,0px));box-shadow:0 -16px 40px -20px rgba(0,0,0,.4);animation:csov-up var(--sn-dur-rise) var(--sn-ease-rise)}
+.csov .fsheet h4{font-weight:600;font-size:20px;color:var(--ink);margin-bottom:6px}
 .csov .frow{padding:12px 0;border-bottom:1px solid var(--line)}
-.csov .flab{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px}
+.csov .flab{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px}
 .csov .ftoggle{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.csov .ftoggle .tn{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--ink)}
+.csov .ftoggle .tn{font-weight:600;font-size:16px;color:var(--ink)}
 .csov .fapply{margin-top:16px}
 `;
 

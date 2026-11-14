@@ -1,52 +1,9 @@
 import Link from 'next/link';
 import { Check, ChevronRight, ShieldAlert } from 'lucide-react';
-import type { QueuePeek } from '@/lib/admin/queue-peek';
-import {
-  approvePaymentFromWorkList,
-  agreeToRequestFromWorkList,
-  publishReviewFromWorkList,
-  recordPayoutFromWorkList,
-  settleHelpFromWorkList,
-  settleChatFlagFromWorkList,
-  settleCorrectionFromWorkList,
-  settleSubscriptionFromWorkList,
-  settlePaymentOptionFromWorkList,
-} from '@/app/admin/work/actions';
-// Moved beside the decision engine it calls (admin supplier slice, 2026-10-28) so the engine stopped being a route.
-import { settleVerificationFromWorkList } from '@/app/admin/verify/actions';
+import { JUDGEMENT_QUEUES, type QueuePeek } from '@/lib/admin/queue-peek';
+import { ActionButton } from '@/components/action-button';
+import { RequestCardView } from './request-card-view';
 import { formatCount } from '@/lib/format-number';
-
-/** Which server action + hidden field each kind posts. One table so a new fact
- *  queue is a row here, not another branch in the markup. */
-const ACTIONS = {
-  'approve-payment': { fn: approvePaymentFromWorkList, field: 'payment_id' },
-  'approve-verification': { fn: settleVerificationFromWorkList, field: 'application_id' },
-  'agree-request': { fn: agreeToRequestFromWorkList, field: 'approval_id' },
-} as const;
-
-/**
- * FORMS — the queues the code itself refuses to settle on one click.
- *
- * 🔑 THE CODE DECIDED THIS, NOT ME. `overridePublishReview` throws *"Override
- * reason is required"*, and `markPayoutPaidAction` needs a method AND a
- * reference. Publishing over a couple's review moves a vendor's public rating
- * and belongs on the record with its why; a money record without its reference
- * cannot be matched to a bank statement later. A one-click version of either
- * would have to invent the missing half.
- *
- * The FIELDS come from lib/admin/queue-peek.ts so the shape of the form and the
- * arguments the action requires are described in one place — not here and
- * again there, which is how the two drift.
- */
-const FORMS = {
-  'publish-review': { fn: publishReviewFromWorkList, field: 'appeal_id' },
-  'record-payout': { fn: recordPayoutFromWorkList, field: 'payout_id' },
-  'settle-help': { fn: settleHelpFromWorkList, field: 'message_id' },
-  'settle-chat-flag': { fn: settleChatFlagFromWorkList, field: 'flag_id' },
-  'settle-correction': { fn: settleCorrectionFromWorkList, field: 'request_id' },
-  'settle-subscription': { fn: settleSubscriptionFromWorkList, field: 'purchase_id' },
-  'settle-payment-option': { fn: settlePaymentOptionFromWorkList, field: 'payment_method_id' },
-} as const;
 
 /**
  * QueueDrawer — the items behind one work-list row, settled in place.
@@ -70,6 +27,7 @@ export function QueueDrawer({
   href,
   label,
   backTo,
+  late,
 }: {
   peek: QueuePeek;
   /** The queue's own page — always offered, even when an action exists. */
@@ -77,22 +35,30 @@ export function QueueDrawer({
   label: string;
   /** The exact list URL to return to on a refusal — keeps lane + open state. */
   backTo: string;
+  /** The queue is past its promised time — every card in it carries the red edge. */
+  late?: boolean;
 }) {
   if (peek.judgementNote) {
+    /* ➕ The card's two no-button footers (admin request cards, owner 2026-11-14): a JUDGEMENT opens the case (the
+       2026-08-05 lock — no one-click answer about a person or their money); work DONE ELSEWHERE opens where it is. */
+    const judgement = Object.values(JUDGEMENT_QUEUES).includes(peek.judgementNote);
     return (
-      <div className="border-t border-[color:var(--sn-line-soft,#F1ECE3)] px-4 py-3">
-        <p className="flex items-start gap-2 text-xs text-[color:var(--sn-ink-500)]">
-          <ShieldAlert aria-hidden className="mt-px h-4 w-4 shrink-0" strokeWidth={1.75} />
-          <span>{peek.judgementNote}</span>
-        </p>
-        <Link
-          href={href}
-          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold underline underline-offset-2"
-          style={{ color: 'var(--sn-ink-900)' }}
-        >
-          Open {label}
-          <ChevronRight aria-hidden className="h-3.5 w-3.5" />
-        </Link>
+      <div className="border-t border-[color:var(--sn-line)] px-4 py-3">
+        <article className="sn-tile p-4" data-request-card={judgement ? 'open-the-case' : 'done-elsewhere'}>
+          <p className="flex items-start gap-2 text-sm text-[color:var(--sn-ink-500)]">
+            <ShieldAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+            <span>{peek.judgementNote}</span>
+          </p>
+          <div className="mt-3">
+            <ActionButton
+              tone="neutral"
+              icon={<ChevronRight />}
+              label={judgement ? 'Open the case' : `Open ${label}`}
+              name={judgement ? `Open the case — ${label}` : `Open ${label}`}
+              href={href}
+            />
+          </div>
+        </article>
       </div>
     );
   }
@@ -101,8 +67,8 @@ export function QueueDrawer({
   // with a green tick is a confident lie the moment a read fails.
   if (peek.unreadable) {
     return (
-      <div className="border-t border-[color:var(--sn-line-soft,#F1ECE3)] px-4 py-3">
-        <p className="flex items-start gap-2 text-xs" style={{ color: '#B54708' }}>
+      <div className="border-t border-[color:var(--sn-line)] px-4 py-3">
+        <p className="flex items-start gap-2 text-xs" style={{ color: 'var(--sn-warning-deep)' }}>
           <ShieldAlert aria-hidden className="mt-px h-4 w-4 shrink-0" strokeWidth={1.75} />
           <span>
             Could not load these right now — this is not the same as the queue being
@@ -118,7 +84,7 @@ export function QueueDrawer({
 
   if (peek.items.length === 0) {
     return (
-      <div className="border-t border-[color:var(--sn-line-soft,#F1ECE3)] px-4 py-3">
+      <div className="border-t border-[color:var(--sn-line)] px-4 py-3">
         <p className="flex items-center gap-2 text-xs text-[color:var(--sn-ink-500)]">
           <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
           Nothing waiting here.
@@ -129,122 +95,24 @@ export function QueueDrawer({
 
   const more = peek.total - peek.items.length;
 
+  const nowMs = Date.now();
   return (
-    <div className="border-t border-[color:var(--sn-line-soft,#F1ECE3)] px-4 py-1">
-      {peek.items.map((it) => (
-        <div
-          key={it.id}
-          className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[color:var(--sn-line-soft,#F1ECE3)] py-3 last:border-b-0"
-        >
-          <span className="min-w-[9rem] flex-1">
-            <span className="flex items-center gap-2 text-sm font-semibold">
+    <div className="border-t border-[color:var(--sn-line)] px-4 py-1">
+      {peek.items.map((it) =>
+        it.card ? (
+          <div key={it.id} className="py-2">
+            <RequestCardView card={it.card} back={backTo} late={late} nowMs={nowMs} />
+          </div>
+        ) : (
+          /* Every peek item carries its request card (owner approved 14 Nov 2026). An item without one is drawn as a
+             plain line to its page — never as the old raw row with a select. */
+          <p key={it.id} className="py-3 text-sm">
+            <Link href={it.href} className="font-semibold underline underline-offset-2" style={{ color: 'var(--sn-ink-900)' }}>
               {it.title}
-              {it.light ? (
-                <span
-                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
-                  style={
-                    it.light === 'green'
-                      ? { background: 'var(--sn-success-soft)', color: 'var(--sn-success-deep)' }
-                      : { background: 'var(--sn-warning-soft)', color: 'var(--sn-warning-deep)' }
-                  }
-                >
-                  {it.light === 'green' ? 'Green' : 'Held'}
-                </span>
-              ) : null}
-            </span>
-            <span className="block text-xs text-[color:var(--sn-ink-500)]">{it.detail}</span>
-            {/* Payments: the receipt read's own sentence (advisory — it decides nothing). */}
-            {it.verdict ? (
-              <span className="mt-0.5 block text-xs text-[color:var(--sn-ink-500)]">{it.verdict}</span>
-            ) : null}
-            {/* Amber rows: the one line saying why it is not in "Approve all N green". */}
-            {it.held ? (
-              <span className="mt-0.5 block text-xs" style={{ color: 'var(--sn-warning-deep)' }}>
-                Why held: {it.held}
-              </span>
-            ) : null}
-          </span>
-
-          <span className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
-            {it.action ? (
-              (() => {
-                const a = ACTIONS[it.action.kind];
-                return (
-                  <form action={a.fn}>
-                    <input type="hidden" name={a.field} value={it.action.id} />
-                    <input type="hidden" name="back" value={backTo} />
-                    <button
-                      type="submit"
-                      className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                      style={{ background: 'var(--sn-cta, #C24E25)', color: '#FFFFFF' }}
-                    >
-                      {it.action.label}
-                    </button>
-                  </form>
-                );
-              })()
-            ) : null}
-            {it.form ? (
-              (() => {
-                const form = it.form;
-                const f = FORMS[form.kind];
-                return (
-                  <form action={f.fn} className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
-                    <input type="hidden" name={f.field} value={form.id} />
-                    <input type="hidden" name="back" value={backTo} />
-                    {form.fields.map((fl: (typeof form.fields)[number]) =>
-                      fl.type === 'select' ? (
-                        <select
-                          key={fl.name}
-                          name={fl.name}
-                          required={fl.required}
-                          className="rounded-md border px-2 py-1.5 text-xs"
-                          style={{ borderColor: 'var(--sn-line)', background: 'transparent' }}
-                        >
-                          {fl.options.map((o: string) => (
-                            <option key={o} value={o}>
-                              {o.replace(/_/g, ' ')}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          autoComplete="off"
-                          key={fl.name}
-                          name={fl.name}
-                          required={fl.required}
-                          placeholder={fl.placeholder}
-                          className="min-w-[10rem] flex-1 rounded-md border px-2 py-1.5 text-xs sm:flex-none"
-                          style={{ borderColor: 'var(--sn-line)', background: 'transparent' }}
-                        />
-                      ),
-                    )}
-                    <button
-                      type="submit"
-                      className="rounded-md px-3 py-1.5 text-xs font-semibold"
-                      style={{ background: 'var(--sn-cta, #C24E25)', color: '#FFFFFF' }}
-                    >
-                      {form.submitLabel}
-                    </button>
-                  </form>
-                );
-              })()
-            ) : null}
-            {it.note ? (
-              <span className="text-xs" style={{ color: 'var(--sn-ink-500)' }}>
-                {it.note}
-              </span>
-            ) : null}
-            <Link
-              href={it.href}
-              className="rounded-md px-2 py-1.5 text-xs font-semibold"
-              style={{ color: 'var(--sn-ink-500)' }}
-            >
-              Open
             </Link>
-          </span>
-        </div>
-      ))}
+          </p>
+        ),
+      )}
 
       {more > 0 ? (
         <p className="py-2.5 text-xs text-[color:var(--sn-ink-500)]">

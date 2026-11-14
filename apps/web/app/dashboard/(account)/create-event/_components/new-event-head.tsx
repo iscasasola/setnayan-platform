@@ -34,7 +34,7 @@ export function NewEventHead({
       {nothingBehind ? null : (
         <Link
           href={samahan ? `/dashboard/samahan/${samahan.communityId}?tab=events` : '/dashboard?hub=1'}
-          className="sn-chip sn-press w-fit"
+          className="sn-chip sn-press min-h-11 w-fit"
         >
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           {samahan ? `Back to ${samahan.name}` : 'Back to events'}

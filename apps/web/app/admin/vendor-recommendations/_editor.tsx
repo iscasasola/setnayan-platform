@@ -25,7 +25,7 @@ import {
   resolveFeedback,
 } from './actions';
 
-const labelCls = 'mb-1 block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55';
+const labelCls = 'mb-1 block text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70';
 
 export type LeafOption = { id: string; label: string };
 export type SkuOption = { service_code: string; title: string };
@@ -60,17 +60,17 @@ export function RecommendationRow({ row }: { row: MapRow }) {
       className={`rounded-2xl border border-ink/10 p-4 ${row.is_active ? 'bg-paper' : 'bg-ink/3'}`}
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <code className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+        <code className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           {row.service_code}
         </code>
         <span className="text-sm font-medium text-ink">{row.sku_title}</span>
         {row.is_opt_in && (
-          <span className="rounded bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-900">
+          <span className="rounded bg-warn-100 px-2 py-0.5 text-warn-900 text-[12px] font-bold">
             Opt-in
           </span>
         )}
         {!row.is_active && (
-          <span className="rounded bg-ink/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
+          <span className="rounded bg-ink/10 px-2 py-0.5 text-ink/55 text-[12px] font-bold">
             Inactive
           </span>
         )}
@@ -249,10 +249,10 @@ export function FeedbackCard({ row }: { row: FeedbackRow }) {
     : 'Accepting adds the proposed SKU to the leaf (priority 100).';
 
   return (
-    <div className="rounded-2xl border border-ink/10 bg-paper p-4">
+    <div className="py-4 border-t border-ink/10">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <span
-          className={`rounded px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] ${
+          className={`rounded px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.1em] ${
             isNotAFit ? 'bg-danger-50 text-danger-900' : 'bg-success-50 text-success-900'
           }`}
         >
@@ -267,7 +267,7 @@ export function FeedbackCard({ row }: { row: FeedbackRow }) {
         {row.sku_title ? (
           <>
             SKU: <span className="font-medium text-ink">{row.sku_title}</span>{' '}
-            <code className="font-mono text-[11px] text-ink/50">({row.service_code})</code>
+            <code className="text-[12px] text-ink/50 tabular-nums">({row.service_code})</code>
           </>
         ) : (
           <span className="italic text-ink/50">No SKU specified</span>
@@ -303,7 +303,7 @@ export function FeedbackCard({ row }: { row: FeedbackRow }) {
         >
           <X aria-hidden className="h-4 w-4" strokeWidth={2} /> Decline
         </SubmitButton>
-        <span className="text-[11px] text-ink/45">{acceptHint}</span>
+        <span className="text-[12px] text-ink/45">{acceptHint}</span>
       </ConfirmForm>
     </div>
   );

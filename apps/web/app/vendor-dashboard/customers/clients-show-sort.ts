@@ -16,7 +16,7 @@
  *
  * 🔒 customers/the-clients-list-is-v113.test.ts
  */
-import { CUSTOMER_LANES, type CustomerLane, type PipelineCustomer } from '@/lib/vendor-customer-pipeline';
+import { CUSTOMER_LANES, clientFilingDate, type CustomerLane, type PipelineCustomer } from '@/lib/vendor-customer-pipeline';
 
 export const CLIENTS_SHOW = [
   { key: 'all', label: 'All' },
@@ -186,7 +186,7 @@ export function groupKeyOf(
   ctx: Pick<ClientsContext, 'seatsOf'>,
   seatName: (id: string) => string,
 ): ((r: PipelineCustomer) => string) | null {
-  if (group === 'day') return (r) => r.eventDate ?? 'No date yet';
+  if (group === 'day') return (r) => clientFilingDate(r) ?? 'No date yet';
   if (group === 'seat')
     return (r) => {
       const seats = ctx.seatsOf(r.eventId);
@@ -202,7 +202,7 @@ export function groupKeyOf(
 export function orderClients<R extends PipelineCustomer>(rows: readonly R[], c: ClientsChoice, ctx: ClientsContext, groupKey: ((r: PipelineCustomer) => string) | null): R[] {
   const at = new Map(rows.map((r, i) => [r, i]));
   const within = (a: R, b: R): number => {
-    if (c.sort === 'date') return (a.eventDate ?? '9999').localeCompare(b.eventDate ?? '9999') || at.get(a)! - at.get(b)!;
+    if (c.sort === 'date') return (clientFilingDate(a) ?? '9999').localeCompare(clientFilingDate(b) ?? '9999') || at.get(a)! - at.get(b)!;
     if (c.sort === 'name') return a.title.localeCompare(b.title) || at.get(a)! - at.get(b)!;
     if (c.sort === 'newest') return (ctx.lastActivity(b.eventId) ?? '').localeCompare(ctx.lastActivity(a.eventId) ?? '') || at.get(a)! - at.get(b)!;
     return at.get(a)! - at.get(b)!;

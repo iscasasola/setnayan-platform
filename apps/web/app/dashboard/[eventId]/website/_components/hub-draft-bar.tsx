@@ -83,7 +83,7 @@ import { IconPill } from '../../launch/_components/icon-pill';
  * shell (`storeShell`) there is no price, no link and no pay path — a Pro key
  * is held and reads "◆ N waiting for Pro", with "Remove Pro changes" (owner 2026-10-08, "keep, marked"), and never
  * names the web (anti-steering, 3.1.1 — controller 2026-10-23). Where Apple sells Pro (`appleIap`) the dock hands
- * `storeShell: false` and the Apply sheet asks for Event Hub Pro whole, on Apple's sheet (owner 2026-10-26).
+ * `storeShell: false` and the Apply sheet asks for Event Pro whole, on Apple's sheet (owner 2026-10-26).
  */
 
 export type HubDraftBarProps = {
@@ -109,7 +109,7 @@ export type HubDraftBarProps = {
   /** 💎 Each part's catalogue price and Full Pro's (`HubDraftBarData`) — the Apply sheet's groups and buttons. */
   partPricePhp?: Partial<Record<HubPartId, number>>;
   fullPricePhp?: number | null;
-  /** 🍎 Apple sells here (`HubDraftBarData.appleIap`) — the sheet asks for Event Hub Pro whole, with no web figure. */
+  /** 🍎 Apple sells here (`HubDraftBarData.appleIap`) — the sheet asks for Event Pro whole, with no web figure. */
   appleIap?: boolean;
   /**
    * 🧪 The door ↺ · ✓ · Restore · Reset go through. A real Maker hands none: it is `hubDraftAction`. The dev lab
@@ -131,7 +131,7 @@ export { HubDraftField } from './hub-draft-field';
 export { DraftButton } from './hub-draft-button';
 
 const HELD_REASON: Record<HubDraftRefusal, string> = {
-  needs_pro: 'needs Event Hub Pro — it stays in your draft',
+  needs_pro: 'needs Event Pro — it stays in your draft',
   waits_for_pro: 'is waiting for Pro — it stays in your draft',
   not_your_photo: 'uses a photo that is not in your Event Hub',
   song_off_the_list: 'is no longer on our music list — pick another song',
@@ -606,8 +606,8 @@ export function HubDraftToolbar({
           key={`s:${makerSaveStatusText(status)}`}
           role={status.state === 'error' ? 'alert' : 'status'}
           data-maker-save-status={status.state}
-          className={`max-w-[9rem] text-[11px] font-semibold ${PHONE_TOAST} ${
-            status.state === 'error' ? 'line-clamp-3 leading-tight text-terracotta-700' : 'truncate text-ink/60 max-md:sn-toast-fades'
+          className={`max-w-[9rem] text-[12px] font-semibold ${PHONE_TOAST} ${
+            status.state === 'error' ? 'line-clamp-3 leading-tight text-terracotta-700' : 'truncate text-ink/75 max-md:sn-toast-fades'
           }`}
           title={makerSaveStatusText(status)}
         >
@@ -617,7 +617,7 @@ export function HubDraftToolbar({
         <OutcomeLine key={outcomeN} outcome={outcome} />
       ) : null}
       {readError ? (
-        <span role="alert" className={`text-[11px] font-semibold text-terracotta-700 ${PHONE_TOAST}`}>
+        <span role="alert" className={`text-[12px] font-semibold text-terracotta-700 ${PHONE_TOAST}`}>
           Draft could not load
         </span>
       ) : null}
@@ -671,7 +671,7 @@ export function HubDraftToolbar({
           <span
             aria-label={`${formatCount(summary.changeCount)} ${summary.changeCount === 1 ? 'change' : 'changes'} waiting`}
             data-maker-apply-count=""
-            className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-terracotta-700 px-1 text-[10px] font-bold leading-none text-cream"
+            className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-terracotta-700 px-1 text-[12px] font-bold leading-none text-cream"
           >
             {formatCount(summary.changeCount)}
           </span>
@@ -714,8 +714,8 @@ export function HubDraftToolbar({
           onClose={() => setSheetOpen(false)}
           tour={applyTour}
           pricing={
-            /* 🍎 The app sells Event Hub Pro whole — never part by part (owner 2026-10-26: "just have the upgrade event
-               hub pro"); its sheet is the one-unlock sheet. On the web the parts follow the catalogue: none on sale →
+            /* 🍎 The app sells Event Pro whole — never part by part (owner 2026-10-26: "just have the upgrade" — the
+               one plan, Event Pro); its sheet is the one-unlock sheet. On the web the parts follow the catalogue: none on sale →
                no part price was read → the same one-unlock sheet. */
             !storeShell && !appleIap && partPricePhp && Object.keys(partPricePhp).length > 0
               ? { partPricePhp, fullPricePhp, ownership: ownership ?? { full: false, parts: [], paidPhp: 0, fullPricePhp: null } }
@@ -742,7 +742,7 @@ export function HubDraftToolbar({
             aria-label="Close"
             data-maker-draft-close=""
             onClick={() => setOpen(false)}
-            className="sn-press absolute right-1.5 top-1.5 inline-flex h-10 w-10 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+            className="sn-press absolute right-1.5 top-1.5 inline-flex h-10 w-10 items-center justify-center rounded-full text-ink/75 hover:bg-ink/5"
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
@@ -760,18 +760,18 @@ export function HubDraftToolbar({
           {summary.proCount > 0 &&
             (storeShell ? (
               <p className="inline-flex items-center gap-1 text-sm text-ink/70" data-maker-held-for-pro="">
-                <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                <PaidMark state="try" bare label="Event Pro" size="xs" />
                 {formatCount(summary.proCount)} waiting for Pro
               </p>
             ) : (
               <p className="text-sm text-ink/70">
-                <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Hub Pro')} className="mr-1 align-middle" />
-                Apply needs Event Hub Pro{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
+                <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Pro')} className="mr-1 align-middle" />
+                Apply needs Event Pro{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
                 {proHref && (
                   <>
                     {' '}
                     <Link href={proHref} className="font-semibold text-terracotta-700 underline underline-offset-2">
-                      Get Event Hub Pro
+                      Get Event Pro
                     </Link>
                   </>
                 )}
@@ -839,8 +839,8 @@ const PHONE_TOAST =
 
 /** 📣 The outcome, said beside Apply (`hubDraftOutcome`) — never a box that opens. */
 function OutcomeLine({ outcome }: { outcome: NonNullable<ReturnType<typeof hubDraftOutcome>> }) {
-  const quiet = `max-w-[9rem] truncate text-[11px] font-semibold text-ink/60 ${PHONE_TOAST} max-md:sn-toast-fades`;
-  const loud = `max-w-[11rem] line-clamp-3 text-[11px] font-semibold leading-tight text-terracotta-700 ${PHONE_TOAST}`;
+  const quiet = `max-w-[9rem] truncate text-[12px] font-semibold text-ink/75 ${PHONE_TOAST} max-md:sn-toast-fades`;
+  const loud = `max-w-[11rem] line-clamp-3 text-[12px] font-semibold leading-tight text-terracotta-700 ${PHONE_TOAST}`;
   if (outcome.kind === 'live') return <span role="status" data-maker-save-status="applied" className={quiet}>Live now</span>;
   if (outcome.kind === 'reset') return <span role="status" data-maker-save-status="reset" className={quiet}>Reset in your draft</span>;
   if (outcome.kind === 'error') return <span role="alert" data-maker-save-status="error" className={loud}>{outcome.text}</span>;

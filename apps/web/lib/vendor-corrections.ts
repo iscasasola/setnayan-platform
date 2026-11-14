@@ -108,6 +108,9 @@ export const VERIFIED_LOCK_ERROR =
 export const ADMIN_SET_UP_ROW_FIELD = {
   business_name: 'business_name',
   maps_pin: 'hq_address',
+  // 🖼 RW-265 (re-walk 14 Nov 2026): a VERIFIED shop's logo changes by request too (`identityLockOf` lists `logo_url`).
+  // Without this row the logo stayed an upload the server then refused, and the screen closed on the old logo.
+  logo: 'logo_url',
 } as const satisfies Record<string, LockedIdentityFieldKey>;
 
 export type IdentityLockInput = {

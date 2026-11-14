@@ -36,7 +36,6 @@ import {
   HelpCircle,
   Link2,
   List,
-  Loader2,
   Martini,
   Maximize2,
   Minus,
@@ -68,8 +67,10 @@ import {
   Video,
   AlertTriangle,
   ListOrdered,
+  Scale,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useCloseOutside } from './close-outside';
 import { ContextDock, ShapeGlyph, ShapePicker, type DockEdge } from './seating-context-dock';
 import { DayOfEditingBanner } from './day-of-editing-banner';
 import { theDayIsOpenAt, theDayWhenKey, type TheDayInstants, type TheDayWhen } from '@/lib/event-clock';
@@ -87,7 +88,7 @@ import {
   type SaveState,
 } from './seating-frame';
 import { DropConfirmBubble, type DropConfirmState } from './drop-confirm-bubble';
-import { ActionButton } from '@/components/action-button';
+import { ActionButton, EqualRow } from '@/components/action-button';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { UndoToastHost } from '../../guests/_components/undo-toast';
@@ -253,6 +254,7 @@ import type { PickOption } from '../../website/editor/_components/pick-menu-type
 import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
 import { saveEntrance } from '../../studio/indoor-blueprint/actions';
 import { InfoTip } from '@/app/_components/info-tip';
+import { Badge } from '@/app/_components/badge';
 import { resolvePlan3dFacts } from '@/lib/plan3d-control';
 import { SeatPlanFacts } from './seat-plan-facts';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
@@ -262,8 +264,6 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { SeatPlanPortal } from './seat-plan-slots';
 import { useOneOpen } from '@/lib/one-open';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
-import { useModalA11y } from '@/lib/use-modal-a11y';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 // True when a thrown error is the server lock-guard's "you no longer hold the
 // editor lock" signal (SeatingLockError · code 'seating_lock_not_held'). Server
@@ -956,6 +956,8 @@ export function SeatingEditor({
   const [seatNotice, setSeatNotice] = useState<{ tableId: string; seat: number; removed: boolean } | null>(null);
   // §5.3 — the Auto Arrange gold split-button's caret menu (Build draft / Fill).
   const [autoMenuOpen, setAutoMenuOpen] = useState(false);
+  const dockOverflowRef = useCloseOutside<HTMLDivElement>(dockOverflow, () => setDockOverflow(false));
+  const autoMenuRef = useCloseOutside<HTMLDivElement>(autoMenuOpen, () => setAutoMenuOpen(false));
   useOneOpen(autoMenuOpen, setAutoMenuOpen); // one open at a time — lib/one-open.ts
   useEffect(() => {
     // Selecting a different table (or deselecting) resets every table sub-state.
@@ -1821,7 +1823,7 @@ export function SeatingEditor({
     <div data-vip-plus-ones-row="" className="flex min-h-11 items-center gap-2 px-1">
       <span className="min-w-0 flex-1 text-sm text-ink">
         +1s of VIP guests{' '}
-        <span className="font-mono text-[11px] text-ink/45">
+        <span className="text-xs text-ink/70">
           {vipTableCount > 0 ? `${formatCount(vipTableCount)} VIP ${vipTableCount === 1 ? 'table' : 'tables'}` : 'no VIP table yet'}
         </span>
       </span>
@@ -1838,7 +1840,7 @@ export function SeatingEditor({
   );
   const roleRulesOnly =
     roleSeatingRows.length === 0 ? (
-      <p className="px-1 py-1 text-xs text-ink/55">
+      <p className="px-1 py-1 text-xs text-ink/70">
         No sponsors, family or entourage on the guest list yet — everyone sits with their group.
       </p>
     ) : (
@@ -1846,7 +1848,7 @@ export function SeatingEditor({
         {roleSeatingRows.map((r) => (
           <li key={r.key} className="flex min-h-11 items-center gap-2 px-1">
             <span className="min-w-0 flex-1 truncate text-sm text-ink">
-              {r.label} <span className="font-mono text-[11px] text-ink/45">{formatCount(r.count)}</span>
+              {r.label} <span className="text-xs text-ink/70">{formatCount(r.count)}</span>
             </span>
             <PickMenu
               label={`${r.label}: where they sit`}
@@ -1942,10 +1944,6 @@ export function SeatingEditor({
 
   const [confirmFill, setConfirmFill] = useState(false);
   // The two centred confirms below (Auto Arrange · Fill around locked) hold the page still while open.
-  const confirmAutoRef = useRef<HTMLDivElement>(null);
-  const confirmFillRef = useRef<HTMLDivElement>(null);
-  useModalA11y({ open: confirmAuto, onClose: () => setConfirmAuto(false), containerRef: confirmAutoRef });
-  useModalA11y({ open: confirmFill, onClose: () => setConfirmFill(false), containerRef: confirmFillRef });
   // Scroll-less frame (council verdict 2026-07-15): permanent save chip + the
   // "N notices" banner-collapse state.
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -4794,8 +4792,8 @@ export function SeatingEditor({
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warn-700" />
           <span className="min-w-0 flex-1 truncate">
             <span className="font-medium text-warn-800">Not enough seats:</span>{' '}
-            <span className="font-mono">{formatCount(nonDeclinedCount)}</span> guests but only{' '}
-            <span className="font-mono">{formatCount(totalSeats)}</span> {totalSeats === 1 ? 'seat' : 'seats'} — add
+            <span className="">{formatCount(nonDeclinedCount)}</span> guests but only{' '}
+            <span className="">{formatCount(totalSeats)}</span> {totalSeats === 1 ? 'seat' : 'seats'} — add
             more tables{autoplaceEnabled ? ' (auto-seating fills them as you add)' : ''}.
           </span>
         </div>
@@ -4899,12 +4897,12 @@ export function SeatingEditor({
   // ── Left-panel content, shared by the desktop aside + the mobile drawer ────
   const searchRow = (
     <div className="relative">
-      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink/40" />
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink/70" />
       <input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search people…"
-        className="w-full rounded-lg border border-ink/15 bg-cream py-1.5 pl-8 pr-2 text-sm outline-none focus:border-terracotta"
+        className="min-h-11 w-full rounded-xl border border-ink/15 bg-cream py-2 pl-8 pr-2 text-sm outline-none focus:border-terracotta"
       />
     </div>
   );
@@ -4932,7 +4930,7 @@ export function SeatingEditor({
           className={`rounded p-1 ${
             pickedGroupId === grp.group_id
               ? 'bg-mulberry/10 text-mulberry'
-              : 'text-ink/40 hover:bg-ink/5'
+              : 'text-ink/70 hover:bg-ink/5'
           }`}
         >
           <Armchair className="h-3.5 w-3.5" />
@@ -4947,7 +4945,7 @@ export function SeatingEditor({
             })
           }
           aria-label={hidden ? 'Show colour on canvas' : 'Hide colour on canvas'}
-          className="rounded p-1 text-ink/40 hover:bg-ink/5"
+          className="rounded p-1 text-ink/70 hover:bg-ink/5"
         >
           {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
         </button>
@@ -4958,7 +4956,7 @@ export function SeatingEditor({
   const peoplePane = (
     <div className="flex flex-col gap-3">
       {/* "Only show unseated" filter — pinned at the top of the People pane. */}
-      <label className="sticky top-0 z-10 -mx-3 -mt-3 flex items-center gap-2 border-b border-ink/10 bg-cream px-3 py-2 text-xs text-ink/65">
+      <label className="sticky top-0 z-10 -mx-3 -mt-3 flex items-center gap-2 border-b border-ink/10 bg-cream px-3 py-2 text-xs text-ink/70">
         <input
           type="checkbox"
           checked={onlyUnseated}
@@ -4971,7 +4969,7 @@ export function SeatingEditor({
       {/* Individual members */}
       <Section label={`Individual Members · ${individuals.length}`}>
         {individuals.length === 0 ? (
-          <p className="px-1 py-2 text-xs text-ink/45">Everyone here is in a group.</p>
+          <p className="px-1 py-2 text-xs text-ink/70">Everyone here is in a group.</p>
         ) : (
           <ul className="space-y-0.5">
             {individuals.map((g) => (
@@ -4998,8 +4996,8 @@ export function SeatingEditor({
               const members = guests.filter((g) => g.group_id === grp.group_id && memberVisible(g));
               const isOpen = openGroups.has(grp.group_id);
               return (
-                <li key={grp.group_id} className="rounded-lg border border-ink/10">
-                  <div className="flex items-center gap-2 px-2 py-1.5">
+                <li key={grp.group_id} className="border-b border-ink/10 last:border-b-0">
+                  <div className="flex min-h-11 items-center gap-2 px-1 py-1.5">
                     <button
                       type="button"
                       onClick={() =>
@@ -5013,15 +5011,15 @@ export function SeatingEditor({
                     >
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: grp.color }} />
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{grp.label}</span>
-                      <span className="text-[11px] text-ink/50">{formatCount(grp.member_count)}</span>
-                      <ChevronDown className={`h-3.5 w-3.5 text-ink/40 transition ${isOpen ? 'rotate-180' : ''}`} />
+                      <span className="text-xs text-ink/70">{formatCount(grp.member_count)}</span>
+                      <ChevronDown className={`h-3.5 w-3.5 text-ink/70 transition ${isOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {groupVerbs(grp)}
                   </div>
                   {isOpen ? (
-                    <ul className="space-y-0.5 border-t border-ink/10 p-1">
+                    <ul className="space-y-0.5 pb-1 pl-3">
                       {members.length === 0 ? (
-                        <li className="px-1 py-1 text-[11px] text-ink/40">No matching members.</li>
+                        <li className="px-1 py-1 text-xs text-ink/70">No matching members.</li>
                       ) : (
                         members.map((g) => (
                           <MemberRow
@@ -5068,21 +5066,24 @@ export function SeatingEditor({
 
   const tablesPane = (
     <div className="flex flex-col gap-3">
-      <button
-        type="button"
+      <ActionButton
+        tone="brand"
+        main
+        icon={Plus}
+        label="Table"
+        name="Add a table"
         onClick={() => setShowAddTable((v) => !v)}
+        aria-expanded={showAddTable}
         disabled={!canEdit}
         title={!canEdit ? 'View only — someone else is editing this seat plan' : undefined}
-        className="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-terracotta-700 px-2.5 py-2 text-xs font-medium text-cream hover:bg-terracotta-800 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Table
-      </button>
+        className="w-full"
+      />
 
       {addTablePanel}
 
       <Section label={`Tables · ${displayUnits.length}`}>
         {displayUnits.length === 0 ? (
-          <p className="px-1 py-2 text-xs text-ink/45">
+          <p className="px-1 py-2 text-xs text-ink/70">
             No tables yet — tap “Build my seating” on the floor, or add one above.
           </p>
         ) : (
@@ -5106,12 +5107,12 @@ export function SeatingEditor({
                   }}
                 >
                 <div
-                  className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+                  className={`flex min-h-11 items-center gap-2 border-b px-1 py-1.5 ${
                     pickedGroupId
-                      ? 'cursor-pointer border-mulberry/30 ring-1 ring-mulberry/20 hover:bg-mulberry/5'
+                      ? 'cursor-pointer border-mulberry/30 bg-mulberry/5'
                       : highlightId === u.lead.table_id
                         ? 'border-terracotta bg-terracotta/5'
-                        : 'border-transparent hover:bg-ink/[0.03]'
+                        : 'border-ink/10 hover:bg-ink/[0.03]'
                   }`}
                 >
                   <button
@@ -5136,20 +5137,14 @@ export function SeatingEditor({
                         ) : null}
                         {u.label}
                       </span>
-                      <span className="block font-mono text-[11px] text-ink/50">
+                      <span className="block text-xs text-ink/70">
                         {formatCount(filled)}/{formatCount(cap)} {cap === 1 ? 'seat' : 'seats'} ·{' '}
                         {u.members.length > 1
                           ? `${u.members.length} tables joined`
                           : TABLE_TYPE_LABEL[u.lead.table_type]}
                       </span>
                     </span>
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
-                        full ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'
-                      }`}
-                    >
-                      {full ? 'Filled' : 'Open'}
-                    </span>
+                    <Badge tone={full ? 'ok' : 'quiet'}>{full ? 'Filled' : 'Open'}</Badge>
                   </button>
                 </div>
                 </SwipeToDelete>
@@ -5166,11 +5161,8 @@ export function SeatingEditor({
       {/* Seating Priority (smart seat-plan Phase 2). The order decides who Auto
           Arrange seats nearest the stage. Drag to reorder on desktop; the
           up/down arrows do the same on touch / keyboard. */}
-      <Section label="Seating Priority">
-        <p className="px-1 pb-1.5 text-[11px] text-ink/50">
-          Who sits nearest the stage. Drag to reorder — Auto Arrange fills these tiers top to bottom.
-        </p>
-        <ul className="space-y-1">
+      <Section label="Seating Priority" tip="Who sits nearest the stage. Drag to reorder — Auto Arrange fills these tiers top to bottom.">
+        <ul>
           {priorityOrder.map((t, i) => (
             <li
               key={t.tier}
@@ -5184,12 +5176,12 @@ export function SeatingEditor({
                 setDragTierIndex(null);
               }}
               onDragEnd={() => setDragTierIndex(null)}
-              className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+              className={`flex min-h-11 items-center gap-2 border-b px-1 py-1 ${
                 dragTierIndex === i ? 'border-mulberry/40 bg-mulberry/5' : 'border-ink/10'
               } ${canEdit ? 'cursor-grab active:cursor-grabbing' : ''}`}
             >
               <GripVertical className="h-3.5 w-3.5 shrink-0 text-ink/30" aria-hidden />
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink/5 font-mono text-[10px] font-semibold text-ink/60">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink/5 text-xs font-semibold text-ink/70">
                 {i + 1}
               </span>
               <span className="min-w-0 flex-1 truncate text-sm text-ink">{t.label}</span>
@@ -5199,7 +5191,7 @@ export function SeatingEditor({
                   onClick={() => movePriorityTier(i, -1)}
                   disabled={i === 0 || !canEdit}
                   aria-label={`Move ${t.label} up`}
-                  className="rounded p-1 text-ink/40 hover:bg-ink/5 disabled:opacity-30"
+                  className="flex h-11 w-9 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5 disabled:opacity-30"
                 >
                   <ChevronUp className="h-3.5 w-3.5" />
                 </button>
@@ -5208,7 +5200,7 @@ export function SeatingEditor({
                   onClick={() => movePriorityTier(i, 1)}
                   disabled={i === priorityOrder.length - 1 || !canEdit}
                   aria-label={`Move ${t.label} down`}
-                  className="rounded p-1 text-ink/40 hover:bg-ink/5 disabled:opacity-30"
+                  className="flex h-11 w-9 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5 disabled:opacity-30"
                 >
                   <ChevronDown className="h-3.5 w-3.5" />
                 </button>
@@ -5221,12 +5213,9 @@ export function SeatingEditor({
       {/* Seating Guide — keep-apart rules (smart seat-plan Phase 3). Couple-
           private: Auto Arrange seats these pairs (and their whole groups) at
           different tables. */}
-      <Section label="Seating Guide">
-        <p className="px-1 pb-1.5 text-[11px] text-ink/50">
-          Keep guests apart — Auto Arrange seats them at different tables (their whole groups too). Only you see this.
-        </p>
+      <Section label="Seating Guide" tip="Keep guests apart — Auto Arrange seats them at different tables (their whole groups too). Only you see this.">
         {keepApart.length > 0 ? (
-          <ul className="mb-2 space-y-1">
+          <ul className="mb-2">
             {keepApart.map((r) => {
               const violated = isRuleViolated(r);
               return (
@@ -5241,25 +5230,20 @@ export function SeatingEditor({
                   onDelete={() => removeKeepApart(r)}
                 >
                 <div
-                  className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
-                    violated ? 'border-danger-300 bg-danger-50' : 'border-ink/10'
+                  className={`flex min-h-11 items-center gap-2 border-b px-1 py-1.5 ${
+                    violated ? 'border-l-2 border-b-ink/10 border-l-danger-600 pl-2' : 'border-ink/10'
                   }`}
                 >
                   {/* §6.3 — text badge, not a chain glyph (Unlink retired). */}
-                  <span
-                    className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide ${
-                      violated ? 'bg-danger-100 text-danger-700' : 'bg-mulberry/10 text-mulberry'
-                    }`}
-                    aria-hidden
-                  >
-                    Keep apart
+                  <span aria-hidden className="shrink-0">
+                    <Badge tone={violated ? 'no' : 'quiet'}>Keep apart</Badge>
                   </span>
                   <span className="min-w-0 flex-1 truncate text-sm text-ink">
                     <span className="font-medium">{guestsById.get(r.guest_a_id)?.name ?? 'Guest'}</span>
-                    <span className="text-ink/45"> can&apos;t sit with </span>
+                    <span className="text-ink/70"> can&apos;t sit with </span>
                     <span className="font-medium">{guestsById.get(r.guest_b_id)?.name ?? 'Guest'}</span>
                     {violated ? (
-                      <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-danger-600">
+                      <span className="ml-1 text-xs font-semibold text-danger-700">
                         · seated together
                       </span>
                     ) : null}
@@ -5270,17 +5254,11 @@ export function SeatingEditor({
             })}
           </ul>
         ) : (
-          <p className="px-1 pb-1.5 text-[11px] text-ink/40">No keep-apart rules yet.</p>
+          <p className="px-1 pb-1.5 text-xs text-ink/70">No keep-apart rules yet.</p>
         )}
         {violatedRules.length > 0 && canEdit ? (
-          <button
-            type="button"
-            onClick={relaxLowest}
-            className="mb-2 inline-flex items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2.5 py-1.5 text-[11px] font-medium text-ink/80 hover:border-terracotta"
-          >
-            {/* §6.3 — worded "Relax", no chain glyph. */}
-            Relax the lowest-priority rule
-          </button>
+          /* §6.3 — worded "Relax", no chain glyph. */
+          <ActionButton tone="neutral" icon={Scale} label="Relax the lowest-priority rule" onClick={relaxLowest} className="mb-2" />
         ) : null}
         {canEdit ? <KeepApartAdder guests={guests} onAdd={addKeepApart} /> : null}
       </Section>
@@ -5305,8 +5283,8 @@ export function SeatingEditor({
             {label}
             {count > 0 ? (
               <span
-                className={`rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tabular-nums ${
-                  warm ? 'bg-danger-100 text-danger-700' : active ? 'bg-white/25 text-white' : 'bg-ink/8 text-ink/55'
+                className={`rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${
+                  warm ? 'bg-danger-100 text-danger-700' : active ? 'bg-white/25 text-white' : 'bg-ink/8 text-ink/70'
                 }`}
               >
                 {formatCount(count)}
@@ -5356,15 +5334,13 @@ export function SeatingEditor({
           type="submit"
           className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04]"
         >
-          <Wand2 className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+          <Wand2 className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="flex items-center gap-2 text-sm font-medium text-ink">
               Auto-seating
-              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${autoplaceEnabled ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'}`}>
-                {autoplaceEnabled ? 'On' : 'Off'}
-              </span>
+              <Badge tone={autoplaceEnabled ? 'ok' : 'quiet'}>{autoplaceEnabled ? 'On' : 'Off'}</Badge>
             </span>
-            <span className="text-[11px] leading-snug text-ink/55">
+            <span className="text-xs leading-snug text-ink/70">
               {autoplaceEnabled ? 'New guests get a provisional seat; role/group changes re-seat them.' : 'Seat guests manually with Auto Arrange or drag.'}
             </span>
           </span>
@@ -5377,15 +5353,13 @@ export function SeatingEditor({
           type="submit"
           className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04]"
         >
-          <Users className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+          <Users className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="flex items-center gap-2 text-sm font-medium text-ink">
               Keep groups together
-              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${adjacencyEnabled ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'}`}>
-                {adjacencyEnabled ? 'On' : 'Off'}
-              </span>
+              <Badge tone={adjacencyEnabled ? 'ok' : 'quiet'}>{adjacencyEnabled ? 'On' : 'Off'}</Badge>
             </span>
-            <span className="text-[11px] leading-snug text-ink/55">
+            <span className="text-xs leading-snug text-ink/70">
               {adjacencyEnabled ? 'An overflowing group spills to the nearest table.' : 'Classic stage-order fill.'}
             </span>
           </span>
@@ -5399,34 +5373,35 @@ export function SeatingEditor({
       <div className="px-3 pb-1.5">
         {venueScaled ? (
           <>
-            <div className="flex gap-1">
+            {/* 🎚 The app's one pill selector (`PillTrack`) — the three walkway presets, the thumb on the picked one. */}
+            <PillTrack aria-label="Walkway presets" grow>
               {([
                 { m: 0.6, label: 'Tight' },
                 { m: 0.9, label: 'Service' },
                 { m: 1.5, label: 'Comfort' },
-              ] as const).map((o) => (
-                <button
-                  key={o.m}
-                  type="button"
-                  onClick={() => setAisleM(o.m)}
-                  disabled={!canEdit}
-                  className={`flex-1 rounded-md border px-1.5 py-1 text-center text-[11px] font-medium transition-colors disabled:opacity-50 ${
-                    Math.abs(aisleM - o.m) < 0.05
-                      ? 'border-mulberry bg-mulberry/10 text-mulberry'
-                      : 'border-ink/15 text-ink/60 hover:bg-ink/[0.04]'
-                  }`}
-                >
-                  {o.label}
-                  <span className="block text-[9px] opacity-70">{o.m.toFixed(1)} m</span>
-                </button>
-              ))}
-            </div>
+              ] as const).map((o) => {
+                const on = Math.abs(aisleM - o.m) < 0.05;
+                return (
+                  <PillButton
+                    key={o.m}
+                    on={on}
+                    aria-pressed={on}
+                    onClick={() => setAisleM(o.m)}
+                    disabled={!canEdit}
+                    className="flex-col !gap-0 leading-tight"
+                  >
+                    {o.label}
+                    <span className="block text-xs tabular-nums">{o.m.toFixed(1)} m</span>
+                  </PillButton>
+                );
+              })}
+            </PillTrack>
             <div className="mt-1.5 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setAisleM((v) => Math.max(0.6, Math.round((v - 0.1) * 10) / 10))}
                 disabled={!canEdit || aisleM <= 0.6}
-                className="h-6 w-6 rounded-md border border-ink/15 text-ink/60 hover:bg-ink/[0.04] disabled:opacity-40"
+                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/15 text-base text-ink hover:bg-ink/[0.04] disabled:opacity-40"
                 aria-label="Narrower walkway"
               >
                 −
@@ -5438,13 +5413,13 @@ export function SeatingEditor({
                 type="button"
                 onClick={() => setAisleM((v) => Math.min(2.0, Math.round((v + 0.1) * 10) / 10))}
                 disabled={!canEdit || aisleM >= 2.0}
-                className="h-6 w-6 rounded-md border border-ink/15 text-ink/60 hover:bg-ink/[0.04] disabled:opacity-40"
+                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/15 text-base text-ink hover:bg-ink/[0.04] disabled:opacity-40"
                 aria-label="Wider walkway"
               >
                 +
               </button>
             </div>
-            <p className="mt-1.5 text-[10px] leading-snug text-ink/50">
+            <p className="mt-1.5 text-xs leading-snug text-ink/70">
               {aisleM <= 0.6
                 ? 'Single-file — staff can’t pass with trays.'
                 : aisleM < 0.95
@@ -5454,13 +5429,13 @@ export function SeatingEditor({
                     : 'Guest aisle — gowns and easy passing.'}
             </p>
             {mountAudit.size > 0 ? (
-              <p className="mt-1 text-[10px] leading-snug text-terracotta">
+              <p className="mt-1 text-xs leading-snug text-terracotta">
                 {mountAudit.size} table{mountAudit.size === 1 ? '' : 's'} too close at this walkway — drag them apart or narrow the walkway to heal.
               </p>
             ) : null}
           </>
         ) : (
-          <p className="text-[11px] leading-snug text-ink/50">
+          <p className="text-xs leading-snug text-ink/70">
             Set your room size to control walkway width.
           </p>
         )}
@@ -5508,15 +5483,13 @@ export function SeatingEditor({
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="enabled" value={ghostBoothsEnabled ? 'false' : 'true'} />
               <button type="submit" className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04]">
-                <Store className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+                <Store className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="flex items-center gap-2 text-sm font-medium text-ink">
                     Show supplier suggestions in 3D
-                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${ghostBoothsEnabled ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'}`}>
-                      {ghostBoothsEnabled ? 'On' : 'Off'}
-                    </span>
+                    <Badge tone={ghostBoothsEnabled ? 'ok' : 'quiet'}>{ghostBoothsEnabled ? 'On' : 'Off'}</Badge>
                   </span>
-                  <span className="text-[11px] leading-snug text-ink/55">Dashed booths for the suppliers you have not booked yet.</span>
+                  <span className="text-xs leading-snug text-ink/70">Dashed booths for the suppliers you have not booked yet.</span>
                 </span>
               </button>
             </form>
@@ -5642,12 +5615,12 @@ export function SeatingEditor({
   const dockRotateCluster = (t: EventTableRow, step: number) => {
     const deg = rotationOf(t);
     return (
-      <div className="flex items-center rounded-lg border border-ink/15">
+      <div className="flex items-center rounded-full border border-ink/15">
         <HoldButton
           onFire={() => rotateTable(t, -step)}
           disabled={!canEdit}
           ariaLabel={`Rotate ${step}° left`}
-          className="flex h-8 w-8 items-center justify-center rounded-l-lg text-ink/60 hover:bg-ink/5 disabled:opacity-40"
+          className="flex h-11 w-11 items-center justify-center rounded-l-full text-ink/70 hover:bg-ink/5 disabled:opacity-40"
         >
           <RotateCcw className="h-4 w-4" />
         </HoldButton>
@@ -5670,14 +5643,14 @@ export function SeatingEditor({
               if (Number.isFinite(v)) commitRotationExact(t, v);
               setDegEdit(null);
             }}
-            className="w-9 bg-transparent text-center font-mono text-[11px] tabular-nums text-ink outline-none"
+            className="w-9 bg-transparent text-center text-xs tabular-nums text-ink outline-none"
           />
         ) : (
           <button
             type="button"
             onClick={() => canEdit && setDegEdit(String(deg))}
             title="Click to type an exact angle"
-            className="w-9 text-center font-mono text-[11px] tabular-nums text-ink/60 hover:text-ink"
+            className="w-9 text-center text-xs tabular-nums text-ink/70 hover:text-ink"
           >
             {deg}°
           </button>
@@ -5686,7 +5659,7 @@ export function SeatingEditor({
           onFire={() => rotateTable(t, step)}
           disabled={!canEdit}
           ariaLabel={`Rotate ${step}° right`}
-          className="flex h-8 w-8 items-center justify-center rounded-r-lg text-ink/60 hover:bg-ink/5 disabled:opacity-40"
+          className="flex h-11 w-11 items-center justify-center rounded-r-full text-ink/70 hover:bg-ink/5 disabled:opacity-40"
         >
           <RotateCw className="h-4 w-4" />
         </HoldButton>
@@ -5694,44 +5667,37 @@ export function SeatingEditor({
     );
   };
   const dockOverflowMenu = (t: EventTableRow) => (
-    <div className="relative">
+    <div ref={dockOverflowRef} className="relative">
       <button
         type="button"
         onClick={() => setDockOverflow((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={dockOverflow}
         aria-label="More table options"
-        className={`flex h-8 w-8 items-center justify-center rounded-lg text-ink/60 hover:bg-ink/5 ${dockOverflow ? 'bg-ink/5' : ''}`}
+        className={`flex h-11 w-11 items-center justify-center rounded-lg text-ink/70 hover:bg-ink/5 ${dockOverflow ? 'bg-ink/5' : ''}`}
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>
       {dockOverflow ? (
         <>
-          <button
-            type="button"
-            aria-hidden
-            tabIndex={-1}
-            onClick={() => setDockOverflow(false)}
-            className="fixed inset-0 z-40 cursor-default"
-          />
           <div
             role="menu"
-            className="absolute bottom-full right-0 z-50 mb-1 w-48 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
+            className="absolute bottom-full right-0 z-50 mb-1 w-48 overflow-hidden rounded-2xl bg-cream p-1 shadow-lg ring-1 ring-ink/10"
           >
-            <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); setShapePickerOpen(true); setPickerOpen(false); }} className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
+            <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); setShapePickerOpen(true); setPickerOpen(false); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Change shape…
             </button>
-            <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }} className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
+            <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Edit chairs…
             </button>
-            <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); rotateTable(t, 180); }} className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
+            <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); rotateTable(t, 180); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Rotate 180°
             </button>
-            <button type="button" role="menuitem" data-seat-plan-swap="" onClick={() => { setDockOverflow(false); armSwap(t); }} className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
+            <button type="button" role="menuitem" data-seat-plan-swap="" onClick={() => { setDockOverflow(false); armSwap(t); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Swap with another table…
             </button>
             {t.link_group_id ? (
-              <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); doUnlink(t.table_id); }} className="flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-sm text-mulberry hover:bg-mulberry/[0.06]">
+              <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); doUnlink(t.table_id); }} className="flex min-h-11 w-full items-center gap-1.5 rounded-full px-3 py-2 text-left text-sm text-mulberry hover:bg-mulberry/[0.06]">
                 <Ungroup className="h-4 w-4" /> Break apart
               </button>
             ) : null}
@@ -5784,10 +5750,10 @@ export function SeatingEditor({
       }
       return (
         <ContextDock variant={isPhone ? sheetVariant : 'dock'} edge={isPhone ? 'bottom' : edge} tone="neutral" glyph={dockInSheet ? undefined : glyph} name={dockInSheet ? undefined : name} boundsRef={regionRef} onDismiss={isPhone && !dockInSheet ? clearSelection : undefined}>
-          {summary ? <span className="px-1 font-mono text-[11px] tabular-nums text-ink/60">{summary} seated</span> : null}
+          {summary ? <span className="px-1 text-xs tabular-nums text-ink/70">{summary} seated</span> : null}
           <ActionButton tone="neutral" icon={Eye} label={lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'} disabled={lock.status === 'acquiring'} onClick={lock.acquire} />
           {!isPhone ? (
-            <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
+            <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5">
               <X className="h-4 w-4" />
             </button>
           ) : null}
@@ -5807,12 +5773,12 @@ export function SeatingEditor({
             <button
               type="button"
               onClick={() => unseat(pickedGuest.guest_id)}
-              className="inline-flex h-8 items-center gap-1 rounded-lg border border-ink/15 px-2 text-xs text-ink hover:border-danger-400 hover:text-danger-600"
+              className="inline-flex h-11 items-center gap-1 rounded-lg border border-ink/15 px-2 text-xs text-ink hover:border-danger-400 hover:text-danger-600"
             >
               <UserMinus className="h-3.5 w-3.5" /> Unseat
             </button>
           ) : null}
-          <button type="button" onClick={() => setPickedId(null)} aria-label="Cancel" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
+          <button type="button" onClick={() => setPickedId(null)} aria-label="Cancel" className="flex h-11 w-11 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5">
             <X className="h-4 w-4" />
           </button>
         </ContextDock>
@@ -5826,7 +5792,7 @@ export function SeatingEditor({
             Seating <span className="font-semibold text-ink">{pickedGroup.label}</span> ({pickedGroupMemberIds.length}{' '}
             {pickedGroupMemberIds.length === 1 ? 'member' : 'members'}) — tap a table.
           </span>
-          <button type="button" onClick={() => setPickedGroupId(null)} aria-label="Cancel" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
+          <button type="button" onClick={() => setPickedGroupId(null)} aria-label="Cancel" className="flex h-11 w-11 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5">
             <X className="h-4 w-4" />
           </button>
         </ContextDock>
@@ -5889,7 +5855,7 @@ export function SeatingEditor({
           type="button"
           onClick={() => { setPickerOpen((v) => !v); setShapePickerOpen(false); }}
           aria-pressed={pickerOpen}
-          className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 font-medium ${big ? 'h-11 text-sm' : 'h-8 text-xs'} ${
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 font-medium ${big ? 'h-11 text-sm' : 'h-11 text-sm'} ${
             pickerOpen ? 'border-terracotta bg-terracotta/10 text-terracotta-700' : 'border-ink/15 text-ink/75 hover:bg-ink/5'
           }`}
         >
@@ -5915,7 +5881,7 @@ export function SeatingEditor({
             <button
               type="button"
               onClick={() => setEditChairs(false)}
-              className={`inline-flex shrink-0 items-center rounded-lg bg-mulberry px-3 font-semibold text-cream hover:bg-mulberry-600 ${isPhone ? 'h-11 text-sm' : 'h-8 text-xs'}`}
+              className={`inline-flex shrink-0 items-center rounded-lg bg-mulberry px-3 font-semibold text-cream hover:bg-mulberry-600 ${isPhone ? 'h-11 text-sm' : 'h-11 text-sm'}`}
             >
               Done
             </button>
@@ -5935,7 +5901,7 @@ export function SeatingEditor({
           type="button"
           onClick={seatNote.onUndo}
           data-seat-note=""
-          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-ink/[0.05] px-2 text-[12px] text-ink/75"
+          className="inline-flex h-11 shrink-0 items-center gap-1 rounded-lg bg-ink/[0.05] px-2 text-xs text-ink/75"
         >
           {seatNote.words} <span className="font-bold underline underline-offset-2">Undo</span>
         </button>
@@ -5975,7 +5941,7 @@ export function SeatingEditor({
       ) : (
         // §1.2 — desktop dock, one row, exact order.
         <>
-          <ShapeGlyph shape={shapeHintFor(st.table_type)} className="ml-1 h-3.5 w-3.5 shrink-0 text-ink/45" />
+          <ShapeGlyph shape={shapeHintFor(st.table_type)} className="ml-1 h-3.5 w-3.5 shrink-0 text-ink/70" />
           {nameField(false)}
           {seatPeopleBtn(false)}
           {dockSeatsStepper(st)}
@@ -5983,10 +5949,10 @@ export function SeatingEditor({
           {dockRotateCluster(st, 15)}
           {dockOverflowMenu(st)}
           <span className="mx-0.5 h-6 w-px shrink-0 bg-ink/15" />
-          <button type="button" onClick={() => requestRemoveTable(st)} aria-label="Delete table" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/50 hover:bg-danger-50 hover:text-danger-600">
+          <button type="button" onClick={() => requestRemoveTable(st)} aria-label="Delete table" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70 hover:bg-danger-50 hover:text-danger-600">
             <Trash2 className="h-4 w-4" />
           </button>
-          <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
+          <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5">
             <X className="h-4 w-4" />
           </button>
         </>
@@ -6008,7 +5974,7 @@ export function SeatingEditor({
     // ── Selected MARKER (§1.4) ──
     if (dockPrimary === 'marker' && selM) {
       const big = isPhone;
-      const actBtn = `inline-flex shrink-0 items-center gap-1 rounded-lg border font-medium ${big ? 'h-11 px-3 text-sm' : 'h-8 px-2.5 text-xs'}`;
+      const actBtn = `inline-flex shrink-0 items-center gap-1 rounded-full border font-medium ${big ? 'h-11 px-3 text-sm' : 'h-11 px-3 text-sm'}`;
       /* 📱 On a phone the marker's two steps are THE shared ActionButton — Done the filled step, as on the table's sheet
          (`PhoneTableDock`) — never a bare bordered box, which in the sheet's column read as a text field (owner 2026-10-29). */
       const removeBtn = big ? (
@@ -6023,7 +5989,7 @@ export function SeatingEditor({
           <ActionButton tone="brand" main icon={Check} label="Done" onClick={clearSelection} />
         </span>
       ) : (
-        <button type="button" onClick={clearSelection} aria-label="Done" className={`${actBtn} border-ink/15 text-ink/60 hover:bg-ink/5`}>
+        <button type="button" onClick={clearSelection} aria-label="Done" className={`${actBtn} border-ink/15 text-ink/70 hover:bg-ink/5`}>
           Done
         </button>
       );
@@ -6074,12 +6040,12 @@ export function SeatingEditor({
               'Entrance style',
             )}
             {entrance.kind === 'tunnel' ? (
-              <div className="flex shrink-0 items-center rounded-lg border border-ink/15">
-                <button type="button" aria-label="Decrease depth" onClick={() => { setEntrance((en) => ({ ...en, depthM: Math.max(1.5, Math.round((en.depthM - 0.5) * 2) / 2) })); setFloorDirty(true); }} className={`flex ${big ? 'h-11 w-11' : 'h-8 w-8'} items-center justify-center rounded-l-lg text-ink/60 hover:bg-ink/5`}>
+              <div className="flex shrink-0 items-center rounded-full border border-ink/15">
+                <button type="button" aria-label="Decrease depth" onClick={() => { setEntrance((en) => ({ ...en, depthM: Math.max(1.5, Math.round((en.depthM - 0.5) * 2) / 2) })); setFloorDirty(true); }} className={`flex ${big ? 'h-11 w-11' : 'h-11 w-11'} items-center justify-center rounded-l-full text-ink/70 hover:bg-ink/5`}>
                   <Minus className="h-4 w-4" />
                 </button>
-                <span className="px-1 font-mono text-[11px] tabular-nums text-ink/70">{entrance.depthM.toFixed(1)}m</span>
-                <button type="button" aria-label="Increase depth" onClick={() => { setEntrance((en) => ({ ...en, depthM: Math.min(8, Math.round((en.depthM + 0.5) * 2) / 2) })); setFloorDirty(true); }} className={`flex ${big ? 'h-11 w-11' : 'h-8 w-8'} items-center justify-center rounded-r-lg text-ink/60 hover:bg-ink/5`}>
+                <span className="px-1 text-xs tabular-nums text-ink/70">{entrance.depthM.toFixed(1)}m</span>
+                <button type="button" aria-label="Increase depth" onClick={() => { setEntrance((en) => ({ ...en, depthM: Math.min(8, Math.round((en.depthM + 0.5) * 2) / 2) })); setFloorDirty(true); }} className={`flex ${big ? 'h-11 w-11' : 'h-11 w-11'} items-center justify-center rounded-r-full text-ink/70 hover:bg-ink/5`}>
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
@@ -6109,7 +6075,7 @@ export function SeatingEditor({
         name = 'Dance floor';
         mBody = (<>{removeBtn}{doneBtn}</>);
       } else if (selM.kind === 'service') {
-        glyph = <Truck className="h-3.5 w-3.5 text-ink/50" />;
+        glyph = <Truck className="h-3.5 w-3.5 text-ink/70" />;
         name = 'Service door';
         mBody = (<>{removeBtn}{doneBtn}</>);
       } else if (selM.kind === 'sign') {
@@ -6128,12 +6094,12 @@ export function SeatingEditor({
               onBlur={(e) => relabelSign(s.sign_id, e.currentTarget.value)}
               className={big ? 'h-11 min-w-0 flex-1 rounded-xl border border-ink/15 bg-cream px-3 text-base font-medium text-ink outline-none focus:border-terracotta' : 'w-28 rounded-lg border border-transparent bg-ink/[0.04] px-2 py-1 text-sm font-medium text-ink outline-none focus:border-terracotta focus:bg-cream'}
             />
-            <div className="flex shrink-0 items-center rounded-lg border border-ink/15">
-              <button type="button" aria-label="Rotate 45° left" onClick={() => rotateSignBy(s.sign_id, -45)} className={`flex ${big ? 'h-11 w-11' : 'h-8 w-8'} items-center justify-center rounded-l-lg text-ink/60 hover:bg-ink/5`}>
+            <div className="flex shrink-0 items-center rounded-full border border-ink/15">
+              <button type="button" aria-label="Rotate 45° left" onClick={() => rotateSignBy(s.sign_id, -45)} className={`flex ${big ? 'h-11 w-11' : 'h-11 w-11'} items-center justify-center rounded-l-full text-ink/70 hover:bg-ink/5`}>
                 <RotateCcw className="h-4 w-4" />
               </button>
-              <span className="w-9 text-center font-mono text-[11px] tabular-nums text-ink/60">{s.rotation_deg}°</span>
-              <button type="button" aria-label="Rotate 45° right" onClick={() => rotateSignBy(s.sign_id, 45)} className={`flex ${big ? 'h-11 w-11' : 'h-8 w-8'} items-center justify-center rounded-r-lg text-ink/60 hover:bg-ink/5`}>
+              <span className="w-9 text-center text-xs tabular-nums text-ink/70">{s.rotation_deg}°</span>
+              <button type="button" aria-label="Rotate 45° right" onClick={() => rotateSignBy(s.sign_id, 45)} className={`flex ${big ? 'h-11 w-11' : 'h-11 w-11'} items-center justify-center rounded-r-full text-ink/70 hover:bg-ink/5`}>
                 <RotateCw className="h-4 w-4" />
               </button>
             </div>
@@ -6143,11 +6109,11 @@ export function SeatingEditor({
         );
       } else {
         // stage — honest permanence: no remove. Said as a sentence beside Done, never an orphan "· permanent" line.
-        glyph = <span className="font-mono text-[9px] font-semibold uppercase tracking-wide text-ink/50">Stage</span>;
+        glyph = <span className="text-xs font-semibold uppercase tracking-wide text-ink/70">Stage</span>;
         name = 'Stage';
         mBody = (
           <>
-            <span data-seat-stage-stays="" className={big ? 'min-w-0 flex-1 text-[13.5px] text-ink/65' : 'px-1 text-[11px] text-ink/45'}>
+            <span data-seat-stage-stays="" className={big ? 'min-w-0 flex-1 text-[13.5px] text-ink/70' : 'px-1 text-xs text-ink/70'}>
               {big ? 'The stage stays on the plan — drag it to move it.' : '· permanent'}
             </span>
             {doneBtn}
@@ -6179,11 +6145,11 @@ export function SeatingEditor({
         <ContextDock variant="dock" edge="bottom" tone="notice" boundsRef={regionRef}>
           <span data-seat-plan-toast="" className="min-w-0 flex-1 px-1 text-sm text-warn-900">{autoRun.text}</span>
           {autoRun.undo ? (
-            <button type="button" onClick={undoAutoRun} data-seat-plan-undo="" className="inline-flex h-8 shrink-0 items-center rounded-lg px-2 text-xs font-semibold text-warn-800 hover:bg-warn-100">
+            <button type="button" onClick={undoAutoRun} data-seat-plan-undo="" className="inline-flex h-11 shrink-0 items-center rounded-full px-2 text-xs font-semibold text-warn-800 hover:bg-warn-100">
               Undo
             </button>
           ) : null}
-          <button type="button" onClick={() => setAutoRun(null)} aria-label="Dismiss" className="flex h-8 w-8 items-center justify-center rounded-lg text-warn-700 hover:bg-warn-100">
+          <button type="button" onClick={() => setAutoRun(null)} aria-label="Dismiss" className="flex h-11 w-11 items-center justify-center rounded-full text-warn-700 hover:bg-warn-100">
             <X className="h-4 w-4" />
           </button>
         </ContextDock>
@@ -6193,7 +6159,7 @@ export function SeatingEditor({
       return (
         <ContextDock variant="dock" edge="bottom" tone="notice" boundsRef={regionRef}>
           <span className="min-w-0 flex-1 px-1 text-sm text-warn-900">{notice}</span>
-          <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="flex h-8 w-8 items-center justify-center rounded-lg text-warn-700 hover:bg-warn-100">
+          <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="flex h-11 w-11 items-center justify-center rounded-full text-warn-700 hover:bg-warn-100">
             <X className="h-4 w-4" />
           </button>
         </ContextDock>
@@ -6444,24 +6410,24 @@ export function SeatingEditor({
         const rows = placeRows.filter((r) => r.group === grp);
         return (
           <Fragment key={grp}>
-            <p className="hidden px-2.5 pb-0.5 pt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45 lg:block">
+            <p className="hidden px-2.5 pb-0.5 pt-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70 lg:block">
               {grp === 'tables' ? `Tables · ${formatCount(rows.length)}` : 'The place'}
             </p>
             {grp === 'tables' && rows.length === 0 ? (
-              <p className="hidden px-2.5 text-[11.5px] text-ink/55 lg:block">No tables yet — Add, or Auto Arrange.</p>
+              <p className="hidden px-2.5 text-xs text-ink/70 lg:block">No tables yet — Add, or Auto Arrange.</p>
             ) : null}
             {rows.map((r) => (
               <DetailsPieceButton key={r.key} on={r.key === seatPieceKey} onPick={() => pickPlace(r.key)} data={r.key}>
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate">{r.label}</span>
-                  {r.sub ? <small className="truncate text-[11px] opacity-70">{r.sub}</small> : null}
+                  {r.sub ? <small className="truncate text-xs opacity-70">{r.sub}</small> : null}
                 </span>
               </DetailsPieceButton>
             ))}
           </Fragment>
         );
       })}
-      <p className="hidden px-2.5 pb-0.5 pt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45 lg:block">For your guests</p>
+      <p className="hidden px-2.5 pb-0.5 pt-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70 lg:block">For your guests</p>
       <DetailsPieceButton
         on={guestsMode === 'map' && seatPieceKey === null && !showAddTable}
         onPick={() => pickPlace(SEAT_PLAN_MAP_PIECE)}
@@ -6469,7 +6435,7 @@ export function SeatingEditor({
       >
         <span className="flex min-w-0 flex-col">
           <span className="truncate">Guests&rsquo; map</span>
-          <small className="truncate text-[11px] opacity-70">Find my table · the way in</small>
+          <small className="truncate text-xs opacity-70">Find my table · the way in</small>
         </span>
       </DetailsPieceButton>
     </>
@@ -6495,7 +6461,7 @@ export function SeatingEditor({
   const togglePick = (g: SeatingGuest) => setPickedId((id) => (id === g.guest_id ? null : g.guest_id));
   const seatAtMenu = (g: SeatingGuest) =>
     seatAtOptions.length === 0 ? (
-      <span className="shrink-0 text-[10.5px] text-ink/45">No free seats</span>
+      <span className="shrink-0 text-xs text-ink/70">No free seats</span>
     ) : (
       <PickMenu
         label="Seat at…"
@@ -6506,14 +6472,14 @@ export function SeatingEditor({
           if (t) seatGuestHere(t, g.guest_id);
         }}
         dataAttr="data-seat-at"
-        className="min-h-8 shrink-0 border border-ink/15 px-2.5 text-[12px]"
+        className="shrink-0 px-2.5 text-xs"
       />
     );
   const back = (label: string, onBack: () => void) => (
     <button
       type="button"
       onClick={onBack}
-      className="sn-press inline-flex min-h-10 items-center self-start text-[13px] font-medium text-ink/70 underline-offset-2 hover:underline"
+      className="sn-press inline-flex min-h-11 items-center self-start text-[13px] font-medium text-ink/70 underline-offset-2 hover:underline"
     >
       ‹ {label}
     </button>
@@ -6647,7 +6613,7 @@ export function SeatingEditor({
     const nextForSeat = pickedGuest ?? nextUp;
     return (
       <section data-seat-plan-table={t.table_id} className="flex flex-col gap-1.5">
-        <p className="flex items-baseline justify-between gap-2 font-mono text-[10.5px] uppercase tracking-[0.16em] text-ink/55">
+        <p className="flex items-baseline justify-between gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           <span className="min-w-0 truncate">{t.table_label}</span>
           <span className="shrink-0 tabular-nums">
             {formatCount(seatedHere)}/{formatCount(cap)}
@@ -6678,7 +6644,7 @@ export function SeatingEditor({
               <li key={`empty-${i}`}>
                 <button
                   type="button"
-                  className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-dashed border-ink/20 px-2 text-left text-[13px] text-ink/60 hover:bg-ink/[0.03] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex min-h-11 w-full items-center gap-2 border-b border-ink/10 px-1 text-left text-[13px] text-ink/70 hover:bg-ink/[0.03] disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={!canEdit || !nextForSeat}
                   data-seat-plan-empty-seat={i}
                   onClick={() => {
@@ -6687,11 +6653,11 @@ export function SeatingEditor({
                     if (pickedGuest) setPickedId(null);
                   }}
                 >
-                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-ink/30 font-mono text-[10px] text-ink/50">
+                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-ink/30 text-xs text-ink/70">
                     {i + 1}
                   </span>
                   <span className="min-w-0 flex-1">Empty seat</span>
-                  <span className="min-w-0 truncate text-[11px] text-ink/50">
+                  <span className="min-w-0 truncate text-xs text-ink/70">
                     {pickedGuest
                       ? `Seat ${pickedGuest.name} here`
                       : nextUp
@@ -6704,22 +6670,15 @@ export function SeatingEditor({
           )}
         </ul>
         <div className="flex flex-wrap gap-1.5 pt-1">
-          <button
-            type="button"
-            className="sn-press inline-flex min-h-10 items-center rounded-lg border border-ink/15 px-3 text-[13px] font-medium text-ink hover:bg-ink/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+          <ActionButton
+            tone="brand"
+            icon={UserPlus}
+            label="Seat next unseated"
             data-seat-plan-next=""
             disabled={!canEdit || !nextUp || seatedHere >= cap}
             onClick={() => nextUp && seatGuestHere(t, nextUp.guest_id)}
-          >
-            + Seat next unseated
-          </button>
-          <button
-            type="button"
-            onClick={clearSelection}
-            className="sn-press inline-flex min-h-10 items-center rounded-lg px-3 text-[13px] text-ink/70 hover:bg-ink/[0.04]"
-          >
-            All guests
-          </button>
+          />
+          <ActionButton tone="neutral" quiet icon={Users} label="All guests" onClick={clearSelection} />
         </div>
       </section>
     );
@@ -6753,7 +6712,7 @@ export function SeatingEditor({
            Entrance marker reads), so the plan re-reads it after a save. */
         <>
           {back('Guests', () => setGuestsMode('guests'))}
-          <p className="text-xs text-ink/60">
+          <p className="text-xs text-ink/70">
             Each guest taps Find my table and sees this map — their table, and the way from the entrance.
           </p>
           <BlueprintStudio
@@ -6772,7 +6731,7 @@ export function SeatingEditor({
         tableGuests(detailsTable)
       ) : (
         <>
-          <p className="text-xs text-ink/60" data-seat-plan-counts="">
+          <p className="text-xs text-ink/70" data-seat-plan-counts="">
             {formatCount(guests.length)} {guests.length === 1 ? 'guest' : 'guests'} ·{' '}
             <span className={unseatedComing > 0 ? 'font-semibold text-terracotta-700' : ''}>
               {formatCount(unseatedComing)} unseated
@@ -6785,12 +6744,12 @@ export function SeatingEditor({
           {guestSections?.sections.map((sec) => (
             <section key={sec.key} data-seat-plan-section={sec.key} className="flex flex-col gap-1">
               <p
-                className={`font-mono text-[10.5px] uppercase tracking-[0.16em] ${sec.unseated ? 'text-terracotta-700' : 'text-ink/55'}`}
+                className={`text-xs font-semibold uppercase tracking-[0.06em] ${sec.unseated ? 'text-terracotta-700' : 'text-ink/70'}`}
               >
                 {sec.label} · {formatCount(sec.guestIds.length)}
               </p>
               {sec.unseated && sec.guestIds.length === 0 ? (
-                <p className="text-xs text-ink/55">{search.trim() ? 'No one unseated matches.' : 'Everyone who is coming has a seat.'}</p>
+                <p className="text-xs text-ink/70">{search.trim() ? 'No one unseated matches.' : 'Everyone who is coming has a seat.'}</p>
               ) : null}
               <ul className="space-y-0.5">
                 {sec.guestIds.map((id) => {
@@ -6814,19 +6773,19 @@ export function SeatingEditor({
             </section>
           ))}
           {guestSections && guestSections.notComing > 0 ? (
-            <p className="text-[11px] text-ink/50">
+            <p className="text-xs text-ink/70">
               {formatCount(guestSections.notComing)} not coming — not listed.
             </p>
           ) : null}
           {groups.length > 0 ? (
             <section data-seat-plan-section="groups" className="flex flex-col gap-1">
-              <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-ink/55">Groups · {formatCount(groups.length)}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Groups · {formatCount(groups.length)}</p>
               <ul className="space-y-0.5">
                 {groups.map((grp) => (
-                  <li key={grp.group_id} className="flex min-h-10 items-center gap-2 rounded-lg px-1.5">
+                  <li key={grp.group_id} className="flex min-h-11 items-center gap-2 border-b border-ink/10 px-1">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: grp.color }} />
                     <span className="min-w-0 flex-1 truncate text-sm text-ink">{grp.label}</span>
-                    <span className="text-[11px] text-ink/50">{formatCount(grp.member_count)}</span>
+                    <span className="text-xs text-ink/70">{formatCount(grp.member_count)}</span>
                     {groupVerbs(grp)}
                   </li>
                 ))}
@@ -7078,7 +7037,7 @@ export function SeatingEditor({
     if (!u) return null;
     return u.members.map((m) => (
       <span key={m.table_id} className="flex min-w-0 flex-wrap items-center gap-1.5" data-seat-list-table={m.table_id}>
-        {u.members.length > 1 ? <span className="text-[12.5px] text-ink/60">{m.table_label}</span> : null}
+        {u.members.length > 1 ? <span className="text-[12.5px] text-ink/70">{m.table_label}</span> : null}
         <PickMenu
           label="Table type"
           value={m.table_type}
@@ -7172,7 +7131,7 @@ export function SeatingEditor({
   /* The head's three menus — one copy, drawn by the shipped phone head and by the Studio's. */
   const phoneRules = (
     <>
-      <p className="px-1 pb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Who sits together</p>
+      <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Who sits together</p>
       {roleRulesList}
       {details ? (
         <button
@@ -7564,18 +7523,18 @@ export function SeatingEditor({
     inGuests && askMove ? (
       <Sheet open onClose={() => setAskMove(null)} labelledById="seat-move-ask-title" rise>
         <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-move-ask={askMove.a.kind}>
-          <h2 id="seat-move-ask-title" className="pr-10 font-display text-lg leading-snug text-ink [overflow-wrap:anywhere]">
+          <h2 id="seat-move-ask-title" className="pr-10 text-[17px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">
             {askMove.a.title}
           </h2>
           <ul className="flex flex-col gap-2">
             {askMove.a.rows.map((r, i) => (
               <li key={r.guestId} className="flex items-start gap-2" data-seat-move-row={r.guestId}>
-                {i > 0 ? <ArrowLeftRight aria-hidden className="mt-1 h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.8} /> : <span aria-hidden className="w-4 shrink-0" />}
+                {i > 0 ? <ArrowLeftRight aria-hidden className="mt-1 h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.8} /> : <span aria-hidden className="w-4 shrink-0" />}
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium text-ink [overflow-wrap:anywhere]">
-                    {r.name} <span className="font-normal text-ink/55">({r.where})</span>
+                    {r.name} <span className="font-normal text-ink/70">({r.where})</span>
                   </span>
-                  {r.why ? <span className="block text-xs text-ink/60" data-seat-move-why="">{r.why}</span> : null}
+                  {r.why ? <span className="block text-xs text-ink/70" data-seat-move-why="">{r.why}</span> : null}
                 </span>
               </li>
             ))}
@@ -7588,7 +7547,7 @@ export function SeatingEditor({
           ))}
           {askMove.a.sideEffects.length ? (
             <div className="flex flex-col gap-1.5">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Also</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Also</p>
               {askMove.a.sideEffects.map((x) => (
                 <button
                   key={x.key}
@@ -7599,9 +7558,7 @@ export function SeatingEditor({
                   className="sn-press flex min-h-11 items-center gap-3 rounded-xl border border-ink/10 px-3 py-2 text-left text-sm text-ink" // no-card-ok: a pressable choice row (a door), not a container
                 >
                   <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{x.text}</span>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${askMove.on[x.key] ? 'bg-success-50 text-success-800' : 'bg-ink/5 text-ink/55'}`}>
-                    {askMove.on[x.key] ? 'Yes' : 'No'}
-                  </span>
+                  <Badge tone={askMove.on[x.key] ? 'ok' : 'quiet'}>{askMove.on[x.key] ? 'Yes' : 'No'}</Badge>
                 </button>
               ))}
             </div>
@@ -7623,7 +7580,7 @@ export function SeatingEditor({
   const zoomStack = (
     <div
       data-seat-plan-zoom=""
-      className={`absolute right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm ${inGuests ? '' : studioSeat ? 'top-3' : 'bottom-[64px] lg:bottom-3'}`}
+      className={`absolute right-3 z-20 flex flex-col overflow-hidden rounded-full border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm ${inGuests ? '' : studioSeat ? 'top-3' : 'bottom-[64px] lg:bottom-3'}`}
       style={inGuests ? { bottom: 'max(0.75rem, calc(var(--sn-thumb-room, 0px) - var(--sn-bottomdock-h, 0px)))' } : undefined}
     >
       <button
@@ -7662,7 +7619,7 @@ export function SeatingEditor({
       {askArrange ? (
         <Sheet open onClose={() => setAskArrange(false)} labelledById="seat-arrange-ask-title" rise>
           <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-arrange-ask="">
-            <h2 id="seat-arrange-ask-title" className="pr-10 font-display text-lg leading-snug text-ink">
+            <h2 id="seat-arrange-ask-title" className="pr-10 text-[17px] font-semibold leading-snug text-ink">
               Auto arrange — who moves?
             </h2>
             <p className="text-sm text-ink/70">
@@ -7679,7 +7636,7 @@ export function SeatingEditor({
       {askClear ? (
         <Sheet open onClose={() => setAskClear(false)} labelledById="seat-clear-ask-title" rise>
           <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-clear-ask="">
-            <h2 id="seat-clear-ask-title" className="pr-10 font-display text-lg leading-snug text-ink">
+            <h2 id="seat-clear-ask-title" className="pr-10 text-[17px] font-semibold leading-snug text-ink">
               Clear all seats?
             </h2>
             <p className="text-sm text-ink/70">
@@ -7687,7 +7644,7 @@ export function SeatingEditor({
             </p>
             {lockedCount > 0 ? (
               <div className="flex min-h-11 items-center gap-2">
-                <span className="min-w-0 flex-1 text-sm text-ink">Locked seats <span className="font-mono text-[11px] text-ink/45">{formatCount(lockedCount)}</span></span>
+                <span className="min-w-0 flex-1 text-sm text-ink">Locked seats <span className="text-xs text-ink/70">{formatCount(lockedCount)}</span></span>
                 <PickMenu
                   label="Locked seats"
                   value={clearLocked}
@@ -7795,7 +7752,7 @@ export function SeatingEditor({
             drawer peek handle instead.) */}
         <button
           type="button"
-          className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-ink/12 bg-cream px-3 py-1.5 font-mono text-[11px] text-ink/70 hover:border-terracotta sm:inline-flex"
+          className="hidden min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-4 text-sm text-ink/70 hover:border-terracotta sm:inline-flex"
           title={`${seatedCount}/${totalCapacity} seated · ${tables.length} tables · ${formatCount(unseatedCount)} unseated — tap to show who's left`}
           onClick={() => {
             selectPanelTab('people');
@@ -7823,23 +7780,22 @@ export function SeatingEditor({
             {peerList.slice(0, 3).map((p, i) => (
               <span
                 key={p.id}
-                className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-cream text-[10px] font-semibold text-cream ${i > 0 ? '-ml-1.5' : ''}`}
+                className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-cream text-xs font-semibold text-cream ${i > 0 ? '-ml-1.5' : ''}`}
                 style={{ backgroundColor: p.color }}
               >
                 {p.name.trim().charAt(0).toUpperCase() || '·'}
               </span>
             ))}
             {peerList.length > 3 ? (
-              <span className="-ml-1.5 flex h-6 items-center rounded-full border-2 border-cream bg-ink/60 px-1.5 text-[10px] font-semibold text-cream">
+              <span className="-ml-1.5 flex h-6 items-center rounded-full border-2 border-cream bg-ink px-1.5 text-xs font-semibold text-cream">
                 +{peerList.length - 3}
               </span>
             ) : null}
           </span>
         ) : null}
         {!canEdit ? (
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 bg-ink/[0.03] px-2.5 py-1 text-[11px] font-medium text-ink/70">
-            <Eye className="h-3.5 w-3.5 text-ink/50" />
-            {lock.status === 'acquiring' ? 'Opening…' : 'Viewing only'}
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-ink/70">
+            <Badge tone="quiet">{lock.status === 'acquiring' ? 'Opening…' : 'Viewing only'}</Badge>
             <ActionButton tone="neutral" quiet icon={Eye} label={lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'} disabled={lock.status === 'acquiring'} onClick={lock.acquire} />
           </span>
         ) : null}
@@ -7854,9 +7810,9 @@ export function SeatingEditor({
               type="button"
               onClick={() => setNoticesExpanded((v) => !v)}
               aria-expanded={noticesExpanded}
-              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-warn-300 bg-warn-50 px-2 py-1 text-[11px] font-medium text-warn-800 hover:bg-warn-100"
+              className="sn-hit inline-flex shrink-0 items-center gap-1 rounded-full bg-warn-50 px-2.5 py-1 text-xs font-semibold text-warn-800 hover:bg-warn-100"
             >
-              <AlertTriangle className="h-3 w-3" />
+              <AlertTriangle className="h-3 w-3" aria-hidden />
               {formatCount(count)} notice{count === 1 ? '' : 's'}
             </button>
           );
@@ -7910,7 +7866,7 @@ export function SeatingEditor({
             one-dialog confirm; the caret holds Build-my-seating-draft + Fill-
             around-locked (moved out of Arrange). Empty floor disables the
             command-bar gold with a reason (gold transfers to the starter card). */}
-        <div className="relative flex shrink-0">
+        <div ref={autoMenuRef} className="relative flex shrink-0">
           <button
             type="button"
             onClick={() => setConfirmAuto(true)}
@@ -7922,7 +7878,7 @@ export function SeatingEditor({
                   ? 'View only — someone else is editing this seat plan'
                   : undefined
             }
-            className="inline-flex h-9 items-center gap-1.5 rounded-l-lg bg-mulberry px-3 text-xs font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-11 items-center gap-1.5 rounded-l-full bg-mulberry pl-4 pr-3 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className="h-3.5 w-3.5" />
             <span className="sm:hidden">Auto</span>
@@ -7935,14 +7891,13 @@ export function SeatingEditor({
             aria-haspopup="menu"
             aria-expanded={autoMenuOpen}
             aria-label="More auto-layout options"
-            className="inline-flex h-9 items-center rounded-r-lg border-l border-cream/25 bg-mulberry px-1.5 text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-11 items-center rounded-r-full border-l border-cream/25 bg-mulberry pl-2 pr-3 text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
           {autoMenuOpen ? (
             <>
-              <button type="button" aria-hidden tabIndex={-1} onClick={() => setAutoMenuOpen(false)} className="fixed inset-0 z-40 cursor-default" />
-              <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg">
+              <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-2xl bg-cream p-1 shadow-lg ring-1 ring-ink/10">
                 <MenuRow icon={Sparkles} label="Build my seating draft" hint="Lay out the whole floor in one tap" onClick={() => { setAutoMenuOpen(false); buildDraft(); }} disabled={!canEdit || isPending || tables.length > 0} />
                 {lockedCount > 0 ? (
                   <MenuRow icon={Lock} label={`Fill around ${formatCount(lockedCount)} locked`} hint="Keep locked seats; re-seat everyone else around them" onClick={() => { setAutoMenuOpen(false); setConfirmFill(true); }} disabled={isPending || !canEdit} />
@@ -7966,7 +7921,7 @@ export function SeatingEditor({
               <div className="flex items-center gap-2 border-b border-warn-200/70 bg-warn-50/60 px-4 py-1.5 text-xs text-ink/80">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warn-700" />
                 <span className="min-w-0 flex-1">{displacedNotice}</span>
-                <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="rounded p-0.5 text-warn-700 hover:bg-warn-100">
+                <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-warn-700 hover:bg-warn-100">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -7994,35 +7949,33 @@ export function SeatingEditor({
             §2 row 2). Floats (absolute) so it never pushes the canvas down. */}
         {view === 'plan' && showRoomPanel ? (
           <div
-            className="absolute right-2 top-2 z-40 flex max-h-[calc(100%-1rem)] w-[min(92vw,40rem)] flex-wrap items-end gap-4 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-3 shadow-lg"
+            className="absolute right-2 top-2 z-40 flex max-h-[calc(100%-1rem)] w-[min(92vw,40rem)] flex-wrap items-end gap-4 overflow-y-auto rounded-2xl bg-cream p-4 shadow-lg ring-1 ring-ink/10"
             /* 🗺 In Guests the plan's top is under the pinned row (the plan is the whole screen) — the panel opens below it. */
             style={inGuests ? { top: 'calc(var(--gs-stick-h, 0px) + 0.5rem)', maxHeight: 'calc(100% - var(--gs-stick-h, 0px) - 1rem)' } : undefined}
           >
             <div className="flex w-full items-center justify-between">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Room size &amp; scale</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Room size &amp; scale</span>
               <button
                 type="button"
                 onClick={() => setShowRoomPanel(false)}
                 aria-label="Close room size"
-                className="rounded-md p-1 text-ink/40 hover:bg-ink/5"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <label className="flex items-center gap-2 text-sm text-ink/75">
-              <input
-                type="checkbox"
-                checked={venue.enabled}
-                onChange={(e) => {
-                  setVenue((v) => ({ ...v, enabled: e.target.checked }));
+            <FormRows data="seat-plan-room-scale">
+              <SwitchRow
+                name="Show room to scale"
+                on={venue.enabled}
+                onChange={(on) => {
+                  setVenue((v) => ({ ...v, enabled: on }));
                   setFloorDirty(true);
                 }}
-                className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
               />
-              Show room to scale
-            </label>
+            </FormRows>
             <label className="flex flex-col gap-1">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Width (m)</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Width (m)</span>
               <input
                 type="number"
                 min={1}
@@ -8033,11 +7986,11 @@ export function SeatingEditor({
                   setVenue((v) => ({ ...v, width: Number(e.target.value) || 0 }));
                   setFloorDirty(true);
                 }}
-                className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+                className="min-h-11 w-24 rounded-xl border border-ink/15 bg-cream px-3 py-2 text-sm outline-none focus:border-terracotta"
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Length (m)</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Length (m)</span>
               <input
                 type="number"
                 min={1}
@@ -8048,7 +8001,7 @@ export function SeatingEditor({
                   setVenue((v) => ({ ...v, length: Number(e.target.value) || 0 }));
                   setFloorDirty(true);
                 }}
-                className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+                className="min-h-11 w-24 rounded-xl border border-ink/15 bg-cream px-3 py-2 text-sm outline-none focus:border-terracotta"
               />
             </label>
             {/* WHERE THE NUMBER CAME FROM (2026-08-07). A room that silently
@@ -8059,8 +8012,8 @@ export function SeatingEditor({
             {suggestedRoomSize &&
             venue.width === suggestedRoomSize.widthM &&
             venue.length === suggestedRoomSize.lengthM ? (
-              <p className="text-xs text-ink/60">
-                Sized from <span className="font-medium text-ink/80">{suggestedRoomSize.vendorName}</span> —
+              <p className="text-xs text-ink/70">
+                Sized from <span className="font-medium text-ink">{suggestedRoomSize.vendorName}</span> —
                 change it if your room is different.
               </p>
             ) : null}
@@ -8070,7 +8023,7 @@ export function SeatingEditor({
                 several is a dropdown, never a pill row). Picking one sets the
                 footprint and turns to-scale on, as the preset pills did. */}
             <div className="flex flex-col gap-1">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Room size</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Room size</span>
               <PickMenu
                 label="Room size"
                 value={
@@ -8092,7 +8045,7 @@ export function SeatingEditor({
                   setVenue({ enabled: true, width: p.width, length: p.length });
                   setFloorDirty(true);
                 }}
-                className="self-start border border-ink/15"
+                className="self-start"
               />
             </div>
             {/* Stage + dance-floor dimensions in metres. Sizes store as percent
@@ -8164,15 +8117,13 @@ export function SeatingEditor({
                 ) : null}
               </>
             ) : null}
-            <p className="flex-1 text-xs text-ink/50">
-              Enter your reception room&rsquo;s width × length and tables render at their true footprint, so you can
-              see what fits.{' '}
-              {venueScaled ? (
-                <span className="text-ink/40">Stage &amp; dance-floor sizes are in metres too.</span>
-              ) : (
-                <span className="text-ink/40">Zoom in to seat people; Fit to see the whole room.</span>
-              )}
-            </p>
+            <div className="flex-1 text-xs text-ink/70">
+              <InfoTip label="About the room size" labelAs="span" align="start">
+                Enter your reception room’s width × length and tables render at their true footprint, so you can see what
+                fits.{' '}
+                {venueScaled ? 'Stage & dance-floor sizes are in metres too.' : 'Zoom in to seat people; Fit to see the whole room.'}
+              </InfoTip>
+            </div>
           </div>
         ) : null}
 
@@ -8202,14 +8153,14 @@ export function SeatingEditor({
           data-seat-floor={inGuests ? 'cell' : undefined}
           className={
             inGuests
-              ? "absolute inset-0 m-auto cursor-grab touch-none before:pointer-events-auto before:absolute before:-inset-[200vmax] before:bg-ink/[0.02] before:content-[''] before:[background-image:radial-gradient(circle_at_1px_1px,rgba(30,34,41,0.06)_1px,transparent_0)] before:[background-size:var(--seat-grid)_var(--seat-grid)] active:cursor-grabbing"
+              ? "absolute inset-0 m-auto cursor-grab touch-none before:pointer-events-auto before:absolute before:-inset-[200vmax] before:bg-ink/[0.02] before:content-[''] before:[background-image:radial-gradient(circle_at_1px_1px,rgb(var(--color-ink)/0.06)_1px,transparent_0)] before:[background-size:var(--seat-grid)_var(--seat-grid)] active:cursor-grabbing"
               : 'absolute inset-0 m-auto cursor-grab touch-none overflow-hidden border border-ink/15 bg-ink/[0.02] active:cursor-grabbing'
           }
           style={{
             ...(inGuests
               ? ({ '--seat-grid': `${gridPx}px` } as React.CSSProperties)
               : {
-                  backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
+                  backgroundImage: 'radial-gradient(circle at 1px 1px, rgb(var(--color-ink) / 0.06) 1px, transparent 0)',
                   backgroundSize: `${gridPx}px ${gridPx}px`,
                 }),
             // The canvas fills the cell (verdict §1 — no aspect-[7/5] box, no 64vh
@@ -8234,10 +8185,10 @@ export function SeatingEditor({
             <>
               {/* Blueprint (directive 2026-07-15): hairline walls, mono dims. */}
               <div className={`pointer-events-none absolute inset-0 border border-ink/30 ${inGuests ? '' : 'rounded-lg'}`} data-seat-room-wall="" />
-              <span className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 rounded bg-cream/80 px-1.5 font-mono text-[9px] font-medium tracking-tight text-ink/55">
+              <span className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 rounded bg-cream/80 px-1.5 font-mono text-[9px] font-medium tracking-tight text-ink/70">
                 {venue.width} m
               </span>
-              <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 rounded bg-cream/80 px-1.5 font-mono text-[9px] font-medium tracking-tight text-ink/55">
+              <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 rounded bg-cream/80 px-1.5 font-mono text-[9px] font-medium tracking-tight text-ink/70">
                 {venue.length} m
               </span>
             </>
@@ -8548,7 +8499,7 @@ export function SeatingEditor({
                       : 'border-ink/25 cursor-grab'
                 }`}
               >
-                <Truck className="h-3.5 w-3.5 text-ink/50" /> Service
+                <Truck className="h-3.5 w-3.5 text-ink/70" /> Service
               </button>
               {/* Ambient × deleted — Remove lives in the dock now (§1.4). */}
             </div>
@@ -8692,32 +8643,34 @@ export function SeatingEditor({
                     type="button"
                     onClick={onClick}
                     disabled={disabled}
-                    className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    className={`flex min-h-14 w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
                       gold
                         ? 'border-mulberry/40 bg-mulberry/[0.06] hover:border-mulberry'
                         : 'border-ink/12 hover:border-terracotta/50 hover:bg-ink/[0.02]'
                     }`}
                   >
                     <span
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-semibold ${
-                        done ? 'bg-success-100 text-success-700' : gold ? 'bg-mulberry text-cream' : 'bg-ink/8 text-ink/60'
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums ${
+                        done ? 'bg-success-100 text-success-700' : gold ? 'bg-mulberry text-cream' : 'bg-ink/8 text-ink/70'
                       }`}
                     >
                       {done ? <Check className="h-3.5 w-3.5" /> : num}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className={`block text-sm font-medium ${gold ? 'text-mulberry' : 'text-ink'}`}>{label}</span>
-                      {hint ? <span className="block text-[11px] text-ink/50">{hint}</span> : null}
+                      {hint ? <span className="block text-xs text-ink/70">{hint}</span> : null}
                     </span>
                   </button>
                 );
                 return (
-                  <div className="pointer-events-auto w-full max-w-sm rounded-2xl border-2 border-dashed border-ink/15 bg-cream/95 p-5 shadow-sm">
+                  /* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 13): the one next thing on an empty floor — on the warm surface,
+                     its three steps the only framed (pressable) rows on the screen. */
+                  <div className="pointer-events-auto w-full max-w-sm rounded-2xl bg-[var(--m-paper-2)] p-5 shadow-sm">
                     <div aria-hidden className="mx-auto mb-3 flex h-16 items-center justify-center rounded-lg border border-dashed border-ink/20 bg-ink/[0.02]">
                       <span className="h-8 w-8 rounded-full border border-dashed border-ink/25" />
                     </div>
-                    <h3 className="text-center text-base font-semibold text-ink">Lay out your floor</h3>
-                    <p className="mt-1 mb-3 text-center text-xs text-ink/55">Three steps — we do the heavy lifting.</p>
+                    <h3 className="text-center text-[17px] font-bold text-ink">Lay out your floor</h3>
+                    <p className="mt-1 mb-3 text-center text-xs text-ink/70">Three steps — we do the heavy lifting.</p>
                     <div className="flex flex-col gap-2">
                       <Step num={1} done={venueScaled} label="Set room size" hint={venueScaled ? `${venue.width}×${venue.length} m` : 'Match your reception footprint'} onClick={() => setShowRoomPanel(true)} disabled={!canEdit} />
                       <Step num={2} done={false} label="Add your first table" hint="Pick from the 13-type catalog" onClick={() => { selectPanelTab('tables'); setShowAddTable(true); if (isNarrow) setDrawerSnap('half'); }} disabled={!canEdit} />
@@ -8913,7 +8866,7 @@ export function SeatingEditor({
                         }}
                         aria-label={`Restore seat ${i + 1}`}
                         title="Restore this chair"
-                        className="absolute z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-dashed border-ink/30 bg-cream/70 text-ink/45 transition hover:border-success-500 hover:text-success-600"
+                        className="absolute z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-dashed border-ink/30 bg-cream/70 text-ink/70 transition hover:border-success-500 hover:text-success-600"
                         style={{ left: cx, top: cy, width: editHit, height: editHit }}
                       >
                         <Plus style={{ width: CHAIR_PX / 2, height: CHAIR_PX / 2 }} />
@@ -9002,7 +8955,7 @@ export function SeatingEditor({
                           }}
                           aria-label={`Delete seat ${i + 1}`}
                           title="Delete this chair"
-                          className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-ink/15 bg-cream/80 text-ink/45 shadow-sm transition hover:border-danger-400 hover:text-danger-600"
+                          className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-ink/15 bg-cream/80 text-ink/70 shadow-sm transition hover:border-danger-400 hover:text-danger-600"
                           style={{ width: editHit, height: editHit }}
                         >
                           <X style={{ width: CHAIR_PX / 2.5, height: CHAIR_PX / 2.5 }} />
@@ -9033,7 +8986,7 @@ export function SeatingEditor({
                   <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center">
                     {t.is_vip ? <VipMark /> : null}
                     <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
-                    <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/45">
+                    <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/70">
                       {formatCount(filled)}/{formatCount(effCap)}
                     </span>
                   </div>
@@ -9061,7 +9014,7 @@ export function SeatingEditor({
                     >
                       {t.is_vip ? <VipMark /> : null}
                       <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
-                      <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/45">
+                      <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/70">
                         {formatCount(filled)}/{formatCount(effCap)}
                       </span>
                     </div>
@@ -9093,7 +9046,7 @@ export function SeatingEditor({
               title="Room size & scale"
               className="absolute bottom-[64px] left-3 z-20 flex flex-col items-start gap-0.5 rounded px-1 hover:bg-cream/60 disabled:cursor-default lg:bottom-3"
             >
-              <span className="rounded bg-cream/80 px-1 font-mono text-[9px] font-medium tabular-nums text-ink/60">
+              <span className="rounded bg-cream/80 px-1 text-xs font-medium tabular-nums text-ink/70">
                 {scaleBar.metres} m
               </span>
               <div
@@ -9139,7 +9092,7 @@ export function SeatingEditor({
                 onPointerCancel={onWallGripUp}
                 aria-label="Drag to resize the room"
                 title="Drag to resize the room"
-                className="absolute bottom-0 right-0 z-20 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-tl-md border border-ink/30 bg-cream text-ink/60 hover:border-terracotta hover:text-terracotta-700"
+                className="absolute bottom-0 right-0 z-20 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-tl-md border border-ink/30 bg-cream text-ink/70 hover:border-terracotta hover:text-terracotta-700"
               >
                 <Maximize2 className="h-3 w-3 rotate-90" />
               </button>
@@ -9290,11 +9243,12 @@ export function SeatingEditor({
         ) : (
           <div className="absolute inset-0 space-y-2 overflow-y-auto p-3">
             {tables.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/50">
+              /* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 6): empty is one plain line where the rows would be — no box. */
+              <p className="px-1 py-2 text-sm text-ink/70">
                 No tables yet — tap “Build my seating” on the Map, or add one from the panel above.
-              </div>
+              </p>
             ) : (
-              <ul className="space-y-2">
+              <ul>
                 {displayUnits.map((u) => {
                   const occ = unitOcc(u);
                   const seated = occ
@@ -9307,7 +9261,7 @@ export function SeatingEditor({
                   const halo = dominantColor(occ, colorFor);
                   const open = cap - seated.length;
                   return (
-                    <li key={u.key} className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
+                    <li key={u.key} className="border-b border-ink/10">
                       {/* 👈 The table's Delete is its head's swipe (owner 2026-11-03) — the same ask, then Undo. */}
                       <SwipeToDelete
                         label={`Delete ${u.label}`}
@@ -9318,7 +9272,7 @@ export function SeatingEditor({
                           requestRemoveUnit(u);
                         }}
                       >
-                      <div className="flex items-center gap-2 p-3">
+                      <div className="flex min-h-14 items-center gap-2 px-1 py-2">
                         <span
                           className="h-3 w-3 shrink-0 rounded-full"
                           style={{ backgroundColor: halo ?? NEUTRAL }}
@@ -9345,27 +9299,23 @@ export function SeatingEditor({
                               ) : null}
                               {u.label}
                             </span>
-                            <span className="block text-[11px] text-ink/55">
+                            <span className="block text-xs text-ink/70">
                               {u.members.length > 1
                                 ? `${u.members.length} tables joined`
                                 : TABLE_TYPE_LABEL[u.lead.table_type]}
                             </span>
                           </span>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                              full ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/55'
-                            }`}
-                          >
+                          <Badge tone={full ? 'ok' : 'quiet'}>
                             {formatCount(seated.length)}/{formatCount(cap)}
-                          </span>
-                          <ChevronDown className={`h-4 w-4 text-ink/40 transition ${expanded ? 'rotate-180' : ''}`} />
+                          </Badge>
+                          <ChevronDown className={`h-4 w-4 text-ink/70 transition ${expanded ? 'rotate-180' : ''}`} />
                         </button>
                       </div>
                       </SwipeToDelete>
 
-                      <div className="flex flex-wrap items-center gap-1.5 px-3 pb-3">
+                      <div className="flex flex-wrap items-center gap-1.5 px-1 pb-3">
                         {seated.length === 0 ? (
-                          <span className="text-xs text-ink/40">No one seated yet.</span>
+                          <span className="text-xs text-ink/70">No one seated yet.</span>
                         ) : (
                           seated.map((g) => (
                             <button
@@ -9373,57 +9323,53 @@ export function SeatingEditor({
                               type="button"
                               onClick={() => setPickedId(g.guest_id)}
                               title={`${g.name} — tap to move`}
-                              className="rounded-full"
+                              className="sn-hit rounded-full"
                             >
                               <ChairAvatar guest={g} color={colorFor(g)} size={28} />
                             </button>
                           ))
                         )}
                         {pickedId && !full ? (
-                          <button
-                            type="button"
+                          <ActionButton
+                            tone="brand"
+                            icon={Armchair}
+                            label="Seat here"
+                            name={`Seat here — ${u.label}`}
                             onClick={() => freeSeat && place(freeSeat.tableId, freeSeat.seat)}
-                            className="ml-auto inline-flex items-center gap-1 rounded-lg bg-terracotta-700 px-2.5 py-1 text-xs font-medium text-cream hover:bg-terracotta-800"
-                          >
-                            <Armchair className="h-3.5 w-3.5" /> Seat here
-                          </button>
+                            className="ml-auto"
+                          />
                         ) : null}
                         {pickedGroupId && !full ? (
-                          <button
-                            type="button"
+                          <ActionButton
+                            tone="brand"
+                            icon={Armchair}
+                            label="Seat group here"
+                            name={`Seat group here — ${u.label}`}
                             onClick={() => seatGroupAt(u.lead.table_id)}
-                            className="ml-auto inline-flex items-center gap-1 rounded-lg bg-mulberry px-2.5 py-1 text-xs font-medium text-cream hover:bg-mulberry-600"
-                          >
-                            <Armchair className="h-3.5 w-3.5" /> Seat group here
-                          </button>
+                            className="ml-auto"
+                          />
                         ) : null}
                       </div>
 
                       {expanded ? (
-                        <ul className="space-y-0.5 border-t border-ink/10 p-2">
+                        <ul className="space-y-0.5 pb-2 pl-3">
                           {seated.map((g) => (
-                            <li key={g.guest_id} className="flex items-center gap-2 rounded-lg px-1.5 py-1">
+                            <li key={g.guest_id} className="flex min-h-11 items-center gap-2 px-1.5 py-1">
                               <ChairAvatar guest={g} color={colorFor(g)} size={24} />
                               <span className="min-w-0 flex-1 truncate text-sm text-ink">
                                 {g.name}
                                 {g.rsvp_status !== 'attending' ? (
-                                  <span
-                                    title="Held — this guest hasn't confirmed yet"
-                                    className="ml-1.5 rounded-full bg-warn-100 px-1.5 py-0.5 text-[10px] font-semibold text-warn-800"
-                                  >
-                                    held
+                                  <span title="Held — this guest hasn't confirmed yet" className="ml-1.5 inline-flex align-middle">
+                                    <Badge tone="wait">held</Badge>
                                   </span>
                                 ) : null}
                                 {g.meal_preference && g.meal_preference !== 'no_preference' ? (
-                                  <span className="ml-1.5 text-[10px] text-ink/45">· {g.meal_preference}</span>
+                                  <span className="ml-1.5 text-xs text-ink/70">· {g.meal_preference}</span>
                                 ) : null}
                               </span>
                               {g.dietary_restrictions ? (
-                                <span
-                                  title={`Dietary: ${g.dietary_restrictions}`}
-                                  className="shrink-0 rounded-full bg-warn-100 px-1.5 py-0.5 text-[10px] font-semibold text-warn-800"
-                                >
-                                  diet
+                                <span title={`Dietary: ${g.dietary_restrictions}`} className="shrink-0">
+                                  <Badge tone="wait">diet</Badge>
                                 </span>
                               ) : null}
                               <button
@@ -9432,10 +9378,10 @@ export function SeatingEditor({
                                 disabled={!canEdit}
                                 aria-label={g.seat_locked ? `Unlock ${g.name}'s seat` : `Lock ${g.name}'s seat`}
                                 title={g.seat_locked ? 'Locked — “Fill around locked” keeps this seat' : 'Lock this seat'}
-                                className={`inline-flex items-center rounded-md border px-1.5 py-1 text-[11px] disabled:opacity-30 ${
+                                className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-xs disabled:opacity-30 ${
                                   g.seat_locked
                                     ? 'border-mulberry/40 bg-mulberry/10 text-mulberry'
-                                    : 'border-ink/15 text-ink/45 hover:border-mulberry/40 hover:text-mulberry'
+                                    : 'border-ink/15 text-ink/70 hover:border-mulberry/40 hover:text-mulberry'
                                 }`}
                               >
                                 {g.seat_locked ? (
@@ -9444,18 +9390,11 @@ export function SeatingEditor({
                                   <LockOpen className="h-3.5 w-3.5" />
                                 )}
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => unseat(g.guest_id)}
-                                aria-label={`Unseat ${g.name}`}
-                                className="inline-flex items-center gap-1 rounded-md border border-ink/15 px-2 py-1 text-[11px] text-ink/70 hover:border-danger-400 hover:text-danger-600"
-                              >
-                                <UserMinus className="h-3.5 w-3.5" /> Unseat
-                              </button>
+                              <ActionButton tone="neutral" quiet iconOnly icon={UserMinus} label="Unseat" name={`Unseat ${g.name}`} className="!w-11" onClick={() => unseat(g.guest_id)} />
                             </li>
                           ))}
                           {open > 0 ? (
-                            <li className="px-1.5 py-1 text-[11px] text-ink/40">
+                            <li className="px-1.5 py-1 text-xs text-ink/70">
                               {open} open {open === 1 ? 'seat' : 'seats'}.
                             </li>
                           ) : null}
@@ -9466,11 +9405,12 @@ export function SeatingEditor({
                 })}
               </ul>
             )}
-            <p className="px-1 text-xs text-ink/50">
-              Pick a guest in the panel above, then tap <span className="font-medium text-ink/70">Seat here</span> on a
-              table. Tap a seated avatar to move them. To seat a whole group at once, tap the{' '}
-              <Armchair className="inline h-3 w-3" /> beside a group, then choose a table.
-            </p>
+            <div className="px-1 text-xs text-ink/70">
+              <InfoTip label="How to seat from the list" labelAs="span" align="start">
+                Pick a guest in the panel above, then tap Seat here on a table. Tap a seated avatar to move them. To seat a
+                whole group at once, tap the chair beside a group, then choose a table.
+              </InfoTip>
+            </div>
           </div>
         )}
         {/* 🗺 Guests: the zoom stack rides the plan's cell, in the lower third (`zoomStack`). */}
@@ -9501,7 +9441,7 @@ export function SeatingEditor({
         <div
           ref={drawerRef}
           data-safe-x=""
-          className="fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border-t border-ink/15 bg-cream pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(0,0,0,0.14)] motion-safe:transition-[height] motion-safe:duration-200"
+          className="fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border-t border-ink/15 bg-cream pb-[env(safe-area-inset-bottom)] shadow-xl motion-safe:transition-[height] motion-safe:duration-[var(--sn-dur-control)]"
           style={{ height: drawerHeight }}
         >
           <button
@@ -9515,7 +9455,7 @@ export function SeatingEditor({
             style={{ height: DRAWER_PEEK_PX }}
           >
             <span aria-hidden className="h-1 w-9 rounded-full bg-ink/25" />
-            <span className="font-mono text-[11px] text-ink/60">
+            <span className="text-xs text-ink/70">
               {toSeatReserved} to seat · {tables.length} tables
             </span>
           </button>
@@ -9525,31 +9465,31 @@ export function SeatingEditor({
 
       {/* auto-arrange confirm */}
       {confirmAuto ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <OverlayBackdrop onClose={() => setConfirmAuto(false)} />
-          <div ref={confirmAutoRef} role="dialog" aria-modal="true" aria-label="Auto Arrange" className="relative max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-mulberry" />
-              <h3 className="text-lg font-semibold text-ink">Auto Arrange</h3>
+        /* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 9): the house Sheet — handle, title, ✕, equal-width buttons at the foot. */
+        <Sheet open onClose={() => setConfirmAuto(false)} labelledById="seat-auto-confirm-title" rise>
+          <div className="flex min-w-0 flex-col px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-auto-confirm="">
+            <div className="mb-2 flex items-center gap-2 pr-10">
+              <Sparkles className="h-5 w-5 text-mulberry" aria-hidden />
+              <h2 id="seat-auto-confirm-title" className="text-[17px] font-semibold text-ink">Auto Arrange</h2>
             </div>
             <p className="text-sm text-ink/70">One click, three steps:</p>
             <ol className="mt-2 space-y-1.5 text-sm text-ink/70">
               <li>
-                <span className="font-semibold text-ink/85">1 · Tables</span> — the tables you placed
+                <span className="font-semibold text-ink">1 · Tables</span> — the tables you placed
                 stay where they are. If your guests need more seats than your tables hold,{' '}
                 {TABLE_TYPE_CATALOG.find((c) => c.type === DRAFT_ROUND_TYPE)?.label ?? 'round'} tables are
                 added in the room&rsquo;s open space — nothing overlaps, the dance
                 floor stays clear. A table with no spot yet is laid out fanning from the stage.
               </li>
               <li>
-                <span className="font-semibold text-ink/85">2 · Booths</span> —{' '}
+                <span className="font-semibold text-ink">2 · Booths</span> —{' '}
                 {booths.length > 0 ? `your ${booths.length} booth${booths.length === 1 ? '' : 's'}` : 'any booths'}{' '}
                 {venueScaled
                   ? 'anchor to the back wall & sides, never blocking the stage or door paths.'
                   : 'tuck into a row behind the tables, out of the guests’ sightline (an open venue has no walls).'}
               </li>
               <li>
-                <span className="font-semibold text-ink/85">3 · Guests</span> — every unseated guest who
+                <span className="font-semibold text-ink">3 · Guests</span> — every unseated guest who
                 hasn&rsquo;t declined is seated by priority tier, highest priority nearest the stage.
                 Each group shares a table where it fits, and plus-ones sit beside whoever brought
                 them. Pending replies get a <span className="font-semibold">held</span> seat you can
@@ -9558,49 +9498,43 @@ export function SeatingEditor({
             </ol>
             {roleSeatingRows.length > 0 || vipTableCount > 0 ? (
               <div className="mt-3 border-t border-ink/10 pt-3">
-                <p className="text-sm font-semibold text-ink/85">Who sits together</p>
-                <p className="mt-0.5 text-xs text-ink/55">
-                  Sit together: one table (the fewest side-by-side tables if they don&rsquo;t fit).
-                  Sit with their group: each sits with their own group.
-                </p>
+                <div className="text-sm font-semibold text-ink">
+                  <InfoTip label="Who sits together" labelAs="span" align="start">
+                    Sit together: one table (the fewest side-by-side tables if they don’t fit). Sit with their group: each
+                    sits with their own group.
+                  </InfoTip>
+                </div>
                 <div className="mt-2">{roleRulesList}</div>
               </div>
             ) : null}
-            <p className="mt-2 text-xs text-ink/50">
+            <p className="mt-2 text-xs text-ink/70">
               New tables and seats are saved at once — Undo puts it all back. You can drag anything afterwards.
             </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmAuto(false)}
-                className="rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-sm text-ink hover:bg-ink/5"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
+            <EqualRow className="mt-4">
+              <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirmAuto(false)} />
+              <ActionButton
+                tone="brand"
+                main
+                icon={Sparkles}
+                label="Auto Arrange"
                 onClick={() => {
                   setConfirmAuto(false);
                   askAutoArrange();
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-semibold text-cream hover:bg-mulberry-600"
-              >
-                <Sparkles className="h-4 w-4" /> Auto Arrange
-              </button>
-            </div>
+              />
+            </EqualRow>
           </div>
-        </div>
+        </Sheet>
       ) : null}
 
       {/* Fill-around-locked confirm (smart seat-plan Phase 4) — it CLEARS unlocked
           seats and re-seats around the locked ones, so it asks first. */}
       {confirmFill ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <OverlayBackdrop onClose={() => setConfirmFill(false)} />
-          <div ref={confirmFillRef} role="dialog" aria-modal="true" aria-label="Fill around locked seats" className="relative w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 flex items-center gap-2">
-              <Lock className="h-5 w-5 text-mulberry" />
-              <h3 className="text-lg font-semibold text-ink">Fill around locked seats</h3>
+        <Sheet open onClose={() => setConfirmFill(false)} labelledById="seat-fill-confirm-title" rise>
+          <div className="flex min-w-0 flex-col px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-fill-confirm="">
+            <div className="mb-2 flex items-center gap-2 pr-10">
+              <Lock className="h-5 w-5 text-mulberry" aria-hidden />
+              <h2 id="seat-fill-confirm-title" className="text-[17px] font-semibold text-ink">Fill around locked seats</h2>
             </div>
             <p className="text-sm text-ink/70">
               Your <span className="font-semibold">{formatCount(lockedCount)}</span> locked seat
@@ -9608,24 +9542,12 @@ export function SeatingEditor({
               <span className="font-semibold">un-seated and re-seated</span> around them, by priority
               {keepApart.length > 0 ? ' and your keep-apart rules' : ''}.
             </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmFill(false)}
-                className="rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-sm text-ink hover:bg-ink/5"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={runFillAroundLocked}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-semibold text-cream hover:bg-mulberry-600"
-              >
-                <Lock className="h-4 w-4" /> Fill the rest
-              </button>
-            </div>
+            <EqualRow className="mt-4">
+              <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirmFill(false)} />
+              <ActionButton tone="brand" main icon={Lock} label="Fill the rest" onClick={runFillAroundLocked} />
+            </EqualRow>
           </div>
-        </div>
+        </Sheet>
       ) : null}
 
       {/* delete-table confirm — shown only when seated guests would be released. THE CENTRED CONFIRM BOX (the approved template, `GuestPopup kind="confirm"`: dark and blurred
@@ -9637,7 +9559,7 @@ export function SeatingEditor({
             const tb = tables.find((x) => x.table_id === confirmSwap.b);
             return (
               <div className="space-y-3" data-seat-plan-swap-confirm="">
-                <h3 id="seat-swap-confirm-title" className="font-display text-xl text-ink">
+                <h3 id="seat-swap-confirm-title" className="text-[17px] font-semibold text-ink">
                   Swap {ta?.table_label ?? 'this table'} and {tb?.table_label ?? 'that table'}?
                 </h3>
                 <p className="text-sm leading-relaxed text-ink/70">
@@ -9662,7 +9584,7 @@ export function SeatingEditor({
             const joined = confirmDelete.members.length > 1;
             return (
               <div className="space-y-3" data-seat-plan-delete-confirm="">
-                <h3 id="seat-delete-confirm-title" className="font-display text-xl text-ink">
+                <h3 id="seat-delete-confirm-title" className="text-[17px] font-semibold text-ink">
                   Delete {confirmDelete.label}?
                 </h3>
                 <p className="text-sm leading-relaxed text-ink/70">
@@ -9708,18 +9630,29 @@ export function SeatingEditor({
   );
 }
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 7): a section is grey capitals with no box; its explaining line, when it
+   has one, sits behind the ⓘ on the label — never a paragraph under it. */
+const SECTION_LABEL_CLASS = 'text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
+function Section({ label, tip, children }: { label: string; tip?: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-1 px-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">{label}</p>
+      {tip ? (
+        <p className="mb-1 px-1">
+          <InfoTip label={label} labelAs="span" labelClassName={SECTION_LABEL_CLASS} align="start">
+            {tip}
+          </InfoTip>
+        </p>
+      ) : (
+        <p className={`mb-1 px-1 ${SECTION_LABEL_CLASS}`}>{label}</p>
+      )}
       {children}
     </div>
   );
 }
 
-// Two-guest picker for adding a keep-apart rule (smart seat-plan Phase 3). Native
-// <select>s so it works on touch + desktop + keyboard alike. Owns its own draft
-// selection; commits via onAdd then resets.
+// Two-guest picker for adding a keep-apart rule (smart seat-plan Phase 3). 📐 DESIGN TEMPLATE (14 Nov 2026, rule 4):
+// two ▾ `PickMenu`s (the app's one picker — touch, desktop and keyboard alike), never native <select>s. Owns its own
+// draft selection; commits via onAdd then resets.
 function KeepApartAdder({
   guests,
   onAdd,
@@ -9730,39 +9663,39 @@ function KeepApartAdder({
   const [a, setA] = useState('');
   const [b, setB] = useState('');
   const sorted = useMemo(() => [...guests].sort((x, y) => x.name.localeCompare(y.name)), [guests]);
-  const selCls = 'min-w-0 flex-1 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm text-ink';
+  const options = sorted.map((g) => ({ key: g.guest_id, label: g.name }));
   return (
-    <div className="space-y-1.5 rounded-lg border border-dashed border-ink/15 p-2">
-      <select aria-label="First guest" value={a} onChange={(e) => setA(e.target.value)} className={selCls}>
-        <option value="">Guest…</option>
-        {sorted.map((g) => (
-          <option key={g.guest_id} value={g.guest_id}>
-            {g.name}
-          </option>
-        ))}
-      </select>
+    <div className="space-y-1.5 pt-1" data-seat-keep-apart-adder="">
+      <PickMenu
+        label="First guest"
+        value={a || null}
+        options={options}
+        onPick={setA}
+        buttonText={a ? undefined : 'Guest…'}
+        className="w-full justify-between"
+      />
       <div className="flex items-center gap-1.5">
-        <span className="shrink-0 text-[11px] text-ink/45">can&apos;t sit with</span>
-        <select aria-label="Second guest" value={b} onChange={(e) => setB(e.target.value)} className={selCls}>
-          <option value="">Guest…</option>
-          {sorted.map((g) => (
-            <option key={g.guest_id} value={g.guest_id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
+        <span className="shrink-0 text-xs text-ink/70">can&apos;t sit with</span>
+        <PickMenu
+          label="Second guest"
+          value={b || null}
+          options={options}
+          onPick={setB}
+          buttonText={b ? undefined : 'Guest…'}
+          className="min-w-0 flex-1 justify-between"
+        />
+        <ActionButton
+          tone="brand"
+          icon={Plus}
+          label="Add"
+          name="Add the keep-apart rule"
           disabled={!a || !b || a === b}
           onClick={() => {
             onAdd(a, b);
             setA('');
             setB('');
           }}
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-mulberry px-2.5 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-40"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add
-        </button>
+        />
       </div>
     </div>
   );
@@ -9864,7 +9797,7 @@ function MetreSizeField({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">{label}</span>
+      <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">{label}</span>
       <input
         type="number"
         min={0.5}
@@ -9875,7 +9808,7 @@ function MetreSizeField({
           const m = Number(e.target.value);
           if (Number.isFinite(m) && m > 0) onMetres(m);
         }}
-        className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+        className="min-h-11 w-24 rounded-xl border border-ink/15 bg-cream px-3 py-2 text-sm outline-none focus:border-terracotta"
       />
     </label>
   );
@@ -9911,22 +9844,22 @@ function MemberRow({
     // Virtualization (verdict §3): `content-visibility:auto` skips layout/paint
     // for off-screen rows — the dependency-free fix for the 250-pax list. The
     // intrinsic size keeps the scrollbar honest before a row is rendered.
-    <li className="flex items-center gap-1 [contain-intrinsic-size:auto_34px] [content-visibility:auto]">
+    <li className="flex items-center gap-1 [contain-intrinsic-size:auto_44px] [content-visibility:auto]">
       <button
         type="button"
         onClick={onPick}
-        className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-left transition ${
+        className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-left transition ${
           picked ? 'bg-terracotta/10 ring-1 ring-terracotta/40' : 'hover:bg-ink/[0.03]'
         }`}
       >
         <ChairAvatar guest={guest} color={color} size={24} />
         <span className="min-w-0 flex-1 truncate text-sm text-ink">{guest.name}</span>
         {hint ? (
-          <span className="shrink-0 text-[10.5px] text-ink/50">{hint}</span>
+          <span className="shrink-0 text-xs text-ink/70">{hint}</span>
         ) : tableLabel ? (
-          <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink/55">{tableLabel}</span>
+          <Badge tone="quiet">{tableLabel}</Badge>
         ) : trailing ? null : (
-          <span className="shrink-0 text-[10px] text-ink/30">unseated</span>
+          <span className="shrink-0 text-xs text-ink/70">unseated</span>
         )}
       </button>
       {trailing}
@@ -9937,10 +9870,10 @@ function MemberRow({
         onClick={onCyclePriority}
         title={`Seating priority: ${roleSet.tierLabels[tier]}${overridden ? ' (set by you — tap to cycle, back to auto after P4)' : ' (from their role — tap to override)'}`}
         aria-label={`Seating priority P${tier}${overridden ? ', overridden' : ', from role'} — change`}
-        className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tabular-nums transition ${
+        className={`sn-hit shrink-0 rounded-full px-2 py-1 text-xs font-semibold tabular-nums transition ${
           overridden
             ? 'bg-mulberry text-cream hover:bg-mulberry-600'
-            : 'bg-ink/5 text-ink/45 hover:bg-ink/10 hover:text-ink/70'
+            : 'bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink'
         }`}
       >
         P{tier}
@@ -10035,7 +9968,7 @@ function SeatPeoplePanel({
     ).length;
 
   return (
-    <div className="w-full rounded-xl border border-ink/10 bg-ink/[0.03] p-2">
+    <div className="w-full border-t border-ink/10 pt-2">
       <div className="mb-2 flex items-center gap-2">
         {/* The app's ONE pill selector (owner 2026-10-08) — three views of who can sit here. */}
         <PillTrack grow data-seat-pick-tabs="">
@@ -10045,19 +9978,19 @@ function SeatPeoplePanel({
             </PillButton>
           ))}
         </PillTrack>
-        <span className={`shrink-0 text-[11px] ${free === 0 ? 'text-danger-600' : 'text-ink/55'}`}>
+        <span className={`shrink-0 text-xs ${free === 0 ? 'text-danger-600' : 'text-ink/70'}`}>
           {formatCount(seated)}/{formatCount(cap)} · {free} free
         </span>
       </div>
 
       {tab !== 'role' ? (
         <div className="relative mb-2">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink/40" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink/70" />
           <input
             value={q}
             onChange={(e) => onQ(e.target.value)}
             placeholder={tab === 'guest' ? 'Search people…' : 'Search groups…'}
-            className="w-full rounded-lg border border-ink/15 bg-cream py-1.5 pl-8 pr-2 text-base outline-none focus:border-terracotta sm:text-sm"
+            className="min-h-11 w-full rounded-xl border border-ink/15 bg-cream py-2 pl-8 pr-2 text-base outline-none focus:border-terracotta sm:text-sm"
           />
         </div>
       ) : null}
@@ -10065,7 +9998,7 @@ function SeatPeoplePanel({
       <ul className="max-h-52 space-y-0.5 overflow-y-auto">
         {tab === 'guest' ? (
           guestRows.length === 0 ? (
-            <li className="px-1 py-2 text-xs text-ink/45">No matching guests.</li>
+            <li className="px-1 py-2 text-xs text-ink/70">No matching guests.</li>
           ) : (
             guestRows.map((g) => {
               const here = g.seated_table_id === table.table_id;
@@ -10077,30 +10010,23 @@ function SeatPeoplePanel({
                     type="button"
                     disabled={here || !canSeat}
                     onClick={() => movable && canSeat && onSeatGuest(g.guest_id)}
-                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1.5 text-left ${
+                    className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1.5 text-left ${
                       here ? 'opacity-60' : canSeat ? 'hover:bg-ink/[0.04]' : 'opacity-40'
                     }`}
                   >
                     <ChairAvatar guest={g} color={colorFor(g)} size={24} />
                     <span className="min-w-0 flex-1 truncate text-sm text-ink">{g.name}</span>
                     {g.dietary_restrictions ? (
-                      <span
-                        title={`Dietary: ${g.dietary_restrictions}`}
-                        className="shrink-0 rounded-full bg-warn-100 px-1.5 py-0.5 text-[10px] font-semibold text-warn-800"
-                      >
-                        diet
+                      <span title={`Dietary: ${g.dietary_restrictions}`} className="shrink-0">
+                        <Badge tone="wait">diet</Badge>
                       </span>
                     ) : null}
                     {here ? (
-                      <span className="shrink-0 rounded-full bg-success-100 px-1.5 py-0.5 text-[10px] text-success-700">
-                        here
-                      </span>
+                      <Badge tone="ok">here</Badge>
                     ) : g.seated_table_id ? (
-                      <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink/55">
-                        {tableLabelById.get(g.seated_table_id) ?? 'seated'}
-                      </span>
+                      <Badge tone="quiet">{tableLabelById.get(g.seated_table_id) ?? 'seated'}</Badge>
                     ) : (
-                      <span className="shrink-0 text-[10px] text-ink/30">unseated</span>
+                      <span className="shrink-0 text-xs text-ink/70">unseated</span>
                     )}
                   </button>
                   {here && onUnseat ? (
@@ -10109,7 +10035,7 @@ function SeatPeoplePanel({
                       onClick={() => onUnseat(g.guest_id)}
                       aria-label={`Unseat ${g.name}`}
                       title="Unseat"
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-ink/15 text-ink/55 hover:border-danger-400 hover:text-danger-600"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink/15 text-ink/70 hover:border-danger-400 hover:text-danger-600"
                     >
                       <UserMinus className="h-3.5 w-3.5" />
                     </button>
@@ -10120,7 +10046,7 @@ function SeatPeoplePanel({
           )
         ) : tab === 'group' ? (
           groupRows.length === 0 ? (
-            <li className="px-1 py-2 text-xs text-ink/45">No groups yet — make them in the guest list.</li>
+            <li className="px-1 py-2 text-xs text-ink/70">No groups yet — make them in the guest list.</li>
           ) : (
             groupRows.map((grp) => (
               <li key={grp.group_id}>
@@ -10128,13 +10054,13 @@ function SeatPeoplePanel({
                   type="button"
                   disabled={free === 0}
                   onClick={() => onSeatGroup(grp.group_id)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left ${
+                  className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left ${
                     free === 0 ? 'opacity-40' : 'hover:bg-ink/[0.04]'
                   }`}
                 >
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: grp.color }} />
                   <span className="min-w-0 flex-1 truncate text-sm text-ink">{grp.label}</span>
-                  <span className="shrink-0 text-[11px] text-ink/50">{formatCount(grp.member_count)}</span>
+                  <span className="shrink-0 text-xs text-ink/70">{formatCount(grp.member_count)}</span>
                 </button>
               </li>
             ))
@@ -10148,15 +10074,15 @@ function SeatPeoplePanel({
                   type="button"
                   disabled={n === 0 || free === 0}
                   onClick={() => onSeatTier(tier)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left ${
+                  className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left ${
                     n === 0 || free === 0 ? 'opacity-40' : 'hover:bg-ink/[0.04]'
                   }`}
                 >
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-[10px] font-semibold text-mulberry">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-xs font-semibold text-mulberry">
                     {tier}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-sm text-ink">{roleSet.tierLabels[tier]}</span>
-                  <span className="shrink-0 text-[11px] text-ink/50">
+                  <span className="shrink-0 text-xs text-ink/70">
                     {n} unseated
                   </span>
                 </button>
@@ -10165,7 +10091,7 @@ function SeatPeoplePanel({
           })
         )}
       </ul>
-      <p className="mt-1.5 px-1 text-[10px] leading-snug text-ink/45">
+      <p className="mt-1.5 px-1 text-xs leading-snug text-ink/70">
         {tab === 'guest'
           ? 'Tap a person to seat them at the next open chair.'
           : tab === 'group'
@@ -10311,7 +10237,7 @@ function AddTablePanel({
           onDone();
         });
       }}
-      className="space-y-2 rounded-xl border border-ink/10 bg-ink/[0.03] p-3"
+      className="space-y-2 border-y border-ink/10 py-3"
     >
       <input
         name="table_label"
@@ -10319,7 +10245,7 @@ function AddTablePanel({
         maxLength={64}
         defaultValue={defaultLabel}
         placeholder="Table name · e.g. Sponsors 1"
-        className="w-full rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+        className="min-h-11 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2 text-sm outline-none focus:border-terracotta"
       />
       {/* §4 — the SAME visual shape picker as the dock's Change-shape, so shape
           choice looks identical at create time and change time. */}
@@ -10333,7 +10259,7 @@ function AddTablePanel({
         }}
       />
       <div className="flex items-center gap-2">
-        <label className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">Seats</label>
+        <label className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Seats</label>
         <input
           name="capacity"
           type="number"
@@ -10346,21 +10272,13 @@ function AddTablePanel({
           }}
           aria-label="Capacity"
           title={`Up to ${formatCount(maxSeats)} seats for this table type`}
-          className="w-16 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+          className="min-h-11 w-16 rounded-xl border border-ink/15 bg-cream px-3 py-2 text-sm outline-none focus:border-terracotta"
         />
       </div>
-      <div className="flex justify-end gap-2">
-        <button type="button" onClick={onDone} className="rounded-lg px-2.5 py-1.5 text-xs text-ink/60 hover:bg-ink/5">
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="inline-flex items-center gap-1 rounded-lg bg-terracotta-700 px-2.5 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-800 disabled:opacity-50"
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Add table
-        </button>
-      </div>
+      <EqualRow>
+        <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onDone} />
+        <ActionButton tone="brand" main type="submit" icon={Plus} label="Add table" disabled={isPending} />
+      </EqualRow>
     </form>
   );
 }
@@ -10392,12 +10310,12 @@ function BoothPickerPanel({
     (v) => !placedVendorIds.has(v.vendor_id) || v.vendor_id === booth.event_vendor_id,
   );
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-ink/10 bg-cream p-1">
-      <p className="px-3 pb-1 pt-1.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
+    <div className="w-full overflow-hidden border-t border-ink/10 pt-1">
+      <p className="px-3 pb-1 pt-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
         Your booked suppliers
       </p>
       {availableVendors.length === 0 ? (
-        <div className="px-3 pb-2 pt-0.5 text-[11px] leading-snug text-ink/50">
+        <div className="px-3 pb-2 pt-0.5 text-xs leading-snug text-ink/70">
           {bookedVendors.length === 0 ? (
             <>
               No finalized suppliers yet —{' '}
@@ -10422,14 +10340,14 @@ function BoothPickerPanel({
               key={v.vendor_id}
               type="button"
               onClick={() => onSetVendor(v)}
-              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-ink/[0.04] ${
+              className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-ink/[0.04] ${
                 active ? 'text-terracotta-700' : 'text-ink'
               }`}
             >
               <BoothIcon type={t} className="h-4 w-4 shrink-0 text-terracotta-700" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate">{v.vendor_name}</span>
-                <span className="block truncate text-[10px] text-ink/45">
+                <span className="block truncate text-xs text-ink/70">
                   {VENDOR_CATEGORY_LABEL[v.category]}
                 </span>
               </span>
@@ -10438,7 +10356,7 @@ function BoothPickerPanel({
         })
       )}
       <div className="mt-1 border-t border-ink/10 pt-1">
-        <p className="px-3 pb-1 pt-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
+        <p className="px-3 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           Stations
         </p>
         {STATION_BOOTHS.map((c) => (
@@ -10446,7 +10364,7 @@ function BoothPickerPanel({
             key={c.type}
             type="button"
             onClick={() => onSetType(c.type)}
-            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-ink/[0.04] ${
+            className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-ink/[0.04] ${
               booth.booth_type === c.type && !booth.event_vendor_id ? 'text-terracotta-700' : 'text-ink'
             }`}
           >
@@ -10458,7 +10376,7 @@ function BoothPickerPanel({
       <div className="mt-1 border-t border-ink/10 px-2 pb-1.5 pt-2">
         <label
           htmlFor={`booth-offerings-${booth.booth_id}`}
-          className="mb-1 block font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45"
+          className="mb-1 block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
         >
           Offerings
         </label>
@@ -10469,11 +10387,11 @@ function BoothPickerPanel({
           maxLength={280}
           rows={2}
           placeholder="e.g. Espresso martinis & mocktails"
-          className="w-full resize-none rounded-lg border border-ink/15 bg-white/80 px-2 py-1.5 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
+          className="w-full resize-none rounded-lg border border-ink/15 bg-white/80 px-2 py-1.5 text-sm text-ink placeholder:text-ink/50 focus:border-terracotta focus:outline-none"
         />
         <div className="mt-0.5 flex items-center justify-between">
-          <span className="text-[10px] text-ink/40">Guests see this on the 3D venue walk.</span>
-          <span className="text-[10px] tabular-nums text-ink/40">
+          <span className="text-xs text-ink/70">Guests see this on the 3D venue walk.</span>
+          <span className="text-xs tabular-nums text-ink/70">
             {(booth.offerings ?? '').length}/280
           </span>
         </div>

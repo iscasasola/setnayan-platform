@@ -155,7 +155,7 @@ import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import { readShopWork } from '@/lib/card-portfolio-albums.server';
-import { cardAlbums, toAlbumViews, type AlbumView } from '@/lib/card-portfolio-albums';
+import { cardAlbums, eventPhotosOf, toAlbumViews, type AlbumView } from '@/lib/card-portfolio-albums';
 import {
   cardRecordHasSomethingToSay,
   cardRecordRatingFromTrusted,
@@ -1307,11 +1307,16 @@ export async function renderVendorBySlug({
   // booked on, read ONCE for the shop (the same albums the supplier's Their work holds). Rides the same flag: OFF → not
   // read, no card carries `albums`, the grown card is as before. A refused read → every card says "Couldn't load".
   // No ids reach the page: `toAlbumViews` without an href is labels and photo URLs only.
-  const albumsByService: Map<string, AlbumView[] | null> | null = cardRecordEnabled()
-    ? await readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds })
-        .catch(() => null)
-        .then((work) => new Map(activeServiceIds.map((id) => [id, work ? toAlbumViews(cardAlbums(work.albums, id)) : null])))
-    : null;
+  // 📸 …and the same read gives each card its event photos for PHOTOS BY SERVICE (owner 2026-11-14): one entry per
+  // photo, captioned kind · month, keyed to an opaque per-page event number — never the event id.
+  const shopWork = cardRecordEnabled()
+    ? await readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds }).catch(() => null)
+    : undefined;
+  const albumsByService: Map<string, AlbumView[] | null> | null =
+    shopWork === undefined
+      ? null
+      : new Map(activeServiceIds.map((id) => [id, shopWork ? toAlbumViews(cardAlbums(shopWork.albums, id)) : null]));
+  const eventPhotosByService = shopWork === undefined ? null : eventPhotosOf(shopWork, activeServiceIds);
 
   // Pre-format the per-service "Serves" line server-side so the client gallery
   // stays a dumb view (same contract as inclusions/discount labels).
@@ -2977,6 +2982,7 @@ export async function renderVendorBySlug({
             coupleEventDate={coupleEventDate}
             cardRecordByService={cardRecordByService}
             albumsByService={albumsByService}
+            eventPhotosByService={eventPhotosByService}
             couplePhotosByService={couplePhotosByService}
             cardHides={cardHidesByService}
             viewerCuratesCards={viewerCuratesCards}
@@ -3548,6 +3554,7 @@ function ServicesPricingSection({
   coupleEventDate,
   cardRecordByService,
   albumsByService,
+  eventPhotosByService,
   couplePhotosByService,
   viewerSignedIn,
   cardRecordRating,
@@ -3601,6 +3608,8 @@ function ServicesPricingSection({
   cardRecordByService: Map<string, CompiledCardRecord>;
   /** 🃏📸 Each card's albums (flag on) — null = the flag is off, so no card carries any. */
   albumsByService: Map<string, AlbumView[] | null> | null;
+  /** 📸 Each card's event photos for photos by service (flag on) — null = the flag is off. */
+  eventPhotosByService: Map<string, { url: string; caption: string; event: string }[] | null> | null;
   /** 📸 Couples' approved photos per service id (`fetchServiceCardCouplePhotos`). Empty ⇒ cards as before. */
   couplePhotosByService: Map<string, CoupleLook[]>;
   /** A signed-in viewer → the gallery asks, after the page, for the non-public couple photos they are inside. */
@@ -3699,6 +3708,7 @@ function ServicesPricingSection({
         .map((card) => withCardReviews(card, reviewsByService.get(card.id)))
         // 🃏📸 The card's event photos ride along only while the flag is on (`eventWork` absent otherwise).
         .map((card) => (albumsByService ? { ...card, eventWork: albumsByService.get(card.id) ?? null } : card))
+        .map((card) => (eventPhotosByService ? { ...card, eventPhotos: eventPhotosByService.get(card.id) ?? null } : card))
         // 🃏 Hide per card: the refs the supplier's tap names + what is hidden. Only where the grown card exists.
         .map((card) =>
           detailsEnabled

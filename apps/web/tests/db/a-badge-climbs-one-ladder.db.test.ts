@@ -302,3 +302,93 @@ test('4 · the five-star count follows the public stars: booked 5★ only, never
     await setAuthUid(db, null);
   }
 });
+
+test('5 · 💎 a GIFTED Ultra is FULL Ultra: 12-month originals and canvas; a gifted Pro gets neither', async () => {
+  const DAY = 86_400_000;
+  const GRACE = 92; // FULL_RES_POST_EVENT_GRACE_DAYS (lib/papic-fullres-drop-core.ts), as event-ultra-keeps-originals does
+  const giftUser = await newUser('ladder-full-ultra@test.test', 'vendor');
+  const giftShop = await shopOf(giftUser, 'Sinag Films');
+  await db.query(
+    `UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = NOW() WHERE vendor_profile_id = $1`,
+    [giftShop],
+  );
+  // One earned Ultra (the t7 door) and one Pro unit in stock.
+  assert.equal((await grant(giftShop, 'events:10000', 'event_ultra', null)).status, 'granted');
+  await db.query(
+    `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind) VALUES ($1, 'event_pro', 1, 'bought')`,
+    [giftShop],
+  );
+
+  /** An event whose last day was `daysAgo`, a Papic capture from long ago, and this shop's paid booking giving `code`. */
+  async function giftedEvent(code: 'EVENT_ULTRA' | 'COUPLE_WEBSITE_PRO', daysAgo: number) {
+    n += 1;
+    const eventId = await one<string>(
+      `INSERT INTO public.events (display_name, event_type, event_date) VALUES ($1, 'birthday', $2::date) RETURNING event_id AS v`,
+      [`gifted ${code} ${n}`, new Date(Date.now() - daysAgo * DAY).toISOString().slice(0, 10)],
+    );
+    const guestId = await one<string>(
+      `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category)
+       VALUES ($1, 'Gift', 'Clock', 'both', 'friends') RETURNING guest_id AS v`,
+      [eventId],
+    );
+    await db.query(
+      `INSERT INTO public.papic_guest_captures (event_id, guest_id, r2_object_key, display_r2_key, media_type, captured_at)
+       VALUES ($1, $2, $3, $3, 'photo', $4)`,
+      [eventId, guestId, `r2://setnayan-media/papic/${eventId}.jpg`, new Date(Date.now() - 900 * DAY).toISOString()],
+    );
+    const eventVendorId = await one<string>(
+      `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, total_cost_php)
+       VALUES ($1, 'band_dj', 'Sinag Films', 'considering', $2, 50000) RETURNING vendor_id AS v`,
+      [eventId, giftShop],
+    );
+    const proposalId = await one<string>(
+      `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, status, resolved_at, total_centavos, valid_until)
+       VALUES ($1, $2, 'Quote', 'accepted', NOW(), 5000000, (NOW() AT TIME ZONE 'Asia/Manila')::date + 7) RETURNING proposal_id AS v`,
+      [giftShop, eventId],
+    );
+    await db.query(
+      `INSERT INTO public.vendor_proposal_shop_gifts (proposal_id, vendor_profile_id, service_code, gift_kind, credits, srp_php, title)
+       VALUES ($1, $2, $3, $4, 1, 1, $5)`,
+      [proposalId, giftShop, code, code === 'EVENT_ULTRA' ? 'event_ultra' : 'event_pro', code === 'EVENT_ULTRA' ? 'Event Ultra' : 'Event Pro'],
+    );
+    return { eventId, eventVendorId };
+  }
+  const deliverGift = async (eventVendorId: string) => {
+    await db.query(`UPDATE public.event_vendors SET deposit_acknowledged_at = NOW() WHERE vendor_id = $1`, [eventVendorId]);
+    const r = await one<{ status: string }>(`SELECT public.shop_gift_deliver_unlocks_for_booking($1, 'none') AS v`, [eventVendorId]);
+    assert.equal(r.status, 'ok');
+  };
+  const released = async () =>
+    new Set(
+      (await db.query<{ event_id: string }>(`SELECT event_id FROM public.papic_events_past_fullres_clock(0, $1::int)`, [GRACE])).rows.map(
+        (r) => r.event_id,
+      ),
+    );
+  /** What lib/event-ultra-gates.ts eventCanvasPrintsActive asks first: eventSkuActive(EVENT_ULTRA) → this comp read. */
+  const holdsUltra = (eventId: string) =>
+    one<boolean>(`SELECT public.event_has_comp_for_sku($1, 'EVENT_ULTRA') AS v`, [eventId]);
+
+  const ultra = await giftedEvent('EVENT_ULTRA', 100);
+  const pro = await giftedEvent('COUPLE_WEBSITE_PRO', 100);
+  // Before the first payment nothing is gifted yet: the plain 92-day floor applies and no canvas.
+  assert.ok((await released()).has(ultra.eventId), 'an undelivered Ultra gift already held the originals');
+  assert.equal(await holdsUltra(ultra.eventId), false, 'canvas opened before the gift was delivered');
+
+  await deliverGift(ultra.eventVendorId);
+  await deliverGift(pro.eventVendorId);
+  const after = await released();
+  assert.ok(!after.has(ultra.eventId), 'a GIFTED Ultra event was released at three months — the gift does not hold originals');
+  assert.ok(after.has(pro.eventId), 'a gifted Pro held originals past three months — only Ultra holds longer');
+  assert.equal(await holdsUltra(ultra.eventId), true, 'a gifted Ultra does not open canvas prints');
+  assert.equal(await holdsUltra(pro.eventId), false, 'a gifted Pro opened canvas prints');
+
+  // The hold still lets go after the catalogue row's 12 months.
+  const extra = Number(
+    await one<string>(`SELECT fullres_extra_keep_days::text AS v FROM public.platform_retail_catalog_v2 WHERE service_code = 'EVENT_ULTRA'`),
+  );
+  assert.ok(extra > 0);
+  assert.equal((await grant(giftShop, 'reviews:10000', 'event_ultra', null)).status, 'granted');
+  const old = await giftedEvent('EVENT_ULTRA', GRACE + extra + 3);
+  await deliverGift(old.eventVendorId);
+  assert.ok((await released()).has(old.eventId), 'a gifted Ultra never lets its originals go');
+});

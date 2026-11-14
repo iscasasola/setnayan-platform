@@ -24,6 +24,10 @@
 --      held equal to the app's by the db test.
 -- Function bodies are copied from their latest definitions (20271319497337,
 -- 20271323363853); the ONLY changes are the Ultra arms marked above.
+--   6. `papic_events_past_fullres_clock` also honours a gifted / comped plan's
+--      `fullres_extra_keep_days` (owner 15 Nov: a gifted Ultra is FULL Ultra).
+--      Canvas prints need no SQL: lib/event-ultra-gates.ts asks
+--      eventSkuActive(EVENT_ULTRA), which reads event_has_comp_for_sku.
 -- Not here: selling Ultra to shops as a bought gift — its catalogue row has no
 -- gift price, so the app keeps it earned-only (lib/shop-gifts.ts).
 --
@@ -584,5 +588,66 @@ GRANT EXECUTE ON FUNCTION public.event_has_comp_for_sku(UUID, TEXT)
   TO authenticated, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.event_comp_active_skus(UUID)
   TO authenticated, anon, service_role;
+
+-- ── 6 · a gifted Ultra keeps originals 12 months, like a bought one ─────────
+-- Owner 2026-11-15, answering "yes": a gifted Event Ultra is FULL Ultra. Copied from
+-- 20271344860040_event_ultra_plan.sql; the ONLY change is the second (gift) term.
+CREATE OR REPLACE FUNCTION public.papic_events_past_fullres_clock(
+  p_retention_days  INTEGER,
+  p_post_event_days INTEGER
+) RETURNS TABLE (event_id UUID)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  WITH first_use AS (
+    SELECT e.event_id,
+           LEAST(
+             COALESCE((SELECT MIN(p.captured_at) FROM public.papic_photos p
+                        WHERE p.event_id = e.event_id), 'infinity'::timestamptz),
+             COALESCE((SELECT MIN(g.captured_at) FROM public.papic_guest_captures g
+                        WHERE g.event_id = e.event_id), 'infinity'::timestamptz)
+           ) AS started_at,
+           GREATEST(COALESCE(e.event_end_date, e.event_date), e.event_date) AS event_last_day,
+           -- 💎 Event Ultra (owner 2026-11-13): a paid plan may hold originals longer.
+           GREATEST(
+             COALESCE((
+               SELECT MAX(GREATEST(c.fullres_extra_keep_days, 0))
+                 FROM public.orders o
+                 JOIN public.platform_retail_catalog_v2 c ON c.service_code = o.service_key
+                WHERE o.event_id = e.event_id
+                  AND o.status IN ('paid', 'fulfilled')
+             ), 0),
+             -- 🎁 …or holds it as a GIFT (owner 2026-11-15: a gifted Event Ultra is FULL Ultra). The same
+             -- gifted-access path every gate reads — event_has_comp_for_sku — over the products that carry an
+             -- extra hold; the days are still the catalogue row's, never typed.
+             COALESCE((
+               SELECT MAX(GREATEST(c.fullres_extra_keep_days, 0))
+                 FROM public.platform_retail_catalog_v2 c
+                WHERE c.fullres_extra_keep_days > 0
+                  AND public.event_has_comp_for_sku(e.event_id, c.service_code)
+             ), 0)
+           ) AS extra_keep_days
+      FROM public.events e
+  )
+  SELECT f.event_id
+    FROM first_use f
+   WHERE f.started_at <> 'infinity'::timestamptz
+     AND NOW() >= f.started_at + make_interval(days => GREATEST(p_retention_days, 0))
+     AND (
+       f.event_last_day IS NULL
+       OR NOW() >= (f.event_last_day::timestamptz
+                    + make_interval(days => GREATEST(p_post_event_days, 0) + f.extra_keep_days))
+     );
+$$;
+
+COMMENT ON FUNCTION public.papic_events_past_fullres_clock(INTEGER, INTEGER) IS
+  'Events whose full-res originals may be replaced by their compressed copy: never sooner than N days after the event''s LAST day (event_end_date when the celebration spans several days, else event_date), plus the largest fullres_extra_keep_days of any product the event holds in a paid/fulfilled order OR as a gift/comp (event_has_comp_for_sku — a supplier-gifted Event Ultra is full Ultra, owner 2026-11-15) (Event Ultra: 12 months in all, owner 2026-11-13). The extra term can only keep files longer.';
+
+REVOKE ALL ON FUNCTION public.papic_events_past_fullres_clock(INTEGER, INTEGER)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.papic_events_past_fullres_clock(INTEGER, INTEGER)
+  TO service_role;
 
 COMMIT;

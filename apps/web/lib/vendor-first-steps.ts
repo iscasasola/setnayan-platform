@@ -24,9 +24,10 @@
  * but their links stay live: a vendor could always build a service card before
  * finishing their profile and that still works. Turning the rail into a set of
  * locked doors would REMOVE shipped ability, which is a regression, not a
- * feature. The one genuine hard gate in the product is named as such:
- * `verificationSubmitMissing` refuses to submit documents while the business
- * profile is unfinished, so `documentsBlockedBy` carries that reason verbatim.
+ * feature. Since 2026-11-14 (owner, DECISION_LOG "VERIFICATION IS THREE PAPERS
+ * AND ONE SUBMIT" — profile gate: "Yes, remove it") NOTHING outside the papers
+ * blocks the documents step: the business profile no longer gates Submit, so
+ * the step's `blockedBy` is always null.
  *
  * ── WAITING IS NOT DOING ───────────────────────────────────────────────────────
  * Once documents are submitted the vendor cannot act on them — the 5-business-day
@@ -84,9 +85,9 @@ export type FirstStep = {
   /** Live counter ("6 of 8 in"), or null when the step has nothing to count. */
   meter: string | null;
   /**
-   * The real, code-enforced reason this step cannot be COMPLETED yet — today
-   * only "Finish your business profile" on the documents step, which mirrors
-   * `verificationSubmitMissing`. Null when nothing blocks it.
+   * The real, code-enforced reason this step cannot be COMPLETED yet, from
+   * OUTSIDE the step. Null on every step since 2026-11-14 (the profile gate on
+   * the documents step was removed); kept so a future real gate has a place.
    */
   blockedBy: string | null;
 };
@@ -109,7 +110,7 @@ export type FirstStepsInput = {
   serviceCount: number;
   /** Latest verification application status; 'none' when never started. */
   docsStatus: VerificationAppStatus;
-  /** The REQUIRED papers in, and how many are required (four) — the one count shown (owner 2026-10-22). */
+  /** The REQUIRED papers in, and how many are required (three since 2026-11-14) — the one count shown (owner 2026-10-22). */
   docsIn: number;
   docsTotal: number;
   /**
@@ -169,7 +170,6 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     docsStatus,
     docsIn,
     docsTotal,
-    submitMissing,
     customerCount,
     notAvailableCount = 0,
     outsideCount = 0,
@@ -178,8 +178,6 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
 
   const detailsComplete = profileTotal > 0 && profileDone >= profileTotal;
   const logoIn = input.hasLogo ?? detailsComplete;
-  // What the submit gate calls "business profile": the details AND the logo (approval asks nothing less).
-  const profileComplete = detailsComplete && logoIn;
   const underReview = isUnderReview(docsStatus);
   // `approved` is the application's own terminal state; `verified` is the shop's.
   // An admin can verify a shop directly without an application ever being filed
@@ -194,7 +192,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       key: 'shop_details',
       n: 1,
       title: 'Your details',
-      body: 'Name · what you do · where · how couples reach you. Setnayan needs them before your documents.',
+      body: 'Name · what you do · where · how couples reach you.',
       href: '/vendor-dashboard/shop',
       cta: 'Fill them in',
       meter: profileTotal > 0 ? `${formatCount(profileDone)} of ${formatCount(profileTotal)} in` : null,
@@ -204,12 +202,12 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     },
     {
       // 🖼 ITS OWN STEP (owner "Yes to all", 2026-10-22 — journey_fixes Supplier 2 · A). Optional on open-shop
-      // step 1 (FREE very easy), so it used to hide inside "N fields left" on Your details; approval still
-      // needs it, so it is asked here, by name.
+      // step 1 (FREE very easy), so it used to hide inside "N fields left" on Your details. Since 2026-11-14
+      // approval no longer needs it (the profile gate is gone), so the step no longer says "needed to go live".
       key: 'logo',
       n: 2,
       title: 'Add your logo',
-      body: 'Needed to go live — couples see it on every card.',
+      body: 'Couples see it on every card.',
       href: '/vendor-dashboard/profile#name',
       cta: 'Add your logo',
       meter: null,
@@ -267,13 +265,13 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
         docsStatus === 'rejected'
           ? `Setnayan sent your papers back${rejectionReason ? `: ${rejectionReason}` : '.'} Fix what's noted and send them again.`
           : underReview
-            ? 'Sent. Setnayan checks these within 5 working days and will contact you to confirm.'
-            : 'DTI/SEC · BIR · permit · bank proof · Setnayan checks them, then you are live.',
+            ? 'Sent. Setnayan checks these within 5 working days and confirms.'
+            : 'DTI/SEC · BIR · permit · Setnayan checks them, then you are live.',
       href: '/vendor-dashboard/profile#docs',
       cta: docsStatus === 'rejected' ? 'Send them again' : 'Send documents',
       meter: docsTotal > 0 ? `${formatCount(docsIn)} of ${formatCount(docsTotal)} required` : null,
-      // The one real hard gate in the flow, quoted from the server-side check.
-      blockedBy: profileComplete ? null : (submitMissing[0] ?? null),
+      // 2026-11-14: the business profile no longer gates Submit — the papers are the only step.
+      blockedBy: null,
       done: docsDone,
       waiting: underReview,
     },

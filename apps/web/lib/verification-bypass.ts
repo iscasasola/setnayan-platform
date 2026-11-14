@@ -2,7 +2,7 @@
  * verification-bypass.ts — the PURE core of "vouched for, with the paperwork owed".
  *
  * ── WHY IT EXISTS (owner, 2026-09-07) ───────────────────────────────────────
- * Real verification is four documents, a two-channel VALIDATE token and a
+ * Real verification is three documents (since 2026-11-14), a two-channel VALIDATE token and a
  * 15-minute Meet. Measured the day this shipped: **`vendor_verifications` held
  * ZERO rows** — nobody had ever completed it, both existing shops carried a
  * `verified` column written by a seed, and the marketplace consequently had no

@@ -6,7 +6,7 @@
  * Challenges — `lib/badge-rewards.ts`, untouched).
  *
  *   · Founders verification (Admin › Verify, `grantVerificationBypass`) → 3 × 4 weeks of Ultra
- *   · Regular verification (the four papers approved, `applyApplicationDecision`) → 1 × 4 weeks of Ultra
+ *   · Regular verification (the required papers approved, `applyApplicationDecision`) → 1 × 4 weeks of Ultra
  *
  * 🔑 THE MECHANISM IS THE SHIPPED COMP, NOT A NEW ONE: `tier_state` + `tier_expires_at` + `tier_source = 'admin_comp'`,
  * exactly what `setVendorTier` writes. So the supplier already reads it as "Ultra · free until … · from Setnayan"

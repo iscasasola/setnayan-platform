@@ -88,7 +88,7 @@ function shopLab(fail: boolean, none: boolean) {
     hero: none ? { url: '/placeholders/vendor.webp', kind: 'placeholder' } : { url: PHOTOS[0]!, kind: 'photo' },
     heroCaption: none ? null : 'Cover · Your page',
     city: 'Batangas',
-    verified: { isVerified: true, inReview: false, stepsDone: 2 },
+    verified: { isVerified: true, inReview: false, papersIn: 3, papersOf: 3 },
     rating: fail || none ? null : '4.8',
     reviews: fail || none ? null : '38 reviews',
     events: fail ? null : none ? '0 events' : '120 events',

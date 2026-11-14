@@ -608,11 +608,11 @@ export function businessProfileChecklist(
 
 /**
  * 🔢 WHAT "FIELDS LEFT" COUNTS (owner "Yes to all", 2026-10-22 — journey_fixes Supplier 2 · A). The logo is
- * its OWN first step on Today ("Add your logo — needed to go live"), so it leaves the hidden "N fields left"
- * count — while `businessProfileChecklist().complete` still requires it (approval asks nothing less).
+ * its OWN first step on Today ("Add your logo"), so it leaves the hidden "N fields left"
+ * count — while `businessProfileChecklist().complete` still requires it (a profile item — not a verification gate since 2026-11-14).
  *   fieldsLeft      — every unfinished item but the logo
  *   logoMissing     — the logo is not in
- *   onlyLogoMissing — the logo is the one thing left (the submit gate then says "Add your logo")
+ *   onlyLogoMissing — the logo is the one thing left
  */
 export function profileGaps(checklist: { items: ReadonlyArray<BusinessProfileItem> }): {
   fieldsLeft: number;

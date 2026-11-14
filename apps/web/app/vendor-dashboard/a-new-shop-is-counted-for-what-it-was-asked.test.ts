@@ -7,7 +7,7 @@
  * the contacts step could never finish while texting was "coming soon". Held as properties:
  *   1 · EST is asked ONCE, on open-shop step 2, as one dropdown ("Just starting" first) — and written once;
  *   2 · the logo is its own Today first step, out of "fields left" — and approval still needs it;
- *   3 · ONE document count: the four required papers — on the stepper, Today, the Shop ⚙ and each card;
+ *   3 · ONE document count: the three required papers (four until the owner's 2026-11-14 ruling, DECISION_LOG f69ec167) — on the stepper, Today, the Shop ⚙ and each card;
  *   4 · the contacts step counts only what can be confirmed ("0 of 1" until a text number exists).
  *
  * SABOTAGE (each seen red before this shipped — PR body has the runs): the step-2 dropdown removed → 1 ·
@@ -82,16 +82,17 @@ const NEW_SHOP: FirstStepsInput = {
   customerCount: 0,
 };
 
-test('2 · the logo is the second first step, out of "fields left", and approval still needs it', () => {
+test('2 · the logo is the second first step, out of "fields left" — and, since 2026-11-14, it no longer blocks Submit', () => {
   const rail = buildFirstStepsRail(NEW_SHOP);
   const logo = rail.steps.find((s) => s.key === 'logo');
   assert.ok(logo, 'the rail has no logo step');
   assert.equal(logo.n, 2);
   assert.equal(logo.title, 'Add your logo');
-  assert.match(logo.body, /needed to go live/i);
+  // Owner 2026-11-14 (DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"; profile gate: "Yes, remove it").
+  assert.doesNotMatch(logo.body, /needed to go live/i, 'the logo step claims it gates going live again');
   assert.equal(logo.state, 'now', 'details done, no logo — the logo is not the next thing');
   assert.equal(rail.steps.find((s) => s.key === 'shop_details')?.state, 'done');
-  assert.equal(rail.steps.find((s) => s.key === 'documents')?.blockedBy, 'Add your logo', 'the papers do not say what blocks them');
+  assert.equal(rail.steps.find((s) => s.key === 'documents')?.blockedBy, null, 'a missing logo blocks the papers again');
   assert.equal(buildFirstStepsRail({ ...NEW_SHOP, hasLogo: true }).steps.find((s) => s.key === 'logo')?.state, 'done');
 
   // "Fields left" leaves the logo out — the gate does not.
@@ -103,12 +104,13 @@ test('2 · the logo is the second first step, out of "fields left", and approval
   assert.deepEqual(onlyLogo, { fieldsLeft: 0, logoMissing: true, onlyLogoMissing: true });
   const allIn = Object.fromEntries([...REQUIRED_DOC_SLOT_KEYS].map((k) => [k, { r2_key: `k/${k}` }]));
   assert.deepEqual(
-    verificationSubmitMissing({ profileComplete: false, onlyLogoMissing: true, uploads: allIn, registrationNumberOnFile: true }),
-    ['Add your logo'],
-    'a shop with no logo can submit — approval asks nothing less',
+    verificationSubmitMissing({ uploads: allIn }),
+    [],
+    'a shop with the three papers in cannot submit',
   );
   for (const rel of ['app/vendor-dashboard/shop/inline-docs-actions.ts', 'app/vendor-dashboard/profile/details-data.ts', 'lib/vendor-first-steps.server.ts']) {
-    assert.match(code(rel), /onlyLogoMissing: (?:profileGaps\([^)]*\)|gaps)\.onlyLogoMissing/, `${rel} does not name the logo on its own`);
+    assert.match(code(rel), /verificationSubmitMissing\(\{/, `${rel} stopped calling the one submit gate`);
+    assert.doesNotMatch(code(rel), /verificationSubmitMissing\(\{[^}]*(?:profileComplete|onlyLogoMissing)/, `${rel} feeds the business profile into the submit gate again`);
   }
   for (const rel of ['app/vendor-dashboard/shop/page.tsx', 'app/vendor-dashboard/profile/details-data.ts']) {
     assert.match(code(rel), /fieldsLeft: profileGaps\(/, `${rel} counts "fields left" its own way`);
@@ -117,17 +119,18 @@ test('2 · the logo is the second first step, out of "fields left", and approval
 
 /* ─── 3 · ONE DOCUMENT COUNT ────────────────────────────────────────────── */
 
-test('3 · every document count is "n of 4 required"; optional items carry none', () => {
-  assert.equal(REQUIRED_DOC_COUNT, 4);
+test('3 · every document count is "n of 3 required"; optional items carry none', () => {
+  // Owner 2026-11-14 (DECISION_LOG f69ec167): "just the 3. DTI/SEC, BIR, Mayor's/Business Permit".
+  assert.equal(REQUIRED_DOC_COUNT, 3);
   const req = DOC_SLOTS.filter((s) => REQUIRED_DOC_SLOT_KEYS.has(s.key)).map((s) => requiredDocPosition(s.key));
-  assert.deepEqual(req, [1, 2, 3, 4]);
+  assert.deepEqual(req, [1, 2, 3]);
   for (const s of DOC_SLOTS.filter((x) => !REQUIRED_DOC_SLOT_KEYS.has(x.key))) assert.equal(requiredDocPosition(s.key), null, s.key);
-  assert.equal(countCompleteRequiredSlots({ dti_certificate: { r2_key: 'a' }, portfolio_samples: [{ r2_key: 'b' }] } as never), 1, 'an optional upload counts toward the four');
+  assert.equal(countCompleteRequiredSlots({ dti_certificate: { r2_key: 'a' }, portfolio_samples: [{ r2_key: 'b' }] } as never), 1, 'an optional upload counts toward the three');
 
   const rail = buildFirstStepsRail(NEW_SHOP);
-  assert.equal(rail.steps.find((s) => s.key === 'documents')?.meter, '0 of 4 required');
+  assert.equal(rail.steps.find((s) => s.key === 'documents')?.meter, '0 of 3 required');
   const verify = code('app/vendor-dashboard/shop/_components/verify-section.tsx');
-  assert.match(verify, /of \{formatCount\(REQUIRED_DOC_COUNT\)\} required<\/StepPill>/, 'the stepper is not "n of 4 required"');
+  assert.match(verify, /of \{formatCount\(REQUIRED_DOC_COUNT\)\} required<\/StepPill>/, 'the stepper is not "n of 3 required"');
   assert.doesNotMatch(verify, /vendorTotal\)\}/, 'the stepper counts every upload again ("of 7")');
   const card = code('app/_components/verification/doc-slot-card.tsx');
   assert.match(card, /`Required · \$\{formatCount\(requiredDocPosition\(slot\.key\)!\)\} of \$\{formatCount\(REQUIRED_DOC_COUNT\)\}`/);
@@ -140,17 +143,17 @@ test('3 · every document count is "n of 4 required"; optional items carry none'
   assert.match(code('lib/vendor-first-steps.server.ts'), /docsTotal: REQUIRED_DOC_COUNT/, 'Today counts every upload again');
 });
 
-/* ─── 4 · CONTACTS COUNT WHAT CAN BE CONFIRMED ──────────────────────────── */
+/* ─── 4 · ONE STEP: THE PAPERS, THEN SUBMIT ────────────────────────────── */
 
-test('4 · until texting works the contacts step is email alone — "0 of 1", and it can finish', () => {
+// Owner 2026-11-14 (DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"): *"verification process is simple.
+// submit the 3 documents and press submit. that's it. no other steps needed. we wait for admin cofirmation first."*
+// The contacts step (VALIDATE email + text), the profile banner and the Google Meet are gone from Get verified.
+test('4 · Get verified is the papers and Submit — no VALIDATE step, no profile banner, no Google Meet', () => {
   const verify = code('app/vendor-dashboard/shop/_components/verify-section.tsx');
-  assert.match(
-    verify,
-    /const step2Done = Boolean\(verify\.emailConfirmedAt && \(!textingWorks \|\| verify\.phoneConfirmedAt\)\)/,
-    'the contacts step still needs a text that cannot be sent — it can never finish',
-  );
-  assert.match(verify, /const needed = textingWorks \? 2 : 1;/);
-  assert.match(verify, /\{formatCount\(confirmed\)\} of \{formatCount\(needed\)\}/, 'the contacts step does not count');
-  assert.doesNotMatch(verify, /coming soon/i, 'the "coming soon" text line is back');
-  assert.match(verify, /\{textingWorks \? <ReceiptLine label="Text"/, 'a "Text · waiting" line shows with no number to text');
+  assert.doesNotMatch(verify, /ContactsStep|VALIDATE|validateEmail|emailConfirmedAt/, 'the VALIDATE contacts step is back');
+  assert.doesNotMatch(verify, /finish your business profile|profileComplete|profileFieldsLeft/i, 'the profile gate is back on Get verified');
+  assert.doesNotMatch(verify, /Google Meet|final confirmation|meetScheduledAt|short call/i, 'the Google Meet step is back');
+  assert.doesNotMatch(verify, /steps done/, 'a multi-step progress bar is back');
+  assert.equal((verify.match(/<DocsStep\b/g) ?? []).length, 1, 'the papers are not the one step');
+  assert.match(verify, /<SubmitBlock missing=\{verify\.submitMissing\} \/>/, 'Submit no longer reads the one server gate');
 });

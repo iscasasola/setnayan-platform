@@ -23,7 +23,9 @@ const BANK_PROOF = /\bbank (account )?proof\b|\bpatunay ng bank/i;
  * EXPIRES: the test below fails once the page no longer says "bank proof", telling whoever merges next to delete it.
  */
 const PENDING_IN_OTHER_PR: Readonly<Record<string, string>> = {
-  marketplace: '#7627 rewrites lib/feature-pages/plan-b.ts to the three papers',
+  // `marketplace` expired here: #7627 rewrote lib/feature-pages/plan-b.ts to the three papers, so /features/marketplace
+  // is held by the test above like every other page. /for-suppliers, /for-coordinators and the Help article are held by
+  // lib/three-verification-papers.test.ts (#7627).
 };
 
 const pageText = (f: (typeof FEATURE_PAGES)[number], l: 'en' | 'tl') =>

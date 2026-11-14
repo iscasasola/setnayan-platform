@@ -91,7 +91,7 @@ export function ShopSettingsRows({
             ? 'Setnayan is checking your documents'
             : docs.isVerified
               ? 'Verified · kept private'
-              : `${formatCount(docs.docsIn)} of ${formatCount(docs.docsTotal)} required in · DTI or SEC · BIR 2303 · permit · a bank proof`
+              : `${formatCount(docs.docsIn)} of ${formatCount(docs.docsTotal)} required in · DTI or SEC · BIR 2303 · permit`
         }
         aside={
           docsChecking ? (

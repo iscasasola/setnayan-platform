@@ -12,8 +12,9 @@
  *
  * 🖼 THE LOGO GATES GOING LIVE, NOT THE SHOP PAGES (owner, verbatim, 2026-11-06: *"Yes, logo gates live"*). The logo
  * is on the same checklist but is NOT counted here (`NOT_A_HOLD`): a brand-new shop with no logo must still reach Shop
- * and make its first service card. The logo stays required to go live — `verificationSubmitMissing`
- * (`lib/vendor-verification.ts`) reads the WHOLE checklist's `complete`, and Today keeps its "Add your logo" step.
+ * and make its first service card. Today keeps its "Add your logo" step. ⚠ Since 2026-11-14 (owner, DECISION_LOG
+ * "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"; profile gate: "Yes, remove it") the logo no longer gates going
+ * live: `verificationSubmitMissing` asks for the three papers only, never the checklist.
  *
  * WHO IS HELD: the OWNER or ADMIN (`canManageVendor`) of a shop NOT YET VERIFIED — the people who can fill it in,
  * while Today still draws the six setup steps "Back to setup" returns to. A helper (agent ·

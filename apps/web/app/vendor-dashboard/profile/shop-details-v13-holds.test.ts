@@ -64,7 +64,7 @@ test('2 · Get verified is ONE line, used wherever being unverified holds someth
   const line = src(LINE);
   assert.match(line, /label="Get verified"/);
   assert.match(line, /UNVERIFIED_LINE = 'You show up once you’re verified'/, 'the owner’s line moved');
-  assert.match(src('app/vendor-dashboard/shop/_components/verify-section.tsx'), /window\.location\.hash === `#\$\{VERIFY_DOCS_ANCHOR\}`\) setOpenStep\(1\)/, '#docs no longer opens the papers step');
+  assert.match(src('app/vendor-dashboard/shop/_components/verify-section.tsx'), /window\.location\.hash === `#\$\{VERIFY_DOCS_ANCHOR\}`\) setOpen\(true\)/, '#docs no longer opens the papers step');
   const pairs = src('app/vendor-dashboard/shop/_components/verify-pairs.tsx');
   assert.match(pairs, /const firstMissing = isVerified \|\| locked \? null : \(perPair\.find\(\(p\) => !p\.paperPresent\)/, 'the first missing paper is not the one marked');
   assert.match(pairs, /data-first-missing=/);

@@ -69,7 +69,7 @@ test('canUse: Verified lifts every verify lock; no plan lock opens before the pa
     assert.deepEqual(canUse(k, { verified: false, tier: 'enterprise' }), { ok: false, needs: 'verify' });
     assert.deepEqual(canUse(k, { verified: true, tier: 'free' }), { ok: true });
   }
-  assert.match(papersProgress({ done: 2, of: 4 }), /^2 of 4 papers in/);
+  assert.match(papersProgress({ done: 2, of: 3 }), /^2 of 3 papers in/);
   assert.match(papersProgress(null), /Couldn’t read/);
 });
 

@@ -203,7 +203,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-are-vendors-verified',
         title: 'How are suppliers verified on Setnayan?',
-        body: 'Suppliers complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free, for good — no listing fee and no badge fee.',
+        body: 'Suppliers send three business papers — DTI or SEC registration, BIR 2303 and a Mayor’s or Business Permit — and a Setnayan admin checks them before the shop is verified. Verification is free, for good — no listing fee and no badge fee.',
       },
       {
         slug: 'what-is-pakanta',
@@ -275,7 +275,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'verified-filipino-wedding-vendors-no-commission',
         title: 'Where can I find verified Filipino wedding suppliers with no commission?',
-        body: 'Setnayan’s marketplace lists Filipino suppliers who each passed a business-legitimacy check and a video call with a Setnayan admin, and it shows their real business name. Browsing is free and open to anyone. Couples pay 0% commission: you pay suppliers directly, and nothing you pay them comes back to Setnayan. Save two suppliers to compare them side by side — location, rating, services and distance from your venue — then message them from Setnayan, where a supplier sees your event’s name and date, never your email.',
+        body: 'Setnayan’s marketplace lists Filipino suppliers whose business papers were each checked by a Setnayan admin, and it shows their real business name. Browsing is free and open to anyone. Couples pay 0% commission: you pay suppliers directly, and nothing you pay them comes back to Setnayan. Save two suppliers to compare them side by side — location, rating, services and distance from your venue — then message them from Setnayan, where a supplier sees your event’s name and date, never your email.',
       },
       {
         slug: 'share-wedding-photos-with-guests-automatically',
@@ -472,20 +472,6 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
           '2. Typical requirements: your DTI or SEC certificate, BIR registration, Barangay Business Clearance, and proof of location (lease contract or, if you own it, tax declaration).\n' +
           '3. Pay the assessed local fees. The LGU issues your Business Permit and the plate/sticker for the year.\n\n' +
           'Requirements and fees vary by LGU, so your city hall is the best source of the exact list. Upload the current-year permit (PDF, JPG, or PNG, up to 15 MB).',
-      },
-      {
-        slug: 'how-to-prepare-bank-account-proof',
-        title: 'How to prepare your bank account proof',
-        body:
-          'This shows you control a real payout account under your business identity. It is a trust check — Setnayan does not hold your money.\n\n' +
-          'Your proof just needs to clearly show three things:\n' +
-          '1. The account holder name — this should match your DTI/SEC business name (or your own name if you are a sole proprietor).\n' +
-          '2. The provider — the bank name, or GCash / Maya.\n' +
-          '3. The account number (you may mask the middle digits).\n\n' +
-          'What counts as valid proof:\n' +
-          '- GCash or Maya: a screenshot of your in-app Profile / "My Account" page showing your name and number.\n' +
-          '- Bank: a screenshot of your account details in the banking app, a bank certificate, the header of a bank statement, or a photo of your passbook cover.\n\n' +
-          'You do NOT need to show your balance or transaction history — feel free to blur those. Upload a screenshot or PDF (up to 15 MB).',
       },
       {
         slug: 'build-your-online-presence',

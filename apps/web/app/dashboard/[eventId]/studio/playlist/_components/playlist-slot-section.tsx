@@ -102,7 +102,7 @@ export function PlaylistSlotSection({
     ? 'border-danger-300/60 bg-danger-50/40'
     : 'border-ink/15 bg-cream/40';
   const labelTint = isBannedSlot ? 'text-danger-900' : 'text-ink';
-  const hintTint = isBannedSlot ? 'text-danger-900/65' : 'text-ink/65';
+  const hintTint = isBannedSlot ? 'text-danger-900/65' : 'text-ink/70';
 
   return (
     <section
@@ -137,7 +137,7 @@ export function PlaylistSlotSection({
           ))}
         </ul>
       ) : (
-        <p className="mb-3 italic text-xs text-ink/50">No picks yet.</p>
+        <p className="mb-3 italic text-xs text-ink/70">No picks yet.</p>
       )}
 
       {!addOpen ? (
@@ -162,7 +162,7 @@ export function PlaylistSlotSection({
             <div>
               <label
                 htmlFor={`playlist-${slotType}-song`}
-                className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+                className="block text-[12px] uppercase tracking-[0.15em] text-ink/70"
               >
                 Song <span className="text-danger-700">*</span>
               </label>
@@ -185,7 +185,7 @@ export function PlaylistSlotSection({
             <div>
               <label
                 htmlFor={`playlist-${slotType}-artist`}
-                className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+                className="block text-[12px] uppercase tracking-[0.15em] text-ink/70"
               >
                 Artist (optional)
               </label>
@@ -207,7 +207,7 @@ export function PlaylistSlotSection({
           <div>
             <label
               htmlFor={`playlist-${slotType}-notes`}
-              className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+              className="block text-[12px] uppercase tracking-[0.15em] text-ink/70"
             >
               {isBannedSlot ? 'Why no-play?' : 'Note for the DJ'} (optional)
             </label>
@@ -245,7 +245,7 @@ export function PlaylistSlotSection({
                 setNotes('');
                 setErrorMessage(null);
               }}
-              className="inline-flex items-center gap-1 px-2 py-1.5 text-xs text-ink/55 hover:text-ink/85"
+              className="inline-flex items-center gap-1 px-2 py-1.5 text-xs text-ink/70 hover:text-ink/85"
             >
               <X aria-hidden className="h-3 w-3" strokeWidth={2.25} />
               Cancel
@@ -313,7 +313,7 @@ function VibePicker({
   return (
     <div className="pt-1">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[0.6875rem] uppercase tracking-[0.08em] text-ink/45">
+        <span className="text-[0.6875rem] uppercase tracking-[0.08em] text-ink/70">
           Feel
         </span>
         {PLAYLIST_VIBES.map((v) => {
@@ -328,7 +328,7 @@ function VibePicker({
               className={`rounded-full border px-2.5 py-1 text-xs transition-colors disabled:opacity-60 ${
                 active
                   ? 'border-gild bg-gild/15 font-medium text-ink'
-                  : 'border-ink/15 text-ink/60 hover:bg-ink/5 hover:text-ink/85'
+                  : 'border-ink/15 text-ink/70 hover:bg-ink/5 hover:text-ink/85'
               }`}
             >
               {PLAYLIST_VIBE_LABELS[v]}
@@ -336,7 +336,7 @@ function VibePicker({
           );
         })}
       </div>
-      <p className="pt-1 text-[0.6875rem] leading-relaxed text-ink/45">
+      <p className="pt-1 text-[0.6875rem] leading-relaxed text-ink/70">
         {current
           ? 'Tap it again to leave this one to your band.'
           : 'Optional — name a feel and your band fills the gaps you don’t.'}

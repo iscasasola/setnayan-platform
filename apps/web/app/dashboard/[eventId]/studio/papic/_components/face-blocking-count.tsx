@@ -28,7 +28,7 @@ export async function FaceBlockingCount({ eventId }: { eventId: string }) {
           Each guest chooses on their own guest card whether their face is blurred on Memory lane and in shared photos.
           Their choice is always honoured — nothing here can change it.
         </InfoTip>
-        <span className="block text-[12.5px] text-ink/60" data-papic-face-blocking-count="">
+        <span className="block text-[12.5px] text-ink/70" data-papic-face-blocking-count="">
           {faceBlockingWords(error ? null : (count ?? null))}
         </span>
       </span>

@@ -26,6 +26,7 @@ import { getIapGate } from '@/lib/request-platform';
 import { STORE_SHELL_NO_PAY_SETTINGS } from '@/lib/store-shell';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
 
+import { InfoTip } from '@/app/_components/info-tip';
 export const metadata = { title: 'Music Maker' };
 
 const SKU_CODE = 'PAKANTA';
@@ -165,7 +166,7 @@ export default async function PakantaPage({ params }: Props) {
     <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 sm:px-6">
       <Link
         href={appleIap ? `/dashboard/${eventId}` : studioHubHref(eventId)}
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
+        className="inline-flex items-center gap-1.5 text-sm text-ink/70 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" /> {appleIap ? 'Back to Today' : 'Back to services'}
       </Link>
@@ -186,22 +187,19 @@ export default async function PakantaPage({ params }: Props) {
       <ServiceParts eventId={eventId} service="music-maker" />
 
       {!draftMeasured ? (
-        <p
-          role="alert"
-          className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
-        >
-          <strong className="text-ink">
-            We couldn&rsquo;t load the answers you saved before.
-          </strong>{' '}
-          The form below is showing empty because of that, not because your
-          answers are gone. Reload before filling it in again &mdash; saving now
-          would replace what you wrote.
-        </p>
+        <div role="alert">
+          <InfoTip labelAs="p" label="We couldn&rsquo;t load the answers you saved before." labelNode={<><strong className="text-ink"> We couldn&rsquo;t load the answers you saved before.</>} labelClassName="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70" align="start">
+            </strong>{' '}
+            The form below is showing empty because of that, not because your
+            answers are gone. Reload before filling it in again &mdash; saving now
+            would replace what you wrote.
+          </InfoTip>
+        </div>
       ) : null}
 
       {/* The story we already have — pulled from onboarding, read-only. */}
-      <div className="sn-tile p-5">
-        <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink/45">
+      <div className="border-t border-ink/10 py-5">
+        <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink/70">
           <Heart aria-hidden className="h-3.5 w-3.5 text-mulberry" /> Your song will be written from
           this
         </p>
@@ -211,7 +209,7 @@ export default async function PakantaPage({ params }: Props) {
               <li key={i}>• {p}</li>
             ))}
             {brief.keyMoments.length > 0 ? (
-              <li className="pt-1 text-ink/60">
+              <li className="pt-1 text-ink/70">
                 {brief.keyMoments.map((k) => `${k.label}: ${k.value}`).join(' · ')}
               </li>
             ) : null}
@@ -219,7 +217,7 @@ export default async function PakantaPage({ params }: Props) {
         ) : (
           <div className="text-sm text-ink/70">
             <p className="inline-flex items-center gap-1.5">
-              <Sparkles aria-hidden className="h-4 w-4 text-ink/40" /> We don’t have your love story
+              <Sparkles aria-hidden className="h-4 w-4 text-ink/70" /> We don’t have your love story
               yet.
             </p>
             <p className="mt-1">
@@ -269,10 +267,10 @@ export default async function PakantaPage({ params }: Props) {
             <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-mulberry">
               <Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} /> Your song is in production
             </p>
-            <p className="text-sm text-ink/70">
-              Your song is being composed with Setnayan AI from your story. When it’s ready it will
+            <InfoTip labelAs="p" label="Your song is being composed with Setnayan AI from your story." labelClassName="text-sm text-ink/70" align="start">
+              When it’s ready it will
               appear here — and play on your wedding page automatically.
-            </p>
+            </InfoTip>
           </div>
           {/* Keep the brief/intake visible while in production so the couple
               can still add or refine their music notes before it's written. */}
@@ -292,7 +290,7 @@ export default async function PakantaPage({ params }: Props) {
         /* ── NOT OWNED — buy + intake form (unchanged; in the app the pay step is Apple's sheet). ── */
         <PakantaMusicForm eventId={eventId} initial={responses} pricePhp={pricePhp} settings={settings} apple={appleIap} appleOnSale={appleOnSale} />
       ) : (
-        <p className="text-sm text-ink/65">
+        <p className="text-sm text-ink/70">
           Pricing loads from your catalog &mdash; please refresh in a moment.
         </p>
       )}

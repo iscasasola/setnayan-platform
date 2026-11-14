@@ -47,7 +47,7 @@ export function KwentoQueueControls({ eventId, rows }: { eventId: string; rows: 
       {rows.map((row) => (
         <div
           key={row.messageId}
-          className="flex gap-3 rounded-xl border border-ink/10 bg-cream/40 p-3"
+          className="border-t border-ink/10 flex gap-3 py-3"
         >
           <div className="h-16 w-16 flex-none overflow-hidden rounded-md border border-ink/10 bg-ink/5">
             {row.thumbUrl ? (
@@ -63,7 +63,7 @@ export function KwentoQueueControls({ eventId, rows }: { eventId: string; rows: 
             <p className="text-sm text-ink">
               <span className="font-medium">{row.author}</span>
               {row.edited ? (
-                <span className="ml-1.5 text-[11px] text-terracotta">· changed after you saw it</span>
+                <span className="ml-1.5 text-[12px] text-terracotta">· changed after you saw it</span>
               ) : null}
             </p>
             {row.moderation === 'flagged' && row.status === 'pending' ? (
@@ -119,13 +119,13 @@ export function KwentoQueueControls({ eventId, rows }: { eventId: string; rows: 
                   </button>
                 )
               ) : (
-                <span className="text-[11px] text-ink/40">rejected</span>
+                <span className="text-[12px] text-ink/70">rejected</span>
               )}
               <button
                 type="button"
                 disabled={pending}
                 onClick={() => run(() => blockKwentoGuest(eventId, row.guestId))}
-                className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] text-ink/45 hover:bg-ink/5 hover:text-ink/70 disabled:opacity-60"
+                className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[12px] text-ink/70 hover:bg-ink/5 hover:text-ink/70 disabled:opacity-60"
               >
                 <ShieldBan aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Block guest
               </button>

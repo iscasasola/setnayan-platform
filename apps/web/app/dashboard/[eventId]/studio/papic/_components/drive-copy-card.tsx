@@ -5,6 +5,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { DriveSafetyPanel, DriveReconnectBanner } from '@/app/_components/drive-connect-card';
 import { PAPIC_DRIVE_SUBFOLDERS } from '@/lib/papic-drive';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * drive-copy-card.tsx — Google Drive as a COPY, moved out of the Papic page (owner 2026-10-23: "Google Drive" is a
  * Gallery setting — Memories › ⚙). The card and its panels are unchanged; only their file moved.
@@ -64,37 +65,36 @@ export function DriveCopyCard({
   return (
     <article
       id="papic-storage"
-      className="scroll-mt-20 space-y-4 sn-tile p-5 sm:p-6"
+      className="border-t border-ink/10 scroll-mt-20 space-y-4 py-5 sm:p-6"
     >
       <div className="space-y-1">
         <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
           <Cloud aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
           Send a copy to your Google Drive
           {!driveOAuthReady ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 text-[12px] uppercase tracking-[0.15em] text-ink/70">
               <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
               Coming soon
             </span>
           ) : connected ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900">
+            <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 text-[12px] uppercase tracking-[0.15em] text-success-900">
               <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
               Connected
             </span>
           ) : null}
         </h2>
-        <p className="max-w-prose text-sm text-ink/60">
-          Every photo lands in your own Drive too, as it arrives — so you keep
+        <InfoTip labelAs="p" label="Every photo lands in your own Drive too, as it arrives" labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+          so you keep
           the originals at full size, on a drive you control. We keep your
           Memories either way.
-        </p>
+        </InfoTip>
       </div>
 
       {!driveOAuthReady ? (
-        <p className="text-xs italic text-ink/55">
-          Coming soon — Setnayan&rsquo;s Drive verified-app review is in
-          progress. Your photos are safe with us today; we&rsquo;ll email you
+        <InfoTip labelAs="p" label="Coming soon — Setnayan&rsquo;s Drive verified-app review is in progress." labelClassName="text-xs italic text-ink/70" align="start">
+          Your photos are safe with us today; we&rsquo;ll email you
           when Drive is ready.
-        </p>
+        </InfoTip>
       ) : connected ? (
         <DriveConnectedPanel eventId={eventId} grant={driveGrant!} loginEmail={loginEmail} />
       ) : (
@@ -110,12 +110,12 @@ function DriveConnectCTA({ eventId }: { eventId: string }) {
       <DriveSafetyPanel />
       <a
         href={`/api/oauth/drive/start?event_id=${eventId}`}
-        className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+        className="ab ab-brand ab-main"
       >
         <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Connect Google Drive
       </a>
-      <p className="text-xs text-ink/55">
+      <p className="text-xs text-ink/70">
         ~20 seconds. Connect once — it covers your recap and photographer hand-off too.
       </p>
     </div>
@@ -188,18 +188,18 @@ async function DriveConnectedPanel({
       {strandedFull > 0 ? (
         <div className="rounded-xl bg-amber-50/70 p-3 text-[12px] text-amber-900">
           <p className="font-medium">Your Drive is full.</p>
-          <p className="mt-0.5 text-amber-800">
-            Some full-resolution originals couldn&rsquo;t be saved to Drive — your
+          <InfoTip labelAs="p" label="Some full-resolution originals couldn&rsquo;t be saved to Drive" labelClassName="text-amber-800" className="mt-0.5" align="start">
+            your
             Memories are safe here, but the full-res copies are waiting. Free up
             space{overflowGrant ? ' on either Drive' : ''}, or{' '}
             <a
-              href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
-              className="font-medium underline underline-offset-2"
+            href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
+            className="font-medium underline underline-offset-2"
             >
-              {overflowGrant ? 'connect more space' : 'connect a second Drive you own'}
+            {overflowGrant ? 'connect more space' : 'connect a second Drive you own'}
             </a>{' '}
             — they&rsquo;ll finish uploading automatically.
-          </p>
+          </InfoTip>
         </div>
       ) : null}
 
@@ -209,9 +209,9 @@ async function DriveConnectedPanel({
             <p className="text-sm font-semibold text-ink">
               Connected to Google Drive as {accountLabel}
             </p>
-            <p className="font-mono text-[11px] text-ink/55">Connected {grantedDate}</p>
+            <p className="text-[13px] text-ink/70">Connected {grantedDate}</p>
             {accountMismatch ? (
-              <p className="text-[11px] text-ink/60">
+              <p className="text-[12px] text-ink/70">
                 Not your sign-in ({loginEmail}). That&rsquo;s fine — photos save to{' '}
                 {grant.external_account_display}.{' '}
                 <a
@@ -223,8 +223,8 @@ async function DriveConnectedPanel({
               </p>
             ) : null}
             {overflowGrant ? (
-              <div className="space-y-1 text-[11px]">
-                <p className="text-ink/60">
+              <div className="space-y-1 text-[12px]">
+                <p className="text-ink/70">
                   2nd Drive connected as{' '}
                   <span className="font-medium text-ink/75">
                     {overflowGrant.external_account_display ?? 'your second Drive'}
@@ -248,24 +248,24 @@ async function DriveConnectedPanel({
                   <input type="hidden" name="slot" value="overflow" />
                   <SubmitButton
                     pendingLabel="Disconnecting…"
-                    className="text-ink/45 underline underline-offset-2 transition-colors hover:text-ink/70"
+                    className="text-ink/70 underline underline-offset-2 transition-colors hover:text-ink/70"
                   >
                     Disconnect 2nd Drive
                   </SubmitButton>
                 </form>
               </div>
             ) : (
-              <p className="text-[11px] text-ink/60">
-                Running low on space? Full-resolution photos always live in your own
+              <InfoTip labelAs="p" label="Running low on space?" labelClassName="text-[12px] text-ink/70" align="start">
+                Full-resolution photos always live in your own
                 Drive — if it fills up, add a second one.{' '}
                 <a
-                  href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
-                  className="font-medium text-mulberry underline-offset-2 hover:underline"
+                href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
+                className="font-medium text-mulberry underline-offset-2 hover:underline"
                 >
-                  Connect a second Drive you own
+                Connect a second Drive you own
                 </a>
                 . New photos overflow into it automatically once the first is full.
-              </p>
+              </InfoTip>
             )}
           </div>
           <form action="/api/oauth/drive/disconnect" method="post">
@@ -281,14 +281,14 @@ async function DriveConnectedPanel({
         </div>
 
         <div className="rounded-lg bg-cream/80 p-3">
-          <div className="flex items-center gap-1.5 text-ink/65">
+          <div className="flex items-center gap-1.5 text-ink/70">
             <FolderTree aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em]">
+            <span className="text-[12px] uppercase tracking-[0.18em]">
               Folder structure ready in your Drive
             </span>
           </div>
           <p className="mt-1.5 font-mono text-xs text-ink/85">Setnayan / {folderName} /</p>
-          <ul className="mt-1 space-y-0.5 pl-4 font-mono text-xs text-ink/65">
+          <ul className="mt-1 space-y-0.5 pl-4 font-mono text-xs text-ink/70">
             {subfolders.map((name) => (
               <li key={name}>{name}/</li>
             ))}

@@ -24,6 +24,7 @@ import { ReissueCameraButton } from './reissue-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
 
+import { InfoTip } from '@/app/_components/info-tip';
 export const metadata = { title: 'Camera operators' };
 export const dynamic = 'force-dynamic';
 
@@ -138,7 +139,7 @@ export default async function PanoodCamerasPage({ params }: Props) {
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           {formatCount(claimedCount)} of {formatCount(rows.length)} connected
         </p>
         <Link
@@ -157,10 +158,10 @@ export default async function PanoodCamerasPage({ params }: Props) {
           points there; `#screens` opens the controller's setup sheet at that section. */}
       <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-4">
         <h2 className="text-sm font-semibold">Venue displays</h2>
-        <p className="mt-1 max-w-prose text-xs leading-relaxed text-ink/60">
-          Any TV, projector or LED wall with a browser can show your livestream or monogram. Add and
+        <InfoTip labelAs="p" label="Any TV, projector or LED wall with a browser can show your livestream or monogram." labelClassName="text-xs leading-relaxed text-ink/70" className="mt-1 max-w-prose" align="start">
+          Add and
           pair screens under Venue screens in the controller.
-        </p>
+        </InfoTip>
         <Link
           href={`${liveStudioControllerHref(eventId)}#screens`}
           className="mt-2 inline-flex min-h-11 items-center text-xs font-medium text-terracotta hover:underline"
@@ -177,7 +178,7 @@ export default async function PanoodCamerasPage({ params }: Props) {
           action={
             <Link
               href={liveStudioControllerHref(eventId)}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-mulberry-600"
+              className="ab ab-brand ab-main"
             >
               <Video aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Open the control room
@@ -187,16 +188,16 @@ export default async function PanoodCamerasPage({ params }: Props) {
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2">
           {rows.map((r) => (
-            <li key={r.id} className="sn-tile space-y-3 p-4">
+            <li key={r.id} className="border-t border-ink/10 space-y-3 py-4">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-sm font-semibold">{r.label}</h2>
                 {r.claimed ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-success-600/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-success-700">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-success-600/10 px-2 py-0.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-success-700">
                     <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2.5} />
                     Connected
                   </span>
                 ) : (
-                  <span className="rounded-full bg-ink/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/55">
+                  <span className="rounded-full bg-ink/8 px-2 py-0.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink/70">
                     Open
                   </span>
                 )}
@@ -204,10 +205,10 @@ export default async function PanoodCamerasPage({ params }: Props) {
 
               {r.claimed ? (
                 <>
-                  <p className="text-xs leading-relaxed text-ink/60">
-                    Someone has this camera and it’s bound to their phone. Reissuing mints a new
+                  <InfoTip labelAs="p" label="Someone has this camera and it’s bound to their phone." labelClassName="text-xs leading-relaxed text-ink/70" align="start">
+                    Reissuing mints a new
                     link and disconnects them — the old link stops working immediately.
-                  </p>
+                  </InfoTip>
                   <ReissueCameraButton eventId={eventId} cameraId={r.id} label={r.label} />
                 </>
               ) : (

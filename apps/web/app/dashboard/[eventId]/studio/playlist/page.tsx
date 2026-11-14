@@ -50,6 +50,7 @@ import { HostSetlistPanel } from './_components/host-setlist-panel';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { formatCount } from '@/lib/format-number';
 
+import { InfoTip } from '@/app/_components/info-tip';
 type Props = {
   params: Promise<{ eventId: string }>;
 };
@@ -147,7 +148,7 @@ export default async function PlaylistPage({ params }: Props) {
           other add-on surfaces. */}
       <Link
         href={`/dashboard/${eventId}`}
-        className="mb-4 inline-flex items-center gap-1.5 text-xs text-ink/55 transition-colors hover:text-ink/85"
+        className="mb-4 inline-flex items-center gap-1.5 text-xs text-ink/70 transition-colors hover:text-ink/85"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Back to {eventRow.data.display_name ?? 'event home'}
@@ -164,33 +165,25 @@ export default async function PlaylistPage({ params }: Props) {
       {/* Sync status chip · whether a Music vendor is already booked. */}
       {bookedMusic ? (
         <div className="mb-6 rounded-xl border border-success-300/50 bg-success-50/60 p-4">
-          <p className="inline-flex items-start gap-2 text-sm text-success-900">
-            <Sparkles
-              aria-hidden
-              className="mt-0.5 h-4 w-4 flex-shrink-0 text-success-700"
-              strokeWidth={2}
-            />
-            <span className="leading-relaxed">
-              Synced with{' '}
-              <strong className="font-medium">{bookedMusic.vendor_name}</strong>{' '}
-              — they&apos;ll see this lineup in their Setnayan workspace. Edit
-              anytime; they&apos;ll always see your latest picks.
+          <InfoTip labelAs="p" label="Synced with — they&apos;ll see this lineup in their Setnayan workspace." labelNode={<><Sparkles aria-hidden className="mt-0.5 h-4 w-4 flex-shrink-0 text-success-700" strokeWidth={2} /> <span className="leading-relaxed"> Synced with{' '} <strong className="font-medium">{bookedMusic.vendor_name}</strong>{' '} — they&apos;ll see this lineup in their Setnayan workspace.</>} labelClassName="inline-flex items-start gap-2 text-sm text-success-900" align="start">
+            Edit
+            anytime; they&apos;ll always see your latest picks.
             </span>
-          </p>
+          </InfoTip>
         </div>
       ) : (
         <div className="mb-6 sn-row p-4">
-          <p className="text-sm leading-relaxed text-ink/75">
-            Build the lineup whenever you&apos;re ready. The moment you book
+          <InfoTip labelAs="p" label="Build the lineup whenever you&apos;re ready." labelClassName="text-sm leading-relaxed text-ink/75" align="start">
+            The moment you book
             your DJ or band, this playlist syncs to their workspace
             automatically.
-          </p>
+          </InfoTip>
         </div>
       )}
 
       {/* Pick count summary · helps the host see progress at a glance. */}
       {positiveCount > 0 ? (
-        <p className="mb-6 text-xs text-ink/55">
+        <p className="mb-6 text-xs text-ink/70">
           {formatCount(positiveCount)} song{positiveCount === 1 ? '' : 's'} picked across{' '}
           the timeline
           {grouped.banned_songs.length > 0
@@ -211,10 +204,12 @@ export default async function PlaylistPage({ params }: Props) {
       {picksRaw.failed ? (
         /* A failed picks read is NOT eight empty moments and a tray of "unplaced" songs to add again — every one of
            them would be a duplicate (coordinator walk 2026-10-23). Said, with nothing drawn to add over it. */
-        <p role="alert" data-playlist-unread="" className="sn-row mb-6 p-4 text-sm leading-relaxed text-ink/75">
-          We couldn&rsquo;t load your picks just now &mdash; nothing is lost. Refresh the page before you add songs, so
-          nothing is added twice.
-        </p>
+        <div role="alert" data-playlist-unread="">
+          <InfoTip labelAs="p" label="We couldn&rsquo;t load your picks just now &mdash; nothing is lost." labelClassName="sn-row p-4 text-sm leading-relaxed text-ink/75" className="mb-6" align="start">
+            Refresh the page before you add songs, so
+            nothing is added twice.
+          </InfoTip>
+        </div>
       ) : (
         <>
           {/* ↩ The one Undo toast for a swiped-away pick (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"). */}

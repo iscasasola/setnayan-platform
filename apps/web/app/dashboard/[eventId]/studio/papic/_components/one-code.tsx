@@ -97,12 +97,12 @@ export async function OneCodeUnderGetIn({ eventId }: { eventId: string }) {
           </div>
         </div>
       ) : (
-        <p className="flex items-start gap-2 text-[13px] text-ink/65" data-one-code-notice="">
+        <p className="flex items-start gap-2 text-[13px] text-ink/70" data-one-code-notice="">
           <CircleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
           {code.notice ?? 'We couldn’t check your shared code just now. Reload the page to try again.'}
         </p>
       )}
-      <p className="flex items-center justify-between gap-2 text-[12.5px] text-ink/60" data-one-code-guests="">
+      <p className="flex items-center justify-between gap-2 text-[12.5px] text-ink/70" data-one-code-guests="">
         <span className="min-w-0">Each guest’s invite QR is already their camera</span>
         <span className="shrink-0 font-medium text-success-800">{code.ready === null ? '—' : `${formatCount(code.ready)} ready`}</span>
       </p>

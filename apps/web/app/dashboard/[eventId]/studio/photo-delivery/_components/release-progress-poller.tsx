@@ -120,7 +120,7 @@ export function ReleaseProgressPoller({
       </div>
 
       {totalFiles > 0 ? (
-        <p className="font-mono text-xs text-warn-900/85">
+        <p className="text-[13px] tabular-nums text-warn-900">
           {uploadedFiles.toLocaleString('en-US')} /{' '}
           {totalFiles.toLocaleString('en-US')} files ·{' '}
           {formatBytes(uploadedBytes)} / {formatBytes(totalBytes)}

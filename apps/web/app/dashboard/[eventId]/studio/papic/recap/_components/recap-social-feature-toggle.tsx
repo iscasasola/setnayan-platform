@@ -43,7 +43,7 @@ export function RecapSocialFeatureToggle({
         <span className="font-medium text-ink">
           Let Setnayan feature this recap on our Facebook &amp; Instagram
         </span>
-        <span className="mt-1 block text-ink/55">
+        <span className="mt-1 block text-ink/70">
           Only ever posted after your event, and only while your recap page is public. You can turn
           this off anytime — if a post already went out, our team takes it down within 24 hours.
         </span>

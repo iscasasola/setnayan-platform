@@ -28,6 +28,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { StayConfirmForm, StayForm } from '@/app/_components/stay-form';
 
+import { InfoTip } from '@/app/_components/info-tip';
+import { PostedPick } from '@/app/dashboard/[eventId]/_components/posted-pick';
 export const metadata = { title: 'Photo moderation · Papic' };
 export const dynamic = 'force-dynamic';
 
@@ -337,13 +339,13 @@ export default async function PapicModerationPage({
       {/* The capture list below is its own read, so it still renders when only
           the camera check failed; this line says which part we could not see. */}
       {guestAccess === 'unknown' ? (
-        <p role="status" className="sn-row px-4 py-3 text-sm text-ink/65">
+        <p role="status" className="sn-row px-4 py-3 text-sm text-ink/70">
           We couldn&rsquo;t check whether guest cameras are on just now. Reload the page to try
           again.
         </p>
       ) : null}
       {guestAccess === 'off' ? (
-        <p className="sn-row px-4 py-3 text-sm text-ink/65">
+        <p className="sn-row px-4 py-3 text-sm text-ink/70">
           {/* ⚠ THE NAMING LOCK CITED HERE WAS SUPERSEDED. This used to quote the
               2026-07-30 rule that "the two Papic products are Papic Pool and
               Papic One". Owner, 2026-08-11 and again 2026-08-26: *"we do not
@@ -354,7 +356,7 @@ export default async function PapicModerationPage({
           event.
         </p>
       ) : captureRows.length === 0 ? (
-        <p className="sn-row px-4 py-3 text-sm text-ink/65">
+        <p className="sn-row px-4 py-3 text-sm text-ink/70">
           No guest photos yet. As guests start shooting, every photo shows up
           here for you to review.
         </p>
@@ -371,7 +373,7 @@ export default async function PapicModerationPage({
             return (
               <li
                 key={captureId}
-                className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-3 shadow-sm"
+                className="border-t border-ink/10 flex flex-col gap-3 bg-surface py-3"
               >
                 <div className="relative aspect-square overflow-hidden rounded-xl bg-ink/[0.04]">
                   {url ? (
@@ -382,23 +384,23 @@ export default async function PapicModerationPage({
                       className={`h-full w-full object-cover ${hidden ? 'opacity-40 grayscale' : ''}`}
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs text-ink/40">
+                    <div className="flex h-full w-full items-center justify-center text-xs text-ink/70">
                       Preview unavailable
                     </div>
                   )}
                   {hidden && (
-                    <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink/70 px-2 py-0.5 text-[10px] font-medium text-cream">
+                    <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink/70 px-2 py-0.5 text-[12px] font-medium text-cream">
                       <EyeOff aria-hidden className="h-3 w-3" strokeWidth={2} /> Hidden
                     </span>
                   )}
                   {isReported && (
-                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-warn-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
+                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-warn-500/90 px-2 py-0.5 text-[12px] font-medium text-white">
                       <Flag aria-hidden className="h-3 w-3" strokeWidth={2} /> Reported
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-ink/60">
+                <div className="flex items-center justify-between text-xs text-ink/70">
                   <span className="font-medium text-ink/80">{name}</span>
                   {isBlocked && (
                     <span className="inline-flex items-center gap-1 text-terracotta">
@@ -457,18 +459,13 @@ export default async function PapicModerationPage({
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="capture_id" value={captureId} />
                   <div className="flex items-center gap-1.5">
-                    <select
+                    <PostedPick
                       name="reason"
-                      required
-                      defaultValue="nudity_sexual"
-                      className="min-w-0 flex-1 rounded-md border border-ink/15 bg-surface px-2 py-1.5 text-xs text-ink/80"
-                    >
-                      {REASON_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
+                      label="Reason"
+                      initial="nudity_sexual"
+                      options={REASON_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
+                      className="min-w-0 flex-1"
+                    />
                     <SubmitButton
                       pendingLabel="Reporting…"
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-warn-300 bg-warn-50 px-3 py-1.5 text-xs font-medium text-warn-900 hover:bg-warn-100"
@@ -513,16 +510,16 @@ export default async function PapicModerationPage({
           remove ANY photo. These were previously invisible here unless the NSFW
           filter had flagged them. */}
       {seatRows.length > 0 && (
-        <section className="space-y-3 sn-tile p-5 sm:p-6">
+        <section className="border-t border-ink/10 space-y-3 py-5 sm:p-6">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-ink/80">
-            <Camera className="h-4 w-4 text-ink/50" strokeWidth={1.75} />
+            <Camera className="h-4 w-4 text-ink/70" strokeWidth={1.75} />
             Photos from your cameras
           </h2>
-          <p className="text-xs text-ink/60">
-            Everything shot on a camera seat — your paparazzi, and any supplier or
+          <InfoTip labelAs="p" label="Everything shot on a camera seat" labelClassName="text-xs text-ink/70" align="start">
+            your paparazzi, and any supplier or
             coordinator shooting for you. Hiding takes a photo out of your Memories
             and every shared link. You can put it back.
-          </p>
+          </InfoTip>
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {seatRows.map((r) => {
               const photoId = r.photo_id as string;
@@ -548,7 +545,7 @@ export default async function PapicModerationPage({
               return (
                 <li
                   key={photoId}
-                  className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-3 shadow-sm"
+                  className="border-t border-ink/10 flex flex-col gap-3 bg-surface py-3"
                 >
                   <div className="relative aspect-square overflow-hidden rounded-xl bg-ink/[0.04]">
                     {url ? (
@@ -559,19 +556,19 @@ export default async function PapicModerationPage({
                         className={`h-full w-full object-cover ${hidden ? 'opacity-40 grayscale' : ''}`}
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-ink/40">
+                      <div className="flex h-full w-full items-center justify-center text-xs text-ink/70">
                         Preview unavailable
                       </div>
                     )}
                     {hidden && (
-                      <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink/70 px-2 py-0.5 text-[10px] font-medium text-cream">
+                      <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink/70 px-2 py-0.5 text-[12px] font-medium text-cream">
                         <EyeOff aria-hidden className="h-3 w-3" strokeWidth={2} /> Hidden
                       </span>
                     )}
                     {/* Same badge the guest-capture grid already draws — the
                         marker was never the missing half, the lookup was. */}
                     {isReported && (
-                      <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-warn-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
+                      <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-warn-500/90 px-2 py-0.5 text-[12px] font-medium text-white">
                         <Flag aria-hidden className="h-3 w-3" strokeWidth={2} /> Reported
                       </span>
                     )}
@@ -623,7 +620,7 @@ export default async function PapicModerationPage({
       )}
 
       {blockRows.length > 0 && (
-        <section className="space-y-3 sn-tile p-5">
+        <section className="border-t border-ink/10 space-y-3 py-5">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-ink/80">
             <UserX className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
             Blocked guests for this wedding
@@ -632,12 +629,12 @@ export default async function PapicModerationPage({
               the legitimate value for a guest who never gave one. Unblocking is a decision
               about a specific person's face; it must not be made from an ambiguous label. */}
           {!guestNamesMeasured ? (
-            <p role="alert" className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-3 text-sm text-ink/70">
-              <strong className="text-ink">We couldn&rsquo;t load these names.</strong> Every row
-              below reads &ldquo;Guest&rdquo; because the lookup failed, not because they are
-              unnamed. Reload before unblocking anyone &mdash; you cannot tell who is who from
-              this list right now.
-            </p>
+            <div role="alert">
+              <InfoTip labelAs="p" label="We couldn&rsquo;t load these names. Every row below reads &ldquo;Guest&rdquo; because the lookup failed, not because they are unnamed." labelNode={<><strong className="text-ink">We couldn&rsquo;t load these names.</strong> Every row below reads &ldquo;Guest&rdquo; because the lookup failed, not because they are unnamed.</>} labelClassName="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-3 text-sm text-ink/70" align="start">
+                Reload before unblocking anyone &mdash; you cannot tell who is who from
+                this list right now.
+              </InfoTip>
+            </div>
           ) : null}
           <ul className="space-y-2">
             {blockRows.map((b) => {
@@ -671,12 +668,11 @@ export default async function PapicModerationPage({
             <ShieldAlert className="h-4 w-4 text-warn-600" strokeWidth={1.75} />
             Filtered by the content screen
           </h2>
-          <p className="max-w-2xl text-xs text-ink/60">
-            Setnayan automatically screens every photo and clip for explicit
-            content — the screen is always on and can&rsquo;t be turned off.
+          <InfoTip labelAs="p" label="Setnayan automatically screens every photo and clip for explicit content" labelClassName="text-xs text-ink/70" className="max-w-2xl" align="start">
+            the screen is always on and can&rsquo;t be turned off.
             Anything it filters is hidden from guests and your public pages,
             but you can review it here. Approving restores a single item.
-          </p>
+          </InfoTip>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {screenedRows.map((s) => {
               const url = screenedThumbUrl.get(s.id) ?? null;
@@ -686,7 +682,7 @@ export default async function PapicModerationPage({
               return (
                 <li
                   key={`${s.table}:${s.id}`}
-                  className="flex flex-col gap-2 rounded-xl border border-ink/10 bg-surface p-2"
+                  className="border-t border-ink/10 flex flex-col gap-2 bg-surface p-2"
                 >
                   <div className="relative aspect-square overflow-hidden rounded-lg bg-ink/[0.04]">
                     {url ? (
@@ -697,11 +693,11 @@ export default async function PapicModerationPage({
                         className="h-full w-full object-cover blur-md"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-ink/40">
+                      <div className="flex h-full w-full items-center justify-center text-xs text-ink/70">
                         Preview unavailable
                       </div>
                     )}
-                    <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-warn-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
+                    <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-warn-500/90 px-2 py-0.5 text-[12px] font-medium text-white">
                       <ShieldAlert aria-hidden className="h-3 w-3" strokeWidth={2} />{' '}
                       {s.isClip ? 'Filtered snippet' : 'Filtered'}
                     </span>
@@ -744,18 +740,17 @@ export default async function PapicModerationPage({
           hardcoded-fallback trap this repo has been bitten by before; the cure
           is removing the branch, not trusting it never renders.
         */
-        <section className="space-y-3 sn-tile p-5 sm:p-6">
+        <section className="border-t border-ink/10 space-y-3 py-5 sm:p-6">
           <div className="space-y-1">
             <p className="sn-eye">Photo Notes · words on a photo</p>
             <h2 className="text-xl font-semibold tracking-tight">
               Let guests leave a message
             </h2>
           </div>
-          <p className="max-w-prose text-sm text-ink/70">
-            Your guests can anchor a short message, story, or chismis to any photo
-            or clip — you approve each one before it shows in your Memories and on
+          <InfoTip labelAs="p" label="Your guests can anchor a short message, story, or chismis to any photo or clip" labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+            you approve each one before it shows in your Memories and on
             your editorial page. It comes with Papic, free.
-          </p>
+          </InfoTip>
           <p className="text-sm text-ink/70">
             Photo Notes add words to your Papic photos, so set up your Papic crew
             first.{' '}
@@ -769,7 +764,7 @@ export default async function PapicModerationPage({
         </section>
       )}
 
-      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+      <p className="text-[12px] uppercase tracking-[0.15em] text-ink/70">
         Source · iteration 0012 Papic · UGC moderation (Apple 1.2 / Google Play UGC)
       </p>
     </section>

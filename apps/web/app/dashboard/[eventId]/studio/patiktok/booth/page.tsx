@@ -32,6 +32,7 @@ import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { formatCount } from '@/lib/format-number';
 import { StayForm } from '@/app/_components/stay-form';
 
+import { InfoTip } from '@/app/_components/info-tip';
 // Iteration 0017 Phase 4 — Patiktok Operator Dashboard.
 //
 // The booth-side surface a coordinator / operator uses at the venue. Spec
@@ -279,7 +280,7 @@ function CapacityStrip({
               <span className="text-3xl font-semibold tracking-tight">
                 {formatCount(submissions)}
               </span>
-              <span className="font-mono text-xs text-ink/55">
+              <span className="text-[13px] tabular-nums text-ink/70">
                 / {formatCount(PATIKTOK_VIDEO_SOFT_CAP)}
               </span>
             </p>
@@ -287,8 +288,8 @@ function CapacityStrip({
           <span
             className={
               overCap
-                ? 'inline-flex items-center gap-1.5 rounded-full bg-warn-200/60 px-2.5 py-1 text-[11px] font-medium text-warn-900'
-                : 'inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[11px] font-medium text-success-900'
+                ? 'inline-flex items-center gap-1.5 rounded-full bg-warn-200/60 px-2.5 py-1 text-[12px] font-medium text-warn-900'
+                : 'inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[12px] font-medium text-success-900'
             }
           >
             {overCap ? (
@@ -310,12 +311,11 @@ function CapacityStrip({
         </div>
       )}
 
-      <p className="text-[11px] text-ink/55">
-        The {PATIKTOK_VIDEO_SOFT_CAP}-video soft cap is calibrated to ~20%
-        participation across 200 guests — it&rsquo;s pacing guidance, not a hard
+      <InfoTip labelAs="p" label="The -video soft cap is calibrated to ~20% participation across 200 guests" labelNode={<>The {PATIKTOK_VIDEO_SOFT_CAP}-video soft cap is calibrated to ~20% participation across 200 guests</>} labelClassName="text-[12px] text-ink/70" align="start">
+        it&rsquo;s pacing guidance, not a hard
         stop. Keep recording past it whenever the crowd&rsquo;s energy is high;
         there&rsquo;s no extra charge.
-      </p>
+      </InfoTip>
     </section>
   );
 }
@@ -383,13 +383,13 @@ function TemplateSlot({
         <p className="sn-eye">
           {role === 'primary' ? 'Primary template' : 'Backup template'}
         </p>
-        <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/65">
+        <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[12px] uppercase tracking-[0.15em] text-ink/70">
           {template.defaultDurationSec}s
         </span>
       </header>
       <h2 className="text-lg font-semibold tracking-tight">{template.name}</h2>
-      <p className="text-xs text-ink/65">{template.bestFor}</p>
-      <p className="text-xs text-ink/55">{template.vibe}</p>
+      <p className="text-xs text-ink/70">{template.bestFor}</p>
+      <p className="text-xs text-ink/70">{template.vibe}</p>
       <Link
         href={browseHref}
         className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700-700"

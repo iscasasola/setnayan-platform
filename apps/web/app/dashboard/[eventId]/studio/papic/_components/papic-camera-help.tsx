@@ -31,7 +31,7 @@ export function PapicCameraHelp({ appleIap = false }: { appleIap?: boolean }) {
             </span>
           )}
         </InfoTip>
-        <span className="block text-[12.5px] text-ink/55">The shutter, capture defaults{appleIap ? '' : ', DSLR pairing'}</span>
+        <span className="block text-[12.5px] text-ink/70">The shutter, capture defaults{appleIap ? '' : ', DSLR pairing'}</span>
       </span>
     </div>
   );

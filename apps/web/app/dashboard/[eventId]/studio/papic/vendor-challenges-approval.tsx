@@ -14,6 +14,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { displayChallengePrompt } from '@/lib/papic-missions';
 import { reviewVendorChallengeAction } from './actions';
 
+import { InfoTip } from '@/app/_components/info-tip';
 type PendingRow = { mission_id: string; prompt: string };
 
 export async function VendorChallengesApproval({ eventId }: { eventId: string }) {
@@ -41,15 +42,12 @@ export async function VendorChallengesApproval({ eventId }: { eventId: string })
       'graceful_degrade',
     );
     return (
-      <p
-        role="alert"
-        className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
-      >
-        <strong className="text-ink">
-          We couldn&rsquo;t check whether a supplier is waiting on your okay.
-        </strong>{' '}
-        Nothing has gone live without you. Reload in a moment.
-      </p>
+      <div role="alert">
+        <InfoTip labelAs="p" label="We couldn&rsquo;t check whether a supplier is waiting on your okay." labelNode={<><strong className="text-ink"> We couldn&rsquo;t check whether a supplier is waiting on your okay.</>} labelClassName="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70" align="start">
+          </strong>{' '}
+          Nothing has gone live without you. Reload in a moment.
+        </InfoTip>
+      </div>
     );
   }
   const pending = (data ?? []) as PendingRow[];
@@ -61,16 +59,16 @@ export async function VendorChallengesApproval({ eventId }: { eventId: string })
         <Trophy aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
         Supplier Papic Challenges — your okay
       </h3>
-      <p className="mt-1 text-xs text-ink/60">
-        A booked supplier wrote a Papic Challenge for your guests. Approve the ones
+      <InfoTip labelAs="p" label="A booked supplier wrote a Papic Challenge for your guests." labelClassName="text-xs text-ink/70" className="mt-1" align="start">
+        Approve the ones
         you like; they only go live once you do.
-      </p>
+      </InfoTip>
 
       <ul className="mt-4 space-y-3">
         {pending.map((m) => (
           <li
             key={m.mission_id}
-            className="rounded-xl border border-ink/10 bg-cream/70 p-4"
+            className="border-t border-ink/10 py-4"
           >
             <p className="text-sm text-ink/90">{displayChallengePrompt(m.prompt)}</p>
             <div className="mt-3 flex flex-wrap gap-2">

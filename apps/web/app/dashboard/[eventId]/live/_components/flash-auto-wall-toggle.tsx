@@ -17,7 +17,7 @@ export function FlashAutoWallToggle({
     <label className="flex cursor-pointer items-center gap-3 select-none">
       <span className="text-sm text-ink/75">
         <span className="font-medium text-ink">Flash to Memory lane</span>
-        <span className="ml-1.5 text-ink/50">
+        <span className="ml-1.5 text-ink/70">
           {enabled ? '— Flash stories post automatically after 5 s' : '— off, Flash goes to review queue'}
         </span>
       </span>

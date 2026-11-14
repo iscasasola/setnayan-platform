@@ -12,6 +12,7 @@ import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { useMaker } from '../../launch/_components/maker-context';
 import { SUPERSEDED, makerLatestWrite, makerNeedsRender, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * THE COUPLE'S OWN WORDS — five starting points, or their own.
  *
@@ -189,7 +190,7 @@ function StudioThanks({ eventId, initialMessage, templates = PABUYA_TEMPLATES }:
         onKeep={(next) => keep(next, true)}
         below={
           <>
-            <p data-pabuya-count="" className={`pb-2 pr-0.5 text-right text-[12px] ${remaining < 60 ? 'text-danger-700' : 'text-ink/50'}`}>
+            <p data-pabuya-count="" className={`pb-2 pr-0.5 text-right text-[12px] ${remaining < 60 ? 'text-danger-700' : 'text-ink/70'}`}>
               {remaining} characters left
             </p>
             {refused ? (
@@ -253,14 +254,14 @@ function ShippedEditor({ eventId, initialMessage, templates = PABUYA_TEMPLATES }
   }
 
   return (
-    <section className="sn-tile mt-6 p-5">
+    <section className="border-t border-ink/10 mt-6 py-5">
       <header className="space-y-1">
         <h2 className="text-base font-semibold text-ink">Your own words</h2>
-        <p className="max-w-prose text-sm text-ink/60">
-          One short paragraph above your payment details, in your voice. Guests read this
+        <InfoTip labelAs="p" label="One short paragraph above your payment details, in your voice." labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+          Guests read this
           before they decide — it is the part that says <em>why</em>. Leave it empty and the
           page reads as it does now.
-        </p>
+        </InfoTip>
       </header>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -275,7 +276,7 @@ function ShippedEditor({ eventId, initialMessage, templates = PABUYA_TEMPLATES }
           </button>
         ))}
       </div>
-      <p className="mt-2 text-xs text-ink/45">
+      <p className="mt-2 text-xs text-ink/70">
         Pick one to fill the box, then change anything you like — what you save is your text,
         not the template.
       </p>
@@ -292,19 +293,19 @@ function ShippedEditor({ eventId, initialMessage, templates = PABUYA_TEMPLATES }
       />
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={save} disabled={pending || !dirty} className="button-primary">
+        <button type="button" onClick={save} disabled={pending || !dirty} className="ab ab-brand ab-main">
           {pending ? 'Saving…' : dirty ? 'Save' : 'Saved'}
         </button>
         {text.trim() ? (
           <button
             type="button"
             onClick={() => setText('')}
-            className="text-xs text-ink/55 underline underline-offset-4"
+            className="text-xs text-ink/70 underline underline-offset-4"
           >
             Clear it
           </button>
         ) : null}
-        <span className={remaining < 60 ? 'text-xs text-terracotta-700' : 'text-xs text-ink/40'}>
+        <span className={remaining < 60 ? 'text-xs text-terracotta-700' : 'text-xs text-ink/70'}>
           {remaining} characters left
         </span>
       </div>

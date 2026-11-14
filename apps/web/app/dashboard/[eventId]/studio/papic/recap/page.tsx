@@ -25,6 +25,7 @@ import { readWaitingPhoneUploads } from '@/lib/papic-phone-uploads.server';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
 
+import { InfoTip } from '@/app/_components/info-tip';
 // Iteration 0012 Papic — Auto-Recap (couple-side management surface).
 //
 // The recap is FREE and assembled automatically. This surface lets the couple
@@ -106,7 +107,7 @@ export default async function CoupleRecapPage({
     <div className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8 sm:px-6">
       <Link
         href={`/dashboard/${eventId}/memories`}
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
+        className="inline-flex items-center gap-1.5 text-sm text-ink/70 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
         Back to Memories
@@ -122,7 +123,7 @@ export default async function CoupleRecapPage({
       </div>
 
       {/* What's in your recap */}
-      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+      <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
         <h2 className="text-base font-semibold text-ink">What&rsquo;s in your recap</h2>
         {summary.unreadable ? (
           /* 🔌 A refused count is never "0 photos" (reads-are-honest, 2026-11-02 audit #18). */
@@ -144,11 +145,11 @@ export default async function CoupleRecapPage({
       ) : null}
 
       {/* Publish state */}
-      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+      <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
         <div className="flex items-start gap-3">
           <span
             className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-              isPublished ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'
+              isPublished ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/70'
             }`}
           >
             {isPublished ? (
@@ -161,7 +162,7 @@ export default async function CoupleRecapPage({
             <h2 className="text-base font-semibold text-ink">
               {isPublished ? 'Your recap is public' : 'Your recap is private'}
             </h2>
-            <p className="mt-1 text-sm text-ink/60">
+            <p className="mt-1 text-sm text-ink/70">
               {isPublished
                 ? 'Anyone with the link can view it. You can take it down anytime.'
                 : 'Only you can see this page until you publish it.'}
@@ -220,17 +221,16 @@ export default async function CoupleRecapPage({
       </section>
 
       {/* Featuring on Setnayan's own socials — the couple's opt-out (#2) */}
-      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+      <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
             <Megaphone aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold text-ink">Featuring on Setnayan&rsquo;s socials</h2>
-            <p className="mt-1 mb-3 text-sm text-ink/60">
-              Sometimes we love to share a couple&rsquo;s recap on Setnayan&rsquo;s own Facebook and
-              Instagram. It&rsquo;s on by default — but it&rsquo;s always your call.
-            </p>
+            <InfoTip labelAs="p" label="Sometimes we love to share a couple&rsquo;s recap on Setnayan&rsquo;s own Facebook and Instagram." labelClassName="text-sm text-ink/70" className="mt-1 mb-3" align="start">
+              It&rsquo;s on by default — but it&rsquo;s always your call.
+            </InfoTip>
             <RecapSocialFeatureToggle
               eventId={eventId}
               allowed={!event.recap_social_optout_at}
@@ -247,7 +247,7 @@ export default async function CoupleRecapPage({
       ) : null}
 
       {/* Privacy explainer — plain English */}
-      <section className="rounded-2xl border border-gold/30 bg-gold/5 p-5 sm:p-6">
+      <section className="border-t border-ink/10 border-gold/30 bg-gold/5 py-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
           <ShieldCheck aria-hidden className="h-4.5 w-4.5 text-gold" strokeWidth={2} />
           What the public page shows
@@ -268,10 +268,10 @@ export default async function CoupleRecapPage({
           </li>
           <li>• Your love story and the milestones you wrote.</li>
         </ul>
-        <p className="mt-3 text-xs text-ink/55">
-          Your full, unblurred photos and every guest message stay private — they live in your
+        <InfoTip labelAs="p" label="Your full, unblurred photos and every guest message stay private" labelClassName="text-xs text-ink/70" className="mt-3" align="start">
+          they live in your
           keepsake magazine, just for the two of you.
-        </p>
+        </InfoTip>
       </section>
 
       {/* Link to the private keepsake */}
@@ -282,11 +282,11 @@ export default async function CoupleRecapPage({
         <ImageIcon aria-hidden className="h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.75} />
         <span className="flex-1">
           <span className="block text-sm font-semibold text-ink">Your keepsake magazine</span>
-          <span className="block text-sm text-ink/60">
+          <span className="block text-sm text-ink/70">
             The full, private edition — every photo unblurred. Para sa inyo lang.
           </span>
         </span>
-        <ExternalLink aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
+        <ExternalLink aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.75} />
       </Link>
     </div>
   );
@@ -296,7 +296,7 @@ function Stat({ n, label }: { n: number; label: string }) {
   return (
     <div>
       <dd className="font-display text-2xl text-mulberry">{n}</dd>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">{label}</dt>
+      <dt className="text-[12px] uppercase tracking-[0.18em] text-ink/70">{label}</dt>
     </div>
   );
 }

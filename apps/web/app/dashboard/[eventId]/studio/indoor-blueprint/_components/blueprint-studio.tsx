@@ -7,6 +7,7 @@ import { clampPct, type EntrancePos } from '@/lib/indoor-blueprint';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { useSaveLoader } from '@/components/sd-loader';
 
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 /**
  * Couple-facing Indoor Blueprint studio. Two jobs:
  *   1. Place the venue entrance — drag the entrance handle onto the floor plan,
@@ -98,7 +99,7 @@ export function BlueprintStudio({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="inline-flex items-center gap-2 text-[12px] uppercase tracking-[0.2em] text-ink/70">
           <DoorOpen aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Drag the entrance handle onto your floor plan
         </p>
@@ -108,13 +109,13 @@ export function BlueprintStudio({
               That did not save. Please try again.
             </span>
           ) : dirty ? (
-            <span className="font-mono text-[11px] text-warn-700">Unsaved</span>
+            <span className="text-[13px] font-semibold text-warn-700">Unsaved</span>
           ) : null}
           <button
             type="button"
             onClick={save}
             disabled={!dirty || pending}
-            className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="ab ab-brand ab-main disabled:cursor-not-allowed"
           >
             <Save className="h-3.5 w-3.5" strokeWidth={2} />
             {pending ? 'Saving…' : 'Save entrance'}
@@ -154,30 +155,27 @@ export function BlueprintStudio({
       </div>
 
       {guestOptions.length > 0 ? (
-        <div className="flex flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 sm:flex-row sm:items-center sm:justify-between">
-          <label
-            htmlFor="preview-guest"
-            className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55"
-          >
+        <div className="border-t border-ink/10 flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-[12px] font-semibold uppercase tracking-[0.15em] text-ink/70">
             Preview a guest&rsquo;s view
-          </label>
-          <select
-            id="preview-guest"
-            value={targetTableId ?? ''}
-            onChange={(e) => setTargetTableId(e.target.value || null)}
-            className="input-field max-w-xs text-sm"
-          >
-            {guestOptions.map((g, i) => (
-              <option key={`${g.tableId}-${i}`} value={g.tableId}>
-                {g.guestName} → {g.tableLabel}
-              </option>
-            ))}
-          </select>
+          </span>
+          <PickMenu
+            label="Preview a guest"
+            /* One row per guest (two guests can share a table): the key carries the row, the pick sets the table. */
+            value={(() => {
+              const i = guestOptions.findIndex((g) => g.tableId === targetTableId);
+              return i < 0 ? '' : `${i}`;
+            })()}
+            onPick={(k) => setTargetTableId(guestOptions[Number(k)]?.tableId ?? null)}
+            dataAttr="data-preview-guest"
+            className="max-w-xs"
+            options={guestOptions.map((g, i) => ({ key: `${i}`, label: `${g.guestName} → ${g.tableLabel}` }))}
+          />
         </div>
       ) : noSeatsNote ? (
-        <p className="text-sm text-ink/55">{noSeatsNote}</p>
+        <p className="text-sm text-ink/70">{noSeatsNote}</p>
       ) : (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-sm text-ink/55">
+        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-sm text-ink/70">
           Seat your guests on the{' '}
           <a
             href={`/dashboard/${eventId}/seating`}

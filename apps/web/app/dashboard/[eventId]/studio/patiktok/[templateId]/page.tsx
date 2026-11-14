@@ -10,6 +10,7 @@ import {
 import { RenderForm, type MusicTrackOption } from '../_components/render-form';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
+import { InfoTip } from '@/app/_components/info-tip';
 type Props = {
   params: Promise<{ eventId: string; templateId: string }>;
 };
@@ -87,21 +88,21 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
             template={template}
             coupleName={event?.display_name ?? ''}
           />
-          <p className="text-center font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
+          <p className="text-center text-[12px] uppercase tracking-[0.2em] text-ink/70">
             9:16 · 1080×1920 · {template.defaultDurationSec}s default
           </p>
         </div>
 
         <div className="space-y-5">
-          <section className="sn-tile space-y-3 p-5">
+          <section className="border-t border-ink/10 space-y-3 py-5">
             <h2 className="text-lg font-semibold tracking-tight">
               Render this reel
             </h2>
-            <p className="text-sm text-ink/65">
-              Pick the mimic duration — guests will perform for this length on
+            <InfoTip labelAs="p" label="Pick the mimic duration" labelClassName="text-sm text-ink/70" align="start">
+              guests will perform for this length on
               the X-mark. We&rsquo;ll auto-trim each clip to beat sync during
               compilation.
-            </p>
+            </InfoTip>
             <RenderForm
               eventId={eventId}
               templateSlug={template.slug}
@@ -111,25 +112,24 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
             />
           </section>
 
-          <section className="sn-tile space-y-3 p-5">
+          <section className="border-t border-ink/10 space-y-3 py-5">
             <h2 className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
               <Music aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
               Paired music
             </h2>
-            <p className="text-sm text-ink/65">
-              Pick from {musicTracks.length} Setnayan-owned AI-generated tracks
-              above — grouped by Bridgerton · Pop · Hip-hop · Jazz · Acoustic ·
+            <InfoTip labelAs="p" label="Pick from Setnayan-owned AI-generated tracks above" labelNode={<>Pick from {musicTracks.length} Setnayan-owned AI-generated tracks above</>} labelClassName="text-sm text-ink/70" align="start">
+              grouped by Bridgerton · Pop · Hip-hop · Jazz · Acoustic ·
               Filipino Pop. Music loops seamlessly across the full compilation —
               no per-clip restart.
-            </p>
-            <p className="text-xs text-ink/55">
+            </InfoTip>
+            <p className="text-xs text-ink/70">
               Leaving the dropdown on <span className="font-semibold">Auto-pick</span>{' '}
               lets the render worker choose a track that matches this
               template&rsquo;s vibe.
             </p>
           </section>
 
-          <section className="sn-tile space-y-3 p-5">
+          <section className="border-t border-ink/10 space-y-3 py-5">
             <h2 className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
               <Sparkles aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
               What ships in the Station Pack
@@ -161,7 +161,7 @@ function Preview({
   return (
     <div
       aria-hidden
-      className="relative mx-auto flex w-full max-w-[360px] aspect-[9/16] items-center justify-center overflow-hidden rounded-2xl border border-ink/10"
+      className="border-t border-ink/10 relative mx-auto flex w-full max-w-[360px] aspect-[9/16] items-center justify-center overflow-hidden pt-4"
       style={{ backgroundColor: bg }}
     >
       <div
@@ -179,7 +179,7 @@ function Preview({
       </div>
       <div className="flex flex-col items-center gap-3 px-6 text-center">
         <p
-          className="font-mono text-[10px] uppercase tracking-[0.3em]"
+          className="text-[12px] uppercase tracking-[0.3em]"
           style={{ color: dark }}
         >
           Patiktok · 9:16
@@ -195,13 +195,13 @@ function Preview({
           style={{ backgroundColor: accent2 }}
         />
         <p
-          className="font-mono text-[10px] uppercase tracking-[0.25em]"
+          className="text-[12px] uppercase tracking-[0.25em]"
           style={{ color: accent2 }}
         >
           {template.name}
         </p>
         <p
-          className="mt-4 font-mono text-[9px] uppercase tracking-[0.2em]"
+          className="mt-4 text-[12px] uppercase tracking-[0.2em]"
           style={{ color: dark, opacity: 0.55 }}
         >
           Live preview opens on booth night

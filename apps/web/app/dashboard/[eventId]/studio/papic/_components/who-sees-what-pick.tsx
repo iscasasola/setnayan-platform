@@ -70,7 +70,7 @@ export function WhoSeesWhatPick({
           are in. You and your co-hosts always see everything. Switching back closes it for everyone
           at once. The photo wall has its own switch.
         </InfoTip>
-        <span className="block text-[12.5px] text-ink/60" aria-live="polite">
+        <span className="block text-[12.5px] text-ink/70" aria-live="polite">
           {saving ? 'Saving…' : error ? <span className="text-danger-700">{error}</span> : WHO_SEES_LINE[choice]}
         </span>
       </span>

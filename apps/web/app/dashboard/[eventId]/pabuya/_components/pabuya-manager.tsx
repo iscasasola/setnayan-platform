@@ -31,6 +31,7 @@ import {
 } from '../actions';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /** A saved method as handed down from the server page. */
 export type ManagerMethod = {
   egift_method_id: string;
@@ -253,18 +254,15 @@ export function PabuyaManager({
             names and asserting the wrong privacy setting. A log line never
             changed a pixel. */}
         {!eventWasRead ? (
-          <p
-            role="status"
-            className="rounded-xl border border-warn-300/60 bg-warn-50 px-3 py-2 text-sm leading-relaxed text-warn-900"
-          >
-            <span className="font-semibold">
-              We couldn&rsquo;t load your event details just now.
-            </span>{' '}
-            Your gift methods below are correct and saved — but your
-            event&rsquo;s name and whether its page is live aren&rsquo;t
-            shown on this screen until it loads. Reload in a moment; nothing
-            here has changed.
-          </p>
+          <div role="status">
+            <InfoTip labelAs="p" label="We couldn&rsquo;t load your event details just now." labelNode={<><span className="font-semibold"> We couldn&rsquo;t load your event details just now.</>} labelClassName="rounded-xl border border-warn-300/60 bg-warn-50 px-3 py-2 text-sm leading-relaxed text-warn-900" align="start">
+              </span>{' '}
+              Your gift methods below are correct and saved — but your
+              event&rsquo;s name and whether its page is live aren&rsquo;t
+              shown on this screen until it loads. Reload in a moment; nothing
+              here has changed.
+            </InfoTip>
+          </div>
         ) : null}
 
         {error ? (
@@ -279,7 +277,7 @@ export function PabuyaManager({
         {/* Saved methods list */}
         <section aria-label="Your e-gift methods" className="space-y-3">
           {initialMethods.length === 0 && !formOpen ? (
-            <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-8 text-center text-sm text-ink/60">
+            <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-8 text-center text-sm text-ink/70">
               No e-gift methods yet. Add your first account so guests can send
               you a gift.
             </p>
@@ -301,12 +299,12 @@ export function PabuyaManager({
                     <p className="font-display text-lg italic text-ink">
                       {m.label || meta.defaultLabel}
                       {!m.is_enabled ? (
-                        <span className="ml-2 align-middle font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                        <span className="ml-2 align-middle text-[12px] uppercase tracking-[0.15em] text-ink/70">
                           Hidden
                         </span>
                       ) : null}
                     </p>
-                    <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+                    <p className="mt-0.5 text-[12px] uppercase tracking-[0.18em] text-ink/70">
                       {meta.defaultLabel}
                     </p>
                     {m.account_name ? (
@@ -318,7 +316,7 @@ export function PabuyaManager({
                       </p>
                     ) : null}
                     {m.qr_r2_key ? (
-                      <p className="mt-1 text-xs text-ink/50">QR code attached</p>
+                      <p className="mt-1 text-xs text-ink/70">QR code attached</p>
                     ) : null}
                   </div>
                   {m.qrDisplayUrl ? (
@@ -417,7 +415,7 @@ export function PabuyaManager({
         {formOpen ? (
           <section
             aria-label={editingId ? 'Edit e-gift method' : 'Add e-gift method'}
-            className="rounded-2xl border border-terracotta/30 bg-white p-5 shadow-sm"
+            className="border-t border-ink/10 py-5"
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-xl italic text-ink/85">
@@ -427,7 +425,7 @@ export function PabuyaManager({
                 type="button"
                 onClick={closeForm}
                 aria-label="Close form"
-                className="rounded-md p-1 text-ink/55 hover:bg-ink/5 hover:text-ink"
+                className="rounded-md p-1 text-ink/70 hover:bg-ink/5 hover:text-ink"
               >
                 <X className="h-4 w-4" strokeWidth={1.75} />
               </button>
@@ -436,7 +434,7 @@ export function PabuyaManager({
             <div className="space-y-4">
               {/* Kind picker */}
               <div>
-                <label className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                <label className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
                   Payment method
                 </label>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -471,7 +469,7 @@ export function PabuyaManager({
                     );
                   })}
                 </div>
-                <p className="mt-1.5 text-xs text-ink/55">
+                <p className="mt-1.5 text-xs text-ink/70">
                   {egiftKindMeta(draft.kind).blurb}
                 </p>
               </div>
@@ -571,7 +569,7 @@ export function PabuyaManager({
                   type="button"
                   onClick={submitDraft}
                   disabled={isPending}
-                  className="button-primary px-5 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="ab ab-brand ab-main disabled:cursor-not-allowed"
                 >
                   {isPending
                     ? 'Saving…'
@@ -583,7 +581,7 @@ export function PabuyaManager({
                   type="button"
                   onClick={closeForm}
                   disabled={isPending}
-                  className="button-secondary px-5 disabled:opacity-60"
+                  className="ab ab-neutral"
                 >
                   Cancel
                 </button>
@@ -595,7 +593,7 @@ export function PabuyaManager({
             type="button"
             onClick={openNew}
             disabled={isPending}
-            className="button-primary inline-flex items-center gap-2 px-5 disabled:opacity-60"
+            className="ab ab-brand ab-main"
           >
             <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
             Add an e-gift method
@@ -605,9 +603,9 @@ export function PabuyaManager({
 
       {/* ── RIGHT: live preview ────────────────────────────────────────── */}
       <aside className="lg:sticky lg:top-24 lg:self-start">
-        <div className="rounded-3xl border border-ink/10 bg-cream/70 p-4 shadow-sm">
+        <div className="border-t border-ink/10 py-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            <p className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
               Guest preview
             </p>
             {publicHref ? (
@@ -615,7 +613,7 @@ export function PabuyaManager({
                 href={publicHref}
                 target="_blank"
                 rel="noreferrer"
-                className="font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta hover:underline"
+                className="text-[12px] uppercase tracking-[0.15em] text-terracotta hover:underline"
               >
                 Open ↗
               </a>
@@ -624,7 +622,7 @@ export function PabuyaManager({
 
           <div className="rounded-2xl bg-white/60 p-4">
             <div className="mb-4 text-center">
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-gold-deep">
+              <p className="text-[12px] uppercase tracking-[0.24em] text-gold-deep">
                 Pabuya
               </p>
               <p className="mt-1 font-display text-xl italic text-ink">
@@ -650,7 +648,7 @@ export function PabuyaManager({
               promise something that cannot happen yet.
               `publicRouteEnabled` was already a prop — it drives `publicHref`
               above and simply was not consulted here. */}
-          <p className="mt-3 text-center text-[11px] leading-relaxed text-ink/50">
+          <p className="mt-3 text-center text-[12px] leading-relaxed text-ink/70">
             {/* Hardest gate first, then the honest gap, then the two real
                 readings. `!eventWasRead` sits ABOVE both of those because
                 neither of them is knowable without the row — saying either
@@ -678,7 +676,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+      <label className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
         {label}
       </label>
       {children}

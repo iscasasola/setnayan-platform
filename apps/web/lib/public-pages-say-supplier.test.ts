@@ -47,6 +47,7 @@ const PUBLIC = [
   'app/open-shop',
   'app/realstories',
   'lib/help.ts',
+  'lib/help', // help split 2026-11-14: the answers live here now
   'lib/blog.ts',
   'lib/llms-txt.ts',
   'lib/studio-apps.ts',

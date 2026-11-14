@@ -51,6 +51,7 @@ import { stripComments } from '@/lib/strip-comments';
 import { composeHowSearch, helpAnswerHits } from '@/lib/how-search-core';
 import { searchInCodeReads } from '@/lib/site-search-core';
 import { ALL_HELP_ARTICLES, HELP_NOT_IN_THE_APP, HELP_TOPICS } from '@/lib/help';
+import { publicHelpSourceText } from '@/lib/help-sources.test-helper';
 
 const WEB = process.cwd();
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -142,7 +143,7 @@ test('2 · every help answer has its own address, and "refund" finds the refund 
   assert.match(refund.body, /^No — what you buy from Setnayan is not refunded\./);
   assert.match(refund.body, /Papic credits to your event worth what you paid/);
   assert.match(refund.appBody ?? '', /goes to Apple, under Apple’s own terms/); // the policy's iPhone-app line
-  assert.match(code('lib/help.ts'), /within \$\{REFUND_REPORT_WINDOW_DAYS\} days of payment/, 'the report window is typed, not the rule constant');
+  assert.match(publicHelpSourceText(), /within \$\{REFUND_REPORT_WINDOW_DAYS\} days of payment/, 'the report window is typed, not the rule constant');
 });
 
 test('2 · the /help role tile narrows the help answers; the iPhone app answers in its own words', () => {

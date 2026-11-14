@@ -880,10 +880,10 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     <div className="border-t border-ink/10 space-y-2 py-4">
       <header className="space-y-0.5">
         <h3 className="text-base font-medium text-ink">Agreed with your supplier</h3>
-        <InfoTip labelAs="p" label="Ask the supplier who will make it to sign off on a look." labelClassName="text-xs text-ink/70" className="max-w-prose" align="start">
-          Once they agree, that part stops changing when you
+        <p className="max-w-prose text-xs text-ink/70">
+          Ask the supplier who will make it to sign off on a look. Once they agree, that part stops changing when you
           edit your main colours — and it takes both of you to re-open it.
-        </InfoTip>
+        </p>
       </header>
       <PartFinalizationPanel
         parts={peopleFinalizationParts}
@@ -900,10 +900,10 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     <section id="reception" className="scroll-mt-24 space-y-4">
       <header>
         <h2 className="text-2xl font-semibold text-ink">Your reception design</h2>
-        <InfoTip labelAs="p" label="Ceiling, backdrop, stage, tables, walls, and more" labelClassName="text-sm text-ink/70" align="start">
-          designed together with your Seat Plan now, since
+        <p className="text-sm text-ink/70">
+          Ceiling, backdrop, stage, tables, walls, and more — designed together with your Seat Plan now, since
           it&rsquo;s really the same room.
-        </InfoTip>
+        </p>
       </header>
       <div className="border-t border-ink/10 py-4">
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink/75">
@@ -933,10 +933,10 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     <div className="border-t border-ink/10 space-y-2 py-4">
       <header className="space-y-0.5">
         <h3 className="text-base font-medium text-ink">Agreed with your supplier</h3>
-        <InfoTip labelAs="p" label="Ask the stylist, florist or venue who will build it to sign off." labelClassName="text-xs text-ink/70" className="max-w-prose" align="start">
-          Nothing is settled until they say yes, and
+        <p className="max-w-prose text-xs text-ink/70">
+          Ask the stylist, florist or venue who will build it to sign off. Nothing is settled until they say yes, and
           re-opening it takes both of you.
-        </InfoTip>
+        </p>
       </header>
       <PartFinalizationPanel
         parts={roomFinalizationParts}
@@ -963,10 +963,11 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   const shareWords = (
     <header className="space-y-1">
       <h2 className="text-2xl font-semibold text-ink">Share with your suppliers</h2>
-      <InfoTip labelAs="p" label="Send your booked suppliers a heads-up that your mood board is ready, so they can match their styling, decor, and booth to your palette and reception design." labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
-        They see a read-only view — your palette, design, and
+      <p className="max-w-prose text-sm text-ink/70">
+        Send your booked suppliers a heads-up that your mood board is ready, so they can match their styling, decor,
+        and booth to your palette and reception design. They see a read-only view — your palette, design, and
         inspirations, no guest details.
-      </InfoTip>
+      </p>
     </header>
   );
   const dressListsPart = dressLists ? (
@@ -978,12 +979,10 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       incStarter={dressLists.incStarter}
     />
   ) : (
-    <div role="alert" data-mood-board-unread="">
-      <InfoTip labelAs="p" label="Your do&rsquo;s and don&rsquo;ts could not be loaded just now." labelClassName="text-sm text-terracotta-700" align="start">
-        Nothing was changed — please reopen this in a
-        moment.
-      </InfoTip>
-    </div>
+    <p role="alert" className="text-sm text-terracotta-700" data-mood-board-unread="">
+      Your do&rsquo;s and don&rsquo;ts could not be loaded just now. Nothing was changed — please reopen this in a
+      moment.
+    </p>
   );
   const shareButton = <ShareWithVendorsButton eventId={eventId} bookedVendorCount={bookedVendorCount} />;
   const pdfs = (

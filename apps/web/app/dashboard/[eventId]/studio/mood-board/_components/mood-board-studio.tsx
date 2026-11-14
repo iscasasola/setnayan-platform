@@ -74,7 +74,6 @@ import { SharePhotoSheet } from './share-photo-sheet';
 import type { InspirationItem } from './inspiration-board';
 import type { InspirationPartsSnapshot } from '@/lib/inspiration-parts';
 
-import { InfoTip } from '@/app/_components/info-tip';
 /**
  * 🎨👗 STUDIO › MOOD BOARD & DRESS CODE — the new Maker's tool (owner
  * 2026-10-06: *"ok"*; DECISION_LOG "STUDIO › MOOD BOARD & DRESS CODE,
@@ -1543,11 +1542,9 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           {props.dosLists ? (
             <StudioDos eventId={eventId} dos={props.dosLists.dos} donts={props.dosLists.donts} incStarter={props.dosLists.incStarter} lookCanvas={props.dosLookCanvas ?? null} />
           ) : (
-            <div role="alert" data-mood-board-unread="">
-              <InfoTip labelAs="p" label="Your do&rsquo;s and don&rsquo;ts could not be loaded just now." labelClassName="text-sm text-danger-700" align="start">
-                Nothing was changed — please reopen this in a moment.
-              </InfoTip>
-            </div>
+            <p role="alert" className="text-sm text-danger-700" data-mood-board-unread="">
+              Your do&rsquo;s and don&rsquo;ts could not be loaded just now. Nothing was changed — please reopen this in a moment.
+            </p>
           )}
         </div>
       ) : null}

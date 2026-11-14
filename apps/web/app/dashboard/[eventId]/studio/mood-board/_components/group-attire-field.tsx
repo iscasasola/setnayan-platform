@@ -6,7 +6,6 @@ import type { RoleNames } from '@/lib/role-names';
 import type { RoleGroup } from '@/lib/role-groups';
 import { formatCount } from '@/lib/format-number';
 
-import { InfoTip } from '@/app/_components/info-tip';
 /**
  * ONE LINE FOR A WHOLE GROUP — the coarse tier above `RoleAttireField`.
  *
@@ -116,13 +115,15 @@ export function GroupAttireField({
             {/* 🛑 THE ANTI-SILENCE LINE. Named people, before the typing, not a
                 toast after the save — a toast is gone by the time they wonder. */}
             {overridden.length > 0 ? (
-              <div data-group-overrides={group}>
-                <InfoTip labelAs="p" label="of these have`} their own line" labelNode={<><span className="font-medium text-ink/75"> {overridden.length === 1 ? 'One of these has' : `${overridden.length} of these have`} {' '}their own line </span>{' '}</>} labelClassName="text-xs leading-relaxed text-ink/70" align="start">
-                  {overridden.join(', ')} — so this line won&rsquo;t change{' '}
-                  {overridden.length === 1 ? 'them' : 'them'}. Clear that role&rsquo;s outfit to
-                  &ldquo;Not set&rdquo; below and they&rsquo;ll follow the group again.
-                </InfoTip>
-              </div>
+              <p className="text-xs leading-relaxed text-ink/70" data-group-overrides={group}>
+                <span className="font-medium text-ink/75">
+                  {overridden.length === 1 ? 'One of these has' : `${overridden.length} of these have`}
+                  {' '}their own line
+                </span>{' '}
+                — {overridden.join(', ')} — so this line won&rsquo;t change{' '}
+                {overridden.length === 1 ? 'them' : 'them'}. Clear that role&rsquo;s outfit to
+                &ldquo;Not set&rdquo; below and they&rsquo;ll follow the group again.
+              </p>
             ) : null}
           </div>
         );

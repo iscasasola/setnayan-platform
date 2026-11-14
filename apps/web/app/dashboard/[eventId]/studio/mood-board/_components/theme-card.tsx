@@ -44,7 +44,6 @@ import {
 import { motifId, type ThemeTextReading } from '@/lib/theme-text-intent';
 import { MajorsEditor } from './majors-editor';
 
-import { InfoTip } from '@/app/_components/info-tip';
 export type ThemeIntentJump = {
   mood: MoodboardMoodTag | null;
   family: MoodboardStyleFamily | null;
@@ -313,10 +312,10 @@ export function ThemeCard({
       {reading ? (
         <div className="border-t border-ink/10 space-y-3 py-4">
           {understoodNothing ? (
-            <InfoTip labelAs="p" label="We couldn’t place any of that yet" labelClassName="text-sm text-ink/70" align="start">
-              nothing on your board has changed. Try a colour,
+            <p className="text-sm text-ink/70">
+              We couldn’t place any of that yet — nothing on your board has changed. Try a colour,
               a feeling (“cosy”, “engrande”, “classy”) or a detail (“capiz”, “fairy lights”).
-            </InfoTip>
+            </p>
           ) : (
             <>
               <p className="text-sm font-medium text-ink">

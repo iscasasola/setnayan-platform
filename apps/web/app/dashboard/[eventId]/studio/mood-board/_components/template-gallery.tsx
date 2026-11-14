@@ -62,7 +62,6 @@ import {
 } from '@/lib/moodboard-templates';
 import { formatCount } from '@/lib/format-number';
 
-import { InfoTip } from '@/app/_components/info-tip';
 type ApplyResult = {
   mode: ApplyMode;
   filledPaletteRoles: string[];
@@ -333,10 +332,10 @@ export function TemplateGallery({
         <div className="space-y-3">
           <header className="space-y-1">
             <h2 className="text-xl font-semibold text-ink">How would you like to begin?</h2>
-            <InfoTip labelAs="p" label="We can start you from a designed theme" labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
-              a palette and a reception look chosen to
+            <p className="max-w-prose text-sm text-ink/70">
+              We can start you from a designed theme — a palette and a reception look chosen to
               go together — or leave the board completely blank for you to build.
-            </InfoTip>
+            </p>
           </header>
           <div className="grid gap-3 sm:grid-cols-2">
             <ChoiceButton

@@ -51,7 +51,6 @@ import { usePaletteBoard } from './palette-board-context';
 import { SwatchPopover } from './swatch-popover';
 import { RoleFigure } from '@/app/_components/role-figure';
 
-import { InfoTip } from '@/app/_components/info-tip';
 const PALETTE_STYLES: ReadonlyArray<{ key: PaletteStyle; label: string; gloss: string }> = [
   { key: 'simple', label: 'Our colours only', gloss: 'Everyone wears the colours you picked.' },
   { key: 'depth', label: 'Softer room, richer people', gloss: 'Same colours; the room steps back.' },
@@ -88,10 +87,10 @@ export function PaletteSection({ visibleKeys, venueLabel }: Props) {
   return (
     <div className="space-y-5">
       {reduced ? (
-        <InfoTip labelAs="p" label="Your colours all sit very close in tone" labelClassName="rounded-lg border border-warn-400/40 bg-warn-50 px-3 py-2 text-xs text-warn-900" align="start">
-          the roles below can only repeat them, so
+        <p className="rounded-lg border border-warn-400/40 bg-warn-50 px-3 py-2 text-xs text-warn-900">
+          Your colours all sit very close in tone — the roles below can only repeat them, so
           outfits won’t stand apart until a deeper colour joins.
-        </InfoTip>
+        </p>
       ) : null}
 
       <div className="border-t border-ink/10 flex flex-wrap items-center gap-2 py-3">
@@ -371,10 +370,10 @@ function CustomRolesEditor() {
     <div className="space-y-3">
       <div>
         <h2 className="text-[12px] uppercase tracking-[0.2em] text-ink/70">Custom roles</h2>
-        <InfoTip labelAs="p" label="Anyone or anything the fixed list above doesn&rsquo;t cover" labelClassName="text-xs text-ink/70" align="start">
-          a ring bearer&rsquo;s dog, a
+        <p className="text-xs text-ink/70">
+          Anyone or anything the fixed list above doesn&rsquo;t cover — a ring bearer&rsquo;s dog, a
           family pet, a specific relative. Give it a name and its own colors.
-        </InfoTip>
+        </p>
       </div>
 
       {roles.length > 0 ? (

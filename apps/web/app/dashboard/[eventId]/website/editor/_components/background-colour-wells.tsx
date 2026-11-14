@@ -55,7 +55,7 @@ export function BgColourWells({
       >
         <i aria-hidden className="h-7 w-7 rounded-full border border-ink/10" style={{ background: first }} />
       </button>
-      <span aria-hidden className="text-[13px] text-ink/45">
+      <span aria-hidden className="text-[13px] text-ink/75">
         →
       </span>
       {second ? (

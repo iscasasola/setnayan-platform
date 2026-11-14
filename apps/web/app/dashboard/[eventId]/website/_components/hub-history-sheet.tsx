@@ -137,7 +137,7 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
                     <b className={`block text-[13.5px] font-semibold leading-snug ${row.pub ? 'text-success-700' : ''}`}>
                       {row.pub ? `Published ${historyTime(row.at)}` : row.what}
                     </b>
-                    {note ? <span className="block text-xs leading-snug text-ink/60">{note}</span> : null}
+                    {note ? <span className="block text-xs leading-snug text-ink/75">{note}</span> : null}
                   </span>
                   <time className="shrink-0 text-[12px] tabular-nums text-ink/75" dateTime={row.at ?? undefined}>
                     {row.pub ? '—' : historyTime(row.at)}

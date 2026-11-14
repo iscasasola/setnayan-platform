@@ -56,7 +56,7 @@ function SaveButton({ label = 'Save' }: { label?: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="mt-2 inline-flex items-center rounded-full bg-ink px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-ink/90 disabled:opacity-60"
+      className="ab ab-brand mt-2"
     >
       {pending ? 'Saving…' : label}
     </button>
@@ -211,7 +211,7 @@ export function SiteChromePanel({
       {part === 'music' ? (
         <>
           <div className="flex min-h-11 items-center justify-between gap-3" data-music-source={source}>
-            <p className="shrink-0 text-[0.72rem] font-semibold text-ink/80">Source</p>
+            <p className="shrink-0 text-[12px] font-semibold text-ink/80">Source</p>
             <PickMenu
               label="Music source"
               value={source}
@@ -345,7 +345,7 @@ export function VisibilityPanel({
       <input type="hidden" name="event_id" value={eventId} />
       <ReturnTo eventId={eventId} rowKey="visibility" />
       <fieldset>
-        <legend className="mb-1.5 text-[0.7rem] font-semibold text-ink/60">
+        <legend className="mb-1.5 text-[12px] font-semibold text-ink/75">
           Who can open your Event Hub
         </legend>
         {(
@@ -369,7 +369,7 @@ export function VisibilityPanel({
             />
             <span className="min-w-0">
               <span className="block text-xs font-semibold text-ink">{label}</span>
-              <span className="block text-[0.7rem] text-ink/50">{hint}</span>
+              <span className="block text-[12px] text-ink/75">{hint}</span>
             </span>
           </label>
         ))}
@@ -380,7 +380,7 @@ export function VisibilityPanel({
               Said here, on the switch, so it is never a surprise — and only on
               the switch: a Public event keeps whatever the host chose since. */}
           {visibility !== 'public' ? (
-            <p className="text-[0.7rem] text-ink/60" data-public-turns-on-asks="">
+            <p className="text-[12px] text-ink/75" data-public-turns-on-asks="">
               Public turns on &ldquo;Accept&rdquo; — people without a key can ask to join, and
               they wait in Requests until you Keep, Link or Remove them. You can turn it off on your RSVP page.
             </p>
@@ -388,8 +388,8 @@ export function VisibilityPanel({
           {/* 🎟 "Where to get tickets" — the organizer's own ticket page. The
               organizer sells the tickets; Setnayan never does. */}
           <label className="block">
-            <span className="block text-[0.7rem] font-semibold text-ink/60">
-              Where to get tickets <span className="font-normal text-ink/45">(optional)</span>
+            <span className="block text-[12px] font-semibold text-ink/75">
+              Where to get tickets <span className="font-normal text-ink/75">(optional)</span>
             </span>
             <input
               className="mt-1 block min-h-[44px] w-full rounded-lg border border-ink/15 bg-white px-3 text-base text-ink placeholder:text-ink/35 sm:text-sm"
@@ -404,13 +404,13 @@ export function VisibilityPanel({
               aria-describedby={ticketError ? `ticket-error-${eventId}` : undefined}
               onInput={() => setTicketError(null)}
             />
-            <span className="mt-1 block text-[0.7rem] text-ink/50">
+            <span className="mt-1 block text-[12px] text-ink/75">
               Guests get a &ldquo;Get tickets&rdquo; button that opens this link. You sell the tickets — Setnayan
               never does. Leave it blank for no button.
             </span>
           </label>
           {ticketError ? (
-            <p id={`ticket-error-${eventId}`} role="alert" className="text-[0.7rem] font-medium text-terracotta-700">
+            <p id={`ticket-error-${eventId}`} role="alert" className="text-[12px] font-medium text-terracotta-700">
               {ticketError}
             </p>
           ) : null}
@@ -437,7 +437,7 @@ export function OpenBrowsePanel({
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="open_browse" value={on ? '0' : '1'} />
       <ReturnTo eventId={eventId} rowKey="open-browse" />
-      <p className="text-xs text-ink/60">
+      <p className="text-xs text-ink/75">
         {on
           ? 'Guests can browse every page of your Event Hub from day one.'
           : 'Guests currently see only the page for the current moment (invitation, day-of, after).'}
@@ -493,7 +493,7 @@ export function LaunchPhasePanel({
           That didn’t save — only the couple can change which version guests see.
         </p>
       ) : null}
-      <p className="text-xs text-ink/60">
+      <p className="text-xs text-ink/75">
         {pinned
           ? `Every guest sees the ${launchPhaseLabel(pinned)} version until you switch back to Automatic — the date no longer moves it.`
           : 'Your Event Hub changes by itself as the day gets closer. Pin a version to keep it on one — for example, keep the Invitation up so guests can still RSVP.'}
@@ -511,7 +511,7 @@ export function LaunchPhasePanel({
             />
             <span className="min-w-0">
               <span className="block text-xs font-semibold text-ink">Automatic</span>
-              <span className="mt-0.5 block text-[11px] leading-snug text-ink/55">
+              <span className="mt-0.5 block text-[12px] leading-snug text-ink/75">
                 Follows your date. Today that is: {launchPhaseLabel(autoPhase)}.
               </span>
             </span>
@@ -527,7 +527,7 @@ export function LaunchPhasePanel({
               />
               <span className="min-w-0">
                 <span className="block text-xs font-semibold text-ink">Always show: {c.label}</span>
-                <span className="mt-0.5 block text-[11px] leading-snug text-ink/55">{c.hint}</span>
+                <span className="mt-0.5 block text-[12px] leading-snug text-ink/75">{c.hint}</span>
               </span>
             </label>
           ))}
@@ -576,7 +576,7 @@ export function RsvpBackdropPanel({
 
   return (
     <div className={PANEL}>
-      <p className="text-xs text-ink/60">
+      <p className="text-xs text-ink/75">
         {current
           ? 'Guests see this scene move behind your invitation as they scroll.'
           : 'Your invitation currently has a plain background. Pick a scene to add depth behind it.'}
@@ -617,7 +617,7 @@ export function RsvpBackdropPanel({
                   />
                   <span className="min-w-0">
                     <span className="block text-xs font-semibold text-ink">{theme.label}</span>
-                    <span className="mt-0.5 block text-[11px] leading-snug text-ink/55">
+                    <span className="mt-0.5 block text-[12px] leading-snug text-ink/75">
                       {theme.description}
                     </span>
                   </span>
@@ -652,7 +652,7 @@ export function RsvpBackdropPanel({
           <ReturnTo eventId={eventId} rowKey="backdrop" />
           <button
             type="submit"
-            className="text-xs font-medium text-ink/55 underline underline-offset-2 transition-colors hover:text-ink"
+            className="text-xs font-medium text-ink/75 underline underline-offset-2 transition-colors hover:text-ink"
           >
             Turn the backdrop off
           </button>

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { QuietStart } from '@/app/_components/states/quiet-start';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, Footprints, Plus } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Footprints, Plus } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { fetchEventActivity, relativeTime } from '@/lib/activity';
@@ -42,7 +42,7 @@ export default async function EventActivityPage({
         actions={
           <Link
             href={`/dashboard/${eventId}`}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70 hover:text-terracotta"
+            className="inline-flex min-h-11 items-center gap-1.5 text-[13px] font-semibold text-terracotta-700 hover:underline"
           >
             <ArrowLeft aria-hidden className="h-3 w-3" />
             {tr('cta.back')}
@@ -58,7 +58,7 @@ export default async function EventActivityPage({
           action={
             <Link
               href={`/dashboard/${eventId}/guests`}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-mulberry-600"
+              className="ab ab-brand ab-main"
             >
               <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Add your first guest
@@ -69,19 +69,22 @@ export default async function EventActivityPage({
         <ol className="space-y-6">
           {grouped.map(({ day, items }) => (
             <li key={day} className="space-y-2">
-              <h2 className="sn-eye">
+              {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 13 · 14): a grey-capital label per day over hairline rows
+                  (56 high, terracotta ›); the time is plain grey words in the body font, not a typewriter caption. */}
+              <h2 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                 {day}
               </h2>
-              <ul className="space-y-1">
+              <ul className="divide-y divide-ink/10">
                 {items.map((a) => (
                   <li key={a.id}>
                     <Link
                       href={a.href}
-                      className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-terracotta/5"
+                      className="flex min-h-14 items-center justify-between gap-3 py-2 text-[15px]"
                     >
-                      <span className="truncate text-ink/80">{a.description}</span>
-                      <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
+                      <span className="truncate text-ink">{a.description}</span>
+                      <span className="flex shrink-0 items-center gap-1 text-[13px] tabular-nums text-ink/75">
                         {relativeTime(a.at)}
+                        <ChevronRight aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
                       </span>
                     </Link>
                   </li>

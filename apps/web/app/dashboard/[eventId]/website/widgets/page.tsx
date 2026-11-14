@@ -454,7 +454,7 @@ function WidgetRow({
       {/* Drag handle — visual cue · functional via Up/Down buttons in V1 */}
       <span
         aria-hidden
-        className="hidden shrink-0 text-ink/60 sm:inline-flex sm:items-center"
+        className="hidden shrink-0 text-ink/75 sm:inline-flex sm:items-center"
       >
         <GripVertical className="h-5 w-5" strokeWidth={1.75} />
       </span>
@@ -616,7 +616,7 @@ function WidgetRow({
                   aria-pressed={selected}
                   className={`inline-flex h-8 min-h-[36pt] items-center rounded-md border px-2.5 text-[12px] font-semibold transition-colors sm:min-h-0 ${
                     disabledShown
-                      ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/60'
+                      ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/75'
                       : selected
                         ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
                         : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30 hover:text-ink'

@@ -509,7 +509,7 @@ export function ElementSheet({
         <p id={titleId} className="min-w-0 flex-1 truncate font-serif text-lg text-ink">
           Part
           {sceneLabel ? (
-            <span className="ml-2 text-[11px] font-bold uppercase tracking-[0.12em] text-ink/45">on {sceneLabel}</span>
+            <span className="ml-2 text-[12px] font-bold uppercase tracking-[0.12em] text-ink/75">on {sceneLabel}</span>
           ) : null}
         </p>
         <InfoTip label="" ariaLabel="About this part" align="end">

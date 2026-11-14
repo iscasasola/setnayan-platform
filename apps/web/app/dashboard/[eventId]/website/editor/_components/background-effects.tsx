@@ -114,7 +114,7 @@ export function BgEffects({
   );
   const words = (
     <span aria-hidden className={`pointer-events-none absolute inset-x-0 top-[38%] z-[1] flex flex-col items-center gap-1.5 px-1 ${dark ? 'text-cream' : 'text-ink'}`}>
-      <span data-ambient-names="" className="max-w-full truncate font-serif text-[11px] leading-none">{worn?.names ?? 'Your names'}</span>
+      <span data-ambient-names="" className="max-w-full truncate font-serif text-[12px] leading-none">{worn?.names ?? 'Your names'}</span>
       <span className="h-2.5 w-11 rounded-full" style={{ backgroundColor: worn?.five[2] }} />
     </span>
   );
@@ -127,7 +127,7 @@ export function BgEffects({
   return (
     <div data-bg-effects={effect?.kind ?? EFFECT_NONE} className="flex flex-col">
       <BgRow label="Effects" data="effects" info={EFFECTS_INFO}>
-        <span data-bg-effects-now="" className="truncate text-[13px] text-ink/60">
+        <span data-bg-effects-now="" className="truncate text-[13px] text-ink/75">
           {effectsSummary(effect ? AMBIENT_EFFECT_LABEL[effect.kind] : null, treat?.takes ? { parallax: treat.parallax, blur: treat.blur } : null)}
         </span>
       </BgRow>
@@ -190,16 +190,16 @@ export function BgEffects({
       ) : null}
       {treat ? (
         <>
-          <p data-bg-picture-head="" className="pt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/50">
+          <p data-bg-picture-head="" className="pt-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink/75">
             The picture
           </p>
           {/* Parallax ◆ — a two-state control is a switch (INTERACTION_RULES § 9, kind 3), the app's ONE drawing. */}
           <div data-bg-row="parallax" data-bg-picture-off={treat.takes ? undefined : ''} className={`${STUDIO_ROW_FLAT} ${treat.takes ? '' : 'opacity-55'}`}>
             <span className="flex min-w-0 flex-1 flex-col leading-tight">
               <span className="text-[14px] text-ink">
-                Parallax{treat.proMark ? <span aria-label="Event Hub Pro" className="ml-1 text-[12px] text-ink/50">◆</span> : null}
+                Parallax{treat.proMark ? <span aria-label="Event Hub Pro" className="ml-1 text-[12px] text-ink/75">◆</span> : null}
               </span>
-              <small className="text-[11.5px] text-ink/55">{treat.takes ? PICTURE_LINE.parallax : PICTURE_LINE.parallaxOff}</small>
+              <small className="text-[12px] text-ink/75">{treat.takes ? PICTURE_LINE.parallax : PICTURE_LINE.parallaxOff}</small>
             </span>
             <button
               type="button"
@@ -218,7 +218,7 @@ export function BgEffects({
           <div data-bg-row="blur" data-bg-picture-off={treat.takes ? undefined : ''} className={`${STUDIO_ROW_FLAT} ${treat.takes ? '' : 'opacity-55'}`}>
             <span className="flex min-w-0 flex-1 flex-col leading-tight">
               <span className="text-[14px] text-ink">Blur</span>
-              <small className="text-[11.5px] text-ink/55">{treat.takes ? PICTURE_LINE.blur : PICTURE_LINE.blurOff}</small>
+              <small className="text-[12px] text-ink/75">{treat.takes ? PICTURE_LINE.blur : PICTURE_LINE.blurOff}</small>
             </span>
             {treat.takes ? (
               <PickMenu
@@ -230,7 +230,7 @@ export function BgEffects({
                 onPick={(k) => k !== treat.blur && treat.onBlur(k as PictureBlur)}
               />
             ) : (
-              <span data-bg-blur-off="" className="text-[13px] text-ink/45">
+              <span data-bg-blur-off="" className="text-[13px] text-ink/75">
                 {PICTURE_BLUR_LABEL.none}
               </span>
             )}

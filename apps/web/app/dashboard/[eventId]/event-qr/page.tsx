@@ -40,6 +40,7 @@
  * dropped — the Invite-page link (2026-07-15) is now its findable home.
  */
 
+import { InfoTip } from '@/app/_components/info-tip';
 import { redirect } from 'next/navigation';
 import { RefreshCcw } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -100,7 +101,10 @@ export default async function EventQrPage({ params }: Props) {
         title="For your photography + livestream crew"
       />
 
-      <div className="m-card p-6 sm:p-8">
+      {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 7 · 13 · 14): the QR is the one thing on the warm surface; labels are
+          grey capitals (the check-it line behind the ⓘ); the rotate press is the shared pill and its consequence stays on
+          the page; the how-to is a plain section, not a second card. */}
+      <div className="rounded-card bg-[var(--m-paper-2)] p-4 sm:p-6">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-10">
           <div
             className="rounded-xl bg-[var(--m-paper)] p-3 shadow-inner"
@@ -108,22 +112,18 @@ export default async function EventQrPage({ params }: Props) {
           />
           <div className="flex-1 space-y-4">
             <div className="space-y-1">
-              <div className="text-xs uppercase tracking-[0.18em] text-ink/50">
-                Token prefix
-              </div>
+              <InfoTip label="Token prefix" labelAs="span" labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70" align="start">
+                Confirm this matches what your supplier&rsquo;s device shows after pairing — a quick sanity check that you
+                handed them the right event&rsquo;s QR.
+              </InfoTip>
               <div className="text-lg font-semibold tracking-wider tabular-nums text-ink">
                 {tokenPrefix}…
               </div>
-              <p className="text-xs text-ink/55">
-                Confirm this matches what your supplier&rsquo;s device shows after
-                pairing — a quick sanity check that you handed them the
-                right event&rsquo;s QR.
-              </p>
             </div>
 
             {rotatedAt ? (
               <div className="space-y-1">
-                <div className="text-xs uppercase tracking-[0.18em] text-ink/50">
+                <div className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Last rotated
                 </div>
                 <div className="text-sm text-ink">
@@ -142,11 +142,11 @@ export default async function EventQrPage({ params }: Props) {
               }}
             >
               <input type="hidden" name="event_id" value={event.event_id as string} />
-              <SubmitButton pendingLabel="Regenerating…" className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-[var(--m-paper)] px-4 py-2 text-sm font-medium text-ink transition hover:bg-ink/5">
+              <SubmitButton pendingLabel="Regenerating…" className="ab ab-neutral">
                 <RefreshCcw aria-hidden className="h-4 w-4" strokeWidth={2} />
                 Regenerate QR
               </SubmitButton>
-              <p className="mt-2 text-xs text-ink/55">
+              <p className="mt-2 text-[13px] text-ink/75">
                 Rotating prints a new code. Crew devices already paired
                 stay paired — only new pairings using the old code will
                 stop working.
@@ -156,15 +156,15 @@ export default async function EventQrPage({ params }: Props) {
         </div>
       </div>
 
-      <div className="m-card p-5 sm:p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-ink/70">
+      <div className="border-t border-ink/10 pt-5">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           How suppliers use this
         </h2>
         <ol className="mt-3 space-y-2 text-sm leading-relaxed text-ink/75">
           <li>
             <span className="font-medium text-ink">1.</span> Your supplier
             opens the Setnayan app on their capture device and taps
-            <span className="m-mono mx-1 rounded bg-ink/5 px-1.5 py-0.5 text-xs">
+            <span className="mx-1 font-semibold text-ink">
               Pair to event
             </span>
             .

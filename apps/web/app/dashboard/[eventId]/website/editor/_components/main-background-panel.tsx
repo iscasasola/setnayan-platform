@@ -329,7 +329,7 @@ export function HeroFrameSync({
   }
   if (state === 'reading' && !quiet) {
     return (
-      <p className="text-[12px] text-ink/60" data-hero-frame-sync="reading">
+      <p className="text-[12px] text-ink/75" data-hero-frame-sync="reading">
         Reading your hero photo&rsquo;s colours…
       </p>
     );
@@ -390,7 +390,7 @@ function Choice({
           {label}
           {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" tone="current" /> : null}
         </span>
-        {note ? <span className={`block text-[11.5px] ${on ? 'text-cream/80' : 'text-ink/60'}`}>{note}</span> : null}
+        {note ? <span className={`block text-[12px] ${on ? 'text-cream/80' : 'text-ink/75'}`}>{note}</span> : null}
       </span>
       {on ? <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.25} /> : null}
     </button>
@@ -1262,7 +1262,7 @@ export function MainBackgroundPanel({
           </div>
         ) : null}
         {reading ? (
-          <p role="status" className="text-[12px] text-ink/60">
+          <p role="status" className="text-[12px] text-ink/75">
             Reading its colours…
           </p>
         ) : null}
@@ -1317,7 +1317,7 @@ export function MainBackgroundPanel({
               <span className="text-[14px] text-ink">
                 Showing <b className="font-semibold">{BACKGROUND_SHADE_CANDLELIGHT_LABEL}</b>
               </span>
-              <small className="text-[11.5px] text-ink/55">An older look — it stays until you turn it off</small>
+              <small className="text-[12px] text-ink/75">An older look — it stays until you turn it off</small>
             </span>
             <button
               type="button"
@@ -1495,7 +1495,7 @@ export function MainBackgroundPanel({
               <PhotoTile key={p.ref} url={p.url} on={own?.media === p.ref} onPick={() => pickExisting({ kind: 'photo', ref: p.ref, stillUrl: p.url })} />
             ))}
           </div>
-          <p className="text-[12px] font-semibold text-ink/60">Ready-made</p>
+          <p className="text-[12px] font-semibold text-ink/75">Ready-made</p>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Ready-made backgrounds" data-main-ground-library="">
             {STD_REALISTIC_BACKGROUNDS.map((b) => (
               <PhotoTile
@@ -1530,14 +1530,19 @@ export function MainBackgroundPanel({
           {/* 📐 The owner asked for the best size (2026-10-01). The photo fills
               the screen and is cropped to it, and 99% of guests are on a phone —
               so upright, and at least the size the upload keeps. */}
-          <p className="text-[12px] text-ink/60" data-main-ground-tip="">
-            Best: an upright (portrait) photo, {IMAGE_MAX_EDGE.toLocaleString('en-US')} pixels or more on its long side — it fills a
-            phone screen sharp. Keep faces near the middle; the edges are cropped. Clips up to {MAKER_MAX_CLIP_SECONDS} seconds.
-          </p>
-          {reading ? <p className="text-[12px] text-ink/60">Reading its colours…</p> : null}
+          {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 7): the size advice sits behind the ⓘ beside its label, as the scene's own
+              "Best size" does above. */}
+          <div data-main-ground-tip="">
+            <InfoTip label="Best size" labelAs="span" labelClassName="text-[12px] font-semibold text-ink/75" align="start">
+              Best: an upright (portrait) photo, {IMAGE_MAX_EDGE.toLocaleString('en-US')} pixels or more on its long side — it
+              fills a phone screen sharp. Keep faces near the middle; the edges are cropped. Clips up to{' '}
+              {MAKER_MAX_CLIP_SECONDS} seconds.
+            </InfoTip>
+          </div>
+          {reading ? <p className="text-[12px] text-ink/75">Reading its colours…</p> : null}
           {own?.kind === 'photo' ? (
             <div className="flex items-center gap-2" data-main-ground-motion="">
-              <span className="w-16 text-[12.5px] text-ink/60">Motion</span>
+              <span className="w-16 text-[12.5px] text-ink/75">Motion</span>
               <PickMenu
                 label="How the photo moves"
                 value={own.motion ?? 'still'}
@@ -1607,7 +1612,7 @@ export function MainBackgroundPanel({
                 <Swatch hex={matched.ornament} label="Ornaments" />
               </>
             ) : (
-              <span className="text-[12px] text-ink/60">
+              <span className="text-[12px] text-ink/75">
                 This has no strong colour to follow, so your colours stay as they are.
               </span>
             )}

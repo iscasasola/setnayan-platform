@@ -162,7 +162,7 @@ export function ButtonsLookRow({
   return (
     <div data-buttons-look="" className="flex flex-col">
       {/* Where the colour comes from, said once and quietly: the palette's Accent, as the page deepens it to read. */}
-      <p data-buttons-colour-from="" className="flex items-center justify-end gap-1.5 text-[11.5px] text-ink/55">
+      <p data-buttons-colour-from="" className="flex items-center justify-end gap-1.5 text-[12px] text-ink/75">
         <i aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: page.fill }} />
         Accent
       </p>

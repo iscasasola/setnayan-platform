@@ -166,13 +166,13 @@ export function ApplyProSheet({
                       <span aria-hidden className="inline-block h-1 w-1 shrink-0 rounded-full bg-ink/30" />
                     )}
                     <span className="min-w-0 truncate">
-                      <span className="text-ink/60">{c.place} · </span>
+                      <span className="text-ink/75">{c.place} · </span>
                       <span className="font-semibold">{c.what}</span>
                     </span>
                   </li>
                 ))}
                 {changes.length > APPLY_SHEET_MAX_LINES ? (
-                  <li data-apply-change-more="" className="pl-2.5 text-ink/60">
+                  <li data-apply-change-more="" className="pl-2.5 text-ink/75">
                     + {formatCount(changes.length - APPLY_SHEET_MAX_LINES)} more
                   </li>
                 ) : null}
@@ -216,10 +216,10 @@ export function ApplyProSheet({
                       <span className="min-w-0 flex-1 text-sm">
                         <span className="block font-semibold text-ink">{g.name}</span>
                         {/* Closed, a part is ONE line a part — its effects said small underneath (prototype frame 1-closer). */}
-                        {grouped.collapsed && !open ? <span className="block truncate text-[12.5px] text-ink/60">{g.summary}</span> : null}
+                        {grouped.collapsed && !open ? <span className="block truncate text-[12.5px] text-ink/75">{g.summary}</span> : null}
                       </span>
                       {g.pricePhp !== null ? <span className="text-[13px] font-semibold tabular-nums text-ink">{formatPhp(g.pricePhp)}</span> : null}
-                      {grouped.collapsed ? <ChevronDown aria-hidden className={`h-4 w-4 text-ink/50 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} /> : null}
+                      {grouped.collapsed ? <ChevronDown aria-hidden className={`h-4 w-4 text-ink/75 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} /> : null}
                     </button>
                     {open ? (
                       <ul className="pb-1">
@@ -235,7 +235,7 @@ export function ApplyProSheet({
                             >
                               <span className="min-w-0 truncate">
                                 <span className="font-semibold">{e.what}</span>
-                                <span className="text-ink/60"> · {e.where}</span>
+                                <span className="text-ink/75"> · {e.where}</span>
                               </span>
                             </button>
                             {e.removable ? (
@@ -245,7 +245,7 @@ export function ApplyProSheet({
                                 onClick={() => onRemove(e)}
                                 aria-label={`Remove ${hubProEffectLine(e)}`}
                                 title="Remove from your draft"
-                                className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+                                className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/75 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
                               >
                                 <X aria-hidden className="h-4 w-4" strokeWidth={2} />
                               </button>
@@ -316,7 +316,7 @@ export function ApplyProSheet({
                 >
                   <span className="min-w-0">
                     <span className="font-semibold">{e.what}</span>
-                    <span className="text-ink/60"> · {e.where}</span>
+                    <span className="text-ink/75"> · {e.where}</span>
                   </span>
                 </button>
                 {e.removable ? (
@@ -326,7 +326,7 @@ export function ApplyProSheet({
                     onClick={() => onRemove(e)}
                     aria-label={`Remove ${hubProEffectLine(e)}`}
                     title="Remove from your draft"
-                    className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+                    className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/75 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
                   >
                     <X aria-hidden className="h-4 w-4" strokeWidth={2} />
                   </button>

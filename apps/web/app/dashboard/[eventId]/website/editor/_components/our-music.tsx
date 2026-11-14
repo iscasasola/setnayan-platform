@@ -103,7 +103,7 @@ export function OurMusicSong({
 
       {!open ? (
         <div className="flex min-h-11 items-center justify-between gap-3">
-          <p className="shrink-0 text-[0.72rem] font-semibold text-ink/80">Song</p>
+          <p className="shrink-0 text-[12px] font-semibold text-ink/80">Song</p>
           {choices.length === 0 ? (
             <p className="text-xs text-ink/70" data-our-music-none="">
               No music here yet.
@@ -154,7 +154,7 @@ export function OurMusicSong({
                   {firstOfMood ? (
                     <p
                       role="presentation"
-                      className="pb-1 pt-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-ink/70"
+                      className="pb-1 pt-3 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink/70"
                       data-our-music-mood=""
                     >
                       {choice.moodLabel}

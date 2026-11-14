@@ -80,7 +80,7 @@ export function TextPanel({
       />
       <label
         htmlFor={`panel-${rowKey}`}
-        className="mb-1 block text-[0.7rem] font-semibold text-ink/60"
+        className="mb-1 block text-[12px] font-semibold text-ink/75"
       >
         {label}
       </label>
@@ -96,7 +96,7 @@ export function TextPanel({
         onInput={(e) => preview(e.currentTarget.value)}
         className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-terracotta"
       />
-      {hint ? <p className="mt-1 text-[0.7rem] text-ink/45">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-[12px] text-ink/75">{hint}</p> : null}
       <SaveButton />
     </SafeForm>
   );
@@ -108,7 +108,7 @@ function SaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="mt-2 inline-flex items-center rounded-full bg-ink px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-ink/90 disabled:opacity-60"
+      className="ab ab-brand mt-2"
     >
       {pending ? 'Saving…' : 'Save'}
     </button>

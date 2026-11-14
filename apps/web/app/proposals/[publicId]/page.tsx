@@ -547,6 +547,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
               given={shopGifts.given}
               unlocks={shopGifts.unlocks}
               unlocksGiven={shopGifts.unlocksGiven}
+              items={shopGifts.items}
               shopName={businessName}
               side={isVendorSide ? 'supplier' : 'couple'}
             />

@@ -295,9 +295,9 @@ describe('the gifts list', () => {
 
 describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep it', () => {
   const PACKS = shopGiftPacksFrom([
-    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
-    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
-    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
+    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990 },
+    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690 },
   ]);
   const F = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra });
   // A small booking: its 40% limit is far below Event Pro's price.

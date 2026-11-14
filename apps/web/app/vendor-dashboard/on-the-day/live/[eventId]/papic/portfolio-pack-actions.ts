@@ -14,9 +14,14 @@ import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { shopPapicPackServiceKey } from '@/lib/vendor-papic-credits';
 import { formatCount } from '@/lib/format-number';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
-import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
-import { giftUnitPrice, shopGiftKindOf, shopGiftPacksFrom, shopGiftServiceKey, SHOP_GIFT_MAX_QUANTITY } from '@/lib/shop-gifts';
-import { fetchShopGiftUnlockRows } from '@/lib/shop-gifts.server';
+import {
+  isShopGiftBundleCode,
+  shopGiftKindOf,
+  shopGiftPacksFrom,
+  shopGiftServiceKey,
+  SHOP_GIFT_MAX_QUANTITY,
+} from '@/lib/shop-gifts';
+import { fetchShopGiftBundles, fetchShopGiftUnlockRows } from '@/lib/shop-gifts.server';
 
 /**
  * 🛍 2026-11-04 — THE SHOP BUYS THE COUPLE'S PACKS (owner, "SIX OWNER ANSWERS" (4)). The form names a pack
@@ -51,7 +56,12 @@ import { fetchShopGiftUnlockRows } from '@/lib/shop-gifts.server';
  * 🎁 2026-11-04 — THE SAME DOOR BUYS GIFTS (owner, "SUPPLIER GIFTS: BOUGHT IN QUANTITY, KEPT AS STOCK"). `for=gift`
  * mints `vendor_gift__<code>` for `quantity` packs into the shop's GIFT STOCK (`shop_gift_stock_entries`, landed on
  * approval from the `shop_gift_purchases` row written here — `orders` has no quantity). The unit price is the
- * pack's `gift_price_php` for a Verified-and-up shop and its list price for Free ("GIFT PRICES"), both READ here.
+ * pack's LIST price for every shop (📦 2026-11-14: "we only have the 10+1" — `gift_price_php` is not a price anywhere).
+ *
+ * 📦 2026-11-14 — BUY 10, GET 1 FREE: `pack` may also name a gift BUNDLE (`GIFT_BUNDLE_*`, an admin-managed catalogue
+ * row). Its price, which pack it holds and how many are READ from the catalogue (`fetchShopGiftBundles`); the order is
+ * `vendor_gift__<bundle code>` and approval lands `quantity × bundle_quantity` packs. Every shop may buy one (owner's
+ * pick 4). Same export, no new server action.
  * One export for both on purpose: the server-action budget is at its ceiling (lint-server-action-budget.mjs).
  *
  * 💎 2026-11-05 — SLICE 2: `for=gift` also buys EVENT PLUS and EVENT PRO (`pack` = `EVENT_PLUS` · `COUPLE_WEBSITE_PRO`),
@@ -108,6 +118,7 @@ export async function buyVendorPapicPortfolioPack(
 
   const forGift = String(formData.get('for') ?? '') === 'gift';
   const asked = String(formData.get('pack') ?? '').trim();
+  const bundleGift = forGift && isShopGiftBundleCode(asked);
   const askedKind = shopGiftKindOf(asked);
   const unlockGift = forGift && (askedKind === 'event_plus' || askedKind === 'event_pro' || askedKind === 'event_ultra');
 
@@ -122,7 +133,10 @@ export async function buyVendorPapicPortfolioPack(
   // client names a pack, never a price. `null` covers missing/inactive/unreadable.
   const admin = createAdminClient();
   const packs = unlockGift ? await fetchShopGiftUnlockRows(admin) : await fetchShopPapicPacks(admin);
-  const pack = packs?.find((p) => p.code === asked) ?? null;
+  // 📦 A bundle names its pack in the catalogue; the pack it holds is the one priced and landed.
+  const bundle = bundleGift ? ((await fetchShopGiftBundles(admin, shopGiftPacksFrom(packs ?? [])))?.find((b) => b.code === asked) ?? null) : null;
+  if (bundleGift && !bundle) return err('That bundle is not on sale right now. Please try again later.');
+  const pack = packs?.find((p) => p.code === (bundle ? bundle.pack.code : asked)) ?? null;
   if (!pack) {
     return err(unlockGift ? 'That gift is not on sale right now. Please try again later.' : 'That Papic pack is not on sale right now. Please try again later.');
   }
@@ -133,7 +147,12 @@ export async function buyVendorPapicPortfolioPack(
   }
   const giftPack = forGift ? shopGiftPacksFrom([pack])[0] ?? null : null;
   if (forGift && !giftPack) return err('That gift is not on sale right now. Please try again later.');
-  const giftUnit = giftPack ? giftUnitPrice(giftPack, await fetchVendorPaysGiftPrice(admin, vendorProfileId)) : null;
+  // ONE price per gift (the list price), or the bundle's own catalogue price — never a gift price.
+  const giftUnit = giftPack
+    ? bundle
+      ? { centavos: bundle.priceCentavos, basis: 'bundle' as const, packsEach: bundle.quantity }
+      : { centavos: giftPack.srpCentavos, basis: 'list' as const, packsEach: 1 }
+    : null;
   const pricePhp = giftUnit ? (giftUnit.centavos * quantity) / 100 : pack.pricePhp;
 
   // The rail kill switch (lib/rail-for-new-order.ts): never mint an order
@@ -149,10 +168,12 @@ export async function buyVendorPapicPortfolioPack(
       orderRowFor(
         { userId: user.id, eventId: null, vendorProfileId },
         {
-          service_key: forGift ? shopGiftServiceKey(pack.code) : shopPapicPackServiceKey(pack.code),
+          service_key: forGift ? shopGiftServiceKey(bundle ? bundle.code : pack.code) : shopPapicPackServiceKey(pack.code),
           // The /pay page's title (lib/payable-by-reference.ts reads
           // orders.description) — the pack's own name.
-          description: unlockGift
+          description: bundle
+            ? `Gifts for your couples — ${formatCount(quantity)} × ${bundle.title} (${formatCount(quantity * bundle.quantity)} × ${pack.title})`
+            : unlockGift
             ? `Gifts for your couples — ${formatCount(quantity)} × ${pack.title}`
             : forGift
               ? `Gifts for your couples — ${quantity} × ${pack.title} (${formatCount(pack.credits * quantity)} credits)`
@@ -185,7 +206,10 @@ export async function buyVendorPapicPortfolioPack(
       service_code: pack.code,
       gift_kind: giftPack?.kind ?? 'papic',
       quantity,
-      credits_each: pack.credits,
+      // A bundle's one unit is `packsEach` packs: its credits and its packs are both per unit.
+      credits_each: pack.credits * giftUnit.packsEach,
+      packs_each: giftUnit.packsEach,
+      bundle_code: bundle ? bundle.code : null,
       unit_price_php: giftUnit.centavos / 100,
       price_basis: giftUnit.basis,
       created_by: user.id,

@@ -37,9 +37,9 @@ import {
 } from './shop-gifts';
 
 const PACKS = shopGiftPacksFrom([
-  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499, giftPricePhp: 449 },
-  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
-  { code: 'PAPIC_GUEST', title: 'Papic Unlimited', credits: 3000, pricePhp: 999, giftPricePhp: null },
+  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499 },
+  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+  { code: 'PAPIC_GUEST', title: 'Papic Unlimited', credits: 3000, pricePhp: 999 },
 ]);
 
 /** What is free to offer, per kind — Papic credits, then Event Plus and Event Pro counts. */
@@ -47,9 +47,9 @@ const F = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ 
 
 const UNLOCKS = shopGiftPacksFrom([
   ...[
-    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
-    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
-    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
+    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690 },
+    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990 },
   ],
 ]);
 
@@ -91,7 +91,7 @@ describe('what a shop pays', () => {
   });
   it('a pack with no gift price, or one not below the list, is the list price for everyone', () => {
     assert.equal(giftUnitPrice(PACKS[2]!, true).basis, 'list');
-    const odd = { ...p150, giftPriceCentavos: 12_000 };
+    const odd = { ...p150 };
     assert.deepEqual(giftUnitPrice(odd, true), { centavos: 9900, basis: 'list' });
   });
 });

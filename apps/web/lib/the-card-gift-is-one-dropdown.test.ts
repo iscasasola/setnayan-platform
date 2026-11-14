@@ -48,8 +48,8 @@ const MAKER = 'app/vendor-dashboard/services/_components/canvas-maker.tsx';
 const ACTIONS = 'app/vendor-dashboard/services/actions.ts';
 
 const PACKS: ShopGiftPack[] = [
-  { code: 'PAPIC_GUEST', title: 'Papic · 100 credits', kind: 'papic', credits: 100, srpCentavos: 1, giftPriceCentavos: null },
-  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 1, giftPriceCentavos: null },
+  { code: 'PAPIC_GUEST', title: 'Papic · 100 credits', kind: 'papic', credits: 100, srpCentavos: 1 },
+  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 1 },
 ];
 
 test('1 · the dropdown: No gift · Setnayan gift · the shop’s packs, a short pack listed with "buy first"', () => {

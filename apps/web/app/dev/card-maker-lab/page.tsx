@@ -74,10 +74,10 @@ const VP = '00000000-0000-4000-8000-0000000000bb';
  * (`fetchShopGiftPacks`). The stock covers the Papic pack only, so Event Plus shows its "buy first" note.
  */
 const LAB_GIFT_PACKS: ShopGiftPack[] = [
-  { code: 'PAPIC_GUEST', title: 'Papic credits for their guests', kind: 'papic', credits: 100, srpCentavos: 0, giftPriceCentavos: null },
-  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 0, giftPriceCentavos: null },
+  { code: 'PAPIC_GUEST', title: 'Papic credits for their guests', kind: 'papic', credits: 100, srpCentavos: 0 },
+  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 0 },
 ];
-const LAB_GIFT_FREE: FreeByKind = { papic: 300, event_plus: 0, event_pro: 0, event_ultra: 0 };
+const LAB_GIFT_FREE: FreeByKind = { papic: 300, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST: 3 } };
 
 type Shop = {
   name: string;

@@ -41,9 +41,9 @@ const offer = (p: Partial<Offer>): Offer => ({ ...blankOffer('o1'), name: 'Test'
 // Test fixtures for the arithmetic only — the build reads the live schedule, limit and catalogue.
 const SCHEDULE: BookingFeeSchedule = { rate: 0.05, tailRate: 0.01, tier1LimitPhp: 100_000, minPhp: 50 };
 const PACKS = shopGiftPacksFrom([
-  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
-  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499, giftPricePhp: 449 },
-  { code: 'PAPIC_GUEST', title: 'Papic 3000', credits: 3000, pricePhp: 999, giftPricePhp: 899 },
+  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499 },
+  { code: 'PAPIC_GUEST', title: 'Papic 3000', credits: 3000, pricePhp: 999 },
 ]);
 const ctx = (p: Partial<GiftContext> = {}): GiftContext => ({
   packs: PACKS,

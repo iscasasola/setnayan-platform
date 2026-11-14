@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { FileText, Pencil } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -10,6 +10,7 @@ import {
 import type { SubProcessor } from '../actions';
 import { ErrorState } from '@/app/_components/states/error-state';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { Note, One } from '@/app/admin/app-performance/_components/insights-parts';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -20,6 +21,10 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 // and_NPC_Registration_Sheet). The owner can copy/print this to file with the
 // NPC. Live scale counts are pulled server-side to fill the "scale of
 // processing" section. Everything is server-rendered — no client JS needed.
+//
+// Drawn to the Insights drawing (admin_pub/insights.html › Privacy & NPC › NPC data sheet): the explanation in the
+// opening ⓘ, "Edit the facts" as the one press, the field sheets as hairline rows with no card around them. The
+// visible <h1> stays (a printed filing needs its heading — see admin-page-starts-at-its-content.test.ts).
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'NPC data sheet · Admin' };
@@ -34,19 +39,19 @@ function val(v: unknown): string {
   return s.length ? s : TBD;
 }
 
-function Row({ field, value }: { field: string; value: unknown }) {
+function FieldRow({ field, value }: { field: string; value: unknown }) {
   const display = val(value);
   const missing = display === TBD;
   return (
     <tr className="border-b border-ink/10 last:border-0 align-top">
       <th
         scope="row"
-        className="w-1/3 py-2 pr-4 text-left text-sm font-medium text-ink/70"
+        className="w-1/3 py-2 pr-4 text-left text-sm font-normal text-ink/55"
       >
         {field}
       </th>
       <td
-        className={`py-2 text-sm ${missing ? 'italic text-ink/40' : 'text-ink/90'} whitespace-pre-wrap`}
+        className={`py-2 text-sm font-semibold ${missing ? 'italic text-[var(--sn-warning-deep)]' : 'text-ink'} whitespace-pre-wrap`}
       >
         {display}
       </td>
@@ -69,19 +74,22 @@ function Row({ field, value }: { field: string; value: unknown }) {
  * and sub-processors — ARE records lists and DID convert.
  */
 function FieldTable({ children }: { children: React.ReactNode }) {
+  // No frame (T18 — read-only facts carry no card): a hairline above and between, nothing around.
   return (
-    <div className="sn-tile overflow-x-auto !p-0">
-      <table className="w-full border-collapse px-4">
-        <tbody className="[&_th]:pl-4 [&_td]:pr-4">{children}</tbody>
+    <div className="overflow-x-auto border-t border-ink/10">
+      <table className="w-full border-collapse">
+        <tbody>{children}</tbody>
       </table>
     </div>
   );
 }
 
+const SEC_HEAD = 'text-[11px] font-bold uppercase tracking-[0.12em] text-ink/55';
+
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-2">
-      <h2 className="text-base font-semibold tracking-tight text-ink">{title}</h2>
+    <section>
+      <h2 className={`${SEC_HEAD} flex min-h-11 items-center pb-1 pt-4`}>{title}</h2>
       <FieldTable>{children}</FieldTable>
     </section>
   );
@@ -161,27 +169,27 @@ export default async function ComplianceDataSheetPage() {
   const totalSubjects = users == null || guests == null ? null : users + guests;
 
   return (
-    <section className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/admin/settings?tab=compliance"
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--m-orange-2)]"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Back to Compliance
-      </Link>
-
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+    <section className="mx-auto max-w-3xl px-4 py-6 sm:px-6" data-npc-data-sheet="">
+      <header>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-ink">
           <FileText aria-hidden className="h-6 w-6" strokeWidth={1.75} /> NPC data sheet
         </h1>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          The stored compliance facts laid out as the NPC Data Processing System
-          registration fields. Copy or print this to file with the National
-          Privacy Commission. Empty fields show{' '}
-          <span className="italic text-ink/50">{TBD}</span> — settle them on the
-          Compliance page before filing. This is the data to file, not the filing
-          itself.
-        </p>
+        <One label="The data to file, not the filing">
+          The stored compliance facts laid out as the NPC Data Processing System registration fields.
+          Copy or print this to file with the National Privacy Commission.
+          Empty fields show {TBD} — settle them on the Compliance page before filing. This is the data to file, not
+          the filing itself.
+        </One>
       </header>
+
+      <div className="my-2 flex flex-wrap gap-2 print:hidden">
+        <Link
+          href="/admin/settings?tab=compliance"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/15 px-4 text-sm font-semibold text-ink hover:bg-ink/[0.03]"
+        >
+          <Pencil aria-hidden className="h-4 w-4 text-[var(--sn-accent)]" strokeWidth={2} /> Edit the facts
+        </Link>
+      </div>
 
       {/* The field sheet below is deliberately NOT a ConsoleTable — see the
           FieldTable docblock. But it still owes the distinction, and it cannot
@@ -199,21 +207,21 @@ export default async function ComplianceDataSheetPage() {
       ) : null}
 
       <Block title="B.1 — Personal Information Controller (PIC)">
-        <Row field="Registered / legal name" value={f.legal_name} />
-        <Row field="Proprietor / owner" value={f.proprietor} />
-        <Row field="DTI Business Name no." value={f.dti_bn} />
-        <Row field="BIR TIN / Form 2303" value={f.bir_tin} />
-        <Row field="Registered / principal office address" value={f.registered_address} />
-        <Row field="NPC registration no." value={f.npc_registration_no} />
+        <FieldRow field="Registered / legal name" value={f.legal_name} />
+        <FieldRow field="Proprietor / owner" value={f.proprietor} />
+        <FieldRow field="DTI Business Name no." value={f.dti_bn} />
+        <FieldRow field="BIR TIN / Form 2303" value={f.bir_tin} />
+        <FieldRow field="Registered / principal office address" value={f.registered_address} />
+        <FieldRow field="NPC registration no." value={f.npc_registration_no} />
       </Block>
 
       <Block title="B.2 — Data Protection Officer (DPO)">
-        <Row field="DPO full name" value={f.dpo_name} />
-        <Row field="DPO position / title" value={f.dpo_title} />
-        <Row field="DPO email" value={f.dpo_email} />
-        <Row field="DPO contact number" value={f.dpo_phone} />
-        <Row field="DPO employment basis" value={f.dpo_employment_basis} />
-        <Row field="Effectivity date of designation" value={f.dpo_designation_date} />
+        <FieldRow field="DPO full name" value={f.dpo_name} />
+        <FieldRow field="DPO position / title" value={f.dpo_title} />
+        <FieldRow field="DPO email" value={f.dpo_email} />
+        <FieldRow field="DPO contact number" value={f.dpo_phone} />
+        <FieldRow field="DPO employment basis" value={f.dpo_employment_basis} />
+        <FieldRow field="Effectivity date of designation" value={f.dpo_designation_date} />
       </Block>
 
       {/* B.3 is ONE section. "Categories of data subjects" is a ROW INSIDE B.3 in
@@ -227,20 +235,16 @@ export default async function ComplianceDataSheetPage() {
           holds against the schema. Do NOT re-type the categories here: a second
           copy is how the written record came to name four kinds of person while
           the code collected from five. */}
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold tracking-tight text-ink">
-          B.3 — Scale of processing
-        </h2>
+      <section>
+        <h2 className={`${SEC_HEAD} flex min-h-11 items-center pb-1 pt-4`}>B.3 — Scale of processing</h2>
         <FieldTable>
-          <Row field="Total number of employees" value={f.headcount} />
-          <Row field="Staff with data access" value={f.staff_with_data_access} />
-          <Row field="Total number of data subjects (live)" value={totalSubjects ?? 'Couldn’t count right now — refresh to try again'} />
-          <Row field="Active biometric face vectors (live)" value={faces ?? 'Couldn’t count right now — refresh to try again'} />
+          <FieldRow field="Total number of employees" value={f.headcount} />
+          <FieldRow field="Staff with data access" value={f.staff_with_data_access} />
+          <FieldRow field="Total number of data subjects (live)" value={totalSubjects ?? 'Couldn’t count right now — refresh to try again'} />
+          <FieldRow field="Active biometric face vectors (live)" value={faces ?? 'Couldn’t count right now — refresh to try again'} />
         </FieldTable>
 
-        <h3 className="pt-1 text-sm font-semibold tracking-tight text-ink">
-          Categories of data subjects
-        </h3>
+        <h3 className={`${SEC_HEAD} flex min-h-11 items-center pb-1 pt-3`}>Categories of data subjects</h3>
         {/* `readPermitted` is honestly `true` for a third reason again: this
             renders from `lib/data-subject-register`, a local constant, so there
             is no read to refuse and no permission to prove. It is a records list
@@ -312,14 +316,12 @@ export default async function ComplianceDataSheetPage() {
           (NPC_Compliance/04_…), and picking a different B-number would be
           inventing a second claim to fix the first. */}
       <Block title="Breach response (Data Breach Management Policy)">
-        <Row field="Breach response team" value={f.breach_team} />
-        <Row field="Breach contacts" value={f.breach_contacts} />
+        <FieldRow field="Breach response team" value={f.breach_team} />
+        <FieldRow field="Breach contacts" value={f.breach_contacts} />
       </Block>
 
-      <section className="space-y-2">
-        <h2 className="text-base font-semibold tracking-tight text-ink">
-          B.8 — Sub-processors / cross-border transfers
-        </h2>
+      <section>
+        <h2 className={`${SEC_HEAD} flex min-h-11 items-center pb-1 pt-4`}>B.8 — Sub-processors / cross-border transfers</h2>
         <ConsoleTable
           rows={subs}
           readPermitted
@@ -357,17 +359,17 @@ export default async function ComplianceDataSheetPage() {
       </section>
 
       <Block title="B.4 / B.5 — Processing declarations">
-        <Row field="Sensitive RSVP fields" value={f.sensitive_rsvp_fields} />
-        <Row field="Automated decisions" value={f.automated_decisions} />
-        <Row field="Maya / payment gateway status" value={f.maya_status} />
-        <Row field="Staff data-access controls" value={f.staff_controls} />
-        <Row field="DPIA adoption dates" value={f.dpia_adoption_dates} />
+        <FieldRow field="Sensitive RSVP fields" value={f.sensitive_rsvp_fields} />
+        <FieldRow field="Automated decisions" value={f.automated_decisions} />
+        <FieldRow field="Maya / payment gateway status" value={f.maya_status} />
+        <FieldRow field="Staff data-access controls" value={f.staff_controls} />
+        <FieldRow field="DPIA adoption dates" value={f.dpia_adoption_dates} />
       </Block>
 
-      <p className="text-xs text-ink/45">
-        Not a substitute for legal review. Finalize with the DPO and Philippine
-        counsel before adoption or submission to the NPC.
-      </p>
+      <Note label="Not a substitute for legal review">
+        Not a substitute for legal review. Finalize with the DPO and Philippine counsel before adoption or submission to
+        the NPC.
+      </Note>
     </section>
   );
 }

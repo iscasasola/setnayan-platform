@@ -58,6 +58,8 @@ export type VendorOutcomeRollup = {
 export type AdminOutcomeOverview = {
   totals: OutcomeTotals & { reporting_vendors: number };
   byReason: OutcomeReasonRow[];
+  /** 🔑 The rollup could not be read. The zeros in `totals` are then NOT counts — the admin view prints "—". */
+  failed?: boolean;
 };
 
 const EMPTY_TOTALS: OutcomeTotals = { won: 0, lost: 0, no_response: 0, total: 0 };
@@ -158,7 +160,7 @@ export async function fetchAdminOutcomeOverview(): Promise<AdminOutcomeOverview>
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('admin_inquiry_outcomes_overview');
   if (error) console.error('[supabase-error] lib/inquiry-outcomes.ts · rpc:admin_inquiry_outcomes_overview', error);
-  if (error || !data) return empty;
+  if (error || !data) return { ...empty, failed: true };
   const rpc = data as RpcRollup;
   return {
     totals: {

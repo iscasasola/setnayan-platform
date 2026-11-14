@@ -33,7 +33,7 @@ const PHONE = read('app/open-shop/_components/phone-field.tsx');
 const CARDS = read('app/open-shop/_components/service-cards.tsx');
 const AT_EVENTS = read('app/open-shop/_components/services-at-events.tsx');
 const SHEET = read('app/open-shop/_components/plan-sheet.tsx');
-const LAB = read('app/dev/open-shop-lab/page.tsx');
+const LAB = read('app/dev/open-shop-lab/page.lab.tsx');
 const METER = read('lib/open-shop-more-services.ts');
 
 /* ── every sentence has a box, and the box is on the step the server sends you to ─────────────────────────────── */

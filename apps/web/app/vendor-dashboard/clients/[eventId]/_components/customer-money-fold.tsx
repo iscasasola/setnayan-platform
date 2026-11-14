@@ -153,7 +153,7 @@ export function CustomerMoneyFold({
                   <p className="text-[13px] text-ink/70">{[p.method, p.reference].filter(Boolean).join(' · ')}</p>
                 ) : null}
                 {p.proofUrl ? (
-                  <a href={p.proofUrl} target="_blank" rel="noreferrer" className="text-[13px] text-sn-accent underline-offset-2 hover:underline">
+                  <a href={p.proofUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent underline-offset-2 hover:underline">
                     Their receipt
                   </a>
                 ) : null}

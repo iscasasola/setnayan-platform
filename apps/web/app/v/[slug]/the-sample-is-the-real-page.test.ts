@@ -57,6 +57,15 @@ test('one Inquire, and a drawing has no door to a shop that does not exist', () 
   assert.match(SAMPLE, /<OpenDatesPeek days=\{samplePeekDays\(todayInManila\(\)\)\} checkHref=\{null\} \/>/);
   assert.match(SAMPLE, /<ShopCanDoPanel checkHref=\{null\}/);
   assert.match(SAMPLE, /<CheckADateLink href=\{null\}/);
+  // RW-81 (walk 13 Nov 2026): the map's "View larger map →" too — every map the sample draws passes `mapHref={null}`,
+  // and both map components honour it by drawing no <a>.
+  const maps = SAMPLE.match(/<ShopReachMap\b[^>]*\/>/g) ?? [];
+  assert.ok(maps.length >= 1, 'the sample no longer draws its map — re-anchor this check');
+  for (const m of maps) assert.match(m, /mapHref=\{null\}/, `a sample map still links out: ${m}`);
+  assert.doesNotMatch(SAMPLE, /<VendorLocationMap\b(?![^>]*mapHref=\{null\})[^>]*\/>/, 'a sample VendorLocationMap links out');
+  for (const f of ['app/v/[slug]/_components/shop-reach.tsx', 'app/_components/vendor-location-map.tsx']) {
+    assert.match(read(f), /mapHref === null \?/, `${f} no longer draws the map link without a link for the sample`);
+  }
   // Its anchors are its own, per plan: five drawings on one page must not share an id or a ↑ Top target.
   assert.match(SAMPLE, /const id = \(part: string\) => `sample-\$\{plan\}-\$\{part\}`;/);
   assert.match(SAMPLE, /<ShopSectionBar tabs=\{tabs\} topId=\{id\('top'\)\} \/>/);

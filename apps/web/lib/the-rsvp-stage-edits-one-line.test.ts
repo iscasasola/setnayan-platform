@@ -187,6 +187,6 @@ test('4 · WIRING: the toolbar hands Edit to the stage’s panel only for a line
   assert.equal((STAGE.match(/picked=\{\{/g) ?? []).length, 1, 'the desktop’s stage was handed the phone’s picked line');
   /* THE LAB shows what the owner looks at: the app's own chrome (the cookie card) stays off its RSVP screens too — it
      covered "Sadly, no", the hint and the Save button. The lab's page only; no real page is touched. */
-  const LAB = src('app/dev/maker-lab/guest/page.tsx');
+  const LAB = src('app/dev/maker-lab/guest/page.lab.tsx');
   assert.match(LAB, /\{play === null \? <RsvpCanvasBridge \/> : null\}[\s{}]*<style>\{EDITOR_CANVAS_HIDES_APP_CHROME\}<\/style>/);
 });

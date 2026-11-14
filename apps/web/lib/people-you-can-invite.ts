@@ -3,7 +3,8 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { getPeopleRoster, ROSTER_UNNAMED } from '@/lib/people-roster';
+import { getPeopleRoster } from '@/lib/people-roster';
+import { realNameOrNull } from '@/lib/no-name';
 import { fetchSamahanSecondDegree } from '@/lib/communities';
 import { confirmedConnectionUserIds } from '@/lib/confirmed-connection-user-ids';
 import { splitPersonName } from '@/lib/person-name-split';
@@ -149,7 +150,8 @@ export async function getPeopleYouCanInvite(
       if (p.kind === 'connection' && p.state !== 'connected') continue;
       // 🪪 THE ROSTER'S "Someone" IS A PLACEHOLDER, NOT A NAME (F-W3-22): a connection whose name the rule does not show
       // reads "Someone" on People — taken as a first name here, it made a guest literally called "Someone".
-      if (p.name === ROSTER_UNNAMED) continue;
+      // RW-64: "Someone —" (the placeholder run into a dash part) is no name either — one rule, `realNameOrNull`.
+      if (realNameOrNull(p.name) === null) continue;
       const { first, last } = splitPersonName(p.name);
       if (!first) continue;
       push({

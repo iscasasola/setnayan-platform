@@ -3366,11 +3366,11 @@
         "Block",
         "ConsoleTable",
         "ErrorState",
+        "FieldRow",
         "FieldTable",
         "Link",
         "Note",
-        "One",
-        "Row"
+        "One"
       ]
     },
     "/admin/concierge-abuse": {
@@ -3470,7 +3470,6 @@
       ],
       "destinations": [
         "/admin/compliance/data-sheet",
-        "/admin/data-privacy",
         "/admin/data-privacy/documents/[seg]",
         "/admin/data-privacy?tab=checklist",
         "/admin/data-privacy?tab=controls",
@@ -3496,6 +3495,7 @@
         "HTMLButtonElement",
         "HTMLFormElement",
         "InfoTip",
+        "InsightsParamPick",
         "JobRow",
         "Link",
         "NpcChecklist",

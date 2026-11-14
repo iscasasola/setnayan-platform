@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AlertTriangle, ChevronLeft, Download, FolderArchive } from 'lucide-react';
+import { AlertTriangle, Download, FolderArchive } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { relativeTime } from '@/lib/activity';
@@ -26,6 +26,8 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { Fold } from '@/app/_components/fold';
 import { Badge, Facts, One, Row, Rows, Sec } from '@/app/admin/app-performance/_components/insights-parts';
 import { ReadFailed } from '../_components/read-failed';
+import { InsightsParamPick } from '@/app/admin/app-performance/_components/insights-param-pick';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Data privacy & NPC filing · Admin' };
 export const dynamic = 'force-dynamic';
@@ -55,7 +57,7 @@ export const dynamic = 'force-dynamic';
  *
  * Drawn to the approved Insights drawing (admin_pub/insights.html › Privacy & NPC): the controls on the landing, the
  * other four views and the NPC data sheet rise from the "Filing" rows (the old tab strip went — one selector, never a
- * pill row). Each sub-view opens with a "‹ Privacy & NPC" press back to the landing.
+ * pill row). A "Show ▾" dropdown (the one selector) moves between the views.
  *
  * /admin/npc-readiness redirects into ?tab=checklist (the old separate surface).
  *
@@ -106,28 +108,20 @@ export default async function DataPrivacyPage({
       )
     : null;
 
-  const subTitle = TABS.find((t) => t.key === active)?.label ?? '';
-
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
       <PageMasthead
         title="Data Privacy & NPC Filing"
       />
 
-      {active !== 'controls' ? (
-        <div className="mb-1 flex min-h-11 items-center gap-2">
-          <Link
-            href="/admin/data-privacy"
-            scroll={false}
-            className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-sm font-semibold text-[var(--sn-accent)] hover:bg-ink/[0.03]"
-          >
-            <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2.2} /> Privacy &amp; NPC
-          </Link>
-          <span className="text-[13px] text-ink/55" aria-current="page">
-            · {subTitle}
-          </span>
-        </div>
-      ) : null}
+      {/* The one selector (2026-10-30): which part of Privacy & NPC is showing — moves the same `?tab=` the old pill row
+          did. A dropdown, not a back link: these are views of ONE page, whose home is the console (lib/page-home.ts). */}
+      <InsightsParamPick
+        name="Show"
+        param="tab"
+        value={active}
+        options={TABS.map((t) => ({ key: t.key, label: t.label }))}
+      />
 
       {/* 🔑 On a refused read every control is the catalog default — "Off". A board
           full of Off switches is a claim that nothing is protected. */}
@@ -149,9 +143,9 @@ export default async function DataPrivacyPage({
               sub={
                 coverage === null
                   ? 'Couldn’t read the controls — not the same as none'
-                  : `${coverage.declaredCount} of ${coverage.privacySensitiveTotal} privacy-sensitive controls declared${coverage.undeclaredActive.length > 0 ? ` · ${coverage.undeclaredActive.length} live but not declared` : ''}`
+                  : `${formatCount(coverage.declaredCount)} of ${formatCount(coverage.privacySensitiveTotal)} privacy-sensitive controls declared${coverage.undeclaredActive.length > 0 ? ` · ${formatCount(coverage.undeclaredActive.length)} live but not declared` : ''}`
               }
-              trail={controlsOk ? `${activeCount} of ${liveTotal} active` : '—'}
+              trail={controlsOk ? `${formatCount(activeCount)} of ${formatCount(liveTotal)} active` : '—'}
             />
             <Row
               title="Deletions — did they actually run?"

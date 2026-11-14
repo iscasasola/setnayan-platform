@@ -39,14 +39,14 @@ function IssueRow({ issue }: { issue: FaultIssue }) {
   const seen = `${formatCount(issue.hit_count)} times · first ${ago(issue.first_seen)} · last ${ago(issue.last_seen)}`;
   const facts: [string, ReactNode][] = [
     ['Kind', issue.kind],
-    ['What', <span className="break-all font-mono text-[13px]">{issue.action}</span>],
+    ['What', <span key="what" className="break-all font-mono text-[13px]">{issue.action}</span>],
   ];
-  if (issue.page) facts.push(['Page', <span className="break-all font-mono text-[13px]">{issue.page}</span>]);
-  if (issue.message) facts.push(['Error', <span className="break-words font-mono text-[13px]">{issue.message}</span>]);
+  if (issue.page) facts.push(['Page', <span key="page" className="break-all font-mono text-[13px]">{issue.page}</span>]);
+  if (issue.message) facts.push(['Error', <span key="error" className="break-words font-mono text-[13px]">{issue.message}</span>]);
   facts.push(['Seen', seen]);
   facts.push([
     'Build',
-    <span className="font-mono text-[13px]">
+    <span key="build" className="font-mono text-[13px]">
       {issue.last_build_sha ? issue.last_build_sha.slice(0, 7) : 'unknown'}
       {issue.first_build_sha && issue.first_build_sha !== issue.last_build_sha
         ? ` (first on ${issue.first_build_sha.slice(0, 7)})`

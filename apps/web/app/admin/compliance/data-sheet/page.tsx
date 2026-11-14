@@ -39,7 +39,7 @@ function val(v: unknown): string {
   return s.length ? s : TBD;
 }
 
-function Row({ field, value }: { field: string; value: unknown }) {
+function FieldRow({ field, value }: { field: string; value: unknown }) {
   const display = val(value);
   const missing = display === TBD;
   return (
@@ -207,21 +207,21 @@ export default async function ComplianceDataSheetPage() {
       ) : null}
 
       <Block title="B.1 — Personal Information Controller (PIC)">
-        <Row field="Registered / legal name" value={f.legal_name} />
-        <Row field="Proprietor / owner" value={f.proprietor} />
-        <Row field="DTI Business Name no." value={f.dti_bn} />
-        <Row field="BIR TIN / Form 2303" value={f.bir_tin} />
-        <Row field="Registered / principal office address" value={f.registered_address} />
-        <Row field="NPC registration no." value={f.npc_registration_no} />
+        <FieldRow field="Registered / legal name" value={f.legal_name} />
+        <FieldRow field="Proprietor / owner" value={f.proprietor} />
+        <FieldRow field="DTI Business Name no." value={f.dti_bn} />
+        <FieldRow field="BIR TIN / Form 2303" value={f.bir_tin} />
+        <FieldRow field="Registered / principal office address" value={f.registered_address} />
+        <FieldRow field="NPC registration no." value={f.npc_registration_no} />
       </Block>
 
       <Block title="B.2 — Data Protection Officer (DPO)">
-        <Row field="DPO full name" value={f.dpo_name} />
-        <Row field="DPO position / title" value={f.dpo_title} />
-        <Row field="DPO email" value={f.dpo_email} />
-        <Row field="DPO contact number" value={f.dpo_phone} />
-        <Row field="DPO employment basis" value={f.dpo_employment_basis} />
-        <Row field="Effectivity date of designation" value={f.dpo_designation_date} />
+        <FieldRow field="DPO full name" value={f.dpo_name} />
+        <FieldRow field="DPO position / title" value={f.dpo_title} />
+        <FieldRow field="DPO email" value={f.dpo_email} />
+        <FieldRow field="DPO contact number" value={f.dpo_phone} />
+        <FieldRow field="DPO employment basis" value={f.dpo_employment_basis} />
+        <FieldRow field="Effectivity date of designation" value={f.dpo_designation_date} />
       </Block>
 
       {/* B.3 is ONE section. "Categories of data subjects" is a ROW INSIDE B.3 in
@@ -238,10 +238,10 @@ export default async function ComplianceDataSheetPage() {
       <section>
         <h2 className={`${SEC_HEAD} flex min-h-11 items-center pb-1 pt-4`}>B.3 — Scale of processing</h2>
         <FieldTable>
-          <Row field="Total number of employees" value={f.headcount} />
-          <Row field="Staff with data access" value={f.staff_with_data_access} />
-          <Row field="Total number of data subjects (live)" value={totalSubjects ?? 'Couldn’t count right now — refresh to try again'} />
-          <Row field="Active biometric face vectors (live)" value={faces ?? 'Couldn’t count right now — refresh to try again'} />
+          <FieldRow field="Total number of employees" value={f.headcount} />
+          <FieldRow field="Staff with data access" value={f.staff_with_data_access} />
+          <FieldRow field="Total number of data subjects (live)" value={totalSubjects ?? 'Couldn’t count right now — refresh to try again'} />
+          <FieldRow field="Active biometric face vectors (live)" value={faces ?? 'Couldn’t count right now — refresh to try again'} />
         </FieldTable>
 
         <h3 className={`${SEC_HEAD} flex min-h-11 items-center pb-1 pt-3`}>Categories of data subjects</h3>
@@ -316,8 +316,8 @@ export default async function ComplianceDataSheetPage() {
           (NPC_Compliance/04_…), and picking a different B-number would be
           inventing a second claim to fix the first. */}
       <Block title="Breach response (Data Breach Management Policy)">
-        <Row field="Breach response team" value={f.breach_team} />
-        <Row field="Breach contacts" value={f.breach_contacts} />
+        <FieldRow field="Breach response team" value={f.breach_team} />
+        <FieldRow field="Breach contacts" value={f.breach_contacts} />
       </Block>
 
       <section>
@@ -359,11 +359,11 @@ export default async function ComplianceDataSheetPage() {
       </section>
 
       <Block title="B.4 / B.5 — Processing declarations">
-        <Row field="Sensitive RSVP fields" value={f.sensitive_rsvp_fields} />
-        <Row field="Automated decisions" value={f.automated_decisions} />
-        <Row field="Maya / payment gateway status" value={f.maya_status} />
-        <Row field="Staff data-access controls" value={f.staff_controls} />
-        <Row field="DPIA adoption dates" value={f.dpia_adoption_dates} />
+        <FieldRow field="Sensitive RSVP fields" value={f.sensitive_rsvp_fields} />
+        <FieldRow field="Automated decisions" value={f.automated_decisions} />
+        <FieldRow field="Maya / payment gateway status" value={f.maya_status} />
+        <FieldRow field="Staff data-access controls" value={f.staff_controls} />
+        <FieldRow field="DPIA adoption dates" value={f.dpia_adoption_dates} />
       </Block>
 
       <Note label="Not a substitute for legal review">

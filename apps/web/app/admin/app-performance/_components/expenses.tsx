@@ -110,8 +110,8 @@ export async function ExpensesZone() {
         </p>
       ) : null}
 
-      {/* Log an expense — the one framed thing here (you press it). Same server-action form, no new action. */}
-      <div className="my-2 rounded-xl border border-ink/15" data-expenses-log="">
+      {/* Log an expense — a hairline-ruled row that opens in place (no card: lint:no-card). Same server-action form, no new action. */}
+      <div className="my-2 border-y border-ink/10" data-expenses-log="">
         <Fold title="Log an expense" summary="Saved to the expense ledger · receipt optional" data="log-expense" popovers>
           <form action={addExpense} className="space-y-2 px-3 pb-3">
             <label className="block text-[13px] text-ink/65">

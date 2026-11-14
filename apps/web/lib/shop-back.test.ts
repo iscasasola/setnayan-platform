@@ -135,10 +135,12 @@ test('the shop page draws its back door from shopBackDoor — no fixed /explore 
 });
 
 test('Check a date, the booth and the waitlist send you back onto the shop with the arrival', () => {
+  // SHOP-02 v7: Check a date is a sheet OVER the shop. "See the shop" is gone (× is the one way out) and × lands on the
+  // shop carrying the arrival; the printed address forwards with it.
   const cal = src('app/v/[slug]/dates/_components/check-a-date-calendar.tsx');
-  assert.ok(!/href=\{`\/v\/\$\{encodeURIComponent\(shop\.slug\)\}`\}/.test(cal), '"See the shop" dropped the arrival');
-  assert.equal((cal.match(/label="See the shop" href=\{shopHref\}/g) ?? []).length, 2);
-  assert.match(src('app/v/[slug]/dates/page.tsx'), /withShopArrival\(`\/v\/\$\{encodeURIComponent\(slug\)\}`, arrival\)/);
+  assert.equal((cal.match(/label="See the shop"/g) ?? []).length, 0, '"See the shop" came back — × is the one way out');
+  assert.match(src('app/v/[slug]/page.tsx'), /shopHref=\{withShopArrival\(`\/v\/\$\{vendor\.business_slug \?\? slug\}`, shopArrival\)\}/);
+  assert.match(src('lib/check-a-date.ts'), /withShopArrival\(`\/v\/\$\{encodeURIComponent\(slug\)\}`, arrivalParams\(search\), extra\)/);
   assert.match(src('app/v/[slug]/booth/page.tsx'), /withShopArrival\(`\/v\/\$\{slug\}`/);
   const wl = src('app/v/[slug]/waitlist-actions.ts');
   assert.ok(!/redirect\(`\$\{backTo\}\?wl=/.test(wl), 'a waitlist redirect dropped the arrival');

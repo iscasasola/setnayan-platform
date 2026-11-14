@@ -1936,6 +1936,7 @@
         "Sheet",
         "SheetClip",
         "SheetEntry",
+        "ShopLink",
         "SignInBackHere",
         "SignOutOfInvitation",
         "SiteBody",
@@ -5804,6 +5805,7 @@
         "OpenFileLink",
         "PageMasthead",
         "Phase",
+        "ShopLink",
         "StayForm",
         "SubmitButton",
         "TeaserGenerator",
@@ -5832,7 +5834,6 @@
         "/dashboard/[seg]/memories",
         "/dashboard/create-event",
         "/dashboard/life-flash",
-        "/v/[seg]",
         "/v/[seg]?src=favorites"
       ],
       "actions": [
@@ -6932,6 +6933,7 @@
         "ShareCreditMode",
         "Sheet",
         "Shell",
+        "ShopLink",
         "SidebarItem",
         "SidebarSection",
         "Sk",
@@ -10272,6 +10274,7 @@
         "SharePhotoSheet",
         "ShareWithVendorsButton",
         "Sheet",
+        "ShopLink",
         "Slider",
         "SlotTile",
         "Spotlight",
@@ -13609,6 +13612,7 @@
         "ReportPageButton",
         "ScaledTileList",
         "SectionBar",
+        "ShopLink",
         "ViewBeacon",
         "WhoWasThereBand"
       ]
@@ -13637,6 +13641,9 @@
       "files": [
         "v/[slug]/_components/add-shop-to-event-data.ts",
         "v/[slug]/_components/check-a-date-link.tsx",
+        "v/[slug]/_components/check-a-date-over-shop-view.tsx",
+        "v/[slug]/_components/check-a-date-over-shop.tsx",
+        "v/[slug]/_components/check-a-date-sheet.tsx",
         "v/[slug]/_components/events-by-kind.tsx",
         "v/[slug]/_components/inquire-sheet.tsx",
         "v/[slug]/_components/not-yet-verified-notice.tsx",
@@ -13688,7 +13695,12 @@
         "CardPortfolioSection",
         "CardRecordSection",
         "CardReviewsBlock",
+        "CheckADateCalendar",
         "CheckADateLink",
+        "CheckADateOverShop",
+        "CheckADateOverShopView",
+        "CheckADateSheet",
+        "CheckADateUnreadableView",
         "ChosenRow",
         "ComingSoonBanner",
         "DemoOnlyMarker",
@@ -13770,6 +13782,7 @@
         "Step",
         "StorytellerTile",
         "SubmitButton",
+        "Suspense",
         "SwitchRow",
         "TeamPreviewBanner",
         "Tile",
@@ -13824,6 +13837,7 @@
     "/v/[slug]/dates": {
       "files": [
         "v/[slug]/dates/_components/check-a-date-calendar.tsx",
+        "v/[slug]/dates/_components/seat-months.tsx",
         "v/[slug]/dates/page.tsx"
       ],
       "destinations": [
@@ -13833,12 +13847,11 @@
       "actions": [],
       "blocks": [
         "ActionButton",
-        "CalendarGrid",
-        "CheckADateCalendar",
         "ChosenRow",
         "DemoOnlyMarker",
         "FormRows",
-        "Metadata",
+        "HTMLDivElement",
+        "SeatMonths",
         "Sheet",
         "SignInHereLink",
         "Step",

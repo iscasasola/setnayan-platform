@@ -84,7 +84,9 @@ import { jobPrefillIsRead } from './prefill-consumers';
 // 152 since 2026-11-13 (on top of main's 150): two more PAGES, Admin › Categories › Service requests and one request's page (owner rulings
 // 13 Nov, service requests) — every page must still reach the model, so the rule above, raised by two (measured on the
 // merged tree — re-measure with the test, never trust this number).
-export const MODEL_CHOICE_CAP = 152;
+// 156 since 2026-11-14: four more PAGES, Admin › Catalogue's Home and its Templates · Media · Design kit hubs (approved
+// admin drawing, area build A3) — every page must still reach the model, so the rule above, raised by four.
+export const MODEL_CHOICE_CAP = 156;
 // 141 → 142 on 2026-10-02, measured with the probe this docblock describes:
 // "Categories & event types" folded six admin pages into one (88 pages now)
 // and the -y/-ies match let the owner's word "category" reach every job on

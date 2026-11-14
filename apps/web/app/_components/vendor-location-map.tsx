@@ -1,46 +1,107 @@
+import type { ReactNode } from 'react';
 import { NearViewport } from '@/app/_components/near-viewport';
+import { BiggerMapButton, MAP_CARD_FRAME, MapCredit, MapPinMark } from '@/app/_components/map-card-chrome';
+import { mapFrame, openStreetMapUrl, type TileImage } from '@/lib/scene-map-tiles';
 
 /**
- * VendorLocationMap — a visual map with a marker pin for a location.
+ * VendorLocationMap — THE MAP CARD: a picture of the streets with a pin on the place.
  *
- * WHY: the public vendor profile already ships Google Maps / Waze / Apple Maps
- * deep links (one "Directions ▾" dropdown, <DirectionsMenu>), but no *visible* map. This
- * adds the picture-of-the-map a couple expects when locating a business
- * (owner 2026-06-28 "do the visual map image").
+ * WHY: the public supplier page offered the map apps but no *visible* map (owner 2026-06-28 "do the visual map
+ * image"); since 2026-08-24 the guest invitation's venue section draws it too (H-4) — a wedding venue, not a supplier
+ * HQ. ⚠ The name is narrower than the component and deliberately NOT renamed (it has shipped for months; read
+ * "vendor" here as "whoever this pin belongs to").
  *
- * ⚠ THE NAME IS NOW NARROWER THAN THE COMPONENT. Since 2026-08-24 the guest
- * invitation's venue section renders this too (H-4) — a wedding venue, not a
- * vendor HQ. It is deliberately NOT renamed: the file has shipped for months
- * and a rename is churn across surfaces that are fine. Read "vendor" here as
- * "whoever this pin belongs to".
+ * 🗺 MAP CARD, APPROVED 2026-11-14 (owner: "Yes, approved", on `prototypes/map_card_open_in_maps_2026-11-14_fable.html`).
+ * The map is drawn OUR way — OpenStreetMap's standard tiles as plain pictures, the pattern the supplier's reach map
+ * (`ReachMap`) and the Event Hub's one-map-for-every-venue (`PinnedMap`) already used — instead of OSM's embed
+ * iframe. That retires the embed's sprawling credit bar ("Report a problem · © OpenStreetMap contributors · Make a
+ * Donation…") and its + / − buttons hanging outside the frame: the card is a clean picture with a small
+ * "© OpenStreetMap" tag in the corner (the credit OSM's licence requires) and ONE round button, top-right, that opens
+ * the map you can move on openstreetmap.org ("View larger map →" became that button). Still OSM, still no API key,
+ * no paid dependency.
  *
- * Provider choice: the OFFICIAL OpenStreetMap embed iframe
- * (openstreetmap.org/export/embed.html) — free, NO API key, NO paid dependency,
- * and sanctioned by OSM (it's their own embed feature, not bulk tile scraping,
- * so it sidesteps the tile-usage-policy concern that raw Leaflet+OSM tiles
- * raise). Per [[project_setnayan_vendor_no_2307_no_maps]] +
- * [[feedback_setnayan_oss_self_host_preference]] — open, key-free default; a
- * paid static-map API was deliberately NOT used (would need owner price
- * sign-off).
+ * ⛔ CSP: tiles are images from `https://tile.openstreetmap.org`. The ENFORCED policy is frame-only (no `img-src`),
+ * and the report-only draft's `img-src` already carries the host for the reach map and the pinned map (next.config.ts;
+ * held by `the-venue-shows-real-streets.test.ts`). The embed's `frame-src` origin is no longer used by this card. (History, kept
+ * because it cost two months: the embed once rendered as an empty grey panel on every shop page because its origin
+ * was missing from `frame-src`; a blocked resource fails exactly like a missing one.)
  *
- * 🔴 THIS DOCBLOCK USED TO SAY: "CSP ships only `frame-ancestors 'self'`, so
- * this external iframe embeds without a config change." THAT WAS FALSE, AND IT
- * IS THE SENTENCE THAT COST THE MAP ITS FIRST TWO MONTHS. The enforced policy
- * DOES carry a `frame-src`, openstreetmap.org was missing from it, and every
- * shop page with coordinates rendered an empty grey panel — no error, no log, a
- * blocked iframe failing exactly like a missing one. Fixed 2026-08-08 by adding
- * the origin; `lib/csp-embeds-are-allowed.test.ts` now pins it. **Do not delete
- * the host from next.config.ts, and do not restore the claim above.**
- *
- * Self-guards: renders nothing without coordinates (a marker needs lat/lng).
- * Address-only callers keep just the <DirectionsMenu> search fallback.
+ * Self-guards: renders nothing without coordinates (a pin needs lat/lng). Address-only callers keep just the
+ * "Get directions" button (`DirectionsMenu`), whose sheet searches Google Maps for the address.
  */
+
+/** The tile layer's logical box: 9 : 5, the card's own shape. Percentages, so it fits any width without a listener. */
+export const MAP_CARD_BOX = { width: 480, height: 267 } as const;
+
+/**
+ * THE ONE MAP CARD FRAME — the tiles, whatever is drawn on them, the corner credit and the bigger-map button. Used by
+ * `VendorLocationMap` (one pin) and `PinnedMap` (venue-styles.tsx — every venue, numbered).
+ *
+ * The frame is 9 : 5 and never taller than 250 px; where 250 px clamps it (a wide column), the 9 : 5 tile layer stays
+ * centred and only its top and bottom edges are cut, so every pin keeps its place.
+ */
+export function MapCard({
+  tiles,
+  label,
+  deferUntilNear = false,
+  flush = false,
+  biggerHref,
+  credit = true,
+  attrs,
+  overlay,
+  children,
+}: {
+  tiles: readonly TileImage[];
+  /** What the map shows, for a screen reader (the tile layer is the picture). */
+  label: string;
+  /** Load the tiles only when the card nears the screen (`NearViewport`, 300 px) — the guest's one-page Invitation. */
+  deferUntilNear?: boolean;
+  /** Square bottom corners, no bottom border: the head of a plate below it. */
+  flush?: boolean;
+  /** The bigger map; null = the sample page, which draws no door. */
+  biggerHref: string | null;
+  /** The credit is a link (false on the sample page). */
+  credit?: boolean;
+  /** `data-*` hooks on the frame. */
+  attrs?: Record<`data-${string}`, string | number | undefined>;
+  /** Drawn over the frame's corner, outside the tile layer (the pinned map's "not on the map" list). */
+  overlay?: ReactNode;
+  /** Pins and lines, placed in percent of the tile layer. */
+  children?: ReactNode;
+}) {
+  const imgs = tiles.map((t) => (
+    // eslint-disable-next-line @next/next/no-img-element -- absolutely-positioned OSM tile grid; next/image cannot lay this out
+    <img
+      key={t.key}
+      src={t.src}
+      alt=""
+      aria-hidden
+      loading="lazy"
+      draggable={false}
+      className="absolute max-w-none select-none"
+      style={{ left: `${t.leftPct}%`, top: `${t.topPct}%`, width: `${t.widthPct}%`, height: `${t.heightPct}%` }}
+    />
+  ));
+  return (
+    <figure
+      {...attrs}
+      className={`${MAP_CARD_FRAME} m-0 aspect-[9/5] max-h-[250px] ${flush ? 'rounded-t-card border-b-0' : 'rounded-card'}`}
+    >
+      <div role="img" aria-label={label} data-map-tiles="" className="absolute inset-x-0 top-1/2 aspect-[9/5] -translate-y-1/2">
+        {deferUntilNear ? <NearViewport className="absolute inset-0">{imgs}</NearViewport> : imgs}
+        {children}
+      </div>
+      {overlay}
+      {biggerHref ? <BiggerMapButton href={biggerHref} /> : null}
+      <MapCredit link={credit} />
+    </figure>
+  );
+}
 
 type Props = {
   /**
-   * 🔗 RW-81 (walk 13 Nov 2026): "View larger map →" — `null` draws it as plain words with NO link, the way a sample
-   * page draws every door (`checkHref={null}`): the sample shop on /for-suppliers must lead nowhere. Absent = the
-   * OpenStreetMap link, as shipped.
+   * 🔗 RW-81 (walk 13 Nov 2026): `null` = the sample page — no bigger-map button and the credit drawn as words, so the
+   * sample shop on /for-suppliers leads nowhere. Absent = the OpenStreetMap link, as shipped.
    */
   mapHref?: null;
   /** Latitude in decimal degrees. NULL → render nothing. */
@@ -48,22 +109,18 @@ type Props = {
   /** Longitude in decimal degrees. NULL → render nothing. */
   longitude: number | null;
   /**
-   * A non-identifying place label (e.g. location_city) for the iframe title /
-   * a11y. Never pass a hidden vendor's business name — keep the name-reveal
-   * contract intact.
+   * A non-identifying place label (e.g. location_city) for the map's spoken label. Never pass a hidden supplier's
+   * business name — keep the name-reveal contract intact.
    */
   label?: string | null;
   /**
-   * 🗺 Load the embed only when the map nears the screen (`NearViewport`, 300 px) — the guest's one-page Invitation,
+   * 🗺 Load the tiles only when the map nears the screen (`NearViewport`, 300 px) — the guest's one-page Invitation,
    * where the map sits far below the cover and every landing would otherwise fetch it (Batch 9 walk W2).
    */
   deferUntilNear?: boolean;
   /**
-   * Seat the map FLUSH against whatever sits directly beneath it — square
-   * bottom corners and no bottom border, so it reads as the top of one block
-   * rather than a rounded card floating on a square plate. Used by the guest
-   * invitation's venue section, where the map is the head of a `pahina-plate`.
-   * Default `false` keeps every existing caller byte-identical.
+   * Seat the map FLUSH against whatever sits directly beneath it — square bottom corners and no bottom border, so it
+   * reads as the top of one block (the guest invitation's venue plate). Default `false`.
    */
   flush?: boolean;
 };
@@ -73,56 +130,24 @@ export function VendorLocationMap({ latitude, longitude, label, flush = false, d
 
   const lat = Number(latitude.toFixed(6));
   const lng = Number(longitude.toFixed(6));
-
-  // ~1.3km box around the point so the marker sits in a readable neighbourhood
-  // view rather than zoomed to the whole country.
-  const d = 0.008;
-  const bbox = `${lng - d},${lat - d},${lng + d},${lat + d}`;
-  const embedSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(
-    bbox,
-  )}&layer=mapnik&marker=${lat},${lng}`;
-  const largerMap = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
+  // A neighbourhood around the pin (zoom 15 ≈ 2 km across the card) — the readable view the embed's ±0.008° box gave.
+  const frame = mapFrame([{ latitude: lat, longitude: lng }], { ...MAP_CARD_BOX, maxZoom: 15 });
+  if (!frame) return null;
+  const spot = frame.spots[0]!;
   const title = label ? `Map showing ${label}` : 'Map showing the location';
 
-  const iframe = (
-    <iframe
-      title={title}
-      src={embedSrc}
-      loading="lazy"
-      className="block h-[220px] w-full"
-      style={{ border: 0 }}
-    />
-  );
-
   return (
-    <div
-      data-osm-embed=""
-      className={`overflow-hidden border border-ink/10 ${
-        flush ? 'rounded-t-xl border-b-0' : 'rounded-xl'
-      }`}
+    <MapCard
+      tiles={frame.tiles}
+      label={title}
+      deferUntilNear={deferUntilNear}
+      flush={flush}
+      biggerHref={mapHref === null ? null : openStreetMapUrl(lat, lng, 16)}
+      credit={mapHref !== null}
+      // `data-osm-embed` names the one-place map card (tests and the walk read it); it is no longer an iframe embed.
+      attrs={{ 'data-osm-embed': '', 'data-map-link': mapHref === null ? 'none' : undefined }}
     >
-      {deferUntilNear ? (
-        <NearViewport className="h-[220px] w-full">{iframe}</NearViewport>
-      ) : (
-        iframe
-      )}
-      {mapHref === null ? (
-        <span
-          data-map-link="none"
-          className="flex min-h-[44px] items-center border-t border-ink/10 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
-        >
-          View larger map →
-        </span>
-      ) : (
-        <a
-          href={largerMap}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex min-h-[44px] items-center border-t border-ink/10 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink"
-        >
-          View larger map →
-        </a>
-      )}
-    </div>
+      <MapPinMark leftPct={spot.leftPct} topPct={spot.topPct} />
+    </MapCard>
   );
 }

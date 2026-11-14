@@ -8,6 +8,8 @@ const ROW_LIMIT = 400;
 import { UGAT_JOINTS } from '@/lib/ugat/graph';
 import { VERDICT_COPY, isFault, type ProbeVerdict } from '@/lib/interconnect/verdict';
 import { formatCount } from '@/lib/format-number';
+import { InfoTip } from '@/app/_components/info-tip';
+import { Badge, Note, One, Row, Rows, type NumTone } from '../_components/insights-parts';
 
 /**
  * Interconnections — the runtime health of the joints BETWEEN subsystems.
@@ -45,12 +47,13 @@ type LedgerRow = {
   ran_at: string;
 };
 
-const VERDICT_STYLE: Record<ProbeVerdict, string> = {
-  ok: 'bg-emerald-50 text-emerald-800 ring-emerald-600/20',
-  empty: 'bg-ink/5 text-ink/60 ring-ink/15',
-  lying: 'bg-red-50 text-red-800 ring-red-600/25',
-  denied: 'bg-amber-50 text-amber-900 ring-amber-600/25',
-  error: 'bg-amber-50 text-amber-900 ring-amber-600/25',
+/** The verdict chip's tone — tokens only (approved drawing: green = carrying traffic, grey = nothing yet). */
+const VERDICT_TONE: Record<ProbeVerdict, NumTone | undefined> = {
+  ok: 'ok',
+  empty: undefined,
+  lying: 'danger',
+  denied: 'warn',
+  error: 'warn',
 };
 
 function ago(iso: string): string {
@@ -105,95 +108,94 @@ export async function InterconnectionsSurface() {
   const neverRan = measured ? cards.filter((c) => !c.run) : [];
 
   return (
-    <section>
+    <section className="max-w-3xl">
       {/* The tab strip already says "Interconnections". The name stays in the
           document at zero pixels.
           ⚖ The sentence survives: it is what a probe verdict MEANS — that a
           disagreement between the surface's own reader and service_role is a
           surface hiding rows from somebody entitled to them. Nobody can read
-          the cards below without it, so it stays in the page, above them. */}
-      <PageMasthead title="Interconnections" />
-      <p className="mb-6 max-w-3xl text-sm text-ink/70">
-        Whether the joints between subsystems still carry traffic. Each probe runs the
-        surface&apos;s own reader and compares it with what an admin can see — where they
-        disagree, the surface is hiding rows from someone entitled to them.
-      </p>
+          the cards below without it, so it stays in the page, above them —
+          since 14 Nov 2026 inside the opening ⓘ (T17, approved drawing
+          insights.html › Interconnections), still above the rows. */}
+      <PageMasthead title="Interconnections" className="mb-0" />
+      <One label="Reader vs what an admin can see">
+        Whether the joints between subsystems still carry traffic. Each probe runs the surface&apos;s own reader and
+        compares it with what an admin can see — where they disagree, the surface is hiding rows from someone entitled
+        to them.
+      </One>
 
       {faults.length > 0 ? (
-        <p className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-800 ring-1 ring-inset ring-red-600/20">
+        <p className="mt-2 text-[14px] font-semibold text-[var(--sn-danger)]">
           {faults.length} joint{faults.length === 1 ? '' : 's'} need attention.
         </p>
       ) : null}
 
       {!measured ? (
-        <div
-          role="alert"
-          className="mb-5 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
-        >
+        <div role="alert" className="mt-2 rounded-lg bg-[var(--sn-warning-soft)] px-3 py-2 text-sm text-ink">
           <p>
-            <strong className="text-ink">The probe ledger could not be read.</strong> Every
-            probe below shows <em>Unknown</em>, not <em>Never run</em> — those are different
-            answers and only one of them is a finding.
-          </p>
-          <p className="mt-2">
-            Nothing here says the probes stopped, and nothing here says they are fine.
-            Reload; if it repeats, treat the platform&rsquo;s health as unknown and hand
-            this to an engineer{error?.message ? `: ${error.message}` : '.'}
+            <strong>The probe ledger could not be read.</strong> Every probe below shows <em>Unknown</em>, not{' '}
+            <em>Never run</em> — those are different answers and only one of them is a finding.{' '}
+            <InfoTip label="What to do" align="start">
+              Nothing here says the probes stopped, and nothing here says they are fine. Reload; if it repeats, treat
+              the platform&rsquo;s health as unknown and hand this to an engineer
+              {error?.message ? `: ${error.message}` : '.'}
+            </InfoTip>
           </p>
         </div>
       ) : neverRan.length > 0 ? (
-        <p className="mb-5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-600/20">
-          {neverRan.length} probe{neverRan.length === 1 ? ' has' : 's have'} never run. Probes fire
-          from public-site traffic, so a quiet site means a quiet ledger — this is not a pass.
+        <p className="mt-2 flex flex-wrap items-center gap-1 text-[14px] text-[var(--sn-warning-deep)]">
+          {neverRan.length} probe{neverRan.length === 1 ? ' has' : 's have'} never run
+          <InfoTip label="· a quiet ledger is not a pass" align="start">
+            Probes fire from public-site traffic, so a quiet site means a quiet ledger — this is not a pass.
+          </InfoTip>
         </p>
       ) : null}
 
-      <ul className="space-y-3">
+      <Rows label="Probes" data="interconnection-probes">
         {cards.map(({ probe, run }) => (
-          <li
+          <Row
             key={probe.key}
-            className="rounded-xl border border-ink/10 p-4 sm:flex sm:items-start sm:justify-between sm:gap-6"
-          >
-            <div className="min-w-0">
-              <p className="font-medium text-ink">{probe.title}</p>
-              <p className="mt-0.5 font-mono text-xs text-ink/45">
-                {probe.key}
-                {probe.jointId ? ` · Root map ${probe.jointId}` : ''}
-              </p>
-              <p className="mt-2 text-sm text-ink/70">
-                {run?.detail ?? (measured ? 'No result recorded yet.' : 'Not read.')}
-              </p>
-            </div>
-
-            <div className="mt-3 shrink-0 text-right sm:mt-0">
-              <span
-                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${
-                  run ? VERDICT_STYLE[run.verdict] : 'bg-ink/5 text-ink/60 ring-ink/15'
-                }`}
-              >
+            data="interconnection-probe"
+            title={probe.title}
+            sub={
+              <>
+                <span className="font-mono text-[12px]">
+                  {probe.key}
+                  {probe.jointId ? ` · Root map ${probe.jointId}` : ''}
+                </span>
+                {run ? (
+                  <span className="tabular-nums">
+                    {' '}
+                    · {formatCount(run.subject_count)}/{formatCount(run.truth_count)} served · {ago(run.ran_at)}
+                  </span>
+                ) : null}
+                <span className="block whitespace-normal text-ink/60">
+                  {run?.detail ?? (measured ? 'No result recorded yet.' : 'Not read.')}
+                </span>
+              </>
+            }
+            trail={
+              <Badge tone={run ? VERDICT_TONE[run.verdict] : measured ? 'warn' : undefined}>
                 {run ? VERDICT_COPY[run.verdict] : measured ? 'Never run' : 'Unknown'}
-              </span>
-              {run ? (
-                <p className="mt-1.5 text-xs text-ink/50">
-                  {formatCount(run.subject_count)}/{formatCount(run.truth_count)} served · {ago(run.ran_at)}
-                </p>
-              ) : null}
-            </div>
-          </li>
+              </Badge>
+            }
+          />
         ))}
-      </ul>
+      </Rows>
 
       {/* Two derived numbers and no hand-typed third. The backlog figure used to
           sit here as a literal; it was wrong from the day it shipped (47 for a
           file holding 44) and would have gone stale again every time a concept
           is mapped. The baseline file is the reading. */}
-      <p className="mt-6 max-w-3xl text-xs text-ink/50">
+      <Note
+        label={`Coverage: ${PROBES.length} probe${PROBES.length === 1 ? '' : 's'} · ${UGAT_JOINTS.length} mapped joints`}
+      >
         Coverage: {PROBES.length} probe{PROBES.length === 1 ? '' : 's'} against{' '}
         {UGAT_JOINTS.length} mapped Root map joints, and the map itself reaches roughly a third of the
         app. The rest is the <code className="font-mono">map-backlog</code> list in{' '}
         <code className="font-mono">ugat-concept.baseline.txt</code> — that gap is the backlog,
         stated rather than implied.
-      </p>
+      </Note>
     </section>
   );
 }

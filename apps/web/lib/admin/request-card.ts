@@ -165,10 +165,7 @@ export function chatFlagWhat(categories: readonly string[] | null | undefined): 
 
 /** A plan tier as the shop knows it. Unknown tiers read as "a plan", never the code. */
 const TIER_WORD: Readonly<Record<string, string>> = {
-  solo: 'Solo',
   pro: 'Supplier Pro',
-  enterprise: 'Enterprise',
-  custom: 'Custom',
   verified: 'Verified',
 };
 

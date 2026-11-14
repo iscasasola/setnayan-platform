@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * The two lookups a Work request card needs beside its queue's own row (admin request cards, owner 2026-11-14): the
@@ -21,7 +22,10 @@ export async function readShops(ids: ReadonlyArray<string | null | undefined>): 
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name, business_slug, logo_url, user_id')
     .in('vendor_profile_id', uniq);
-  if (error) return out;
+  if (error) {
+    logQueryError('requestCard.readShops vendor_profiles', error, {}, 'graceful_degrade');
+    return out;
+  }
   for (const r of (data ?? []) as Array<{
     vendor_profile_id: string;
     business_name: string | null;
@@ -47,7 +51,10 @@ export async function readPeople(ids: ReadonlyArray<string | null | undefined>):
     .from('users')
     .select('user_id, display_name, first_name, last_name, email')
     .in('user_id', uniq);
-  if (error) return out;
+  if (error) {
+    logQueryError('requestCard.readPeople users', error, {}, 'graceful_degrade');
+    return out;
+  }
   for (const r of (data ?? []) as Array<{
     user_id: string;
     display_name: string | null;

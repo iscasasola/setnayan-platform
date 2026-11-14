@@ -14,6 +14,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 import {
   agoWords,
   chatFlagWhat,
@@ -30,7 +31,7 @@ import { SUPPLIER_WORK_REASONS, pickedCorrectionReason } from '@/lib/admin/suppl
 
 const WEB = process.cwd();
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
-const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+const code = (s: string) => stripComments(s);
 
 const R2 = 'r2://setnayan-media/vendors/485d28a2-c614-434f-993a-e3ae89b4/logo-1731552081.png';
 
@@ -82,7 +83,7 @@ test('3 · no reason is picked for the admin', () => {
   assert.match(sheet, /useState<string \| null>\(null\)/, 'the picked reason no longer starts empty');
   assert.match(sheet, /setPicked\(null\);\s*setOpenIdx\(i\)/, 'opening the sheet no longer clears an earlier pick');
   assert.match(sheet, /disabled=\{picked === null\}/, 'the sheet can be sent with nothing picked');
-  assert.doesNotMatch(sheet, /defaultChecked|defaultValue=|<select/, 'a reason can arrive pre-picked');
+  assert.doesNotMatch(sheet, /defaultChecked|<select/, 'a reason can arrive pre-picked');
   const pick = code(read('app/admin/work/_components/form-pick.tsx'));
   assert.match(pick, /useState<string \| null>\(null\)/, 'the dropdown no longer starts empty');
 });

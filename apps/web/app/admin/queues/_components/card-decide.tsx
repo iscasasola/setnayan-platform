@@ -15,6 +15,7 @@ import { Check, X, AlertTriangle, Circle } from 'lucide-react';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { FormPick } from '@/app/admin/work/_components/form-pick';
+import { PostedFieldRow } from '@/app/admin/_components/posted-field-row';
 import type { CardButton, CardField } from '@/lib/admin/request-card';
 
 const ICON = { ok: Check, danger: X, warn: AlertTriangle, neutral: Circle } as const;
@@ -45,83 +46,58 @@ export function CardDecide({
 
   return (
     <div className="mt-3 flex flex-col gap-2" data-card-decide>
-      <form id={formId} action={action} className="contents">
+      <form id={formId} action={action} className="flex flex-col gap-2">
         <input type="hidden" name={idField} value={id} />
         <input type="hidden" name="back" value={back} />
-      </form>
 
-      {fields?.map((f) =>
-        f.kind === 'pick' ? (
-          <FormPick
-            key={f.name}
-            name={f.name}
-            form={formId}
-            label={f.label}
-            placeholder={f.placeholder}
-            options={f.options}
-            dataAttr={`data-card-pick-${f.name}`}
-          />
-        ) : f.multiline ? (
-          <label key={f.name} className="flex flex-col gap-1 text-xs text-[color:var(--sn-ink-500)]">
-            {f.label}
-            <textarea
+        {fields?.map((f) =>
+          f.kind === 'pick' ? (
+            <FormPick
+              key={f.name}
               name={f.name}
               form={formId}
-              required={f.required}
+              label={f.label}
               placeholder={f.placeholder}
-              rows={2}
-              className="rounded-[var(--sn-r-field,10px)] border px-3 py-2 text-sm text-[color:var(--sn-ink-900)]"
-              style={{ borderColor: 'var(--sn-line)', background: 'transparent' }}
-            />
-          </label>
-        ) : (
-          <label key={f.name} className="flex flex-col gap-1 text-xs text-[color:var(--sn-ink-500)]">
-            {f.label}
-            <input
-              name={f.name}
-              form={formId}
-              required={f.required}
-              placeholder={f.placeholder}
-              autoComplete="off"
-              className="min-h-11 rounded-[var(--sn-r-field,10px)] border px-3 text-sm text-[color:var(--sn-ink-900)]"
-              style={{ borderColor: 'var(--sn-line)', background: 'transparent' }}
-            />
-          </label>
-        ),
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        {buttons.map((b, i) => {
-          const [name, value] = Object.entries(b.post)[0] ?? [];
-          const Icon = ICON[b.tone];
-          return b.reasons ? (
-            <ActionButton
-              key={b.label}
-              tone={b.tone as ActionTone}
-              icon={<Icon />}
-              label={b.label}
-              main={b.main}
-              type="button"
-              onClick={() => {
-                setPicked(null);
-                setOpenIdx(i);
-              }}
+              options={f.options}
+              dataAttr={`data-card-pick-${f.name}`}
             />
           ) : (
-            <ActionButton
-              key={b.label}
-              tone={b.tone as ActionTone}
-              icon={<Icon />}
-              label={b.label}
-              main={b.main}
-              type="submit"
-              form={formId}
-              name={name}
-              value={value}
-            />
-          );
-        })}
-      </div>
+            <PostedFieldRow key={f.name} name={f.label} fieldName={f.name} empty={f.placeholder} long={f.multiline} />
+          ),
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {buttons.map((b, i) => {
+            const [name, value] = Object.entries(b.post)[0] ?? [];
+            const Icon = ICON[b.tone];
+            return b.reasons ? (
+              <ActionButton
+                key={b.label}
+                tone={b.tone as ActionTone}
+                icon={<Icon />}
+                label={b.label}
+                main={b.main}
+                type="button"
+                onClick={() => {
+                  setPicked(null);
+                  setOpenIdx(i);
+                }}
+              />
+            ) : (
+              <ActionButton
+                key={b.label}
+                tone={b.tone as ActionTone}
+                icon={<Icon />}
+                label={b.label}
+                main={b.main}
+                type="submit"
+                name={name}
+                value={value}
+              />
+            );
+          })}
+        </div>
+      </form>
 
       {open?.reasons ? (
         <Sheet open onClose={() => setOpenIdx(null)} labelledById={headId}>
@@ -133,7 +109,7 @@ export function CardDecide({
             <fieldset className="flex flex-col gap-1">
               <legend className="sr-only">{open.reasons.title}</legend>
               {(options[openIdx!] ?? []).map((r) => (
-                <label key={r} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-[10px] px-2 text-sm text-[color:var(--sn-ink-900)]">
+                <label key={r} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 text-sm text-[color:var(--sn-ink-900)]">
                   <input
                     type="radio"
                     name="reason"

@@ -1242,7 +1242,7 @@ function payoutCard(row: PayoutRow, shops: Map<string, ShopLite>): RequestCard {
     at: row.trigger_date,
     who: null,
     quote: null,
-    show: [{ kind: 'facts', rows: [{ label: 'Amount', value: amount }, { label: 'Stage', value: row.stage === 'final' ? 'Final payment' : row.stage === 'deposit' ? 'Deposit' : 'Payment' }] }],
+    show: [{ kind: 'facts', rows: [{ label: 'Amount', value: amount }, { label: 'Stage', value: row.stage === 'final' ? 'Last payment' : row.stage ? 'First payment' : 'Payment' }] }],
     shopHref: shopHref(shop),
     recordHref: '/admin/payouts',
     act: {

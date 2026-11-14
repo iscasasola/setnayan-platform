@@ -17,7 +17,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  * consideration outright: "Accepting (the flat 1-token burn, ₱200) reveals
  * everything — identity is what the token buys."
  *
- * 🔑 THE TOKEN WALLET IS RETIRED (2026-05-11), so nobody buys it any more.
+ * 🔑 THE TOKEN BALANCE IS RETIRED (2026-05-11), so nobody buys it any more.
  * Owner, verbatim, 2026-09-08: "we do not need to hide anything, since no more
  * tokens." A supplier now sees the customer on any thread their org owns.
  *

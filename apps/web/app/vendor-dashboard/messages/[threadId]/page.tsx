@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { readWordsOnlyTopUp } from '@/lib/booking-fee-top-up.server';
 import { TOP_UP_WORDS } from '@/lib/booking-fee-top-up';
 import { manilaToday as manilaTodayYmd } from '@/lib/std-views';
@@ -222,7 +223,9 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   proposal_needs_template: 'Pick a template to send a quote.',
   proposal_tier_free: 'Get your account verified to send quotes to couples.',
   proposal_sent_no_card: 'Quote sent — find it in your Quotes list (the in-chat card didn’t post).',
-  proposal_thread_closed: 'You can only send a quote on an open conversation.',
+  // RW-24: it names the way through, and says the quote is kept (`quoteSentKey` in the maker).
+  proposal_thread_closed:
+    'Say yes to this inquiry first — a quote goes on an open conversation. Nothing was sent; your quote is kept on this device.',
   // S5 · a new quote would replace an ACCEPTED one that the booking already
   // rests on. Name the door that IS open instead of saying "failed".
   proposal_deal_locked:
@@ -302,6 +305,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     lockAgreeNotice(sp?.lock_agree, {
       competing: Number.isFinite(lockCompeting) ? lockCompeting : null,
       feeHeld: lockAgreeFeeHeld(sp?.fee),
+      // RW-38: the live gate, so the notice claims a gate only when there is one.
+      feeLocksEvent: lockAgreeFeeHeld(sp?.fee) ? await resolveFeeEnforcement() : false,
       halls: lockAgreeHalls(sp?.taken, sp?.free),
     }) ?? lockDeclineNotice(sp?.lock_decline);
   const supabase = await createClient();
@@ -2125,6 +2130,14 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   ) : thread.inquiry_status === 'pending' ? (
         // The one next step — answer the inquiry — so the one thing here that wears a frame: the warm surface (rule 2).
         <div className="space-y-3 rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4">
+          {/* 🧾 RW-24 (walk 13 Nov 2026): a quote sent before saying yes is refused — the notice is said HERE, on the
+              pending inquiry, where it used to be drawn only for an open conversation (so the refusal was silent).
+              One plain line inside the frame (rule 2: no card inside a card). */}
+          {proposalNotice ? (
+            <p role="status" data-proposal-notice="pending" className="text-[14px] font-medium text-ink">
+              {proposalNotice}
+            </p>
+          ) : null}
           {/* TALK TO THEM (prototype `inquiry`: "New inquiry · Say yes to talk — nothing is booked yet"). The
               shipped accept-to-reply, in plain words: it opens the conversation, it books nothing. */}
           <p className="text-sm text-ink">

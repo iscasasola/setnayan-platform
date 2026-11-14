@@ -7,10 +7,10 @@ import type { MonogramConfig } from './monogram';
  * *"QR is free with Setnayan Logo on the center. all Guest QR must have
  * Setnayan Logo on the center. QR on Pro makes the logo use their logo on the
  * center. and change the shape, pattern style."* · *"shape allows square or
- * circle"* · *"this will be tied up to the event hub pro feature"*.
+ * circle"* · *"this will be tied up to the Event Pro feature"*.
  *
  * So there are exactly two looks a guest QR can wear, and ONE thing decides
- * which — whether the event holds Event Hub Pro (`COUPLE_WEBSITE_PRO`, read
+ * which — whether the event holds Event Pro (`COUPLE_WEBSITE_PRO`, read
  * through `eventCoupleWebsiteProActive`; §10a internal-hosted events count):
  *
  *   FREE  → `FREE_QR_LOOK`: ink on cream, square, classic modules, the SETNAYAN
@@ -21,8 +21,8 @@ import type { MonogramConfig } from './monogram';
  *           three choices below, each ONE dropdown in the Maker's Details.
  *
  * The separate "Custom QR per guest" product (`CUSTOM_QR_GUEST`, palette-tinted
- * modules) FOLDED INTO Event Hub Pro in the same build (decision row 2026-09-27
- * "QR LOGO: AFTER APPLE … FOLDS INTO EVENT HUB PRO"): its colour is the `ink`
+ * modules) FOLDED INTO Event Pro in the same build (decision row 2026-09-27
+ * "QR LOGO: AFTER APPLE … FOLDS INTO EVENT PRO"): its colour is the `ink`
  * choice here. One Pro, not two.
  *
  * ── SCANNABILITY IS NOT NEGOTIABLE ─────────────────────────────────────────

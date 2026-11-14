@@ -171,7 +171,9 @@ export default async function VendorOnTheDayLivePage({
   // Booked-today gate: the launched console only opens for a booking dated today.
   const today = phToday();
   if (!booking || booking.bookedDate !== today) {
-    redirect('/vendor-dashboard/on-the-day');
+    // F-W1-76 (walk 13 Nov 2026): back to the Hub ON THIS EVENT, and the Hub says when the live page opens — the bare
+    // redirect dropped the event and said nothing.
+    redirect(`/vendor-dashboard/on-the-day?event=${encodeURIComponent(eventId)}&live=not-yet`);
   }
 
   // Q7 (owner 2026-09-11) — the day-of tools' dated end. Unset by default (the
@@ -179,7 +181,7 @@ export default async function VendorOnTheDayLivePage({
   // set and past, the launcher page (not this one) renders the ended state
   // with the upgrade copy, so it lives in exactly one place.
   if (!isVendorDayOfStillFree(vendorDayOfFreeUntilIso(), Date.now())) {
-    redirect('/vendor-dashboard/on-the-day');
+    redirect(`/vendor-dashboard/on-the-day?event=${encodeURIComponent(eventId)}`);
   }
 
   // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20) ────────────────

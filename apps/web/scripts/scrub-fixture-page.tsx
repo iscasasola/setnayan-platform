@@ -6,7 +6,7 @@
  *
  *   tsx scripts/scrub-fixture-page.tsx <out-dir> <island.js> <door.js>
  *
- * WRITES, into <out-dir> (every page is a Pro event: Scrub is an Event Hub Pro arrangement):
+ * WRITES, into <out-dir> (every page is a Pro event: Scrub is an Event Pro arrangement):
  *   fixture-today.html             the fixture page AS IT IS TODAY — the cover stored to leave by Scrub, "Scrub out"
  *                                  NOT offered (`lib/scrub-out-offered.ts`). No script of ours.
  *   fixture-cover-plain.html       the same stored page with "Scrub out" OFFERED, and no script of ours: what a guest

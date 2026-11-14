@@ -794,7 +794,12 @@ export default async function EventHomePage({
   */
   const homeScheduleRead = startAhead(
     homePlansRead
-      .then((plans) => readHomeSchedule(supabase, eventId, { show: plans, tz: (event as { timezone?: string | null }).timezone ?? null }))
+      .then((plans) => readHomeSchedule(supabase, eventId, {
+        show: plans,
+        tz: (event as { timezone?: string | null }).timezone ?? null,
+        // 📅 F-W2-01: no event date → the schedule's days are placeholders; say the clock only.
+        undated: !(event as { event_date?: string | null }).event_date,
+      }))
       .catch((): 'unread' => 'unread'),
   );
   const homeHubRead = startAhead(

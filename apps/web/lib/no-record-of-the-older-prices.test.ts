@@ -36,7 +36,7 @@ const WEB = process.cwd();
 /**
  * Figures that were ONLY ever prices, and are now retired — matched as money anywhere, and as a bare number in
  * code (with their ×100 centavo forms). 2,214 / 929 / 3,954 are the old Papic rungs; 6,590 / 6,290 the old Event
- * Hub Pro; 2,499 the old Setnayan AI / Thank-you / Pro-plan charm price; 3,300 / 1,980 the old Live Watch,
+ * Pro; 2,499 the old Setnayan AI / Thank-you / Pro-plan charm price; 3,300 / 1,980 the old Live Watch,
  * Music Maker, Setnayan AI and Patiktok; 10,400 / 26,000 / 104,000 the old supplier years (10.4×).
  */
 const UNIQUE_RETIRED = ['6590', '6290', '2499', '3300', '1980', '2214', '929', '3954', '10400', '26000', '104000'];
@@ -47,14 +47,14 @@ const MONEY_ONLY_RETIRED = ['90', '490'];
 /**
  * Round figures retired for SPECIFIC products — supplier plans (1,000 / 2,500 / 10,000, and the 8,000 / 25,000 /
  * 80,000 of an earlier ladder), supplier add-ons (250 seat · 500 Deep Search / supplier Papic pack · 1,000
- * branch · 1,500 / 2,000 chatbot · 2,500 photo challenge · 3,000 3D booth), Event Hub Pro's 5,000. They are
+ * branch · 1,500 / 2,000 chatbot · 2,500 photo challenge · 3,000 3D booth), Event Pro's 5,000. They are
  * ordinary numbers elsewhere (a supplier's own ₱5,000 package), so they count only near one of these names.
  */
 // 9,990 / 99,900: Ultra on the sheet's first draft, superseded the same day by ₱5,990 / ₱59,900 (owner 2026-11-04).
 const CONTEXT_RETIRED = ['250', '500', '1000', '1500', '2000', '2500', '3000', '5000', '8000', '9990', '10000', '25000', '80000', '99900'];
-/** Case-SENSITIVE on purpose: the plan names are proper nouns ("Solo"), and "a newer solo shooter" is not a plan. */
+/** Case-SENSITIVE on purpose: the plan names are proper nouns ("Supplier Plus"), and "a newer solo shooter" is not a plan. */
 const PRODUCT_NAME =
-  /\b(?:Solo|Ultra|Enterprise|Pro plan|Deep Search|[Cc]hatbot|AI assistant|3D [Bb]ooth|[Pp]hoto [Cc]hallenge|Papic Challenge|[Ee]xtra branch|[Ee]xtra seat|Papic|Event Hub|Event Pro|Event Plus|Setnayan AI|Live Watch|Music Maker|Patiktok|Logo & QR)\b/;
+  /\b(?:Supplier Plus|Solo|Ultra|Enterprise|Pro plan|Deep Search|[Cc]hatbot|AI assistant|3D [Bb]ooth|[Pp]hoto [Cc]hallenge|Papic Challenge|[Ee]xtra branch|[Ee]xtra seat|Papic|Event Hub|Event Pro|Event Plus|Setnayan AI|Live Watch|Music Maker|Patiktok|Logo & QR)\b/;
 /** How far either side of a money figure a product name counts as "naming it". */
 const REACH = 160;
 
@@ -190,11 +190,11 @@ test('the guard can actually hit — planted figures fail, history in a comment 
   assert.equal(plant(`const PRICE_PHP = 6590;`).length, 1, 'a bare figure in code');
   assert.equal(plant(`const PRICE_CENTAVOS = 659_000;`).length, 1, 'its centavo form');
   assert.equal(plant(`const papic = 'Papic 150 · ₱90';`).length, 1, 'the old Papic pack');
-  assert.equal(plant(`const s = 'Solo — ₱1,000 every 4 weeks';`).length, 1, 'a round figure beside its product');
+  assert.equal(plant(`const s = 'Supplier Plus — ₱1,000 every 4 weeks';`).length, 1, 'a round figure beside its product');
   assert.equal(plant(`const s = 'Yearly · save 20%';`).length, 1, 'the retired annual saving');
   assert.equal(plant(`const s = '40% off at sign-up';`).length, 1, 'the retired sign-up price');
 
-  assert.deepEqual(plant(`// Event Hub Pro was ₱6,590 until 2026-11-04\nconst x = 1;`), [], 'history in a comment is not a claim');
+  assert.deepEqual(plant(`// Event Pro was ₱6,590 until 2026-11-04\nconst x = 1;`), [], 'history in a comment is not a claim');
   assert.deepEqual(plant(`const s = 'Papic 3000 · 3,000 credits';`), [], 'a credit count is not money');
   assert.deepEqual(plant(`const s = 'A ₱5,000 deposit to your caterer';`), [], 'a round figure with no retired product near it');
   assert.deepEqual(plant(`const s = 'from ₱25,000 for a newer solo shooter';`), [], 'a lowercase "solo" is not the plan');

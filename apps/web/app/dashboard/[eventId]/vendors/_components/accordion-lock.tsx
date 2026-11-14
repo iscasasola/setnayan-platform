@@ -526,7 +526,7 @@ export function AccordionLockButton({
       {isVerified === false ? (
         <p
           role="status"
-          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[rgb(var(--color-warn))]"
+          className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-medium text-[rgb(var(--color-warn))]"
         >
           <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
           Verifying — can&apos;t book yet
@@ -778,7 +778,7 @@ function DownpaymentModal({
             number the couple types into their bank app. Fits no control kind yet
             (2026-10-12 look sweep); drawn in the accent, flipping in dark mode. */}
         <fieldset className="space-y-1.5">
-          <legend className="text-[11px] font-semibold uppercase tracking-wide text-ink/55">
+          <legend className="text-[12px] font-semibold uppercase tracking-wide text-ink/55">
             How you paid
           </legend>
           {methods.map((m) => (
@@ -802,19 +802,19 @@ function DownpaymentModal({
                 <span className="block text-xs font-medium text-ink">
                   {m.label || m.provider || m.method_type.toUpperCase()}
                   {m.is_primary ? (
-                    <span className="ml-1.5 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink/70">
+                    <span className="ml-1.5 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-[12px] font-semibold uppercase tracking-wide text-ink/70">
                       Primary
                     </span>
                   ) : null}
                 </span>
-                <span className="block truncate text-[11px] text-ink/60">{methodDetail(m)}</span>
+                <span className="block truncate text-[12px] text-ink/60">{methodDetail(m)}</span>
               </span>
             </label>
           ))}
         </fieldset>
 
         <div className="space-y-1">
-          <label htmlFor="downpayment_php" className="block text-[11px] font-medium text-ink/70">
+          <label htmlFor="downpayment_php" className="block text-[12px] font-medium text-ink/70">
             Amount you paid (₱)
           </label>
           <input
@@ -831,7 +831,7 @@ function DownpaymentModal({
             className="w-full rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink focus:border-sn-accent focus:outline-none focus:ring-1 focus:ring-sn-accent"
           />
           {minimumAmountPhp ? (
-            <p id="downpayment_php_min" className="text-[11px] text-ink/55">
+            <p id="downpayment_php_min" className="text-[12px] text-ink/55">
               {vendorName} asked for ₱{minimumAmountPhp.toLocaleString('en-PH')} on booking in the
               quote you accepted. At least that amount — you may pay more.
             </p>
@@ -839,7 +839,7 @@ function DownpaymentModal({
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="downpayment_proof" className="flex items-center gap-1.5 text-[11px] font-medium text-ink/70">
+          <label htmlFor="downpayment_proof" className="flex items-center gap-1.5 text-[12px] font-medium text-ink/70">
             <Upload aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Payment screenshot <span className="font-semibold text-ink">(required)</span>
           </label>
@@ -855,7 +855,7 @@ function DownpaymentModal({
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="downpayment_ref" className="block text-[11px] font-medium text-ink/70">
+          <label htmlFor="downpayment_ref" className="block text-[12px] font-medium text-ink/70">
             Reference <span className="text-ink/40">(optional)</span>
           </label>
           <input

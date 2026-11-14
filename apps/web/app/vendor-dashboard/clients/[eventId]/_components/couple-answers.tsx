@@ -36,15 +36,15 @@ export function TheyToldYou({
 }) {
   if (unread) {
     return (
-      <p role="alert" className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 px-3 py-2 text-sm text-ink/70">
-        <strong className="text-ink">We couldn&rsquo;t load {coupleName}&rsquo;s answers.</strong>{' '}
+      <p role="alert" className="py-2 text-[15px] text-warn-800">
+        <strong className="font-semibold">We couldn&rsquo;t load {coupleName}&rsquo;s answers.</strong>{' '}
         Whatever they told you is still there — reload in a moment.
       </p>
     );
   }
   if (questionnaire.rows.length === 0) {
     return (
-      <p className="text-xs text-ink/50">
+      <p className="text-xs text-ink/70">
         Ask {coupleName} what only they can tell you —{' '}
         <Link href="/vendor-dashboard/activities#questions" className="underline">
           write your questions once
@@ -56,11 +56,11 @@ export function TheyToldYou({
   return (
     <ShopCard pad="none" className="p-3">
       <div id="their-answers" className="flex scroll-mt-4 flex-wrap items-baseline justify-between gap-2">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-gold-dark">
+        <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.2em] text-gold-dark">
           <MessageCircleQuestion className="h-3.5 w-3.5" aria-hidden />
           What {coupleName} told you
         </p>
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
+        <span className="font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
           {formatCount(questionnaire.answered)} of {formatCount(questionnaire.total)} answered
         </span>
       </div>
@@ -72,7 +72,7 @@ export function TheyToldYou({
               className={
                 answer
                   ? 'mt-0.5 whitespace-pre-line text-sm text-ink'
-                  : 'mt-0.5 text-xs italic text-ink/45'
+                  : 'mt-0.5 text-xs italic text-ink/70'
               }
             >
               {answer ?? 'Not answered yet.'}
@@ -80,7 +80,7 @@ export function TheyToldYou({
           </div>
         ))}
       </dl>
-      <p className="mt-2 text-[11px] text-ink/45">
+      <p className="mt-2 text-xs text-ink/70">
         Only you and {coupleName} read these. They stay with this event —{' '}
         <Link href="/vendor-dashboard/activities#questions" className="underline">
           your questions

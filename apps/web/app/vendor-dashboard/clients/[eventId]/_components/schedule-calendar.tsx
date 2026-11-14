@@ -49,7 +49,7 @@ export function ScheduleCalendar({
 
   if (inputs === 'loading') {
     return (
-      <p className="py-3 text-[13px] text-ink/60" data-schedule-calendar="loading" aria-busy="true">
+      <p className="py-3 text-[13px] text-ink/70" data-schedule-calendar="loading" aria-busy="true">
         Loading your month…
       </p>
     );
@@ -81,7 +81,7 @@ export function ScheduleCalendar({
         fetchMonth={lab === undefined ? undefined : null}
       />
       {inputs.closuresComplete ? null : (
-        <p role="status" className="mt-1 text-[12.5px]" style={{ color: 'rgb(var(--color-warn))' }}>
+        <p role="status" className="mt-1 text-[13px] text-warn-800">
           Some of your blocked dates couldn’t load, so a date you closed may show as open here.
         </p>
       )}

@@ -1,8 +1,8 @@
 /**
  * Guard — correcting the story we wrote about you is free.
  *
- * Owner 2026-08-21: *"make this feature part of free and not part of the event
- * hub pro."*
+ * Owner 2026-08-21: *"make this feature part of free and not part of the Event
+ * Pro."*
  *
  * Setnayan AUTO-CRAFTS an event's editorial — `composeCopy` builds the headline,
  * kicker, byline and deck from the couple's own names, venue and tone, and the
@@ -44,7 +44,7 @@ test('saving your own words is not refused for being free', () => {
   const actions = read('actions.ts');
   assert.doesNotMatch(
     actions,
-    /Editing your editorial is part of Event Hub PRO/,
+    /Editing your editorial is part of Event Pro/,
     'saveEditorial refuses a non-PRO couple again — they cannot correct our ' +
       'sentence about their own wedding',
   );

@@ -3,7 +3,7 @@
  *
  * Each test names a promise a couple or a guest would feel if it broke: a live
  * invite repainted without anyone choosing, a Pro theme shown to an event that
- * does not hold Event Hub Pro, a feel with no theme to suggest, a theme the app
+ * does not hold Event Pro, a feel with no theme to suggest, a theme the app
  * offers that the database refuses to store.
  */
 import test from 'node:test';
@@ -85,7 +85,7 @@ test('nothing repaints a live invite: unsaved, junk or unshipped all render as H
   }
 });
 
-test('a Pro theme is shown only while the event holds Event Hub Pro', () => {
+test('a Pro theme is shown only while the event holds Event Pro', () => {
   assert.equal(resolveInviteTheme({ saved: 'vintage', ...WEDDING }), 'vintage');
   assert.equal(
     resolveInviteTheme({ saved: 'vintage', ownsPro: false }),
@@ -98,7 +98,7 @@ test('a Pro theme is shown only while the event holds Event Hub Pro', () => {
 /* ── 🎨 EVERY EVENT TYPE, EVERY THEME — Pro stays Pro (owner 2026-10-01) ─────
    DECISION_LOG "PRO THEMES OPEN TO EVERY EVENT TYPE (STILL PRO)". The wedding-
    only fence (Q7 = A, 2026-09-11) is retired: a birthday, a hangout or a wake
-   can pick any theme, and a Pro one still needs Event Hub Pro. The picker, the
+   can pick any theme, and a Pro one still needs Event Pro. The picker, the
    draft's server check and this resolver must all agree, so the last one is
    asserted against every shipped event type. */
 
@@ -148,7 +148,7 @@ test('the free themes are Classic, Modern and Cyber Neon — every other one is 
     (owner, 2026-09-22: Minimalist · Fairytale · Vintage · Custom). The count
     was never the rule — a number in a test rots exactly the way a number in a
     document does. The RULE was the owner's, 2026-09-10: "Generic is the Free.
-    The other 4 will be the Event Hub Pro service" — ONE free theme. On
+    The other 4 will be the Event Pro service" — ONE free theme. On
     2026-09-29 he redrew it, verbatim: *"Okay use modern and cyber FREE"* — so
     the free set is Classic, Modern and Cyber Neon, and every other one is Pro,
     however many there are.
@@ -161,7 +161,7 @@ test('the free themes are Classic, Modern and Cyber Neon — every other one is 
     INVITE_THEME_IDS.length,
     'a theme is neither free nor pro — every one must be sold or given',
   );
-  assert.ok(pro.length >= 1, 'no Pro theme left — the Event Hub PRO unlock sells nothing here');
+  assert.ok(pro.length >= 1, 'no Pro theme left — the Event Pro unlock sells nothing here');
 });
 
 test('every onboarding feel is suggested exactly one theme — no couple is suggested nothing', () => {

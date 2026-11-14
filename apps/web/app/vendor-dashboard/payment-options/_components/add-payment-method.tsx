@@ -5,9 +5,9 @@
  * "How clients pay you" surface.
  *
  * Collapsed it's a single button; expanded it's a <form action={addPaymentMethod}>
- * with a 3-tile type picker (Bank/e-wallet · QR code · Payment link). The picked
+ * with ONE type dropdown (Bank/e-wallet · QR code · Payment link — PickMenu, design template rule 4). The picked
  * type drives a hidden `method_type` input + conditional fields:
- *   • bank → provider <select> over PAYMENT_PROVIDERS + account name + account number
+ *   • bank → provider PickMenu over PAYMENT_PROVIDERS (a hidden `provider` input) + account name + account number
  *   • qr   → <FileUpload> (emits an r2:// ref into hidden `qr_r2_key`) + a
  *            "where it sends money" decoded-destination input
  *   • link → a url input for EVERY plan (try-first, 2026-09-30). Whether a
@@ -38,6 +38,8 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { addPaymentMethod } from '../actions';
 import { StayForm } from '@/app/_components/stay-form';
+import { ActionButton } from '@/components/action-button';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 type Props = {
   vendorProfileId: string;
@@ -62,17 +64,11 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<PaymentMethodType>('bank');
   const [linkDraft, setLinkDraft] = useState('');
+  const [provider, setProvider] = useState<string>('BDO');
 
   if (!open) {
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="button-secondary w-full sm:w-auto"
-      >
-        <Plus aria-hidden className="mr-2 h-4 w-4" strokeWidth={2} />
-        Add a payment option
-      </button>
+      <ActionButton tone="brand" icon={Plus} label="Add a payment option" onClick={() => setOpen(true)} />
     );
   }
 
@@ -84,7 +80,7 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
       door="supPayments.addPaymentMethod"
       action={addPaymentMethod}
       onSaved={() => setOpen(false)}
-      className="space-y-5 sn-tile p-5"
+      className="space-y-5 border-t border-[color:var(--m-line)] pt-4"
     >
       {returnTo ? (
         <>
@@ -94,75 +90,44 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
       ) : null}
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-0.5">
-          <h3 className="text-base font-semibold text-ink">Add a payment option</h3>
-          <p className="text-xs text-ink/55">
+          <h3 className="text-[17px] font-semibold text-ink">Add a payment option</h3>
+          <p className="text-[13px] text-[color:var(--m-slate-2)]">
             Couples pay you directly with whatever you add here. Setnayan never holds the money.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          aria-label="Cancel"
-          className="rounded-md p-1 text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </button>
+        <ActionButton tone="neutral" iconOnly icon={X} label="Cancel" onClick={() => setOpen(false)} />
       </div>
 
       {/* Hidden input the server action reads to branch on type. */}
       <input type="hidden" name="method_type" value={type} />
 
-      {/* 3-tile type picker. */}
-      <fieldset className="space-y-2">
-        <legend className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-          What kind of payment option?
-        </legend>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {TYPE_TILES.map((tile) => {
-            const active = type === tile.key;
-            const Icon = tile.icon;
-            return (
-              <button
-                key={active ? `${tile.key}-active` : tile.key}
-                type="button"
-                onClick={() => setType(tile.key)}
-                aria-pressed={active}
-                className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
-                  active
-                    ? 'border-terracotta bg-terracotta/10 sn-bounce'
-                    : 'border-ink/15 bg-white/70 hover:border-ink/30'
-                }`}
-              >
-                <Icon
-                  aria-hidden
-                  className={`h-5 w-5 ${active ? 'text-terracotta' : 'text-ink/55'}`}
-                  strokeWidth={1.75}
-                />
-                <span
-                  className={`text-sm font-medium ${active ? 'text-terracotta-700' : 'text-ink'}`}
-                >
-                  {tile.label}
-                </span>
-                <span className="text-[11px] text-ink/55">{tile.hint}</span>
-              </button>
-            );
-          })}
-        </div>
-      </fieldset>
+      {/* The type — ONE dropdown (design template rule 4, "picks ▾"); each kind keeps its line as the option's hint. */}
+      <div className="flex min-h-14 items-center justify-between gap-3 border-b border-[color:var(--m-line)]">
+        <span className="text-[15px] font-medium text-ink">What kind of payment option?</span>
+        <PickMenu
+          label="Payment option type"
+          value={type}
+          compact
+          dataAttr="data-payment-type"
+          options={TYPE_TILES.map((t) => ({ key: t.key, label: t.label, hint: t.hint }))}
+          onPick={(k) => setType(k as PaymentMethodType)}
+        />
+      </div>
 
       {/* Conditional fields. */}
       {type === 'bank' ? (
         <div className="space-y-4">
-          <label htmlFor="provider" className="block space-y-1">
+          <div className="block space-y-1">
             <span className="block text-sm font-medium text-ink">Provider</span>
-            <select id="provider" name="provider" className="input-field" defaultValue="BDO">
-              {PAYMENT_PROVIDERS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
+            <input type="hidden" name="provider" value={provider} />
+            <PickMenu
+              label="Provider"
+              value={provider}
+              dataAttr="data-provider"
+              options={PAYMENT_PROVIDERS.map((p) => ({ key: p, label: p }))}
+              onPick={setProvider}
+            />
+          </div>
           <label htmlFor="account_name" className="block space-y-1">
             <span className="block text-sm font-medium text-ink">Account name</span>
             <input
@@ -186,9 +151,9 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
               maxLength={64}
               inputMode="numeric"
               placeholder="0917 000 0000  ·  1234 5678 90"
-              className="input-field font-mono"
+              className="input-field tabular-nums"
             />
-            <span className="block text-xs text-ink/55">
+            <span className="block text-[13px] text-[color:var(--m-slate-2)]">
               Shown to your clients so they can pay you. Double-check it&rsquo;s correct.
             </span>
           </label>
@@ -214,7 +179,7 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
           </div>
           <label htmlFor="decoded_destination" className="block space-y-1">
             <span className="block text-sm font-medium text-ink">
-              Where it sends money <span className="text-ink/45">(optional)</span>
+              Where it sends money <span className="text-[color:var(--m-slate-2)]">(optional)</span>
             </span>
             <input
               id="decoded_destination"
@@ -223,7 +188,7 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
               placeholder="GCash · 0917…"
               className="input-field"
             />
-            <span className="block text-xs text-ink/55">
+            <span className="block text-[13px] text-[color:var(--m-slate-2)]">
               We read your QR automatically and show clients where it pays. Add a note here only as
               a fallback in case the image can&rsquo;t be read.
             </span>
@@ -234,7 +199,7 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
       {type === 'link' ? (
         <div className="space-y-2">
           {linkAsks ? (
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink/60">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-[color:var(--m-slate-2)]">
               <PaidMark
                 state="try"
                 label="Part of Supplier Pro — fill it in here; saving asks for Supplier Pro"
@@ -270,25 +235,25 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
             />
             {cls ? (
               cls.shortener || !cls.ok ? (
-                <span className="flex items-start gap-1.5 text-xs text-terracotta-700">
+                <span className="flex items-start gap-1.5 text-[13px] text-terracotta-700">
                   <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
                   <span>{cls.reason}</span>
                 </span>
               ) : cls.allowlisted ? (
-                <span className="flex items-start gap-1.5 text-xs text-success-700">
+                <span className="flex items-start gap-1.5 text-[13px] text-success-700">
                   <CheckCircle2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
                   <span>
                     {cls.domain} is recognised — this shows to clients right away.
                   </span>
                 </span>
               ) : (
-                <span className="flex items-start gap-1.5 text-xs text-warn-700">
+                <span className="flex items-start gap-1.5 text-[13px] text-warn-700">
                   <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
                   <span>{cls.reason}</span>
                 </span>
               )
             ) : (
-              <span className="block text-xs text-ink/55">
+              <span className="block text-[13px] text-[color:var(--m-slate-2)]">
                 Paste your provider&rsquo;s real checkout link. Recognised providers publish
                 instantly; anything else publishes after a quick review.
               </span>

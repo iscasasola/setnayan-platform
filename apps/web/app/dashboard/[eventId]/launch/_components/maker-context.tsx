@@ -198,6 +198,13 @@ export type MakerState = {
   /** 🖼 The canvas's Event Bar switch, registered by the work area — Settings' tile. */
   eventBar?: MakerEventBar | null;
   setEventBar?: (next: MakerEventBar | null) => void;
+  /**
+   * 📖🎁 POST EVENT'S STORY-WIDE CONTROLS ("Reads as" · "Peek now"), registered by the work area — the stage
+   * toolbar draws them while nothing is picked on Post Event (F-W2-43: drawn in the old scenes column, which no
+   * width shows, a couple could not reach them at all).
+   */
+  postEventStory?: ReactNode | null;
+  setPostEventStory?: (next: ReactNode | null) => void;
   /** 🏷 The part on screen, in the layer's own words ("RSVP form", "Names") — the lower third's "where you are" and the top line. */
   setLtWhere?: (words: string | null) => void;
   /**

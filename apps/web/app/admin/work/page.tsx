@@ -41,6 +41,7 @@ import { coerceSupplierWorkKind } from '@/lib/admin/supplier-work';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SupplierInbox } from './_components/supplier-inbox';
 import { Suspense } from 'react';
+import { NoticeSlot } from '@/app/_components/notices/notices';
 import { AppleSecretReminder } from '../_apple-secret-reminder';
 import { EmailDeliveryStrip } from '../_email-delivery-strip';
 import { readPaymentLights, type PaymentLightsRead } from '@/lib/admin/green-payments.server';
@@ -214,6 +215,9 @@ export default async function AdminWorkLanding({
             email that did not arrive, an unreadable log, or email switched off),
             so a healthy day draws nothing here. The email strip streams behind
             its own Suspense so a slow log read never holds the list. */}
+        {/* 🔔 The page's top for notices (ONE NOTICE SYSTEM, owner approved 14 Nov 2026): the two reminders below
+            register here; at most two lines show, the rest wait in the bell. */}
+        <NoticeSlot place="top" className="mb-4" />
         <AppleSecretReminder />
         <Suspense fallback={null}>
           <EmailDeliveryStrip />

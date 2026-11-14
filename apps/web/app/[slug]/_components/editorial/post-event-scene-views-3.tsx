@@ -76,7 +76,10 @@ export function RoadScene({
       </div>
     );
   }
-  if (style === 'diary') {
+  /* ⏳ A COUNTDOWN ONLY WHEN SOMETHING COUNTS DOWN (F-W2-48, the live walk after #7596): a road whose steps carry no date
+     before the day (a year, or nothing) drew no figure but the last stop — "0 · THE DAY", an empty countdown. Such a
+     road reads as the diary: each step by its month or year, nothing counted. */
+  if (style === 'diary' || (style !== 'scrapbook' && !roadCountsDown(entries, dayMs))) {
     /* .diary — the month as the margin figure; one line per entry. */
     return (
       <div className="py-8">
@@ -161,6 +164,12 @@ export function RoadScene({
       </ol>
     </div>
   );
+}
+
+/** ⏳ Does any step of the road come before the day by a whole day or more — something a countdown can count? */
+export function roadCountsDown(entries: readonly Pick<RoadEntry, 'atMs'>[], dayMs: number | null): boolean {
+  if (dayMs === null) return false;
+  return entries.some((e) => e.atMs !== null && Math.round((dayMs - e.atMs) / 86_400_000) > 0);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

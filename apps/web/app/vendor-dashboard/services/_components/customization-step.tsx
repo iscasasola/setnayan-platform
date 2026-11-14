@@ -36,6 +36,10 @@
 import { useMemo, useState } from 'react';
 import { Plus, Trash2, CornerDownRight } from 'lucide-react';
 
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+
 import {
   validatePackageDraft,
   type DraftItem,
@@ -97,7 +101,12 @@ const GROUP_BLURB: Record<LineGroup, string> = {
 };
 
 const field =
-  'w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink/85 focus:border-terracotta focus:outline-none';
+  'min-h-11 w-full rounded-lg border border-[color:var(--m-line)] bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none';
+
+/** Rule 2's section label — small grey capitals, no box. */
+const SECTION_LABEL = 'text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]';
+/** The line under a label — the template's dark grey. */
+const SUBLINE = 'text-sm text-[color:var(--m-slate-2)]';
 
 export function CustomizationStep({
   categoryValue,
@@ -240,6 +249,7 @@ export function CustomizationStep({
     });
 
   const autoNamed = countAutoNamed(items);
+  const autoNamedWords = `line${autoNamed === 1 ? '' : 's'} without a name will be saved under the grey name shown in the box. You can rename ${autoNamed === 1 ? 'it' : 'them'} any time.`;
 
   return (
     <div className="space-y-4">
@@ -253,11 +263,11 @@ export function CustomizationStep({
       />
 
       <div>
-        <p className="text-sm font-medium text-ink">What can a couple change?</p>
-        <p className="mt-1 text-sm text-ink/55">
-          Optional. Leave this empty and your {categoryLabel.toLowerCase()} card works exactly as
-          it does today. Add lines here and couples can swap, skip, or add to what you offer —
-          before they ever message you.
+        <InfoTip label="What can a couple change?" labelAs="p" labelClassName="text-sm font-semibold text-ink" align="start">
+          Add lines here and couples can swap, skip, or add to what you offer — before they ever message you.
+        </InfoTip>
+        <p className={`mt-1 ${SUBLINE}`}>
+          Optional. Leave this empty and your {categoryLabel.toLowerCase()} card works exactly as it does today.
         </p>
       </div>
 
@@ -266,23 +276,17 @@ export function CustomizationStep({
           .map((item, index) => ({ item, index }))
           .filter(({ item }) => lineGroupOf(item) === group);
         return (
-          <section key={group} className="rounded-xl border border-ink/10 bg-white/60 p-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="text-sm font-medium text-ink">{LINE_GROUP_LABEL[group]}</h3>
-              <button
-                type="button"
-                onClick={() => addLine(group)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs text-ink/70 hover:bg-ink/[0.03]"
-              >
-                <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Add
-              </button>
+          <section key={group} className="pt-2" data-customization-group={group}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className={SECTION_LABEL}>{LINE_GROUP_LABEL[group]}</h3>
+              <ActionButton tone="neutral" icon={Plus} label="Add" onClick={() => addLine(group)} />
             </div>
-            <p className="mt-1 text-xs text-ink/50">{GROUP_BLURB[group]}</p>
+            <p className={`mt-1 ${SUBLINE}`}>{GROUP_BLURB[group]}</p>
 
             {rows.length === 0 ? (
-              <p className="mt-3 text-xs text-ink/40">Nothing here yet.</p>
+              <p className={`mt-2 ${SUBLINE}`}>Nothing here yet.</p>
             ) : (
-              <ul className="mt-3 space-y-3">
+              <ul className="mt-2 divide-y divide-[color:var(--m-line)]">
                 {rows.map(({ item, index }) => (
                   <LineRow
                     key={item.ref}
@@ -307,9 +311,8 @@ export function CustomizationStep({
       })}
 
       {autoNamed > 0 ? (
-        <p className="text-xs text-ink/55">
-          {autoNamed} line{autoNamed === 1 ? '' : 's'} without a name will be saved under the
-          grey name shown in the box. You can rename {autoNamed === 1 ? 'it' : 'them'} any time.
+        <p className={SUBLINE}>
+          {formatCount(autoNamed)} {autoNamedWords}
         </p>
       ) : null}
     </div>
@@ -348,9 +351,9 @@ function LineRow({
   const pickN = item.pickMin != null && item.pickMax != null;
 
   return (
-    <li className="rounded-lg border border-ink/10 bg-cream/50 p-3">
+    <li className="min-h-14 py-3">
       {lineage ? (
-        <p className="mb-2 flex items-center gap-1 text-[11px] text-ink/50">
+        <p className="mb-2 flex items-center gap-1 text-xs text-[color:var(--m-slate-2)]">
           <CornerDownRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           {lineage}
         </p>
@@ -366,34 +369,23 @@ function LineRow({
           placeholder={autoNamePlaceholder('item', index)}
           onChange={(e) => onPatch(item.ref, { service_description: e.target.value })}
         />
-        <button
-          type="button"
-          aria-label="Remove this line"
-          onClick={() => onRemove(item.ref)}
-          className="rounded-lg p-2 text-ink/35 hover:bg-ink/[0.04] hover:text-ink/60"
-        >
-          <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </button>
+        <ActionButton tone="danger" quiet iconOnly icon={Trash2} label="Remove this line" onClick={() => onRemove(item.ref)} />
       </div>
 
       {/* State. A FOLLOW-UP is never offered "Always" or "Included" — the
           database refuses both outright, so the control does not draw them. */}
-      <div className="mt-2 flex flex-wrap gap-1">
-        {allowedLineStates(item).map((s) => (
-          <button
-            key={s}
-            type="button"
-            aria-pressed={s === state}
-            onClick={() => onState(item.ref, s)}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-              s === state ? 'bg-ink text-cream' : 'bg-ink/[0.04] text-ink/55 hover:bg-ink/10'
-            }`}
-          >
-            {STATE_LABEL[s]}
-          </button>
-        ))}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <PickMenu
+          label="How a couple gets this line"
+          value={state}
+          options={allowedLineStates(item).map((s) => ({ key: s, label: STATE_LABEL[s] }))}
+          onPick={(k) => onState(item.ref, k as LineState)}
+          compact
+          dataAttr="data-line-state"
+          className="!min-h-11"
+        />
         {isFollowUp(item) ? (
-          <span className="self-center pl-1 text-[11px] text-ink/40">
+          <span className={SUBLINE}>
             Only the couples who pick that option see this, so it can&rsquo;t be in the price.
           </span>
         ) : null}
@@ -407,7 +399,7 @@ function LineRow({
             centavos={item.replacement_value_centavos}
             onChange={(c) => onPatch(item.ref, { replacement_value_centavos: c })}
           />
-          <p className="mt-1 text-[11px] text-ink/45">What it adds if they take it.</p>
+          <p className={`mt-1 ${SUBLINE}`}>What it adds if they take it.</p>
         </div>
       ) : null}
 
@@ -419,7 +411,7 @@ function LineRow({
               centavos={item.replacement_value_centavos}
               onChange={(c) => onPatch(item.ref, { replacement_value_centavos: c })}
             />
-            <p className="mt-1 text-[11px] text-ink/45">Each extra hour.</p>
+            <p className={`mt-1 ${SUBLINE}`}>Each extra hour.</p>
           </div>
           <div>
             <input
@@ -427,7 +419,7 @@ function LineRow({
               type="number"
               min={0}
               step={1}
-              className={`${field} font-mono`}
+              className={`${field} tabular-nums`}
               value={item.maxExtraHours ?? 0}
               onChange={(e) =>
                 onPatch(item.ref, {
@@ -435,7 +427,7 @@ function LineRow({
                 })
               }
             />
-            <p className="mt-1 text-[11px] text-ink/45">Most extra hours they can add.</p>
+            <p className={`mt-1 ${SUBLINE}`}>Most extra hours they can add.</p>
           </div>
         </div>
       ) : null}
@@ -451,7 +443,7 @@ function LineRow({
                   aria-label="Make this the standard pick"
                   checked={o.is_default}
                   onChange={() => onStandard(item.ref, o.ref)}
-                  className="h-4 w-4 shrink-0 border-ink/20 text-terracotta"
+                  className="h-4 w-4 shrink-0 border-[color:var(--m-line)] text-terracotta"
                 />
                 <input
                   aria-label="Option name"
@@ -474,7 +466,7 @@ function LineRow({
                     onPatchOption(item.ref, o.ref, { price_delta_centavos: c })
                   }
                 />
-                <label className="flex shrink-0 items-center gap-1 text-[11px] text-ink/55">
+                <label className="flex min-h-11 shrink-0 items-center gap-1 text-sm text-[color:var(--m-slate-2)]">
                   <input
                     type="checkbox"
                     disabled={o.is_default}
@@ -482,29 +474,29 @@ function LineRow({
                     onChange={(e) =>
                       onPatchOption(item.ref, o.ref, { is_available: e.target.checked })
                     }
-                    className="h-3.5 w-3.5 rounded border-ink/20 text-terracotta"
+                    className="h-4 w-4 rounded border-[color:var(--m-line)] text-terracotta"
                   />
                   On
                 </label>
-                <button
-                  type="button"
+                <ActionButton
+                  tone="neutral"
+                  quiet
+                  icon={CornerDownRight}
+                  label="Ask something else"
                   onClick={() => onAddFollowUp(item.ref, o.ref)}
-                  className="shrink-0 text-[11px] text-mulberry underline underline-offset-2"
-                >
-                  Ask something else
-                </button>
+                />
                 {item.options.length > 2 ? (
-                  <button
-                    type="button"
-                    aria-label="Remove this option"
+                  <ActionButton
+                    tone="danger"
+                    quiet
+                    iconOnly
+                    icon={Trash2}
+                    label="Remove this option"
                     onClick={() => onRemoveOption(item.ref, o.ref)}
-                    className="rounded p-1 text-ink/30 hover:text-ink/60"
-                  >
-                    <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  </button>
+                  />
                 ) : null}
                 {problemsFor(item.ref, o.ref).map((p) => (
-                  <span key={p.code} className="basis-full text-xs text-red-700">
+                  <span key={p.code} className="basis-full text-sm text-danger-700">
                     {p.message}
                   </span>
                 ))}
@@ -512,19 +504,13 @@ function LineRow({
             ))}
           </ul>
 
-          <button
-            type="button"
-            onClick={() => onAddOption(item.ref)}
-            className="text-xs text-mulberry underline underline-offset-2"
-          >
-            Add another option
-          </button>
+          <ActionButton tone="neutral" quiet icon={Plus} label="Add another option" onClick={() => onAddOption(item.ref)} />
 
           {/* PICK-N. Both bounds or neither — the DB refuses a half-set pair
               (vendor_package_items_pick_range_ck), so the toggle writes and
               clears them together rather than offering two fields that can
               disagree. */}
-          <label className="flex items-center gap-2 text-xs text-ink/70">
+          <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
             <input
               type="checkbox"
               checked={pickN}
@@ -535,19 +521,19 @@ function LineRow({
                     : { pickMin: null, pickMax: null },
                 )
               }
-              className="h-3.5 w-3.5 rounded border-ink/20 text-terracotta"
+              className="h-4 w-4 rounded border-[color:var(--m-line)] text-terracotta"
             />
             Let them pick more than one
           </label>
           {pickN ? (
-            <div className="flex flex-wrap items-center gap-2 text-xs text-ink/70">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-ink">
               <span>Pick at least</span>
               <input
                 aria-label="Smallest number of picks"
                 type="number"
                 min={1}
                 step={1}
-                className={`${field} w-20 font-mono`}
+                className={`${field} w-20 tabular-nums`}
                 value={item.pickMin ?? 1}
                 onChange={(e) =>
                   onPatch(item.ref, {
@@ -561,7 +547,7 @@ function LineRow({
                 type="number"
                 min={1}
                 step={1}
-                className={`${field} w-20 font-mono`}
+                className={`${field} w-20 tabular-nums`}
                 value={item.pickMax ?? 1}
                 onChange={(e) =>
                   onPatch(item.ref, {
@@ -576,7 +562,7 @@ function LineRow({
       ) : null}
 
       {problemsFor(item.ref).map((p) => (
-        <p key={p.code} className="mt-2 text-xs text-red-700">
+        <p key={p.code} className="mt-2 text-sm text-danger-700">
           {p.message}
         </p>
       ))}
@@ -609,7 +595,7 @@ function AmountInput({
     <span className={`relative inline-flex items-center ${className || 'w-full'}`}>
       <span
         aria-hidden
-        className="pointer-events-none absolute left-3 font-mono text-sm text-ink/40"
+        className="pointer-events-none absolute left-3 text-sm font-bold tabular-nums text-[color:var(--m-slate-3)]"
       >
         {AMOUNT_PREFIX}
       </span>
@@ -617,7 +603,7 @@ function AmountInput({
         aria-label={ariaLabel}
         inputMode="numeric"
         disabled={disabled}
-        className={`${field} pl-11 font-mono disabled:opacity-50`}
+        className={`${field} pl-11 font-bold tabular-nums disabled:opacity-50`}
         value={formatAmountInput(centavos)}
         placeholder={INCLUDED_PLACEHOLDER}
         // `parseAmountInput` strips everything that is not a digit, so the

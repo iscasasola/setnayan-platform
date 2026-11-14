@@ -22,7 +22,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 // processing" section. Everything is server-rendered — no client JS needed.
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'NPC data sheet HQ' };
+export const metadata = { title: 'NPC data sheet · Admin' };
 
 const NF = new Intl.NumberFormat('en-PH');
 const TBD = '[TO CONFIRM]';

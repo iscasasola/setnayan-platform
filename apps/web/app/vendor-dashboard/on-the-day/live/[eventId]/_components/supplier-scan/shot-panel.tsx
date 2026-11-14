@@ -82,28 +82,28 @@ export function ShotPanel({
   };
 
   return (
-    <div className="space-y-3 border-y border-ink/10 py-3" data-shot-panel={open ? 'open' : 'closed'}>
+    <div className="space-y-3 border-y border-[color:var(--m-line)] py-3" data-shot-panel={open ? 'open' : 'closed'}>
       {open ? (
         <>
           <p className="flex items-baseline justify-between gap-3">
             <span className="font-pahina text-3xl font-light tabular-nums text-ink">{scanNumberLabel(open.number)}</span>
-            <span className="text-[14px] text-ink/70" data-shot-guests={guests}>
+            <span className="text-sm font-medium text-ink" data-shot-guests={guests}>
               {formatCount(guests)} {guests === 1 ? 'guest' : 'guests'} in this shot
             </span>
           </p>
           {guests > 0 ? (
             <div className="flex items-center gap-3" data-shot-prints={shown}>
-              <span className="min-w-0 flex-1 text-[14px] text-ink">Prints</span>
+              <span className="min-w-0 flex-1 text-sm font-medium text-ink">Prints</span>
               <button
                 type="button"
                 aria-label="One print fewer"
                 disabled={pending || shown <= 1}
                 onClick={() => setPrints(clampPrints(shown - 1))}
-                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/20 text-ink disabled:opacity-40"
+                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--m-line)] text-ink disabled:opacity-40"
               >
                 <Minus aria-hidden className="h-4 w-4" strokeWidth={2} />
               </button>
-              <span className="w-8 text-center text-[17px] font-semibold tabular-nums text-ink" aria-live="polite">
+              <span className="w-8 text-center text-lg font-bold tabular-nums text-ink" aria-live="polite">
                 {formatCount(shown)}
               </span>
               <button
@@ -111,14 +111,14 @@ export function ShotPanel({
                 aria-label="One print more"
                 disabled={pending || shown >= 99}
                 onClick={() => setPrints(clampPrints(shown + 1))}
-                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/20 text-ink disabled:opacity-40"
+                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--m-line)] text-ink disabled:opacity-40"
               >
                 <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
               </button>
             </div>
           ) : (
-            <p className="text-[13.5px] text-ink/60">
-              {roaming ? 'Scan the guests in frame, then take the photo — they share this number.' : 'Scan everyone in the photo — they share this number.'}
+            <p className="text-sm text-[color:var(--m-slate-2)]">
+              {roaming ? 'Scan the guests in frame, then take the photo' : 'Scan everyone in the photo'} — they share this number.
             </p>
           )}
           <ActionButton tone="brand" main icon={Check} label={guests > 0 ? 'Done' : 'Cancel this shot'} disabled={pending} onClick={done} />
@@ -127,7 +127,7 @@ export function ShotPanel({
         <ActionButton tone="brand" main icon={Camera} label="New shot" disabled={pending} onClick={newShot} />
       )}
       {line ? (
-        <p role="status" className="text-[13.5px] text-ink/70">
+        <p role="status" className="text-sm text-ink">
           {line}
         </p>
       ) : null}

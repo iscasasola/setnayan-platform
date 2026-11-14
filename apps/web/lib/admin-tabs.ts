@@ -194,7 +194,7 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
   { route: '/admin/growth', tab: 'insights', stubTo: '/admin/app-performance?tab=growth', note: 'Sign-ups.' },
   { route: '/admin/funnels', tab: 'insights', stubTo: '/admin/app-performance?tab=funnels' },
   { route: '/admin/intelligence', tab: 'insights', stubTo: '/admin/app-performance?tab=intelligence' },
-  { route: '/admin/insights', tab: 'insights', stubTo: '/admin/app-performance?tab=intelligence' },
+  { route: '/admin/insights', tab: 'insights', stubTo: '/admin/app-performance' },
   { route: '/admin/seo', tab: 'insights', stubTo: '/admin/app-performance?tab=seo' },
   { route: '/admin/offline', tab: 'insights', stubTo: '/admin/app-performance?tab=offline' },
   { route: '/admin/operations-hiring', tab: 'insights', stubTo: '/admin/app-performance?tab=operations' },

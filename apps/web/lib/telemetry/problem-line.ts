@@ -44,7 +44,9 @@ export function pageName(path: string | null | undefined): string | null {
   if (!path) return null;
   const p = path.split('#')[0]!;
   for (const [re, name] of PAGE_NAMES) if (re.test(p)) return name;
-  return p;
+  // F-A-16 (admin walk 13 Nov 2026): an unnamed route never prints its code placeholders ("/u/[name]/[id]") — each
+  // bracketed part reads as "…", so the address stays recognisable without the code words.
+  return p.replace(/\[\.{0,3}[^\]]+\]/g, '…');
 }
 
 const KIND_WORDS: Record<FaultKind, string> = {
@@ -108,7 +110,8 @@ export function problemLine(i: ProblemLineInput): string {
   let subject: string;
   if (i.kind === 'DEAD_END') {
     const reason = /^(not_found|forwarded|missing_section)\b/.exec(i.action)?.[1] ?? 'not_found';
-    const to = /\s(\S+)\s←/.exec(i.action)?.[1];
+    const rawTo = /\s(\S+)\s←/.exec(i.action)?.[1];
+    const to = rawTo ? rawTo.replace(/\[\.{0,3}[^\]]+\]/g, '…') : rawTo;
     subject = `A link${to ? ` to ${to}` : ''}${where ? ` on ${where}` : ''}`;
     const head = `${subject} — led to ${DEAD_END_WORDS[reason] ?? 'nowhere'}`;
     return tail(head, i);

@@ -155,10 +155,10 @@ export function OutsideClientRows({
             }
             aside={<Badge tone={badge.tone} data="customer-stage">{badge.word}</Badge>}
           >
-            <div className="pb-3 pl-[3.75rem] text-[13.5px] text-ink/70">
+            <div className="pb-3 pl-[3.75rem] text-[13px] text-ink/70">
               <p>Holds {outsideDates(c, nowMs)} on {c.schedule}. Not a Setnayan booking — no chat, no reviews.</p>
               {c.contact ? <p className="mt-1">{c.contact}</p> : null}
-              {c.note ? <p className="mt-1 whitespace-pre-wrap text-ink/60">{c.note}</p> : null}
+              {c.note ? <p className="mt-1 whitespace-pre-wrap text-[color:var(--m-slate-2)]">{c.note}</p> : null}
               <OutsideCodeBlock c={c} code={code} nowMs={nowMs} />
               <StayConfirmForm
                 door="supCalendar.removeBlock"
@@ -170,7 +170,7 @@ export function OutsideClientRows({
               >
                 <input type="hidden" name="return_to" value="events" />
                 <input type="hidden" name="block_id" value={c.blockId} />
-                <SupplierSubmit tone="danger" icon={<X aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Remove" pendingLabel="Removing…" />
+                <SupplierSubmit tone="danger" icon={<X aria-hidden className="h-5 w-5" strokeWidth={1.9} />} label="Remove" pendingLabel="Removing…" />
               </StayConfirmForm>
             </div>
           </Fold>
@@ -196,8 +196,8 @@ export function KeptNotesFold({ notes }: { notes: readonly KeptNote[] }) {
         <ul className="pb-3">
           {notes.map((n) => (
             <li key={n.noteId} className="border-t border-ink/10 py-3 first:border-t-0">
-              <p className="whitespace-pre-wrap text-[14px] text-ink/80">{n.body}</p>
-              <p className="mt-1 text-[12.5px] text-ink/50">Written {fmtDate(n.createdAt)}</p>
+              <p className="whitespace-pre-wrap text-[15px] text-ink/80">{n.body}</p>
+              <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">Written {fmtDate(n.createdAt)}</p>
             </li>
           ))}
         </ul>
@@ -229,15 +229,15 @@ function OutsideCodeBlock({ c, code, nowMs }: { c: OutsideClient; code: OutsideC
         : 'Not on Setnayan yet';
   return (
     <div className="mt-3 border-t border-ink/10 pt-3" data-outside-code-block="">
-      <p className="flex items-center gap-2 text-[14px] font-medium text-ink">
-        <QrCode aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />
-        <InfoTip label="Their one-time code" labelClassName="text-[14px] font-medium text-ink" align="start">
+      <p className="flex items-center gap-2 text-[15px] font-medium text-ink">
+        <QrCode aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={1.75} />
+        <InfoTip label="Their one-time code" labelClassName="text-[15px] font-medium text-ink" align="start">
           One code for this customer, and it works once. They scan it and their event joins Setnayan already booked with
           you — the date, the payments you agreed and your chat come with it. Once it is used, their Setnayan booking
           holds the day, so you can remove this outside entry.
         </InfoTip>
       </p>
-      <p className="mt-0.5 text-[13px] text-ink/60" data-outside-code-line="">
+      <p className="mt-0.5 text-[13px] text-[color:var(--m-slate-2)]" data-outside-code-line="">
         {line}
       </p>
       {code.state === 'none' ? (
@@ -309,11 +309,11 @@ export function OtherChatsFold({
               <li key={c.threadId} className="flex items-center gap-1 border-t border-ink/10 first:border-t-0" data-other-chat={c.archived ? 'archived' : 'closed'}>
                 <Link
                   href={`/vendor-dashboard/messages/${c.threadId}`}
-                  className="sn-press grid min-h-[56px] min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2"
+                  className="sn-press grid min-h-14 min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-[15px] font-medium text-ink">{c.title}</span>
-                    <span className="block truncate text-[13px] text-ink/60">{c.why}</span>
+                    <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]">{c.why}</span>
                   </span>
                   <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
                 </Link>
@@ -322,7 +322,7 @@ export function OtherChatsFold({
             ))}
           </ul>
           {archived > 0 ? (
-            <p className="pt-2 text-[12.5px] text-ink/60">A new message brings an archived chat back to your list on its own.</p>
+            <p className="pt-2 text-[13px] text-[color:var(--m-slate-2)]">A new message brings an archived chat back to your list on its own.</p>
           ) : null}
           <ListPager paged={paged} param="opage" keepParams={keepParams} hash="chats" noun="chats" incomplete={incomplete} />
         </div>

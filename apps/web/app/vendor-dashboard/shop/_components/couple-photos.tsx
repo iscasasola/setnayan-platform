@@ -19,8 +19,8 @@ export async function CouplePhotosToAnswer() {
   if (error) {
     logQueryError('CouplePhotosToAnswer', error, {}, 'graceful_degrade');
     return (
-      <p role="alert" className="mx-auto w-full max-w-3xl text-[13px] text-danger-700" data-couple-photos-unread="">
-        Photos couples shared with you could not be read just now — nothing was answered. Reopen this page in a moment.
+      <p role="alert" className="mx-auto w-full max-w-3xl text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-couple-photos-unread="">
+        Couldn&rsquo;t load the photos couples shared — nothing was answered. Reopen this page in a moment.
       </p>
     );
   }

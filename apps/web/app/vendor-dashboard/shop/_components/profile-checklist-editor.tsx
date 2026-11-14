@@ -92,7 +92,7 @@ export function ProfileChecklistEditor({
           style={{ background: 'var(--m-line-soft)' }}
         >
           <span
-            className="block h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+            className="block h-full rounded-full transition-[width] [transition-duration:var(--sn-pill-dur)] [transition-timing-function:var(--sn-ease-rise)] motion-reduce:transition-none"
             style={{ width: `${pct}%`, background: 'var(--m-orange)' }}
           />
         </div>

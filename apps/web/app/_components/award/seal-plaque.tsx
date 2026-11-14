@@ -223,6 +223,14 @@ export function SealPlaque({
       }
       (async () => {
         try {
+          // v52: the tap answers at once — the house is already dark (the dialog opened above, empty); let it paint
+          // before the rig is built, then the canvas and the hint go in once it is ready
+          await new Promise<void>((r2) => {
+            raf = requestAnimationFrame(() => {
+              raf = requestAnimationFrame(() => r2());
+            });
+          });
+          if (dead) return;
           const { storyRig, asImageSvg, INTRO_END, REVEAL_S, STORY_MY, STORY_W, STORY_H } = await import(/* webpackChunkName: "award-story" */ './story-rig');
           if (dead) return;
           const rig = await storyRig({
@@ -241,6 +249,7 @@ export function SealPlaque({
           const END = rig.dur === REVEAL_S ? REVEAL_S : INTRO_END;
           rig.app?.();
           canvasHost.current?.replaceChildren(rig.canvas);
+          if (tip.current) tip.current.style.visibility = '';
           // v51: a clamped clock — a slow phone frame advances the show by at most 50 ms, so nothing is skipped past
           let tA = 0;
           let lastN = performance.now();
@@ -466,7 +475,9 @@ export function SealPlaque({
     <>
       <dialog ref={sin} className={s.sin} aria-label="Seal awarded" data-award-seal-intro="" onClick={() => (skip.current = true)}>
         <div ref={canvasHost} style={{ display: 'contents' }} />
-        <small ref={tip}>Tap to continue</small>
+        <small ref={tip} style={{ visibility: 'hidden' }}>
+          Tap to continue
+        </small>
       </dialog>
       <dialog
         ref={plaque}

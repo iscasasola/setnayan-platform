@@ -225,6 +225,8 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
   let SNC: HTMLCanvasElement | null = null;
   let HMC: HTMLCanvasElement | null = null;
   let TZC: HTMLCanvasElement | null = null;
+  // v52: set while warming the caches, so the warm-up never runs the cloth (it settled the cloth twice: a 0.9 s freeze)
+  let WARM = false;
   const mkCanvas = (w: number, h: number) => {
     const cv = document.createElement('canvas');
     cv.width = w;
@@ -1378,7 +1380,7 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       x.fillStyle = bg;
       x.fillRect(0, 0, W, H);
     } else base(t - B0);
-    simTo(t);
+    if (!WARM) simTo(t);
     const spot = t < OPEN0 ? 0.75 + 0.25 * Math.min(1, t / 1) : 1;
     for (const cu of CL) drawCurtain(cu, spot);
     if (t < OPEN0 + 0.6) {
@@ -1415,8 +1417,11 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
   }
   // v50: warm every cache and settle the cloth BEFORE the first shown frame, so nothing is built mid-show
   if (REV) {
+    // v52: caches only (no cloth run), then ONE settle of the cloth
+    WARM = true;
     base(4);
     frame(2);
+    WARM = false;
     frame(0);
   }
   if (REV) {

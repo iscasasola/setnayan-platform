@@ -244,12 +244,20 @@ test('14 · v50/v51 perf: nothing costly is drawn per frame; clamped clocks; the
   assert.match(body('drawCurtain'), /new Float32Array\(n\)/, 'curtain point colours are numbers (Float32Array), not tuples');
   assert.match(body('drawValance'), /c \+= 2\)/, 'one valance strip per two columns');
   assert.match(rig, /c\.width = Math\.round\(W \* KS\)/, 'drawn at the size the screen shows');
-  assert.match(rig, /base\(4\);\s*frame\(2\);\s*frame\(0\);/, 'warm-up before the first shown frame');
   assert.match(rig, /rig\.prep = \(\) =>/);
+  // v52: the warm-up builds the caches without running the cloth, then settles it ONCE
+  assert.match(body('frame'), /if \(!WARM\) simTo\(t\)/, 'frame skips the cloth while warming');
+  assert.match(rig, /WARM = true;\s*base\(4\);\s*frame\(2\);\s*WARM = false;\s*frame\(0\);/, 'one cloth settle in the warm-up');
   const plaque = stripComments(readFileSync(join(DIR, 'seal-plaque.tsx'), 'utf8'));
   assert.equal((plaque.match(/Math\.min\(0\.05, /g) || []).length, 2, 'both the reveal and the exit clocks are clamped');
   assert.match(plaque, /if \(rig\.prep && t > END - 1\.2\) rig\.prep\(\)/);
   assert.match(plaque, /scale: \(Math\.min\(window\.innerWidth/);
+  // v52: the tap answers at once — the dark intro dialog opens BEFORE the rig is built, and paints for 2 frames first
+  const open = plaque.indexOf('si.showModal()');
+  const build = plaque.indexOf('await storyRig(');
+  assert.ok(open > 0 && open < build, 'the intro dialog opens before the rig is built');
+  assert.ok(/requestAnimationFrame\(\(\) => \{\s*raf = requestAnimationFrame/.test(plaque.slice(open, build)), 'two painted frames before the build');
+  assert.ok(plaque.indexOf("tip.current.style.visibility = ''") > build, 'the hint appears once the rig is ready');
   const hold = plaque.indexOf('for (let i = 0; i < 3; i++)');
   assert.ok(hold > 0 && hold < plaque.indexOf('card.classList.add(s.awRise!)') && hold < plaque.indexOf('fly.animate('), 'the stage holds 3 frames before the rise and the flight');
   const vid = stripComments(readFileSync(join(DIR, 'story-video-impl.tsx'), 'utf8'));

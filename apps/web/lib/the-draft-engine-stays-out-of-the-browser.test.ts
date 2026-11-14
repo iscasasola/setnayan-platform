@@ -180,7 +180,7 @@ test('3 · the lab reaches its engine by one import, in the shape a production b
   assert.match(shell, /process\.env\.NODE_ENV === 'production' \? Promise\.reject\(new Error\('The Maker lab is dev-only\.'\)\) : import\('\.\/lab-draft'\)/);
   // …and the lab's server-drawn pages are the only other importers (a server file's imports are not the browser's).
   const importers = FILES.filter((f) => f !== LAB_SHELL && edgesOf(read(f)).some((e) => resolveSpec(f, e.spec) === LAB_ENGINE)).sort();
-  assert.deepEqual(importers, ['app/dev/maker-lab/guest/page.tsx', 'app/dev/maker-lab/page.tsx']);
+  assert.deepEqual(importers, ['app/dev/maker-lab/guest/page.lab.tsx', 'app/dev/maker-lab/page.lab.tsx']);
   for (const f of importers) assert.ok(!isClient(read(f)) && !reach.seen.has(f), `${f} is a browser file`);
 });
 

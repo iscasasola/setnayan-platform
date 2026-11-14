@@ -243,7 +243,7 @@ test('every page that embeds InlineCheckoutDrawer is either route-gated or an al
     'app/dashboard/[eventId]/studio/indoor-blueprint/page.tsx',
     'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx', // supplier bookings — real-world services, 3.1.3(e)
     // A dev lab (404 in production) that draws the drawer to WALK its in-app inert chip beside the web checkout.
-    'app/dev/iap-doors-lab/page.tsx',
+    'app/dev/iap-doors-lab/page.lab.tsx',
   ]);
   const { execSync } = require('node:child_process') as typeof import('node:child_process');
   const root = join(__dirname, '..');

@@ -66,7 +66,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
   if (!CONCIERGE_ENABLED) {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-        <ActionButton tone="neutral" icon={<ArrowLeft aria-hidden />} label="Back to profile" href="/dashboard/profile" />
+        <ActionButton tone="neutral" icon={<ArrowLeft aria-hidden />} label="Back to profile" href="/dashboard/profile" className="!h-11" />
         <section className="mt-6 py-6 text-center">
           <Gem aria-hidden className="mx-auto h-8 w-8 text-terracotta" strokeWidth={1.5} />
           <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -83,7 +83,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
           </InfoTip>
           <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-3">
             <ActionButton tone="brand" main icon={<Gem aria-hidden />} label="See pricing" href="/pricing" />
-            <ActionButton tone="neutral" icon={<ArrowLeft aria-hidden />} label="Back to profile" href="/dashboard/profile" />
+            <ActionButton tone="neutral" icon={<ArrowLeft aria-hidden />} label="Back to profile" href="/dashboard/profile" className="!h-11" />
           </div>
         </section>
       </div>
@@ -188,7 +188,7 @@ function EventPicker({
             <Link
               key={e.event_id}
               href={`/dashboard/profile/concierge?event=${encodeURIComponent(e.event_id)}`}
-              className={`sn-chip sn-press ${isActive ? 'selected' : ''}`}
+              className={`sn-chip sn-press min-h-11 ${isActive ? 'selected' : ''}`}
             >
               {e.display_name}
             </Link>

@@ -11,7 +11,9 @@
  * v46/v47 (`badge-milestones_v47.html`, DECISION_LOG "NO. 1 — THE REVEAL"): `reveal` (No. 1 only) wraps the scene
  * in a stage whose red velvet curtains are simulated cloth (Verlet, rail rings pulled open 3.5–5.1 s) under a valance,
  * with aerodynamic black-and-gold confetti (v48: a burst + a steady rain, no gaps; the opening words on a dark pool,
- * outlined), and makes it 15 s; every other award keeps the 10-second scene unchanged.
+ * outlined), and makes it 15 s. v49 (owner-approved Fable prototype): the valance is cloth on a rail of coupled springs,
+ * tassels are chains with heavy bobs, the hem fringe swings, the house lights fade up and the video dips to dark to
+ * loop; in the app the same cloth carries on into the plaque (`exitStart` / `exit` / `gone`) and hands over its confetti; every other award keeps the 10-second scene unchanged.
  *
  * Drawn on the device; nothing is uploaded. Loaded ONLY by a dynamic import (it is never in a page's first bundle).
  */
@@ -25,6 +27,42 @@ export const STORY_S = 10;
 export const INTRO_END = 4.6;
 /** The No. 1 reveal's length (curtains part, then the full scene), seconds — v46. */
 export const REVEAL_S = 15;
+// ── v49 (`badge-milestones_v49.html`, owner-approved "ok"): the reveal's timing and its springs, pure so a test holds them ──
+/** The house lights come up over the first 1.1 s (from 94% dark). */
+export const FADE_IN_S = 1.1;
+/** The shared video dips back to that dark over its last 0.5 s, so it loops with no cut. */
+export const LOOP_DIP_S = 0.5;
+/** In the app the cord starts hauling the curtains this long before the medal leaves. */
+export const EXIT_LEAD_S = 0.35;
+/** How far past their open stops the curtains are hauled off the rail ends (canvas px), over 1.25 s. */
+export const EXIT_XOUT = 660;
+/** The exit layer's longest life, seconds (it removes itself sooner, once everything is gone). */
+export const EXIT_S = 4;
+/** The rail: a row of damped springs — stiffness to its rest line, damping, and the coupling between neighbours. */
+export const RAIL_K = 260;
+export const RAIL_C = 3.6;
+export const RAIL_W = 2600;
+
+const smooth = (u: number) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
+/** How dark the house is at `t` (0.94 → 0 over FADE_IN_S). */
+export const houseDark = (t: number) => (t < FADE_IN_S ? (1 - smooth(t / FADE_IN_S)) * 0.94 : 0);
+/** How dark the loop dip is at `t` (0 → 0.94 over the last LOOP_DIP_S, reaching it 0.05 s before the end). */
+export const loopDark = (t: number, dur: number) => (t > dur - LOOP_DIP_S ? Math.min(1, (t - (dur - LOOP_DIP_S)) / 0.45) * 0.94 : 0);
+/** The extra distance the exit cord has hauled the curtains, `t` s into the scene, when it started at `exc` (-1 = never). */
+export const exitHaul = (t: number, exc: number) => (exc >= 0 && t > exc ? EXIT_XOUT * smooth(Math.min(1, Math.max(0, (t - exc) / 1.25))) : 0);
+/** The medal's float on the stage, `tb` s after it burst in: its offset (px) and turn (rad). */
+export const medalPose = (tb: number) => ({ fy: tb > 1.05 ? Math.sin((tb - 1.05) * 1.5) * 12 : 0, rot: tb > 1.05 ? Math.sin((tb - 1.05) * 1.1) * 0.025 : 0 });
+/** One step of the rail springs: each point is pulled to its rest line, damped, and coupled to its neighbours. */
+export function railSpringStep(ry: Float32Array, rv: Float32Array, dt: number): void {
+  const n = ry.length;
+  for (let i = 0; i < n; i++) {
+    const l = ry[i ? i - 1 : i]!;
+    const r2 = ry[i < n - 1 ? i + 1 : i]!;
+    rv[i] = rv[i]! + (-RAIL_K * ry[i]! - RAIL_C * rv[i]! + RAIL_W * (l + r2 - 2 * ry[i]!)) * dt;
+  }
+  for (let i = 0; i < n; i++) ry[i] = ry[i]! + rv[i]! * dt;
+}
+
 /** The award's centre line on the canvas. */
 export const STORY_MY = 780;
 
@@ -58,7 +96,33 @@ export type StoryRig = {
   hide: boolean;
   /** The scene's length, seconds: REVEAL_S (15) with `reveal`, else STORY_S (10). */
   dur: number;
+  /** v49: the shared video dips to dark over its last 0.5 s, so it loops with no cut (the recorder sets it). */
+  loop?: boolean;
+  // ── v49, the No. 1 reveal only (undefined for every other award) ──
+  /** In the app (not the video): the cord starts hauling the curtains a beat (EXLEAD) before the medal leaves. */
+  app?: () => void;
+  /** Starts the exit: the medal leaves the stage (it flies as its own layer); `top` = the letter-box above the picture, in canvas px. */
+  exitStart?: (o?: { top?: number }) => void;
+  /** Draws the exit at `te` seconds after it started onto `g` (the stage still fades by `a`); `simOnly` only steps the cloth. */
+  exit?: (g: CanvasRenderingContext2D, te: number, a: number, simOnly?: boolean) => void;
+  /** How long the exit layer may live, seconds. */
+  exitDur?: number;
+  /** The medal's float pose at `t` (its offset and turn on the stage). */
+  pose?: (t: number) => { fy: number; rot: number };
+  /** The reveal's confetti pieces in the air right now (the plaque's canvas adopts them). */
+  confetti?: () => RevealPiece[];
+  /** True once the curtains are off the rail ends and the valance is hoisted out of the frame. */
+  gone?: () => boolean;
+  /** How far the valance's top edge has been hoisted above the frame (≤ 0, canvas px): the layer is clipped there. */
+  top?: () => number;
+  /** The staged medal (900×858), as last drawn. */
+  medal?: HTMLCanvasElement;
+  /** The award's viewBox. */
+  vb?: number[];
 };
+
+/** One piece of the reveal's confetti (canvas px at 1080 wide; speeds per second). */
+export type RevealPiece = { rain?: boolean; x: number; y: number; vx: number; vy: number; age: number; f: number; w: number; spin: number; r: number; vr: number; sw: number; sh: number; gold: boolean; d: number };
 
 /** The plaque's wood slots belong to the plaque only: drop the whole (nested) `<g class="sl-slot">`, balanced. */
 export function stripSlot(sv: string): string {
@@ -100,11 +164,12 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
   const c = document.createElement('canvas');
   c.width = W;
   c.height = H;
-  const x = c.getContext('2d') as Ctx;
+  // `let`: the No. 1 exit draws the same curtains and valance on another canvas for a while
+  let x = c.getContext('2d') as Ctx;
   const tc = o.tone;
   const MY = STORY_MY;
   const src = stripSlot(o.svg);
-  const { dw, dh } = artBox(src);
+  const { vb, dw, dh } = artBox(src);
   let svg = src
     .replace(/(<svg[^>]*?)\swidth="[\d.]+"/, '$1')
     .replace(/(<svg[^>]*?)\sheight="[\d.]+"/, '$1')
@@ -147,6 +212,7 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
   };
   const REV = !!o.reveal;
   const rig: StoryRig = { canvas: c, frame, dw, dh, hide: false, dur: REV ? REVEAL_S : STORY_S };
+  const DUR = rig.dur;
   function base(t: number) {
     const bg = x.createLinearGradient(0, 0, 0, H);
     bg.addColorStop(0, '#17120c');
@@ -198,8 +264,8 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       x.globalAlpha = 1;
     }
     const sc = 0.15 + 0.85 * back(t / 1.05);
-    const fy = t > 1.05 ? Math.sin((t - 1.05) * 1.5) * 12 : 0;
-    const rot = t > 1.05 ? Math.sin((t - 1.05) * 1.1) * 0.025 : (1 - t / 1.05) * -0.5;
+    const { fy } = medalPose(t);
+    const rot = t > 1.05 ? medalPose(t).rot : (1 - t / 1.05) * -0.5;
     b.clearRect(0, 0, 900, 858);
     b.globalCompositeOperation = 'source-over';
     b.drawImage(im, (900 - dw) / 2, (858 - dh) / 2, dw, dh);
@@ -299,8 +365,53 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
   const AIR = 0.996;
   const SUB = 1 / 120;
   const F3 = 2600;
-  type Curtain = { side: number; p: Float32Array; q: Float32Array; ring: number[]; rv: number[]; cons: Float32Array; L0x: number; L0y: number };
-  let val: HTMLCanvasElement | null = null;
+  // v49: the valance, the rail springs, the tassels, the fringe and the exit
+  const VS = 6;
+  const VN = 10 * VS + 1;
+  const VR = 5;
+  const VTOP = -46;
+  const VFOLD = 7;
+  const TN = 6;
+  const TSEG = 11;
+  const BOBM = 4;
+  const FRL = 36;
+  const EXLEAD = EXIT_LEAD_S;
+  const VAIR = 0.9965;
+  const TAIR = 0.9976;
+  const FAIR = 0.975;
+  const KY = 620;
+  const KE = 520;
+  const KJ = 200;
+  const HK = 520;
+  const BK = 30;
+  const BC = 1.3;
+  const BKICK = 120;
+  const WV = 1.6;
+  const WZ = 2.0;
+  const WT = 2.8;
+  const IAV = 30;
+  const IAZ = 60;
+  const IAT = 170;
+  type Tassel = { ak: number; p: Float32Array; q: Float32Array };
+  type Valance = { p: Float32Array; q: Float32Array; K: Float32Array; T: Tassel[]; ry: Float32Array; rv: Float32Array; N: Float32Array; bx: number; bv: number; f0: boolean; f1: boolean; f2: boolean };
+  let VA: Valance | null = null;
+  let EX = -1;
+  let EXC = -1;
+  let LIFT = 330;
+  let SNAP: HTMLCanvasElement | null = null;
+  type Curtain = {
+    side: number;
+    p: Float32Array;
+    q: Float32Array;
+    ring: number[];
+    rv: number[];
+    cons: Float32Array;
+    L0x: number;
+    L0y: number;
+    hit: Uint8Array;
+    ft: Float32Array;
+    fq: Float32Array;
+  };
   let CL: Curtain[] = [];
   let simT = -1.2;
   function mkCurtain(side: number): Curtain {
@@ -337,14 +448,23 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
         if (r < CR - 1 && c < CC - 1) cons.push(a, a + CC + 1, diag, a + 1, a + CC, diag);
         if (r < CR - 2) cons.push(a, a + 2 * CC, 2 * L0y);
       }
-    return { side, p, q, ring, rv, cons: new Float32Array(cons), L0x, L0y };
+    const ft = new Float32Array(CC * 3);
+    const h0 = (CR - 1) * CC * 3;
+    for (let c = 0; c < CC; c++) {
+      ft[c * 3] = p[h0 + c * 3]!;
+      ft[c * 3 + 1] = p[h0 + c * 3 + 1]! + FRL;
+      ft[c * 3 + 2] = p[h0 + c * 3 + 2]!;
+    }
+    return { side, p, q, ring, rv, cons: new Float32Array(cons), L0x, L0y, hit: new Uint8Array(CC), ft, fq: new Float32Array(ft) };
   }
   function railStep(cu: Curtain, t: number, dt: number) {
     // the cord: the leading ring (the stage-centre edge, index 0) is pulled off-stage
     const s = cu.side;
     const u = Math.min(1, Math.max(0, (t - OPEN0) / 1.6));
     const pull = u < 1 ? u * u * (3 - 2 * u) : 1;
-    const target = W / 2 + s * (8 + pull * (W / 2 - 8 - 80)); // where the hand on the cord is taking the leading ring
+    let target = W / 2 + s * (8 + pull * (W / 2 - 8 - 80)); // where the hand on the cord is taking the leading ring
+    // the exit: the cord hauls the whole bunch off the end of the rail
+    target += s * exitHaul(t, EXC);
     const R = cu.ring;
     const V = cu.rv;
     const smin = 9;
@@ -357,9 +477,15 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       // a ring is shoved along when the one behind reaches it
       const d = (R[c]! - R[c - 1]!) * s;
       if (d < smin) {
+        if (!cu.hit[c]) {
+          // a ring knocking into the next one knocks the rail: the knock travels along it as a wave
+          cu.hit[c] = 1;
+          const rel = (V[c - 1]! - V[c]!) * s;
+          if (rel > 40) railKick(R[c]!, Math.min(1, rel / 320) * KJ);
+        }
         R[c] = R[c]! + (smin - d) * s;
         V[c] = s * Math.max(V[c]! * s, V[c - 1]! * s * 0.8);
-      }
+      } else if (d > smin + 4) cu.hit[c] = 0;
       if (d > cu.L0x * 0.98) R[c] = R[c]! - (d - cu.L0x * 0.98) * s;
     }
   }
@@ -420,6 +546,35 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
           p[b + 2] = p[b + 2]! - dz * f2 * wb;
         }
       }
+    // the hem fringe: every strand is a pendulum on its hem point, so it trails the cloth and swings in after it
+    const F = cu.ft;
+    const Q = cu.fq;
+    const h0 = (CR - 1) * CC * 3;
+    const fl = FLOOR + FRL + 24;
+    for (let c = 0; c < CC; c++) {
+      const k = c * 3;
+      const hk = h0 + k;
+      const vx = (F[k]! - Q[k]!) * FAIR;
+      const vy = (F[k + 1]! - Q[k + 1]!) * FAIR;
+      const vz = (F[k + 2]! - Q[k + 2]!) * FAIR;
+      Q[k] = F[k]!;
+      Q[k + 1] = F[k + 1]!;
+      Q[k + 2] = F[k + 2]!;
+      F[k] = F[k]! + vx;
+      F[k + 1] = F[k + 1]! + vy + G * dt2;
+      F[k + 2] = F[k + 2]! + vz;
+      const dx = F[k]! - p[hk]!;
+      const dy = F[k + 1]! - p[hk + 1]!;
+      const dz = F[k + 2]! - p[hk + 2]!;
+      const f = FRL / (Math.hypot(dx, dy, dz) || 1);
+      F[k] = p[hk]! + dx * f;
+      F[k + 1] = p[hk + 1]! + dy * f;
+      F[k + 2] = p[hk + 2]! + dz * f;
+      if (F[k + 1]! > fl) {
+        F[k + 1] = fl;
+        F[k] = F[k]! - vx * 0.5;
+      }
+    }
   }
   const LT = (() => {
     const l = [-0.38, -0.5, 0.78];
@@ -556,86 +711,442 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       else x.moveTo(v[0], v[1]);
     }
     x.stroke();
-    for (let c = 0; c < CC - 1; c++) {
-      const a = P[(CR - 1) * CC + c]!;
-      const b = P[(CR - 1) * CC + c + 1]!;
-      for (let k = 0; k < 4; k++) {
-        const u = k / 4;
-        const fx = a[0] + (b[0] - a[0]) * u;
-        const fy = a[1] + (b[1] - a[1]) * u;
-        const sw = (a[0] - b[0]) * 0.02;
-        x.strokeStyle = k % 2 ? '#f3d27a' : '#a8781f';
-        x.lineWidth = 3;
-        x.beginPath();
-        x.moveTo(fx, fy);
-        x.lineTo(fx + sw * 6, fy + 34);
-        x.stroke();
+    // v49: each strand runs from its hem point to its own pendulum tip
+    const FT: [number, number, number][] = [];
+    for (let c = 0; c < CC; c++) FT.push(prj(cu.ft, c * 3));
+    x.lineWidth = 3;
+    for (let ps = 0; ps < 2; ps++) {
+      x.strokeStyle = ps ? '#f3d27a' : '#a8781f';
+      x.beginPath();
+      for (let c = 0; c < CC - 1; c++) {
+        const a = P[(CR - 1) * CC + c]!;
+        const b = P[(CR - 1) * CC + c + 1]!;
+        const ta = FT[c]!;
+        const tb = FT[c + 1]!;
+        for (let k = ps; k < 4; k += 2) {
+          const u = k / 4;
+          const fx = a[0] + (b[0] - a[0]) * u;
+          const fy = a[1] + (b[1] - a[1]) * u;
+          x.moveTo(fx, fy);
+          x.quadraticCurveTo(fx, fy + FRL * 0.55, ta[0] + (tb[0] - ta[0]) * u, ta[1] + (tb[1] - ta[1]) * u);
+        }
       }
+      x.stroke();
     }
     x.lineCap = 'butt';
   }
+  // v49 (owner 15 Nov: "The upper curtain is not moving the strings on the curtains is not moving. The remaining
+  // curtains after it opens will pull out as the placque comes in and binds with the seal. Make each part connect and
+  // animate smoothly.") The valance is cloth too (a strip of Verlet points hanging from the same rail), the rail itself
+  // is a row of damped springs that carries every knock along its length as a wave, each tassel is a little chain with
+  // a heavy bob, and every strand of the hem fringe is a pendulum on its hem point. Nothing here is a drawn wiggle: it
+  // is all stepped, on the same fixed 1/120 s clock (`simTo`).
+  const vDepth = (c: number) => {
+    const u = (c % VS) / VS;
+    return 150 + 160 * u * (1 - u);
+  };
+  function railKick(xx: number, j: number) {
+    if (!VA) return;
+    const i = Math.max(1, Math.min(VN - 2, Math.round((xx / W) * 8 * VS) + VS));
+    VA.rv[i] = VA.rv[i]! + j;
+    VA.rv[i - 1] = VA.rv[i - 1]! + j * 0.5;
+    VA.rv[i + 1] = VA.rv[i + 1]! + j * 0.5;
+  }
+  function mkValance(): Valance {
+    const n = VN * VR;
+    const p = new Float32Array(n * 3);
+    const q = new Float32Array(n * 3);
+    const K: number[] = [];
+    for (let r = 0; r < VR; r++)
+      for (let c = 0; c < VN; c++) {
+        const k = (r * VN + c) * 3;
+        const f = r / (VR - 1);
+        p[k] = ((c - VS) * W) / (8 * VS);
+        p[k + 1] = VTOP + (vDepth(c) - VTOP) * f;
+        p[k + 2] = -VFOLD * Math.cos((c * 2 * Math.PI) / VS) * f;
+        q[k] = p[k]!;
+        q[k + 1] = p[k + 1]!;
+        q[k + 2] = p[k + 2]!;
+      }
+    const add = (a: number, b: number, st: number) => {
+      const ka = a * 3;
+      const kb = b * 3;
+      K.push(a, b, Math.hypot(p[ka]! - p[kb]!, p[ka + 1]! - p[kb + 1]!, p[ka + 2]! - p[kb + 2]!), st);
+    };
+    for (let r = 0; r < VR; r++)
+      for (let c = 0; c < VN; c++) {
+        const a = r * VN + c;
+        if (c < VN - 1 && r) add(a, a + 1, 1);
+        if (r < VR - 1) add(a, a + VN, 1);
+        if (r < VR - 1 && c < VN - 1) {
+          add(a, a + VN + 1, 0.3);
+          add(a + 1, a + VN, 0.3);
+        }
+        if (c < VN - 2 && r) add(a, a + 2, 0.5);
+      }
+    const T: Tassel[] = [];
+    for (let sc = 0; sc < 10; sc++) {
+      const c = sc * VS + VS / 2;
+      const ak = ((VR - 1) * VN + c) * 3;
+      const tp = new Float32Array(TN * 3);
+      const tq = new Float32Array(TN * 3);
+      for (let j = 0; j < TN; j++) {
+        tp[j * 3] = p[ak]!;
+        tp[j * 3 + 1] = p[ak + 1]! + j * TSEG;
+        tp[j * 3 + 2] = p[ak + 2]!;
+      }
+      tq.set(tp);
+      T.push({ ak, p: tp, q: tq });
+    }
+    return { p, q, K: new Float32Array(K), T, ry: new Float32Array(VN), rv: new Float32Array(VN), N: new Float32Array(n * 3), bx: 0, bv: 0, f0: false, f1: false, f2: false };
+  }
+  // the air the moving curtains push along: a gust that travels with each curtain's heavy leading edge
+  function wind(xx: number) {
+    let w = 0;
+    for (const cu of CL) {
+      const v = cu.rv[0]!;
+      if (v > 1 || v < -1) {
+        const d = (xx - cu.ring[0]!) / 210;
+        w += v * Math.exp(-d * d);
+      }
+    }
+    return w;
+  }
+  function valStep(t: number) {
+    const V = VA!;
+    const { p, q, ry, rv, K } = V;
+    const dt = SUB;
+    const dt2 = dt * dt;
+    const n = VN * VR;
+    const m = K.length;
+    const P3 = VN * 3;
+    if (!V.f0 && t >= OPEN0) {
+      // the cord goes taut: the rail jumps at the middle
+      V.f0 = true;
+      for (let i = -5; i <= 5; i++) rv[VS + 4 * VS + i] = rv[VS + 4 * VS + i]! + KY * (1 - Math.abs(i) / 6);
+    }
+    if (!V.f1 && t >= OPEN0 + 1.6) {
+      // the leading rings hit their stops
+      V.f1 = true;
+      for (let i = 0; i < 5; i++) {
+        rv[VS + 1 + i] = rv[VS + 1 + i]! + KE;
+        rv[VN - 2 - VS - i] = rv[VN - 2 - VS - i]! + KE;
+      }
+    }
+    let ly = 0;
+    if (EX >= 0 && t >= EX) {
+      if (!V.f2) {
+        // the hoist takes up: a jerk at one end, then the batten sways on its lines
+        V.f2 = true;
+        V.bv = BKICK;
+        for (let i = 0; i < 10; i++) rv[i] = rv[i]! - HK * (1 - i / 10);
+      }
+      const u = Math.min(1, Math.max(0, (t - EX - 0.1) / 1.15));
+      ly = -LIFT * u * u;
+    }
+    railSpringStep(ry, rv, dt);
+    V.bv += (-BK * V.bx - BC * V.bv) * dt;
+    V.bx += V.bv * dt;
+    const i1 = 0.83 * t;
+    const i2 = 1.71 * t;
+    const gz = 15 * t;
+    for (let i = VN; i < n; i++) {
+      const k = i * 3;
+      const f = ((i / VN) | 0) / (VR - 1);
+      const xx = p[k]!;
+      const vx = (p[k]! - q[k]!) * VAIR;
+      const vy = (p[k + 1]! - q[k + 1]!) * VAIR;
+      const vz = (p[k + 2]! - q[k + 2]!) * VAIR;
+      q[k] = p[k]!;
+      q[k + 1] = p[k + 1]!;
+      q[k + 2] = p[k + 2]!;
+      const w = wind(xx);
+      const idle = Math.sin(i1 + xx * 0.0041) + 0.6 * Math.sin(i2 + xx * 0.0093 + 1.3);
+      p[k] = p[k]! + vx + (WV * w + IAV * idle) * f * dt2;
+      p[k + 1] = p[k + 1]! + vy + G * dt2;
+      p[k + 2] = p[k + 2]! + vz + (WZ * Math.abs(w) * Math.sin(xx * 0.045 + gz) + IAZ * idle) * f * dt2;
+    }
+    for (let c = 0; c < VN; c++) {
+      const k = c * 3;
+      q[k] = p[k]!;
+      q[k + 1] = p[k + 1]!;
+      q[k + 2] = p[k + 2]!;
+      p[k] = ((c - VS) * W) / (8 * VS) + V.bx;
+      p[k + 1] = VTOP + ry[c]! + ly;
+      p[k + 2] = 0;
+    }
+    for (let it = 0; it < 6; it++)
+      for (let e = 0; e < m; e += 4) {
+        const a = K[e]! * 3;
+        const b = K[e + 1]! * 3;
+        const dx = p[b]! - p[a]!;
+        const dy = p[b + 1]! - p[a + 1]!;
+        const dz = p[b + 2]! - p[a + 2]!;
+        const d = Math.hypot(dx, dy, dz) || 1;
+        const f = ((d - K[e + 2]!) / d) * K[e + 3]!;
+        if (a >= P3) {
+          const h = b >= P3 ? 0.5 : 1;
+          p[a] = p[a]! + dx * f * h;
+          p[a + 1] = p[a + 1]! + dy * f * h;
+          p[a + 2] = p[a + 2]! + dz * f * h;
+          if (b >= P3) {
+            p[b] = p[b]! - dx * f * h;
+            p[b + 1] = p[b + 1]! - dy * f * h;
+            p[b + 2] = p[b + 2]! - dz * f * h;
+          }
+        } else if (b >= P3) {
+          p[b] = p[b]! - dx * f;
+          p[b + 1] = p[b + 1]! - dy * f;
+          p[b + 2] = p[b + 2]! - dz * f;
+        }
+      }
+    // the tassels: a cord of short links and a heavier bob, each hanging from its own scallop
+    for (const Ts of V.T) {
+      const tp = Ts.p;
+      const tq = Ts.q;
+      const ak = Ts.ak;
+      for (let j = 1; j < TN; j++) {
+        const k = j * 3;
+        const sl = j === TN - 1 ? 0.45 : 1;
+        const xx = tp[k]!;
+        const vx = (tp[k]! - tq[k]!) * TAIR;
+        const vy = (tp[k + 1]! - tq[k + 1]!) * TAIR;
+        const vz = (tp[k + 2]! - tq[k + 2]!) * TAIR;
+        tq[k] = tp[k]!;
+        tq[k + 1] = tp[k + 1]!;
+        tq[k + 2] = tp[k + 2]!;
+        const w = wind(xx);
+        const idle = Math.sin(i1 + xx * 0.0041) + 0.6 * Math.sin(i2 + xx * 0.0093 + 1.3);
+        tp[k] = tp[k]! + vx + (WT * w + IAT * idle) * sl * dt2;
+        tp[k + 1] = tp[k + 1]! + vy + G * dt2;
+        tp[k + 2] = tp[k + 2]! + vz + WZ * 0.5 * Math.abs(w) * Math.sin(xx * 0.045 + gz) * sl * dt2;
+      }
+      tp[0] = p[ak]!;
+      tp[1] = p[ak + 1]!;
+      tp[2] = p[ak + 2]!;
+      for (let it = 0; it < 6; it++)
+        for (let j = 0; j < TN - 1; j++) {
+          const a = j * 3;
+          const b = a + 3;
+          const wa = j ? 1 : 0;
+          const wb = j === TN - 2 ? 1 / BOBM : 1;
+          const dx = tp[b]! - tp[a]!;
+          const dy = tp[b + 1]! - tp[a + 1]!;
+          const dz = tp[b + 2]! - tp[a + 2]!;
+          const d = Math.hypot(dx, dy, dz) || 1;
+          const f = (d - TSEG) / d / (wa + wb);
+          if (wa) {
+            tp[a] = tp[a]! + dx * f * wa;
+            tp[a + 1] = tp[a + 1]! + dy * f * wa;
+            tp[a + 2] = tp[a + 2]! + dz * f * wa;
+          }
+          tp[b] = tp[b]! - dx * f * wb;
+          tp[b + 1] = tp[b + 1]! - dy * f * wb;
+          tp[b + 2] = tp[b + 2]! - dz * f * wb;
+        }
+    }
+  }
+  function drawValance(spot: number) {
+    const V = VA!;
+    const p = V.p;
+    const n = VN * VR;
+    const N = V.N;
+    N.fill(0);
+    const P: [number, number, number][] = new Array(n);
+    for (let i = 0; i < n; i++) P[i] = prj(p, i * 3);
+    for (let r = 0; r < VR - 1; r++)
+      for (let c = 0; c < VN - 1; c++) {
+        const i = (r * VN + c) * 3;
+        const j = i + 3;
+        const k = i + VN * 3;
+        const e1x = p[j]! - p[i]!;
+        const e1y = p[j + 1]! - p[i + 1]!;
+        const e1z = p[j + 2]! - p[i + 2]!;
+        const e2x = p[k]! - p[i]!;
+        const e2y = p[k + 1]! - p[i + 1]!;
+        const e2z = p[k + 2]! - p[i + 2]!;
+        let nx = e1y * e2z - e1z * e2y;
+        let ny = e1z * e2x - e1x * e2z;
+        let nz = e1x * e2y - e1y * e2x;
+        if (nz < 0) {
+          nx = -nx;
+          ny = -ny;
+          nz = -nz;
+        }
+        for (const v of [i, j, k, k + 3]) {
+          N[v] = N[v]! + nx;
+          N[v + 1] = N[v + 1]! + ny;
+          N[v + 2] = N[v + 2]! + nz;
+        }
+      }
+    const cs: string[] = new Array(VN);
+    for (let c = 0; c < VN; c++) {
+      let sh = 0;
+      let rm = 0;
+      for (let r = 1; r < VR; r++) {
+        const k = (r * VN + c) * 3;
+        const nn = Math.hypot(N[k]!, N[k + 1]!, N[k + 2]!) || 1;
+        const nz = Math.abs(N[k + 2]! / nn);
+        const dif = Math.max(0, (N[k]! / nn) * LT[0] + (N[k + 1]! / nn) * LT[1] + nz * LT[2]);
+        sh += 0.08 + 1.25 * Math.pow(dif, 1.3);
+        rm += Math.pow(1 - nz, 1.5);
+      }
+      sh = (sh / (VR - 1)) * spot;
+      rm = (rm / (VR - 1)) * 0.45;
+      cs[c] = `rgb(${Math.min(255, 150 * sh + 230 * rm) | 0},${Math.min(255, 8 * sh + 62 * rm) | 0},${Math.min(255, 30 * sh + 84 * rm) | 0})`;
+    }
+    const y0 = P[VS]![1] - VTOP;
+    const vg = x.createLinearGradient(0, y0, 0, y0 + 200);
+    vg.addColorStop(0, 'rgba(0,0,0,.58)');
+    vg.addColorStop(0.6, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,.34)');
+    const B0r = (VR - 1) * VN;
+    const M = (VR >> 1) * VN;
+    for (let c = 0; c < VN - 1; c++) {
+      const A = P[M + c]!;
+      const B = P[M + c + 1]!;
+      x.beginPath();
+      for (let r = 0; r < VR; r++) {
+        const v = P[r * VN + c]!;
+        if (r) x.lineTo(v[0], v[1]);
+        else x.moveTo(v[0], v[1]);
+      }
+      for (let r = VR - 1; r >= 0; r--) {
+        const v = P[r * VN + c + 1]!;
+        x.lineTo(v[0], v[1]);
+      }
+      x.closePath();
+      const g = x.createLinearGradient(A[0], A[1], B[0] === A[0] ? B[0] + 0.01 : B[0], B[1]);
+      g.addColorStop(0, cs[c]!);
+      g.addColorStop(1, cs[c + 1]!);
+      x.fillStyle = g;
+      x.fill();
+      x.strokeStyle = g;
+      x.lineWidth = 1.5;
+      x.stroke();
+      x.fillStyle = vg;
+      x.fill();
+    }
+    // the gold band, riding the cloth
+    x.lineCap = 'butt';
+    x.lineJoin = 'round';
+    const band = (w: number, col: string, dy: number) => {
+      x.strokeStyle = col;
+      x.lineWidth = w;
+      x.beginPath();
+      for (let c = 0; c < VN; c++) {
+        const rr = (52 - VTOP) / ((vDepth(c) - VTOP) / (VR - 1));
+        const r0 = Math.min(VR - 2, rr | 0);
+        const u = rr - r0;
+        const a = P[r0 * VN + c]!;
+        const b = P[(r0 + 1) * VN + c]!;
+        const xx = a[0] + (b[0] - a[0]) * u;
+        const yy = a[1] + (b[1] - a[1]) * u + dy;
+        if (c) x.lineTo(xx, yy);
+        else x.moveTo(xx, yy);
+      }
+      x.stroke();
+    };
+    band(16, '#7a5410', 0);
+    band(11, '#d9b455', 0.5);
+    band(4, '#fff1c0', -1.5);
+    // the scalloped gold trim on the hem
+    x.strokeStyle = '#e9c56a';
+    x.lineWidth = 7;
+    x.lineCap = 'round';
+    x.beginPath();
+    for (let sc = 0; sc < 10; sc++) {
+      const c0 = sc * VS;
+      const a = P[B0r + c0]!;
+      x.moveTo(a[0], a[1] - 3);
+      for (let c = c0 + 1; c < c0 + VS; c++) {
+        const v = P[B0r + c]!;
+        const w = P[B0r + c + 1]!;
+        if (c < c0 + VS - 1) x.quadraticCurveTo(v[0], v[1] - 3, (v[0] + w[0]) / 2, (v[1] + w[1]) / 2 - 3);
+        else x.quadraticCurveTo(v[0], v[1] - 3, w[0], w[1] - 3);
+      }
+    }
+    x.stroke();
+    // tassels: cord, knot, skirt
+    for (const Ts of V.T) {
+      const Q: [number, number, number][] = [];
+      for (let j = 0; j < TN; j++) Q.push(prj(Ts.p, j * 3));
+      x.lineCap = 'round';
+      x.lineJoin = 'round';
+      x.strokeStyle = '#a8781f';
+      x.lineWidth = 5;
+      x.beginPath();
+      x.moveTo(Q[0]![0], Q[0]![1]);
+      for (let j = 1; j < TN - 1; j++) x.quadraticCurveTo(Q[j]![0], Q[j]![1], (Q[j]![0] + Q[j + 1]![0]) / 2, (Q[j]![1] + Q[j + 1]![1]) / 2);
+      x.lineTo(Q[TN - 1]![0], Q[TN - 1]![1]);
+      x.stroke();
+      x.strokeStyle = '#f3d27a';
+      x.lineWidth = 2;
+      x.stroke();
+      const b = Q[TN - 1]!;
+      const a = Q[TN - 2]!;
+      let dx = b[0] - a[0];
+      let dy = b[1] - a[1];
+      const dl = Math.hypot(dx, dy) || 1;
+      dx /= dl;
+      dy /= dl;
+      const nx = -dy;
+      const ny = dx;
+      const SK = 34;
+      x.fillStyle = '#c8952f';
+      x.beginPath();
+      x.moveTo(b[0] + nx * 6, b[1] + ny * 6);
+      x.lineTo(b[0] + dx * SK + nx * 10, b[1] + dy * SK + ny * 10);
+      x.lineTo(b[0] + dx * SK - nx * 10, b[1] + dy * SK - ny * 10);
+      x.lineTo(b[0] - nx * 6, b[1] - ny * 6);
+      x.closePath();
+      x.fill();
+      x.strokeStyle = '#8a6414';
+      x.lineWidth = 1.5;
+      x.beginPath();
+      for (const o2 of [-5, 0, 5]) {
+        x.moveTo(b[0] + nx * o2 * 0.5, b[1] + ny * o2 * 0.5);
+        x.lineTo(b[0] + dx * SK + nx * o2, b[1] + dy * SK + ny * o2);
+      }
+      x.stroke();
+      x.fillStyle = '#e9c56a';
+      x.beginPath();
+      x.arc(Q[0]![0], Q[0]![1], 6, 0, 7);
+      x.fill();
+      x.fillStyle = '#f3d27a';
+      x.beginPath();
+      x.arc(b[0], b[1], 10, 0, 7);
+      x.fill();
+      x.fillStyle = '#fff1c0';
+      x.beginPath();
+      x.arc(b[0] - 3, b[1] - 3, 3.2, 0, 7);
+      x.fill();
+    }
+  }
+
   if (REV) {
-    val = document.createElement('canvas');
-    val.width = W;
-    val.height = 240;
-    const v = val.getContext('2d')!;
-    const vv = v.createLinearGradient(0, 0, 0, 200);
-    vv.addColorStop(0, '#3a0410');
-    vv.addColorStop(0.6, '#8a0c24');
-    vv.addColorStop(1, '#5a0618');
-    v.fillStyle = vv;
-    v.beginPath();
-    v.moveTo(0, 0);
-    v.lineTo(W, 0);
-    v.lineTo(W, 150);
-    for (let k = 8; k >= 0; k--) {
-      const cx = (k * W) / 8;
-      v.quadraticCurveTo(cx + W / 16, 230, cx, 150);
-    }
-    v.closePath();
-    v.fill();
-    v.strokeStyle = '#e9c56a';
-    v.lineWidth = 7;
-    v.beginPath();
-    v.moveTo(0, 150);
-    for (let k = 0; k < 8; k++) {
-      const cx = (k * W) / 8;
-      v.quadraticCurveTo(cx + W / 16, 226, cx + W / 8, 150);
-    }
-    v.stroke();
-    const vt = v.createLinearGradient(0, 40, 0, 64);
-    vt.addColorStop(0, '#7a5410');
-    vt.addColorStop(0.5, '#fff1c0');
-    vt.addColorStop(1, '#a8781f');
-    v.fillStyle = vt;
-    v.fillRect(0, 44, W, 16);
-    for (let k = 0; k < 8; k++) {
-      const cx = (k * W) / 8 + W / 16;
-      v.fillStyle = '#f3d27a';
-      v.beginPath();
-      v.arc(cx, 206, 9, 0, 7);
-      v.fill();
-      v.fillStyle = '#c8952f';
-      v.fillRect(cx - 3, 212, 6, 18);
-    }
+    VA = mkValance();
     CL = [mkCurtain(-1), mkCurtain(1)];
   }
   function simTo(t: number) {
     // fixed 1/120 s steps up to t; a jump back (or a skip forward) re-hangs and settles the cloth
     if (t < simT - 0.05) {
       CL = [mkCurtain(-1), mkCurtain(1)];
+      VA = mkValance();
+      EX = -1;
       simT = -1.2;
     }
     if (t - simT > 3) simT = t - 3;
     while (simT < t) {
       for (const cu of CL) clothStep(cu, simT);
+      valStep(simT);
       simT += SUB;
     }
   }
   // confetti physics: a light square of paper. Its drag depends on how flat it meets the air (area = |cos flip|), a
   // tilted piece glides sideways (lift ∝ sin 2·flip), the airflow keeps it tumbling, and the cannon's cloud stays
   // dense (little drag) for its first instant, then spreads and slows.
-  type Bit = { rain?: boolean; x: number; y: number; vx: number; vy: number; age: number; f: number; w: number; spin: number; r: number; vr: number; sw: number; sh: number; gold: boolean; d: number };
+  type Bit = RevealPiece;
   function cfStep(c: Bit, dt: number, g: number, k: number, lift: number) {
     const age = (c.age += dt);
     const A = 0.12 + 0.88 * Math.abs(Math.cos(c.f));
@@ -727,9 +1238,14 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
   gd2.addColorStop(0.6, '#b8861e');
   gd2.addColorStop(1, '#f7dc8e');
   function frame(t: number) {
-    if (!REV || !val) return base(t);
+    if (!REV || !VA) return base(t);
     if (t < B0) {
-      x.fillStyle = '#050304';
+      // the same dark the stage opens on, so nothing steps when the stage lights
+      const bg = x.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#17120c');
+      bg.addColorStop(0.55, '#0b0907');
+      bg.addColorStop(1, '#000');
+      x.fillStyle = bg;
       x.fillRect(0, 0, W, H);
     } else base(t - B0);
     simTo(t);
@@ -784,7 +1300,70 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       }
     }
     if (t > OPEN0 + 1.3) vconf(t - (OPEN0 + 1.3));
-    x.drawImage(val, 0, 0);
+    drawValance(spot);
+    // the house is dark first, then the light comes up; the shared video dips back to that same dark so it loops with no cut
+    if (t < FADE_IN_S) {
+      x.fillStyle = `rgba(3,2,3,${houseDark(t)})`;
+      x.fillRect(0, 0, W, H);
+    }
+    if (rig.loop && t > DUR - LOOP_DIP_S) {
+      x.fillStyle = `rgba(3,2,3,${loopDark(t, DUR)})`;
+      x.fillRect(0, 0, W, H);
+    }
+  }
+  if (REV) {
+    rig.vb = vb;
+    rig.medal = bc;
+    rig.exitDur = EXIT_S;
+    rig.pose = (t) => medalPose(t - B0);
+    rig.confetti = () => VC || [];
+    // the exit (in the app only): the stage is kept as one still, the medal is gone from it (it flies as its own
+    // layer), and from here the curtains run off the rail ends and the valance is hoisted, drawn on whatever canvas is
+    // handed in
+    rig.exitStart = (o2) => {
+      EX = DUR;
+      LIFT = 340 + Math.max(0, (o2 && o2.top) || 0);
+      rig.hide = true;
+      SNAP = document.createElement('canvas');
+      SNAP.width = W;
+      SNAP.height = H;
+      const k0 = x;
+      x = SNAP.getContext('2d') as Ctx;
+      base(DUR - B0);
+      x = k0;
+    };
+    rig.exit = (g, te, a, simOnly) => {
+      simTo(DUR + te);
+      if (simOnly) return;
+      const k0 = x;
+      x = g as Ctx;
+      if (a > 0 && SNAP) {
+        g.globalAlpha = a;
+        g.drawImage(SNAP, 0, 0);
+        g.globalAlpha = 1;
+      }
+      for (const cu of CL) drawCurtain(cu, 1);
+      drawValance(1);
+      x = k0;
+    };
+    // in the app the cord starts hauling the curtains a beat before the medal leaves: a hanging cloth's hem only
+    // follows its top after the pull has travelled down it (about 1.6 s here), so the tops go first and the hems whip
+    // out as the plaque lands
+    rig.app = () => {
+      EXC = DUR - EXLEAD;
+    };
+    // how far the valance's top edge has been hoisted above the frame (the layer is clipped there, so nothing pops
+    // into the letter-box)
+    rig.top = () => Math.min(0, VA!.p[VS * 3 + 1]! - VTOP - 24);
+    rig.gone = () => {
+      if (!VA || VA.p[VS * 3 + 1]! > -LIFT + 8) return false;
+      for (const cu of CL) {
+        const p = cu.p;
+        const s2 = cu.side;
+        for (let i = 0; i < p.length; i += 3) if ((p[i]! - W / 2) * s2 < W / 2 + 60) return false;
+      }
+      return true;
+    };
   }
   return rig;
 }

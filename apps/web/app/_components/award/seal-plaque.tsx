@@ -4,7 +4,8 @@
  * prototype `Setnayan/prototypes/supplier_badges_2026-11-15/badge-milestones_v35.html`, its plaque replaced by
  * the final GRAND PLAQUE of `badge-milestones_v39.html` → v44 (red velvet niche v41, sparkle + shine v42, iPhone-safe
  * gradient-only lights + black-and-gold confetti on landing v43, niche stays visible while the seal flies in v44,
- * gold vs diamond plaques v45, the No. 1 reveal + No. 1-only endless confetti v46):
+ * gold vs diamond plaques v45, the No. 1 reveal + No. 1-only endless confetti v46, and v49 — the owner-approved Fable
+ * prototype — where No. 1's curtains, valance and confetti carry on unbroken into the plaque):
  *
  *   1 · the entrance (owner 15 Nov: *"for the seal. it shows the video you created then the medal goes to the
  *       placque"*) — the story scene of `story-rig.ts` plays full screen; a tap skips it;
@@ -24,7 +25,8 @@
 import { useCallback, useId, useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
 import { SetnayanMark } from '../setnayan-mark-icon';
 import s from './award.module.css';
-import { plaqueLayout } from './fit';
+import { exitStageAlpha, flightTarget, plaqueLayout } from './fit';
+import type { ConfettiSeed } from './confetti';
 import { SEAL_TONE, prefersReducedMotion, serializeArt } from './shared';
 
 export type SealPlaqueProps = {
@@ -116,6 +118,7 @@ export function SealPlaque({
   const plaque = useRef<HTMLDialogElement>(null);
   const sin = useRef<HTMLDialogElement>(null);
   const canvasHost = useRef<HTMLDivElement>(null);
+  const tip = useRef<HTMLElement>(null);
   const cf = useRef<HTMLCanvasElement>(null);
   const fit = useRef<HTMLDivElement>(null);
   const share = useRef<HTMLButtonElement>(null);
@@ -160,15 +163,18 @@ export function SealPlaque({
     const urls: string[] = [];
     let stopConfetti: (() => void) | null = null;
     // v46: black and gold confetti is No. 1's ONLY, and it never stops until the plaque closes (own small lazy chunk)
-    const confetti = () => {
+    // v49: handed the reveal's live pieces (`seed`), the plaque's canvas adopts them mid-air instead of restarting
+    const confetti = (seed?: ConfettiSeed) => {
       const c = cf.current;
       if (!c || dead || variant !== 'no1') return;
       import(/* webpackChunkName: "award-story" */ './confetti')
         .then(({ awConfetti }) => {
-          if (!dead && d.open) stopConfetti = awConfetti(c, () => !dead && d.open);
+          if (!dead && d.open) stopConfetti = awConfetti(c, () => !dead && d.open, seed);
         })
         .catch(() => {});
     };
+    let ov: HTMLCanvasElement | null = null;
+    let card: HTMLElement | null = null;
 
     // mounted: the seal is held still on the board; only light moves over it
     const sv = art.current?.querySelector('svg');
@@ -216,7 +222,7 @@ export function SealPlaque({
       }
       (async () => {
         try {
-          const { storyRig, asImageSvg, INTRO_END, REVEAL_S, STORY_MY, STORY_W } = await import(/* webpackChunkName: "award-story" */ './story-rig');
+          const { storyRig, asImageSvg, INTRO_END, REVEAL_S, STORY_MY, STORY_W, STORY_H } = await import(/* webpackChunkName: "award-story" */ './story-rig');
           if (dead) return;
           const rig = await storyRig({
             // v46: No. 1 opens on the velvet-curtain reveal (15 s); every other seal on the 4.6 s entrance
@@ -230,6 +236,7 @@ export function SealPlaque({
           });
           if (dead) return;
           const END = rig.dur === REVEAL_S ? REVEAL_S : INTRO_END;
+          rig.app?.();
           canvasHost.current?.replaceChildren(rig.canvas);
           let t0 = performance.now();
           await new Promise<void>((res) => {
@@ -241,6 +248,7 @@ export function SealPlaque({
                 t = END;
               }
               rig.frame(Math.min(t, END));
+              if (t > END - 0.7 && tip.current) tip.current.style.opacity = '0';
               if (t >= END) res();
               else raf = requestAnimationFrame(tk);
             };
@@ -248,12 +256,119 @@ export function SealPlaque({
           });
           if (dead) return;
           // the medal leaves the stage and lands in its slot on the plaque
+          // (v49, every seal: the canvas is letter-boxed on a tall phone — measure the picture inside the box, not the box)
           const r = rig.canvas.getBoundingClientRect();
-          const k = r.width / STORY_W;
-          const cx = r.left + (STORY_W / 2) * k;
-          const cy = r.top + STORY_MY * k;
+          const k = Math.min(r.width / STORY_W, r.height / STORY_H);
+          const ox = r.left + (r.width - STORY_W * k) / 2;
+          const oy = r.top + (r.height - STORY_H * k) / 2;
+          const cx = ox + (STORY_W / 2) * k;
+          const cy = oy + STORY_MY * k;
           const w = rig.dw * k;
           const h = rig.dh * k;
+          if (rig.exit && rig.exitStart && rig.pose && rig.medal && rig.confetti && rig.gone && rig.top && rig.vb) {
+            // v49 — No. 1: ONE continuous move, no cut. The same curtains and valance carry on, on a full-screen layer
+            // over the plaque: the bunched curtains are hauled off the rail ends, the valance is hoisted out with its
+            // tassels swinging, the stage dims away, the plaque rises in underneath and the medal (the very pixels
+            // that were on the stage) flies into its slot. The confetti is not restarted: the plaque's canvas takes
+            // the pieces that are already in the air.
+            const exit = rig.exit;
+            const gone = rig.gone;
+            const vtop = rig.top;
+            const dpr = Math.min(1.5, window.devicePixelRatio || 1);
+            const layer = document.createElement('canvas');
+            ov = layer;
+            layer.className = s.sinOv!;
+            const OW = (layer.width = Math.round(window.innerWidth * dpr));
+            const OH = (layer.height = Math.round(window.innerHeight * dpr));
+            const g = layer.getContext('2d');
+            const po = rig.pose(END);
+            const fw = 900 * k;
+            const fh = 858 * k;
+            const fly = document.createElement('canvas');
+            fly.className = s.sinFly!;
+            fly.width = 900;
+            fly.height = 858;
+            fly.getContext('2d')?.drawImage(rig.medal, 0, 0);
+            const T0 = `translate(0px,${po.fy * k}px) scale(1) rotate(${po.rot}rad)`;
+            fly.style.cssText = `left:${cx - fw / 2}px;top:${cy - fh / 2}px;width:${fw}px;height:${fh}px;transform:${T0}`;
+            rig.exitStart({ top: oy / k });
+            const draw = (te: number) => {
+              if (!g) return;
+              const a = exitStageAlpha(te);
+              g.setTransform(1, 0, 0, 1, 0, 0);
+              g.clearRect(0, 0, OW, OH);
+              if (a > 0) {
+                // the letter-box bars go with the stage
+                g.globalAlpha = a;
+                g.fillStyle = '#000';
+                const L = ox * dpr + 1;
+                const T = oy * dpr + 1;
+                const R = (ox + STORY_W * k) * dpr - 1;
+                const B = (oy + STORY_H * k) * dpr - 1;
+                if (T > 1) g.fillRect(0, 0, OW, T);
+                if (B < OH - 1) g.fillRect(0, B, OW, OH - B);
+                if (L > 1) g.fillRect(0, 0, L, OH);
+                if (R < OW - 1) g.fillRect(R, 0, OW - R, OH);
+                g.globalAlpha = 1;
+              }
+              g.setTransform(k * dpr, 0, 0, k * dpr, ox * dpr, oy * dpr);
+              g.save();
+              g.beginPath();
+              exit(g, te, a, true);
+              g.rect(0, vtop(), STORY_W, 12000);
+              g.clip();
+              exit(g, te, a);
+              g.restore();
+            };
+            draw(0);
+            d.classList.add(s.arriving!);
+            d.insertBefore(layer, d.firstChild);
+            openPlaque();
+            d.appendChild(fly);
+            confetti({ P: rig.confetti(), k, ox, oy });
+            if (si.open) si.close();
+            // where the mounted seal will rest once the plaque has finished rising (not where it is mid-rise)
+            card = d.querySelector<HTMLElement>(`.${s.awCard}`);
+            const tgt: Element = art.current?.querySelector('svg') ?? mount.current ?? d;
+            if (card) card.style.animation = 'none';
+            const tb = tgt.getBoundingClientRect();
+            if (card) {
+              card.style.animation = '';
+              card.classList.add(s.awRise!);
+            }
+            const mv = tgt.tagName.toLowerCase() === 'svg' ? (tgt.getAttribute('viewBox') || '').split(/[ ,]+/).map(Number) : [];
+            const land = flightTarget(tb, mv, rig.vb, rig.dw, k, w);
+            const dx = land.x - cx;
+            const dy = land.y - cy;
+            const sc = land.scale;
+            const an = fly.animate(
+              [
+                { transform: T0 },
+                { transform: `translate(${dx * 0.55}px,${dy * 0.45 - 60}px) scale(${((1 + sc) / 2) * 1.08}) rotate(-6deg)`, offset: 0.6 },
+                { transform: `translate(${dx}px,${dy}px) scale(${sc}) rotate(0deg)` },
+              ],
+              { duration: 1050, easing: 'cubic-bezier(.45,.05,.3,1)', fill: 'forwards' },
+            );
+            const tx0 = performance.now();
+            const exitDur = rig.exitDur ?? 4;
+            const tick = () => {
+              const te = (performance.now() - tx0) / 1000;
+              if (dead || !d.open || te >= exitDur || gone()) {
+                layer.remove();
+                return;
+              }
+              draw(te);
+              raf = requestAnimationFrame(tick);
+            };
+            raf = requestAnimationFrame(tick);
+            await an.finished.catch(() => {});
+            if (dead) return;
+            d.classList.remove(s.arriving!);
+            d.classList.add(s.landed!);
+            window.setTimeout(() => d.classList.remove(s.landed!), 700);
+            fly.remove();
+            return;
+          }
           rig.hide = true;
           rig.frame(END);
           d.classList.add(s.arriving!);
@@ -313,6 +428,8 @@ export function SealPlaque({
       if (d.open) d.close();
       d.classList.remove(s.arriving!, s.landed!);
       si.classList.remove(s.sinOut!);
+      ov?.remove();
+      card?.classList.remove(s.awRise!);
       urls.forEach((u) => URL.revokeObjectURL(u));
     };
     // played once per mount
@@ -325,7 +442,7 @@ export function SealPlaque({
     <>
       <dialog ref={sin} className={s.sin} aria-label="Seal awarded" data-award-seal-intro="" onClick={() => (skip.current = true)}>
         <div ref={canvasHost} style={{ display: 'contents' }} />
-        <small>Tap to continue</small>
+        <small ref={tip}>Tap to continue</small>
       </dialog>
       <dialog
         ref={plaque}

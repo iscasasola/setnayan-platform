@@ -1,6 +1,6 @@
 ## 2026-11-15 · feat(award): the shared award UI kit — full-screen badge, reward ticket, story video, seal plaque (slice K of 4)
 
-Controller build map `BADGES-BUILD-MAP-2026-11-15.md`, "Shared UI kit" row. A faithful port of the owner-approved prototype `prototypes/supplier_badges_2026-11-15/badge-milestones_v35.html`, its plaque and No. 1 reveal carried to `badge-milestones_v48.html` (grand plaque v39, red velvet v41, sparkle v42, iPhone-safe lights v43/v44, gold vs No. 1 plaques v45, the No. 1 reveal v46–v48).
+Controller build map `BADGES-BUILD-MAP-2026-11-15.md`, "Shared UI kit" row. A faithful port of the owner-approved prototype `prototypes/supplier_badges_2026-11-15/badge-milestones_v35.html`, its plaque and No. 1 reveal carried to `badge-milestones_v49.html`, the owner-approved Fable prototype (grand plaque v39, red velvet v41, sparkle v42, iPhone-safe lights v43/v44, gold vs No. 1 plaques v45, the No. 1 reveal v46–v48, and v49: the valance as cloth on a rail of coupled springs, tassels, a swinging fringe, house lights fading up, and in the app an unbroken exit from the curtains into the plaque).
 
 New in `apps/web/app/_components/award/`, client-only (no fetch, no server write, zero server cost), each opened only on a tap:
 
@@ -13,8 +13,9 @@ New in `apps/web/app/_components/award/`, client-only (no fetch, no server write
   - The plaque scales with a transform, never `zoom`. Its share button stays full size, 44 px tall, under it (owner, "Stay full size"); `plaqueLayout` reserves the button's room first.
   - Cinzel is loaded through the root layout's `next/font`.
 - **`AWARD_COPY(year)` / `sealPlaqueCopy(kind, year)`** (`award-copy.ts`): the approved words for every seal (No. 1, Top 10 medal, Clients' Choice, Most In-Demand, Setnayan Verified, Verified Partner), ported verbatim from the prototype's `AWARD_TXT`: eyebrow, title, body, and the "How it is earned" lines with their met flags. The year is a parameter. The prototype's sample record numbers are left out; callers pass the shop's real record.
+- **v49 No. 1 exit:** after the 15 s reveal, the same curtains are hauled off the rail ends and the valance is hoisted away, on a layer over the plaque as it rises. The staged medal flies into its slot, measured at the plaque's rest position. The plaque's confetti adopts the reveal's live pieces and does not restart. Tap to skip jumps to 15 s and plays the same exit. The shared video dips to dark over its last 0.5 s so it loops. For every seal, the fly-off start is now measured inside the letter-box.
 - **`no1Seal`**: the No. 1 seal art. It is an option only and is not wired into any public or dashboard surface.
 
-Render and source tests in `award-kit.test.ts` (13). Screenshots at 375×640, 390×844, 768×1024 and 1440×900 are in `build-sessions/shots-award-ui-kit/`. No route was added and the bundle budget was not raised.
+Render and source tests in `award-kit.test.ts` (14). Screenshots at 375×640, 390×844, 768×1024 and 1440×900 are in `build-sessions/shots-award-ui-kit/`. No route was added and the bundle budget was not raised.
 
 SPEC IMPACT: None. This ports the approved prototype; nothing is wired into a live page yet (slices A, B and D mount it).

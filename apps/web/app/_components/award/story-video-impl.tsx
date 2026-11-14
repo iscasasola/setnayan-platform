@@ -47,6 +47,8 @@ export function StoryVideoImpl({ input, label, fileName = 'setnayan-badge', reve
     (async () => {
       const rig = await storyRig(reveal ? { ...input, reveal: true } : input);
       if (gone()) return;
+      // v49: the shared No. 1 video dips to dark over its last 0.5 s, so it loops with no cut
+      rig.loop = !!(reveal || input.reveal);
       // v46: storyMake records rig.dur (15 for the No. 1 reveal, else 10)
       const DUR = durationS && durationS > 0 ? durationS : rig.dur;
       const c = rig.canvas;

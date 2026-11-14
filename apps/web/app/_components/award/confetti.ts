@@ -2,10 +2,12 @@
  * 🎊 BLACK AND GOLD CONFETTI — No. 1 ONLY. A port of `awConfetti` from the owner-approved prototype
  * `badge-milestones_v48.html` (owner 15 Nov). Two cannons at the lower left and lower right blow it up; it falls with
  * air drag, swaying and flipping, and it NEVER stops: a piece that leaves the bottom comes back in from the top. No
- * fade. v48: a 120-piece rain set falls alongside the burst so no gap ever opens. Kept light for phones: 110 + 120
+ * fade. v49: handed the No. 1 reveal's live pieces, it adopts them mid-air (no restart). v48: a 120-piece rain set falls alongside the burst so no gap ever opens. Kept light for phones: 110 + 120
  * pieces, one colour table, setTransform (no save/restore), dpr ≤ 1.5.
  * Frame-rate independent (dt). Runs until `alive()` turns false (the plaque closes). Loaded only by a dynamic import.
  */
+import type { RevealPiece } from './story-rig';
+
 export const CONFETTI_PIECES = 110;
 /** v48: the steady rain set alongside the burst, so the density stays even (no empty band). */
 export const CONFETTI_RAIN = 120;
@@ -30,8 +32,67 @@ const BLACK = Array.from({ length: 16 }, (_, k) => {
   return `rgb(${l},${l},${l + 6})`;
 });
 
-/** Rains confetti on `c` while `alive()` holds; returns a stop function. */
-export function awConfetti(c: HTMLCanvasElement, alive: () => boolean): () => void {
+/** The reveal's pieces handed to the plaque: `P` in canvas px at 1080 wide, drawn at scale `k` from screen point (ox, oy). */
+export type ConfettiSeed = { P: readonly RevealPiece[]; k: number; ox: number; oy: number };
+
+export type Piece = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  delay: number;
+  w: number;
+  h: number;
+  rot: number;
+  vr: number;
+  flip: number;
+  vf: number;
+  gold: boolean;
+  strip: boolean;
+  sway: number;
+  sw: number;
+  amp: number;
+  rain: boolean;
+  /** v49: adopted from the reveal — its sway comes in over 0.8 s, so nothing jumps on the hand-over. */
+  sd?: boolean;
+};
+
+/**
+ * v49: when the reveal hands over, these ARE its pieces — same place, same speed, same turn, same size, mid-air.
+ * Nothing restarts. Seconds become frames (÷60), the 1080-wide canvas becomes the screen (× k × dpr). One piece in, one out.
+ */
+export function adoptRevealPieces(seed: ConfettiSeed, dpr: number, rnd: (a: number, b: number) => number = (a, b) => a + Math.random() * (b - a)): Piece[] {
+  const sc = seed.k * dpr;
+  return seed.P.map((q) => {
+    const vf = (q.w + q.spin) / 60;
+    return {
+      rain: !!q.rain || q.vy > 0,
+      x: (seed.ox + q.x * seed.k) * dpr,
+      y: (seed.oy + q.y * seed.k) * dpr,
+      vx: (q.vx * sc) / 60,
+      vy: (q.vy * sc) / 60,
+      delay: 0,
+      w: q.sw * sc,
+      h: q.sh * sc,
+      rot: q.r,
+      vr: q.vr / 60,
+      flip: q.f,
+      vf: (vf < 0 ? -1 : 1) * Math.max(0.1, Math.abs(vf)),
+      gold: q.gold,
+      strip: false,
+      sway: rnd(0, 6.28),
+      sw: rnd(0.04, 0.08),
+      amp: rnd(1, 2.4) * dpr,
+      sd: true,
+    };
+  });
+}
+
+/**
+ * Rains confetti on `c` while `alive()` holds; returns a stop function. With a `seed` (the No. 1 reveal handing over)
+ * it adopts the reveal's live pieces instead of firing the cannons; unseeded (Reduce Motion) it is unchanged.
+ */
+export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: ConfettiSeed): () => void {
   const dpr = Math.min(1.5, window.devicePixelRatio || 1);
   const W = (c.width = Math.round(window.innerWidth * dpr));
   const H = (c.height = Math.round(window.innerHeight * dpr));
@@ -40,7 +101,7 @@ export function awConfetti(c: HTMLCanvasElement, alive: () => boolean): () => vo
   const rnd = (a: number, b: number) => a + Math.random() * (b - a);
   const g = 0.0009 * H;
   const N = CONFETTI_PIECES;
-  const P = Array.from({ length: N }, (_, i) => {
+  const P: Piece[] = seed ? adoptRevealPieces(seed, dpr, rnd) : Array.from({ length: N }, (_, i) => {
     const L = i % 2 === 0;
     return {
       x: L ? rnd(-0.02, 0.05) * W : W - rnd(-0.02, 0.05) * W,
@@ -105,7 +166,7 @@ export function awConfetti(c: HTMLCanvasElement, alive: () => boolean): () => vo
       p.vy *= Math.pow(fall ? 0.9 : 0.982, dt);
       p.vx *= Math.pow(fall ? 0.95 : 0.982, dt);
       p.sway += p.sw * dt;
-      p.x += (p.vx + (fall ? Math.sin(p.sway) * p.amp : 0)) * dt;
+      p.x += (p.vx + (fall ? Math.sin(p.sway) * p.amp * (p.sd ? Math.min(1, t / 800) : 1) : 0)) * dt;
       p.y += p.vy * dt;
       p.rot += p.vr * dt;
       p.flip += p.vf * dt;

@@ -166,6 +166,56 @@ test('12 · the approved seal words: No. 1 has its own body, titles match the pr
   }
 });
 
+test('13 · v49 the reveal carries on: rail springs, exit timing, the flight target, confetti adoption', async () => {
+  const rig = await import('./story-rig');
+  // the rail: a knock at one point travels to its neighbours as a wave and dies away (damped), never grows
+  const n = 61;
+  const ry = new Float32Array(n);
+  const rv = new Float32Array(n);
+  rv[30] = 620;
+  const energy = () => ry.reduce((e, y, i) => e + rig.RAIL_K * y * y + rv[i]! * rv[i]!, 0);
+  for (let i = 0; i < 12; i++) rig.railSpringStep(ry, rv, 1 / 120);
+  assert.ok(Math.abs(ry[35]!) > 0, 'the knock reached five points along');
+  const e1 = energy();
+  for (let i = 0; i < 1200; i++) rig.railSpringStep(ry, rv, 1 / 120);
+  assert.ok(energy() < e1 * 0.01, 'damped: after 10 s the rail is still');
+  assert.ok(ry.every((y) => Number.isFinite(y)), 'stable at the fixed 1/120 s step');
+  // the exit cord: nothing before it starts, the full haul 1.25 s later, smooth in between
+  assert.equal(rig.EXIT_LEAD_S, 0.35);
+  const exc = rig.REVEAL_S - rig.EXIT_LEAD_S;
+  assert.equal(rig.exitHaul(14, exc), 0);
+  assert.equal(rig.exitHaul(exc + 1.25, exc), rig.EXIT_XOUT);
+  assert.equal(rig.exitHaul(16, -1), 0, 'the video never hauls (no app)');
+  const mid = rig.exitHaul(exc + 0.625, exc);
+  assert.ok(Math.abs(mid - rig.EXIT_XOUT / 2) < 1e-9);
+  // the house lights come up over 1.1 s; the video dips to dark over its last 0.5 s
+  assert.equal(rig.houseDark(0), 0.94);
+  assert.equal(rig.houseDark(rig.FADE_IN_S), 0);
+  assert.equal(rig.loopDark(14.4, 15), 0);
+  assert.ok(Math.abs(rig.loopDark(14.95, 15) - 0.94) < 1e-9);
+  const { exitStageAlpha, flightTarget } = await import('./fit');
+  assert.equal(exitStageAlpha(0), 1);
+  assert.equal(exitStageAlpha(0.8), 0);
+  // the flight lands on the centre of the award's viewBox inside the mounted svg (meet), at the mounted scale
+  const L = flightTarget({ left: 100, top: 50, width: 266, height: 296 }, [17, 0, 266, 296], [17, 0, 266, 296], 532, 0.5, 266);
+  assert.deepEqual(L, { x: 233, y: 198, scale: 1 });
+  const L2 = flightTarget({ left: 0, top: 0, width: 200, height: 100 }, [], [0, 0, 1, 1], 100, 1, 100);
+  assert.deepEqual(L2, { x: 100, y: 50, scale: 2 });
+  // confetti: the plaque adopts every live piece of the reveal — one in, one out, mid-air, never restarted
+  const { adoptRevealPieces } = await import('./confetti');
+  const P = Array.from({ length: 250 }, (_, i) => ({ x: i, y: 100, vx: 60, vy: i % 2 ? 120 : -120, age: 1, f: 0.5, w: 0, spin: 3, r: 1, vr: 6, sw: 20, sh: 30, gold: i % 3 === 0, d: 0, rain: i > 200 }));
+  const got = adoptRevealPieces({ P, k: 0.5, ox: 10, oy: 20 }, 1.5, () => 0);
+  assert.equal(got.length, P.length);
+  assert.deepEqual([got[4]!.x, got[4]!.y, got[4]!.vx, got[4]!.w], [(10 + 4 * 0.5) * 1.5, (20 + 100 * 0.5) * 1.5, (60 * 0.75) / 60, 20 * 0.75]);
+  assert.ok(got.every((p) => p.delay === 0 && p.sd), 'already in the air');
+  assert.equal(got[1]!.rain, true, 'a falling piece rains');
+  assert.equal(got[2]!.rain, false, 'a rising piece is still the burst');
+  // the plaque hands the reveal's pieces over (not a fresh burst) and keeps the old path for every other seal
+  const plaque = stripComments(readFileSync(join(DIR, 'seal-plaque.tsx'), 'utf8'));
+  assert.match(plaque, /confetti\(\{ P: rig\.confetti\(\), k, ox, oy \}\)/);
+  assert.match(plaque, /Math\.min\(r\.width \/ STORY_W, r\.height \/ STORY_H\)/, 'letter-box fix for every seal');
+});
+
 test('5 · the full-screen badge names the shop, the GIVEN tier, and signs with the hallmark', async () => {
   const { BadgeFullscreen } = await import('./badge-fullscreen');
   const art = h('svg', { viewBox: '0 0 100 100' }, h('circle', { cx: 50, cy: 50, r: 40 }));

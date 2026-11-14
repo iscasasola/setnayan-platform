@@ -1118,7 +1118,8 @@
   top: 0;
   transform: translateX(-50%);
   visibility: hidden;
-  z-index: 6;
+  /* under the No. 1 exit layer (4) and the confetti (5), as it is inside the plaque in the prototype */
+  z-index: 3;
   display: flex;
   width: fit-content;
   white-space: nowrap;
@@ -1686,4 +1687,43 @@
 }
 .awDlg:not([data-k='no1']) .awPlate .awSc::after {
   display: block;
+}
+
+/* ───────────────────────── v49 (the owner-approved Fable prototype, "ok"): No. 1 carries on into the plaque ───────────────────────── */
+.sin small {
+  transition: opacity 0.5s;
+}
+/* the curtains and valance leave on this layer, over the plaque and under the confetti; it is removed once they are gone */
+.sinOv {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  pointer-events: none;
+}
+/* the plaque rises in under the leaving curtains (set after the seal's resting place has been measured) */
+.awDlg .awCard.awRise {
+  animation: awIn 0.7s 0.1s cubic-bezier(0.2, 1.15, 0.4, 1) both;
+}
+/* the medal binds: the niche takes the weight and settles, starting from rest (no size jump on the landing frame) */
+.awDlg[data-k='no1'].landed .awSeal {
+  animation: slBind 0.55s cubic-bezier(0.3, 0, 0.3, 1);
+}
+@keyframes slBind {
+  0% {
+    transform: scale(1);
+  }
+  32% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .awDlg .awCard.awRise,
+  .awDlg[data-k='no1'].landed .awSeal {
+    animation: none;
+  }
 }

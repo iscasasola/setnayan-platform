@@ -76,3 +76,40 @@ export function plaqueScale(boxW: number, boxH: number, contentW: number, conten
   // floored, never rounded up: a rounding up of 0.00005 can push the bottom edge a pixel past the screen
   return Math.max(0.1, Math.floor(k * 1e4) / 1e4);
 }
+
+const smooth = (u: number) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
+
+/** v49 — the No. 1 exit: the stage (and its letter-box) dims away from 0.05 s to 0.8 s after the medal leaves. */
+export function exitStageAlpha(te: number): number {
+  return 1 - smooth((te - 0.05) / 0.75);
+}
+
+/**
+ * v49 — where the flying medal lands and how big it ends: the CENTRE of the award's own viewBox as drawn inside the
+ * mounted svg at rest (`tb` = that svg's box, `mv` = its viewBox; it is letter-boxed by `meet`), and the scale that turns
+ * the staged medal (`dw` canvas px across its viewBox `vb`, drawn at `k`) into the mounted one. Without a viewBox: the
+ * box centre and width.
+ */
+export function flightTarget(
+  tb: { left: number; top: number; width: number; height: number },
+  mv: readonly number[],
+  vb: readonly number[],
+  dw: number,
+  k: number,
+  w: number,
+): { x: number; y: number; scale: number } {
+  let x = tb.left + tb.width / 2;
+  let y = tb.top + tb.height / 2;
+  let scale = tb.width / (w || 1);
+  const [m0, m1, m2, m3] = mv;
+  const [v0, v1, v2, v3] = vb;
+  if (mv.length === 4 && m2! > 0 && m3! > 0 && vb.length === 4 && v2! > 0) {
+    const s2 = Math.min(tb.width / m2!, tb.height / m3!);
+    const lx = tb.left + (tb.width - m2! * s2) / 2;
+    const ly = tb.top + (tb.height - m3! * s2) / 2;
+    x = lx + (v0! + v2! / 2 - m0!) * s2;
+    y = ly + (v1! + v3! / 2 - m1!) * s2;
+    scale = s2 / ((dw / v2!) * k);
+  }
+  return { x, y, scale };
+}

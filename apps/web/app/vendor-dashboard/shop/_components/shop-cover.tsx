@@ -8,6 +8,7 @@ import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { actionButtonClass } from '@/components/action-button';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
+import { formatCount } from '@/lib/format-number';
 import { CopyButton } from '@/app/_components/copy-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { useToast } from '@/app/_components/toast/toast-provider';
@@ -26,7 +27,7 @@ const REVIEWS_HREF = `${YOUR_PAGE_HREF}#reviews`;
  * 🏪 SHOP'S COVER + PINNED ROW (THE ONE BUILD A3 W1–W6, lane C4; v113 `V.shop`).
  *
  *   cover band — the cover photo (Your page's pick, else the first portfolio photo — the page's own rule) · the logo
- *   (tap → its viewer) · where · the name · "✓ Verified" (or the shipped "Get verified · N of 2") · ★ · events · the plan
+ *   (tap → its viewer) · where · the name · "✓ Verified" (or "Get verified · N of 3 papers" — 2026-11-14, the papers are the only step) · ★ · events · the plan
  *   pill · View shop ↗ · Share · Promote · QR · ⚙.
  *   pinned row — "Shop · ★ 4.8 · 120 events · View shop ↗ · ⚙", fading in over the last 48 px as the cover leaves.
  *
@@ -58,7 +59,8 @@ export type CoverData = {
   logoUnavailable: boolean;
   coverUrl: string | null;
   city: string | null;
-  verified: { isVerified: boolean; inReview: boolean; stepsDone: number };
+  /** `papersIn` of `papersOf` required papers (2026-11-14: verification is the papers and one Submit — no other steps). */
+  verified: { isVerified: boolean; inReview: boolean; papersIn: number; papersOf: number };
   /** "★ 4.8 · 120 events" pieces — null = the read was refused: the events piece says `EVENTS_UNREAD`, never "—" or 0. */
   rating: string | null;
   /** "38 reviews" — the trusted-review count beside the ★ (null = unread or none); with `rating` it is the link into
@@ -247,7 +249,7 @@ export function ShopCover({
               ) : (
                 <a href="#docs" className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
                   <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  Get verified · {d.verified.stepsDone} of 2
+                  Get verified · {formatCount(d.verified.papersIn)} of {formatCount(d.verified.papersOf)} papers
                 </a>
               )}
               {/* ⭐ "★ 4.8 · 38 reviews" opens Your page › Reviews and stories — the full reviews list, unchanged (§10 #31). */}

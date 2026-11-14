@@ -202,3 +202,49 @@ test('one bell notice per person per event, and a guest import never fails becau
   );
   assert.equal(self.rows[0]!.c, '0');
 });
+
+// ── W1/W3 RW-197 (2026-11-14): every guest who belonged to an account was linked by PERSON, with no email ───────
+test('a guest linked to an account by its claimed person (People → Your people, no email) gets the request AND one bell notice', async () => {
+  const { eventId } = await newEvent('person');
+  const bea = await newUser('bea-person@inreq.test');
+  // Every account holds its own person (claimed at sign-up); People adds THAT person to a guest list, by name.
+  const p = await db.query<{ person_id: string }>(`SELECT person_id FROM public.people WHERE claimed_by_user_id = $1`, [bea]);
+  assert.equal(p.rows.length, 1, 'anchor: the account has its own person');
+  // The real road (People → "Your people"): the guest goes on BY NAME, then the server links the row to the
+  // connected person (`linkConnectedGuests`) — `set_guest_person` runs on INSERT / email only, so the link sticks.
+  const g = await db.query<{ guest_id: string }>(
+    `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category)
+     VALUES ($1, 'Bea', 'Cruz', 'both', 'friends') RETURNING guest_id`,
+    [eventId],
+  );
+  assert.equal((await myRequests(bea)).length, 0, 'by name alone the account cannot be known');
+  await db.query(`UPDATE public.guests SET person_id = $2 WHERE guest_id = $1`, [g.rows[0]!.guest_id, p.rows[0]!.person_id]);
+  const rows = await myRequests(bea);
+  assert.deepEqual(rows.map((r) => r.guest_id), [g.rows[0]!.guest_id], 'the request shows on the Events page');
+  const bell = await db.query<{ title: string; event_id: string }>(
+    `SELECT title, event_id FROM public.notifications WHERE user_id = $1 AND type = 'event_invitation'`, [bea]);
+  assert.equal(bell.rows.length, 1, 'and one bell notice');
+  assert.equal(bell.rows[0]!.event_id, eventId);
+  // Re-saving the guest does not tell them twice.
+  await db.query(`UPDATE public.guests SET person_id = person_id WHERE guest_id = $1`, [g.rows[0]!.guest_id]);
+  assert.equal((await db.query(`SELECT 1 FROM public.notifications WHERE user_id = $1 AND type = 'event_invitation'`, [bea])).rows.length, 1);
+  // YES works through the same read.
+  const yes = await asUser(bea, () => db.query(`SELECT * FROM public.answer_incoming_request($1, true)`, [g.rows[0]!.guest_id]));
+  assert.equal(yes.rows.length, 1);
+  assert.equal((await myRequests(bea)).length, 0, 'answered → gone');
+});
+
+test('🔒 the person road asks the same proof — an account with an UNCONFIRMED email gets no request and no notice', async () => {
+  const { eventId } = await newEvent('person-unconfirmed');
+  const imp = await newUser('imp-person@inreq.test', { confirmed: false });
+  const p = await db.query<{ person_id: string }>(`SELECT person_id FROM public.people WHERE claimed_by_user_id = $1`, [imp]);
+  const g = await db.query<{ guest_id: string }>(
+    `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category)
+     VALUES ($1, 'Imp', 'Ostor', 'both', 'friends') RETURNING guest_id`,
+    [eventId],
+  );
+  await db.query(`UPDATE public.guests SET person_id = $2 WHERE guest_id = $1`, [g.rows[0]!.guest_id, p.rows[0]!.person_id]);
+  assert.equal((await myRequests(imp)).length, 0, 'no request');
+  assert.equal((await db.query(`SELECT 1 FROM public.notifications WHERE user_id = $1 AND type = 'event_invitation'`, [imp])).rows.length, 0,
+    'no bell notice either');
+});

@@ -39,6 +39,8 @@ import { quickAddGuest } from './quick-add-actions';
 import { addSingleGuest } from './inline-actions';
 import type { GuestGroupCategory, GuestRole, GuestSide } from '@/lib/guests';
 import { limitedHelperRefusal } from '@/lib/host-gate';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { linkConnectedGuests } from '@/lib/connected-guest-link.server';
 
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 
@@ -110,6 +112,9 @@ export async function addGuestsFromPeople(
   let failed = 0;
   let firstError: string | null = null;
   const guestIds: string[] = [];
+  // 🔔 A connection put on the list is told (RW-197): which new rows came from "Your people", by their connection.
+  const fromConnections: Array<{ guestId: string; connectionId: string }> = [];
+  const connectionOf = (key: string): string | null => (key.startsWith('people:') ? key.slice('people:'.length) : null);
 
   /*
     🪤 THE CAP USED TO DROP THE OVERFLOW IN SILENCE. `picks.slice(0, 200)` has
@@ -167,6 +172,8 @@ export async function addGuestsFromPeople(
       if (one.ok) {
         added += 1;
         guestIds.push(one.guest.guest_id);
+        const conn = connectionOf(person.key);
+        if (conn) fromConnections.push({ guestId: one.guest.guest_id, connectionId: conn });
       } else {
         failed += 1;
         firstError ??= one.error;
@@ -184,9 +191,21 @@ export async function addGuestsFromPeople(
     if (res.ok) {
       added += 1;
       guestIds.push(res.guest.guest_id);
+      const conn = connectionOf(person.key);
+      if (conn) fromConnections.push({ guestId: res.guest.guest_id, connectionId: conn });
     } else {
       failed += 1;
       firstError ??= res.error;
+    }
+  }
+
+  if (fromConnections.length > 0) {
+    // Server-side only: the link is made from the CONFIRMED connection the host holds, re-read there; nothing about the
+    // connected person reaches the browser. The database then tells the account (request + one bell notice).
+    try {
+      await linkConnectedGuests(createAdminClient(), user.id, eventId, fromConnections);
+    } catch {
+      /* the guests are added by name either way — the add is the product */
     }
   }
 

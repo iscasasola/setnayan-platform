@@ -16494,12 +16494,10 @@
       "files": [
         "vendor-dashboard/clients/[eventId]/challenge-photos/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/clients/[seg]?tab=details"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "ActionButton",
+        "BackButton",
         "EventLockedPage",
         "TemplateEmpty",
         "TemplateSection"
@@ -16744,7 +16742,6 @@
         "uploadVendorContract"
       ],
       "blocks": [
-        "ActionButton",
         "CardPick",
         "FormPageSkeleton",
         "InfoTip",

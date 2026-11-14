@@ -405,7 +405,7 @@ export default async function PrivacyEditorPage({
           </h2>
           <p className="max-w-prose text-sm text-ink/75">
             With your okay, Setnayan can feature your {eventNoun(event.event_type)} on our public{' '}
-            <Link href="/realstories" className="text-terracotta hover:underline">
+            <Link href="/realstories" className="sn-hit text-terracotta hover:underline">
               Stories
             </Link>{' '}
             page — your story, your photos, and the team behind your day — starting

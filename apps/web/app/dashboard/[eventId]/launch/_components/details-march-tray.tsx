@@ -149,20 +149,20 @@ export function MarchTray({
       aria-label="Not walking — drag a name here to take them out of the march"
       className={`flex h-full min-h-0 flex-1 flex-col gap-1.5 overflow-hidden rounded-xl p-1 transition-shadow${ring}`}
     >
-      <p className="flex shrink-0 items-baseline gap-2 px-1 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/65">
+      <p className="flex shrink-0 items-baseline gap-2 px-1 text-[12px] uppercase tracking-[0.18em] text-ink/70">
         Not walking
-        <small className="font-sans text-[11px] normal-case tracking-normal text-ink/50" data-march-tray-count="">
+        <small className="font-sans text-[12px] normal-case tracking-normal text-ink/70" data-march-tray-count="">
           {unread ? '' : out.length}
         </small>
       </p>
       {unread ? (
-        <p role="status" className="px-1 text-sm text-ink/70" data-march-tray-unread="">
+        <p role="status" className="px-1 text-sm text-warn-800" data-march-tray-unread="">
           Who isn’t walking couldn’t be read just now.
         </p>
       ) : out.length === 0 ? (
         <p
           data-march-tray-empty=""
-          className="flex min-h-0 flex-1 items-center justify-center rounded-lg border-[1.5px] border-dashed border-ink/15 px-3 text-center text-sm text-ink/55"
+          className="flex min-h-0 flex-1 items-center justify-center rounded-lg border-[1.5px] border-dashed border-ink/15 px-3 text-center text-sm text-ink/70"
         >
           Everyone walks. Drag a name here if they won’t.
         </p>
@@ -175,7 +175,7 @@ export function MarchTray({
             data-tray-more=""
             onClick={() => setAll(true)}
             style={{ display: 'none' }}
-            className="inline-flex min-h-11 items-center rounded-full bg-ink px-3.5 text-[13.5px] font-semibold text-cream"
+            className="ab ab-neutral"
           />
         </div>
       )}
@@ -192,7 +192,7 @@ export function MarchTray({
                 className="relative mx-auto flex max-h-[70dvh] w-full max-w-lg flex-col rounded-t-2xl bg-cream pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg"
               >
                 <div className="flex shrink-0 items-center gap-2 px-4 pb-2 pt-3">
-                  <p className="min-w-0 flex-1 font-serif text-lg text-ink">Not walking · {out.length}</p>
+                  <p className="min-w-0 flex-1 text-[17px] font-semibold text-ink">Not walking · {out.length}</p>
                   <ActionButton tone="neutral" quiet iconOnly icon={X} label="Close" onClick={() => setAll(false)} />
                 </div>
                 <div

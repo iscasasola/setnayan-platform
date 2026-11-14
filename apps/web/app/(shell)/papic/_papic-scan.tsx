@@ -106,7 +106,7 @@ export function PapicScan() {
   // happened and leave the rest of the page intact.
   if (failed) {
     return (
-      <p className="rounded-2xl border border-[var(--m-line)] px-5 py-6 text-sm text-[var(--m-slate-2)]">
+      <p className="rounded-2xl px-5 py-6 text-sm text-[var(--m-slate-2)]">
         The live codes could not be created just now. Nothing is wrong with your event —
         this is only the demo on this page.
       </p>
@@ -114,7 +114,7 @@ export function PapicScan() {
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--m-line)] bg-[rgb(44_42_41/0.025)] px-4 py-5 sm:px-5">
+    <div className="rounded-2xl bg-[rgb(44_42_41/0.025)] px-4 py-5 sm:px-5">
       <div className="grid grid-cols-2 gap-4 sm:gap-5">
         {(['a', 'b'] as const).map((role) => (
           <Code
@@ -136,7 +136,7 @@ export function PapicScan() {
             type="button"
             aria-pressed={s.id === style}
             onClick={() => pickStyle(s.id)}
-            className={`flex-none rounded-full border px-3 py-1.5 font-mono text-[0.66rem] uppercase tracking-[0.06em] transition ${
+            className={`flex-none rounded-full border px-3 py-1.5 tabular-nums text-[0.66rem] uppercase tracking-[0.06em] transition ${
               s.id === style
                 ? 'border-[var(--m-mulberry)] text-[var(--m-mulberry)]'
                 : 'border-[var(--m-line)] text-[var(--m-slate-2)] hover:text-[var(--m-ink)]'
@@ -166,7 +166,7 @@ export function PapicScan() {
                   className="aspect-square w-full object-cover transition-[filter] duration-200"
                   style={{ filter: styleCss }}
                 />
-                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-1.5 pb-1 pt-4 font-mono text-[0.55rem] text-[var(--m-paper)]">
+                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-1.5 pb-1 pt-4 tabular-nums text-[0.55rem] text-[var(--m-paper)]">
                   {p.tags.length ? p.tags.map((t) => SEAT[t]).join(' · ') : untaggedReason(p.diag)}
                 </figcaption>
               </figure>
@@ -229,7 +229,7 @@ function Code({
       </div>
       <div className="mt-2 text-sm font-semibold text-[var(--m-ink)]">{label}</div>
       <div
-        className={`mt-0.5 font-mono text-[0.58rem] uppercase tracking-[0.06em] ${
+        className={`mt-0.5 tabular-nums text-[0.58rem] uppercase tracking-[0.06em] ${
           joined ? 'text-[var(--m-mulberry)]' : 'text-[var(--m-slate-2)]'
         }`}
       >

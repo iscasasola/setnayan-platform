@@ -131,7 +131,7 @@ export default async function DownloadPage() {
               // Honest degraded state — never a link that 404s. See
               // lib/desktop-release.ts: resolveDesktopRelease() returns null when
               // R2 hasn't published a release yet or can't be reached.
-              <div data-reveal-item className="max-w-md rounded-xl border border-ink/12 bg-ink/[0.03] px-4 py-3 text-sm text-ink/65">
+              <div data-reveal-item className="max-w-md rounded-xl bg-ink/[0.03] px-4 py-3 text-sm text-ink/65">
                 The desktop download isn&rsquo;t available right now. Try again shortly
                 {/* Hidden in the iPhone app (`data-web-only`) — the same rule as the link above. */}
                 <span data-web-only="">
@@ -154,7 +154,7 @@ export default async function DownloadPage() {
                   For Apple-silicon Macs{windows ? ' and Windows 10/11' : ''} · released {formatLongDate(release!.publishedAt)}
                 </p>
                 {mac.notarized ? (
-                  <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
+                  <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
                     <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                     Signed &amp; notarized by Apple
                   </p>
@@ -413,7 +413,7 @@ function Step({
 }) {
   return (
     <li data-reveal-item className="border-t border-ink/12 pt-5">
-      <span className="block font-mono text-3xl font-semibold leading-none tracking-tight text-terracotta/35">
+      <span className="block tabular-nums text-3xl font-semibold leading-none tracking-tight text-terracotta/35">
         {n}
       </span>
       <h3 className="mt-4 text-base font-semibold tracking-[-0.01em] text-ink">
@@ -434,7 +434,7 @@ function Note({
 } & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div {...rest}>
-      <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.24em] text-terracotta">
+      <p className="mb-4 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
         {label}
       </p>
       {children}

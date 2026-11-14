@@ -19,6 +19,7 @@ import {
 } from './_about-motion';
 import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
+import { actionButtonClass } from '@/components/action-button';
 
 // /about — the canonical brand/entity page. Fully static: brand facts, no DB,
 // no session. This is the surface SEO + GEO engines (ChatGPT-User, Perplexity,
@@ -205,7 +206,7 @@ export default async function AboutPage() {
               <div
                 key={label}
                 data-reveal-item
-                className="rounded-xl border border-ink/10 bg-white p-5"
+                className="rounded-xl bg-white p-5"
               >
                 <div className="mb-2 inline-flex items-center gap-2 text-ink/55">
                   <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -249,12 +250,12 @@ export default async function AboutPage() {
                   content it names, and pointed at the DESTINATION rather than
                   at the 308: an internal link through a redirect costs the
                   reader a round trip and leaks a retired URL into the page. */}
-              <Link href="/features#how-it-works" className="button-primary h-11 px-5 text-sm">
+              <Link href="/features#how-it-works" className={actionButtonClass('brand', { main: true, extra: 'px-5 text-sm !h-11' })}>
                 How it works
               </Link>
               <Link
                 href="/pricing"
-                className="inline-flex h-11 items-center justify-center rounded-sm border border-ink/20 px-5 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
+                className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
               >
                 See transparent pricing
               </Link>
@@ -317,7 +318,7 @@ export default async function AboutPage() {
 
         {/* Closing CTA — single reveal on scroll-in; buttons untouched. */}
         <section className="mx-auto w-full max-w-4xl px-4 pb-20 sm:px-6 lg:px-8">
-          <RevealSection className="rounded-2xl border border-ink/10 bg-white p-6 sm:p-10">
+          <RevealSection className="rounded-2xl bg-white p-6 sm:p-10">
             <h2 className="font-display text-2xl text-ink sm:text-3xl">
               Start planning — free.
             </h2>
@@ -327,13 +328,13 @@ export default async function AboutPage() {
               card required to begin.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Link href="/signup" className="button-primary h-11 px-6 text-sm">
+              <Link href="/signup" className={actionButtonClass('brand', { main: true, extra: 'px-6 text-sm !h-11' })}>
                 Create your account
                 <ArrowRight aria-hidden className="ml-1.5 h-4 w-4" strokeWidth={2} />
               </Link>
               <Link
                 href="/?browse=1"
-                className="inline-flex h-11 items-center justify-center rounded-sm border border-ink/20 px-6 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
+                className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
               >
                 Browse suppliers
               </Link>

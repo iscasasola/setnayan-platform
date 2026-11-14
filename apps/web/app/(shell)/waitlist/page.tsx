@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { BRAND_OG_IMAGES } from '@/lib/brand-og';
+import { actionButtonClass } from '@/components/action-button';
 
 // This page carried `revalidate = 3600` (SEO/GEO Bucket 8, 2026-05-29) until
 // 2026-11-12 — moved into app/(shell)/ (owner: "these are on old shells");
@@ -50,7 +51,7 @@ export default function WaitlistPage() {
           <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
               href="/onboarding/wedding"
-              className="button-primary inline-flex min-h-[48px] items-center justify-center gap-2 px-7 text-sm font-semibold sm:text-base"
+              className={actionButtonClass('brand', { main: true, extra: 'min-h-[48px] gap-2 px-7 text-sm font-semibold sm:text-base !h-11' })}
             >
               Plan your wedding free
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />

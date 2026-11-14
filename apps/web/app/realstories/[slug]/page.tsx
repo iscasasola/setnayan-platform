@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import { EditorialContent } from '@/app/[slug]/_components/editorial/editorial-content';
 import { SAMPLE_EDITORIAL_IDS } from '@/app/[slug]/_components/editorial/data';
+import { actionButtonClass } from '@/components/action-button';
 import {
   ALL_REAL_WEDDINGS,
   findRealWedding,
@@ -61,7 +62,7 @@ function SampleEditorial({ wedding }: { wedding: RealWedding }) {
             aria-hidden
           />
           <div className="relative p-6 text-white sm:p-10">
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/85">
+            <p className="text-white/85 text-xs font-bold uppercase tracking-[0.1em]">
               {wedding.ceremonyType} &middot; {wedding.venueSetting} &middot; {wedding.city}
             </p>
             <h1 className="mt-2 font-display text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl">
@@ -115,7 +116,7 @@ function SampleEditorial({ wedding }: { wedding: RealWedding }) {
 
         {/* Palette */}
         <div className="mt-10">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">The palette</p>
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">The palette</p>
           <div className="mt-3 flex gap-2">
             {wedding.palette.map((hex) => (
               <span
@@ -129,14 +130,14 @@ function SampleEditorial({ wedding }: { wedding: RealWedding }) {
         </div>
 
         {/* Team */}
-        <div className="mt-10 rounded-2xl border border-ink/10 bg-white/50 p-6">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">The team</p>
+        <div className="mt-10 rounded-2xl p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">The team</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {wedding.team.map((credit) => (
               <Link
                 key={credit.role}
                 href={credit.href}
-                className="rounded-full border border-ink/15 px-3 py-1.5 text-sm text-ink/70 transition hover:border-terracotta/40 hover:text-terracotta"
+                className={actionButtonClass('neutral', { extra: '!h-11' })}
               >
                 {credit.role}
               </Link>

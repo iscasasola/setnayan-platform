@@ -36,6 +36,7 @@
 import { useState } from 'react';
 import { papicCreditsHeld, papicVideosAffordable } from '@/lib/papic-credits-held';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
+import { actionButtonClass } from '@/components/action-button';
 
 export type PapicRung = {
   /** Peso price of this rung, from the ACTIVE customer catalog. */
@@ -86,14 +87,14 @@ export function PapicDial({
   const pct = rungs.length > 1 ? (at / (rungs.length - 1)) * 100 : 0;
 
   return (
-    <div className="rounded-2xl border border-[var(--m-line)] px-4 py-6 text-center sm:px-6">
+    <div className="rounded-2xl px-4 py-6 text-center sm:px-6">
       <div className="flex items-center justify-center gap-2 sm:gap-4">
         <button
           type="button"
           aria-label="Fewer credits"
           disabled={at <= 0}
           onClick={() => setI((n) => Math.max(0, n - 1))}
-          className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-[var(--m-line)] font-mono text-xl leading-none sm:h-12 sm:w-12 text-[var(--m-ink)] transition hover:border-[var(--m-mulberry)] hover:text-[var(--m-mulberry)] disabled:opacity-30 disabled:hover:border-[var(--m-line)] disabled:hover:text-[var(--m-ink)]"
+          className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-[var(--m-line)] tabular-nums text-xl leading-none sm:h-12 sm:w-12 text-[var(--m-ink)] transition hover:border-[var(--m-mulberry)] hover:text-[var(--m-mulberry)] disabled:opacity-30 disabled:hover:border-[var(--m-line)] disabled:hover:text-[var(--m-ink)]"
         >
           −
         </button>
@@ -110,7 +111,7 @@ export function PapicDial({
         */}
         <div className="min-w-0 flex-1">
           <span
-            className={`flex items-baseline justify-center gap-1.5 whitespace-nowrap font-mono font-medium tracking-tight tabular-nums ${
+            className={`flex items-baseline justify-center gap-1.5 whitespace-nowrap font-medium tracking-tight tabular-nums ${
               bought === 0 ? 'text-[var(--m-mulberry)]' : 'text-[var(--m-ink)]'
             }`}
           >
@@ -127,7 +128,7 @@ export function PapicDial({
           aria-label="More credits"
           disabled={at >= rungs.length - 1}
           onClick={() => setI((n) => Math.min(rungs.length - 1, n + 1))}
-          className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-[var(--m-line)] font-mono text-xl leading-none sm:h-12 sm:w-12 text-[var(--m-ink)] transition hover:border-[var(--m-mulberry)] hover:text-[var(--m-mulberry)] disabled:opacity-30 disabled:hover:border-[var(--m-line)] disabled:hover:text-[var(--m-ink)]"
+          className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-[var(--m-line)] tabular-nums text-xl leading-none sm:h-12 sm:w-12 text-[var(--m-ink)] transition hover:border-[var(--m-mulberry)] hover:text-[var(--m-mulberry)] disabled:opacity-30 disabled:hover:border-[var(--m-line)] disabled:hover:text-[var(--m-ink)]"
         >
           +
         </button>
@@ -148,7 +149,7 @@ export function PapicDial({
       {bought === 0 ? (
         <p className="mt-4 flex items-baseline justify-center gap-2 text-sm">
           <span className="text-[var(--m-slate-2)]">You pay</span>
-          <span className="font-mono text-lg font-medium tabular-nums text-[var(--m-ink)]">
+          <span className="text-lg font-medium tabular-nums text-[var(--m-ink)]">
             nothing
           </span>
         </p>
@@ -156,10 +157,10 @@ export function PapicDial({
         <>
           <p className="mt-4 flex flex-wrap items-baseline justify-center gap-x-2.5 gap-y-1 text-sm">
             <span className="text-[var(--m-slate-2)]">You pay</span>
-            <s className="font-mono tabular-nums text-[var(--m-slate-2)] decoration-[var(--m-slate-2)]">
+            <s className="tabular-nums text-[var(--m-slate-2)] decoration-[var(--m-slate-2)]">
               {peso(rung.peso)}
             </s>
-            <span className="font-mono text-lg font-medium tabular-nums text-[var(--m-mulberry)]">
+            <span className="text-lg font-medium tabular-nums text-[var(--m-mulberry)]">
               {peso(rung.setupPeso)}
             </span>
           </p>
@@ -170,7 +171,7 @@ export function PapicDial({
       ) : (
         <p className="mt-4 flex items-baseline justify-center gap-2 text-sm">
           <span className="text-[var(--m-slate-2)]">You pay</span>
-          <span className="font-mono text-lg font-medium tabular-nums text-[var(--m-ink)]">
+          <span className="text-lg font-medium tabular-nums text-[var(--m-ink)]">
             {peso(rung.peso)}
           </span>
         </p>
@@ -190,7 +191,7 @@ export function PapicDial({
         nothing, said out loud.
       */}
       {freeCredits > 0 ? (
-        <p className="mt-2 font-mono text-xs tabular-nums text-[var(--m-slate-2)]">
+        <p className="mt-2 text-xs tabular-nums text-[var(--m-slate-2)]">
           {bought === 0 ? (
             <>
               <span className="text-[var(--m-orange-2)]">{count(freeCredits)}</span> free{' '}
@@ -245,7 +246,7 @@ export function PapicDial({
         `papicCreditsHeld` rule this card runs on), and it lands during the
         party rather than at the next renewal, because there is no renewal.
       */}
-      <p className="mt-3.5 rounded-xl border border-[rgb(138_107_57/0.30)] bg-[rgb(138_107_57/0.07)] px-3 py-2.5 text-left text-sm text-[var(--m-slate-2)]">
+      <p className="mt-3.5 rounded-xl bg-[rgb(138_107_57/0.07)] px-3 py-2.5 text-left text-sm text-[var(--m-slate-2)]">
         <b className="font-semibold text-[var(--m-ink)]">Not enough? Add more any time.</b>{' '}
         You are never locked into what you pick now — top up in the middle of the party if the
         night is going well, and the new credits land in seconds on top of what you already have.
@@ -277,7 +278,7 @@ export function PapicDial({
             >
               −
             </Mini>
-            <span className="flex-1 font-mono text-sm tabular-nums text-[var(--m-slate-2)]">
+            <span className="flex-1 text-sm tabular-nums text-[var(--m-slate-2)]">
               {count(guests)} guests
             </span>
             <Mini
@@ -298,7 +299,7 @@ function Row({ k, v }: { k: string; v: string }) {
   return (
     <li className="flex items-baseline gap-3 py-1.5 text-sm">
       <span className="flex-1 text-[var(--m-slate-2)]">{k}</span>
-      <span className="whitespace-nowrap font-mono text-sm tabular-nums text-[var(--m-ink)]">
+      <span className="whitespace-nowrap text-sm tabular-nums text-[var(--m-ink)]">
         {v}
       </span>
     </li>
@@ -322,7 +323,7 @@ function Mini({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-7 w-7 flex-none items-center justify-center rounded-full border border-[var(--m-line)] font-mono text-sm leading-none text-[var(--m-ink)] transition hover:border-[var(--m-mulberry)] hover:text-[var(--m-mulberry)] disabled:opacity-30 disabled:hover:border-[var(--m-line)] disabled:hover:text-[var(--m-ink)]"
+      className={actionButtonClass('neutral', { iconOnly: true, extra: 'flex-none !h-11 !w-11' })}
     >
       {children}
     </button>

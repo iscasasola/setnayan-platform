@@ -1,4 +1,5 @@
 import { ArrowUpRight } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button';
 
 // The outbound shopping link inside a Journal article (iteration 0038 § 3).
 //
@@ -33,7 +34,7 @@ export function ShopLink({ href, label }: Props) {
       href={href}
       target="_blank"
       rel="sponsored nofollow noopener noreferrer"
-      className="mt-4 inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+      className={actionButtonClass('brand', { main: true, extra: 'mt-4 !h-11' })}
     >
       {label}
       <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />

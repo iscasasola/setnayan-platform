@@ -7,6 +7,7 @@ import {
 } from '@/lib/journal-spotlights';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import type { InquirySource } from '@/lib/inquiry-source';
+import { actionButtonClass } from '@/components/action-button';
 
 /**
  * 🎟 THE LINK CARRIES WHERE THE READER CAME FROM.
@@ -102,9 +103,9 @@ export async function JournalPartnerCredit({
   return (
     <section
       aria-label="Featured partners"
-      className="mt-14 rounded-3xl border border-ink/10 bg-white/60 p-6 sm:p-8"
+      className="mt-14 rounded-3xl p-6 sm:p-8"
     >
-      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta">
+      <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
         With thanks to
       </p>
       <h2 className="mt-2 font-display text-2xl font-medium tracking-tight text-ink">
@@ -125,7 +126,7 @@ export async function JournalPartnerCredit({
           return (
             <li
               key={s.spotlight_id}
-              className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-2xl bg-[color:var(--m-paper-2)] p-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-3">
                 {logoUrl ? (
@@ -142,12 +143,12 @@ export async function JournalPartnerCredit({
                 )}
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+                    <span className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
                       {PLACEMENT_LABELS[s.placement]}
                     </span>
                     {s.is_sponsored ? (
                       <span
-                        className="inline-flex items-center rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-ink/70"
+                        className="inline-flex items-center rounded-full bg-ink/[0.07] px-2 py-0.5 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]"
                         title="This is a paid sponsored placement"
                       >
                         Sponsored
@@ -166,7 +167,7 @@ export async function JournalPartnerCredit({
                   // Dofollow (no rel="nofollow") — the credited vendor earns the
                   // link equity. Opens in the same tab to keep the editorial
                   // hub-and-spoke internal-link graph intact.
-                  className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-mulberry/25 px-4 py-2 text-sm font-semibold text-mulberry transition-colors hover:bg-mulberry/[0.06] sm:self-auto"
+                  className={actionButtonClass('brand', { main: true, extra: 'shrink-0 self-start !h-11' })}
                 >
                   View profile
                   <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={1.9} />

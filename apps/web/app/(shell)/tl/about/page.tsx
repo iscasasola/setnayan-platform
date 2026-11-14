@@ -9,6 +9,7 @@ import {
 import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
+import { actionButtonClass } from '@/components/action-button';
 
 // /tl/about — Taglish edition of the brand/entity page (localization first
 // slice). The two public locales are ENGLISH (root) and TAGLISH (the real
@@ -197,7 +198,7 @@ export default async function AboutPageTaglish() {
         <section className="mx-auto w-full max-w-4xl px-4 pb-12 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {FACTS.map(({ icon: Icon, label, value }) => (
-              <div key={label} className="rounded-xl border border-ink/10 bg-white p-5">
+              <div key={label} className="rounded-xl bg-white p-5">
                 <div className="mb-2 inline-flex items-center gap-2 text-terracotta">
                   <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   <span className="text-sm font-semibold text-ink">{label}</span>
@@ -235,12 +236,12 @@ export default async function AboutPageTaglish() {
                   🔴 THIS LINK ALSO LEAKED LOCALE: the Taglish About page sent
                   its reader to the ENGLISH /how-it-works, not /tl/how-it-works.
                   Repointed to the Taglish twin, deep-linked to the section. */}
-              <Link href="/tl/features#how-it-works" className="button-primary h-11 px-5 text-sm">
+              <Link href="/tl/features#how-it-works" className={actionButtonClass('brand', { main: true, extra: 'px-5 text-sm !h-11' })}>
                 How it works
               </Link>
               <Link
                 href="/pricing"
-                className="inline-flex h-11 items-center justify-center rounded-sm border border-ink/20 px-5 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
+                className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
               >
                 Tingnan ang pricing
               </Link>
@@ -279,7 +280,7 @@ export default async function AboutPageTaglish() {
         </section>
 
         <section className="mx-auto w-full max-w-4xl px-4 pb-20 sm:px-6 lg:px-8">
-          <div className="rounded-2xl border border-ink/10 bg-white p-6 sm:p-10">
+          <div className="rounded-2xl bg-white p-6 sm:p-10">
             <h2 className="font-display text-2xl text-ink sm:text-3xl">
               Start planning — free.
             </h2>
@@ -289,13 +290,13 @@ export default async function AboutPageTaglish() {
               needed para magsimula.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Link href="/signup" className="button-primary h-11 px-6 text-sm">
+              <Link href="/signup" className={actionButtonClass('brand', { main: true, extra: 'px-6 text-sm !h-11' })}>
                 Gumawa ng account
                 <ArrowRight aria-hidden className="ml-1.5 h-4 w-4" strokeWidth={2} />
               </Link>
               <Link
                 href="/?browse=1"
-                className="inline-flex h-11 items-center justify-center rounded-sm border border-ink/20 px-6 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
+                className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
               >
                 Browse suppliers
               </Link>

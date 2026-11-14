@@ -59,7 +59,7 @@ export default function ThreeDPlanTryPage() {
   return (
     <main className="px-5 pb-24 pt-10 sm:pt-14">
       <section className="mx-auto max-w-2xl">
-        <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           3D Plan · live demo
         </p>
         <h1 className="mt-2 font-serif text-[2.05rem] leading-[1.14] tracking-tight text-[var(--m-ink)] sm:text-5xl">

@@ -29,6 +29,7 @@ import {
 } from '@/lib/creator-public';
 import { EMBED_PROVIDER_LABEL } from '@/lib/creator-chapters';
 import { ChapterEmbedFrame } from '@/app/dashboard/(account)/creator/_components/chapter-embed-frame';
+import { actionButtonClass } from '@/components/action-button';
 
 // Per-article Journal pages — magazine reader (iteration 0038, 2026-06-15).
 // Immersive cover header, drop-cap lead, gold pull-quotes ("nuggets"), inline
@@ -185,7 +186,7 @@ function Block({
     case 'quote':
       return (
         <blockquote className="my-11 border-l-2 border-terracotta pl-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             Worth keeping
           </p>
           <p className="mt-2.5 font-display text-2xl font-medium leading-snug text-ink sm:text-[28px]">
@@ -214,7 +215,7 @@ function Block({
       );
     case 'cta':
       return (
-        <div className="my-8 rounded-2xl border border-terracotta/25 bg-accent-soft p-5 sm:p-6">
+        <div className="my-8 rounded-2xl bg-accent-soft p-5 sm:p-6">
           <p className="text-base leading-relaxed text-ink/80">{block.text}</p>
           <Link
             href={block.href}
@@ -227,7 +228,7 @@ function Block({
       );
     case 'download':
       return (
-        <div className="my-8 rounded-2xl border border-mulberry/20 bg-accent-soft p-5 sm:p-6">
+        <div className="my-8 rounded-2xl bg-accent-soft p-5 sm:p-6">
           <p className="text-base leading-relaxed text-ink/80">{block.text}</p>
           {/* A same-origin file (the planner PDF in /public) is SAVED through the share sheet; an outside file opens in
               the app's in-app browser sheet. A bare `<a download>` renders in the iPhone app's only view, no way back. */}
@@ -266,7 +267,7 @@ function Block({
         );
       }
       return (
-        <div className="my-8 rounded-2xl border border-mulberry/20 bg-accent-soft p-5 sm:p-6">
+        <div className="my-8 rounded-2xl bg-accent-soft p-5 sm:p-6">
           <p className="text-base leading-relaxed text-ink/80">{block.text}</p>
           <ShopLink
             href={block.href}
@@ -309,7 +310,7 @@ function Block({
       const provider = resolved.chapter.embed_provider;
       const initial = resolved.ownerName.trim().charAt(0).toUpperCase() || '·';
       return (
-        <div className="my-10 rounded-2xl border-[1.5px] border-terracotta bg-white/60 p-3 sm:p-4">
+        <div className="my-10 rounded-2xl border-[1.5px] bg-white/60 p-3 sm:p-4">
           <ChapterEmbedFrame src={src} title={resolved.chapter.title} />
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
             <span
@@ -515,7 +516,7 @@ export default async function BlogArticlePage({ params }: Props) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/35 to-black/10" />
         <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-3xl px-5 pb-10 sm:px-6 sm:pb-14">
-          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[#E6D4A6]">
+          <p className="text-[color:var(--sn-gold-300)] text-xs font-bold uppercase tracking-[0.1em]">
             {categoryLabel} · the Filipino event edit
           </p>
           <h1 className="mt-3 max-w-[20ch] font-display text-3xl font-medium leading-[1.05] tracking-tight text-white sm:text-5xl">
@@ -552,7 +553,7 @@ export default async function BlogArticlePage({ params }: Props) {
             prose on purpose: a disclosure a reader meets after they have
             already clicked is not a disclosure. */}
         {articleHasShopLinks(article.blocks) ? (
-          <p className="mb-8 rounded-xl border border-ink/10 bg-ink/[0.03] px-4 py-3 text-sm leading-relaxed text-ink/60">
+          <p className="mb-8 rounded-xl bg-ink/[0.03] px-4 py-3 text-sm leading-relaxed text-ink/60">
             {AFFILIATE_DISCLOSURE}
           </p>
         ) : null}
@@ -575,7 +576,7 @@ export default async function BlogArticlePage({ params }: Props) {
 
         {related.length > 0 ? (
           <section className="mt-16 border-t border-ink/10 pt-10">
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta">
+            <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
               Keep reading
             </p>
             <h2 className="mt-2 font-display text-2xl font-medium tracking-tight text-ink">
@@ -593,7 +594,7 @@ export default async function BlogArticlePage({ params }: Props) {
                       className="object-cover transition duration-500 group-hover:scale-[1.04]"
                     />
                   </div>
-                  <span className="mt-3 font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+                  <span className="mt-3 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
                     {blogCategoryLabel(a.category)}
                   </span>
                   <span className="mt-1 font-display text-lg font-medium leading-snug text-ink group-hover:text-terracotta-700">
@@ -605,7 +606,7 @@ export default async function BlogArticlePage({ params }: Props) {
           </section>
         ) : null}
 
-        <div className="mt-14 rounded-3xl border border-terracotta/25 bg-accent-soft p-8 text-center">
+        <div className="mt-14 rounded-3xl bg-accent-soft p-8 text-center">
           <h2 className="font-display text-2xl font-medium tracking-tight text-ink">
             Ready to start your own plan?
           </h2>
@@ -615,7 +616,7 @@ export default async function BlogArticlePage({ params }: Props) {
           </p>
           <Link
             href="/signup"
-            className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-mulberry px-6 text-sm font-semibold text-cream transition hover:bg-mulberry-600"
+            className={actionButtonClass('brand', { main: true, extra: 'mt-5 !h-11' })}
           >
             Start planning · free
             <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />

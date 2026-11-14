@@ -12,7 +12,7 @@ import { AnswerFeedback } from './answer-feedback';
  */
 
 function Tag({ children }: { children: React.ReactNode }) {
-  return <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">{children}</span>;
+  return <span className="block text-xs font-semibold text-terracotta-700">{children}</span>;
 }
 
 /** "Take me there" + the line under it. No door, no button. */
@@ -117,7 +117,7 @@ export function NoAnswer({ result, ctx }: { result: AskResult; ctx: AnswerCtx })
       </p>
       {result.near.length > 0 ? (
         <div className="mt-6" data-help-near="">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Near this — not an answer</p>
+          <h2 className="text-sm font-semibold text-ink/70">Near this — not an answer</h2>
           <AnswerRows hits={result.near} group="help-near" ctx={ctx} />
         </div>
       ) : null}

@@ -89,7 +89,7 @@ export default async function AdminHelpGuidesPage({ searchParams }: Props) {
           )}
           {ask.more.length > 0 ? (
             <section aria-label="More team guides">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">More team guides</p>
+              <h2 className="text-sm font-semibold text-ink/70">More team guides</h2>
               <AnswerRows hits={ask.more} group="help-more" ctx={ctx} />
             </section>
           ) : null}
@@ -99,7 +99,7 @@ export default async function AdminHelpGuidesPage({ searchParams }: Props) {
       <div className="mt-8 space-y-8">
         {ask ? null : (
           <section aria-label="Browse topics">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Browse topics</p>
+            <h2 className="text-sm font-semibold text-ink/70">Browse topics</h2>
             <div className="mt-2">
               <TopicTiles topics={tiles} pages={pages} />
             </div>

@@ -276,7 +276,7 @@ export default async function HelpPage({ searchParams }: Props) {
               )}
               {ask.more.length > 0 ? (
                 <section aria-label="More answers" data-help-more="">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">More answers</p>
+                  <h2 className="text-sm font-semibold text-ink/70">More answers</h2>
                   <AnswerRows hits={ask.more} group="help-more" ctx={ctx} />
                 </section>
               ) : null}
@@ -287,7 +287,7 @@ export default async function HelpPage({ searchParams }: Props) {
             <div className="mt-6 space-y-8">
               {peopleAsk.length > 0 ? (
                 <section aria-label="People ask" data-help-people-ask="">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">People ask</p>
+                  <h2 className="text-sm font-semibold text-ink/70">People ask</h2>
                   <ul className="mt-2 flex flex-wrap gap-2">
                     {peopleAsk.map((w) => (
                       <li key={w}>
@@ -304,7 +304,7 @@ export default async function HelpPage({ searchParams }: Props) {
               ) : null}
 
               <section aria-label="Browse topics" data-help-browse="">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Browse topics</p>
+                <h2 className="text-sm font-semibold text-ink/70">Browse topics</h2>
                 <div className="mt-2">
                   <TopicTiles topics={tiles} pages={pages} />
                 </div>

@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -73,8 +74,9 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
           thinking a seat is Setnayan covering a supplier's fee. */}
       <PageMasthead title="Founder seats" />
       <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          {/* The "token-free vendor inquiries" clause was removed 2026-09-08:
+        <div>
+          <InfoTip label="About founder seats" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            {/* The "token-free vendor inquiries" clause was removed 2026-09-08:
               answering became free for EVERY vendor when the inbox was ungated
               (owner 2026-07-24) and token packs were retired, so it stopped
               being something a seat confers. The comp row is still written for
@@ -84,7 +86,8 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
           in-app feature is already paid for, and suppliers see the server-asserted
           “Setnayan Founder” badge. Suppliers are still paid directly, like by any
           client.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {errorMsg ? <FormFlash tone="error">{errorMsg}</FormFlash> : null}
@@ -93,7 +96,7 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
       <section className="sn-row mb-6 p-4">
         <h2 className="mb-3 text-sm font-semibold text-ink">
           Grant a seat{' '}
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+          <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             {seatsUnread ? '—' : formatCount(openSeats)} of {formatCount(FOUNDER_SEAT_CAP)} open
           </span>
         </h2>
@@ -135,18 +138,18 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
               className="sn-row flex items-center justify-between gap-3 p-4"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Seat {n}
                 </span>
                 {seat ? (
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-ink">
                       {seat.label || seat.users?.email || seat.user_id}
-                      <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-mulberry">
+                      <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle text-mulberry text-[12px] font-bold">
                         Setnayan Founder
                       </span>
                     </p>
-                    <p className="truncate font-mono text-[11px] text-ink/55">
+                    <p className="truncate text-[12px] text-ink/55 tabular-nums">
                       {seat.users?.email ?? seat.user_id} · granted{' '}
                       {new Date(seat.granted_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })}
                     </p>

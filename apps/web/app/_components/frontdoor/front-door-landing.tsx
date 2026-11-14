@@ -136,6 +136,7 @@ export function frontPageSample(now: Date): FrontPageSample | null {
 /* Moved to `lib/event-plans.ts` (2026-11-13) so the in-app plan screen reads the SAME helpers; re-exported here so
    every existing import keeps working. 💎 Event Ultra (#7601) lives there too. */
 export { PLAN_PRICE_CODES, planPricesFrom, planCreditsFrom, type PlanPrices } from '@/lib/event-plans';
+import { PLAN_SIGN_IN_HREF } from '@/lib/plan-buy-doors';
 import type { PlanPrices } from '@/lib/event-plans';
 
 function PlanPrice({ php }: { php: number | null }) {
@@ -533,6 +534,10 @@ export function FrontDoorLanding({
             <Link className="fl-btn fl-btn-line" href="/start">
               Start free, upgrade any time
             </Link>
+            {/* 💰 RW-13: already have an event? Sign in and buy Event Plus for it (`lib/plan-buy-doors.ts`). */}
+            <Link className="mt-2 block text-center text-[13.5px] font-semibold text-terracotta-700" href={PLAN_SIGN_IN_HREF} data-plan-buy="plus" data-plan-buy-state="signed-out">
+              Have an event? Sign in to get Event Plus
+            </Link>
           </Expandable>
 
           <Expandable as="article" className="fl-plan fl-plan-pro">
@@ -558,6 +563,10 @@ export function FrontDoorLanding({
             <ExpandButton className="fl-ptoggle" more={`See all ${formatCount(proCount)} features`} less="Show less" chevron />
             <Link className="fd-btn-terra fl-btn" href="/start">
               Start free, upgrade any time
+            </Link>
+            {/* 💰 RW-13: already have an event? Sign in and buy Event Pro for it (`lib/plan-buy-doors.ts`). */}
+            <Link className="mt-2 block text-center text-[13.5px] font-semibold text-terracotta-700" href={PLAN_SIGN_IN_HREF} data-plan-buy="pro" data-plan-buy-state="signed-out">
+              Have an event? Sign in to get Event Pro
             </Link>
           </Expandable>
 
@@ -590,6 +599,10 @@ export function FrontDoorLanding({
               <ExpandButton className="fl-ptoggle" more={`See all ${formatCount(ultraCount)} features`} less="Show less" chevron />
               <Link className="fl-btn fl-btn-line" href="/start">
                 Start free, upgrade any time
+              </Link>
+              {/* 💰 RW-13: already have an event? Sign in and buy Event Ultra for it (`lib/plan-buy-doors.ts`). */}
+              <Link className="mt-2 block text-center text-[13.5px] font-semibold text-terracotta-700" href={PLAN_SIGN_IN_HREF} data-plan-buy="ultra" data-plan-buy-state="signed-out">
+                Have an event? Sign in to get Event Ultra
               </Link>
             </Expandable>
           ) : null}

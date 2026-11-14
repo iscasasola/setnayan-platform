@@ -41,8 +41,11 @@ export function PlanOffer({
   facts,
   proHeld,
   plusDrawer,
+  focus = null,
 }: {
   facts: PlanOfferFacts;
+  /** RW-13: the plan a public door opened the page for — the Plus card is ringed when it is Plus. */
+  focus?: string | null;
   /** The event already holds (or has paid for) Event Pro — Pro includes everything in Plus, so Plus is not offered. */
   proHeld: boolean;
   /** The buy button for Event Plus at its catalogue price (the page's own checkout drawer). */
@@ -66,7 +69,12 @@ export function PlanOffer({
       </div>
 
       {showPlus ? (
-        <div className="rounded-3xl bg-ink/[0.04] p-5" data-event-plan="plus" data-event-plan-state={facts.plus}>
+        <div
+          id="plan-plus"
+          className={`rounded-3xl bg-ink/[0.04] p-5 ${focus === 'plus' ? 'ring-2 ring-terracotta/50' : ''}`}
+          data-event-plan="plus"
+          data-event-plan-state={facts.plus}
+        >
           <p className="flex items-baseline justify-between gap-3">
             <span className="text-lg font-semibold text-ink">Event Plus</span>
             {facts.plus === 'buy' && facts.plusPhp !== null ? (
@@ -103,7 +111,16 @@ export function PlanOffer({
  * pays only the difference: the checkout drawer asks the server for that figure (`readUltraUpgradeCharge`, the reader the
  * charge uses), so this card shows the row's price and says the difference applies — it never computes one itself.
  */
-export function UltraOffer({ facts, ultraDrawer }: { facts: PlanOfferFacts; ultraDrawer: (php: number) => React.ReactNode }) {
+export function UltraOffer({
+  facts,
+  ultraDrawer,
+  focus = false,
+}: {
+  facts: PlanOfferFacts;
+  ultraDrawer: (php: number) => React.ReactNode;
+  /** RW-13: a public door opened the page for Ultra — the card is ringed. */
+  focus?: boolean;
+}) {
   if (facts.ultra === 'buy' && facts.ultraPhp === null) return null;
   const lines = [
     'Everything in Event Pro',
@@ -111,7 +128,12 @@ export function UltraOffer({ facts, ultraDrawer }: { facts: PlanOfferFacts; ultr
     ...ultraMore({ plusCredits: facts.plusCredits, proCredits: facts.proCredits, ultraCredits: facts.ultraCredits, freePapic: facts.freePapic }),
   ];
   return (
-    <div className="rounded-3xl bg-ink/[0.04] p-5" data-event-plan="ultra" data-event-plan-state={facts.ultra}>
+    <div
+      id="plan-ultra"
+      className={`rounded-3xl bg-ink/[0.04] p-5 ${focus ? 'ring-2 ring-terracotta/50' : ''}`}
+      data-event-plan="ultra"
+      data-event-plan-state={facts.ultra}
+    >
       <p className="flex items-baseline justify-between gap-3">
         <span className="text-lg font-semibold text-ink">Event Ultra</span>
         {facts.ultra === 'buy' && facts.ultraPhp !== null ? (

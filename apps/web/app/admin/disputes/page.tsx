@@ -1,3 +1,5 @@
+import { FieldPick } from '@/app/admin/_components/field-pick';
+import { ActionButton } from '@/components/action-button';
 import { Gavel, Filter, ShieldCheck, PackageCheck } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -451,7 +453,7 @@ function FilterStrip({
   return (
     <form
       method="get"
-      className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3"
+      className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3"
       aria-label="Dispute filters"
     >
       <div className="flex items-center gap-2 text-ink/60">
@@ -460,35 +462,13 @@ function FilterStrip({
       </div>
       <label className="flex flex-1 flex-col gap-1 text-xs text-ink/60 sm:flex-row sm:items-center sm:gap-2">
         <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Status</span>
-        <select
-          name="status"
-          defaultValue={status}
-          className="input-field min-w-[12rem]"
-        >
-          {STATUS_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+        <FieldPick name="status" label="Status" defaultValue={status} options={STATUS_FILTER_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} />
       </label>
       <label className="flex flex-1 flex-col gap-1 text-xs text-ink/60 sm:flex-row sm:items-center sm:gap-2">
         <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Category</span>
-        <select
-          name="category"
-          defaultValue={category}
-          className="input-field min-w-[12rem]"
-        >
-          {CATEGORY_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+        <FieldPick name="category" label="Category" defaultValue={category} options={CATEGORY_FILTER_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} />
       </label>
-      <button type="submit" className="button-secondary self-start sm:self-auto">
-        Apply
-      </button>
+      <ActionButton tone="neutral" type="submit" icon={<Filter aria-hidden />} label="Apply" className="self-start sm:self-auto" />
     </form>
   );
 }
@@ -677,20 +657,17 @@ function DisputesTable({
                   className="mt-2 space-y-2"
                 >
                   <input type="hidden" name="dispute_id" value={r.dispute_id} />
-                  <select
+                  <FieldPick
                     name="resolution"
-                    defaultValue=""
+                    label="Resolution outcome"
+                    placeholder="Choose outcome…"
                     required
-                    className="input-field text-xs"
-                    aria-label="Resolution outcome"
-                  >
-                    <option value="" disabled>
-                      Choose outcome…
-                    </option>
-                    <option value="resolved_for_couple">Resolved · couple</option>
-                    <option value="resolved_for_vendor">Resolved · supplier</option>
-                    <option value="withdrawn">Withdrawn</option>
-                  </select>
+                    options={[
+                      { key: 'resolved_for_couple', label: 'Resolved · couple' },
+                      { key: 'resolved_for_vendor', label: 'Resolved · supplier' },
+                      { key: 'withdrawn', label: 'Withdrawn' },
+                    ]}
+                  />
                   <textarea
                     name="resolution_notes"
                     rows={2}

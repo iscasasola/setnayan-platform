@@ -1,3 +1,4 @@
+import { FieldPick } from '@/app/admin/_components/field-pick';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -156,7 +157,7 @@ export default async function AdminBudgetPlannerPage() {
         </p>
         <div className="overflow-hidden border-t border-ink/10">
           {bandsUnread ? (
-            <p role="alert" className="border-t-[3px] bg-mulberry/5 py-4 text-sm text-ink/70 border-t border-ink/10">
+            <p role="alert" className="border-l-2 border-[rgb(var(--color-warn))] py-2 pl-3 text-sm text-ink/70">
               <strong className="text-ink">These bands could not be read.</strong> This
               is not an empty configuration — do not save from this state, or you
               would replace the real bands with nothing.
@@ -206,7 +207,7 @@ export default async function AdminBudgetPlannerPage() {
         </p>
         <div className="overflow-hidden border-t border-ink/10">
           {benchmarksUnread ? (
-            <p role="alert" className="border-t-[3px] bg-mulberry/5 py-4 text-sm text-ink/70 border-t border-ink/10">
+            <p role="alert" className="border-l-2 border-[rgb(var(--color-warn))] py-2 pl-3 text-sm text-ink/70">
               <strong className="text-ink">These benchmarks could not be read.</strong> Not
               an empty list — do not save from this state.
             </p>
@@ -346,16 +347,16 @@ export default async function AdminBudgetPlannerPage() {
               <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                 Surplus mode
               </span>
-              <select
+              <FieldPick
                 name="surplus_mode"
+                label="Surplus mode"
                 defaultValue={config.surplus_mode}
-                className="input-field mt-1 w-full"
-              >
-                <option value="park">Park surplus as cushion (recommended)</option>
-                <option value="distribute">
-                  Distribute surplus across services
-                </option>
-              </select>
+                className="mt-1 min-h-11 w-full"
+                options={[
+                  { key: 'park', label: 'Park surplus as cushion (recommended)' },
+                  { key: 'distribute', label: 'Distribute surplus across services' },
+                ]}
+              />
               <span className="mt-1 block text-[12px] text-ink/45">
                 What to do with money left after every service is funded.
               </span>

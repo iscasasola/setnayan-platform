@@ -1,5 +1,7 @@
+import { FieldPick } from '@/app/admin/_components/field-pick';
+import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Check } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -165,27 +167,9 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
       </p>
 
       <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
-        <label
-          htmlFor="filter"
-          className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
-        >
-          Filter
-        </label>
-        <select
-          id="filter"
-          name="filter"
-          defaultValue={filter}
-          className="input-field h-9 max-w-[18rem] py-0 text-sm"
-        >
-          {FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="button-secondary h-9 px-3 text-xs">
-          Apply
-        </button>
+        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Filter</span>
+        <FieldPick name="filter" label="Filter" defaultValue={filter} className="min-h-11 max-w-[18rem]" options={FILTER_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} />
+        <ActionButton tone="neutral" type="submit" icon={<Check aria-hidden />} label="Apply" />
       </form>
 
       {/* FAILS TOWARD THE CAVEAT — a row missing its labels must not read as a
@@ -193,7 +177,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
       {eventsError || handlersError ? (
         <p
           role="alert"
-          className="mb-4 border-t-[3px] bg-mulberry/5 py-4 text-sm text-ink/70 border-t border-ink/10"
+          className="mb-4 border-l-2 border-[rgb(var(--color-warn))] py-2 pl-3 text-sm text-ink/70"
         >
           <strong className="text-ink">Some names could not be read.</strong>{' '}
           {eventsError ? 'Event names are missing, so rows show a dash. ' : ''}

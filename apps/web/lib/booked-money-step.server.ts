@@ -129,14 +129,29 @@ export async function readBookedMoney(
 
   let terms: AcceptedQuoteTerms | null = null;
   let termsUnreadable = false;
-  if (booking.marketplace_vendor_id) {
-    const { data: quoteRows, error: quoteErr } = await db
-      .from('vendor_proposals')
-      .select(ACCEPTED_QUOTE_SELECT)
+  // ⚡ The accepted quote and the ledger each need only the booking — asked together (speed pass 2026-11-14; was one
+  // after the other). Each keeps its own refusal branch below, unchanged.
+  const [quoteRead, { data: payRows, error: payErr }] = await Promise.all([
+    booking.marketplace_vendor_id
+      ? db
+          .from('vendor_proposals')
+          .select(ACCEPTED_QUOTE_SELECT)
+          .eq('event_id', args.eventId)
+          .eq('vendor_profile_id', booking.marketplace_vendor_id)
+          .eq('status', 'accepted')
+          .limit(1)
+      : Promise.resolve(null),
+    db
+      .from('event_vendor_payments')
+      .select(
+        'payment_id, amount_php, is_deposit_record, vendor_confirmed_at, paid_at, method, payment_refused_at',
+      )
       .eq('event_id', args.eventId)
-      .eq('vendor_profile_id', booking.marketplace_vendor_id)
-      .eq('status', 'accepted')
-      .limit(1);
+      .eq('vendor_id', booking.vendor_id)
+      .order('paid_at', { ascending: true }),
+  ]);
+  if (quoteRead) {
+    const { data: quoteRows, error: quoteErr } = quoteRead;
     if (quoteErr) {
       console.error('[readBookedMoney] accepted-quote read refused', quoteErr.message, { event_id: args.eventId });
       termsUnreadable = true;
@@ -145,14 +160,6 @@ export async function readBookedMoney(
     }
   }
 
-  const { data: payRows, error: payErr } = await db
-    .from('event_vendor_payments')
-    .select(
-      'payment_id, amount_php, is_deposit_record, vendor_confirmed_at, paid_at, method, payment_refused_at',
-    )
-    .eq('event_id', args.eventId)
-    .eq('vendor_id', booking.vendor_id)
-    .order('paid_at', { ascending: true });
   let ledger: { count: number; paidCentavos: number; recordedFirstCentavos: number | null } | null = null;
   let firstPaymentRowId: string | null = null;
   // 🔑 A REFUSED READ IS NOT AN EMPTY LEDGER. `rowsOrNull` stays null on

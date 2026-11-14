@@ -26,7 +26,8 @@ import { readMakerDeskTitle } from '@/lib/maker-desk-title.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { isTransientReadError, schemaBlipError, withSchemaRetry } from '@/lib/read-retry';
+import { isTransientReadError, schemaBlipError } from '@/lib/read-retry';
+import { eventMemberTypeOnce } from '@/lib/event-membership-once';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { GENERIC_PROFILE, profileSetup, resolveProfile, resolveProfileByEvent, resolveRoleSetForEvent, surfaceEnabled } from '@/lib/event-type-profile';
@@ -313,9 +314,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
 
   // 🔁 A schema-cache blip retries, and one that outlasts it throws (the browser
   // shows "Reconnecting…") — never the redirect below. lib/read-retry.ts.
-  const { data: membership, error: membershipError, status: membershipStatus } = await withSchemaRetry(() =>
-    supabase.from('event_members').select('member_type').eq('event_id', eventId).eq('user_id', user.id).maybeSingle(),
-  );
+  // ⚡ The SAME read `fetchEventViewer` asks below (`eventMemberTypeOnce` — `withSchemaRetry` inside), so the two share
+  // one answer per render (speed pass 2026-11-14; it was sent twice).
+  const { data: membership, error: membershipError, status: membershipStatus } = await eventMemberTypeOnce(supabase, eventId, user.id);
   if (isTransientReadError(membershipError, membershipStatus)) throw schemaBlipError('LaunchPage.membership', membershipError);
   if (membershipError) {
     logQueryError(
@@ -395,6 +396,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   // Every paid-feature read below asks "does THIS EVENT hold it?" (owner
   // 2026-10-02) — the one host-facing resolver, never the visitor's own session.
   const ent = await eventEntitlementClient(eventId);
+  /* ⚡ The part prices wait only on the store-shell check (headers, no database) — so they leave beside the reads
+     below instead of after them (speed pass 2026-11-14: one step off the page's depth). Still none in the store shell. */
+  const proPricesP = startAhead(
+    isStoreShellRequest().then((shell) => (shell ? null : hubPartPrices(createAdminClient()).catch(() => null))),
+  );
   const [
     ownsLiveWall,
     panoodState,
@@ -637,7 +643,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     // What the event holds — read in the store shell too: an owner keeps their rows there (`makerProUsable`).
     asViewedOwnership(eventHubOwnership(ent, eventId)).catch(() => null),
     // The prices — never in the store shell (no web price there).
-    storeShell ? Promise.resolve(null) : hubPartPrices(createAdminClient()).catch(() => null),
+    proPricesP,
   ]);
   /** 💎 Does the event hold this part (or everything), as the viewer is shown it — each Maker row's own ◆ state. */
   const ownsPart = (p: HubPartId): boolean => Boolean(proOwn && (proOwn.full || proOwn.parts.has(p)));

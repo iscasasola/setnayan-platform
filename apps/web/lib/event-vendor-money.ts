@@ -16,6 +16,7 @@
  * Held by `lib/booking-money-reads-through-the-reader.test.ts` and `lib/security/booking-money-is-not-session-readable.test.ts`.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { askedOnce } from '@/lib/request-once';
 
 export const BOOKING_MONEY_COLUMNS = [
   'total_cost_php',
@@ -70,7 +71,11 @@ export async function readBookingMoney(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<Map<string, BookingMoney>> {
-  const { data, error } = await supabase.rpc('event_vendor_money_read', { p_event_id: eventId });
+  // ⚡ One answer per render (speed pass 2026-11-14): the workspace asked twice (its own row and the budget summary).
+  // A refusal is handed to every caller and each still throws; outside a render it reads fresh, as before.
+  const { data, error } = await askedOnce(supabase, 'event_vendor_money_read', [eventId], () =>
+    Promise.resolve(supabase.rpc('event_vendor_money_read', { p_event_id: eventId })),
+  );
   if (error) throw new Error(`event_vendor_money_read failed: ${error.message}`);
   const out = new Map<string, BookingMoney>();
   for (const r of (data ?? []) as ReaderRow[]) {

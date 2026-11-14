@@ -194,3 +194,10 @@ a853e2a422fb214dcab13cda675fa61b007a4b22:apps/web/lib/badge-rewards.test.ts:gene
 # (Build 6 Lane L): the selected identifiers are storage-path column names, not
 # credentials. Pinned by its introducing commit, as above.
 63ac7474edd36172ce3ebf93da9966c7b7c8260a:apps/web/scripts/remark-supplier-photos.ts:generic-api-key:68
+#
+# Same rule flags `PAPIC_PACK_CODE` in lib/badge-rewards.ts (badge reward ladder,
+# 2026-11-15): a map from a reward's pack name to a CATALOG SKU CODE
+# (PAPIC_GUEST_1K / PAPIC_GUEST) — public product identifiers, the same codes
+# platform_retail_catalog_v2 and lib/iap/products.ts carry. No credential. Pinned
+# by its introducing commit (gitleaks-action scans every commit in the PR range).
+1ae3aa51a129c04fed5f0a5f9d5df38509b1c250:apps/web/lib/badge-rewards.ts:generic-api-key:71

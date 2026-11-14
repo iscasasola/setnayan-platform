@@ -188,25 +188,11 @@ export function papicPackFor(packs: readonly ShopGiftPack[], reward: BadgeReward
   return packs.find((p) => p.kind === 'papic' && p.code === code) ?? null;
 }
 
-/** Event Ultra's title on the catalogue (it is not a gift pack, so `fetchShopGiftPacks` does not carry it). */
-async function readEventUltraTitle(admin: SupabaseClient): Promise<string | null> {
-  const { data, error } = await admin
-    .from('platform_retail_catalog_v2')
-    .select('title, is_active, retired_at')
-    .eq('service_code', 'EVENT_ULTRA')
-    .maybeSingle();
-  if (error) {
-    logQueryError('badgeRewards.ultraTitle', error, {}, 'graceful_degrade');
-    return null;
-  }
-  const r = data as { title: string | null; is_active: boolean | null; retired_at: string | null } | null;
-  return r && r.is_active === true && !r.retired_at && r.title ? r.title : null;
-}
-
 /** The products' names from the live catalogue: every reward the one ladder can pay, and each Papic pack by credits. */
 export async function readRewardNames(admin: SupabaseClient): Promise<RewardNames> {
-  const [packs, ultra] = await Promise.all([fetchShopGiftPacks(admin), readEventUltraTitle(admin)]);
-  if (!packs) return { ...FALLBACK_REWARD_NAMES, event_ultra: ultra ?? FALLBACK_REWARD_NAMES.event_ultra };
+  // Event Ultra is one of the gift packs since 15 Nov (earned only), so its catalogue title comes with them.
+  const packs = await fetchShopGiftPacks(admin);
+  if (!packs) return FALLBACK_REWARD_NAMES;
   const papicByCredits: Record<number, string> = {};
   for (const p of packs) if (p.kind === 'papic') papicByCredits[p.credits] = p.title;
   return {
@@ -215,7 +201,7 @@ export async function readRewardNames(admin: SupabaseClient): Promise<RewardName
     papic_3000: papicPackFor(packs, { kind: 'papic', units: 1, pack: 'papic_3000' })?.title,
     event_plus: packs.find((p) => p.kind === 'event_plus')?.title ?? FALLBACK_REWARD_NAMES.event_plus,
     event_pro: packs.find((p) => p.kind === 'event_pro')?.title ?? FALLBACK_REWARD_NAMES.event_pro,
-    event_ultra: ultra ?? FALLBACK_REWARD_NAMES.event_ultra,
+    event_ultra: packs.find((p) => p.kind === 'event_ultra')?.title ?? FALLBACK_REWARD_NAMES.event_ultra,
     papicByCredits,
   };
 }
@@ -279,7 +265,7 @@ async function grantOwedGiftRewards(
     };
 
     for (const m of missing) {
-      // 🛑 A kind the grant door cannot land yet (Event Ultra — no gift-stock path) waits, its key unspent.
+      // 🛑 A kind the grant door cannot land waits, its key unspent (every kind is grantable since 15 Nov; kept as a guard).
       if (!GRANTABLE_KINDS.has(m.reward.kind)) {
         out.skipped += 1;
         continue;

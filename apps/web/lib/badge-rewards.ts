@@ -23,10 +23,10 @@
  *   No reward: Years in business · Rating · Plan / Founding / Member since · Yearly awards.
  *   Each step pays once, never expires, a regained rank does not pay twice, and sits outside the 40% gift limit.
  *
- * 🛑 EVENT ULTRA HAS NO GIFT-STOCK PATH YET. Black Diamond's Event Ultra is drawn ("→ Event Ultra") but NOT granted:
- * the gift stock (`shop_gift_stock_entries.gift_kind`), the quote lines and the delivery door know Papic, Event Plus and
- * Event Pro only, so an Ultra reward would land as stock nothing can give. The sweep leaves it owed (`GRANTABLE_KINDS`)
- * — the step's key stays unspent, so it pays the day an Ultra gift path exists. Never a stand-in reward.
+ * 💎 BLACK DIAMOND GIVES THE REAL EVENT ULTRA (owner 15 Nov, "Event ultra"). The plan approved 13 Nov
+ * (`EVENT_ULTRA_SKU`, lib/event-ultra.ts) lands in the shop's gift stock as one 'event_ultra' unlock, goes on a quote
+ * like Event Pro, and at the couple's first payment unlocks EVENT_ULTRA on their event with the catalogue row's included
+ * Papic credits (migration 20271348181787). It is earned only — a shop cannot buy it (`shopGiftBuyable`).
  *
  * 🔑 NO PRICE AND NO PACK SIZE LIVES HERE. "Papic 150" is the SMALLEST Papic pack on the live catalogue
  * (`alwaysAllowedPack`, `lib/shop-gifts.ts`); "Papic 1000" and "Papic 3000" are the catalogue packs NAMED by their
@@ -51,13 +51,18 @@ import type { SpotlightAwardType } from '@/lib/spotlight-awards';
 import { upgradeLineFor, type BadgeUpgradeRow } from '@/lib/badge-upgrades';
 
 /**
- * What a reward is: gift-stock packs / unlocks, or a free booking fee. `event_ultra` is drawn only — see the header
- * (🛑 no gift-stock path); `shop_badge_rewards.reward_kind` does not accept it and nothing grants it.
+ * What a reward is: gift-stock packs / unlocks (Papic · Event Plus · Event Pro · Event Ultra), or a free booking fee.
  */
 export type BadgeRewardKind = 'papic' | 'event_plus' | 'event_pro' | 'event_ultra' | 'fee_waiver';
 
-/** The kinds the grant door can land today (`shop_badge_rewards_reward_kind_allowed`). Event Ultra waits. */
-export const GRANTABLE_KINDS: ReadonlySet<BadgeRewardKind> = new Set(['papic', 'event_plus', 'event_pro', 'fee_waiver']);
+/** The kinds the grant door lands (`shop_badge_rewards_reward_kind_allowed`) — every kind, Event Ultra since 15 Nov. */
+export const GRANTABLE_KINDS: ReadonlySet<BadgeRewardKind> = new Set([
+  'papic',
+  'event_plus',
+  'event_pro',
+  'event_ultra',
+  'fee_waiver',
+]);
 
 /** Which Papic pack a Papic reward is: the smallest on the catalogue, or a pack named by its code. */
 export type PapicPack = 'smallest' | 'papic_1000' | 'papic_3000';
@@ -89,7 +94,7 @@ export const TIER_REWARDS: Readonly<Record<TierKey, BadgeReward>> = {
   tier4: papicPack('papic_3000'), // Ruby — Papic 3000
   tier5: plus(1), // Emerald — Event Plus
   tier6: pro(1), // Diamond — Event Pro
-  tier7: ultra(), // Black Diamond — Event Ultra (drawn; not granted until a gift path exists)
+  tier7: ultra(), // Black Diamond — the real Event Ultra (owner 15 Nov)
 };
 
 /** A badge's own steps, each paying its tier's reward from the one ladder. */

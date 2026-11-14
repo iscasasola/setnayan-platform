@@ -8,19 +8,24 @@
  *   2 · TAP TO CLAIM COUNTS ONCE. The shop's own press is the claim (`gift_moment_claim`, 'badge_reward'); a second
  *       press answers 'already' with the SAME claimed_at, one claim row exists, and the stock is untouched by either
  *       press — a claim is an acknowledgement, never money. Another shop's press is refused.
- *   3 · 🛑 EVENT ULTRA HAS NO DOOR. The grant door refuses 'event_ultra' and writes nothing — the reason the app
- *       leaves Black Diamond's reward owed (`GRANTABLE_KINDS`) instead of inventing one.
+ *   3 · 💎 BLACK DIAMOND GIVES THE REAL EVENT ULTRA (owner 15 Nov, migration 20271348181787). The t7 grant mints one
+ *       'event_ultra' unlock once; the shop's claim counts once; on a quote it is given at the couple's first payment —
+ *       upgrading an event that holds Pro — as EVENT_ULTRA, with the catalogue row's included Papic credits; and the
+ *       event then holds exactly what an Ultra order confers (`EVENT_ULTRA_GRANTS`), never the staff-made extras.
  *   4 · THE FIVE-STAR COUNT USES THE PUBLIC STARS' RULE. `shop_trusted_five_star_count` counts a booked 5★, not a 4★,
  *       not one never booked through Setnayan, not one voided for fraud, not the shop owner reviewing their own event —
  *       and no signed-in session may call it (service_role only).
  *
  * Sabotage (2026-11-15, measured): `rating_overall = 5` → `>= 4` plus dropping the owner-as-couple arm turns 4 red
  * (2 !== 1). The `p_units * p_credits_each` arm is covered by 1 (1,000 credits, not 150).
+ * Sabotage of 20271348181787 (measured, each alone turns 3 red): an Ultra line delivered as COUPLE_WEBSITE_PRO; the
+ * gifted-Ultra arm dropped from event_has_comp_for_sku (false !== true); the top-up read from Pro's row (2000 !== 3500).
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { EVENT_ULTRA_GRANTS, EVENT_ULTRA_NEVER_GRANTS, EVENT_ULTRA_SKU } from '../../lib/event-ultra';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -168,10 +173,96 @@ test('2 · 🚨 tap to claim counts once, moves nothing, and only the shop itsel
   void otherShop;
 });
 
-test('3 · 🛑 the grant door has no Event Ultra — refused, nothing written', async () => {
-  const before = await one<string>(`SELECT COUNT(*)::text AS v FROM public.shop_badge_rewards WHERE vendor_profile_id = $1`, [shop]);
-  assert.equal((await grant(shop, 'events:10000', 'event_ultra', null)).status, 'bad_input');
-  assert.equal(await one<string>(`SELECT COUNT(*)::text AS v FROM public.shop_badge_rewards WHERE vendor_profile_id = $1`, [shop]), before);
+test('3 · 💎 Black Diamond mints the REAL Event Ultra: claimed once, given once, the event holds Ultra', async () => {
+  const ultraUser = await newUser('ladder-ultra@test.test', 'vendor');
+  const ultraShop = await shopOf(ultraUser, 'Tala Lights');
+  await db.query(
+    `UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = NOW() WHERE vendor_profile_id = $1`,
+    [ultraShop],
+  );
+
+  // The t7 grant lands one Event Ultra unlock in the gift stock — once.
+  assert.equal((await grant(ultraShop, 'events:10000', 'event_ultra', null)).status, 'granted');
+  assert.equal((await grant(ultraShop, 'events:10000', 'event_ultra', null)).status, 'already');
+  assert.equal(await stock(ultraShop, 'event_ultra'), 1, 'a repeat t7 grant added a second Ultra');
+  const status = await one<{ balance: number; held: number }>(
+    `SELECT jsonb_build_object('balance', balance, 'held', held) AS v FROM public.shop_gift_stock_status($1, NULL) WHERE gift_kind = 'event_ultra'`,
+    [ultraShop],
+  );
+  assert.deepEqual(status, { balance: 1, held: 0 });
+  const earned = await one<{ earned: number; used: number }>(
+    `SELECT jsonb_build_object('earned', earned, 'used', used) AS v FROM public.shop_gift_reward_stock_status($1, NULL) WHERE gift_kind = 'event_ultra'`,
+    [ultraShop],
+  );
+  assert.deepEqual(earned, { earned: 1, used: 0 });
+
+  // Tap to claim: once.
+  const ref = await one<string>(
+    `SELECT reward_id::text AS v FROM public.shop_badge_rewards WHERE vendor_profile_id = $1 AND reward_key = 'events:10000'`,
+    [ultraShop],
+  );
+  assert.equal((await asUser<{ status: string }>(ultraUser, `SELECT public.gift_moment_claim('badge_reward', $1) AS v`, [ref])).status, 'claimed');
+  assert.equal((await asUser<{ status: string }>(ultraUser, `SELECT public.gift_moment_claim('badge_reward', $1) AS v`, [ref])).status, 'already');
+
+  // Given on a quote: an event that already holds Event Pro is UPGRADED to Ultra at the first payment.
+  const couple = await newUser('ladder-ultra-couple@test.test', 'customer');
+  const eventId = await one<string>(
+    `INSERT INTO public.events (display_name, event_type) VALUES ('Ultra day', 'birthday') RETURNING event_id AS v`,
+  );
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`, [eventId, couple]);
+  const eventVendorId = await one<string>(
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, total_cost_php)
+     VALUES ($1, 'band_dj', 'Tala Lights', 'considering', $2, 50000) RETURNING vendor_id AS v`,
+    [eventId, ultraShop],
+  );
+  const proposalId = await one<string>(
+    `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, status, resolved_at, total_centavos, valid_until)
+     VALUES ($1, $2, 'Quote', 'accepted', NOW(), 5000000, (NOW() AT TIME ZONE 'Asia/Manila')::date + 7) RETURNING proposal_id AS v`,
+    [ultraShop, eventId],
+  );
+  await db.query(
+    `INSERT INTO public.vendor_proposal_shop_gifts
+       (proposal_id, vendor_profile_id, service_code, gift_kind, credits, srp_php, title, from_badge_reward)
+     VALUES ($1, $2, 'EVENT_ULTRA', 'event_ultra', 1, 9990, 'Event Ultra', TRUE)`,
+    [proposalId, ultraShop],
+  );
+  type UnlockDoor = { status: string; given?: Array<{ gift_kind: string; unlocks_sku: string }>; already_has?: number };
+  const door = (has: string) =>
+    one<UnlockDoor>(`SELECT public.shop_gift_deliver_unlocks_for_booking($1, $2) AS v`, [eventVendorId, has]);
+  assert.equal((await door('pro')).status, 'not_paid');
+  await db.query(`UPDATE public.event_vendors SET deposit_acknowledged_at = NOW() WHERE vendor_id = $1`, [eventVendorId]);
+
+  const given = await door('pro');
+  assert.equal(given.status, 'ok');
+  assert.deepEqual((given.given ?? []).map((g) => [g.gift_kind, g.unlocks_sku]), [['event_ultra', 'EVENT_ULTRA']]);
+  assert.equal(await stock(ultraShop, 'event_ultra'), 0, 'the Ultra did not leave the stock');
+  // A repeat (now holding Ultra) gives nothing.
+  assert.equal((await door('ultra')).status, 'nothing_to_give');
+  assert.equal(await stock(ultraShop, 'event_ultra'), 0);
+
+  // What buying Ultra does: AI on, the included credits topped up to the EVENT_ULTRA row's number — read, never typed.
+  const included = Number(
+    await one<string>(`SELECT included_papic_credits::text AS v FROM public.platform_retail_catalog_v2 WHERE service_code = 'EVENT_ULTRA'`),
+  );
+  assert.ok(included > 0, 'the catalogue has no Ultra credits to compare against');
+  assert.equal(
+    Number(await one<string>(
+      `SELECT COALESCE(SUM(points), 0)::text AS v FROM public.papic_event_point_grants WHERE event_id = $1 AND source = 'plan_included'`,
+      [eventId],
+    )),
+    included,
+  );
+  assert.equal(await one<boolean>(`SELECT setnayan_ai_active AS v FROM public.events WHERE event_id = $1`, [eventId]), true);
+
+  // The event holds what an Ultra ORDER confers — the app's own list, so the two can never drift.
+  const skus = await one<string[]>(`SELECT public.event_comp_active_skus($1) AS v`, [eventId]);
+  assert.deepEqual([...skus].sort(), [EVENT_ULTRA_SKU, ...EVENT_ULTRA_GRANTS].sort());
+  for (const sku of [EVENT_ULTRA_SKU, ...EVENT_ULTRA_GRANTS]) {
+    assert.equal(await one<boolean>(`SELECT public.event_has_comp_for_sku($1, $2) AS v`, [eventId, sku]), true, sku);
+  }
+  for (const sku of EVENT_ULTRA_NEVER_GRANTS) {
+    assert.equal(await one<boolean>(`SELECT public.event_has_comp_for_sku($1, $2) AS v`, [eventId, sku]), false, sku);
+  }
 });
 
 test('4 · the five-star count follows the public stars: booked 5★ only, never a self-review; service_role only', async () => {

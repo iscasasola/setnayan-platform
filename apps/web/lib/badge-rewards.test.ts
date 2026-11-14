@@ -138,9 +138,8 @@ describe('the one table is the ruling', () => {
     assert.equal(FREE_FEE_LINE, 'Free booking fee · your next customer');
   });
 
-  it('🛑 Event Ultra is drawn but never granted — no gift-stock path exists yet', () => {
-    assert.equal(GRANTABLE_KINDS.has('event_ultra'), false);
-    for (const k of ['papic', 'event_plus', 'event_pro', 'fee_waiver'] as const) assert.ok(GRANTABLE_KINDS.has(k), k);
+  it('💎 Black Diamond grants the real Event Ultra — every reward kind is grantable (owner 15 Nov)', () => {
+    for (const k of ['papic', 'event_plus', 'event_pro', 'event_ultra', 'fee_waiver'] as const) assert.ok(GRANTABLE_KINDS.has(k), k);
   });
 
   it('Papic 1000 / 3000 are named by the catalogue CODES the app already sells under those names — never a size', () => {
@@ -385,7 +384,7 @@ describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep i
     { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
     { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
   ]);
-  const F = (papic: number, event_plus = 0, event_pro = 0) => ({ papic, event_plus, event_pro });
+  const F = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra });
   // A small booking: its 40% limit is far below Event Pro's price.
   const TOTAL = 2_000_000;
 
@@ -411,7 +410,7 @@ describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep i
   });
 
   it('reward stock never counts for more than is free to offer, and an unread one counts as none', () => {
-    assert.deepEqual(rewardFreeByKind({ papic: { earned: 300, used: 0 }, event_plus: { earned: 1, used: 1 }, event_pro: { earned: 0, used: 0 } }, F(150, 3)), F(150, 0, 0));
+    assert.deepEqual(rewardFreeByKind({ papic: { earned: 300, used: 0 }, event_plus: { earned: 1, used: 1 }, event_pro: { earned: 0, used: 0 }, event_ultra: { earned: 0, used: 0 } }, F(150, 3)), F(150, 0, 0));
     assert.equal(rewardFreeByKind(null, F(150)), null);
     const v = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(0, 0, 1), 'none', null);
     assert.equal(v.state, 'over_limit', 'an unread reward stock exempted a line');

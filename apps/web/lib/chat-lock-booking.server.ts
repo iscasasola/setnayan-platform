@@ -4,6 +4,7 @@ import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { planChatLockBooking } from '@/lib/chat-lock-booking';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import { closedDayRefusal } from '@/lib/closed-day.server';
 
 /**
  * `bookVendorAtChatLock` — the SHARED lock primitive behind the couple's chat
@@ -36,6 +37,9 @@ export type ChatLockBookingOutcome =
   | { status: 'not_verified' }
   // 🚪 Bookings are closed on Setnayan (owner 2026-11-02, `lib/bookings-open.ts`, door 4) → nothing asked, booked or billed.
   | { status: 'bookings_closed' }
+  // ⬜ The event's day is one the supplier CLOSED (owner 2026-11-14, "Grey: no ask, no book" —
+  // `lib/closed-day.server.ts`) → nothing asked, booked or billed.
+  | { status: 'date_closed' }
   // First lock committed at the negotiated total; fee attempted (`feeCharged` =
   // a 6th+ paid order was minted, vs free-5 / flag-off / off-platform).
   // `priceLanded` — did `total_cost_php` ACTUALLY receive the negotiated total?
@@ -70,7 +74,11 @@ export async function bookVendorAtChatLock(
     agreedTotalPhp: number;
   },
   /** 🚪 The bookings switch — injectable so a test can run both sides; production reads the one switch. */
-  deps: { bookingsOpen: () => Promise<boolean> } = { bookingsOpen: areBookingsOpen },
+  deps: {
+    bookingsOpen: () => Promise<boolean>;
+    /** ⬜ The closed-day read — injectable for the same reason. */
+    closedDay?: typeof closedDayRefusal;
+  } = { bookingsOpen: areBookingsOpen },
 ): Promise<ChatLockBookingOutcome> {
   const { eventId, eventVendorId, marketplaceVendorId, agreedTotalPhp } = args;
 
@@ -89,13 +97,15 @@ export async function bookVendorAtChatLock(
   // we never overwrite the frozen price on an already-booked row.
   const { data: cur } = await authed
     .from('event_vendors')
-    .select('status, lock_request_state')
+    .select('status, lock_request_state, service_id, service_time_slot_id')
     .eq('vendor_id', eventVendorId)
     .eq('event_id', eventId)
     .maybeSingle();
   const curRow = (cur ?? null) as {
     status?: string | null;
     lock_request_state?: string | null;
+    service_id?: string | null;
+    service_time_slot_id?: string | null;
   } | null;
   const currentStatus = curRow?.status ?? null;
 
@@ -111,6 +121,29 @@ export async function bookVendorAtChatLock(
   if (!bookingsOpen && (action === 'book' || action === 'request')) return { status: 'bookings_closed' };
   if (action === 'blocked_not_verified') return { status: 'not_verified' };
   if (action === 'already_requested') return { status: 'already_requested' };
+
+  // ⬜ A DAY THE SUPPLIER CLOSED: NO ASK, NO BOOK (owner 2026-11-14, `lib/closed-day.server.ts`). Only a press that
+  // asks or books; a new price on a supplier already booked is not a booking. Day-precise events only; fails open.
+  if (action === 'book' || action === 'request') {
+    const { data: dayRow } = await authed
+      .from('events')
+      .select('event_date, event_date_precision')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const d = dayRow as { event_date?: string | null; event_date_precision?: string | null } | null;
+    if (
+      d?.event_date_precision === 'day' &&
+      (await (deps.closedDay ?? closedDayRefusal)({
+        vendorProfileId: marketplaceVendorId,
+        serviceId: curRow?.service_id ?? null,
+        day: d.event_date,
+        slotted: !!curRow?.service_time_slot_id,
+        admin,
+      })) === 'closed'
+    ) {
+      return { status: 'date_closed' };
+    }
+  }
 
   // ── PR-H · THE THIRD LOCK PATH, AND THE EASIEST ONE TO WALK PAST ─────────
   // This site bills and books from a CHAT MESSAGE, not a lock screen — the same

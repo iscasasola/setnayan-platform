@@ -52,6 +52,7 @@ import { releaseForcedDate } from '@/lib/release-forced-date';
 import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
@@ -1849,6 +1850,27 @@ export async function finalizeVendor(
       // the acquire having booked it.
     } else {
       // ── #2 DAILY-CAPACITY PATH (service has no active slots). ──
+      // 🔒 A DAY THE SUPPLIER CLOSED TAKES NO ASK (`lib/closed-day.server.ts`): the date sheet the couple was shown
+      // reads it "Not bookable", so the ask is refused here — the same words the slot path says — not first at the
+      // deposit. The same check refuses the supplier's yes. Day-precise events only; fails open on a read error.
+      {
+        const { data: dayRow } = await supabase
+          .from('events')
+          .select('event_date, event_date_precision')
+          .eq('event_id', eventId)
+          .maybeSingle();
+        const d = dayRow as { event_date?: string | null; event_date_precision?: string | null } | null;
+        if (
+          d?.event_date_precision === 'day' &&
+          (await closedDayRefusal({
+            vendorProfileId: targetVendor.marketplace_vendor_id,
+            serviceId: targetVendor.service_id,
+            day: d.event_date,
+          })) === 'closed'
+        ) {
+          return { status: 'error', message: CLOSED_DAY_COUPLE_MESSAGE };
+        }
+      }
       // The card's own "Bookings per day" INSIDE its plan (owner 2026-11-06, "BOOKINGS PER DATE PER SERVICE IS A PLAN
       // ALLOWANCE" — Solo 1 · Pro 3 · Ultra 5, plus a bought "+1 booking per date"; Free · Verified 1 each, like Solo,
       // owner click 2026-11-06). ONE server-only definer answers it — `service_card_daily_limit`, the SAME limit

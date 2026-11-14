@@ -1,4 +1,5 @@
 import 'server-only';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -10,7 +11,7 @@ import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { fetchVendorServiceAttributes, payloadHidesPricesPublicly } from '@/lib/vendor-service-attributes';
 import { formatPhpRounded } from '@/lib/php';
 import { NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
-import { checkDateAnswer, checkDateWindow, type CheckDateService } from '@/lib/check-a-date';
+import { checkDateAnswer, checkDateWindow, type CheckDateInput, type CheckDateService } from '@/lib/check-a-date';
 
 /**
  * check-a-date.server — THE ONE READ BEHIND `/v/[slug]/dates` (owner 2026-10-28 ✅ "index.html approve").
@@ -118,10 +119,82 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
   const id = row.vendor_profile_id;
   const today = checkDateToday(now);
   const window = checkDateWindow(today);
-  const fromTs = `${window.from}T00:00:00+08:00`;
-  const toTs = `${window.to}T23:59:59.999+08:00`;
 
-  const [poolsRes, catsRes, membersRes, servicesRes, statesRes, bookingsRead, blocksRead, attrs] = await Promise.all([
+  const [read, attrs] = await Promise.all([
+    readShopDateFacts(admin, id, { today, from: window.from, to: window.to }),
+    fetchVendorServiceAttributes(admin, id).catch(() => null),
+  ]);
+  if (read.kind === 'unreadable') return { kind: 'unreadable' };
+  const { pools, bookings, blocks, dayStates, services, serviceRows } = read;
+
+  const answer = checkDateAnswer({ pools, bookings, blocks, dayStates, services, months: window.months, today });
+
+  // Prices as the shop page shows them: hidden when the shop chose to hide them (a failed read shows — it never hides).
+  const hidePrices = Array.isArray(attrs) && attrs.some((a) => payloadHidesPricesPublicly(a.attribute_payload));
+  const name = resolveVendorDisplayName({
+    business_name: row.business_name,
+    name_revealed_at: row.name_revealed_at,
+    primary_canonical_service: row.services?.[0] ?? null,
+    location_city: row.location_city,
+    services: row.services ?? null,
+    screen_name: row.screen_name ?? null,
+    isPaidTier: isTrueNameTier(row.tier_state ?? null),
+    is_verified: row.verification_state === 'verified',
+  });
+
+  return {
+    kind: 'ok',
+    shop: {
+      vendorProfileId: id,
+      slug: row.business_slug ?? slug,
+      name,
+      initials: initialsOf(name),
+      // The badge is the ONE predicate (`hasVerifiedBadge`): verified AND inside its renewal deadline.
+      verified: hasVerifiedBadge(row, now),
+      isDemo: row.is_demo === true,
+    },
+    services: serviceRows.map((s) => ({
+      serviceId: s.vendor_service_id,
+      label: s.title?.trim() || displayServiceLabel(s.category ?? 'Service'),
+      price: !hidePrices && s.starting_price_php !== null && s.starting_price_php > 0 ? `from ${formatPhpRounded(s.starting_price_php)}` : '',
+      category: s.category,
+    })),
+    today,
+    from: window.from,
+    to: window.to,
+    notBookable: answer.notBookable,
+    perService: answer.perService,
+  };
+}
+
+/** The six window reads, shared by the public page and the booking gates (`lib/closed-day.server.ts`). */
+export type ShopDateFacts =
+  | { kind: 'unreadable' }
+  | {
+      kind: 'ok';
+      pools: CheckDateInput['pools'];
+      bookings: CheckDateInput['bookings'];
+      blocks: CheckDateInput['blocks'];
+      dayStates: CheckDateInput['dayStates'];
+      services: CheckDateService[];
+      serviceRows: { vendor_service_id: string; title: string | null; category: string | null; starting_price_php: number | null }[];
+    };
+
+/**
+ * One shop's calendar facts for a span of PH civil days — the SAME six reads the public "Check a date" page draws
+ * its Not-bookable days from, so the booking ask and the supplier's yes refuse exactly the days the couple was shown
+ * as closed. Service role, narrow; nothing but the facts leaves. Any refused or incomplete read → `unreadable`.
+ */
+export async function readShopDateFacts(
+  admin: SupabaseClient,
+  id: string,
+  span: { today: string; from: string; to: string },
+): Promise<ShopDateFacts> {
+  const fromTs = `${span.from}T00:00:00+08:00`;
+  const toTs = `${span.to}T23:59:59.999+08:00`;
+  const today = span.today;
+
+  const [poolsRes, catsRes, membersRes, servicesRes, statesRes, bookingsRead, blocksRead] = await Promise.all([
     admin
       .from('vendor_schedule_pools')
       .select('pool_id, daily_booking_capacity, vendor_service_halls(vendor_service_id)')
@@ -144,8 +217,8 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
       .from('vendor_calendar_day_states')
       .select('pool_id, state_date, day_state')
       .eq('vendor_profile_id', id)
-      .gte('state_date', window.from)
-      .lte('state_date', window.to)
+      .gte('state_date', span.from)
+      .lte('state_date', span.to)
       .limit(5000),
     readAllPages(
       async (from, to) => {
@@ -155,7 +228,7 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
           .eq('vendor_profile_id', id)
           .is('released_at', null)
           .gte('booked_date', today)
-          .lte('booked_date', window.to)
+          .lte('booked_date', span.to)
           .order('booked_date', { ascending: true })
           .order('pool_booking_id', { ascending: true })
           .range(from, to);
@@ -179,7 +252,6 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
       },
       { pageSize: 1000 },
     ),
-    fetchVendorServiceAttributes(admin, id).catch(() => null),
   ]);
 
   for (const [what, res] of [
@@ -189,8 +261,8 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
     ['day states', statesRes],
   ] as const) {
     if (res.error) {
-      logQueryError(`readCheckADate.${what}`, res.error, { vendor_profile_id: id }, 'graceful_degrade');
-      return { kind: 'unreadable' };
+      logQueryError(`readShopDateFacts.${what}`, res.error, { vendor_profile_id: id }, 'graceful_degrade');
+      return { kind: 'unreadable' as const };
     }
   }
   for (const [what, read] of [
@@ -198,8 +270,8 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
     ['blocks', blocksRead],
   ] as const) {
     if (!read.complete) {
-      logQueryError(`readCheckADate.${what}`, { message: read.error ?? 'incomplete read' }, { vendor_profile_id: id }, 'graceful_degrade');
-      return { kind: 'unreadable' };
+      logQueryError(`readShopDateFacts.${what}`, { message: read.error ?? 'incomplete read' }, { vendor_profile_id: id }, 'graceful_degrade');
+      return { kind: 'unreadable' as const };
     }
   }
 
@@ -250,42 +322,5 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
     .filter((s): s is { pool_id: string | null; state_date: string; day_state: 'locked' | 'whitelist' } => s.day_state === 'locked' || s.day_state === 'whitelist')
     .map((s) => ({ poolId: s.pool_id, stateDate: s.state_date, dayState: s.day_state }));
 
-  const answer = checkDateAnswer({ pools, bookings, blocks, dayStates, services, months: window.months, today });
-
-  // Prices as the shop page shows them: hidden when the shop chose to hide them (a failed read shows — it never hides).
-  const hidePrices = Array.isArray(attrs) && attrs.some((a) => payloadHidesPricesPublicly(a.attribute_payload));
-  const name = resolveVendorDisplayName({
-    business_name: row.business_name,
-    name_revealed_at: row.name_revealed_at,
-    primary_canonical_service: row.services?.[0] ?? null,
-    location_city: row.location_city,
-    services: row.services ?? null,
-    screen_name: row.screen_name ?? null,
-    isPaidTier: isTrueNameTier(row.tier_state ?? null),
-    is_verified: row.verification_state === 'verified',
-  });
-
-  return {
-    kind: 'ok',
-    shop: {
-      vendorProfileId: id,
-      slug: row.business_slug ?? slug,
-      name,
-      initials: initialsOf(name),
-      // The badge is the ONE predicate (`hasVerifiedBadge`): verified AND inside its renewal deadline.
-      verified: hasVerifiedBadge(row, now),
-      isDemo: row.is_demo === true,
-    },
-    services: serviceRows.map((s) => ({
-      serviceId: s.vendor_service_id,
-      label: s.title?.trim() || displayServiceLabel(s.category ?? 'Service'),
-      price: !hidePrices && s.starting_price_php !== null && s.starting_price_php > 0 ? `from ${formatPhpRounded(s.starting_price_php)}` : '',
-      category: s.category,
-    })),
-    today,
-    from: window.from,
-    to: window.to,
-    notBookable: answer.notBookable,
-    perService: answer.perService,
-  };
+  return { kind: 'ok', pools, bookings, blocks, dayStates, services, serviceRows };
 }

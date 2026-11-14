@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { resolveLivePax } from '@/lib/pax';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
@@ -454,6 +455,22 @@ export async function lockPackage(
   {
     const demoRefusal = await demoBookingRefusal(createAdminClient(), { eventId, vendorProfileId: pkg.vendor_profile_id });
     if (demoRefusal) return { status: 'error', message: demoRefusal };
+  }
+  // 🔒 A day the shop closed takes no ask (`lib/closed-day.server.ts`) — the date sheet shows it "Not bookable". A
+  // package names no single card, so the day must be closed for the shop as a whole. Day-precise only; fails open.
+  {
+    const { data: dayRow } = await supabase
+      .from('events')
+      .select('event_date, event_date_precision')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const d = dayRow as { event_date?: string | null; event_date_precision?: string | null } | null;
+    if (
+      d?.event_date_precision === 'day' &&
+      (await closedDayRefusal({ vendorProfileId: pkg.vendor_profile_id, serviceId: null, day: d.event_date })) === 'closed'
+    ) {
+      return { status: 'error', message: CLOSED_DAY_COUPLE_MESSAGE };
+    }
   }
 
   // ── IS THIS PRESS AN ASK, OR A BOOKING? ─────────────────────────────────

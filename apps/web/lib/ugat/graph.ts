@@ -2328,6 +2328,14 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'shop_gift_stock_entries', column: 'proposal_id', references: 'vendor_proposals' },
       { kind: 'fk', table: 'shop_gift_stock_entries', column: 'pool_grant_id', references: 'papic_event_point_grants' },
       { kind: 'column', table: 'shop_gift_stock_entries', column: 'delta' },
+      // 🎁 THE GIFT MOMENT'S CLAIM (owner 2026-11-14: "once the redeem is pressed they already claimed it … redeem
+      // cannot duplicate"): one row per claimed gift, UNIQUE (source, ref_id) — a supplier gift keyed to the accepted
+      // quote whose 'given' stock rows reached the event, a badge reward to its shop_badge_rewards row. Grants nothing
+      // (the gift already landed); written only by gift_moment_claim.
+      { kind: 'table', table: 'gift_moment_claims' },
+      { kind: 'fk', table: 'gift_moment_claims', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'gift_moment_claims', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'check', table: 'gift_moment_claims', name: 'gift_moment_claims_source_allowed', mentions: 'source' },
       {
         kind: 'check',
         table: 'shop_gift_stock_entries',

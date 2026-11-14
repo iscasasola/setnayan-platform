@@ -128,6 +128,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { withPickedDate } from '@/lib/event-anchor';
 import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
 import { eventMemberTypeOnce } from '@/lib/event-membership-once';
+import { GiftMoments } from '@/app/_components/gift-moment/gift-moments';
 
 export const dynamic = 'force-dynamic';
 
@@ -1570,6 +1571,10 @@ export default async function EventHomePage({
           {homeFirstScreen}
         </>
       )}
+      {/* 🎁 A supplier's gift that reached this event: the tap-to-open moment, once per HOST (couple member), never a
+          guest (owner 14 Nov 2026); an unclaimed one waits as a line at the page's top and in the bell. Asked after
+          Home has drawn; it draws no box in the flow (a notice registration and a popup) — Home's own reads never grow for it. */}
+      {viewerMemberType === 'couple' ? <GiftMoments url={`/api/gift-moments?event=${eventId}`} /> : null}
     </LastSeenCapture>
   );
 }

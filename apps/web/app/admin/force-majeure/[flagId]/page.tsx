@@ -23,7 +23,7 @@ import {
 import { resolveFlag, takeOwnership } from '../actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-export const metadata = { title: 'Flag · Admin · Force Majeure' };
+export const metadata = { title: 'Force majeure flag · Admin' };
 
 type FlagRow = {
   flag_id: string;

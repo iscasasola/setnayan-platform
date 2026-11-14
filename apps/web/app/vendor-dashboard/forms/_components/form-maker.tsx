@@ -296,7 +296,7 @@ export function FormMaker({
           {forEventId && !formId ? 'Edit · saves as a new form' : formId ? 'Edit form' : 'New form'}
         </h2>
         {forEventId ? (
-          <p className="text-[13px] text-ink/65" data-form-maker-for-event>
+          <p className="text-[13px] text-ink/70" data-form-maker-for-event>
             Saved for {coupleName?.trim() || 'this event'} only. The original in your library, and anything already sent, stay as
             they were.
           </p>
@@ -304,11 +304,11 @@ export function FormMaker({
         <TypedRow name="Title" value={title} empty="Name this form" placeholder="Name this form" maxLength={120} onKeep={(t) => setTitle(t)} data="form-maker-title" />
 
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/60">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink/70">
             Items · {rows.length} · tap to open · swipe left to remove · ⠿ drag to reorder
           </p>
           {rows.length === 0 ? (
-            <p className="mt-2 text-sm text-ink/60">Nothing yet. Add a question, media files or a video link.</p>
+            <p className="mt-2 text-sm text-ink/70">Nothing yet. Add a question, media files or a video link.</p>
           ) : (
             <ul ref={listRef} className="mt-2 space-y-2" data-form-maker-items>
               {rows.map((r, i) => (
@@ -337,7 +337,7 @@ export function FormMaker({
                       <button
                         type="button"
                         aria-label={`Move ${rowName(r)} — drag, or use the arrow keys`}
-                        className="flex h-11 w-9 flex-none touch-none items-center justify-center text-ink/45"
+                        className="flex h-11 w-9 flex-none touch-none items-center justify-center text-ink/70"
                         onPointerDown={(e) => onHandleDown(e, r.key)}
                         onPointerMove={onHandleMove}
                         onPointerUp={onHandleUp}
@@ -358,9 +358,9 @@ export function FormMaker({
                       <RevealHead open={openKey === r.key} onToggle={() => setOpenKey((k) => (k === r.key ? null : r.key))} index={i}>
                         <span className="min-w-0">
                           <span className="block truncate text-[15px] font-medium text-ink">{rowName(r) || 'Untitled'}</span>
-                          <span className="block text-[12px] text-ink/60">{rowLine(r)}</span>
+                          <span className="block text-xs text-ink/70">{rowLine(r)}</span>
                         </span>
-                        {r.kind === 'video_link' ? <Video className="h-4 w-4 flex-none text-ink/50" aria-hidden /> : null}
+                        {r.kind === 'video_link' ? <Video className="h-4 w-4 flex-none text-ink/70" aria-hidden /> : null}
                       </RevealHead>
                     </div>
                     {openKey === r.key ? <ItemEditor row={r} shopId={shopId} onChange={(p) => patch(r.key, p)} /> : null}
@@ -382,7 +382,7 @@ export function FormMaker({
           <div className="flex min-h-12 items-center justify-between gap-3 border-t border-ink/10 pt-3" data-form-maker-keep>
             <div className="min-w-0">
               <p className="text-[15px] font-medium text-ink">Also keep in my library</p>
-              <p className="text-[12px] text-ink/60">Reuse it with other clients</p>
+              <p className="text-xs text-ink/70">Reuse it with other clients</p>
             </div>
             <button
               type="button"
@@ -405,10 +405,10 @@ export function FormMaker({
             <InfoTip label="Link to service card" labelAs="p" labelClassName="text-[15px] font-medium text-ink" align="start">
               Sent to the couple automatically when they book this service — once their first payment is confirmed.
             </InfoTip>
-            <p className="text-[12px] text-ink/60">Pick as many</p>
+            <p className="text-xs text-ink/70">Pick as many</p>
           </div>
           {cards.length === 0 ? (
-            <p className="text-[13px] text-ink/60">No service cards yet</p>
+            <p className="text-[13px] text-ink/70">No service cards yet</p>
           ) : (
             <PickMenu
               label="Link to service card"

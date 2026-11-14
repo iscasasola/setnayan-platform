@@ -386,9 +386,11 @@
         "InfoToggle",
         "Link",
         "Pill",
+        "PlanPagePreview",
         "PlanTiers",
         "QrMoments",
         "RunTheDay",
+        "SampleShopPage",
         "SupplierPlanTable",
         "T"
       ]
@@ -4338,9 +4340,7 @@
         "admin/payouts/loading.tsx",
         "admin/payouts/page.tsx"
       ],
-      "destinations": [
-        "/admin/payments"
-      ],
+      "destinations": [],
       "actions": [
         "holdPayoutAction",
         "markPayoutPaidAction",
@@ -10832,6 +10832,7 @@
         "ArrangementResult",
         "AttachManualVendorResult",
         "AttachMarketplaceVendorResult",
+        "Badge",
         "BarButtons",
         "BenchLocal",
         "BenchLocalCtx.Provider",
@@ -10895,6 +10896,7 @@
         "CompareSheet",
         "CompareTable",
         "CompareVerbs",
+        "ConfirmDialog",
         "ConnectSupplierModal",
         "ContactShortlistVendorButton",
         "ContactShortlistVendorResult",
@@ -10959,7 +10961,6 @@
         "GoToFind",
         "GuestPopup",
         "HTMLAnchorElement",
-        "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
@@ -11081,7 +11082,6 @@
         "Spotlight",
         "StartServiceInquiryResult",
         "SubmitButton",
-        "SuccessToast",
         "SupplierInviteView",
         "SupplierShareButton",
         "SupplierSheet",
@@ -15470,6 +15470,7 @@
         "v/[slug]/_components/portfolio-photo-tiles.tsx",
         "v/[slug]/_components/review-groups.tsx",
         "v/[slug]/_components/sample-shop-page.tsx",
+        "v/[slug]/_components/sample-shop-plan.ts",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
@@ -15536,6 +15537,7 @@
         "Logo",
         "MarkedPhoto",
         "MessageDelivery",
+        "Name",
         "NotYetVerifiedNotice",
         "OpenDatesPeek",
         "PackageCard",
@@ -16090,15 +16092,17 @@
       ],
       "actions": [],
       "blocks": [
-        "HTMLDivElement",
+        "ActionButton",
         "HTMLFormElement",
-        "HTMLInputElement",
         "KindIcon",
         "Link",
         "ListPager",
-        "OverlayBackdrop",
+        "PickMenu",
         "PrepKind",
-        "PrepKindPicker",
+        "ScheduleSheet",
+        "SheetChoice",
+        "SheetField",
+        "SheetFoot",
         "ShopEmpty",
         "SwipeToDelete",
         "UndoToastHost",
@@ -17656,6 +17660,7 @@
         "togglePaymentMethodShown"
       ],
       "blocks": [
+        "ActionButton",
         "AddPaymentMethod",
         "FileUpload",
         "FormFlash",
@@ -17664,6 +17669,7 @@
         "PageMasthead",
         "PaidMark",
         "PaymentMethodType",
+        "PickMenu",
         "StayConfirmForm",
         "StayForm",
         "SubmitButton"

@@ -26,11 +26,11 @@ export function MeetingsList({
   return (
     <div data-clients-list="schedules">
       {failed && meetings.length === 0 ? (
-        <p role="status" className="py-3 text-[14px] text-ink/70">
+        <p role="status" className="py-3 text-[15px] text-ink/70">
           {COULD_NOT}
         </p>
       ) : meetings.length === 0 ? (
-        <p className="py-3 text-[14px] text-ink/70">No meetings coming up. A tasting or a visit you set with a client shows here.</p>
+        <p className="py-3 text-[15px] text-ink/70">No meetings coming up. A tasting or a visit you set with a client shows here.</p>
       ) : (
         meetings.map((m) => (
           <DatesRow
@@ -52,11 +52,11 @@ export function PaymentsList({ rows, failed, data, empty }: { rows: readonly Mon
   return (
     <div data-clients-list={data}>
       {failed ? (
-        <p role="status" className="py-3 text-[14px] text-ink/70">
+        <p role="status" className="py-3 text-[15px] text-ink/70">
           Some payments couldn’t load, so this list is not shown. Reload the page to try again.
         </p>
       ) : rows.length === 0 ? (
-        <p className="py-3 text-[14px] text-ink/70">{empty}</p>
+        <p className="py-3 text-[15px] text-ink/70">{empty}</p>
       ) : (
         rows.map((r) => (
           <DatesRow
@@ -86,11 +86,11 @@ export function UnreadList({
   return (
     <div data-clients-list="unread">
       {failed && rows.length === 0 ? (
-        <p role="status" className="py-3 text-[14px] text-ink/70">
+        <p role="status" className="py-3 text-[15px] text-ink/70">
           {COULD_NOT}
         </p>
       ) : rows.length === 0 ? (
-        <p className="py-3 text-[14px] text-ink/70">All read.</p>
+        <p className="py-3 text-[15px] text-ink/70">All read.</p>
       ) : (
         rows.map((r) => {
           const n = r.threadId ? countOf(r.threadId) : 0;

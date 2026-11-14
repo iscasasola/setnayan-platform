@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
 import { AlertTriangle, CheckCircle2, Gift, Store, Ticket } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
@@ -146,6 +147,8 @@ type Props = {
  * never fall through to Empty.
  */
 export default async function AdminGiftsPage({ searchParams }: Props) {
+  // 🏷 F-A-15: event types by their admin-managed names.
+  const typeName = await readEventTypeNames();
   await requireAdmin();
   const sp = await searchParams;
   const admin = createAdminClient();
@@ -1049,7 +1052,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
                     <option value="">Every event this account hosts</option>
                     {grantUserEvents.map((e) => (
                       <option key={e.event_id} value={e.event_id}>
-                        {e.display_name} ({e.event_type}
+                        {e.display_name} ({typeName(e.event_type)}
                         {e.event_date
                           ? `, ${new Date(e.event_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}`
                           : ''}

@@ -17,7 +17,7 @@ import { MiniTour } from '@/app/_components/mini-tour';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-export const metadata = { title: 'Force Majeure · Admin' };
+export const metadata = { title: 'Force majeure · Admin' };
 
 /** One number: the query reads it and ConsoleTable discloses it. Never two copies. */
 const ROW_LIMIT = 200;

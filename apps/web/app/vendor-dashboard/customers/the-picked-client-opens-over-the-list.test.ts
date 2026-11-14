@@ -74,12 +74,13 @@ test('2 · a pop-up layer: portaled to <body>, the --sn-z-pop token, a modal dia
 });
 
 test('3 · the close is the open played backwards', () => {
-  assert.equal(PICKED_OPEN_MS, 700);
+  // 🎞 2026-11-13 "Motion system approved": the faster numbers replace the 0.7 s rise — the picked client reads it.
+  assert.equal(PICKED_OPEN_MS, 360);
   assert.match(read(MOTION), /PICKED_OPEN_MS = RISE_MS;/, 'the picked client keeps its own copy of the rise again');
   assert.equal(PICKED_FADE_MS, 120);
   assert.equal(PICKED_PAGE_SLIDE_MS, 700, '§10 #26: the page slide is 0.7 s');
   assert.equal(PICKED_PAGE_SLIDE_EASE, 'cubic-bezier(.33,1,.68,1)');
-  assert.equal(PICKED_EASE, 'cubic-bezier(.2,.8,.2,1)');
+  assert.equal(PICKED_EASE, 'cubic-bezier(.2,0,0,1)');
   const motion = read(MOTION);
   assert.match(motion, /export function pickedMotion\(/);
   const shell = read(SHELL);

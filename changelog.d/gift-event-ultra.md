@@ -1,7 +1,7 @@
 ## 2026-11-13 · feat(gifts): Event Ultra as a supplier gift and a badge reward kind (owner, in session, 13 Nov 2026)
 
 Owner: *"Gifting Ultra: yes, add it to shop gifts and badge rewards"*. An Ultra gift reaching an event that already holds Plus or Pro **gives full Ultra**; badge rewards: **Ultra is a kind, no step pays it yet**.
-- Migration `20271345200551_supplier_gifts_event_ultra.sql` (via `pnpm migration:new`) extends the Plus/Pro gift and badge-reward migrations with a fourth kind, `event_ultra`. Every function is copied from its latest definition, and each change is marked 💎:
+- Migration `20271345709071_supplier_gifts_event_ultra.sql` (via `pnpm migration:new`) extends the Plus/Pro gift and badge-reward migrations with a fourth kind, `event_ultra`. Every function is copied from its latest definition, and each change is marked 💎:
   - **Kind accepted everywhere:** the gift-table, given-unlock and reward-kind CHECKs; the stock and reward-stock readers; the badge reward door.
   - **Delivery:** the door gives Ultra lines first, gives full `EVENT_ULTRA` on a Plus/Pro event, and gives nothing on an Ultra event (the unit stays in stock). Like buying it, it turns AI on and tops up the row's included credits.
   - **What a gifted Ultra unlocks:** the gifted-access readers make it also answer for what Ultra grants (`COUPLE_WEBSITE_PRO`, `LIVE_STUDIO`, `PATIKTOK_COMPILER` — the app's aliases read orders only).

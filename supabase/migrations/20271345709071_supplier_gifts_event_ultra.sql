@@ -592,7 +592,7 @@ AS $$
            ) AS started_at,
            GREATEST(COALESCE(e.event_end_date, e.event_date), e.event_date) AS event_last_day,
            -- 💎 Event Ultra (owner 2026-11-13): a paid plan may hold originals longer.
-           -- 🎁 …and so does a plan a supplier GAVE the event (20271345200551): a gifted Ultra keeps originals
+           -- 🎁 …and so does a plan a supplier GAVE the event (20271345709071): a gifted Ultra keeps originals
            -- exactly as long as a bought one.
            COALESCE((
              SELECT MAX(GREATEST(c.fullres_extra_keep_days, 0))

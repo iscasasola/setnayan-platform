@@ -36,7 +36,7 @@ import { EVENT_ULTRA_SKU } from './event-ultra';
 
 /**
  * What a gift is: Papic credits, or one Event Plus / Event Pro / Event Ultra unlock. The migrations' CHECKs say the same
- * four (💎 Ultra: owner 2026-11-13, "Gifting Ultra: yes" — migration 20271345200551).
+ * four (💎 Ultra: owner 2026-11-13, "Gifting Ultra: yes" — migration 20271345709071).
  */
 export type ShopGiftKind = 'papic' | 'event_plus' | 'event_pro' | 'event_ultra';
 

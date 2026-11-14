@@ -1,8 +1,9 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { notFound, redirect } from 'next/navigation';
+import { InfoTip } from '@/app/_components/info-tip';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, ImagePlus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ImagePlus, Trash2, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -74,7 +75,7 @@ export default async function HeroPhotoEditorPage({
       {/* Back link */}
       <Link
         href={`/dashboard/${eventId}/launch`}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/65 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        className="mb-6 inline-flex min-h-11 items-center gap-1.5 text-sm text-ink/75 transition-colors hover:text-ink focus-visible:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         <span>Back to Event Hub</span>
@@ -85,36 +86,39 @@ export default async function HeroPhotoEditorPage({
         title="Hero photo"
       />
 
-      {/* Living hero cross-link */}
+      {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 1 · 2 · 3 · 13 · 14): the living-hero door is a plain hairline row with a
+          terracotta ›; the sections are grey capitals over plain content (no tiles, no serif-italic headings); the
+          presses are the shared pills (red Remove · grey Cancel · the one terracotta Save); burgundy colour codes are gone. */}
       <Link
         href={`/dashboard/${eventId}/website/living-hero`}
-        className="mb-8 flex items-center justify-between gap-4 rounded-2xl border border-burgundy/20 bg-burgundy/5 p-4 transition-colors hover:bg-burgundy/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta sm:p-5"
+        className="mb-8 flex min-h-14 items-center justify-between gap-4 border-y border-ink/10 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <div>
-          <p className="font-display text-lg italic text-ink">Make it move →</p>
-          <p className="mt-0.5 text-sm text-ink/65">
+          <p className="text-[15px] font-semibold text-ink">Make it move</p>
+          <p className="mt-0.5 text-[13px] text-ink/75">
             Turn a few seconds of video into a gentle, looping hero — it plays
             forward then reverses. We keep a still for print + slow connections.
           </p>
         </div>
+        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
       </Link>
 
       {/* Current photo preview */}
       {currentPhotoUrl ? (
         <section
           aria-labelledby="current-photo-heading"
-          className="mb-8 space-y-4 sn-tile p-5"
+          className="mb-8 space-y-3"
         >
           <div className="flex items-center justify-between gap-3">
             <h2
               id="current-photo-heading"
-              className="font-display text-lg italic text-ink"
+              className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
             >
               Current photo
             </h2>
             <SafeForm action={removeHeroPhoto}>
               <input type="hidden" name="event_id" value={eventId} />
-              <SubmitButton pendingLabel="Removing…" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/75 transition-colors hover:border-burgundy/40 hover:bg-burgundy/5 hover:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">
+              <SubmitButton pendingLabel="Removing…" className="ab ab-danger">
                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 <span>Remove</span>
               </SubmitButton>
@@ -133,7 +137,7 @@ export default async function HeroPhotoEditorPage({
             />
           </div>
           {event.landing_page_hero_image_uploaded_at ? (
-            <p className="text-xs text-ink/50">
+            <p className="text-[13px] text-ink/75">
               Uploaded{' '}
               {new Date(
                 event.landing_page_hero_image_uploaded_at,
@@ -159,9 +163,9 @@ export default async function HeroPhotoEditorPage({
       ) : (
       <section
         aria-labelledby="upload-heading"
-        className="space-y-4 sn-tile p-5"
+        className="space-y-3 border-t border-ink/10 pt-5"
       >
-        <h2 id="upload-heading" className="font-display text-lg italic text-ink">
+        <h2 id="upload-heading" className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           {currentPhotoUrl ? 'Replace photo' : 'Add a photo'}
         </h2>
 
@@ -188,11 +192,11 @@ export default async function HeroPhotoEditorPage({
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Link
               href={`/dashboard/${eventId}/launch`}
-              className="inline-flex items-center justify-center rounded-lg border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink/75 transition-colors hover:border-ink/25 hover:bg-cream focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+              className="ab ab-neutral"
             >
               Cancel
             </Link>
-            <SubmitButton pendingLabel="Saving…" className="inline-flex items-center justify-center gap-2 rounded-lg border border-burgundy/20 bg-burgundy px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-burgundy/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">
+            <SubmitButton pendingLabel="Saving…" className="ab ab-brand ab-main">
               <ImagePlus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               <span>Save photo</span>
             </SubmitButton>
@@ -202,13 +206,11 @@ export default async function HeroPhotoEditorPage({
       )}
 
       {/* Guidance */}
-      <section className="mt-8 space-y-2 text-sm text-ink/60">
-        <p>
-          <span className="font-semibold text-ink/75">Tip.</span> Engagement
-          shoot photos read well at this size — the landing page composites
-          the banner full-bleed with a soft overlay so your monogram and
-          countdown stay readable on top.
-        </p>
+      <section className="mt-8">
+        <InfoTip label="Tip" labelAs="p" labelClassName="text-sm font-semibold text-ink" align="start">
+          Engagement shoot photos read well at this size — the landing page composites the banner full-bleed with a
+          soft overlay so your monogram and countdown stay readable on top.
+        </InfoTip>
       </section>
     </div>
   );

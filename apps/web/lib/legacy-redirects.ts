@@ -117,6 +117,11 @@ const FIXED: readonly (readonly [from: string, to: string])[] = [
  */
 const KEEPS_QUERY: ReadonlyMap<string, string> = new Map([
   ['/admin/taxonomy', '/admin/categories'], //                    retired 2026-10-02
+  // 🔑 The two spellings people TYPE for the sign-in page (walk 13 Nov 2026, F-W3-01: both were a 404). Never pages
+  // (a page is a route against the cap), never `next.config` rules (same) — a forward, the query kept so `?next=…`
+  // still lands where it was going. Held by `lib/legacy-redirects.test.ts`.
+  ['/signin', '/login'],
+  ['/sign-in', '/login'],
 ]);
 
 /**

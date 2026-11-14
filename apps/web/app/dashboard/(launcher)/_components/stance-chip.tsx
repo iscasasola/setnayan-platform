@@ -32,7 +32,7 @@ export function StanceChip({ stance, forTag = null }: { stance: EventStance; for
     return (
       <span
         data-for-tag=""
-        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/85 px-2 py-1 text-[9.5px] font-bold uppercase tracking-[0.08em] text-[color:var(--sn-ink-500)] shadow-[0_2px_8px_rgba(30,26,18,0.08)]"
+        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/85 px-2 py-1 text-xs font-bold uppercase tracking-wide text-[color:var(--sn-ink-500)] shadow-sn-sm"
       >
         <ForTagMark tag={forTag} place="chip" />
         {forTagWords(forTag.name)}
@@ -44,13 +44,13 @@ export function StanceChip({ stance, forTag = null }: { stance: EventStance; for
   const Icon = invited ? Mail : stance === 'helper' ? Users : HeartHandshake;
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[9.5px] font-bold uppercase tracking-[0.08em] shadow-[0_2px_8px_rgba(30,26,18,0.08)] ${
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-bold uppercase tracking-wide shadow-sn-sm ${
         invited
-          ? 'bg-[color:var(--sn-mulberry-100,rgba(194,78,37,0.14))] text-mulberry'
+          ? 'bg-mulberry/15 text-mulberry'
           : 'bg-white/85 text-[color:var(--sn-ink-500)]'
       }`}
     >
-      <Icon aria-hidden className="h-[11px] w-[11px]" strokeWidth={2.25} />
+      <Icon aria-hidden className="h-3 w-3" strokeWidth={2.25} />
       {stanceLabel(stance)}
     </span>
   );

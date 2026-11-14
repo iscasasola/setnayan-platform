@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7834
+# facts: 7846
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     636
-#   col       5640
-#   policy    1149
+#   tpriv     637
+#   col       5647
+#   policy    1150
 #   view      10
-#   func      395
+#   func      398
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -245,6 +245,7 @@ tpriv	public.force_majeure_flags|authenticated	SIUD
 tpriv	public.form_templates|authenticated	S
 tpriv	public.founder_seats|anon	SIUD
 tpriv	public.founder_seats|authenticated	SIUD
+tpriv	public.gift_moment_claims|authenticated	S
 tpriv	public.godchild_reminder_log|authenticated	SIUD
 tpriv	public.godparents|anon	SIUD
 tpriv	public.godparents|authenticated	SIUD
@@ -2745,6 +2746,13 @@ col	public.founder_seats.granted_by	anon=SIU authenticated=SIU
 col	public.founder_seats.label	anon=SIU authenticated=SIU
 col	public.founder_seats.seat_no	anon=SIU authenticated=SIU
 col	public.founder_seats.user_id	anon=SIU authenticated=SIU
+col	public.gift_moment_claims.claim_id	anon=- authenticated=S
+col	public.gift_moment_claims.claimed_at	anon=- authenticated=S
+col	public.gift_moment_claims.claimed_by	anon=- authenticated=S
+col	public.gift_moment_claims.event_id	anon=- authenticated=S
+col	public.gift_moment_claims.ref_id	anon=- authenticated=S
+col	public.gift_moment_claims.source	anon=- authenticated=S
+col	public.gift_moment_claims.vendor_profile_id	anon=- authenticated=S
 col	public.godchild_reminder_log.godparent_id	anon=- authenticated=SIU
 col	public.godchild_reminder_log.reminder_year	anon=- authenticated=SIU
 col	public.godchild_reminder_log.resend_id	anon=- authenticated=SIU
@@ -6766,6 +6774,7 @@ policy	public.founder_seats|founder_seats_self_read	mode=PERMISSIVE cmd=SELECT r
 policy	public.fraud_enforcement_audit|fraud_enforcement_audit_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.fraud_signals|fraud_signals_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.fraud_signals|fraud_signals_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.gift_moment_claims|gift_moment_claims_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.godchild_reminder_log|godchild_reminder_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.godparents|godparents_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((owner_user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)) check=((owner_user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin))
 policy	public.godparents|godparents_subject_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM dependents d WHERE ((d.dependent_id = godparents.dependent_id) AND (d.claimed_user_id = ( SELECT auth.uid() AS uid))))) check=NULL
@@ -7632,6 +7641,9 @@ func	public.get_vendor_headcount_rule(p_event_id uuid)	secdef=yes exec=authentic
 func	public.get_vendor_mood_board(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.get_vendor_same_day_bookings(p_event_id uuid, p_day date)	secdef=yes exec=authenticated search_path=public
 func	public.get_vendor_seat_plan(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.gift_moment_claim(p_source text, p_ref uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.gift_moments_for_event(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.gift_moments_for_shop(p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.godchildren_with_birthday_soon(p_today date, p_within integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.guest_link_capture(p_guest_id uuid, p_source_table text, p_source_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.guest_pool_gallery(p_guest_id uuid, p_before timestamp with time zone, p_limit integer)	secdef=yes exec=anon,authenticated search_path=public

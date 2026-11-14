@@ -196,7 +196,7 @@ export const SUPPLIER_2_TOPICS: HelpTopic[] = [
         // on-the-day/_components/access-grants.tsx "Your team on this event"
         slug: 'supplier-team-on-an-event',
         title: 'Suppliers: which of my team can open an event?',
-        body: 'You and your admins always can. Give anyone else an event in its Hub, under Your team on this event.',
+        body: 'You and your admins always can. Give anyone else on your staff an event from that event’s Hub.',
       },
     ],
   },
@@ -301,7 +301,7 @@ export const SUPPLIER_2_TOPICS: HelpTopic[] = [
   },
   {
     key: 'supplier-team',
-    label: 'Suppliers: your team and storage',
+    label: 'Suppliers: your staff and storage',
     roles: ['vendor'],
     articles: [
       {

@@ -103,7 +103,7 @@ test('signed out: the shipped sign-in sheet opens first — never a link to /sig
 test('the address carries the ask through sign-in and a new event, keeping where the visit came from', () => {
   const resume = inquireResumeHref('https://www.setnayan.com/setnaprod?src=discover#get-in-touch', ['a', 'b']);
   assert.equal(resume, '/setnaprod?src=discover&inquire=1&isvc=a%2Cb');
-  assert.deepEqual(inquireResumeOf(resume.slice(resume.indexOf('?'))), { serviceIds: ['a', 'b'] });
+  assert.deepEqual(inquireResumeOf(resume.slice(resume.indexOf('?'))), { serviceIds: ['a', 'b'], eventId: null });
   assert.equal(inquireResumeOf('?src=discover'), null);
   assert.equal(inquireClearedHref(`https://x.test${resume}`), '/setnaprod?src=discover');
   assert.equal(inquireResumeHref('/v/setnaprod?event=e1', []), '/v/setnaprod?event=e1&inquire=1');

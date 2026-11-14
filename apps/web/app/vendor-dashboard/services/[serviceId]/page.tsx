@@ -10,6 +10,7 @@ import { cardRecordEnabled } from '@/lib/card-record-flag';
 import { cardRecordHasSomethingToSayToTheShop, readCardBookedCount, readOneCardRecord } from '@/lib/service-card-record';
 import { CardPortfolioSection } from '@/app/_components/card-portfolio-section';
 import { cardPortfolioAlbums } from '@/lib/card-portfolio-albums.server';
+import { readAlbumTags } from '@/lib/inspiration-tags.server';
 import { portfolioSummary, toAlbumViews, workAlbumAnchor } from '@/lib/card-portfolio-albums';
 import { loadCardForEdit, loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
 import { HallsUsesPick } from '../_components/halls-uses-pick';
@@ -86,6 +87,14 @@ export default async function EditServiceCardPage({
       ? cardPortfolioAlbums(createAdminClient(), { vendorProfileId: profile.vendor_profile_id, serviceId }).catch(() => null)
       : Promise.resolve(undefined),
   ]);
+  // 🏷 Frame 6 (DECISION_LOG 2026-11-14): which inspirations each album's photos are in — the shop proved just above.
+  const albumTags = albums
+    ? await readAlbumTags(
+        createAdminClient(),
+        profile.vendor_profile_id,
+        albums.flatMap((a) => a.photos.filter((ph) => ph.from === 'files').map((ph) => ph.key.slice('files:'.length))),
+      )
+    : null;
   const thisCardBookings = cardBookings?.get(serviceId) ?? null;
   const deleteGate = {
     refusal: thisCardBookings ? openBookingsRefusal(thisCardBookings.open) : BOOKINGS_UNREAD,
@@ -155,7 +164,7 @@ export default async function EditServiceCardPage({
         portfolioSlot={
           albums === undefined ? null : (
             <CardPortfolioSection
-              work={albums ? toAlbumViews(albums, { href: (id) => `/vendor-dashboard/services/their-work#${workAlbumAnchor(id)}` }) : null}
+              work={albums ? toAlbumViews(albums, { href: (id) => `/vendor-dashboard/services/their-work#${workAlbumAnchor(id)}`, tags: albumTags }) : null}
               own={ownPhotos}
               variant="vendor"
               retryHref={here}

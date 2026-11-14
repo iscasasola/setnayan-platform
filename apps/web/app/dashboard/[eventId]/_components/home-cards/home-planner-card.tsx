@@ -76,7 +76,7 @@ export async function HomePlannerCard({ eventId, name, brand }: { eventId: strin
                 marker="ai-alert"
                 control={
                   a.href ? (
-                    <Link href={a.href} className="inline-flex items-center gap-1 text-[13px] font-medium text-ink/65 hover:text-ink" data-home-ai-alert-door="">
+                    <Link href={a.href} className="inline-flex items-center gap-1 text-[13px] font-medium text-ink/75 hover:text-ink" data-home-ai-alert-door="">
                       Look
                       <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={1.9} />
                     </Link>
@@ -98,7 +98,7 @@ export async function HomePlannerCard({ eventId, name, brand }: { eventId: strin
                 hint={d.detail}
                 marker="ai-pick"
                 control={
-                  <Link href={d.href} aria-label={`${d.label} — ${d.ctaLabel}`} className="inline-flex items-center text-[13px] font-medium text-ink/65 hover:text-ink">
+                  <Link href={d.href} aria-label={`${d.label} — ${d.ctaLabel}`} className="inline-flex items-center text-[13px] font-medium text-ink/75 hover:text-ink">
                     <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={1.9} />
                   </Link>
                 }

@@ -7,12 +7,13 @@
  */
 export const DAY_OF_SCHEDULE_UNREAD = 'Couldn’t load the schedule.';
 
-export function ScheduleUnread({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
+// 📐 DESIGN TEMPLATE (14 Nov 2026, rule 6): a failed read is amber, never red and never "none", with Try again.
+export function ScheduleUnread() {
   return (
-    <p role="alert" data-day-of-schedule-unread="" className={`text-sm font-semibold ${tone === 'dark' ? 'text-cream' : 'text-danger-700'}`}>
+    <p role="alert" data-day-of-schedule-unread="" className="text-sm font-semibold text-warn-800">
       {DAY_OF_SCHEDULE_UNREAD}{' '}
       <button type="button" onClick={() => window.location.reload()} className="min-h-11 underline underline-offset-2">
-        Reload
+        Try again
       </button>
     </p>
   );

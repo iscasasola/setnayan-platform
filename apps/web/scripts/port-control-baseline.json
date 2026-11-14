@@ -2764,6 +2764,8 @@
         "admin/app-performance/_components/fx-css.ts",
         "admin/app-performance/_components/fx.tsx",
         "admin/app-performance/_components/health-now.tsx",
+        "admin/app-performance/_components/insights-param-pick.tsx",
+        "admin/app-performance/_components/insights-parts.tsx",
         "admin/app-performance/_components/won-lost-admin-card.tsx",
         "admin/app-performance/_surfaces/admin-totals-surface.tsx",
         "admin/app-performance/_surfaces/browser-blocks-surface.tsx",
@@ -2790,7 +2792,9 @@
       "destinations": [
         "/admin/[seg]",
         "/admin/app-performance?tab=[seg]",
-        "/admin/app-performance?tab=slow-loads"
+        "/admin/app-performance?tab=growth",
+        "/admin/app-performance?tab=slow-loads",
+        "/admin/money"
       ],
       "actions": [
         "addExpense",
@@ -2803,12 +2807,15 @@
         "AdminTotalsSurface",
         "AiAnswerCheckRow",
         "AiAnswerLogResult",
-        "BarListCard",
+        "Badge",
         "Breakdown",
-        "BreakdownCard",
+        "BreakdownFold",
         "BrowserBlocksSurface",
         "BucketBars",
+        "CardPick",
+        "CardToggle",
         "ChartCard",
+        "ChosenRow",
         "ChurnTable",
         "CockpitFx",
         "CockpitSurface",
@@ -2816,24 +2823,27 @@
         "ConnectionLogsSurface",
         "ConsoleTable",
         "ContextTile",
-        "ConversionCard",
+        "Conversion",
         "DayChart",
         "DeepHealth",
-        "DeltaChip",
         "DeltaPct",
         "ErrorState",
         "ExpensesZone",
-        "Figure",
+        "Facts",
+        "Fold",
         "FormFlash",
+        "FormRows",
         "Funnel",
         "FunnelTable",
         "FunnelsSurface",
         "GridPageSkeleton",
-        "GrowthCard",
+        "GrowthFold",
         "GrowthSurface",
         "HealthNow",
         "Icon",
         "IndexChart",
+        "InfoTip",
+        "InsightsParamPick",
         "IntelligenceSurface",
         "InterconnectionsSurface",
         "IssueRow",
@@ -2841,29 +2851,35 @@
         "LeadTable",
         "LeaderRow",
         "Legend",
+        "Line",
         "Link",
         "ListPageSkeleton",
         "MarketPulse",
-        "Metric",
         "MiniBars",
+        "Mix",
+        "Note",
+        "Nums",
         "OfflineDiagnosticLoader",
         "OfflineSurface",
+        "One",
         "OperationsHiringSurface",
         "PageMasthead",
         "ProblemsList",
         "ReadFailed",
         "RerunResult",
         "ResolveDriftButton",
-        "SectionHeading",
+        "Row",
+        "Rows",
+        "Sec",
         "SeoRerunButton",
         "SeoSurface",
+        "ShareFold",
         "ShareRows",
         "SignalRow",
         "SlowLoadsSurface",
         "SmokeTestPanel",
         "Sparkline",
         "StackedBars",
-        "StatTile",
         "StatusPill",
         "Suspense",
         "TablePageSkeleton",
@@ -2875,6 +2891,7 @@
         "WhatYouChange",
         "WiringNote",
         "WonLostAdminCard",
+        "Wraps",
         "ZoneHeading"
       ]
     },
@@ -3349,9 +3366,11 @@
         "Block",
         "ConsoleTable",
         "ErrorState",
+        "FieldRow",
         "FieldTable",
         "Link",
-        "Row"
+        "Note",
+        "One"
       ]
     },
     "/admin/concierge-abuse": {
@@ -3450,29 +3469,45 @@
         "admin/data-privacy/page.tsx"
       ],
       "destinations": [
+        "/admin/compliance/data-sheet",
         "/admin/data-privacy/documents/[seg]",
-        "/admin/data-privacy?tab=controls"
+        "/admin/data-privacy?tab=checklist",
+        "/admin/data-privacy?tab=controls",
+        "/admin/data-privacy?tab=coverage",
+        "/admin/data-privacy?tab=deletions",
+        "/admin/data-privacy?tab=documents"
       ],
       "actions": [
         "formAction"
       ],
       "blocks": [
+        "Badge",
+        "ChosenRow",
         "ControlActionResult",
         "ControlActions",
         "ControlCard",
         "ControlsBoard",
         "CoveragePanel",
         "DeletionRunsPanel",
-        "Icon",
+        "Facts",
+        "Fold",
+        "FormRows",
+        "HTMLButtonElement",
+        "HTMLFormElement",
+        "InfoTip",
+        "InsightsParamPick",
+        "JobRow",
         "Link",
         "NpcChecklist",
         "NpcDocuments",
         "NpcTaskResult",
+        "One",
         "PageMasthead",
         "PrivacyControlStatus",
         "ReadFailed",
         "Row",
-        "StatusIcon",
+        "Rows",
+        "Sec",
         "TaskActions",
         "TaskCard"
       ]
@@ -3488,6 +3523,9 @@
       ],
       "blocks": [
         "DemandRadarCard",
+        "FormRow",
+        "FormRows",
+        "One",
         "PageMasthead"
       ]
     },
@@ -4055,8 +4093,15 @@
         "setChannelVerified"
       ],
       "blocks": [
+        "Badge",
+        "Facts",
+        "Fold",
         "FormFlash",
+        "InfoTip",
+        "One",
         "PageMasthead",
+        "Row",
+        "Rows",
         "SubmitButton"
       ]
     },
@@ -4168,10 +4213,15 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "ConsoleTable",
         "OfflineDiagnostic",
+        "Row",
+        "Rows",
+        "Sec",
         "Status",
-        "StatusPill"
+        "StatusRow"
       ]
     },
     "/admin/onboarding": {
@@ -4191,6 +4241,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "Sec",
         "SmokeResult"
       ]
     },
@@ -4225,9 +4276,10 @@
         "BackfillTilesButton",
         "ConsoleTable",
         "CopyRun",
-        "KpiStatCard",
+        "Facts",
         "OldPhotosButton",
-        "PageMasthead"
+        "PageMasthead",
+        "Sec"
       ]
     },
     "/admin/patiktok": {
@@ -9555,6 +9607,7 @@
     },
     "/dashboard/[eventId]/seating": {
       "files": [
+        "dashboard/[eventId]/seating/_components/close-outside.ts",
         "dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx",
         "dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx",
         "dashboard/[eventId]/seating/_components/seat-list.tsx",
@@ -9595,6 +9648,7 @@
         "AddTablePanel",
         "AutoArrange",
         "AutoArrangeResult",
+        "Badge",
         "BannerSlot",
         "BarMenu",
         "BlueprintStudio",
@@ -9615,6 +9669,7 @@
         "DrawerSnap",
         "DropConfirmBubble",
         "DropConfirmState",
+        "EqualRow",
         "FormRow",
         "FormRows",
         "Fragment",
@@ -9640,7 +9695,6 @@
         "NotSharedWithYou",
         "Notice",
         "OneOpenScope",
-        "OverlayBackdrop",
         "PeekToast",
         "Pending",
         "PeopleSheet",

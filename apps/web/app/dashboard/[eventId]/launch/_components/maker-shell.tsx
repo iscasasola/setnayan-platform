@@ -323,6 +323,7 @@ export function MakerShell({
   const [tool, setTool] = useState<MakerTool | null>(null);
   const [ltSlot, setLtSlot] = useState<HTMLElement | null>(null);
   const [eventBar, setEventBar] = useState<MakerEventBar | null>(null);
+  const [postEventStory, setPostEventStory] = useState<ReactNode | null>(null);
   const [settingsOn, setSettingsOn] = useState(false);
   const phone = !wide;
   /* ══ 🧭 THE MAKER — on every width, for every viewer ══
@@ -686,6 +687,8 @@ export function MakerShell({
       ltNav: studioCovers ? null : ltNav,
       eventBar,
       setEventBar,
+      postEventStory,
+      setPostEventStory,
       setLtWhere,
       /* 🧭 Inside the Maker — and there is one Maker (`lib/there-is-one-maker.test.ts`). Outside it there is no context. */
       stagesStudio: true,
@@ -694,7 +697,7 @@ export function MakerShell({
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, moreHost, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, ltNav, eventBar, studioCovers, deskTitle, proLine],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, moreHost, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, ltNav, eventBar, postEventStory, studioCovers, deskTitle, proLine],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page

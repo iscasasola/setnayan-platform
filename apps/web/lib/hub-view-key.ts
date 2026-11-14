@@ -65,6 +65,8 @@ export const HUB_BUST_EXEMPT_PATHS: readonly string[] = ['/api/hub/seen'];
 export const HUB_LIVE_PARAMS: readonly string[] = [
   'invite', 'k', 'invite_error', 'phase', 'editor', 'preview', 'bars', 'tabs', 'only', 'style', 'theme', 'palette',
   'board', 'scene', 'tool', 'film', 'save', 'rsvp', 'added', 'from', 'keep', 'as', 'asrole', 'src',
+  /* 📖 `?story=later` — `/{slug}/recap` before the day: a one-shot line, so the live render answers it. */
+  'story',
 ];
 
 /**

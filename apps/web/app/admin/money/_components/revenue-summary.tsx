@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/orders';
-import { revenueStatement, revenueScopeNote } from '@/lib/admin/revenue-statement';
+import { revenueStatement, revenueScopeNote, splitPaidRevenue } from '@/lib/admin/revenue-statement';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -22,8 +22,8 @@ export async function RevenueSummary() {
     // `lapsed` is paid money too: a subscription whose term ran out, or a service
     // switched off when its value became Papic credits (owner 2026-11-05). Only a
     // `paid` order is ever lapsed, and nothing was sent back — so it stays revenue.
-    admin.from('orders').select('requested_total_php, status').in('status', ['paid', 'fulfilled', 'lapsed']),
-    admin.from('booking_fee_charges').select('amount_charged_centavos').eq('status', 'paid'),
+    admin.from('orders').select('requested_total_php, status, service_key').in('status', ['paid', 'fulfilled', 'lapsed']),
+    admin.from('booking_fee_charges').select('charge_id, amount_charged_centavos').eq('status', 'paid'),
     admin.from('order_refunds').select('refund_amount_centavos'),
     admin.from('receipts').select('gross_total_php'),
   ]);
@@ -49,16 +49,17 @@ export async function RevenueSummary() {
     );
   }
 
-  const orders = ordersRes.data ?? [];
-  const fees = feesRes.data ?? [];
+  // 🧾 F-A-02: a booking fee paid through its order counts under Booking fees, never under Software sales.
+  const split = splitPaidRevenue(ordersRes.data ?? [], feesRes.data ?? []);
   const s = revenueStatement({
-    softwarePhp: orders.reduce((a, o) => a + Number(o.requested_total_php ?? 0), 0),
-    bookingFeePhp: fees.reduce((a, f) => a + Number(f.amount_charged_centavos ?? 0) / 100, 0),
+    softwarePhp: split.softwarePhp,
+    bookingFeePhp: split.bookingFeePhp,
     refundedPhp: (refundsRes.data ?? []).reduce((a, r) => a + Number(r.refund_amount_centavos ?? 0) / 100, 0),
     receiptCount: (receiptsRes.data ?? []).length,
     receiptPhp: (receiptsRes.data ?? []).reduce((a, r) => a + Number(r.gross_total_php ?? 0), 0),
-    paidOrderCount: orders.length,
-    paidFeeCount: fees.length,
+    paidOrderCount: split.paidOrderCount,
+    paidFeeCount: split.paidFeeCount,
+    paidFeeOrderCount: split.paidFeeOrderCount,
   });
 
   const Row = ({ label, value, note }: { label: string; value: string; note?: string }) => (

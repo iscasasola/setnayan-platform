@@ -10,6 +10,7 @@ import {
   type VerificationDoc,
 } from '@/lib/verification-docs';
 import { deleteVerificationDoc, viewVerificationDoc } from './actions';
+import { DOC_SLOTS } from '@/lib/vendor-verification';
 
 /**
  * ADMIN · Vendor verification documents.
@@ -33,6 +34,20 @@ import { deleteVerificationDoc, viewVerificationDoc } from './actions';
  */
 
 export const dynamic = 'force-dynamic';
+
+/** The paper's own name, from the shop's verification list — null when the slot is not one we know. */
+function paperName(slot: string | null): string | null {
+  if (!slot) return null;
+  // The ID is asked on its own step, not in `DOC_SLOTS`.
+  if (slot === 'government_id') return 'Government ID';
+  return DOC_SLOTS.find((s) => s.key === slot)?.label ?? null;
+}
+
+/** An upload's day in Manila (the storage stamp is UTC). */
+function manilaDay(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso.slice(0, 10) : d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
+}
 
 const ERRORS: Record<string, string> = {
   nokey: 'Nothing happened — that request carried no file.',
@@ -189,11 +204,16 @@ function Group({
           {docs.map((d) => (
             <li key={d.key} className="flex flex-wrap items-center gap-3 px-3 py-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate font-mono text-xs text-ink">{d.key}</p>
+                {/* 📄 F-A-08 (admin walk 13 Nov 2026): titled by the paper's own name (`DOC_SLOTS`), never the raw storage
+                    path; a file whose paper we cannot name keeps its path, the only thing that tells it apart. */}
+                {paperName(d.slot) ? (
+                  <p className="truncate text-sm font-medium text-ink">{paperName(d.slot)}</p>
+                ) : (
+                  <p className="truncate font-mono text-xs text-ink">{d.key}</p>
+                )}
                 <p className="mt-0.5 text-xs text-ink/55">
-                  {d.slot ? `${d.slot.replace(/_/g, ' ')} · ` : ''}
                   {formatDocSize(d.size)}
-                  {d.lastModified ? ` · uploaded ${d.lastModified.slice(0, 10)}` : ''}
+                  {d.lastModified ? ` · uploaded ${manilaDay(d.lastModified)}` : ''}
                 </p>
               </div>
               <form action={viewVerificationDoc}>

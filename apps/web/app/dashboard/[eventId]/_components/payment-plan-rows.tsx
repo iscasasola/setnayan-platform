@@ -332,7 +332,7 @@ function DatedPlanRows({
                             className={`${LINE_INPUT_CLASS} pr-2 ${r.dueIso ? '' : 'text-ink/45'}`}
                           />
                           <span className="relative border-l border-ink/10">
-                            <span aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-[13px] text-ink/45">₱</span>
+                            <span aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[15px] font-semibold text-ink/70">₱</span>
                             <input // field-ok: the amount cell of a payment LINE — same line, same swipe
                               type="text"
                               inputMode="decimal"
@@ -353,7 +353,7 @@ function DatedPlanRows({
                                   }
                                 });
                               }}
-                              className={`${LINE_INPUT_CLASS} pl-6 pr-3 text-right font-mono text-[13px] tabular-nums`}
+                              className={`${LINE_INPUT_CLASS} pl-6 pr-3 text-right text-[15px] font-semibold tabular-nums`}
                             />
                           </span>
                         </div>
@@ -389,9 +389,9 @@ function DatedPlanRows({
                             />
                           ) : null}
                           {r.dueIso === '' && r.amount.trim() !== '' ? (
-                            <p className="text-[11.5px] text-warn-800">Pick the day it is due.</p>
+                            <p className="text-[12px] text-warn-800">Pick the day it is due.</p>
                           ) : unreachable ? (
-                            <p className="text-[11.5px] text-warn-800">
+                            <p className="text-[12px] text-warn-800">
                               Pick a day from {dates.lockIso} on — or set your event date first.
                             </p>
                           ) : null}
@@ -450,7 +450,7 @@ function DatedPlanRows({
                   className={`${DCELL} min-w-0 flex-1`}
                 />
                 {r.settled ? (
-                  <span className="shrink-0 text-[11.5px] font-medium text-[rgb(var(--color-ok))]">Paid</span>
+                  <span className="shrink-0 text-[12px] font-medium text-[rgb(var(--color-ok))]">Paid</span>
                 ) : (
                   <ActionButton
                     tone="neutral"
@@ -499,9 +499,9 @@ function DatedPlanRows({
                 </span>
               </div>
               {r.dueIso === '' && !r.settled ? (
-                <p className="mt-1 text-[11.5px] text-warn-800">Pick the day it is due.</p>
+                <p className="mt-1 text-[12px] text-warn-800">Pick the day it is due.</p>
               ) : unreachable ? (
-                <p className="mt-1 text-[11.5px] text-warn-800">
+                <p className="mt-1 text-[12px] text-warn-800">
                   Pick a day from {dates.lockIso} on — or set your event date first.
                 </p>
               ) : null}
@@ -631,7 +631,7 @@ function RulePlanRows({
                 any field smaller than that on tap. So the space came from
                 layout: the controls moved up here, keeping full 24px targets. */}
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">
+              <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                 Payment {i + 1}
               </span>
               {/* The row's three presses — the one ActionButton, icon-only: ↑ ↓ and
@@ -731,7 +731,7 @@ function RulePlanRows({
                 onChange={(e) => patch(r.key, { days: e.target.value })}
                 className={`${CELL} w-12 shrink-0 text-center`}
               />
-              <span className="shrink-0 text-[11px] text-ink/50">days</span>
+              <span className="shrink-0 text-[12px] text-ink/50">days</span>
               {/* Posted the same way as `plan_kind` above — a hidden field per row. */}
               <input type="hidden" name="plan_anchor" value={r.anchor} />
               <span inert={disabled || undefined} className={`min-w-0 flex-1${disabled ? ' opacity-60' : ''}`}>
@@ -753,7 +753,7 @@ function RulePlanRows({
         <ActionButton tone="neutral" icon={Plus} label="Add payment" onClick={add} disabled={disabled} />
       ) : null}
 
-      <div className="flex items-center justify-between gap-2 border-t border-ink/10 pt-2 text-[11px]">
+      <div className="flex items-center justify-between gap-2 border-t border-ink/10 pt-2 text-[12px]">
         <span className="flex items-center gap-1 text-ink/55">
           <CalendarClock aria-hidden className="h-3 w-3" strokeWidth={1.9} />
           Dates settle against your booking date and event date.

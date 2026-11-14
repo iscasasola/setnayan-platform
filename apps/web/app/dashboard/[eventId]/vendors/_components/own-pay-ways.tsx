@@ -16,7 +16,7 @@ import { ActionButton } from '@/components/action-button';
 import { GuestPopup } from '../../guests/_components/guest-popup';
 import { payWayLabel, type PayWayView } from '@/lib/self-added-pay-ways';
 
-const K2 = 'text-[11px] uppercase tracking-[0.14em] text-ink/55';
+const K2 = 'text-[12px] uppercase tracking-[0.14em] text-ink/55';
 
 export function OwnPayWays({ vendorName, ways }: { vendorName: string; ways: PayWayView[] | 'unreadable' }) {
   const [big, setBig] = useState<PayWayView | null>(null);

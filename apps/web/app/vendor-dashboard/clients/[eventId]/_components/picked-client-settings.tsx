@@ -18,22 +18,22 @@ export function PickedClientSettings({ autoAgree }: { autoAgree: boolean | null 
   const nav = usePickedNav();
   return (
     <div className="px-4 pb-4">
-      <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">This client</p>
+      <h3 className="mt-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">This client</h3>
       <div className="flex items-start gap-3 py-3" data-client-setting="auto-agree">
         <div className="min-w-0 flex-1">
-          <p className="text-[15px] font-semibold text-ink">
+          <div className="text-[15px] font-semibold text-ink">
             <InfoTip label="Supplier requests auto-agree" align="start">
               When this is on, a change you suggest to their schedule goes straight in. The host decides it in their
               Schedule settings.
             </InfoTip>
-          </p>
-          <p className="text-[13px] text-ink/60">The host&rsquo;s setting · shown here</p>
+          </div>
+          <p className="text-[13px] text-ink/70">The host&rsquo;s setting · shown here</p>
         </div>
         <span className="shrink-0 text-[15px] font-semibold text-ink/80">
           {autoAgree === null ? "Couldn't load" : autoAgree ? 'On' : 'Off'}
         </span>
       </div>
-      <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Notes</p>
+      <h3 className="mt-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">Notes</h3>
       <div className="flex items-center gap-3 py-3" data-client-setting="notes">
         <p className="min-w-0 flex-1 text-[15px] text-ink">Notes only your team sees</p>
         {nav ? (

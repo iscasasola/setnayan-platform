@@ -431,7 +431,6 @@ export async function DemoVendorsSurface() {
             title: 'No demo batches',
             blurb:
               'Nothing carries a batch id yet. Run the seed script from the terminal block above to create one.',
-            verifiedNote: 'Verified: read permitted · 0 batches',
           }}
           columns={[
             {

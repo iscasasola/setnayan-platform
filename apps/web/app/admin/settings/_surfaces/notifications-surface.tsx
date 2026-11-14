@@ -19,6 +19,7 @@ import {
   markNotificationRead,
 } from '@/lib/notification-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { formatCount } from '@/lib/format-number';
 import { TemplateEmpty, TemplateRows, TemplateSection, TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 import { EmailDeliverySection } from '../_components/email-delivery-section';
 import { MorningDigestCard } from '../_components/morning-digest-card';
@@ -68,7 +69,7 @@ export async function NotificationsSurface({ error }: { error?: string } = {}) {
         </div>
       </TemplateSection>
 
-      <TemplateSection label="The bell" right={unreadCount > 0 ? `${unreadCount} unread` : undefined}>
+      <TemplateSection label="The bell" right={unreadCount > 0 ? `${formatCount(unreadCount)} unread` : undefined}>
         {unreadCount > 0 ? (
           <form action={markAllNotificationsRead} className="flex justify-end">
             <input type="hidden" name="return_to" value={returnTo} />

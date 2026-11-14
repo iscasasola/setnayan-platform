@@ -180,6 +180,7 @@ const SHOP_BOXES = new Set([
 ]);
 const NOT_A_SHOP = new Map([
   ['app/admin/settings/_surfaces/settings-surface.tsx', 'platform_settings — Setnayan’s own business identity'],
+  ['app/admin/business/_components/business-identity-form.tsx', 'platform_settings — Setnayan’s own business identity (avatar › Business, 2026-11-14)'],
   ['app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx', 'event_manual_vendors — the couple’s own record, free text'],
   ['app/dashboard/[eventId]/_components/record-card-folds.tsx', 'event_manual_vendors — the couple’s own record, free text'],
 ]);

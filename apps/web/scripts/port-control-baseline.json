@@ -1737,6 +1737,7 @@
         "MakerPageStandIn",
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",
+        "MapCard",
         "Marked",
         "MeGreeting",
         "MeKeepInvitation",
@@ -2516,6 +2517,7 @@
         "admin/_components/admin-tab-rows.tsx",
         "admin/_components/ask-actions.ts",
         "admin/_components/console-table.tsx",
+        "admin/_components/field-pick.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/mobile-landing-grid.tsx",
         "admin/_components/posted-field-row.tsx",
@@ -2643,6 +2645,7 @@
         "Notice",
         "OverlayBackdrop",
         "PageMasthead",
+        "PickMenu",
         "PinnedRow",
         "Row",
         "Screen",
@@ -2922,6 +2925,7 @@
       "blocks": [
         "BackgroundVideosManager",
         "HTMLInputElement",
+        "InfoTip",
         "PageMasthead",
         "Phase",
         "Result",
@@ -2971,6 +2975,8 @@
         "BenchmarkRowForm",
         "BudgetBandRowForm",
         "ConsoleTable",
+        "FieldPick",
+        "InfoTip",
         "PageMasthead",
         "SubmitButton"
       ]
@@ -3279,7 +3285,10 @@
       ],
       "blocks": [
         "FormFlash",
+        "InfoTip",
         "PageMasthead",
+        "PillLink",
+        "PillTrack",
         "SubmitButton"
       ]
     },
@@ -3391,6 +3400,7 @@
         "AbuseTabs",
         "EnforcementTab",
         "FormFlash",
+        "InfoTip",
         "Link",
         "MatchedAccounts",
         "Metric",
@@ -3663,14 +3673,17 @@
         "settlePaymentDispute"
       ],
       "blocks": [
+        "ActionButton",
         "BookingFeeDisputesSection",
         "ConfirmForm",
         "ConsoleTable",
         "DepositDisputesSection",
         "DisputeNoteField",
         "DisputesTable",
+        "FieldPick",
         "FilterStrip",
         "HandoverEvidence",
+        "InfoTip",
         "KpiStatCard",
         "PageMasthead",
         "PaymentDisputesSection",
@@ -3725,6 +3738,7 @@
         "rejectEventDeletion"
       ],
       "blocks": [
+        "InfoTip",
         "PageMasthead"
       ]
     },
@@ -3772,7 +3786,10 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ConsoleTable",
+        "FieldPick",
+        "InfoTip",
         "Link",
         "MiniTour",
         "PageMasthead"
@@ -4021,7 +4038,9 @@
         "resolveIntegrityFlag"
       ],
       "blocks": [
+        "ActionButton",
         "FormFlash",
+        "InfoTip",
         "Link",
         "PageMasthead",
         "PillLink",
@@ -4150,13 +4169,16 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ColorChip",
         "ColorRangeManipulator",
         "ColorRangeMap",
+        "FieldPick",
         "HTMLCanvasElement",
         "HTMLDivElement",
         "HTMLImageElement",
         "Image",
+        "InfoTip",
         "PalettePreview",
         "RandomMoodboardPrompt",
         "ScreenFindingsPanel"
@@ -4622,10 +4644,14 @@
         "scanQrMediaGuard"
       ],
       "blocks": [
+        "ActionButton",
         "CardChecksAdmin",
         "FormFlash",
+        "InfoTip",
         "PageMasthead",
         "PickMenu",
+        "PillLink",
+        "PillTrack",
         "PostedPick",
         "PostedText",
         "SubmitButton",
@@ -4680,8 +4706,10 @@
         "FilterChip",
         "GuestReviewAdminRow",
         "GuestReviewsQueue",
-        "Link",
+        "InfoTip",
         "PageMasthead",
+        "PillLink",
+        "PillTrack",
         "ReadFailed",
         "SubmitButton",
         "VendorFakeFlagCard"
@@ -5106,7 +5134,10 @@
       ],
       "blocks": [
         "FormFlash",
+        "InfoTip",
         "PageMasthead",
+        "PillLink",
+        "PillTrack",
         "SubmitButton"
       ]
     },
@@ -5166,7 +5197,9 @@
       "blocks": [
         "ConsoleTable",
         "ErrorState",
+        "FieldPick",
         "FormFlash",
+        "InfoTip",
         "PageMasthead",
         "SearchParams",
         "SubmitButton"
@@ -5190,6 +5223,7 @@
         "Banner",
         "ConfirmForm",
         "FeedbackCard",
+        "InfoTip",
         "PageMasthead",
         "RecommendationRow",
         "Stat",
@@ -5471,6 +5505,7 @@
       "blocks": [
         "ClearFolderButton",
         "ConsoleTable",
+        "InfoTip",
         "MediaTable",
         "PageMasthead",
         "Result",
@@ -13610,6 +13645,7 @@
         "AddShopToEventState",
         "AxisStat",
         "BackButton",
+        "BiggerMapButton",
         "CardHidesRead",
         "CardLink",
         "CardPortfolioSection",
@@ -16555,6 +16591,7 @@
         "LogoPhotoMenu",
         "LogoRowControl",
         "MakerKey",
+        "MapCredit",
         "MenuSettingsButton",
         "OfferLockPreview",
         "OfferMaker",

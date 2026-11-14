@@ -150,7 +150,7 @@ import { buildCardReviews } from '@/lib/card-reviews';
 import { cardWithoutHidden, pairPhotoRefs, withCardHides, type CardHidesRead } from '@/lib/service-card-hides';
 import { readCardHides, viewerRunsShop } from '@/lib/service-card-hides.server';
 import { resolveGuestReviewPhotoUrls } from '@/lib/guest-review-photos.server';
-import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
+import { ownWebAddress, pinnedQuote, shopHasWhere, shopReach } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
@@ -2290,6 +2290,13 @@ export async function renderVendorBySlug({
     (showEditorials && (featuredEditorials.length > 0 || featuredChapterCredits.length > 0)) ||
     inspirationTiles.length > 0 ||
     hasPhotosByService;
+  // 📍 No pin, no address, no city → no Where tab and no Where section (`shopHasWhere`, re-walk 2026-11-14).
+  const hasWhere = shopHasWhere({
+    latitude: vendor.hq_latitude,
+    longitude: vendor.hq_longitude,
+    address: vendor.hq_address,
+    city: vendor.location_city,
+  });
   const shopSectionTabs: ShopSectionTab[] = cinematicHero
     ? [
         { id: 'shop-about', label: 'About' },
@@ -2300,7 +2307,7 @@ export async function renderVendorBySlug({
     : [
         { id: 'shop-services', label: 'Services' },
         { id: 'shop-reviews', label: 'Reviews' },
-        { id: 'shop-where', label: 'Where' },
+        ...(hasWhere ? [{ id: 'shop-where', label: 'Where' }] : []),
       ];
 
   // 🏅 THE BADGE ROW, drawn ONCE in source and placed by the look: on the hero photo for a verified shop (the seal
@@ -3286,7 +3293,7 @@ export async function renderVendorBySlug({
 
         {/* 📍 WHERE — the unverified shop's map has its own section (prototype: Services · Reviews · Where · Inquire), a
             pin only: no reach ring before verification, the reach line says "distance search opens once verified". */}
-        {cinematicHero ? null : (
+        {cinematicHero || !hasWhere ? null : (
           <div id="shop-where" data-shop-section="" className="scroll-mt-14">
             <section className="space-y-3 border-b border-ink/10 py-8">
               <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Where</h2>

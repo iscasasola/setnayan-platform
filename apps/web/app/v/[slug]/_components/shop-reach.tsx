@@ -43,7 +43,9 @@ export function ShopReachMap({
   const lat = Number(latitude.toFixed(6));
   const lng = Number(longitude.toFixed(6));
   // 🗺 THE SAME MAP CARD (approved 2026-11-14): the ring map gets the card's frame, its corner credit and the round
-  // bigger-map button where "View larger map →" was. `mapHref === null` (the sample) draws neither door.
+  // bigger-map button where "View larger map →" was. `mapHref === null` (the sample) draws neither door. Since the
+  // 2026-11-14 re-walk it also takes the card's SHAPE (`card`: 9 : 5, never taller than 250 px), not the dashboard's
+  // fixed 240 px (3 : 2 on a phone); the bigger map opens on openstreetmap.org with the shop's pin dropped.
   return (
     <div data-shop-reach-map="" className="relative overflow-hidden rounded-card border border-ink/15">{/* no-card-ok: the approved map card's frame (2026-11-14) — the map is the only framed thing on the page */}
       <ReachMap
@@ -52,6 +54,7 @@ export function ShopReachMap({
         radiusKm={reach.km}
         ariaLabel={`Map: serves up to ${reach.km} kilometres around ${city ?? 'the shop'}`}
         kmTag
+        card
         credit={mapHref !== null}
       />
       {mapHref === null ? null : <BiggerMapButton href={openStreetMapUrl(lat, lng, 11)} />}

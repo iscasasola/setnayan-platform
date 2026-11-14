@@ -64,7 +64,7 @@ export function DirectionsMenu(props: ({ venue: EventVenue } | Place) & { look?:
         geo: geoUri(lat, lng, name),
         google: googleMapsNavUrl(lat, lng),
         waze: wazeNavUrl(lat, lng),
-        apple: appleMapsUrl(lat, lng),
+        apple: appleMapsUrl(lat, lng, name),
         mapLink: googleMapsSearchUrl(lat, lng),
       }
     : { pinned: false, search: googleMapsSearchByQuery(query!), mapLink: googleMapsSearchByQuery(query!) };

@@ -11,7 +11,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { apartLine, directionApps, mapDeviceFrom, type DirectionLinks } from './map-directions';
-import { geoUri } from './geo';
+import { appleMapsUrl, geoUri } from './geo';
 
 const UA = {
   android: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36',
@@ -25,7 +25,7 @@ const PINNED: DirectionLinks = {
   geo: 'geo:14.5,121?q=14.5%2C121(Church)',
   google: 'https://www.google.com/maps/dir/?api=1&destination=14.5%2C121',
   waze: 'https://waze.com/ul?ll=14.5%2C121&navigate=yes',
-  apple: 'https://maps.apple.com/?ll=14.5%2C121',
+  apple: 'https://maps.apple.com/?daddr=14.5%2C121&q=Church',
   mapLink: 'https://www.google.com/maps/search/?api=1&query=14.5%2C121',
 };
 
@@ -76,4 +76,17 @@ test('"About N km apart" — a straight line, rounded; nothing for one spot', ()
   assert.equal(apartLine(0.62), 'About 600 m apart');
   assert.equal(apartLine(0.01), null);
   assert.equal(apartLine(Number.NaN), null);
+});
+
+test('Apple Maps — a route to the pin (daddr), and the pin named after the place (q), like the Google Maps and Waze rows', () => {
+  assert.equal(
+    appleMapsUrl(14.5896, 120.9747, 'San Agustin Church'),
+    'https://maps.apple.com/?daddr=14.5896%2C120.9747&q=San%20Agustin%20Church',
+  );
+  // A name with "&" or "#" cannot break out of its parameter.
+  assert.equal(appleMapsUrl(14.5, 121, 'Rosa & Co #2'), 'https://maps.apple.com/?daddr=14.5%2C121&q=Rosa%20%26%20Co%20%232');
+  // No name (a supplier page never hands its name in) → the route alone, never an empty q=.
+  assert.equal(appleMapsUrl(14.5, 121), 'https://maps.apple.com/?daddr=14.5%2C121');
+  assert.equal(appleMapsUrl(14.5, 121, '   '), 'https://maps.apple.com/?daddr=14.5%2C121');
+  assert.doesNotMatch(appleMapsUrl(14.5, 121, 'X'), /[?&]ll=/, 'the old centre-only link is gone');
 });

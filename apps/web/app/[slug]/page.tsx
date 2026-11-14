@@ -55,7 +55,7 @@ import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
 import { readGuestPassStanding } from '@/lib/guest-session';
 import { HeldPassLine } from './_components/held-pass-line';
 import { heldPassFirstNameFor } from './_lib/held-pass-name';
-import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
+import { venueForViewer, venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUserMeasured } from '@/lib/guest-membership-session';
 import { guestAccountState, guestAnswersRead, moreAnswersOf, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
@@ -1779,6 +1779,11 @@ async function invitationBody({
   /* 🗳 The host's OWN reply (owner bug 2026-10-24): the host's Reply card reads it and opens the reply page as them
      (`readReplyIdentityForEvent`) — never the Maker's sample. Null: no live row of their own here — the card stays, and the reply page tells them so. */
   const hostOwnRsvp = hostOwnGuestId ? await hostOwnRsvpFor(admin, event.event_id, hostOwnGuestId) : null;
+  /* 🏠 THE HOST SEES THEIR OWN VENUE (live re-walk 2026-11-14 — the host's hub told the HOST "The address and directions
+     open as soon as you reply."). The host is the page's own server-verified `ownerCapability` (event_members +
+     moderators, `loadHostMembership`), on the host's own look: never the Maker's canvas, a See as sample (`?as=`) or a
+     guest's pass the host opened on purpose (`host_preview`) — those show what a GUEST sees. */
+  const hostSeesOwnVenue = Boolean(ownerCapability) && !isEditorCanvas && search.as === undefined;
   const siteProps = {
     // 🪪 Drawn under the host's / a signed-in stranger's cover (the guest tree draws it in Me, below).
     heldPassSlot: heldPassNode,
@@ -1786,9 +1791,10 @@ async function invitationBody({
     hostOwnRsvp,
     // 🔒 WITHHELD BY DEFAULT (owner 2026-09-20 · lib/venue-disclosure.ts). Every
     // render branch spreads this object, so a branch that knows nothing about
-    // the viewer's reply shows no address, no map and no directions. The guest
-    // branch below is the ONLY place that opens it, and only on a real reply.
-    event: withheldVenue(venuedEvent),
+    // the viewer's reply shows no address, no map and no directions. It opens
+    // here for the HOST only (`hostSeesOwnVenue`, 2026-11-14); the guest branch
+    // below opens it on a real reply; a See as sample re-closes it.
+    event: venueForViewer(venuedEvent, { isHost: hostSeesOwnVenue }),
     monogram,
     animatedMonogram,
     studioAnim,
@@ -1990,6 +1996,8 @@ async function invitationBody({
         chaptersOnThisDay: [],
         songRequestDoor: null,
         sampleViewer: seeAs,
+        // 👁 A sample is drawn AS A GUEST: the host's open venue closes again (it opens only on a real reply).
+        event: withheldVenue(venuedEvent),
       }
     : siteProps;
   if (seeAs === 'signed-out') {
@@ -2659,6 +2667,8 @@ async function invitationBody({
   const galleryCountHere = partsOffHere.has('photosofyou') ? 0 : (guestLiveGallery?.total ?? 0);
 
   const venueOpen = venueIsOpen({
+    // 🏠 A host on their OWN seat sees their venue; a host who opened a guest's pass (`host_preview`) sees that guest's.
+    isHost: hostSeesOwnVenue && passStandingNow.standing !== 'host_preview',
     rsvpStatus: guest.rsvp_status,
     eventDate: event.event_date,
     // The VENUE's day, not the server's — this runs in UTC on Vercel.

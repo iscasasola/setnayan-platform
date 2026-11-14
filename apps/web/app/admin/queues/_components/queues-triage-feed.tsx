@@ -23,6 +23,7 @@ import type { QueuePeek } from '@/lib/admin/queue-peek';
 import { partitionQueues } from '@/lib/admin/queue-partition';
 import { EXPANDABLE_QUEUES } from '@/lib/admin/queue-peek';
 import { QueueDrawer } from './queue-drawer';
+import { RowPending } from './row-pending';
 import { GreenBatchAction, type GreenBatch } from './green-batch';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import type {
@@ -183,6 +184,8 @@ function TriageRow({
           </span>
         </span>
 
+        {/* Walk RW-301 (6): the tap shows it started — the open is a server read. */}
+        <RowPending />
         {open ? (
           <span
             className="inline-flex h-7 min-w-[1.75rem] shrink-0 items-center justify-center rounded-full px-2 text-sm font-semibold"

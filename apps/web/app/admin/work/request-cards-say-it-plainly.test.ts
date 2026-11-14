@@ -122,3 +122,28 @@ test('5 · the corrections row offers no raw select and no Save', () => {
   assert.match(builder, /post: \{ decision: 'apply' \}/);
   assert.match(builder, /post: \{ decision: 'decline' \}/);
 });
+
+test('6 · the payment card holds the walk RW-301 fixes', async () => {
+  const { channelWords, personInitials } = await import('@/lib/admin/request-card');
+  // (1) an empty method is said as not given — never "Payment".
+  assert.equal(channelWords(null), 'Method not given');
+  assert.equal(channelWords('  '), 'Method not given');
+  assert.equal(channelWords('gcash'), 'GCash');
+  assert.equal(channelWords('something_new'), 'Another way');
+  // (3) initials the way the person page draws them — an email is not split on its dots.
+  assert.equal(personInitials(null, 'testnayan4@example.com'), 'TE');
+  assert.equal(personInitials('Ana Dizon', 'ana@example.com'), 'AD');
+  const peek = code(read('lib/admin/queue-peek.ts'));
+  const card = peek.slice(peek.indexOf('function paymentCard'), peek.indexOf('type VerifyRow'));
+  // (2) no picture ⇒ no receipt line.
+  assert.match(card, /if \(row\.verdict && row\.hasScreenshot\)/, 'the receipt line shows without a picture again');
+  // (4) the order's own record, not the whole desk.
+  assert.match(card, /recordHref: ugatRecordHref\(\{ kind: 'order', publicId: row\.orderPublicId/, 'Open record goes to the whole list again');
+  // (5) a paid order offers nothing and says so.
+  assert.match(card, /act: orderPaid\s*\?\s*undefined/, 'a paid order offers Confirm again');
+  assert.match(card, /already paid/);
+  // (6) the row's first tap shows it started.
+  const feed = code(read('app/admin/queues/_components/queues-triage-feed.tsx'));
+  assert.match(feed, /<RowPending \/>/, 'the Work row lost its pending mark');
+  assert.match(code(read('app/admin/queues/_components/row-pending.tsx')), /useLinkStatus\(\)/);
+});

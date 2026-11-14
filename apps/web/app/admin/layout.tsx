@@ -42,6 +42,7 @@ import { AdminRailContext } from './_components/admin-rail-context';
 import { AdminCommandPalette } from './_components/admin-command-palette';
 import { AdminSearchBox } from './_components/admin-search-box';
 import { fetchAdminRows } from '@/lib/admin-map/admin-row-index';
+import { fetchLearnedPicks } from '@/lib/admin-search-memory';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { AdminPinnedRow, AdminThumbRow } from './_components/admin-tab-rows';
 import { ADMIN_AVATAR_ROWS } from '@/lib/admin/admin-tabs';
@@ -168,7 +169,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // did the work before being turned away. It changed no outcome — the gate
   // still refused — but doing privileged work for a stranger is the wrong
   // default to leave lying around.
-  const paletteRows = await fetchAdminRows();
+  // The box's rows and what it has learned from the admin's own picks (ASK-BRAIN), read side by side.
+  const [paletteRows, learnedPicks] = await Promise.all([fetchAdminRows(), fetchLearnedPicks()]);
 
   // Social auto-publish flush — cron-free: dispatch piggybacks on admin
   // traffic via after(). Fire-and-forget; the 10-min throttle inside
@@ -445,7 +447,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           A SHORTCUT, NEVER THE ONLY DOOR: everything it reaches is also
           browsable at /admin/more ("All surfaces"). If a destination is ever
           reachable only by typing, that is a bug in the menu. */}
-      <AdminCommandPalette rows={paletteRows} />
+      <AdminCommandPalette rows={paletteRows} learned={learnedPicks} />
       <AppRailShell
         /* FOCUS (owner 2026-09-21): inside the console the rail is its own menu
            plus one row back to My Home. */

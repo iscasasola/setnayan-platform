@@ -6,10 +6,12 @@ import { Search, Sparkles } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { claimCommandKey } from '@/lib/command-key-claim';
-import { rankBySentence } from '@/lib/admin-map/rank-by-sentence';
+import { rankPalette, learnPick, type LearnedPick } from '@/lib/admin-map/palette-rank';
+import { ASK_EXAMPLES, recommendationLine } from '@/lib/admin-map/ask-keywords';
+import { ADMIN_ROUTES } from '@/lib/admin-map/admin-routes.generated';
 import { ADMIN_JOBS } from '@/lib/admin-map/admin-jobs.generated';
 import type { AdminJob } from '@/lib/admin-map/scan-admin-jobs';
-import { matchJobs, jobDisplayLabel } from '@/lib/admin-map/match-job';
+import { jobDisplayLabel } from '@/lib/admin-map/match-job';
 import {
   humanizeFieldLabel,
   fieldKind,
@@ -78,39 +80,14 @@ const MAX_ASK_FIELDS = 8;
  * reason nobody looked.
  */
 
-/**
- * The NAME always wins, then the meaning.
- *   100 name starts with · 60− name contains · 15 description/alias hit
- *   · 8 letters of the name in order · 0 no match
- * Ordering matters as much as matching: typing "pay" must land on Payments
- * before every page whose description happens to mention paying.
- */
-function score(d: Dest, needle: string): number {
-  if (!needle) return 1;
-  const l = d.label.toLowerCase();
-  let raw = 0;
-  const i = l.indexOf(needle);
-  if (i === 0) raw = 100;
-  else if (i > 0) raw = Math.max(20, 60 - i);
-  else if (d.hay.includes(needle)) raw = 15;
-  else {
-    let p = 0;
-    for (let c = 0; c < l.length && p < needle.length; c++) if (l[c] === needle[p]) p++;
-    raw = p === needle.length ? 8 : 0;
-  }
-  // A page the map found is worth offering and is never worth REORDERING the
-  // curated menu for. Halving keeps the bands apart in both directions: an exact
-  // name match on an unlisted page (50) still beats a vague description hit on a
-  // menu page (15), and never beats the menu page with the same name (100).
-  // Bands: the curated menu at full strength, a scanned page at half, a row
-  // inside a page at a third. A row must never outrank the page that holds it
-  // for a vague query — it wins only when its own words are what you typed.
-  if (d.source === 'map') return raw / 2;
-  if (d.source === 'row') return raw / 3;
-  return raw;
-}
-
-export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }) {
+export function AdminCommandPalette({
+  rows = [],
+  learned = [],
+}: {
+  rows?: readonly RowDest[];
+  /** What the box has learned from the admin's own picks (ASK-BRAIN) — read by the layout. */
+  learned?: readonly LearnedPick[];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
@@ -127,16 +104,26 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
    * changes; the per-word evidence only breaks ties and rescues zeroes. `score`
    * below is passed in untouched, which is what makes that guarantee checkable.
    */
-  const { hits, unknown } = useMemo(
-    () => rankBySentence(all, q, score, 30),
-    [all, q],
+  // What this session has picked, on top of what the layout read — so a pick is remembered before the next page load.
+  const [picks, setPicks] = useState<readonly LearnedPick[]>(learned);
+  /*
+    🧠 THE WHOLE ANSWER, FROM ONE PURE FUNCTION (ASK-BRAIN, 14 Nov 2026): the place you picked for these words before,
+    then one Recommended action read off the keyword table, then that page, then the ranker's other pages. The phrase
+    bank simulator (`ask-phrase-bank.test.ts`) runs this same function over every generated phrase.
+  */
+  const ranking = useMemo(
+    () => rankPalette(all, q, ADMIN_JOBS, ADMIN_ROUTES, picks),
+    [all, q, picks],
   );
+  const { hits, unknown } = ranking;
+  const rec = ranking.learned ? null : ranking.recommendation;
+  const learnedHref = ranking.learned?.href ?? null;
 
   /**
    * A JOB the sentence names, offered next to the pages it names. See
    * `match-job.ts` — coverage-gated, so "papic" alone never suggests a form.
    */
-  const jobHits = useMemo(() => matchJobs(ADMIN_JOBS, q, 3), [q]);
+  const jobHits = ranking.jobHits;
 
   /**
    * THE RECORDS THEMSELVES — a guest, a shop, a celebration, an account.
@@ -382,9 +369,59 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
   const askRowSelectable = showAskEscapeHatch && !(asked !== null && !asked.ok);
 
   const navRows = useMemo(
-    () => buildNavRows(askRowSelectable, hits, records),
-    [askRowSelectable, hits, records],
+    () => buildNavRows(askRowSelectable, hits, records, rec !== null),
+    [askRowSelectable, hits, records, rec],
   );
+
+  /** The ask row sits after the Recommended row when there is one. */
+  const askIndex = rec ? 1 : 0;
+
+  /*
+    🧠 EVERY PICK TEACHES THE BOX (ASK-BRAIN). Opening a result for typed words records phrase → place through the
+    existing admin-gated door (`askTheAdmin` with `learn`), and the session's own memory updates at once with the same
+    most-used-wins rule (`learnPick`). Fire-and-forget: a refused write never blocks the navigation it describes.
+  */
+  const teach = useCallback(
+    (href: string, label: string) => {
+      const phrase = q.trim().toLowerCase().replace(/\s+/g, ' ');
+      if (phrase.length < 2 || !href.startsWith('/admin')) return;
+      void askTheAdmin(q, [], { picked: { href, label } }).catch(() => undefined);
+      setPicks((list) => {
+        const was = list.find((p) => p.phrase === phrase);
+        const next = learnPick(was ? { href: was.href, timesUsed: was.timesUsed } : null, href);
+        const row: LearnedPick = {
+          phrase,
+          href: next.href,
+          label: next.replaced ? label : (was?.label ?? label),
+          timesUsed: next.timesUsed,
+        };
+        return [row, ...list.filter((p) => p.phrase !== phrase)];
+      });
+    },
+    [q],
+  );
+
+  /** "Forget this" — the phrase leaves the memory, here and on the server. */
+  const forget = useCallback(() => {
+    const phrase = q.trim().toLowerCase().replace(/\s+/g, ' ');
+    void askTheAdmin(q, [], { forget: true }).catch(() => undefined);
+    setPicks((list) => list.filter((p) => p.phrase !== phrase));
+  }, [q]);
+
+  /*
+    THE RECOMMENDED ROW. A job whose form this box can fill opens the ask-form (nothing is submitted there); anything
+    else opens the page — the owner presses the real button on the real page (2026-07-11 one-person rule).
+  */
+  const activateRecommendation = useCallback(() => {
+    if (!rec) return;
+    teach(rec.href, rec.say);
+    if (rec.job && jobPrefillIsRead(rec.job.name)) {
+      openJobAsk(rec.job);
+      return;
+    }
+    close();
+    router.push(rec.href);
+  }, [rec, teach, openJobAsk, close, router]);
 
   /**
    * How far the page hits are pushed down by the ask row, so the highlight and
@@ -465,10 +502,16 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
         // the owner actually uses.
         const target = navRows[sel];
         if (!target) return;
+        if (target.kind === 'recommend') {
+          activateRecommendation();
+          return;
+        }
         if (target.kind === 'ask') {
           activateAskRow();
           return;
         }
+        if (target.kind === 'record') teach(target.record.href, target.record.title);
+        else teach(target.dest.href, target.dest.label);
         close();
         // ONE list, so a found RECORD opens on Enter exactly like a page does.
         // Records that render but cannot be reached by the keyboard would be
@@ -478,7 +521,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, navRows, sel, close, router, askJob, activateAskRow]);
+  }, [open, navRows, sel, close, router, askJob, activateAskRow, activateRecommendation, teach]);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -637,6 +680,60 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
             </div>
           ) : (
             <>
+          {/*
+            🗝 RECOMMENDED — one action read off the owner's own words ("add a new service in the catalog" →
+            Add a service → Catalogue › Categories). navRows[0], so ↵ takes it. It opens a page or prepares a form;
+            it never saves, publishes, changes a price or confirms anything.
+          */}
+          {rec ? (
+            <div className="mx-1.5 mb-1 mt-1" data-palette-recommend="">
+              <button
+                type="button"
+                onMouseMove={() => setSel(0)}
+                onClick={activateRecommendation}
+                className="flex w-full items-start gap-2 rounded-md border px-2.5 py-2 text-left"
+                style={{
+                  borderColor: 'var(--sn-line)',
+                  ...(sel === 0 ? { background: 'var(--sn-paper-2, #F5EEE1)' } : {}),
+                }}
+              >
+                <Sparkles aria-hidden className="mt-0.5 h-3 w-3 shrink-0" style={{ color: 'var(--sn-gold, #A9834B)' }} strokeWidth={2} />
+                <span className="min-w-0">
+                  <span className="block font-mono text-[9.5px] font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--sn-ink-500)' }}>
+                    Recommended
+                  </span>
+                  <span className="block text-[13px] font-semibold" style={{ color: 'var(--sn-ink)' }}>
+                    {recommendationLine(rec)}
+                  </span>
+                </span>
+                <span className="ml-auto shrink-0 self-center font-mono text-[10px]" style={{ color: 'var(--sn-ink-500)' }}>
+                  {rec.job && jobPrefillIsRead(rec.job.name) ? 'fill in a form' : 'open the page'}
+                </span>
+              </button>
+            </div>
+          ) : null}
+          {/* WHAT CAN I ASK? — the advertised sentences, each pinned to its first row by ask-keywords.test.ts. */}
+          {!q.trim() ? (
+            <div className="mx-1.5 mb-1 mt-1 rounded-md px-2.5 py-2" data-palette-examples="" style={{ background: 'var(--sn-sunk, #F4F2EC)' }}>
+              <p className="font-mono text-[9.5px] font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--sn-ink-500)' }}>
+                What can I ask?
+              </p>
+              <ul className="mt-1 flex flex-wrap gap-1.5">
+                {ASK_EXAMPLES.map((ex) => (
+                  <li key={ex}>
+                    <button
+                      type="button"
+                      onClick={() => setQ(ex)}
+                      className="rounded-md border px-2 py-1 text-[12px]"
+                      style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink)' }}
+                    >
+                      “{ex}”
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {jobHits.length > 0 ? (
             <div className="mx-1.5 mb-1 mt-1 space-y-1">
               {jobHits.map((j) => (
@@ -671,12 +768,12 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
               {asked?.ok ? (
                 <button
                   type="button"
-                  onMouseMove={() => setSel(0)}
+                  onMouseMove={() => setSel(askIndex)}
                   onClick={() => openAnswer(asked.answer)}
                   className="flex w-full items-start gap-2 rounded-md border px-2.5 py-1.5 text-left"
                   style={{
                     borderColor: 'var(--sn-line)',
-                    ...(sel === 0 ? { background: 'var(--sn-paper-2, #F5EEE1)' } : {}),
+                    ...(sel === askIndex ? { background: 'var(--sn-paper-2, #F5EEE1)' } : {}),
                   }}
                 >
                   <Sparkles aria-hidden className="mt-0.5 h-3 w-3 shrink-0" style={{ color: 'var(--sn-gold, #A9834B)' }} strokeWidth={2} />
@@ -698,14 +795,14 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
               ) : (
                 <button
                   type="button"
-                  onMouseMove={() => setSel(0)}
+                  onMouseMove={() => setSel(askIndex)}
                   onClick={activateAskRow}
                   disabled={asking}
                   className="flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-[12.5px] font-semibold disabled:opacity-50"
                   style={{
                     borderColor: 'var(--sn-line)',
                     color: 'var(--sn-ink)',
-                    ...(sel === 0 ? { background: 'var(--sn-paper-2, #F5EEE1)' } : {}),
+                    ...(sel === askIndex ? { background: 'var(--sn-paper-2, #F5EEE1)' } : {}),
                   }}
                 >
                   <Sparkles aria-hidden className="h-3 w-3 shrink-0" style={{ color: 'var(--sn-gold, #A9834B)' }} strokeWidth={2} />
@@ -786,6 +883,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
                       type="button"
                       onMouseMove={() => setSel(navIndex)}
                       onClick={() => {
+                        teach(d.href, d.label);
                         close();
                         router.push(d.href);
                       }}
@@ -793,9 +891,24 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
                       style={navIndex === sel ? { background: 'var(--sn-paper-2, #F5EEE1)' } : undefined}
                     >
                       <span>{d.label}</span>
+                      {i === 0 && learnedHref === d.href ? (
+                        <span className="font-mono text-[10px] font-normal" style={{ color: 'var(--sn-gold, #A9834B)' }}>
+                          You picked this before
+                        </span>
+                      ) : null}
                       <span className="ml-auto truncate font-mono text-[10.5px]"
                         style={{ color: 'var(--sn-ink-500)' }}>{d.group}</span>
                     </button>
+                    {i === 0 && learnedHref === d.href ? (
+                      <button
+                        type="button"
+                        onClick={forget}
+                        className="ml-3 pb-1 text-[11px] underline underline-offset-2"
+                        style={{ color: 'var(--sn-ink-500)' }}
+                      >
+                        Forget this
+                      </button>
+                    ) : null}
                   </div>
                 );
               })}
@@ -828,6 +941,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
                         type="button"
                         onMouseMove={() => setSel(navIndex)}
                         onClick={() => {
+                          teach(r.href, r.title);
                           close();
                           router.push(r.href);
                         }}

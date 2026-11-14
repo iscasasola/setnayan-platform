@@ -39,6 +39,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ADMIN_ROUTES } from '@/lib/admin-map/admin-routes.generated';
 import { buildDestinations } from '@/app/admin/_components/admin-destinations';
+import { normalisePhrase } from './phrase';
+import { learnPick } from './palette-rank';
 
 export type AskResult = {
   label: string;
@@ -50,9 +52,7 @@ export type AskResult = {
 };
 
 /** Same normalisation on the way in and the way out, or a lookup never hits. */
-export function normalisePhrase(q: string): string {
-  return q.trim().toLowerCase().replace(/\s+/g, ' ');
-}
+export { normalisePhrase };
 
 /**
  * Is this an address the admin actually has?
@@ -226,4 +226,68 @@ export async function rememberPhrase(question: string, answer: AskResult): Promi
     { onConflict: 'phrase' },
   );
   if (error) logQueryError('rememberPhrase (admin_search_phrases)', error);
+}
+
+/**
+ * 🧠 THE BOX LEARNS FROM WHAT THE ADMIN PICKS (ASK-BRAIN, owner 14 Nov 2026: *"create a brain that also learns"*).
+ *
+ * When an admin types a phrase and opens a result, that phrase → that place is remembered here, in the same table the
+ * assistant's answers live in (`learned_from: 'admin'` — "a person taught it"). Next time, the box puts it first,
+ * marked "You picked this before". The rule for a DIFFERENT pick is `learnPick` (most-used wins on the one row the
+ * table keeps per phrase): a habit is worn down one pick at a time, never erased by a single stray click.
+ *
+ * Stores the phrase text and the href (and its label, for drawing) — nothing about who typed it, nothing else.
+ * Navigation only: it records where a person went; it never decides, approves or changes anything.
+ */
+export async function rememberPick(question: string, picked: { href: string; label: string }): Promise<void> {
+  const phrase = normalisePhrase(question);
+  if (phrase.length < 2 || phrase.length > 200) return;
+  if (!isKnownAdminHref(picked.href)) return;
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return;
+  }
+  const { data, error } = await admin
+    .from('admin_search_phrases')
+    .select('href, label, times_used')
+    .eq('phrase', phrase)
+    .maybeSingle();
+  if (error) {
+    // Unread is not "never picked" — writing over a row nobody could read could erase a habit. Skip this pick.
+    logQueryError('rememberPick read (admin_search_phrases)', error);
+    return;
+  }
+  const next = learnPick(
+    data ? { href: String(data.href), timesUsed: Number(data.times_used ?? 0) } : null,
+    picked.href,
+  );
+  const { error: writeError } = await admin.from('admin_search_phrases').upsert(
+    {
+      phrase,
+      href: next.href,
+      label: next.replaced ? picked.label.slice(0, 200) : String(data?.label ?? picked.label),
+      learned_from: 'admin',
+      times_used: next.timesUsed,
+      last_used_at: new Date().toISOString(),
+    },
+    { onConflict: 'phrase' },
+  );
+  if (writeError) logQueryError('rememberPick write (admin_search_phrases)', writeError);
+}
+
+/** "Forget this" on the box's remembered row — the phrase leaves the memory entirely. */
+export async function forgetPhrase(question: string): Promise<void> {
+  const phrase = normalisePhrase(question);
+  if (phrase.length < 2) return;
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return;
+  }
+  const { error } = await admin.from('admin_search_phrases').delete().eq('phrase', phrase);
+  if (error) logQueryError('forgetPhrase (admin_search_phrases)', error);
 }

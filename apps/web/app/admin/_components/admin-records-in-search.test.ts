@@ -120,7 +120,7 @@ test('the records the box fetched are the records the keyboard walks', () => {
   const src = read(PALETTE);
   assert.match(
     src,
-    /buildNavRows\(\s*askRowSelectable,\s*hits,\s*records\s*\)/,
+    /buildNavRows\(\s*askRowSelectable,\s*hits,\s*records\s*(,\s*rec !== null\s*)?\)/,
     'the fetched records are not in the list the keyboard walks',
   );
   assert.match(

@@ -23,11 +23,11 @@
  * `manual` — never `pass`, and never a failure of the other four. A registry
  * 504 (measured twice on 2026-09-09; unreachable is a NORMAL condition for the
  * DTI lookup) is a manual mark on the registration check and has no opinion
- * about the bank proof. `manual` is therefore three different things wearing
+ * about the payout accounts. `manual` is therefore three different things wearing
  * one label, and the `reason` string is what tells them apart.
  *
  * 🔑 `alwaysHuman` separates *"we tried and could not tell"* from *"a person
- * was always going to have to do this one"* (the 15-minute Meet; reading a name
+ * was always going to have to do this one"* (reading a name
  * off the face of a permit). Without it, a reviewer learns to skim every manual
  * mark, including the transient ones that mean something is broken.
  *
@@ -150,7 +150,7 @@ export type CheckFacts = {
 
   portfolioCount: number | null;
   clientReferenceCount: number | null;
-  /** `scheduled_at` on the google_meet slot, when stamped. */
+  /** `scheduled_at` on the retired google_meet slot, when stamped. No check reads it since 2026-11-14. */
   meetScheduledAt: string | null;
 
   registrationNumberRaw: string | null;
@@ -290,7 +290,7 @@ function list(items: readonly string[]): string {
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]!}`;
 }
 
-/** The four documents verification cannot proceed without, in slot order. */
+/** The three documents verification cannot proceed without (owner 2026-11-14, DECISION_LOG f69ec167), in slot order. */
 const REQUIRED_KEYS_IN_ORDER: readonly string[] = DOC_SLOTS.filter((s) =>
   REQUIRED_DOC_SLOT_KEYS.has(s.key),
 ).map((s) => s.key);
@@ -301,7 +301,7 @@ const REQUIRED_KEYS_IN_ORDER: readonly string[] = DOC_SLOTS.filter((s) =>
 
 function checkRequiredDocuments(f: CheckFacts): CheckResult {
   const key = 'required_documents';
-  const label = 'The four required documents are on file';
+  const label = 'The three required documents are on file';
   if (f.docUploadsUnreadable) {
     return manual(
       key,
@@ -324,7 +324,7 @@ function checkRequiredDocuments(f: CheckFacts): CheckResult {
     {
       label: 'What verification requires',
       value: list(REQUIRED_KEYS_IN_ORDER.map(slotLabel)),
-      source: 'The verification checklist (the four documents a shop cannot be verified without)',
+      source: 'The verification checklist (the three documents a shop cannot be verified without)',
     },
     {
       label: 'What this shop filed',
@@ -455,15 +455,17 @@ function checkRegistrationNumber(f: CheckFacts): CheckResult {
     return manual(
       key,
       label,
-      'No registration number has been submitted.',
-      'The shop has not typed a registration number, so there is nothing to compare. Read it off the DTI/SEC certificate and enter it.',
+      'No registration number is on file yet.',
+      'Since 2026-11-14 the shop is never asked to type the number (DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"); it is read off the DTI/SEC paper. Nothing has been read yet, so there is nothing to compare. Read it off the certificate.',
     );
   }
   if (f.registrationNumberDuplicate) {
     return mismatch(
       key,
       label,
-      'This registration number is already on another shop.',
+      f.registrationNumberHeldAlsoBy.length > 0
+        ? `Same registration number as ${list(f.registrationNumberHeldAlsoBy)}.`
+        : 'Same registration number as another shop on Setnayan.',
       {
         label: 'The number this shop gave us',
         value: raw,
@@ -519,42 +521,6 @@ function checkRegistrationNumber(f: CheckFacts): CheckResult {
         { alwaysHuman: true },
       );
   }
-}
-
-function checkContactValidate(f: CheckFacts): CheckResult {
-  const key = 'contact_validate';
-  const label = 'The VALIDATE token arrived by email AND by text';
-  const email = Boolean(f.contactEmailConfirmedAt);
-  const phone = Boolean(f.contactPhoneConfirmedAt);
-  if (email && phone) {
-    return pass(key, label, 'Both channels confirmed.');
-  }
-  if (!email && !phone) {
-    return manual(
-      key,
-      label,
-      'Neither channel confirmed yet.',
-      'The shop has not sent the token on either channel, or nobody has stamped it. Nothing has been attempted, so there is nothing to disagree with.',
-    );
-  }
-  const confirmedSide = email ? 'email' : 'text message';
-  const missingSide = email ? 'text message' : 'email';
-  const at = email ? f.contactEmailConfirmedAt! : f.contactPhoneConfirmedAt!;
-  return mismatch(
-    key,
-    label,
-    `The token arrived by ${confirmedSide} but never by ${missingSide}.`,
-    {
-      label: `Their ${confirmedSide} arrived`,
-      value: at,
-      source: `Marked off on this application when their ${confirmedSide} came in`,
-    },
-    {
-      label: `Their ${missingSide} never arrived`,
-      value: 'never — nobody has marked it off',
-      source: `The same application, where the ${missingSide} would have been marked off`,
-    },
-  );
 }
 
 function checkPortfolio(f: CheckFacts): CheckResult {
@@ -633,21 +599,6 @@ function checkClientReferences(f: CheckFacts): CheckResult {
       source: "This application's client-references slot",
     },
     'client_references',
-  );
-}
-
-function checkIdentityMeeting(f: CheckFacts): CheckResult {
-  const key = 'identity_meeting';
-  const label = 'The 15-minute identity call happened';
-  if (f.meetScheduledAt) {
-    return pass(key, label, `Scheduled ${f.meetScheduledAt}.`, 'google_meet');
-  }
-  return manual(
-    key,
-    label,
-    'No call is on the record.',
-    'Identity is confirmed face to face. Nothing automatic can stand in for it — book the call, hold it, then stamp the slot.',
-    { alwaysHuman: true, slotKey: 'google_meet' },
   );
 }
 
@@ -781,9 +732,12 @@ export function comparePayoutName(accountName: string, reference: string): NameC
 }
 
 /**
- * 🔴 WHY THIS EXISTS. The bank-proof slot's help copy has always TOLD the shop
+ * 🔴 WHY THIS EXISTS. The retired bank-proof slot's help copy TOLD the shop
  * *"the name should match your DTI/SEC business name (or your own name if sole
- * proprietor)"*, and nothing ever compared the two. A shop could be verified
+ * proprietor)"*, and nothing ever compared the two. The bank proof itself was
+ * retired on 2026-11-14 (DECISION_LOG f69ec167 — three papers, not four); this
+ * check reads the PAYOUT accounts, which stay, so it stays. It points the
+ * reviewer at the DTI/SEC paper, where the names it compares against come from. A shop could be verified
  * with every peso a couple sends routed to a stranger's GCash.
  *
  * ⚖ IT FLAGS; IT NEVER REFUSES. A clean match passes. Anything a person could
@@ -796,7 +750,7 @@ export function comparePayoutName(accountName: string, reference: string): NameC
 function checkPayoutAccountName(f: CheckFacts): CheckResult {
   const key = 'payout_account_name';
   const label = "Payout accounts are in the business's or the owner's name";
-  const slotKey = 'bank_account_proof';
+  const slotKey = 'dti_certificate';
 
   if (f.payoutAccounts === null) {
     return manual(
@@ -816,7 +770,7 @@ function checkPayoutAccountName(f: CheckFacts): CheckResult {
       f.payoutAccounts.length === 0
         ? 'No payout account is on file yet.'
         : 'No payout account on file carries an account name.',
-      'There is no typed account name to compare. Read the name off the bank proof and check it against the DTI/SEC name or the owner.',
+      'There is no typed account name to compare. Open the shop\'s payment settings and check the account name against the DTI/SEC name or the owner.',
       { alwaysHuman: true, slotKey },
     );
   }
@@ -884,7 +838,7 @@ function checkPayoutAccountName(f: CheckFacts): CheckResult {
       close.length === 1
         ? `The ${close[0]!.account.label} account name is close to, but not the same as, "${close[0]!.ref}".`
         : `${close.length} payout account names are close to, but not the same as, the business or owner name.`,
-      `Close is not the same: ${list(close.map((c) => `"${c.account.accountName!.trim()}" vs "${c.ref}"`))}. It could be a longer trading name, or a relative's account. Check it against the bank proof before you decide.`,
+      `Close is not the same: ${list(close.map((c) => `"${c.account.accountName!.trim()}" vs "${c.ref}"`))}. It could be a longer trading name, or a relative's account. Check it against the DTI/SEC paper before you decide.`,
       { alwaysHuman: true, slotKey },
     );
   }
@@ -917,10 +871,10 @@ export function runVerificationChecks(facts: CheckFacts, now: Date = new Date())
     checkDocumentsInStorage,
     checkDocumentTenancy,
     checkRegistrationNumber,
-    checkContactValidate,
+    // 2026-11-14 (DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"): the VALIDATE-token check and the
+    // 15-minute identity-call check are gone — neither is a step any more. The admin's approval is what verifies.
     checkPortfolio,
     checkClientReferences,
-    checkIdentityMeeting,
     checkReachable,
     (f) => checkDeclaredExperience(f, now),
     checkPayoutAccountName,

@@ -97,6 +97,12 @@ export async function notifyVendorStatusChange(args: {
   */
   decision: 'approved' | 'rejected' | 'demoted' | 'listed' | 'hidden' | 'unpublished';
   reason?: string | null;
+  /**
+   * Send-back only (owner 2026-11-14, "Only the named one"): the labels of the papers that need a new copy. When
+   * given, the notice names them and says the rest are kept; absent (a send-back made before the rule), it reads as
+   * it always did.
+   */
+  sentBackPapers?: readonly string[];
 }): Promise<void> {
   try {
     const admin = createAdminClient();
@@ -116,10 +122,15 @@ export async function notifyVendorStatusChange(args: {
             body: `You're now a verified Setnayan supplier — your profile is live in the marketplace.${reasonSuffix}`,
           }
         : args.decision === 'rejected'
-          ? {
-              title: 'Your verification needs another look',
-              body: `Your verification application wasn't approved this time. You can address the notes and submit a new application.${reasonSuffix}`,
-            }
+          ? args.sentBackPapers && args.sentBackPapers.length > 0
+            ? {
+                title: `Needs a new copy: ${args.sentBackPapers.join(', ')}`,
+                body: `Setnayan needs a new copy of your ${args.sentBackPapers.join(' and ')}.${reasonSuffix} Your other papers are kept — upload the new copy and press Submit.`,
+              }
+            : {
+                title: 'Your verification needs another look',
+                body: `Your verification application wasn't approved this time. You can address the notes and submit a new application.${reasonSuffix}`,
+              }
           : args.decision === 'demoted'
             ? {
                 title: 'Your account was moved to limited status',

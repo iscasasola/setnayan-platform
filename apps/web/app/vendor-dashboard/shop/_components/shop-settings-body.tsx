@@ -100,11 +100,8 @@ export async function ShopSettingsBody({ search }: { search: Record<string, stri
         permit,
         section: (
           <VerifySection
-            businessName={d.businessName}
             vendorProfileId={d.vendorId}
             isVerified={d.isVerified}
-            profileComplete={d.profileComplete}
-            profileFieldsLeft={d.fieldsLeft}
             verify={d.verify}
           />
         ),

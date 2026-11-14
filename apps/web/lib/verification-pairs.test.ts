@@ -8,6 +8,7 @@ import {
   CHECK_STATE_SENTENCE,
   PAIR_CHECK_KEYS,
   PAIR_COLUMNS,
+  PAIR_SLOT_KEYS,
   VERIFICATION_PAIRS,
   deriveCheck,
   pairFieldLockedKey,
@@ -52,13 +53,32 @@ const read = (over: Partial<PaperRead> = {}): PaperRead => ({
 
 /* ── The shape the drawing counts ───────────────────────────────────────── */
 
-test('the page carries EIGHT checks across FOUR papers — the drawn number', () => {
-  assert.equal(VERIFICATION_PAIRS.length, 4);
-  assert.equal(PAIR_CHECK_KEYS.length, 8);
+// Owner 2026-11-14 (specs DECISION_LOG f69ec167): "delete bank account proof. we do not need that. just the 3.
+// DTI/SEC, BIR, Mayor's/Business Permit". The drawing's fourth pair (bank proof, one read-only line) is retired,
+// so the page carries SEVEN checks across THREE papers.
+test('the page carries SEVEN checks across THREE papers — the bank pair is retired (2026-11-14)', () => {
+  assert.equal(VERIFICATION_PAIRS.length, 3);
+  assert.equal(PAIR_CHECK_KEYS.length, 7);
   assert.deepEqual(
     VERIFICATION_PAIRS.map((p) => p.fields.length),
-    [3, 2, 2, 1],
+    [3, 2, 2],
   );
+  assert.ok(!(PAIR_CHECK_KEYS as readonly string[]).includes('bank_account_name'), 'the bank line came back');
+  // The pairs ARE the required papers — no more, no fewer.
+  assert.deepEqual(
+    [...PAIR_SLOT_KEYS].sort(),
+    [...REQUIRED_DOC_SLOT_KEYS].sort(),
+    'the pairs and the submit gate disagree about which papers are required',
+  );
+});
+
+test('OWNER RULING 2026-11-14 — bank proof is asked for nowhere: not a slot, not required, not a registry', () => {
+  assert.ok(!REQUIRED_DOC_SLOT_KEYS.has('bank_account_proof'), 'bank proof is required again');
+  assert.ok(!DOC_SLOTS.some((s) => s.key === 'bank_account_proof'), 'bank proof is a checklist slot again');
+  assert.ok(!DOC_SLOTS.some((s) => s.guideSlug === 'how-to-prepare-bank-account-proof'), 'a slot links the retired bank guide');
+  // A stored read block that still says `bank` degrades to the honest "unreadable", never throws.
+  const read = parsePaperRead({ r2_key: 'r2://x', read: { registry: 'bank', registryOutcome: 'agreed', values: {} } });
+  assert.equal(read?.registry, 'unreadable');
 });
 
 test('each of the six owner-named columns appears exactly once, and nothing else does', () => {
@@ -85,7 +105,6 @@ test('OWNER RULING — DTI or SEC, never both: ONE registration paper, and it is
     'dti_certificate',
     'bir_2303',
     'mayors_permit',
-    'bank_account_proof',
   ]);
   // No second registration slot may appear anywhere in the checklist.
   const secLike = DOC_SLOTS.filter((s) => /(^|_)sec(_|$)/.test(s.key));
@@ -295,7 +314,7 @@ test('every state lands in exactly one bucket and the tally always sums to what 
   assert.equal(Object.values(t).reduce((a, b) => a + b, 0), all.length);
   // A brand-new shop: eight not-sent, nothing else.
   const fresh = tallyChecks(PAIR_CHECK_KEYS.map(() => 'not_sent' as CheckState));
-  assert.deepEqual(fresh, { matched: 0, to_fix: 0, with_person: 0, not_yet: 8 });
+  assert.deepEqual(fresh, { matched: 0, to_fix: 0, with_person: 0, not_yet: 7 });
 });
 
 test('every state has a sentence, and none of them says "manual check"', () => {

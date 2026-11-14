@@ -270,8 +270,8 @@ export function badgeReminderCopy(args: {
       return {
         title: `Your papers are due by ${date}`,
         body:
-          `You have ${days} to send your DTI or SEC registration, BIR 2303, Mayor's Permit and ` +
-          `bank proof to keep your Verified badge. ${STAYS_LISTED}`,
+          `You have ${days} to send your DTI or SEC registration, BIR 2303 and Mayor's Permit ` +
+          `to keep your Verified badge. ${STAYS_LISTED}`,
       };
     case 'permit':
       return {

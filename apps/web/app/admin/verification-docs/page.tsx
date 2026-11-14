@@ -17,7 +17,8 @@ import { DOC_SLOTS } from '@/lib/vendor-verification';
  * ADMIN · Vendor verification documents.
  *
  * What a vendor uploaded to prove who they are: a government ID, a DTI
- * certificate, a BIR 2303, a mayor's permit, a bank proof. The most sensitive
+ * certificate, a BIR 2303, a mayor's permit — and, from before they were retired
+ * (2026-07-03, 2026-11-14), a government ID or a bank proof. The most sensitive
  * personal data on the platform, in its own bucket, on its own page — a
  * passport photo has no business sitting in a screen called "Website media".
  *
@@ -117,7 +118,7 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
           IDs and the only control is a permanent delete with no undo. */}
       <PageMasthead title="Supplier verification documents" />
       <p className="max-w-2xl text-sm leading-relaxed text-ink/70">
-        What suppliers uploaded to prove who they are — government IDs, permits, bank proofs.
+        What suppliers uploaded to prove who they are — registration papers and permits, and older government IDs and bank proofs.
         Each file is checked against every supplier record: if nothing points at it any more,
         it is left over and you can remove it. Deleting is permanent and there is no undo.
       </p>

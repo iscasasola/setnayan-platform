@@ -346,7 +346,7 @@ export function SupplierFrontPage({
                   public page and {FREE_PHOTOS} portfolio photos.
                 </p>
                 <p>
-                  Verified (free, once your DTI/SEC, BIR 2303, permit and bank proof are approved) puts you in search{' '}
+                  Verified (free, once your DTI/SEC, BIR 2303 and permit are approved) puts you in search{' '}
                   {VERIFIED_REACH} around you. Paid plans add reach, categories, team seats and branches. See Plans below.
                 </p>
               </Info>

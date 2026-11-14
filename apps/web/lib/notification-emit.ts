@@ -84,6 +84,9 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'inquiry_accepted',
   'booking_confirmed',
   'review_received',
+  // 🏅 Owner 2026-11-15 (DECISION_LOG "SUPPLIER BADGES, SEALS AND REWARDS"): "a new badge_earned
+  // notification/email via emitNotification" — his word for this email.
+  'badge_earned',
   // Disputes.
   'dispute_filed',
   'dispute_resolved',

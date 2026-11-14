@@ -1,0 +1,15 @@
+## 2026-11-15 · feat(badges): one reward ladder, the new tier names, award dates, two new counters, and badges that pay the moment they are earned
+
+Owner rulings of 15 Nov (corpus DECISION_LOG 2026-11-15, "SUPPLIER BADGES, SEALS AND REWARDS"). Slice A of the controller's badges build map — schema, grant and notify; no screen is redrawn here.
+
+- **Tier names** (`lib/badge-tiers.ts`): Bronze · Silver · Gold · **Ruby · Emerald · Diamond** · Black Diamond. Keys `tier1`…`tier7` unchanged. Emerald's paint is the prototype's stone, held to AA on light and dark. The dashboard row's materials (`lib/shop-badge-row.ts`, `lib/badge-art.ts`) follow.
+- **One reward ladder** (`lib/badge-rewards.ts` `TIER_REWARDS`): Bronze Papic 150 · Silver Papic 150 · Gold Papic 1000 · Ruby Papic 3000 · Emerald Event Plus · Diamond Event Pro · Black Diamond Event Ultra, on every laddered badge, by the step's position on its own ladder. Supersedes the 8 Nov per-step table. Keys unchanged, so a step already paid is never paid again. No new free booking fee is earned; the ones already earned still wait. Once-rewards (Verified, the firsts) and the monthly awards are unchanged.
+- **Pack sizes are read, never typed**: Papic 1000 / 3000 are the catalogue packs named by code (`PAPIC_GUEST_1K`, `PAPIC_GUEST`, the codes the app already sells under those names, guarded by a test). Their credits are read at grant time.
+- 🛑 **Event Ultra is drawn, not granted**: no gift-stock path exists for it, so Black Diamond's reward stays owed with its key unspent (`GRANTABLE_KINDS`).
+- **Counters**: the first 5★ review is measured (new `shop_trusted_five_star_count`, which uses the public stars' own predicates); **Trusted by** (accepted, active partnerships, steps 1·5·10·25·50·100·250) is a new laddered badge.
+- **Award dates + claim**: `readBadgeAwards` returns each earned step's `grantedAt` and `claimedAt` for the UI. The claim reuses the shipped 14 Nov door (`gift_moment_claim` / `POST /api/unwrap`, source `badge_reward`), which is already idempotent and limited to the shop's own members. No second claim column was added.
+- **Firing when earned** (`lib/badge-earned.server.ts`): `after()` sweeps run when a booking turns delivered/complete (couple status, couple confirm, admin force-complete), when a review is posted, when a partnership is accepted, and when a gift is given. A daily `badge-reward-sweep` backstop (`claim_periodic_job`) runs from admin traffic. A new grant sends ONE `badge_earned` notice + email ("You earned {Tier} {Badge}, {Shop}!") naming the highest tier the sweep paid, plus the existing Lane S post. An existing grant is never told again.
+
+Migrations: `20271346425846_notification_type_badge_earned` (enum value, its own file) · `20271347341362_a_shop_counts_its_five_star_reviews` (read-only function, service_role only).
+
+SPEC IMPACT: None new — implements DECISION_LOG 2026-11-15 as written. Two build choices are flagged for the owner in the PR: Event Ultra not granted until a gift path exists, and one notice per sweep (the highest tier) rather than one per step.

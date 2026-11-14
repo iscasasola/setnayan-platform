@@ -6,18 +6,26 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { grantOwedBadgeUpgrades, readBadgeUpgrades, type UpgradeSweep } from '@/lib/badge-upgrades.server';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import { fetchShopGiftPacks } from '@/lib/shop-gifts.server';
-import { alwaysAllowedPack } from '@/lib/shop-gifts';
+import { alwaysAllowedPack, type ShopGiftPack } from '@/lib/shop-gifts';
+import { countTrustedBy } from '@/lib/vendor-trusted-by';
 import { AWARD_LABELS, currentPeriodMonth, type SpotlightAwardType } from '@/lib/spotlight-awards';
 import type { ShopBadgeFacts } from '@/lib/shop-badges';
 import {
+  badgeAwardOf,
   FALLBACK_REWARD_NAMES,
+  GRANTABLE_KINDS,
+  PAPIC_PACK_CODE,
   rewardsOwed,
+  type BadgeAward,
+  type BadgeReward,
   type BadgeRewardFacts,
   type BadgeRewardKind,
   type GrantedReward,
+  type RewardBadge,
   type RewardNames,
   type TrackerRewardInput,
 } from '@/lib/badge-rewards';
+import type { TierKey } from '@/lib/badge-tiers';
 
 /**
  * 🏅🎁 BADGE REWARDS — the I/O half of `lib/badge-rewards.ts` (owner 2026-11-05).
@@ -57,7 +65,7 @@ export async function readBadgeRewardFacts(
   /** The page's badge facts — or the promise of them: this function's own reads start at once, beside that read. */
   badgeIn: BadgeIn | PromiseLike<BadgeIn>,
 ): Promise<BadgeRewardFacts> {
-  const [badge, sourced, branches, serviceCards, inspirationPhotos, awards, bookedLoops] = await Promise.all([
+  const [badge, sourced, branches, serviceCards, inspirationPhotos, awards, bookedLoops, fiveStarReviews, trustedBy] = await Promise.all([
     badgeIn,
     // Setnayan-sourced bookings — the ledger the fee itself keeps (attribution 'sourced', made at the lock).
     admin
@@ -136,6 +144,10 @@ export async function readBadgeRewardFacts(
       }),
     // 🔁 Booked Loop (THE ONE BUILD spec §9 #11): C2's counter, on the admin client (service_role only). null = unread.
     readShopBookedLoopCount(admin, vendorProfileId),
+    // ⭐ 5★ reviews under the trusted-review rule (owner 2026-11-15) — `shop_trusted_five_star_count`. null = unread.
+    readFiveStarCount(admin, vendorProfileId),
+    // 🤝 Suppliers who recommend the shop (owner 2026-11-15) — accepted, active partnerships. null = unread.
+    countTrustedBy(admin, vendorProfileId),
   ]);
 
   const trustedCount = badge.trusted ? Number(badge.trusted.trusted_review_count ?? 0) : null;
@@ -149,17 +161,62 @@ export async function readBadgeRewardFacts(
     inspirationPhotos,
     awards,
     bookedLoops,
+    fiveStarReviews,
+    trustedBy,
   };
 }
 
-/** The products' names from the live catalogue (the smallest Papic pack, Event Plus, Event Pro). */
+/** The shop's 5★ reviews by the public stars' own rule; null on a refused read (never 0). */
+async function readFiveStarCount(admin: SupabaseClient, vendorProfileId: string): Promise<number | null> {
+  const { data, error } = await admin.rpc('shop_trusted_five_star_count', { p_vendor_profile_id: vendorProfileId });
+  if (error) {
+    logQueryError('badgeRewards.fiveStars', error, { vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  const n = Number(data);
+  return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : null;
+}
+
+/**
+ * The Papic pack a reward names, from the live catalogue: the smallest (`alwaysAllowedPack`) or the one with the
+ * pack's code (`PAPIC_PACK_CODE`). Null when the catalogue does not hold it — then that reward waits, never a guess.
+ */
+export function papicPackFor(packs: readonly ShopGiftPack[], reward: BadgeReward): ShopGiftPack | null {
+  if (reward.kind !== 'papic') return null;
+  if (!reward.pack || reward.pack === 'smallest') return alwaysAllowedPack(packs);
+  const code = PAPIC_PACK_CODE[reward.pack];
+  return packs.find((p) => p.kind === 'papic' && p.code === code) ?? null;
+}
+
+/** Event Ultra's title on the catalogue (it is not a gift pack, so `fetchShopGiftPacks` does not carry it). */
+async function readEventUltraTitle(admin: SupabaseClient): Promise<string | null> {
+  const { data, error } = await admin
+    .from('platform_retail_catalog_v2')
+    .select('title, is_active, retired_at')
+    .eq('service_code', 'EVENT_ULTRA')
+    .maybeSingle();
+  if (error) {
+    logQueryError('badgeRewards.ultraTitle', error, {}, 'graceful_degrade');
+    return null;
+  }
+  const r = data as { title: string | null; is_active: boolean | null; retired_at: string | null } | null;
+  return r && r.is_active === true && !r.retired_at && r.title ? r.title : null;
+}
+
+/** The products' names from the live catalogue: every reward the one ladder can pay, and each Papic pack by credits. */
 export async function readRewardNames(admin: SupabaseClient): Promise<RewardNames> {
-  const packs = await fetchShopGiftPacks(admin);
-  if (!packs) return FALLBACK_REWARD_NAMES;
+  const [packs, ultra] = await Promise.all([fetchShopGiftPacks(admin), readEventUltraTitle(admin)]);
+  if (!packs) return { ...FALLBACK_REWARD_NAMES, event_ultra: ultra ?? FALLBACK_REWARD_NAMES.event_ultra };
+  const papicByCredits: Record<number, string> = {};
+  for (const p of packs) if (p.kind === 'papic') papicByCredits[p.credits] = p.title;
   return {
     papic: alwaysAllowedPack(packs)?.title ?? FALLBACK_REWARD_NAMES.papic,
+    papic_1000: papicPackFor(packs, { kind: 'papic', units: 1, pack: 'papic_1000' })?.title,
+    papic_3000: papicPackFor(packs, { kind: 'papic', units: 1, pack: 'papic_3000' })?.title,
     event_plus: packs.find((p) => p.kind === 'event_plus')?.title ?? FALLBACK_REWARD_NAMES.event_plus,
     event_pro: packs.find((p) => p.kind === 'event_pro')?.title ?? FALLBACK_REWARD_NAMES.event_pro,
+    event_ultra: ultra ?? FALLBACK_REWARD_NAMES.event_ultra,
+    papicByCredits,
   };
 }
 
@@ -172,6 +229,8 @@ export type GrantSweep = {
   /** The reward keys THIS sweep paid (status 'granted') — the badges just earned. Lane S posts one of them
    *  (`composeBadgeSocialPost`, lib/social/badge-post.ts), fired by the caller from `after()`. */
   grantedKeys?: string[];
+  /** The rewards THIS sweep paid, as earned — what the "You earned …" notice names (`notifyBadgeEarned`). */
+  grantedRewards?: Array<{ key: string; badge: RewardBadge; reward: BadgeReward; tier?: TierKey; step?: number; creditsEach: number | null }>;
 };
 
 /**
@@ -196,7 +255,7 @@ async function grantOwedGiftRewards(
   vendorProfileId: string,
   facts: BadgeRewardFacts,
 ): Promise<GrantSweep> {
-  const out: GrantSweep = { granted: 0, already: 0, skipped: 0, failed: 0, grantedKeys: [] };
+  const out: GrantSweep = { granted: 0, already: 0, skipped: 0, failed: 0, grantedKeys: [], grantedRewards: [] };
   try {
     const owed = rewardsOwed(facts);
     if (owed.length === 0) return out;
@@ -211,14 +270,21 @@ async function grantOwedGiftRewards(
     out.already = owed.length - missing.length;
     if (missing.length === 0) return out;
 
-    let packCredits: number | null = null;
-    if (missing.some((m) => m.reward.kind === 'papic')) {
-      const packs = await fetchShopGiftPacks(admin);
-      const smallest = packs ? alwaysAllowedPack(packs) : null;
-      packCredits = smallest && smallest.credits > 0 ? smallest.credits : null;
-    }
+    // Papic credits per pack, READ now from the catalogue — the smallest pack, or the pack the reward names by code.
+    const packs = missing.some((m) => m.reward.kind === 'papic') ? await fetchShopGiftPacks(admin) : null;
+    const creditsFor = (r: BadgeReward): number | null => {
+      if (r.kind !== 'papic' || !packs) return null;
+      const p = papicPackFor(packs, r);
+      return p && p.credits > 0 ? p.credits : null;
+    };
 
     for (const m of missing) {
+      // 🛑 A kind the grant door cannot land yet (Event Ultra — no gift-stock path) waits, its key unspent.
+      if (!GRANTABLE_KINDS.has(m.reward.kind)) {
+        out.skipped += 1;
+        continue;
+      }
+      const packCredits = creditsFor(m.reward);
       if (m.reward.kind === 'papic' && packCredits === null) {
         out.skipped += 1;
         continue;
@@ -239,6 +305,7 @@ async function grantOwedGiftRewards(
       } else if (status === 'granted') {
         out.granted += 1;
         out.grantedKeys!.push(m.key);
+        out.grantedRewards!.push({ key: m.key, badge: m.badge, reward: m.reward, tier: m.tier, step: m.step, creditsEach: packCredits });
       } else if (status === 'already') out.already += 1;
       else out.failed += 1;
     }
@@ -255,6 +322,7 @@ type RewardRow = {
   badge: string;
   reward_kind: BadgeRewardKind;
   units: number;
+  stock_delta: number | null;
   granted_at: string;
   revoked_at: string | null;
   used_at: string | null;
@@ -263,12 +331,19 @@ type RewardRow = {
   setnayan_gift_credits: number | null;
 };
 
+/** A Papic reward's credits per pack (stock_delta ÷ units) — which pack it was; null for anything else. */
+function creditsEachOf(r: { reward_kind: string; units: number; stock_delta: number | null }): number | null {
+  if (r.reward_kind !== 'papic' || !r.stock_delta || !r.units) return null;
+  const each = r.stock_delta / r.units;
+  return Number.isInteger(each) && each > 0 ? each : null;
+}
+
 /** What the shop was given, newest first, with each used free booking fee's booking. Null on a read failure. */
 export async function readGrantedRewards(admin: SupabaseClient, vendorProfileId: string): Promise<GrantedReward[] | null> {
   const { data, error } = await admin
     .from('shop_badge_rewards')
     .select(
-      'reward_id, reward_key, badge, reward_kind, units, granted_at, revoked_at, used_at, used_on_charge_id, returned_at, setnayan_gift_credits',
+      'reward_id, reward_key, badge, reward_kind, units, stock_delta, granted_at, revoked_at, used_at, used_on_charge_id, returned_at, setnayan_gift_credits',
     )
     .eq('vendor_profile_id', vendorProfileId)
     .order('granted_at', { ascending: false });
@@ -284,6 +359,7 @@ export async function readGrantedRewards(admin: SupabaseClient, vendorProfileId:
     badge: r.badge,
     kind: r.reward_kind,
     units: r.units,
+    creditsEach: creditsEachOf(r),
     grantedAt: r.granted_at,
     revokedAt: r.revoked_at,
     usedAt: r.used_at,
@@ -357,6 +433,35 @@ async function readTier(admin: SupabaseClient, vendorProfileId: string): Promise
   return (data as { tier_state?: string | null } | null)?.tier_state ?? null;
 }
 
+/* ── award dates and claims (owner 2026-11-15) ──────────────────────────────────────────────────────────────── */
+
+/**
+ * 🏅 Every badge step the shop was AWARDED (not revoked), newest first — with its award date and whether it was
+ * claimed (`gift_moment_claims`, source 'badge_reward': the 14 Nov claim door, `gift_moment_claim`, pressing twice
+ * never counts twice). READ ONLY — never grants. `admin` = the service-role client, after the caller proved the shop
+ * is the signed-in supplier's own. Null on a read failure (draw "couldn't load", never "no badges").
+ */
+export async function readBadgeAwards(admin: SupabaseClient, vendorProfileId: string): Promise<BadgeAward[] | null> {
+  const [granted, claims, names] = await Promise.all([
+    readGrantedRewards(admin, vendorProfileId),
+    admin
+      .from('gift_moment_claims')
+      .select('ref_id, claimed_at')
+      .eq('source', 'badge_reward')
+      .eq('vendor_profile_id', vendorProfileId)
+      .then(({ data, error }) => {
+        if (error) {
+          logQueryError('badgeRewards.claims', error, { vendorProfileId }, 'graceful_degrade');
+          return null;
+        }
+        return new Map(((data ?? []) as Array<{ ref_id: string; claimed_at: string }>).map((c) => [c.ref_id, c.claimed_at]));
+      }),
+    readRewardNames(admin),
+  ]);
+  if (!granted || !claims) return null;
+  return granted.filter((g) => !g.revokedAt).map((g) => badgeAwardOf(g, claims.get(g.rewardId) ?? null, names));
+}
+
 /* ── admin ───────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 /** One row of Admin › Gifts › Badge rewards. */
@@ -367,7 +472,7 @@ export async function fetchBadgeRewardLedger(admin: SupabaseClient, limit = 200)
   const { data, error } = await admin
     .from('shop_badge_rewards')
     .select(
-      'reward_id, vendor_profile_id, reward_key, badge, reward_kind, units, granted_at, revoked_at, used_at, used_on_charge_id, ' +
+      'reward_id, vendor_profile_id, reward_key, badge, reward_kind, units, stock_delta, granted_at, revoked_at, used_at, used_on_charge_id, ' +
         'returned_at, setnayan_gift_credits, vendor_profiles(business_name)',
     )
     .order('granted_at', { ascending: false })
@@ -386,6 +491,7 @@ export async function fetchBadgeRewardLedger(admin: SupabaseClient, limit = 200)
     badge: r.badge,
     kind: r.reward_kind,
     units: r.units,
+    creditsEach: creditsEachOf(r),
     grantedAt: r.granted_at,
     revokedAt: r.revoked_at,
     usedAt: r.used_at,

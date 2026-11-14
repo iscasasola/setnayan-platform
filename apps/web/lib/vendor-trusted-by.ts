@@ -121,3 +121,24 @@ export async function fetchTrustedByVendors(
   }
   return out.sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
+
+/**
+ * 🤝 THE TRUSTED-BY COUNT (owner 2026-11-15, the badge's ladder 1·5·10·25·50·100·250): how many DIFFERENT suppliers
+ * recommend this shop — the SAME rows the public "Trusted by" section draws (accepted + active `vendor_partnerships`
+ * pointing at it), one per recommending supplier however many kinds it holds. Null on a refused read, never 0 — a
+ * badge reward is paid from this number (the badge reader, `lib/badge-rewards.server.ts`).
+ */
+export async function countTrustedBy(admin: SupabaseClient, recommendedVendorProfileId: string): Promise<number | null> {
+  const { data, error } = await admin
+    .from('vendor_partnerships')
+    .select('recommending_vendor_id')
+    .eq('recommended_vendor_id', recommendedVendorProfileId)
+    .eq('status', 'accepted')
+    .eq('is_active', true)
+    .limit(5000);
+  if (error) {
+    console.error('[supabase-error] lib/vendor-trusted-by.ts · countTrustedBy', error);
+    return null;
+  }
+  return new Set(((data ?? []) as Array<{ recommending_vendor_id: string | null }>).map((r) => r.recommending_vendor_id).filter(Boolean)).size;
+}

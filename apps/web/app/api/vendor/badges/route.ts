@@ -5,7 +5,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readShopBadgeFacts } from '@/lib/shop-badges.server';
 import { grantOwedBadgeRewards, readBadgeRewardFacts } from '@/lib/badge-rewards.server';
 import { badgesForPrint } from '@/lib/shop-badges';
-import { composeBadgeSocialPost } from '@/lib/social/badge-post';
+import { tellBadgesJustEarned } from '@/lib/badge-earned.server';
 import { badgePrintSvg, type PrintGround } from '@/lib/shop-badge-print';
 
 export const dynamic = 'force-dynamic';
@@ -51,10 +51,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const granted = await readBadgeRewardFacts(admin, profile.vendor_profile_id, facts)
       .then((rewardFacts) => grantOwedBadgeRewards(admin, profile.vendor_profile_id, rewardFacts))
       .then((sweep) => {
-        // 📣 Lane S (2026-11-10): a badge just earned composes ONE post for Setnayan's own Page — after the response,
-        // never on the supplier's path; the composer gates and never throws (lib/social/badge-post.ts).
-        const keys = sweep.grantedKeys ?? [];
-        if (keys.length > 0) after(() => composeBadgeSocialPost(profile.vendor_profile_id, keys));
+        // 📣 Lane S (2026-11-10): a badge just earned composes ONE post for Setnayan's own Page — and (owner
+        // 2026-11-15) the shop is told: one `badge_earned` notice + email. After the response, never on the
+        // supplier's path; only keys THIS sweep paid, so an existing grant is never told twice.
+        if ((sweep.grantedKeys ?? []).length > 0) after(() => tellBadgesJustEarned(admin, profile.vendor_profile_id, sweep));
         return sweep.granted + (sweep.upgrades?.granted ?? 0);
       })
       .catch((err) => {

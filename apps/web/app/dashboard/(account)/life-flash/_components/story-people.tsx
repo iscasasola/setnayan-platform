@@ -9,6 +9,9 @@
  * offered on people the viewer added (canEdit computed server-side).
  */
 
+import { Sparkle, Undo2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { formatCount } from '@/lib/format-number';
 import { useState, useTransition } from 'react';
 import { markPersonInMemoriam } from '../actions';
 
@@ -40,68 +43,60 @@ export function StoryPeople({ people }: { people: StoryPerson[] }) {
     <section className="mt-10">
       <div className="mb-3 flex items-baseline gap-2">
         <h2 className="text-base font-semibold text-ink">The people in your story</h2>
-        <span className="text-xs text-ink/40">{people.length}</span>
+        <span className="text-[13px] tabular-nums text-ink/70">{formatCount(people.length)}</span>
       </div>
       {error ? (
-        <p className="mb-3 rounded-xl border border-ink/10 bg-white/40 dark:bg-raised px-3 py-2 text-sm text-red-700 dark:text-red-300">
+        <p role="alert" className="mb-3 text-sm text-[rgb(var(--color-danger))]">
           {error}
         </p>
       ) : null}
-      <ul className="space-y-2">
+      <ul className="divide-y divide-ink/10 border-y border-ink/10">
         {people.map((p) => (
           <li
             key={p.personId}
-            className="flex items-center gap-3 rounded-lg border border-ink/10 bg-cream p-3"
+            className="flex min-h-14 flex-wrap items-center gap-3 py-2"
           >
             <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
               {p.displayName}
               {p.inMemoriam ? (
-                <span aria-hidden className="ml-1.5 text-ink/50">
+                <span aria-hidden className="ml-1.5 text-ink/70">
                   ✦
                 </span>
               ) : null}
             </span>
-            <span className="shrink-0 text-xs text-ink/55">
+            <span className="shrink-0 text-xs text-ink/70">
               in {p.recurrence} {p.recurrence === 1 ? 'event' : 'events'}
             </span>
             {p.canEdit ? (
               p.inMemoriam ? (
-                <button
-                  type="button"
+                <ActionButton
+                  tone="neutral"
+                  icon={Undo2}
+                  label="Unmark ✦"
                   disabled={pending}
                   onClick={() => run(p.personId, false)}
-                  className="shrink-0 text-xs font-medium text-ink/60 hover:text-ink disabled:opacity-50"
-                >
-                  Unmark ✦
-                </button>
+                />
               ) : confirming === p.personId ? (
-                <span className="flex shrink-0 items-center gap-2 text-xs">
-                  <span className="text-ink/60">Hold them a little longer in your story?</span>
-                  <button
-                    type="button"
+                <span className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-ink/75">Hold them a little longer in your story?</span>
+                  <ActionButton
+                    tone="brand"
+                    icon={Sparkle}
+                    label="Remember ✦"
                     disabled={pending}
+                    waiting={pending}
                     onClick={() => run(p.personId, true)}
-                    className="font-medium text-ink hover:underline disabled:opacity-50"
-                  >
-                    Remember ✦
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirming(null)}
-                    className="text-ink/50 hover:text-ink"
-                  >
-                    Not now
-                  </button>
+                  />
+                  <ActionButton tone="neutral" icon={X} label="Not now" onClick={() => setConfirming(null)} />
                 </span>
               ) : (
-                <button
-                  type="button"
+                <ActionButton
+                  tone="neutral"
+                  icon={Sparkle}
+                  label="Remembered ✦"
                   disabled={pending}
                   onClick={() => setConfirming(p.personId)}
-                  className="shrink-0 text-xs font-medium text-ink/60 hover:text-ink disabled:opacity-50"
-                >
-                  Remembered ✦
-                </button>
+                />
               )
             ) : null}
           </li>

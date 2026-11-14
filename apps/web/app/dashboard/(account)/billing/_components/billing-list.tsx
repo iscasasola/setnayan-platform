@@ -25,19 +25,18 @@ import { purchaseHref, shapePurchases, type Purchase, type PurchasesRead } from 
 export function BillingList({ read, storeShell }: { read: PurchasesRead; storeShell: boolean }) {
   if (!read.measured) {
     return (
-      <div role="alert" className="border-y border-ink/10 py-8 text-center" data-billing-state="unread">
-        <p className="text-sm font-medium text-ink">Your purchases didn&rsquo;t load.</p>
-        <p className="mt-1 text-sm text-ink/60">Refresh the page to try again.</p>
-      </div>
+      <p role="alert" className="py-3 text-sm text-[rgb(var(--color-warn))]" data-billing-state="unread">
+        Your purchases didn&rsquo;t load. Refresh the page to try again.
+      </p>
     );
   }
 
   if (read.rows.length === 0) {
     return (
-      <div className="border-y border-ink/10 py-8 text-center" data-billing-state="empty">
-        <Receipt aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-        <p className="text-sm text-ink/60">No purchases yet</p>
-      </div>
+      <p className="flex items-center gap-2 py-3 text-sm text-ink/70" data-billing-state="empty">
+        <Receipt aria-hidden className="h-4 w-4 flex-none" strokeWidth={1.75} />
+        No purchases yet
+      </p>
     );
   }
 
@@ -53,17 +52,17 @@ export function BillingList({ read, storeShell }: { read: PurchasesRead; storeSh
     <div data-billing-state="rows">
       <p className="text-sm text-ink/70" data-billing-summary="">
         {summary}
-        {paidCount > 0 ? <span className="text-ink/50"> · {paidCount === 1 ? '1 receipt' : `${formatCount(paidCount)} receipts`}</span> : null}
+        {paidCount > 0 ? <span className="text-ink/70"> · {paidCount === 1 ? '1 receipt' : `${formatCount(paidCount)} receipts`}</span> : null}
       </p>
       {read.receiptsMeasured ? null : (
-        <p role="status" className="mt-1 text-sm text-ink/60">
+        <p role="status" className="mt-1 text-sm text-[rgb(var(--color-warn))]">
           Receipts didn&rsquo;t load. Refresh to see them.
         </p>
       )}
 
       {awaiting.length > 0 ? (
         <section className="mt-6" data-billing-group="awaiting" aria-label="Waiting for payment">
-          <h2 className="pb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Waiting for payment</h2>
+          <h2 className="pb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Waiting for payment</h2>
           <ul className="divide-y divide-ink/10 border-y border-ink/10">
             {awaiting.map((p) => (
               <Row key={p.orderId} p={p} href={purchaseHref(p)} pay={!storeShell && !p.isSupplierBilling} />
@@ -74,7 +73,7 @@ export function BillingList({ read, storeShell }: { read: PurchasesRead; storeSh
 
       {groups.map((g) => (
         <section key={g.key} className="mt-6" data-billing-group={g.key} aria-label={g.label}>
-          <h2 className="truncate pb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{g.label}</h2>
+          <h2 className="truncate pb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">{g.label}</h2>
           <ul className="divide-y divide-ink/10 border-y border-ink/10">
             {g.rows.map((p) => (
               <Row key={p.orderId} p={p} href={purchaseHref(p)} />
@@ -133,13 +132,13 @@ export function BillingRow({
     <>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium text-ink">{title}</span>
-        <span className="mt-0.5 block truncate text-xs text-ink/55">{sub}</span>
+        <span className="mt-0.5 block truncate text-xs text-ink/70">{sub}</span>
       </span>
-      <span className="shrink-0 font-medium tabular-nums text-ink">{amount}</span>
+      <span className="shrink-0 font-semibold tabular-nums text-ink">{amount}</span>
       {pay && href ? (
-        <span className="shrink-0 rounded-full bg-terracotta-700 px-3.5 py-1.5 text-xs font-semibold text-[#FFFDF8] dark:text-cream">Pay</span>
+        <span className="ab ab-brand ab-main shrink-0">Pay</span>
       ) : href ? (
-        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/35" strokeWidth={2} />
+        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
       ) : null}
     </>
   );

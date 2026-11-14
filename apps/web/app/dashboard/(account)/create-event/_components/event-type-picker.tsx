@@ -41,7 +41,9 @@ import {
   type CreateSubject,
 } from '@/lib/create-subjects';
 import { AskForEventType } from './ask-for-event-type';
-import { ChevronDown } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { PostedPick } from '@/app/dashboard/[eventId]/_components/posted-pick';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { pickArrowClass } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-place';
@@ -343,7 +345,7 @@ export function EventTypePicker({
   const heading = (
     <header className="mb-8 space-y-2">
       <h1 className="sn-h1">What kind of event are you planning?</h1>
-      <p className="text-base text-ink/65">Tap a type to begin.</p>
+      <p className="text-base text-ink/75">Tap a type to begin.</p>
     </header>
   );
 
@@ -377,10 +379,10 @@ export function EventTypePicker({
                 className={/* no-card-ok: this is PickMenu's own <button> (the `trigger` row), a pressable */ "sn-press sn-press-ring flex min-h-11 w-full items-center gap-3 rounded-xl border border-ink/12 bg-white/70 px-4 py-2 text-left transition-colors hover:bg-white dark:border-ink/15 dark:bg-raised"}
                 trigger={
                   <>
-                    <span className="shrink-0 text-xs font-medium uppercase tracking-[0.14em] text-ink/50">For</span>
+                    <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]">For</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] font-semibold text-ink">{forMenuLabel(subject)}</span>
-                      <span className="block truncate text-xs text-ink/55">{forTriggerHint(subject)}</span>
+                      <span className="block truncate text-xs text-ink/75">{forTriggerHint(subject)}</span>
                     </span>
                     <ChevronDown aria-hidden className={pickArrowClass(false)} strokeWidth={2} />
                   </>
@@ -406,12 +408,13 @@ export function EventTypePicker({
         />
         {hiddenCount > 0 && !showAllTypes && mayShowAll ? (
           <button
-            className="mt-4 w-full rounded-xl border border-dashed border-ink/15 bg-ink/[0.02] px-4 py-3 text-sm text-ink/70 transition-colors hover:border-gold/40 hover:text-ink"
+            className="mt-4 flex min-h-14 w-full items-center gap-1 border-y border-ink/10 py-3 text-left text-sm text-ink/75 transition-colors hover:text-ink"
             onClick={() => setShowAllTypes(true)}
             type="button"
           >
             {subject?.kind === 'self' ? 'Planning for someone else? ' : 'Not here? '}
-            <span className="font-medium text-ink">Show all event types</span>
+            <span className="font-semibold text-sn-accent">Show all event types</span>
+            <ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={1.75} />
           </button>
         ) : null}
         {/* ➕ THE LAST ROW (owner 2026-10-28, prototype who_is_it_for_2026-10-28 frame D): every type is specific,
@@ -421,8 +424,8 @@ export function EventTypePicker({
 
       {selected && selected.key === 'wedding' && inPlanningWedding ? (
         <div className="mt-10 max-w-lg space-y-4">
-          <div className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-5 sm:p-6">
-            <p className="font-sans text-xl text-ink">You’re already planning a wedding</p>
+          <div className="rounded-card bg-[color:var(--m-paper-2)] p-4">
+            <p className="font-sans text-xl font-semibold text-ink">You’re already planning a wedding</p>
             <p className="mt-2 text-sm leading-relaxed text-ink/70">
               You have <span className="font-medium text-ink">{inPlanningWedding.displayName}</span> in
               planning. What is this one?
@@ -430,54 +433,72 @@ export function EventTypePicker({
           </div>
 
           {/* Same marriage → add the church ceremony to the existing wedding. */}
+          <ul className="divide-y divide-ink/10 border-y border-ink/10">
+          <li>
           <Link
-            className="block rounded-xl border border-ink/12 bg-cream/40 p-4 transition-colors hover:border-gold/40 hover:bg-gold/[0.05]"
+            className="flex min-h-14 items-center gap-3 py-3 transition-colors hover:bg-ink/[0.03]"
             href={`/dashboard/${inPlanningWedding.eventId}`}
           >
-            <p className="text-sm font-medium text-ink">The church (or civil) ceremony of the same marriage</p>
-            <p className="mt-1 text-xs text-ink/55">
+            <span className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-ink">The church (or civil) ceremony of the same marriage</p>
+            <p className="mt-1 text-xs text-ink/75">
               One wedding can have two ceremonies — add it to {inPlanningWedding.displayName} instead of
               starting over.
             </p>
+            </span>
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={1.75} />
           </Link>
+          </li>
 
           {/* Vow renewal / anniversary → route to the Anniversary type in this picker. */}
           {types.some((t) => t.key === 'anniversary') ? (
+            <li>
             <button
-              className="block w-full rounded-xl border border-ink/12 bg-cream/40 p-4 text-left transition-colors hover:border-gold/40 hover:bg-gold/[0.05]"
+              className="flex min-h-14 w-full items-center gap-3 py-3 text-left transition-colors hover:bg-ink/[0.03]"
               onClick={() => setSelectedKey('anniversary' as EventTypeKey)}
               type="button"
             >
-              <p className="text-sm font-medium text-ink">A vow renewal or anniversary event</p>
-              <p className="mt-1 text-xs text-ink/55">
+              <span className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-ink">A vow renewal or anniversary event</p>
+              <p className="mt-1 text-xs text-ink/75">
                 Silver, golden, or any year — this is an Anniversary, on full wedding rails.
               </p>
+              </span>
+              <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={1.75} />
             </button>
+            </li>
           ) : null}
 
           {/* New marriage → blocked while one is in planning (finish/archive first). */}
-          <div className="rounded-xl border border-terracotta/25 bg-terracotta/[0.05] p-4">
-            <p className="text-sm font-medium text-ink">A different, new marriage</p>
-            <p className="mt-1 text-xs leading-relaxed text-ink/60">
-              You can only plan one wedding at a time. Finish {inPlanningWedding.displayName}{' '}
-              first, or put it away — once its day has passed or it’s put away, you can
-              start a new one.
-            </p>
-            <Link
-              className="mt-3 inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white dark:text-cream transition-colors hover:bg-mulberry/90"
-              href={`/dashboard/${inPlanningWedding.eventId}/details`}
+          <li className="border-l-2 border-[color:var(--sn-gold-700)] py-3 pl-3">
+            <InfoTip
+              label="A different, new marriage"
+              labelClassName="text-sm font-semibold text-ink"
+              align="start"
             >
-              Go to {inPlanningWedding.displayName}
-            </Link>
-          </div>
+              You can only plan one wedding at a time. Finish {inPlanningWedding.displayName} first, or put it away —
+              once its day has passed or it’s put away, you can start a new one.
+            </InfoTip>
+            <p className="mt-1 text-xs text-ink/75">You can only plan one wedding at a time.</p>
+            <div className="mt-3">
+              <ActionButton
+                href={`/dashboard/${inPlanningWedding.eventId}/details`}
+                tone="brand"
+                main
+                icon={ArrowRight}
+                label={`Go to ${inPlanningWedding.displayName}`}
+              />
+            </div>
+          </li>
+          </ul>
 
-          <button
-            className="text-sm font-medium text-ink/55 transition-colors hover:text-ink"
-            onClick={() => setSelectedKey(null)}
+          <ActionButton
             type="button"
-          >
-            ‹ Pick a different type
-          </button>
+            tone="neutral"
+            icon={ChevronLeft}
+            label="Pick a different type"
+            onClick={() => setSelectedKey(null)}
+          />
         </div>
       ) : selected ? (
         <form
@@ -492,7 +513,7 @@ export function EventTypePicker({
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-ink" htmlFor="display_name">
-              Event name <span className="text-terracotta">*</span>
+              Event name <span className="text-[color:var(--sn-gold-700)]">*</span>
             </label>
             <input
               autoComplete="off"
@@ -503,7 +524,7 @@ export function EventTypePicker({
               required
               type="text"
             />
-            <p className="text-xs text-ink/50">
+            <p className="text-xs text-ink/75">
               Just the name to start — add the details below now, or anytime later.
             </p>
           </div>
@@ -541,7 +562,7 @@ export function EventTypePicker({
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-ink" htmlFor="honoree_label">
                 {isGatedLifeType(selected.key) ? 'For whom?' : 'Which business is this for?'}{' '}
-                <span className="font-normal text-ink/45">— optional</span>
+                <span className="font-normal text-ink/70">— optional</span>
               </label>
               {/* Pre-answered by the who step when a NAMED alaga was picked.
                   "You" deliberately leaves this blank: the unlabeled slot has
@@ -575,11 +596,20 @@ export function EventTypePicker({
                 type="hidden"
                 value={subjectHonoreeDependentId(subject) ?? ''}
               />
-              <p className="text-xs text-ink/50">
-                {isGatedLifeType(selected.key)
-                  ? `The celebrant’s first name keeps their events tidy — one ${selected.label.toLowerCase()} in planning per person at a time.`
-                  : 'Naming the business files this on its own page and timeline. It sets no limit — you can plan as many as you like.'}
-              </p>
+              {isGatedLifeType(selected.key) ? (
+                <p className="text-xs text-ink/75">
+                  {`The celebrant’s first name keeps their events tidy — one ${selected.label.toLowerCase()} in planning per person at a time.`}
+                </p>
+              ) : (
+                <InfoTip
+                  label="Naming the business files this on its own page and timeline."
+                  labelAs="p"
+                  labelClassName="text-xs text-ink/75"
+                  align="start"
+                >
+                  It sets no limit — you can plan as many as you like.
+                </InfoTip>
+              )}
             </div>
           ) : null}
 
@@ -588,29 +618,19 @@ export function EventTypePicker({
               date it commemorates. Positive origins only (no memorial). Both
               optional — add now or later. It recurs every year automatically. */}
           {selected.key === 'anniversary' ? (
-            <fieldset className="space-y-4 rounded-lg border border-ink/10 bg-ink/[0.02] p-4">
-              <legend className="px-1 text-xs font-medium uppercase tracking-[0.12em] text-ink/50">
+            <fieldset className="space-y-4 border-t border-ink/10 pt-4">
+              <legend className="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]">
                 What are you celebrating?
               </legend>
               <div className="space-y-1.5">
-                <label
-                  className="block text-sm font-medium text-ink"
-                  htmlFor="anniversary_origin"
-                >
-                  What does this celebrate?
-                </label>
-                <select
-                  className="input-field"
-                  defaultValue="wedding"
-                  id="anniversary_origin"
+                <span className="block text-sm font-medium text-ink">What does this celebrate?</span>
+                <PostedPick
                   name="anniversary_origin"
-                >
-                  {ANCHOR_ORIGINS.map((o) => (
-                    <option key={o} value={o}>
-                      {ANCHOR_ORIGIN_LABELS[o]}
-                    </option>
-                  ))}
-                </select>
+                  label="What does this celebrate?"
+                  initial="wedding"
+                  options={ANCHOR_ORIGINS.map((o) => ({ key: o, label: ANCHOR_ORIGIN_LABELS[o] }))}
+                  className="block"
+                />
               </div>
               <div className="space-y-1.5">
                 <label
@@ -625,7 +645,7 @@ export function EventTypePicker({
                   name="anniversary_date"
                   type="date"
                 />
-                <p className="text-xs text-ink/50">
+                <p className="text-xs text-ink/75">
                   We’ll bring it back every year — quietly, unless you throw a party for it.
                 </p>
               </div>
@@ -635,8 +655,8 @@ export function EventTypePicker({
           {/* Optional committing-core capture (owner 2026-07-12 relaxed the
               name-only lock). All optional — seed them to light up your planning
               checklist's deadlines + budget guidance, or skip and add later. */}
-          <fieldset className="space-y-4 rounded-lg border border-ink/10 bg-ink/[0.02] p-4">
-            <legend className="px-1 text-xs font-medium uppercase tracking-[0.12em] text-ink/50">
+          <fieldset className="space-y-4 border-t border-ink/10 pt-4">
+            <legend className="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]">
               A few details — optional
             </legend>
             <div className="space-y-1.5">
@@ -666,23 +686,19 @@ export function EventTypePicker({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-ink" htmlFor="budget_band">
-                Budget feel
-              </label>
-              <select
-                className="input-field"
-                id="budget_band"
-                name="budget_band"
-                onChange={(e) => setBudgetBandDraft(e.target.value)}
+              <span className="block text-sm font-medium text-ink">Budget feel</span>
+              <input type="hidden" name="budget_band" value={budgetBandDraft} />
+              <PickMenu
+                label="Budget feel"
                 value={budgetBandDraft}
-              >
-                <option value="">Not sure yet</option>
-                {budgetBands.map((b) => (
-                  <option key={b.value} value={b.value}>
-                    {b.label} — {b.tag}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { key: '', label: 'Not sure yet' },
+                  ...budgetBands.map((b) => ({ key: b.value, label: `${b.label} — ${b.tag}` })),
+                ]}
+                onPick={setBudgetBandDraft}
+                dataAttr="data-create-budget-band"
+                className="w-full !min-h-12"
+              />
               {/* The figure itself, live. It replaces "we'll estimate a starting
                   budget" — a promise about a number the couple never saw, made on
                   the screen that was about to store it. */}
@@ -696,7 +712,7 @@ export function EventTypePicker({
                   change it any time.
                 </p>
               ) : (
-                <p className="text-xs text-ink/50">
+                <p className="text-xs text-ink/75">
                   A rough feel — add your guest count and we’ll show you the range.
                 </p>
               )}
@@ -708,11 +724,14 @@ export function EventTypePicker({
               submits regardless; this is the "malayo pa 'yan" whisper with the
               proceed-anyway built in. */}
           {farHorizon ? (
-            <p className="rounded-lg border border-gold/30 bg-gold/[0.06] px-4 py-3 text-sm leading-relaxed text-ink/75">
-              <span className="font-medium text-ink">Malayo pa ’yan!</span> Planning for a{' '}
-              {selected.label.toLowerCase()} usually opens about {horizonMonths} months out. Game ka
-              na ba? Tuloy lang — or adjust the date if it was a typo.
-            </p>
+            <div className="border-l-2 border-[color:var(--sn-gold-700)] py-1 pl-3 text-sm text-ink/75">
+              <InfoTip label="Malayo pa ’yan!" labelClassName="font-semibold text-ink" align="start">
+                Game ka na ba? Tuloy lang — or adjust the date if it was a typo.
+              </InfoTip>
+              <p>
+                Planning for a {selected.label.toLowerCase()} usually opens about {horizonMonths} months out.
+              </p>
+            </div>
           ) : null}
 
           {/* Date-anchor model (PR-E): the "yearly?" toggle for recurring-
@@ -720,7 +739,7 @@ export function EventTypePicker({
               recurs=true → the moment returns on the couple's Year view each year;
               never auto-creates an event. Anniversary/birthday recur by nature. */}
           {canToggleRecur(selected.key) ? (
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-ink/10 bg-ink/[0.02] p-4 text-sm">
+            <label className="flex min-h-14 cursor-pointer items-start gap-3 border-y border-ink/10 py-3 text-sm">
               <input
                 type="checkbox"
                 name="recurs"
@@ -729,7 +748,7 @@ export function EventTypePicker({
               />
               <span>
                 <span className="block font-medium text-ink">Make it a yearly thing</span>
-                <span className="block text-xs text-ink/55">
+                <span className="block text-xs text-ink/75">
                   We’ll bring it back on your year every year — quietly, so you never miss it.
                 </span>
               </span>
@@ -746,9 +765,7 @@ export function EventTypePicker({
             {/* `?hub=1` for the same reason as the page's back chip: a bare
                 /dashboard auto-jumps a one-event couple INTO their wedding, so
                 Cancel would land them somewhere they did not ask for. */}
-            <Link className="button-secondary w-full sm:w-auto" href="/dashboard?hub=1">
-              Cancel
-            </Link>
+            <ActionButton href="/dashboard?hub=1" tone="neutral" icon={X} label="Cancel" />
           </div>
         </form>
       ) : null}

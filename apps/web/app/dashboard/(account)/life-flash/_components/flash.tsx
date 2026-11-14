@@ -189,16 +189,16 @@ export function Flash({ beats }: { beats: FlashBeatView[]; scopeKind: string }) 
         ref={launcherRef}
         type="button"
         onClick={() => void play()}
-        className="group mb-8 flex w-full items-center justify-between gap-4 rounded-2xl border border-ink/10 bg-ink dark:bg-raised p-5 text-left transition-transform hover:-translate-y-0.5"
+        className="group mb-8 flex min-h-14 w-full items-center justify-between gap-4 rounded-2xl bg-ink dark:bg-raised p-5 text-left transition-transform duration-sn-control hover:-translate-y-0.5"
       >
         <span>
           <span className="block text-sm font-semibold text-white">▶ Play your Life-Flash</span>
-          <span className="mt-0.5 block text-xs text-white/60">
+          <span className="mt-0.5 block text-xs text-white/75">
             Your whole story in under a minute — the moments that mattered, rising out of the
             dark
           </span>
         </span>
-        <span aria-hidden className="text-white/40 transition-colors group-hover:text-white">
+        <span aria-hidden className="text-white/75 transition-colors duration-sn-control group-hover:text-white">
           ✦
         </span>
       </button>

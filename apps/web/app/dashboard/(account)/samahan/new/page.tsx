@@ -35,7 +35,7 @@ export default async function NewSamahanPage({
       {errorMessage ? (
         <p
           role="alert"
-          className="mb-6 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+          className="mb-6 text-sm text-[rgb(var(--color-danger))]"
         >
           {errorMessage}
         </p>
@@ -43,11 +43,11 @@ export default async function NewSamahanPage({
 
       <form
         action={createCommunity}
-        className="sn-tile space-y-6 p-6"
+        className="space-y-6"
       >
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink" htmlFor="name">
-            Name <span className="text-terracotta">*</span>
+            Name <span className="text-[color:var(--sn-gold-700)]">*</span>
           </label>
           <input
             autoComplete="off"
@@ -68,7 +68,7 @@ export default async function NewSamahanPage({
             className="block text-sm font-medium text-ink"
             htmlFor="description"
           >
-            Description <span className="text-ink/45">(optional)</span>
+            Description <span className="text-ink/70">(optional)</span>
           </label>
           <textarea
             className="input-field min-h-24"

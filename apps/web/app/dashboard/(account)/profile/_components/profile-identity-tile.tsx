@@ -32,7 +32,7 @@ export function ProfileIdentityTile({
   composedFormalName: string | null;
 }) {
   return (
-    <div className="sn-tile">
+    <div className="py-2">
       <ProfilePhotoField
         userId={userId}
         storedPhoto={storedPhoto}

@@ -22,6 +22,9 @@ import { ScrollReel, type ReelMoment } from './_components/scroll-reel';
 import { StoryPeople, type StoryPerson } from './_components/story-people';
 import { Flash, type FlashBeatView } from './_components/flash';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { CalendarPlus } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Life-Flash' };
 
@@ -269,27 +272,26 @@ export default async function LifeFlashPage({
       ) : null}
 
       {loadError ? (
-        <p className="sn-tile px-4 py-6 text-sm text-ink/60">
+        <p className="py-3 text-sm text-[rgb(var(--color-warn))]">
           Your story couldn&rsquo;t load just now. Try again in a moment.
         </p>
       ) : empty ? (
-        <div className="sn-tile px-4 py-8 text-sm text-ink/60">
+        <div className="py-3 text-sm text-ink/75">
           <p className="font-medium text-ink">Your story starts with an event.</p>
-          <p className="mt-1">
-            Host an event and let Papic gather everyone&rsquo;s photos — they&rsquo;ll settle
-            here.
-          </p>
-          <Link
-            href="/dashboard/create-event"
-            className="mt-4 inline-block rounded-full border border-ink/15 px-4 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5 hover:text-ink"
-          >
-            Plan what&rsquo;s next
-          </Link>
+          <p className="mt-1">Host an event and let Papic gather everyone’s photos — they’ll settle here.</p>
+          <div className="mt-4">
+            <ActionButton
+              tone="neutral"
+              icon={<CalendarPlus aria-hidden />}
+              label="Plan what’s next"
+              href="/dashboard/create-event"
+            />
+          </div>
         </div>
       ) : (
         <>
           {scoped.moments.length === 0 ? (
-            <p className="sn-tile mb-6 px-4 py-6 text-sm text-ink/60">
+            <p className="mb-6 py-3 text-sm text-ink/70">
               Nothing gathered in this stretch yet — pick another scope above.
             </p>
           ) : (
@@ -302,15 +304,15 @@ export default async function LifeFlashPage({
             <section className="mt-10">
               <div className="mb-3 flex items-baseline gap-2">
                 <h2 className="sn-sec">Chapters still to fill</h2>
-                <span className="font-mono text-xs text-ink/40">{emptyEvents.length}</span>
+                <span className="text-[13px] tabular-nums text-ink/70">{formatCount(emptyEvents.length)}</span>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {emptyEvents.map((e, i) => (
                   <article
                     key={e.eventId}
-                    className="sn-card overflow-hidden"
+                    className="min-w-0"
                   >
-                    <div className="relative aspect-[4/3] bg-ink/5">
+                    <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-ink/5">
                       {heroUrls[i] ? (
                         // eslint-disable-next-line @next/next/no-img-element -- presigned R2 URL isn't in the next/image allowlist
                         <img
@@ -321,14 +323,14 @@ export default async function LifeFlashPage({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-3xl text-ink/20">
+                        <div aria-hidden className="flex h-full w-full items-center justify-center text-3xl text-ink/30">
                           ✦
                         </div>
                       )}
                     </div>
-                    <div className="p-3">
+                    <div className="py-2">
                       <p className="truncate text-sm font-medium text-ink">{e.eventName}</p>
-                      <p className="text-xs text-ink/55">
+                      <p className="text-xs text-ink/70">
                         No photos gathered yet — this chapter is waiting.
                       </p>
                     </div>

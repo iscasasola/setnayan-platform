@@ -67,7 +67,7 @@ export function ScrollReel({ moments }: { moments: ReelMoment[] }) {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-baseline gap-2">
           <h2 className="text-base font-semibold text-ink">Your moments</h2>
-          <span className="text-xs text-ink/40">{moments.length}</span>
+          <span className="text-[13px] tabular-nums text-ink/70">{formatCount(moments.length)}</span>
         </div>
         {/* The app's ONE pill selector (owner 2026-10-08). */}
         <PillTrack role="group" aria-label="Order the reel">
@@ -89,9 +89,9 @@ export function ScrollReel({ moments }: { moments: ReelMoment[] }) {
         {ordered.map((m) => (
           <article
             key={m.id}
-            className="relative flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white dark:bg-raised shadow-sm"
+            className="relative flex min-w-0 flex-col"
           >
-            <div className="relative aspect-[4/3] overflow-hidden bg-ink/5">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-ink/5">
               {m.url && m.type === 'clip' ? (
                 <ClipFrame
                   media={{ type: 'clip', url: m.url, id: m.id }}
@@ -128,11 +128,11 @@ export function ScrollReel({ moments }: { moments: ReelMoment[] }) {
                 </span>
               ) : null}
             </div>
-            <div className="flex flex-1 flex-col gap-1 p-3">
+            <div className="flex flex-1 flex-col gap-1 py-2">
               <p className="truncate text-sm font-medium text-ink">
-                {m.eventName} <span className="font-normal text-ink/40">· {m.year}</span>
+                {m.eventName} <span className="font-normal text-ink/70">· {m.year}</span>
               </p>
-              <p className="truncate text-xs text-ink/55">
+              <p className="truncate text-xs text-ink/70">
                 {byLine(m)}
                 {m.peopleCount > 0
                   ? ` · ${formatCount(m.peopleCount)} ${m.peopleCount === 1 ? 'person' : 'people'}`

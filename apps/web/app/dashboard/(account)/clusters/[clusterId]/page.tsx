@@ -1,9 +1,10 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Anchor, CalendarRange, Users, Wallet } from 'lucide-react';
+import { Anchor, ArrowLeft, CalendarRange, Users, Wallet } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ActionButton } from '@/components/action-button';
 import {
   clusterSpan,
   fetchCluster,
@@ -90,6 +91,9 @@ export async function generateMetadata({ params }: Props) {
   return { title: cluster?.display_name ?? 'Linked events' };
 }
 
+/** The sheet's section label — small grey capitals, no box (rule 2). */
+const SECTION_LABEL = 'text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]';
+
 export default async function ClusterTimelinePage({ params }: Props) {
   const { clusterId } = await params;
   const user = await getCurrentUser();
@@ -132,21 +136,24 @@ export default async function ClusterTimelinePage({ params }: Props) {
       <PageMasthead
         title={cluster.display_name}
         actions={
-          <Link href="/dashboard/clusters" className="button-secondary text-xs">
-            All groups
-          </Link>
+          <ActionButton
+            href="/dashboard/clusters"
+            tone="neutral"
+            icon={<ArrowLeft aria-hidden />}
+            label="All groups"
+          />
         }
       />
 
-      <section className="sn-tile">
-        <p className="sn-eye flex items-center gap-2">
+      <section className="rounded-card bg-[color:var(--m-paper-2)] p-4">
+        <p className={`flex items-center gap-2 ${SECTION_LABEL}`}>
           <CalendarRange size={14} strokeWidth={1.75} aria-hidden />
           {cluster.display_name}
         </p>
-        <p className="mt-2 text-2xl font-medium text-ink">
+        <p className="mt-2 text-2xl font-bold text-ink">
           {span ?? 'No dates set yet'}
         </p>
-        <p className="mt-1 text-sm text-ink-soft">
+        <p className="mt-1 text-sm text-ink/75">
           {timeline.measured
             ? `${timeline.rows.length} ${timeline.rows.length === 1 ? 'event' : 'events'}`
             : 'We could not load this group just now'}
@@ -163,19 +170,20 @@ export default async function ClusterTimelinePage({ params }: Props) {
         them", "nobody has set one yet" and "the total is ₱1.2M" are three
         different facts, and the first two must never be printed as money.
       */}
-      <section className="sn-tile">
-        <p className="sn-eye flex items-center gap-2">
+      <section>
+        <p className={`flex items-center gap-2 ${SECTION_LABEL}`}>
           <Wallet size={14} strokeWidth={1.75} aria-hidden />
-          Planned across the group
+          <span>Planned across the group</span>
         </p>
+        <p className="mt-1 text-[13px] text-ink-soft">Budgets only. Papic shots stay with the event that bought them and are never pooled.</p>
 
         {!budgets ? (
-          <p className="mt-2 text-sm text-ink-soft" role="status">
+          <p className="mt-2 text-sm text-[rgb(var(--color-warn))]" role="status">
             We could not read the events in this group, so there is no total to show.
           </p>
         ) : budgets.totalPhp === null ? (
           <>
-            <p className="mt-2 text-2xl font-medium text-ink">
+            <p className="mt-2 text-2xl font-bold text-ink">
               {/*
                 🛑 "No budgets set yet" IS A CLAIM ABOUT ALL OF THEM, so it may
                 be said only when all of them were actually read. One refusal or
@@ -192,7 +200,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
           </>
         ) : (
           <>
-            <p className="mt-2 text-2xl font-medium text-ink">{formatPhpRounded(budgets.totalPhp)}</p>
+            <p className="mt-2 text-2xl font-bold tabular-nums text-ink">{formatPhpRounded(budgets.totalPhp)}</p>
             <p className="mt-1 text-sm text-ink-soft">
               {/*
                 ⚠ SAY WHAT THE TOTAL IS MADE OF WHENEVER IT IS NOT ALL OF THEM.
@@ -210,10 +218,6 @@ export default async function ClusterTimelinePage({ params }: Props) {
           </>
         )}
 
-        <p className="mt-2 text-xs text-ink-soft/80">
-          Budgets only. Papic shots stay with the event that bought them and are never
-          pooled.
-        </p>
       </section>
 
       {/*
@@ -222,42 +226,39 @@ export default async function ClusterTimelinePage({ params }: Props) {
         exact defect this repo has already shipped once and fixed seven times.
       */}
       {!timeline.measured ? (
-        <p className="sn-tile text-sm text-ink-soft" role="status">
-          We could not load the events in this group. Nothing has changed — refresh to try
-          again.
+        <p className="text-sm text-[rgb(var(--color-warn))]" role="status">
+          We could not load the events in this group — not the same as none. Refresh to try again.
         </p>
       ) : timeline.rows.length === 0 ? (
-        <p className="sn-tile text-sm text-ink-soft">
-          Nothing in this group yet. Add one of your events below.
-        </p>
+        <p className="text-sm text-ink/75">Nothing in this group yet. Add one of your events below.</p>
       ) : (
-        <ol className="space-y-3">
+        <ol className="divide-y divide-ink/10 border-y border-ink/10">
           {timeline.rows.map((row) => (
             <li
               key={row.event_id}
-              className={row.is_anchor ? 'sn-tile border-terracotta/40' : 'sn-row'}
+              className={`min-h-14 py-2 ${row.is_anchor ? 'border-l-2 border-[color:var(--sn-gold-700)] pl-3' : ''}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   {row.is_anchor ? (
-                    <p className="sn-eye flex items-center gap-1.5">
+                    <p className={`flex items-center gap-1.5 ${SECTION_LABEL}`}>
                       <Anchor size={14} strokeWidth={1.75} aria-hidden />
                       The main event
                     </p>
                   ) : null}
-                  <p className="truncate font-medium text-ink">
+                  <p className="truncate font-semibold text-ink">
                     <Link href={`/dashboard/${row.event_id}`} className="hover:underline">
                       {row.display_name}
                     </Link>
                   </p>
-                  <p className="mt-0.5 text-sm text-ink-soft">
+                  <p className="mt-0.5 text-sm text-ink/75">
                     {timelineDateLabel(row)}
                     {/*
                       Say the date is a window, not a day. Without this the
                       screen reads as if "August 2027" were a booking.
                     */}
                     {isApproximate(row) ? (
-                      <span className="ml-1.5 text-xs text-ink-soft/80">· not yet set</span>
+                      <span className="ml-1.5 text-xs text-ink/75">· not yet set</span>
                     ) : null}
                   </p>
                 </div>
@@ -271,11 +272,11 @@ export default async function ClusterTimelinePage({ params }: Props) {
                   if (!b) return null;
                   const note = budgetStateNote(b.state);
                   return note === null ? (
-                    <p className="shrink-0 text-right text-sm font-medium text-ink">
+                    <p className="shrink-0 text-right text-sm font-bold tabular-nums text-ink">
                       {formatPhpRounded(b.targetPhp)}
                     </p>
                   ) : (
-                    <p className="max-w-[9rem] shrink-0 text-right text-xs text-ink-soft">
+                    <p className="max-w-36 shrink-0 text-right text-xs text-ink/75">
                       {note}
                     </p>
                   );
@@ -288,53 +289,54 @@ export default async function ClusterTimelinePage({ params }: Props) {
 
       {/*
         7b · ONE PERSON, NOT THREE ROWS — the roster the resolver builds.
-        Shown only once the group has celebrations to hold guests.
+        Shown only once the group has events to hold guests.
 
         🛑 THREE STATES, AND ONLY ONE OF THEM IS "NOBODY". A refused read says
         so; an empty list is the only branch allowed to say there are no
         guests; and the shared count is printed only from a measured read.
       */}
       {timeline.measured && timeline.rows.length > 0 ? (
-        <section className="sn-tile">
-          <p className="sn-eye flex items-center gap-2">
+        <section>
+          <p className={`flex items-center gap-2 ${SECTION_LABEL}`}>
             <Users size={14} strokeWidth={1.75} aria-hidden />
-            Guests across the group
+            <span>Guests across the group</span>
           </p>
+          <p className="mt-1 text-[13px] text-ink-soft">Each event still keeps its own guest list. This only shows who is on more than one.</p>
 
           {!roster.measured ? (
-            <p className="mt-2 text-sm text-ink-soft" role="status">
-              We could not load the guest lists just now. Nothing has changed — refresh to try
+            <p className="mt-2 text-sm text-[rgb(var(--color-warn))]" role="status">
+              We could not load the guest lists just now — not the same as none. Refresh to try
               again.
             </p>
           ) : people.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-soft">
+            <p className="mt-2 text-sm text-ink/75">
               No guests on these events yet. Add them inside each event.
             </p>
           ) : (
             <>
-              <p className="mt-2 text-2xl font-medium text-ink">
-                {people.length} {people.length === 1 ? 'person' : 'people'}
+              <p className="mt-2 text-2xl font-bold tabular-nums text-ink">
+                {formatCount(people.length)} {people.length === 1 ? 'person' : 'people'}
               </p>
-              <p className="mt-1 text-sm text-ink-soft">
+              <p className="mt-1 text-sm text-ink/75">
                 {shared > 0
-                  ? `${shared} ${shared === 1 ? 'is' : 'are'} on more than one guest list`
+                  ? `${formatCount(shared)} ${shared === 1 ? 'is' : 'are'} on more than one guest list`
                   : 'Nobody is on more than one guest list yet'}
               </p>
               <details className="mt-3">
-                <summary className="cursor-pointer text-sm font-medium text-terracotta">
+                <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-sn-accent">
                   See everyone
                 </summary>
                 <ul className="mt-2 divide-y divide-ink/10">
                   {people.map((p) => (
                     <li key={p.identity_key} className="py-2">
-                      <p className="text-sm font-medium text-ink">
+                      <p className="text-sm font-semibold text-ink">
                         {p.display_name?.trim() || 'Unnamed guest'}
                       </p>
                       <p className="mt-0.5 flex flex-wrap gap-1.5">
                         {p.celebrations.map((c) => (
                           <span
                             key={c.guest_id}
-                            className="rounded-sm bg-ink/5 px-2 py-0.5 text-xs text-ink-soft"
+                            className="rounded-full bg-ink/[0.06] px-2 py-0.5 text-xs text-ink/75"
                           >
                             {celebrationName.get(c.event_id) ?? 'An event'} ·{' '}
                             {RSVP_LABELS[c.rsvp_status as RsvpStatus] ?? 'RSVP unknown'}
@@ -347,11 +349,6 @@ export default async function ClusterTimelinePage({ params }: Props) {
               </details>
             </>
           )}
-
-          <p className="mt-2 text-xs text-ink-soft/80">
-            Each event still keeps its own guest list. This only shows who is on more than
-            one.
-          </p>
         </section>
       ) : null}
 

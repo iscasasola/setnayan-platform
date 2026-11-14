@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { CalendarRange, Link2 } from 'lucide-react';
+import { CalendarRange, ChevronRight, Link2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { InfoTip } from '@/app/_components/info-tip';
 import { QuietStart } from '@/app/_components/states/quiet-start';
 import { fetchMyClusters, fetchLinkableCelebrations } from '@/lib/clusters';
 import { CreateClusterForm } from './_components/create-cluster-form';
@@ -39,27 +40,25 @@ export default async function ClustersPage() {
     <div className="sn-col space-y-6">
       <PageMasthead title="Linked events" />
 
-      <section className="sn-tile">
-        <p className="sn-eye flex items-center gap-2">
-          <Link2 size={14} strokeWidth={1.75} aria-hidden />
-          Linked events
-        </p>
-        <p className="mt-2 text-sm text-ink-soft">
-          An engagement party, a shower and the wedding are separate events with their own
-          dates and their own guests. Group them and they are shown beside each other on one
-          timeline.{' '}
-          <strong className="font-medium text-ink">
-            Grouping changes nothing about the events themselves
-          </strong>{' '}
-          — each one keeps its own guest list, its own shots and its own money.
-        </p>
+      <section className="flex items-center gap-2">
+        <Link2 size={16} strokeWidth={1.75} aria-hidden className="text-[color:var(--sn-ink-500)]" />
+        <InfoTip
+          label="Linked events"
+          labelAs="h2"
+          labelClassName="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]"
+          align="start"
+        >
+          An engagement party, a shower and the wedding are separate events with their own dates and their own
+          guests. Group them and they are shown beside each other on one timeline.{' '}
+          <strong className="font-medium text-ink">Grouping changes nothing about the events themselves</strong> —
+          each one keeps its own guest list, its own shots and its own money.
+        </InfoTip>
       </section>
 
       {/* An unreadable list is not an empty one. */}
       {!clusters.measured ? (
-        <p className="sn-tile text-sm text-ink-soft" role="status">
-          We could not load your groups just now, so this list may be incomplete. Refresh to try
-          again.
+        <p className="text-sm text-[rgb(var(--color-warn))]" role="status">
+          We could not load your groups just now — not the same as none. Refresh to try again.
         </p>
       ) : clusters.rows.length === 0 ? (
         <QuietStart
@@ -68,15 +67,18 @@ export default async function ClustersPage() {
           blurb="Make one and add the events that belong together."
         />
       ) : (
-        <ul className="space-y-3">
+        <ul className="divide-y divide-ink/10 border-y border-ink/10">
           {clusters.rows.map((c) => (
             <li key={c.event_cluster_id}>
               <Link
                 href={`/dashboard/clusters/${c.event_cluster_id}`}
-                className="sn-row flex items-center justify-between gap-3"
+                className="flex min-h-14 items-center justify-between gap-3 py-2"
               >
-                <span className="font-medium text-ink">{c.display_name}</span>
-                <span className="sn-eye shrink-0">Open</span>
+                <span className="font-semibold text-ink">{c.display_name}</span>
+                <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-sn-accent">
+                  Open
+                  <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                </span>
               </Link>
             </li>
           ))}

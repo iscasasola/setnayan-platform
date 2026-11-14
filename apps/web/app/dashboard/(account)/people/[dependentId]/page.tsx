@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatEventDate } from '@/lib/events';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -193,18 +194,18 @@ export default async function DependentPage({
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <Link
         href="/dashboard?seg=people&view=alaga"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink/55 transition-colors hover:text-ink"
+        className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-sm text-ink/75 transition-colors hover:text-ink"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Loved ones
       </Link>
       <PageMasthead title={dependent.name} />
-      <p className="-mt-4 text-sm text-ink/55">{subtitle}</p>
+      <p className="-mt-4 text-sm text-ink/75">{subtitle}</p>
 
       {shop?.business_slug ? (
         <Link
           href={`/${shop.business_slug}`}
-          className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-gold-deep underline-offset-2 hover:underline"
+          className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent underline-offset-2 hover:underline"
         >
           Visit the shop
           <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -212,7 +213,7 @@ export default async function DependentPage({
       ) : null}
 
       <section className="mt-8">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]">
           Timeline
         </h2>
 
@@ -223,7 +224,7 @@ export default async function DependentPage({
         {unmeasured.length > 0 ? (
           <div
             role="status"
-            className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+            className="mb-4 space-y-1 text-sm text-[rgb(var(--color-warn))]"
           >
             {unmeasured.map((source) => (
               <p key={source}>{UNMEASURED_COPY[source]}</p>
@@ -232,24 +233,24 @@ export default async function DependentPage({
         ) : null}
 
         {entries.length > 0 ? (
-          <ol className="space-y-2.5">
+          <ol className="divide-y divide-ink/10 border-y border-ink/10">
             {entries.map((entry) => {
               const body = (
                 <>
-                  <p className="text-xs font-medium uppercase tracking-[0.1em] text-ink/45">
-                    {entry.dateISO}
+                  <p className="text-xs font-medium text-[color:var(--sn-ink-500)]">
+                    {formatEventDate(entry.dateISO) || entry.dateISO}
                     {entry.upcoming ? ' · upcoming' : ''}
                   </p>
-                  <p className="mt-0.5 font-medium text-ink">{entry.label}</p>
+                  <p className="mt-0.5 font-semibold text-ink">{entry.label}</p>
                   {entry.detail ? (
-                    <p className="text-xs text-ink/55">{entry.detail}</p>
+                    <p className="text-xs text-ink/75">{entry.detail}</p>
                   ) : null}
                 </>
               );
               return (
                 <li
                   key={entry.id}
-                  className="rounded-xl border border-ink/10 bg-ink/[0.015] px-4 py-3"
+                  className="min-h-14 py-3"
                 >
                   {entry.href ? (
                     <Link className="block" href={entry.href}>
@@ -266,7 +267,7 @@ export default async function DependentPage({
           // Reachable only when nothing was refused — an alaga always has at
           // least the day it was added, so a truly empty list means the row's
           // own created_at was unparseable, not that nothing has happened.
-          <p className="text-sm text-ink/55">
+          <p className="text-sm text-ink/75">
             Nothing on {dependent.name}&rsquo;s timeline yet.
           </p>
         )}

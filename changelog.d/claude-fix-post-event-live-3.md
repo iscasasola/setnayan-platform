@@ -11,13 +11,15 @@ The controller's 390 px re-walk of the live story after #7628 found four rows on
   kept to the same window (`capturedOnTheDay`).
 - **F-W2-52 · a bare "thank you" under The Team.** The credits roll's script sign-off from nobody is gone; the
   couple's own thanks is the Thank You scene.
-- **F-W2-53 · the page went on after the story.** A stranger's page and the host's own now END at the story: no
-  "No program was published…", no "You're the host — You don't need an invitation…", none of the pre-day body.
-  Two things deliberately stay: the stranger's DOOR (a guest on a new phone needs it to reach their own photos
-  after the day) and the after-day "Were you a guest? Claim your photos" card. A GUEST's page keeps its body under
-  the story, because that is where their "Photos of you" and "Your shots" live and the story does not carry them.
-- Recorded stage pages: only the three stranger Post Event pages moved (re-recorded with `UPDATE_GOLDEN=1` after
-  a dump diff against `origin/main`).
+- **F-W2-53 · the page went on after the story.** Under the story, the empty "No program was published…" and
+  empty love-story plates are no longer drawn, and the host's "You're the host — You don't need an invitation…"
+  note is gone (the Me tab still lands, saying nothing). ⚠ The rest of the body under the story STAYS, on purpose:
+  it holds the scenes the couple chose to show on Post Event ("What guests see" — the love story, the schedule…),
+  the guest's "Photos of you" and "Your shots", and the stranger's door a guest on a new phone uses to reach their
+  photos. Cutting all of it was built first and reverted: three guards (`a-stage-choice-reaches-the-love-story`,
+  `what-guests-see`, the host Me tab) showed it would override the couple's own per-stage choices. Whether Post
+  Event should drop those scenes entirely is an owner call.
+- Recorded stage pages: unchanged — a dump diff against `origin/main` shows every page byte-identical.
 - Guard: `lib/the-post-event-walk-is-fixed.test.ts` (four new blocks; three proven red on their own regression).
 
 **Not changed, on purpose:** "See you soon." (the Closing). It is its own Maker scene with the couple's words

@@ -112,19 +112,16 @@ test('F-W2-52 (re-walk) · no bare "thank you" under the team', () => {
   assert.doesNotMatch(credits, />thank you</, 'the credits roll ends on a bare "thank you" again');
 });
 
-test('F-W2-53 (re-walk) · a stranger’s page and the host’s own end at the story; a guest keeps their photos below it', () => {
+test('F-W2-53 (re-walk) · under the story: no empty "No program…" plates, no host note — and the body stays', () => {
   const body = read('app/[slug]/_components/site-body.tsx');
+  const plates = [...body.matchAll(/<SectionEmptyPlate kind="(details|story)"/g)];
+  assert.equal(plates.length, 3, `anti-vacuity: the three empty plates moved (${plates.length})`);
+  assert.equal(body.match(/detailsSceneList\.length === 0 && !storyLeads \? \(/g)?.length, 2, '"No program was published…" is drawn under the story again');
+  assert.match(body, /\) : plan\.openBrowse && !storyLeads \? \(\s*<SectionEmptyPlate kind="story"/, 'the empty story plate is drawn under the story again');
+  assert.match(body, /\{group\('me', <>\{plan\.openBrowse && viewerIsHost \? \(\s*storyLeads \? <div id=\{SITE_MENU_ANCHORS\.me\} aria-hidden className="scroll-mt-6" \/> : \(/, 'the host’s "You don’t need an invitation" note is drawn after the day again');
+  // The body under the story stays: it holds the guest's photos, the stranger's door, and the scenes the couple
+  // chose to show on Post Event ("What guests see"). Ending the page there is an owner call, not this fix.
   const at = body.indexOf("plan.body === 'editorial' ? (");
   const end = body.indexOf("plan.body === 'save_the_date' ? (", at);
-  assert.ok(at > 0 && end > at, 'anti-vacuity: the after-day branch was not found');
-  const branch = body.slice(at, end);
-  assert.match(branch, /\{identity\.kind === 'guest' \? \(\s*<>\s*<div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink\/15" \/>\s*\{normalBody\(\)\}/, 'the pre-day body is drawn under the story for a stranger or the host again');
-  assert.equal(branch.match(/normalBody\(\)/g)?.length, 1, 'the body is drawn under the story a second way');
-});
-
-test('F-W2-53 (re-walk) · under the story a stranger keeps only the way in; the host’s "You’re the host" note is gone', () => {
-  const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /\) : afterStory\}/, 'a non-guest page draws nothing — or the whole body — under the story');
-  assert.match(body, /doorShown \? <div className="mx-auto mt-10 w-full max-w-md px-4" data-story-door="">\{strangerDoor\(false\)\}<\/div> : null\)\}/, 'a guest on a new phone has no way in to their photos after the day');
-  assert.match(body, /\{group\('me', <>\{plan\.openBrowse && viewerIsHost && !storyLeads \? \(/, 'the host’s "You don’t need an invitation" note is drawn after the day again');
+  assert.match(body.slice(at, end), /\{normalBody\(\)\}/, 'the body under the story was cut — the couple’s Post Event scenes and the guest’s photos go with it');
 });

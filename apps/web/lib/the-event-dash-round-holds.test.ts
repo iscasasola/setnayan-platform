@@ -80,8 +80,8 @@ test('RW-278 · the "Send a deal" pill is the supplier\'s; the couple keeps its 
 
 test('CYC-15 · the bench card: the badge never rides over "1 quote in"; "Not included" yields to a recorded price', () => {
   const bench = readFileSync(join(WEB, 'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx'), 'utf8');
-  const nm = /\.slcat \.fold\.flat \.cat-nm\{([^}]*)\}/.exec(bench)?.[1] ?? '';
-  assert.match(nm, /min-width:0/, 'the name keeps a floor wider than its column — the badge spills over the row\'s state');
+  // The name keeps its 6ch floor (RW-89); the row's left part WRAPS, so the badge drops under the name, never over it.
+  assert.match(bench, /\.slcat \.fold\.flat \.cat-l\{gap:12px;flex-wrap:wrap;row-gap:4px\}/, 'the badge spills over the row\'s state');
   assert.match(stripComments(bench), /svc && svc\.notIncluded\.length > 0 && !hasRecordedPrice \?/, '"Not included" shows beside a quote that charges it');
 });
 

@@ -16,14 +16,17 @@ From W1's full booking cycle and W2's sweep (13–14 Nov):
   older spelling (`lights_and_sound` beside cards in `lights_sound`) no longer adds a 4th row.
 - **RW-278** The "🧾 Send a deal" pill (menu row and chip) is shown to the supplier only. The couple's ＋ keeps
   "Deal or meeting".
-- **CYC-15** (a) The category name may shrink (`min-width:0`), so the unread badge no longer rides over "1 quote in".
+- **CYC-15** (a) The row's left part wraps (`flex-wrap`), so the unread badge drops under the name instead of riding
+  over "1 quote in". The name keeps its 6ch floor (RW-89).
   (c) "Not included: …" from the service card is hidden once the couple has a recorded price, because the quote's own
   lines are the truth.
 - **F-W2-23** The guest card's camera pill is capped at half the row, so "Their camera" no longer wraps one word per
   line.
 
-Guard: `lib/the-event-dash-round-holds.test.ts`, run red against origin/main. Two existing tests now follow the new
-rules: `one-picked-date-is-the-date.test.ts` and `deal-waits-for-a-quote.test.ts`.
+Guard: `lib/the-event-dash-round-holds.test.ts`, run red against origin/main. Existing tests updated to the new rules,
+with their intent unchanged: `one-picked-date-is-the-date`, `deal-waits-for-a-quote`, `inquire-opens-the-pop-up`,
+`the-bill-has-somewhere-to-be-paid` (the bill still comes first) and `the-chips-move-the-calendar` (a typed value still
+wins).
 
 SPEC IMPACT: None. Rules applied consistently, with no new decision. Root-caused but not built, and raised for a call:
 CYC-05 (the shop's own `event_types` is wedding-only), CYC-15b ("New to Setnayan" is the owner's 0-review word),

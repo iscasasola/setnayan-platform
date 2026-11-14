@@ -382,9 +382,9 @@ const SLCAT_CSS = `
    that hides it, so 14 px of empty band hung under every closed row and each one read as a box with a lip — the
    template's row is its line, centred (owner 2026-10-21). It comes back the moment the row opens. */
 .slcat .fold.flat .cat:not(.open)>.cat-collapse>.cat-body{padding-top:0;padding-bottom:0}
-.slcat .fold.flat .cat-l{gap:12px}
+.slcat .fold.flat .cat-l{gap:12px;flex-wrap:wrap;row-gap:4px}
 .slcat .fold.flat .cat-ic{width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--m-r-full);background:rgba(169,131,75,.13)}
-.slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;flex:1 1 auto;min-width:0}
+.slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;flex:1 1 auto;min-width:6ch}
 .slcat .cat-yours{font-weight:400;font-size:15px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st{font-size:13px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st.ok{color:rgb(var(--color-ok))}

@@ -24,6 +24,7 @@ import { fallbackInspirationParts } from './inspiration-parts';
 import { canonicalServicesForTile } from './vendor-counts';
 
 const WEB = join(__dirname, '..');
+const tileServices = (t: string) => canonicalServicesForTile(t as Parameters<typeof canonicalServicesForTile>[0]);
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 test('(1) the /for-suppliers stage is short and still — no scroll track; the people play on a timer', () => {
@@ -72,9 +73,9 @@ test('(4) the form starts on the shop’s own kind; Label is optional and filled
   /* A florist that also styles: every part lists the florist's services, so only the lead trade picks — never Table linens. */
   const slots = uploadableSlotsForShop([...florist, ...stylist], parts);
   assert.ok(slots.length > 3, 'anti-vacuity: no slots');
-  assert.notEqual(slots[0]!.key, slotForShopKind(slots, [...florist, ...stylist], parts, canonicalServicesForTile), 'anti-vacuity: the first slot already is the own kind');
-  assert.equal(slotForShopKind(slots, [...florist, ...stylist], parts, canonicalServicesForTile), 'bridal_bouquet');
-  assert.equal(slotForShopKind(slots, [], parts, canonicalServicesForTile), null);
+  assert.notEqual(slots[0]!.key, slotForShopKind(slots, [...florist, ...stylist], parts, tileServices), 'anti-vacuity: the first slot already is the own kind');
+  assert.equal(slotForShopKind(slots, [...florist, ...stylist], parts, tileServices), 'bridal_bouquet');
+  assert.equal(slotForShopKind(slots, [], parts, tileServices), null);
   const editor = read('app/vendor-dashboard/moodboard-library/_components/stylist-library-editor.tsx');
   const label = editor.slice(editor.indexOf('name="label"'), editor.indexOf('/>', editor.indexOf('name="label"')));
   assert.ok(label.length > 20, 'anti-vacuity: the label input was not found');

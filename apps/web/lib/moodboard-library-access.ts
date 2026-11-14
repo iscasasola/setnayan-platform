@@ -44,7 +44,7 @@ export type MoodboardLibraryAccess =
       profile: VendorProfileRow;
       /** The slots this shop may upload into, already labelled, in the couple's order (`uploadableSlotsForShop`). Never empty. */
       slots: Array<{ key: string; label: string; group: PhotoPartGroup }>;
-      /** 🧰 The part the upload form starts on — the shop's OWN kind of work (`slotForShopKind`); null = the first slot. */
+      /** 🧰 The part the upload form starts on — the shop's OWN kind of work (`slotForShopKind`, filled by the resolver); null = the first slot. */
       ownSlot: string | null;
     }
   | { allowed: false; reason: 'not_signed_in' | 'no_shop' | 'no_supplying_trade' };
@@ -68,13 +68,11 @@ export function moodboardLibraryAccessForProfile(
   profile: VendorProfileRow | null,
   /** The parts snapshot — `await getInspirationParts()`. REQUIRED (③0-b): no silent fallback to the consts. */
   parts: InspirationPartsSnapshot,
-  /** 🧰 A trade's services, from the LIVE taxonomy (`servicesInTile` over `getCanonicalBuckets()`); absent = no own-kind start. */
-  servicesOfTile?: (tile: string) => readonly string[],
 ): MoodboardLibraryAccess {
   if (!profile) return { allowed: false, reason: 'no_shop' };
   const slots = uploadableSlotsForShop(profile.services, parts);
   if (slots.length === 0) return { allowed: false, reason: 'no_supplying_trade' };
-  return { allowed: true, profile, slots, ownSlot: servicesOfTile ? slotForShopKind(slots, profile.services, parts, servicesOfTile) : null };
+  return { allowed: true, profile, slots, ownSlot: null };
 }
 
 /**
@@ -113,5 +111,9 @@ export async function resolveMoodboardLibraryAccess(
 ): Promise<MoodboardLibraryAccess> {
   if (!userId) return { allowed: false, reason: 'not_signed_in' };
   const [profile, parts, buckets] = await Promise.all([fetchOwnVendorProfile(supabase, userId), getInspirationParts(), getCanonicalBuckets()]);
-  return moodboardLibraryAccessForProfile(profile, parts, (tile) => servicesInTile(buckets, tile));
+  const access = moodboardLibraryAccessForProfile(profile, parts);
+  /* 🧰 The part the form starts on — the shop's own kind, read off the LIVE taxonomy (cut 4). */
+  return access.allowed
+    ? { ...access, ownSlot: slotForShopKind(access.slots, access.profile.services, parts, (tile) => servicesInTile(buckets, tile)) }
+    : access;
 }

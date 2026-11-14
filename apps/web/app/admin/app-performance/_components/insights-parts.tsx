@@ -152,6 +152,7 @@ export function Row({
   trail,
   href,
   tone,
+  wrap = false,
   data,
 }: {
   title: ReactNode;
@@ -160,6 +161,8 @@ export function Row({
   href?: string;
   /** Colours the second line: `warn` for a read that failed, `danger` for something broken. */
   tone?: NumTone;
+  /** Let a long second line wrap instead of ending in "…" (a phone must be able to read all of it). */
+  wrap?: boolean;
   data?: string;
 }) {
   const body = (
@@ -167,7 +170,7 @@ export function Row({
       <span className="min-w-0">
         <span className="block truncate text-[15px] font-semibold leading-tight text-ink">{title}</span>
         {sub ? (
-          <span className={`mt-px block truncate text-[13px] ${tone ? TONE_TEXT[tone] : 'text-ink/65'}`}>{sub}</span>
+          <span className={`mt-px block ${wrap ? 'break-words' : 'truncate'} text-[13px] ${tone ? TONE_TEXT[tone] : 'text-ink/65'}`}>{sub}</span>
         ) : null}
       </span>
       <span className="flex items-center gap-2 whitespace-nowrap text-[14px] tabular-nums text-ink/70">

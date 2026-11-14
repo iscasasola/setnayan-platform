@@ -5,7 +5,6 @@ import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { ReadRefused } from '@/lib/remembered-read-core';
 import { rememberPublicRead } from '@/lib/remembered-read';
 import { HOME_SHELF_TAGS } from '@/lib/home-shelf-tags';
-import { shopColumns } from '@/lib/home-public-reads-core';
 
 /**
  * similar-shops.server.ts — the ONE read behind "More <kind of work> near <area>" at the end of a shop's page (owner
@@ -27,8 +26,13 @@ import { shopColumns } from '@/lib/home-public-reads-core';
  * it and draws no row — the row has no empty message to tell a lie with.
  */
 
-/** The card's columns plus the two pins "then the nearest" orders by. */
-const SIMILAR_COLUMNS = `${shopColumns()}, hq_latitude, hq_longitude`;
+/**
+ * The shop card's columns (`SHOP_COLUMNS`, lib/home-public-reads-core.ts) plus the two pins "then the nearest" orders
+ * by. A plain string so the select scanner (`lib/security/select-column-scan.test.ts`) can check every column; the
+ * shop-end guard fails if a card column is missing here.
+ */
+const SIMILAR_COLUMNS =
+  'vendor_profile_id, business_name, business_slug, location_city, services, verification_state, next_renewal_due_at, logo_url, is_demo, portfolio_r2_keys, microsite_hero_photo_key, in_business_since_year, hq_latitude, hq_longitude';
 
 /**
  * How many same-kind shops one read brings back to choose four from. A bound, not a ranking: at today's scale a kind

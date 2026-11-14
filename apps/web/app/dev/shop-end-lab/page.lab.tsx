@@ -10,6 +10,7 @@
  *   ?sample=1           a demo shop: the similar row's shops are demo shops, each marked Sample
  *   ?unreadable=1       the partners read was refused — the one "couldn't load" line
  */
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { TrustedByCarousel, type TrustedByTile } from '@/app/v/[slug]/_components/trusted-by-carousel';
 import { SimilarShopsRow } from '@/app/v/[slug]/_components/similar-shops-row';
@@ -109,7 +110,7 @@ export default async function ShopEndLab({
             arrival={{ src: null, eventId: null }}
           />
           <div className="flex flex-wrap gap-3 py-8">
-            <a href="/explore" className="button-secondary">See more suppliers</a>
+            <Link href="/explore" className="button-secondary">See more suppliers</Link>
           </div>
           <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-6 text-xs text-ink/50">
             <p>Powered by <span className="font-semibold tracking-wide text-ink/70">SETNAYAN</span></p>

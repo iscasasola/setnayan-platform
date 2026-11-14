@@ -9,11 +9,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
-const noComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+const noComments = stripComments;
 
 const PAGE = noComments(read('app/v/[slug]/page.tsx'));
 const ROW = noComments(read('app/v/[slug]/_components/similar-shops-row.tsx'));
@@ -69,6 +70,9 @@ test('the similar row is ONE remembered read: public, same kind of work, same de
   assert.match(SERVER, /\.match\(\{ \.\.\.LIVE_SHOP_GATE, is_demo: demo \}\)/, 'public only; a demo shop sees demo shops, a real one real shops');
   assert.match(SERVER, /\.contains\('services', \[service\]\)/, 'the marketplace\'s own category match');
   assert.match(SERVER, /rememberPublicRead\(readSimilarShopRows/);
+  const cardColumns = /const SHOP_COLUMNS =\s*'([^']+)'/.exec(read('lib/home-public-reads-core.ts'))![1]!.split(',').map((c) => c.trim());
+  const ours = /const SIMILAR_COLUMNS =\s*'([^']+)'/.exec(SERVER)![1]!.split(',').map((c) => c.trim());
+  for (const c of cardColumns) assert.ok(ours.includes(c), `the similar read no longer selects the card column "${c}"`);
   assert.match(SERVER, /tags: \[HOME_SHELF_TAGS\.shops\]/, 'cleared with the shop shelf when a listing changes');
   assert.match(SERVER, /throw new ReadRefused/, 'a refused read is never remembered as "none"');
   assert.match(PAGE, /rememberedSimilarShopRows\(similarService, vendor\.is_demo === true\)/);
@@ -95,7 +99,7 @@ test('"See more suppliers" is unchanged', () => {
 type Rule = { selectors: string[]; decls: string };
 function topLevelRules(css: string): Rule[] {
   const out: Rule[] = [];
-  const src = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const src = stripComments(css);
   // Top-level only: a rule whose selector starts at column 0 (the sheets indent everything inside @media).
   const re = /(?:^|\n)([.a-zA-Z][^{}\n]*(?:,\n[.a-zA-Z][^{}\n]*)*)\s*\{([^{}]*)\}/g;
   for (let m = re.exec(src); m; m = re.exec(src)) {

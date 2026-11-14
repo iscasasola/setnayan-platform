@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { displayAccountEmail } from '@/lib/erasure/display-email';
+import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
 import {
@@ -70,7 +72,7 @@ export const metadata = { title: 'Account · Admin' };
 
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-PH', {
+  return new Date(iso).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -142,6 +144,8 @@ type Props = {
 };
 
 export default async function AdminAccountCardPage({ params, searchParams }: Props) {
+  // 🏷 F-A-15: event types by their admin-managed names.
+  const typeName = await readEventTypeNames();
   await requireAdmin();
   const { userId } = await params;
   const sp = await searchParams;
@@ -412,7 +416,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate font-serif text-2xl text-ink">{displayName}</p>
-            <p className="mt-0.5 truncate text-sm text-ink/60">{user.email ?? '—'}</p>
+            <p className="mt-0.5 truncate text-sm text-ink/60">{displayAccountEmail(user.email as string | null) ?? '—'}</p>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {roleByEvent.size > 0 && [...new Set([...roleByEvent.values()])].includes('couple') ? (
                 <span className="inline-flex items-center gap-1 rounded-md bg-success-100 px-2 py-1 text-xs font-medium text-success-800">
@@ -585,7 +589,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                           <span className="rounded bg-ink/5 px-1.5 py-0.5 font-medium text-ink/70">
                             {MEMBER_TYPE_LABEL[role ?? ''] ?? role ?? '—'}
                           </span>
-                          <span>{(e.event_type as string | null) ?? '—'}</span>
+                          <span>{typeName(e.event_type as string | null)}</span>
                           <span>{fmtDate(e.event_date as string)}</span>
                         </span>
                       </li>
@@ -1039,7 +1043,7 @@ function SupportSection({
 
 function fmtDateShort(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // --- Activity timeline -------------------------------------------------------

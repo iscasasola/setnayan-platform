@@ -111,8 +111,11 @@ export function TeamClearCandidates({ eventId }: { eventId: string }) {
   const [pending, startTransition] = useTransition();
   return (
     <>
-      <button
-        type="button"
+      <ActionButton
+        tone="danger"
+        quiet
+        icon={Eraser}
+        label={pending ? 'Clearing…' : 'Clear candidates'}
         disabled={pending}
         onClick={async () => {
           const ok = await confirm({
@@ -133,11 +136,7 @@ export function TeamClearCandidates({ eventId }: { eventId: string }) {
             await clearBuildPicks({ eventId });
           });
         }}
-        className="inline-flex items-center gap-1 text-xs text-ink/45 underline-offset-2 transition hover:text-danger-600 hover:underline disabled:opacity-50"
-      >
-        <Eraser className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        Clear candidates
-      </button>
+      />
       {dialog}
     </>
   );
@@ -231,8 +230,8 @@ export function TeamSavePlan({
   }
 
   return (
-    <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
-      <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
+    <div className="space-y-2 py-2" data-team-save="">
+      <div className="flex flex-wrap items-center gap-2 text-[15px] text-ink">
         <Bookmark className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={1.75} aria-hidden />
         Save your current candidates as
         <input
@@ -243,7 +242,7 @@ export function TeamSavePlan({
           // truncating on write.
           maxLength={MAX_BUILD_TITLE_LEN}
           placeholder={`${autoNameHint} — or give it a name`}
-          className="min-w-[8rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
+          className="min-h-11 min-w-[8rem] flex-1 rounded-xl border border-ink/15 bg-paper px-3 text-[15px] outline-none focus:border-ink/45"
           aria-label="Plan name (optional — we’ll name it for you)"
         />
         {/* New, or one of the saved plans → the one dropdown (2026-10-12 look sweep). */}
@@ -270,7 +269,7 @@ export function TeamSavePlan({
         />
       </div>
       {!err ? (
-        <p className="text-xs text-ink/45">
+        <p className="text-[13px] text-ink/70">
           {namedNotice ? (
             <>
               Saved — no name given, so we called it{' '}
@@ -282,7 +281,7 @@ export function TeamSavePlan({
           )}
         </p>
       ) : null}
-      {err ? <p className="text-xs text-danger-700">{err}</p> : null}
+      {err ? <p role="alert" className="text-[13px] font-semibold text-danger-700">{err}</p> : null}
     </div>
   );
 }
@@ -357,16 +356,12 @@ export function TeamDecisionDoorway({
         if (tile && willRemount) return;
         scrollBenchAnchor(tile ? benchTileAnchorId(tile) : benchFolderAnchorId(folderSlug));
       }}
-      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-ink/5"
+      className="flex min-h-[56px] w-full items-center gap-2 px-1 py-2 text-left transition hover:bg-ink/5"
     >
-      <Circle className="h-3 w-3 shrink-0 text-ink/30" strokeWidth={2} aria-hidden />
-      <span className="min-w-0 flex-1 truncate text-sm text-ink/85">{label}</span>
-      {meta ? (
-        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
-          {meta}
-        </span>
-      ) : null}
-      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink/30" strokeWidth={2} aria-hidden />
+      <Circle className="h-3 w-3 shrink-0 text-ink/45" strokeWidth={2} aria-hidden />
+      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{label}</span>
+      {meta ? <span className="shrink-0 text-[13px] text-ink/70">{meta}</span> : null}
+      <ChevronRight className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2} aria-hidden />
     </button>
   );
 }

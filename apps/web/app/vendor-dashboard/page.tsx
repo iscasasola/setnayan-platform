@@ -229,6 +229,8 @@ export default async function VendorOverviewPage({
     lockAgreeNotice(search.lock_agree, {
       competing: Number.isFinite(competing) ? competing : null,
       feeHeld: lockAgreeFeeHeld(search.fee),
+      // RW-38: the live gate, so the notice claims a gate only when there is one.
+      feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false,
       halls: lockAgreeHalls(search.taken, search.free),
     }) ?? lockDeclineNotice(search.lock_decline);
   // ⚡ The layout already asked the auth server who this is (`getCurrentUser`,
@@ -264,7 +266,7 @@ export default async function VendorOverviewPage({
           </p>
         </header>
         <div className="sn-tile p-6">
-          <p className="sn-eye">Team access</p>
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Team access</p>
           <h2 className="mt-2 text-xl font-semibold text-ink">You&rsquo;re on a supplier team.</h2>
           <p className="mt-2 text-sm text-ink/65">
             You don&rsquo;t own a supplier profile yet. Reach the team owner to be

@@ -4,12 +4,14 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { buildVerificationDocsReport } from '@/lib/verification-docs-server';
+import { verificationDocSupplierNames } from '@/lib/verification-doc-suppliers.server';
 import {
   formatDocSize,
   verificationDocShelves,
   type VerificationDoc,
 } from '@/lib/verification-docs';
 import { deleteVerificationDoc, viewVerificationDoc } from './actions';
+import { DOC_SLOTS } from '@/lib/vendor-verification';
 
 /**
  * ADMIN · Vendor verification documents.
@@ -31,7 +33,23 @@ import { deleteVerificationDoc, viewVerificationDoc } from './actions';
  * come from the SAME check, re-derived at press time, so they cannot disagree.
  */
 
+export const metadata = { title: 'Verification documents · Admin' };
+
 export const dynamic = 'force-dynamic';
+
+/** The paper's own name, from the shop's verification list — null when the slot is not one we know. */
+function paperName(slot: string | null): string | null {
+  if (!slot) return null;
+  // The ID is asked on its own step, not in `DOC_SLOTS`.
+  if (slot === 'government_id') return 'Government ID';
+  return DOC_SLOTS.find((s) => s.key === slot)?.label ?? null;
+}
+
+/** An upload's day in Manila (the storage stamp is UTC). */
+function manilaDay(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso.slice(0, 10) : d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
+}
 
 const ERRORS: Record<string, string> = {
   nokey: 'Nothing happened — that request carried no file.',
@@ -89,6 +107,8 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
   // to `true` (Delete beside a live government ID). A React server component is
   // not renderable by `node:test`, so those were unguardable where they sat.
   const shelves = verificationDocShelves(report);
+  // 🏷 F-A-08: each paper names its supplier.
+  const supplierNames = await verificationDocSupplierNames(report.docs.map((d) => d.vendorProfileId ?? ''));
 
   return (
     <section className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6">
@@ -139,6 +159,7 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
         shelf.state === 'unrecognised' && shelf.docs.length === 0 ? null : (
           <Group
             key={shelf.state}
+            supplierNames={supplierNames}
             title={SHELVES[shelf.state].title}
             icon={SHELVES[shelf.state].icon}
             blurb={SHELVES[shelf.state].blurb}
@@ -159,12 +180,15 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
 
 function Group({
   title,
+  supplierNames,
   icon,
   blurb,
   docs,
   deletable,
 }: {
   title: string;
+  /** Shop name per supplier id; null = the read was refused. */
+  supplierNames: Map<string, string> | null;
   icon: React.ReactNode;
   blurb: string;
   docs: VerificationDoc[];
@@ -188,11 +212,23 @@ function Group({
           {docs.map((d) => (
             <li key={d.key} className="flex flex-wrap items-center gap-3 px-3 py-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate font-mono text-xs text-ink">{d.key}</p>
+                {/* 📄 F-A-08 (admin walk 13 Nov 2026): titled by the paper's own name (`DOC_SLOTS`), never the raw storage
+                    path; a file whose paper we cannot name keeps its path, the only thing that tells it apart. */}
+                {paperName(d.slot) ? (
+                  <p className="truncate text-sm font-medium text-ink">{paperName(d.slot)}</p>
+                ) : (
+                  <p className="truncate font-mono text-xs text-ink">{d.key}</p>
+                )}
+                {d.vendorProfileId ? (
+                  <p className="truncate text-xs text-ink/70" data-doc-supplier="">
+                    {supplierNames === null
+                      ? 'Supplier name couldn’t load'
+                      : (supplierNames.get(d.vendorProfileId) ?? 'A supplier with no shop name')}
+                  </p>
+                ) : null}
                 <p className="mt-0.5 text-xs text-ink/55">
-                  {d.slot ? `${d.slot.replace(/_/g, ' ')} · ` : ''}
                   {formatDocSize(d.size)}
-                  {d.lastModified ? ` · uploaded ${d.lastModified.slice(0, 10)}` : ''}
+                  {d.lastModified ? ` · uploaded ${manilaDay(d.lastModified)}` : ''}
                 </p>
               </div>
               <form action={viewVerificationDoc}>

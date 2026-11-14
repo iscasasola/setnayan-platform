@@ -11,6 +11,7 @@
  */
 import { changesFor, type BookingChange } from './booking-changes';
 import { formatPhp } from './php';
+import { shopPerGuestNote } from './claimed-per-guest-follow';
 import type { QuoteVersion } from './quote-versions';
 import type { ChatTopic } from './topic-icons';
 
@@ -49,6 +50,11 @@ export type AgreedInputs = {
   booking: { isBooked: boolean; declined: boolean };
   /** Who sends a quote, as this reader says it — "You" for the supplier, the shop's name for the hosts. */
   quoteBy: string;
+  /**
+   * 👥 RW-108: a CLAIMED per-guest booking (`readShopPerGuest`) — the couple's own figure and count, which the supplier
+   * reads here instead of "No quote sent yet" and the event's estimate. Absent / null = as shipped.
+   */
+  perGuest?: { totalPhp: number | null; guests: number } | null;
 };
 
 export const COULD_NOT_LOAD = "Couldn't load the history";
@@ -119,10 +125,12 @@ export function agreedRows(i: AgreedInputs): AgreedRow[] {
   rows.push({
     key: 'quote',
     topic: 'quote',
-    label: accepted ? 'Agreed quote' : 'Quote',
+    label: accepted ? 'Agreed quote' : !shown && i.perGuest ? 'Agreed price · per guest' : 'Quote',
     value: shown
       ? `Version ${shown.version} · ${formatPhp(shown.totalCentavos / 100)}${accepted ? '' : ` · ${shown.status === 'viewed' ? 'seen' : shown.status}`}`
-      : 'No quote sent yet',
+      : i.perGuest
+        ? shopPerGuestNote(i.perGuest)
+        : 'No quote sent yet',
     history: versions
       .filter((q) => q.previous)
       .map((q) => ({
@@ -142,11 +150,13 @@ export function agreedRows(i: AgreedInputs): AgreedRow[] {
   });
 
   const finalSet = i.event.finalPax != null;
+  // 👥 RW-108: a claimed per-guest booking bills the guests on the couple's list — that count, never the estimate.
+  const listed = !finalSet && i.perGuest && i.perGuest.guests > 0 ? i.perGuest.guests : null;
   rows.push({
     key: 'guest_count',
     topic: 'details',
-    label: finalSet ? 'Guest count · final' : 'Guest count · estimate',
-    value: paxWords(finalSet ? i.event.finalPax : i.event.estimatedPax) ?? 'No count yet',
+    label: finalSet ? 'Guest count · final' : listed != null ? 'Guest count · billed' : 'Guest count · estimate',
+    value: paxWords(finalSet ? i.event.finalPax : (listed ?? i.event.estimatedPax)) ?? 'No count yet',
     history: historyOf(
       [...changesFor(changes, 'guest_count_final'), ...changesFor(changes, 'guest_estimate')].sort(
         (a, b) => Date.parse(b.changedAt) - Date.parse(a.changedAt) || b.changeId - a.changeId,

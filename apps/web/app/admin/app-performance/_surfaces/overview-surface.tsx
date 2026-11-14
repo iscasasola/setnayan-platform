@@ -2,6 +2,7 @@
 // re-homed here (2026-07-10) so the App Performance menu is ONE tabbed
 // studio. Its actions/_components stay under /admin/app-performance; the legacy
 // route is now a redirect into /admin/app-performance?tab={tab}.
+import { manilaDayLabel, manilaStampLabel } from '@/lib/admin/manila-stamp';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
@@ -266,7 +267,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           Apply
         </button>
         <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Since {perf.sinceIso.slice(0, 10)} · deltas vs the previous equal window
+          Since {manilaDayLabel(perf.sinceIso)} · deltas vs the previous equal window
         </span>
       </form>
 
@@ -281,9 +282,10 @@ export async function CockpitSurface({ searchParams }: Props) {
 
       {/* The chart legend, beside the charts. */}
       <p className="mb-6 max-w-prose text-sm text-ink/70">
-        Every chart below is tagged <StatusPill state="live" /> (computed from
-        the platform&apos;s own tables) or <StatusPill state="wiring" /> (one
-        instrumentation step away — never simulated).
+        {/* F-W2-36 (walk 14 Nov): plain words — not "tagged LIVE / NEEDS WIRING". */}
+        Each chart is marked <StatusPill state="live" /> when it counts from
+        Setnayan&apos;s own records, or <StatusPill state="wiring" /> when we do
+        not record it yet. Nothing here is made up.
       </p>
 
       {/* ── CONTEXT STRIP — standing totals (owner list: Users · Vendors ·
@@ -755,10 +757,10 @@ export async function CockpitSurface({ searchParams }: Props) {
         style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink-500)' }}
       >
         Live charts compute from the platform&apos;s own tables at{' '}
-        {perf.generatedAtIso.slice(0, 16).replace('T', ' ')} UTC
+        {manilaStampLabel(perf.generatedAtIso)}
         {sampled ? ' · some window reads hit their row cap — those counts are a floor, not exact' : ''}
-        . Needs-wiring cards name their missing instrumentation — nothing here is
-        simulated. All three zones of the plan are live: Action Center · Expenses &amp;
+        . A “Not measured yet” card names what we still need to record — nothing
+        here is made up. All three zones of the plan are live: Action Center · Expenses &amp;
         Receipts · Growth · Stability.
       </footer>
     </div>

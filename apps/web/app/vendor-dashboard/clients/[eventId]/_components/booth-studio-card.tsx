@@ -1,8 +1,9 @@
 'use client';
 
+import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { useState, useTransition } from 'react';
-import { Type } from 'lucide-react';
+import { Check, Trash2, Type } from 'lucide-react';
 import { setBoothStudioContent } from '../cocktail/actions';
 import { BOOTH_STUDIO_LIMITS, type BoothStudioContent } from '@/lib/booth-studio';
 
@@ -117,22 +118,9 @@ export function BoothStudioCard({
         </label>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="submit"
-            disabled={pending || empty}
-            className="button-secondary h-10 px-4 text-sm disabled:opacity-50"
-          >
-            Save to my booth
-          </button>
+          <ActionButton type="submit" tone="brand" icon={Check} label="Save to my booth" disabled={pending || empty} />
           {hasSaved ? (
-            <button
-              type="button"
-              onClick={() => persist(null)}
-              disabled={pending}
-              className="text-sm font-medium text-ink/70 underline hover:text-ink disabled:opacity-50"
-            >
-              Remove the words
-            </button>
+            <ActionButton type="button" tone="danger" icon={Trash2} label="Remove the words" onClick={() => persist(null)} disabled={pending} />
           ) : null}
         </div>
       </form>

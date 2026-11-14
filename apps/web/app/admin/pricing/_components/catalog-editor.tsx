@@ -160,7 +160,7 @@ function pesoShort(n: number): string {
 
 const BILLING_LABEL: Record<string, string> = {
   one_time: 'Once',
-  per_day: 'Per day of the celebration',
+  per_day: 'Per day of the event',
   per_year: 'Per year',
   per_28d: 'Every 28 days',
 };
@@ -632,7 +632,7 @@ function RowCard(props: {
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-semibold leading-snug text-ink">{row.title}</span>
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
-            <code className="font-mono text-[10px] uppercase tracking-[0.13em] text-ink/50">{row.code}</code>
+            {/* ✂ F-A-14 (admin walk 13 Nov 2026): the SKU code is not drawn — the title names the product. */}
             {tag}
             {row.replacedByCode && <Tag>Replaced by {row.replacedByCode}</Tag>}
           </span>
@@ -957,7 +957,7 @@ function HistorySection({ history }: { history: PricingHistoryEntryProp[] }) {
           {history.map((h, i) => (
             <li key={i} className="flex items-baseline gap-2.5 border-b border-ink/5 py-1 text-[12.5px] last:border-b-0">
               <span className="min-w-[84px] font-mono text-[11px] text-ink/50">
-                {new Date(h.date).toLocaleDateString('en-PH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                {new Date(h.date).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
               <span className="font-mono tabular-nums">{h.summary}</span>
               <span className="ml-auto text-[11.5px] text-ink/50">{h.who}</span>

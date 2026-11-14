@@ -1245,17 +1245,15 @@ export async function EditorialContent({
                   {waitingScene('videos', 'Videos', true)}
                 </Fragment>
               ) : null,
-            // What they said (reviews). Renders even when empty (empty state).
-            reviews: isOn('reviews') ? (
-              <div key="reviews" data-story-screen="">
-                <SectionRule title="What They Said" />
-                {data.reviews.length ? (
+            // What they said (reviews). 📖 RW-167 (re-walk 14 Nov 2026): never an empty scene (the F-W2-53 rule) — with no
+            // review yet the scene is not drawn, rather than a "Reviews … will appear here" plate on the recap.
+            reviews:
+              isOn('reviews') && data.reviews.length ? (
+                <div key="reviews" data-story-screen="">
+                  <SectionRule title="What They Said" />
                   <ReviewsWall reviews={data.reviews} />
-                ) : (
-                  <ReviewsEmptyState />
-                )}
-              </div>
-            ) : null,
+                </div>
+              ) : null,
             // Powered by Setnayan — the in-app services the couple availed.
             poweredBy:
               isOn('poweredBy') && data.servicesAvailed.length ? (
@@ -1639,14 +1637,6 @@ function SectionRule({ title }: { title: string }): ReactElement {
   );
 }
 
-
-function ReviewsEmptyState(): ReactElement {
-  return (
-    <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/70">
-      Reviews from guests and suppliers will appear here.
-    </p>
-  );
-}
 
 /**
  * "From the Day" — shared photo gallery (events.our_photos). A newspaper photo

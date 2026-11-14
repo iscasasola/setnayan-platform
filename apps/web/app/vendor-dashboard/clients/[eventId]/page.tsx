@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { hubDayWords } from '@/lib/hub-events';
+import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -158,6 +160,7 @@ import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-fla
 import { pipelineCurrentLabel, supplierNextMove } from '@/lib/supplier-next-move';
 import { ClientDayAnswers } from '../../_components/client-day-answers';
 import { detailsNumbers } from './_components/details-numbers';
+import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
@@ -870,7 +873,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     isBooked || lockRequest ? null : supplierAskOutcomeOf(completionRow, isLockHandshakeEnabled());
   // The answer to Agree / Decline pressed HERE lands back here (`return_to`).
   const lockNotice =
-    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), halls: lockAgreeHalls(search.taken, search.free) }) ??
+    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false, halls: lockAgreeHalls(search.taken, search.free) }) ??
     lockDeclineNotice(search.lock_decline);
   // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
   // a short-lived link scoped to THIS event's deposit folder — never the stored
@@ -883,10 +886,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       }
     : null;
 
-  // Source badge: event_vendors.source = 'vendor_invite' → Imported (they came in
-  // through the vendor's own invite QR); anything else (host_manual, cascade,
-  // legacy NULL) → In-house.
-  const isImported = completion?.source === 'vendor_invite';
+  // Source badge: the supplier brought them → Imported — their own invite QR, Locked QR or a reused booking
+  // (`SUPPLIER_BROUGHT_SOURCES`), or an inquiry through the supplier's own link (`website`, RW-22: the record now
+  // carries its thread's source); anything else (a Setnayan surface, host_manual, cascade, legacy NULL) → In-house.
+  const isImported =
+    (completion?.source != null && SUPPLIER_BROUGHT_SOURCES.has(completion.source)) || completion?.source === 'website';
+  // RW-39: the sources the fee counts as Setnayan's — a sourced inquiry stamp (`shop_page`, `explore`, …) or a Find save.
+  const isFromSetnayan =
+    !isImported &&
+    completion?.source != null &&
+    (bookingFeeAttribution(completion.source) === 'sourced' || SETNAYAN_SAVE_SOURCES.has(completion.source));
 
   const depositRecorded = Boolean(completion?.deposit_recorded_at);
   const depositAcked = Boolean(completion?.deposit_acknowledged_at);
@@ -1910,6 +1919,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           <>
             <UserRound aria-hidden className="h-3 w-3" /> Imported
           </>
+        ) : isFromSetnayan ? (
+          // RW-39 (walk 13 Nov 2026): a couple Setnayan brought — the same sources the fee counts as sourced. It read
+          // "In-house" beside "fee due", which a supplier reads as "my own client".
+          <>
+            <Sparkles aria-hidden className="h-3 w-3" /> From Setnayan
+          </>
         ) : (
           <>
             <Sparkles aria-hidden className="h-3 w-3" /> In-house
@@ -2430,6 +2445,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const sentQuote = [...proposals]
     .filter((p) => p.status !== 'draft')
     .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
+  // 👥 RW-108: a claimed per-guest booking — the couple's figure and count (the same read as Customers, #7633).
+  const shopPerGuest = isBooked || sentQuote ? null : (await readShopPerGuest(admin, profile.vendor_profile_id, [eventId]))?.get(eventId) ?? null;
   const numbersCells = detailsNumbers({
     isBooked,
     todayIso: manilaTodayIso(),
@@ -2437,6 +2454,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     ledger: ledgerUnreadable ? null : { receivedPhp: ledgerMoney.receivedPhp, expectedPhp: ledgerMoney.expectedPhp },
     onPlan: planRowsAll.length > 0,
     sentQuotePhp: proposalRowsError ? null : sentQuote ? sentQuote.total_centavos / 100 : undefined,
+    perGuest: shopPerGuest,
     peso: (php) => fmtPeso(php),
   });
 
@@ -3666,6 +3684,12 @@ function ScheduleTab(props: {
               initial={runOfShowBlocks}
               canAdvance={canAdvance}
               compact
+              // RW-87: before the event's day the Now box says when it starts, never "Not started yet".
+              startsOnWords={
+                props.brief.event.event_date && props.brief.event.event_date.slice(0, 10) > manilaToday()
+                  ? hubDayWords(props.brief.event.event_date)
+                  : null
+              }
             />
           </div>
         ) : null}

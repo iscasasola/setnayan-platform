@@ -122,7 +122,7 @@ export async function PriceBandsSurface({
             <>
               Last recomputed{' '}
               <strong>
-                {new Date(lastComputed).toLocaleString('en-PH', {
+                {new Date(lastComputed).toLocaleString('en-PH', { timeZone: 'Asia/Manila',
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',
@@ -166,7 +166,7 @@ export async function PriceBandsSurface({
             <>
               Last recomputed{' '}
               <strong>
-                {new Date(funnelLast).toLocaleString('en-PH', {
+                {new Date(funnelLast).toLocaleString('en-PH', { timeZone: 'Asia/Manila',
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',
@@ -206,7 +206,6 @@ export async function PriceBandsSurface({
           title: 'No bands to show yet',
           blurb:
             'Either no recompute has run, or every category × region × bucket is still below the min-N sample floor. As more suppliers publish prices, recompute and the bands appear here.',
-          verifiedNote: 'Verified: read permitted · 0 bands above the floor',
         }}
         columns={[
           {

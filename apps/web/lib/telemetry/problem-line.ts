@@ -44,7 +44,9 @@ export function pageName(path: string | null | undefined): string | null {
   if (!path) return null;
   const p = path.split('#')[0]!;
   for (const [re, name] of PAGE_NAMES) if (re.test(p)) return name;
-  return p;
+  // F-A-16 (admin walk 13 Nov 2026): an unnamed route never prints its code placeholders ("/u/[name]/[id]") — each
+  // bracketed part reads as "…", so the address stays recognisable without the code words.
+  return p.replace(/\[\.{0,3}[^\]]+\]/g, '…');
 }
 
 const KIND_WORDS: Record<FaultKind, string> = {
@@ -54,8 +56,8 @@ const KIND_WORDS: Record<FaultKind, string> = {
   OTHER: 'failed',
   SERVER_THROWN: 'broke on the server',
   ACTION_RETURNED_ERROR: 'said it failed',
-  DB_WRITE_REFUSED: 'the database refused the save',
-  DB_READ_REFUSED: 'the database refused the read',
+  DB_WRITE_REFUSED: 'could not save',
+  DB_READ_REFUSED: 'could not load',
   DB_ZERO_ROW: '"saved" but nothing changed',
   DB_UNREACHABLE: 'the database did not answer',
   BUTTON_TIMEOUT: 'no answer',
@@ -72,9 +74,41 @@ export function kindWords(kind: string): string {
 }
 
 /** "app/[slug]/actions.ts#submitRsvp" → "submit rsvp". */
+/**
+ * ✍ F-A-16 (admin walk, round 2): a Problems line is read by a person, never a programmer. Code names become words —
+ * camelCase and snake_case split, a template placeholder ("[name]") reads "…", and the product's word for a vendor is
+ * "supplier" (never "vendor", owner).
+ */
+export function plainWords(raw: string): string {
+  return raw
+    .replace(/\[\.{0,3}[^\]]+\]/g, '…')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .replace(/\bvendors\b/gi, 'suppliers')
+    .replace(/\bvendor\b/gi, 'supplier')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const cap = (t: string) => (t ? t[0]!.toUpperCase() + t.slice(1) : t);
+
 function actionWords(action: string): string {
   const name = action.includes('#') ? action.slice(action.lastIndexOf('#') + 1) : action;
-  return name.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  return cap(plainWords(name).toLowerCase());
+}
+
+/** A read call's name opens with one of these; anything else saves. */
+const READ_VERB = /^(get|list|read|fetch|count|search|find|load|lookup)\b\s*/i;
+
+/** "GET event_vendors" → "Loading event suppliers"; "POST rpc/get_vendor_cocktail_editor" → "Loading the supplier cocktail editor". */
+function dataWords(action: string, kind: string): string {
+  const method = /^([A-Z]+)\s+/.exec(action)?.[1] ?? '';
+  const target = plainWords(action.replace(/^[A-Z]+\s+/, '').replace(/^rpc\//, '')).toLowerCase();
+  // The fault's own kind says read or save when it knows; otherwise the method and the call's name do.
+  const reads =
+    kind === 'DB_READ_REFUSED' ? true : kind === 'DB_WRITE_REFUSED' ? false : /^(GET|HEAD)$/.test(method) || READ_VERB.test(target);
+  const what = target.replace(READ_VERB, '').replace(/^(set|save|upsert|insert|update|create|delete|add|remove)\b\s*/i, '');
+  return `${reads ? 'Loading' : 'Saving'} ${what ? `the ${what}` : 'data'}`;
 }
 
 const DEAD_END_WORDS: Record<string, string> = {
@@ -108,24 +142,24 @@ export function problemLine(i: ProblemLineInput): string {
   let subject: string;
   if (i.kind === 'DEAD_END') {
     const reason = /^(not_found|forwarded|missing_section)\b/.exec(i.action)?.[1] ?? 'not_found';
-    const to = /\s(\S+)\s←/.exec(i.action)?.[1];
+    const rawTo = /\s(\S+)\s←/.exec(i.action)?.[1];
+    const to = rawTo ? rawTo.replace(/\[\.{0,3}[^\]]+\]/g, '…') : rawTo;
     subject = `A link${to ? ` to ${to}` : ''}${where ? ` on ${where}` : ''}`;
     const head = `${subject} — led to ${DEAD_END_WORDS[reason] ?? 'nowhere'}`;
     return tail(head, i);
   }
   if (i.kind === 'DROP_OFF') {
-    return tail(`${i.label ?? i.action} — ${kindWords(i.kind)}`, i);
+    return tail(`${plainWords(i.label ?? i.action)} — ${kindWords(i.kind)}`, i);
   }
   if (i.label) {
-    const l = i.label.trim();
+    const l = plainWords(i.label);
     subject = /\b(button|link)$/i.test(l) ? l : `${l} button`;
   } else if (i.kind.startsWith('DB_')) {
-    const target = i.action.replace(/^[A-Z]+\s+/, '').replace(/^rpc\//, '');
-    subject = `${/^(GET|HEAD)\b/.test(i.action) ? 'Reading' : 'Saving to'} ${target.replace(/_/g, ' ')}`;
+    subject = dataWords(i.action, i.kind);
   } else if (i.action.includes('#')) {
-    subject = `"${actionWords(i.action)}"`;
+    subject = actionWords(i.action);
   } else {
-    subject = i.action;
+    subject = plainWords(i.action);
   }
   const head = `${subject}${where && !subject.includes(where) ? ` on ${where}` : ''} — ${kindWords(i.kind)}`;
   return tail(head, i);

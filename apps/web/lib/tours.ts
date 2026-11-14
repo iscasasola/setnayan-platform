@@ -14,7 +14,8 @@
 //     `spotlight-mount.tsx`. Its steps reuse the slides' words where they fit.
 
 import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
-import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
 import {
   Apple,
@@ -308,6 +309,16 @@ export type TourDefinition = {
   /** 🔦 Present → this tour is drawn as the SPOTLIGHT (`spotlight-mount.tsx`). */
   spotlight?: SpotlightScript;
 };
+
+/**
+ * 💳 The Money tour's fee step, from the rule itself (walk RW-20): ON → when it is charged + the free first booking + own
+ * clients free; OFF → that no booking fee is charged right now. `NEXT_PUBLIC_BOOKING_FEE_ENABLED` (`isBookingFeeEnabled`).
+ */
+export function bookingFeeTourLine(feeOn: boolean): string {
+  return feeOn
+    ? `One booking fee per booking from Setnayan. ${BOOKING_FEE_CHARGED_WHEN} ${FIRST_BOOKING_ON_US} Your own clients are always free.`
+    : 'No booking fee is charged right now. Your own clients are always free.';
+}
 
 export const TOURS: Record<TourKey, TourDefinition> = {
   couple_welcome_v1: {
@@ -1518,7 +1529,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'hub-next-days',
           title: 'Your events',
-          body: 'Pick the event to set up — every booked day and every event you run. A day opens once its booking fee is paid.',
+          // RW-20 / F-W1-75 (walk 13 Nov 2026): no fee rule typed here — whether a day waits on its fee is a live setting,
+          // and a day that does says so on its own row (`feeLockCopy`).
+          body: 'Pick the event to set up — every booked day and every event you run. A day that is waiting on its booking fee says so on its row.',
         },
         {
           anchor: 'hub-empty',
@@ -1596,8 +1609,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'money-fees',
           title: 'Setnayan’s fee',
-          // The sentence is the lock's own — the rule the fee engine actually waives (owner 2026-10-23), never typed here.
-          body: `One booking fee per booking, due after the day. ${FIRST_BOOKING_ON_US} Your own clients are always free.`,
+          // RW-20 (walk 13 Nov 2026): the sentences are the lock's own — WHEN it is charged and what is waived — and the
+          // switch decides whether it is charged at all; never "due after the day", which no code does.
+          body: bookingFeeTourLine(isBookingFeeEnabled()),
         },
       ],
       finale: {
@@ -1849,7 +1863,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'maker-tools',
           title: 'Page, Look and Event Details',
-          body: 'Page ▾ picks what you are looking at. Look dresses the whole Event Hub. Event Details holds the facts — names, date, places — shown on every page.',
+          /* 🔒 + the Maker Edit shell (owner-approved 2026-11-13): the four tabs, and what a locked one does. */
+          body: 'Page ▾ picks what you are looking at. Look dresses the whole Event Hub. Event Details holds the facts — names, date, places — shown on every page. Every part has the same four tabs; a tab with a 🔒 says why, and where it is set.',
         },
         {
           anchor: 'maker-apply',
@@ -1919,7 +1934,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           //  owner 2026-10-23, Papic is the camera. This page's last stop is the camera's own settings.)
           anchor: 'papic-settings',
           title: 'Your camera, your rules',
-          body: 'Pick the filter, set challenges and choose face tagging. The photos land in Memories, and each guest’s camera is on their guest card.',
+          // 📲 Guest upload v2 (2026-11-13): the "Photos from guests' phones" row sits in these settings.
+          body: 'Pick the filter, set challenges, choose face tagging, and whether photos from guests’ phones show right away or after you check. The photos land in Memories, and each guest’s camera is on their guest card.',
         },
       ],
       finale: {
@@ -2428,7 +2444,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'camera-shots',
           title: 'My shots',
-          body: 'Everything you took, right here.',
+          // 📲 Guest upload v2 (2026-11-13): My shots holds "Add from your phone".
+          body: 'Everything you took, right here — and Add from your phone, for photos you took on the day.',
         },
         {
           anchor: 'camera-shutter',

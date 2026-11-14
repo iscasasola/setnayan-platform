@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Loader2, Sparkles } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { applySuggestedCoverage, dismissSuggestedCoverage } from '../suggested-coverage-actions';
@@ -84,25 +86,25 @@ export function SuggestedCoverageCard({
     });
   }
 
+  // 🔔 Inventory #7 — a To-do (one notice system, owner approved 14 Nov 2026), drawn where it stands on Details: the
+  // suggestions are picked under the line, "Add" is the action and "Not now" the close — kept by the one notice memory
+  // AND sent as the shipped dismiss (`vendor_web_dossiers.suggestion_dismissed_at`), so it is resolved either way.
   return (
-    <section
-      className="mt-3 rounded-xl border p-4"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-    >
-      <h3
-        className="flex items-center gap-1.5 text-sm font-medium"
-        style={{ color: 'var(--m-ink)' }}
-      >
-        <Sparkles className="h-4 w-4" strokeWidth={2} />
-        Your website suggests you also do this
-      </h3>
-      <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-        We read your own website once, for free, to look for things you offer
-        that aren&rsquo;t on your coverage yet. Nothing changes until you tick
-        what&rsquo;s right and press Add — and you can just say not now.
-      </p>
-
-      <div className="mt-3 flex flex-wrap gap-2">
+    <section className="mt-3">
+      <InlineNotice
+        kind="todo"
+        noticeKey={`website-suggests:${dossierId}`}
+        title="Your website suggests you also do this"
+        detail="We read your own website once, for free, to look for things you offer that aren’t on your coverage yet. Nothing changes until you tick what’s right and press Add — and you can just say not now."
+        onClose={notNow}
+        actions={
+          <button type="button" onClick={add} disabled={pending || picked.size === 0} className={`${NOTICE_ACTION} disabled:opacity-60`}>
+            {pending ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} /> : null}
+            Add {picked.size > 0 ? `(${picked.size})` : ''}
+          </button>
+        }
+      />
+      <div className="mt-1 flex flex-wrap gap-2">
         {suggestions.map((s) => {
           const active = picked.has(s.key);
           return (
@@ -111,7 +113,7 @@ export function SuggestedCoverageCard({
               type="button"
               onClick={() => toggle(s.key)}
               disabled={pending}
-              className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:opacity-60"
+              className="inline-flex min-h-11 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors disabled:opacity-60"
               style={
                 active
                   ? { borderColor: 'var(--m-accent-deep)', background: 'var(--m-accent-deep)', color: '#fff' }
@@ -125,28 +127,6 @@ export function SuggestedCoverageCard({
             </button>
           );
         })}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={add}
-          disabled={pending || picked.size === 0}
-          className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-          style={{ background: 'var(--m-accent-deep)' }}
-        >
-          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} /> : null}
-          Add {picked.size > 0 ? `(${picked.size})` : ''}
-        </button>
-        <button
-          type="button"
-          onClick={notNow}
-          disabled={pending}
-          className="text-xs font-medium underline-offset-2 hover:underline disabled:opacity-60"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          Not now
-        </button>
       </div>
     </section>
   );

@@ -147,6 +147,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
     category: 'planning',
     author: 'Setnayan Editorial',
     publishedAt: '2026-08-03',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -195,7 +196,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Your free Setnayan wedding website can hold the date and the details guests keep checking, long before the invitations go out.',
+        text: 'Your free Setnayan Event Hub can hold the date and the details guests keep checking, long before the invitations go out.',
         href: '/signup',
         label: 'Start planning free',
       },
@@ -211,6 +212,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
     category: 'planning',
     author: 'Setnayan Editorial',
     publishedAt: '2026-08-21',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -260,13 +262,13 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A few topics call for a gentle touch, and these are the ones that quietly cause the most hurt when handled carelessly. If your reception is adults-only, the cleanest way to convey it is on your website or a small separate insert, and by addressing the envelope only to the invited adults — pointedly naming whose children are excluded on the card itself reads as cold and is remembered. If you would rather receive cash than gifts, never state it directly on the formal invitation; a softly worded note on your wedding website, or quiet word of mouth through the family, is the Filipino way to make wishes known without ever appearing grabbing. And always address envelopes by name, never with a vague "and family", so each guest knows exactly who, and how many, are actually invited — that single courtesy heads off most of the day-of confusion at the door. Finally, let the tone of the whole thing match the tone of the wedding: a grand church celebration can carry formal, traditional language, while an intimate garden wedding can be warmer and more conversational. The wording should read like a true preview of the day, not a template borrowed from someone else\'s. Read it aloud before you print — if it sounds like the two of you, it is ready.',
+        text: 'A few topics call for a gentle touch, and these are the ones that quietly cause the most hurt when handled carelessly. If your reception is adults-only, the cleanest way to convey it is on your Event Hub or a small separate insert, and by addressing the envelope only to the invited adults — pointedly naming whose children are excluded on the card itself reads as cold and is remembered. If you would rather receive cash than gifts, never state it directly on the formal invitation; a softly worded note on your wedding website, or quiet word of mouth through the family, is the Filipino way to make wishes known without ever appearing grabbing. And always address envelopes by name, never with a vague "and family", so each guest knows exactly who, and how many, are actually invited — that single courtesy heads off most of the day-of confusion at the door. Finally, let the tone of the whole thing match the tone of the wedding: a grand church celebration can carry formal, traditional language, while an intimate garden wedding can be warmer and more conversational. The wording should read like a true preview of the day, not a template borrowed from someone else\'s. Read it aloud before you print — if it sounds like the two of you, it is ready.',
       },
       {
         type: 'cta',
         text: 'Browse stationers and invitation designers who know Filipino wedding etiquette inside out.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -280,6 +282,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
     category: 'planning',
     author: 'Setnayan Editorial',
     publishedAt: '2026-09-09',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -324,7 +327,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Every Setnayan account includes a free wedding website with built-in online RSVP — your headcount, kept current for you.',
+        text: 'Every Setnayan account includes a free Event Hub with built-in online RSVP — your headcount, kept current for you.',
         href: '/signup',
         label: 'Start planning free',
       },
@@ -340,6 +343,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
     category: 'planning',
     author: 'Setnayan Editorial',
     publishedAt: '2026-09-28',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -384,7 +388,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Track every reply in one place and watch your headcount update itself — free online RSVP with every Setnayan website.',
+        text: 'Track every reply in one place and watch your headcount update itself — free online RSVP on every Setnayan Event Hub.',
         href: '/signup',
         label: 'Start planning free',
       },

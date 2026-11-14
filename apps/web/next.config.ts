@@ -328,8 +328,22 @@ const securityHeaders = [
   },
 ];
 
+/*
+ * ─── THE /dev LABS ARE NOT BUILT FOR PRODUCTION (2026-11-14) ─────────────────
+ * Every route file under app/dev is named `page.lab.tsx` / `layout.lab.tsx` / `route.lab.ts`.
+ * `next dev` (labs, `E2E_LABS=1`, the lab e2e specs) treats `lab.tsx`/`lab.ts` as page extensions;
+ * `next build` / `next start` (NODE_ENV=production — Vercel production AND previews) do not, so the
+ * labs are never compiled: no page, no .rsc route, no server-action id counts toward Vercel's
+ * 2,048-route cap. The `notFound()` gate in app/dev/layout.lab.tsx stays as the second lock.
+ * Held by app/dev/the-labs-never-ship.test.ts.
+ */
+const PAGE_EXTENSIONS = ['tsx', 'ts', 'jsx', 'js'];
+const LAB_PAGE_EXTENSIONS = ['lab.tsx', 'lab.ts'];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  pageExtensions:
+    process.env.NODE_ENV === 'production' ? PAGE_EXTENSIONS : [...LAB_PAGE_EXTENSIONS, ...PAGE_EXTENSIONS],
   /*
    * WHICH BUILD THIS BUNDLE IS, readable from the browser.
    *
@@ -714,6 +728,10 @@ const nextConfig: NextConfig = {
   // was open at rename time) keep working instead of 404-ing.
   async redirects() {
     return [
+      // F-A-19 (admin walk 13 Nov 2026): `/admin/vendors/verification` was read as a shop id by
+      // `/admin/vendors/[vendorProfileId]` and drew a soft 404. The one verification address is /admin/verify
+      // (owner-approved). Temporary, exact source only.
+      { source: '/admin/vendors/verification', destination: '/admin/verify', permanent: false },
       // 2026-08-11 — Papic became ONE product, so the help article
       // 'Papic Pool or Papic One — which one do I want?' answers a question that
       // no longer exists. It was rewritten (how do I make sure one person never

@@ -456,6 +456,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
      tooling, shipped to nobody; the claim is unchanged. */
   const OURS = new Set([
     'lib/site-body-fixture.ts',
+    /* …and (2026-11-14) the labs' production gate, which proves no SHIPPED file reaches this fixture. A test. */
+    'app/dev/the-labs-never-ship.test.ts',
     'lib/site-body-fixture-render.ts',
     'lib/site-body-fixture-render.test.ts',
     'lib/a-sample-block-look-reaches-the-real-page.test.ts',

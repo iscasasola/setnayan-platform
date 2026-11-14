@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { displayAccountEmail } from '@/lib/erasure/display-email';
 import { VendorCardTitle } from './vendor-card-title';
 import Image from 'next/image';
 import { Pencil, Trash2, BadgeCheck, Users, LayoutGrid } from 'lucide-react';
@@ -309,7 +310,6 @@ export async function VendorsSurface({
               title: 'No supplier requests waiting',
               blurb:
                 'Nothing is pending a supplier claim right now. When a couple adds a supplier by hand on their plan, the invite appears here.',
-              verifiedNote: 'Verified: read permitted · 0 pending requests',
             }}
             columns={[
               {
@@ -329,7 +329,7 @@ export async function VendorsSurface({
               },
               {
                 header: 'Contact',
-                cell: (r) => <span className="text-ink/70">{r.email ?? '—'}</span>,
+                cell: (r) => <span className="text-ink/70">{displayAccountEmail(r.email) ?? '—'}</span>,
               },
               {
                 header: 'Requested',
@@ -337,7 +337,7 @@ export async function VendorsSurface({
                 mono: true,
                 cell: (r) => (
                   <span className="text-ink/70">
-                    {r.sent_at ? new Date(r.sent_at).toLocaleDateString('en-PH') : '—'}
+                    {r.sent_at ? new Date(r.sent_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }) : '—'}
                   </span>
                 ),
               },
@@ -457,7 +457,7 @@ export async function VendorsSurface({
                       </code>
                       {v.expires_at ? (
                         <p className="mt-1 text-ink/45">
-                          Expires {new Date(v.expires_at).toLocaleDateString('en-PH')}
+                          Expires {new Date(v.expires_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })}
                         </p>
                       ) : null}
                     </details>

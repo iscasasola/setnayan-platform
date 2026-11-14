@@ -18,6 +18,8 @@ import {
   makerPartQuietRow,
   makerPartToolFor,
   makerPartToolWhy,
+  makerPartToolLock,
+  makerPartEditsTheDate,
   makerPartParent,
   MAKER_COVER_SCENE,
   MAKER_COVER_SCENE_DOOR,
@@ -98,6 +100,8 @@ import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas, blockTakesGround } fr
 import { BlockGroundRows } from './stage-panel/block-background';
 import { CameraPage } from './stage-panel/camera-page';
 import { CameraPartNote } from './stage-panel/camera-face';
+import { ToolLock } from './stage-panel/tool-lock';
+import { DateEdit } from './stage-panel/date-edit-lazy';
 import { keepPostEventWords, postEventAbout, postEventSceneNow } from './stage-panel/post-event-edit';
 import { PostEventShown } from './stage-panel/post-event-shown';
 import { POST_EVENT_ABOUT } from '../../website/editor/_components/post-event-scene-panel';
@@ -1415,8 +1419,18 @@ export function StageTools({
     const empty = blockAt && !blockIsReal && (t === 'bg' || t === 'animate') ? BLOCK_EMPTY_WHY : undefined;
     return sample ?? empty ?? makerPartToolWhy(picked, t);
   };
+  /** 🔒 The locked tab last tapped on the picked part — its rows say Problem → Solution until another tab or part. */
+  const [lockTool, setLockTool] = useState<MakerPartTool | null>(null);
+  useEffect(() => setLockTool(null), [picked, rsvpLine]);
+  const lockShown: MakerPartTool | null = picked !== null && lockTool !== null && !toolWorks(lockTool) ? lockTool : null;
+  const lock = lockShown ? makerPartToolLock(picked, lockShown, whyNot(lockShown)) : null;
+  /** 📷 The Camera keeps ONE style (owner 2026-11-13): its Style is a locked tab too — drawn by `CameraPartNote`. */
+  const tabLocked = (t: MakerPartTool) => !toolWorks(t) || (t === 'style' && cameraOpen);
   const pickTool = (t: MakerPartTool) => {
-    if (!toolWorks(t)) return setWhy((w) => ({ words: whyNot(t), n: (w?.n ?? 0) + 1 }));
+    /* 🔒 A LOCKED TAB OPENS ITS PROBLEM → SOLUTION IN THE ROWS (Maker Edit shell v3, owner-approved 2026-11-13) — it
+       was a toast over rows left blank. With nothing picked every tool is live, so this is always a part's. */
+    if (!toolWorks(t)) return setLockTool(t);
+    setLockTool(null);
     setTool(t);
     setStowed(false);
     /* Nothing picked: the tool is remembered for the next part. The Reveal's body is this toolbar's own. */
@@ -1738,6 +1752,7 @@ export function StageTools({
       /* 🎭 🎬 …and the Cover Scene's Opening and its one entrance: rows of this toolbar's own too. */
       data-stage-cover-rows={coverStyle || coverAnimate ? '' : undefined}
       data-stage-tool-now={shownTool}
+      data-stage-locked={lockShown ? '' : undefined}
       data-stage-row4={lookOn ? '' : undefined}
       aria-hidden={away || undefined}
       className={`relative flex min-h-0 flex-1 flex-col rounded-t-2xl bg-[var(--sp-page)] px-[10px] shadow-[inset_0_1px_0_var(--sp-line2)] transition-transform ease-out motion-reduce:transition-none ${away ? 'pointer-events-none translate-y-[110%]' : ''}`}
@@ -1765,6 +1780,9 @@ export function StageTools({
       <style>
         {`html:has([data-stage-tools]){${STAGE_PANEL_VARS}}` +
           STAGE_BAR_ROW_VARS +
+          /* 🔒 A locked tab: "🔒 Background" (Maker Edit shell v3, owner-approved 2026-11-13) — at EVERY width, so it sits
+             outside the phone-only block below (it was inside it, and the desktop's tabs lost their lock — W1, 2026-11-14). */
+          '[data-stage-tools] [data-stage-tool][data-stage-tool-locked]::before{content:"🔒\\00a0";font-size:.85em}' +
           '@media (max-width:1023.98px){' +
           '[data-maker-lower-third]:has(>[data-stage-tools])>:not([data-stage-tools]){display:none}' +
           '[data-maker-lower-third]:has(>[data-stage-tools]){transition:height 240ms cubic-bezier(.16,1,.3,1);background:var(--sp-paper)!important;border-top:0!important;padding:0!important;gap:0!important;box-shadow:none!important}' +
@@ -1781,6 +1799,8 @@ export function StageTools({
           /* 🧱 …and the other way round: a fixed block's Animate is drawn HERE, in the toolbar's own rows
              (`BlockAnimateRows`), so the work area's tool stands aside for it as it does for Edit. */
           '[data-maker-shell]:has([data-stage-tools][data-stage-own-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
+          /* 🔒 …and a locked tab's Problem → Solution: rows of this toolbar's own, over every tool's body. */
+          '[data-maker-shell]:has([data-stage-tools][data-stage-locked]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           '[data-maker-shell]:has([data-stage-tools][data-stage-cover-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           /* …and while the toolbar itself is AWAY (▶ playing, the whole-page preview, typing): the work area's tool lay
              over the four rows, so it goes with them — seen on the review copy, 2026-10-09: it stayed on the page under
@@ -1924,10 +1944,12 @@ export function StageTools({
               key={t}
               type="button"
               /* The thumb rests on the tool whose rows are on screen — never on one with nothing to set here. */
-              aria-pressed={shownTool === t}
+              aria-pressed={(lockShown ?? shownTool) === t}
               /* Grey, and it still hears a tap — the tap says why (`pickTool`). Never `disabled`: that is a dead tap. */
               aria-disabled={toolWorks(t) ? undefined : true}
               data-stage-tool={t}
+              /* 🔒 A locked tab wears the lock before its word (the rule set draws it — the button stays its word). */
+              data-stage-tool-locked={tabLocked(t) ? '' : undefined}
               data-seg-inset={STAGE_TOOL_INSET}
               onClick={() => pickTool(t)}
               className={STAGE_TOOL_BUTTON}
@@ -1972,6 +1994,16 @@ export function StageTools({
       {/* ══ THE FOUR ROWS — Edit's are drawn here; the work area's tool lies over this same box for the other three.
           Nothing picked: empty (the prototype's `drawStrip` with no part). ══ */}
       <div ref={rowsRef} data-stage-rows="" className="relative flex min-h-0 flex-1 flex-col [&>*]:!mt-0">
+        {/* ══ 🔒 A LOCKED TAB — Problem → Solution, over whatever the part's other tool drew (owner-approved 2026-11-13) ══ */}
+        {lock && !away ? (
+          <div className="absolute inset-0 z-[3] flex flex-col bg-[var(--sp-page)]" data-stage-lock-on={lockShown ?? ''}>
+            <ToolLock
+              problem={lock.problem}
+              solution={gearText(lock.solution)}
+              door={lock.door && !rsvpOpen ? { label: MAKER_COVER_SCENE_DOOR, onPress: () => (setLockTool(null), pickPartRef.current(lock.door ?? MAKER_COVER_SCENE)) } : null}
+            />
+          </div>
+        ) : null}
         {lookOn && lookTarget ? (
           <div className={SP_ROWS} data-stage-look="">
             <div className="row-start-4 min-w-0">
@@ -1989,6 +2021,9 @@ export function StageTools({
         {editOn && picked === MAKER_COVER_SCENE && !rsvpOpen ? (
           /* ✏️ COVER SCENE › EDIT — its lines, each with the house switch (owner-approved 2026-10-16). */
           <CoverLines lines={coverLines} onPick={(k) => pickPartRef.current(k)} onSay={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
+        ) : editOn && !rsvpOpen && makerEventId && makerPartEditsTheDate(picked) ? (
+          /* 📅 THE DATE, IN PLACE — the day, and one button into the shipped date sheet (owner-approved 2026-11-13). */
+          <DateEdit eventId={makerEventId} />
         ) : editOn && !rsvpLineTypes ? (
           <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} last={ownPhotoRow} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : (venuePictureRows ?? sectionNameRows)} />
         ) : null}

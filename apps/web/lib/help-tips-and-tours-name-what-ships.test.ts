@@ -13,13 +13,15 @@
  * own labels). The proof is checked first, so this guard cannot keep forbidding a word for a thing that has
  * come back — it fails and says so, and the entry is taken out. The things:
  *   1. the cookie banner and analytics cookies (essential cookies only, 2026-10-22 — PostHog removed);
- *   2. Event Hub Plus (retired — Event Hub Pro is the one paid Event Hub);
+ *   2. Event Hub Plus (retired — the paid plans for an event are Event Plus and Event Pro);
  *   3. the token wallet (retired 2026-05-11 — apply-then-pay, PHP-direct);
  *   4. "celebration" (the house word is "event");
  *   5. More as a PLACE on a bar that has no More — the supplier bar (Today · Customers · Shop · Hub, since
  *      2026-10-21), the account bar (Events · People · Shop · Memories · Discover, 2026-11-11), and the iPhone app's event bar
  *      (Home · Guests · Suppliers · Hub, #6725). The bar's labels are READ from its own source, so when the web
- *      event bar loses More too (#6791) this is extended by adding one audience, not by rewording a list.
+ *      event bar loses More too (#6791) this is extended by adding one audience, not by rewording a list;
+ *   6. "Event Hub Pro" (folded into Event Pro — couples see Free · Event Plus · Event Pro, 2026-11-13). HELP ONLY for
+ *      now: the tours and the ⓘ are another build's and still say it; widen `only` the day they are renamed.
  *
  * WHERE IT LOOKS: every public help string (`HELP_TOPICS`, the app's own `appBody`), every tour string
  * (`TOURS` — labels, slides, spotlight stops, finales, the switched-off carousels too, since they are the
@@ -131,7 +133,8 @@ function infoTipTexts(): Array<Text & { audience: Audience }> {
 
 /* ══ the removed things, each with its proof ═════════════════════════════════════════════════════════════ */
 
-type Gone = { name: string; re: RegExp; proof: () => string | null };
+/** `only: 'help'` — held on the Help strings alone (the other surfaces are renamed by their own build). */
+type Gone = { name: string; re: RegExp; proof: () => string | null; only?: 'help' };
 
 /** Labels a bar's own source gives its tabs (`label: 'Today'`), read from the file the bar is drawn from. */
 function barLabels(rel: string, from: RegExp): string[] {
@@ -165,6 +168,21 @@ const GONE: Gone[] = [
     proof: () => null,
   },
   { name: '"celebration" (say "event")', re: /\bcelebrations?\b/i, proof: () => null },
+  {
+    // Proof: the plan the couple is sold is NAMED Event Pro where it is sold — the iPhone app's product and the
+    // /features plan cards — and no plan card is called Event Hub Pro. If either reads Event Hub Pro again, it is back.
+    name: 'Event Hub Pro (now Event Pro)',
+    re: /\bEvent Hub Pro\b|\bPro Event Hub\b|\bEvent Hub PRO\b/i,
+    proof: () => {
+      const iap = read('lib/iap/products.ts');
+      if (!/appStoreName:\s*'Event Pro'/.test(iap)) return 'lib/iap/products.ts no longer sells a product named Event Pro';
+      const plans = read('lib/features-page.ts');
+      if (!/name:\s*'Event Pro'/.test(plans)) return 'lib/features-page.ts has no plan card named Event Pro';
+      if (/name:\s*'Event Hub Pro'/.test(plans)) return 'lib/features-page.ts has a plan card named Event Hub Pro';
+      return null;
+    },
+    only: 'help',
+  },
 ];
 
 /** More named as a PLACE — "in More", "tap More", "the More tab", "Shop and More", "More ›". */
@@ -187,9 +205,11 @@ test('🔑 every removed thing is still removed (the proof behind each forbidden
 
 test('no Help, tour or ⓘ string names a removed thing', () => {
   const offenders: string[] = [];
-  const all = [...helpTexts(), ...tourTexts(), ...infoTipTexts()];
+  const help = helpTexts();
+  const all = [...help, ...tourTexts(), ...infoTipTexts()];
   for (const { where, text } of all) {
     for (const g of GONE) {
+      if (g.only === 'help' && !help.some((h) => h.where === where)) continue;
       const m = g.re.exec(text);
       if (m) offenders.push(`${where}: ${g.name} — "…${text.slice(Math.max(0, m.index - 30), m.index + m[0].length + 30).replace(/\s+/g, ' ')}…"`);
     }
@@ -197,6 +217,7 @@ test('no Help, tour or ⓘ string names a removed thing', () => {
   // An ⓘ often reads a constant from its own file — so the removed-thing words are not in the file at all.
   for (const { rel, code } of INFO_TIP_HOSTS) {
     for (const g of GONE) {
+      if (g.only === 'help') continue;
       const m = g.re.exec(code);
       if (m) offenders.push(`${rel} (draws an ⓘ): ${g.name} — "${m[0]}"`);
     }

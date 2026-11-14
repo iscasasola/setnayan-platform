@@ -9,7 +9,7 @@
  *
  *   New hangout
  *   EVENT NAME [ … ] · WHERE [ … ] · WHEN (optional) [ … ]
- *   WHAT DO YOU NEED?  [ Simple event · Papic + one QR ▾ ]
+ *   WHAT DO YOU NEED?  [ Just photos and one QR for everyone ▾ ]
  *   ✓ Photos with Papic        always on
  *   ✓ One QR for everyone      no guest list
  *   ○ Guest list & replies     off

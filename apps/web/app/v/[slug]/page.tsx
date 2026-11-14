@@ -16,6 +16,7 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
+import { cache } from 'react';
 import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle, Store } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { DemoOnlyMarker, DEMO_ONLY_LABEL, SampleMarker } from '@/app/_components/sample-marker';
@@ -155,6 +156,7 @@ import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import { readShopWork } from '@/lib/card-portfolio-albums.server';
+import { startRead } from '@/lib/start-read';
 import { cardAlbums, eventPhotosOf, toAlbumViews, type AlbumView } from '@/lib/card-portfolio-albums';
 import { servicesFromCards } from '@/lib/photos-by-service';
 import { PhotosByServiceRow } from './_components/photos-by-service';
@@ -469,7 +471,9 @@ async function viewerIsShopTeam(vendor: Pick<PublicVendorRow, 'vendor_profile_id
 // `vendorMetadataBySlug` uses, including its full-select-then-legacy-select
 // fallback (a second hand-rolled query would silently fall out of sync with
 // this one the next time a column is added or renamed here).
-export async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
+// ⚡ One read per render (speed pass 2026-11-14): `generateMetadata` and the page body each asked for the same shop row
+// before the first byte. `cache()` hands them one answer; outside a render (the OG route) it reads as before.
+export const fetchVendor = cache(async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   const admin = createAdminClient();
   // The `is_demo` column ships in a parallel PR (marketplace simulation
   // workstream, Agent 1). If that PR hasn't landed yet on `main`,
@@ -519,7 +523,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
       .maybeSingle());
   }
   return (data ?? null) as PublicVendorRow | null;
-}
+});
 
 /**
  * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. It holds `r2://bucket/key` for
@@ -1107,6 +1111,28 @@ export async function renderVendorBySlug({
   // this vendor). Founder-only marketplace → [] today; the section hides itself.
   // A REFUSED read is not the same [] — say we couldn't check instead of
   // silently reading as "nobody endorsed this shop" (S41, reads-are-honest).
+  /* ⚡ "Trusted by", the typical price, the favourites count and the awards each need only the shop row and the batch
+     above — they START together here and are still awaited where they were (speed pass 2026-11-14: they ran one after
+     another before this page's first byte). Same reads, same fail-softs, same "couldn't check" markers. */
+  const verifiedMedianP = startRead(
+    verifiedMedianEnabled() && !hidePricesPublicly
+      ? fetchVendorVerifiedMedian(vendor.vendor_profile_id)
+      : Promise.resolve(null),
+  );
+  const awardsP = startRead(fetchVendorCurrentAwards(admin, vendor.vendor_profile_id).catch(() => []));
+  const favoritesCountP = startRead((async () => {
+    const { data, error } = await admin.rpc('count_saves_for_vendor', {
+      p_vendor_profile_id: vendor.vendor_profile_id,
+    });
+    if (error) {
+      // The fail-soft (hide the badge) stays — see the comment above — but a
+      // refused call should not vanish the way the pre-20271141980127 P0001s did.
+      logQueryError('app/v/[slug]/page.tsx: count_saves_for_vendor', error, {
+        vendor_profile_id: vendor.vendor_profile_id,
+      });
+    }
+    return !error && typeof data === 'number' ? data : 0;
+  })());
   const trustedByRead = await fetchTrustedByVendors(admin, vendor.vendor_profile_id);
   const trustedByUnreadable = trustedByRead === TRUSTED_BY_UNREADABLE;
   const trustedBy = trustedByUnreadable ? [] : trustedByRead;
@@ -1115,10 +1141,7 @@ export async function renderVendorBySlug({
   // The median of this vendor's OWN locked-booking declared prices. Read ONLY
   // when the flag is on AND the vendor isn't hiding prices publicly. Returns the
   // vendor's own rounded typical price — no cross-vendor comparison (comp-law).
-  const verifiedTypicalPrice =
-    verifiedMedianEnabled() && !hidePricesPublicly
-      ? await fetchVendorVerifiedMedian(vendor.vendor_profile_id)
-      : null;
+  const verifiedTypicalPrice = await verifiedMedianP;
 
   // Favorites count (owner 2026-07-02: favorites PUBLIC / viewers vendor-only) —
   // distinct couples who follow OR saved this vendor (count_saves_for_vendor
@@ -1141,19 +1164,7 @@ export async function renderVendorBySlug({
   //
   // The fail-soft stays: a transient blip must hide the badge, never break a
   // public shop page. But it is now the LAST resort rather than the only path.
-  const favoritesCount = await (async () => {
-    const { data, error } = await admin.rpc('count_saves_for_vendor', {
-      p_vendor_profile_id: vendor.vendor_profile_id,
-    });
-    if (error) {
-      // The fail-soft (hide the badge) stays — see the comment above — but a
-      // refused call should not vanish the way the pre-20271141980127 P0001s did.
-      logQueryError('app/v/[slug]/page.tsx: count_saves_for_vendor', error, {
-        vendor_profile_id: vendor.vendor_profile_id,
-      });
-    }
-    return !error && typeof data === 'number' ? data : 0;
-  })();
+  const favoritesCount = await favoritesCountP;
 
   // Spec §5 experience tier — surfaced as a subtle hero badge. We render the
   // tier even for "New to Setnayan" on the profile (honest, not negative).
@@ -1163,7 +1174,7 @@ export async function renderVendorBySlug({
   // 🏅 The pills (lib/shop-badges.ts). Verified has its own gate below (the route's strict `verification_state`), so it
   // is left out here; the ★ pill keeps the Free-tier star gate it always had. Awards fail soft to none (the shipped
   // `fetchVendorCurrentAwards` contract).
-  const spotlightAwards = await fetchVendorCurrentAwards(admin, vendor.vendor_profile_id).catch(() => []);
+  const spotlightAwards = await awardsP;
   const pagePills = shopBadges({
     verified: false,
     completedEvents: bookingCountMeasured ? (finalizedBookingCount ?? 0) : null,
@@ -1304,6 +1315,12 @@ export async function renderVendorBySlug({
   //
   // Flag-gated so OFF costs not one extra query — the map stays empty, every
   // card's `record` is null, and the gallery renders byte-identically to today.
+  // ⚡ The shop's work and the card records need only the live services — asked together (speed pass 2026-11-14).
+  const shopWorkP = cardRecordEnabled()
+    ? startRead(
+        readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds }).catch(() => null),
+      )
+    : undefined;
   const cardRecordByService = cardRecordEnabled()
     ? await fetchServiceCardRecords(admin, activeServiceIds)
     : new Map<string, CompiledCardRecord>();
@@ -1313,9 +1330,7 @@ export async function renderVendorBySlug({
   // No ids reach the page: `toAlbumViews` without an href is labels and photo URLs only.
   // 📸 …and the same read gives each card its event photos for PHOTOS BY SERVICE (owner 2026-11-14): one entry per
   // photo, captioned kind · month, keyed to an opaque per-page event number — never the event id.
-  const shopWork = cardRecordEnabled()
-    ? await readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds }).catch(() => null)
-    : undefined;
+  const shopWork = shopWorkP === undefined ? undefined : await shopWorkP;
   const albumsByService: Map<string, AlbumView[] | null> | null =
     shopWork === undefined
       ? null

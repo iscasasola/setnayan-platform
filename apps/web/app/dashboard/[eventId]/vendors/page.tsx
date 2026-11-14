@@ -529,6 +529,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // 🧾 Each self-added card priced per guest / per hour: "₱1,350 per guest · 120 counted · ₱162,000" (owner-approved
   // 2026-11-13). `null` = refused — the cards then draw their one total as shipped, never a made-up line.
   const selfAddedPriceLinesRead = startRead(readSelfAddedPriceLines(supabase, eventId));
+  // ⚡ The one-per-event groups need nothing but the session — started with the rest (speed pass 2026-11-14; it was
+  // awaited alone, mid-page). It never throws; awaited where it was.
+  const onePerEventStarted = startRead(readOnePerEventGroups(supabase));
   // The bottom search's EMPTY STATE (owner 2026-10-21 — the big "Find a supplier"
   // button is gone; the search shows the categories when nothing is typed): the
   // Find page's own list, from the Find page's own read (`lib/supplier-find-read.ts`).
@@ -1398,7 +1401,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
   // ONE PER EVENT — the categories' switch (owner 2026-10-29), read once; display-only here (the database guard
   // refuses a second booking where it is on, whatever this read says).
-  const onePerEventRead = await readOnePerEventGroups(supabase);
+  const onePerEventRead = await onePerEventStarted;
   const onePerEventGroups = onePerEventRead.ok ? onePerEventRead.groups : new Set<string>();
   // eslint-disable-next-line no-console
   if (!onePerEventRead.ok) console.warn('[suppliers] One per event unreadable — every category drawn as multi-pick');
@@ -2605,34 +2608,38 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       try {
         const admin = createAdminClient();
         const byColumn: Record<string, CompareDatesInfo> = {};
-        for (const col of cols) {
-          const set = col.picks
-            .map((p) => (p.vendorId ? profileByVendorId.get(p.vendorId) : undefined))
-            .filter((x): x is { profileId: string; name: string } => Boolean(x));
-          if (set.length === 0) {
-            byColumn[col.key] = {
-              connectedCount: 0,
-              totalAvailable: 0,
-              dayLabels: [],
-              moreCount: 0,
-              conflictText: null,
-            };
-            continue;
-          }
-          const r = await getAvailableDaysForVendorSet(admin, set, range.start, range.end);
-          byColumn[col.key] = {
-            connectedCount: r.connectedVendorCount,
-            totalAvailable: r.availableDayKeys.length,
-            dayLabels: r.availableDayKeys.slice(0, 3).map(fmt),
-            moreCount: Math.max(0, r.availableDayKeys.length - 3),
-            conflictText:
-              r.availableDayKeys.length === 0
-                ? r.conflictPair
-                  ? `No single date works — ${r.conflictPair[0]} and ${r.conflictPair[1]} don't overlap. Swap one.`
-                  : 'No single date works for this combination — swap a supplier.'
-                : null,
-          };
-        }
+        // ⚡ Each column's dates are its own question — asked together, not one after another (speed pass 2026-11-14).
+        // A failure still lands in the same catch below; the columns keep their order.
+        const answered = await Promise.all(
+          cols.map(async (col): Promise<readonly [string, CompareDatesInfo]> => {
+              const set = col.picks
+                .map((p) => (p.vendorId ? profileByVendorId.get(p.vendorId) : undefined))
+                .filter((x): x is { profileId: string; name: string } => Boolean(x));
+              if (set.length === 0) {
+                return [col.key, {
+                  connectedCount: 0,
+                  totalAvailable: 0,
+                  dayLabels: [],
+                  moreCount: 0,
+                  conflictText: null,
+                }] as const;
+              }
+              const r = await getAvailableDaysForVendorSet(admin, set, range.start, range.end);
+              return [col.key, {
+                connectedCount: r.connectedVendorCount,
+                totalAvailable: r.availableDayKeys.length,
+                dayLabels: r.availableDayKeys.slice(0, 3).map(fmt),
+                moreCount: Math.max(0, r.availableDayKeys.length - 3),
+                conflictText:
+                  r.availableDayKeys.length === 0
+                    ? r.conflictPair
+                      ? `No single date works — ${r.conflictPair[0]} and ${r.conflictPair[1]} don't overlap. Swap one.`
+                      : 'No single date works for this combination — swap a supplier.'
+                    : null,
+              }] as const;
+          }),
+        );
+        for (const [key, info] of answered) byColumn[key] = info;
         return {
           windowLabel: formatEventDateWithPrecision(eventDate, matchPrecision).replace(
             /^Sometime in /,

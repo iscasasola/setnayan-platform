@@ -53,13 +53,16 @@ export async function fetchVendorSpecializationSubscription(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<VendorSubscriptionState> {
-  const effectiveTier = await resolveVendorTier(supabase, vendorProfileId);
-
-  const { data } = await supabase
-    .from('vendor_profiles')
-    .select('tier_state, tier_expires_at')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
+  // ⚡ Neither waits on the other — asked together (speed pass 2026-11-14; was one after the other). Same reads, same
+  // graceful degrade (a missing row still leaves the expiry at null).
+  const [effectiveTier, { data }] = await Promise.all([
+    resolveVendorTier(supabase, vendorProfileId),
+    supabase
+      .from('vendor_profiles')
+      .select('tier_state, tier_expires_at')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle(),
+  ]);
 
   const row = (data as TierRow | null) ?? null;
   const rowTier = asVendorTier(row?.tier_state);

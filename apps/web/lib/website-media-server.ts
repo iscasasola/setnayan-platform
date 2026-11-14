@@ -1,4 +1,5 @@
 import 'server-only';
+import { startRead } from '@/lib/start-read';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, R2_BUCKETS, r2Delete, r2List } from '@/lib/r2';
@@ -197,16 +198,19 @@ async function readNavIconRefs(): Promise<ReferenceLookup> {
  */
 async function readHubMusicRefs(): Promise<ReferenceLookup> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from('hub_music_tracks').select('r2_key');
+  // ⚡ The two lists do not wait on each other — asked together (speed pass 2026-11-14). Each refusal is still said,
+  // the music list's first, exactly as before.
+  const [{ data, error }, { data: playing, error: playingError }] = await Promise.all([
+    supabase.from('hub_music_tracks').select('r2_key'),
+    supabase
+      .from('events')
+      .select('site_bg_music_r2_key')
+      .like('site_bg_music_r2_key', `${hubMusicRefForKey(HUB_MUSIC_PREFIX)}%`),
+  ]);
 
   if (error) {
     return { ok: false, reason: `Could not read the Event Hub music list (${error.message}).` };
   }
-
-  const { data: playing, error: playingError } = await supabase
-    .from('events')
-    .select('site_bg_music_r2_key')
-    .like('site_bg_music_r2_key', `${hubMusicRefForKey(HUB_MUSIC_PREFIX)}%`);
 
   if (playingError) {
     return {
@@ -315,10 +319,26 @@ export async function loadWebsiteMedia(): Promise<WebsiteMediaReport> {
     };
   }
 
-  const sources = await readAllSources();
+  /* ⚡ The seven folder listings and the reference reads do not wait on each other — they all leave at once (speed
+     pass 2026-11-14; the folders were listed one after another, AFTER the reads). Each listing still fails on its own
+     and is still SHOWN with its error; the groups keep the folders' order. */
+  const sourcesP = startRead(readAllSources());
+  const listings = await Promise.all(
+    SITE_MEDIA_PREFIXES.map((p) =>
+      r2List({
+        bucket: R2_BUCKETS.media,
+        prefix: p.prefix,
+        maxKeys: MAX_KEYS_PER_PREFIX,
+      }).then(
+        (listed) => ({ listed, failed: null as unknown }),
+        (err: unknown) => ({ listed: null, failed: err }),
+      ),
+    ),
+  );
+  const sources = await sourcesP;
   const groups: MediaGroup[] = [];
 
-  for (const prefix of SITE_MEDIA_PREFIXES) {
+  for (const [index, prefix] of SITE_MEDIA_PREFIXES.entries()) {
     const source = SOURCE_FOR_PREFIX[prefix.prefix];
     const lookup: ReferenceLookup = source
       ? sources[source]
@@ -332,20 +352,16 @@ export async function loadWebsiteMedia(): Promise<WebsiteMediaReport> {
     let truncated = false;
     let listingError: string | undefined;
 
-    try {
-      const listed = await r2List({
-        bucket: R2_BUCKETS.media,
-        prefix: prefix.prefix,
-        maxKeys: MAX_KEYS_PER_PREFIX,
-      });
+    const { listed, failed } = listings[index]!;
+    if (listed) {
       truncated = listed.truncated;
       objects = listed.objects.map((o) => ({
         key: o.key,
         size: o.size,
         lastModified: o.lastModified ? o.lastModified.toISOString() : null,
       }));
-    } catch (err) {
-      listingError = err instanceof Error ? err.message : String(err);
+    } else {
+      listingError = failed instanceof Error ? failed.message : String(failed);
     }
 
     // A folder that failed to list is SHOWN, with its error — omitting it would

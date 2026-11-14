@@ -234,6 +234,8 @@ import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { HOSTS_ONLY } from '@/lib/money-mask';
 import { StayForm } from '@/app/_components/stay-form';
 import { readOneBookingMoney } from '@/lib/event-vendor-money';
+// ⚡ The event date, three times a view, answered from the layout's ONE read of the row (speed pass 2026-11-14).
+import { eventRowOnce } from '@/lib/event-row-once';
 
 export const metadata = { title: 'Service workspace' };
 
@@ -667,7 +669,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // 📅 …AND ONLY ONCE THE DAY HAS PASSED (walk 13 Nov 2026, F-W1-72): it was offered — and pre-ticked — 179 days before
   // the event with nothing paid. A supplier cannot have delivered an event that has not happened; a refused or empty
   // date read offers nothing (never a guess). The box itself now starts unticked (`HandoverInbox`).
-  const { data: deliverDateRow, error: deliverDateError } = await supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle();
+  const { data: deliverDateRow, error: deliverDateError } = await eventRowOnce(supabase, eventId, 'event_date', () => supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle());
   // A refused read offers nothing (the box waits for a day it can prove has passed) — and is logged, never silent.
   if (deliverDateError) logQueryError('CoupleVendorWorkspace.deliverDate', deliverDateError, { eventId }, 'graceful_degrade');
   const deliverEventDate = (deliverDateRow as { event_date?: string | null } | null)?.event_date ?? null;
@@ -1369,7 +1371,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         .eq('vendor_profile_id', ev.marketplace_vendor_id)
         .eq('status', 'accepted')
         .limit(1),
-      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+      eventRowOnce(supabase, eventId, 'event_date', () => supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle()),
     ]);
     if (aqErr) {
       logQueryError('VendorWorkspacePage.acceptedQuote', aqErr, { eventId }, 'graceful_degrade');
@@ -2808,7 +2810,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         .eq('vendor_id', ev.vendor_id)
         .eq('event_id', eventId)
         .maybeSingle(),
-      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+      eventRowOnce(supabase, eventId, 'event_date', () => supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle()),
     ]);
     if (complRowError) {
       logQueryError('VendorWorkspacePage.complRow', complRowError, { event_id: eventId }, 'graceful_degrade');

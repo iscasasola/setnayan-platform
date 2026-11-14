@@ -21,7 +21,7 @@ import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
  *   · the branded `/{slug}/invite` address when the event has a slug, else the
  *     opaque token URL;
  *   · the QR wears the event's look (`qrLookFromRow` — the Setnayan mark free,
- *     the couple's own on Event Hub Pro).
+ *     the couple's own on Event Pro).
  *
  * Read with the caller's session for the token and event (RLS), the look
  * through the admin client AFTER the caller's couple check (`invite-panel.tsx`).

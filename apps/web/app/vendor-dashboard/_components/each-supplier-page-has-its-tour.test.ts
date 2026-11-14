@@ -43,7 +43,7 @@ const DRAWN: Record<(typeof SUPPLIER_PAGE_TOURS)[number], string[]> = {
   vendor_dates_v1: ['dates-calendar', 'customers-add'],
   vendor_money_v1: ['money-summary', 'money-next', 'money-log', 'money-fees'],
   // Reading order since 2026-10-25 (the next events sit above the quiet day's panel), + the event day's own stop.
-  vendor_hub_v1: ['hub-next-days', 'hub-empty', 'hub-day-launch', 'hub-setup'],
+  vendor_hub_v1: ['hub-next-days', 'hub-empty', 'hub-day-launch', 'hub-post-update', 'hub-setup'],
   // + Owner 2026-10-25, "the spotlight tour is missing so many parts for each page".
   // THE ONE BUILD A13 (8 Nov): the new Today's stops (v2 was the Next card's).
   vendor_today_v3: ['supplier-messages', 'today-cover', 'today-next-events', 'today-stats', 'today-needs', 'today-show'],

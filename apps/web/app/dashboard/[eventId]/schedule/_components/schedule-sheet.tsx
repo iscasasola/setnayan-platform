@@ -103,7 +103,7 @@ export function ScheduleSheet({
             {title}
           </h2>
           {/* Two lines at most, never cut mid-word (frame 13's "2 at a time on a phone · green = lowest total"). */}
-          {aside ? <span className="ml-auto line-clamp-2 min-w-0 text-right text-[13px] leading-snug text-ink/55">{aside}</span> : null}
+          {aside ? <span className="ml-auto line-clamp-2 min-w-0 text-right text-[13px] leading-snug text-ink/70">{aside}</span> : null}
         </div>
         <div className="flex-1 space-y-3.5 px-5 pb-4 pt-2" data-sheet-body="">
           {children}

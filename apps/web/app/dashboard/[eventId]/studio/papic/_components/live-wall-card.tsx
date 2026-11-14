@@ -66,15 +66,15 @@ export async function LiveWallCard({
     // (Rare: bundle owners are always Papic-active; this is the à-la-carte
     // LIVE_WALL-without-Papic case.) Point them at the Papic setup.
     return (
-      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+      <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
           <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
           Memory lane
         </h2>
-        <p className="mt-1 text-sm text-ink/60">
-          Memory lane projects your Papic photos — set up your Papic crew first and
+        <InfoTip labelAs="p" label="Memory lane projects your Papic photos" labelClassName="text-sm text-ink/70" className="mt-1" align="start">
+          set up your Papic crew first and
           your Memory lane controls appear here.
-        </p>
+        </InfoTip>
         <Link
           href={`/dashboard/${eventId}/studio/papic/crew`}
           className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-700"
@@ -93,7 +93,7 @@ export async function LiveWallCard({
   const active = await eventSkuActive(ent, eventId, 'LIVE_WALL');
   if (!active) {
     return (
-      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+      <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
           <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
           Memory lane
@@ -183,7 +183,7 @@ export async function LiveWallCard({
   }
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+    <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
@@ -207,14 +207,14 @@ export async function LiveWallCard({
               stop it is worse than not telling them, and a switch with no
               explanation beside it is not a choice either. The fact is here; the
               switch is one card down, in LiveWallControls. */}
-          <p className="mt-1 text-sm text-ink/60">
-            Project the day&rsquo;s photos at the venue as they&rsquo;re shot. Open{' '}
+          <InfoTip labelAs="p" label="Project the day&rsquo;s photos at the venue as they&rsquo;re shot." labelClassName="text-sm text-ink/70" className="mt-1" align="start">
+            Open{' '}
             <span className="font-mono text-[13px] text-ink/80">{wallUrl}</span> on any
             screen&rsquo;s browser and enter a screen code. The same Memory lane also appears
             on your guests&rsquo; phones on your event page while the event is
             running — so everyone sees the photos, screen or no screen. If you
             would rather keep it to the venue, you can switch the phones off below.
-          </p>
+          </InfoTip>
         </div>
       </div>
       {controls}

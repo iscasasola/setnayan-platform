@@ -141,3 +141,16 @@ export function formatLongTimestamp(value: string | null | undefined): string {
   const manilaKey = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
   return formatLongDate(manilaKey);
 }
+
+/**
+ * 🗓 RW-87 (re-walk 14 Nov 2026): a day with its weekday AND year — "Fri, Dec 18, 2026" — read as a Manila day. For a
+ * day months away, where a date without its year is ambiguous. Null for anything that is not a day.
+ */
+export function weekdayDateWithYear(value: string | null | undefined): string | null {
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(value ?? '');
+  if (!m) return null;
+  const ms = Date.parse(`${m[1]}T12:00:00+08:00`);
+  return Number.isFinite(ms)
+    ? new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).format(ms)
+    : null;
+}

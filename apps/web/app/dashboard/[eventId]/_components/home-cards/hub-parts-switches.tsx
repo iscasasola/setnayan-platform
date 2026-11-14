@@ -135,14 +135,14 @@ export function HubPartsSwitches({ eventId, table, now }: { eventId: string; tab
                   <SwitchTrack on={on} />
                 </button>
               ) : (
-                <span className="text-[12.5px] text-ink/60">{on ? 'Always on' : 'Off'}</span>
+                <span className="text-[12.5px] text-ink/75">{on ? 'Always on' : 'Off'}</span>
               )
             }
           />
         );
       })}
       {line ? (
-        <p role="status" className="pt-2 text-[12.5px] text-ink/65" data-home-hub-line="">
+        <p role="status" className="pt-2 text-[12.5px] text-ink/75" data-home-hub-line="">
           {line}
         </p>
       ) : null}

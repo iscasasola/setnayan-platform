@@ -88,7 +88,7 @@ export async function TellTheHost({
           <Megaphone aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
           Tell the host
         </h3>
-        <p className="text-xs text-ink/60">
+        <p className="text-xs text-ink/70">
           Goes straight to the screen your host reads from. They see your note and nothing
           else of yours.
         </p>
@@ -134,7 +134,7 @@ export async function TellTheHost({
               className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta/50 focus:outline-none"
             />
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-ink/55">To {host.name}</span>
+              <span className="text-xs text-ink/70">To {host.name}</span>
               <SubmitButton
                 pendingLabel="Sending…"
                 overlay={false}
@@ -166,8 +166,8 @@ function SentList({ notes }: { notes: StageNote[] }) {
         <li key={n.noteId} className="flex items-start justify-between gap-3">
           <span className="text-xs leading-relaxed text-ink/70">{n.body}</span>
           <span
-            className={`mt-0.5 flex-none font-mono text-[10px] uppercase tracking-[0.14em] ${
-              n.readAt ? 'text-terracotta' : 'text-ink/40'
+            className={`mt-0.5 flex-none font-mono text-xs uppercase tracking-[0.06em] ${
+              n.readAt ? 'text-terracotta' : 'text-ink/70'
             }`}
           >
             {n.readAt ? 'Seen' : 'Sent'}

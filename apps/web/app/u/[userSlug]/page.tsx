@@ -48,6 +48,8 @@ import { formatAudienceCount } from '@/lib/creator-audience';
 import { fetchCreatorInquiriesDriven } from '@/lib/inquiry-attribution';
 import { ViewBeacon } from '@/app/u/_components/view-beacon';
 import { FollowButton } from '@/app/u/_components/follow-button';
+import { ConnectionAnswer } from '@/app/u/_components/connection-answer';
+import { profileShownName } from '@/lib/person-page-facts';
 import { MutualDays } from '@/app/u/_components/mutual-days';
 import { ProfileBack } from '@/app/u/_components/profile-back';
 import { SectionBar, type SectionTab } from '@/app/u/_components/section-bar';
@@ -119,7 +121,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  const name = resolved.user.display_name?.trim() || 'Setnayan';
+  const name = profileShownName(resolved.user) || 'Setnayan';
   const canonicalSlug = resolved.user.slug ?? userSlug;
   // Personalized share card (name + most-recent public hero) — item #7c. The OG
   // route re-checks the SAME enabled + ≥1-public-chapter gate before rendering a
@@ -542,7 +544,9 @@ export default async function AccountProfilePage({ params }: Props) {
   // empty state, where printing it would confirm "this slug exists and belongs
   // to <name>". A creator with a published chapter timeline counts as content.
   const hasPublicContent = mode !== 'empty' || hasChapters;
-  const displayName = user.display_name?.trim() || 'Events';
+  // 👤 F-W3-04/10/29: the display name, else the account's own first + last — never "Someone", never the handle.
+  const shownName = profileShownName(user);
+  const displayName = shownName || 'Events';
   // A viewer who knows them already reads their name on People — the page says it too. Everyone else keeps
   // the name-free heading on an empty profile (no name oracle).
   const knowsThem = viewerKnowsThem(viewer);
@@ -550,9 +554,9 @@ export default async function AccountProfilePage({ params }: Props) {
   const heading = hasPublicContent
     ? displayName
     : knowsThem
-      ? user.display_name?.trim() || 'Someone on Setnayan'
+      ? shownName || 'Someone on Setnayan'
       : 'A Setnayan profile';
-  const firstName = (user.display_name?.trim() || '').split(/\s+/)[0] || 'they';
+  const firstName = (shownName || '').split(/\s+/)[0] || 'they';
 
   /*
     🧭 THE SECTIONS, AND THE BAR THAT MOVES BETWEEN THEM (owner 13 Nov 2026, "SIMPLER TO MOVE AROUND" — prototype
@@ -607,7 +611,9 @@ export default async function AccountProfilePage({ params }: Props) {
           photoStyle={pictureFrameStyle(readProfilePhotoFrame(user))}
           initials={initialsFor(heading)}
           heading={heading}
-          handle={`${host}/u/${canonicalSlug}`}
+          // 🔒 F-W3-04/10/29: the address line is the handle the person CHOSE. With no slug the page is reached by the
+          // account's public id (`/u/S89U-…`) — a machine handle, never printed as if it were their address.
+          handle={user.slug ? `${host}/u/${canonicalSlug}` : null}
           relation={relation || null}
           badge={hasChapters ? <CreatorBadge size="md" /> : null}
           audience={
@@ -684,6 +690,9 @@ export default async function AccountProfilePage({ params }: Props) {
           }
           rule={false}
         />
+
+        {/* 🤝 F-W3-06: they asked you — answer here, the same two answers People › Requests gives. */}
+        {viewer?.answerConnectionId ? <ConnectionAnswer connectionId={viewer.answerConnectionId} name={shownName} /> : null}
 
         <SectionBar tabs={sectionTabs} />
 
@@ -762,7 +771,7 @@ export default async function AccountProfilePage({ params }: Props) {
             nothing; the island says "them" when it has nothing. */}
         <MutualDays
           profileUserId={user.user_id}
-          profileName={hasPublicContent || knowsThem ? (user.display_name?.trim() || null) : null}
+          profileName={hasPublicContent || knowsThem ? shownName : null}
         />
 
         {hasChapters ? (
@@ -1150,6 +1159,18 @@ const UPROF_CSS = `
   }
 
 ${PROFILE_HEADER_CSS}
+
+  /* 🤝 F-W3-06 — Accept · Decline under the header, for a viewer a request waits on. */
+  .uprof-answer {
+    margin: 0 0 1.25rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--m-line);
+    border-radius: var(--m-r-md, 14px);
+    background: var(--m-ivory);
+  }
+  .uprof-answer-line { margin: 0 0 0.6rem; font-size: 0.95rem; color: var(--m-ink); }
+  .uprof-answer-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .uprof-answer-error { margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--m-mulberry-deep); }
 
   /* ── 🪪 THE PERSON PAGE IN HOME'S SHAPE (owner 13 Nov 2026, "THREE PUBLIC PAGES APPROVED"; prototype
      public_pages_three_2026-11-13, Person frame). The shared header draws layout="home"; these rules are the

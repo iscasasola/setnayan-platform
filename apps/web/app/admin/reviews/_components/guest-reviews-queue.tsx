@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { ShieldCheck } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ReadFailed } from '../../_components/read-failed';
@@ -16,10 +17,12 @@ export function GuestReviewsQueue({ read }: { read: AdminGuestReviewsRead }) {
           <ShieldCheck aria-hidden className="h-4 w-4 text-link" strokeWidth={1.75} />
           Guest reviews
         </h2>
-        <p className="text-xs text-ink/55">
-          Public the moment a checked-in guest sends one. Hide one to take it off the shop&rsquo;s page, the shop&rsquo;s
+        <div>
+          <InfoTip label="About guest reviews" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Public the moment a checked-in guest sends one. Hide one to take it off the shop&rsquo;s page, the shop&rsquo;s
           list and the guests&rsquo; line. Guest stars never move a shop&rsquo;s overall.
-        </p>
+          </InfoTip>
+        </div>
       </header>
       {read.state === 'refused' ? (
         <ReadFailed what="the guest reviews" />
@@ -44,7 +47,7 @@ function GuestReviewAdminRow({ row }: { row: AdminGuestReviewRow }) {
       data-guest-review-admin={hidden ? 'hidden' : 'shown'}
     >
       <div className="min-w-0 space-y-1">
-        <p className="font-mono text-[11px] uppercase tracking-[0.15em]">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           {row.rating_overall}★ · {row.vendor_name ?? 'A shop'} · {row.shown_name} · {row.created_at.slice(0, 10)}
           {hidden ? ' · hidden' : ''}
         </p>

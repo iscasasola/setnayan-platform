@@ -1,5 +1,8 @@
+import { InfoTip } from '@/app/_components/info-tip';
+import { FieldPick } from '@/app/admin/_components/field-pick';
+import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Check } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -159,33 +162,17 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
           this queue. A judgement desk where not deciding is itself a decision
           has to say so on the screen. */}
       <PageMasthead title="Force majeure" />
-      <p className="mb-6 text-sm text-ink/70">
-        Inbound flags from <code className="text-xs">/dashboard/&lt;event&gt;/disputes</code>.
+      <div className="mb-6">
+        <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Inbound flags from <code className="text-xs">/dashboard/&lt;event&gt;/disputes</code>.
         7-day auto-resolution timer; review and route to one of 6 resolutions.
-      </p>
+        </InfoTip>
+      </div>
 
       <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
-        <label
-          htmlFor="filter"
-          className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55"
-        >
-          Filter
-        </label>
-        <select
-          id="filter"
-          name="filter"
-          defaultValue={filter}
-          className="input-field h-9 max-w-[18rem] py-0 text-sm"
-        >
-          {FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="button-secondary h-9 px-3 text-xs">
-          Apply
-        </button>
+        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Filter</span>
+        <FieldPick name="filter" label="Filter" defaultValue={filter} className="min-h-11 max-w-[18rem]" options={FILTER_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} />
+        <ActionButton tone="neutral" type="submit" icon={<Check aria-hidden />} label="Apply" />
       </form>
 
       {/* FAILS TOWARD THE CAVEAT — a row missing its labels must not read as a
@@ -193,7 +180,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
       {eventsError || handlersError ? (
         <p
           role="alert"
-          className="mb-4 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+          className="mb-4 border-l-2 border-[rgb(var(--color-warn))] py-2 pl-3 text-sm text-ink/70"
         >
           <strong className="text-ink">Some names could not be read.</strong>{' '}
           {eventsError ? 'Event names are missing, so rows show a dash. ' : ''}
@@ -232,7 +219,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
             cell: (f) => (
               <Link
                 href={`/admin/force-majeure/${f.flag_id}`}
-                className="font-mono text-[11px] uppercase tracking-[0.15em] text-link hover:underline"
+                className="text-link hover:underline text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
               >
                 {f.public_id}
               </Link>
@@ -245,7 +232,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
               return (
                 <>
                   <p className="font-medium text-ink">{ev?.display_name ?? '—'}</p>
-                  <p className="font-mono text-[10px] text-ink/70">{ev?.public_id ?? ''}</p>
+                  <p className="text-[12px] text-ink/70 tabular-nums">{ev?.public_id ?? ''}</p>
                 </>
               );
             },
@@ -258,7 +245,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
             header: 'Status',
             cell: (f) => (
               <span
-                className={`whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${FLAG_STATUS_TONE[f.status]}`}
+                className={`whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${FLAG_STATUS_TONE[f.status]}`}
               >
                 {FLAG_STATUS_LABEL[f.status]}
               </span>

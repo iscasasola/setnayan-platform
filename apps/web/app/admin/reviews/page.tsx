@@ -1,4 +1,5 @@
-import Link from 'next/link';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { Flag, Gavel, ShieldOff } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -284,13 +285,15 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
           of overrides you yourself issued. */}
       <PageMasthead title="Review moderation" />
       <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          Three queues — <span className="font-medium">Supplier fake-review flags</span>{' '}
+        <div>
+          <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Three queues — <span className="font-medium">Supplier fake-review flags</span>{' '}
           (supplier-reported disputed reviews), <span className="font-medium">Self-review
           appeals</span> (blocked reviewers contesting the related-account gate), and{' '}
           <span className="font-medium">Admin override-published reviews</span> (audit
           trail of every override-publish you&rsquo;ve issued).
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {flash ? (
@@ -312,21 +315,23 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
             <Flag aria-hidden className="h-4 w-4 text-danger-700" strokeWidth={1.75} />
             Supplier fake-review flags
             {!fakeFlagError && fakeFlags.length > 0 ? (
-              <span className="ml-1 inline-flex h-5 items-center rounded-full bg-danger-600 px-2 font-mono text-[10px] text-white">
+              <span className="ml-1 inline-flex h-5 items-center rounded-full bg-danger-600 px-2 text-[12px] text-white tabular-nums">
                 {fakeFlags.length}
               </span>
             ) : null}
           </h2>
-          <p className="text-xs text-ink/55">
-            Suppliers flag reviews they believe are fake or fraudulent. Dismiss to close, or
+          <div>
+            <InfoTip label="About fake-review flags" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              Suppliers flag reviews they believe are fake or fraudulent. Dismiss to close, or
             escalate to the two-admin override queue. SLA: 48 hours.
-          </p>
+            </InfoTip>
+          </div>
         </header>
 
         {fakeFlagError ? (
           <ReadFailed what="the fake-review flags" />
         ) : fakeFlags.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
+          <div className="border-dashed py-8 text-center text-sm text-ink/55 border-t border-ink/10">
             <Flag aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
             No pending fake-review flags.
           </div>
@@ -355,11 +360,11 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
               Single-admin authority. SLA: 48 hours.
             </p>
           </div>
-          <nav className="flex flex-wrap gap-2">
+          <PillTrack as="nav">
             <FilterChip active={filter} target="pending" label="Pending" />
             <FilterChip active={filter} target="decided" label="Decided" />
             <FilterChip active={filter} target="all" label="All" />
-          </nav>
+          </PillTrack>
         </header>
 
         {appealError ? (
@@ -369,7 +374,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
         ) : null}
 
         {appealError ? null : appeals.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
+          <div className="border-dashed py-8 text-center text-sm text-ink/55 border-t border-ink/10">
             <Gavel
               aria-hidden
               className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -417,7 +422,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
         {flaggedError ? (
           <ReadFailed what="the override history" />
         ) : flaggedReviews.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-6 text-center text-sm text-ink/55">
+          <div className="border-dashed py-6 text-center text-sm text-ink/55 border-t border-ink/10">
             No override-publishes yet.
           </div>
         ) : (
@@ -425,9 +430,9 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
             {flaggedReviews.map((r) => (
               <li
                 key={r.review_id}
-                className="space-y-1 rounded-xl border border-success-200/70 bg-success-50/40 p-3 text-xs text-ink/70"
+                className="space-y-1 border-success-200/70 bg-success-50/40 py-3 text-xs text-ink/70 border-t border-ink/10"
               >
-                <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-success-900">
+                <p className="text-success-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   {r.public_id} · {r.rating_overall}★ · {r.created_at.slice(0, 10)}
                 </p>
                 {r.body ? <p className="text-sm text-ink">&ldquo;{r.body}&rdquo;</p> : null}
@@ -453,16 +458,14 @@ function FilterChip({
   label: string;
 }) {
   return (
-    <Link
+    <PillLink
+      on={active === target}
       href={`/admin/reviews?filter=${target}`}
-      className={`rounded-full px-3 py-1 text-xs font-medium ${
-        active === target
-          ? 'bg-terracotta text-cream'
-          : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-      }`}
+      aria-current={active === target ? 'page' : undefined}
+      className="px-3"
     >
       {label}
-    </Link>
+    </PillLink>
   );
 }
 
@@ -504,12 +507,12 @@ function AppealCard({
     <li className="space-y-3 sn-tile p-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+          <p className="inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             {appeal.appeal_id.slice(0, 8)} · filed {appeal.submitted_at.slice(0, 10)}
           </p>
           <p className="text-sm">
             <span
-              className={`inline-block rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+              className={`inline-block rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${
                 SIGNAL_BADGE_TONE[appeal.matched_signal]
               }`}
             >
@@ -520,7 +523,7 @@ function AppealCard({
         </div>
         {decided && appeal.decision ? (
           <span
-            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+            className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${
               DECISION_TONE[appeal.decision]
             }`}
           >
@@ -555,7 +558,7 @@ function AppealCard({
       </dl>
 
       <div className="rounded-lg bg-ink/[0.04] p-3 text-xs">
-        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Appeal reason
         </p>
         <p className="mt-1 whitespace-pre-wrap text-sm text-ink/80">
@@ -565,7 +568,7 @@ function AppealCard({
 
       {payloadRating !== null || payloadBody ? (
         <div className="rounded-lg border border-warn-200 bg-warn-50/60 p-3 text-xs">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900">
+          <p className="text-warn-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Would-be review payload
           </p>
           {payloadRating !== null ? (
@@ -656,27 +659,27 @@ function AppealCard({
 
 function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
   return (
-    <li className="space-y-3 rounded-xl border border-danger-200/60 bg-danger-50/30 p-4">
+    <li className="space-y-3 border-danger-200/60 bg-danger-50/30 py-4 border-t border-ink/10">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-0.5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Flag {flag.flag_id.slice(0, 8)} · {flag.created_at.slice(0, 10)}
           </p>
           <p className="text-sm font-medium text-ink">
             {flag.vendor_business_name ?? 'Unknown supplier'} flagged review{' '}
             {flag.review_public_id ? (
-              <span className="font-mono text-[11px] text-ink/70">{flag.review_public_id}</span>
+              <span className="text-[12px] text-ink/70 tabular-nums">{flag.review_public_id}</span>
             ) : null}
           </p>
         </div>
-        <span className="rounded-full bg-danger-200 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-danger-900">
+        <span className="rounded-full bg-danger-200 px-2 py-0.5 text-danger-900 text-[12px] font-bold">
           Pending
         </span>
       </header>
 
       {flag.review_rating_overall !== null || flag.review_body ? (
         <div className="rounded-lg bg-ink/[0.04] p-3 text-xs">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Flagged review
           </p>
           {flag.review_rating_overall !== null ? (
@@ -693,7 +696,7 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
       ) : null}
 
       <div className="rounded-lg border border-danger-200 bg-white/60 p-3 text-xs">
-        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-danger-900">
+        <p className="text-danger-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Supplier reason
         </p>
         <p className="mt-1 whitespace-pre-wrap text-sm text-ink/80">{flag.reason}</p>
@@ -718,10 +721,12 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
         </form>
         <div className="flex-1 rounded-lg border border-warn-200 bg-warn-50/60 p-3 text-xs text-warn-900">
           <p className="font-medium">To escalate:</p>
-          <p className="mt-0.5 text-warn-800">
-            Use the self-review override-publish queue — reject or override-publish
+          <div className="mt-0.5">
+            <InfoTip label="About self-reviews" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              Use the self-review override-publish queue — reject or override-publish
             the underlying review from there. Create an appeal row manually if needed.
-          </p>
+            </InfoTip>
+          </div>
         </div>
       </div>
     </li>
@@ -731,7 +736,7 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
 function Cell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-0.5">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+      <dt className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
         {label}
       </dt>
       <dd>{children}</dd>

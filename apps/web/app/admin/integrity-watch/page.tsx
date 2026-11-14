@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   Star,
   Store,
@@ -35,6 +36,7 @@ import {
 import { plausibilityScannerEnabled } from '@/lib/plausibility-scanner-flag';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ActionButton } from '@/components/action-button';
 import { PillLink, PillTrack } from '@/app/_components/pill-track';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -332,8 +334,9 @@ export default async function AdminIntegrityWatchPage({
         }
       />
       <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          Deterministic integrity screening. <span className="font-medium">Reviews</span>{' '}
+        <div>
+          <InfoTip label="How the screening works" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Deterministic integrity screening. <span className="font-medium">Reviews</span>{' '}
           scores every submitted review on velocity/burst, rating anomaly, and
           shared-device reviewer clusters; <span className="font-medium">Listings</span>{' '}
           flags placeholder / abandoned / duplicate marketplace listings;{' '}
@@ -342,7 +345,8 @@ export default async function AdminIntegrityWatchPage({
           never penalized). Detect-and-review only — resolving records a verdict; a
           review flag never auto-deletes the review, and a listing is only hidden
           on an explicit click. Demo suppliers are excluded.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {search.scanned !== undefined && (
@@ -381,21 +385,19 @@ export default async function AdminIntegrityWatchPage({
       </PillTrack>
 
       {/* Status filters */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <PillTrack className="mb-4">
         {STATUS_FILTERS.map((f) => (
-          <Link
+          <PillLink
             key={f.value}
+            on={status === f.value}
             href={`/admin/integrity-watch?tab=${tab}&status=${f.value}`}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-              status === f.value
-                ? 'bg-ink text-cream'
-                : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
-            }`}
+            aria-current={status === f.value ? 'page' : undefined}
+            className="px-3"
           >
             {f.label}
-          </Link>
+          </PillLink>
         ))}
-      </div>
+      </PillTrack>
 
       {listError && (
         <FormFlash tone="error">
@@ -423,21 +425,21 @@ export default async function AdminIntegrityWatchPage({
             return (
               <li
                 key={r.id}
-                className="rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm"
+                className="bg-surface py-4 border-t border-ink/10"
               >
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status]}`}
+                    className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${STATUS_TONE[r.status]}`}
                   >
                     {STATUS_LABEL[r.status]}
                   </span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${scoreTone(r.score)}`}
+                    className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${scoreTone(r.score)}`}
                   >
                     Score {r.score}/100
                   </span>
-                  <span className="font-mono text-[10px] text-ink/45">{r.public_id}</span>
-                  <span className="text-[11px] text-ink/50">{relativeTime(r.created_at)}</span>
+                  <span className="text-[12px] text-ink/45 tabular-nums">{r.public_id}</span>
+                  <span className="text-[12px] text-ink/50">{relativeTime(r.created_at)}</span>
                 </div>
 
                 <p className="text-sm text-ink/85">
@@ -451,7 +453,7 @@ export default async function AdminIntegrityWatchPage({
                     {chips.map((c, i) => (
                       <span
                         key={i}
-                        className="rounded-full bg-ink/[0.05] px-2 py-0.5 text-[11px] text-ink/65"
+                        className="rounded-full bg-ink/[0.05] px-2 py-0.5 text-[12px] text-ink/65"
                       >
                         {c}
                       </span>
@@ -478,63 +480,23 @@ export default async function AdminIntegrityWatchPage({
                         name="note"
                         placeholder="Optional note…"
                         maxLength={500}
-                        className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white/70 px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
+                        className="min-h-11 min-w-0 flex-1 rounded-[var(--m-r-md)] border border-ink/15 bg-white/70 px-3 text-[14px] text-ink placeholder:text-ink/40 sm:w-48 sm:flex-none"
                       />
                       {r.kind === 'review_fraud' ? (
-                        <button
-                          type="submit"
-                          name="action"
-                          value="confirm_fraud"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                        >
-                          <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Confirm fraud
-                        </button>
+                        <ActionButton tone="danger" type="submit" name="action" value="confirm_fraud" icon={<ShieldAlert aria-hidden />} label="Confirm fraud" />
                       ) : r.kind === 'ghost_listing' ? (
-                        <button
-                          type="submit"
-                          name="action"
-                          value="hide_listing"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                        >
-                          <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Hide listing
-                        </button>
+                        <ActionButton tone="danger" type="submit" name="action" value="hide_listing" icon={<EyeOff aria-hidden />} label="Hide listing" />
                       ) : r.kind === 'price_underdeclaration' ? (
                         // price_underdeclaration: confirm the under-declaration
                         // (VERDICT only — records the flag; never adjusts the
                         // price, penalizes the vendor, or touches the lock).
-                        <button
-                          type="submit"
-                          name="action"
-                          value="confirm_fraud"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                        >
-                          <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Confirm under-declaration
-                        </button>
+                        <ActionButton tone="danger" type="submit" name="action" value="confirm_fraud" icon={<ShieldAlert aria-hidden />} label="Confirm under-declaration" />
                       ) : (
                         // inquiry_concentration: confirm the ATTACK (verdict only —
                         // never touches the victim vendor). No "hide listing".
-                        <button
-                          type="submit"
-                          name="action"
-                          value="confirm_fraud"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                        >
-                          <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Confirm attack
-                        </button>
+                        <ActionButton tone="danger" type="submit" name="action" value="confirm_fraud" icon={<ShieldAlert aria-hidden />} label="Confirm attack" />
                       )}
-                      <button
-                        type="submit"
-                        name="action"
-                        value="dismiss"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-ink/[0.04]"
-                      >
-                        <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                        Dismiss
-                      </button>
+                      <ActionButton tone="neutral" type="submit" name="action" value="dismiss" icon={<X aria-hidden />} label="Dismiss" />
                     </form>
                     <Link
                       // The supplier's own admin page (2026-10-01). /edit bounced

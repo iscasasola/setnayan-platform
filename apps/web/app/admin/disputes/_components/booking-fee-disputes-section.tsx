@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { Scale } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -122,11 +123,13 @@ export async function BookingFeeDisputesSection({ result }: { result?: string })
           Booking fee disputes
         </h2>
       </div>
-      <p className="mb-4 max-w-2xl text-xs text-ink/60">
-        A supplier says a couple did not find them through Setnayan. Their first dispute was accepted on the spot; these
+      <div className="mb-4 max-w-2xl">
+        <InfoTip label="About these disputes" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          A supplier says a couple did not find them through Setnayan. Their first dispute was accepted on the spot; these
         are later ones. Accept waives the fee and cancels its open bill. Reject keeps the bill. The supplier is told in
         the app either way.
-      </p>
+        </InfoTip>
+      </div>
 
       {result === 'error' ? (
         <p role="alert" className="mb-3 rounded-lg bg-[var(--sn-warning-soft)] px-4 py-3 text-xs text-[color:var(--sn-warning)]">

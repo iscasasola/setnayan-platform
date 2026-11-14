@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { Receipt } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -154,11 +155,13 @@ export async function DepositDisputesSection() {
           “The downpayment never reached me”
         </h2>
       </div>
-      <p className="mb-4 max-w-2xl text-xs text-ink/60">
-        A supplier says a downpayment the couple recorded never arrived. Nothing the couple
+      <div className="mb-4 max-w-2xl">
+        <InfoTip label="About these disputes" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          A supplier says a downpayment the couple recorded never arrived. Nothing the couple
         sent is deleted while this is open — their amount, receipt, method and ledger row all
         stand. Confirm it by hand against the bank record.
-      </p>
+        </InfoTip>
+      </div>
 
       {rows === null ? (
         <p className="rounded-lg bg-[var(--sn-warning-soft)] px-4 py-3 text-xs text-[color:var(--sn-warning)]">
@@ -172,7 +175,7 @@ export async function DepositDisputesSection() {
       ) : (
         <ul className="flex flex-col gap-3">
           {rows.map((r) => (
-            <li key={r.vendor_id} className="rounded-xl border border-ink/10 bg-white p-4">
+            <li key={r.vendor_id} className="py-4 border-t border-ink/10">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="text-sm font-medium text-ink">
                   {r.vendor_name?.trim() || 'Unnamed supplier'}
@@ -213,7 +216,7 @@ export async function DepositDisputesSection() {
                 </p>
               ) : (earlierByBooking.get(r.vendor_id) ?? []).length > 0 ? (
                 <div className="mt-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/50">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                     Earlier on this booking
                   </p>
                   <ul className="mt-1 flex flex-col gap-1">

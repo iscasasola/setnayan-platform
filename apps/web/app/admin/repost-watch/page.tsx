@@ -1,3 +1,6 @@
+import { InfoTip } from '@/app/_components/info-tip';
+import { PillLink, PillTrack } from '@/app/_components/pill-track';
+import { ActionButton } from '@/components/action-button';
 import {
   ArrowUpRight,
   Check,
@@ -254,14 +257,16 @@ export default async function AdminRepostWatchPage({
         }
       />
       <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          Cross-supplier reverse-image matches — a supplier&apos;s newly-uploaded
+        <div>
+          <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Cross-supplier reverse-image matches — a supplier&apos;s newly-uploaded
           portfolio / service-cover image whose perceptual hash matches an older
           image owned by a <span className="font-medium">different</span> supplier.
           Detect-and-review only: resolving a flag records a verdict and never
           touches the image. Demo suppliers and same-supplier matches are excluded.
           The latest 200 matching the filter, newest first.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {(search.rescanned !== undefined) && (
@@ -289,22 +294,14 @@ export default async function AdminRepostWatchPage({
       {/* 🃏 "It's mine — report it" (owner 2026-10-26) — a LIST, not a queue: the card stays blocked either way. */}
       <SupplierPhotoReports />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <PillTrack className="mb-4">
         {STATUS_FILTERS.map((f) => (
-          <a
-            key={f.value}
-            href={`/admin/repost-watch?status=${f.value}`}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-              status === f.value
-                ? 'bg-ink text-cream'
-                : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
-            }`}
-          >
+          <PillLink key={f.value} on={status === f.value} href={`/admin/repost-watch?status=${f.value}`} aria-current={status === f.value ? 'page' : undefined} className="px-3">
             {f.label}
             {f.value === 'open' && openCount > 0 ? ` · ${formatCount(openCount)}` : ''}
-          </a>
+          </PillLink>
         ))}
-      </div>
+      </PillTrack>
 
       {listError && (
         <FormFlash tone="error">
@@ -329,21 +326,21 @@ export default async function AdminRepostWatchPage({
             return (
               <li
                 key={r.id}
-                className="rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm"
+                className="bg-surface py-4 border-t border-ink/10"
               >
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status]}`}
+                    className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${STATUS_TONE[r.status]}`}
                   >
                     {STATUS_LABEL[r.status]}
                   </span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${distanceTone(r.hamming_distance)}`}
+                    className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${distanceTone(r.hamming_distance)}`}
                   >
                     Hamming {r.hamming_distance}/64
                   </span>
-                  <span className="font-mono text-[10px] text-ink/45">{r.public_id}</span>
-                  <span className="text-[11px] text-ink/50">
+                  <span className="text-[12px] text-ink/45 tabular-nums">{r.public_id}</span>
+                  <span className="text-[12px] text-ink/50">
                     {relativeTime(r.created_at)}
                   </span>
                 </div>
@@ -351,7 +348,7 @@ export default async function AdminRepostWatchPage({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {/* Likely reposter — the NEW upload. */}
                   <div className="space-y-1.5">
-                    <p className="text-xs font-medium uppercase tracking-wide text-terracotta-700">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                       Newly uploaded
                     </p>
                     <div className="aspect-video w-full overflow-hidden rounded-xl bg-ink/[0.04]">
@@ -363,7 +360,7 @@ export default async function AdminRepostWatchPage({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] text-ink/40">
+                        <div className="flex h-full w-full items-center justify-center text-[12px] text-ink/40">
                           image unavailable
                         </div>
                       )}
@@ -377,7 +374,7 @@ export default async function AdminRepostWatchPage({
 
                   {/* Likely victim — first seen. */}
                   <div className="space-y-1.5">
-                    <p className="text-xs font-medium uppercase tracking-wide text-ink/60">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                       Seen earlier on
                     </p>
                     <div className="aspect-video w-full overflow-hidden rounded-xl bg-ink/[0.04]">
@@ -389,7 +386,7 @@ export default async function AdminRepostWatchPage({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] text-ink/40">
+                        <div className="flex h-full w-full items-center justify-center text-[12px] text-ink/40">
                           image unavailable
                         </div>
                       )}
@@ -420,33 +417,9 @@ export default async function AdminRepostWatchPage({
                         maxLength={500}
                         className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white/70 px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
                       />
-                      <button
-                        type="submit"
-                        name="action"
-                        value="confirm_theft"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                      >
-                        <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                        Confirm theft
-                      </button>
-                      <button
-                        type="submit"
-                        name="action"
-                        value="escalate"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-warn-300 bg-warn-50 px-3 py-1.5 text-xs font-medium text-warn-900 hover:bg-warn-100"
-                      >
-                        <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                        Escalate
-                      </button>
-                      <button
-                        type="submit"
-                        name="action"
-                        value="dismiss"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-ink/[0.04]"
-                      >
-                        <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                        Dismiss
-                      </button>
+                      <ActionButton tone="danger" type="submit" name="action" value="confirm_theft" icon={<ShieldAlert aria-hidden />} label="Confirm theft" />
+                      <ActionButton tone="warn" type="submit" name="action" value="escalate" icon={<ArrowUpRight aria-hidden />} label="Escalate" />
+                      <ActionButton tone="neutral" type="submit" name="action" value="dismiss" icon={<X aria-hidden />} label="Dismiss" />
                     </form>
                     <a
                       // The supplier's own admin page (2026-10-01). /edit bounced
@@ -476,7 +449,7 @@ export default async function AdminRepostWatchPage({
             <QrCode className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
             <h2 className="text-lg font-semibold tracking-tight">QR-in-media guard</h2>
             {qrOpen.length > 0 && (
-              <span className="rounded-full bg-warn-100 px-2 py-0.5 text-[11px] font-medium text-warn-900">
+              <span className="rounded-full bg-warn-100 px-2 py-0.5 text-[12px] font-medium text-warn-900">
                 {qrOpen.length} open
               </span>
             )}
@@ -491,13 +464,15 @@ export default async function AdminRepostWatchPage({
             </SubmitButton>
           </form>
         </div>
-        <p className="mb-4 text-sm text-ink/65">
-          Supplier-website media (portfolio, logo, hero, service photos) containing a
+        <div className="mb-4">
+          <InfoTip label="About website media checks" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Supplier-website media (portfolio, logo, hero, service photos) containing a
           QR that targets the supplier&apos;s invite / lock funnel — directly or via a
           link shortener. New uploads are rejected at save time; this sweep covers
           media uploaded before the guard shipped. Review-only: resolving a flag
           never touches the image.
-        </p>
+          </InfoTip>
+        </div>
 
         {qrError && (
           <FormFlash tone="error">
@@ -519,11 +494,11 @@ export default async function AdminRepostWatchPage({
               return (
                 <li
                   key={`qr-${r.id}`}
-                  className="rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm"
+                  className="bg-surface py-4 border-t border-ink/10"
                 >
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${
                         r.status === 'open'
                           ? 'bg-warn-100 text-warn-900'
                           : r.status === 'removed'
@@ -537,10 +512,10 @@ export default async function AdminRepostWatchPage({
                           ? 'Removed'
                           : 'Cleared'}
                     </span>
-                    <span className="font-mono text-[10px] text-ink/45">
+                    <span className="text-[12px] text-ink/45 tabular-nums">
                       {r.public_id}
                     </span>
-                    <span className="text-[11px] text-ink/50">
+                    <span className="text-[12px] text-ink/50">
                       {relativeTime(r.created_at)}
                     </span>
                   </div>
@@ -555,7 +530,7 @@ export default async function AdminRepostWatchPage({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] text-ink/40">
+                        <div className="flex h-full w-full items-center justify-center text-[12px] text-ink/40">
                           image unavailable
                         </div>
                       )}
@@ -566,11 +541,11 @@ export default async function AdminRepostWatchPage({
                         {' · '}
                         <span className="text-ink/55">{QR_SURFACE_LABEL[r.surface]}</span>
                       </p>
-                      <p className="break-all font-mono text-xs text-ink/60">
+                      <p className="break-all text-xs text-ink/60 tabular-nums">
                         QR → {r.decoded_payload}
                       </p>
                       {r.resolved_url && (
-                        <p className="break-all font-mono text-xs text-terracotta-700">
+                        <p className="break-all text-xs text-terracotta-700 tabular-nums">
                           resolves to → {r.resolved_url}
                         </p>
                       )}
@@ -597,24 +572,8 @@ export default async function AdminRepostWatchPage({
                           maxLength={500}
                           className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white/70 px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
                         />
-                        <button
-                          type="submit"
-                          name="action"
-                          value="mark_removed"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                        >
-                          <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Media removed
-                        </button>
-                        <button
-                          type="submit"
-                          name="action"
-                          value="clear"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-ink/[0.04]"
-                        >
-                          <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Clear
-                        </button>
+                        <ActionButton tone="danger" type="submit" name="action" value="mark_removed" icon={<ShieldAlert aria-hidden />} label="Media removed" />
+                        <ActionButton tone="neutral" type="submit" name="action" value="clear" icon={<X aria-hidden />} label="Clear" />
                       </form>
                       <a
                         // The supplier's own admin page, as above.

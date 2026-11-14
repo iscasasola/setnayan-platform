@@ -1,3 +1,5 @@
+import { InfoTip } from '@/app/_components/info-tip';
+import { FieldPick } from '@/app/admin/_components/field-pick';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -136,27 +138,31 @@ export default async function AdminBudgetPlannerPage() {
           clear it. Nothing else on the screen says that, and it is the one
           gesture an operator would otherwise guess wrong. */}
       <PageMasthead title="Budget Planner" />
-      <p className="mb-8 text-sm text-ink/70">
-        Seed the fallback benchmark prices, tune the allocation engine, and
+      <div className="mb-8">
+        <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Seed the fallback benchmark prices, tune the allocation engine, and
         review de-identified couple insights. Prices are admin-set and never
         invented — leave a field blank to clear it.
-      </p>
+        </InfoTip>
+      </div>
 
       {/* ── 0. Budget bands (onboarding) ─────────────────────────────────── */}
       <section className="mb-12">
         <h2 className="mb-1 text-base font-semibold tracking-tight">
           Budget bands (onboarding) ({bandsUnread ? '—' : budgetBands.length})
         </h2>
-        <p className="mb-3 text-sm text-ink/60">
-          The feel-band ladder couples pick from on the onboarding budget screen.
+        <div className="mb-3">
+          <InfoTip label="About the feel bands" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            The feel-band ladder couples pick from on the onboarding budget screen.
           The per-head median (₱ per guest) × their guest count sets the estimated
           budget. Edit the label, tag, or median; leave the median blank to clear
           it to ₱0 (the &ldquo;No limit&rdquo; convention). If this table is empty
           the onboarding uses the built-in fallback ladder.
-        </p>
-        <div className="overflow-hidden rounded-2xl border border-ink/10">
+          </InfoTip>
+        </div>
+        <div className="overflow-hidden border-t border-ink/10">
           {bandsUnread ? (
-            <p role="alert" className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70">
+            <p role="alert" className="border-l-2 border-[rgb(var(--color-warn))] py-2 pl-3 text-sm text-ink/70">
               <strong className="text-ink">These bands could not be read.</strong> This
               is not an empty configuration — do not save from this state, or you
               would replace the real bands with nothing.
@@ -172,16 +178,16 @@ export default async function AdminBudgetPlannerPage() {
             <>
               {/* Column header strip — desktop only. */}
               <div className="hidden border-b border-ink/10 bg-white/70 px-4 py-2 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-3">
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Band · label
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Tag
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Per-head median (₱)
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Active
                 </span>
                 <span className="sr-only">Save</span>
@@ -199,14 +205,16 @@ export default async function AdminBudgetPlannerPage() {
         <h2 className="mb-1 text-base font-semibold tracking-tight">
           Benchmark seeding ({benchmarksUnread ? '—' : benchmarks.length})
         </h2>
-        <p className="mb-3 text-sm text-ink/60">
-          Set the typical ₱ per service. These are the fallback the planner shows
+        <div className="mb-3">
+          <InfoTip label="About typical prices" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Set the typical ₱ per service. These are the fallback the planner shows
           couples when there aren&apos;t enough real supplier prices yet. Leave
           blank to clear.
-        </p>
-        <div className="overflow-hidden rounded-2xl border border-ink/10">
+          </InfoTip>
+        </div>
+        <div className="overflow-hidden border-t border-ink/10">
           {benchmarksUnread ? (
-            <p role="alert" className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70">
+            <p role="alert" className="border-l-2 border-[rgb(var(--color-warn))] py-2 pl-3 text-sm text-ink/70">
               <strong className="text-ink">These benchmarks could not be read.</strong> Not
               an empty list — do not save from this state.
             </p>
@@ -220,22 +228,22 @@ export default async function AdminBudgetPlannerPage() {
             <>
               {/* Column header strip — desktop only. */}
               <div className="hidden border-b border-ink/10 bg-white/70 px-4 py-2 sm:grid sm:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))_auto_auto] sm:items-center sm:gap-3">
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Service
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Benchmark
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Floor
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   p25
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   p75
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Active
                 </span>
                 <span className="sr-only">Save</span>
@@ -253,12 +261,14 @@ export default async function AdminBudgetPlannerPage() {
         <h2 className="mb-1 text-base font-semibold tracking-tight">
           Engine settings
         </h2>
-        <p className="mb-3 text-sm text-ink/60">
-          The allocation engine knobs. Sample thresholds decide when real supplier
+        <div className="mb-3">
+          <InfoTip label="About the engine settings" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            The allocation engine knobs. Sample thresholds decide when real supplier
           medians are trusted over the seeded benchmark; the band is the ±
           tolerance around a target; surplus mode decides what happens to money
           left over after every service is funded.
-        </p>
+          </InfoTip>
+        </div>
         {configUnread ? (
           <div role="alert" className="mb-3 rounded-card bg-[var(--sn-warning-soft)] p-4 text-sm text-ink">
             Couldn&rsquo;t load this — refresh to try again. Saving is off until the saved
@@ -274,7 +284,7 @@ export default async function AdminBudgetPlannerPage() {
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <label className="block">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                 Min sample N
               </span>
               <input
@@ -286,12 +296,12 @@ export default async function AdminBudgetPlannerPage() {
                 required
                 className="input-field mt-1 w-full"
               />
-              <span className="mt-1 block text-[11px] text-ink/45">
+              <span className="mt-1 block text-[12px] text-ink/45">
                 Fewest supplier prices before a market median is used at all.
               </span>
             </label>
             <label className="block">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                 High-confidence N
               </span>
               <input
@@ -303,12 +313,12 @@ export default async function AdminBudgetPlannerPage() {
                 required
                 className="input-field mt-1 w-full"
               />
-              <span className="mt-1 block text-[11px] text-ink/45">
+              <span className="mt-1 block text-[12px] text-ink/45">
                 Sample size at which the median fully overrides the benchmark.
               </span>
             </label>
             <label className="block">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                 Med-confidence N
               </span>
               <input
@@ -320,12 +330,12 @@ export default async function AdminBudgetPlannerPage() {
                 required
                 className="input-field mt-1 w-full"
               />
-              <span className="mt-1 block text-[11px] text-ink/45">
+              <span className="mt-1 block text-[12px] text-ink/45">
                 Sample size where median + benchmark are blended.
               </span>
             </label>
             <label className="block">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                 Band (0–1)
               </span>
               <input
@@ -338,25 +348,25 @@ export default async function AdminBudgetPlannerPage() {
                 required
                 className="input-field mt-1 w-full"
               />
-              <span className="mt-1 block text-[11px] text-ink/45">
+              <span className="mt-1 block text-[12px] text-ink/45">
                 ± tolerance around a target, as a fraction — 0.15 means fifteen percent either side.
               </span>
             </label>
             <label className="block sm:col-span-2 lg:col-span-1">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                 Surplus mode
               </span>
-              <select
+              <FieldPick
                 name="surplus_mode"
+                label="Surplus mode"
                 defaultValue={config.surplus_mode}
-                className="input-field mt-1 w-full"
-              >
-                <option value="park">Park surplus as cushion (recommended)</option>
-                <option value="distribute">
-                  Distribute surplus across services
-                </option>
-              </select>
-              <span className="mt-1 block text-[11px] text-ink/45">
+                className="mt-1 min-h-11 w-full"
+                options={[
+                  { key: 'park', label: 'Park surplus as cushion (recommended)' },
+                  { key: 'distribute', label: 'Distribute surplus across services' },
+                ]}
+              />
+              <span className="mt-1 block text-[12px] text-ink/45">
                 What to do with money left after every service is funded.
               </span>
             </label>
@@ -444,7 +454,7 @@ export default async function AdminBudgetPlannerPage() {
             k-anonymity, when in truth nothing had been read. Gated on `measured`
             so the page can only make that claim when it counted something. */}
         {agg.measured && agg.suppressedBelowMinN ? (
-          <p className="mt-2 text-[11px] text-ink/70">
+          <p className="mt-2 text-[12px] text-ink/70">
             Some services are hidden until more couples contribute.
           </p>
         ) : null}
@@ -471,11 +481,11 @@ function BudgetBandRowForm({ row }: { row: BudgetBandRow }) {
     >
       <input type="hidden" name="band_slug" value={row.band_slug} />
       <div className="min-w-0">
-        <code className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+        <code className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           {row.band_slug}
         </code>
         <label className="mt-1 block">
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 sm:hidden">
+          <span className="sm:hidden text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Label
           </span>
           <input
@@ -488,7 +498,7 @@ function BudgetBandRowForm({ row }: { row: BudgetBandRow }) {
         </label>
       </div>
       <label className="block">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 sm:hidden">
+        <span className="sm:hidden text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Tag
         </span>
         <input
@@ -500,7 +510,7 @@ function BudgetBandRowForm({ row }: { row: BudgetBandRow }) {
         />
       </label>
       <label className="block">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 sm:hidden">
+        <span className="sm:hidden text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Per-head median (₱)
         </span>
         <input
@@ -549,12 +559,12 @@ function BenchmarkRowForm({ row }: { row: BenchmarkRow }) {
       <input type="hidden" name="plan_group_id" value={row.plan_group_id} />
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-ink">{row.label}</p>
-        <code className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+        <code className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           {row.plan_group_id}
         </code>
       </div>
       <label className="block">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 sm:hidden">
+        <span className="sm:hidden text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Benchmark
         </span>
         <input
@@ -567,7 +577,7 @@ function BenchmarkRowForm({ row }: { row: BenchmarkRow }) {
         />
       </label>
       <label className="block">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 sm:hidden">
+        <span className="sm:hidden text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Floor
         </span>
         <input
@@ -580,7 +590,7 @@ function BenchmarkRowForm({ row }: { row: BenchmarkRow }) {
         />
       </label>
       <label className="block">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 sm:hidden">
+        <span className="sm:hidden text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           p25
         </span>
         <input
@@ -593,7 +603,7 @@ function BenchmarkRowForm({ row }: { row: BenchmarkRow }) {
         />
       </label>
       <label className="block">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 sm:hidden">
+        <span className="sm:hidden text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           p75
         </span>
         <input

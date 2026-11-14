@@ -224,7 +224,7 @@ export function GigCard({
                   placeholder="Why are you cancelling?"
                   minLength={4}
                   maxLength={500}
-                  className="min-h-11 w-full rounded-xl border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-[15px] text-ink placeholder:text-[color:var(--m-slate-2)] focus:border-mulberry focus:outline-none" // no-card-ok: the reason input's own outline
+                  className="min-h-11 w-full rounded-[var(--m-r-md)] border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-[15px] text-ink placeholder:text-[color:var(--m-slate-2)] focus:border-mulberry focus:outline-none" // no-card-ok: the reason input's own outline
                 />
               </label>
               <ActionButton

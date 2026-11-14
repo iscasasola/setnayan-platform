@@ -14,7 +14,7 @@ import {
 // so /realstories' "From our articles" rail renders a real article card instead
 // of a copy of one. Pure move — this page's markup is unchanged.
 import { StoryCard, Eyebrow, metaLine } from '@/app/blog/_components/story-card';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 // Setnayan Articles index — magazine redesign (iteration 0038, 2026-06-15).
 // Photo-led editorial: a full-bleed cover for the featured guide, a "Nuggets"

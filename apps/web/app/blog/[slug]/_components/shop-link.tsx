@@ -1,5 +1,5 @@
 import { ArrowUpRight } from 'lucide-react';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 // The outbound shopping link inside a Journal article (iteration 0038 § 3).
 //

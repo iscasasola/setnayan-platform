@@ -27,7 +27,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SaveVendorButton } from '../_components/save-vendor-button';
 import { formatCount } from '@/lib/format-number';
 import { BRAND_OG_IMAGES } from '@/lib/brand-og';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 /**
  * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. Anything uploaded through the shop

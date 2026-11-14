@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { BRAND_OG_IMAGES } from '@/lib/brand-og';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 // This page carried `revalidate = 3600` (SEO/GEO Bucket 8, 2026-05-29) until
 // 2026-11-12 — moved into app/(shell)/ (owner: "these are on old shells");

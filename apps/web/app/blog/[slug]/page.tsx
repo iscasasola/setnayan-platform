@@ -29,7 +29,7 @@ import {
 } from '@/lib/creator-public';
 import { EMBED_PROVIDER_LABEL } from '@/lib/creator-chapters';
 import { ChapterEmbedFrame } from '@/app/dashboard/(account)/creator/_components/chapter-embed-frame';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 // Per-article Journal pages — magazine reader (iteration 0038, 2026-06-15).
 // Immersive cover header, drop-cap lead, gold pull-quotes ("nuggets"), inline

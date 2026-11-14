@@ -7,7 +7,7 @@ import {
 } from '@/lib/journal-spotlights';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import type { InquirySource } from '@/lib/inquiry-source';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 /**
  * 🎟 THE LINK CARRIES WHERE THE READER CAME FROM.

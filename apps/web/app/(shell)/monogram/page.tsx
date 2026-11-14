@@ -21,7 +21,7 @@ import Link from 'next/link';
 import { PublicMonogramStudio } from '@/app/monogram/public-monogram-studio';
 import { MonogramHeadline, StepsReveal, ClosingCta } from '@/app/monogram/_monogram-motion';
 import { registerGatesEnabled } from '@/lib/register-gates';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 // 2026-11-12 — moved into app/(shell)/ (owner: "these are on old shells");
 // the shell layout sets force-dynamic for the group, so no route directive here.

@@ -45,7 +45,7 @@ import Link from 'next/link';
 import { AlaalaOrb } from '@/app/_components/marketing/AlaalaOrb';
 import { Reveal } from '@/app/_components/marketing/_motion';
 import { DOORWAY_TONE } from '@/app/_components/marketing/_doorway-tone';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import {
   LineRevealHeading,
   RevealBand,

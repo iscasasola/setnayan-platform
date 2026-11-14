@@ -18,7 +18,7 @@ import { STORIES_SEARCH_MIN_POOL } from '@/lib/stories-search-config';
 import { sampleStoriesAreShowing } from '@/lib/sample-stories';
 import { publishedBlogArticles } from '@/lib/blog';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 
 // /realstories — THE single public stories hub. ONE SHELF, THREE VOICES

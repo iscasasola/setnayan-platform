@@ -5,7 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import { EditorialContent } from '@/app/[slug]/_components/editorial/editorial-content';
 import { SAMPLE_EDITORIAL_IDS } from '@/app/[slug]/_components/editorial/data';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import {
   ALL_REAL_WEDDINGS,
   findRealWedding,

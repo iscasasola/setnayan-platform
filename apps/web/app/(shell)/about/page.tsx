@@ -19,7 +19,7 @@ import {
 } from './_about-motion';
 import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 // /about — the canonical brand/entity page. Fully static: brand facts, no DB,
 // no session. This is the surface SEO + GEO engines (ChatGPT-User, Perplexity,

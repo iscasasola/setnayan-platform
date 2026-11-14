@@ -9,7 +9,7 @@ import {
 import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 // /tl/about — Taglish edition of the brand/entity page (localization first
 // slice). The two public locales are ENGLISH (root) and TAGLISH (the real

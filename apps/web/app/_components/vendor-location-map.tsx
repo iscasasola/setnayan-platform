@@ -85,7 +85,7 @@ export function MapCard({
   return (
     <figure
       {...attrs}
-      className={`${MAP_CARD_FRAME} m-0 aspect-[9/5] max-h-[250px] ${flush ? 'rounded-t-[18px] border-b-0' : 'rounded-[18px]'}`}
+      className={`${MAP_CARD_FRAME} m-0 aspect-[9/5] max-h-[250px] ${flush ? 'rounded-t-card border-b-0' : 'rounded-card'}`}
     >
       <div role="img" aria-label={label} data-map-tiles="" className="absolute inset-x-0 top-1/2 aspect-[9/5] -translate-y-1/2">
         {deferUntilNear ? <NearViewport className="absolute inset-0">{imgs}</NearViewport> : imgs}

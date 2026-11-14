@@ -16,18 +16,26 @@
  * server's HTML and the first client render are the same button.
  */
 
+import { deviceOs } from './apple-device';
+
 export type MapDevice = 'android' | 'iphone' | 'mac' | 'computer';
 
 /**
- * The device, from the user agent and the touch points. iPadOS 13+ says "Macintosh" — a "Mac" with more than one touch
- * point is an iPad. This is the SEAM a screenshot or a test fakes (pass any UA).
+ * The device, read through THE one user-agent reader (`lib/apple-device.ts` `deviceOs`, which tells an iPad that says
+ * "Macintosh" from a Mac by its touch points). This is the SEAM a screenshot or a test fakes (pass any UA).
  */
 export function mapDeviceFrom(userAgent: string, maxTouchPoints = 0): MapDevice {
-  const ua = userAgent || '';
-  if (/Android/i.test(ua)) return 'android';
-  if (/iPhone|iPad|iPod/i.test(ua)) return 'iphone';
-  if (/Macintosh|Mac OS X/i.test(ua)) return maxTouchPoints > 1 ? 'iphone' : 'mac';
-  return 'computer';
+  switch (deviceOs(userAgent, maxTouchPoints)) {
+    case 'android':
+      return 'android';
+    case 'iphone':
+    case 'ipad':
+      return 'iphone';
+    case 'mac':
+      return 'mac';
+    default:
+      return 'computer';
+  }
 }
 
 /** The ready-made links for one place. A pinned place has the app links; an address-only place has `search`. */

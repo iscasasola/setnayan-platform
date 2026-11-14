@@ -7,12 +7,14 @@
  * `ShopReachMap`). No zoom buttons and no sprawling credit bar: the credit stays (OSM's licence requires it) as a
  * small tag, and the map you can move is one press away on openstreetmap.org.
  *
- * 🎨 ON THE TILES, NOT ON THE PAGE. OSM's tiles are drawn light whatever the theme, so the tag and the button take the
- * tiles' own white (`bg-white/…` + `text-ink-on-light`) — a theme token would turn dark in dark mode and vanish
- * (the same reason as `ReachMap`'s `ON_TILES`). Server-safe markup: no hooks, no client code.
+ * 🎨 The credit's WORDS stay on the page's own pair (`bg-cream/85` + `text-ink/80`, as the pinned map's credit always
+ * was): on the Event Hub they are scene words, and every scene word follows the couple's ground
+ * (`lib/scene-words-follow-the-ground.test.ts`). The round button has no words, so it takes the tiles' own white
+ * (`bg-white/90` + `text-ink-on-light`) — OSM's tiles are drawn light whatever the theme (`ReachMap`'s `ON_TILES`).
+ * Server-safe markup: no hooks, no client code.
  */
 
-/** The card's frame: 18 px corners, a hairline, the tiles' paper while they load. 9 : 5, never taller than 250 px. */
+/** The card's frame: the card's 18 px corners (`rounded-card`), a hairline, the tiles' paper while they load. 9 : 5, never taller than 250 px. */
 export const MAP_CARD_FRAME = 'relative w-full overflow-hidden border border-ink/15 bg-veil';
 
 /**
@@ -21,7 +23,7 @@ export const MAP_CARD_FRAME = 'relative w-full overflow-hidden border border-ink
  */
 export function MapCredit({ link = true }: { link?: boolean }) {
   const tag = (
-    <span className="rounded-full bg-white/85 px-2 py-1 font-sans text-[10.5px] font-medium leading-none text-ink-on-light">
+    <span className="rounded-full bg-cream/85 px-2 py-1 font-sans text-[10.5px] font-medium leading-none text-ink/80">
       © OpenStreetMap
     </span>
   );

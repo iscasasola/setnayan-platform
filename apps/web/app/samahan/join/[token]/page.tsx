@@ -9,7 +9,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 import { acceptCommunityInvite } from './actions';
 import { formatCount } from '@/lib/format-number';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = {
   title: 'Join a group',

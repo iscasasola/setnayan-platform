@@ -37,3 +37,11 @@ words, same data, same actions; no shell changed; no new design. Score (paragrap
 | `/reset-password` | 4 | 0 |
 
 SPEC IMPACT: None — applies the approved template.
+
+**Fix (same PR, before ship):** `actionButtonClass` was called from SERVER pages while it lived in the `'use client'`
+`components/action-button.tsx` — Next refuses that at render ("Attempted to call actionButtonClass() from the server"),
+so those pages showed the error screen while typecheck and every unit test were green. Caught by rendering the pages.
+The builder (with `ActionTone` / `ACTION_TONES`) moved to the plain `components/action-button-class.ts`; the client file
+re-exports it, so every import still works. Server files now import it from the plain module, and a new guard
+(`lib/a-server-file-calls-the-plain-class.test.ts`, sabotage-checked) fails if a server file imports it from the client
+file again. All 17 pages re-rendered with no such error.

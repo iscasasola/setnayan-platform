@@ -31,7 +31,7 @@ import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { REUSE_FACE_FIELD } from '@/lib/face-selfie-lifetime';
 import { hostsToAsk } from '@/lib/guest-connects-hosts.server';
 import { ConnectHostsTick } from '@/app/[slug]/_components/connect-hosts-tick';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = { title: 'Save this invitation?' };
 

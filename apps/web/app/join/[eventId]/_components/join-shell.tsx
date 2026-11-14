@@ -17,7 +17,7 @@
 import Link from 'next/link';
 import { DoorShell, type DoorSkin, type DoorStep } from '@/app/_components/door/door-shell';
 import { joinDoorMeta } from '@/lib/join-door-meta';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export type JoinShellEvent = {
   display_name: string;

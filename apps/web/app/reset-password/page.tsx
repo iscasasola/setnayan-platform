@@ -25,7 +25,7 @@ import { DoorShell, DoorNotice, DoorActions } from '@/app/_components/door/door-
 import { completePasswordReset } from './actions';
 import { PasswordField } from '@/app/_components/password-field';
 import { LEAKED_PASSWORD_MESSAGE } from '@/lib/password-strength';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata: Metadata = {
   title: 'Choose a new password',

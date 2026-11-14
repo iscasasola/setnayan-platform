@@ -11,7 +11,7 @@ import { acceptHostInvite, declineHostInvite } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 import { articleFor, eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = {
   title: 'Accept your invitation',

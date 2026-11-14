@@ -16,7 +16,7 @@ import { guestRoleLabel, type GuestRole } from '@/lib/guests';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { joinDoorMeta } from '@/lib/join-door-meta';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = { title: 'You\'re in' };
 

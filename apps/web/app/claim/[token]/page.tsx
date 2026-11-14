@@ -21,7 +21,7 @@ import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 import { claimAlaga } from './actions';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = { title: 'Claim your profile' };
 

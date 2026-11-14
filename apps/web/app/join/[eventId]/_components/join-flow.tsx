@@ -20,7 +20,7 @@ import { arrivalSteps, inviteReplyPath } from '@/lib/invite-arrival';
 import { joinDoorRefusalMessage } from '@/lib/join-door-refusal-copy';
 import { REPLY_WINDOW_EVENT_COLUMNS, replyWindowWords } from '@/lib/reply-window';
 import { replyWindowOfRow } from '@/lib/reply-window.server';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import { InfoTip } from '@/app/_components/info-tip';
 
 /*

@@ -16,7 +16,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { isShopLive } from '@/lib/vendor-visibility';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { claimVendorInviteToEvent } from './actions';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = {
   title: 'Add a supplier to your plan',

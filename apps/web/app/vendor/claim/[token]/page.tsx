@@ -7,7 +7,8 @@ import { fetchClaimLandingByToken, readInviteOffer } from '@/lib/vendor-invites'
 import { doorOffer, offerFromInvite } from '@/lib/personal-invite-offer';
 import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
 import { VENDOR_CATEGORY_LABEL, displayServiceLabel, type VendorCategory } from '@/lib/vendors';
-import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { ActionButton } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { supplierCommissionShort } from '@/lib/commission-promise';

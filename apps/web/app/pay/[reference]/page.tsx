@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { CopyButton } from '@/app/_components/copy-button';
 import { InfoTip } from '@/app/_components/info-tip';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import { createClient } from '@/lib/supabase/server';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { fetchPlatformSettings } from '@/lib/platform-settings';

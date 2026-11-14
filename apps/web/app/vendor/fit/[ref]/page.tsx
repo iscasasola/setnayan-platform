@@ -28,7 +28,7 @@ import { formatPhpRounded } from '@/lib/php';
 import { computeVendorFit, type FitCheck } from '@/lib/vendor-fit-qr';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { addVendorFromFit } from './actions';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 type Props = {
   params: Promise<{ ref: string }>;

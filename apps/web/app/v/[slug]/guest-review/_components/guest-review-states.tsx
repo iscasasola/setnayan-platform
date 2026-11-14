@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { GUEST_REVIEW_REFUSAL_LINE } from '@/lib/guest-reviews';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import { InfoTip } from '@/app/_components/info-tip';
 
 /**

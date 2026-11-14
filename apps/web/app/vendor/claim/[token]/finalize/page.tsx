@@ -9,7 +9,7 @@ import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { readClaimAccountVerdict } from '@/lib/claim-account-gate.server';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 const VENDOR_CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 

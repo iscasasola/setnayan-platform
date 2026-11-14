@@ -309,7 +309,6 @@ export async function VendorsSurface({
               title: 'No supplier requests waiting',
               blurb:
                 'Nothing is pending a supplier claim right now. When a couple adds a supplier by hand on their plan, the invite appears here.',
-              verifiedNote: 'Verified: read permitted · 0 pending requests',
             }}
             columns={[
               {

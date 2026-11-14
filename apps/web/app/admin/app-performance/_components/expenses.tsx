@@ -86,8 +86,7 @@ export async function ExpensesZone() {
           role="alert"
           className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
-          Expense ledger unavailable: {ov.error} (the spending ledger may not be
-          set up on this environment yet.)
+          We couldn&rsquo;t load the expense ledger just now. Nothing is lost &mdash; the reason is in the logs.
         </p>
       ) : null}
 
@@ -96,7 +95,7 @@ export async function ExpensesZone() {
         <ChartCard
           title="Monthly digital spend"
           pill="live"
-          source="what Setnayan spent · pesos · past 6 months"
+          source="Expenses · pesos · last 6 months"
           className="lg:col-span-2"
         >
           <div className="mb-2 flex flex-wrap items-baseline gap-2">
@@ -209,7 +208,7 @@ export async function ExpensesZone() {
         <ChartCard
           title="Spend by service — this month"
           pill="live"
-          source="what Setnayan spent, by who we paid"
+          source="Expenses by supplier"
         >
           {!measured ? (
             <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
@@ -251,7 +250,7 @@ export async function ExpensesZone() {
         <ChartCard
           title="Upcoming charges"
           pill="live"
-          source="next due date — renewals show before they hit"
+          source="Next due dates — renewals show before they hit"
         >
           {!measured ? (
             <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
@@ -289,7 +288,7 @@ export async function ExpensesZone() {
         </ChartCard>
 
         {/* Log an expense — server-action form, no client JS */}
-        <ChartCard title="Log an expense" pill="live" source="adds to what Setnayan spent · receipt optional">
+        <ChartCard title="Log an expense" pill="live" source="Saved to the expense ledger · receipt optional">
           <form action={addExpense} className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <input

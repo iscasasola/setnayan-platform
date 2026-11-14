@@ -27,7 +27,7 @@ export function FairSweepList({ items, unread = [] }: { items: ReadonlyArray<Swe
                       {it.line}
                     </span>
                   </span>
-                  <ChevronRight aria-hidden className="h-4 w-4 flex-none text-ink/40" strokeWidth={2} />
+                  <ChevronRight aria-hidden className="h-4 w-4 flex-none text-ink/70" strokeWidth={2} />
                 </Link>
               </li>
             ))}
@@ -35,7 +35,7 @@ export function FairSweepList({ items, unread = [] }: { items: ReadonlyArray<Swe
         </>
       ) : null}
       {unread.length > 0 ? (
-        <p role="status" className="mt-1 text-[12.5px] text-ink/55" data-fair-sweep-unread="">
+        <p role="status" className="mt-1 text-[12.5px] text-ink/70" data-fair-sweep-unread="">
           Couldn&rsquo;t check {unread.join(' · ')} for fair presentation just now — nothing on your shop changed.
         </p>
       ) : null}

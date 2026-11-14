@@ -32,10 +32,10 @@ export function ShopBadgeRow({ tiles }: { tiles: BadgeTile[] | null }) {
         <h2 id="shop-badges-h" className="sn-eye">
           Badges
         </h2>
-        <span className="text-[11.5px] text-ink/50">earned · in progress · not yet · tap one</span>
+        <span className="text-[11.5px] text-ink/70">earned · in progress · not yet · tap one</span>
       </div>
       {tiles === null ? (
-        <p role="status" className="px-4 text-[13.5px] text-ink/65" data-shop-badges-unread="">
+        <p role="status" className="px-4 text-[13.5px] text-ink/70" data-shop-badges-unread="">
           Couldn&rsquo;t load your badges just now.
         </p>
       ) : (
@@ -54,7 +54,7 @@ export function ShopBadgeRow({ tiles }: { tiles: BadgeTile[] | null }) {
                   <ImageBadge shape={t.shape} face={t.face} num={t.num} mini={t.mini} on={t.on} uid={`row-${t.key}`} size={56} />
                 </BadgeRing>
                 <b className="line-clamp-2 text-[12.5px] font-semibold leading-tight text-ink">{t.title}</b>
-                <small className={`text-[11.5px] leading-tight ${t.goal ? 'font-semibold text-[color:var(--m-orange-deep)]' : 'text-ink/55'}`}>{t.sub}</small>
+                <small className={`text-[11.5px] leading-tight ${t.goal ? 'font-semibold text-[color:var(--m-orange-deep)]' : 'text-ink/70'}`}>{t.sub}</small>
               </button>
             </li>
           ))}
@@ -122,13 +122,13 @@ function BadgeSheet({ tile, onClose }: { tile: BadgeTile; onClose: () => void })
             {tile.title}
           </h2>
         </div>
-        <p className="text-[13.5px] text-ink/65">{tile.how}</p>
+        <p className="text-[13.5px] text-ink/70">{tile.how}</p>
         <div>
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-[17px] font-semibold leading-snug text-ink" data-badge-now="">
               {nowLine(tile)}
             </p>
-            {l && l.next !== null ? <span className="text-[12px] tabular-nums text-ink/55">{l.pct}%</span> : null}
+            {l && l.next !== null ? <span className="text-xs tabular-nums text-ink/70">{l.pct}%</span> : null}
           </div>
           {l && l.next !== null ? (
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink/[0.06]" aria-hidden>
@@ -148,8 +148,8 @@ function BadgeSheet({ tile, onClose }: { tile: BadgeTile; onClose: () => void })
               Reward
             </p>
             {reward.next ? <p className="text-[13.5px] text-ink/80">{reward.next}</p> : null}
-            {reward.gave ? <p className="text-[13px] text-ink/65">{reward.gave}</p> : null}
-            {reward.upgrade ? <p className="text-[13px] text-ink/65">{reward.upgrade}</p> : null}
+            {reward.gave ? <p className="text-[13px] text-ink/70">{reward.gave}</p> : null}
+            {reward.upgrade ? <p className="text-[13px] text-ink/70">{reward.upgrade}</p> : null}
           </div>
         ) : null}
         {tile.row.door ? (

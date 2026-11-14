@@ -19,7 +19,6 @@
 import Link from 'next/link';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { InfoTip } from '@/app/_components/info-tip';
-import { ShopEmpty } from '../../../_components/kit';
 import type { SharedFileEntry } from '@/lib/chat-shared-files';
 import { CHAT_DOCUMENT_MAX_MB, CHAT_FILE_EXPIRY_DAYS, CHAT_PHOTO_MAX_MB, CHAT_VIDEO_MAX_MB } from '@/lib/chat-file-rules';
 import { formatCount } from '@/lib/format-number';
@@ -57,30 +56,32 @@ export function FilesPage(props: FilesPageProps) {
     <div className="space-y-4 pb-24" data-client-files="">
       {/* 📁 Piece 3b: This booking · From the chat · Links · one group per QUOTED service, with the two doors. */}
       {board}
-      {board ? <h3 className="pt-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/60">Shared in the chat · contracts · handover</h3> : null}
+      {board ? <h3 className="pt-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">Shared in the chat · contracts · handover</h3> : null}
       {!chatFilesMeasured ? (
-        <p role="status" className="text-[13px] text-[rgb(var(--color-danger))]" data-files-chat-unread="">
-          Files shared in your conversation could not be loaded just now, so this list may be
-          incomplete. Everything is still in the chat itself.
-        </p>
+        <div role="status" className="text-[13px] font-semibold text-warn-800" data-files-chat-unread="">
+          <InfoTip label="Couldn’t load the chat’s files — this list may be incomplete" align="start">
+            Files shared in your conversation could not be loaded just now. Everything is still in the chat itself.
+          </InfoTip>
+        </div>
       ) : null}
 
       {!hasAny ? (
-        <ShopEmpty>
-          <TOPIC_ICON.files aria-hidden className="mx-auto h-6 w-6 text-ink/30" strokeWidth={1.5} />
-          <p className="mt-2 text-sm text-ink/55">
-            No files shared yet. Contracts you upload for this couple appear here, and so does
-            anything either of you attaches in the conversation.
-          </p>
+        // 📐 Design template rule 6: one honest line where the rows would be — no icon box, no card.
+        <div className="flex min-h-14 flex-wrap items-center gap-x-2 border-b border-ink/10 text-[15px] text-ink/70" data-files-empty="">
+          <TOPIC_ICON.files aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <InfoTip label="No files shared yet." align="start">
+            Contracts you upload for this couple appear here, and so does anything either of you attaches in the
+            conversation.
+          </InfoTip>
           {threadId ? (
             <Link
               href={`/vendor-dashboard/messages/${threadId}`}
-              className="mt-2 inline-block text-sm font-medium text-sn-accent hover:underline"
+              className="inline-flex min-h-11 items-center font-semibold text-sn-accent"
             >
-              Share files in chat →
+              Share files in chat ›
             </Link>
           ) : null}
-        </ShopEmpty>
+        </div>
       ) : (
         <FilesFinder files={files} />
       )}
@@ -88,26 +89,26 @@ export function FilesPage(props: FilesPageProps) {
       {hasAny && threadId ? (
         <Link
           href={`/vendor-dashboard/messages/${threadId}`}
-          className="inline-block text-sm font-medium text-sn-accent hover:underline"
+          className="inline-flex min-h-11 items-center text-[15px] font-semibold text-sn-accent"
         >
-          Share more files in chat →
+          Share more files in chat ›
         </Link>
       ) : null}
 
-      <p className="text-[13px] text-ink/70" data-files-limits="">
+      <div className="text-[13px] text-ink/70" data-files-limits="">
         <InfoTip label="Limits & keeping" align="start">
           Photo {formatCount(CHAT_PHOTO_MAX_MB)} MB · document {formatCount(CHAT_DOCUMENT_MAX_MB)} MB · video{' '}
           {formatCount(CHAT_VIDEO_MAX_MB)} MB. Chat files are deleted {formatCount(CHAT_FILE_EXPIRY_DAYS)} days after the event; contracts, payment proofs and anything pinned to
           Decisions are kept.
         </InfoTip>
-        <span className="ml-1 text-ink/55">
+        <span className="ml-1 text-ink/70">
           Photo {formatCount(CHAT_PHOTO_MAX_MB)} MB · document {formatCount(CHAT_DOCUMENT_MAX_MB)} MB · video{' '}
           {formatCount(CHAT_VIDEO_MAX_MB)} MB
         </span>
-      </p>
+      </div>
 
       {isBooked ? (
-        <p className="text-xs text-ink/45">
+        <p className="text-xs text-ink/70">
           Deliver albums and proofs from the Schedule page&rsquo;s handover panel — the couple
           confirms receipt there.
         </p>

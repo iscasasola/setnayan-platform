@@ -1998,6 +1998,13 @@ export function StageTools({
         {stageRowOneLine({ picked: picked !== null, canvasSilent }) === 'pick' && !away ? (
           <div className={SP_ROWS} data-stage-nothing-picked="">
             <p className="row-start-1 flex min-w-0 items-center justify-center px-1 text-center text-[13px] text-[var(--sp-ink2)]">{STAGE_NOTHING_PICKED_WORDS}</p>
+            {/* 📖🎁 POST EVENT'S STORY-WIDE CONTROLS — "Reads as" · "Peek now", the story's own, not a part's: under
+                the line, in the room no part holds (F-W2-43). Registered by the work area (`maker.postEventStory`). */}
+            {stage === 'editorial' && !rsvpOpen && maker?.postEventStory ? (
+              <div data-stage-post-event-story="" className="row-span-3 row-start-2 min-h-0 min-w-0 overflow-y-auto">
+                {maker.postEventStory}
+              </div>
+            ) : null}
           </div>
         ) : null}
         {/* ══ THE LINE UNDER THE TOOLS — row 4, where ↑ Earlier · ↓ Later · Remove stood until a scene could be held

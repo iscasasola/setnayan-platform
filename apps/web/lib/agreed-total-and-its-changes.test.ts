@@ -708,6 +708,11 @@ const FOLD_ROWS = /\bwithAgreedTotalNow\s*\(/;
  * NEW raw read added to one of these files must be looked at, not waved past.
  */
 const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column: number; what: string }> = {
+  'lib/claimed-per-guest-shop.server.ts': {
+    what: 'RW-08 — a claimed per-guest booking as its supplier reads it (Clients row · the client card)',
+    needles: [[AGREED_NOW, 1], [EMBED, 1], [/const total = agreedTotalNow\(r\.total_cost_php, r\.change_lines\)/, 1]],
+    column: 3,
+  },
   'app/dashboard/[eventId]/vendors/[vendorId]/workspace/payment-plan-actions.ts': {
     what: 'the couple’s own instalment plan for a supplier they added',
     needles: [

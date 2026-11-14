@@ -76,7 +76,7 @@ export function CardTabs({
             className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium transition sm:rounded-none sm:border-x-0 sm:border-t-0 sm:border-b-2 sm:px-3 sm:py-2 ${
               on
                 ? 'border-ink bg-ink text-cream sm:border-terracotta sm:bg-transparent sm:text-ink'
-                : 'border-ink/15 bg-white text-ink/60 hover:text-ink sm:border-transparent sm:bg-transparent'
+                : 'border-ink/15 bg-white text-ink/70 hover:text-ink sm:border-transparent sm:bg-transparent'
             }`}
           >
             {t.label}
@@ -137,19 +137,19 @@ export function PipelineStrip({
             <span className="flex shrink-0 items-center gap-2">
               <span
                 aria-hidden
-                className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-[11px] font-semibold ${
+                className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-semibold ${
                   isCurrent
                     ? 'border-ink bg-ink text-cream ring-4 ring-ink/10'
                     : done
                       ? 'border-success-600 bg-success-600 text-white'
-                      : 'border-ink/15 bg-white text-ink/40'
+                      : 'border-ink/15 bg-white text-ink/70'
                 }`}
               >
                 {done && !isCurrent ? <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2.4} /> : i + 1}
               </span>
               <span
                 className={`whitespace-nowrap text-xs font-medium ${
-                  isCurrent ? 'text-ink' : done ? 'text-ink/70' : 'text-ink/40'
+                  isCurrent ? 'text-ink' : done ? 'text-ink/70' : 'text-ink/70'
                 }`}
               >
                 {isCurrent && currentLabel ? currentLabel : s.label}

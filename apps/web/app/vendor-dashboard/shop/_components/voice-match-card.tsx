@@ -24,6 +24,7 @@ import {
 } from '../autoreply-actions';
 import { formatCount } from '@/lib/format-number';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 /**
  * My Shop → "Your voice" — the Vendor AI **ADVANCED** voice-match panel
@@ -171,24 +172,21 @@ export function VoiceMatchCard({
   }
 
   return (
-    <div
-      className="rounded-xl border p-4 sm:p-5"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-    >
+    <div className="border-t border-[color:var(--m-line)] py-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <span
             aria-hidden
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
             style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
           >
             <MessageSquareQuote className="h-4 w-4" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h3 id="voice-match-heading" className="text-sm font-semibold text-ink">
+            <h3 id="voice-match-heading" className="text-[15px] font-semibold text-ink">
               Your voice
             </h3>
-            <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+            <p className="mt-0.5 text-[13px]" style={{ color: 'var(--m-slate)' }}>
               {privacyPending
                 ? 'Not switched on for your account yet.'
                 : advancedActive
@@ -207,14 +205,14 @@ export function VoiceMatchCard({
       </div>
 
       {privacyPending ? (
-        <p className="mt-4 text-xs" style={{ color: 'var(--m-slate)' }}>
+        <p className="mt-4 text-[13px]" style={{ color: 'var(--m-slate)' }}>
           Your assistant is answering in Setnayan&rsquo;s neutral voice. Voice-match
           is waiting on our data-privacy sign-off before it can be switched on for
           any shop — nothing to do on your side, and we&rsquo;ll let you know the
           moment it opens.
         </p>
       ) : !advancedActive ? (
-        <p className="mt-4 text-xs" style={{ color: 'var(--m-slate)' }}>
+        <p className="mt-4 text-[13px]" style={{ color: 'var(--m-slate)' }}>
           Right now your assistant answers in Setnayan&rsquo;s neutral voice. Upgrade
           to Vendor AI — Advanced to have it greet, phrase and sign off the way you
           do. Your prices and dates never change: those always come from your own
@@ -227,13 +225,13 @@ export function VoiceMatchCard({
               type="button"
               onClick={onLearn}
               disabled={busy || !learn}
-              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-40"
               style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)' }}
             >
               <Wand2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
               Use my past replies
             </button>
-            <label className="inline-flex items-center gap-2 text-xs" style={{ color: 'var(--m-slate)' }}>
+            <label className="inline-flex items-center gap-2 text-[13px]" style={{ color: 'var(--m-slate)' }}>
               <Switch
                 on={learn}
                 onClick={() => setLearn((v) => !v)}
@@ -243,7 +241,7 @@ export function VoiceMatchCard({
             </label>
           </div>
           {note ? (
-            <p className="mt-2 text-xs" style={{ color: 'var(--m-slate)' }}>
+            <p className="mt-2 text-[13px]" style={{ color: 'var(--m-slate)' }}>
               {note}
             </p>
           ) : null}
@@ -275,46 +273,31 @@ export function VoiceMatchCard({
               />
             </Field>
             <Field label="Language" hint="How you mix English and Filipino.">
-              <select
+              <PickMenu
+                label="Language"
                 value={profile.languageMix}
-                onChange={(e) => set('languageMix', e.target.value as VoiceProfile['languageMix'])}
-                className="input-field"
-                aria-label="Language"
-              >
-                {VOICE_LANGUAGE_MIXES.map((v) => (
-                  <option key={v} value={v}>
-                    {LANGUAGE_LABEL[v]}
-                  </option>
-                ))}
-              </select>
+                dataAttr="data-voice-languageMix"
+                options={VOICE_LANGUAGE_MIXES.map((v) => ({ key: v, label: LANGUAGE_LABEL[v] ?? v }))}
+                onPick={(k) => set('languageMix', k as VoiceProfile['languageMix'])}
+              />
             </Field>
             <Field label="Tone" hint="How warm your replies read.">
-              <select
+              <PickMenu
+                label="Tone"
                 value={profile.warmth}
-                onChange={(e) => set('warmth', e.target.value as VoiceProfile['warmth'])}
-                className="input-field"
-                aria-label="Tone"
-              >
-                {VOICE_WARMTHS.map((v) => (
-                  <option key={v} value={v}>
-                    {WARMTH_LABEL[v]}
-                  </option>
-                ))}
-              </select>
+                dataAttr="data-voice-warmth"
+                options={VOICE_WARMTHS.map((v) => ({ key: v, label: WARMTH_LABEL[v] ?? v }))}
+                onPick={(k) => set('warmth', k as VoiceProfile['warmth'])}
+              />
             </Field>
             <Field label="Emoji" hint="How often you use them.">
-              <select
+              <PickMenu
+                label="Emoji"
                 value={profile.emojiLevel}
-                onChange={(e) => set('emojiLevel', e.target.value as VoiceProfile['emojiLevel'])}
-                className="input-field"
-                aria-label="Emoji"
-              >
-                {VOICE_EMOJI_LEVELS.map((v) => (
-                  <option key={v} value={v}>
-                    {EMOJI_LABEL[v]}
-                  </option>
-                ))}
-              </select>
+                dataAttr="data-voice-emojiLevel"
+                options={VOICE_EMOJI_LEVELS.map((v) => ({ key: v, label: EMOJI_LABEL[v] ?? v }))}
+                onPick={(k) => set('emojiLevel', k as VoiceProfile['emojiLevel'])}
+              />
             </Field>
             <Field label="Say “po”" hint="Adds po to your greeting and sign-off.">
               <Switch
@@ -328,18 +311,18 @@ export function VoiceMatchCard({
           {/* ── Preview: same pure functions the server precomputes with ──── */}
           <div className="mt-5 rounded-lg border p-3" style={{ borderColor: 'var(--m-line)' }}>
             <p
-              className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide"
+              className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wide"
               style={{ color: 'var(--m-sage-deep)' }}
             >
               <Sparkles className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
               Preview
             </p>
-            <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            <p className="mt-1 text-[13px]" style={{ color: 'var(--m-slate-3)' }}>
               Example numbers — your real replies always quote your live catalog.
             </p>
             <ul className="mt-2 space-y-2">
               {previews.map((t) => (
-                <li key={t} className="text-xs leading-relaxed" style={{ color: 'var(--m-slate)' }}>
+                <li key={t} className="text-[13px] leading-relaxed" style={{ color: 'var(--m-slate)' }}>
                   “{t}”
                 </li>
               ))}
@@ -351,12 +334,12 @@ export function VoiceMatchCard({
               type="button"
               onClick={onSave}
               disabled={busy}
-              className="rounded-md px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="rounded-md px-3 py-1.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
               style={{ background: 'var(--m-accent-deep)' }}
             >
               {dirty ? 'Save voice' : 'Save'}
             </button>
-            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            <p className="text-[13px]" style={{ color: 'var(--m-slate-3)' }}>
               Saving prepares your phrasings once — answering a couple costs
               nothing after that.
             </p>
@@ -378,8 +361,8 @@ function Field({
 }) {
   return (
     <div>
-      <p className="block text-xs font-medium text-ink">{label}</p>
-      <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+      <p className="block text-[13px] font-medium text-ink">{label}</p>
+      <p className="mt-0.5 text-[13px]" style={{ color: 'var(--m-slate)' }}>
         {hint}
       </p>
       <div className="mt-2">{children}</div>

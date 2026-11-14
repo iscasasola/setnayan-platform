@@ -1500,11 +1500,11 @@ async function EventsBoard({
             body="Guests, suppliers, the day itself — everything you plan gathers here, soonest first."
             action={
               <ActionButton
+                href="/dashboard/create-event"
                 tone="brand"
                 main
                 icon={<Plus aria-hidden />}
                 label="Create an event"
-                href="/dashboard/create-event"
                 tour="create-event"
               />
             }

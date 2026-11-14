@@ -23,8 +23,12 @@ import { planWord } from './vendor-plan-change-words';
 export type ShopGiftChoice = 'stock' | 'start' | 'now' | 'after' | 'extend';
 export const SHOP_GIFT_CHOICES: readonly ShopGiftChoice[] = ['stock', 'start', 'now', 'after', 'extend'];
 
-/** The gift stock Setnayan can send (the shop-gift kinds a badge reward can land as — `shop_badge_reward_grant`). */
-export type ShopGiftStockKind = 'papic' | 'event_plus' | 'event_pro';
+/**
+ * The gift stock Setnayan can send. Event Ultra is a gift option (DECISION_LOG 14 Nov); its stock lands through
+ * `shop_badge_reward_grant` once #7652 opens that door to it — until then the admin picker cannot offer it, because it
+ * lists only the live gift packs (`fetchShopGiftPacks`).
+ */
+export type ShopGiftStockKind = 'papic' | 'event_plus' | 'event_pro' | 'event_ultra';
 
 /** The plans Setnayan can send time on. */
 export type ShopGiftPlanTier = 'solo' | 'pro' | 'enterprise';

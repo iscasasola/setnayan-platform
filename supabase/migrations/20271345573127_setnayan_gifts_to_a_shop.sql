@@ -7,7 +7,7 @@
 -- "A GIFTED SUPPLIER PLAN: THE SHOP CHOOSES" · "STRATEGIC TASTE OF THE HIGHER TIER" · "FINAL — … 28 DAYS" ·
 -- "A SHOP ALREADY ON SUPPLIER ULTRA … ADDS 28 DAYS" · "PRESSING REDEEM IS THE CLAIM" · "GIFT DESIGN APPROVED").
 --
---   · GIFT STOCK (Papic packs · Event Plus · Event Pro) lands in the shop's gift stock through the ONE door badge
+--   · GIFT STOCK (Papic packs · Event Plus · Event Pro; Event Ultra is accepted here and lands once #7652 opens the door to it) lands in the shop's gift stock through the ONE door badge
 --     rewards already use (`shop_badge_reward_grant`, badge 'setnayan_gift', key 'setnayan_gift:<gift_id>'), so it
 --     sits OUTSIDE the 40% gift limit exactly as a badge reward does — no second stock mechanism.
 --   · PLAN TIME (Supplier Plus · Pro · Ultra, one 28-day block) is written onto `vendor_profiles` the way every comp
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.setnayan_shop_gifts (
   gift_type            TEXT NOT NULL CONSTRAINT setnayan_shop_gifts_type_allowed CHECK (gift_type IN ('stock', 'plan')),
   -- gift stock
   stock_kind           TEXT CONSTRAINT setnayan_shop_gifts_stock_kind_allowed
-                         CHECK (stock_kind IS NULL OR stock_kind IN ('papic', 'event_plus', 'event_pro')),
+                         CHECK (stock_kind IS NULL OR stock_kind IN ('papic', 'event_plus', 'event_pro', 'event_ultra')),
   stock_units          INTEGER CONSTRAINT setnayan_shop_gifts_stock_units_range
                          CHECK (stock_units IS NULL OR (stock_units >= 1 AND stock_units <= 10)),
   -- Papic only: the pack's credits, READ from the live catalogue when the admin sent it (never typed).
@@ -364,11 +364,22 @@ BEGIN
     RETURN FALSE;   -- the shop's own plan is still running
   END IF;
 
+  -- 💸 THE SHOP'S OWN PLAN HAS ENDED, so its credit goes with it (owner 2026-08-28: "the credit goes with the plan") —
+  -- exactly as the lapse below would have done. A held gift taking over is not a reason to keep the balance. The reason
+  -- is named first so the credit trigger writes its ledger row as a lapse (transaction-local).
+  PERFORM set_config('setnayan.credit_reason', 'lapse', true);
+
   v_end := now() + make_interval(days => g.plan_days);
   UPDATE public.vendor_profiles
-     SET tier_state = g.plan_tier, tier_expires_at = v_end, tier_source = 'admin_comp', tier_billing_cycle = NULL
+     SET tier_state = g.plan_tier, tier_expires_at = v_end, tier_source = 'admin_comp', tier_billing_cycle = NULL,
+         subscription_credit_php = 0
    WHERE vendor_profile_id = p_vendor_id;
-  UPDATE public.setnayan_shop_gifts SET plan_starts_at = now(), plan_ends_at = v_end WHERE gift_id = g.gift_id;
+  -- Nothing to hand back when it ends: the shop's own plan is over (return_tier NULL → Free, or Free · Verified).
+  UPDATE public.setnayan_shop_gifts
+     SET plan_starts_at = now(), plan_ends_at = v_end,
+         return_tier = NULL, return_source = NULL, return_billing_cycle = NULL, return_remaining = NULL,
+         return_open_ended = FALSE
+   WHERE gift_id = g.gift_id;
   RETURN TRUE;
 END;
 $function$;
@@ -499,7 +510,8 @@ BEGIN
   -- ── 🎁 A HELD SETNAYAN PLAN GIFT STARTS WHEN THE SHOP'S OWN PLAN ENDS ────
   -- ("Start it when my plan ends", 20271345573127.) Runs after a PAID
   -- scheduled plan had its chance above — a shop that is continuing is not
-  -- ending — and INSTEAD of the lapse: the gift's days are the shop's plan now.
+  -- ending — and in place of the lapse's tier change: the gift's days are the
+  -- shop's plan now. Its credit still goes, as a lapse (inside the helper).
   IF public.setnayan_plan_gift_start_held(p_vendor_id) THEN
     RETURN;
   END IF;

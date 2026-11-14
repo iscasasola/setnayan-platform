@@ -67,9 +67,11 @@ export function stockLineOf(row: Pick<GiftRow, 'stock_kind' | 'stock_units' | 's
     pack?.title ??
     (row.stock_kind === 'papic'
       ? `Papic (${(row.stock_credits_each ?? 0).toLocaleString('en-PH')} credits)`
-      : row.stock_kind === 'event_pro'
-        ? 'Event Pro'
-        : 'Event Plus');
+      : row.stock_kind === 'event_ultra'
+        ? 'Event Ultra'
+        : row.stock_kind === 'event_pro'
+          ? 'Event Pro'
+          : 'Event Plus');
   return `${units} × ${title}`;
 }
 

@@ -251,3 +251,50 @@ test('8 · no signed-in session can call the claim door or write the table', asy
     await db.query(`RESET ROLE`);
   }
 });
+
+test('9 · a held gift takes over when the shop’s own plan ends — and the credit still goes with that plan', async () => {
+  // Owner 2026-08-28: "the credit goes with the plan". A held ("Start it when my plan ends") gift starting is not a
+  // reason to keep the balance, and when the gift ends there is no old balance to come back to.
+  const { userId, shop } = await newShop({ tier: 'pro', expiresIn: 3 * DAY });
+  await db.query(`UPDATE public.vendor_profiles SET subscription_credit_php = 4200 WHERE vendor_profile_id = $1`, [shop]);
+  const gift = await sendPlan(shop, 'enterprise');
+  assert.equal((await claim(gift, shop, 'after', userId)).status, 'claimed');
+
+  await db.query(
+    `UPDATE public.vendor_profiles SET tier_expires_at = now() - interval '1 minute' WHERE vendor_profile_id = $1`,
+    [shop],
+  );
+  await db.query(`SELECT public.sweep_vendor_tier_expiry($1)`, [shop]);
+  assert.equal((await planOf(shop)).tier_state, 'enterprise', 'the held gift started');
+  assert.equal(
+    Number(await one<string>(`SELECT subscription_credit_php::text AS v FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [shop])),
+    0,
+    'the credit survived the end of the shop’s own plan because a gift took over',
+  );
+  const led = await db.query<{ delta_php: string; reason: string }>(
+    `SELECT delta_php::text AS delta_php, reason FROM public.vendor_credit_ledger
+      WHERE vendor_profile_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    [shop],
+  );
+  assert.equal(Number(led.rows[0]?.delta_php), -4200, 'the money went with no ledger row behind it');
+  assert.equal(led.rows[0]?.reason, 'lapse');
+
+  // …and when the gift ends there is nothing to hand back: Free · Verified, still no credit.
+  await endTheGift(gift, shop);
+  await db.query(`SELECT public.sweep_vendor_tier_expiry($1)`, [shop]);
+  assert.equal((await planOf(shop)).tier_state, 'verified');
+  assert.equal(
+    Number(await one<string>(`SELECT subscription_credit_php::text AS v FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [shop])),
+    0,
+  );
+});
+
+test('10 · Event Ultra is a stock kind the gift row accepts', async () => {
+  const { shop } = await newShop();
+  const gift = await one<string>(
+    `INSERT INTO public.setnayan_shop_gifts (vendor_profile_id, gift_type, stock_kind, stock_units)
+     VALUES ($1, 'stock', 'event_ultra', 1) RETURNING gift_id AS v`,
+    [shop],
+  );
+  assert.ok(gift);
+});

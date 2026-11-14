@@ -72,6 +72,15 @@ export function photoCostLine(): string {
   return `From your phone or laptop · ${countNoun(papicCaptureCost('photo', null, 'upload'), 'credit', 'credits')} a photo`;
 }
 
+/**
+ * 💰 F-W2-31 (walk 14 Nov): what ONE added photo costs, in a sentence — asked of `papicCaptureCost` with the 'upload'
+ * source, never typed. The old "Each one uses a credit, the same as a camera shot" was wrong twice: an added photo is
+ * the camera price × `PAPIC_UPLOAD_MULTIPLIER`, so it is NOT the same as a camera shot, and it is not one credit.
+ */
+export function uploadPhotoCostWords(): string {
+  return `Each photo added uses ${creditsCount(papicCaptureCost('photo', null, 'upload'))}.`;
+}
+
 export function costInfoLine(): string {
   const photo = papicCaptureCost('photo', null, 'upload');
   const low = papicClipCostFloor('upload');

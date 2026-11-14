@@ -1,4 +1,5 @@
 import { Check, Clock3, Lock, RotateCcw, Trash2 } from 'lucide-react';
+import { AskSubmit } from '@/app/_components/ask-submit';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createClientNote, toggleClientNoteDone, deleteClientNote } from '../actions';
 import { StayForm } from '@/app/_components/stay-form';
@@ -87,7 +88,7 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
                 <input type="hidden" name="done" value={n.done_at ? '0' : '1'} />
                 <SubmitButton
                   pendingLabel="Saving…"
-                  className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-ink"
+                  className="inline-flex min-h-11 items-center gap-1 font-medium text-ink/70 hover:text-ink"
                 >
                   {n.done_at ? (
                     <>
@@ -105,7 +106,7 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
                 <input type="hidden" name="note_id" value={n.note_id} />
                 <SubmitButton
                   pendingLabel="Removing…"
-                  className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-danger-700"
+                  className="inline-flex min-h-11 items-center gap-1 font-medium text-ink/70 hover:text-danger-700"
                 >
                   <Trash2 aria-hidden className="h-3 w-3" /> Delete
                 </SubmitButton>
@@ -140,15 +141,10 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
             <input
               type="date"
               name="remind_at"
-              className="rounded-lg border border-ink/15 bg-white px-2 py-1 text-xs text-ink focus:border-terracotta focus:outline-none"
+              className="h-11 rounded-lg border border-ink/15 bg-white px-3 text-[13px] text-ink focus:border-terracotta focus:outline-none"
             />
           </label>
-          <SubmitButton
-            pendingLabel="Saving…"
-            className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream"
-          >
-            <Check aria-hidden className="h-3.5 w-3.5" /> Save note
-          </SubmitButton>
+          <AskSubmit tone="brand" icon={<Check aria-hidden className="h-4 w-4" />} label="Save note" pendingLabel="Saving…" className="ml-auto" />
         </div>
       </StayForm>
     </div>

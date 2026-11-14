@@ -48,7 +48,7 @@ test('the eight doors that sent no origin now send one', () => {
     ['app/[slug]/_components/hub-suppliers-made-this-day.tsx', /<ShopLink href=\{`\/v\/\$\{v\.businessSlug\}`\}/],
     ['app/_components/plan3d/booth-vendor-card.tsx', /<ShopLink\s+href=\{`\/v\/\$\{vendor\.slug\}`\}/],
     ['app/dashboard/[eventId]/studio/mood-board/_components/gallery-picker.tsx', /<ShopLink\s+href=\{`\/v\/\$\{asset\.shopSlug\}`\}/],
-    ['app/dashboard/(account)/library/_components/saved-vendor-card.tsx', /<Link href=\{`\/v\/\$\{vendor\.businessSlug\}\?src=favorites`\} className="block">/],
+    ['app/dashboard/(account)/library/_components/saved-vendor-card.tsx', /<Link href=\{`\/v\/\$\{vendor\.businessSlug\}\?src=favorites`\}/],
     ['app/u/[userSlug]/page.tsx', /<ShopLink href=\{`\/v\/\$\{v\.slug\}`\} className="uprof-inf-card">/],
     ['app/dashboard/(account)/creator/page.tsx', /<ShopLink href=\{`\/v\/\$\{o\.vendorSlug\}`\}/],
   ];

@@ -221,15 +221,16 @@ for (const field of FIELDS) {
 }
 
 /**
- * 📋 WORDS NO PART LOOK REACHES, KNOWN AND NAMED — the venue map's own furniture: the tile credit and
- * the three app buttons (Google Maps · Waze · Apple Maps) and, since they became one dropdown on the plain card
- * (2026-10-21, `DirectionsMenu`), its "Directions" summary — the pins' numbers are `aria-hidden`, so not counted. Controls, not the couple's words; owner 2026-10-15: they
+ * 📋 WORDS NO PART LOOK REACHES, KNOWN AND NAMED — the venue map's own furniture: the tile credit and the one
+ * "Get directions" button (map card approved 2026-11-14 — it replaced the "Directions" dropdown and its three app rows,
+ * whose words now live only in the sheet the button opens, which the scene does not draw) — the pins' numbers are
+ * `aria-hidden`, so not counted. Controls, not the couple's words; owner 2026-10-15: they
  * stay fixed. Listed exactly — a NEW unreached word fails, and so does a listed one that is no longer drawn or is now
  * reached (take its line out). Dress code's chip names and do / don't lines WERE listed here until the owner ruled
  * them in (`lib/scene-words-class.ts`).
  */
 const KNOWN_UNREACHED: Readonly<Record<string, readonly string[]>> = {
-  venue_map: ['© OpenStreetMap', 'Directions', 'Google Maps', 'Waze', 'Apple Maps'],
+  venue_map: ['© OpenStreetMap', 'Get directions'],
 };
 
 for (const field of FIELDS) {

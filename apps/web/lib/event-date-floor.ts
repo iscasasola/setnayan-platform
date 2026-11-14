@@ -7,17 +7,26 @@
  * founders' own (`users.is_internal`) accounts may use any date, and an event
  * that already exists keeps its date until somebody changes it.
  *
- * 🔒 UNCHANGEABLE BY DESIGN. Owner: *"No need to change it will be an
- * unchangeable rule"* — a constant in code, never an Admin setting and never a
- * database row. Every door that creates an event or sets its date asks
- * `eventDateFloorRefusal` (server side, the backstop) and every date picker a
- * normal account sees starts at `eventDateMinFor` (the front door). The guard
- * `event-date-floor.test.ts` holds both halves.
+ * 🔓 SWITCHED OFF FOR EVERYONE — owner, 2026-11-14 (DECISION_LOG "THE DECEMBER 19
+ * EVENT-DATE RULE IS OFF FOR EVERYONE"): *"just remove that rule for everyone"* ·
+ * *"so we don't stress on it"*. It had blocked the walkthrough's test events from
+ * any date before 19 Dec. `EVENT_DATE_FLOOR_ON` below is the one switch: off, no
+ * date is before the first day, so every door that asks (`eventDateFloorRefusal`,
+ * `eventDatesFloorRefusal`, `candidatesOnOrAfterFirstEventDay`, the pickers'
+ * `eventDateMinFor`) lets any date through. The doors still ASK, so turning it
+ * back on is this one line — `event-date-floor.test.ts` holds both the switch and
+ * the asking. Still a constant in code, never an Admin setting or a database row.
+ *
+ * ⚠ NOT the guest-import day further down (`guestImportRefusal`, owner
+ * 2026-11-02): that is a separate rule and still opens on December 19.
  *
  * Pure — no I/O. Who is exempt is answered by `event-date-floor.server.ts`.
  */
 
-/** The first day any normal account's event may be on. */
+/** The one switch. Off since 2026-11-14 (owner: "just remove that rule for everyone"). */
+export const EVENT_DATE_FLOOR_ON = false;
+
+/** The first day any normal account's event may be on — read only while the floor is on. */
 export const FIRST_EVENT_DAY = '2026-12-19';
 
 /** The founders' wedding — the very first event (named in the refusal). */
@@ -52,8 +61,9 @@ export function lastDayOf(iso: string, precision: FloorPrecision | null | undefi
   return `${m[1]}-${m[2]}-${m[3]}`;
 }
 
-/** Is this date (at its precision) wholly before the first event day? */
+/** Is this date (at its precision) wholly before the first event day? Never, while the floor is off. */
 export function isBeforeFirstEventDay(iso: string | null | undefined, precision: FloorPrecision | null | undefined = 'day'): boolean {
+  if (!EVENT_DATE_FLOOR_ON) return false;
   if (!iso) return false;
   const last = lastDayOf(iso, precision);
   return last !== null && last < FIRST_EVENT_DAY;
@@ -119,7 +129,7 @@ export async function candidatesOnOrAfterFirstEventDay(
  * later of today and the first event day.
  */
 export function eventDateMinFor(today: string, exempt: boolean): string {
-  if (exempt) return today;
+  if (exempt || !EVENT_DATE_FLOOR_ON) return today;
   return today > FIRST_EVENT_DAY ? today : FIRST_EVENT_DAY;
 }
 

@@ -80,7 +80,8 @@ test('it states the findable rule itself, not trusting the caller’s RLS', asyn
   assert.ok(eqs.includes('is_active=true'), `missing is_active clause\ngot: ${eqs.join(' · ')}`);
   const matches = calls.filter((c) => c.fn === 'match').map((c) => JSON.stringify(c.args[0]));
   assert.ok(
-    matches.includes(JSON.stringify({ 'vendor_profiles.is_findable': true })),
+    // + papers_current (20271345631375): a shop whose papers lapsed leaves the lists too.
+    matches.includes(JSON.stringify({ 'vendor_profiles.is_findable': true, 'vendor_profiles.papers_current': true })),
     `missing the findable gate on the embedded shop\ngot: ${matches.join(' · ')}`,
   );
   assert.ok(

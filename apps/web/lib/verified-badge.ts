@@ -10,6 +10,18 @@
  *   the day, the Verified badge comes off, and the shop STAYS FINDABLE AND
  *   BOOKABLE.
  *
+ * ⚠ Q5's "STAYS BOOKABLE" IS SUPERSEDED (owner 2026-11-14, DECISION_LOG "THE
+ *   RENEWAL DAY IS 30 MARCH" · "AFTER 30 MARCH, AN UNRENEWED SHOP KEEPS ITS
+ *   EXISTING BOOKINGS", corrected by DECISION_LOG 481b9b6b): a shop whose
+ *   renewal day passed unrenewed DROPS OUT OF SEARCH AND DISCOVER — no new
+ *   couples find it — and keeps its bookings, its hand-imported clients and the
+ *   events that already inquired. That is not decided here: the daily pass stamps
+ *   `papers_lapsed_at` (lib/papers-lapse.server.ts, migration 20271345631375),
+ *   which drops the shop from every list (`papers_current`). No booking door and
+ *   not the booking trigger reads it (the inquired-before-lapse path is
+ *   unconfirmed, so it stays as today). `verification_state` is still never
+ *   touched at a deadline, for the reason below. Reminders: 60, 30 and 7 days.
+ *
  * ── WHY THE BADGE IS A SEPARATE QUESTION FROM "IS THE SHOP LIVE" ───────────
  * In this codebase `verification_state = 'verified'` is three things at once:
  * the public read policy (`vendor_profiles_public_read`), the booking trigger
@@ -37,6 +49,32 @@ import { nextYearsPapersDue, papersDueIn } from '@/lib/papers-due';
 
 /** The owner's figure (Q5): the reminder goes out this many days ahead. */
 export const BADGE_REMINDER_DAYS = 60;
+
+/**
+ * The reminder stages, widest first (owner 2026-11-14, "THE BUSINESS PERMIT
+ * LEADS": reminders at 30 and 7 days, next to the 60-day one). Each stage is
+ * said ONCE per deadline; a shop that enters late gets only the nearest stage.
+ */
+export const BADGE_REMINDER_STAGES: readonly number[] = [BADGE_REMINDER_DAYS, 30, 7];
+
+/**
+ * May a shop whose papers were APPROVED start a renewal now? Yes once its
+ * badge deadline is inside the widest reminder window, or past it (owner
+ * 2026-11-14: "renewal is an upload of the new permit in the same upload
+ * place"). Before that there is nothing to renew. No deadline → no.
+ */
+export function renewalUploadOpen(nextRenewalDueAt: string | null | undefined, now: Date = new Date()): boolean {
+  const ms = badgeDeadlineMs(nextRenewalDueAt);
+  if (ms === null) return false;
+  return ms - now.getTime() <= BADGE_REMINDER_DAYS * DAY_MS;
+}
+
+/** The stage a shop with `daysLeft` is in: the smallest stage it has reached. */
+export function reminderStage(daysLeft: number): number {
+  let stage = BADGE_REMINDER_STAGES[0]!;
+  for (const s of BADGE_REMINDER_STAGES) if (daysLeft <= s) stage = s;
+  return stage;
+}
 
 /**
  * A permit date further out than this is a typo, not a permit. A Philippine
@@ -79,8 +117,9 @@ export function badgeDeadlineMs(raw: string | null | undefined): number | null {
  * THE ONE PREDICATE for "does this shop wear the Verified badge right now?"
  *
  * Verified, and its badge deadline (if it has one) has not passed. It says
- * NOTHING about whether the shop is listed or bookable — those stay on
- * `verification_state` alone, which is the whole point of Q5.
+ * NOTHING about whether the shop is listed or bookable — bookable stays on
+ * `verification_state`; listed also reads the papers stamp (`papers_current`,
+ * in `FINDABLE_SHOP_GATE`).
  */
 export function hasVerifiedBadge(facts: BadgeFacts, now: Date = new Date()): boolean {
   if (facts.verification_state !== 'verified') return false;
@@ -197,11 +236,18 @@ export type SweepCandidate = {
 };
 
 export type SweepAction =
-  | { kind: 'remind'; vendorProfileId: string; deadlineIso: string; daysLeft: number }
+  | { kind: 'remind'; vendorProfileId: string; deadlineIso: string; daysLeft: number; stage: number }
   | { kind: 'lapse'; vendorProfileId: string; deadlineIso: string };
 
 /** The dedupe key: one reminder and one lapse note per shop PER DEADLINE. */
-export function sweepKey(kind: SweepAction['kind'], vendorProfileId: string, deadlineIso: string): string {
+export function sweepKey(
+  kind: SweepAction['kind'],
+  vendorProfileId: string,
+  deadlineIso: string,
+  /** Reminders only. The 60-day stage keeps the key it always had, so reminders already sent stay counted. */
+  stage: number = BADGE_REMINDER_DAYS,
+): string {
+  if (kind === 'remind' && stage !== BADGE_REMINDER_DAYS) return `remind${stage}:${vendorProfileId}:${deadlineIso}`;
   return `${kind}:${vendorProfileId}:${deadlineIso}`;
 }
 
@@ -236,12 +282,14 @@ export function planBadgeDeadlineSweep(
         out.push({ kind: 'lapse', vendorProfileId: c.vendorProfileId, deadlineIso });
       }
     } else if (state.kind === 'reminder') {
-      if (!alreadyDone.has(sweepKey('remind', c.vendorProfileId, deadlineIso))) {
+      const stage = reminderStage(state.daysLeft);
+      if (!alreadyDone.has(sweepKey('remind', c.vendorProfileId, deadlineIso, stage))) {
         out.push({
           kind: 'remind',
           vendorProfileId: c.vendorProfileId,
           deadlineIso,
           daysLeft: state.daysLeft,
+          stage,
         });
       }
     }

@@ -139,12 +139,16 @@ test('2 · no reader of the marketplace view goes back to verified-only without 
 });
 
 test('3 · the gate the lists share is the one column, and the live-shop gate is built on it', () => {
-  assert.deepEqual(FINDABLE_SHOP_GATE, { is_findable: true });
-  assert.deepEqual(findableShopGate('vendor_profiles'), { 'vendor_profiles.is_findable': true });
+  // 📄 + papers_current (20271345631375, owner "Keep them, block new"): a lapsed shop leaves every list.
+  assert.deepEqual(FINDABLE_SHOP_GATE, { is_findable: true, papers_current: true });
+  assert.deepEqual(findableShopGate('vendor_profiles'), {
+    'vendor_profiles.is_findable': true,
+    'vendor_profiles.papers_current': true,
+  });
   // 2026-11-06 (demo shops are public, marked "(DEMO ONLY)"): the listing gate is the findable rule alone; every TOTAL
   // reads REAL_SHOP_GATE, which adds "not a demo" (lib/demo-never-counts.test.ts).
-  assert.deepEqual(LIVE_SHOP_GATE, { is_findable: true }, 'the live-shop gate drifted from the findable rule');
-  assert.deepEqual(REAL_SHOP_GATE, { is_findable: true, is_demo: false }, 'the real-shop gate drifted from the findable rule + not demo');
+  assert.deepEqual(LIVE_SHOP_GATE, { is_findable: true, papers_current: true }, 'the live-shop gate drifted from the findable rule');
+  assert.deepEqual(REAL_SHOP_GATE, { is_findable: true, papers_current: true, is_demo: false }, 'the real-shop gate drifted from the findable rule + not demo');
   assert.match(read('lib/live-shops.ts'), /\.\.\.FINDABLE_SHOP_GATE/, 'LIVE_SHOP_GATE re-types the rule instead of spreading it');
   // The twin, on the four corners that matter.
   assert.equal(isShopFindable({ public_visibility: 'verified', verification_state: 'verified' }), true);

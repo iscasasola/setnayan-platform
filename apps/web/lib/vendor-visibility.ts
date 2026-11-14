@@ -208,6 +208,10 @@ export function shopBookingRefusal(row: {
   if (row.fraud_suspended_at !== null) return 'suspended';
   if (row.verification_state !== 'verified') return 'not_verified';
   if (!isShopLive(row)) return 'not_listed';
+  // ⚠ A lapsed papers stamp (`papers_lapsed_at`) is deliberately NOT read here: the owner ruled (DECISION_LOG
+  // 481b9b6b) that a lapsed shop only drops out of search and Discover — it keeps importing clients and working
+  // with events that already inquired. Whether an inquired event can still be BOOKED after the lapse is unconfirmed,
+  // so that path stays as it is today.
   return null;
 }
 

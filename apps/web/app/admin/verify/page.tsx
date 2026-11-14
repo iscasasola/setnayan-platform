@@ -113,6 +113,15 @@ import {
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
+import { formatLongDate } from '@/lib/format-date';
+import { AUTO_CHECK_AUDIT_ACTION, formatManilaDateTime } from '@/lib/auto-verify-audit';
+import { VERIFICATION_PAIRS, parsePaperRead } from '@/lib/verification-pairs';
+import {
+  classifyPaperQr,
+  isReadableSlotKey,
+  slotR2Key,
+  type QrVerdict,
+} from '@/lib/verification-paper-read';
 export const metadata = { title: 'Verification queue · Admin' };
 
 /**
@@ -151,6 +160,7 @@ type Props = {
     in_review?: string;
     contact_marked?: string;
     deep_search?: string;
+    reread?: string;
     error?: string;
   }>;
 };
@@ -178,6 +188,8 @@ type VendorVisibilityRow = {
   fraud_suspended_at?: string | null;
   fraud_banned_at?: string | null;
   fraud_tombstoned?: boolean | null;
+  /** False once the shop's papers lapsed (migration 20271345631375). */
+  papers_current?: boolean | null;
 };
 
 type ApplicationRow = {
@@ -336,6 +348,13 @@ function FlashBanner({
     return (
       <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
         VALIDATE message marked as received.
+      </p>
+    );
+  }
+  if (search.reread === '1') {
+    return (
+      <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
+        Reading the paper again — the new reading shows when you refresh. It is evidence only; you still decide.
       </p>
     );
   }
@@ -689,6 +708,31 @@ async function ApplicationsSurface({
   );
   for (const { id, report } of checkReports) checksMap[id] = report;
 
+  // ── CLEAN PAPERS VERIFY THE SHOP ON SUBMIT — what the machine decided ────
+  // One JSON row per submission (`lib/auto-verify.server.ts`); the latest per
+  // application. A refused read is said on the card, never shown as "no check".
+  const autoMap: Record<string, AutoCheckRow> = {};
+  let autoReadFailed = false;
+  if (fullRows.length > 0) {
+    const { data: autoRows, error: autoErr } = await admin
+      .from('admin_audit_log')
+      .select('target_id,created_at,metadata')
+      .eq('action', AUTO_CHECK_AUDIT_ACTION)
+      .in('target_id', fullRows.map((r) => r.application_id))
+      .order('created_at', { ascending: false })
+      .limit(1000);
+    if (autoErr) {
+      autoReadFailed = true;
+      logQueryError('AdminVerifyPage (admin_audit_log auto checks)', autoErr);
+    }
+    for (const row of (autoRows ?? []) as Array<{ target_id: string; created_at: string; metadata: unknown }>) {
+      if (autoMap[row.target_id]) continue;
+      const parsed = parseAutoCheckRow(row.metadata, row.created_at);
+      if (parsed) autoMap[row.target_id] = parsed;
+    }
+  }
+  const shownRows = tabFilter.autoOnly ? fullRows.filter((r) => autoMap[r.application_id]?.decision === 'verify') : fullRows;
+
   // ── ONE FREE FIRST BOOKING PER BUSINESS (owner 2026-11-06) ──────────────
   // DECISION_LOG "…THE NEW-ACCOUNT LOOPHOLE IS CLOSED AT THE VERIFICATION
   // DESK": the registration number, phone and payout account are matched
@@ -724,17 +768,24 @@ async function ApplicationsSurface({
 
       {error ? null : null}
 
-      {appErr ? null : fullRows.length === 0 && demotedFallback.length === 0 ? (
+      {autoReadFailed ? (
+        <FormFlash tone="error">
+          The automatic checks couldn&apos;t load, so this list can&apos;t say which shops were verified automatically. Refresh to try again.
+        </FormFlash>
+      ) : null}
+
+      {appErr ? null : shownRows.length === 0 && demotedFallback.length === 0 ? (
         <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
           {tabFilter.emptyHint}
         </p>
       ) : (
         <>
           <ul className="grid gap-3">
-            {fullRows.map((r) => (
+            {shownRows.map((r) => (
               <li key={r.application_id}>
                 <ApplicationCard
                   application={r}
+                  autoCheck={autoMap[r.application_id] ?? null}
                   confirmation={
                     contactConfirmations[r.application_id] ??
                     EMPTY_CONTACT_CONFIRMATION
@@ -824,6 +875,7 @@ async function readFreeBookingMatches(
 function parseApplicationsTab(raw: string | undefined): {
   statuses: ApplicationStatus[];
   emptyHint: string;
+  autoOnly?: boolean;
 } {
   switch (raw) {
     case 'in_review':
@@ -835,6 +887,14 @@ function parseApplicationsTab(raw: string | undefined): {
       return {
         statuses: ['approved'],
         emptyHint: 'No recently approved applications.',
+      };
+    case 'auto':
+      // Approved applications whose latest automatic check said `verify`
+      // (filtered after the audit read below).
+      return {
+        statuses: ['approved'],
+        emptyHint: 'No shop has been verified automatically yet.',
+        autoOnly: true,
       };
     case 'rejected':
       return {
@@ -874,6 +934,7 @@ function ApplicationsTabs({ current }: { current: string }) {
     { key: 'pending_review', label: 'Pending' },
     { key: 'in_review', label: 'In review' },
     { key: 'approved', label: 'Approved' },
+    { key: 'auto', label: 'Verified automatically' },
     { key: 'rejected', label: 'Rejected' },
     { key: 'demoted', label: 'Demoted' },
     { key: 'all', label: 'All' },
@@ -901,6 +962,7 @@ function ApplicationsTabs({ current }: { current: string }) {
 
 function ApplicationCard({
   application,
+  autoCheck,
   confirmation,
   validateContacts,
   dossierRow,
@@ -908,6 +970,8 @@ function ApplicationCard({
   freeBookingMatch,
 }: {
   application: ApplicationRow;
+  /** The latest automatic check on this application, or null when none ran. */
+  autoCheck: AutoCheckRow | null;
   confirmation: ContactConfirmation;
   validateContacts: VendorValidateContacts;
   dossierRow: DossierRow | null;
@@ -1040,6 +1104,15 @@ function ApplicationCard({
         </p>
       ) : null}
 
+      {(['dti_certificate', 'bir_2303', 'mayors_permit'] as const).some((k) => typedBySupplier(application.doc_uploads?.[k] as DocUpload)) ? (
+        <p className="rounded-md border border-warn-300 bg-warn-50 px-3 py-2 text-xs font-medium text-warn-900">
+          Typed by the supplier — a paper could not be read in 3 tries. Compare what they typed with the kept file, then
+          approve or ask for a clearer copy.
+        </p>
+      ) : null}
+
+      {autoCheck ? <AutoCheckBlock auto={autoCheck} application={application} /> : null}
+
       <CheckResultsBlock checks={checks} />
 
       {/* ⚠ This summary said "12-doc checklist" for months while DOC_SLOTS held
@@ -1072,6 +1145,7 @@ function ApplicationCard({
                   documents={checks?.documents ?? []}
                 />
                 <SlotDetail slotKey={slot.key} value={v} />
+                <SlotRead applicationId={application.application_id} slotKey={slot.key} value={v} />
               </li>
             );
           })}
@@ -1667,6 +1741,238 @@ function SlotDetail({ slotKey, value }: { slotKey: string; value: DocUpload }) {
   return null;
 }
 
+/**
+ * 📄 WHAT THE READER SAW ON THIS PAPER (owner 2026-11-14) — in plain words,
+ * never the raw block. Evidence for the reviewer, beside the Open button; it
+ * decides nothing. "Read it again" rides `openApplicationDocument` with
+ * `intent=read` (the server-action ceiling has no headroom for a new export).
+ */
+function SlotRead({
+  applicationId,
+  slotKey,
+  value,
+}: {
+  applicationId: string;
+  slotKey: string;
+  value: DocUpload;
+}) {
+  if (!isReadableSlotKey(slotKey)) return null;
+  const r2Key = slotR2Key(value, slotKey);
+  if (!r2Key) return null;
+  const read = parsePaperRead(value);
+  const pair = VERIFICATION_PAIRS.find((p) => p.slotKey === slotKey);
+  const labelOf = (k: string) => TYPED_LABEL[k] ?? pair?.fields.find((f) => f.key === k)?.label ?? k;
+  const typed = typedBySupplier(value);
+  return (
+    <div className="ml-7 space-y-1 rounded-md border border-ink/10 bg-ink/[0.02] px-2 py-1.5 text-[11px] text-ink/75">
+      {typed ? (
+        /* 🧾 THE REQUEST CARD (approved papers demo, DECISION_LOG 7e4de291): three photos could not be read, so the
+           supplier typed the details and this paper waits for a person. The kept file is the Open button above. */
+        <div className="space-y-1 rounded-md border border-warn-300 bg-warn-50 px-2 py-1.5">
+          <p className="font-semibold text-ink">
+            Typed by the supplier · Try {formatCount(typed.attempts)} of {formatCount(3)} — compare it with the paper by hand
+          </p>
+          {Object.keys(typed.values).length > 0 ? (
+            <ul className="space-y-0.5">
+              {Object.entries(typed.values).map(([k, v]) => (
+                <li key={k}>
+                  {labelOf(k)}: <span className="font-mono text-ink">{v}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Nothing typed yet — the supplier has not sent the details.</p>
+          )}
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium text-ink">
+          {read
+            ? (read.readAs ?? 'The words on this paper were not read — open it and check.')
+            : 'Nobody has read this paper yet.'}
+        </span>
+        <form action={openApplicationDocument} className="ml-auto">
+          <input type="hidden" name="application_id" value={applicationId} />
+          <input type="hidden" name="slot_key" value={slotKey} />
+          <input type="hidden" name="r2_key" value={r2Key} />
+          <input type="hidden" name="intent" value="read" />
+          <SubmitButton
+            pendingLabel="Reading…"
+            className="rounded px-2 py-0.5 text-[11px] font-semibold underline underline-offset-2 hover:opacity-80"
+          >
+            {read ? 'Read it again' : 'Read it'}
+          </SubmitButton>
+        </form>
+      </div>
+      <PaperQrLine verdict={classifyPaperQr(read)} />
+      {read ? (
+        <ul className="space-y-0.5">
+          {Object.entries(read.values).map(([k, v]) => (
+            <li key={k}>
+              {labelOf(k)}: <span className="font-mono text-ink">{v}</span>
+            </li>
+          ))}
+          {read.notes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+          {read.unreadable.map((k) => (
+            <li key={`u-${k}`} className="text-warn-700">
+              {labelOf(k)}: could not make it out — check the paper.
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+type AutoCheckRow = {
+  decision: 'verify' | 'to_admin';
+  reason: string;
+  at: string;
+  checks: Array<{ key: string; label: string; pass: boolean; detail: string }>;
+};
+
+/** Defensive read of one `vendor_verification_auto_check` row. Malformed → null (never "passed"). */
+function parseAutoCheckRow(metadata: unknown, at: string): AutoCheckRow | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  const m = metadata as Record<string, unknown>;
+  const decision = m.decision === 'verify' ? 'verify' : m.decision === 'to_admin' ? 'to_admin' : null;
+  if (!decision) return null;
+  const checks = Array.isArray(m.checks)
+    ? m.checks
+        .filter((c): c is Record<string, unknown> => Boolean(c) && typeof c === 'object')
+        .map((c) => ({
+          key: String(c.key ?? ''),
+          label: String(c.label ?? ''),
+          pass: c.pass === true,
+          detail: String(c.detail ?? ''),
+        }))
+    : [];
+  return { decision, reason: typeof m.reason === 'string' ? m.reason : '', at, checks };
+}
+
+/**
+ * ✅ WHAT THE AUTOMATIC CHECK DECIDED (approved design "Supplier Verification
+ * Redesign", admin C/D). Verified automatically → "Why it passed · N of 6
+ * checks" and one tap to take the badge off. Waiting → the EXACT failing
+ * reason, first, then every check. Plain words; never the raw JSON.
+ */
+function AutoCheckBlock({ auto, application }: { auto: AutoCheckRow; application: ApplicationRow }) {
+  const passed = auto.checks.filter((c) => c.pass).length;
+  const verified = auto.decision === 'verify';
+  return (
+    <section
+      className={`space-y-2 rounded-md border px-3 py-2.5 text-xs ${
+        verified ? 'border-success-200 bg-success-50' : 'border-warn-300 bg-warn-50'
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold text-ink">
+          {verified ? 'Verified automatically' : 'Waiting for Setnayan'}
+        </span>
+        <span className="text-ink/60">{formatManilaDateTime(auto.at)}</span>
+        {verified && application.status === 'approved' ? (
+          <ConfirmForm
+            action={demoteVendor}
+            title="Take the badge off?"
+            confirmLabel="Take it off"
+            destructive
+            message="Their Verified badge and Pro perks come off. They stay listed and bookable, and they're told why."
+            className="ml-auto"
+          >
+            <input type="hidden" name="vendor_profile_id" value={application.vendor_profile_id} />
+            <input type="hidden" name="application_id" value={application.application_id} />
+            <input type="hidden" name="reason" value="A person at Setnayan looked again at the automatic verification and took the badge off." />
+            <SubmitButton
+              pendingLabel="Taking it off…"
+              className="inline-flex h-9 items-center rounded-full border border-[color:var(--sn-danger)]/45 bg-[var(--sn-danger-soft)] px-3 text-xs font-medium text-[color:var(--sn-danger)]"
+            >
+              Take the badge off
+            </SubmitButton>
+          </ConfirmForm>
+        ) : null}
+      </div>
+      {!verified ? <p className="font-medium text-warn-900">Why it waits: {auto.reason}</p> : null}
+      {auto.checks.length > 0 ? (
+        <>
+          <p className="text-ink/70">
+            {verified ? 'Why it passed' : 'The checks'} · {formatCount(passed)} of {formatCount(auto.checks.length)} checks
+          </p>
+          <ul className="space-y-1">
+            {auto.checks.map((c) => (
+              <li key={c.key} className="flex gap-2">
+                <span aria-hidden className={c.pass ? 'text-success-700' : 'text-warn-700'}>
+                  {c.pass ? '✓' : '✗'}
+                </span>
+                <span>
+                  <span className="font-medium text-ink">{c.label}</span>
+                  <span className="block text-ink/70">{c.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+/** The typed-form keys, labelled the way the supplier saw them (paper-upload-place.tsx TYPED_FIELDS). */
+const TYPED_LABEL: Record<string, string> = {
+  permit_number: 'Permit number',
+  valid_until: 'Good until',
+  registered_business_name: 'Registered name',
+  registration_number_raw: 'Registration number',
+  tin_number: 'TIN',
+  registered_address: 'Registered address',
+  date_registered: 'Date registered',
+};
+
+/** A paper the supplier TYPED after three unreadable tries — or null. Defensive: a malformed slot is not "typed". */
+function typedBySupplier(value: DocUpload): { attempts: number; values: Record<string, string> } | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  if (v.manual !== true) return null;
+  const typed = v.typed && typeof v.typed === 'object' && !Array.isArray(v.typed) ? (v.typed as Record<string, unknown>) : {};
+  const values: Record<string, string> = {};
+  for (const [k, x] of Object.entries(typed)) if (typeof x === 'string' && x.trim()) values[k] = x.trim();
+  return { attempts: typeof v.attempts === 'number' ? v.attempts : 3, values };
+}
+
+/**
+ * 🔳 THE QR'S LINK, FOR THE REVIEWER ONLY. One tap opens it in a new tab; the
+ * server never fetches it. The label is decided by `classifyPaperQr` — a strict
+ * host check, so a look-alike reads "⚠ Not a government site".
+ */
+function PaperQrLine({ verdict }: { verdict: QrVerdict }) {
+  if (verdict.kind === 'none') return null;
+  if (verdict.kind === 'unreadable') {
+    return <p className="text-warn-700">{verdict.label}</p>;
+  }
+  if (verdict.kind === 'text') {
+    return (
+      <p>
+        {verdict.label}: <span className="break-all font-mono text-ink">{verdict.text.slice(0, 200)}</span>
+      </p>
+    );
+  }
+  return (
+    <p className={verdict.kind === 'official' ? 'text-success-700' : 'text-warn-700'}>
+      QR:{' '}
+      <a
+        href={verdict.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-semibold underline underline-offset-2"
+      >
+        {verdict.label}
+      </a>{' '}
+      <span className="break-all font-mono text-[10px] text-ink/60">{verdict.href.slice(0, 200)}</span>
+    </p>
+  );
+}
+
 /** What every grant does to the shop, said the same way wherever it is offered. */
 const GRANT_CONSEQUENCE =
   'Approving flips this supplier to Verified — their public listing goes live, the verified badge appears, Supplier Pro/Supplier Ultra unlock, and they are notified.';
@@ -1703,6 +2009,8 @@ function ActionRow({
   checks: VerificationChecksReport | null;
 }) {
   const approveMessage = grantDialogMessage(checks);
+  // 📄 Offered, never written: the reviewer types the date themselves.
+  const permitReadExpiry = parsePaperRead(application.doc_uploads?.mayors_permit)?.expiresOn ?? null;
   const isPendingOrReview =
     application.status === 'pending_review' ||
     application.status === 'in_review';
@@ -1753,6 +2061,11 @@ function ActionRow({
               31 December because a Mayor's Permit runs for the calendar year;
               the label tells the reviewer to read the paper. Blank = the
               one-year renewal. Validated server-side (`permitDeadlineFrom`). */}
+          {permitReadExpiry ? (
+            <p className="w-full text-xs text-ink/70">
+              The permit reads: valid until <span className="font-medium text-ink">{formatLongDate(permitReadExpiry)}</span> — check it against the paper before you enter it below.
+            </p>
+          ) : null}
           <label className="flex items-center gap-2 text-xs text-ink/70">
             <span>Mayor&rsquo;s Permit valid until (as printed) · recorded — the badge renews on {deadlineLabel(deadlineAtApproval(new Date()))}</span>
             <input

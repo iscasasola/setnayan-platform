@@ -113,6 +113,9 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   // papic_challenge_expires_at — the Papic Challenges 28-day window (owner
   // 2026-08-28). A paid entitlement the subject holds, so it belongs in their
   // own export for the same reason the AI and booth windows above do.
+  // papers_lapsed_at · papers_current (migration 20271345631375, PR #7624) — when the shop's papers lapsed after the
+  // 30 March renewal, and whether they are current. The shop's own state, exported like find_lock_* above.
+  'papers_current, papers_lapsed_at, ' +
   'papic_challenge_expires_at, pending_tier, pending_tier_billing_cycle, ' +
   'pending_tier_period_days, ' +
   'pending_tier_purchase_id, pending_tier_scheduled_at, pending_tier_sku_code, ' +

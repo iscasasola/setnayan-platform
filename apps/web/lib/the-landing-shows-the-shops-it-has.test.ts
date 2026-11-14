@@ -81,6 +81,8 @@ test('the live-shop gate is the real one, not the legacy is_published', () => {
     // vendor_profiles.is_findable column) — verified shops, and undecided shops
     // until their first inquiry. Never the two columns re-typed.
     is_findable: true,
+    // 2026-11-14 (20271345631375, owner "Keep them, block new"): …and papers not lapsed.
+    papers_current: true,
   });
   // …and every TOTAL keeps the demo half: "demo numbers never count in real totals".
   // SABOTAGE: drop `is_demo: false` from REAL_SHOP_GATE → RED.

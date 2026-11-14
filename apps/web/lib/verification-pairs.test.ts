@@ -47,6 +47,9 @@ const read = (over: Partial<PaperRead> = {}): PaperRead => ({
   unreadable: [],
   registryOutcome: 'agreed',
   readAt: '2026-09-09T06:12:00.000Z',
+  expiresOn: null,
+  qrText: null,
+  qrUnreadable: false,
   ...over,
 });
 
@@ -125,7 +128,8 @@ test('nothing on the page claims a QR was verified — the QR is a link anyone c
   const here = new URL('.', import.meta.url).pathname;
   const files = [
     join(here, 'verification-pairs.ts'),
-    join(here, '..', 'app', 'vendor-dashboard', 'shop', '_components', 'verify-pairs.tsx'),
+    // The pairs screen was retired by design v10 (2026-11-14); its successor is held to the same line.
+    join(here, '..', 'app', 'vendor-dashboard', 'shop', '_components', 'paper-upload-place.tsx'),
   ];
   let scanned = 0;
   for (const f of files) {

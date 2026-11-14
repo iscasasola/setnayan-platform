@@ -21,6 +21,10 @@
  *                                 behind "Start a blank card"; each pick's "+ Specialties (optional)" and the plan meter
  *   &host=add&read=shop           🔒 …when the shop's own services could not be read: the line + Try again, no picker
  *   &host=add&read=tree           🔒 …when the service list could not be read: the line + Try again, never a blank picker
+ *   &portfolio=albums|none|unread 🃏📸 the edit sheet's Portfolio fold as it reads with the card-record flag ON (frames 72 · 74 · 75):
+ *                                 this card's event albums + own uploads last · own uploads only · Couldn't load · Retry
+ *   &record=unread                🃏 the Record fold when the record read is refused (frame 75)
+ *   &work=1|unread                🃏📸 Their work (frame 78): each album names the card(s) it was booked on · retired pill
  *   &host=today                   the maker inside TODAY's host — the "What you offer" step's ＋ Start opens it as the
  *                                 same `SetupOfferFold` sheet the page draws, so its own sheets (What you offer, Preview,
  *                                 the photos…) can be checked over that sheet, not only on the standalone page
@@ -28,6 +32,9 @@
  * Names are the prototype's samples: nobody real.
  */
 import { LAB_FAIR_WORDS } from '../lab-fair-words';
+import { CardPortfolioSection } from '@/app/_components/card-portfolio-section';
+import { TheirWorkList } from '@/app/vendor-dashboard/services/their-work/their-work-list';
+import { LAB_CARD_ALBUMS, LAB_CARD_SUMMARY, LAB_THEIR_OWN, LAB_THEIR_WORK } from '../card-albums-lab-fixture/fixture';
 import { notFound } from 'next/navigation';
 import type { CoverageParent } from '@/lib/vendor-coverages';
 import { liveKindGroups } from '@/lib/service-card-kind-groups';
@@ -315,8 +322,39 @@ export default async function CardMakerLabPage({
     ? { claimWords: [...LAB_CLAIM_WORDS, ...LAB_FAIR_WORDS.filter((w) => !LAB_CLAIM_WORDS.some((c) => c.phrase === w.phrase))], trades: labTrades, ownCards: [{ id: 'lab-other', title: 'Classic Booth' }] }
     : null;
 
+  // 🃏📸 The flag-ON reads, on fixtures (`card-albums-lab-fixture`). Absent → the maker exactly as the flag-OFF page draws it.
+  const portfolio = sp.portfolio === 'albums' || sp.portfolio === 'none' || sp.portfolio === 'unread' ? sp.portfolio : null;
+  const labOwn = ['/event-types/celebration.webp', '/event-types/anniversary.webp', '/event-types/gala_night.webp'];
+  const portfolioSlot = portfolio ? (
+    <CardPortfolioSection work={portfolio === 'unread' ? null : portfolio === 'none' ? [] : LAB_CARD_ALBUMS} own={labOwn} variant="vendor" retryHref="/dev/card-maker-lab?s=edit" />
+  ) : null;
+  const portfolioLine = portfolio === 'unread' ? 'Couldn’t load · Retry' : portfolio === 'none' ? 'Your own uploads only · albums come from bookings' : portfolio ? LAB_CARD_SUMMARY : null;
+  const recordSlot =
+    sp.record === 'unread' ? (
+      <p className="flex min-h-11 items-center justify-between gap-3 text-[14px] text-ink/75" role="status" data-card-record="unread">
+        <span>Couldn’t load this card’s record</span>
+        <span className="inline-flex min-h-11 items-center font-medium text-sn-accent">Retry</span>
+      </p>
+    ) : null;
+
+  if (sp.work === '1' || sp.work === 'unread') {
+    return (
+      <div className="mx-auto w-full max-w-2xl px-4 pb-8 pt-4 sm:px-6" data-lab="their-work">
+        <div className="mb-2 flex min-h-11 items-center gap-2">
+          <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">‹ Shop</span>
+        </div>
+        <h1 className="text-[22px] font-semibold text-ink">Their work</h1>
+        <p className="mt-1 text-[14px] text-ink/60">Photos from the events this card was booked for</p>
+        <TheirWorkList albums={sp.work === 'unread' ? null : LAB_THEIR_WORK} own={LAB_THEIR_OWN} retryHref="/dev/card-maker-lab?work=1" />
+      </div>
+    );
+  }
+
   const maker = (
       <CanvasMaker
+        recordSlot={recordSlot}
+        portfolioSlot={portfolioSlot}
+        portfolioLine={portfolioLine}
         categoryValue={isEdit || fixed ? shop.edit.kind : ''}
         categoryLabel={isEdit || fixed ? (shop.covered.find((c) => c.value === shop.edit.kind)?.label ?? shop.edit.kind) : ''}
         categoryOptions={isEdit || fixed ? [] : categoryOptions}

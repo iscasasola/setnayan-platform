@@ -102,7 +102,7 @@ test('(3) the bridge starts it with the guest mode and stops it with it', () => 
 });
 
 test('(4) the lab’s guest page mounts the real observer wherever it mounts the bridge', () => {
-  const lab = read('app/dev/maker-lab/guest/page.tsx');
+  const lab = read('app/dev/maker-lab/guest/page.lab.tsx');
   const bridges = (lab.match(/<EditorBridge \/>/g) ?? []).length;
   assert.ok(bridges >= 2, 'anti-vacuity');
   assert.equal((lab.match(/\{!preview \? <PahinaMotionRootFlag \/> : null\}\s*\{!preview \? <PahinaMotionObserver \/> : null\}/g) ?? []).length, bridges, 'a lab render where On arrival can never bind');

@@ -80,7 +80,7 @@ import { resolveSectionOrder, shippedSections } from './editorial/editorial-orde
 import { openUpHash } from '@/lib/post-event-scenes';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { hubLinkWords, invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
-import { guestsArriveTime } from '@/lib/guests-arrive';
+import { coverMoment, guestsArriveTime } from '@/lib/guests-arrive';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { VendorDoorway } from './vendor-doorway';
@@ -1071,10 +1071,12 @@ export async function SiteBody({
   // 🎴 The invitation card's words (canvas "1 · Arrival"), resolved once for
   // both the stranger's and the guest's first screen. Null for the solemn
   // register, which keeps its quiet masthead. See _lib/invitation-card.ts.
+  // 🎴 F-W2-40: the event's own first moment a guest sees — never a private block, never the Prep chapter.
+  const coverAt = coverMoment(scheduleBlocks);
   const inviteCard = invitationCard({
     words: clientWords,
-    firstStartAt: scheduleBlocks[0]?.start_at ?? null,
-    firstLabel: scheduleBlocks[0]?.label ?? null,
+    firstStartAt: coverAt?.start_at ?? null,
+    firstLabel: coverAt?.label ?? null,
   });
   /* ⏰ When GUESTS arrive — the card's first moment when it is an arrival of its own (`lib/guests-arrive.ts`), the dress
      code's Guests call time (owner 2026-10-19). A plain guest's Me › Arrive by. */
@@ -2621,7 +2623,8 @@ export async function SiteBody({
               <>
                 {plan.openBrowse ? group(at('f:details', scenesTab), (
                   <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
-                    {detailsSceneList.length === 0 ? (
+                    {/* 📖 Never an empty plate under the story (F-W2-53): "No program was published…" after the day. */}
+                    {detailsSceneList.length === 0 && !storyLeads ? (
                       <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
                     ) : null}
                   </section>
@@ -2636,7 +2639,7 @@ export async function SiteBody({
               // the public widgets, then a teaser plate when nothing is filled.
               <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
-                {detailsSceneList.length === 0 ? (
+                {detailsSceneList.length === 0 && !storyLeads ? (
                   <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
                 ) : null}
               </section>
@@ -2682,7 +2685,7 @@ export async function SiteBody({
             <div id={storySceneShown ? undefined : SITE_MENU_ANCHORS.story} className="scroll-mt-6">
               {storySceneShown ? null : storyOffHere || !weddingOnly.love_story ? null : event.love_story ? (
                 <OurStory loveStory={event.love_story} variant="full" />
-              ) : plan.openBrowse ? (
+              ) : plan.openBrowse && !storyLeads ? (
                 <SectionEmptyPlate kind="story" pastTense={archiveTense} occasion={clientWords.occasion} />
               ) : null}
             </div>
@@ -2697,7 +2700,10 @@ export async function SiteBody({
              invitation?" and offers "Open my invitation" — a dead end for the
              person who ISSUES the invitations, and the tab must still land
              somewhere, so it says what this page is instead of pointing them
-             at a door that is not theirs. Copy only; no control moves here. */
+             at a door that is not theirs. Copy only; no control moves here.
+             📖 After the day (F-W2-53): the tab still lands here and says nothing — never "You don't need an
+             invitation" under the story, and never the stranger's "Open my invitation" card either. */
+          storyLeads ? <div id={SITE_MENU_ANCHORS.me} aria-hidden className="scroll-mt-6" /> : (
           <section id={SITE_MENU_ANCHORS.me} className="mt-12 scroll-mt-6">
             <div className="rounded-2xl border border-ink/10 bg-white/70 px-6 py-8 text-center shadow-sm">
               <p className="font-serif text-lg text-ink">You&rsquo;re the host</p>
@@ -2707,6 +2713,7 @@ export async function SiteBody({
               </p>
             </div>
           </section>
+          )
         ) : plan.openBrowse && archiveTense ? (
           /* ☝ Before the day a stranger's one door is "Get inside" (owner
              2026-09-26/27) — the "Open my invitation" card would be a second.

@@ -27,14 +27,17 @@ export function ShopReachMap({
   latitude,
   longitude,
   city,
+  mapHref,
 }: {
   reach: ShopReach;
   latitude: number | null;
   longitude: number | null;
   city: string | null;
+  /** RW-81: `null` = the sample's map — "View larger map →" drawn with no link (`VendorLocationMap`'s `mapHref`). */
+  mapHref?: null;
 }) {
   if (latitude == null || longitude == null) return null;
-  if (reach.kind !== 'ring') return <VendorLocationMap latitude={latitude} longitude={longitude} label={city} />;
+  if (reach.kind !== 'ring') return <VendorLocationMap latitude={latitude} longitude={longitude} label={city} mapHref={mapHref} />;
   const lat = Number(latitude.toFixed(6));
   const lng = Number(longitude.toFixed(6));
   return (
@@ -46,14 +49,20 @@ export function ShopReachMap({
         ariaLabel={`Map: serves up to ${reach.km} kilometres around ${city ?? 'the shop'}`}
         kmTag
       />
-      <a
-        href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=11/${lat}/${lng}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex min-h-[44px] items-center px-1 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink"
-      >
-        View larger map →
-      </a>
+      {mapHref === null ? (
+        <span data-map-link="none" className="flex min-h-[44px] items-center px-1 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          View larger map →
+        </span>
+      ) : (
+        <a
+          href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=11/${lat}/${lng}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex min-h-[44px] items-center px-1 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink"
+        >
+          View larger map →
+        </a>
+      )}
     </div>
   );
 }

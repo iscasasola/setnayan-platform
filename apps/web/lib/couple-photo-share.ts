@@ -211,7 +211,10 @@ export type CouplePhotoShareRequest =
   // 🃏 The shop's own grown card (Build 5 Lane C — hide per card · 👁 Couple view · the card's opens). Riding this
   // dispatcher because it is already the shop's door to what shows on its card; no new route (export budget).
   | { op: 'card_owner'; vendorProfileId: string }
-  | { op: 'card_hide'; vendorServiceId: string; key: string; hidden: boolean };
+  | { op: 'card_hide'; vendorServiceId: string; key: string; hidden: boolean }
+  // 📸 Photos by service, the shop's OWN view (owner 2026-11-14): its private album photos of the events one service's
+  // cards were booked on, marked "Only you". Same door, same reason — no new route (export budget).
+  | { op: 'service_private'; vendorProfileId: string; serviceKey: string };
 
 export type CouplePhotoShareReply =
   | { op: 'read'; result: PhotoShareOptions }
@@ -221,7 +224,22 @@ export type CouplePhotoShareReply =
   | { op: 'audience'; result: { status: 'ok' | 'gone' | 'error' } }
   | { op: 'viewer_looks'; result: Record<string, Array<{ id: string; url: string; credit: string }>> }
   | { op: 'card_owner'; result: { status: 'owner'; opens: Record<string, number> | null } | { status: 'not_owner' } }
-  | { op: 'card_hide'; result: { status: 'ok' | 'refused' | 'error' } };
+  | { op: 'card_hide'; result: { status: 'ok' | 'refused' | 'error' } }
+  | { op: 'service_private'; result: ServicePrivatePhotos };
+
+/** 📸 The shop's own view of one service's private album photos — by card id. `unread` is said, never drawn as none. */
+export type ServicePrivatePhotos =
+  | { status: 'ok'; byCard: Record<string, ServicePrivatePhoto[]> }
+  | { status: 'not_owner' }
+  | { status: 'unread' };
+
+export type ServicePrivatePhoto = {
+  photoId: string;
+  url: string;
+  /** "Wedding · Dec 2025" — kind and month, never a name. */
+  caption: string;
+  notice: { state: 'waiting' | 'on_page' | 'removed_by_guest' | 'taken_down'; publicFrom: string } | null;
+};
 
 export type PhotoShareCard = { vendorServiceId: string; title: string; shop: string };
 

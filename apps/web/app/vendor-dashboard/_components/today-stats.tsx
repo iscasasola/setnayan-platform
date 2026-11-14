@@ -35,7 +35,9 @@ export function todayStatsOf(s: Stats): Stat[] {
   return [
     { id: 'views', figure: n(s.views), label: 'Views', line: s.views === null ? UNREAD : 'last 28 days' },
     { id: 'inquiries', figure: n(s.inquiries), label: 'Inquiries', line: s.inquiries === null ? UNREAD : 'asked · last 28 days' },
-    { id: 'booked', figure: n(s.booked), label: 'Booked', line: s.booked === null ? UNREAD : 'this month' },
+    // RW-84 (walk 13 Nov 2026): it counts events DATED this month (owner Q2) — said so, so 4 bookings MADE this month for
+    // later dates are not read as missing.
+    { id: 'booked', figure: n(s.booked), label: 'Booked', line: s.booked === null ? UNREAD : 'events this month' },
     s.portfolio === undefined
       ? { id: 'portfolio', figure: null, label: 'Portfolio', line: 'your photos' }
       : s.portfolio === null

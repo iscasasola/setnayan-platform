@@ -1,4 +1,5 @@
 import { UserX, Trash2, Ban, Inbox } from 'lucide-react';
+import { displayAccountEmail } from '@/lib/erasure/display-email';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
@@ -199,7 +200,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
-                      <p className="font-medium text-ink">{u?.email ?? '—'}</p>
+                      <p className="font-medium text-ink">{displayAccountEmail(u?.email) ?? '—'}</p>
                       <p className="text-xs text-ink/60">
                         {u?.display_name ? `${u.display_name} · ` : ''}
                         {u?.account_type === 'customer' ? 'Couple' : (u?.account_type ?? 'unknown')}
@@ -316,7 +317,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                 const u = usersById.get(req.user_id);
                 return (
                   <>
-                    <p className="font-medium text-ink">{u?.email ?? '—'}</p>
+                    <p className="font-medium text-ink">{displayAccountEmail(u?.email) ?? '—'}</p>
                     <p className="font-mono text-[11px] text-ink/70">{req.request_id}</p>
                   </>
                 );

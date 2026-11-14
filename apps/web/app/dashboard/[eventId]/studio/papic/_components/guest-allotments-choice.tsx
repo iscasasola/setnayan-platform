@@ -554,7 +554,7 @@ export async function GuestAllotmentsChoice({
             <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
             <label className="min-w-0 flex-1 text-[14px] text-ink">
               Each guest, at most
-              <span className="block text-[12.5px] text-ink/55">Blank = an equal share of what is left</span>
+              <span className="block text-[12.5px] text-ink/55">Leave it empty to share what is left equally</span>
             </label>
             <input
               type="number"
@@ -574,7 +574,7 @@ export async function GuestAllotmentsChoice({
             <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
             <label className="min-w-0 flex-1 text-[14px] text-ink">
               The least anybody gets
-              <span className="block text-[12.5px] text-ink/55">Blank = no minimum</span>
+              <span className="block text-[12.5px] text-ink/55">Leave it empty for no minimum</span>
             </label>
             <input
               type="number"

@@ -1,3 +1,4 @@
+import { Explain } from '@/app/_components/explain';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/orders';
@@ -74,7 +75,13 @@ export async function RevenueSummary() {
 
   return (
     <section className="mb-6 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
-      <h2 className="text-sm font-semibold text-ink">Revenue, all time</h2>
+      {/* ⓘ F-A-21 (admin walk, round 2): what the total counts sits behind the ⓘ, not as five lines under the card. */}
+      <div className="-my-3 flex items-center gap-0.5">
+        <h2 className="text-sm font-semibold text-ink">Revenue, all time</h2>
+        <Explain title="What this counts" label="What the revenue total counts" data="revenue-scope">
+          {revenueScopeNote(s)}
+        </Explain>
+      </div>
       <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-ink">
         {formatPhp(s.netPhp)}
       </p>
@@ -87,7 +94,6 @@ export async function RevenueSummary() {
       <div className="mt-3 border-t border-dashed border-ink/15 pt-2">
         <Row label="Receipts issued" value={formatPhp(s.receiptPhp)} note={`${formatCount(s.receiptCount)} · not counted in the total`} />
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-ink/55">{revenueScopeNote(s)}</p>
     </section>
   );
 }

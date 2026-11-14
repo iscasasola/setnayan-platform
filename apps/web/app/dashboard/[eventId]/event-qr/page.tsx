@@ -111,7 +111,7 @@ export default async function EventQrPage({ params }: Props) {
               <div className="text-xs uppercase tracking-[0.18em] text-ink/50">
                 Token prefix
               </div>
-              <div className="font-mono text-lg tracking-wider text-ink">
+              <div className="text-lg font-semibold tracking-wider tabular-nums text-ink">
                 {tokenPrefix}…
               </div>
               <p className="text-xs text-ink/55">

@@ -1,4 +1,6 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowDown, ArrowUp, Check, ExternalLink, Eye, EyeOff, GripVertical, Lock, Pencil, Sparkles, Wand2 } from 'lucide-react';
@@ -232,8 +234,11 @@ export default async function WidgetsEditorPage({
           host never has to puzzle through that gating again. Per
           [[feedback_setnayan_no_dev_text_post_launch]] memory, copy stays
           in brand voice; no "this is the gate" jargon. */}
+      {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 5 · 6 · 7 · 13): the preview is the one framed next step, on the warm
+          surface; its why sits behind the ⓘ; the presses are the shared pills; a refused read is one amber line; the
+          "Always on" mark is the shared soft Badge; no tiles, no pale or 10-11 px words. */}
       <aside
-        className="rounded-xl border border-terracotta/30 bg-terracotta/5 p-5 sm:p-6"
+        className="rounded-card bg-[var(--m-paper-2)] p-4"
         aria-label="How to preview your changes"
       >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
@@ -244,13 +249,10 @@ export default async function WidgetsEditorPage({
               strokeWidth={1.75}
             />
             <div className="space-y-1.5">
-              <p className="font-medium text-ink">
-                Want to see how this looks to a guest?
-              </p>
-              <p className="max-w-prose text-sm text-ink/70">
+              <InfoTip label="Want to see how this looks to a guest?" labelAs="p" labelClassName="font-semibold text-ink" align="start">
                 The public{' '}
                 {event.slug ? (
-                  <span className="font-mono text-xs">setnayan.com/{event.slug}</span>
+                  <span className="text-[13px] font-semibold">setnayan.com/{event.slug}</span>
                 ) : (
                   `${eventNoun(event.event_type)} link`
                 )}{' '}
@@ -258,7 +260,7 @@ export default async function WidgetsEditorPage({
                 invitation — your widgets only appear when a guest opens their
                 personalized link. Preview as a guest below to see your changes
                 land.
-              </p>
+              </InfoTip>
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
@@ -267,7 +269,7 @@ export default async function WidgetsEditorPage({
                 href={previewUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700"
+                className="ab ab-brand ab-main"
               >
                 <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                 Preview as {previewGuestName}
@@ -277,7 +279,7 @@ export default async function WidgetsEditorPage({
                 <button
                   type="button"
                   disabled
-                  className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-md border border-ink/15 bg-ink/5 px-4 py-2 text-sm font-medium text-ink/40"
+                  className="ab ab-neutral cursor-not-allowed"
                   title="Add at least one guest to your list to enable preview"
                 >
                   <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -285,7 +287,7 @@ export default async function WidgetsEditorPage({
                 </button>
                 <Link
                   href={`/dashboard/${eventId}/guests/new`}
-                  className="block text-xs text-terracotta hover:text-terracotta-700"
+                  className="inline-flex min-h-11 items-center text-[13px] font-semibold text-terracotta-700 hover:underline"
                 >
                   + Add your first guest to enable preview
                 </Link>
@@ -299,7 +301,7 @@ export default async function WidgetsEditorPage({
       {saved ? (
         <div
           role="status"
-          className="flex items-start gap-3 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900"
+          className="flex items-start gap-3 text-sm font-semibold text-success-800"
         >
           <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
           <p>Saved. Your {eventNoun(event.event_type)} page reflects this change now.</p>
@@ -308,7 +310,7 @@ export default async function WidgetsEditorPage({
       {errorMessage ? (
         <div
           role="alert"
-          className="rounded-lg border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"
+          className="text-sm font-semibold text-danger-700"
         >
           {errorMessage}
         </div>
@@ -317,7 +319,7 @@ export default async function WidgetsEditorPage({
       {!widgetsMeasured ? (
         <p
           role="alert"
-          className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+          className="text-sm text-warn-800"
         >
           <strong className="text-ink">
             We couldn&rsquo;t load your page&rsquo;s sections.
@@ -331,10 +333,10 @@ export default async function WidgetsEditorPage({
       {/* Always-on section */}
       <section className="space-y-3">
         <header>
-          <p className="sn-eye">
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             Always visible
           </p>
-          <p className="mt-1 text-sm text-ink/65">
+          <p className="mt-1 text-sm text-ink/75">
             These four sections stay in place — they carry your {eventNoun(event.event_type)}&rsquo;s
             most important information.
           </p>
@@ -358,17 +360,17 @@ export default async function WidgetsEditorPage({
       {/* Hideable section */}
       <section className="space-y-3">
         <header>
-          <p className="sn-eye">
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             Optional sections
           </p>
-          <p className="mt-1 text-sm text-ink/65">
+          <p className="mt-1 text-sm text-ink/75">
             Show, hide, and reorder these in any way that fits your {eventNoun(event.event_type)}.
             Use the Up and Down arrows to set the order; the Visible toggle to
             keep or drop each one.
           </p>
         </header>
         {hideableRows.length === 0 ? (
-          <p className="sn-row border-dashed p-6 text-sm italic text-ink/55">
+          <p className={`py-2 text-sm ${widgetsMeasured ? 'text-ink/75' : 'text-warn-800'}`}>
             {widgetsMeasured
               ? 'Your optional sections will appear here.'
               : 'We couldn’t read your sections just now — they have not gone anywhere.'}
@@ -392,7 +394,7 @@ export default async function WidgetsEditorPage({
       </section>
 
       {/* Footer note */}
-      <footer className="sn-tile p-5 text-sm text-ink/65">
+      <footer className="border-t border-ink/10 pt-3 text-sm text-ink/75">
         Changes apply right away. Guests who already opened your page may see the
         previous layout for up to a minute while their browser refreshes.
       </footer>
@@ -452,7 +454,7 @@ function WidgetRow({
       {/* Drag handle — visual cue · functional via Up/Down buttons in V1 */}
       <span
         aria-hidden
-        className="hidden shrink-0 text-ink/30 sm:inline-flex sm:items-center"
+        className="hidden shrink-0 text-ink/60 sm:inline-flex sm:items-center"
       >
         <GripVertical className="h-5 w-5" strokeWidth={1.75} />
       </span>
@@ -462,12 +464,11 @@ function WidgetRow({
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-medium text-ink">{catalog.label}</p>
           {row.is_always_on ? (
-            <span
-              className="inline-flex items-center gap-1 rounded-full bg-ink/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-ink/65"
-              title={`Always visible — carries your ${noun}'s load-bearing content.`}
-            >
-              <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Always on
+            <span title={`Always visible — carries your ${noun}'s load-bearing content.`}>
+              <Badge tone="quiet">
+                <Lock aria-hidden className="mr-1 h-3 w-3" strokeWidth={2} />
+                Always on
+              </Badge>
             </span>
           ) : null}
           {row.tier === 'pro' && proMark ? (
@@ -481,18 +482,18 @@ function WidgetRow({
             already carries `noun`; it simply was not used for this line.
             `describe` is consulted first and falls back to the wedding wording,
             which stays the better sentence for a wedding. */}
-        <p className="text-xs text-ink/55">{catalog.describe?.(noun) ?? catalog.description}</p>
+        <p className="text-[13px] text-ink/75">{catalog.describe?.(noun) ?? catalog.description}</p>
         {editorHref ? (
           <Link
             href={editorHref}
-            className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:text-terracotta-700"
+            className="inline-flex min-h-11 items-center gap-1 text-[13px] font-semibold text-terracotta-700 hover:underline"
           >
             <Pencil aria-hidden className="h-3 w-3" strokeWidth={1.75} />
             Edit content
           </Link>
         ) : null}
         {autoHint ? (
-          <p className="flex items-center gap-1 text-[11px] text-ink/45">
+          <p className="flex items-center gap-1 text-[12px] text-ink/75">
             <Wand2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
             {autoHint}
           </p>
@@ -515,13 +516,7 @@ function WidgetRow({
           <SubmitButton
             pendingLabel="…"
             disabled={row.is_always_on}
-            className={`inline-flex h-9 min-h-[44pt] items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors sm:min-h-0 ${
-              row.is_always_on
-                ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/40'
-                : row.is_visible
-                  ? 'border-success-300/70 bg-success-50 text-success-800 hover:border-success-400 hover:bg-success-100/60'
-                  : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30'
-            }`}
+            className={`ab ${row.is_always_on ? 'ab-neutral cursor-not-allowed' : row.is_visible ? 'ab-ok' : 'ab-neutral'}`}
             aria-label={
               row.is_always_on
                 ? `${catalog.label} is always visible`
@@ -559,11 +554,7 @@ function WidgetRow({
             <SubmitButton
               pendingLabel="…"
               disabled={isFirstHideable}
-              className={`inline-flex h-9 min-h-[44pt] w-9 items-center justify-center rounded-md border transition-colors sm:min-h-0 ${
-                isFirstHideable
-                  ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/30'
-                  : 'border-ink/15 bg-cream text-ink/65 hover:border-ink/30 hover:text-ink'
-              }`}
+              className={`ab ab-neutral icon-only ${isFirstHideable ? 'cursor-not-allowed' : ''}`}
               aria-label={`Move ${catalog.label} up`}
               title={isFirstHideable ? 'Already at the top.' : 'Move up'}
             >
@@ -580,11 +571,7 @@ function WidgetRow({
             <SubmitButton
               pendingLabel="…"
               disabled={isLastHideable}
-              className={`inline-flex h-9 min-h-[44pt] w-9 items-center justify-center rounded-md border transition-colors sm:min-h-0 ${
-                isLastHideable
-                  ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/30'
-                  : 'border-ink/15 bg-cream text-ink/65 hover:border-ink/30 hover:text-ink'
-              }`}
+              className={`ab ab-neutral icon-only ${isLastHideable ? 'cursor-not-allowed' : ''}`}
               aria-label={`Move ${catalog.label} down`}
               title={isLastHideable ? 'Already at the bottom.' : 'Move down'}
             >
@@ -627,12 +614,12 @@ function WidgetRow({
                   overlay={false}
                   disabled={disabledShown}
                   aria-pressed={selected}
-                  className={`inline-flex h-8 min-h-[36pt] items-center rounded-md border px-2.5 text-[11px] font-medium transition-colors sm:min-h-0 ${
+                  className={`inline-flex h-8 min-h-[36pt] items-center rounded-md border px-2.5 text-[12px] font-semibold transition-colors sm:min-h-0 ${
                     disabledShown
-                      ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/35'
+                      ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/60'
                       : selected
                         ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
-                        : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30 hover:text-ink'
+                        : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30 hover:text-ink'
                   }`}
                   aria-label={`Set ${catalog.label} to ${label}`}
                   title={modeTitle}

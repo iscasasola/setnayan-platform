@@ -137,7 +137,7 @@ export function SchedulePeekPanel({
           <ul className="mt-1 space-y-0.5">
             {blocks.map((b) => (
               <li key={b.block_id} className="flex gap-2 text-xs text-ink/70">
-                <span className="w-16 shrink-0 font-mono text-[0.68rem] text-ink/50">
+                <span className="w-16 shrink-0 text-[12px] tabular-nums text-ink/75">
                   {fmtTime(b.start_at)}
                 </span>
                 <span className="min-w-0">

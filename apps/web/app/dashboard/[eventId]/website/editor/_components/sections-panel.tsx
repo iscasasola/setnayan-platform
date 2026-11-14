@@ -436,7 +436,7 @@ export function SectionsPanel({
                   const preset = canvas.preset ?? null;
                   return (
                     <div data-maker-part="animate" className="mt-2 border-t border-dashed border-ink/10 pt-2">
-                      <p className="mb-1 inline-flex items-center gap-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+                      <p className="mb-1 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                         How it moves
                         {proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null}
                       </p>
@@ -491,7 +491,7 @@ export function SectionsPanel({
                         return (
                           <>
                             <div data-maker-part="transition" className="mt-1.5 flex flex-wrap items-center gap-1">
-                              <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                                 Into the next section
                               </span>
                               {HUB_TRANSITIONS.filter((t) => t !== 'scrub' || SCRUB_OUT_OFFERED).map((t) => {
@@ -537,7 +537,7 @@ export function SectionsPanel({
                             </div>
                             {transition === 'auto' ? (
                               <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                                <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                                   Speed
                                 </span>
                                 {HUB_AUTO_SPEEDS.map((v) => {
@@ -579,7 +579,7 @@ export function SectionsPanel({
                       })()}
                       {preset ? (
                         <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                          <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                          <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                             Timing
                           </span>
                           {(['auto', 'time', 'scrub'] as const).map((t) => {
@@ -641,7 +641,7 @@ export function SectionsPanel({
                             isAuto: boolean,
                           ) => (
                             <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                              <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                                 {label}
                               </span>
                               {(['auto', ...values] as const).map((v) => {
@@ -697,7 +697,7 @@ export function SectionsPanel({
                           is the part a guest actually feels. */}
                       {preset ? (
                         <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                          <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                          <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                             Parts
                           </span>
                           {(['auto', 'together', 'one_after_another'] as const).map((q) => {
@@ -886,7 +886,7 @@ export function SectionsPanel({
                         four arrangements would move nothing there — they are
                         hidden, and the template's own controls follow. */}
                     <div className="mt-2" hidden={Boolean(makerPart) || Boolean(sanitizeHubCanvas(row.config_json).template)}>
-                      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                         Layout
                       </p>
                       <div className="flex flex-wrap items-center gap-1">
@@ -991,7 +991,7 @@ export function SectionsPanel({
                   const canvas = sanitizeHubCanvas(row.config_json);
                   return (
                     <div className="mt-2 border-t border-dashed border-ink/10 pt-2">
-                      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                         {/* A section of their own places its photo by Layout —
                             behind, beside, or not at all — so it is a Photo,
                             not always a background. Same field either way. */}
@@ -1092,7 +1092,7 @@ export function SectionsPanel({
                           const zoom = canvas.zoom ?? HUB_DEFAULT_ZOOM;
                           return (
                             <div className="mt-2">
-                              <p className="mb-1 font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                                 What to keep in frame
                               </p>
                               <div className="flex items-start gap-3">
@@ -1128,7 +1128,7 @@ export function SectionsPanel({
                                   </div>
                                 </div>
                                 <div>
-                                  <p className="mb-1 font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                  <p className="mb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                                     How close
                                   </p>
                                   <div className="flex flex-wrap gap-1">
@@ -1248,7 +1248,7 @@ function SectionColourChoices({
   const swatches = [HUB_GLASS_DEFAULT_TINT, ...colorChoices.filter((h) => h.toLowerCase() !== HUB_GLASS_DEFAULT_TINT)];
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-      <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/35">
+      <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
         Colour
       </span>
       {withNone && colourOn ? (
@@ -1371,7 +1371,7 @@ function SceneBackgroundChoices({
   );
   return (
     <div className="mt-2 border-t border-dashed border-ink/10 pt-2" data-scene-background="">
-      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">Background</p>
+      <p className="mb-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Background</p>
       <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Scene background">
         {choices.map((c) =>
           c ? (

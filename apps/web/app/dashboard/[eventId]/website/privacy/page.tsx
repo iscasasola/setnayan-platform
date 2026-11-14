@@ -6,6 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Badge } from '@/app/_components/badge';
 import {
   updateLandingPageVisibility,
   setShowcaseConsent,
@@ -160,7 +161,7 @@ export default async function PrivacyEditorPage({
       {showcaseRefusal ? (
         <div
           role="status"
-          className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          className="flex items-start gap-3 text-sm font-semibold text-warn-800"
         >
           <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
           <p>{showcaseRefusal}</p>
@@ -170,7 +171,7 @@ export default async function PrivacyEditorPage({
       {saved ? (
         <div
           role="status"
-          className="flex items-start gap-3 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900"
+          className="flex items-start gap-3 text-sm font-semibold text-success-800"
         >
           <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
           <p>Saved. Your {eventNoun(event.event_type)} page now follows this setting.</p>
@@ -180,7 +181,12 @@ export default async function PrivacyEditorPage({
       {/* Launch status — read-only mirror of the Save-the-Date studio control
           (owner 2026-06-28). Tells the host whether their page is live, scheduled,
           or private, and links to where they actually launch / schedule it. */}
-      <div className="flex flex-col gap-3 sn-tile p-5 sm:flex-row sm:items-center sm:justify-between">
+      {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 1 · 2 · 3 · 5 · 13 · 14): the launch state is the one warm surface at the
+          top; every section below is grey capitals over plain content divided by hairlines (no tiles, no serif
+          headings); each status is the shared soft Badge; one main button (Save changes), every other press the
+          shared outlined pill. The consent and disclosure paragraphs stay ON the page on purpose (RA 10173: what a
+          person agrees to is read before they agree, never hidden behind an ⓘ). */}
+      <div className="flex flex-col gap-3 rounded-card bg-[var(--m-paper-2)] p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           {launched ? (
             <Globe aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-success-700" strokeWidth={1.75} />
@@ -188,11 +194,11 @@ export default async function PrivacyEditorPage({
             // Same precedence as the copy below — a page that is launched AND
             // scheduled AND private must not show a calendar next to the words
             // "Launched — but hidden".
-            <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/55" strokeWidth={1.75} />
+            <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/75" strokeWidth={1.75} />
           ) : scheduledLabel ? (
             <CalendarClock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-mulberry" strokeWidth={1.75} />
           ) : (
-            <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/55" strokeWidth={1.75} />
+            <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/75" strokeWidth={1.75} />
           )}
           <div className="space-y-0.5">
             <p className="text-sm font-semibold text-ink">
@@ -204,7 +210,7 @@ export default async function PrivacyEditorPage({
                     ? 'Launch scheduled'
                     : 'Your page is private'}
             </p>
-            <p className="text-sm text-ink/65">
+            <p className="text-sm text-ink/75">
               {launched
                 ? 'Your Save-the-Date is launched — anyone with your link can view your page.'
                 : reach.launchedButHidden
@@ -217,7 +223,7 @@ export default async function PrivacyEditorPage({
         </div>
         <Link
           href={`/dashboard/${eventId}/website/editor`}
-          className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-mulberry/30 px-4 py-2 text-sm font-semibold text-mulberry transition hover:bg-mulberry/10 sm:self-center"
+          className="ab ab-brand shrink-0 self-start sm:self-center"
         >
           <Rocket aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {launched
@@ -234,7 +240,7 @@ export default async function PrivacyEditorPage({
       <SafeForm action={updateLandingPageVisibility} className="space-y-4">
         <input type="hidden" name="event_id" value={eventId} />
 
-        <fieldset className="space-y-3">
+        <fieldset className="divide-y divide-ink/10">
           <legend className="sr-only">Landing-page visibility</legend>
 
           <VisibilityCard
@@ -279,12 +285,12 @@ export default async function PrivacyEditorPage({
         </fieldset>
 
         <div className="flex flex-wrap gap-3 pt-2">
-          <SubmitButton className="button-primary" pendingLabel="Saving…">
+          <SubmitButton className="ab ab-brand ab-main" pendingLabel="Saving…">
             Save changes
           </SubmitButton>
           <Link
             href={`/dashboard/${eventId}/website`}
-            className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md border border-ink/20 bg-cream px-4 text-sm font-medium text-ink transition-colors hover:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="ab ab-neutral"
           >
             Back
           </Link>
@@ -292,7 +298,7 @@ export default async function PrivacyEditorPage({
       </SafeForm>
 
       {/* Footnote — light context so the host knows what changes immediately */}
-      <footer className="sn-tile p-5 text-sm text-ink/65">
+      <footer className="border-t border-ink/10 pt-3 text-sm text-ink/75">
         Changes apply right away. Anyone with your URL who already opened the page
         may see the previous view for up to a minute while their browser refreshes.
       </footer>
@@ -305,16 +311,16 @@ export default async function PrivacyEditorPage({
           invitation never saw the broadcast or the live photo wall on ANY event.
           That visitor is the relative overseas who opened the link someone
           forwarded — the person a wedding livestream is for. */}
-      <div className="space-y-4 sn-tile p-5 sm:p-6">
+      <div className="space-y-3 border-t border-ink/10 pt-5">
         <div className="space-y-2">
-          <p className="sn-eye flex items-center gap-2">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Watching from far away
           </p>
-          <h2 className="font-serif text-2xl italic tracking-tight">
+          <h2 className="text-lg font-bold tracking-tight text-ink">
             Who can watch on the day
           </h2>
-          <p className="max-w-prose text-sm text-ink/70">
+          <p className="max-w-prose text-sm text-ink/75">
             Your invited guests can always watch your livestream and see Memory
             lane. This decides whether someone <em>without</em> an invitation can
             too &mdash; a relative abroad who was sent your link, or a friend
@@ -324,25 +330,21 @@ export default async function PrivacyEditorPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-              liveMediaOpen ? 'bg-success-50 text-success-800' : 'bg-ink/5 text-ink/60'
-            }`}
-          >
+          <Badge tone={liveMediaOpen ? 'ok' : 'quiet'}>
             {liveMediaOpen
               ? 'Open — anyone with your link can watch'
               : 'Closed — only your invited guests can watch'}
-          </span>
+          </Badge>
           <SafeForm action={setLiveMediaAudience}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="open" value={liveMediaOpen ? '0' : '1'} />
-            <SubmitButton className="button-primary" pendingLabel="Saving…">
+            <SubmitButton className="ab ab-neutral" pendingLabel="Saving…">
               {liveMediaOpen ? 'Close it to guests only' : 'Let anyone with the link watch'}
             </SubmitButton>
           </SafeForm>
         </div>
 
-        <p className="text-xs text-ink/50">
+        <p className="text-[13px] text-ink/75">
           This only affects the livestream and Memory lane. It doesn&rsquo;t
           change who can open your page, and it never shares anything before the
           day itself.
@@ -352,16 +354,16 @@ export default async function PrivacyEditorPage({
       {/* Same-date count — DPO ruling 2026-10-23: a couple may leave it.
           Same control as "Who can watch on the day": a pill that says the
           current answer, and one button that flips it. */}
-      <div className="space-y-4 sn-tile p-5 sm:p-6">
+      <div className="space-y-3 border-t border-ink/10 pt-5">
         <div className="space-y-2">
-          <p className="sn-eye flex items-center gap-2">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Same-date count
           </p>
-          <h2 className="font-serif text-2xl italic tracking-tight">
+          <h2 className="text-lg font-bold tracking-tight text-ink">
             Count us for other couples
           </h2>
-          <p className="max-w-prose text-sm text-ink/70">
+          <p className="max-w-prose text-sm text-ink/75">
             When another couple looks at a supplier for the same date, they can
             see how many couples asked that supplier about it &mdash; only a
             number, only when it is three or more, never who. Turn this off and
@@ -370,42 +372,38 @@ export default async function PrivacyEditorPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-              countedForOthers ? 'bg-ink/5 text-ink/60' : 'bg-success-50 text-success-800'
-            }`}
-          >
+          <Badge tone={countedForOthers ? 'quiet' : 'ok'}>
             {countedForOthers ? 'On — you are counted, never named' : 'Off — you are left out of the count'}
-          </span>
+          </Badge>
           {/* Rides setLiveMediaAudience with setting=same_date_count — one
               route for both switches (server-action budget). */}
           <SafeForm action={setLiveMediaAudience}>
             <input type="hidden" name="setting" value="same_date_count" />
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="opt_out" value={countedForOthers ? '1' : '0'} />
-            <SubmitButton className="button-primary" pendingLabel="Saving…">
+            <SubmitButton className="ab ab-neutral" pendingLabel="Saving…">
               {countedForOthers ? 'Leave us out of the count' : 'Count us again'}
             </SubmitButton>
           </SafeForm>
         </div>
 
-        <p className="text-xs text-ink/50">
+        <p className="text-[13px] text-ink/75">
           This doesn&rsquo;t change what you see, and suppliers never see this
           number.
         </p>
       </div>
 
       {/* Stories showcase consent — RA 10173 opt-in / one-click opt-out (0046) */}
-      <div className="space-y-4 sn-tile p-5 sm:p-6">
+      <div className="space-y-3 border-t border-ink/10 pt-5">
         <div className="space-y-2">
-          <p className="sn-eye flex items-center gap-2">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             <Heart aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Stories
           </p>
-          <h2 className="font-serif text-2xl italic tracking-tight">
+          <h2 className="text-lg font-bold tracking-tight text-ink">
             Feature your {eventNoun(event.event_type)} on Setnayan
           </h2>
-          <p className="max-w-prose text-sm text-ink/70">
+          <p className="max-w-prose text-sm text-ink/75">
             With your okay, Setnayan can feature your {eventNoun(event.event_type)} on our public{' '}
             <Link href="/realstories" className="text-terracotta hover:underline">
               Stories
@@ -428,31 +426,23 @@ export default async function PrivacyEditorPage({
           missing, in the words of the control that fixes it.
         */}
         <div className="flex flex-wrap items-center gap-3">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-              showcaseOptedIn
-                ? showcaseBlocker
-                  ? 'bg-amber-50 text-amber-800'
-                  : 'bg-success-50 text-success-800'
-                : 'bg-ink/5 text-ink/60'
-            }`}
-          >
+          <Badge tone={showcaseOptedIn ? (showcaseBlocker ? 'wait' : 'ok') : 'quiet'}>
             {showcaseOptedIn
               ? showcaseBlocker
                 ? `On — but ${showcaseBlocker}, so it won’t appear`
                 : 'On — eligible to be featured'
               : `Off — your ${eventNoun(event.event_type)} stays private`}
-          </span>
+          </Badge>
           <SafeForm action={setShowcaseConsent}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="opt_in" value={showcaseOptedIn ? '0' : '1'} />
-            <SubmitButton className="button-primary" pendingLabel="Saving…">
+            <SubmitButton className="ab ab-neutral" pendingLabel="Saving…">
               {showcaseOptedIn ? 'Turn off featuring' : `Feature our ${eventNoun(event.event_type)}`}
             </SubmitButton>
           </SafeForm>
         </div>
 
-        <p className="text-xs text-ink/50">
+        <p className="text-[13px] text-ink/75">
           Your {eventNoun(event.event_type)} only ever appears after the day itself (a 30-day grace
           window), and only while this is turned on. Details follow Setnayan&rsquo;s
           privacy rules (RA&nbsp;10173).
@@ -482,10 +472,8 @@ function VisibilityCard({
   const selected = value === currentValue;
   return (
     <label
-      className={`group sn-row flex cursor-pointer items-start gap-4 p-5 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-terracotta ${
-        selected
-          ? 'border-terracotta bg-white/80 ring-2 ring-terracotta ring-offset-2 ring-offset-cream'
-          : 'hover:border-terracotta/40 hover:bg-white/60'
+      className={`group flex min-h-14 cursor-pointer items-start gap-4 border-l-2 py-4 pl-3 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-terracotta ${
+        selected ? 'border-mulberry' : 'border-transparent'
       }`}
     >
       <input
@@ -500,13 +488,13 @@ function VisibilityCard({
         <span className="flex items-center gap-2">
           <span className="text-base font-semibold text-ink">{title}</span>
           {selected ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-terracotta-700">
-              <Check aria-hidden className="h-3 w-3" strokeWidth={2} />
+            <Badge tone="ok">
+              <Check aria-hidden className="mr-1 h-3 w-3" strokeWidth={2} />
               Current
-            </span>
+            </Badge>
           ) : null}
         </span>
-        <span className="block text-sm text-ink/70">{blurb}</span>
+        <span className="block text-sm text-ink/75">{blurb}</span>
       </span>
     </label>
   );

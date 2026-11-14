@@ -74,7 +74,7 @@ export function SceneSlotsPanel({
   return (
     <div className="mt-2 space-y-2 border-t border-dashed border-ink/10 pt-2" data-scene-slots="">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">Template</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Template</p>
         <p className="text-[0.7rem] font-medium text-ink/80">
           {t.approved ? '★ ' : ''}
           {t.id} · {t.name}
@@ -183,7 +183,7 @@ export function SceneSlotsPanel({
       {/* ══ HOW A CLIP PLAYS — only once a clip is in the scene. ══ */}
       {hasSnippet && usable ? (
         <div className="flex flex-wrap items-center gap-1">
-          <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">Clip</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Clip</span>
           {(
             [
               ['loop', undefined, 'Loops quietly'],

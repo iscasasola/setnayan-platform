@@ -56,7 +56,7 @@ export async function WebsiteProLock({
             Back to Event Hub
           </Link>
         ) : null}
-        <p className="max-w-prose text-sm text-ink/70">This part of your Event Hub is not included in the app.</p>
+        <p className="max-w-prose text-sm text-ink/75">This part of your Event Hub is not included in the app.</p>
       </section>
     );
   }
@@ -64,25 +64,25 @@ export async function WebsiteProLock({
   const upsellHref = `/dashboard/${eventId}/studio/website-pro`;
 
   const card = (
-    <div className="rounded-2xl border border-mulberry/20 bg-mulberry/5 p-6 sm:p-8">
+    <div className="rounded-card bg-[var(--m-paper-2)] p-4 sm:p-6">
       <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
         <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="lg" tone="current" />
       </span>
-      <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-mulberry">
+      <p className="mt-4 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
         Part of Event Hub PRO
       </p>
-      <h2 className="mt-1 font-serif text-2xl italic tracking-tight text-ink sm:text-3xl">
+      <h2 className="mt-1 text-2xl font-bold tracking-tight text-ink">
         {featureName}
       </h2>
-      <p className="mt-2 max-w-prose text-sm text-ink/70">{description}</p>
+      <p className="mt-2 max-w-prose text-sm text-ink/75">{description}</p>
       <Link
         href={upsellHref}
-        className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-mulberry-600"
+        className="ab ab-brand ab-main mt-5"
       >
         Unlock Event Hub PRO
         <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
       </Link>
-      <p className="mt-3 text-xs text-ink/45">
+      <p className="mt-3 text-[13px] text-ink/75">
         One unlock covers every premium touch across your Event Hub — and removes
         the “Powered by Setnayan” footer.
       </p>
@@ -96,7 +96,7 @@ export async function WebsiteProLock({
       {backHref ? (
         <Link
           href={backHref}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
+          className="inline-flex min-h-11 items-center gap-1.5 text-[13px] font-semibold text-terracotta-700 hover:underline"
         >
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Back to Event Hub

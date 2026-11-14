@@ -176,7 +176,7 @@ export function OurMusicSong({
                       className="flex min-w-0 flex-1 flex-col items-start justify-center text-left"
                     >
                       <span className="truncate text-sm text-ink">{choice.title}</span>
-                      <span className="font-mono text-[0.7rem] text-ink/70">{choice.length}</span>
+                      <span className="text-[12px] font-semibold tabular-nums text-ink/75">{choice.length}</span>
                     </button>
                     {chosen ? <Check className="h-4 w-4 shrink-0 text-mulberry" aria-label="Your song" /> : null}
                   </div>

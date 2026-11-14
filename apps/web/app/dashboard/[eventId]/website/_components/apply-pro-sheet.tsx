@@ -129,7 +129,7 @@ export function ApplyProSheet({
       >
         <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
         <div className="flex items-center gap-2 px-4 pt-3">
-          <p id={titleId} className="min-w-0 flex-1 font-serif text-lg text-ink">
+          <p id={titleId} className="min-w-0 flex-1 text-lg font-bold tracking-tight text-ink">
             {none ? 'Ready to apply' : grouped ? `Apply needs ${grouped.parts.length === 1 ? '1 Pro part' : `${formatCount(grouped.parts.length)} Pro parts`}` : 'Apply needs Event Hub Pro'}
           </p>
           {none ? null : (
@@ -218,7 +218,7 @@ export function ApplyProSheet({
                         {/* Closed, a part is ONE line a part — its effects said small underneath (prototype frame 1-closer). */}
                         {grouped.collapsed && !open ? <span className="block truncate text-[12.5px] text-ink/60">{g.summary}</span> : null}
                       </span>
-                      {g.pricePhp !== null ? <span className="font-mono text-[13px] text-ink">{formatPhp(g.pricePhp)}</span> : null}
+                      {g.pricePhp !== null ? <span className="text-[13px] font-semibold tabular-nums text-ink">{formatPhp(g.pricePhp)}</span> : null}
                       {grouped.collapsed ? <ChevronDown aria-hidden className={`h-4 w-4 text-ink/50 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} /> : null}
                     </button>
                     {open ? (
@@ -268,7 +268,7 @@ export function ApplyProSheet({
                         {formatCount(buttons.otherParts)} parts, and no &ldquo;Powered by Setnayan&rdquo; footer.
                       </p>
                       {buttons.ownedNames.length > 0 ? (
-                        <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-ink/55">
+                        <p className="mt-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                           {buttons.ownedNames.map((n, i) => (
                             <span key={n}>
                               {i > 0 ? ' · ' : ''}
@@ -282,15 +282,15 @@ export function ApplyProSheet({
                     <>
                       <p className="flex items-baseline justify-between text-sm text-ink">
                         <span>{grouped.parts.length === 1 ? 'This part' : `These ${formatCount(grouped.parts.length)} parts`}</span>
-                        <span className="font-mono font-bold">{formatPhp(buttons.subtotalPhp)}</span>
+                        <span className="font-bold tabular-nums">{formatPhp(buttons.subtotalPhp)}</span>
                       </p>
                       {buttons.lead === 'parts' ? (
-                        <p className="mt-1 text-[13px] leading-snug text-ink/65">
+                        <p className="mt-1 text-[13px] leading-snug text-ink/75">
                           Or everything — all {formatCount(buttons.allParts)} parts and no &ldquo;Powered by Setnayan&rdquo; footer — for{' '}
                           <strong className="text-ink">{formatPhp(buttons.morePhp)} more</strong>. What you pay counts toward it.
                         </p>
                       ) : (
-                        <p className="mt-1 text-[13px] leading-snug text-ink/65">
+                        <p className="mt-1 text-[13px] leading-snug text-ink/75">
                           Everything is only <strong className="text-ink">{formatPhp(buttons.morePhp)} more</strong> — the other{' '}
                           {formatCount(buttons.otherParts)} parts and no footer mark.
                         </p>
@@ -357,7 +357,7 @@ export function ApplyProSheet({
                       key="parts"
                       href={unlockAndApplyHref(partsBuyHref(proHref, buttons.partIds))}
                       data-apply-parts-unlock=""
-                      className={`${primary ? 'button-primary' : 'rounded-full border border-ink/60 text-sm font-semibold text-ink hover:bg-ink/5'} sn-press inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-center`}
+                      className={`ab ab-brand ${primary ? 'ab-main' : ''} w-full text-center`}
                     >
                       {primary
                         ? `Unlock ${buttons.partsLabel} and Apply · ${formatPhp(buttons.subtotalPhp)}`
@@ -369,7 +369,7 @@ export function ApplyProSheet({
                       key="everything"
                       href={unlockAndApplyHref(partsBuyHref(proHref, 'full'))}
                       data-apply-pro-unlock=""
-                      className={`${primary ? 'button-primary' : 'rounded-full border border-ink/60 text-sm font-semibold text-ink hover:bg-ink/5'} sn-press inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-center`}
+                      className={`ab ab-brand ${primary ? 'ab-main' : ''} w-full text-center`}
                     >
                       {primary ? `Unlock everything and Apply · ${formatPhp(buttons.restPhp)}` : `Everything instead · ${formatPhp(buttons.restPhp)}`}
                     </Link>

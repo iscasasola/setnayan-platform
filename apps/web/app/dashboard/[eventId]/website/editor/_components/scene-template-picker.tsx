@@ -241,7 +241,7 @@ export function SceneTemplatePicker({
           </p>
           {SCENE_FAMILIES.map((family) => (
             <div key={family} className="mt-3">
-              <p className="mb-1.5 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                 {SCENE_FAMILY_LABEL[family]}
               </p>
               <div

@@ -42,7 +42,7 @@ export default async function EventActivityPage({
         actions={
           <Link
             href={`/dashboard/${eventId}`}
-            className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-terracotta"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70 hover:text-terracotta"
           >
             <ArrowLeft aria-hidden className="h-3 w-3" />
             {tr('cta.back')}
@@ -80,7 +80,7 @@ export default async function EventActivityPage({
                       className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-terracotta/5"
                     >
                       <span className="truncate text-ink/80">{a.description}</span>
-                      <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+                      <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                         {relativeTime(a.at)}
                       </span>
                     </Link>

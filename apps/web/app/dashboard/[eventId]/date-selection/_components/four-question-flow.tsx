@@ -32,7 +32,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Heart,
-  Loader2,
   Plus,
   Trash2,
   X,
@@ -50,6 +49,7 @@ import {
   type DateSuggestion,
 } from '@/lib/auspicious-date';
 import { ceremonyChoicesFor } from '@/lib/ceremony-choices';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 type Props = {
   eventId: string;
@@ -332,7 +332,7 @@ export function FourQuestionFlow({
     <div className="space-y-6">
       <a
         href={backHref}
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
+        className="inline-flex items-center gap-1.5 text-sm text-ink/70 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Back to date selection
@@ -389,7 +389,7 @@ export function FourQuestionFlow({
                 <div className="flex-1">
                   <label
                     htmlFor={`meaningful-date-${idx}`}
-                    className="block text-xs font-medium uppercase tracking-wide text-ink/60"
+                    className="block text-xs font-medium uppercase tracking-wide text-ink/70"
                   >
                     Date
                   </label>
@@ -403,31 +403,23 @@ export function FourQuestionFlow({
                 </div>
                 <div className="flex-1">
                   <label
-                    htmlFor={`meaningful-kind-${idx}`}
-                    className="block text-xs font-medium uppercase tracking-wide text-ink/60"
+                    className="block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
                   >
                     Kind
                   </label>
-                  <select
-                    id={`meaningful-kind-${idx}`}
+                  <PickMenu
+                    label="Kind"
                     value={draft.kind}
-                    onChange={(e) =>
-                      updateDraft(idx, { kind: e.target.value as MeaningfulDateKind })
-                    }
-                    className="mt-1 w-full rounded-md border border-ink/20 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta/30"
-                  >
-                    {(Object.keys(KIND_LABEL) as MeaningfulDateKind[]).map((k) => (
-                      <option key={k} value={k}>
-                        {/* Strip HTML entities for option labels — they don't decode inside <option> */}
-                        {KIND_LABEL[k]}
-                      </option>
-                    ))}
-                  </select>
+                    options={(Object.keys(KIND_LABEL) as MeaningfulDateKind[]).map((k) => ({ key: k, label: KIND_LABEL[k] }))}
+                    onPick={(k) => updateDraft(idx, { kind: k as MeaningfulDateKind })}
+                    dataAttr={`data-meaningful-kind-${idx}`}
+                    className="mt-1 w-full !min-h-11"
+                  />
                 </div>
                 <div className="flex-1">
                   <label
                     htmlFor={`meaningful-note-${idx}`}
-                    className="block text-xs font-medium uppercase tracking-wide text-ink/60"
+                    className="block text-xs font-medium uppercase tracking-wide text-ink/70"
                   >
                     Note (optional)
                   </label>
@@ -446,7 +438,7 @@ export function FourQuestionFlow({
                     type="button"
                     onClick={() => removeDraft(idx)}
                     aria-label="Remove this date"
-                    className="self-end rounded-md p-2 text-ink/50 hover:bg-ink/5 hover:text-ink sm:self-end"
+                    className="self-end rounded-md p-2 text-ink/70 hover:bg-ink/5 hover:text-ink sm:self-end"
                   >
                     <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   </button>
@@ -456,7 +448,7 @@ export function FourQuestionFlow({
             <button
               type="button"
               onClick={addDraftRow}
-              className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-ink/25 px-3 py-2 text-sm text-ink/70 hover:border-terracotta hover:text-terracotta"
+              className="ab ab-neutral quiet inline-flex min-h-11 items-center justify-center gap-1.5"
             >
               <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Add another date
@@ -520,7 +512,7 @@ export function FourQuestionFlow({
             type="button"
             onClick={back}
             disabled={pending}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-ink/15 px-4 py-2.5 text-sm text-ink/75 hover:bg-ink/[0.03] disabled:opacity-50"
+            className="ab ab-neutral inline-flex min-h-11 items-center justify-center gap-1.5 disabled:opacity-50"
           >
             <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Back
@@ -534,11 +526,11 @@ export function FourQuestionFlow({
             type="button"
             onClick={next}
             disabled={pending}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 py-2.5 text-base font-medium text-cream shadow-sm hover:bg-mulberry-600 focus:outline-none focus:ring-2 focus:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-50"
+            className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pending ? (
               <>
-                <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+                
                 Saving...
               </>
             ) : step === 4 ? (
@@ -573,10 +565,10 @@ function StepContainer({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+        <p className="text-xs uppercase tracking-[0.06em] text-terracotta">
           {eyebrow}
         </p>
-        <h2 className="font-display text-2xl italic leading-tight text-ink sm:text-3xl">
+        <h2 className="text-[20px] leading-tight text-ink sm:text-[22px] font-semibold">
           {title}
         </h2>
         <p className="text-base text-ink/70">{subtitle}</p>
@@ -644,7 +636,7 @@ function RadioGroup<T extends string>({
               />
               <div className="space-y-0.5">
                 <span className="block text-sm font-medium text-ink">{opt.label}</span>
-                <span className="block text-xs text-ink/55">{opt.hint}</span>
+                <span className="block text-xs text-ink/70">{opt.hint}</span>
               </div>
             </label>
           );
@@ -678,11 +670,11 @@ function SuggestionsList({
 
   if (suggestions.length === 0) {
     return (
-      <div className="rounded-2xl border border-ink/10 bg-cream p-6 sm:p-8">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+      <div className="py-2">
+        <p className="text-xs uppercase tracking-[0.06em] text-terracotta">
           Step 5 of 5
         </p>
-        <h2 className="mt-1 font-display text-2xl italic leading-tight text-ink sm:text-3xl">
+        <h2 className="mt-1 text-[20px] leading-tight text-ink sm:text-[22px] font-semibold">
           Almost ready
         </h2>
         <p className="mt-3 text-base text-ink/70">
@@ -697,10 +689,10 @@ function SuggestionsList({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+        <p className="text-xs uppercase tracking-[0.06em] text-terracotta">
           Step 5 of 5
         </p>
-        <h2 className="font-display text-2xl italic leading-tight text-ink sm:text-3xl">
+        <h2 className="text-[20px] leading-tight text-ink sm:text-[22px] font-semibold">
           A few dates that resonate with what you shared
         </h2>
         <p className="text-base text-ink/70">
@@ -717,14 +709,14 @@ function SuggestionsList({
           return (
             <li
               key={s.date}
-              className="rounded-xl border border-ink/10 bg-cream p-5 transition-colors hover:border-terracotta/40"
+              className="py-2"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <p className="font-display text-xl italic text-ink">
+                  <p className="text-xl text-ink font-semibold">
                     {formatAuspiciousDate(s.date)}
                   </p>
-                  <p className="text-xs text-ink/55">{dow}</p>
+                  <p className="text-xs text-ink/70">{dow}</p>
                 </div>
                 <button
                   type="button"
@@ -734,7 +726,7 @@ function SuggestionsList({
                 >
                   {isPicked && pending ? (
                     <>
-                      <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+                      
                       Locking...
                     </>
                   ) : (

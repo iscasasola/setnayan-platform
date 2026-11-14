@@ -72,16 +72,16 @@ export default async function ClearancePage({ params }: Props) {
   if (cleared) {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
-        <div className="rounded-2xl border border-success-300/50 bg-success-50 p-8 text-center">
+        <div className="py-2 text-center">
           <CheckCircle2 aria-hidden className="mx-auto h-8 w-8 text-success-600" strokeWidth={1.75} />
           <h1 className="mt-3 text-lg font-semibold text-ink">The day is closed out</h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-ink/60">
+          <p className="mx-auto mt-2 max-w-md text-sm text-ink/70">
             Your {noun} is wrapped. Your dashboard now leads with the summary — guests, suppliers,
             your services, your photos, and the editorial maker where you write the story.
           </p>
           <Link
             href={base}
-            className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
+            className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center gap-1.5 mt-5"
           >
             Go to your dashboard
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -116,7 +116,7 @@ export default async function ClearancePage({ params }: Props) {
                   </span>
                   <span>
                     <span className="block text-sm font-medium text-ink">{s.label}</span>
-                    <span className="block text-xs text-ink/55">{s.note}</span>
+                    <span className="block text-xs text-ink/70">{s.note}</span>
                   </span>
                 </span>
                 <ArrowRight
@@ -134,7 +134,7 @@ export default async function ClearancePage({ params }: Props) {
         <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Closing out…">
           Close out the day
         </SubmitButton>
-        <p className="mt-2 text-xs text-ink/50">
+        <p className="mt-2 text-xs text-ink/70">
           You can do this once the event is over. It can&rsquo;t be undone from here, so wrap
           up the live services first.
         </p>

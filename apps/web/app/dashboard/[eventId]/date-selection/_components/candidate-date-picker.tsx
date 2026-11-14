@@ -219,11 +219,11 @@ function ProRow({
         <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[11px] font-medium uppercase tracking-[0.14em] text-ink/50">
+        <span className="block text-xs font-medium uppercase tracking-[0.06em] text-ink/70">
           {label}
         </span>
         <span className="block text-sm font-semibold leading-snug text-ink">{value}</span>
-        {sub ? <span className="mt-0.5 block text-xs text-ink/55">{sub}</span> : null}
+        {sub ? <span className="mt-0.5 block text-xs text-ink/70">{sub}</span> : null}
       </span>
     </li>
   );
@@ -313,7 +313,7 @@ function CandidateCard({
       >
         <div className="mb-2 flex flex-wrap items-center gap-1.5">
           {isBest ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-2.5 py-0.5 text-[11px] font-semibold text-cream">
+            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-2.5 py-0.5 text-xs font-semibold text-cream">
               <Star aria-hidden className="h-3 w-3 fill-cream" strokeWidth={2} />
               Our pick
             </span>
@@ -321,7 +321,7 @@ function CandidateCard({
           {winners.map((w) => (
             <span
               key={w}
-              className="inline-flex items-center gap-1 rounded-full bg-terracotta/12 px-2 py-0.5 text-[10px] font-medium text-terracotta-700"
+              className="inline-flex items-center gap-1 rounded-full bg-terracotta/12 px-2 py-0.5 text-xs font-medium text-terracotta-700"
             >
               <Sparkles aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
               {w}
@@ -329,7 +329,7 @@ function CandidateCard({
           ))}
         </div>
         <p className="text-2xl font-semibold tracking-tight text-ink">{c.label}</p>
-        <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/50">
+        <p className="mt-0.5 text-xs uppercase tracking-[0.06em] text-ink/70">
           {c.dow}
         </p>
       </div>
@@ -446,7 +446,7 @@ export function CandidateDatePicker({
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <h1 className="font-display text-3xl italic leading-tight text-ink sm:text-4xl">
+        <h1 className="text-[22px] leading-tight text-ink sm:text-[22px] font-semibold">
           {displayName} — here are your best dates
         </h1>
         <p className="max-w-prose text-base text-ink/65">
@@ -456,7 +456,7 @@ export function CandidateDatePicker({
       </header>
 
       {narrowedByLocks && !lockConflict ? (
-        <p className="flex items-start gap-2 rounded-xl border border-ink/10 bg-ink/[0.03] px-3.5 py-2.5 text-xs text-ink/65">
+        <p className="py-2 flex items-start gap-2 text-xs text-ink/65">
           <CalendarCheck2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={2} />
           <span>
             We narrowed these to the dates your locked suppliers are still free on. Lock more
@@ -465,7 +465,7 @@ export function CandidateDatePicker({
         </p>
       ) : null}
       {lockConflict ? (
-        <p className="flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
+        <p className="border-l-[3px] border-l-[rgb(var(--color-warn))] py-2 pl-3 flex items-start gap-2 text-xs text-warn-800">
           <CalendarCheck2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
           <span>
             Heads up — one of your locked suppliers isn&apos;t free on any of these dates. Showing
@@ -476,12 +476,12 @@ export function CandidateDatePicker({
 
       {/* Our pick banner */}
       {top ? (
-        <div className="flex items-start gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/[0.06] px-5 py-4">
+        <div className="py-2 flex items-start gap-3">
           <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-cream">
             <Star aria-hidden className="h-4 w-4 fill-cream" strokeWidth={2} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
+            <p className="text-xs uppercase tracking-[0.06em] text-terracotta-700">
               {pinned && topKeepsPinned ? 'Our pick · keeps your must-have' : 'Our pick'}
             </p>
             <p className="mt-0.5 text-sm font-medium text-ink/85">
@@ -494,7 +494,7 @@ export function CandidateDatePicker({
       {/* Pin a must-have */}
       {pinOptions.length > 0 ? (
         <div className="space-y-2">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="text-xs uppercase tracking-[0.06em] text-ink/70">
             Pin a must-have supplier
           </p>
           <div className="flex flex-wrap gap-2">
@@ -513,7 +513,7 @@ export function CandidateDatePicker({
                 >
                   <Star
                     aria-hidden
-                    className={`h-3.5 w-3.5 ${active ? 'fill-terracotta text-terracotta' : 'text-ink/40'}`}
+                    className={`h-3.5 w-3.5 ${active ? 'fill-terracotta text-terracotta' : 'text-ink/70'}`}
                     strokeWidth={2}
                   />
                   {o.name}
@@ -522,7 +522,7 @@ export function CandidateDatePicker({
             })}
           </div>
           {pinned ? (
-            <p className="text-xs text-ink/55">
+            <p className="text-xs text-ink/70">
               Dates that keep your pinned supplier free are listed first.{' '}
               <button
                 type="button"
@@ -548,7 +548,7 @@ export function CandidateDatePicker({
         ))}
       </ul>
 
-      <p className="text-center text-sm text-ink/50 sm:text-left">
+      <p className="text-center text-sm text-ink/70 sm:text-left">
         Not seeing the right date?{' '}
         <a
           href={`/dashboard/${eventId}/date-selection?path=direct`}

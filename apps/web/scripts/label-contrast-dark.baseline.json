@@ -1,6 +1,6 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 220,
+  "total": 217,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
@@ -74,10 +74,9 @@
     "app/dashboard/[eventId]/alaala/assignments/_components/assignment-controls.tsx · #fff on m-mulberry": 1,
     "app/dashboard/[eventId]/alaala/page.tsx · #fff on m-mulberry": 2,
     "app/dashboard/[eventId]/date-selection/_components/date-picker.tsx · ink on white": 1,
-    "app/dashboard/[eventId]/date-selection/_components/four-question-flow.tsx · ink on white": 3,
+    "app/dashboard/[eventId]/date-selection/_components/four-question-flow.tsx · ink on white": 2,
     "app/dashboard/[eventId]/details/_components/details-form.tsx · white on mulberry": 1,
     "app/dashboard/[eventId]/details/_components/governed-fields.tsx · white on mulberry": 2,
-    "app/dashboard/[eventId]/documents/page.tsx · ink on white": 2,
     "app/dashboard/[eventId]/invitation/_components/reissue-qr-button.tsx · ink on white": 1,
     "app/dashboard/[eventId]/launch/_components/details-date-finder.tsx · ink on white": 1,
     "app/dashboard/[eventId]/launch/_components/details-date-finder.tsx · white on mulberry": 2,

@@ -629,7 +629,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
       <section className="mx-auto max-w-5xl space-y-6">
         <a
           href={backToHomeHref}
-          className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
+          className="inline-flex items-center gap-1.5 text-sm text-ink/70 hover:text-ink"
         >
           <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Back to {(event as { display_name: string }).display_name}
@@ -651,7 +651,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
     <section className="mx-auto max-w-2xl space-y-8">
       <a
         href={backToHomeHref}
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
+        className="inline-flex items-center gap-1.5 text-sm text-ink/70 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Back to {(event as { display_name: string }).display_name}
@@ -685,7 +685,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
         <NotReadyForm eventId={eventId} />
       </div>
 
-      <p className="text-center text-xs text-ink/50 sm:text-left">
+      <p className="text-center text-xs text-ink/70 sm:text-left">
         You can come back to this any time from your event home.
       </p>
     </section>
@@ -709,7 +709,7 @@ function PathCard({
     accent === 'terracotta'
       ? 'hover:border-terracotta/45 hover:bg-terracotta/[0.04]'
       : 'hover:border-ink/25 hover:bg-ink/[0.02]';
-  const iconClasses = accent === 'terracotta' ? 'text-terracotta' : 'text-ink/55';
+  const iconClasses = accent === 'terracotta' ? 'text-terracotta' : 'text-ink/70';
   return (
     <a
       href={href}
@@ -721,7 +721,7 @@ function PathCard({
         <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
       </span>
       <span className="space-y-1">
-        <span className="block font-display text-xl italic text-ink">{title}</span>
+        <span className="block text-xl text-ink font-semibold">{title}</span>
         <span className="block text-sm text-ink/65">{description}</span>
       </span>
     </a>
@@ -736,11 +736,11 @@ function NotReadyForm({ eventId }: { eventId: string }) {
         type="submit"
         className="sn-row flex w-full items-start gap-4 p-5 text-left transition-colors hover:border-ink/25 hover:bg-ink/[0.02] sm:p-6"
       >
-        <span className="mt-0.5 inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-cream text-ink/55 ring-1 ring-ink/10">
+        <span className="mt-0.5 inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-cream text-ink/70 ring-1 ring-ink/10">
           <Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         </span>
         <span className="space-y-1">
-          <span className="block font-display text-xl italic text-ink">
+          <span className="block text-xl text-ink font-semibold">
             I&apos;m not ready yet
           </span>
           <span className="block text-sm text-ink/65">

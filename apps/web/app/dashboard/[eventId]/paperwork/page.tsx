@@ -318,7 +318,7 @@ function TraditionsGuide({
   const display = items && items.length > 0 ? items : guide.items;
   if (display.length === 0) return null;
   return (
-    <section className="space-y-4 rounded-xl border border-terracotta/20 bg-terracotta/[0.03] p-5">
+    <section className="py-2 space-y-4">
       <div className="space-y-1">
         <h2 className="sn-eye">
           What to expect
@@ -334,7 +334,7 @@ function TraditionsGuide({
             key={`${item.dimension}-${item.label}`}
             className="sn-row p-3"
           >
-            <span className="inline-block rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+            <span className="inline-block rounded-full bg-ink/5 px-2 py-0.5 text-xs uppercase tracking-[0.06em] text-ink/70">
               {DIMENSION_LABEL[item.dimension]}
             </span>
             <p className="mt-1.5 text-sm font-medium text-ink">{item.label}</p>
@@ -347,7 +347,7 @@ function TraditionsGuide({
           {teaCeremonyHref ? (
             <Link
               href={teaCeremonyHref}
-              className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-700-800"
+              className="ab ab-brand inline-flex min-h-11 items-center justify-center gap-1.5"
             >
               <ScrollText className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
               Plan your tea-ceremony serving order
@@ -357,7 +357,7 @@ function TraditionsGuide({
           {baziSpecialistHref ? (
             <Link
               href={baziSpecialistHref}
-              className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-700-800"
+              className="ab ab-brand inline-flex min-h-11 items-center justify-center gap-1.5"
             >
               <Compass className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
               Find a date / feng-shui specialist
@@ -367,14 +367,14 @@ function TraditionsGuide({
         </div>
       ) : null}
       {baziSpecialistHref ? (
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           A traditional Four Pillars (BaZi) reading weighs each partner&apos;s birth
           date and time of birth against the wedding day. It&apos;s a blessing a
           specialist gives — we never calculate compatibility for you.
         </p>
       ) : null}
       {guide.confirmWith ? (
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           General guidance to help you plan — traditions vary by family, parish,
           and region. Confirm the specifics with {guide.confirmWith}.
         </p>
@@ -387,7 +387,7 @@ function BackLink({ eventId }: { eventId: string }) {
   return (
     <Link
       href={`/dashboard/${eventId}`}
-      className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 hover:text-terracotta"
+      className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.06em] text-ink/70 hover:text-terracotta"
     >
       <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
       Back to event home
@@ -397,7 +397,7 @@ function BackLink({ eventId }: { eventId: string }) {
 
 function NoDatePrompt({ eventId }: { eventId: string }) {
   return (
-    <div className="rounded-xl border border-warn-300/50 bg-warn-50/50 p-4 text-sm text-warn-900">
+    <div className="border-l-[3px] border-l-[rgb(var(--color-warn))] py-2 pl-3 text-sm text-warn-800">
       <p className="font-medium">Set a wedding date to unlock deadline math.</p>
       <p className="mt-1 text-warn-900/80">
         Once your date is in, every paperwork row gets a &ldquo;complete
@@ -405,7 +405,7 @@ function NoDatePrompt({ eventId }: { eventId: string }) {
       </p>
       <Link
         href={`/dashboard/${eventId}/date-selection`}
-        className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.15em] text-warn-900 underline"
+        className="mt-2 inline-flex items-center gap-1 text-xs uppercase tracking-[0.06em] text-warn-900 underline"
       >
         Set wedding date
       </Link>
@@ -415,7 +415,7 @@ function NoDatePrompt({ eventId }: { eventId: string }) {
 
 function DeadlineHint({ eventDate }: { eventDate: string }) {
   return (
-    <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
+    <p className="text-xs uppercase tracking-[0.06em] text-ink/70">
       Anchored to {formatLongDate(eventDate)}
     </p>
   );
@@ -431,7 +431,7 @@ function SeedPrompt({
   return (
     <form
       action={seedPaperworkForEvent}
-      className="rounded-xl border border-terracotta/30 bg-terracotta/[0.04] p-5"
+      className="py-2"
     >
       <input type="hidden" name="event_id" value={eventId} />
       <h2 className="sn-eye">
@@ -442,7 +442,7 @@ function SeedPrompt({
         You can mark progress + upload scans as each one lands.
       </p>
       <SubmitButton
-        className="mt-3 inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
+        className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center gap-1.5 mt-3 disabled:opacity-70"
         pendingLabel="Setting up…"
       >
         <ScrollText className="h-4 w-4" strokeWidth={1.75} />
@@ -454,14 +454,14 @@ function SeedPrompt({
 
 function UnknownCeremonyPrompt({ eventId }: { eventId: string }) {
   return (
-    <div className="sn-tile p-5 text-sm text-ink/70">
+    <div className="py-2 text-sm text-ink/70">
       <p>
         Pick a ceremony type on your event so we can show the document set that
         applies. Catholic, Civil, INC, and Muslim each carry distinct paperwork.
       </p>
       <Link
         href={`/dashboard/${eventId}/date-selection`}
-        className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta underline"
+        className="mt-2 inline-flex items-center gap-1 text-xs uppercase tracking-[0.06em] text-terracotta underline"
       >
         Choose ceremony type
       </Link>
@@ -624,7 +624,7 @@ function DocumentCard({
 function StatusPill({ status }: { status: PaperworkRow['status'] }) {
   return (
     <span
-      className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${STATUS_TONE[status]}`}
+      className={`shrink-0 rounded-full px-2 py-0.5 text-xs uppercase tracking-[0.06em] ${STATUS_TONE[status]}`}
     >
       {STATUS_LABEL[status]}
     </span>
@@ -739,7 +739,7 @@ function ActionsBlock({
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="paperwork_id" value={row.id} />
             <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
+              className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center gap-1.5 disabled:opacity-70"
               pendingLabel="Saving…"
             >
               Mark as requested
@@ -768,7 +768,7 @@ function ActionsBlock({
             <input type="hidden" name="paperwork_id" value={row.id} />
             <input type="hidden" name="status" value="not_started" />
             <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta-700 disabled:opacity-70"
+              className="ab ab-brand inline-flex min-h-11 items-center justify-center gap-1.5 disabled:opacity-70"
               pendingLabel="Resetting…"
             >
               Reset status
@@ -783,7 +783,7 @@ function ActionsBlock({
             href="https://psa.gov.ph"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta-700"
+            className="ab ab-brand inline-flex min-h-11 items-center justify-center gap-1.5"
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
             Open PSA portal
@@ -794,7 +794,7 @@ function ActionsBlock({
             href="https://www.cfo.gov.ph"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta-700"
+            className="ab ab-brand inline-flex min-h-11 items-center justify-center gap-1.5"
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
             Open CFO site
@@ -864,7 +864,7 @@ function TrackingReferenceForm({
         className="h-8 min-w-[12rem] flex-1 rounded-md border border-ink/15 bg-cream px-2 text-xs text-ink placeholder:text-ink/40"
       />
       <SubmitButton
-        className="inline-flex items-center rounded-md bg-ink/80 px-3 py-1 text-xs font-medium text-cream hover:bg-ink disabled:opacity-70"
+        className="ab ab-brand inline-flex min-h-11 items-center justify-center gap-1.5 disabled:opacity-70"
         pendingLabel="Saving…"
       >
         Save
@@ -914,7 +914,7 @@ function UploadBlock({
         }
       />
       <SubmitButton
-        className="inline-flex items-center rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-cream hover:bg-ink/85 disabled:opacity-70"
+        className="ab ab-brand inline-flex min-h-11 items-center justify-center gap-1.5 disabled:opacity-70"
         pendingLabel="Saving…"
       >
         Save scan
@@ -953,7 +953,7 @@ function NotesForm({
       />
       <div>
         <SubmitButton
-          className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta-700 disabled:opacity-70"
+          className="ab ab-brand inline-flex min-h-11 items-center justify-center gap-1.5 disabled:opacity-70"
           pendingLabel="Saving…"
         >
           Save note

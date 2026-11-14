@@ -9,6 +9,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { StayForm } from '@/app/_components/stay-form';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * V2 Phase F · Host-side manpower surface.
@@ -201,22 +202,15 @@ export default async function HostManpowerPage({
 
         {/* BIR posture callout — surfaced honestly so the host knows what
             Setnayan does and does not do. Brand voice, no legalese. */}
-        <aside
-          className="mt-6 sn-tile p-4"
-          style={{ boxShadow: 'var(--m-shadow-sm)' }}
-        >
-          <p
-            className="sn-eye"
-            style={{ letterSpacing: '0.2em', fontSize: '11px' }}
-          >
-            Setnayan note
-          </p>
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-700">
-            The cash amount you set on each gig flows directly from you to the
-            supplier&apos;s crew. We don&apos;t process the payment, so
-            there&apos;s no Setnayan receipt for this leg. The accepting supplier
-            handles their own BIR Form 2307 as the income recipient.
-          </p>
+        {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 7): no tile — the section label, one line, the rest behind ⓘ. */}
+        <aside className="mt-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Setnayan note</p>
+          <div className="mt-1.5 text-sm text-ink">
+            <InfoTip label="The cash amount you set on each gig flows directly from you to the supplier’s crew." labelAs="span" align="start">
+              We don’t process the payment, so there’s no Setnayan receipt for this leg. The accepting supplier handles
+              their own BIR Form 2307 as the income recipient.
+            </InfoTip>
+          </div>
         </aside>
 
         {/* Gigs lists, grouped by status */}

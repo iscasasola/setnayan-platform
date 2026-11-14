@@ -40,7 +40,7 @@ export { picksForAdd, type AddPicks } from './guest-add-queue';
 type GroupOpt = { group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' };
 
 const SIDE_SHORT: Record<GuestSide, string> = { bride: 'Bride', groom: 'Groom', both: 'Both' };
-const LABEL = 'block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45';
+const LABEL = 'block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
 
 export function useAddPicks(hasSides: boolean) {
   return useState<AddPicks>({ side: hasSides ? 'bride' : SIDELESS_SIDE, role: 'guest', category: null, groupIds: [], plus: 0 });
@@ -148,7 +148,7 @@ export function AddCardPicks({
           />
         </div>
       </div>
-      <p className="text-xs text-ink/55">All four stay as picked for the next names.</p>
+      <p className="text-xs text-ink/70">All four stay as picked for the next names.</p>
     </div>
   );
 }
@@ -163,15 +163,15 @@ export function PeopleHits({ hits, onAdd }: { hits: readonly PersonHit[]; onAdd:
       <p className={LABEL}>From your People · not on this list yet</p>
       {hits.map((p) => (
         <div key={p.key} className="flex min-h-11 items-center gap-3" data-people-hit={p.key}>
-          <Users aria-hidden className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} />
+          <Users aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold text-ink">{p.name}</span>
-            <span className="block truncate text-xs text-ink/55">{p.source === 'people' ? 'From your People' : `From ${p.from}`}</span>
+            <span className="block truncate text-xs text-ink/70">{p.source === 'people' ? 'From your People' : `From ${p.from}`}</span>
           </span>
           <ActionButton tone="brand" icon={Plus} label="Add" name={`Add ${p.name}`} onClick={() => onAdd(p)} />
         </div>
       ))}
-      <p className="text-xs text-ink/55">Enter adds the first one, with what People knows and the four picks below.</p>
+      <p className="text-xs text-ink/70">Enter adds the first one, with what People knows and the four picks below.</p>
     </div>
   );
 }

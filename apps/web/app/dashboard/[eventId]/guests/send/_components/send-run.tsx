@@ -304,9 +304,11 @@ export function SendRun({
   const APP_ICON = { whatsapp: MessageCircle, viber: PhoneCall, messenger: MessagesSquare } as const;
 
   const body = !measured ? (
-    <p role="status" className="mx-auto mt-10 max-w-sm px-6 text-center text-sm text-ink/80">
-      We couldn&rsquo;t load your guest list just now, so we can&rsquo;t say who still needs their invite. Try again in a moment.
-    </p>
+    <div role="status" className="mx-auto mt-10 max-w-sm px-6 text-center text-sm text-warn-800">
+      <InfoTip label="We couldn’t load your guest list just now." labelAs="span" labelClassName="text-warn-800">
+        So we can’t say who still needs their invite. Try again in a moment.
+      </InfoTip>
+    </div>
   ) : current ? (
     <div
       ref={cardRef}

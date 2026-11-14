@@ -4,7 +4,9 @@
  * (`SponsorSwipe`), with Undo.
  */
 import Link from 'next/link';
-import { CheckCircle2, Sparkles, Users, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
+import { Badge, type BadgeTone } from '@/app/_components/badge';
+import { actionButtonClass } from '@/components/action-button';
 import {
   buildInvitationMessage,
   sponsorRoleHonorific,
@@ -73,7 +75,7 @@ export function SponsorCard({
             {sponsor.full_name}
           </p>
           {sponsor.relationship_note ? (
-            <p className="truncate text-xs text-ink/65">{sponsor.relationship_note}</p>
+            <p className="truncate text-xs text-ink/70">{sponsor.relationship_note}</p>
           ) : null}
           <p className="sn-eye">
             {honorific}
@@ -98,19 +100,15 @@ export function SponsorCard({
 
       {/* Contact summary */}
       {sponsor.email || sponsor.phone ? (
-        <p className="mt-1 font-mono text-[10px] text-ink/55">
+        <p className="mt-1 text-xs text-ink/70 tabular-nums">
           {[sponsor.email, sponsor.phone].filter(Boolean).join(' · ')}
         </p>
       ) : null}
 
       {/* Status chip + actions */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span
-          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em] ${statusChip.cls}`}
-        >
-          {statusChip.icon}
-          {statusChip.label}
-        </span>
+        {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 5): the status is the shared soft chip — no border, never pressed. */}
+        <Badge tone={statusChip.tone}>{statusChip.label}</Badge>
 
         {sponsor.invitation_status === 'pending' || sponsor.invitation_status === 'invited' ? (
           <InvitationTemplateModal
@@ -130,9 +128,9 @@ export function SponsorCard({
               <input type="hidden" name="status" value="accepted" />
               <SubmitButton
                 pendingLabel="Saving…"
-                className="inline-flex items-center gap-1 rounded-md border border-success-300/60 bg-success-50/60 px-2 py-1 text-[11px] font-medium text-success-900 hover:bg-success-100"
+                className={actionButtonClass('ok')}
               >
-                <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                 Marked yes
               </SubmitButton>
             </StayForm>
@@ -142,9 +140,9 @@ export function SponsorCard({
               <input type="hidden" name="status" value="declined" />
               <SubmitButton
                 pendingLabel="Saving…"
-                className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2 py-1 text-[11px] font-medium text-ink/70 hover:border-ink/30"
+                className={actionButtonClass('neutral')}
               >
-                <XCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                <XCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                 Declined
               </SubmitButton>
             </StayForm>
@@ -154,7 +152,7 @@ export function SponsorCard({
         {sponsor.invitation_status === 'accepted' && sponsor.linked_guest_id ? (
           <Link
             href={`/dashboard/${eventId}/guests/${sponsor.linked_guest_id}`}
-            className="font-mono text-[10px] text-terracotta underline-offset-2 hover:underline"
+            className="inline-flex min-h-11 items-center text-sm font-medium text-terracotta-700 underline-offset-2 hover:underline"
           >
             View on guest list
           </Link>
@@ -171,33 +169,28 @@ export function SponsorCard({
 
 function statusChipFor(status: SponsorInvitationStatus): {
   label: string;
-  icon: React.ReactNode;
-  cls: string;
+  tone: BadgeTone;
 } {
   if (status === 'accepted') {
     return {
       label: 'Accepted',
-      icon: <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />,
-      cls: 'bg-success-100/80 text-success-900',
+      tone: 'ok',
     };
   }
   if (status === 'declined') {
     return {
       label: 'Declined',
-      icon: <XCircle aria-hidden className="h-3 w-3" strokeWidth={2} />,
-      cls: 'bg-ink/8 text-ink/65',
+      tone: 'quiet',
     };
   }
   if (status === 'invited') {
     return {
       label: 'Awaiting reply',
-      icon: <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />,
-      cls: 'bg-warn-100/80 text-warn-900',
+      tone: 'wait',
     };
   }
   return {
     label: 'Not yet invited',
-    icon: <Users aria-hidden className="h-3 w-3" strokeWidth={2} />,
-    cls: 'bg-ink/8 text-ink/60',
+    tone: 'quiet',
   };
 }

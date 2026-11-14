@@ -206,7 +206,7 @@ export function Popover({
         ref={ref}
         role={role}
         aria-labelledby={labelledById}
-        className="gl-pop fixed z-[80] overflow-hidden rounded-xl border border-ink/10 bg-paper p-1.5 shadow-lg outline-none"
+        className="gl-pop fixed z-[80] overflow-hidden rounded-2xl bg-paper p-1.5 shadow-lg ring-1 ring-ink/10 outline-none"
         style={{
           width: pos?.width ?? width,
           left: pos?.left ?? -9999,

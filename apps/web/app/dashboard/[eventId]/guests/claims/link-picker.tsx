@@ -31,14 +31,14 @@ export function LinkPicker({
     return (
       <span className="flex min-w-0 flex-1 items-center gap-2">
         <input type="hidden" name="target_guest_id" value={picked.guest_id} />
-        <span className="truncate rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-sm font-medium text-ink">
+        <span className="truncate text-sm font-semibold text-ink">
           {candidateName(picked)}
         </span>
         <button
           type="button"
           onClick={() => setPicked(null)}
           aria-label="Choose someone else"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink/45 hover:bg-ink/5 hover:text-ink"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5 hover:text-ink"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
@@ -57,13 +57,13 @@ export function LinkPicker({
         aria-controls={listId}
         className="input-field h-9 w-full py-1 pr-9 text-sm"
       />
-      <Search aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
+      <Search aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/70" />
       {/* Required, so Link cannot post with nobody picked. */}
       <input type="text" name="target_guest_id" required value="" onChange={() => {}} className="sr-only" tabIndex={-1} aria-hidden />
       {q.trim() ? (
-        <ul id={listId} className="mt-1 max-h-64 overflow-y-auto rounded-lg border border-ink/10 bg-white p-1 shadow-sm">
+        <ul id={listId} className="mt-1 max-h-64 overflow-y-auto rounded-2xl bg-white p-1 shadow-sm ring-1 ring-ink/10">
           {matches.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-ink/50">Nobody by that name who is not already linked.</li>
+            <li className="px-3 py-2 text-sm text-ink/70">Nobody by that name who is not already linked.</li>
           ) : (
             matches.map((c) => (
               <li key={c.guest_id}>

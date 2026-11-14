@@ -4,8 +4,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { StayForm } from '@/app/_components/stay-form';
-import { useModalA11y } from '@/lib/use-modal-a11y';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { Sheet } from '@/app/_components/sheet';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import type {
   SponsorSide,
   SponsorTier,
@@ -45,7 +45,6 @@ export function AddSponsorModal({
   const headingId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
   // Auto-focus the first input when opening.
   useEffect(() => {
@@ -61,43 +60,27 @@ export function AddSponsorModal({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-ink/30 bg-cream/60 px-3 py-2.5 text-sm font-medium text-ink/65 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5 hover:text-terracotta-700-700"
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-ink/30 bg-cream/60 px-3 py-2.5 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5 hover:text-terracotta-700-700"
       >
         <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         {triggerLabel}
       </button>
 
       {open ? (
-        <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={headingId}
-          className="fixed inset-0 z-50 flex items-end justify-center p-3 focus:outline-none sm:items-center sm:p-6"
-        >
-          <OverlayBackdrop onClose={() => setOpen(false)} />
-          <div
-            className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-ink/10 bg-cream shadow-2xl"
-          >
-            <header className="flex items-start justify-between gap-3 border-b border-ink/10 bg-cream/80 px-5 py-4">
+        /* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 9): the house Sheet — handle, title, ✕, Esc and Back. */
+        <Sheet open onClose={() => setOpen(false)} labelledById={headingId} rise>
+          <div ref={dialogRef}>
+            <header className="flex items-start justify-between gap-3 px-5 pb-2 pt-4 pr-14">
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+                <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   {sponsorTier === 'principal'
                     ? `Pair ${pairIndex ?? '—'} · ${side === 'groom' ? "groom's side" : side === 'bride' ? "bride's side" : 'neutral'}`
                     : 'Secondary sponsor'}
                 </p>
-                <h2 id={headingId} className="font-display text-2xl italic text-ink">
+                <h2 id={headingId} className="text-[17px] font-semibold text-ink">
                   Add {triggerLabel.toLowerCase().replace(/^add /, '')}
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close"
-                className="rounded-md p-1 text-ink/50 hover:bg-ink/5 hover:text-ink"
-              >
-                <X aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </button>
             </header>
 
             <StayForm door="sponsors.addSponsor" action={formAction} onSaved={() => setOpen(false)} className="space-y-4 px-5 py-4">
@@ -109,7 +92,7 @@ export function AddSponsorModal({
               ) : null}
 
               <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Full name
                 </span>
                 <input
@@ -124,7 +107,7 @@ export function AddSponsorModal({
               </label>
 
               <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Relationship (optional)
                 </span>
                 <input
@@ -134,13 +117,13 @@ export function AddSponsorModal({
                   placeholder="Tito Mike (Mom's brother)"
                   className="input-field"
                 />
-                <span className="text-xs text-ink/55">
+                <span className="text-xs text-ink/70">
                   Helps you remember who&apos;s who when reviewing later.
                 </span>
               </label>
 
               <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Email (optional)
                 </span>
                 <input
@@ -151,13 +134,13 @@ export function AddSponsorModal({
                   placeholder="marcel@example.com"
                   className="input-field"
                 />
-                <span className="text-xs text-ink/55">
+                <span className="text-xs text-ink/70">
                   Not required, but useful when sending the invitation.
                 </span>
               </label>
 
               <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Phone (optional)
                 </span>
                 <input
@@ -170,16 +153,10 @@ export function AddSponsorModal({
                 />
               </label>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="rounded-md px-3 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5"
-                >
-                  Cancel
-                </button>
+              <div className="grid auto-cols-fr grid-flow-col gap-2 pt-2">
+                <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setOpen(false)} />
                 <SubmitButton
-                  className="button-primary h-10 px-5 text-sm"
+                  className={actionButtonClass('brand', { main: true })}
                   pendingLabel="Saving…"
                 >
                   Save sponsor
@@ -187,7 +164,7 @@ export function AddSponsorModal({
               </div>
             </StayForm>
           </div>
-        </div>
+        </Sheet>
       ) : null}
     </>
   );

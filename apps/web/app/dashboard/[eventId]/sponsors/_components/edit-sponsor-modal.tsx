@@ -4,8 +4,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { StayForm } from '@/app/_components/stay-form';
-import { useModalA11y } from '@/lib/use-modal-a11y';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { Sheet } from '@/app/_components/sheet';
+import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 
 type Props = {
   eventId: string;
@@ -55,7 +56,6 @@ export function EditSponsorModal({
   const headingId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
   useEffect(() => {
     if (!open) return;
@@ -71,38 +71,24 @@ export function EditSponsorModal({
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`Edit ${fullName}`}
-        className="rounded-md p-1 text-ink/45 transition-colors hover:bg-ink/5 hover:text-ink"
+        className="rounded-md p-1 text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
       >
         <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
       </button>
 
       {open ? (
-        <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={headingId}
-          className="fixed inset-0 z-50 flex items-end justify-center p-3 focus:outline-none sm:items-center sm:p-6"
-        >
-          <OverlayBackdrop onClose={() => setOpen(false)} />
-          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-ink/10 bg-cream shadow-2xl">
-            <header className="flex items-start justify-between gap-3 border-b border-ink/10 bg-cream/80 px-5 py-4">
+        /* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 9): the house Sheet — handle, title, ✕, Esc and Back. */
+        <Sheet open onClose={() => setOpen(false)} labelledById={headingId} rise>
+          <div ref={dialogRef}>
+            <header className="flex items-start justify-between gap-3 px-5 pb-2 pt-4 pr-14">
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+                <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Edit details
                 </p>
-                <h2 id={headingId} className="font-display text-2xl italic text-ink">
+                <h2 id={headingId} className="text-[17px] font-semibold text-ink">
                   {fullName}
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close"
-                className="rounded-md p-1 text-ink/50 hover:bg-ink/5 hover:text-ink"
-              >
-                <X aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </button>
             </header>
 
             <StayForm door="sponsors.updateSponsor" action={formAction} onSaved={() => setOpen(false)} className="space-y-4 px-5 py-4">
@@ -110,7 +96,7 @@ export function EditSponsorModal({
               <input type="hidden" name="sponsor_id" value={sponsorId} />
 
               <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Full name
                 </span>
                 <input
@@ -125,7 +111,7 @@ export function EditSponsorModal({
               </label>
 
               <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Relationship (optional)
                 </span>
                 <input
@@ -139,7 +125,7 @@ export function EditSponsorModal({
               </label>
 
               <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Email (optional)
                 </span>
                 <input
@@ -154,7 +140,7 @@ export function EditSponsorModal({
               </label>
 
               <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Phone (optional)
                 </span>
                 <input
@@ -168,26 +154,21 @@ export function EditSponsorModal({
                 />
               </label>
 
-              <p className="text-xs text-ink/55">
-                Their role and side stay as they are — moving someone to a different
-                slot means removing them and adding them there.
-              </p>
+              <div className="text-xs text-ink/70">
+                <InfoTip label="Their role and side stay as they are." labelAs="span" labelClassName="text-ink/70" align="start">
+                  Moving someone to a different slot means removing them and adding them there.
+                </InfoTip>
+              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="rounded-md px-3 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5"
-                >
-                  Cancel
-                </button>
-                <SubmitButton pendingLabel="Saving…" className="btn-primary text-sm">
+              <div className="grid auto-cols-fr grid-flow-col gap-2 pt-2">
+                <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setOpen(false)} />
+                <SubmitButton pendingLabel="Saving…" className={actionButtonClass('brand', { main: true })}>
                   Save changes
                 </SubmitButton>
               </div>
             </StayForm>
           </div>
-        </div>
+        </Sheet>
       ) : null}
     </>
   );

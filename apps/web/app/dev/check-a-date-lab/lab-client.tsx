@@ -22,8 +22,8 @@ export function CheckADateLabClient() {
         logoUrl={null}
         inquirySource="shop_page"
         services={[
-          { serviceId: 'a', label: 'Wedding lights', price: 'from ₱45,000', category: null },
-          { serviceId: 'b', label: 'Sound system', price: 'from ₱25,000', category: null },
+          { serviceId: 'a', label: 'Wedding lights', price: '', category: null },
+          { serviceId: 'b', label: 'Sound system', price: '', category: null },
           { serviceId: 'c', label: 'Mobile bar', price: '', category: null },
         ]}
         today={TODAY}

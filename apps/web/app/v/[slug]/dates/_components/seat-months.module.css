@@ -11,7 +11,7 @@
 .dh { text-align: center; font-size: 11.5px; color: rgb(var(--color-ink) / 0.55); padding: 4px 0; }
 .day {
   position: relative; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; isolation: isolate;
-  border-radius: 9px 9px 6px 6px; font: inherit; font-size: 14px; font-weight: 600; border: 0; cursor: pointer;
+  border-radius: var(--m-r-sm) var(--m-r-sm) var(--m-r-xs) var(--m-r-xs); font: inherit; font-size: 14px; font-weight: 600; border: 0; cursor: pointer;
   background: var(--seat-top); color: var(--seat-ink);
 }
 .day:focus-visible { outline: 2px solid rgb(var(--color-ink)); outline-offset: 2px; }
@@ -33,18 +33,18 @@
 .pick { background: rgb(var(--color-ink)) !important; color: rgb(var(--color-cream)) !important; box-shadow: 0 0 0 2px rgb(var(--color-cream)), 0 0 0 4px var(--seat-top); }
 .off.pick { background-color: var(--seat-off) !important; color: var(--seat-off-ink) !important; box-shadow: 0 0 0 2px rgb(var(--color-cream)), 0 0 0 4px rgb(var(--color-ink) / 0.6); }
 .arrow {
-  display: none; position: absolute; top: 4px; z-index: 2; width: 44px; height: 44px; border-radius: 9999px;
+  display: none; position: absolute; top: 4px; z-index: 2; width: 44px; height: 44px; border-radius: var(--m-r-full);
   place-items: center; font-size: 22px; background: rgb(var(--color-cream)); border: 1px solid rgb(var(--color-ink) / 0.15);
   color: rgb(var(--color-ink) / 0.75);
 }
 .arrow:disabled { opacity: 0.35; }
 .prev { left: 0; } .next { right: 0; }
 .dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
-.dots i { width: 6px; height: 6px; border-radius: 9999px; background: rgb(var(--color-ink) / 0.2); }
-.dots i.on { background: rgb(var(--color-ink)); width: 16px; border-radius: 3px; }
+.dots i { width: 6px; height: 6px; border-radius: var(--m-r-full); background: rgb(var(--color-ink) / 0.2); }
+.dots i.on { background: rgb(var(--color-ink)); width: 16px; border-radius: var(--m-r-xs); }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: rgb(var(--color-ink) / 0.7); margin-top: 12px; }
 .legend li { display: inline-flex; align-items: center; gap: 6px; }
-.sw { position: relative; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px 5px 4px 4px; overflow: hidden; }
+.sw { position: relative; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: var(--m-r-xs); overflow: hidden; }
 .swAv { background: var(--seat-top); }
 .swPop { background: var(--seat-top); box-shadow: inset 0 0 0 1.5px var(--seat-hot-line); color: var(--seat-ink); font-size: 9px; }
 .swOff {

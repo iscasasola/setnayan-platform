@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useChromeAway } from '@/app/_components/nav/use-chrome-away';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /**
  * 📅 CHECK A DATE, OVER THE SHOP (SHOP-02 v7, owner-approved 14 Nov 2026 — prototype "Check A Date Seats").
@@ -28,6 +30,7 @@ export function CheckADateSheet({ shopHref, children }: { shopHref: string; chil
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [up, setUp] = useState(false);
+  const panel = useRef<HTMLDivElement>(null);
   // The bars step away while the sheet is up — the way an open service card does — so the layer can sit just UNDER the
   // app's one bottom sheet (z-50), which a tapped day opens on top of it.
   useChromeAway(true);
@@ -35,12 +38,7 @@ export function CheckADateSheet({ shopHref, children }: { shopHref: string; chil
   useEffect(() => {
     setMounted(true);
     const raf = requestAnimationFrame(() => setUp(true));
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      cancelAnimationFrame(raf);
-      document.body.style.overflow = prev;
-    };
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   const close = useCallback(() => {
@@ -57,23 +55,16 @@ export function CheckADateSheet({ shopHref, children }: { shopHref: string; chil
     else router.replace(shopHref, { scroll: false });
   }, [router, shopHref]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [close]);
+  // Focus moves into the sheet and stays there; Esc closes it; the page underneath does not scroll.
+  useModalA11y({ open: mounted, onClose: close, containerRef: panel });
 
   if (!mounted) return null;
   return createPortal(
     <div className="fixed inset-0 z-[49]" data-check-date-sheet="">
+      {/* The one house scrim (computer only — on a phone the sheet covers the screen). */}
+      <OverlayBackdrop onClose={close} className="hidden md:block" />
       <div
-        aria-hidden
-        onClick={close}
-        className={`absolute inset-0 hidden bg-[rgb(23_22_15/0.42)] transition-opacity duration-300 motion-reduce:transition-none md:block ${up ? 'opacity-100' : 'opacity-0'}`}
-      />
-      <div
+        ref={panel}
         role="dialog"
         aria-modal="true"
         aria-label="Check a date"

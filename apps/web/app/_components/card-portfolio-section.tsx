@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ChevronRight, RotateCw } from 'lucide-react';
+import { ChevronRight, RotateCw, Tag } from 'lucide-react';
+import { inspirationChipWords } from '@/lib/inspiration-tags';
 import { formatCount } from '@/lib/format-number';
 import type { AlbumView } from '@/lib/card-portfolio-albums';
 
@@ -52,6 +53,25 @@ export function CardPortfolioSection({
         <div key={a.key} data-card-portfolio-album="">
           <AlbumHead album={a} />
           {a.urls.length > 0 ? <Strip urls={a.urls} more={a.more} label={a.label} /> : null}
+          {variant === 'vendor' && a.inspirations && a.inspirations.length > 0 ? (
+            <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={`${a.label} — in inspiration`} data-card-portfolio-inspirations="">
+              {a.inspirations.map((i) => (
+                <li key={i.slotKey}>
+                  {a.href ? (
+                    <Link href={a.href} className="sn-press inline-flex min-h-9 items-center gap-1 rounded-full bg-ink/[0.05] px-3 text-[13px] text-ink/80">
+                      <Tag aria-hidden className="h-3.5 w-3.5 text-sn-accent" strokeWidth={2} />
+                      {inspirationChipWords(i)}
+                    </Link>
+                  ) : (
+                    <span className="inline-flex min-h-9 items-center gap-1 rounded-full bg-ink/[0.05] px-3 text-[13px] text-ink/80">
+                      <Tag aria-hidden className="h-3.5 w-3.5 text-sn-accent" strokeWidth={2} />
+                      {inspirationChipWords(i)}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ))}
       {variant === 'vendor' ? (

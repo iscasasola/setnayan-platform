@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import { useChromeAway } from '@/app/_components/nav/use-chrome-away';
 
 /**
  * 📅 CHECK A DATE, OVER THE SHOP (SHOP-02 v7, owner-approved 14 Nov 2026 — prototype "Check A Date Seats").
@@ -27,6 +28,9 @@ export function CheckADateSheet({ shopHref, children }: { shopHref: string; chil
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [up, setUp] = useState(false);
+  // The bars step away while the sheet is up — the way an open service card does — so the layer can sit just UNDER the
+  // app's one bottom sheet (z-50), which a tapped day opens on top of it.
+  useChromeAway(true);
 
   useEffect(() => {
     setMounted(true);
@@ -63,7 +67,7 @@ export function CheckADateSheet({ shopHref, children }: { shopHref: string; chil
 
   if (!mounted) return null;
   return createPortal(
-    <div className="fixed inset-0 z-[80]" data-check-date-sheet="">
+    <div className="fixed inset-0 z-[49]" data-check-date-sheet="">
       <div
         aria-hidden
         onClick={close}

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ShopLink } from '@/app/_components/shop-link';
 import { LifeBuoy, ArrowRight, MapPin } from 'lucide-react';
 import { formatDistanceKm } from '@/lib/geo';
 import type { SameDayVendor } from '@/lib/same-day-vendors';
@@ -44,7 +45,7 @@ export function GetHelpCard({ sameDayVendors = [] }: { sameDayVendors?: SameDayV
                   : v.locationCity ?? v.region ?? null;
               const service = v.services?.[0] ?? null;
               const meta = [service, where].filter(Boolean).join(' · ');
-              const href = v.slug ? `/v/${v.slug}` : null;
+              const href = v.slug ? v.slug : null;
               const inner = (
                 <>
                   <span className="min-w-0">
@@ -70,12 +71,12 @@ export function GetHelpCard({ sameDayVendors = [] }: { sameDayVendors?: SameDayV
               return (
                 <li key={v.vendorProfileId}>
                   {href ? (
-                    <Link
-                      href={href}
+                    <ShopLink
+                      slug={href}
                       className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 px-3 py-2 transition-colors hover:border-terracotta/40 hover:bg-terracotta/[0.03]"
                     >
                       {inner}
-                    </Link>
+                    </ShopLink>
                   ) : (
                     <div className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 px-3 py-2">
                       {inner}

@@ -1,4 +1,5 @@
 import { ProfileHeader, PROFILE_HEADER_CSS } from '../_components/profile-header';
+import { ShopLink } from '@/app/_components/shop-link';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -960,7 +961,7 @@ function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
       <ul className="uprof-inf-list">
         {vendors.map((v) => (
           <li key={v.slug}>
-            <Link href={`/v/${v.slug}`} className="uprof-inf-card">
+            <ShopLink slug={v.slug} className="uprof-inf-card">
               {v.logoUrl ? (
                 <span className="uprof-inf-logo">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -972,7 +973,7 @@ function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
                 </span>
               )}
               <span className="uprof-inf-name">{v.name}</span>
-            </Link>
+            </ShopLink>
           </li>
         ))}
       </ul>

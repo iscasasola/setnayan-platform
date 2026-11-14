@@ -3,6 +3,9 @@ import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { isStoreShellRequest } from '@/lib/request-platform';
+import { hubPartPrices } from '@/lib/couple-website-pro';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { PLAN_NAME } from '@/lib/plan-buy-doors';
 
 /**
  * WebsiteProLock — the couple-facing "locked" state for a website editor that
@@ -62,14 +65,18 @@ export async function WebsiteProLock({
   }
 
   const upsellHref = `/dashboard/${eventId}/studio/website-pro`;
+  /* 🏷 The plan's NAME is the catalogue's own title (RW-306, 2026-11-14 — "read it from platform_retail_catalog_v2,
+     never type it"). `hubPartPrices` is the render's ONE read of those rows (`askedOnce`), already asked by every
+     Maker and Pro page; an unread title falls back to the plan list's name, never a blank button. */
+  const planName = (await hubPartPrices(createAdminClient()).catch(() => null))?.fullTitle ?? PLAN_NAME.pro;
 
   const card = (
     <div className="rounded-card bg-[var(--m-paper-2)] p-4 sm:p-6">
       <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
-        <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Pro')} size="lg" tone="current" />
+        <PaidMark state="locked" label={paidMarkLabel('locked', planName)} size="lg" tone="current" />
       </span>
       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
-        Part of Event Pro
+        Part of {planName}
       </p>
       <h2 className="mt-1 text-2xl font-bold tracking-tight text-ink">
         {featureName}
@@ -79,7 +86,7 @@ export async function WebsiteProLock({
         href={upsellHref}
         className="ab ab-brand ab-main mt-5"
       >
-        Unlock Event Pro
+        Unlock {planName}
         <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
       </Link>
       <p className="mt-3 text-[13px] text-ink/75">

@@ -87,17 +87,17 @@ export const RETAIL: RetailRow[] = [
   { service_code: 'EVENT_ULTRA', title: 'Event Ultra', retail_price_php: 9990, is_active: true },
   // 💎 Event Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; OFF SALE since 2026-10-26
   // (owner: "just have the upgrade Event Pro" — migration 20271290543004). Re-check with the select above.
-  { service_code: 'COUPLE_HUB_PART_REVEAL', title: 'Event Pro · Reveal', retail_price_php: 1000, is_active: false },
-  { service_code: 'COUPLE_HUB_PART_BACKGROUND', title: 'Event Pro · Background', retail_price_php: 1000, is_active: false },
-  { service_code: 'COUPLE_HUB_PART_PHOTOS', title: 'Event Pro · Photos', retail_price_php: 1000, is_active: false },
-  { service_code: 'COUPLE_HUB_PART_STYLE', title: 'Event Pro · Style', retail_price_php: 1000, is_active: false },
-  { service_code: 'COUPLE_HUB_PART_MOTION', title: 'Event Pro · Motion', retail_price_php: 1000, is_active: false },
-  { service_code: 'COUPLE_HUB_PART_LOGO_QR', title: 'Event Pro · Logo & QR', retail_price_php: 500, is_active: false },
-  { service_code: 'COUPLE_HUB_PART_MUSIC', title: 'Event Pro · Music', retail_price_php: 500, is_active: false },
-  { service_code: 'COUPLE_HUB_PART_PRINTS', title: 'Event Pro · Prints', retail_price_php: 500, is_active: false },
-  { service_code: 'COUPLE_HUB_PART_POST_EVENT', title: 'Event Pro · Post Event', retail_price_php: 500, is_active: false },
-  { service_code: 'COUPLE_HUB_PART_OWN_SCENES', title: 'Event Pro · Your own scenes', retail_price_php: 500, is_active: false },
-  { service_code: 'COUPLE_HUB_PART_ADDRESS', title: 'Event Pro · Custom address', retail_price_php: 500, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_REVEAL', title: 'Event Hub Pro · Reveal', retail_price_php: 1000, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_BACKGROUND', title: 'Event Hub Pro · Background', retail_price_php: 1000, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_PHOTOS', title: 'Event Hub Pro · Photos', retail_price_php: 1000, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_STYLE', title: 'Event Hub Pro · Style', retail_price_php: 1000, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_MOTION', title: 'Event Hub Pro · Motion', retail_price_php: 1000, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_LOGO_QR', title: 'Event Hub Pro · Logo & QR', retail_price_php: 500, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_MUSIC', title: 'Event Hub Pro · Music', retail_price_php: 500, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_PRINTS', title: 'Event Hub Pro · Prints', retail_price_php: 500, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_POST_EVENT', title: 'Event Hub Pro · Post Event', retail_price_php: 500, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_OWN_SCENES', title: 'Event Hub Pro · Your own scenes', retail_price_php: 500, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_ADDRESS', title: 'Event Hub Pro · Custom address', retail_price_php: 500, is_active: false },
   // ── THE THREE PAPIC PACKS, owner 2026-11-03 ─────────────────────────────
   // ⚠ This fixture is the SECOND hand-typed copy of the catalog that this file's
   // own docblock warns about. When a pack's price or is_active changes in prod,

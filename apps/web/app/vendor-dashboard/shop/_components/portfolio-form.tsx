@@ -20,6 +20,7 @@ import { updateVendorProfileField } from '../../actions';
 import { PORTFOLIO_ALLOWANCE_UNREAD } from '@/lib/vendor-tier-caps';
 import { SHOP_WALLET_HREF } from '@/lib/shop-wallet';
 import {
+import { useIsStoreShell } from '@/lib/use-store-shell';
   portfolioCounter,
   portfolioMaxFiles,
   portfolioQuote,
@@ -68,6 +69,8 @@ export function PortfolioForm({
   onSaved?: (added: string[]) => void;
 }) {
   const [state, formAction] = useActionState(updateVendorProfileField, null);
+  // 🍎 In the iPhone app a wallet that runs out says so and stops — it never points at a purchase (App Review 3.1.1).
+  const storeShell = useIsStoreShell();
   const initial = useMemo(() => [...storedRefs, ...(labPicked ?? [])], [storedRefs, labPicked]);
   const [refs, setRefs] = useState<string[]>(initial);
   const [short, setShort] = useState<string | null>(null);
@@ -169,7 +172,9 @@ export function PortfolioForm({
           limitMessage={
             walletBalance == null
               ? 'Your shop wallet couldn’t be read — only free photos can be added right now.'
-              : `That’s all your shop wallet covers (${n(walletBalance)} credits). Buy a pack on Money to add more.`
+              : storeShell
+                ? `That’s all your shop wallet covers (${n(walletBalance)} credits).`
+                : `That’s all your shop wallet covers (${n(walletBalance)} credits). Buy a pack on Money to add more.`
           }
           maxSizeMB={5}
           // 🗜 Uploads compress in the browser (owner rule 2026-09-25; THE ONE BUILD A3 W16) — after the watermark,

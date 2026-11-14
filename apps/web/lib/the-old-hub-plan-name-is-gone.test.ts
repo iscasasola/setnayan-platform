@@ -43,6 +43,16 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+/**
+ * The ONE allowance — admin-managed DATA, not our copy (controller, RW-306: "leave the catalogue's own part titles
+ * alone"). The off-sale part rows of `platform_retail_catalog_v2` are still titled "Event Hub Pro · …" in production,
+ * and the catalogue mirror must equal production row for row. Only a COUPLE_HUB_PART_* row of that mirror is excused;
+ * the day the catalogue retitles its parts, the mirror follows and this allowance stops matching anything (test 1b).
+ */
+const CATALOGUE_DATA: ReadonlyArray<{ file: string; row: RegExp }> = [
+  { file: 'lib/llms-txt-guard-input.ts', row: /^\s*\{ service_code: 'COUPLE_HUB_PART_[A-Z_]+', title: 'Event Hub Pro · [^']+', retail_price_php: \d+, is_active: (?:true|false) \},$/ },
+];
+
 const CATALOGUE_TITLE = RETAIL.find((r) => r.service_code === 'COUPLE_WEBSITE_PRO')?.title ?? null;
 
 test('0 · the catalogue mirror names the plan — or every comparison below is against nothing', () => {
@@ -65,10 +75,18 @@ test('1 · no file under apps/web names the old Hub plan (copy, labels, tests an
     const text = readFileSync(f, 'utf8');
     for (const m of text.matchAll(OLD_NAME)) {
       const line = text.slice(0, m.index).split('\n').length;
+      if (CATALOGUE_DATA.some((a) => a.file === rel(f) && a.row.test(text.split('\n')[line - 1] ?? ''))) continue;
       offenders.push(`${rel(f)}:${line} — "${m[0].replace(/\s+/g, ' ')}"`);
     }
   }
   assert.deepEqual(offenders, [], `The old plan name is back. Say "${CATALOGUE_TITLE}" (the catalogue's title):\n  ${offenders.join('\n  ')}`);
+});
+
+test('1b · the one allowance still points at a catalogue row (or it is deleted)', () => {
+  for (const a of CATALOGUE_DATA) {
+    const lines = readFileSync(join(WEB, a.file), 'utf8').split('\n');
+    assert.ok(lines.some((l) => a.row.test(l)), `${a.file}: no catalogue part row carries the old title any more — delete its allowance`);
+  }
 });
 
 test('2 · every hand-typed name of the plan equals the catalogue title', () => {

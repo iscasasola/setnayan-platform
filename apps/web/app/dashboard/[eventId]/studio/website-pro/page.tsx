@@ -19,6 +19,7 @@ import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { readPapicFreeGrantRead } from '@/lib/papic-tier-config-read';
 import { papicFreeCreditPromise } from '@/lib/papic-free-credit-promise';
 import type { PlanOfferFacts } from './_components/plan-offer';
+import { PLAN_NAME } from '@/lib/plan-buy-doors';
 
 export const metadata = { title: 'Event Pro' };
 
@@ -146,6 +147,8 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
     <ProPartsBody
       eventId={eventId}
       title={HERO.label}
+      // 🏷 The plan's name from its catalogue row (RW-306) — the same read as the prices; unread → the plan list's name.
+      planName={prices?.fullTitle ?? PLAN_NAME.pro}
       back={back}
       fromMaker={fromMaker}
       hubHref={WEBSITE_HUB_HREF(eventId)}

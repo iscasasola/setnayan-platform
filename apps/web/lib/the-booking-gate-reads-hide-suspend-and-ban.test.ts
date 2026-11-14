@@ -81,9 +81,14 @@ test('3 · the latest definition of the DB trigger function asks all four column
   const sql = readFileSync(join(MIGRATIONS, latest!), 'utf8');
   const body = sql.slice(sql.search(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.enforce_booking_requires_verified_vendor/i));
   const fnBody = body.slice(0, body.indexOf('$$;'));
-  for (const col of ['verification_state', 'public_visibility', 'fraud_suspended_at', 'fraud_banned_at', "'archived'"]) {
+  for (const col of ['verification_state', 'public_visibility', 'fraud_suspended_at', 'fraud_banned_at']) {
     assert.ok(fnBody.includes(col), `${latest} must read vendor_profiles.${col}`);
   }
+  // 2026-11-14 ("Yes, block them"): the database refuses every shop that is not LISTED — hidden and archived alike —
+  // the app's `isShopLive` half. Stricter than the old `= 'archived'` test, which let a hidden shop through.
+  assert.match(fnBody, /v_visibility IS DISTINCT FROM 'verified'/, `${latest} must refuse a shop that is not listed`);
+  // …and it guards a couple's ASK, not only a booking.
+  assert.match(fnBody, /lock_request_state IS NOT DISTINCT FROM 'pending'/, `${latest} must guard a new pending ask`);
   // Four app paths match the refusal on this prefix — the reason is named after it, never instead of it.
   assert.ok(fnBody.includes("'vendor_not_verified: "), 'the refusal keeps the vendor_not_verified: prefix');
 });

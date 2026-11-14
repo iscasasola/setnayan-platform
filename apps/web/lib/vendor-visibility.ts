@@ -186,11 +186,11 @@ export const SHOP_LIVE_COLUMNS = 'public_visibility, verification_state' as cons
  *
  * Bookable = live (`isShopLive`, both columns) AND not fraud-suspended AND not
  * fraud-banned. The database half is `enforce_booking_requires_verified_vendor`
- * (re-created by `20271335513615_the_booking_gate_reads_hide_suspend_and_ban.sql`):
- * it refuses not-verified, suspended, banned and archived — but NOT yet 'hidden'
- * (the column default its DB-test fixtures sit at; see that header). So an
- * admin-hidden verified shop is refused HERE, by every app door, and not by a raw
- * write. Fail-closed: an absent column reads as not bookable, so a `.select()`
+ * (re-created by `20271346561709_a_hidden_shop_takes_no_new_ask_or_booking.sql`,
+ * owner 2026-11-14 "Yes, block them"): it asks the SAME four columns, refuses a
+ * shop that is not listed ('hidden' and 'archived' alike), and guards a couple's
+ * new ASK as well as a new booking — so a raw write past these app doors is refused
+ * too. Fail-closed: an absent column reads as not bookable, so a `.select()`
  * must name all of `SHOP_BOOKABLE_COLUMNS`.
  */
 export type ShopBookingRefusal = 'missing' | 'not_verified' | 'not_listed' | 'suspended' | 'banned';

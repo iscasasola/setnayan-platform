@@ -92,3 +92,9 @@ test('a page with no slot sends everything to the tray', () => {
   assert.deepEqual(a.end, []);
   assert.deepEqual(keys(a.more), ['live', 'new', 'offer']);
 });
+
+test('a news line whose answers are its close has no close word and never closes by memory', () => {
+  assert.equal(closeWord({ kind: 'news', closable: false }), null);
+  assert.equal(closeWord({ kind: 'news' }), 'Got it');
+  assert.equal(isClosedNow({ key: 'k', kind: 'news', closable: false }, { closedAt: 1, count: 1 }, 2), false);
+});

@@ -240,7 +240,14 @@ export function PeopleRosterView({
   initialFilter = 'all',
   focus = null,
   openPerson = null,
+  askInto = null,
 }: {
+  /**
+   * 🙋 A Group's "Ask someone from People" (walk 13 Nov 2026, F-W3-11) lands here with that group's id: the list opens
+   * in its shipped select mode, so the people are ticked and "Ask N into group" sends — the group's own door used to
+   * open People with no way in. Only one of YOUR groups (`roster.mySamahan`) — anything else opens the list as usual.
+   */
+  askInto?: string | null;
   roster: PeopleRoster;
   /** Offerable labels — the server decides, by the spouse rule. */
   relations: ConnectionRelation[];
@@ -265,7 +272,7 @@ export function PeopleRosterView({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [filter, setFilter] = useState<PeopleFilter>(initialFilter);
-  const [selectMode, setSelectMode] = useState(false);
+  const [selectMode, setSelectMode] = useState(Boolean(askInto));
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [cardKey, setCardKey] = useState<string | null>(null);
   const [cardFromUrl, setCardFromUrl] = useState(false);

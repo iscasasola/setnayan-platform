@@ -28,3 +28,6 @@ shared pieces only (`ActionButton`/`ab` classes, `InfoTip`, `Badge`, `PickMenu`)
   - the widgets page's form-only Auto/Shown/Hidden segment.
 
 SPEC IMPACT: None — implements the approved design template (Setnayan-specs `prototypes/design_template_sheet_2026-11-14_fable.html`); no decision changed.
+
+**Ratchet (14 Nov, after #7704 landed):** `lib/template-score.baseline.json` is lowered for W1's pages only (activity and
+site-chrome reach 0 and leave the file). Another page's pending lowering (`v/[slug]`) is left to its own PR.

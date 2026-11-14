@@ -1,3 +1,4 @@
+import { Explain } from '@/app/_components/explain';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/orders';
@@ -75,7 +76,17 @@ export async function RevenueSummary() {
   // words' own font (never a typewriter font), the lines under it as hairline rows, the scope note behind ⓘ.
   return (
     <div className="mx-auto w-full max-w-[760px] px-4 pt-2 sm:px-6">
-      <TemplateSection label="Revenue, all time" tip={revenueScopeNote(s)} first data="revenue">
+      <TemplateSection
+        label="Revenue, all time"
+        first
+        data="revenue"
+        right={
+          /* ⓘ F-A-21 (admin walk, round 2): what the total counts sits behind the ⓘ. */
+          <Explain title="What this counts" label="What the revenue total counts" data="revenue-scope">
+            {revenueScopeNote(s)}
+          </Explain>
+        }
+      >
         <div className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] px-4 py-3">
           <p className="text-[32px] font-bold leading-none tabular-nums text-ink">{formatPhp(s.netPhp)}</p>
         </div>

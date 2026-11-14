@@ -58,6 +58,10 @@ test('(3) the toolbar draws the lock in its rows, the tab wears 🔒, and the ta
   assert.match(tools, /<ToolLock\s+problem=\{lock\.problem\}/, 'the lock is not drawn in the rows');
   assert.match(tools, /data-stage-tool-locked=\{tabLocked\(t\) \? '' : undefined\}/);
   assert.match(tools, /\[data-stage-tool\]\[data-stage-tool-locked\]::before\{content:"🔒/, 'the locked tab does not wear its lock');
+  /* …at EVERY width: the rule sits before the phone-only block, never inside it (W1 2026-11-14: missing at 1280). */
+  const lockAt = tools.indexOf('[data-stage-tool-locked]::before');
+  const phoneAt = tools.indexOf("@media (max-width:1023.98px){");
+  assert.ok(phoneAt > 0 && lockAt > 0 && lockAt < phoneAt, 'the lock is drawn only on a phone — it must show at every width');
   /* Over the work area's body too — it stands aside while the lock is up. */
   assert.match(tools, /\[data-maker-shell\]:has\(\[data-stage-tools\]\[data-stage-locked\]\) \[data-phone-chrome="panel"\]\{visibility:hidden;pointer-events:none\}/);
   const lockFile = read(`${L}/stage-panel/tool-lock.tsx`);

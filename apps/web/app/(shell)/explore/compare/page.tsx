@@ -27,7 +27,6 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SaveVendorButton } from '../_components/save-vendor-button';
 import { formatCount } from '@/lib/format-number';
 import { BRAND_OG_IMAGES } from '@/lib/brand-og';
-import { actionButtonClass } from '@/components/action-button-class';
 
 /**
  * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. Anything uploaded through the shop
@@ -848,7 +847,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                     {row.business_slug ? (
                       <Link
                         href={`/v/${row.business_slug}?src=explore#get-in-touch`}
-                        className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
+                        className="inline-flex h-11 items-center justify-center rounded-md bg-terracotta-700 px-4 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
                       >
                         Ask about your date
                         {/* Two columns carry the identical label; a screen

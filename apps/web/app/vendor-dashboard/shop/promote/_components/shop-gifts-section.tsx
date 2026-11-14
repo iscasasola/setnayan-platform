@@ -136,8 +136,8 @@ const STATE_WORD: Record<ShopGiftBoughtLine['state'], string | null> = {
  * 🎁 YOUR GIFTS — the supplier's gift stock (owner 2026-11-04, prototype supplier dashboard v59 "Your gifts").
  *
  *   Your gifts ⓘ                      (title; everything else in the ⓘ)
- *   Papic credits · N free to offer · M on sent quotes          [balance]
- *   Event Plus · Event Pro — the same row, as COUNTS (slice 2, 2026-11-05), each once it is on sale or in stock
+ *   Papic 150 · Papic 1000 · Papic 3000 — one row per pack, COUNTED IN PACKS (2026-11-14): N free · M on sent quotes
+ *   Event Plus · Event Pro · Event Ultra — the same row, as COUNTS (slice 2, 2026-11-05), each once on sale or in stock
  *   [Buy gifts]                        → the Buy sheet: Gift ▾ · How many − n + · Total · Pay with ▾ · Pay ₱X
  *   Bought ▾                           qty × title · date · ₱ (Checking / Refunded when so)
  *   the quiet line                     where gifts go, in one sentence

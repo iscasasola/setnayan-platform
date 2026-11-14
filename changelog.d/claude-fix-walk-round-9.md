@@ -28,6 +28,12 @@
 - **RW-270** At 390 px the verified shop's map and Directions row ran past the right edge and the map's credit was cut.
   The calling card's text column now takes the card's width (as the sample card already did), so a long line can no
   longer widen it. Measured on a local mock: with a wide line, map right edge 582 → 356 on a 390 screen.
-- Guard: `apps/web/lib/the-walk-round-9.test.ts`.
+- **Admin › Work, Profile corrections (live walk, correction S89Z-5EMGY0V2MW)** The inline row's decline reason no
+  longer arrives prefilled with "Too close to another shop's name" (a refusal sentence sitting on an approval); it
+  starts empty, and a decline with it empty is refused on screen. A press on a request somebody already settled now
+  says "Someone already settled this one — nothing was changed" instead of "Approved" or "Declined"
+  (`redirectRefusal` reads `already_resolved`; a decline that claimed no row redirects as already resolved). The
+  database log shows the Work-page press that reached the server (04:32:26) did apply that logo.
+- Guard: `apps/web/lib/the-walk-round-9.test.ts`, `apps/web/lib/admin/supplier-work.test.ts`.
 
 SPEC IMPACT: None.

@@ -404,19 +404,19 @@ export async function declineCorrectionRequest(formData: FormData) {
 
   // Told only when THIS press declined it (the `.eq('status','open')` claim) — a second press tells nobody twice.
   const row = (declined ?? [])[0] as { vendor_profile_id: string; field_key: string; requested_value: string | null } | undefined;
-  if (row) {
-    await tellShopRequestAnswered({
-      vendorProfileId: row.vendor_profile_id,
-      title:
-        row.field_key === 'business_slug'
-          ? 'Your web address change was declined'
-          : row.field_key === 'business_name'
-            ? 'Your shop name change was declined'
-            : 'Your correction was declined',
-      body: reason ?? 'Setnayan declined this request.',
-      relatedUrl: '/vendor-dashboard/shop',
-    });
-  }
+  // 🚨 No row claimed ⇒ somebody settled it first and THIS press changed nothing — said as that, never "declined".
+  if (!row) redirect('/admin/corrections?already_resolved=1');
+  await tellShopRequestAnswered({
+    vendorProfileId: row.vendor_profile_id,
+    title:
+      row.field_key === 'business_slug'
+        ? 'Your web address change was declined'
+        : row.field_key === 'business_name'
+          ? 'Your shop name change was declined'
+          : 'Your correction was declined',
+    body: reason ?? 'Setnayan declined this request.',
+    relatedUrl: '/vendor-dashboard/shop',
+  });
 
   revalidatePath('/admin/corrections');
   redirect('/admin/corrections?declined=1');

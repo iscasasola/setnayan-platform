@@ -202,8 +202,8 @@ export function QueueDrawer({
                           style={{ borderColor: 'var(--sn-line)', background: 'transparent' }}
                         >
                           {fl.options.map((o: string) => (
-                            <option key={o} value={o}>
-                              {o.replace(/_/g, ' ')}
+                            <option key={o || '__empty'} value={o}>
+                              {o === '' ? (fl.placeholder ?? '—') : o.replace(/_/g, ' ')}
                             </option>
                           ))}
                         </select>

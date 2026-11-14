@@ -19,7 +19,7 @@ export function ServicesEmptyCard() {
         <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.9} />
         <span>No service cards yet · your shop is found by its cards</span>
       </p>
-      <ActionButton tone="brand" main icon={<Layers aria-hidden strokeWidth={1.9} />} label="New service" href={SERVICE_MAKER_HREF} tour="shop-add-service" />
+      <ActionButton tone="brand" main icon={<Layers aria-hidden strokeWidth={1.9} />} label="New service" href={SERVICE_MAKER_HREF} tour="shop-add-service" className="!h-11" />
     </div>
   );
 }

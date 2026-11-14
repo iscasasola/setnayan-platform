@@ -65,7 +65,7 @@ export function BiggerMapButton({ href }: { href: string }) {
 
 /**
  * The place's pin — its point exactly on the spot (`left`/`top` in percent of the tile layer). The accent with the
- * tiles' white edge, the shape `ReachMap` draws for a supplier's HQ.
+ * tiles' white edge — the colour and shape `ReachMap` draws for a supplier's HQ.
  */
 export function MapPinMark({ leftPct = 50, topPct = 50 }: { leftPct?: number; topPct?: number }) {
   return (
@@ -78,7 +78,7 @@ export function MapPinMark({ leftPct = 50, topPct = 50 }: { leftPct?: number; to
     >
       <path
         d="M11 0C4.9 0 0 4.9 0 11c0 8.2 11 19 11 19s11-10.8 11-19C22 4.9 17.1 0 11 0z"
-        style={{ fill: 'rgb(var(--color-terracotta))' }}
+        style={{ fill: 'rgb(var(--sn-accent))' }}
         stroke="white"
         strokeWidth={1.5}
       />

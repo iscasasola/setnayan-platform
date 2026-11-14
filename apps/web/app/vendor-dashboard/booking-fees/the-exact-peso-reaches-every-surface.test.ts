@@ -61,7 +61,9 @@ const CHARGE_PHP = CHARGE_CENTAVOS / 100; // 837.5
 /** The surfaces that name this charge. */
 const FEE_DETAIL = 'app/vendor-dashboard/booking-fees/[orderId]/page.tsx';
 const FEE_HUB = 'app/vendor-dashboard/booking-fees/page.tsx';
-const ADMIN_QUEUE = 'app/admin/payments/page.tsx';
+// The desk is two files since the admin Money drawing (2026-11-14): the page reads, `_components/desk.tsx` prints.
+const ADMIN_QUEUE = 'app/admin/payments/_components/desk.tsx';
+const ADMIN_QUEUE_READS = 'app/admin/payments/page.tsx';
 const ADMIN_MATCHER = 'app/admin/payments/_components/inbox-matcher.tsx';
 const ADMIN_ACTIONS = 'app/admin/payments/actions.ts';
 const ADMIN_LEDGER = 'app/admin/money/_components/transactions-ledger.tsx';
@@ -207,7 +209,7 @@ test('no surface on the fee/payment path carries its own peso formatter', () => 
   // spellings of one number, on screens an admin compares by eye.
   // SABOTAGE: re-add a local `new Intl.NumberFormat(... currency: 'PHP' ...)`
   // to any of these files.
-  for (const rel of [FEE_DETAIL, FEE_HUB, ADMIN_QUEUE, ADMIN_MATCHER, ADMIN_LEDGER]) {
+  for (const rel of [FEE_DETAIL, FEE_HUB, ADMIN_QUEUE, ADMIN_QUEUE_READS, ADMIN_MATCHER, ADMIN_LEDGER]) {
     const src = code(rel);
     assert.ok(
       !/currency:\s*'PHP'/.test(src),
@@ -227,7 +229,7 @@ test('nothing on the path rounds an amount to the peso before printing it', () =
   // SABOTAGE: `formatPhp(Math.round(totals.headlineTotal))` in the fee page.
   const banned =
     /(Math\.(round|floor|ceil)\((?![^)]*\*\s*100)[^)]*(amount|total|owed|php|Php|PHP)[^)]*\)|toFixed\(0\))/;
-  for (const rel of [FEE_DETAIL, FEE_HUB, ADMIN_QUEUE, ADMIN_MATCHER, ADMIN_LEDGER]) {
+  for (const rel of [FEE_DETAIL, FEE_HUB, ADMIN_QUEUE, ADMIN_QUEUE_READS, ADMIN_MATCHER, ADMIN_LEDGER]) {
     const src = code(rel);
     const hit = src.match(banned);
     assert.equal(hit, null, `${rel} rounds a peso figure to the whole peso: ${hit?.[0]}`);

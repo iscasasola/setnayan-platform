@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { emitNotification } from '@/lib/notification-emit';
+import { emitAdminNotice } from '@/lib/notification-emit';
 import { composeFormalName } from '@/lib/formal-name';
 import { ONBOARDING_SERVICES_SKU, readOnboardingOrderItems } from '@/lib/onboarding-order-items';
 import { isVatInclusiveServiceKey, orderGrossOwed } from '@/lib/orders';
@@ -75,7 +75,7 @@ export async function notifyAdminsOrderAwaitingReconciliation(args: {
 
     await Promise.all(
       admins.map((row) =>
-        emitNotification({
+        emitAdminNotice({
           userId: row.user_id as string,
           type: 'order_awaiting_reconciliation',
           title: alert?.title ?? `New order awaiting reconciliation · ${peso(amountPhp)}`,
@@ -169,7 +169,7 @@ export async function notifyAdminsPaymentProofSubmitted(args: {
 
     await Promise.all(
       admins.map((row) =>
-        emitNotification({
+        emitAdminNotice({
           userId: row.user_id as string,
           type: 'order_awaiting_reconciliation',
           title: alert?.title ?? `Payment logged · ${peso(amountPhp)} — confirm it`,

@@ -130,7 +130,6 @@ const SCOPE_FILES = [
 const NOT_BETWEEN_A_COUPLE_AND_A_SUPPLIER: Record<string, string> = {
   creator_offer_received: 'a supplier to a CREATOR (the creators desk) — no couple is involved',
   order_cancelled: 'the buyer’s own Setnayan order, cancelled with the event it belonged to — no supplier is involved',
-  force_majeure_filed: 'to Setnayan’s admins: a money case opened by a released booking (lib/date-change.server.ts)',
 };
 
 /**
@@ -534,13 +533,15 @@ test('5 · the emitter builds the mail from the notice\'s own link and event, an
   assert.match(fn, /args\.email \?\? \(await coupleSupplierEventParts\(admin, type, eventId\)\)/, 'the event rows are not added to the mail');
   assert.match(EMIT, /sections: coupleSupplierEventSections\(type, data\)/, 'the rows are not built by the declared rule');
 
-  // The gate is the TYPE. With the configuration check in front of it, an
-  // unconfigured mailer skipped the block and wrote nothing anywhere.
-  assert.match(fn, /\n {2}if \(EMAIL_ENABLED_TYPES\.has\(type\)\) \{/, 'the email block is not gated on the allowlist alone');
+  // The gate is the TYPE (and, since 2026-11-15, the AUDIENCE: a notice for the admins stays in the app — never a
+  // couple's or a supplier's). With the configuration check in front of it, an unconfigured mailer skipped the block
+  // and wrote nothing anywhere.
+  const GATE = 'if (EMAIL_ENABLED_TYPES.has(type) && !isAdminNotice(args)) {';
+  assert.ok(fn.includes(`\n  ${GATE}`), 'the email block is not gated on the allowlist (and the admin audience) alone');
   assert.doesNotMatch(fn, /isEmailConfigured\(\)/, 'the emitter checks configuration before sendEmail — an unconfigured send is skipped unrecorded again');
 
   // Three exits without a send, three rows: recipient unreadable, no address, threw.
-  const block = fn.slice(fn.indexOf('if (EMAIL_ENABLED_TYPES.has(type)) {'), fn.indexOf('isAnyPushConfigured()'));
+  const block = fn.slice(fn.indexOf(GATE), fn.indexOf('isAnyPushConfigured()'));
   const records = block.split('await recordDelivery(').length - 1;
   console.log(`# recordDelivery calls in the email block: ${records}`);
   assert.equal(records, 3, 'an exit from the email block stopped recording why no email went');

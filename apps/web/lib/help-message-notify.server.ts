@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { emitNotification } from '@/lib/notification-emit';
+import { emitAdminNotice } from '@/lib/notification-emit';
 import type { NotificationType } from '@/lib/notifications';
 
 /**
@@ -26,7 +26,7 @@ export async function notifyAdminsOfHelpMessage(args: {
       .select('user_id')
       .or('is_internal.eq.true,is_team_member.eq.true,account_type.eq.admin');
     for (const adminUser of internals ?? []) {
-      await emitNotification({
+      await emitAdminNotice({
         userId: adminUser.user_id,
         type: args.type,
         title: args.title,

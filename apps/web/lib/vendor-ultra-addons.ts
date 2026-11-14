@@ -10,6 +10,7 @@ import {
   canBuyExtraSeats,
   canBuyExtraServiceCards,
   canBuyExtraWaitlist,
+  holdsBoughtExtras,
   type TierCaps,
 } from './vendor-tier-caps';
 
@@ -214,7 +215,7 @@ export async function fetchCapsWithAddOns(
   // 🧮 The plan's allowances as the admin last set them (vendor_plan_contents, owner 2026-11-13), the code values
   // when unread — lib/vendor-plan-contents.ts. Every create gate reads its caps through here.
   const base = await fetchLiveTierCaps(supabase, tier);
-  if (!canBuyExtraCategories(tier)) return base;
+  if (!holdsBoughtExtras(tier)) return base;
   return applyAddOnExtras(base, await fetchAddOnExtras(supabase, vendorProfileId));
 }
 

@@ -84,6 +84,9 @@ export function growSpec(t: GrowTier): string {
     reachWords(c.serviceRadiusKm),
     many(c.parentCategories, 'category', 'categories'),
     `${many(c.servicesPerLeaf, 'service card', 'service cards')} each`,
+    // 2026-11-14 ("SIMPLER SUPPLIER PLANS"): the bookings a day, counted per service at each branch — the same words as
+    // /for-suppliers (guarded by lib/the-two-supplier-pages-say-the-same-caps.test.ts).
+    `${many(c.bookingsPerDatePerService, 'booking', 'bookings')} a day per service, at each branch`,
     many(c.agentAccounts, 'team seat', 'team seats'),
   ];
   if (c.branchesIncluded > 0) parts.push(many(c.branchesIncluded, 'branch', 'branches'));

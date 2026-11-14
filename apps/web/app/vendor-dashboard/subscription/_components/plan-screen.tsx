@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowRight, Search } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { endedPlanReadsFree, tierHasLapsed } from '@/lib/vendor-tier-lapse';
 import { createClient } from '@/lib/supabase/server';
 import { payPath } from '@/lib/pay-path';
@@ -14,45 +14,20 @@ import { planGiftOf, giftEndsSoon, giftPlanLine, giftEndedLine, portfolioPlanRow
 import { dayAfterWords, offerDayWords, offerFromInvite } from '@/lib/personal-invite-offer';
 import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
 import { readClaimedTeamInvite } from '@/lib/vendor-invites';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { openRailOptions } from '@/lib/payment-channels';
 import {
-  TIER_PRICE_PHP,
   TIER_CAPS,
   asVendorTier,
-  isTierAtLeast,
+  canBuyExtraSeats,
+  holdsBoughtExtras,
   portfolioPhotoCap,
   PORTFOLIO_FREE_BASE,
   PORTFOLIO_ALLOWANCE_UNREAD,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
-import {
-  fetchVendorAiAddonState,
-  isVendorAiAddonActive,
-  VENDOR_AI_ADDON_FALLBACK_PHP,
-} from '@/lib/vendor-addon-pricing';
-import { VENDOR_DEEP_SEARCH_FALLBACK_PHP } from '@/lib/vendor-deep-search-addon';
-import {
-  fetchVendor3dBoothState,
-  fetchVendor3dBoothPricePhp,
-  isVendor3dBoothActive,
-} from '@/lib/vendor-3d-booth-pricing';
-import { papicGamesEnabled } from '@/lib/papic-games-flag';
-import {
-  PHOTO_CHALLENGE_MIN_TIER,
-  VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS,
-  fetchPhotoChallengeExpiry,
-  fetchVendorPhotoChallengePricePhp,
-  isPhotoChallengeSubscriptionActive,
-} from '@/lib/vendor-photo-challenge';
+import { fetchVendorAiAddonState, isVendorAiAddonActive } from '@/lib/vendor-addon-pricing';
 import { fetchVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
-import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
-import {
-  addonIsFreeUnderFirst5,
-  fetchVendorCommittedBookingCount,
-} from '@/lib/vendor-addon-first5-free';
-import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
-import { seating3dEnabled } from '@/lib/seating-3d-flag';
+import { SEAT_SKU_CODE } from '@/lib/vendor-seats';
+import { BRANCH_SKU_CODE } from '@/lib/vendor-branches';
 import { PlanSheet, type PlanPick, type SheetPlan } from './plan-sheet';
 import { changeKind, payToday, planChanges, planDirection, planRowLine, sheetPlans } from '@/lib/plan-sheet';
 import { papersProgress } from '@/lib/locks';
@@ -60,16 +35,11 @@ import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication,
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { PlanRows } from './plan-rows';
 import { startSubscriptionPurchase } from '../actions';
-import { AiAddonCard } from './ai-addon-card';
-import { BoothAddonCard } from './booth-addon-card';
-import { PapicChallengeCard } from './papic-challenge-card';
 import { BadgeUpgradesSection } from './badge-upgrades-section';
 import { loadBadgeUpgradesSection } from './badge-upgrades-data';
 import { PlanChangeNotice } from './plan-change-notice';
-import { UltraAddonsCard } from './ultra-addons-card';
-import { ultraAddOns, fetchAddOnExtras, canBuyUltraAddOn } from '@/lib/vendor-ultra-addons';
+import { COUNT_ADDON_KINDS, COUNT_ADDONS, fetchAddOnExtras } from '@/lib/vendor-ultra-addons';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
-import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
 import { formatPhp } from '@/lib/php';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { downgradeFit } from '@/lib/downgrade-limits';
@@ -230,103 +200,31 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       ?.subscription_credit_php ?? 0,
   );
 
-  // ── Vendor AI ("the AI Chatbot") add-on state (owner 2026-07-22) ───────────
-  // Paid (Solo+) + verified only. Soft reads (fetchVendorAiAddonState is
-  // try/catch) so a pre-migration DB degrades to "not activated, trial
-  // available" instead of blanking the page.
-  // ── Ultra add-ons (owner 2026-11-06) — every row and price from vendor_billing_catalog; what this shop bought ──
-  const ultraCanBuy = canBuyUltraAddOn('category', currentTier);
-  const [ultraRows, ultraExtras] = await Promise.all([
-    ultraAddOns(supabase),
-    ultraCanBuy ? fetchAddOnExtras(supabase, profile.vendor_profile_id) : Promise.resolve(null),
-  ]);
-  const ultraOwned = ultraExtras ?? {};
-
-  const isPaidTierForAddon = isTierAtLeast(currentTier, 'solo');
-  // 2026-11-04 ("DEEP SEARCH AND CHATBOT KEEP TWO PRICES BY PLAN"): each band is its own catalogue row — the card
-  // reads THIS shop's row, exactly as ai-addon-actions.ts / deep-search/actions.ts charge it.
-  const [aiAddonState, aiAddonBandPricePhp, deepSearchBandPricePhp] = await Promise.all([
+  // ── 💳 WHAT IS LEFT TO BUY, AND WHAT A SHOP ALREADY BOUGHT (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS",
+  // drawing § 3). The AI chatbot, specialized tools and Ultra's four "+1" add-ons are folded into the plans, so their
+  // cards leave this page (what a plan includes is under "What <plan> gives you"). Left: a Deep Search row with its
+  // price (every plan) and, on Ultra, an extra seats and branches row. A shop that bought a chatbot window or an Ultra
+  // "+1" before the change keeps it until it runs out (item 11) — said on its own row while it runs.
+  const ultraHoldsExtras = holdsBoughtExtras(currentTier);
+  const [ultraExtras, aiAddonState, deepSearchPricePhp, extraSeatsRead] = await Promise.all([
+    ultraHoldsExtras ? fetchAddOnExtras(supabase, profile.vendor_profile_id) : Promise.resolve(null),
     fetchVendorAiAddonState(supabase, profile.vendor_profile_id),
-    fetchVendorAddonPricePhp(supabase, 'ai_chatbot_basic', currentTier),
     fetchVendorAddonPricePhp(supabase, 'deep_search_about_you', currentTier),
+    canBuyExtraSeats(currentTier)
+      ? supabase.from('vendor_profiles').select('extra_agent_seats').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle()
+      : Promise.resolve(null),
   ]);
-  const aiAddonPricePhp = aiAddonBandPricePhp ?? VENDOR_AI_ADDON_FALLBACK_PHP;
-  // Deep Search — for the doorway copy below, so the tile never quotes a price the runner won't charge.
-  const deepSearchPricePhp = deepSearchBandPricePhp ?? VENDOR_DEEP_SEARCH_FALLBACK_PHP;
   const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
-
-  // ── 3D Booth add-on state (owner 2026-07-22) ───────────────────────────────
-  // PRO+ (Pro / Ultra) + verified only — booth branding is a
-  // Pro/Enterprise perk, so the add-on that turns it on is Pro+ too. Soft reads
-  // (try/catch inside) degrade to "not activated, trial available" on a
-  // pre-migration DB instead of blanking the page.
-  //
-  // 2026-07-25 tiered add-on model (flag-dark): when on, 3D Plan Ads opens to
-  // EVERY tier at its band's price (₱2,000 Free/Solo · ₱1,500 Pro/Ent) — the
-  // verified-only rule stays. Mirrors the buy action's gate exactly, so the card
-  // never offers what the server would reject (or vice versa).
-  // ⚠ NOT `tieredAddonPricing || …` any more. Owner 2026-08-29 ruled the 3D
-  // Booth floor the same way as Papic Challenges: paid plans only, Solo and up.
-  // The flag keeps its PRICE job; it no longer decides access.
-  const isPaidTierForBooth = isTierAtLeast(currentTier, BOOTH_BRANDING_MIN_TIER);
-  const [boothAddonState, boothAddonCatalogPricePhp] = await Promise.all([
-    fetchVendor3dBoothState(supabase, profile.vendor_profile_id),
-    fetchVendor3dBoothPricePhp(supabase),
-  ]);
-  const boothAddonPricePhp = boothAddonCatalogPricePhp;
-  const boothAddonActive = isVendor3dBoothActive(boothAddonState.expiresAt);
-
-  // ── Papic Challenges (owner 2026-08-28: "unlimited us 2500 for 4 weeks") ───
-  // ₱2,500 / 28 days, unlimited, across every celebration the shop is booked
-  // for — the replacement for the ₱400-per-event sponsorship. It is bought by
-  // the SHOP, which is why it is on this hub and not on a celebration's page.
-  // Same tier/verified shape as the 3D booth; NO free first cycle (the owner set
-  // a trial for the AI + 3D add-ons only, and that has not changed).
-  // ⚠ NOT `tieredAddonPricing || …` like the booth below it. Owner 2026-08-29
-  // ruled the Papic Challenges floor separately from the tiered-pricing flag:
-  // *"not when they are free"*. Solo and up, always — so the card offers exactly
-  // what the server would accept.
-  const isPaidTierForChallenge = isTierAtLeast(currentTier, PHOTO_CHALLENGE_MIN_TIER);
-  const [papicChallengeExpiry, papicChallengeCatalogPricePhp] = await Promise.all([
-    fetchPhotoChallengeExpiry(supabase, profile.vendor_profile_id),
-    fetchVendorPhotoChallengePricePhp(supabase),
-  ]);
-  const papicChallengePricePhp = papicChallengeCatalogPricePhp;
-  const papicChallengeActive = isPhotoChallengeSubscriptionActive(papicChallengeExpiry);
-
-  // "Free until your 6th booking" (owner 2026-07-25, flag-dark). Reads the SAME
-  // pure decision the buy action does, off the SAME committed-booking count, so
-  // the price on the card and the price charged can never disagree. The count
-  // read fails CLOSED, so a bad read shows the paid price rather than a ₱0 the
-  // server would refuse. Flag off → both false/0 and the card is unchanged.
-  const first5FreeEnabled = isVendorAddonFirst5FreeEnabled();
-  // `event_vendors` has NO vendor SELECT policy: on this shop's session the count is a silent 0, which reads as
-  // "inside the free window" and prices the add-on at ₱0. Admin client, scoped by the shop's own id.
-  const committedBookings = first5FreeEnabled
-    ? await fetchVendorCommittedBookingCount(createAdminClient(), profile.vendor_profile_id)
-    : Number.NaN;
-  const boothFirst5Free = addonIsFreeUnderFirst5({
-    sku: 'ads_3d_plan',
-    committedBookingCount: committedBookings,
-    enabled: first5FreeEnabled,
-  });
-  // Same pure decision + same count as the booth, keyed on the challenge SKU —
-  // the perk is per-SKU, so reusing the booth's boolean would silently give a
-  // second add-on away (or withhold it) whenever the two SKUs' rules diverge.
-  const challengeFirst5Free = addonIsFreeUnderFirst5({
-    sku: 'papic_challenge',
-    committedBookingCount: committedBookings,
-    enabled: first5FreeEnabled,
-  });
+  const extraSeats =
+    extraSeatsRead && !extraSeatsRead.error
+      ? Number((extraSeatsRead.data as { extra_agent_seats?: number | null } | null)?.extra_agent_seats ?? 0)
+      : null;
 
   // DB prices for the chosen cycle, keyed by sku_code.
-  const [vendorCatalog, settings] = await Promise.all([
-    fetchV2VendorCatalog(),
-    fetchPlatformSettings(supabase),
-  ]);
-  // The rails the owner has left ON — every add-on card below offers only
-  // these, and says "payments are paused" when there are none.
-  const openRails = openRailOptions(settings);
+  const vendorCatalog = await fetchV2VendorCatalog();
+  // The extra seat and the extra branch (Ultra only) — the rows their purchases CHARGE; unread → no figure.
+  const seatPricePhp = vendorCatalog.find((r) => r.sku_code === SEAT_SKU_CODE)?.price_php ?? null;
+  const branchPricePhp = vendorCatalog.find((r) => r.sku_code === BRANCH_SKU_CODE)?.price_php ?? null;
   const priceBySku = new Map<string, number>();
   for (const r of vendorCatalog) {
     if (
@@ -437,8 +335,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       name: planWord(tier),
       price: Object.fromEntries(
         (['monthly', 'annual'] as const).flatMap((cy) => {
-          const v = priceBySku.get(skuFor(tier, cy)) ?? TIER_PRICE_PHP[tier][cy];
-          return Number.isFinite(v) ? [[cy, v]] : [];
+          // 💰 The catalogue row or nothing (owner 2026-11-13): an unread plan price shows no figure and no Pay button.
+          const v = priceBySku.get(skuFor(tier, cy));
+          return v !== undefined && Number.isFinite(v) ? [[cy, v]] : [];
         }),
       ) as PlanPick['price'],
       tooShort: {
@@ -586,6 +485,44 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             : await readStoredBytes(createAdminClient(), profile.vendor_profile_id),
         );
 
+  // 💳 The rows that replaced the add-on cards (drawing § 3). Deep Search's own route is web-only (lib/store-shell.ts),
+  // so the row is not drawn in the store app.
+  const deepSearchRow = storeShell
+    ? null
+    : {
+        line:
+          deepSearchPricePhp !== null
+            ? `${formatPhp(deepSearchPricePhp)} a search · on every plan`
+            : 'One search at a time · on every plan',
+      };
+  const seatPrice = seatPricePhp !== null ? formatPhp(seatPricePhp) : null;
+  const branchPrice = branchPricePhp !== null ? formatPhp(branchPricePhp) : null;
+  const extrasRow = canBuyExtraSeats(currentTier)
+    ? {
+        line: [
+          extraSeats === null ? null : `${NUMBER.format(extraSeats)} extra ${extraSeats === 1 ? 'seat' : 'seats'}`,
+          seatPrice && branchPrice
+            ? seatPrice === branchPrice
+              ? `${seatPrice} each, every 4 weeks`
+              : `seat ${seatPrice} · branch ${branchPrice}, every 4 weeks`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' · ') || 'Add a seat on Team, a branch under Where',
+      }
+    : null;
+  // Item 11 — what this shop bought before the fold, while it still runs.
+  const bought: { key: string; title: string; line: string }[] = [];
+  if (aiAddonActive && aiAddonState.expiresAt) {
+    bought.push({ key: 'ai', title: 'AI chatbot, bought', line: `Runs until ${fmtDate(aiAddonState.expiresAt)}, then your plan covers it` });
+  }
+  if (ultraExtras) {
+    for (const k of COUNT_ADDON_KINDS) {
+      const n = ultraExtras[k];
+      if (n > 0) bought.push({ key: k, title: `${COUNT_ADDONS[k].label} × ${NUMBER.format(n)}, bought`, line: 'Counts on top of your plan until it runs out' });
+    }
+  }
+
   return (
     <Column embedded={embedded}>
       <PlanRows
@@ -662,6 +599,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         gift={gift ? { line: giftPlanLine(gift) } : giftEnded ? { line: giftEndedLine(giftEnded.plan, giftEnded.untilDay) } : null}
         photosLine={photosLine}
         storageLine={storageLine}
+        deepSearch={deepSearchRow}
+        extras={extrasRow}
+        bought={bought}
       />
 
       {/* 🎁 YOUR GIFTS moved to Shop › Promote (owner 2026-11-05, DECISION_LOG "SHOP › PROMOTE IS THE HOME OF THE
@@ -671,97 +611,6 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       {/* ⏱ YOUR UPGRADES (owner, 6 Nov) — add-on time a badge gave the shop, ready until Start. Above the add-on cards
           it extends; a started one shows on its card as on. */}
       <BadgeUpgradesSection data={await loadBadgeUpgradesSection(profile.vendor_profile_id)} />
-
-      {/* ── ADD-ONS — the shipped cards, unchanged, under the row that points here ── */}
-      <h2 id="add-ons" className="sn-sec mt-8 scroll-mt-24">
-        Add-ons
-      </h2>
-
-      {/* Every Ultra add-on, from the catalogue (owner 2026-11-06, "ULTRA ADD-ON PRICES") — Ultra buys here; every
-          other plan reads "Only Ultra can add these". */}
-      <UltraAddonsCard rows={ultraRows} canBuy={ultraCanBuy} owned={ultraOwned} />
-
-      {/* Vendor AI ("the AI Chatbot") add-on — free first 28-day cycle, then
-          ₱1,500/28d, on paid + verified shops (owner 2026-07-22). */}
-      <AiAddonCard
-        eligible={isPaidTierForAddon && isVerifiedVendor}
-        paidButUnverified={isPaidTierForAddon && !isVerifiedVendor}
-        trialAvailable={aiAddonState.trialUsedAt == null}
-        active={aiAddonActive}
-        expiresAt={aiAddonState.expiresAt}
-        pricePhp={aiAddonPricePhp}
-        assistantLive={vendorAutoReplyEnabled()}
-        openRails={openRails}
-      />
-
-      {/* 3D Booth add-on — free first 28-day cycle, then ₱3,000/28d (flat, 2026-09-05), on
-          Pro/Ultra + verified shops (owner 2026-07-22). Turns on the
-          vendor's branded booth inside their couples' published 3D Plans.
-          With the 2026-07-25 tiered model on: every verified tier, at ₱2,000
-          (Free/Solo) or ₱1,500 (Pro/Ent). */}
-      <BoothAddonCard
-        available={seating3dEnabled()}
-        eligible={isPaidTierForBooth && isVerifiedVendor}
-        paidButUnverified={isPaidTierForBooth && !isVerifiedVendor}
-        trialAvailable={boothAddonState.trialUsedAt == null}
-        active={boothAddonActive}
-        expiresAt={boothAddonState.expiresAt}
-        pricePhp={boothAddonPricePhp}
-        first5Free={boothFirst5Free}
-        openRails={openRails}
-      />
-
-      {/* Papic Challenges — ₱2,500 / 28 days, unlimited, across every
-          celebration the shop is booked for (owner 2026-08-28). Replaces the
-          ₱400-per-event sponsorship, which is why the buy surface is HERE and no
-          longer on a celebration's page. */}
-      <PapicChallengeCard
-        available={papicGamesEnabled()}
-        eligible={isPaidTierForChallenge && isVerifiedVendor}
-        paidButUnverified={isPaidTierForChallenge && !isVerifiedVendor}
-        active={papicChallengeActive}
-        expiresAt={papicChallengeExpiry}
-        pricePhp={papicChallengePricePhp}
-        periodDays={VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS}
-        first5Free={challengeFirst5Free}
-        openRails={openRails}
-      />
-
-      {/* Deep Search — a metered per-search add-on that researches the vendor's
-          OWN business to auto-fill their profile. One price on every plan, one
-          search per purchase, no free search (owner 2026-11-09). The runnable surface lives on its own sub-route
-          (owner 2026-07-22).
-          🍎 `data-web-only`: the screen now also mounts in the Shop ⚙ (not only on the refused /subscription route), and
-          Deep Search's own route is refused in the app (lib/store-shell.ts) — so the card never shows there
-          (lib/the-app-never-steers-to-the-web.test.ts). */}
-      <Link
-        data-web-only=""
-        href="/vendor-dashboard/deep-search"
-        className="sn-card sn-press mt-5 flex flex-wrap items-center gap-4 p-5 sm:flex-nowrap"
-      >
-        <span
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-          style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
-        >
-          <Search className="h-5 w-5 text-terracotta" strokeWidth={1.75} aria-hidden />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold text-ink">
-            Deep Search — auto-fill your profile from the web.
-          </p>
-          <p className="mt-0.5 text-sm text-ink/60">
-            {isPaidTierForAddon
-              ? isVerifiedVendor
-                ? `We research your business and hand you a “what we learned” review. ₱${deepSearchPricePhp.toLocaleString('en-PH')} per search, one search per purchase.`
-                : 'Get verified to run Deep Search — it researches your business and hands you a “what we learned” review to copy in.'
-              : 'A paid-plan add-on: we research your business and hand you a “what we learned” review to auto-fill your profile.'}
-          </p>
-        </div>
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-ink">
-          Open Deep Search
-          <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
-        </span>
-      </Link>
 
       {/* Apply-then-pay payment instructions when a plan order was just
           started. This is the only payment tile on the screen — the token

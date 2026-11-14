@@ -161,7 +161,7 @@ test('A5 · the hint, with the categories per plan read from TIER_CAPS', () => {
   assert.match(PAGE, /planCategories=\{categoryLadder\(\)\}/);
   const ladder = categoryLadder();
   assert.ok(ladder.length >= 3);
-  const solo = ladder.find((l) => l.plan.includes('Supplier Plus'))!;
+  const solo = ladder.find((l) => l.plan === 'Plus')!;
   assert.equal(solo.categories, `${TIER_CAPS.solo.parentCategories} categories`, 'the number is not TIER_CAPS’');
   assert.ok(!ladder.some((l) => /Custom/.test(l.plan)), 'Custom is retired from the app (2026-11-06)');
 });

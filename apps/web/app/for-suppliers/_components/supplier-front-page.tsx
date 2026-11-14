@@ -22,7 +22,6 @@ import type { ReactNode } from 'react';
 import { bookingFeeFigures, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
 import {
-  ADDONS_HEAD,
   BADGE_FIRST,
   BADGE_LAST,
   BADGE_STEPS,
@@ -31,35 +30,32 @@ import {
   MORE_SEATS_FROM,
   PRICE_SHAPE_EXAMPLES,
   SAMPLE_SHOP,
-  VERIFIED_PAPERS,
   VERIFIED_REACH,
-  addonsFine,
+  FREE_CARD_LINE,
+  buyMoreLine,
   foldGroups,
-  freeSpec,
   growLines,
   growName,
   growPlus,
   growSpec,
   helperLine,
   reachSentence,
-  verifiedSpec,
   type GrowTier,
 } from './supplier-front-data';
-import { addonLines } from './plan-table-data';
 import { SupplierPlanTable } from './supplier-plan-table';
 import {
   CheckADateDemo,
   CtaDock,
   DayStatus,
   FeeStory,
-  GrowTiers,
   HeroStage,
+  PlanPicker,
   PriceShapeCalc,
   QrChip,
   QrSheetProvider,
   SupplierFrontRoot,
-  type GrowCard,
   type HeroSlide,
+  type PlanCard,
   type QrEntry,
   type QrKey,
 } from './supplier-front-client';
@@ -72,15 +68,20 @@ import {
   samplePlanCaption,
   type SampleShopPlan,
 } from '@/app/v/[slug]/_components/sample-shop-page';
+import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import s from './supplier-front.module.css';
 
 export type SupplierFrontPrices = {
   soloMonthly: string | null;
   soloAnnual: string | null;
+  /** What a year saves against 13 blocks of 4 weeks (`getVendorPrices().*AnnualSave`), or null when unread. */
+  soloAnnualSave: string | null;
   proMonthly: string | null;
   proAnnual: string | null;
+  proAnnualSave: string | null;
   enterpriseMonthly: string | null;
   enterpriseAnnual: string | null;
+  enterpriseAnnualSave: string | null;
   branch: string | null;
   seat: string | null;
   /** Every active `vendor_billing_catalog` row by sku_code, formatted (`getVendorPrices().bySku`) — the plan table and
@@ -230,21 +231,39 @@ export function SupplierFrontPage({
       body: 'One code per event, made in Hub › Crew. Your team scans it and joins once you tap Allow. It ends when the event ends.',
     },
   };
-  const price: Record<GrowTier, { mo: string | null; yr: string | null }> = {
-    solo: { mo: prices.soloMonthly, yr: prices.soloAnnual },
-    pro: { mo: prices.proMonthly, yr: prices.proAnnual },
-    enterprise: { mo: prices.enterpriseMonthly, yr: prices.enterpriseAnnual },
+  const price: Record<GrowTier, { mo: string | null; yr: string | null; save: string | null }> = {
+    solo: { mo: prices.soloMonthly, yr: prices.soloAnnual, save: prices.soloAnnualSave },
+    pro: { mo: prices.proMonthly, yr: prices.proAnnual, save: prices.proAnnualSave },
+    enterprise: { mo: prices.enterpriseMonthly, yr: prices.enterpriseAnnual, save: prices.enterpriseAnnualSave },
   };
-  const grow: GrowCard[] = GROW_TIERS.map((t) => ({
-    tier: t,
-    name: growName(t),
-    price: price[t].mo,
-    year: price[t].yr,
-    spec: growSpec(t),
-    plus: growPlus(t),
-    lines: growLines(t),
-    preview: <PlanPreview plan={GROW_PLAN[t]} label={growName(t)} />,
-  }));
+  const planCards: PlanCard[] = [
+    {
+      key: 'free',
+      name: 'Free',
+      price: '₱0',
+      year: null,
+      save: null,
+      spec: FREE_CARD_LINE,
+      plus: null,
+      lines: [],
+      cta: 'Start free',
+      preview: <PlanPreview plan="free" label="Free" />,
+    },
+    ...GROW_TIERS.map(
+      (t): PlanCard => ({
+        key: t,
+        name: growName(t),
+        price: price[t].mo,
+        year: price[t].yr,
+        save: price[t].save,
+        spec: growSpec(t),
+        plus: growPlus(t),
+        lines: growLines(t),
+        cta: `Start on ${growName(t)}`,
+        preview: <PlanPreview plan={GROW_PLAN[t]} label={growName(t)} />,
+      }),
+    ),
+  ];
   const fold = foldGroups();
   const helper = helperLine();
   const pageUrlShown = codes.page.url.replace(/^https?:\/\/(www\.)?/, '');
@@ -915,52 +934,22 @@ export function SupplierFrontPage({
           </div>
         </section>
 
-        {/* 13 · PLANS */}
+        {/* 13 · PLANS — the simpler plans (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS", drawing §§ 1–2):
+            four plans, one card each, a year switch per plan, one line for what is left to buy, then the comparison. */}
         <section className={`${s.beat} ${s.soft}`} id="plans">
           <div className={`${s.wrap} ${s.stack}`}>
             <div className={s.beatHead} data-rv="">
-              <h2>Free to join. Verified free. Grow when you&apos;re ready.</h2>
+              <p className={s.kicker}>Plans</p>
+              <h2>Start free. Grow when you&apos;re ready.</h2>
               <p className={s.lede}>
-                Every tool to run your bookings is free. Paid plans add reach, a bigger team and more branches. Prices are per 4
-                weeks.
+                Every tool to run your bookings is free. Paid plans add reach, a bigger team, the specialized tools and the
+                AI chatbot.
               </p>
             </div>
-            <div className={s.plans}>
-              <div className={s.planstep} data-rv="">
-                <span className={s.planN}>STEP 1</span>
-                <h3>Free</h3>
-                <p className={s.pzero}>₱0, always</p>
-                <p>Every tool to run your bookings.</p>
-                <p className={s.spec}>{freeSpec()}</p>
-                <PlanPreview plan="free" label="Free" />
-              </div>
-              <div className={s.planstep} data-rv="">
-                <span className={s.planN}>STEP 2</span>
-                <h3>
-                  Verified <Pill kind="ver">✓</Pill>
-                </h3>
-                <p className={s.pzero}>₱0, once your papers are approved</p>
-                <p>Couples can find you.</p>
-                <p className={s.spec}>{verifiedSpec()}</p>
-                <p className={`${s.small} ${s.muted}`}>Your papers: {VERIFIED_PAPERS.join(' · ')}</p>
-                <PlanPreview plan="verified" label="Verified" />
-              </div>
-              <div className={s.planstep} data-rv="">
-                <span className={s.planN}>STEP 3</span>
-                <h3>Grow</h3>
-                <p>Pick the size that fits. Prices are per 4 weeks.</p>
-                <GrowTiers cards={grow} start="pro" />
-                <div className={s.addons}>
-                  <p className={s.ak}>{ADDONS_HEAD}</p>
-                  {addonLines(prices.bySku).map((a) => (
-                    <p key={a.kind} className={s.addonRow}>
-                      <span>{a.label}</span>
-                      <b>{a.price}</b>
-                    </p>
-                  ))}
-                  <p className={s.fine}>{addonsFine()}</p>
-                </div>
-              </div>
+            <div className={s.pickMore} data-rv="">
+              <PlanPicker cards={planCards} start="pro" href={OPEN_SHOP} />
+              <a href="#plan-table">See what each plan includes ↓</a>
+              <p className={s.fine}>{buyMoreLine(prices.bySku[VENDOR_DEEP_SEARCH_SKU_CODE] ?? null)}</p>
             </div>
             {helper ? <p className={`${s.fine} ${s.helper}`}>{helper}</p> : null}
             <SupplierPlanTable
@@ -968,6 +957,7 @@ export function SupplierFrontPage({
               prices={{
                 monthly: { solo: prices.soloMonthly, pro: prices.proMonthly, enterprise: prices.enterpriseMonthly },
                 annual: { solo: prices.soloAnnual, pro: prices.proAnnual, enterprise: prices.enterpriseAnnual },
+                annualSave: { solo: prices.soloAnnualSave, pro: prices.proAnnualSave, enterprise: prices.enterpriseAnnualSave },
                 bySku: prices.bySku,
               }}
             />
@@ -977,8 +967,9 @@ export function SupplierFrontPage({
               </a>
               <Info label="About prices">
                 <p>
-                  Verified shops are always shown in search. A shop still waiting for its papers is shown until its first
-                  inquiry. Couples pay you directly; Setnayan never holds a peso.
+                  Prices are per 4 weeks, or a year at the price of ten blocks. Verified shops are always shown in search. A
+                  shop still waiting for its papers is shown until its first inquiry. Couples pay you directly; Setnayan
+                  never holds a peso.
                 </p>
               </Info>
             </div>

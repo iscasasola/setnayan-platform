@@ -5,7 +5,8 @@
  * Runs on the PGlite replay of every migration, so it reads the rows the pipeline will leave in production:
  *   1 · one Deep Search row on sale, and it is the row the app charges from on EVERY plan;
  *   2 · the ₱799 entry row is RETIRED — never deleted — and points at it;
- *   3 · the AI chatbot keeps BOTH its prices (owner: "AI chatbot keeps ₱1,490 … and ₱1,990");
+ *   3 · the AI chatbot keeps BOTH its price rows (owner: "AI chatbot keeps ₱1,490 … and ₱1,990") — off sale since
+ *       2026-11-14 ("SIMPLER SUPPLIER PLANS": folded into Pro and Ultra);
  *   4 · every plan row's max_categories / max_sub_seats equals TIER_CAPS — read from the code, never typed here, so
  *       the next allowance change cannot leave the catalogue behind silently.
  */
@@ -68,13 +69,15 @@ test('2 · the ₱799 entry row is RETIRED into it — never deleted', async () 
   assert.equal(Number(r.price_php), 799, 'the retired row keeps the price it was sold at');
 });
 
-test('3 · the AI chatbot keeps BOTH its prices, both on sale', async () => {
+test('3 · the AI chatbot keeps BOTH its price rows — off sale since it folded into Pro and Ultra (2026-11-14)', async () => {
+  // Owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS" item 3: Pro includes the chatbot, Ultra the smarter level,
+  // Plus cannot buy it. The rows stay (every order names them; a bought window runs to its end) — retired by flag.
   const band = VENDOR_ADDON_BAND_SKU_CODES.ai_chatbot_basic;
   const growth = await row(band.growth);
   const entry = await row(band.entry);
-  assert.ok(growth && entry);
-  assert.deepEqual([Number(growth.price_php), growth.is_active], [1490, true]);
-  assert.deepEqual([Number(entry.price_php), entry.is_active], [1990, true]);
+  assert.ok(growth && entry, 'a retired chatbot row was deleted');
+  assert.deepEqual([Number(growth.price_php), growth.is_active], [1490, false]);
+  assert.deepEqual([Number(entry.price_php), entry.is_active], [1990, false]);
 });
 
 test('4 · every plan row carries TIER_CAPS — categories and team seats', async () => {

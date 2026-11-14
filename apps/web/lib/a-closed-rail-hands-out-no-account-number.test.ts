@@ -199,7 +199,9 @@ test('every supplier "Pay with" choice offers only the open rails', () => {
   }
   console.log(`# supplier pay pickers: ${pickers.length}`);
   assert.deepEqual(offenders, [], 'These offer a rail the owner switched off:\n  ' + offenders.join('\n  '));
-  assert.ok(pickers.length >= 8, `only ${pickers.length} pickers found — the sweep went blind`);
+  // 5 since 2026-11-14: the AI chatbot, 3D booth and Papic Challenges add-on cards (three pickers) were deleted when
+  // those add-ons folded into the plans ("SIMPLER SUPPLIER PLANS"). The count measured 6 that day; 5 keeps a margin.
+  assert.ok(pickers.length >= 5, `only ${pickers.length} pickers found — the sweep went blind`);
 });
 
 test('no page copies an account number out of settings without the switch', () => {

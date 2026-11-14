@@ -659,7 +659,7 @@ Pricing in PHP. All sales final on digital deliverables.
 
 The visual mood board — palette, location feel, dress codes — is included free with every account. No paywall.
 
-## Supplier plans — Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra
+## Supplier plans — Free · Plus · Pro · Ultra
 
 Every cell below is read from the code that enforces it and every peso from the live supplier catalogue — the same table a supplier sees at [/for-suppliers](${url('/for-suppliers')}).
 
@@ -669,7 +669,7 @@ ${supplierFee}
 
 A shop starts on **Free** the moment it is opened, and shows in search until its first inquiry (the plan table's "${FREE_FINDABLE}") — then it waits for **Verified**: the supplier sends three business papers (DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Paid plans buy reach — service area, categories, service cards per category, team seats, branches, search visibility and an own web address — never the right to take bookings.
 
-Supplier Plus, Supplier Pro and Supplier Ultra are prepaid blocks of 4 weeks (13 a year), or a year at a discount. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends. Bigger than Supplier Ultra? Supplier Ultra can add more, one at a time: ${ultraAddonPhrase(input)}.
+Plus, Pro and Ultra are prepaid blocks of 4 weeks (13 a year), or a year at a discount. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends. Bigger than Ultra? Ultra can add more, one at a time: ${ultraAddonPhrase(input)}.
 
 ## Answering couples (included free)
 

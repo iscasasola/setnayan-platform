@@ -60,6 +60,7 @@ import { decideReply } from './engine';
 import { evaluateAutoReplyGate } from './inbox-decision';
 import { voicedReplyText } from './voice-runtime';
 import { isVendorAiAddonActive } from '../vendor-addon-pricing';
+import { vendorAiBasicActive } from '../vendor-ai-level';
 
 /** chat_messages CHECK caps body at 4000 chars — never let a long templated
  *  answer violate it (fail the CHECK → fail-closed → no reply at all). */
@@ -126,14 +127,21 @@ export async function runVendorAutoReply(
     // gate that makes the add-on real (no fake door). Read is soft — a
     // pre-migration column / unreadable row degrades to "not entitled", which
     // fail-closes the assistant (the inbox itself still works by hand).
+    // 💳 2026-11-14 ("SIMPLER SUPPLIER PLANS"): Pro and Ultra INCLUDE the chatbot — the plan grants it as well as a
+    // bought window (kept until it runs out). `vendorAiBasicActive` reads both; a run-out plan reads as Free.
     const { data: addonRow } = await admin
       .from('vendor_profiles')
-      .select('ai_addon_expires_at')
+      .select('ai_addon_expires_at, tier_state, tier_expires_at')
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();
-    const addonActive = isVendorAiAddonActive(
-      (addonRow as { ai_addon_expires_at?: string | null } | null)?.ai_addon_expires_at ?? null,
-    );
+    const addonFields = addonRow as
+      | { ai_addon_expires_at?: string | null; tier_state?: string | null; tier_expires_at?: string | null }
+      | null;
+    const addonActive = vendorAiBasicActive({
+      level: null,
+      windowActive: isVendorAiAddonActive(addonFields?.ai_addon_expires_at ?? null),
+      plan: addonFields,
+    });
 
     const gate = evaluateAutoReplyGate({
       flagEnabled: vendorAutoReplyEnabled(),

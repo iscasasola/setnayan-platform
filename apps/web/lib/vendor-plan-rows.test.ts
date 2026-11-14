@@ -20,14 +20,14 @@ const line = (tier: string, key: string, paywallOn = true) =>
 test('what a plan gives is read from TIER_CAPS', () => {
   assert.match(line('pro', 'services')!, new RegExp(`^${TIER_CAPS.pro.servicesPerLeaf} per kind`));
   assert.match(line('pro', 'helpers')!, new RegExp(`^${TIER_CAPS.pro.agentAccounts} team seats \\+ 1 free Helper`));
-  assert.equal(line('enterprise', 'services'), '25 per kind · 15 kinds of work'); // Ultra trimmed 2026-11-04 (was unlimited)
+  assert.equal(line('enterprise', 'services'), '30 per kind · 16 kinds of work'); // Ultra raised 2026-11-14 ("SIMPLER SUPPLIER PLANS")
   assert.equal(line('free', 'reach'), 'Not in couples’ search on this plan');
   assert.equal(line('enterprise', 'reach'), 'Nationwide');
   // Owner 2026-11-04 ("SUPPLIER PLAN ALLOWANCES"): Pro reaches 100 km — NOT nationwide; Ultra does.
   assert.equal(line('pro', 'reach'), `${TIER_CAPS.pro.serviceRadiusKm} km around you`);
-  // Own web address from Supplier Plus up ("website applies to solo as well"); below it, the plan is named from the table.
+  // Own web address from Plus up ("website applies to solo as well"); below it, the plan is named from the table.
   assert.equal(line('solo', 'web'), 'Yes');
-  assert.equal(line('verified', 'web'), 'Comes with Supplier Plus');
+  assert.equal(line('verified', 'web'), 'Comes with Plus');
   // Branches (owner 2026-11-04, "branches 0,0,3,10"; only Ultra buys more).
   assert.equal(line('solo', 'branches'), 'Not on this plan');
   assert.equal(line('pro', 'branches'), `${TIER_CAPS.pro.branchesIncluded} included`);
@@ -81,7 +81,7 @@ test('an unread standing never says free; the fee off says nothing', () => {
 
 test('picking a plan says what happens, by the live ladder', () => {
   assert.match(planPickLine('solo', 'pro', '31 October 2026'), /^Starts the day your payment is confirmed/);
-  assert.equal(planPickLine('pro', 'solo', '31 October 2026'), 'Starts when Supplier Pro ends · 31 October 2026');
-  assert.equal(planPickLine('pro', 'free', '31 October 2026'), 'Nothing renews by itself · Supplier Pro ends 31 October 2026, then Free');
+  assert.equal(planPickLine('pro', 'solo', '31 October 2026'), 'Starts when Pro ends · 31 October 2026');
+  assert.equal(planPickLine('pro', 'free', '31 October 2026'), 'Nothing renews by itself · Pro ends 31 October 2026, then Free');
   assert.equal(planPickLine('free', 'free', null), 'You are on Free — nothing to pay');
 });

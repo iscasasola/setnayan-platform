@@ -321,8 +321,8 @@ function VendorsOverlay({
       <div className="hr-gintro">
         <span className="hr-gintro-h">How the tiers stack</span>
         <span className="hr-gintro-b">
-          Free is the whole ops spine · Supplier Plus adds your business analytics · Supplier Pro
-          adds a team, wider reach &amp; market intel · Supplier Ultra reaches the
+          Free is the whole ops spine · Plus adds your business analytics · Pro
+          adds a team, wider reach &amp; market intel · Ultra reaches the
           farthest.
         </span>
       </div>

@@ -174,8 +174,11 @@ test('no hardcoded fallback disagrees with its live catalog row', async () => {
   // A second floor, for the case where every SKU stopped resolving (a rename in
   // the catalog, a replay that seeded nothing) — that would empty `drift` and
   // read as a pass.
+  // 3 since 2026-11-14: the AI chatbot's row went off sale when it folded into Pro and Ultra ("SIMPLER SUPPLIER
+  // PLANS"), so its fallback has no live row left to disagree with — exactly the retirement case above. The scan floor
+  // (5 pairs, the test above) is unchanged.
   assert.ok(
-    compared >= 4,
+    compared >= 3,
     `only ${compared} fallbacks had a live catalog row to compare against — the comparison is near-vacuous`,
   );
 

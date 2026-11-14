@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { TIER_LABEL } from '@/lib/vendor-tier-caps';
 import type { ReactNode } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { GuestSpotlight } from '@/app/_components/guest-spotlight';
@@ -165,6 +166,16 @@ export default async function PricingPage() {
   ]);
 
   const peso = (n: number) => `₱${formatPeso(n)}`;
+  // 💳 The four supplier plans (2026-11-14, drawing § 4) — names from TIER_LABEL, prices from the supplier catalogue's
+  // 4-week rows, what each adds from the gates (specialized tools, the chatbot). Never a typed figure. ⚖ This page's own
+  // rule (pricing-ours-only.test.ts) holds here too: the entry plan reads "No fee", never a zero or the giveaway word.
+  const vendorPrice = (sku: string): number | null => vendorSkus.find((r) => r.sku_code === sku)?.price_php ?? null;
+  const supplierPlans: { key: string; name: string; php: number | null; what: string }[] = [
+    { key: 'entry', name: TIER_LABEL.free, php: null, what: 'Your page, portfolio and the starter tools' },
+    { key: 'plus', name: TIER_LABEL.solo, php: vendorPrice('solo_vendor_monthly'), what: 'All specialized tools' },
+    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: 'Adds the AI chatbot' },
+    { key: 'ultra', name: TIER_LABEL.enterprise, php: vendorPrice('enterprise_vendor_monthly'), what: 'The highest limits and the smarter AI chatbot' },
+  ];
   const papicFrom = prices.papicRungs[0] ?? null;
   const papicCheaperAtSetup = prices.papicRungs.some((r) => r.signup != null);
   const aiBands = Object.values(prices.ai);
@@ -598,14 +609,41 @@ export default async function PricingPage() {
           <p className="m-0 mt-[18px] text-[13px] text-ink/65">
             Prices in Philippine peso, read live from the Setnayan catalogue. No subscription.
           </p>
-          {/* The door to the supplier plans (owner 2026-09-22 — the two pricing pages point at each other;
-              `lib/the-two-pricing-pages-point-at-each-other.test.ts`). Not drawn in the prototype; one quiet line. */}
-          <p className="m-0 mt-1 text-[13px] text-ink/65">
-            A supplier?{' '}
-            <Link href="/for-suppliers" className="font-semibold text-terracotta-700">
-              For suppliers →
-            </Link>
-          </p>
+          {/* 💳 THE FOUR SUPPLIER PLANS (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS" item 7; drawing § 4) — the
+              door to the supplier plans (owner 2026-09-22 — the two pricing pages point at each other;
+              `lib/the-two-pricing-pages-point-at-each-other.test.ts`), now naming the four plans in the same ◆ row style.
+              Every figure is the supplier catalogue's 4-week row (`vendor_billing_catalog`); an unread one shows none. */}
+          <div className="mt-8 border-t border-ink/10 pt-5" data-pricing-suppliers="">
+            <p className={KICK}>For suppliers</p>
+            <h2 className={H2}>Selling to couples? Open your shop.</h2>
+            <ul className="m-0 mt-2 list-none p-0">
+              {supplierPlans.map((sp) => (
+                <li
+                  key={sp.key}
+                  className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-0.5 border-t border-ink/5 py-[13px] first:border-t-0"
+                  data-pricing-supplier-plan={sp.key}
+                >
+                  <span className="flex items-baseline">
+                    <i aria-hidden className="mr-1.5 align-[2px] text-[11px] not-italic text-terracotta-700">
+                      ◆
+                    </i>
+                    <span className="text-[16.5px] font-semibold tracking-[-0.005em]">{sp.name}</span>
+                  </span>
+                  <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">
+                    {sp.key === 'entry' ? 'No fee' : sp.php === null ? '—' : peso(sp.php)}
+                    {sp.php !== null ? <small className="ml-1 font-sans text-xs text-ink/65">/ 4 weeks</small> : null}
+                  </span>
+                  <p className="col-start-1 m-0 text-[13.5px] leading-snug text-ink/65">{sp.what}</p>
+                </li>
+              ))}
+            </ul>
+            <p className="m-0 mt-2 text-[13.5px] text-ink/65">
+              Any plan can be paid for the year, at ten blocks&rsquo; price.{' '}
+              <Link href="/for-suppliers" className="font-semibold text-terracotta-700">
+                See supplier plans →
+              </Link>
+            </p>
+          </div>
         </div>
       </section>
 

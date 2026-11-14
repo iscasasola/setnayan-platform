@@ -1,8 +1,4 @@
-import {
-  TIER_CAPS,
-  TIER_LABEL,
-  canBuyExtraBookingsPerDate,
-} from './vendor-tier-caps';
+import { TIER_CAPS, TIER_LABEL, isTierAtLeast } from './vendor-tier-caps';
 
 /**
  * A SERVICE CARD'S BOOKINGS PER DATE, INSIDE ITS PLAN — owner 2026-11-06 (DECISION_LOG "BOOKINGS PER DATE PER SERVICE
@@ -17,12 +13,16 @@ import {
  * Pure — the caller passes the EFFECTIVE cap (plan + any bought "+1 booking per date", lib/vendor-ultra-addons.ts · fetchCapsWithAddOns).
  */
 
-/** The words the editor shows beside the field: the cap, and — on Ultra — that more can be bought. */
+/**
+ * The words the editor shows beside the field: the cap, and — below the top plan — what the top plan takes. Since
+ * 2026-11-14 ("SIMPLER SUPPLIER PLANS") the number is counted per SERVICE at each branch (every card of this service
+ * at this branch shares it; venues: per room), and nothing is bought on top of it.
+ */
 export function bookingsPerDateHelp(tier: string | null | undefined, effectiveCap: number): string {
   const n = Math.max(0, Math.floor(effectiveCap));
-  const head = `Your plan: up to ${n} ${n === 1 ? 'booking' : 'bookings'} per date on this card.`;
-  if (canBuyExtraBookingsPerDate(tier)) return `${head} Add more on your Plan page (+1 booking per date).`;
-  return `${head} ${TIER_LABEL.enterprise} takes ${TIER_CAPS.enterprise.bookingsPerDatePerService}, and can add more.`;
+  const head = `Your plan: up to ${n} ${n === 1 ? 'booking' : 'bookings'} a day for this service at this branch.`;
+  if (isTierAtLeast(tier, 'enterprise')) return head;
+  return `${head} ${TIER_LABEL.enterprise} takes ${TIER_CAPS.enterprise.bookingsPerDatePerService}.`;
 }
 
 /**

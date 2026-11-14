@@ -99,7 +99,7 @@ export function vendorSeoPlan(
     level,
     // Never gated — basic indexability is free for all (§ 8).
     indexable: true,
-    entityGraph: level !== 'basic', // Supplier Plus and up
+    entityGraph: level !== 'basic', // Plus and up
     offerGraph: level === 'aeo' || level === 'priority', // Pro+
     sitemapPriority: rank,
   };

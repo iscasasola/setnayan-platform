@@ -7,6 +7,7 @@ import { isR2Configured } from '@/lib/r2';
 import { cleanupDelete } from '@/lib/cleanup-delete';
 import { samahanStoryScope } from '@/lib/cleanup-delete-scope';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { realNameOrNull } from '@/lib/no-name';
 
 // Samahan Stories (owner 2026-08-24 — "the same setlog concept"): a member
 // shares one short clip an hour into their samahan, and it is gone after 24
@@ -78,7 +79,7 @@ export async function fetchSamahanStories(
     .select('user_id, display_name')
     .in('user_id', [...new Set(rows.map((r) => r.user_id))]);
   for (const r of (nameRows ?? []) as Array<{ user_id: string; display_name: string | null }>) {
-    const label = (r.display_name ?? '').trim();
+    const label = realNameOrNull(r.display_name); // RW-275: a stand-in ("Someone —") is no name
     if (label) names.set(r.user_id, label);
   }
 

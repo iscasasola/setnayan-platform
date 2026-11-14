@@ -159,3 +159,33 @@ test('RW-270 · on a phone the calling card’s column is the card’s width, so
   assert.match(page, /<section className=\{SHOP_CARD_SECTION_CLASS\}>\s*<Logo [^>]*\/>[\s{}]*<div className="w-full min-w-0 space-y-2">/);
   assert.match(code('app/v/[slug]/_components/sample-shop-page.tsx'), /<div className="w-full min-w-0 space-y-2">/, 'the sample drew it the same way');
 });
+
+test('RW-274 · the group composer grows in its seat — the row seat holding a textarea is not a fixed 44 px pill', () => {
+  const css = readFileSync(join(process.cwd(), 'components/thumb-row.module.css'), 'utf8');
+  assert.match(css, /\.fieldNode:has\(textarea\) \{ height: auto; min-height: 44px;/);
+  assert.match(css, /\.fieldNode:has\(textarea\) > \* \{ height: auto; min-height: 44px; \}/);
+  assert.match(css, /\.row:has\(> \.fieldNode textarea\) \{ align-items: flex-end; \}/);
+  // Enter sends, Shift+Enter is a new line — the house rule (on a touch keyboard Return is a new line; the arrow sends).
+  const composer = code('app/dashboard/(account)/samahan/[communityId]/_components/group-composer.tsx');
+  assert.match(composer, /shouldSendOnEnter\(e\.nativeEvent, \{ coarsePointer: isCoarsePointer\(\) \}\)/);
+});
+
+test('RW-275 · a stand-in is no name in a group either — "Someone —" never names a member', async () => {
+  const { accountPersonName } = await import('./account-person-name');
+  assert.equal(accountPersonName({ display_name: 'Someone —' }), null);
+  assert.equal(accountPersonName({ display_name: 'Someone —', first_name: 'Ana', last_name: 'Reyes' }), 'Ana Reyes');
+  assert.equal(accountPersonName({ display_name: '', first_name: 'Someone', last_name: '—' }), null);
+  assert.equal(accountPersonName({ display_name: 'Ana' }), 'Ana');
+  assert.match(code('lib/samahan-stories.ts'), /const label = realNameOrNull\(r\.display_name\);/);
+});
+
+test('RW-276 · the group chat opens on the newest line and stays there while it settles; the ＋ has a face', () => {
+  const room = code('app/dashboard/(account)/samahan/[communityId]/_components/group-chatroom.tsx');
+  assert.match(room, /useStickToNewest\(chatRef, items\.length\);/);
+  assert.match(room, /new ResizeObserver\(pin\)/);
+  assert.match(room, /stuck\.current = el\.scrollHeight - el\.scrollTop - el\.clientHeight < 48;/);
+  // A bare svg inside a round's menu button is hidden by the row's CSS — the face is wrapped, as ActionFace is.
+  assert.match(room, /trigger=\{\s*<span aria-hidden className="inline-flex" data-group-plus-face="">\s*<Plus /);
+  const css = readFileSync(join(process.cwd(), 'components/thumb-row.module.css'), 'utf8');
+  assert.match(css, /\.menu :global\(button\[aria-haspopup='listbox'\]\) > svg \{ display: none; \}/, 'the rule the wrapper answers');
+});

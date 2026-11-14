@@ -34,6 +34,16 @@
   says "Someone already settled this one — nothing was changed" instead of "Approved" or "Declined"
   (`redirectRefusal` reads `already_resolved`; a decline that claimed no row redirects as already resolved). The
   database log shows the Work-page press that reached the server (04:32:26) did apply that logo.
+- **Group chat re-walk (RW-274…276, live befd0f7)**
+  - RW-274: the composer grows in its seat. The row's field seat was a fixed 44 px pill, so the growing box was clipped
+    and the second line hidden; a seat holding a textarea now grows (44 px up, ~5 lines), and the round buttons sit at
+    its foot. Enter / Shift+Enter keep the house rule (`shouldSendOnEnter`): on a touch keyboard Return is a new line
+    and the arrow sends, because a phone has no Shift+Enter.
+  - RW-275: "Someone —" no longer names a group member — `accountPersonName` (and the stories' name read) apply
+    `realNameOrNull`, the RW-64 rule.
+  - RW-276: the chat opens on the newest line and stays there while it settles (the box is re-fitted and collages load
+    after mount); scrolling up is left alone. The ＋ beside the composer drew blank — its bare icon was hidden by the
+    row's own menu rule; it is wrapped as the row's ＋ face is.
 - Guard: `apps/web/lib/the-walk-round-9.test.ts`, `apps/web/lib/admin/supplier-work.test.ts`.
 
 SPEC IMPACT: None.

@@ -54,7 +54,7 @@ export function HapticsToggle() {
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-ink/10 bg-cream p-4">
+    <div className="flex min-h-14 items-center justify-between gap-4 border-t border-ink/10 py-3">
       <span className="flex min-w-0 items-start gap-3">
         <span
           aria-hidden
@@ -64,7 +64,7 @@ export function HapticsToggle() {
         </span>
         <span className="flex min-w-0 flex-col">
           <span className="text-sm font-semibold text-ink">Haptic feedback</span>
-          <span className="text-xs text-ink/55">
+          <span className="text-xs text-ink/70">
             A gentle tap when you press buttons. Works on most phones; does
             nothing on desktop.
           </span>

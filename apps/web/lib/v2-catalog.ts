@@ -72,6 +72,10 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   RSVP_PRO_WEBSITE:    'partial',  // RSVP Pro upgrade ₱4,499
   EVENT_WEBSITE:       'partial',  // during-event website ₱1,999
   PRO_RSVP:            'partial',  // the actually-seeded RSVP SKU (migration 20260915000000) · was missing → silently defaulted to not_built
+  // The other two event plans (truth sweep 2026-11-14, RW-149): both are sold today, and unlisted they fell to
+  // 'not_built', so /pricing's structured data called them a PreOrder. Ultra's buy doors: #7630, #7635.
+  EVENT_PLUS:          'live',
+  EVENT_ULTRA:         'live',
   COUPLE_WEBSITE_PRO:  'live',     // Event Pro unlock — price is the catalog row, never this comment (migration 20270103020000 · repriced 20270511151471) · collapses PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE · the UMBRELLA across STD·RSVP·on-the-day·Editorial · perk: removes "Powered by Setnayan" watermark from site+recap+editorial when active (lib/couple-website-pro.ts) · 2026-06-22
   // 💎 Event Pro, part by part (owner 2026-10-22 · migration 20271282742262) — each part's gates read it live
   // (`eventHubPartActive`, lib/couple-website-pro.ts). Sold in the Maker, never at sign-up.

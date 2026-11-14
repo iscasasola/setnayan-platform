@@ -28,8 +28,9 @@
  * would then re-request rows already seen and stall short of the end.
  */
 
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useId, useState, useTransition } from 'react';
 import { Check, ImageOff, Search, Sparkles } from 'lucide-react';
+import { Sheet } from '@/app/_components/sheet';
 import type { GalleryAsset, GalleryPage } from '@/lib/moodboard-gallery';
 import { GALLERY_FROM, type GalleryFromKey } from '@/lib/inspiration-slots';
 import { photoMatchesColours } from '@/lib/mood-board-studio';
@@ -116,6 +117,9 @@ export function GalleryPicker({
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /** 🏷 A photo opened (frame 9 of `inspiration_tags_2026-11-14_fable.html`): its shop, its event, its other parts. */
+  const [opened, setOpened] = useState<GalleryAsset | null>(null);
+  const openedId = useId();
 
   /* 🔍 The page read, with Studio's filters laid on it — never a limit (the server clamps). */
   const fetchAction = useCallback(
@@ -306,14 +310,20 @@ export function GalleryPicker({
           const saved = savedIds.has(asset.assetId);
           return (
             <li key={asset.assetId} className="sn-tile space-y-2 p-2">
-              <div className="aspect-square overflow-hidden rounded-lg border border-ink/12">
+              <button
+                type="button"
+                onClick={() => setOpened(asset)}
+                aria-label={`Open — ${asset.label || asset.credit}`}
+                className="block aspect-square w-full overflow-hidden rounded-lg border border-ink/12"
+                data-gallery-open=""
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={asset.imageUrl}
                   alt={asset.label || `Supplier photo — ${asset.credit}`}
                   className="h-full w-full object-cover"
                 />
-              </div>
+              </button>
               {/* MB22 — driven per-row by asset.isEventLinked, never hard-coded
                   (see event-linked-badge.tsx for why that distinction is the
                   whole point). */}
@@ -324,6 +334,12 @@ export function GalleryPicker({
               <p className="px-0.5 text-[11px] font-semibold leading-tight text-ink">
                 {asset.credit}
               </p>
+              {/* 🏷 Ruling (4): a photo tagged from Files names its event as type · venue · month — never a name. */}
+              {asset.eventLine ? (
+                <p className="px-0.5 text-[10.5px] leading-tight text-ink/65" data-gallery-event-line="">
+                  {asset.eventLine}
+                </p>
+              ) : null}
               {asset.label ? (
                 <p className="line-clamp-2 px-0.5 text-[10px] text-ink/60">{asset.label}</p>
               ) : null}
@@ -371,6 +387,65 @@ export function GalleryPicker({
           );
         })}
       </ul>
+
+      {/* 🏷 The opened photo (frame 9). ✕ goes back to the grid. */}
+      <Sheet open={opened !== null} onClose={() => setOpened(null)} labelledById={openedId} rise>
+        {opened ? (
+          <div className="space-y-3 px-4 pb-4 pt-3" data-gallery-opened={opened.assetId}>
+            <h2 id={openedId} className="pr-12 text-[17px] font-semibold text-ink">
+              {slotLabel}
+            </h2>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={opened.imageUrl} alt={opened.label || `Supplier photo — ${opened.credit}`} className="w-full rounded-xl object-contain" />
+            <dl className="space-y-1.5 text-[14px]">
+              <div className="flex gap-2">
+                <dt className="w-28 flex-none text-ink/55">From</dt>
+                <dd className="min-w-0 text-ink">
+                  {opened.shopSlug ? (
+                    <a href={`/v/${opened.shopSlug}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
+                      {opened.credit} ›
+                    </a>
+                  ) : (
+                    opened.credit
+                  )}
+                </dd>
+              </div>
+              {opened.eventLine ? (
+                <div className="flex gap-2" data-gallery-from-event="">
+                  <dt className="w-28 flex-none text-ink/55">From this event</dt>
+                  <dd className="min-w-0 text-ink">
+                    {opened.shopSlug ? (
+                      <a href={`/v/${opened.shopSlug}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
+                        {opened.eventLine} ›
+                      </a>
+                    ) : (
+                      opened.eventLine
+                    )}
+                  </dd>
+                </div>
+              ) : null}
+              {opened.alsoIn && opened.alsoIn.length > 0 ? (
+                <div className="flex gap-2" data-gallery-also-in="">
+                  <dt className="w-28 flex-none text-ink/55">Also in</dt>
+                  <dd className="min-w-0 text-ink">{opened.alsoIn.map((x) => x.label).join(' · ')}</dd>
+                </div>
+              ) : null}
+            </dl>
+            <button
+              type="button"
+              onClick={() => (save(opened), setOpened(null))}
+              disabled={pending || free === null || savedIds.has(opened.assetId)}
+              className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-ink px-4 text-[14px] font-medium text-cream disabled:opacity-50"
+            >
+              {savedIds.has(opened.assetId) ? 'Saved' : studio ? `Save to ${slotLabel}` : 'Save to this slot'}
+            </button>
+          </div>
+        ) : (
+          <h2 id={openedId} className="sr-only">
+            Photo
+          </h2>
+        )}
+      </Sheet>
 
       {/* Rows we fetched and did not show, alongside ones we did — the couple
           is told the shelf is partly hidden rather than left to assume the

@@ -39,7 +39,7 @@ function monthBucket(iso: string): string {
 function monthLabel(bucket: string): string {
   const [year, month] = bucket.split('-');
   if (!year || !month) return bucket;
-  return new Date(Number(year), Number(month) - 1, 1).toLocaleString(undefined, {
+  return new Date(Number(year), Number(month) - 1, 1).toLocaleString(undefined, { timeZone: 'Asia/Manila',
     year: 'numeric',
     month: 'long',
   });

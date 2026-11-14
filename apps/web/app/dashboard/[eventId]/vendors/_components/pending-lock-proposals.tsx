@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Loader2, UserCheck, X } from 'lucide-react';
+import { UserCheck, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { dismissVendorLockProposal, finalizeVendor } from '../actions';
 import { capRows, hiddenMoreLabel } from '@/lib/capped-rows';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
@@ -77,14 +78,46 @@ export function PendingLockProposals({
     });
   }
 
+  /* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 11 · 13): a row that needs the couple — a gold edge, the name,
+     the one thing to do now as the shared main button, Dismiss beside it as the quiet one. No card around the strip;
+     its name is the section label in small grey capitals, not a typewriter caption. */
+  const row = (p: PendingLockProposal) => {
+    const busy = isPending && busyId === p.id;
+    return (
+      <li
+        key={p.id}
+        className="flex min-h-[56px] flex-wrap items-center justify-between gap-3 border-l-2 border-terracotta py-2.5 pl-3"
+      >
+        <p className="text-[15px] font-semibold text-ink">{p.vendorName}</p>
+        <div className="flex items-center gap-2">
+          <ActionButton
+            tone="brand"
+            main
+            icon={UserCheck}
+            label={busy ? 'Booking…' : 'Book now'}
+            name={`Book ${p.vendorName} now`}
+            onClick={() => confirmLock(p)}
+            disabled={busy}
+          />
+          <ActionButton
+            tone="neutral"
+            quiet
+            icon={X}
+            label="Dismiss"
+            name={`Dismiss ${p.vendorName}`}
+            onClick={() => dismiss(p)}
+            disabled={busy}
+          />
+        </div>
+      </li>
+    );
+  };
+
   return (
-    <section className="space-y-2 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-4">
-      <header className="flex items-center gap-1.5">
-        <UserCheck aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-700">
-          Your coordinator proposed booking
-        </p>
-      </header>
+    <section className="space-y-1" data-pending-lock-proposals="">
+      <h3 className="mt-[18px] text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+        Your coordinator proposed booking
+      </h3>
       {/* ── CAPPED, 2026-09-22 ────────────────────────────────────────────
           This strip renders ABOVE `<ShortlistCategories>` in
           `vendors/page.tsx` and used to map the whole list. Owner: *"if i have
@@ -100,89 +133,17 @@ export function PendingLockProposals({
 
           `hiddenMoreLabel` returns null for a zero remainder, so a list of
           exactly the ceiling length cannot render "…and 0 more". */}
-      <ul className="divide-y divide-ink/10">
-        {shown.map((p) => {
-          const busy = isPending && busyId === p.id;
-          return (
-            <li
-              key={p.id}
-              className="flex flex-wrap items-center justify-between gap-3 py-2.5"
-            >
-              <p className="text-sm font-medium text-ink">{p.vendorName}</p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => confirmLock(p)}
-                  disabled={busy}
-                  className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
-                >
-                  {busy ? (
-                    <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-                  ) : (
-                    <UserCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  )}
-                  Book now
-                </button>
-                <button
-                  type="button"
-                  onClick={() => dismiss(p)}
-                  disabled={busy}
-                  className="inline-flex min-h-[36px] items-center gap-1 rounded-md border border-ink/15 px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 disabled:opacity-60"
-                >
-                  <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  Dismiss
-                </button>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      <ul className="divide-y divide-ink/10">{shown.map(row)}</ul>
       {more ? (
         <details>
-          <summary className="cursor-pointer list-none font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center text-[14px] font-semibold text-mulberry">
             {more}
           </summary>
-          <ul className="mt-1 divide-y divide-ink/10">
-            {items.slice(shown.length).map((p) => {
-              const busy = isPending && busyId === p.id;
-              return (
-                <li
-                  key={p.id}
-                  className="flex flex-wrap items-center justify-between gap-3 py-2.5"
-                >
-                  <p className="text-sm font-medium text-ink">{p.vendorName}</p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => confirmLock(p)}
-                      disabled={busy}
-                      className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
-                    >
-                      {busy ? (
-                        <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-                      ) : (
-                        <UserCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                      )}
-                      Book now
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => dismiss(p)}
-                      disabled={busy}
-                      className="inline-flex min-h-[36px] items-center gap-1 rounded-md border border-ink/15 px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 disabled:opacity-60"
-                    >
-                      <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                      Dismiss
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <ul className="divide-y divide-ink/10">{items.slice(shown.length).map(row)}</ul>
         </details>
       ) : null}
       {note ? (
-        <p role="status" className="text-xs text-ink/70">
+        <p role="status" className="text-[13px] text-ink/70">
           {note}
         </p>
       ) : null}

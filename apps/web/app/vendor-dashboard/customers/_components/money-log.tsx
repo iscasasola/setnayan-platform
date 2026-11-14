@@ -33,10 +33,10 @@ export function MoneyLog({ customers, startOpen = false }: { customers: readonly
         <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
           Log a payment
         </h2>
-        <p className="mt-1 text-[13.5px] text-ink/60">Whose payment?</p>
+        <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">Whose payment?</p>
         <div className="mt-2">
           {customers.length === 0 ? (
-            <p className="py-3 text-[14px] text-ink/70" data-money-log-none="">
+            <p className="py-3 text-[15px] text-ink/70" data-money-log-none="">
               No booked customer yet. A payment is logged on a booking — once a couple books you, they are listed here.
             </p>
           ) : (

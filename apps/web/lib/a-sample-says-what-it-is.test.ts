@@ -70,7 +70,10 @@ test('the article agrees with the word', () => {
  */
 test('the recap route renders nothing of its own — it only sends to the story', () => {
   const stripped = stripComments(readFileSync(join(process.cwd(), 'app/[slug]/recap/page.tsx'), 'utf8'));
-  assert.ok(/redirect\(`\/\$\{encodeURIComponent\(slug\)\}`\)/.test(stripped), 'the recap route must send to the story at /{slug}');
+  assert.ok(/redirect\(recapHref\(slug\)\)/.test(stripped), 'the recap route must send to the story at /{slug}');
+  /* …and `recapHref` is /{slug} itself — `?story=later` only lets the page say, before the day, when the story opens. */
+  const later = stripComments(readFileSync(join(process.cwd(), 'app/[slug]/_lib/story-later.ts'), 'utf8'));
+  assert.ok(/return `\/\$\{encodeURIComponent\(slug\)\}\?story=\$\{STORY_LATER\}`;/.test(later), 'the recap route must send to the story at /{slug}');
   assert.equal(/generateMetadata/.test(stripped), false, 'a recap route with its own metadata is a page again — and needs its solemn gate back');
   assert.equal(/<\/|\/>/.test(stripped), false, 'the recap route draws markup again — a wake would have a recap page');
 });

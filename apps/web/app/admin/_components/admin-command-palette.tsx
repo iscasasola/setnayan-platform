@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Search, Sparkles } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { useRidingRow } from '@/app/_components/typing-band';
 import { claimCommandKey } from '@/lib/command-key-claim';
 import { rankBySentence } from '@/lib/admin-map/rank-by-sentence';
 import { ADMIN_JOBS } from '@/lib/admin-map/admin-jobs.generated';
@@ -420,6 +421,9 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
   // without routing through here — my first draft only RESTORED focus and was
   // correctly rejected. Restoring is not trapping.
   useModalA11y({ open, onClose: close, containerRef: dialogRef });
+  /* ⌨ Docked at the bottom, the panel IS a bottom row with a text field — it rides the keyboard through the ONE riding
+     row (`useRidingRow`, owner 2026-10-24 "Applies all textbox like that"); at the top it is an ordinary dialog. */
+  const ride = useRidingRow(dialogRef, { rides: dock === 'bottom', place: 'Ask or go anywhere' });
 
   /*
     ⌘K IS OURS ON THIS DOORWAY (One top bar, 2026-08-14). The shared top bar
@@ -524,6 +528,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
       <OverlayBackdrop onClose={close} className="z-[60]" />
       <div
         ref={dialogRef}
+        {...(dock === 'bottom' ? ride.rowProps : {})}
         role="dialog"
         aria-modal="true"
         aria-label="Search every admin page"
@@ -535,6 +540,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
         }
         style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-paper, #FFFFFF)' }}
       >
+        {dock === 'bottom' ? ride.band : null}
         <div
           className="flex items-center gap-3 border-b px-4 py-3.5"
           style={{ borderColor: 'var(--sn-line-soft, #F1ECE3)' }}

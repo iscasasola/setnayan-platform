@@ -24,6 +24,7 @@
  * Pure: no React, no I/O. Server components on both sides import it.
  */
 
+import type { AlbumView } from '@/lib/card-portfolio-albums';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordHasSomethingToSay, type CompiledCardRecord } from '@/lib/service-card-record';
 import { displayServiceLabel } from '@/lib/vendors';
@@ -121,6 +122,13 @@ export type ServiceCard = {
   /** Vendor-level trusted rating shown inside the record block. SHOP-wide, not
    *  per-card: reviews carry no service dimension. null → no stars. */
   recordRating: CardRecordRating | null;
+  /**
+   * 🃏📸 ONE ALBUM, TWO PLACES (DECISION_LOG 2026-10-08, frame 77): the photos of the events THIS card was booked on —
+   * type · venue · month, no names, no ids (`toAlbumViews`), drawn inside the grown card's Events section. Absent when
+   * the card-record flag is off (nothing new shows) · null = the read was refused ("Couldn't load", never an empty
+   * list) · [] = none yet (nothing drawn).
+   */
+  eventWork?: AlbumView[] | null;
   /**
    * SUP-4 (2026-09-18): the supplier said yes to the Setnayan gift on this card
    * (`vendor_services.includes_setnayan_gift`). Drives the ONE shared gift line

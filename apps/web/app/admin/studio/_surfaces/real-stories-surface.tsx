@@ -289,7 +289,6 @@ export async function RealStoriesSurface({
               title: 'No published Real Stories yet',
               blurb:
                 'A wedding appears here on its own, once three things are true: its page is public, the event is finished and past its 30-day grace window, and the couple ticked “showcase our wedding”. Then you Feature it and it goes live on the public page — the labelled sample holds that space meanwhile. The first real one is expected around January 2027.',
-              verifiedNote: 'Verified: read permitted · 0 weddings currently eligible',
             }}
           />
 

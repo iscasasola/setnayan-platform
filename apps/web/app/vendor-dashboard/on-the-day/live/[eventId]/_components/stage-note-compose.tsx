@@ -29,11 +29,11 @@ export async function StageNoteCompose({ eventId }: { eventId: string }) {
 
   return (
     <section className="space-y-3">
-      <h4 className="flex items-center gap-2 font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
+      <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
         <Megaphone aria-hidden className="h-3.5 w-3.5 shrink-0 text-gild" strokeWidth={1.75} />
         Tell the host
       </h4>
-      <p className="text-xs text-ink/55">
+      <p className="text-sm text-[color:var(--m-slate-2)]">
         Goes straight to their script screen. They see it and nothing else of yours.
       </p>
 
@@ -54,13 +54,13 @@ export async function StageNoteCompose({ eventId }: { eventId: string }) {
             rows={2}
             maxLength={STAGE_NOTE_MAX}
             placeholder={`e.g. Hold the toast — the father is still parking.`}
-            className="w-full rounded-lg border border-ink/20 bg-cream px-3 py-2 text-sm text-ink"
+            className="w-full rounded-lg border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-sm text-ink"
           />
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-ink/50">To {h.name}</span>
+            <span className="text-sm text-[color:var(--m-slate-2)]">To {h.name}</span>
             <SubmitButton
               pendingLabel="Sending…"
-              className="rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-cream"
+              className="ab ab-brand inline-flex min-h-11 items-center justify-center"
             >
               Send
             </SubmitButton>

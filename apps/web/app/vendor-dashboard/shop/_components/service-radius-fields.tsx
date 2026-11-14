@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { Check, Loader2, MapPin, Minus, Plus } from 'lucide-react';
+import { Check, MapPin, Minus, Plus } from 'lucide-react';
 
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -209,18 +209,18 @@ export function ServiceRadiusFields({
 
   return (
     <div className="space-y-1" data-where-you-work="">
-      <InfoTip label="How far you go" labelAs="p" labelClassName="text-sm font-medium text-ink" align="start">
+      <InfoTip label="How far you go" labelAs="p" labelClassName="text-sm font-semibold text-ink" align="start">
         {info}
       </InfoTip>
 
       {!tierMeasured ? (
-        <p role="status" className="text-sm text-ink/60" data-could-not-load="">
+        <p role="status" className="text-sm text-warn-700" data-could-not-load="">
           We couldn&rsquo;t read your plan just now — your distances are unchanged. Refresh in a moment.
         </p>
       ) : unverifiedZero ? (
         <GetVerifiedLine title={UNVERIFIED_REACH_TITLE} data="reach" />
       ) : !hasCap ? (
-        <p className="py-2 text-sm text-ink/60" data-reach-none="">
+        <p className="py-2 text-sm text-[color:var(--m-slate-2)]" data-reach-none="">
           Couples can&rsquo;t find you by distance yet — your plan has no distance reach.
         </p>
       ) : null}
@@ -228,12 +228,12 @@ export function ServiceRadiusFields({
       {hasMap ? (
         <ReachMap lat={lat} lng={lng} radiusKm={cap} innerKm={hasCap ? inner : null} outerKm={hasCap ? outer : null} muted={!hasCap} />
       ) : (
-        <p className="py-2 text-xs" style={{ color: 'var(--m-slate)' }}>
+        <p className="py-2 text-sm text-[color:var(--m-slate-2)]">
           Add your HQ address above to see how far you cover on a map.
         </p>
       )}
 
-      <div className="divide-y divide-ink/10">
+      <div className="divide-y divide-[color:var(--m-line)]">
         <Row title="Your pin" line="Where trips start from">
           <span className="max-w-[9rem] truncate text-sm text-ink">{city ? `${city} HQ` : hasMap ? 'Your HQ' : 'Not set yet'}</span>
           <ActionButton tone="neutral" icon={MapPin} label="Move" onClick={movePin} />
@@ -271,16 +271,14 @@ export function ServiceRadiusFields({
         </Row>
       </div>
 
-      <p className="min-h-[1.25rem] text-xs text-ink/60" aria-live="polite" data-reach-status="">
+      <p className="min-h-5 text-sm text-[color:var(--m-slate-2)]" aria-live="polite" data-reach-status="">
         {capNote ? (
           <span data-reach-cap="">{capNote}</span>
         ) : pending ? (
-          <span className="inline-flex items-center gap-1">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Saving…
-          </span>
+          <span className="inline-flex items-center gap-1">Saving…</span>
         ) : justSaved ? (
           <span className="inline-flex items-center gap-1">
-            <Check className="h-3.5 w-3.5" aria-hidden /> Saved
+            <Check className="h-4 w-4" aria-hidden /> Saved
           </span>
         ) : null}
       </p>
@@ -291,10 +289,10 @@ export function ServiceRadiusFields({
 /** A house form row: the label and its one line at the left, the control at the right; a hairline between rows. */
 function Row({ title, line, children }: { title: string; line: string; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-[60px] items-center gap-3 py-2.5">
+    <div className="flex min-h-14 items-center gap-3 py-2.5">
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] leading-snug text-ink">{title}</span>
-        <span className="mt-0.5 block text-[13px] leading-snug text-ink/60">{line}</span>
+        <span className="block text-base font-semibold leading-snug text-ink">{title}</span>
+        <span className="mt-0.5 block text-sm leading-snug text-[color:var(--m-slate-2)]">{line}</span>
       </span>
       <span className="flex shrink-0 items-center gap-2">{children}</span>
     </div>
@@ -323,13 +321,13 @@ function KmStepper({
   data: string;
 }) {
   const btn =
-    'sn-press inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/15 bg-raised text-ink/75 transition-colors hover:bg-ink/5 disabled:cursor-not-allowed disabled:text-ink/25';
+    'sn-press inline-flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--m-line)] bg-raised text-ink transition-colors duration-sn-control ease-sn hover:bg-[color:var(--m-paper-2)] disabled:cursor-not-allowed disabled:text-[color:var(--m-slate-3)]';
   return (
     <span role="group" aria-label={label} data-km-stepper={data} className="inline-flex items-center gap-1">
       <button type="button" aria-label={`${label}: less`} disabled={!canDown} onClick={onDown} className={btn}>
         <Minus aria-hidden className="h-4 w-4" strokeWidth={2.2} />
       </button>
-      <span aria-live="polite" className="min-w-[3.75rem] text-center text-[15px] font-medium tabular-nums text-ink">
+      <span aria-live="polite" className="min-w-[3.75rem] text-center text-base font-bold tabular-nums text-ink">
         {value === null ? '—' : `${value} km`}
       </span>
       <button type="button" aria-label={`${label}: more`} disabled={!canUp} onClick={onUp} className={btn}>

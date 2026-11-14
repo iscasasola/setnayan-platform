@@ -165,7 +165,7 @@ export function AnalyticsCarousel(props: Props) {
         <h2 id="shop-analytics-h" className="sn-eye">
           Analytics
         </h2>
-        <span className="text-[11.5px] text-ink/50">
+        <span className="text-[11.5px] text-ink/70">
           {formatCount(cards.length)} {cards.length === 1 ? 'card' : 'cards'} · swipe · tap one
         </span>
       </div>

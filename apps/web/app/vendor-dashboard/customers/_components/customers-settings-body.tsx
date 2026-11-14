@@ -103,7 +103,7 @@ export async function CustomersSettingsBody({
       {notice ? (
         <p
           role="status"
-          className="mb-2 text-[13.5px] font-medium"
+          className="mb-2 text-[13px] font-medium"
           style={{ color: notice.tone === 'bad' ? 'rgb(var(--color-danger))' : notice.tone === 'ok' ? 'rgb(var(--color-ok))' : undefined }}
           data-customers-settings-notice={search.gnotice}
         >

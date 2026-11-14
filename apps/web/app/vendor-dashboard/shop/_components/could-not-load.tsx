@@ -25,12 +25,12 @@ export function CouldNotLoad({ what }: { what: string }) {
   return (
     <p
       role="status"
-      className="text-sm"
-      style={{ color: 'var(--m-slate)' }}
+      className="text-sm font-medium"
+      style={{ color: 'rgb(var(--color-warn))' }}
       data-could-not-load
     >
-      We couldn&apos;t load {what} just now — this isn&apos;t a change to your
-      shop. Refresh in a moment and it should be back.
+      {/* Design template rule 6: a failed read never looks like "none" — amber, short, and how to try again. */}
+      Couldn&apos;t load {what} — your shop is unchanged. Refresh in a moment to try again.
     </p>
   );
 }

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
 import {
@@ -142,6 +143,8 @@ type Props = {
 };
 
 export default async function AdminAccountCardPage({ params, searchParams }: Props) {
+  // 🏷 F-A-15: event types by their admin-managed names.
+  const typeName = await readEventTypeNames();
   await requireAdmin();
   const { userId } = await params;
   const sp = await searchParams;
@@ -585,7 +588,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                           <span className="rounded bg-ink/5 px-1.5 py-0.5 font-medium text-ink/70">
                             {MEMBER_TYPE_LABEL[role ?? ''] ?? role ?? '—'}
                           </span>
-                          <span>{(e.event_type as string | null) ?? '—'}</span>
+                          <span>{typeName(e.event_type as string | null)}</span>
                           <span>{fmtDate(e.event_date as string)}</span>
                         </span>
                       </li>

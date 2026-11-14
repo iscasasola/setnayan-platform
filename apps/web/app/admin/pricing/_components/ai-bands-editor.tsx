@@ -72,7 +72,7 @@ export function AiBandsEditor({
 
       <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl border border-ink/10 bg-ink/[0.02] p-3.5 sm:grid-cols-4">
         <Stat label="Price bands" value={String(bands.length)} />
-        <Stat label="Kinds of celebration" value={String(totalKinds)} />
+        <Stat label="Kinds of event" value={String(totalKinds)} />
         <Stat label="No price chosen" value={String(unassigned.length)} bad={unassigned.length > 0} />
         <Stat label="Sold as its own row" value={String(bands.filter((b) => b.isSellable).length)} />
       </div>

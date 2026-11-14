@@ -55,7 +55,6 @@ const AREA2_DIALOGS = [
   'app/dashboard/[eventId]/guests/_components/add-from-people-sheet.tsx',
   'app/dashboard/[eventId]/guests/_components/overlay-primitives.tsx',
   'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
-  'app/dashboard/[eventId]/vendors/_components/accordion-build.tsx',
   'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx',
 ];
 

@@ -51,7 +51,7 @@ export function DayCheckLine({
   if (read.kind !== 'ok') {
     return (
       <p
-        className={`mt-3 flex items-start gap-2 rounded-xl px-3 py-2 text-[13px] ${read.kind === 'failed' ? 'text-warn-900 dark:text-warn-100' : 'text-ink/60'}`}
+        className={`mt-3 flex items-start gap-2 rounded-xl px-3 py-2 text-[13px] ${read.kind === 'failed' ? 'text-warn-900 dark:text-warn-100' : 'text-ink/70'}`}
         data-day-check={read.kind}
         role={read.kind === 'failed' ? 'status' : undefined}
       >
@@ -96,7 +96,7 @@ export function DayCheckLine({
 function Section({ label, tip, children, empty }: { label: string; tip?: string; children: React.ReactNode[]; empty: boolean }) {
   return (
     <section className="mt-1" data-day-check-section={label}>
-      <p className="flex items-center gap-1 px-5 pb-1 pt-4 text-[11px] font-medium uppercase tracking-[0.08em] text-ink/55">
+      <p className="flex items-center gap-1 px-5 pb-1 pt-4 text-xs font-medium uppercase tracking-[0.08em] text-ink/70">
         {tip ? (
           <InfoTip label={label} align="start">
             {tip}
@@ -105,7 +105,7 @@ function Section({ label, tip, children, empty }: { label: string; tip?: string;
           label
         )}
       </p>
-      {empty ? <p className="px-5 py-3 text-center text-[14px] text-ink/55">No one.</p> : children}
+      {empty ? <p className="px-5 py-3 text-center text-sm text-ink/70">No one.</p> : children}
     </section>
   );
 }
@@ -115,9 +115,9 @@ function Row({ name, line, badge }: { name: string; line: string; badge?: string
     <>
       <span className="min-w-0 flex-1">
         <span className="block text-[15px] font-medium leading-snug text-ink [overflow-wrap:anywhere]">{name}</span>
-        <span className="block text-[12.5px] text-ink/60 [overflow-wrap:anywhere]">{line}</span>
+        <span className="block text-[13px] text-ink/70 [overflow-wrap:anywhere]">{line}</span>
       </span>
-      {badge ? <span className="shrink-0 rounded-full bg-ink/[0.06] px-2.5 py-1 text-[12px] font-medium text-warn-900 dark:text-warn-100">{badge}</span> : null}
+      {badge ? <span className="shrink-0 rounded-full bg-ink/[0.06] px-2.5 py-1 text-xs font-medium text-warn-900 dark:text-warn-100">{badge}</span> : null}
     </>
   );
 }
@@ -132,9 +132,9 @@ function DaySheetBody({ check }: { check: DayCheck }) {
         <div key={s.serviceId} className="flex items-center justify-between gap-3 border-b border-ink/10 px-5 py-3" data-day-check-card={s.full ? 'full' : 'room'}>
           <span className="min-w-0">
             <span className="block text-[15px] text-ink/70">{s.name}</span>
-            <span className="block text-[11.5px] text-ink/55">{cardLimitWords(s)}</span>
+            <span className="block text-xs text-ink/70">{cardLimitWords(s)}</span>
           </span>
-          <span className={`shrink-0 text-right text-[15px] font-medium ${s.full ? 'text-danger-700 dark:text-danger-100' : 'text-ink/60'}`}>{cardDayWords(s)}</span>
+          <span className={`shrink-0 text-right text-[15px] font-medium ${s.full ? 'text-danger-700 dark:text-danger-100' : 'text-ink/70'}`}>{cardDayWords(s)}</span>
         </div>
       ))}
       {check.full ? <p className="px-5 pb-1 pt-3 text-[13px] text-ink/70" data-day-check-full-lead="">{DAY_CHECK_FULL_LEAD}</p> : null}
@@ -161,7 +161,7 @@ function DaySheetBody({ check }: { check: DayCheck }) {
           a.threadId ? (
             <Link key={a.eventId} href={`/vendor-dashboard/messages/${a.threadId}`} className={`sn-press ${ROW}`}>
               <Row name={a.eventType ? `${a.name} · ${a.eventType}` : a.name} line="Asked to book · waiting for your yes" badge="Asking" />
-              <ChevronRight {...ico} className="h-4 w-4 shrink-0 text-ink/50" />
+              <ChevronRight {...ico} className="h-4 w-4 shrink-0 text-ink/70" />
             </Link>
           ) : (
             <div key={a.eventId} className={ROW}>

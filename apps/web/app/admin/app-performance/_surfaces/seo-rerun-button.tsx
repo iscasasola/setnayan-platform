@@ -10,6 +10,8 @@
  *
  * Deliberately reports the Search Console half honestly — it no-ops until the
  * GSC credentials are in Vercel env, and a bare "Done" would hide that.
+ *
+ * The view's one main verb (approved drawing, insights.html › SEO & GEO): filled, 44 px.
  */
 
 import { useState, useTransition } from 'react';
@@ -35,7 +37,7 @@ export function SeoRerunButton() {
             }
           })
         }
-        className="inline-flex items-center gap-2 rounded-lg border border-ink/15 px-3 py-2 text-sm font-medium text-ink transition hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-60"
+        className="button-primary inline-flex min-h-11 items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <RefreshCw className={`h-4 w-4 ${pending ? 'animate-spin' : ''}`} aria-hidden />
         {pending ? 'Running…' : 'Re-run audit now'}
@@ -43,7 +45,7 @@ export function SeoRerunButton() {
       {result ? (
         <p
           role="status"
-          className={`max-w-xs text-right text-xs ${result.ok ? 'text-ink/60' : 'text-[color:var(--sn-danger)]'}`}
+          className={`max-w-xs text-right text-[12px] ${result.ok ? 'text-ink/60' : 'text-[var(--sn-danger)]'}`}
         >
           {result.message}
         </p>

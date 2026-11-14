@@ -1,21 +1,29 @@
-import { Trophy } from 'lucide-react';
 import type { AdminOutcomeOverview, OutcomeState } from '@/lib/inquiry-outcomes';
+import { Fold } from '@/app/_components/fold';
+import { Badge, Nums, Row, Rows, Sec } from './insights-parts';
 
 /**
- * Won & Lost Reasons aggregate report card (Wave 6) — rendered on
- * /admin/insights beside the Peso-per-lead card. Platform-wide tally of the
- * vendor-self-reported inquiry outcomes (won / lost / no-response) + the top
- * reasons behind each, read from admin_inquiry_outcomes_overview (admin-gated).
+ * Won & Lost Reasons aggregate report (Wave 6) — rendered on Insights ›
+ * Intelligence (moved from the retired /admin/insights). Platform-wide tally of
+ * the vendor-self-reported inquiry outcomes (won / lost / no-response) + the
+ * top reasons behind each, read from admin_inquiry_outcomes_overview
+ * (admin-gated).
  *
  * BEHAVIORAL HONESTY: "Won" is a VENDOR self-reported signal, not a verified
- * on-platform payment — Setnayan settles off-platform. The card says so and
- * never treats "won" as revenue.
+ * on-platform payment — Setnayan settles off-platform. The section says so (in
+ * its ⓘ) and never treats "won" as revenue.
+ *
+ * Re-drawn 2026-11-14 onto the approved drawing (`admin_pub/insights.html` ›
+ * Intelligence): no card frame around read-only facts (T18) — a section head
+ * with its ⓘ and the "Soon" badge, the three totals as `Nums`, each outcome's
+ * top reasons as a fold of hairline rows, and the reporting-supplier count as
+ * the closing line. The name `WonLostAdminCard` stays (its one caller).
  */
 
-const META: Record<OutcomeState, { label: string; tone: string }> = {
-  won: { label: 'Won', tone: 'text-mulberry' },
-  lost: { label: 'Lost', tone: 'text-terracotta-700' },
-  no_response: { label: 'No response', tone: 'text-ink/60' },
+const META: Record<OutcomeState, { label: string }> = {
+  won: { label: 'Won' },
+  lost: { label: 'Lost' },
+  no_response: { label: 'No response' },
 };
 
 const nf = new Intl.NumberFormat('en-PH');
@@ -29,105 +37,62 @@ export function WonLostAdminCard({ overview }: { overview: AdminOutcomeOverview 
     lost: byReason.filter((r) => r.outcome === 'lost').slice(0, 4),
     no_response: byReason.filter((r) => r.outcome === 'no_response').slice(0, 4),
   };
+  const keys = Object.keys(META) as OutcomeState[];
 
   return (
-    <section className="m-card mb-6 p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
-            Supplier inquiry outcomes
-          </p>
-          <h2 className="m-display-tight mt-1 text-2xl" style={{ color: 'var(--m-ink)' }}>
-            Won &amp; lost reasons
-          </h2>
-          <p className="mt-1 max-w-prose text-sm" style={{ color: 'var(--m-slate)' }}>
-            What suppliers say happens to their inquiries — and why. Self-reported,
-            so &ldquo;won&rdquo; is a supplier signal (they settle off-platform), not a
-            verified payment.
-          </p>
-        </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-warn-300/70 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-warn-800">
-          <Trophy className="h-3.5 w-3.5" strokeWidth={2} aria-hidden /> Soon
-        </span>
-      </div>
+    <section aria-labelledby="won-lost" data-testid="won-lost">
+      <Sec
+        id="won-lost"
+        title="Won & lost reasons"
+        about={
+          <>
+            Supplier inquiry outcomes — what suppliers say happens to their inquiries, and why. Self-reported, so
+            &ldquo;won&rdquo; is a supplier signal (they settle off-platform), not a verified payment.
+          </>
+        }
+        right={<Badge tone="info">Soon</Badge>}
+      />
 
-      {/* Totals */}
-      <div className="mt-5 grid gap-3 sm:grid-cols-4">
-        {(Object.keys(META) as OutcomeState[]).map((key) => (
-          <Metric key={key} label={META[key].label} value={nf.format(totals[key])} />
-        ))}
-        <Metric
-          label="Reporting suppliers"
-          value={nf.format(totals.reporting_vendors)}
-          sub={`${nf.format(totals.total)} outcomes logged`}
-          emphasis
-        />
-      </div>
+      <Nums
+        data="won-lost-totals"
+        items={keys.map((key) => ({ value: totals[key], label: META[key].label.toLowerCase() }))}
+      />
 
-      {/* Per-outcome top reasons */}
       {hasData ? (
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
-          {(Object.keys(META) as OutcomeState[]).map((key) => {
+        <div className="divide-y divide-ink/10 border-y border-ink/10">
+          {keys.map((key) => {
             const rows = byOutcome[key];
+            const top = rows[0];
             return (
-              <div
+              <Fold
                 key={key}
-                className="rounded-lg border px-4 py-3"
-                style={{ borderColor: 'var(--m-line)' }}
+                data={`won-lost-${key}`}
+                title={`${META[key].label} — top reasons`}
+                summary={top ? `${top.label} · ${nf.format(top.n)}` : 'None logged yet.'}
               >
-                <p className={`text-xs font-semibold ${META[key].tone}`}>
-                  {META[key].label} — top reasons
-                </p>
                 {rows.length > 0 ? (
-                  <ul className="mt-2 space-y-1.5">
+                  <Rows label={`${META[key].label} — top reasons`}>
                     {rows.map((r) => (
-                      <li
-                        key={`${key}-${r.reasonCode ?? 'none'}`}
-                        className="flex items-center justify-between gap-3 text-sm text-ink/75"
-                      >
-                        <span className="truncate">{r.label}</span>
-                        <span className="shrink-0 tabular-nums font-medium text-ink">
-                          {nf.format(r.n)}
-                        </span>
-                      </li>
+                      <Row key={`${key}-${r.reasonCode ?? 'none'}`} title={r.label} trail={nf.format(r.n)} />
                     ))}
-                  </ul>
+                  </Rows>
                 ) : (
-                  <p className="mt-2 text-xs text-ink/45">None logged yet.</p>
+                  <p className="pb-3 text-[13px] text-ink/65">None logged yet.</p>
                 )}
-              </div>
+              </Fold>
             );
           })}
         </div>
       ) : (
-        <p className="mt-5 rounded-md border border-ink/10 bg-ink/[0.02] px-3 py-4 text-center text-sm text-ink/55">
-          No outcomes logged yet — suppliers appear here once they mark an inquiry
-          won, lost, or no-response from their Messages.
+        <p className="py-1 text-[13px] text-ink/65">
+          No outcomes logged yet — suppliers appear here once they mark an inquiry won, lost, or no-response from
+          their Messages.
         </p>
       )}
-    </section>
-  );
-}
 
-function Metric({
-  label,
-  value,
-  sub,
-  emphasis,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  emphasis?: boolean;
-}) {
-  return (
-    <div
-      className={'rounded-lg border px-4 py-3 ' + (emphasis ? 'bg-ink/[0.02]' : '')}
-      style={{ borderColor: 'var(--m-line)' }}
-    >
-      <p className="text-[11px] uppercase tracking-[0.12em] text-ink/50">{label}</p>
-      <p className="mt-1.5 text-xl font-semibold text-ink">{value}</p>
-      {sub ? <p className="mt-0.5 text-[11px] text-ink/50">{sub}</p> : null}
-    </div>
+      <p className="mt-1.5 text-[13px] text-ink/65">
+        {nf.format(totals.reporting_vendors)} reporting suppliers · {nf.format(totals.total)} outcomes logged
+      </p>
+    </section>
   );
 }

@@ -225,7 +225,7 @@ export const USER_2_TOPICS: HelpTopic[] = [
   },
   {
     key: 'host-papic-and-memories',
-    label: 'Papic, Music Maker and Memories',
+    label: 'Photos, music and Memories',
     roles: ['couple'],
     articles: [
       {
@@ -254,6 +254,7 @@ export const USER_2_TOPICS: HelpTopic[] = [
         slug: 'whats-in-event-memories',
         title: 'What is in my event’s Memories?',
         body: 'Albums — Papic, Challenges, Event Hub, Suppliers and your own uploads, with + Add photos — and your keepsakes: the magazine, the recap, the flash and the thank-you. A keepsake opens once the first photo is in.',
+        appBody: 'Albums — from your guests’ cameras, the Event Hub, your suppliers and your own uploads, with + Add photos — and your keepsakes. A keepsake opens once the first photo is in.',
       },
       {
         // memories/_components/memories-settings.tsx "Download all"; live-wall-card.tsx "Memory lane"

@@ -74,11 +74,9 @@ export async function bookVendorAtChatLock(
     agreedTotalPhp: number;
   },
   /** 🚪 The bookings switch — injectable so a test can run both sides; production reads the one switch. */
-  deps: {
-    bookingsOpen: () => Promise<boolean>;
-    /** ⬜ The closed-day read — injectable for the same reason. */
-    closedDay?: typeof closedDayRefusal;
-  } = { bookingsOpen: areBookingsOpen },
+  deps: { bookingsOpen: () => Promise<boolean> } = { bookingsOpen: areBookingsOpen },
+  /** ⬜ The closed-day read — injectable for the same reason; production reads the date sheet's own source. */
+  closedDay: typeof closedDayRefusal = closedDayRefusal,
 ): Promise<ChatLockBookingOutcome> {
   const { eventId, eventVendorId, marketplaceVendorId, agreedTotalPhp } = args;
 
@@ -133,7 +131,7 @@ export async function bookVendorAtChatLock(
     const d = dayRow as { event_date?: string | null; event_date_precision?: string | null } | null;
     if (
       d?.event_date_precision === 'day' &&
-      (await (deps.closedDay ?? closedDayRefusal)({
+      (await closedDay({
         vendorProfileId: marketplaceVendorId,
         serviceId: curRow?.service_id ?? null,
         day: d.event_date,

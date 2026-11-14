@@ -145,15 +145,13 @@ const ARGS = { eventId: 'e1', eventVendorId: 'ev1', marketplaceVendorId: 'vp1', 
 
 test('2 · the ask (chat lock) on a closed day is refused and writes nothing; on an open day it asks', async () => {
   const seen: unknown[] = [];
-  const shut = {
-    bookingsOpen: async () => true,
-    closedDay: async (a: unknown) => {
-      seen.push(a);
-      return 'closed' as const;
-    },
+  const openSwitch = { bookingsOpen: async () => true };
+  const shut = async (a: unknown) => {
+    seen.push(a);
+    return 'closed' as const;
   };
   const sink = { wrote: false };
-  const refused = await bookVendorAtChatLock(stubAuthed(sink), stubAdmin(), ARGS, shut);
+  const refused = await bookVendorAtChatLock(stubAuthed(sink), stubAdmin(), ARGS, openSwitch, shut);
   assert.equal(refused.status, 'date_closed');
   assert.equal(sink.wrote, false, 'a closed day must not record the ask');
   assert.deepEqual(
@@ -162,9 +160,9 @@ test('2 · the ask (chat lock) on a closed day is refused and writes nothing; on
     'the check is asked about THIS card on THIS event day',
   );
 
-  const open = { bookingsOpen: async () => true, closedDay: async () => null };
+  const open = async () => null;
   const sink2 = { wrote: false };
-  const asked = await bookVendorAtChatLock(stubAuthed(sink2), stubAdmin(), ARGS, open);
+  const asked = await bookVendorAtChatLock(stubAuthed(sink2), stubAdmin(), ARGS, openSwitch, open);
   assert.equal(asked.status, 'requested');
   assert.equal(sink2.wrote, true);
 });
@@ -199,7 +197,7 @@ test('3 · every ask door asks the closed-day check before its write', () => {
 
   // The chat lock — before its ask and its booking write.
   const chat = read('lib/chat-lock-booking.server.ts');
-  const cCheck = at(chat, '?? closedDayRefusal)(');
+  const cCheck = at(chat, '(await closedDay({');
   assert.ok(cCheck < at(chat, "lock_request_state: 'pending'"), 'chat lock: check before the ask');
   assert.match(chat.slice(cCheck - 700, cCheck), /action === 'book' \|\| action === 'request'/, 'chat lock: an ask AND a booking are checked');
   const deal = read('app/_components/negotiation-actions.ts');
@@ -219,6 +217,7 @@ test('3b · the supplier’s yes asks the closed-day check before the RPC that b
 
 test('4 · one source: the date sheet’s reads and month builder', () => {
   const server = read('lib/closed-day.server.ts');
+  assert.match(read('lib/chat-lock-booking.server.ts'), /closedDay: typeof closedDayRefusal = closedDayRefusal/, 'the chat lock defaults to the real check');
   assert.match(server, /readShopDateFacts\(admin, args\.vendorProfileId/);
   assert.match(server, /isClosedDay\(facts,/);
   const rule = read('lib/closed-day.ts');

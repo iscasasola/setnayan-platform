@@ -1,6 +1,7 @@
 import type { AdminOutcomeOverview, OutcomeState } from '@/lib/inquiry-outcomes';
 import { Fold } from '@/app/_components/fold';
 import { Badge, Nums, Row, Rows, Sec } from './insights-parts';
+import { ReadFailed } from '../../_components/read-failed';
 
 /**
  * Won & Lost Reasons aggregate report (Wave 6) — rendered on Insights ›
@@ -29,8 +30,8 @@ const META: Record<OutcomeState, { label: string }> = {
 const nf = new Intl.NumberFormat('en-PH');
 
 export function WonLostAdminCard({ overview }: { overview: AdminOutcomeOverview }) {
-  const { totals, byReason } = overview;
-  const hasData = totals.total > 0;
+  const { totals, byReason, failed = false } = overview;
+  const hasData = !failed && totals.total > 0;
 
   const byOutcome: Record<OutcomeState, typeof byReason> = {
     won: byReason.filter((r) => r.outcome === 'won').slice(0, 4),
@@ -55,10 +56,12 @@ export function WonLostAdminCard({ overview }: { overview: AdminOutcomeOverview 
 
       <Nums
         data="won-lost-totals"
-        items={keys.map((key) => ({ value: totals[key], label: META[key].label.toLowerCase() }))}
+        items={keys.map((key) => ({ value: failed ? null : totals[key], label: META[key].label.toLowerCase() }))}
       />
 
-      {hasData ? (
+      {failed ? (
+        <ReadFailed what="the won and lost outcomes" />
+      ) : hasData ? (
         <div className="divide-y divide-ink/10 border-y border-ink/10">
           {keys.map((key) => {
             const rows = byOutcome[key];
@@ -90,9 +93,11 @@ export function WonLostAdminCard({ overview }: { overview: AdminOutcomeOverview 
         </p>
       )}
 
+      {failed ? null : (
       <p className="mt-1.5 text-[13px] text-ink/65">
         {nf.format(totals.reporting_vendors)} reporting suppliers · {nf.format(totals.total)} outcomes logged
       </p>
+      )}
     </section>
   );
 }

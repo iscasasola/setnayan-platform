@@ -14,12 +14,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stripComments } from '@/lib/strip-comments';
+
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const code = (rel: string) =>
-  readFileSync(join(WEB, rel), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '')
-    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
+const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const stats = code('lib/admin/growth-stats.ts');
 

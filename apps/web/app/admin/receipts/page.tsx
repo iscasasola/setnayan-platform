@@ -215,7 +215,7 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
                 href={`/receipts/${r.receipt_id}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-link hover:underline"
+                className="sn-hit inline-flex items-center gap-1 text-xs text-link hover:underline"
               >
                 View
                 <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />

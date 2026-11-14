@@ -14089,6 +14089,7 @@
     "/vendor-dashboard/activities": {
       "files": [
         "vendor-dashboard/activities/actions.ts",
+        "vendor-dashboard/activities/loading.tsx",
         "vendor-dashboard/activities/page.tsx",
         "vendor-dashboard/activities/question-actions.ts",
         "vendor-dashboard/activities/questions-section.tsx"
@@ -14104,14 +14105,19 @@
         "updateQuestion"
       ],
       "blocks": [
+        "ActionButton",
         "ActivityRow",
         "Icon",
         "InfoTip",
+        "ListPageSkeleton",
         "MoveButton",
         "QuestionsSection",
         "QuestionsSectionBody",
         "StarterQuestion",
-        "StayForm"
+        "StayForm",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateSection"
       ]
     },
     "/vendor-dashboard/attributes": {
@@ -14525,6 +14531,7 @@
         "SwipeToDelete",
         "Switch",
         "SwitchTrack",
+        "TemplateSection",
         "TheyToldYou",
         "ThumbRow",
         "TimeRow",
@@ -14567,13 +14574,16 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "CocktailEditor",
         "Drag",
         "EventLockedPage",
         "HTMLDivElement",
         "Link",
+        "PickMenu",
         "Result",
-        "Room"
+        "Room",
+        "Sheet"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/editorial-media": {
@@ -14613,6 +14623,10 @@
         "SuggestResult",
         "SuggestionPoolResult",
         "SupplierSuggestBoard",
+        "TemplateEmpty",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "VendorPartSignoff"
       ]
     },
@@ -15024,6 +15038,7 @@
         "formAction"
       ],
       "blocks": [
+        "Badge",
         "DeepSearchRunner",
         "DossierView",
         "ListPageSkeleton",
@@ -15148,6 +15163,7 @@
     "/vendor-dashboard/lines": {
       "files": [
         "vendor-dashboard/lines/actions.ts",
+        "vendor-dashboard/lines/loading.tsx",
         "vendor-dashboard/lines/page.tsx"
       ],
       "destinations": [
@@ -15159,8 +15175,14 @@
         "updateLine"
       ],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "Link",
-        "StayForm"
+        "ListPageSkeleton",
+        "StayForm",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateSection"
       ]
     },
     "/vendor-dashboard/locked-qr": {
@@ -15183,6 +15205,7 @@
       "actions": [],
       "blocks": [
         "AcceptManpowerResult",
+        "ActionButton",
         "CancelGigResult",
         "CompleteGigResult",
         "GigCard",
@@ -15646,6 +15669,11 @@
         "SupplierSavedStrip",
         "Surface",
         "SwipeToDelete",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TierMeter",
         "UndoToastHost",
         "VendorSpecializationSet",
@@ -16880,7 +16908,12 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "Badge",
         "Image",
+        "TemplateEmpty",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "VendorTierGate"
       ]
     },
@@ -17063,10 +17096,14 @@
         "addVendorFromFit"
       ],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "Icon",
         "Image",
         "Link",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateSection"
       ]
     },
     "/vendor/lock/[token]": {
@@ -17085,11 +17122,15 @@
         "claimLockedQr"
       ],
       "blocks": [
+        "ActionButton",
         "ClaimForm",
         "Image",
         "Link",
         "LoadingActivity",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/wall/[eventId]": {

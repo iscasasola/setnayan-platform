@@ -1,4 +1,6 @@
-import { Images, Video } from 'lucide-react';
+import { Video } from 'lucide-react';
+
+import { TemplateEmpty, TemplateFail, TemplateSection } from '@/app/_components/template-rows';
 
 import { r2SignedGet, R2_BUCKETS } from '@/lib/r2';
 import { parseR2Ref } from '@/lib/nsfw-screen';
@@ -52,27 +54,24 @@ export async function OwnCapturesStrip({
   // value as an empty gallery and it would tell a vendor their work is gone.
   if (error) {
     return (
-      <section className="mt-6">
-        <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+      <TemplateSection label="What you’ve shot" data="own-captures">
+        <TemplateFail data="own-captures">
           Couldn&rsquo;t load what you&rsquo;ve shot just now. Your photos are safe — this is
           only the view.
-        </p>
-      </section>
+        </TemplateFail>
+      </TemplateSection>
     );
   }
 
   const captures = visibleVendorCaptures(data ?? []);
   if (captures.length === 0) {
     return (
-      <section className="mt-6">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--m-slate-3)' }}>
-          What you&rsquo;ve shot
-        </h2>
-        <p className="mt-2 text-sm" style={{ color: 'var(--m-slate-2)' }}>
+      <TemplateSection label="What you’ve shot" data="own-captures">
+        <TemplateEmpty data="own-captures">
           Nothing yet. A photo appears here a moment after you take it — it is checked
           first.
-        </p>
-      </section>
+        </TemplateEmpty>
+      </TemplateSection>
     );
   }
 
@@ -107,23 +106,19 @@ export async function OwnCapturesStrip({
   );
 
   return (
-    <section className="mt-6">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--m-slate-3)' }}>
-          What you&rsquo;ve shot
-        </h2>
-        <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-          {captureSummary(captures)}
-        </p>
-      </div>
-
-      <ul className="mt-3 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+    <TemplateSection
+      label="What you’ve shot"
+      data="own-captures"
+      right={captureSummary(captures)}
+      tip="These are in the couple’s Memories too. If they take one down, it leaves here as well."
+    >
+      <ul className="mt-1 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
         {tiles.map(({ capture, url }) => {
           const length = clipLengthLabel(capture);
           return (
             <li
               key={capture.captureId}
-              className="relative aspect-square overflow-hidden rounded-lg bg-ink/10"
+              className="relative aspect-square overflow-hidden rounded-lg bg-[color:var(--m-paper-2)]"
             >
               {url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -145,13 +140,6 @@ export async function OwnCapturesStrip({
         })}
       </ul>
 
-      <p className="mt-3 flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        <Images aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-        <span>
-          These are in the couple&rsquo;s Memories too. If they take one down, it leaves here
-          as well.
-        </span>
-      </p>
-    </section>
+    </TemplateSection>
   );
 }

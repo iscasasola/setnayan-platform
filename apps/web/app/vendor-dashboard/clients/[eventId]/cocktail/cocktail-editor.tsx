@@ -1,7 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { Martini, Maximize2, Navigation, Pencil, Plus, RotateCw, Signpost, Trash2, X } from 'lucide-react';
+import { useId, useRef, useState } from 'react';
+import { Check, ChevronDown, Martini, Maximize2, Navigation, Pencil, Plus, RotateCw, Signpost, Trash2, X } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { Sheet } from '@/app/_components/sheet';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { BOOTH_CATALOG, type BoothType } from '@/lib/seating';
 import {
   deleteCocktailBooth,
@@ -70,10 +73,10 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
   const [booths, setBooths] = useState<Booth[]>(data.booths);
   const [signs, setSigns] = useState<Sign[]>(data.signs);
   const [notice, setNotice] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
   // The booth whose offerings copy is being edited (inline panel), + its draft.
   const [editingBooth, setEditingBooth] = useState<string | null>(null);
   const [offeringsDraft, setOfferingsDraft] = useState('');
+  const offeringsTitleId = useId();
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<Drag | null>(null);
   const roomRef = useRef<Room>(room);
@@ -175,7 +178,6 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
   };
 
   const addBooth = async (type: BoothType, label: string) => {
-    setAdding(false);
     setNotice(null);
     const res = await upsertCocktailBooth(eventId, null, type, label, room.x, room.y);
     if (!res.ok || !res.boothId) {
@@ -292,51 +294,38 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
   return (
     <div className="space-y-4">
       {notice ? (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-danger-300 bg-danger-50 px-4 py-2.5 text-sm text-danger-800">
+        <div role="alert" className="flex min-h-11 items-center justify-between gap-3 text-[14px]" style={{ color: 'rgb(var(--color-danger))' }}>
           <span>{notice}</span>
-          <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss">
-            <X className="h-4 w-4" />
-          </button>
+          <ActionButton tone="neutral" quiet iconOnly icon={X} label="Dismiss" onClick={() => setNotice(null)} />
         </div>
       ) : null}
 
       {/* Add-booth toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setAdding((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.06] px-3 py-1.5 text-sm font-medium text-terracotta-700 hover:border-terracotta"
-          >
-            <Plus className="h-4 w-4" /> Add booth
-          </button>
-          {adding ? (
-            <div className="absolute z-20 mt-1 w-52 rounded-xl border border-ink/15 bg-white/70 p-1.5 shadow-lg">
-              {BOOTH_CATALOG.map((c) => (
-                <button
-                  key={c.type}
-                  type="button"
-                  onClick={() => addBooth(c.type, c.label)}
-                  className="block w-full rounded-lg px-3 py-1.5 text-left text-sm text-ink hover:bg-terracotta/10"
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
+        <PickMenu
+          label="Add booth"
+          value=""
+          buttonText="Add booth"
+          options={BOOTH_CATALOG.map((c) => ({ key: c.type, label: c.label }))}
+          onPick={(key) => {
+            const c = BOOTH_CATALOG.find((x) => x.type === key);
+            if (c) void addBooth(c.type, c.label);
+          }}
+          className={actionButtonClass('brand')}
+          trigger={
+            <>
+              <Plus aria-hidden strokeWidth={1.9} />
+              <span className="lbl">Add booth</span>
+              <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+            </>
+          }
+        />
         {canArrange ? (
-          <button
-            type="button"
-            onClick={addSign}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.06] px-3 py-1.5 text-sm font-medium text-terracotta-700 hover:border-terracotta"
-          >
-            <Signpost className="h-4 w-4" /> Add sign
-          </button>
+          <ActionButton tone="brand" icon={Signpost} label="Add sign" onClick={addSign} />
         ) : null}
-        <p className="text-xs text-ink/50">
+        <p className="text-[13px] text-[color:var(--m-slate-2)]">
           {canArrange
-            ? 'Drag the room to reposition it, the corner grip to resize, booths to place them, and signs to point guests.'
+            ? 'Drag the room, the corner grip to resize, booths to place them, and signs to point guests.'
             : 'Drag your booth to place it inside the room.'}
         </p>
       </div>
@@ -367,7 +356,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   y1={data.entrance.y}
                   x2={edge.x}
                   y2={edge.y}
-                  stroke="var(--terracotta, #c06b4f)"
+                  stroke="rgb(var(--color-terracotta))"
                   strokeWidth={0.6}
                   strokeDasharray="2 1.5"
                   strokeOpacity={0.55}
@@ -381,7 +370,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
         {room.linked && data.entrance ? (
           <div
             aria-hidden
-            className="pointer-events-none absolute z-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-terracotta/40 bg-terracotta/[0.08] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-terracotta/70"
+            className="pointer-events-none absolute z-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-terracotta/40 bg-terracotta/[0.08] px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-terracotta-700"
             style={{ left: `${data.entrance.x}%`, top: `${data.entrance.y}%` }}
           >
             Entrance
@@ -389,7 +378,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
         ) : null}
         {/* stage */}
         <div
-          className="absolute flex items-center justify-center rounded-md bg-ink/[0.06] text-[9px] font-semibold uppercase tracking-wider text-ink/40"
+          className="absolute flex items-center justify-center rounded-md bg-ink/[0.06] text-[11px] font-semibold uppercase tracking-wider text-[color:var(--m-slate-2)]"
           style={{
             left: `${data.stage.x - data.stage.w / 2}%`,
             top: `${data.stage.y - data.stage.h / 2}%`,
@@ -416,7 +405,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
           .map((t) => (
             <div
               key={t.table_id}
-              className={`absolute flex h-[7%] min-h-7 w-[7%] min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center border border-ink/15 bg-white/70 text-[8px] text-ink/45 ${
+              className={`absolute flex h-[7%] min-h-7 w-[7%] min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center border border-ink/15 bg-white/70 text-[11px] text-[color:var(--m-slate-2)] ${
                 isRound(t.table_type) ? 'rounded-full' : 'rounded'
               }`}
               style={{ left: `${t.x}%`, top: `${t.y}%` }}
@@ -439,7 +428,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
           <div className="h-full w-full rounded-xl border-2 border-dashed border-terracotta/50 bg-terracotta/[0.05]" />
           <span
             onPointerDown={startRoom}
-            className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-terracotta-700 shadow-sm ${
+            className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-terracotta-700 shadow-sm ${
               canArrange ? 'cursor-grab' : ''
             }`}
           >
@@ -472,10 +461,10 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                 title={
                   [b.label, b.vendor_name, b.offerings].filter(Boolean).join(' · ') || b.label
                 }
-                className={`flex select-none items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold shadow-sm ${
+                className={`flex select-none items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold shadow-sm ${
                   b.is_mine
                     ? 'border-terracotta bg-terracotta text-cream'
-                    : 'border-ink/25 bg-white/90 text-ink/70'
+                    : 'border-ink/25 bg-white/90 text-ink'
                 } ${editable ? 'cursor-grab' : ''}`}
               >
                 {b.label}
@@ -487,7 +476,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => openOfferings(b)}
                     aria-label={`Edit what ${b.label} serves`}
-                    className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-terracotta-700"
+                    className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-[color:var(--m-slate-2)] shadow-sm hover:text-terracotta-700"
                   >
                     <Pencil className="h-3 w-3" />
                   </button>
@@ -496,75 +485,13 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => removeBooth(b)}
                     aria-label={`Remove ${b.label}`}
-                    className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
+                    className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-[color:var(--m-slate-2)] shadow-sm hover:text-danger-600"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </>
               ) : null}
 
-              {/* inline offerings editor — what this booth serves (3D walk card) */}
-              {editingBooth === b.booth_id ? (
-                <>
-                  <button
-                    type="button"
-                    aria-hidden
-                    tabIndex={-1}
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      setEditingBooth(null);
-                    }}
-                    className="fixed inset-0 z-40 cursor-default"
-                  />
-                  <div
-                    role="dialog"
-                    aria-label={`What does ${b.label} serve?`}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    className="absolute left-1/2 top-full z-50 mt-2 w-60 -translate-x-1/2 sn-row p-2.5 shadow-lg"
-                  >
-                    <label
-                      htmlFor={`v-booth-offerings-${b.booth_id}`}
-                      className="mb-1 block font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45"
-                    >
-                      What does this booth serve?
-                    </label>
-                    <textarea
-                      id={`v-booth-offerings-${b.booth_id}`}
-                      value={offeringsDraft}
-                      onChange={(e) => setOfferingsDraft(e.target.value.slice(0, 280))}
-                      maxLength={280}
-                      rows={3}
-                      autoFocus
-                      placeholder="e.g. Espresso martinis & mocktails"
-                      className="w-full resize-none rounded-lg border border-ink/15 bg-white/90 px-2 py-1.5 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
-                    />
-                    <div className="mt-1 flex items-center justify-between">
-                      <span className="text-[10px] text-ink/45">
-                        Guests see this when they tap your booth in the 3D venue walk.
-                      </span>
-                      <span className="ml-2 shrink-0 text-[10px] tabular-nums text-ink/40">
-                        {offeringsDraft.length}/280
-                      </span>
-                    </div>
-                    <div className="mt-2 flex justify-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setEditingBooth(null)}
-                        className="rounded-lg px-2.5 py-1 text-xs font-medium text-ink/55 hover:bg-ink/[0.04]"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => saveOfferings(b)}
-                        className="rounded-lg bg-terracotta-700 px-2.5 py-1 text-xs font-semibold text-cream hover:opacity-90"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : null}
             </div>
           );
         })}
@@ -580,7 +507,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
               onPointerDown={canArrange ? startSign(s) : undefined}
               onDoubleClick={canArrange ? () => relabelSign(s) : undefined}
               title={canArrange ? `${s.label} · double-click to rename` : s.label}
-              className={`flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-2 py-1 text-[10px] font-semibold text-terracotta-700 shadow-sm ${
+              className={`flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-2 py-1 text-[11px] font-semibold text-terracotta-700 shadow-sm ${
                 canArrange ? 'cursor-grab' : ''
               }`}
             >
@@ -597,7 +524,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => rotateSign(s)}
                   aria-label={`Rotate ${s.label}`}
-                  className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-terracotta-700"
+                  className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-[color:var(--m-slate-2)] shadow-sm hover:text-terracotta-700"
                 >
                   <RotateCw className="h-3 w-3" />
                 </button>
@@ -606,7 +533,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => removeSign(s)}
                   aria-label={`Remove ${s.label}`}
-                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
+                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-[color:var(--m-slate-2)] shadow-sm hover:text-danger-600"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
@@ -616,7 +543,46 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
         ))}
       </div>
 
-      <p className="text-xs text-ink/45">
+      {(() => {
+        const b = booths.find((x) => x.booth_id === editingBooth);
+        return (
+          <Sheet open={b !== undefined} onClose={() => setEditingBooth(null)} labelledById={offeringsTitleId} rise>
+            {b ? (
+              <div className="px-4 pb-5 pt-1">
+                <div className="flex items-center gap-2">
+                  <h2 id={offeringsTitleId} className="flex-1 text-[19px] font-extrabold text-ink">
+                    What does {b.label} serve?
+                  </h2>
+                  <ActionButton tone="neutral" icon={X} label="Close" iconOnly onClick={() => setEditingBooth(null)} />
+                </div>
+                <label htmlFor={`v-booth-offerings-${b.booth_id}`} className="sr-only">
+                  What does this booth serve?
+                </label>
+                <textarea
+                  id={`v-booth-offerings-${b.booth_id}`}
+                  value={offeringsDraft}
+                  onChange={(e) => setOfferingsDraft(e.target.value.slice(0, 280))}
+                  maxLength={280}
+                  rows={3}
+                  autoFocus
+                  placeholder="e.g. Espresso martinis & mocktails"
+                  className="mt-3 w-full resize-none rounded-xl border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-[15px] text-ink focus:border-mulberry focus:outline-none"
+                />
+                <div className="mt-1 flex items-center justify-between text-[13px] text-[color:var(--m-slate-2)]">
+                  <span>Guests see this when they tap your booth in the 3D venue walk.</span>
+                  <span className="ml-2 shrink-0 tabular-nums">{offeringsDraft.length}/280</span>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2 [&_.ab]:w-full">
+                  <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setEditingBooth(null)} />
+                  <ActionButton tone="brand" main icon={Check} label="Save" onClick={() => saveOfferings(b)} />
+                </div>
+              </div>
+            ) : null}
+          </Sheet>
+        );
+      })()}
+
+      <p className="text-[13px] text-[color:var(--m-slate-2)]">
         Changes save as you go. The couple can turn supplier editing off at any time, and the
         reception layout is theirs alone — you only touch the cocktail area.
       </p>

@@ -42,10 +42,10 @@ export function PutOnMyPageButton({
       <p
         data-put-on-my-page={photoId}
         data-page-notice-state={now.state}
-        className="flex min-h-11 items-center justify-center gap-1.5 text-center text-xs"
+        className="flex min-h-11 items-center justify-center gap-1.5 text-center text-[13px]"
         style={{ color: 'var(--m-slate-2)' }}
       >
-        <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.9} />
+        <Icon aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.9} />
         {supplierTileLabel(now.state, now.publicFrom)}
       </p>
     );

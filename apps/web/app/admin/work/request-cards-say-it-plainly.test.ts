@@ -115,7 +115,9 @@ test('5 · the corrections row offers no raw select and no Save', () => {
   assert.doesNotMatch(branch, /\['apply', 'decline'\]/, 'the raw apply/decline select is back');
   assert.doesNotMatch(branch, /submitLabel/, 'the corrections row has a form again');
   // The card's two buttons post the EXISTING action's own decisions.
-  const builder = peek.slice(peek.indexOf('async function correctionCard'));
+  const builder = peek.slice(peek.indexOf('async function correctionCard'), peek.indexOf('function paymentCard'));
+  assert.match(builder, /title: `\$\{name\} \$\{correctionAsk\(row\.field_key\)\}`/, 'the card title is no longer who-wants-what');
+  assert.doesNotMatch(builder, /field_key\}/, 'a field key is printed into the card again');
   assert.match(builder, /post: \{ decision: 'apply' \}/);
   assert.match(builder, /post: \{ decision: 'decline' \}/);
 });

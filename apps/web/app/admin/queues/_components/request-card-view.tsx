@@ -49,7 +49,7 @@ const when = (iso: string): string => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? manilaD
 
 function Picture({ url, alt, label }: { url: string | null; alt: string; label: string }) {
   return (
-    <figure className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+    <figure className="flex min-w-0 flex-col items-center gap-1.5">
       <span
         className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-[12px] border"
         style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-paper)' }}
@@ -216,8 +216,8 @@ export function RequestCardView({
       <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[color:var(--sn-ink-500)]">
         {card.who || card.at ? (
           <span>
-            {card.who ? `Asked by ${card.who}` : 'Asked'}
-            {card.at ? ` · ${when(card.at)}` : ''}
+            {card.who ? `Asked by ${card.who}` : 'Since'}
+            {card.at ? `${card.who ? ' · ' : ' '}${when(card.at)}` : ''}
           </span>
         ) : null}
         {card.shopHref ? (

@@ -69,7 +69,7 @@ test('no money gate reads the advisory table', () => {
 });
 
 test('the approval predicate is computed without the verdict', () => {
-  const page = stripComments(read('app/admin/payments/page.tsx'));
+  const page = stripComments((read('app/admin/payments/page.tsx') + '\n' + read('app/admin/payments/_components/desk.tsx')));
   // The page DOES read the table (to render the card) and DOES compute
   // `decisive`. Pin that the two never meet: the decisive expression must not
   // mention the reads map.

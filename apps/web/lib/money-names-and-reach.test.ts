@@ -84,7 +84,7 @@ test('WIRED: the couple order page, the supplier fee page and the admin card pri
     assert.doesNotMatch(s, /\{p\.channel\}\s*\n?\s*\{p\.reference/, `${rel} prints the raw channel id`);
     assert.doesNotMatch(s, /·\s*\{p\.channel\}/, `${rel} prints the raw channel id`);
   }
-  const admin = src('app/admin/payments/page.tsx');
+  const admin = (src('app/admin/payments/page.tsx') + '\n' + src('app/admin/payments/_components/desk.tsx'));
   assert.match(admin, /channelLabel\(channelSettings, p\.channel\)/, 'the admin payments card must name the account');
   assert.doesNotMatch(admin, /value=\{p\.channel\}/, 'the admin payments card prints the raw channel id');
 });

@@ -4024,7 +4024,11 @@
         "LaunchOfferActionState",
         "LaunchOfferNumbersForm",
         "PageMasthead",
-        "Result"
+        "Result",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/live-studio-channels": {
@@ -4085,7 +4089,6 @@
         "ConsoleTable",
         "KpiStatCard",
         "Link",
-        "MobileLandingGrid",
         "RevenueSummary",
         "Row",
         "Suspense",
@@ -4267,6 +4270,8 @@
     "/admin/payments": {
       "files": [
         "admin/payments/_components/batch-approve-controls.tsx",
+        "admin/payments/_components/desk.tsx",
+        "admin/payments/_components/form-date.tsx",
         "admin/payments/_components/inbox-matcher.tsx",
         "admin/payments/_components/remedy-reason-row.tsx",
         "admin/payments/actions.ts",
@@ -4274,11 +4279,7 @@
         "admin/payments/page.tsx"
       ],
       "destinations": [
-        "/admin/accounts?tab=events&q=[seg]",
-        "/admin/payments/supplier-refunds",
-        "/admin/payments?filter=[seg]",
-        "/admin/payments?filter=[seg]${platform ?",
-        "/admin/payments?filter=[seg]${target ?"
+        "/admin/accounts?tab=events&q=[seg]"
       ],
       "actions": [
         "action",
@@ -4293,20 +4294,30 @@
       "blocks": [
         "BatchApproveBar",
         "BatchApproveCheckbox",
+        "CalendarDay",
         "CelebrationLine",
         "ConfirmForm",
+        "DateRow",
+        "DeskHead",
         "DeskMoneyBlock",
+        "DeskNums",
+        "DeskNumsRead",
         "DuplicateExposureResult",
-        "FilterChip",
+        "Fold",
+        "FormDate",
+        "FormPick",
         "FormRows",
         "HTMLInputElement",
         "InboxMatcher",
         "Link",
+        "LinkPickMenu",
+        "OpenedPayment",
         "OrderEventInfoResult",
         "OrdersNeedingQuote",
         "PageMasthead",
+        "PaymentRow",
         "PaymentsList",
-        "PlatformChip",
+        "PendingDecision",
         "ProofImage",
         "ReadFailedNotice",
         "ReceiptReadCard",
@@ -4315,8 +4326,13 @@
         "RefundForm",
         "RemedyReasonRow",
         "ServiceRemedyForms",
-        "Stat",
         "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TypedRow"
       ]
     },
@@ -4326,15 +4342,19 @@
         "admin/payments/supplier-refunds/supplier-refunds-view.tsx"
       ],
       "destinations": [
-        "/admin/payments"
+        "/admin/approvals"
       ],
       "actions": [],
       "blocks": [
         "ConsoleTable",
-        "KpiStatCard",
-        "Link",
         "PageMasthead",
-        "SupplierRefundsView"
+        "SupplierRefundsView",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/payouts": {

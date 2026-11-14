@@ -2,9 +2,15 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { CLIENT_REFUND_SELECT } from '@/lib/client-refunds';
-import { SUPPLIER_REFUNDS_ROW_LIMIT as ROW_LIMIT, SupplierRefundsView, type SupplierRefundRow } from './supplier-refunds-view';
+import {
+  SUPPLIER_REFUNDS_ROW_LIMIT as ROW_LIMIT,
+  SupplierRefundsView,
+  type OurRefundRow,
+  type SupplierRefundRow,
+  type WaitingRefundRow,
+} from './supplier-refunds-view';
 
-export const metadata = { title: 'Supplier refunds · Admin' };
+export const metadata = { title: 'Refunds · Admin' };
 export const dynamic = 'force-dynamic';
 
 /**
@@ -52,8 +58,77 @@ export default async function AdminSupplierRefundsPage() {
     ((eventsRes.data ?? []) as { event_id: string; display_name: string | null }[]).map((e) => [e.event_id, e.display_name?.trim() || null]),
   );
 
+  // ── Money › Refunds (admin drawing 2026-11-13): our OWN refunds and the large ones waiting, beside the suppliers'. ──
+  const [oursRes, waitingRes] = await Promise.all([
+    admin
+      .from('order_refunds')
+      .select('refund_id, order_id, refund_amount_centavos, reason, refunded_at, proof_url, order:orders(public_id)')
+      .order('refunded_at', { ascending: false })
+      .limit(ROW_LIMIT),
+    admin
+      .from('admin_approval_requests')
+      .select('approval_id, target_id, payload, rationale, expires_at')
+      .eq('action_type', 'approve_large_refund')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+      .limit(50),
+  ]);
+  if (oursRes.error) logQueryError('AdminRefunds (ours)', oursRes.error);
+  if (waitingRes.error) logQueryError('AdminRefunds (waiting)', waitingRes.error);
+  const ours: OurRefundRow[] | null = oursRes.error
+    ? null
+    : ((oursRes.data ?? []) as unknown as Array<{
+        refund_id: string;
+        order_id: string;
+        refund_amount_centavos: number;
+        reason: string;
+        refunded_at: string;
+        proof_url: string | null;
+        order: { public_id: string } | null;
+      }>).map((r) => ({
+        refundId: r.refund_id,
+        orderId: r.order_id,
+        orderPublicId: r.order?.public_id ?? null,
+        amountPhp: Number(r.refund_amount_centavos) / 100,
+        reason: r.reason,
+        refundedAt: r.refunded_at,
+        proofAttached: Boolean(r.proof_url),
+      }));
+  // The waiting rows name their order by its public id — one narrow read, best-effort (the amount is the point).
+  const waitingRaw = waitingRes.error
+    ? null
+    : ((waitingRes.data ?? []) as Array<{
+        approval_id: string;
+        target_id: string | null;
+        payload: { amount_php?: unknown } | null;
+        rationale: string | null;
+        expires_at: string | null;
+      }>);
+  const waitingOrderIds = [...new Set((waitingRaw ?? []).map((w) => w.target_id).filter((t): t is string => Boolean(t)))];
+  const waitingOrders = waitingOrderIds.length
+    ? await admin.from('orders').select('order_id, public_id').in('order_id', waitingOrderIds)
+    : { data: [], error: null };
+  if (waitingOrders.error) logQueryError('AdminRefunds (waiting order ids)', waitingOrders.error);
+  const publicIdOf = new Map(
+    ((waitingOrders.data ?? []) as { order_id: string; public_id: string }[]).map((o) => [o.order_id, o.public_id]),
+  );
+  const waiting: WaitingRefundRow[] | null = waitingRaw
+    ? waitingRaw.map((w) => {
+        const amount = Number(w.payload?.amount_php);
+        return {
+          approvalId: w.approval_id,
+          orderPublicId: (w.target_id && publicIdOf.get(w.target_id)) || null,
+          amountPhp: Number.isFinite(amount) && amount > 0 ? amount : null,
+          reason: w.rationale,
+          expiresAt: w.expires_at,
+        };
+      })
+    : null;
+
   return (
     <SupplierRefundsView
+      ours={ours}
+      waiting={waiting}
       rows={rows}
       readError={error}
       shopName={shopName}

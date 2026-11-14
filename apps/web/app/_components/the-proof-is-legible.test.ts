@@ -85,7 +85,8 @@ test('the shared proof picture is big, uncropped, and openable full size', () =>
  * The number is the point: it is what a deletion trips.
  */
 const PROOF_SURFACES: ReadonlyArray<readonly [string, number, string]> = [
-  ['app/admin/payments/page.tsx', 1, 'admin reconciles a Setnayan-checkout payment'],
+  // The desk draws from `_components/desk.tsx` since the admin Money drawing (2026-11-14) — the opened payment.
+  ['app/admin/payments/_components/desk.tsx', 1, 'admin reconciles a Setnayan-checkout payment'],
   ['app/admin/disputes/_components/deposit-disputes-section.tsx', 1, 'admin rules on a refused deposit'],
   ['app/admin/force-majeure/[flagId]/page.tsx', 1, 'admin handles a force-majeure flag'],
   ['app/vendor-dashboard/clients/[eventId]/page.tsx', 3, 'the supplier before/after confirming'],

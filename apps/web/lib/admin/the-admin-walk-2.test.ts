@@ -23,7 +23,13 @@ test('F-A-16 · a Problems line is plain words: no code names, no placeholders, 
     assert.doesNotMatch(l, /vendor/i, l);
     assert.doesNotMatch(l, /\[|\]|_|database refused|rpc|[a-z][A-Z]/, l);
   }
-  assert.match(lines[0]!, /^Saving the supplier cocktail editor .* — could not save/);
+  // A `get_…` call is a read even when it is POSTed and filed as a refused write — never "Saving … get".
+  assert.match(lines[0]!, /^Loading the supplier cocktail editor .* — could not load/);
+  assert.doesNotMatch(lines[0]!, /Saving|get\b/);
+  assert.match(
+    problemLine({ ...day, kind: 'DB_WRITE_REFUSED', action: 'POST rpc/save_vendor_cocktail_editor', label: null, page: null }),
+    /^Saving the supplier cocktail editor — could not save/,
+  );
   assert.match(lines[1]!, /^Loading the supplier profiles .* — could not load/);
   assert.match(lines[2]!, /^Refresh bottleneck signals on admin — did not work/);
   assert.match(lines[3]!, /^Submit for … button/);

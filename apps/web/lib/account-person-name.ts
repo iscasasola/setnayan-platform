@@ -1,3 +1,5 @@
+import { realNameOrNull } from '@/lib/no-name';
+
 /**
  * 👤 THE NAME A GROUP SHOWS FOR AN ACCOUNT (walk 13 Nov 2026, P1 — "both members are labelled Member").
  *
@@ -18,8 +20,9 @@ export const ACCOUNT_NAME_COLUMNS = 'display_name, first_name, last_name';
 
 export function accountPersonName(r: AccountNameRow | null | undefined): string | null {
   if (!r) return null;
-  const shown = (r.display_name ?? '').trim();
+  // Walk 14 Nov 2026: a stored stand-in ("Someone —") is no name — `realNameOrNull` drops it, so the group falls
+  // through to the account's own first + last name, and only then to the caller's neutral word.
+  const shown = realNameOrNull(r.display_name);
   if (shown) return shown;
-  const joined = [r.first_name, r.last_name].map((p) => (p ?? '').trim()).filter(Boolean).join(' ');
-  return joined || null;
+  return realNameOrNull([r.first_name, r.last_name].map((p) => (p ?? '').trim()).filter(Boolean).join(' '));
 }

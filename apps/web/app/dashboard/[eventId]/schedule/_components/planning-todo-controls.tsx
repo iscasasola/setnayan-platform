@@ -21,6 +21,7 @@ import { ScheduleSheet, SheetField, SheetFoot } from './schedule-sheet';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { formatCount } from '@/lib/format-number';
+import { formatRecordedAt } from '@/lib/recorded-at';
 
 // ── Tick ────────────────────────────────────────────────────────────────
 
@@ -97,7 +98,10 @@ export function PlanningTick({
 
 function prettyDay(iso: string | null): string {
   if (!iso) return 'No date yet';
-  return new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const day = formatRecordedAt(iso);
+  if (!day) return iso;
+  const weekday = new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+  return `${weekday}, ${day}`;
 }
 
 export function TaskDateButton({

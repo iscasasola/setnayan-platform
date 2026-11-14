@@ -100,15 +100,27 @@ function actionWords(action: string): string {
 /** A read call's name opens with one of these; anything else saves. */
 const READ_VERB = /^(get|list|read|fetch|count|search|find|load|lookup)\b\s*/i;
 
-/** "GET event_vendors" → "Loading event suppliers"; "POST rpc/get_vendor_cocktail_editor" → "Loading the supplier cocktail editor". */
-function dataWords(action: string, kind: string): string {
+const WRITE_VERB = /^(set|save|upsert|insert|update|create|delete|add|remove)\b\s*/i;
+
+/**
+ * "GET event_vendors" → "Loading the event suppliers"; "POST rpc/get_vendor_cocktail_editor" → "Loading the supplier
+ * cocktail editor". The call's OWN verb wins: a `get_…` function is a read even though it travels as a POST and the
+ * fault was filed as a refused write — "Saving to get …" was nonsense on the owner's screen (walk, 14 Nov).
+ */
+function dataWords(action: string, kind: string): { subject: string; reads: boolean } {
   const method = /^([A-Z]+)\s+/.exec(action)?.[1] ?? '';
   const target = plainWords(action.replace(/^[A-Z]+\s+/, '').replace(/^rpc\//, '')).toLowerCase();
-  // The fault's own kind says read or save when it knows; otherwise the method and the call's name do.
-  const reads =
-    kind === 'DB_READ_REFUSED' ? true : kind === 'DB_WRITE_REFUSED' ? false : /^(GET|HEAD)$/.test(method) || READ_VERB.test(target);
-  const what = target.replace(READ_VERB, '').replace(/^(set|save|upsert|insert|update|create|delete|add|remove)\b\s*/i, '');
-  return `${reads ? 'Loading' : 'Saving'} ${what ? `the ${what}` : 'data'}`;
+  const reads = READ_VERB.test(target)
+    ? true
+    : WRITE_VERB.test(target)
+      ? false
+      : kind === 'DB_READ_REFUSED'
+        ? true
+        : kind === 'DB_WRITE_REFUSED'
+          ? false
+          : /^(GET|HEAD)$/.test(method);
+  const what = target.replace(READ_VERB, '').replace(WRITE_VERB, '');
+  return { subject: `${reads ? 'Loading' : 'Saving'} ${what ? `the ${what}` : 'data'}`, reads };
 }
 
 const DEAD_END_WORDS: Record<string, string> = {
@@ -140,6 +152,7 @@ export function oneIn(failures: number | undefined, successes: number | undefine
 export function problemLine(i: ProblemLineInput): string {
   const where = pageName(i.page);
   let subject: string;
+  let outcome = kindWords(i.kind);
   if (i.kind === 'DEAD_END') {
     const reason = /^(not_found|forwarded|missing_section)\b/.exec(i.action)?.[1] ?? 'not_found';
     const rawTo = /\s(\S+)\s←/.exec(i.action)?.[1];
@@ -155,13 +168,16 @@ export function problemLine(i: ProblemLineInput): string {
     const l = plainWords(i.label);
     subject = /\b(button|link)$/i.test(l) ? l : `${l} button`;
   } else if (i.kind.startsWith('DB_')) {
-    subject = dataWords(i.action, i.kind);
+    const d = dataWords(i.action, i.kind);
+    subject = d.subject;
+    // A refused read or write says the one that actually happened — never "Loading … — could not save".
+    if (i.kind === 'DB_READ_REFUSED' || i.kind === 'DB_WRITE_REFUSED') outcome = d.reads ? 'could not load' : 'could not save';
   } else if (i.action.includes('#')) {
     subject = actionWords(i.action);
   } else {
     subject = plainWords(i.action);
   }
-  const head = `${subject}${where && !subject.includes(where) ? ` on ${where}` : ''} — ${kindWords(i.kind)}`;
+  const head = `${subject}${where && !subject.includes(where) ? ` on ${where}` : ''} — ${outcome}`;
   return tail(head, i);
 }
 

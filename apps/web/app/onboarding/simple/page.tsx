@@ -16,7 +16,7 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { CREATION_ASKS, resolveSetupSteps } from '@/lib/onboarding/flow-config';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 
-export const metadata = { title: 'Create a Simple Event' };
+export const metadata = { title: 'Plan a get-together' };
 
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';

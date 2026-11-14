@@ -12,6 +12,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { readGroupPeople, type GroupPersonKind } from '@/lib/chat-groups';
 import { groupChat } from '../actions';
 import { GroupNameRow } from './_components/group-name-row';
+import { realNameOrNull } from '@/lib/no-name';
 
 export const metadata = { title: 'New group', robots: { index: false, follow: false } };
 
@@ -48,7 +49,7 @@ export default async function NewGroupPage({ searchParams }: { searchParams: Pro
                 <label className="flex min-h-[48px] items-center gap-3 py-1">
                   <input type="checkbox" name="person" value={p.user_id} className="h-5 w-5 shrink-0" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] text-ink">{p.name ?? p.first_name ?? 'Someone'}</span>
+                    <span className="block truncate text-[15px] text-ink">{realNameOrNull(p.name) ?? realNameOrNull(p.first_name) ?? 'A guest'}</span>
                     <span className="block text-[12px] text-ink/55">{KIND_WORD[p.kind]}</span>
                   </span>
                 </label>

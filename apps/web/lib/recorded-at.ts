@@ -40,5 +40,7 @@ export function formatRecordedAt(iso: string | null | undefined): string | null 
   if (!iso || !iso.trim()) return null;
   const ms = Date.parse(iso);
   if (!Number.isFinite(ms)) return null;
-  return FMT.format(new Date(ms));
+  // en-GB's CLDR short month for September is "Sept" on current ICU; every other
+  // day-first date in the app writes three letters ("14 Sep 2026").
+  return FMT.format(new Date(ms)).replace(/\bSept\b/, 'Sep');
 }

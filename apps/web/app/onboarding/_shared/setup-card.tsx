@@ -207,14 +207,15 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
               value={answers.look}
               options={view.looks.map((l) => ({
                 key: l.id,
+                // Walk 14 Nov 2026: ONE list — the ◆ on a name marks Pro. Group heads split it around "Free" (and
+                // carried the retired plan name), so there are none.
                 label: l.pro ? `${l.name} ◆` : l.name,
-                ...(view.skin === 'wedding' ? { group: l.pro ? 'Event Hub Pro ◆' : 'Free' } : {}),
               }))}
               onPick={(key) => onChange({ look: key })}
               dataAttr="data-setup-look"
             />
             {view.looks.some((l) => l.pro) ? (
-              <p className="mt-2 text-xs text-ink/50">◆ Pro — try it now; you pay only when you apply it.</p>
+              <p className="mt-2 text-xs text-ink/50">◆ Event Pro — try it now; you pay only when you apply it.</p>
             ) : null}
           </>
         ) : null}

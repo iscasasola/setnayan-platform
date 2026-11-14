@@ -212,7 +212,7 @@ export function SampleShopPage({
                   </section>
                 ) : null}
                 <div className="py-6">
-                  <ShopCanDoPanel checkHref={null} hasPackages={false} />
+                  <ShopCanDoPanel hasPackages={false} />
                 </div>
               </div>
             ) : null}

@@ -70,7 +70,7 @@ test('every message the old toast said is still said', () => {
   assert.equal((del.match(/guestToast\.error\(/g) ?? []).length, 4, 'a delete / undo refusal is no longer said');
   assert.match(del, /Could not undo — refresh and try again\./);
   assert.match(del, /Could not delete — check your connection and try again\./);
-  assert.match(SITES.find(([n]) => n === 'guests-screen.tsx')![1], /toast\.info\('Everyone selected is already invited'\)/);
+  assert.match(SITES.find(([n]) => n === 'guests-screen.tsx')![1], /toast\.info\('Nobody selected still needs an invitation'\)/);
   const regen = SITES.find(([n]) => n.endsWith('regenerate-qr-button.tsx'))![1];
   assert.match(regen, /toast\.error\(plainRefusal\(result\.error, /);
   assert.match(regen, /toast\.success\('New invite QR ready\. Share the fresh link with your guests\.'\)/);

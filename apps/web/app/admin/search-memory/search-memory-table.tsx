@@ -16,7 +16,7 @@ const LEARNED_STYLE: Record<'ai' | 'admin', string> = {
 
 function formatWhen(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 export function SearchMemoryTable({

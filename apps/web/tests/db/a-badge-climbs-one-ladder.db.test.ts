@@ -177,7 +177,7 @@ test('3 · 💎 Black Diamond mints the REAL Event Ultra: claimed once, given on
   const ultraUser = await newUser('ladder-ultra@test.test', 'vendor');
   const ultraShop = await shopOf(ultraUser, 'Tala Lights');
   await db.query(
-    `UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = NOW() WHERE vendor_profile_id = $1`,
+    `UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = NOW(), public_visibility = 'verified' WHERE vendor_profile_id = $1`,
     [ultraShop],
   );
 
@@ -267,9 +267,10 @@ test('3 · 💎 Black Diamond mints the REAL Event Ultra: claimed once, given on
 
 test('4 · the five-star count follows the public stars: booked 5★ only, never a self-review; service_role only', async () => {
   const count = () => one<number>(`SELECT public.shop_trusted_five_star_count($1) AS v`, [shop]);
-  // A marketplace booking needs a bookable (verified) shop — the same seed a-review-keeps-its-receipt uses.
+  // A marketplace booking needs a bookable shop — verified AND listed (a hidden shop takes no booking since
+  // 20271346561709) — the same seed a-review-keeps-its-receipt uses.
   await db.query(
-    `UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = NOW() WHERE vendor_profile_id = $1`,
+    `UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = NOW(), public_visibility = 'verified' WHERE vendor_profile_id = $1`,
     [shop],
   );
   assert.equal(await count(), 0);
@@ -309,7 +310,7 @@ test('5 · 💎 a GIFTED Ultra is FULL Ultra: 12-month originals and canvas; a g
   const giftUser = await newUser('ladder-full-ultra@test.test', 'vendor');
   const giftShop = await shopOf(giftUser, 'Sinag Films');
   await db.query(
-    `UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = NOW() WHERE vendor_profile_id = $1`,
+    `UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = NOW(), public_visibility = 'verified' WHERE vendor_profile_id = $1`,
     [giftShop],
   );
   // One earned Ultra (the t7 door) and one Pro unit in stock.

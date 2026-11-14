@@ -21,7 +21,9 @@
  */
 
 import { useState, useTransition } from 'react';
-import { Check, Link2, Loader2, Package as PackageIcon } from 'lucide-react';
+import { Check, Link2, Package as PackageIcon } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { updateHostServiceDetails } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
 import { ServicesCoveredPicker } from '@/app/dashboard/[eventId]/_components/services-covered-picker';
@@ -90,27 +92,21 @@ export function HostServiceDetails({
   }
 
   return (
-    <section
-      aria-labelledby="included-heading"
-      className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
-    >
-      <h2
-        id="included-heading"
-        className="mb-1 flex items-center gap-2 font-display text-lg italic text-ink"
-      >
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 1 · 2 · 3 · 7 · 13 · 15): no card and no serif heading — the section's
+    // grey capitals, each explaining line behind its ⓘ, the shared pill to save (grey while it saves, no spinner).
+    <section aria-labelledby="included-heading">
+      <h2 id="included-heading" className="mb-3 mt-[18px] flex items-center gap-2">
         <PackageIcon aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-        What&apos;s included
+        <InfoTip label="What’s included" labelAs="span" labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70" align="start">
+          You booked them outside Setnayan — describe the package so your plan stays complete.
+        </InfoTip>
       </h2>
-      <p className="mb-4 text-xs text-ink/55">
-        You booked them outside Setnayan — describe the package so your plan
-        stays complete.
-      </p>
 
       <label
         htmlFor="host-inclusions"
-        className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65"
+        className="block text-[13px] font-semibold text-ink"
       >
-        Inclusions <span className="font-normal normal-case text-ink/45">(one per line)</span>
+        Inclusions <span className="font-normal text-ink/70">(one per line)</span>
       </label>
       <textarea
         id="host-inclusions"
@@ -125,13 +121,12 @@ export function HostServiceDetails({
         disabled={pending}
       />
 
-      <p className="mt-4 flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
-        <Link2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
-        What services does this cover
-      </p>
-      <p className="mt-1 text-[11px] leading-snug text-ink/55">
-        Pick every category {displayName ? `${displayName} handles` : 'they handle'} — one
-        booking, one price, counted once across all of them.
+      <p className="mt-4 flex items-center gap-1.5">
+        <Link2 aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.9} />
+        <InfoTip label="What services does this cover" labelAs="span" labelClassName="text-[13px] font-semibold text-ink" align="start">
+          Pick every category {displayName ? `${displayName} handles` : 'they handle'} — one booking, one price, counted
+          once across all of them. Covered categories show on your shortlist card as &ldquo;✓ comes with&rdquo;.
+        </InfoTip>
       </p>
       <div className="mt-2">
         <ServicesCoveredPicker
@@ -152,31 +147,24 @@ export function HostServiceDetails({
           move={{ vendorId, name: displayName?.trim() || 'This supplier', claimAsk }}
         />
       </div>
-      <p className="mt-1.5 text-[11px] text-ink/45">
-        Covered categories show on your shortlist card as &ldquo;✓ comes
-        with&rdquo; — so you remember this package has them handled.
-      </p>
 
       {err ? (
-        <p role="alert" className="mt-3 text-[11px] text-danger-900">
+        <p role="alert" className="mt-3 text-[13px] text-[rgb(var(--color-danger))]">
           {err}
         </p>
       ) : null}
 
       <div className="mt-4 flex items-center gap-3">
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          main
+          icon={Check}
+          label={pending ? 'Saving…' : 'Save details'}
           onClick={onSave}
-          disabled={pending}
-          className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-mulberry px-4 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-60"
-        >
-          {pending ? (
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-          ) : null}
-          {pending ? 'Saving…' : 'Save details'}
-        </button>
+          waiting={pending}
+        />
         {saved ? (
-          <span className="inline-flex items-center gap-1 text-xs text-success-800">
+          <span className="inline-flex items-center gap-1 text-[13px] text-success-800">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
             Saved — your card and Compare are up to date.
           </span>

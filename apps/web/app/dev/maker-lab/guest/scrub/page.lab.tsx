@@ -1,4 +1,4 @@
-import MakerLabGuestPage from '../page';
+import MakerLabGuestPage from '../page.lab';
 
 /**
  * /dev/maker-lab/guest/scrub — the lab's canvas on its Scrub chain (`../../lab-scrub.ts`): the SAME page as

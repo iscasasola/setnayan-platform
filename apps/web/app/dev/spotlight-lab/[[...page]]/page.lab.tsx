@@ -2,10 +2,10 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import HomeLab from '@/app/dev/home-lab/page';
-import GuestsLabPage from '@/app/dev/guests-lab/page';
-import SuppliersLabPage from '@/app/dev/suppliers-lab/page';
-import SupplierLabPage from '@/app/dev/supplier-lab/page';
+import HomeLab from '@/app/dev/home-lab/page.lab';
+import GuestsLabPage from '@/app/dev/guests-lab/page.lab';
+import SuppliersLabPage from '@/app/dev/suppliers-lab/page.lab';
+import SupplierLabPage from '@/app/dev/supplier-lab/page.lab';
 import { NewThingTile } from '@/app/_components/collection-card';
 import { FinishedEventSummary } from '@/app/dashboard/[eventId]/_components/after/finished-event-summary';
 import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';

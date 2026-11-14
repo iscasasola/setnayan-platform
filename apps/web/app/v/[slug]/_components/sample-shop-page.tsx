@@ -186,7 +186,7 @@ export function SampleShopPage({
                 </div>
                 {d.verified ? (
                   <>
-                    <ShopReachMap reach={d.reach} latitude={SAMPLE.lat} longitude={SAMPLE.lng} city={SAMPLE.city} />
+                    <ShopReachMap reach={d.reach} latitude={SAMPLE.lat} longitude={SAMPLE.lng} city={SAMPLE.city} mapHref={null} />
                     <ShopAddresses setnayanAddress={SAMPLE.setnayanAddress} ownAddress={d.ownAddress} />
                   </>
                 ) : null}
@@ -264,7 +264,7 @@ export function SampleShopPage({
                   <p className="text-sm text-ink/70">
                     <ShopReachLine reach={d.reach} city={SAMPLE.city} />
                   </p>
-                  <ShopReachMap reach={d.reach} latitude={SAMPLE.lat} longitude={SAMPLE.lng} city={SAMPLE.city} />
+                  <ShopReachMap reach={d.reach} latitude={SAMPLE.lat} longitude={SAMPLE.lng} city={SAMPLE.city} mapHref={null} />
                 </section>
               </div>
             )}

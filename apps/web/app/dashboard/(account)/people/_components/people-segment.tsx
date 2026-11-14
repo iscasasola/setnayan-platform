@@ -91,7 +91,17 @@ const FENCE_ERROR = PEOPLE_ERROR_WORDS;
  * name search was built NOT to be — or bulk-emailing strangers who never asked.
  * A button that opens neither is a fake door.
  */
-export type PeopleSearch = { error?: string; saved?: string; removed?: string; view?: string; person?: string; left?: string; archived?: string };
+export type PeopleSearch = {
+  error?: string;
+  saved?: string;
+  removed?: string;
+  view?: string;
+  person?: string;
+  left?: string;
+  archived?: string;
+  /** 🙋 `?ask=<group id>` — a Group's "Ask someone from People" (walk 13 Nov, F-W3-11): the list opens ready to pick. */
+  ask?: string;
+};
 
 /**
  * 🏠 PEOPLE, A SECTION OF HOME (owner 11 Nov 2026, "One profile page approve" — DECISION_LOG "HOME PAGE v3 APPROVED").
@@ -272,6 +282,7 @@ export async function PeopleSegment({
           initialFilter={view === 'requests' ? 'asking' : 'all'}
           focus={view === 'alaga' ? 'alaga' : null}
           openPerson={onList ? personParam : null}
+          askInto={sp.ask && roster.mySamahan.some((s) => s.id === sp.ask) ? sp.ask : null}
           extra={[
             ...(lovedOnes
               ? [{ key: 'alaga' as const, label: 'Loved ones', count: roster.counts.alaga, node: lovedOnes }]

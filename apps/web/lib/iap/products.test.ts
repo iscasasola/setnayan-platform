@@ -255,13 +255,13 @@ test('🗑 Setnayan AI is sold by no product (2026-11-04) — the tier lookup an
   assert.equal(iapPriceRowFor(iapProductForServiceKey('PAKANTA')!), 'PAKANTA', 'a product with no tier is checked against its own code');
 });
 
-test('💝 the nine supplier gift products exist, are unique, and are NOT sellable through the couple path', () => {
+test('💝 the eight supplier gift products exist, are unique, and are NOT sellable through the couple path', () => {
   assert.deepEqual(
     IAP_SUPPLIER_GIFT_PRODUCTS.map((p) => p.serviceKey),
-    ['PAPIC_GUEST_150', 'PAPIC_GUEST_1K', 'PAPIC_GUEST', 'EVENT_PLUS', COUPLE_WEBSITE_PRO_SERVICE_KEY, 'EVENT_ULTRA', 'LIVE_STUDIO', 'PAKANTA', 'PATIKTOK_COMPILER'],
+    ['PAPIC_GUEST_150', 'PAPIC_GUEST_1K', 'PAPIC_GUEST', 'EVENT_PLUS', COUPLE_WEBSITE_PRO_SERVICE_KEY, 'LIVE_STUDIO', 'PAKANTA', 'PATIKTOK_COMPILER'],
   );
   const ids = IAP_SUPPLIER_GIFT_PRODUCTS.map((p) => p.productId);
-  assert.equal(new Set(ids).size, 9); // 💎 + gift_event_ultra (owner 2026-11-13)
+  assert.equal(new Set(ids).size, 8);
   for (const id of ids) {
     // A couple must never reach the gift price: no gift id is asked of StoreKit or resolved for a purchase.
     assert.equal(IAP_PRODUCT_IDS.includes(id), false, `${id} is in the sellable list`);

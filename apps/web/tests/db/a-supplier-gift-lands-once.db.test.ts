@@ -92,7 +92,7 @@ async function status(shop: string, except: string | null = null): Promise<{ bal
 
 async function statusOf(
   shop: string,
-  kind: 'papic' | 'event_plus' | 'event_pro' | 'event_ultra',
+  kind: 'papic' | 'event_plus' | 'event_pro',
   except: string | null = null,
 ): Promise<{ balance: number; held: number }> {
   const r = await db.query<{ balance: number; held: number }>(
@@ -317,24 +317,22 @@ test('4 · 🚨 RLS: own stock only; strangers read nothing; no session writes o
 /* ═══ 5 · 💎 EVENT PLUS / EVENT PRO ═══════════════════════════════════════ */
 
 type UnlockDoor = { status: string; given?: Array<{ gift_kind: string; unlocks_sku: string }>; already_has?: number; short?: number };
-async function deliverUnlocks(eventVendorId: string, eventHas: 'none' | 'plus' | 'pro' | 'ultra'): Promise<UnlockDoor> {
+async function deliverUnlocks(eventVendorId: string, eventHas: 'none' | 'plus' | 'pro'): Promise<UnlockDoor> {
   return one<UnlockDoor>(`SELECT public.shop_gift_deliver_unlocks_for_booking($1, $2) AS v`, [eventVendorId, eventHas]);
 }
 
-async function unlockStock(shop: string, kind: 'event_plus' | 'event_pro' | 'event_ultra', units: number): Promise<void> {
+async function unlockStock(shop: string, kind: 'event_plus' | 'event_pro', units: number): Promise<void> {
   await db.query(
     `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind) VALUES ($1, $2, $3, 'bought')`,
     [shop, kind, units],
   );
 }
 
-async function addUnlockLine(proposalId: string, shop: string, code: 'EVENT_PLUS' | 'COUPLE_WEBSITE_PRO' | 'EVENT_ULTRA'): Promise<void> {
-  const kind = code === 'EVENT_PLUS' ? 'event_plus' : code === 'EVENT_ULTRA' ? 'event_ultra' : 'event_pro';
-  const title = code === 'EVENT_PLUS' ? 'Event Plus' : code === 'EVENT_ULTRA' ? 'Event Ultra' : 'Event Pro';
+async function addUnlockLine(proposalId: string, shop: string, code: 'EVENT_PLUS' | 'COUPLE_WEBSITE_PRO'): Promise<void> {
   await db.query(
     `INSERT INTO public.vendor_proposal_shop_gifts (proposal_id, vendor_profile_id, service_code, gift_kind, credits, srp_php, title)
      VALUES ($1, $2, $3, $4, 1, 2990, $5)`,
-    [proposalId, shop, code, kind, title],
+    [proposalId, shop, code, code === 'EVENT_PLUS' ? 'event_plus' : 'event_pro', code === 'EVENT_PLUS' ? 'Event Plus' : 'Event Pro'],
   );
 }
 
@@ -440,72 +438,4 @@ test('5 · 💎 Event Plus / Pro: one each, unlocks the event once, a second Plu
     await db.exec(`RESET ROLE`);
     await setAuthUid(db, null);
   }
-});
-
-/* ═══ 6 · 💎 EVENT ULTRA (owner 2026-11-13: "Gifting Ultra: yes" · on a Plus/Pro event "Gives full Ultra") ══════ */
-
-test('6 · 💎 Event Ultra: a fourth kind; full Ultra on a Pro event, with what Ultra grants; an Ultra event takes nothing', async () => {
-  const userD = await newUser('shop-d-gifts@test.test', 'vendor');
-  const shopD = await shopOf(userD, 'Gift Shop D');
-  await unlockStock(shopD, 'event_ultra', 2);
-  assert.deepEqual(await statusOf(shopD, 'event_ultra'), { balance: 2, held: 0 });
-
-  // An Ultra gift reaching an event that already holds Event Pro gives FULL Ultra (owner's ruling).
-  const b = await bookingWithQuote(shopD, 'accepted', 0);
-  await addUnlockLine(b.proposalId, shopD, 'EVENT_ULTRA');
-  assert.deepEqual(await statusOf(shopD, 'event_ultra'), { balance: 2, held: 1 });
-  await pay(b.eventVendorId);
-  const given = await deliverUnlocks(b.eventVendorId, 'pro');
-  assert.equal(given.status, 'ok');
-  assert.deepEqual((given.given ?? []).map((g) => g.unlocks_sku), ['EVENT_ULTRA']);
-
-  // A gifted Ultra answers for what Ultra grants (lib/event-ultra.ts EVENT_ULTRA_GRANTS) — the app's aliases read
-  // orders only, so without this a gifted Ultra would unlock nothing but its own name.
-  for (const sku of ['EVENT_ULTRA', 'COUPLE_WEBSITE_PRO', 'LIVE_STUDIO', 'PATIKTOK_COMPILER']) {
-    assert.equal(await hasComp(b.eventId, sku), true, `a gifted Ultra does not unlock ${sku}`);
-  }
-  assert.equal(await hasComp(b.eventId, 'PAKANTA'), false, 'Ultra never grants Music Maker (staff-made)');
-  assert.deepEqual(
-    [...(await compSkus(b.eventId))].sort(),
-    ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA', 'LIVE_STUDIO', 'PATIKTOK_COMPILER'],
-  );
-  // What buying it does: AI on, and the included credits topped up to ULTRA's own row.
-  assert.equal(await one<boolean>(`SELECT setnayan_ai_active AS v FROM public.events WHERE event_id = $1`, [b.eventId]), true);
-  assert.equal(await planIncluded(b.eventId), await includedOf('EVENT_ULTRA'));
-  assert.deepEqual(await statusOf(shopD, 'event_ultra'), { balance: 1, held: 0 });
-
-  // An event that already holds Ultra takes nothing — not Ultra, not Pro, not Plus; the units stay the shop's.
-  await unlockStock(shopD, 'event_pro', 1);
-  const hasUltra = await bookingWithQuote(shopD, 'accepted', 0);
-  await addUnlockLine(hasUltra.proposalId, shopD, 'EVENT_ULTRA');
-  await addUnlockLine(hasUltra.proposalId, shopD, 'COUPLE_WEBSITE_PRO');
-  await pay(hasUltra.eventVendorId);
-  const skipped = await deliverUnlocks(hasUltra.eventVendorId, 'ultra');
-  assert.equal(skipped.status, 'nothing_to_give');
-  assert.equal(skipped.already_has, 2);
-  assert.equal((await statusOf(shopD, 'event_ultra')).balance, 1);
-  assert.equal((await statusOf(shopD, 'event_pro')).balance, 1);
-
-  // 🏅 A badge reward may be an Event Ultra (a KIND — no step pays it yet, lib/badge-rewards.ts); it lands as one unit.
-  const r = await one<{ status: string }>(
-    `SELECT public.shop_badge_reward_grant($1, 'ultra-probe', 'events', 'event_ultra', 1, NULL, NULL) AS v`,
-    [shopD],
-  );
-  assert.equal(r.status, 'granted');
-  assert.equal((await statusOf(shopD, 'event_ultra')).balance, 2);
-  const reward = (await db.query<{ gift_kind: string; earned: number }>(
-    `SELECT gift_kind, earned FROM public.shop_gift_reward_stock_status($1) WHERE gift_kind = 'event_ultra'`,
-    [shopD],
-  )).rows[0];
-  assert.equal(Number(reward?.earned), 1);
-
-  // 📦 A gifted Ultra keeps originals as long as a bought one: the clock reads the gift's row too.
-  const keep = Number(
-    await one<string>(
-      `SELECT COALESCE(fullres_extra_keep_days, 0)::text AS v FROM public.platform_retail_catalog_v2 WHERE service_code = 'EVENT_ULTRA'`,
-    ),
-  );
-  assert.ok(keep > 0, 'the Ultra row keeps originals longer');
-  const clockSrc = await one<string>(`SELECT pg_get_functiondef('public.papic_events_past_fullres_clock(integer,integer)'::regprocedure) AS v`);
-  assert.match(clockSrc, /shop_gift_stock_entries/, 'the originals clock does not read a gifted plan');
 });

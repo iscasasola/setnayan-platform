@@ -43,7 +43,7 @@ const PACKS = shopGiftPacksFrom([
 ]);
 
 /** What is free to offer, per kind — Papic credits, then Event Plus and Event Pro counts. */
-const F = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra });
+const F = (papic: number, event_plus = 0, event_pro = 0) => ({ papic, event_plus, event_pro });
 
 const UNLOCKS = shopGiftPacksFrom([
   ...[
@@ -158,7 +158,7 @@ describe('💎 Event Plus and Event Pro (slice 2)', () => {
     const ok = judgeQuoteGifts(['EVENT_PLUS', 'PAPIC_GUEST_150'], UNLOCKS, big, BOOKING_FEE, LIMIT, F(150, 1));
     assert.equal(ok.state, 'ok');
     assert.equal(ok.credits, 150, 'Papic credits only');
-    assert.deepEqual(ok.unlocks, { event_plus: 1, event_pro: 0, event_ultra: 0 });
+    assert.deepEqual(ok.unlocks, { event_plus: 1, event_pro: 0 });
   });
   it('count toward the 40% limit at the price couples pay', () => {
     const v = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], UNLOCKS, 100_000_00, BOOKING_FEE, LIMIT, F(0, 0, 1));

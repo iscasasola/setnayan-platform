@@ -41,7 +41,7 @@
  */
 'use client';
 
-import { EVENT_DATE_FLOOR_MESSAGE, FIRST_EVENT_DAY, eventDateMinFor } from '@/lib/event-date-floor';
+import { EVENT_DATE_FLOOR_MESSAGE, EVENT_DATE_FLOOR_ON, FIRST_EVENT_DAY, eventDateMinFor } from '@/lib/event-date-floor';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import './date-calendar.css';
 import { CalendarRange, ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide-react';
@@ -248,7 +248,7 @@ export function DateCalendar({
   /* The floor disabled a day in view: a normal account, the floor still ahead of today, and the floor's own month on
      screen past its 1st (months before it cannot be reached — Previous stops at `atMin`). */
   const floorInView =
-    sayFloor && !dateExempt && toISO(minD) === FIRST_EVENT_DAY && atMin && minD.getDate() > 1;
+    EVENT_DATE_FLOOR_ON && sayFloor && !dateExempt && toISO(minD) === FIRST_EVENT_DAY && atMin && minD.getDate() > 1;
   const atMax = view.y === maxD.getFullYear() && view.m === maxD.getMonth();
 
   /* push captured values up (persist + Phase-4 commit). */

@@ -39,8 +39,30 @@ import {
   type Point,
 } from '@/lib/scratch-card';
 
-const CHAMPAGNE = ['#B8935A', '#E2C58E', '#C9A26A', '#F3DFB2', '#B08A50'];
-const DUST = ['#F3D9A8', '#E2C58E', '#C9A26A', '#FFF4D6'];
+/**
+ * The cover's colours are the app's own gold + champagne ramps (globals.css `--ramp-*`, space-separated
+ * RGB triples that flip under `html.dark`), read off the root when drawing — a canvas cannot take a CSS
+ * variable, and a hand-typed hex here would be a second, undrifting copy of the palette.
+ * Fallbacks are the light-theme triples, for the odd moment the stylesheet is not there yet.
+ */
+const COVER_STOPS: Array<[token: string, fallback: string]> = [
+  ['--ramp-champagne-deep', '168 131 64'],
+  ['--ramp-gold-300', '203 167 102'],
+  ['--ramp-champagne', '197 160 89'],
+  ['--ramp-gold-100', '243 236 223'],
+  ['--ramp-gold-deep', '138 107 57'],
+];
+const DUST_STOPS: Array<[token: string, fallback: string]> = [
+  ['--ramp-gold-100', '243 236 223'],
+  ['--ramp-gold-300', '203 167 102'],
+  ['--ramp-champagne', '197 160 89'],
+];
+
+/** `rgb(r g b)` for each token, read from the document root (so dark mode is honoured). */
+function tokenColours(stops: Array<[string, string]>): string[] {
+  const css = typeof document !== 'undefined' ? getComputedStyle(document.documentElement) : null;
+  return stops.map(([token, fallback]) => `rgb(${css?.getPropertyValue(token).trim() || fallback})`);
+}
 const MEASURE_EVERY_MS = 150;
 const FADE_MS = 400;
 const SHEEN_PERIOD_MS = 3200;
@@ -128,7 +150,8 @@ export function ScratchCard({
       return;
     }
     const g = c.createLinearGradient(0, 0, w, h);
-    CHAMPAGNE.forEach((col, i) => g.addColorStop(i / (CHAMPAGNE.length - 1), col));
+    const stops = tokenColours(COVER_STOPS);
+    stops.forEach((col, i) => g.addColorStop(i / (stops.length - 1), col));
     c.fillStyle = g;
     c.fillRect(0, 0, w, h);
     // brushed-metal grain: fine light and dark flecks, seeded per size so a redraw looks the same
@@ -314,6 +337,7 @@ export function ScratchCard({
     scratched.current = true;
     last.current = to;
     if (dust && !reduceRef.current) {
+      const dustColours = tokenColours(DUST_STOPS);
       for (const p of pointsAlong(from, to, 14)) {
         if (dustParts.current.length > 160) break;
         dustParts.current.push({
@@ -323,7 +347,7 @@ export function ScratchCard({
           vy: -0.6 - Math.random() * 1.2,
           r: 0.8 + Math.random() * 1.6,
           life: 30 + Math.random() * 30,
-          color: DUST[Math.floor(Math.random() * DUST.length)]!,
+          color: dustColours[Math.floor(Math.random() * dustColours.length)]!,
         });
       }
     }

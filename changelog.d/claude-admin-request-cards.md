@@ -21,8 +21,8 @@ reason select already reading "Too close to another shop's name" on a LOGO reque
   (`requestPaymentResubmit`, `rejectRequest`, `rejectAppeal`, subscriptions' reject now needs a listed reason).
 - A card press returns to Work with the row still open; every outcome and refusal is said (`asked`, `kept`,
   `declined-request` added to the notices).
-- Guard `app/admin/work/request-cards-say-it-plainly.test.ts` (5 tests, 5 sabotages measured red). Lab:
-  `/dev/admin-request-cards-lab`. Shots: `docs/review/admin-request-cards/`.
+- Guard `app/admin/work/request-cards-say-it-plainly.test.ts` (5 tests, 5 sabotages measured red). Shots of the real
+  card on sample rows at 390 and 1280: `docs/review/admin-request-cards/` (typed fields since moved onto `TypedRow`).
 
 SPEC IMPACT: None to locked decisions. Two wordings differ from the drawing and need the owner's eye: the logo reason
 "has a phone number, link or **amount** on it" (the drawing said "price"; a shipped guard forbids the word on any

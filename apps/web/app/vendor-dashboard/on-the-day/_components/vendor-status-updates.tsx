@@ -28,7 +28,8 @@
  */
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
-import { Check, Loader2, MessageSquare, Radio } from 'lucide-react';
+import { Check, Loader2, MessageSquare, Radio, Send } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 import {
   VENDOR_STATUS_PRESETS,
@@ -124,8 +125,8 @@ export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
   return (
     <div>
       <h2 className="sn-sec">Report to the coordinator</h2>
-      <div className="sn-tile mt-3 p-4 sm:p-6">
-        <p className="flex items-center gap-2 text-sm text-ink/65">
+      <div className="mt-3">
+        <p className="flex items-center gap-2 text-sm text-[color:var(--m-slate-2)]">
           <Radio aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
           One tap tells the coordinator where you are. They see it on their floor inbox
           straight away.
@@ -142,38 +143,36 @@ export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
             const justSent = sentKey === preset.key;
             const urgent = preset.kind === 'issue';
             return (
-              <button
+              <ActionButton
                 key={preset.key}
-                type="button"
+                tone={urgent ? 'warn' : 'neutral'}
                 onClick={() => send(preset.key)}
                 disabled={pending}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition disabled:opacity-40 ${
-                  urgent
-                    ? 'border-warn-600/30 bg-warn-600/5 text-warn-600 hover:bg-warn-600/10'
-                    : 'border-ink/15 bg-white text-ink/80 hover:border-terracotta hover:text-ink'
-                }`}
-              >
-                {justSent ? (
-                  <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-                ) : pending ? (
-                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-                ) : null}
-                {justSent ? 'Sent' : preset.label}
-              </button>
+                icon={
+                  justSent ? (
+                    <Check aria-hidden strokeWidth={2.5} />
+                  ) : pending ? (
+                    <Loader2 aria-hidden className="animate-spin" strokeWidth={1.75} />
+                  ) : (
+                    <Radio aria-hidden strokeWidth={1.75} />
+                  )
+                }
+                label={justSent ? 'Sent' : preset.label}
+              />
             );
           })}
         </div>
 
         {/* Anything the six buttons cannot say. */}
-        <div className="mt-4 border-t border-ink/10 pt-4">
+        <div className="mt-4 border-t border-[color:var(--m-line)] pt-4">
           <label
             htmlFor="day-note"
-            className="flex items-center gap-2 text-sm font-medium text-ink/80"
+            className="flex items-center gap-2 text-sm font-medium text-ink"
           >
             <MessageSquare aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
             Something else?
           </label>
-          <p className="mt-0.5 text-xs text-ink/55">
+          <p className="mt-0.5 text-[13px] text-[color:var(--m-slate-2)]">
             Type it and the coordinator sees it on their floor inbox with your name on it.
           </p>
           <textarea
@@ -186,17 +185,19 @@ export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
             className="mt-2 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none disabled:opacity-40"
           />
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
+            <ActionButton
+              tone="info"
               onClick={sendNote}
               disabled={pending || note.trim().length === 0}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2 text-sm font-medium text-cream transition hover:bg-mulberry-600 disabled:opacity-40"
-            >
-              {pending ? (
-                <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-              ) : null}
-              Send to the coordinator
-            </button>
+              icon={
+                pending ? (
+                  <Loader2 aria-hidden className="animate-spin" strokeWidth={1.75} />
+                ) : (
+                  <Send aria-hidden strokeWidth={1.75} />
+                )
+              }
+              label="Send to the coordinator"
+            />
             {noteSent && !pending ? (
               <span className="inline-flex items-center gap-1 text-xs text-ink/55">
                 <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -207,7 +208,7 @@ export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
         </div>
 
         {rows.length > 0 ? (
-          <ul className="mt-4 space-y-1.5 border-t border-ink/10 pt-4">
+          <ul className="mt-4 space-y-1.5 border-t border-[color:var(--m-line)] pt-4">
             {rows.slice(0, 5).map((row) => (
               <li key={row.request_id} className="flex items-center gap-2 text-sm">
                 <span
@@ -223,7 +224,7 @@ export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
                 >
                   {row.body}
                 </span>
-                <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
+                <span className="shrink-0 text-xs text-[color:var(--m-slate-2)]">
                   {statusLabel(row.status)}
                 </span>
               </li>

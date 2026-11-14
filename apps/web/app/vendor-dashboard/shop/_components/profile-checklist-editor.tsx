@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Check } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
 
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 import { EditableRow, RequestOnlyRow, ServiceCoverageRow, type ProfileFieldData } from './editable-row';
@@ -97,10 +98,14 @@ export function ProfileChecklistEditor({
           />
         </div>
         {pct < 100 ? (
-          <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            Fix each item right here — a complete profile is what lets couples see and contact
-            you, and it&rsquo;s what unlocks getting verified.
-          </p>
+          <InfoTip
+            label="Fix each item right here."
+            labelAs="p"
+            labelClassName="text-[13px] text-[color:var(--m-slate-2)]"
+            align="start"
+          >
+            A complete profile is what lets couples see and contact you, and it&rsquo;s what unlocks getting verified.
+          </InfoTip>
         ) : (
           <p
             className="inline-flex items-center gap-1 text-xs font-medium"

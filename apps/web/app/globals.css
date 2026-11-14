@@ -273,6 +273,65 @@
      * `box-shadow: 0 1px 0 var(--sn-hair)` (class `sn-pin-hair`), never a `border-b`. 🔒
      * app/vendor-dashboard/no-cut-line-under-a-pinned-row.test.ts */
     --sn-hair: rgb(44 42 41 / 0.08);
+
+    /* ── THE TOKEN LAYER (14 Nov 2026 · docs/design-token-map.md, owner: "keep house names") ──────────────────
+     * One home for the shape, size and type values the app types by hand today, so a restyle edits a token,
+     * not 7,000 class strings. Every value below EQUALS what ships now — nothing reads them yet except
+     * where noted, and wiring a component to them moves no pixel.
+     *
+     * 🔑 WHAT IS NOT HERE ON PURPOSE — button COLOURS. They come from `--sn-decision`, `--color-mulberry`,
+     * `--color-ink`, `--color-cream`, which a hub theme / `[data-art]` / Admin › Colours re-point on their
+     * own scope. A `:root` alias resolves ONCE at the root and would freeze those scopes (the trap above).
+     * Colour hooks are read at the USE SITE with today's expression as the fallback, e.g.
+     * `var(--sn-btn-primary-bg, rgb(var(--sn-decision, var(--color-mulberry))))`, and declared nowhere.
+     * Colour tokens HERE read only sources declared on :root + html.dark alone (both on <html>, so dark
+     * re-resolves correctly). */
+    /* buttons — shape */
+    --sn-btn-min-height: 44px;          /* the touch floor every <button> gets (rule below: `min-height: 44px`) */
+    --sn-btn-height: 40px;              /* ActionButton — the 40 px pill (THE BUTTON RULE 2026-10-07) */
+    --sn-btn-height-lg: 44px;           /* .button-primary / .button-secondary (h-11) — 44 vs 40 is an open owner call */
+    --sn-btn-icon-size: 44px;           /* round icon buttons (h-11 rounded-full) */
+    --sn-btn-radius: var(--m-r-full);   /* pill */
+    --sn-btn-radius-rect: var(--m-r-sm);/* .button-primary outside .app-surface (rounded-md) */
+    /* frames — joins --sn-frame-bg/-radius/-shadow above */
+    --sn-frame-line: var(--m-line);     /* .sn-tile / .sn-row edge */
+    --sn-frame-padding: 18px;           /* .sn-tile padding */
+    --sn-frame-shadow-tile: 0 1px 3px rgba(30, 26, 18, 0.06); /* .sn-tile's hairline lift (.sn-row has none) */
+    /* the sheet — the one floating surface */
+    --sn-sheet-radius: var(--m-r-lg);   /* rounded-t-2xl */
+    --sn-sheet-shadow: 0 -30px 80px -40px rgba(26, 26, 26, 0.4);
+    --sn-sheet-shadow-side: -30px 0 80px -40px rgba(26, 26, 26, 0.4);
+    --sn-sh-hair: 0 1px 2px rgba(40, 34, 24, 0.06);
+    /* semantic colour — root-only sources */
+    --sn-surface-soft: var(--m-paper-2);
+    --sn-text-muted: var(--m-slate-2);
+    /* border widths */
+    --sn-border-w: 1px;
+    --sn-border-w-strong: 1.5px;        /* tick boxes, picked outlines */
+    --sn-border-w-edge: 3px;            /* the "needs action" edge (template sheet rule 11) */
+    /* spacing — template sheet rule 14 (4 · 8 · 12 · 16 · 24) */
+    --sn-space-1: 4px;
+    --sn-space-2: 8px;
+    --sn-space-3: 12px;
+    --sn-space-4: 16px;
+    --sn-space-5: 24px;
+    /* tap heights + icon boxes */
+    --sn-tap-md: 48px;
+    --sn-tap-lg: 52px;
+    --sn-tap-xl: 56px;
+    --sn-icon-sm: 18px;
+    --sn-icon-md: 22px;
+    /* type scale — the exact sizes the app types as text-[Npx]; half-pixel sizes are NOT here (merging them is a restyle) */
+    --sn-fs-3xs: 9px;
+    --sn-fs-2xs: 10px;
+    --sn-fs-xs: 11px;
+    --sn-fs-sm: 12px;
+    --sn-fs-md: 13px;
+    --sn-fs-base: 14px;
+    --sn-fs-lg: 15px;
+    --sn-fs-xl: 17px;
+    --sn-fs-2xl: 19px;
+    --sn-fs-3xl: 22px;
   }
 
   html.dark {
@@ -341,6 +400,12 @@
     --sn-cat-asked: 240 130 90;        /* #F0825A */
     --sn-cat-collect: 217 138 192;     /* #D98AC0 */
     --sn-hair: rgb(251 250 247 / 0.1);
+    /* The token layer's shadows: the SAME as light, because the classes they name are not mode-aware today
+       (pixel-identical). Giving dark its own shadow is a restyle call, not this one. */
+    --sn-frame-shadow-tile: 0 1px 3px rgba(30, 26, 18, 0.06);
+    --sn-sheet-shadow: 0 -30px 80px -40px rgba(26, 26, 26, 0.4);
+    --sn-sheet-shadow-side: -30px 0 80px -40px rgba(26, 26, 26, 0.4);
+    --sn-sh-hair: 0 1px 2px rgba(40, 34, 24, 0.06);
   }
 
   /*
@@ -3458,11 +3523,12 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 :root {
   /* paper & ink */
   --sn-paper:      #FBFAF7;
-  --sn-surface:    #FFFFFF;
-  --sn-hairline:   #EDE8DE;
-  --sn-line:       #E1DCD1;
+  /* = their --m-* twins in BOTH themes, so they point there (token layer 14 Nov 2026): one value, one home. */
+  --sn-surface:    var(--m-paper);
+  --sn-hairline:   var(--m-line-soft);
+  --sn-line:       var(--m-line);
   --sn-ink-300:    #A09A8E;
-  --sn-ink-500:    #6E6A62;
+  --sn-ink-500:    var(--m-slate-2);
   --sn-ink-700:    #3A382F;
   --sn-ink-900:    #1B1A17;
   --sn-ink-black:  #17160F;
@@ -3529,8 +3595,8 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-mono: var(--font-space-mono), ui-monospace, monospace;
 
   /* radius */
-  --sn-r-sm: 6px;  --sn-r-md: 10px;  --sn-r-lg: 14px;
-  --sn-r-xl: 18px; --sn-r-pill: 999px;
+  --sn-r-sm: 6px;  --sn-r-md: 10px;  --sn-r-lg: var(--m-r-md); /* 14 = --m-r-md */
+  --sn-r-xl: 18px; --sn-r-pill: var(--m-r-full);
 
   /* elevation (warm, never grey) */
   --sn-sh-sm: 0 1px 2px rgba(30,26,18,.06);
@@ -3689,12 +3755,12 @@ html.dark {
      `lib/every-colour-token-has-a-dark-pair.test.ts`: the `--sn-ob-*` obsidian
      surface (dark in both themes) and the `--sn-glass-dark-*` glass over photos. */
   --sn-paper:      #1E1C15;
-  --sn-surface:    #232019;
-  --sn-hairline:   rgba(251,250,247,.10);
-  --sn-line:       rgba(251,250,247,.16);
+  --sn-surface:    var(--m-paper);       /* #232019 in dark */
+  --sn-hairline:   var(--m-line-soft);   /* rgba(251,250,247,.10) */
+  --sn-line:       var(--m-line);        /* rgba(251,250,247,.16) */
   --sn-ink-300:    #7E796F;
   --sn-ink-400:    #9A958C;
-  --sn-ink-500:    #B3AEA3;
+  --sn-ink-500:    var(--m-slate-2);     /* #B3AEA3 */
   --sn-ink-700:    #D6D1C7;
   --sn-ink-900:    #FBFAF7;
   /* The ink ON a light-gold fill (`.sn-btn-on-ink`): the gold stays light in dark, so this stays dark. */

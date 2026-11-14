@@ -613,7 +613,7 @@ export function DetailsWorkspace({
                     </span>
                   ) : null}
                 </span>
-                <span className="block w-full truncate border-t border-ink/10 px-1 py-1.5 text-center text-[11.5px] font-semibold text-ink">{i.label}</span>
+                <span className="block w-full truncate border-t border-ink/10 px-1 py-1.5 text-center text-[12px] font-semibold text-ink">{i.label}</span>
               </button>
               );
             })}
@@ -725,7 +725,7 @@ export function DetailsWorkspace({
         <section
           aria-label={`${current.label} — preview`}
           data-details-body=""
-          className={`relative order-1 flex min-h-0 flex-1 flex-col overscroll-contain bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] lg:order-2 ${
+          className={`relative order-1 flex min-h-0 flex-1 flex-col overscroll-contain bg-[radial-gradient(120%_90%_at_50%_0%,rgb(var(--color-terracotta)/.10),transparent_60%)] lg:order-2 ${
             layout === 'flow' ? 'overflow-y-auto px-4 py-5 sm:px-6' : 'overflow-hidden'
           } ${stagePreviewed ? 'max-lg:overflow-hidden max-lg:p-0' : ''}`}
         >
@@ -762,12 +762,12 @@ export function DetailsWorkspace({
                     </div>
                   ) : detailsItemLayout(i.key) === 'flow' ? (
                     <header className="flex flex-col gap-0.5" data-details-body-head="">
-                      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                      <p className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
                         {groups.find((g) => g.items.some((x) => x.key === i.key))?.label}
                       </p>
-                      <h2 className="font-serif text-2xl text-ink">{bodyLabel(i)}</h2>
+                      <h2 className="text-xl font-semibold text-ink">{bodyLabel(i)}</h2>
                       {i.usedOn?.length ? (
-                        <p className="text-xs text-ink/60" data-details-used-on={i.key}>
+                        <p className="text-xs text-ink/70" data-details-used-on={i.key}>
                           Used on {i.usedOn.join(' · ')}
                         </p>
                       ) : null}
@@ -775,9 +775,9 @@ export function DetailsWorkspace({
                   ) : (
                     /* A page that moved in keeps its room: one line, not a masthead. */
                     <header className="flex shrink-0 flex-wrap items-baseline gap-x-2 px-4 pb-1 pt-2.5 sm:px-6" data-details-body-head="">
-                      <h2 className="font-serif text-lg text-ink">{bodyLabel(i)}</h2>
+                      <h2 className="text-[17px] font-semibold text-ink">{bodyLabel(i)}</h2>
                       {i.usedOn?.length ? (
-                        <p className="text-xs text-ink/60" data-details-used-on={i.key}>
+                        <p className="text-xs text-ink/70" data-details-used-on={i.key}>
                           Used on {i.usedOn.join(' · ')}
                         </p>
                       ) : null}
@@ -822,7 +822,7 @@ export function DetailsWorkspace({
             {plan && !guidedOn ? <WhatsLeftDoor label={whatsLeftLine} onOpen={openGuide} /> : null}
             {navGroups.map((g) => (
               <li key={g.key} className="contents" data-details-nav-group={g.key}>
-                <p className="hidden px-2 pb-1 pt-3 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/50 lg:block">{g.label}</p>
+                <p className="hidden px-2 pb-1 pt-3 text-[12px] uppercase tracking-[0.18em] text-ink/70 lg:block">{g.label}</p>
                 <ul className="contents">
                   {g.items.map((i) => {
                     const on = i.key === selected;
@@ -853,8 +853,8 @@ export function DetailsWorkspace({
                             ) : null}
                           </span>
                           <span className="flex min-w-0 flex-col">
-                            <span className="line-clamp-1 text-[11.5px] font-medium leading-tight lg:truncate lg:text-[13.5px]">{i.label}</span>
-                            {i.sub ? <small className="hidden truncate text-[11.5px] text-ink/55 lg:block">{i.sub}</small> : null}
+                            <span className="line-clamp-1 text-[12px] font-medium leading-tight lg:truncate lg:text-[13.5px]">{i.label}</span>
+                            {i.sub ? <small className="hidden truncate text-[12px] text-ink/70 lg:block">{i.sub}</small> : null}
                           </span>
                         </button>
                         {on && pieces[i.key] ? (
@@ -968,7 +968,7 @@ export function DetailsWorkspace({
                 type="button"
                 data-details-guide-progress=""
                 onClick={openGuide}
-                className="sn-press inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-terracotta-700/10 px-3 font-mono text-[11.5px] tracking-[0.04em] text-terracotta-800"
+                className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-terracotta-700/10 px-3 text-[12px] tracking-[0.04em] text-terracotta-800"
               >
                 {whatsLeftLine}
               </button>
@@ -982,7 +982,7 @@ export function DetailsWorkspace({
               current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? shownLabel}
             />
           </div>
-          <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{formGroup ? formGroup.label : (current.panelLabel ?? current.label)}</p>
+          <p className="hidden px-4 pt-4 text-[17px] font-semibold text-ink lg:block">{formGroup ? formGroup.label : (current.panelLabel ?? current.label)}</p>
           {/* 🎠 Studio › Prints: the editors stay mounted but hidden — the carousel is what shows. */}
           {editorsBody(studioPrints)}
           {studioPrints && formGroup ? <StudioTool part="prints-carousel" items={formGroup.items} at={selected} onSelect={select} /> : null}

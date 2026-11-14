@@ -89,7 +89,7 @@ export function ItemPieces({ item, pieces }: { item: DetailsItemKey; pieces: rea
         <DetailsPieceButton key={p.key} on={p.key === current} onPick={() => setPicked(p.key, { openEditor: true })} data={p.key}>
           <span className="flex min-w-0 flex-col">
             <span className="truncate">{typed[p.key]?.label ?? p.label}</span>
-            {(typed[p.key]?.sub ?? p.sub) ? <small className="truncate text-[11px] opacity-70">{typed[p.key]?.sub ?? p.sub}</small> : null}
+            {(typed[p.key]?.sub ?? p.sub) ? <small className="truncate text-[12px] opacity-70">{typed[p.key]?.sub ?? p.sub}</small> : null}
           </span>
         </DetailsPieceButton>
       ))}

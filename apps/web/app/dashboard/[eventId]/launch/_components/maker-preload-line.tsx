@@ -50,10 +50,10 @@ export function MakerPreloadLine({ progress }: { progress: PreloadProgress | nul
       aria-hidden
       data-maker-preload={finished ? (f === 1 ? 'done' : 'short') : 'loading'}
       data-maker-preload-fraction={f.toFixed(3)}
-      className={`pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden transition-opacity delay-300 duration-500 motion-reduce:transition-none ${finished ? 'opacity-0' : 'opacity-100'}`}
+      className={`pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden transition-opacity delay-300 duration-sn-elem motion-reduce:transition-none ${finished ? 'opacity-0' : 'opacity-100'}`}
     >
       <div
-        className="h-full w-full origin-left bg-ink/35 transition-transform duration-300 ease-out motion-reduce:transition-none"
+        className="h-full w-full origin-left bg-ink/35 transition-transform duration-sn-elem ease-sn-out motion-reduce:transition-none"
         style={{ transform: `scaleX(${f})` }}
       />
     </div>

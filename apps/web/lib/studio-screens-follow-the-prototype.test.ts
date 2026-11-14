@@ -68,7 +68,7 @@ test('1 · no Tool row and no Done band: the top bar says where you are — the 
   /* 🔁 UPDATED ON PURPOSE 2026-11-11 (Build 6 Lane F): Studio is gone — a risen editor's bar is ✕ · its name (prototype
      frames M2–M8), and ✕ goes back to the stage. */
   const head = await html(React.createElement(parts.StageSwitch, { side: 'studio', stage: 'rsvp', editor: { key: page.key, label: page.label, full: true }, onClose: () => {} }));
-  assert.match(head, /aria-label="Close Love Story"[^>]*data-stage-editor-close=""/);
+  assert.match(head, /<button(?=[^>]*aria-label="Close Love Story")(?=[^>]*data-stage-editor-close="")/);
   assert.match(head, /data-stage-editor-title=""[^>]*>Love Story<\/h1>/);
   assert.doesNotMatch(head, /Studio/, 'the bar still says Studio');
   assert.doesNotMatch(head, /data-maker-studio-tool|data-maker-studio-done|uppercase|Saved/, 'the head still carries the old Tool ▾, ✓ Done or a Saved chip');

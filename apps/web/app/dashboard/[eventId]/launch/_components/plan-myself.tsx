@@ -1,5 +1,7 @@
 import { setPlanningMode } from '@/app/dashboard/[eventId]/actions';
 import { PLAN_MYSELF_LABEL } from '@/lib/plan-myself';
+import { InfoTip } from '@/app/_components/info-tip';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
@@ -22,13 +24,13 @@ const HELP = ['Supplier matching', 'Deadlines', 'Reminders'] as const;
 /** The middle: what the switch turns on and off, in plain words. */
 export function PlanMyselfBody({ on }: { on: boolean | null }) {
   return (
-    <div className="sn-tile w-full max-w-sm p-5" data-plan-myself-body="">
-      <p className="text-sm font-semibold text-ink">The automatic help</p>
-      <ul className="mt-3 divide-y divide-ink/5">
+    <div className="w-full max-w-sm" data-plan-myself-body="">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink/70">The automatic help</p>
+      <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10">
         {HELP.map((h) => (
-          <li key={h} className="flex items-center justify-between py-2 text-sm">
-            <span className="text-ink/75">{h}</span>
-            <span className="font-medium text-ink/60">{on === null ? '—' : on ? 'Off' : 'On'}</span>
+          <li key={h} className="flex min-h-14 items-center justify-between text-[15px]">
+            <span className="font-semibold text-ink">{h}</span>
+            <span className="font-medium text-ink/70">{on === null ? '—' : on ? 'Off' : 'On'}</span>
           </li>
         ))}
       </ul>
@@ -39,7 +41,7 @@ export function PlanMyselfBody({ on }: { on: boolean | null }) {
 /** The right: the one switch. */
 export function PlanMyselfSwitch({ eventId, on }: { eventId: string; on: boolean | null }) {
   if (on === null) {
-    return <p className="text-sm text-ink/60">Could not load this. Refresh the page to try again.</p>;
+    return <p role="status" className="text-sm text-warn-800">Couldn&rsquo;t check this &mdash; not the same as off. Refresh the page to try again.</p>;
   }
   return (
     <SafeForm action={setPlanningMode} className="flex flex-col gap-3" data-plan-myself="">
@@ -48,29 +50,18 @@ export function PlanMyselfSwitch({ eventId, on }: { eventId: string; on: boolean
       <input type="hidden" name="mode" value={on ? 'guided' : 'manual'} />
       {/* The profile page's switch, as it is (`profile/page.tsx` — a server form, no JS). */}
       <div className="flex items-center justify-between gap-4">
-        <span id="plan-myself-label" className="text-sm font-medium text-ink">
-          {PLAN_MYSELF_LABEL}
-        </span>
-        <button
-          type="submit"
-          role="switch"
-          aria-checked={on}
-          aria-labelledby="plan-myself-label"
-          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-            on ? 'bg-terracotta' : 'bg-ink/20'
-          }`}
+        <InfoTip
+          label={PLAN_MYSELF_LABEL}
+          labelId="plan-myself-label"
+          labelClassName="text-[15px] font-semibold text-ink"
+          align="start"
         >
-          <span
-            aria-hidden
-            className={`inline-block h-5 w-5 transform rounded-full bg-cream shadow transition-transform ${
-              on ? 'translate-x-[22px]' : 'translate-x-0.5'
-            }`}
-          />
+          On: Setnayan stops matching suppliers for you and stops deadline reminders. Free — turn it off any time.
+        </InfoTip>
+        <button type="submit" role="switch" aria-checked={on} aria-labelledby="plan-myself-label" className={SWITCH_BUTTON}>
+          <SwitchTrack on={on} />
         </button>
       </div>
-      <p className="text-[13px] text-ink/60">
-        On: Setnayan stops matching suppliers for you and stops deadline reminders. Free — turn it off any time.
-      </p>
     </SafeForm>
   );
 }

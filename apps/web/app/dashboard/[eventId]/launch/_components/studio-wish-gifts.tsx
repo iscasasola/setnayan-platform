@@ -59,7 +59,7 @@ import { FIELD, FOOT, LABEL, WishSheet } from './studio-wish-sheet';
  * imports no server action. Lazy: it rides the `maker-details` chunk.
  */
 
-const THUMB = 'flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-ink/10 bg-white px-0.5 text-center text-[10px] leading-tight text-ink/50';
+const THUMB = 'flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-ink/10 bg-white px-0.5 text-center text-[12px] leading-tight text-ink/70';
 
 /**
  * The small frame at the head of a row: a mark that a screenshot was added, or
@@ -70,7 +70,7 @@ function GiftThumb({ gift }: { gift: StudioWishGift }) {
     <span data-wish-gift-shot={gift.hasShot ? 'yes' : 'none'} className={THUMB}>
       {gift.hasShot ? (
         <>
-          <ShotGlyph aria-hidden className="h-5 w-5 text-ink/45" strokeWidth={1.6} />
+          <ShotGlyph aria-hidden className="h-5 w-5 text-ink/70" strokeWidth={1.6} />
           <span className="sr-only">screenshot added</span>
         </>
       ) : (
@@ -88,12 +88,12 @@ export function GiftRow({ gift, line, onOpen }: { gift: StudioWishGift; line: st
         <GiftThumb gift={gift} />
         <span className="flex min-w-0 flex-1 flex-col">
           <b className={`truncate text-[14.5px] font-semibold text-ink ${gift.removed ? 'line-through' : ''}`}>{gift.giverName}</b>
-          <span className="truncate text-[12.5px] text-ink/60">{line}</span>
+          <span className="truncate text-[12.5px] text-ink/70">{line}</span>
           {gift.message ? <em className="truncate text-[13px] text-ink/80">&ldquo;{gift.message}&rdquo;</em> : null}
         </span>
         <span className="flex shrink-0 flex-col items-end">
           <b className="text-[14.5px] font-semibold text-ink">{formatPhp(gift.amountPhp)}</b>
-          <small className="text-[11px] text-ink/50">{gift.removed ? 'removed' : 'sent'}</small>
+          <small className="text-[12px] text-ink/70">{gift.removed ? 'removed' : 'sent'}</small>
         </span>
       </button>
     </li>
@@ -111,9 +111,9 @@ export function GiftsSentDoor({ summary, onOpen }: { summary: string; onOpen: ()
     >
       <span className="flex min-w-0 flex-1 flex-col">
         <b className="text-[14.5px] font-semibold text-ink">{GIFTS_SENT_TITLE}</b>
-        <span className="text-[12.5px] text-ink/60">{summary}</span>
+        <span className="text-[12.5px] text-ink/70">{summary}</span>
       </span>
-      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={2} />
+      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={2} />
     </button>
   );
 }
@@ -142,13 +142,13 @@ export function GiftsSent({
   return (
     <div data-gifts-sent="" className="flex flex-col">
       <div className="flex items-start justify-between gap-3 pt-2">
-        <h3 className="font-display text-[22px] leading-tight text-ink">{GIFTS_SENT_TITLE}</h3>
+        <h3 className="text-xl font-semibold leading-tight text-ink">{GIFTS_SENT_TITLE}</h3>
         <button type="button" data-gifts-sent-done="" onClick={onDone} className={STUDIO_DONE_BUTTON}>
           <Check aria-hidden className="h-4 w-4" strokeWidth={2.4} />
           Done
         </button>
       </div>
-      <p className="flex flex-wrap items-center gap-x-1 pb-1 pt-1.5 text-[13.5px] leading-snug text-ink/65">
+      <p className="flex flex-wrap items-center gap-x-1 pb-1 pt-1.5 text-[13.5px] leading-snug text-ink/70">
         <span>
           {lead.before}
           {lead.sent ? <b className="font-semibold text-ink">{lead.sent}</b> : null}
@@ -167,7 +167,7 @@ export function GiftsSent({
       ) : null}
       {removed.length > 0 ? (
         <>
-          <p className="pt-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink/50">{GIFTS_REMOVED_HEAD}</p>
+          <p className="pt-3 text-[12px] font-semibold uppercase tracking-[0.2em] text-ink/70">{GIFTS_REMOVED_HEAD}</p>
           <ul data-gifts-removed-rows="" className="flex flex-col">
             {removed.map((g) => (
               <GiftRow key={g.id} gift={g} line={giftRowLine(g, wishes)} onOpen={() => onOpen(g.id)} />
@@ -175,7 +175,7 @@ export function GiftsSent({
           </ul>
         </>
       ) : null}
-      <p className="px-2 pb-1 pt-4 text-center text-[12.5px] leading-snug text-ink/55">{GIFTS_SENT_FOOT}</p>
+      <p className="px-2 pb-1 pt-4 text-center text-[12.5px] leading-snug text-ink/70">{GIFTS_SENT_FOOT}</p>
     </div>
   );
 }
@@ -267,7 +267,7 @@ export function OpenGift({
       onClose={() => void close()}
       pill={
         when ? (
-          <span data-gift-pill="" className="rounded-full bg-gild/15 px-2.5 py-0.5 text-[12px] font-medium text-ink/60">
+          <span data-gift-pill="" className="rounded-full bg-gild/15 px-2.5 py-0.5 text-[12px] font-medium text-ink/70">
             {when}
           </span>
         ) : null
@@ -302,7 +302,7 @@ export function OpenGift({
             />
           </>
         ) : (
-          <span className="px-4 py-6 text-center text-[13px] text-ink/55">{shot.state === 'loading' ? GIFT_SHOT_LOADING : GIFT_NO_SHOT}</span>
+          <span className="px-4 py-6 text-center text-[13px] text-ink/70">{shot.state === 'loading' ? GIFT_SHOT_LOADING : GIFT_NO_SHOT}</span>
         )}
       </div>
 
@@ -316,10 +316,10 @@ export function OpenGift({
         <>
           <div className="mt-4 border-t border-ink/10 pt-3">
             <label className={LABEL} htmlFor={`${id}-amount`}>
-              {GIFT_AMOUNT_LABEL} <small className="text-[12px] text-ink/50">{GIFT_AMOUNT_HINT}</small>
+              {GIFT_AMOUNT_LABEL} <small className="text-[12px] text-ink/70">{GIFT_AMOUNT_HINT}</small>
             </label>
             <span className="relative block">
-              <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 mt-[3px] -translate-y-1/2 text-[15px] text-ink/60">
+              <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 mt-[3px] -translate-y-1/2 text-[15px] text-ink/70">
                 ₱
               </span>
               <input
@@ -353,7 +353,7 @@ export function OpenGift({
         </>
       )}
 
-      <p className="pt-3.5 text-[12.5px] leading-snug text-ink/55">{GIFT_SHOT_IS_NOT_MONEY}</p>
+      <p className="pt-3.5 text-[12.5px] leading-snug text-ink/70">{GIFT_SHOT_IS_NOT_MONEY}</p>
       {refused ? (
         <p role="alert" data-gift-refused="" className="pt-2 text-[14px] text-terracotta-700">
           {refused}

@@ -111,7 +111,7 @@ export function HubStage({
     >
       <div className="space-y-4 p-5 sm:p-6">
         <p
-          className="font-mono text-[10px] font-bold uppercase tracking-[0.16em]"
+          className="text-[12px] font-bold uppercase tracking-[0.16em]"
           style={{ color: OB.gold }}
         >
           Your page · right now
@@ -164,12 +164,9 @@ export function HubStage({
           /* NOT "you have no page". We could not read the event, so we say
              exactly that and nothing more — and we draw NO frame, because a
              frame here would be a picture of a page we never confirmed. */
-          <div className="rounded-xl p-4 sm:p-5" style={{ backgroundColor: OB.card }}>
-            <p className="max-w-prose text-sm" style={{ color: OB.soft }}>
-              We could not reach your event just now, so we are not going to guess which page your
-              guests are seeing. Nothing has been lost.
-            </p>
-          </div>
+          <p role="status" className="py-2 text-sm font-semibold" style={{ color: OB.text }}>
+            We could not reach your event just now &mdash; not the same as no page. Nothing has been lost.
+          </p>
         )}
 
         <div className="flex flex-wrap gap-2">
@@ -233,7 +230,7 @@ export function HubStage({
         {facts.map((fact) => (
           <div key={fact.label} className="p-3.5" style={{ backgroundColor: OB.page }}>
             <dt
-              className="font-mono text-[9px] font-bold uppercase tracking-[0.14em]"
+              className="text-[12px] font-bold uppercase tracking-[0.14em]"
               style={{ color: OB.gold }}
             >
               {fact.label}
@@ -264,7 +261,7 @@ export function HubStageExample() {
             <b className="block text-[13px] font-semibold" style={{ color: OB.text }}>
               {SAMPLE_HUB.title}
             </b>
-            <span className="block text-[10px]" style={{ color: OB.soft }}>
+            <span className="block text-[12px]" style={{ color: OB.soft }}>
               {SAMPLE_HUB.line}
             </span>
           </div>
@@ -273,7 +270,7 @@ export function HubStageExample() {
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
         {SAMPLE_HUB.facts.map(([k, v]) => (
           <div key={k} className="p-1.5">
-            <dt className="font-mono text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: OB.gold }}>
+            <dt className="text-[12px] font-bold uppercase tracking-[0.14em]" style={{ color: OB.gold }}>
               {k}
             </dt>
             <dd className="mt-1 truncate text-[13px] font-medium" style={{ color: OB.text }}>

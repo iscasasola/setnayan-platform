@@ -39,12 +39,12 @@ function usePick(parents: readonly PersonPiece[], hosts: readonly HostPiece[], p
 
 export function PeoplePieces({ parents, hosts, parentsOffered }: { parents: readonly PersonPiece[]; hosts: readonly HostPiece[]; parentsOffered: boolean }) {
   const [pick, setPick] = usePick(parents, hosts, parentsOffered);
-  const heading = (t: string) => <p className="hidden px-1 pb-0.5 pt-2 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/50 lg:block">{t}</p>;
+  const heading = (t: string) => <p className="hidden px-1 pb-0.5 pt-2 text-[12px] uppercase tracking-[0.18em] text-ink/70 lg:block">{t}</p>;
   const row = (key: string, label: string, sub?: string) => (
     <DetailsPieceButton key={key} on={pick === key} onPick={() => setPick(key)} data={key}>
       <span className="flex min-w-0 flex-col">
         <span className="truncate">{label}</span>
-        {sub ? <small className="truncate text-[11px] opacity-70">{sub}</small> : null}
+        {sub ? <small className="truncate text-[12px] opacity-70">{sub}</small> : null}
       </span>
     </DetailsPieceButton>
   );
@@ -85,7 +85,7 @@ export function PeopleBody({
   const host = hosts.some((h) => h.key === pick);
   return (
     <div className="flex flex-col items-center gap-2" data-people-body={host ? 'host' : 'parent'}>
-      <p className="text-center text-xs text-ink/60">
+      <p className="text-center text-xs text-ink/70">
         {host ? 'Guests reply to your host on The Finer Details (“Kindly reply”).' : 'Parents print on The Invitation.'}
       </p>
       {host ? finer : invitation}
@@ -118,20 +118,20 @@ export function PeopleControls({
   if (host) {
     return (
       <section data-people-controls="host" className="flex flex-col gap-1.5">
-        <p className="font-serif text-lg text-ink">{host.label}</p>
+        <p className="text-[17px] font-semibold text-ink">{host.label}</p>
         <p className="text-sm text-ink/70">{host.contact ?? 'No number on their account yet.'}</p>
       </section>
     );
   }
   const parent = parents.find((p) => p.key === pick);
-  if (!parent) return <p className="text-sm text-ink/65">No hosts yet.</p>;
+  if (!parent) return <p className="text-sm text-ink/70">No hosts yet.</p>;
   const guestId = guestIds[parent.key] ?? null;
   return (
     <section data-people-controls="parent" className="flex flex-col gap-2">
       {guestId ? (
         <ParentCardDoor eventId={eventId} guestId={guestId} name={parent.name} />
       ) : (
-        <p className="text-sm text-ink/65">{parent.name} prints on the invitation, but is not on your guest list.</p>
+        <p className="text-sm text-ink/70">{parent.name} prints on the invitation, but is not on your guest list.</p>
       )}
     </section>
   );
@@ -149,7 +149,7 @@ function ParentCardDoor({ eventId, guestId, name }: { eventId: string; guestId: 
         className="sn-press flex min-h-11 items-center justify-between gap-2 rounded-md border border-ink/15 bg-white px-3 text-left text-sm text-ink hover:border-ink/30 dark:bg-raised"
       >
         <span className="truncate">{name}</span>
-        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
+        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={2} />
       </button>
       {open ? (
         <GuestCardSheet eventId={eventId} person={{ id: guestId, name }} open={SHIPPED_GUEST_CARD.invitation} onClose={() => setOpen(false)} />

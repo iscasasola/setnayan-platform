@@ -277,7 +277,7 @@ const PAINTED = /style=\{\{\s*background(?:Color)?:\s*[A-Za-z_][\w.]*(?:\s*\?\?\
  * must be a trigger of the one picker; add it here only with what it is.
  */
 const PAINTS: Record<string, [number, string]> = {
-  'launch/_components/hub-stage.tsx': [4, 'the Event Hub stage card’s own fixed surfaces (OB.page …) — no colour is picked'],
+  'launch/_components/hub-stage.tsx': [3, 'the Event Hub stage card’s own fixed surfaces (OB.page …) — no colour is picked'],
   'launch/_components/maker-logo.tsx': [1, 'the SHIPPED Maker’s logo inks (no Studio) — the new Maker draws StudioColourField instead'],
   'launch/_components/maker-reveal.tsx': [2, 'the Reveal colour row’s trigger, and (2026-10-17) the Sheer veil’s ONE colour circle on Cover Scene › Style — each opens ColourSheet on the same `veilColor`'],
   /* 2026-10-10 (first seen by this guard a week of commits late: the sweep reads the folder, and the file's own guard

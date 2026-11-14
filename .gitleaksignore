@@ -198,3 +198,17 @@ a853e2a422fb214dcab13cda675fa61b007a4b22:apps/web/lib/badge-rewards.test.ts:gene
 # (Build 6 Lane L): the selected identifiers are storage-path column names, not
 # credentials. Pinned by its introducing commit, as above.
 63ac7474edd36172ce3ebf93da9966c7b7c8260a:apps/web/scripts/remark-supplier-photos.ts:generic-api-key:68
+#
+# Same 'PAPIC_GUEST_*' catalog-code false positive (#7678, G1 gift bundles, 2026-11-14): the codes
+# PAPIC_GUEST_150 / PAPIC_GUEST_1K / PAPIC_GUEST beside GIFT_BUNDLE_* codes in test fixtures and seed
+# assertions. Public catalog service_codes, not credentials. The fixtures were renamed to named
+# constants at cf9fad18, but gitleaks-action scans every commit in the PR range, so the introducing
+# commit stays matchable — pinned here, as above.
+ac766664b4da8102328f0c052cb1f59e653454ae:apps/web/lib/shop-gifts.test.ts:generic-api-key:57
+ac766664b4da8102328f0c052cb1f59e653454ae:apps/web/lib/shop-gifts.test.ts:generic-api-key:123
+ac766664b4da8102328f0c052cb1f59e653454ae:apps/web/lib/shop-gifts.test.ts:generic-api-key:124
+ac766664b4da8102328f0c052cb1f59e653454ae:apps/web/lib/shop-gifts.test.ts:generic-api-key:156
+ac766664b4da8102328f0c052cb1f59e653454ae:apps/web/lib/the-only-gift-discount-is-the-bundle.test.ts:generic-api-key:113
+ac766664b4da8102328f0c052cb1f59e653454ae:apps/web/lib/the-only-gift-discount-is-the-bundle.test.ts:generic-api-key:114
+ac766664b4da8102328f0c052cb1f59e653454ae:apps/web/tests/db/a-supplier-gift-lands-once.db.test.ts:generic-api-key:597
+ac766664b4da8102328f0c052cb1f59e653454ae:apps/web/tests/db/a-supplier-gift-lands-once.db.test.ts:generic-api-key:598

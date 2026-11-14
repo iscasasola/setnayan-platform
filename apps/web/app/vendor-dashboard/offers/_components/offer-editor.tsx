@@ -25,6 +25,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEve
 import { createPortal } from 'react-dom';
 import { CalendarDays, Check, ChevronDown, Gift, ImageIcon, Info, Percent, Sparkles, Tag, Trash2, Wallet, X } from 'lucide-react';
 import { ActionButton, EqualRow } from '@/components/action-button';
+import { BADGE_CLASS } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { formatCount } from '@/lib/format-number';
@@ -268,7 +270,7 @@ export function OfferEditor({
       {!view.reachesAll ? (
         <div className="mt-1.5 grid gap-0.5" data-offer-card-ticks="">
           {cards.map((c) => (
-            <label key={c.id} className="flex min-h-11 items-center gap-2.5 text-[14px] text-ink">
+            <label key={c.id} className="flex min-h-11 items-center gap-2.5 text-sm text-ink">
               <input
                 type="checkbox"
                 className="h-5 w-5 flex-none accent-[rgb(var(--sn-accent))]"
@@ -276,7 +278,7 @@ export function OfferEditor({
                 onChange={(e) => set({ cards: e.target.checked ? [...view.cards, c.id] : view.cards.filter((x) => x !== c.id) })}
               />
               <span className="min-w-0 flex-1 truncate">{c.name}</span>
-              <small className="flex-none font-mono text-[12px] text-ink/50">{c.pricePhp != null ? peso(c.pricePhp) : '₱ —'}</small>
+              <small className="flex-none text-xs font-semibold tabular-nums text-ink/70">{c.pricePhp != null ? peso(c.pricePhp) : '₱ —'}</small>
             </label>
           ))}
         </div>
@@ -305,7 +307,7 @@ export function OfferEditor({
         />
         <AmountBox lead={d.firstPaymentUnit === 'pct' ? '%' : '₱'} label="First payment" value={d.firstPayment} onChange={(n) => set({ firstPayment: n })} onKeyDown={enterIsDone} data="down" money={d.firstPaymentUnit === 'php'} />
       </div>
-      <p className="mt-1.5 text-[12px] leading-snug text-ink/55">
+      <p className="mt-1.5 text-xs leading-snug text-ink/70">
         The price stays. The first payment becomes {d.firstPayment ? (d.firstPaymentUnit === 'pct' ? `${d.firstPayment}% of the price` : peso(d.firstPayment)) : 'what you set'}; the later payments carry the rest. The lowest first payment on a card wins.
       </p>
     </>
@@ -313,7 +315,7 @@ export function OfferEditor({
   const giftField = ctx ? (
     <GiftBlock offer={view} cards={reached} others={offers} today={today} ctx={ctx} onChange={(p) => set(p)} />
   ) : (
-    <p role="alert" className="text-[13px] text-ink/65" data-offer-gifts-read="refused">
+    <p role="alert" className="text-[13px] text-ink/70" data-offer-gifts-read="refused">
       Couldn’t load your gifts and their limit — close and open Offers again to add a gift.
     </p>
   );
@@ -343,7 +345,12 @@ export function OfferEditor({
       {d.who === 'early_bird' ? (
         <>
           <AmountBox lead="Books" trail="months ahead or more" label="Months before the event" value={d.minLeadMonths} onChange={(n) => set({ minLeadMonths: n == null ? null : Math.round(n) })} onKeyDown={enterIsDone} data="months" className="mt-1.5" />
-          <Hint>12 = a year ahead. For a ladder add another Early bird (12 months and 6 months); the couple gets the best one.</Hint>
+          <Hint>
+            12 = a year ahead.{' '}
+            <InfoTip label="" ariaLabel="About a ladder of early birds" align="start">
+              For a ladder add another Early bird (12 months and 6 months); the couple gets the best one.
+            </InfoTip>
+          </Hint>
         </>
       ) : null}
       {d.who === 'first_n' ? (
@@ -383,7 +390,17 @@ export function OfferEditor({
       {d.untilDate ? (
         <>
           <DateBox lead="Last day" value={d.untilDate} onOpen={() => setDateFor('until')} data="until" className="mt-1.5" />
-          <Hint>{d.untilDate < today ? `It ended ${shortDate(d.untilDate)} · pick a later day to run it again.` : 'The last day a couple can book with it. It switches itself off after.'}</Hint>
+          <Hint>
+            {d.untilDate < today ? `It ended ${shortDate(d.untilDate)} · pick a later day to run it again.` : 'The last day a couple can book with it.'}
+            {d.untilDate < today ? null : (
+              <>
+                {' '}
+                <InfoTip label="" ariaLabel="After the last day" align="start">
+                  It switches itself off after.
+                </InfoTip>
+              </>
+            )}
+          </Hint>
         </>
       ) : (
         <Hint>Keeps running until you switch it off.</Hint>
@@ -423,24 +440,24 @@ export function OfferEditor({
         {/* 📌 "As couples see it" — compact by default, opens on a tap, one slim line while typing. */}
         {prev && v ? (
           <div className="mx-auto w-full max-w-3xl px-4 pb-1 pt-1" data-offer-preview={open ? 'open' : slim ? 'slim' : 'closed'}>
-            <button type="button" className={`sn-press flex w-full items-center gap-2.5 text-left ${slim ? 'min-h-10' : 'min-h-[52px]'}`} aria-expanded={open} aria-label="As couples see it · open or fold" onClick={() => setPvOpen((x) => !x)}>
+            <button type="button" className={`sn-press flex w-full items-center gap-2.5 text-left ${slim ? 'min-h-11' : 'min-h-[52px]'}`} aria-expanded={open} aria-label="As couples see it · open or fold" onClick={() => setPvOpen((x) => !x)}>
               {slim ? null : thumb}
               <span className={`min-w-0 flex-1 ${slim ? 'flex items-center gap-2' : ''}`}>
-                <b className={`flex items-center gap-1.5 overflow-hidden whitespace-nowrap font-semibold leading-tight ${slim ? 'order-1 min-w-0 flex-1 text-[13.5px]' : 'text-[14px]'}`}>
+                <b className={`flex items-center gap-1.5 overflow-hidden whitespace-nowrap font-semibold leading-tight ${slim ? 'order-1 min-w-0 flex-1 text-[13.5px]' : 'text-sm'}`}>
                   <span className="min-w-0 truncate">{prev.name}</span>
                   {pill ? (
-                    <span className="flex-none rounded-full px-[7px] py-px text-[10px] font-medium" style={{ background: 'var(--m-sage)', color: 'var(--m-ink)' }}>
+                    <span className={BADGE_CLASS} style={{ background: 'var(--m-sage)', color: 'var(--m-ink)' }}>
                       {pill.label}
                     </span>
                   ) : null}
                 </b>
-                <small className={`flex items-center gap-1.5 whitespace-nowrap text-[12px] font-medium leading-snug ${slim ? 'order-2 flex-none' : ''}`} style={{ color: 'var(--m-orange-2)' }}>
+                <small className={`flex items-center gap-1.5 whitespace-nowrap text-xs font-medium leading-snug ${slim ? 'order-2 flex-none' : ''}`} style={{ color: 'var(--m-orange-2)' }}>
                   {prev.pricePhp == null ? (
                     '₱ —'
                   ) : pill ? (
                     <>
-                      {slim ? null : <s className="font-normal text-ink/45">{peso(prev.pricePhp)}</s>}
-                      {slim ? null : <span className="text-ink/45">→</span>}
+                      {slim ? null : <s className="font-normal text-ink/70">{peso(prev.pricePhp)}</s>}
+                      {slim ? null : <span className="text-ink/70">→</span>}
                       {peso(prev.pricePhp - pill.savingsPhp)}
                     </>
                   ) : (
@@ -448,12 +465,12 @@ export function OfferEditor({
                   )}
                 </small>
                 {slim ? null : (
-                  <small className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11.5px] leading-snug" style={{ color: v.ok ? 'rgb(var(--color-ok))' : 'var(--m-slate-2)' }} data-offer-verdict-short="">
+                  <small className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs leading-snug" style={{ color: v.ok ? 'rgb(var(--color-ok))' : 'var(--m-slate-2)' }} data-offer-verdict-short="">
                     <span className="min-w-0 truncate">{v.short}</span>
                   </small>
                 )}
               </span>
-              {slim ? null : <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-ink/45 transition-transform ${open ? 'rotate-180' : ''}`} />}
+              {slim ? null : <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-ink/70 transition-transform ${open ? 'rotate-180' : ''}`} />}
             </button>
             {open ? (
               <div className="pb-2" data-offer-preview-full="">
@@ -523,7 +540,7 @@ export function OfferEditor({
               {hasPrice(view) && prev?.pricePhp != null ? (
                 <p className="flex flex-col gap-0.5 border-t border-ink/10 px-3 pb-2.5 pt-2" style={{ background: 'var(--sn-canvas)' }} data-offer-worked="">
                   <span className="sn-eye">{prev.name}</span>
-                  <b className="truncate font-mono text-[13px] font-bold text-ink">{workedLine(view, prev.pricePhp)}</b>
+                  <b className="truncate text-[13px] font-bold tabular-nums text-ink">{workedLine(view, prev.pricePhp)}</b>
                 </p>
               ) : null}
               <Part k="down" on={parts.has('down')} onToggle={togglePart}>
@@ -533,7 +550,12 @@ export function OfferEditor({
                 {giftField}
               </Part>
             </div>
-            <Hint>% comes off the card price first, then the ₱ off what’s left. Across offers a couple gets only the one that saves them most; never stacked.</Hint>
+            <Hint>
+              % comes off the card price first, then the ₱ off what’s left.{' '}
+              <InfoTip label="" ariaLabel="Across offers" align="start">
+                Across offers a couple gets only the one that saves them most; never stacked.
+              </InfoTip>
+            </Hint>
           </Q>
           <Q n={4} label="Who gets it?">
             {whoField}
@@ -595,13 +617,13 @@ const BOX = 'sn-press flex h-12 w-full items-center justify-between gap-2 rounde
 function Q({ n, label, hint, children }: { n: number; label: string; hint?: string; children: ReactNode }) {
   return (
     <div className="flex items-start gap-3 px-4 pt-3.5" data-offer-q={n}>
-      <span aria-hidden className="grid h-6 w-6 flex-none place-items-center rounded-full bg-ink font-mono text-[11.5px] font-bold text-cream">
+      <span aria-hidden className="grid h-6 w-6 flex-none place-items-center rounded-full bg-ink text-xs font-bold tabular-nums text-cream">
         {n}
       </span>
       <div className="min-w-0 flex-1">
         <p className="mb-[7px] mt-[3px] text-[13px] font-semibold leading-tight text-ink">
           {label}
-          {hint ? <small className="font-normal text-ink/55"> · {hint}</small> : null}
+          {hint ? <small className="font-normal text-ink/70"> · {hint}</small> : null}
         </p>
         {children}
       </div>
@@ -610,7 +632,7 @@ function Q({ n, label, hint, children }: { n: number; label: string; hint?: stri
 }
 
 function Hint({ children }: { children: ReactNode }) {
-  return <p className="mt-1.5 text-[12px] leading-snug text-ink/55">{children}</p>;
+  return <p className="mt-1.5 text-xs leading-snug text-ink/70">{children}</p>;
 }
 
 const PART_ICON = { pct: Percent, php: Tag, down: Wallet, gift: Gift } as const;
@@ -630,8 +652,8 @@ function Part({ k, on, onToggle, children }: { k: OfferPart; on: boolean; onTogg
           <Icon className="h-3.5 w-3.5" />
         </span>
         <span className="min-w-0 flex-1">
-          <b className="block text-[14px] font-semibold leading-tight">{PART_LABEL[k].label}</b>
-          <small className="block text-[11.5px] leading-tight text-ink/60">{PART_LABEL[k].sub}</small>
+          <b className="block text-sm font-semibold leading-tight">{PART_LABEL[k].label}</b>
+          <small className="block text-xs leading-tight text-ink/70">{PART_LABEL[k].sub}</small>
         </span>
         <button type="button" role="switch" aria-checked={on} aria-label={PART_LABEL[k].label} onClick={() => onToggle(k)} className={SWITCH_BUTTON} data-offer-part-switch={k}>
           <SwitchTrack on={on} />
@@ -670,7 +692,7 @@ function AmountBox({
   }, [value]);
   return (
     <label className={`flex h-11 items-center gap-1.5 rounded-xl border border-ink/10 bg-raised px-3.5 text-[14.5px] text-ink ${className}`}> {/* no-card-ok: the amount field itself — a lead, the box, a trail (prototype `.q .qb .box`) */}
-      <span className="flex-none text-ink/60">{lead}</span>
+      <span className="flex-none text-ink/70">{lead}</span>
       <input
         // field-ok: an amount box with a lead and a trail (prototype `.q .qb .box`), live-following the pinned preview
         value={text}
@@ -685,7 +707,7 @@ function AmountBox({
         className="h-full min-w-0 flex-1 bg-transparent outline-none"
         data-offer-amount={data}
       />
-      {trail ? <span className="flex-none text-[13px] text-ink/55">{trail}</span> : null}
+      {trail ? <span className="flex-none text-[13px] text-ink/70">{trail}</span> : null}
     </label>
   );
 }
@@ -694,10 +716,10 @@ function DateBox({ lead, value, onOpen, data, className = '' }: { lead: string; 
   return (
     <button type="button" onClick={onOpen} className={`${BOX} h-11 ${className}`} data-offer-date={data} aria-haspopup="dialog">
       <span className="flex min-w-0 items-center gap-1.5">
-        <span className="flex-none text-ink/60">{lead}</span>
+        <span className="flex-none text-ink/70">{lead}</span>
         <span className="truncate">{value ? shortDate(value) : 'Pick a day'}</span>
       </span>
-      <CalendarDays aria-hidden className="h-4 w-4 flex-none text-ink/45" />
+      <CalendarDays aria-hidden className="h-4 w-4 flex-none text-ink/70" />
     </button>
   );
 }
@@ -712,7 +734,7 @@ function Seg({ label, options, value, onPick }: { label: string; options: { key:
           role="radio"
           aria-checked={o.key === value}
           onClick={() => onPick(o.key)}
-          className="truncate rounded-lg px-1.5 text-[13px] font-semibold text-ink/60 transition-colors aria-checked:bg-ink aria-checked:text-cream"
+          className="truncate rounded-lg px-1.5 text-[13px] font-semibold text-ink/70 transition-colors aria-checked:bg-ink aria-checked:text-cream"
         >
           {o.label}
         </button>
@@ -764,9 +786,9 @@ function GiftBlock({ offer, cards, others, today, ctx, onChange }: { offer: Offe
                           placeholder="Type the gift, e.g. Free tasting for two"
                           aria-label="Gift"
                           maxLength={80}
-                          className="h-7 min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-ink outline-none"
+                          className="h-7 min-w-0 flex-1 bg-transparent text-sm font-semibold text-ink outline-none"
                         />
-                        <span className="flex flex-none items-center gap-1 text-[12px] text-ink/55">
+                        <span className="flex flex-none items-center gap-1 text-xs text-ink/70">
                           worth ₱
                           <input
                             // field-ok: a typed gift's worth inside its gift row (prototype `.lineitem.grow .r input`)
@@ -780,9 +802,9 @@ function GiftBlock({ offer, cards, others, today, ctx, onChange }: { offer: Offe
                         </span>
                       </span>
                     ) : (
-                      <b className="block text-[14px] font-semibold leading-tight text-ink">{giftName(g, ctx)}</b>
+                      <b className="block text-sm font-semibold leading-tight text-ink">{giftName(g, ctx)}</b>
                     )}
-                    <small className="block text-[12px] leading-snug" style={{ color: bad ? 'rgb(var(--color-warn))' : 'var(--m-slate-2)' }}>
+                    <small className="block text-xs leading-snug" style={{ color: bad ? 'rgb(var(--color-warn))' : 'var(--m-slate-2)' }}>
                       {[pack ? stockLine(pack, ctx) : g.kind === 'addon' ? (ctx.addons.find((a) => a.id === g.addonId)?.fromPhp != null ? `worth ${peso(ctx.addons.find((a) => a.id === g.addonId)!.fromPhp!)}` : 'price on request') : '', verdictOf?.why ?? ''].filter(Boolean).join(' · ')}
                     </small>
                   </span>
@@ -791,7 +813,7 @@ function GiftBlock({ offer, cards, others, today, ctx, onChange }: { offer: Offe
               );
             })
           ) : (
-            <li className="py-1 text-[12.5px] text-ink/55">{card ? `No gift on this card.` : 'No gift yet · add one below.'}</li>
+            <li className="py-1 text-[12.5px] text-ink/70">{card ? `No gift on this card.` : 'No gift yet · add one below.'}</li>
           )}
         </ul>
         {rec ? (
@@ -847,7 +869,7 @@ function GiftBlock({ offer, cards, others, today, ctx, onChange }: { offer: Offe
               return (
                 <div key={c.id} className="mt-2 border-t border-ink/10 pt-2 first:mt-0 first:border-t-0 first:pt-0" data-offer-gift-card={c.id}>
                   <b className="block text-[13.5px] font-semibold">{c.name}</b>
-                  <small className="mb-1 block text-[12px] text-ink/60">
+                  <small className="mb-1 block text-xs text-ink/70">
                     {c.pricePhp != null ? peso(c.pricePhp) : 'No price yet'}
                     {pay != null && c.pricePhp != null && pay !== c.pricePhp ? ` → pays ${peso(pay)}` : ''}
                     {pay != null ? ` · limit ${peso(checkGifts([], pay, ctx).limitCentavos / 100)}` : ''}
@@ -858,7 +880,7 @@ function GiftBlock({ offer, cards, others, today, ctx, onChange }: { offer: Offe
             })
           : rows(null)}
       </div>
-      <p className="mt-1.5 text-[12px] leading-snug text-ink/55">
+      <p className="mt-1.5 text-xs leading-snug text-ink/70">
         Your extras have no limit. Setnayan gifts are added up against the gift limit at the price couples pay
         {ctx.limitPct ? ` (${ctx.limitPct}% of the booking fee)` : ''}; a stocked gift costs the stocked price, with no stock it goes on the booking fee at the regular price. The same gift from two offers is given once.
         {ctx.packs.some((p) => packsInStock(p, ctx.free) === 0) ? ' Stock gifts ahead to pay less.' : ''}

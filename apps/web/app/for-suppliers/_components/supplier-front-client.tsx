@@ -101,6 +101,9 @@ export function SupplierFrontRoot({ children }: { children: ReactNode }) {
 
 export type HeroSlide = { src: string; alt: string; dot: string; line: string };
 
+/** 🧰 How long each person stays on the stage before the next (cut 1). */
+export const HERO_STEP_MS = 4500;
+
 export function HeroStage({ slides }: { slides: readonly HeroSlide[] }) {
   const track = useRef<HTMLDivElement>(null);
   const [cur, setCur] = useState(0);
@@ -113,41 +116,16 @@ export function HeroStage({ slides }: { slides: readonly HeroSlide[] }) {
       return i;
     });
   }, []);
+  /* 🧰 THE STAGE STAYS STILL AT THE TOP (owner-approved 2026-11-14, cut 1 of the supplier's eleven jobs — DECISION_LOG
+     "THE SEVEN SUPPLIER CUTS ARE APPROVED"). It was a scroll-driven track ~3.5 screens tall, so "Create your shop free"
+     sat 3,291 px down. Same five photos and lines, a shorter stage, and they play on their own — the heading and the
+     first button are on the first screen. With reduced motion it is one still frame and the dots switch the person. */
   useEffect(() => {
     if (reduce) return;
-    let ticking = false;
-    const on = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        ticking = false;
-        const t = track.current;
-        if (!t) return;
-        const r = t.getBoundingClientRect();
-        const travel = r.height - window.innerHeight;
-        if (travel > 40) {
-          const p = Math.min(1, Math.max(0, -r.top / travel));
-          show(Math.min(slides.length - 1, Math.floor(p * slides.length)));
-        }
-      });
-    };
-    window.addEventListener('scroll', on, { passive: true });
-    window.addEventListener('resize', on);
-    on();
-    return () => {
-      window.removeEventListener('scroll', on);
-      window.removeEventListener('resize', on);
-    };
-  }, [reduce, show, slides.length]);
-  const pick = (k: number) => {
-    const t = track.current;
-    if (t && !reduce) {
-      const r = t.getBoundingClientRect();
-      const travel = r.height - window.innerHeight;
-      if (travel > 40) window.scrollTo({ top: window.scrollY + r.top + (travel * (k + 0.5)) / slides.length, behavior: 'smooth' });
-    }
-    show(k);
-  };
+    const t = window.setInterval(() => show((cur + 1) % slides.length), HERO_STEP_MS);
+    return () => window.clearInterval(t);
+  }, [reduce, show, cur, slides.length]);
+  const pick = (k: number) => show(k);
   return (
     <div className={s.heroTrack} ref={track}>
       <div className={s.heroSticky}>
@@ -167,7 +145,6 @@ export function HeroStage({ slides }: { slides: readonly HeroSlide[] }) {
               <button key={sl.dot} type="button" aria-label={sl.dot} aria-current={k === cur} onClick={() => pick(k)} />
             ))}
           </div>
-          <span className={`${s.hint} ${cur > 0 ? s.hintGone : ''}`} aria-hidden="true" />
         </div>
       </div>
     </div>

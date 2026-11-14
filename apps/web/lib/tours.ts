@@ -1826,9 +1826,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       ],
       finale: {
         title: 'You’re set 🎉',
-        body: 'Until you tick the box, this tour plays again each time you sign in. To see it later, open your account menu and tap Show me around.',
+        /* 🧰 SHOWN ONCE (owner 2026-11-14, cut 1 of the supplier's eleven jobs — DECISION_LOG "THE SEVEN SUPPLIER CUTS ARE
+           APPROVED"): no tick box. Done, Skip or closing it all record the tour as seen; it no longer plays at every
+           sign-in. "Show me around" in the account menu still replays it. */
+        body: 'To see this again, open your account menu and tap Show me around.',
         button: 'Done',
-        tick: 'I’ve seen it — don’t show this tour again',
       },
     },
   },

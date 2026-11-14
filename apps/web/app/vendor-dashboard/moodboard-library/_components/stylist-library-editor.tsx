@@ -139,6 +139,8 @@ export type StylistLibraryEditorProps = {
    * worked out on the server (`shopCardChoices`). `null` = the cards could not be read (said); absent = not offered.
    */
   cardsByPart?: Record<string, CardChoice[]> | null;
+  /** 🧰 The part the form starts on — the shop's own kind of work (`slotForShopKind`); absent/null = the first part. */
+  startSlot?: string | null;
 };
 
 export function StylistLibraryEditor({
@@ -151,6 +153,7 @@ export function StylistLibraryEditor({
   importableEditorialFailed,
   actions: actionsIn,
   cardsByPart,
+  startSlot = null,
 }: StylistLibraryEditorProps) {
   const { uploadStylistAsset, importEditorialMediaToGallery, saveStylistColorRanges, deleteStylistAsset } = actionsIn
     ? { ...SHIPPED_ACTIONS, ...actionsIn }
@@ -164,7 +167,10 @@ export function StylistLibraryEditor({
   // The category this upload targets. MB19: the quota is PER CATEGORY, so the
   // select must be controlled — the button-disable and the helper copy below
   // both need to know which shelf's count to read.
-  const [uploadSlot, setUploadSlot] = useState<string>(gallerySlots[0]?.key ?? '');
+  // 🧰 Starts on the shop's OWN kind of work (cut 4, owner-approved 2026-11-14) — a florist on Florals, never Table linens.
+  const [uploadSlot, setUploadSlot] = useState<string>(
+    startSlot && gallerySlots.some((s) => s.key === startSlot) ? startSlot : (gallerySlots[0]?.key ?? ''),
+  );
   const [notice, setNotice] = useState<string | null>(null);
   // 🔗 The card picked per part — absent = the preselection (exactly one card fits), '' = the shop only.
   const [cardPicks, setCardPicks] = useState<Record<string, string>>({});
@@ -524,13 +530,20 @@ export function StylistLibraryEditor({
                 ) : null}
               </div>
             ) : null}
+            {/* 🧰 LABEL IS OPTIONAL (cut 4, owner-approved 2026-11-14): left empty, the server names the photo after the
+                linked service card (else the part). It was `required` and looked optional. */}
             <input
               name="label"
               type="text"
-              required
-              placeholder="Label (e.g. 'Tagaytay garden setup')"
+              aria-label="Label (optional — left empty, it uses the card’s name)"
+              placeholder={isGalleryUpload ? 'Label · optional' : "Label (e.g. 'Tagaytay garden setup')"}
               className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none"
             />
+            {isGalleryUpload ? (
+              <p className="-mt-2 text-[11px] text-ink/55" data-library-label-fill="">
+                Left empty, it uses the card&rsquo;s name.
+              </p>
+            ) : null}
             {/* 🔽 Two dropdowns, one per row at full width (a half-width native select cut "Couples' inspirati…"). Each
                 posts through a hidden field of the same name, so `uploadStylistAsset` reads exactly what it did. */}
             <div className="space-y-2">

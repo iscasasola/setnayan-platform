@@ -79,7 +79,8 @@ import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/co
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchShopLogoBytes, readShopOwnPhotoBytes } from '@/lib/shop-own-photos.server';
 import { autoColourRanges } from '@/lib/extract-palette.server';
-import { verifyCardForPart } from '@/lib/inspiration-card-link.server';
+import { readShopCards, verifyCardForPart } from '@/lib/inspiration-card-link.server';
+import { cardLabel } from '@/lib/inspiration-card-link';
 import { isFromAlbumPageRef } from '@/lib/put-photo-on-my-page';
 import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { bucketForPrefix } from '@/lib/bucket-routing';
@@ -427,6 +428,24 @@ export async function uploadStylistAsset(formData: FormData): Promise<UploadStyl
   }
 }
 
+/**
+ * 🧰 THE NAME OF AN UNLABELLED INSPIRATION PHOTO (cut 4, owner-approved 2026-11-14: "Label optional, filled from the
+ * linked service card"). The linked card's name as couples see it (`cardLabel`); with no card, or an unreadable one,
+ * the part's own name; never empty. Not a pure helper: it reads the shop's own cards (the same read the card check uses).
+ */
+async function inspirationLabelFallback(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+  vendorServiceId: string | null,
+  partLabel: string | null,
+): Promise<string> {
+  if (vendorServiceId) {
+    const card = (await readShopCards(admin, vendorProfileId))?.find((c) => c.vendor_service_id === vendorServiceId);
+    if (card) return cardLabel(card);
+  }
+  return partLabel ?? 'Inspiration';
+}
+
 /** The upload itself — every gate THROWS its sentence; `uploadStylistAsset` above turns that into a result. */
 async function uploadStylistAssetOrThrow(
   formData: FormData,
@@ -440,7 +459,9 @@ async function uploadStylistAssetOrThrow(
   // upload"): the same form, the same gates below, only the bytes come from the shop's page / service cards instead
   // of the supplier's machine. The ref is checked against the shop's OWN list, read here — never trusted as sent.
   const shopPhotoRef = String(formData.get('shopPhotoRef') ?? '').trim() || null;
-  const label = String(formData.get('label') ?? '').trim();
+  // 🧰 OPTIONAL on an inspiration photo (cut 4, owner-approved 2026-11-14): left empty, it is named after the linked
+  // service card (else the part) once the card is verified below. Still required on the other asset types.
+  let label = String(formData.get('label') ?? '').trim();
   const assetType = String(formData.get('assetType') ?? '');
   const assetSubtype = String(formData.get('assetSubtype') ?? '').trim() || null;
   const rightsWarranted = String(formData.get('rightsWarranted') ?? '') === '1';
@@ -449,7 +470,7 @@ async function uploadStylistAssetOrThrow(
 
   if (!file && !shopPhotoRef) throw new Error('Pick a photo — a file, or one from your shop.');
   if (file && shopPhotoRef) throw new Error('Pick one photo at a time.');
-  if (!label) throw new Error('label required');
+  if (!label && assetType !== SUPPLIER_GALLERY_ASSET_TYPE) throw new Error('label required');
   if (shopPhotoRef && assetType !== SUPPLIER_GALLERY_ASSET_TYPE) {
     throw new Error('Photos from your shop go to the couples’ inspiration library.');
   }
@@ -486,6 +507,7 @@ async function uploadStylistAssetOrThrow(
     });
     if (!card.ok) throw new Error(card.message);
     vendorServiceId = card.vendorServiceId;
+    if (!label) label = await inspirationLabelFallback(admin, profile.vendor_profile_id, vendorServiceId, libraryPartLabel(slot.slotKey, parts));
 
     const tier = await fetchShopTier(admin, profile.vendor_profile_id);
     const mode: GalleryUploadMode = 'back_catalogue';

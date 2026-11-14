@@ -7,9 +7,9 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1876
+# ledger: 1878
 # tables: 502
-# columns: 6089
+# columns: 6090
 # notnull: 3674
 [ledger]
 20260512000000
@@ -1887,6 +1887,7 @@
 20271345220516
 20271345227050
 20271345334309
+20271345380761
 20271345494976
 20271345904117
 [columns]
@@ -4765,6 +4766,7 @@ moodboard_library_assets.asset_id
 moodboard_library_assets.asset_subtype
 moodboard_library_assets.asset_type
 moodboard_library_assets.created_at
+moodboard_library_assets.event_file_id
 moodboard_library_assets.is_event_linked
 moodboard_library_assets.label
 moodboard_library_assets.rejected_at

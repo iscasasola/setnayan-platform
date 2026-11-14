@@ -63,3 +63,47 @@ test('F-W1-61 · admin prints a stored moment in Manila time, never the server�
   assert.deepEqual(offenders, [], 'an admin page prints a stored time without Manila');
   assert.match(code('app/admin/verify/page.tsx'), /Submitted\{' '\}\s*\{new Date\(application\.submitted_at\)\.toLocaleString\('en-PH', \{ timeZone: 'Asia\/Manila' \}\)\}/);
 });
+
+test('RW-167 · one service, one row: an older spelling of the same key is not a ghost service', async () => {
+  const { distinctShopServices, serviceKeyStem } = await import('./distinct-shop-services');
+  const labels = { lights_and_sound: 'Lights & Sound', catering: 'Catering' };
+  const title = (k: string) => k.split('_').map((w) => w[0]!.toUpperCase() + w.slice(1)).join(' ');
+  assert.equal(serviceKeyStem('lights_and_sound'), serviceKeyStem('lights_sound'));
+  // The ghost: both spellings on the shop → ONE row, the known key, its real label, in the first one's place.
+  assert.deepEqual(distinctShopServices(['lights_sound', 'catering', 'lights_and_sound'], labels, title), [
+    { key: 'lights_and_sound', label: 'Lights & Sound' },
+    { key: 'catering', label: 'Catering' },
+  ]);
+  // A different service is never folded in, and an unknown key that matches nothing stays (it is the shop's own).
+  assert.deepEqual(
+    distinctShopServices(['catering', 'drone_video'], labels, title).map((r) => r.label),
+    ['Catering', 'Drone Video'],
+  );
+  assert.match(code('app/vendor-dashboard/website/page-data.ts'), /const services = distinctShopServices\(/);
+});
+
+test('RW-167 · Their work speaks to the supplier, not in spec words', () => {
+  const page = code('app/vendor-dashboard/services/their-work/page.tsx');
+  assert.match(page, />Photos from the events this card was booked for</);
+  assert.doesNotMatch(page, /newest first · type · venue/);
+});
+
+test('RW-167 / F-W2-33 · a challenge never shows a raw {who} (or any token) on the couple’s and the guests’ screens', () => {
+  for (const f of [
+    'app/dashboard/[eventId]/studio/papic/_components/challenge-add-sheet.tsx',
+    'app/dashboard/[eventId]/studio/papic/_components/challenge-card-row.tsx',
+    'app/dashboard/(account)/library/_components/challenges-tab.tsx',
+    'app/[slug]/_components/live-wall-block.tsx',
+  ]) {
+    const src = code(f);
+    assert.match(src, /displayChallengePrompt\(/, f);
+    // No prompt is printed or labelled raw.
+    assert.doesNotMatch(src, /\{(?:m|r|replacing|challenge)\.prompt\}|aria-label=\{m\.prompt\}|title: \(m\.prompt/, f);
+  }
+});
+
+test('RW-167 · the recap never draws an empty "What They Said" plate', () => {
+  const src = code('app/[slug]/_components/editorial/editorial-content.tsx');
+  assert.match(src, /reviews:\s*isOn\('reviews'\) && data\.reviews\.length \?/);
+  assert.doesNotMatch(src, /will appear here|ReviewsEmptyState/);
+});

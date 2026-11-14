@@ -11,8 +11,14 @@
  * reader at a migration that is in fact applied (measured in production
  * 2026-08-17: this table holds 4 rows). The loader now reports the refusal and
  * the table says we do not know.
+ *
+ * ── Re-drawn onto the approved drawing 2026-11-14 (insights.html › Costs › Operations & hiring) ──
+ * No tiles (T18): Now is facts, the milestone and the signals are hairline rows with a pill, the roadmap keeps the
+ * console table for its honest states. What the page-load sweep does lives in the opening ⓘ (T17); the sweep's own
+ * result for THIS load stays a visible line, because it is news, not explanation.
  */
 import { Users } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
@@ -31,11 +37,12 @@ import {
 } from '@/lib/hiring-guide/types';
 import { SmokeTestPanel } from '@/app/admin/operations-hiring/_components/smoke-test-panel';
 import { formatCount } from '@/lib/format-number';
+import { Badge, Facts, One, Row, Rows, Sec, type NumTone } from '../_components/insights-parts';
 
-const SIGNAL_TONE: Record<SignalLevel, string> = {
-  green: 'bg-success-100 text-success-800 border-success-200',
-  yellow: 'bg-warn-100 text-warn-800 border-warn-200',
-  red: 'bg-danger-100 text-danger-800 border-danger-200',
+const SIGNAL_TONE: Record<SignalLevel, NumTone> = {
+  green: 'ok',
+  yellow: 'warn',
+  red: 'danger',
 };
 
 const SIGNAL_DOT: Record<SignalLevel, string> = {
@@ -43,6 +50,11 @@ const SIGNAL_DOT: Record<SignalLevel, string> = {
   yellow: '🟡',
   red: '🔴',
 };
+
+/** The shared `Row` cuts its second line with "…"; a forecast or a threshold must never be cut away, so it wraps. */
+function Wraps({ children }: { children: ReactNode }) {
+  return <span className="whitespace-normal">{children}</span>;
+}
 
 function daysUntil(dateIso: string): number {
   const target = new Date(dateIso);
@@ -86,91 +98,106 @@ export async function OperationsHiringSurface() {
   const sunsetDays = daysUntil(JAN_30_2027_SUNSET);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-3xl">
       <PageMasthead
         title="Operations & Hiring"
       />
 
-      {/* Unacknowledged alerts banner */}
-      {alerts.length > 0 && (
-        <div className="rounded-lg border border-danger-200 bg-danger-50 p-4">
-          <h2 className="text-sm font-semibold text-danger-900">
-            {alerts.length} unacknowledged alert{alerts.length === 1 ? '' : 's'}
-          </h2>
-          <ul className="mt-2 space-y-1 text-sm text-danger-800">
-            {alerts.slice(0, 5).map((alert) => (
-              <li key={alert.alert_id}>
-                <span className="font-medium">{alert.alert_type.replace(/_/g, ' ')}</span>
-                {alert.signal_name && ` · ${alert.signal_name}`}
-                <span className="ml-2 text-xs text-danger-700/70">
-                  {new Date(alert.fired_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <One label="Loading this page runs a sweep">
+        It refreshes stale signals and runs the alert sweep, so opening it can fire alerts and send emails. Alerts
+        route to <code className="rounded bg-ink/5 px-1 py-0.5 font-mono">iscasasolaii@gmail.com</code> via 0028 email
+        infra (Resend primary, SendGrid fallback). Weekly digest fires Mon 8am PHT. Bottleneck alerts fire when a
+        signal flips yellow → red (suppressed 7 days after fire). Milestone alerts fire when verified-supplier count
+        crosses 100 / 1,000 / 5,000 / 25,000. Hiring countdown emails fire T-30 / T-14 / T-7 days from each hire-by
+        date in the roadmap below.
+      </One>
+      {sweep.alertsFired > 0 && (
+        <p className="mt-1 text-[13px] text-ink/70" role="status">
+          <strong>This page-load sweep:</strong> {sweep.alertsFired} new alert{sweep.alertsFired === 1 ? '' : 's'}{' '}
+          recorded · {sweep.emailsSent} email{sweep.emailsSent === 1 ? '' : 's'} sent
+          {sweep.emailsFailed > 0 && ` · ${sweep.emailsFailed} failed`}.
+        </p>
+      )}
+      {sweep.errors.length > 0 && (
+        <p className="mt-1 text-[13px] text-[var(--sn-danger)]" role="alert">
+          Sweep errors: {sweep.errors.join('; ')}
+        </p>
       )}
 
-      {/* NOW + NEXT MILESTONE */}
-      <section className="grid gap-4 sm:grid-cols-2">
-        <div className="sn-tile p-5">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-ink/50">Now</h2>
-          {signals ? (
-            <dl className="mt-3 space-y-2 text-sm">
-              <div className="flex items-baseline justify-between">
-                <dt className="text-ink/60">Verified active suppliers</dt>
-                <dd className="text-2xl font-semibold text-ink">{signals.verified_active.toLocaleString('en-PH')}</dd>
-              </div>
-              <div className="flex items-baseline justify-between">
-                <dt className="text-ink/60">Signups (last 7d)</dt>
-                <dd className="text-lg font-medium text-ink">{signals.signups_last_week}</dd>
-              </div>
-              <div className="flex items-baseline justify-between">
-                <dt className="text-ink/60">Prior week</dt>
-                <dd className="text-sm text-ink/70">{signals.signups_prior_week}</dd>
-              </div>
-              <div className="text-xs text-ink/50 pt-2 border-t border-ink/10">
-                Refreshed {new Date(signals.refreshed_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
-              </div>
-            </dl>
-          ) : (
-            <p className="mt-3 text-sm text-ink/50">
-              These numbers haven&rsquo;t been calculated yet. They fill in on their own — check back later.
-            </p>
-          )}
-        </div>
+      {/* Unacknowledged alerts */}
+      {alerts.length > 0 && (
+        <section aria-labelledby="ops-alerts">
+          <Sec id="ops-alerts" title={`Unacknowledged alert${alerts.length === 1 ? '' : 's'}`} count={alerts.length} />
+          <Rows label="Unacknowledged alerts" data="ops-alerts">
+            {alerts.slice(0, 5).map((alert) => (
+              <Row
+                key={alert.alert_id}
+                title={
+                  <span className="text-[var(--sn-danger)]">
+                    {alert.alert_type.replace(/_/g, ' ')}
+                    {alert.signal_name && ` · ${alert.signal_name}`}
+                  </span>
+                }
+                sub={new Date(alert.fired_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
+              />
+            ))}
+          </Rows>
+        </section>
+      )}
 
-        <div className="sn-tile p-5">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-ink/50">Next milestone</h2>
-          {milestones.length > 0 ? (
-            <div className="mt-3 space-y-3 text-sm">
-              {milestones.slice(0, 3).map((m) => (
-                <div key={m.milestone_label} className="space-y-1">
-                  <div className="flex items-baseline justify-between">
-                    <span className="font-medium text-ink">{m.milestone_label}</span>
-                    <span className="text-ink/60">{m.milestone_target.toLocaleString('en-PH')}</span>
-                  </div>
-                  <div className="text-xs text-ink/60">
+      {/* NOW */}
+      <section aria-labelledby="ops-now">
+        <Sec id="ops-now" title="Now" />
+        {signals ? (
+          <Facts
+            data="ops-now"
+            rows={[
+              ['Verified active suppliers', signals.verified_active.toLocaleString('en-PH')],
+              ['Signups (last 7d)', formatCount(signals.signups_last_week)],
+              ['Prior week', formatCount(signals.signups_prior_week)],
+              ['Refreshed', new Date(signals.refreshed_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })],
+            ]}
+          />
+        ) : (
+          <p className="text-[13px] text-ink/60">
+            These numbers haven&rsquo;t been calculated yet. They fill in on their own — check back later.
+          </p>
+        )}
+      </section>
+
+      {/* NEXT MILESTONE */}
+      <section aria-labelledby="ops-milestone">
+        <Sec id="ops-milestone" title="Next milestone" />
+        {milestones.length > 0 ? (
+          <Rows label="Next milestones" data="ops-milestones">
+            {milestones.slice(0, 3).map((m) => (
+              <Row
+                key={m.milestone_label}
+                title={m.milestone_label}
+                tone={m.weeks_to_milestone === null && m.signups_measured === false ? 'warn' : undefined}
+                sub={
+                  <Wraps>
                     {m.weeks_to_milestone !== null
                       ? `Projected ${m.forecasted_date} (~${m.weeks_to_milestone} weeks)`
                       : m.signups_measured === false
                         ? 'Signups could not be read — this is not a forecast of no growth'
                         : 'Insufficient signup data'}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-ink/50">No milestones to forecast yet.</p>
-          )}
-        </div>
+                  </Wraps>
+                }
+                trail={m.milestone_target.toLocaleString('en-PH')}
+              />
+            ))}
+          </Rows>
+        ) : (
+          <p className="text-[13px] text-ink/60">No milestones to forecast yet.</p>
+        )}
       </section>
 
       {/* Bottleneck signals */}
-      <section className="sn-tile p-5">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-ink/50">Bottleneck signals (live)</h2>
+      <section aria-labelledby="ops-signals">
+        <Sec id="ops-signals" title="Bottleneck signals" about="Live — refreshed when stale, each time this page opens." />
         {signals ? (
-          <ul className="mt-3 space-y-2 text-sm">
+          <Rows label="Bottleneck signals" data="ops-signals">
             <SignalRow
               icon={SIGNAL_DOT[signals.verification_signal]}
               label="Supplier verification"
@@ -199,133 +226,95 @@ export async function OperationsHiringSurface() {
               level={signals.disputes_signal}
               threshold={SIGNAL_THRESHOLDS.disputes}
             />
-            <li className="flex items-center justify-between gap-3 rounded border border-ink/10 px-3 py-2">
-              <div className="flex items-center gap-2">
-                <span>⚪</span>
-                <span className="font-medium text-ink">Engineering blockers</span>
-                <span className="text-xs text-ink/60">(manual — track in your ops doc)</span>
-              </div>
-              <span className="text-xs text-ink/50">{SIGNAL_THRESHOLDS.engineering.green}</span>
-            </li>
-            <li className="flex items-center justify-between gap-3 rounded border border-ink/10 px-3 py-2">
-              <div className="flex items-center gap-2">
-                <span>⚪</span>
-                <span className="font-medium text-ink">Founder time on one function</span>
-                <span className="text-xs text-ink/60">(manual — not tracked here yet)</span>
-              </div>
-              <span className="text-xs text-ink/50">{SIGNAL_THRESHOLDS.founder_time.green}</span>
-            </li>
-          </ul>
+            <Row
+              title="Engineering blockers"
+              sub={<Wraps>manual — track in your ops doc · {SIGNAL_THRESHOLDS.engineering.green}</Wraps>}
+              trail={<Badge><span aria-hidden="true">⚪</span></Badge>}
+            />
+            <Row
+              title="Founder time on one function"
+              sub={<Wraps>manual — not tracked here yet · {SIGNAL_THRESHOLDS.founder_time.green}</Wraps>}
+              trail={<Badge><span aria-hidden="true">⚪</span></Badge>}
+            />
+          </Rows>
         ) : (
-          <p className="mt-3 text-sm text-ink/50">These signals haven&rsquo;t been calculated yet — check back later.</p>
+          <p className="text-[13px] text-ink/60">These signals haven&rsquo;t been calculated yet — check back later.</p>
         )}
       </section>
 
       {/* Hiring roadmap */}
-      <section className="sn-tile p-5">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-ink/50">
-            Hiring roadmap (Jan 30, 2027 capacity milestone)
-          </h2>
-          <span className="text-xs text-ink/60">
-            {sunsetDays > 0
-              ? `${sunsetDays} days to milestone`
-              : 'Milestone reached'}
-          </span>
-        </div>
-        <div className="mt-3">
-          <ConsoleTable
-            rows={roadmap}
-            readPermitted
-            readError={roadmapRes.error}
-            reads="the hiring roadmap"
-            label="Hiring roadmap"
-            minWidth="42rem"
-            rowKey={(role) => String(role.role_id)}
-            empty={{
-              Icon: Users,
-              title: 'No roles on the roadmap',
-              blurb:
-                'The roadmap is seeded by migration and edited from Operations & Hiring. An empty one means every seeded role has been removed — it does not mean the read failed; a failed read says so in its own words.',
-            }}
-            columns={[
-              {
-                header: 'Hire by',
-                mono: true,
-                cell: (role) => <span className="text-ink/80">{role.hire_by_date}</span>,
-              },
-              {
-                header: 'Role',
-                cell: (role) => (
-                  <span className="font-medium text-ink">{role.role_title}</span>
-                ),
-              },
-              {
-                header: 'Salary (PHP/mo)',
-                hideBelow: 'md',
-                mono: true,
-                cell: (role) => (
-                  <span className="whitespace-nowrap text-ink/70">
-                    {formatPhp(role.salary_range_min_php)} – {formatPhp(role.salary_range_max_php)}
-                  </span>
-                ),
-              },
-              {
-                header: 'Status',
-                hideBelow: 'lg',
-                cell: (role) => (
-                  <span className="inline-flex rounded bg-ink/5 px-2 py-0.5 text-xs uppercase tracking-wide text-ink/70">
-                    {role.status.replace(/_/g, ' ')}
-                  </span>
-                ),
-              },
-              {
-                header: 'Days',
-                align: 'right',
-                mono: true,
-                cell: (role) => (
-                  <span
-                    className={
-                      role.days_until_hire_by < 30
-                        ? 'font-semibold text-danger-700'
-                        : 'text-ink/70'
-                    }
-                  >
-                    {role.days_until_hire_by > 0
-                      ? `+${role.days_until_hire_by}d`
-                      : `${role.days_until_hire_by}d`}
-                  </span>
-                ),
-              },
-            ]}
-          />
-        </div>
+      <section aria-labelledby="ops-roadmap">
+        <Sec
+          id="ops-roadmap"
+          title="Hiring roadmap"
+          about="Jan 30, 2027 capacity milestone. The roadmap is seeded by migration and edited from Operations & Hiring."
+          right={sunsetDays > 0 ? `${sunsetDays} days to milestone` : 'Milestone reached'}
+        />
+        <ConsoleTable
+          rows={roadmap}
+          readPermitted
+          readError={roadmapRes.error}
+          reads="the hiring roadmap"
+          label="Hiring roadmap"
+          minWidth="20rem"
+          rowKey={(role) => String(role.role_id)}
+          empty={{
+            Icon: Users,
+            title: 'No roles on the roadmap',
+            blurb:
+              'An empty roadmap means every seeded role has been removed — it does not mean the read failed; a failed read says so in its own words.',
+          }}
+          columns={[
+            {
+              header: 'Hire by',
+              mono: true,
+              cell: (role) => <span className="text-ink/80">{role.hire_by_date}</span>,
+            },
+            {
+              header: 'Role',
+              cell: (role) => (
+                <span className="font-medium text-ink">{role.role_title}</span>
+              ),
+            },
+            {
+              header: 'Salary (PHP/mo)',
+              hideBelow: 'md',
+              mono: true,
+              cell: (role) => (
+                <span className="whitespace-nowrap text-ink/70">
+                  {formatPhp(role.salary_range_min_php)} – {formatPhp(role.salary_range_max_php)}
+                </span>
+              ),
+            },
+            {
+              header: 'Status',
+              hideBelow: 'lg',
+              cell: (role) => <Badge>{role.status.replace(/_/g, ' ')}</Badge>,
+            },
+            {
+              header: 'Days',
+              align: 'right',
+              mono: true,
+              cell: (role) => (
+                <span
+                  className={
+                    role.days_until_hire_by < 30
+                      ? 'font-semibold text-[var(--sn-danger)]'
+                      : 'text-ink/70'
+                  }
+                >
+                  {role.days_until_hire_by > 0
+                    ? `+${role.days_until_hire_by}d`
+                    : `${role.days_until_hire_by}d`}
+                </span>
+              ),
+            },
+          ]}
+        />
       </section>
 
       {/* Smoke tests */}
       <SmokeTestPanel />
-
-      {/* Footer note */}
-      <footer className="rounded-lg border border-ink/10 bg-ink/[0.02] p-4 text-xs text-ink/60 space-y-2">
-        <p>
-          Alerts route to{' '}
-          <code className="rounded bg-ink/5 px-1 py-0.5 font-mono">iscasasolaii@gmail.com</code> via 0028 email
-          infra (Resend primary, SendGrid fallback). Weekly digest fires Mon 8am PHT. Bottleneck alerts fire when a
-          signal flips yellow → red (suppressed 7 days after fire). Milestone alerts fire when verified-supplier count
-          crosses 100 / 1,000 / 5,000 / 25,000. Hiring countdown emails fire T-30 / T-14 / T-7 days from each
-          hire-by date in the roadmap above.
-        </p>
-        {sweep.alertsFired > 0 && (
-          <p className="text-ink/70">
-            <strong>This page-load sweep:</strong> {sweep.alertsFired} new alert{sweep.alertsFired === 1 ? '' : 's'}{' '}
-            recorded · {sweep.emailsSent} email{sweep.emailsSent === 1 ? '' : 's'} sent
-            {sweep.emailsFailed > 0 && ` · ${sweep.emailsFailed} failed`}.
-          </p>
-        )}
-        {sweep.errors.length > 0 && (
-          <p className="text-danger-700">Sweep errors: {sweep.errors.join('; ')}</p>
-        )}
-      </footer>
     </div>
   );
 }
@@ -344,15 +333,19 @@ function SignalRow({
   threshold: { green: string; yellow: string; red: string };
 }) {
   return (
-    <li className={`flex items-center justify-between gap-3 rounded border px-3 py-2 ${SIGNAL_TONE[level]}`}>
-      <div className="flex items-center gap-2">
-        <span aria-hidden="true">{icon}</span>
-        <span className="font-medium">{label}</span>
-        <span className="text-xs opacity-70">{detail}</span>
-      </div>
-      <span className="text-xs opacity-60">
-        {level === 'green' ? threshold.green : level === 'yellow' ? threshold.yellow : threshold.red}
-      </span>
-    </li>
+    <Row
+      title={label}
+      sub={
+        <Wraps>
+          {detail} · {level === 'green' ? threshold.green : level === 'yellow' ? threshold.yellow : threshold.red}
+        </Wraps>
+      }
+      trail={
+        <Badge tone={SIGNAL_TONE[level]}>
+          <span aria-hidden="true">{icon}</span>
+          <span className="sr-only">{level}</span>
+        </Badge>
+      }
+    />
   );
 }

@@ -208,7 +208,7 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
               options={view.looks.map((l) => ({
                 key: l.id,
                 label: l.pro ? `${l.name} ◆` : l.name,
-                ...(view.skin === 'wedding' ? { group: l.pro ? 'Event Hub Pro ◆' : 'Free' } : {}),
+                ...(view.skin === 'wedding' ? { group: l.pro ? 'Event Pro ◆' : 'Free' } : {}),
               }))}
               onPick={(key) => onChange({ look: key })}
               dataAttr="data-setup-look"

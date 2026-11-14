@@ -40,7 +40,7 @@ import type { MakerPartOps } from '../maker-part-ops';
  * save is HELD and the page redraws itself in place once it lands (`makerRedrawSave`) — never a whole-Maker render.
  * A refused save puts the Maker's copy back and says why on the line under the tools.
  *
- * 💎 Putting a picture in a scene is Event Hub Pro (owner: media is Pro): tried free in the draft — the row wears ◆ —
+ * 💎 Putting a picture in a scene is Event Pro (owner: media is Pro): tried free in the draft — the row wears ◆ —
  * and named at ✓ Apply ("Photo in the scene"). Apply holds a slot to the couple's own pictures and THIS event's scene
  * folder (`hub-draft-actions.ts`). The app-store shell shows a couple without Pro none of it (`makerProUsable`).
  */
@@ -169,7 +169,7 @@ export function ScenePhotoRow({
       <div className={`${SP_ROWS_ROW} row-start-3`} data-stage-edit-row="photos" data-scene-photos={type} aria-busy={busy || undefined}>
         <span className={`${SP_LOOK_ROW_LABEL} inline-flex items-center gap-1`}>
           {label}
-          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" bare /> : null}
+          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" bare /> : null}
         </span>
         <div role="group" aria-label={`${label} of this scene`} className={SP_BG_STRIP}>
           {Array.from({ length: t.media }, (_, i) => {

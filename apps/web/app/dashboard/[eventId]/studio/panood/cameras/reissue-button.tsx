@@ -65,7 +65,7 @@ export function ReissueCameraButton({
         type="button"
         disabled={isPending}
         onClick={() => setConfirming(false)}
-        className="rounded-md px-2 py-1.5 text-xs font-medium text-ink/60 hover:text-ink"
+        className="rounded-md px-2 py-1.5 text-xs font-medium text-ink/70 hover:text-ink"
       >
         Cancel
       </button>

@@ -99,7 +99,7 @@ import { sceneShadeAt, sceneShadeOf } from '@/lib/scene-shade-bar';
  * owner's same-day rule *"they can edit it with pro features. but need to
  * upgrade to pro when clicked on apply"*, it is OPEN for every couple: a free
  * couple picks, uploads and sees media on the canvas, in the DRAFT only; Apply
- * holds it until Event Hub Pro (`planHubDraftApply`), so guests never see it.
+ * holds it until Event Pro (`planHubDraftApply`), so guests never see it.
  * The small ◆ Pro mark is information, never a lock. In the app-store shell a
  * free couple is not shown it at all (`makerProUsable`, the shell's rule for
  * every Pro control); the mark is `makerProMark` — ◆ PRO while tried, the
@@ -809,11 +809,11 @@ function SceneBackgroundRows({
               <span aria-hidden className="h-6 w-10 rounded border border-black/10" style={preview(c, tint, photoChoices[0]?.url)} />
               <span className="inline-flex items-center gap-1">
                 {CHOICE_LABEL[c]}
-                {/* 💎 Media behind a scene is Event Hub Pro. The mark is
+                {/* 💎 Media behind a scene is Event Pro. The mark is
                     INFORMATION, never a lock (owner 2026-09-28) — the chip is
                     open to every couple; Apply asks for Pro. */}
                 {c === 'media' && mediaMark ? (
-                  <PaidMark state={mediaMark} label={paidMarkLabel(mediaMark, 'Event Hub Pro')} size="xs" tone="current" />
+                  <PaidMark state={mediaMark} label={paidMarkLabel(mediaMark, 'Event Pro')} size="xs" tone="current" />
                 ) : null}
               </span>
             </button>

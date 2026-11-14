@@ -57,14 +57,14 @@ export default async function CustomerContractDetailPage({ params }: Props) {
       </div>
 
       {/* PDF download */}
-      <section className="sn-tile p-5">
+      <section className="py-2">
         <p className="sn-eye">
           Contract file
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium text-ink">{contract.file_name}</p>
-            <p className="text-xs text-ink/55">{formatFileSize(contract.file_size_bytes)} · PDF</p>
+            <p className="text-xs text-ink/70">{formatFileSize(contract.file_size_bytes)} · PDF</p>
           </div>
           <OpenFileLink
             href={contract.file_url}

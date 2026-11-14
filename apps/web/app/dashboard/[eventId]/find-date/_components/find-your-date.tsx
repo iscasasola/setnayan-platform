@@ -113,7 +113,7 @@ export function CategoryLine({ cat }: { cat: MatrixDate['categories'][number] })
         <X aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-red-500" strokeWidth={2} />
         <span>
           <span className="font-medium text-ink/85">{cat.label}</span>
-          <span className="text-ink/55"> — no free option on this date</span>
+          <span className="text-ink/70"> — no free option on this date</span>
         </span>
       </li>
     );
@@ -124,15 +124,15 @@ export function CategoryLine({ cat }: { cat: MatrixDate['categories'][number] })
     return (
       <li className="flex items-start gap-2 py-1.5 text-sm">
         {unknown ? (
-          <HelpCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
+          <HelpCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={2} />
         ) : (
           <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-success-600" strokeWidth={2.25} />
         )}
         <span>
           <span className="font-medium text-ink/85">{cat.label}</span>
-          <span className="text-ink/55"> — {top?.name}</span>
+          <span className="text-ink/70"> — {top?.name}</span>
           {unknown ? (
-            <span className="text-ink/45"> · no conflict on file, confirm</span>
+            <span className="text-ink/70"> · no conflict on file, confirm</span>
           ) : (
             <span className="text-success-700"> · free</span>
           )}
@@ -148,12 +148,12 @@ export function CategoryLine({ cat }: { cat: MatrixDate['categories'][number] })
       <ArrowRight aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
       <span>
         <span className="font-medium text-ink/85">{cat.label}</span>
-        <span className="text-ink/55"> — </span>
-        <span className="text-ink/55 line-through">{top?.name}</span>
+        <span className="text-ink/70"> — </span>
+        <span className="text-ink/70 line-through">{top?.name}</span>
         <span className="text-red-600"> booked</span>
-        <span className="text-ink/55"> → {firstFree?.name}</span>
+        <span className="text-ink/70"> → {firstFree?.name}</span>
         {swapUnknown ? (
-          <span className="text-ink/45"> · confirm</span>
+          <span className="text-ink/70"> · confirm</span>
         ) : (
           <span className="text-success-700"> · free</span>
         )}
@@ -172,7 +172,7 @@ function DateCard({
   onToggle: () => void;
 }) {
   return (
-    <li className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
+    <li className="py-2">
       <button
         type="button"
         onClick={onToggle}
@@ -182,27 +182,27 @@ function DateCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-lg font-semibold tracking-tight">{date.label}</span>
-            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">
+            <span className="text-xs uppercase tracking-[0.06em] text-ink/70">
               {date.dow}
             </span>
             {date.isBest ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[11px] font-medium text-terracotta-700">
+              <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-xs font-medium text-terracotta-700">
                 <Star aria-hidden className="h-3 w-3" strokeWidth={2.25} />
                 Best match
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 text-sm text-ink/60">{coverageHeadline(date)}</p>
+          <p className="mt-0.5 text-sm text-ink/70">{coverageHeadline(date)}</p>
         </div>
         <ChevronDown
           aria-hidden
-          className={`h-5 w-5 shrink-0 text-ink/40 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          className={`h-5 w-5 shrink-0 text-ink/70 transition-transform ${expanded ? 'rotate-180' : ''}`}
           strokeWidth={2}
         />
       </button>
       {expanded ? (
         <div className="border-t border-ink/10 px-4 py-3">
-          <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="mb-1 text-xs uppercase tracking-[0.06em] text-ink/70">
             Who works together on {date.label}
           </p>
           <ul className="divide-y divide-ink/[0.06]">
@@ -223,14 +223,14 @@ export function FindYourDate({ eventId, matrix }: Props) {
   if (!matrix.hasDate) {
     return (
       <Shell>
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+        <div className="py-2 text-center">
           <p className="text-sm text-ink/65">
             Set the dates you&apos;re considering first — then we&apos;ll find which one keeps the
             most of your suppliers free.
           </p>
           <Link
             href={`${base}/date-selection`}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition hover:opacity-90"
+            className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center gap-1.5 mt-4"
           >
             Set your wedding date
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -243,14 +243,14 @@ export function FindYourDate({ eventId, matrix }: Props) {
   if (!matrix.hasShortlist) {
     return (
       <Shell>
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+        <div className="py-2 text-center">
           <p className="text-sm text-ink/65">
             Shortlist a few suppliers first — then we&apos;ll check their calendars against your
             dates and recommend the date that keeps the most of them.
           </p>
           <Link
             href={`${base}/vendors`}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition hover:opacity-90"
+            className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center gap-1.5 mt-4"
           >
             Shortlist suppliers
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -289,7 +289,7 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
   return (
     <Shell>
       {matrix.offPlatformCount > 0 ? (
-        <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/55">
+        <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/70">
           {formatCount(matrix.offPlatformCount)} of your suppliers {matrix.offPlatformCount === 1 ? 'is' : 'are'}{' '}
           off-platform — we can&apos;t see their calendar, so they show as &ldquo;confirm
           directly.&rdquo;
@@ -298,7 +298,7 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
 
       {!matrix.exactDate && pinOptions.length > 0 ? (
         <div className="space-y-2">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="text-xs uppercase tracking-[0.06em] text-ink/70">
             Pin a must-have
           </p>
           <div className="flex flex-wrap gap-2">
@@ -317,7 +317,7 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
                 >
                   <Star
                     aria-hidden
-                    className={`h-3.5 w-3.5 ${active ? 'fill-terracotta text-terracotta' : 'text-ink/40'}`}
+                    className={`h-3.5 w-3.5 ${active ? 'fill-terracotta text-terracotta' : 'text-ink/70'}`}
                     strokeWidth={2}
                   />
                   {o.name}
@@ -326,7 +326,7 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
             })}
           </div>
           {pinned ? (
-            <p className="text-xs text-ink/55">
+            <p className="text-xs text-ink/70">
               Dates that keep your pinned supplier free are listed first.{' '}
               <button
                 type="button"
@@ -342,11 +342,11 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
 
       <div className="space-y-3">
         {!matrix.exactDate ? (
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="text-xs uppercase tracking-[0.06em] text-ink/70">
             Your dates — ranked by how well they merge your suppliers
           </p>
         ) : (
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="text-xs uppercase tracking-[0.06em] text-ink/70">
             Your date
           </p>
         )}
@@ -363,7 +363,7 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
       </div>
 
       {matrix.exactDate ? (
-        <p className="text-sm text-ink/55">
+        <p className="text-sm text-ink/70">
           Considering other dates?{' '}
           <Link href={`${base}/date-selection`} className="font-medium text-terracotta-700 underline">
             Set a month or a date range
@@ -371,7 +371,7 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
           to compare which date merges your suppliers best.
         </p>
       ) : (
-        <p className="text-sm text-ink/55">
+        <p className="text-sm text-ink/70">
           Found the date?{' '}
           <Link href={`${base}/date-selection`} className="font-medium text-terracotta-700 underline">
             Lock it in your date settings

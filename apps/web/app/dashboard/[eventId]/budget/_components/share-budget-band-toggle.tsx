@@ -36,7 +36,7 @@ export function ShareBudgetBandToggle({
   return (
     <section
       aria-labelledby="share-budget-band-heading"
-      className="rounded-xl border border-terracotta/20 bg-terracotta/[0.04] p-4 sm:p-5"
+      className="py-2"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
@@ -44,7 +44,7 @@ export function ShareBudgetBandToggle({
             <Users aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
             <h2
               id="share-budget-band-heading"
-              className="tabular-nums text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
+              className="tabular-nums text-xs uppercase tracking-[0.06em] text-terracotta-700"
             >
               Share budget ranges with suppliers
             </h2>

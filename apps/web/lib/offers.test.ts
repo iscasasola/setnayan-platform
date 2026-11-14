@@ -50,7 +50,7 @@ const ctx = (p: Partial<GiftContext> = {}): GiftContext => ({
   schedule: SCHEDULE,
   limitPct: 40,
   paysGiftPrice: true,
-  free: { papic: 6000, event_plus: 0, event_pro: 0, event_ultra: 0 },
+  free: { papic: 6000, event_plus: 0, event_pro: 0 },
   addons: [{ id: 7, cardId: 'c1', label: 'Extra hour', fromPhp: 8000 }],
   ...p,
 });

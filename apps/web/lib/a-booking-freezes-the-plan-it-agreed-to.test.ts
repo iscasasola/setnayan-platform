@@ -60,6 +60,7 @@ test('no usable quote schedule → nothing, so the caller keeps its own fallback
 
 test('"on the event day" freezes as zero days before', () => {
   const [r] = scheduleRowsFromAcceptedQuote({ installments: [{ seq: 0, due: 'on_event', amount_centavos: 100000, label: 'Day-of' }] });
+  assert.ok(r, 'the installment is kept');
   assert.equal(r.due_anchor, 'before_event');
   assert.equal(r.due_offset_days, 0);
 });

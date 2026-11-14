@@ -13,8 +13,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildSharedFiles } from '@/lib/chat-shared-files';
+import { stripComments } from '@/lib/strip-comments';
 
-const src = readFileSync(join(__dirname, '[eventId]', 'page.tsx'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+const src = stripComments(readFileSync(join(__dirname, '[eventId]', 'page.tsx'), 'utf8'));
 
 test('the Files tab reads the column chat files are stored in', () => {
   const at = src.indexOf(".from('chat_messages')");
@@ -44,6 +45,7 @@ test('a chat file with only its private reference opens and is not "expired"', (
       },
     ],
   });
+  assert.ok(row, 'the chat file is listed');
   assert.equal(row.href, '/api/chat/attachment/m1');
   assert.notEqual(row.expired, true);
 });

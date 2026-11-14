@@ -240,9 +240,9 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          <ActionButton tone="neutral" icon={Check} label={slot.isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />} type="button" title={slot.isHidden ? 'Show in menu' : 'Hide from menu'} onClick={() => startTransition(async () => void (await setSlotHidden(slot.key, !slot.isHidden)))} />
+          <ActionButton tone="neutral" quiet iconOnly icon={slot.isHidden ? EyeOff : Eye} label={slot.isHidden ? 'Show in menu' : 'Hide from menu'} type="button" title={slot.isHidden ? 'Show in menu' : 'Hide from menu'} onClick={() => startTransition(async () => void (await setSlotHidden(slot.key, !slot.isHidden)))} />
           {slot.isOverridden ? (
-            <ActionButton tone="neutral" icon={RotateCcw} label="" type="button" title="Reset to default" onClick={() => startTransition(async () => void (await resetSlot(slot.key)))} />
+            <ActionButton tone="neutral" quiet iconOnly icon={RotateCcw} label="Reset to default" type="button" title="Reset to default" onClick={() => startTransition(async () => void (await resetSlot(slot.key)))} />
           ) : null}
         </div>
       </div>

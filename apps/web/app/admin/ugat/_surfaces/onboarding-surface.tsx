@@ -181,14 +181,12 @@ export async function OnboardingSurface({ searchParams }: Props) {
       {/* ── FUTURE TYPES ───────────────────────────────────────────────── */}
       <section className="mt-6 border-dashed py-5 text-sm text-ink/55 border-t border-ink/10">
         <p className="font-semibold text-ink/70">More onboarding flows</p>
-        <div className="mt-1">
-          <InfoTip label="About new event types" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
-            As Setnayan opens new event types (birthday, celebration, corporate,
+        <p className="mt-1 text-[13px] text-ink/70">
+          As Setnayan opens new event types (birthday, celebration, corporate,
           and more), each gets its own settings section here — same shape as
           Wedding above. When a second flow needs its own music or knobs, the
           storage moves to a per-type table; today Wedding is the only flow.
-          </InfoTip>
-        </div>
+        </p>
       </section>
     </div>
   );

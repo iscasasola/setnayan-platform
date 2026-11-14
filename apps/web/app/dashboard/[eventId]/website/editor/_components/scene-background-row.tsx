@@ -612,7 +612,7 @@ function SceneBackgroundRows({
               disabled={pending}
               label="Upload a photo or clip"
             />
-            {reading ? <p className="pt-1 text-[12px] text-ink/60">Reading your clip…</p> : null}
+            {reading ? <p className="pt-1 text-[12px] text-ink/75">Reading your clip…</p> : null}
             {/* 💾 The event's uploads against its PLAN's allowance (Free 10 MB · Pro 500 MB), beside the upload that spends it
                 (DECISION_LOG 2026-09-25: "with a visible meter"). */}
             {typeof mediaUsedBytes === 'number' ? (
@@ -800,10 +800,10 @@ function SceneBackgroundRows({
               aria-pressed={c === 'media' ? showMedia : current === c}
               data-scene-bg-choice={c}
               onClick={() => pick(c)}
-              className={`sn-press flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-1.5 text-center text-[11px] font-semibold leading-tight ring-1 transition-colors duration-sn-control ease-sn ${
+              className={`sn-press flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-1.5 text-center text-[12px] font-semibold leading-tight ring-1 transition-colors duration-sn-control ease-sn ${
                 (c === 'media' ? showMedia : current === c)
                   ? 'bg-white text-ink shadow-sm ring-ink'
-                  : 'bg-white/60 text-ink/60 ring-ink/12 hover:ring-ink/35'
+                  : 'bg-white/60 text-ink/75 ring-ink/12 hover:ring-ink/35'
               }`}
             >
               <span aria-hidden className="h-6 w-10 rounded border border-black/10" style={preview(c, tint, photoChoices[0]?.url)} />
@@ -998,7 +998,7 @@ export function ClipTile({ on, onPick, still }: { on: boolean; onPick: () => voi
       aria-pressed={on}
       aria-label={on ? 'Current background' : 'Use this clip as the background'}
       onClick={onPick}
-      className={`sn-press grid h-11 w-14 place-items-center overflow-hidden rounded-md border-2 bg-ink bg-cover bg-center text-[10px] font-bold text-cream ${
+      className={`sn-press grid h-11 w-14 place-items-center overflow-hidden rounded-md border-2 bg-ink bg-cover bg-center text-[12px] font-bold text-cream ${
         on ? 'border-terracotta' : 'border-transparent'
       }`}
       style={still ? { backgroundImage: `url("${still.replace(/"/g, '%22')}")` } : undefined}

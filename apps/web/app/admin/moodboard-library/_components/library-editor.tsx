@@ -1,4 +1,5 @@
 'use client';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * Library editor — the client-side wrapper around the Color Range Manipulator
@@ -11,6 +12,9 @@
  *   - RIGHT: Color Range Manipulator on the currently-selected asset
  */
 
+import { ActionButton } from '@/components/action-button';
+import { FieldPick } from '@/app/admin/_components/field-pick';
+import { Archive, Check, Copy, Save, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { watermarkFile } from '@/lib/watermark';
@@ -340,7 +344,7 @@ export function LibraryEditor({ initialAssets }: Props) {
           <button
             type="button"
             onClick={() => setActionError(null)}
-            className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700 hover:text-ink"
+            className="hover:text-ink text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
             aria-label="Dismiss error"
           >
             Dismiss
@@ -352,34 +356,29 @@ export function LibraryEditor({ initialAssets }: Props) {
       <div className="space-y-4">
         {/* Random Higgsfield prompt generator (owner directive 2026-05-21:
            "we can just click generate and it will make one everytime") */}
-        <section className="rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
-          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-mulberry">
+        <section className="bg-terracotta/5 py-4 border-t border-ink/10">
+          <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Random Higgsfield prompt
           </p>
-          <p className="mb-3 text-xs text-ink/65">
-            One click → a Filipino-first prompt with randomized asset type,
+          <div className="mb-3">
+            <InfoTip label="About the prompt" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              One click → a Filipino-first prompt with randomized asset type,
             subtype, and accent color. Copy it into Higgsfield, generate,
             then upload the result below.
-          </p>
-          <button
-            type="button"
-            onClick={generatePrompt}
-            disabled={isPending}
-            className="mb-3 w-full rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream disabled:opacity-50"
-          >
-            {isPending ? 'Rolling…' : 'Generate random prompt'}
-          </button>
+            </InfoTip>
+          </div>
+          <ActionButton tone="brand" main icon={Sparkles} label={isPending ? 'Rolling…' : 'Generate random prompt'} type="button" onClick={generatePrompt} disabled={isPending} className="w-full" />
           {randomPrompt && (
             <div className="space-y-2 rounded-md border border-ink/15 bg-white p-3">
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Label
                 </p>
                 <p className="text-sm font-medium text-ink">{randomPrompt.label}</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="grid grid-cols-2 gap-2 text-[12px]">
                 <div>
-                  <p className="font-mono uppercase tracking-[0.15em] text-ink/55">Type</p>
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Type</p>
                   <p className="text-ink">
                     {randomPrompt.assetType}
                     {' · '}
@@ -387,38 +386,32 @@ export function LibraryEditor({ initialAssets }: Props) {
                   </p>
                 </div>
                 <div>
-                  <p className="font-mono uppercase tracking-[0.15em] text-ink/55">Model</p>
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Model</p>
                   <p className="text-ink">
                     {randomPrompt.recommendedModel} · {randomPrompt.aspectRatio}
                   </p>
                 </div>
               </div>
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Accent · {randomPrompt.primaryAccentColor} on {randomPrompt.primaryAccentRegion}
                 </p>
               </div>
               <details>
-                <summary className="cursor-pointer font-mono text-[11px] uppercase tracking-[0.15em] text-ink/65">
+                <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Prompt
                 </summary>
                 <p className="mt-2 whitespace-pre-wrap rounded border border-ink/10 bg-cream p-2 text-xs text-ink/80">
                   {randomPrompt.prompt}
                 </p>
               </details>
-              <button
-                type="button"
-                onClick={copyPrompt}
-                className="w-full rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-xs font-medium text-ink"
-              >
-                {promptCopied ? '✓ Copied' : 'Copy prompt to clipboard'}
-              </button>
+              <ActionButton tone="neutral" icon={Copy} label={promptCopied ? '✓ Copied' : 'Copy prompt to clipboard'} type="button" onClick={copyPrompt} className="w-full" />
             </div>
           )}
         </section>
 
-        <section className="rounded-xl border border-ink/15 bg-cream p-4">
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <section className="py-4 border-t border-ink/10">
+          <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Upload new
           </p>
           <form
@@ -443,16 +436,18 @@ export function LibraryEditor({ initialAssets }: Props) {
               className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none"
             />
             <div className="grid grid-cols-2 gap-2">
-              <select
+              <FieldPick
                 name="assetType"
+                label="Asset type"
                 required
                 defaultValue="venue_scene"
-                className="rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
-              >
-                <option value="venue_scene">Venue scene</option>
-                <option value="figure_attire">Figure attire</option>
-                <option value="florals">Florals</option>
-              </select>
+                className="min-h-11 w-full"
+                options={[
+                  { key: 'venue_scene', label: 'Venue scene' },
+                  { key: 'figure_attire', label: 'Figure attire' },
+                  { key: 'florals', label: 'Florals' },
+                ]}
+              />
               <input
                 name="assetSubtype"
                 type="text"
@@ -460,27 +455,23 @@ export function LibraryEditor({ initialAssets }: Props) {
                 className="rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
               />
             </div>
-            <select
+            <FieldPick
               name="source"
+              label="Source"
               defaultValue="internet_placeholder"
-              className="w-full rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
-            >
-              <option value="internet_placeholder">Internet placeholder (V1 soft-beta only)</option>
-              <option value="higgsfield_generated">Higgsfield-generated (V1.x)</option>
-              <option value="stylist_upload">Stylist-approved upload (V1.x+)</option>
-            </select>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="w-full rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream disabled:opacity-50"
-            >
-              {isPending ? 'Uploading…' : 'Upload + tag'}
-            </button>
+              className="min-h-11 w-full"
+              options={[
+                { key: 'internet_placeholder', label: 'Internet placeholder (V1 soft-beta only)' },
+                { key: 'higgsfield_generated', label: 'Higgsfield-generated (V1.x)' },
+                { key: 'stylist_upload', label: 'Stylist-approved upload (V1.x+)' },
+              ]}
+            />
+            <ActionButton tone="brand" main icon={Upload} label={isPending ? 'Uploading…' : 'Upload + tag'} type="submit" disabled={isPending} className="w-full" />
           </form>
         </section>
 
-        <section className="rounded-xl border border-ink/15 bg-cream p-4">
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <section className="py-4 border-t border-ink/10">
+          <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Library ({assets.length})
           </p>
           {assets.length === 0 ? (
@@ -508,7 +499,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-ink">{a.label}</p>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                         {a.asset_type}
                         {a.asset_subtype ? ` · ${a.asset_subtype}` : ''}
                         {' · '}
@@ -542,58 +533,23 @@ export function LibraryEditor({ initialAssets }: Props) {
             <header className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <h2 className="text-lg font-semibold text-ink">{selected.label}</h2>
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   {selected.asset_type}
                   {selected.asset_subtype ? ` · ${selected.asset_subtype}` : ''} · {selected.source}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleSaveTags}
-                  disabled={isPending}
-                  className="rounded-md bg-mulberry px-3 py-1.5 text-sm font-medium text-cream disabled:opacity-50"
-                >
-                  Save tags
-                </button>
+                <ActionButton tone="brand" main icon={Save} label="Save tags" type="button" onClick={handleSaveTags} disabled={isPending} />
                 {!selected.approved_at && (
-                  <button
-                    type="button"
-                    onClick={handleApprove}
-                    disabled={isPending}
-                    className="rounded-md border border-success-600 px-3 py-1.5 text-sm font-medium text-success-700 disabled:opacity-50"
-                  >
-                    Publish
-                  </button>
+                  <ActionButton tone="ok" icon={Check} label="Publish" type="button" onClick={handleApprove} disabled={isPending} />
                 )}
                 {!selected.rejected_at && (
-                  <button
-                    type="button"
-                    onClick={() => setRejectOpen((v) => !v)}
-                    disabled={isPending}
-                    className="rounded-md border border-danger-500 px-3 py-1.5 text-sm font-medium text-danger-600 disabled:opacity-50"
-                  >
-                    Reject…
-                  </button>
+                  <ActionButton tone="danger" icon={X} label="Reject…" type="button" onClick={() => setRejectOpen((v) => !v)} disabled={isPending} />
                 )}
                 {selected.approved_at && !selected.retired_at && (
-                  <button
-                    type="button"
-                    onClick={handleRetire}
-                    disabled={isPending}
-                    className="rounded-md border border-ink/30 px-3 py-1.5 text-sm font-medium text-ink/70 disabled:opacity-50"
-                  >
-                    Retire
-                  </button>
+                  <ActionButton tone="neutral" icon={Archive} label="Retire" type="button" onClick={handleRetire} disabled={isPending} />
                 )}
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={isPending}
-                  className="rounded-md border border-danger-500 px-3 py-1.5 text-sm font-medium text-danger-600 disabled:opacity-50"
-                >
-                  Delete
-                </button>
+                <ActionButton tone="danger" icon={Trash2} label="Delete" type="button" onClick={handleDelete} disabled={isPending} />
               </div>
             </header>
 
@@ -604,7 +560,7 @@ export function LibraryEditor({ initialAssets }: Props) {
 
             {selected.rejected_at ? (
               <div className="rounded-lg border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em]">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Rejected · the supplier sees this
                 </p>
                 <p className="mt-1">{selected.rejection_reason}</p>
@@ -637,13 +593,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                   >
                     Reject with this reason
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setRejectOpen(false)}
-                    className="rounded-md border border-ink/20 px-3 py-1.5 text-sm font-medium text-ink/70"
-                  >
-                    Cancel
-                  </button>
+                  <ActionButton tone="neutral" icon={X} label="Cancel" type="button" onClick={() => setRejectOpen(false)} />
                 </div>
               </div>
             ) : null}
@@ -664,7 +614,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                   <div key={slotId} className="space-y-1">
                     <label
                       htmlFor={`preview-slot-${slotId}`}
-                      className="block text-center font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+                      className="block text-center text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
                     >
                       Slot {slotId}
                     </label>
@@ -680,14 +630,16 @@ export function LibraryEditor({ initialAssets }: Props) {
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-[11px] text-ink/55">
-                These are the colors that will be applied to each tagged slot when previewing.
+              <div className="mt-2">
+                <InfoTip label="About the preview" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+                  These are the colors that will be applied to each tagged slot when previewing.
                 In production this comes from the host&apos;s master palette.
-              </p>
+                </InfoTip>
+              </div>
             </details>
           </>
         ) : (
-          <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-ink/20 text-sm text-ink/55">
+          <div className="flex h-64 items-center justify-center border-dashed text-sm text-ink/55 border-t border-ink/10">
             Upload a photo or pick one from the library to begin tagging.
           </div>
         )}

@@ -78,6 +78,12 @@ export type CheckDateInput = {
   services: CheckDateService[];
   months: string[];
   today: string;
+  /**
+   * 🔒 Only the days the SHOP CLOSED (a block or a held day) — never a day that is merely FULL. The booking ask and
+   * the supplier's yes read this (`lib/closed-day.server.ts`): a full day is the waiting list's, and the yes already
+   * refuses it on capacity. Absent = the public page's answer, full days included.
+   */
+  closedOnly?: boolean;
 };
 
 export type CheckDateAnswer = {
@@ -98,8 +104,8 @@ const asPool = (p: CheckDatePool): SchedulePool => ({
 });
 
 /** A day the month builder says nothing new can be booked on. */
-function closedState(state: string | null): boolean {
-  return state === 'blocked' || state === 'locked' || state === 'full';
+function closedState(state: string | null, closedOnly = false): boolean {
+  return state === 'blocked' || state === 'locked' || (!closedOnly && state === 'full');
 }
 
 /** One schedule's Not-bookable days in the window — the shipped month builder, one schedule at a time. */
@@ -113,7 +119,7 @@ function poolClosedDays(pool: CheckDatePool, input: CheckDateInput): Set<string>
   for (const month of input.months) {
     // Seven arguments: no asks are passed — the month builder's eighth is never given here.
     const m = buildCustomerCalendarMonth([asPool(pool)], bookings, blocks, states, [], month, input.today);
-    for (const d of m.days) if (!d.past && closedState(d.state)) out.add(d.date);
+    for (const d of m.days) if (!d.past && closedState(d.state, input.closedOnly)) out.add(d.date);
   }
   return out;
 }

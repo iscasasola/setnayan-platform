@@ -1165,13 +1165,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     const { data: chatFileRows, error: chatFileRowsError } = await supabase
       .from('chat_messages')
       .select(
-        'message_id,sender_role,created_at,attachment_name,attachment_mime,attachment_size_bytes,attachment_url',
+        // 📎 CHAT-02 (live, 14 Nov): `attachment_r2_key` is WHERE every chat file has been stored since 2026-09-09
+        // (`attachment_url` is legacy and nothing writes it). Read without it, every file arrived with no reference
+        // and was listed "File expired", unlinked — `chatAttachmentHref` needs either column.
+        'message_id,sender_role,created_at,attachment_name,attachment_mime,attachment_size_bytes,attachment_r2_key,attachment_url',
       )
       .eq('thread_id', threadId)
       // A row counts as a file if EITHER the stored reference or the filename
       // survived — a name with no reference still tells the supplier the file
       // exists, and listing it unlinked beats pretending it never arrived.
-      .or('attachment_url.not.is.null,attachment_name.not.is.null')
+      .or('attachment_r2_key.not.is.null,attachment_url.not.is.null,attachment_name.not.is.null')
       .order('created_at', { ascending: false })
       .limit(200);
     if (chatFileRowsError) {

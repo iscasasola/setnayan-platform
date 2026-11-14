@@ -214,7 +214,7 @@ export function GroupsFoldList({
         </Link>
       </div>
       {groups.length === 0 ? (
-        <p className={`py-2 text-sm ${unreadable ? 'text-warn' : 'text-ink/70'}`}>
+        <p className={`py-2 text-sm ${unreadable ? 'text-[rgb(var(--color-warn))]' : 'text-ink/70'}`}>
           {unreadable
             ? 'We couldn’t load your groups just now. Nothing is lost — refresh in a moment.'
             : 'No group yet — name it whatever your group calls itself.'}

@@ -249,7 +249,7 @@ export function InviteSheet({ f, open, onClose }: { f: FindOrInviteState; open: 
         />
         <p className="mt-2 text-[13px] leading-snug text-ink/70">They get an email either way.</p>
         {f.error ? (
-          <p role="alert" className="mt-2 text-sm text-danger">
+          <p role="alert" className="mt-2 text-sm text-[rgb(var(--color-danger))]">
             {f.error}
           </p>
         ) : null}
@@ -404,7 +404,7 @@ export function FindNotes({ f }: { f: FindOrInviteState }) {
   return (
     <div data-find-notes="">
       {f.error ? (
-        <p role="alert" className="mt-2 text-sm text-danger">
+        <p role="alert" className="mt-2 text-sm text-[rgb(var(--color-danger))]">
           {f.error}
         </p>
       ) : null}

@@ -350,7 +350,7 @@ export async function DependentsSection() {
                                 <button
                                   type="submit"
                                   aria-label={`Remove ${g.godparent_name}`}
-                                  className="relative grid h-7 w-7 place-items-center rounded-full text-ink/70 transition-colors before:absolute before:-inset-2 before:content-[''] hover:text-danger"
+                                  className="relative grid h-7 w-7 place-items-center rounded-full text-ink/70 transition-colors before:absolute before:-inset-2 before:content-[''] hover:text-[rgb(var(--color-danger))]"
                                 >
                                   <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
                                 </button>

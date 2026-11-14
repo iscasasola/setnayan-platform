@@ -252,7 +252,7 @@ export async function PeopleSegment({
           whose words described the dropdown this page lost on 2026-10-22. After the host's journey, so two never stack. */}
       <Spotlight tourKey="customer_people_v3" after="host_spotlight_v1" />
       {errorMsg ? (
-        <p role="alert" className="mb-4 text-sm text-danger">
+        <p role="alert" className="mb-4 text-sm text-[rgb(var(--color-danger))]">
           {errorMsg}
         </p>
       ) : null}

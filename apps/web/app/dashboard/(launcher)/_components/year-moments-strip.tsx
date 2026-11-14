@@ -258,7 +258,7 @@ export function EmptyYear({
   return (
     <Tile heading={heading}>
       {unsure ? (
-        <p className="text-sm text-warn">We couldn’t load your dates just now — not the same as none.</p>
+        <p className="text-sm text-[rgb(var(--color-warn))]">We couldn’t load your dates just now — not the same as none.</p>
       ) : (
         <p className="text-sm text-ink/70">Nothing in the year ahead yet.</p>
       )}

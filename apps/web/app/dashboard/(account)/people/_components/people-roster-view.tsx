@@ -639,7 +639,7 @@ export function PeopleRosterView({
       <UndoToastHost />
       {topLine}
       {error ? (
-        <p role="alert" className="py-2 text-sm text-danger">
+        <p role="alert" className="py-2 text-sm text-[rgb(var(--color-danger))]">
           {error}
         </p>
       ) : null}
@@ -1314,7 +1314,7 @@ function LabelCell({
           · {ask.state === 'waiting_them' ? waitingForLine(person.name) : didNotConfirmLine(person.name)}
         </span>
       ) : null}
-      {failed ? <span className="text-danger">{failed}</span> : null}
+      {failed ? <span className="text-[rgb(var(--color-danger))]">{failed}</span> : null}
       {question ? (
         <span className="mt-1.5 flex w-full flex-col gap-1.5" role="status" data-replace-partner>
           <span className="text-[13px] leading-snug text-ink">{question.text}</span>
@@ -1357,7 +1357,7 @@ function LabelCell({
               type="button"
               role="menuitem"
               onClick={() => commit(null)}
-              className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[15px] text-danger transition-colors hover:bg-ink/[0.04]"
+              className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[15px] text-[rgb(var(--color-danger))] transition-colors hover:bg-ink/[0.04]"
             >
               Remove the label
             </button>

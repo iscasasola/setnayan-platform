@@ -93,7 +93,7 @@ export function FoundPersonCard({ hit }: { hit: PersonHit }) {
           )}
         </div>
         {error ? (
-          <p role="alert" className="mt-3 text-sm text-danger">
+          <p role="alert" className="mt-3 text-sm text-[rgb(var(--color-danger))]">
             {error}
           </p>
         ) : null}

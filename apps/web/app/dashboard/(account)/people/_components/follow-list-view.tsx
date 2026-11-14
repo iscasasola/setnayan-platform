@@ -90,7 +90,7 @@ export function FollowListView({
       <p className="text-[13px] text-ink/70">{copy.intro}</p>
 
       {list.unavailable ? (
-        <p role="status" className="py-6 text-sm text-warn" data-follow-refused>
+        <p role="status" className="py-6 text-sm text-[rgb(var(--color-warn))]" data-follow-refused>
           {copy.refused}
         </p>
       ) : list.rows.length === 0 ? (
@@ -178,7 +178,7 @@ function FollowRowItem({ row, which }: { row: FollowRow; which: 'following' | 'f
         ) : (
           <span className="flex min-h-11 min-w-0 items-center gap-3">{who}</span>
         )}
-        {error ? <span className="text-xs text-danger">{error}</span> : null}
+        {error ? <span className="text-xs text-[rgb(var(--color-danger))]">{error}</span> : null}
       </span>
       <span className="flex shrink-0 items-center gap-2">
         {which === 'following' ? (

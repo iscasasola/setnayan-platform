@@ -136,7 +136,7 @@ export function LifeFlashTile({ eventName, hasFrames }: { eventName: string | nu
 /** A refused read, said as one — never a "nothing yet" over a query that did not answer. */
 export function MemoriesUnreadable({ what }: { what: 'memories' | 'events' }) {
   return (
-    <p role="status" className="flex items-start gap-2 py-3 text-[13px] text-warn" data-memories-unreadable={what}>
+    <p role="status" className="flex items-start gap-2 py-3 text-[13px] text-[rgb(var(--color-warn))]" data-memories-unreadable={what}>
       <AlertTriangle aria-hidden className="mt-px h-4 w-4 shrink-0" strokeWidth={1.75} />
       {what === 'memories'
         ? 'Some of your memories could not be loaded just now. This is not an empty album — try again in a moment.'

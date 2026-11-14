@@ -254,7 +254,7 @@ function ControlsBoard({ controls }: { controls: PrivacyControlRow[] }) {
           className="rounded-xl border px-4 py-3.5 text-sm leading-relaxed"
           style={
             summary.overdue > 0
-              ? { borderColor: 'var(--sn-danger, #b42318)', background: 'rgba(180,35,24,0.06)', color: 'var(--sn-danger, #b42318)' }
+              ? { borderColor: 'var(--sn-danger)', background: 'rgba(180,35,24,0.06)', color: 'var(--sn-danger)' }
               : { borderColor: 'var(--m-orange-deep)', background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }
           }
         >
@@ -301,9 +301,9 @@ function ControlCard({ control: c }: { control: PrivacyControlRow }) {
   const StatusIcon = meta.icon;
   const toneColor =
     meta.tone === 'active'
-      ? 'var(--sn-success, #157347)'
+      ? 'var(--sn-success)'
       : meta.tone === 'blocked'
-        ? 'var(--sn-danger, #b42318)'
+        ? 'var(--sn-danger)'
         : 'var(--m-slate-3)';
 
   return (
@@ -348,7 +348,7 @@ function ControlCard({ control: c }: { control: PrivacyControlRow }) {
                   return (
                     <>
                       {' · '}
-                      <strong style={{ color: 'var(--sn-danger, #b42318)' }}>
+                      <strong style={{ color: 'var(--sn-danger)' }}>
                         review was due {c.review_by ?? '(date unreadable)'}
                       </strong>
                     </>

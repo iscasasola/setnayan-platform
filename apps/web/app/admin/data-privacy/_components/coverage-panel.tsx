@@ -44,10 +44,10 @@ export function CoveragePanel({ controls }: { controls: PrivacyControlRow[] }) {
       </p>
 
       {report.undeclaredActive.length > 0 ? (
-        <div className="sn-tile mt-4" style={{ borderColor: 'var(--sn-danger, #b42318)' }}>
+        <div className="sn-tile mt-4" style={{ borderColor: 'var(--sn-danger)' }}>
           <p
             className="flex items-center gap-2 text-sm font-semibold"
-            style={{ color: 'var(--sn-danger, #b42318)' }}
+            style={{ color: 'var(--sn-danger)' }}
           >
             <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={2} />
             Live but not declared to the NPC ({report.undeclaredActive.length})
@@ -81,8 +81,8 @@ export function CoveragePanel({ controls }: { controls: PrivacyControlRow[] }) {
             : !cov.privacySensitive
               ? 'var(--m-slate-3)'
               : declared
-                ? 'var(--sn-success, #157347)'
-                : 'var(--sn-danger, #b42318)';
+                ? 'var(--sn-success)'
+                : 'var(--sn-danger)';
           return (
             <li
               key={c.control_key}
@@ -112,7 +112,7 @@ export function CoveragePanel({ controls }: { controls: PrivacyControlRow[] }) {
           Declared, but no live control
         </p>
         {FILING_ACTIVITIES_WITHOUT_CONTROL.length === 0 ? (
-          <p className="mt-2 text-xs" style={{ color: 'var(--sn-success, #157347)' }}>
+          <p className="mt-2 text-xs" style={{ color: 'var(--sn-success)' }}>
             None — every declared activity now has a control on the board.
           </p>
         ) : (

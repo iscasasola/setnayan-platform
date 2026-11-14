@@ -27,12 +27,12 @@ const STATE_META: Record<
   JobState,
   { label: string; icon: typeof CheckCircle2; color: string; bad: boolean }
 > = {
-  ok: { label: 'Ran and finished', icon: CheckCircle2, color: 'var(--sn-success, #157347)', bad: false },
+  ok: { label: 'Ran and finished', icon: CheckCircle2, color: 'var(--sn-success)', bad: false },
   running: { label: 'Running now', icon: Loader2, color: 'var(--m-slate-3)', bad: false },
   'never-claimed': { label: 'No run yet', icon: CircleDashed, color: 'var(--m-slate-3)', bad: false },
   'no-outcome-recorded': { label: 'Outcome unknown', icon: HelpCircle, color: 'var(--m-slate-3)', bad: false },
-  'never-finished': { label: 'Started, never finished', icon: CircleAlert, color: 'var(--sn-danger, #b42318)', bad: true },
-  failed: { label: 'Failed', icon: XCircle, color: 'var(--sn-danger, #b42318)', bad: true },
+  'never-finished': { label: 'Started, never finished', icon: CircleAlert, color: 'var(--sn-danger)', bad: true },
+  failed: { label: 'Failed', icon: XCircle, color: 'var(--sn-danger)', bad: true },
 };
 
 function Row({ verdict, what }: { verdict: JobVerdict; what: string }) {
@@ -60,7 +60,7 @@ export function DeletionRunsPanel({ ledger }: { ledger: JobLedger }) {
     return (
       <section>
         <h2 className="sn-sec">Deletions</h2>
-        <p className="mt-2 text-sm" style={{ color: 'var(--sn-danger, #b42318)' }}>
+        <p className="mt-2 text-sm" style={{ color: 'var(--sn-danger)' }}>
           We could not read the job ledger, so this page cannot tell you whether the deletions
           ran. This is <strong>not</strong> the same as everything being fine. ({ledger.reason})
         </p>
@@ -90,7 +90,7 @@ export function DeletionRunsPanel({ ledger }: { ledger: JobLedger }) {
       </p>
 
       {attention.length === 0 ? (
-        <p className="mt-4 text-sm" style={{ color: 'var(--sn-success, #157347)' }}>
+        <p className="mt-4 text-sm" style={{ color: 'var(--sn-success)' }}>
           Nothing needs your attention: every job that started has also reported back.
         </p>
       ) : (

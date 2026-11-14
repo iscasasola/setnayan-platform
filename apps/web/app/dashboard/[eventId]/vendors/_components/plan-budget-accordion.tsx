@@ -136,9 +136,9 @@ const DIGITAL_SVCS: ReadonlyArray<AddOnEntry> = ADD_ONS.filter(
  */
 const PBA_CSS = `
 .pbacc{
-  --paper:var(--m-paper,#FBFBFA); --ink:var(--m-ink,#1B1A17); --ink-soft:#4F535B;
-  --gold:var(--m-orange,#A9834B); --gold-deep:var(--m-orange-2,#8C6932);
-  --mulberry:var(--m-mulberry,#1B1A17); --mulberry-deep:var(--m-mulberry-2,#343A44);
+  --paper:var(--m-paper); --ink:var(--m-ink); --ink-soft:#4F535B;
+  --gold:var(--m-orange); --gold-deep:var(--m-orange-2);
+  --mulberry:var(--m-mulberry); --mulberry-deep:var(--m-mulberry-2,#343A44);
   --line:rgba(30,26,18,.12); --line-soft:rgba(30,26,18,.07);
   --card:#fff; /* white card surface in light; flips to lifted obsidian in dark */
   /* --topbar-h was the dark P0 budget bar height; that bar is removed (owner

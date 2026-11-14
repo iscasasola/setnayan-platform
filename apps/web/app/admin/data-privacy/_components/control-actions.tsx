@@ -77,7 +77,7 @@ export function ControlActions({ control: c }: { control: PrivacyControlRow }) {
                 value="blocked"
                 disabled={isPending}
                 className="rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
-                style={{ borderColor: 'var(--sn-danger, #b42318)', color: 'var(--sn-danger, #b42318)' }}
+                style={{ borderColor: 'var(--sn-danger)', color: 'var(--sn-danger)' }}
               >
                 Block
               </button>
@@ -96,11 +96,11 @@ export function ControlActions({ control: c }: { control: PrivacyControlRow }) {
         )}
       </div>
       {state?.status === 'ok' ? (
-        <p role="status" className="text-xs" style={{ color: 'var(--sn-success, #157347)' }}>
+        <p role="status" className="text-xs" style={{ color: 'var(--sn-success)' }}>
           {state.message}
         </p>
       ) : state?.status === 'error' ? (
-        <p role="alert" className="text-xs" style={{ color: 'var(--sn-danger, #b42318)' }}>
+        <p role="alert" className="text-xs" style={{ color: 'var(--sn-danger)' }}>
           {state.message}
         </p>
       ) : null}

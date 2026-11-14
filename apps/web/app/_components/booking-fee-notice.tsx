@@ -30,7 +30,7 @@ import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-
 
 /** Border / accent per tone. `good` is the free-booking and no-fee case. */
 const TONE = {
-  good: { accent: 'var(--sn-success, #1f7a4d)', Icon: BadgeCheck },
+  good: { accent: 'var(--sn-success)', Icon: BadgeCheck },
   info: { accent: 'var(--sn-gold-700)', Icon: Info },
   due: { accent: 'var(--sn-gold-700)', Icon: Receipt },
   overdue: { accent: 'var(--m-blush-deep)', Icon: AlertTriangle },

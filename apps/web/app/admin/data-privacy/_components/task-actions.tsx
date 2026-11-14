@@ -93,11 +93,11 @@ export function TaskActions({
         Mark N/A
       </button>
       {state?.status === 'ok' ? (
-        <p role="status" className="text-xs" style={{ color: 'var(--sn-success, #157347)' }}>
+        <p role="status" className="text-xs" style={{ color: 'var(--sn-success)' }}>
           {state.message}
         </p>
       ) : state?.status === 'error' ? (
-        <p role="alert" className="text-xs" style={{ color: 'var(--sn-danger, #b42318)' }}>
+        <p role="alert" className="text-xs" style={{ color: 'var(--sn-danger)' }}>
           {state.message}
         </p>
       ) : null}

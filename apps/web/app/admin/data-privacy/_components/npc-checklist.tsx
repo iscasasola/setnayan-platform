@@ -59,7 +59,7 @@ export async function NpcChecklist() {
       {/* Anti-false-assurance banner — a green count is not clearance to file. */}
       <div
         className="mt-4 mb-6 flex items-start gap-3 rounded-xl border px-4 py-3.5"
-        style={{ borderColor: 'var(--sn-danger, #b42318)', background: 'rgba(180,35,24,0.06)', color: 'var(--sn-danger, #b42318)' }}
+        style={{ borderColor: 'var(--sn-danger)', background: 'rgba(180,35,24,0.06)', color: 'var(--sn-danger)' }}
       >
         <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
         <p className="text-sm leading-relaxed">
@@ -71,13 +71,13 @@ export async function NpcChecklist() {
 
       {blockers.length > 0 ? (
         <section className="mb-6">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: 'var(--sn-danger, #b42318)' }}>
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: 'var(--sn-danger)' }}>
             {blockers.length} blocker{blockers.length === 1 ? '' : 's'} — resolve before filing
           </p>
           <ul className="mt-2 space-y-1">
             {blockers.map((t) => (
               <li key={t.key} className="flex items-center gap-2 text-sm" style={{ color: 'var(--m-ink)' }}>
-                <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--sn-danger, #b42318)' }} strokeWidth={2} />
+                <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--sn-danger)' }} strokeWidth={2} />
                 <a href={`#${t.key}`} className="hover:underline">
                   <span className="font-mono text-xs" style={{ color: 'var(--m-slate-3)' }}>{t.key}</span> · {t.title}
                 </a>
@@ -110,18 +110,18 @@ function TaskCard({ task: t, counselGatedStill }: { task: NpcTaskRow; counselGat
   const isBlocker = t.severity === 'blocking';
   const statusColor =
     t.status === 'resolved'
-      ? 'var(--sn-success, #157347)'
+      ? 'var(--sn-success)'
       : t.status === 'blocked_on_counsel'
         ? 'var(--m-orange-2)'
         : isBlocker
-          ? 'var(--sn-danger, #b42318)'
+          ? 'var(--sn-danger)'
           : 'var(--m-slate-3)';
 
   return (
     <li
       id={t.key}
       className="sn-tile scroll-mt-24"
-      style={isBlocker && t.status !== 'resolved' ? { borderColor: 'var(--sn-danger, #b42318)' } : undefined}
+      style={isBlocker && t.status !== 'resolved' ? { borderColor: 'var(--sn-danger)' } : undefined}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -139,7 +139,7 @@ function TaskCard({ task: t, counselGatedStill }: { task: NpcTaskRow; counselGat
             {isBlocker ? (
               <span
                 className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                style={{ background: 'rgba(180,35,24,0.1)', color: 'var(--sn-danger, #b42318)' }}
+                style={{ background: 'rgba(180,35,24,0.1)', color: 'var(--sn-danger)' }}
               >
                 Blocker
               </span>

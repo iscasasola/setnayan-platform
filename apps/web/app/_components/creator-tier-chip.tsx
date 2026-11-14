@@ -42,9 +42,9 @@ export function CreatorTierChip({
         alignItems: 'center',
         padding: md ? '0.24em 0.62em' : '0.18em 0.5em',
         borderRadius: 'var(--m-r-full, 999px)',
-        border: '1px solid color-mix(in srgb, var(--m-ink, #26201b) 22%, transparent)',
-        background: 'color-mix(in srgb, var(--m-ink, #26201b) 6%, transparent)',
-        color: 'var(--m-slate, #55504a)',
+        border: '1px solid color-mix(in srgb, var(--m-ink) 22%, transparent)',
+        background: 'color-mix(in srgb, var(--m-ink) 6%, transparent)',
+        color: 'var(--m-slate)',
         fontFamily:
           "var(--font-mono-marketing), var(--font-mono), 'JetBrains Mono', ui-monospace, monospace",
         fontSize: md ? '0.64rem' : '0.58rem',

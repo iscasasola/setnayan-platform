@@ -113,10 +113,10 @@ const EFFECT_SLIDERS: Array<{ group: string; sliders: EffectSliderDef[] }> = [
   },
 ];
 
-const INK = 'var(--m-ink,#1b1a17)';
-const SLATE = 'var(--m-slate,#4f535b)';
-const LINE = 'var(--m-line,#e3e1da)';
-const ACCENT = 'var(--m-mulberry,#7d2b4f)';
+const INK = 'var(--m-ink)';
+const SLATE = 'var(--m-slate)';
+const LINE = 'var(--m-line)';
+const ACCENT = 'var(--m-mulberry)';
 
 function Slider({
   label,

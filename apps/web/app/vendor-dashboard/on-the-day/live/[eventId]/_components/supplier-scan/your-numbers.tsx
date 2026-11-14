@@ -120,6 +120,9 @@ export function YourNumbers({
             {rows.map((r) => {
               const isOpen = open === r.number;
               const st = numberState(r);
+              const times = [`Ordered ${formatWallClock(r.firstAt)}`, r.readyAt ? `Ready ${formatWallClock(r.readyAt)}` : null, r.receivedAt ? `Received ${formatWallClock(r.receivedAt)}` : null]
+                .filter(Boolean)
+                .join(' · ');
               return (
                 <NumberRow
                   key={r.number}
@@ -142,11 +145,7 @@ export function YourNumbers({
                   }
                 >
                     <div className="space-y-2 pb-3 pl-16" data-your-number-open={r.number}>
-                      <p className="text-sm text-[color:var(--m-slate-2)]">
-                        {[`Ordered ${formatWallClock(r.firstAt)}`, r.readyAt ? `Ready ${formatWallClock(r.readyAt)}` : null, r.receivedAt ? `Received ${formatWallClock(r.receivedAt)}` : null]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </p>
+                      <p className="text-sm text-[color:var(--m-slate-2)]">{times}</p>
                       {r.ordered > 0 && !r.open ? (
                         <ActionButton tone="brand" main icon={BellRing} label="Ready" name={`${scanNumberLabel(r.number)} is ready`} disabled={pending} onClick={() => ready(r)} />
                       ) : null}

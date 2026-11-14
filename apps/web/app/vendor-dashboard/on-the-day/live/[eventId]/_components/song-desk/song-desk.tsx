@@ -319,6 +319,10 @@ function summarise(playlist: HostPlaylistModel): string {
  * already impossible.
  */
 function Banned({ playlist }: { playlist: HostPlaylistModel }) {
+  const hazardLine =
+    playlist.hazardCount === 1
+      ? '1 of these is in your repertoire — worth a mark on your list.'
+      : `${formatCount(playlist.hazardCount)} of these are in your repertoire — worth a mark on your list.`;
   return (
     <div className="space-y-0.5 pt-1">
       <h5 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
@@ -326,11 +330,7 @@ function Banned({ playlist }: { playlist: HostPlaylistModel }) {
         Don’t play these
       </h5>
       {playlist.hazardCount > 0 ? (
-        <p className="text-sm leading-relaxed text-danger-700">
-          {playlist.hazardCount === 1
-            ? '1 of these is in your repertoire — worth a mark on your list.'
-            : `${formatCount(playlist.hazardCount)} of these are in your repertoire — worth a mark on your list.`}
-        </p>
+        <p className="text-sm leading-relaxed text-danger-700">{hazardLine}</p>
       ) : null}
       <ul className="divide-y divide-[color:var(--m-line)]">
         {playlist.banned.map((entry) => (

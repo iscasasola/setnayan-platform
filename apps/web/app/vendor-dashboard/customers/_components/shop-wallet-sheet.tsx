@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { ShoppingBag } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -171,8 +172,13 @@ function BuyAPack({
       <p className="home-k2">Buy a pack</p>
       {pack ? (
         <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">
-          {pack.title} · {count(pack.credits)} credits · {peso(pack.pricePhp)} · lands in this wallet when the payment is
-          approved · never expires while your shop exists.
+          <InfoTip
+            label={`${pack.title} · ${count(pack.credits)} credits · ${peso(pack.pricePhp)}`}
+            ariaLabel="About these credits"
+            align="start"
+          >
+            Lands in this wallet when the payment is approved · never expires while your shop exists.
+          </InfoTip>
         </p>
       ) : null}
       {openRails.length === 0 ? (

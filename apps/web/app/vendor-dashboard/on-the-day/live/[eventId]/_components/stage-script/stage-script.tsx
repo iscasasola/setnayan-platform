@@ -18,6 +18,7 @@ import { StageNotesCard } from '../stage-notes-card';
 import { fetchMyAreaGrants } from '@/lib/my-area-grants.server';
 import { ScheduleUpdater } from '../floor-command/schedule-updater';
 import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * SCRIPT & CUES — the host / MC specialization surface (`stage_script`).
@@ -125,8 +126,14 @@ export async function StageScript({
   if (model.phase === 'empty') {
     return (
       <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">
-        <strong className="font-semibold text-ink">{coupleName} hasn’t built their timeline yet.</strong> Your script
-        and cue card appear here once they do — nothing for you to set up.
+        <InfoTip
+          label={`${coupleName} hasn’t built their timeline yet.`}
+          labelClassName="font-semibold text-ink"
+          ariaLabel="About your script"
+          align="start"
+        >
+          Your script and cue card appear here once they do — nothing for you to set up.
+        </InfoTip>
       </p>
     );
   }

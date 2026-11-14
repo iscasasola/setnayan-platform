@@ -374,8 +374,9 @@ function ConversionCard({
             >
               {nf.format(c.converted)}
               <span className="text-base font-normal" style={{ color: 'var(--sn-ink-700)' }}>
+                {/* AW-8: say what is counted — guests (the label's own denominator), never a bare "/ N". */}
                 {' '}
-                / {nf.format(c.totalGuests)}
+                of {nf.format(c.totalGuests)} guests
               </span>
             </p>
           </div>
@@ -420,8 +421,8 @@ function ConversionCard({
       </div>
       <p className="mt-4 border-t border-ink/10 pt-3 text-[11px]" style={{ color: 'var(--sn-ink-700)' }}>
         A conversion is a guest-list entry that became tied to a real Setnayan
-        account (joined by QR scan or invite link). Rate is converted ÷ all
-        non-removed guests, all-time.
+        account (joined by QR scan or invite link). Rate is converted guests ÷ all
+        non-removed guests, all-time — both counted over the same guests.
       </p>
     </div>
   );

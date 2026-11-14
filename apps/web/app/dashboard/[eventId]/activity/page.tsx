@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchEventActivity, relativeTime } from '@/lib/activity';
 import { getLocale, makeT } from '@/lib/i18n';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatLongTimestamp } from '@/lib/format-date';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,5 +121,5 @@ function formatDayKey(iso: string | null | undefined): string {
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
-  return d.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+  return formatLongTimestamp(d.toISOString());
 }

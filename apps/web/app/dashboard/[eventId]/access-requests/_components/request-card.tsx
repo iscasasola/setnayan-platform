@@ -16,6 +16,7 @@ import type { DelegateArea } from '@/lib/event-moderators';
 import { FLOOR_AREA_LABEL, GRANT_WORDS, grantLevelFor, type AreaVerdict } from '@/lib/floor-command';
 import { answerAccessRequest } from '../actions';
 import { formatCount } from '@/lib/format-number';
+import { formatRecordedAt } from '@/lib/recorded-at';
 
 export type PendingRequest = {
   requestId: string;
@@ -80,7 +81,7 @@ export function RequestCard({
           {request.askerName} is asking for access
         </h3>
         <span className="text-xs text-ink/50">
-          {new Date(request.createdAt).toLocaleDateString()}
+          {formatRecordedAt(request.createdAt)}
         </span>
       </div>
 

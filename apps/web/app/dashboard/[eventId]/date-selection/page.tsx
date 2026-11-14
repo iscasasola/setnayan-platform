@@ -59,6 +59,7 @@ import { CandidateDatePicker, type CandidateInsight } from './_components/candid
 import { ChineseSpecialistNudge } from './_components/chinese-specialist-nudge';
 import { markDateUndecided } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatRecordedAt } from '@/lib/recorded-at';
 
 export const metadata = { title: 'Pick your date' };
 
@@ -163,7 +164,7 @@ function labelFor(dateKey: string) {
   const [y = 1970, m = 1, d = 1] = dateKey.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
   return {
-    label: dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    label: formatRecordedAt(dateKey) ?? dateKey,
     dow: dt.toLocaleDateString('en-US', { weekday: 'long' }),
     fullLabel: dt.toLocaleDateString('en-US', {
       weekday: 'long',

@@ -9,6 +9,7 @@ import { eventBoardHref, eventStance, manilaTodayISO, stanceClosedReason } from 
 import { eventTypeBadge } from '@/lib/event-vocabulary';
 import { nextGroupEvent, type ChatEvent } from '@/lib/samahan-chatroom';
 import { GroupChatroom, type EventDoor } from './group-chatroom';
+import { formatRecordedAt } from '@/lib/recorded-at';
 
 export type EventMemberType = EventWithRole['member_type'];
 
@@ -147,10 +148,9 @@ export function GroupHome({
   );
 }
 
-/** "Dec 27, 2026" from a date-only value (tz-safe). */
+/** "27 Dec 2026" from a date-only value (tz-safe). */
 function longDate(iso: string | null): string | null {
-  const d = dateParts(iso);
-  return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+  return iso && dateParts(iso) ? formatRecordedAt(iso.slice(0, 10)) : null;
 }
 
 function dateParts(iso: string | null): Date | null {

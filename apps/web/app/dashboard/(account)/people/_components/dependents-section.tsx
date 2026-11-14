@@ -26,6 +26,7 @@ import {
   emailHandoverLink,
 } from '../dependent-actions';
 import { StayConfirmForm, StayForm } from '@/app/_components/stay-form';
+import { formatRecordedAt } from '@/lib/recorded-at';
 
 /**
  * "Alaga" — the dependent capture (Phase 3 family graph · flag-gated).
@@ -64,14 +65,8 @@ type GodparentRow = {
   role: string | null;
 };
 
-const FMT = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'Asia/Manila',
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-});
 function fmt(iso: string): string {
-  return FMT.format(new Date(`${iso}T12:00:00+08:00`));
+  return formatRecordedAt(iso) ?? iso;
 }
 
 export async function DependentsSection() {

@@ -46,6 +46,7 @@ import type { PricePositionResult } from '@/lib/price-position';
 /** A price read that FAILED (safeRead's fallback) — never `no_data`, which would say the market is empty. */
 export type PricePositionUnreadable = { status: 'unreadable' };
 import type { VendorHealthComposite } from '@/lib/vendor-health-composite';
+import { formatRecordedAt } from '@/lib/recorded-at';
 
 export type Totals = { views: number; inquiries: number; quotes: number; booked: number };
 /** A source as a row: `count: null` = under the min-N floor, drawn "under 5 · hidden". */
@@ -142,8 +143,7 @@ function bookedLane(points: readonly { bookings: number }[] | null, n: number): 
   return tail.length === n ? tail : [...Array(n - tail.length).fill(0), ...tail];
 }
 
-const DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-const fmtDate = (iso: string) => DATE_FMT.format(new Date(`${iso.slice(0, 10)}T00:00:00Z`));
+const fmtDate = (iso: string) => formatRecordedAt(iso.slice(0, 10)) ?? iso;
 
 /** Philippine-time heat: rows Mon → Sun, eight 3-hour blocks (12a 3a 6a 9a 12p 3p 6p 9p). */
 function heatGrid(cells: InquiryAnalytics['heatmap']): number[][] | null {

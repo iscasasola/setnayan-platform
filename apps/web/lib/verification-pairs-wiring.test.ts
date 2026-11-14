@@ -131,8 +131,10 @@ test('A VERIFIED SHOP CAN STILL REACH ITS PAPERS — no early return may come ba
   );
   // The badge card survives, as a branch rather than a return.
   assert.match(src, /\{isVerified \? \(/);
-  // …and the documents step opens for them.
-  assert.match(src, /isVerified \|\| profileComplete/);
+  // …and the documents step opens for them — for every shop, verified or not, with papers missing. Since the
+  // profile gate was removed (owner 2026-11-14, "Yes, remove it") nothing but missing papers decides it.
+  assert.match(src, /useState<boolean>\(\(\) => !verify\.requiredDocsIn && !submitted\)/);
+  assert.doesNotMatch(src, /profileComplete/, 'the papers step is gated on the business profile again');
 });
 
 test('the upload place covers exactly the three papers (bank proof dropped), in the model’s slots', () => {

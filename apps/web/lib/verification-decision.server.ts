@@ -1,6 +1,12 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { parseVerificationState, type VerificationState } from '@/lib/vendor-verification';
+import {
+  DOC_SLOTS,
+  markSentBack,
+  parseVerificationState,
+  type DocUploadMap,
+  type VerificationState,
+} from '@/lib/vendor-verification';
 import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
 import { deadlineAtApproval } from '@/lib/verified-badge';
@@ -41,6 +47,12 @@ export type ApplicationDecisionInput = {
    * approval has always written.
    */
   permitDeadlineIso?: string | null;
+  /**
+   * Send-back only (owner 2026-11-14, DECISION_LOG "A SEND-BACK NAMES ONLY THE PAPER THAT NEEDS A NEW COPY": "Only
+   * the named one"): the required papers the admin named. At least one; ONLY these read "Needs a new copy" with the
+   * reason, every other paper keeps its state (`markSentBack`).
+   */
+  sentBackSlots?: readonly string[];
 };
 
 /* 🔒 NOT A SERVER ACTION (2026-10-28, admin supplier slice; moved here 2026-11-14). It was once exported from a
@@ -58,7 +70,7 @@ export async function applyApplicationDecision(
   const { data: app, error: appErr } = await admin
     .from('vendor_verification_applications')
     .select(
-      'application_id,vendor_profile_id,status,decision,application_type,fee_php_centavos',
+      'application_id,vendor_profile_id,status,decision,application_type,fee_php_centavos,doc_uploads',
     )
     .eq('application_id', input.applicationId)
     .maybeSingle();
@@ -86,6 +98,8 @@ export async function applyApplicationDecision(
     next_renewal_due_at?: string;
     public_visibility?: 'verified';
   } = {};
+  // 📨 The send-back's marked papers (rejected only) — written with the status, in the same update.
+  let sentBackUploads: DocUploadMap | null = null;
   let demoteSideEffects: {
     last_demoted_at?: string;
     demotion_count?: number;
@@ -101,8 +115,8 @@ export async function applyApplicationDecision(
       // permit date is recorded with the approval (audit below) but no longer sets the day. The shop's listing and
       // bookability never read this column.
       approveSideEffects = {
-        // 📄 Renewed papers end a lapse at once (owner "Keep them, block new"):
-        // the shop is back in every list and takes new bookings again.
+        // 📄 Renewed papers end a lapse at once: the shop is back in search and
+        // Discover (DECISION_LOG 481b9b6b — the lapse never refused a booking).
         papers_lapsed_at: null,
         // …and the free plan the lapse took down to "free" comes back. A paid plan was never touched.
         ...((vendor as { papers_lapsed_at?: string | null }).papers_lapsed_at &&
@@ -126,6 +140,15 @@ export async function applyApplicationDecision(
           ok: false,
           error: 'Rejection reason is required.',
         };
+      }
+      sentBackUploads = markSentBack(
+        (app.doc_uploads ?? {}) as DocUploadMap,
+        input.sentBackSlots ?? [],
+        input.reason,
+        now,
+      );
+      if (!sentBackUploads) {
+        return { ok: false, error: 'Pick the paper that needs a new copy.' };
       }
       break;
     }
@@ -160,6 +183,7 @@ export async function applyApplicationDecision(
       updatePayload.decision_reason = input.reason ?? null;
       updatePayload.decided_at = now;
       updatePayload.admin_user_id = input.actor.user_id;
+      if (sentBackUploads) updatePayload.doc_uploads = sentBackUploads;
     } else if (input.decision === 'set_in_review') {
       updatePayload.admin_user_id = input.actor.user_id;
     }
@@ -250,6 +274,7 @@ export async function applyApplicationDecision(
     after_json: {
       status: appStatus,
       verification_state: toState,
+      ...(input.decision === 'rejected' ? { sent_back_papers: input.sentBackSlots ?? [] } : {}),
     },
     reason: input.reason,
     actor_user_id: input.actor.user_id,
@@ -269,7 +294,7 @@ export async function applyApplicationDecision(
   });
   if (auditErr) return { ok: false, error: plainRefusal('AdminVerifyActions (auditErr)', auditErr) };
 
-  // 🏅 Regular verification's reward (owner 12 Nov 2026): the four papers approved → 1 × 4 weeks of Ultra, once per
+  // 🏅 Regular verification's reward (owner 12 Nov 2026): the required papers approved → 1 × 4 weeks of Ultra, once per
   // shop, ever — a shop founders-verified earlier already had its weeks (`lib/verification-plan-reward.server.ts`).
   if (input.decision === 'approved' && toState === 'verified' && fromState !== 'verified') {
     await grantVerificationPlanReward(admin, {
@@ -293,6 +318,11 @@ export async function applyApplicationDecision(
       vendorProfileId: vendor.vendor_profile_id,
       decision: input.decision,
       reason: input.reason,
+      // A send-back names its papers (owner 2026-11-14, "Only the named one") — the notice says which, by label.
+      sentBackPapers:
+        input.decision === 'rejected'
+          ? DOC_SLOTS.filter((s) => (input.sentBackSlots ?? []).includes(s.key)).map((s) => s.label)
+          : undefined,
     });
   }
 

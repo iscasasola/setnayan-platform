@@ -13,7 +13,8 @@ import { performVerificationDelete } from '@/lib/verification-docs';
  * /admin/verification-docs — the ONLY write path against the vendor
  * verification bucket.
  *
- * These objects are government IDs, business permits and bank proofs. Deletion
+ * These objects are business permits and registration papers — and the government
+ * IDs and bank proofs sent before those were retired (2026-07-03, 2026-11-14). Deletion
  * is irreversible: R2 has no undo and this bucket is not versioned. So every
  * gate below is deliberate, and none of them may be relaxed for convenience.
  */

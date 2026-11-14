@@ -15,6 +15,15 @@ import {
   parseVerificationState,
   type VerificationState,
 } from '@/lib/vendor-verification';
+
+/** The papers a send-back names — every `sent_back_slots` box the reviewer ticked (`markSentBack` validates them). */
+function readSentBackSlots(formData: FormData): string[] {
+  return formData
+    .getAll('sent_back_slots')
+    .filter((v): v is string => typeof v === 'string')
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
 import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 import { R2_BUCKETS, r2SignedGet } from '@/lib/r2';
 import { contentDispositionAttachment } from '@/lib/content-disposition';
@@ -493,6 +502,7 @@ export async function settleVerificationFromWorkList(formData: FormData): Promis
     applicationId,
     decision: decision === 'approve' ? 'approved' : 'rejected',
     reason,
+    sentBackSlots: decision === 'needs_fix' ? readSentBackSlots(formData) : undefined,
   });
   if (!result.ok) redirect(workBackHref(back, 'refused', result.error));
 
@@ -559,6 +569,7 @@ export async function rejectApplication(formData: FormData) {
     applicationId,
     decision: 'rejected',
     reason,
+    sentBackSlots: readSentBackSlots(formData),
   });
   if (!result.ok) {
     redirect(`/admin/verify?error=${encodeURIComponent(result.error)}`);

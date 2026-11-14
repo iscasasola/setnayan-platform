@@ -15,6 +15,7 @@ import {
   type InlineDocsPayload,
 } from '../inline-docs-actions';
 import { MAX_TRIES } from '@/lib/paper-intake-shared';
+import { sentBackOf, type DocUpload } from '@/lib/vendor-verification';
 import type { IntakeReport, IntakeSlot } from '@/lib/paper-intake';
 import type { ModelPaperRead, ReadableSlotKey } from '@/lib/verification-paper-read';
 
@@ -298,6 +299,13 @@ export function PaperUploadPlace({
               {row.slot === firstMissing ? (
                 <p className="mb-1.5 text-xs font-medium" style={{ color: 'var(--m-orange-deep)' }}>
                   Start here
+                </p>
+              ) : null}
+              {/* 📨 The send-back's reason, on the NAMED paper only (owner 2026-11-14, "Only the named one" — #7627).
+                  Gone the moment a new copy is filed in the slot. */}
+              {!s?.r2_key && sentBackOf(payload.docMap[row.slot] as DocUpload) ? (
+                <p role="alert" className="mb-1.5 text-xs font-medium text-danger-700" data-paper-reason="">
+                  Needs a new copy · {sentBackOf(payload.docMap[row.slot] as DocUpload)!.reason}
                 </p>
               ) : null}
               <div className="flex min-h-[44px] items-start gap-3">

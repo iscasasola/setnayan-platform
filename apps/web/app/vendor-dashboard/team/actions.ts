@@ -153,8 +153,11 @@ export async function inviteVendorTeamMember(formData: FormData) {
     if (!canSeat({ members, founderUserId: ctx.founderUserId, cap: seatCap, change: { kind: 'invite', role } })) {
       // The fee is the live catalogue price (`vendor_extra_seat`), read the same
       // way the buy-a-seat action and the Team page read it — never typed here.
+      const seatFee = canBuyExtraSeats(ctx.tierState) ? await fetchSeatFeePhp(supabase) : null;
       const moreHint = canBuyExtraSeats(ctx.tierState)
-        ? `Add a seat (${formatPhp(await fetchSeatFeePhp(supabase))}/${SEAT_PERIOD_DAYS}d) for more.`
+        ? seatFee !== null
+          ? `Add a seat (${formatPhp(seatFee)}/${SEAT_PERIOD_DAYS}d) for more.`
+          : 'Add a seat for more.'
         : 'Upgrade for more.';
       const helperHint =
         role !== FREE_HELPER_ROLE && FREE_HELPER_SEATS > 0
@@ -443,6 +446,8 @@ export async function buyExtraSeat(formData: FormData) {
   const channel = await railForNewOrder(supabase, formData.get('channel'));
   if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
   const feePhp = await fetchSeatFeePhp(supabase);
+  // 💰 No readable catalogue price ⇒ no order: never mint a seat at a remembered figure.
+  if (feePhp === null) return err('We couldn’t read the seat price just now. Please try again.');
   const referenceCode = generateSeatReferenceCode();
 
   // ── SEC-4b · service-role mint ─────────────────────────────────────────────

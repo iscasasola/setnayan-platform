@@ -27,7 +27,7 @@ export function GroupChatRows({ rows, activityUnreadable = false }: { rows: read
   return (
     <>
       {activityUnreadable ? (
-        <p role="status" className="py-2 text-[13px] text-ink/60" data-group-activity="refused">
+        <p role="status" className="py-2 text-[13px] text-[rgb(var(--color-warn))]" data-group-activity="refused">
           We couldn’t load the latest messages just now. Your groups are all here.
         </p>
       ) : null}
@@ -50,11 +50,11 @@ export function GroupChatRows({ rows, activityUnreadable = false }: { rows: read
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-semibold text-ink">{g.name}</span>
-                <span className={`block truncate text-[13px] ${unread ? 'font-semibold text-ink' : 'text-ink/60'}`} data-group-line="">
+                <span className={`block truncate text-[13px] ${unread ? 'font-semibold text-ink' : 'text-ink/70'}`} data-group-line="">
                   {lineFor(g, activityUnreadable)}
                 </span>
                 {g.nextEvent ? (
-                  <span className="mt-0.5 flex min-w-0 items-center gap-1 truncate text-[12px] font-semibold text-gold-deep" data-group-next-event="">
+                  <span className="mt-0.5 flex min-w-0 items-center gap-1 truncate text-xs font-semibold text-gold-deep" data-group-next-event="">
                     <CalendarDays aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
                     {g.nextEvent.label}
                   </span>
@@ -63,13 +63,13 @@ export function GroupChatRows({ rows, activityUnreadable = false }: { rows: read
               {g.last || unread ? (
                 <span className="flex flex-none flex-col items-end gap-1 self-start pt-1">
                   {g.last ? (
-                    <span className="text-[11.5px] text-ink/55" data-group-when="">
+                    <span className="text-xs text-ink/70" data-group-when="">
                       {g.last.when}
                     </span>
                   ) : null}
                   {unread ? (
                     <span
-                      className="inline-grid h-5 min-w-[20px] place-items-center rounded-full bg-sn-accent px-1.5 text-[11px] font-bold leading-none text-sn-on-accent"
+                      className="inline-grid h-5 min-w-5 place-items-center rounded-full bg-sn-accent px-1.5 text-xs font-bold leading-none text-sn-on-accent"
                       data-group-unread-badge=""
                       aria-label={`${formatCount(g.unread!)} unread`}
                     >

@@ -59,3 +59,9 @@ SPEC IMPACT: None — implements the DECISION_LOG rows named above as ruled; not
 - The supplier screen uses the demo's words: Recognised · Reading… · Not clear enough — not kept · A person will check
   this · Waiting for a photo · "What doesn't count as a try?" · the pin card's "Is this your address? Read from your
   Business Permit. Couples see this pin on your shop."
+
+### 2026-11-14 · on top of the three-papers version (#7627, via #7747)
+- Merged origin/main. #7627's "a send-back names only its paper" is carried into the moved decision engine
+  (`lib/verification-decision.server.ts`: `markSentBack`, `doc_uploads` written with the status, `sent_back_papers` in
+  the audit, `sentBackPapers` on the notice) and its "Needs a new copy · reason" line onto the one upload place (the
+  retired `verify-pairs.tsx` stays deleted). The guards that read those two files now read their new homes.

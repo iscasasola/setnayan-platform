@@ -43,6 +43,7 @@ import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
 import { HERO_UPLOAD_PILL } from '@/app/vendor-dashboard/_components/supplier-hero';
 import { PortfolioUploadDoor } from '@/app/vendor-dashboard/_components/portfolio-upload';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
+import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 
 /** The lab's Upload door: the real picker and uploader, on a lab shop with an empty portfolio (an upload here asks the
  *  dev server for a presign and is refused — the lab writes nothing). */
@@ -481,7 +482,7 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
         serviceCount: labCards.length,
         docsStatus: docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : docs === 'some' ? 'draft' : 'none',
         docsIn: 0,
-        docsTotal: 4,
+        docsTotal: REQUIRED_DOC_COUNT,
         submitMissing: rail ? [] : ['Finish your business profile'],
         customerCount: 0,
         // 🌱🖼 A trade that supplies a part counts the library as a step (personal invite B6).

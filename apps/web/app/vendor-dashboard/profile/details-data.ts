@@ -20,10 +20,11 @@ import {
   countCompleteVendorSlots,
   fetchLatestApplication,
   requiredDocsComplete,
+  sentBackSlotKeys,
   verificationSubmitMissing,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
-import { fetchVendorBranches, fetchBranchFeePhp, branchAutoRadiusKm, BRANCH_FEE_PHP, type VendorBranchView } from '@/lib/vendor-branches';
+import { fetchVendorBranches, fetchBranchFeePhp, branchAutoRadiusKm, type VendorBranchView } from '@/lib/vendor-branches';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailDetails } from '@/lib/payment-channels';
 import { tierCaps, asVendorTier, isTierAtLeast, canBuyExtraBranches } from '@/lib/vendor-tier-caps';
@@ -115,11 +116,11 @@ export type DetailsData = {
   verify: VerifySummary;
   verifyMeasured: boolean;
   /**
-   * 🧾 The four required papers, one row each (Today's step 5 — `lib/setup-papers.ts`). NULL when the application
+   * 🧾 The three required papers, one row each (Today's step 5 — `lib/setup-papers.ts`). NULL when the application
    * read was refused — the step then says it could not load them, never "none sent".
    */
   papers: SetupPaper[] | null;
-  /** Required papers in, of how many — the documents row's line ("1 of 4 in"). */
+  /** Required papers in, of how many — the documents row's line ("1 of 3 in"). */
   docsIn: number;
   docsTotal: number;
   branch: {
@@ -132,7 +133,8 @@ export type DetailsData = {
     innerRadiusKm: number | null;
     outerRadiusKm: number | null;
     branches: VendorBranchView[];
-    branchFeePhp: number;
+    /** The live `vendor_additional_branch` price; null when unread or not sold to this shop — no figure shown. */
+    branchFeePhp: number | null;
     branchAutoRadius: number;
     branchPay: PayInfo;
     /** Verified — an unverified shop's 0 km says why. */
@@ -214,40 +216,6 @@ export async function loadDetailsData(
     verifyMeasured = false;
     return null;
   });
-  const validateRead = (async () => {
-    let validateEmail = 'verify@setnayan.com';
-    let validatePhone: string | null = null;
-    try {
-      const { data, error } = await supabase
-        .from('platform_settings')
-        .select('vendor_validate_email,vendor_validate_phone')
-        .eq('id', 1)
-        .maybeSingle();
-      if (error) logQueryError('VendorDetails.validateContacts', error, { vendorId }, 'graceful_degrade');
-      const row = data as { vendor_validate_email?: string | null; vendor_validate_phone?: string | null } | null;
-      if (row?.vendor_validate_email?.trim()) validateEmail = row.vendor_validate_email.trim();
-      validatePhone = row?.vendor_validate_phone?.trim() || null;
-    } catch {
-      /* defaults above */
-    }
-    return { validateEmail, validatePhone };
-  })();
-  const registrationRead = (async () => {
-    try {
-      // `vendor_profiles_self`, never the table: `registration_number_raw` is off `authenticated`'s column allowlist
-      // (the shop page's own note, moved with the read).
-      const { data, error } = await supabase
-        .from('vendor_profiles_self')
-        .select('registration_number_raw')
-        .eq('vendor_profile_id', vendorId)
-        .maybeSingle();
-      if (error) logQueryError('VendorDetails.registrationOnFile', error, { vendorId }, 'graceful_degrade');
-      return Boolean((data as { registration_number_raw?: string | null } | null)?.registration_number_raw);
-    } catch {
-      return false;
-    }
-  })();
-
   const logoRead = (async () => {
     try {
       const url = profile.logo_url ? await displayUrlForStoredAsset(profile.logo_url) : null;
@@ -270,7 +238,7 @@ export async function loadDetailsData(
   });
   const branchPayRead = (async () => {
     const own = await ownRead;
-    let branchFeePhp = BRANCH_FEE_PHP;
+    let branchFeePhp: number | null = null;
     let branchPay: PayInfo = { accounts: [], open: [] };
     // Only an Ultra shop's manager can BUY a branch (owner 2026-11-04 — Pro's are included, no fee), so only it pays
     // for the fee + rails reads.
@@ -278,7 +246,7 @@ export async function loadDetailsData(
       const [fee, settings] = await Promise.all([
         fetchBranchFeePhp(supabase).catch((err) => {
           logQueryError('VendorDetails.branchFee', err, { vendorId });
-          return BRANCH_FEE_PHP;
+          return null;
         }),
         fetchPlatformSettings(supabase).catch((err) => {
           logQueryError('VendorDetails.platformSettings', err, { vendorId });
@@ -321,13 +289,11 @@ export async function loadDetailsData(
   // Never throws: an unread list is logged where it is read and comes back `null` (the notes then wait for the save).
   const fairWordsRead = loadClaimWordsFor(vendorId);
 
-  const [own, businessStartDate, app, validate, registrationOnFile, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay, deepSearch, lastDeepSearch, fairWords] =
+  const [own, businessStartDate, app, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay, deepSearch, lastDeepSearch, fairWords] =
     await Promise.all([
       ownRead,
       startDateRead,
       appRead,
-      validateRead,
-      registrationRead,
       logoRead,
       vocabRead,
       correctionsRead,
@@ -348,31 +314,15 @@ export async function loadDetailsData(
 
   const completion = businessProfileChecklist(profile);
   const uploads = (app?.doc_uploads ?? {}) as DocUploadMap;
-  const meetSlot = uploads.google_meet;
-  const meetScheduledAt =
-    meetSlot && typeof meetSlot === 'object' && !Array.isArray(meetSlot) && 'scheduled_at' in meetSlot
-      ? ((meetSlot as { scheduled_at?: string | null }).scheduled_at ?? null)
-      : null;
   const verify: VerifySummary = {
     status: (app?.status as VerifySummary['status']) ?? null,
     vendorComplete: countCompleteVendorSlots(uploads),
     vendorTotal: VENDOR_DOC_SLOTS.length,
     requiredIn: countCompleteRequiredSlots(uploads),
     requiredDocsIn: requiredDocsComplete(uploads),
-    // The stamps ride on the application row itself (`fetchLatestApplication` merges them) — the shop page read
-    // them a second time; here they are taken from the row already in hand.
-    emailConfirmedAt: app?.contact_email_confirmed_at ?? null,
-    phoneConfirmedAt: app?.contact_phone_confirmed_at ?? null,
-    meetScheduledAt,
-    decisionReason: (app?.decision_reason as string | null) ?? null,
-    submitMissing: verificationSubmitMissing({
-      profileComplete: completion.complete,
-      onlyLogoMissing: profileGaps(completion).onlyLogoMissing,
-      uploads,
-      registrationNumberOnFile: registrationOnFile,
-    }),
-    validateEmail: validate.validateEmail,
-    validatePhone: validate.validatePhone,
+    // A send-back that named its papers says its reason on those papers only (owner 2026-11-14, "Only the named one").
+    decisionReason: sentBackSlotKeys(uploads).length > 0 ? null : ((app?.decision_reason as string | null) ?? null),
+    submitMissing: verificationSubmitMissing({ uploads }),
   };
   const requiredIn = verify.requiredIn;
   const isVerified = profile.public_visibility === 'verified';

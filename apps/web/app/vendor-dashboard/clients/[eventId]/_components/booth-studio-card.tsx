@@ -1,7 +1,8 @@
 'use client';
 
+import { InfoTip } from '@/app/_components/info-tip';
 import { useState, useTransition } from 'react';
-import { Loader2, Type } from 'lucide-react';
+import { Type } from 'lucide-react';
 import { setBoothStudioContent } from '../cocktail/actions';
 import { BOOTH_STUDIO_LIMITS, type BoothStudioContent } from '@/lib/booth-studio';
 
@@ -63,14 +64,15 @@ export function BoothStudioCard({
     'mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none';
 
   return (
-    <div className="rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-4 sm:p-5">
-      <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
-        <Type aria-hidden className="h-4 w-4 text-terracotta" /> Words on your booth
+    // 📐 Design template rule 2: a section, not a tinted card — a small label, the ⓘ for the explaining (rule 7).
+    <div className="border-t border-ink/10 pt-4">
+      <h2 className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">
+        <Type aria-hidden className="h-4 w-4 text-terracotta" />
+        <InfoTip label="Words on your booth" align="start">
+          A few words for <em>this</em> wedding&rsquo;s guests. We draw them on your booth in the couple&rsquo;s own
+          colours, so it looks like part of their day, not an ad.
+        </InfoTip>
       </h2>
-      <p className="mt-2 text-sm text-ink/65">
-        A few words for <em>this</em> wedding&rsquo;s guests. We draw them on your booth in the
-        couple&rsquo;s own colours, so it looks like part of their day, not an ad.
-      </p>
 
       <form
         className="mt-3 space-y-3"
@@ -127,7 +129,7 @@ export function BoothStudioCard({
               type="button"
               onClick={() => persist(null)}
               disabled={pending}
-              className="text-sm font-medium text-ink/60 underline hover:text-ink disabled:opacity-50"
+              className="text-sm font-medium text-ink/70 underline hover:text-ink disabled:opacity-50"
             >
               Remove the words
             </button>
@@ -136,12 +138,11 @@ export function BoothStudioCard({
       </form>
 
       {pending ? (
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-ink/50">
-          <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> Saving&hellip;
+        <p role="status" className="mt-2 text-xs text-ink/70">Saving&hellip;
         </p>
       ) : null}
       {error ? <p className="mt-2 text-xs text-danger-700">{error}</p> : null}
-      {notice && !error ? <p className="mt-2 text-xs text-ink/50">{notice}</p> : null}
+      {notice && !error ? <p className="mt-2 text-xs text-ink/70">{notice}</p> : null}
     </div>
   );
 }

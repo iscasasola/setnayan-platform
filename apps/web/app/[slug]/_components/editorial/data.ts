@@ -46,7 +46,7 @@ import {
 } from '@/lib/vendor-recommendations';
 import { scheduleWindows, labelForCapture } from '@/lib/moments-from-the-schedule';
 import { DEFAULT_EVENT_TZ, onlyWhatGuestsMaySee } from '@/lib/schedule';
-import { storyDayWindow, manilaDayOf, allocateChapterCounts } from '@/lib/story-day-window';
+import { storyDayWindow, manilaDayOf, allocateChapterCounts, capturedOnTheDay } from '@/lib/story-day-window';
 import { guestFullName } from '@/lib/guests';
 
 // ── Tunable constants (admin-tunable later · §6.8 + §6.4 M3) ────────────────
@@ -120,6 +120,16 @@ export const EDITORIAL_CHALLENGE_ANSWER_CAP = 24;
  * heavily-shot wedding never presigns all 48.
  */
 export const EDITORIAL_TIMELINE_PHOTO_CAP = 48;
+
+/**
+ * 🏷 A SERVICE'S NAME FOR A GUEST (F-W2-52, the live walk after #7596: the "Powered by" strip read "PAPIC GUEST 100" —
+ * a Papic credit pack's SKU, prettified). Every Papic guest pack (`PAPIC_GUEST`, `PAPIC_GUEST_100` … `_100K`) is
+ * the one service, "Papic". Unknown keys fall back to prettyServiceKey().
+ */
+export function serviceLabelOf(key: string): string {
+  if (key.startsWith('PAPIC_GUEST')) return SERVICE_LABELS.PAPIC_GUEST ?? 'Papic';
+  return SERVICE_LABELS[key] ?? prettyServiceKey(key);
+}
 
 /** Display labels for in-app Setnayan service_keys (the "Powered by Setnayan"
  * strip). Unknown keys fall back to prettyServiceKey(). */
@@ -589,6 +599,8 @@ export type EditorialData = {
    * loader did not carry times", never as "there were none".
    */
   galleryCaptures?: Array<{ url: string; atMs: number | null }>;
+  /** 📷 The Papic photos shot on the event's own days (F-W2-49) — the gallery's "N photos". Null: not counted. */
+  galleryDayTotal?: number | null;
   // "The 10 moments" / photo-essay spread. Display URLs auto-filled from the
   // day's clean Papic captures when the curated event_editorial.essay_photo_ids
   // list is empty (the normal case — it has no writer yet). A best-effort spread,
@@ -1108,6 +1120,31 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // event carries no event_date at all, in which case the timeline reads stay
   // unbounded (today's pre-existing behaviour) rather than silently emptying.
   const dayWindow = storyDayWindow(eventDate, eventEndDate);
+  /* 📷 "FROM THE DAY · N photos" COUNTS THE DAY (F-W2-49, the live walk after #7596: seven photos, every one shot four
+     days BEFORE the day). A Papic camera may shoot for months before the event (`PAPIC_CAPTURE_MONTHS_BEFORE`), so the
+     gallery's own rows are kept to the event's days below, and its number is this count — the same bound as the clip
+     and timeline reads. Started here, the moment the day is known, beside the reads still in flight. Null: no date, or
+     the count failed — the gallery then counts the photos it draws. */
+  const dayPhotoCount: Promise<number | null> = dayWindow
+    ? startAhead(
+        Promise.resolve()
+          .then(() =>
+            admin
+              .from('papic_photos')
+              .select('photo_id', { count: 'exact', head: true })
+              .eq('event_id', eventId)
+              .eq('photo_type', 'photo')
+              .is('hidden_at', null)
+              .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
+              .gte('captured_at', dayWindow.startIso)
+              .lte('captured_at', dayWindow.endIso),
+          )
+          .then(({ count, error }) => {
+            if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:papic_photos.select', error);
+            return !error && typeof count === 'number' ? count : null;
+          }),
+      )
+    : Promise.resolve(null);
 
   const venueName = asString(event.venue_name);
   const venueAddress = asString(event.venue_address);
@@ -1341,7 +1378,9 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           capturedAt: asString(r.captured_at) ?? null,
         }))
         .map((r) => ({ ...r, key: publicKeyForCapture(consentVeto, r.photoId, r.key) }))
-        .filter((r): r is PapicRow => Boolean(r.photoId && r.key));
+        .filter((r): r is PapicRow => Boolean(r.photoId && r.key))
+        /* 📷 Only what was shot ON the event's days (F-W2-49) — see `dayPhotoCount`. */
+        .filter((r) => capturedOnTheDay(r.capturedAt, dayWindow));
     }
   } catch {
     papicRows = [];
@@ -1774,6 +1813,8 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // step 0.2) — so a clip shot at the prenup is in the cover's count and not in
   // this list, and the index says how many it is showing rather than claiming
   // the cover's number for a shorter grid.
+  /** The day's photo count for the gallery's heading (`dayPhotoCount`). */
+  const galleryDayTotal = await dayPhotoCount.catch(() => null);
   const galleryCaptures: Array<{ url: string; atMs: number | null }> = [];
   for (const r of papicRows) {
     const url = papicUrlByPhotoId.get(r.photoId);
@@ -1922,9 +1963,12 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     const seen = new Set<string>();
     for (const o of (orderRows ?? []) as Array<Record<string, unknown>>) {
       const key = asString(o.service_key);
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      servicesAvailed.push(SERVICE_LABELS[key] ?? prettyServiceKey(key));
+      if (!key) continue;
+      /* One line per SERVICE, by its name — two Papic packs are one "Papic", never "Papic Guest 100" (F-W2-52). */
+      const label = serviceLabelOf(key);
+      if (seen.has(label)) continue;
+      seen.add(label);
+      servicesAvailed.push(label);
     }
     servicesAvailed.sort((a, b) => a.localeCompare(b));
   } catch {
@@ -2977,6 +3021,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     servicesAvailed,
     galleryPhotos,
     galleryCaptures,
+    galleryDayTotal,
     essayPhotos,
     dayChapters,
     song,

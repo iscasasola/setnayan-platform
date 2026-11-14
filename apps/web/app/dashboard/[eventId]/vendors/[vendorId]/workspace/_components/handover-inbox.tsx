@@ -114,7 +114,8 @@ function HandoverItem({
 }) {
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [advance, setAdvance] = useState(canAdvanceToDelivered);
+  // ☐ Starts UNTICKED (walk 13 Nov 2026, F-W1-72): marking a supplier delivered is the couple's own choice, never a default.
+  const [advance, setAdvance] = useState(false);
   const save = useSaveLoader();
   const { label, Icon } = KIND_META[handover.kind];
   const acked = handover.status === 'acknowledged';

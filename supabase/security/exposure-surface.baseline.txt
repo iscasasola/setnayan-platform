@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7822
+# facts: 7831
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     635
-#   col       5635
-#   policy    1145
+#   tpriv     636
+#   col       5639
+#   policy    1149
 #   view      10
 #   func      393
 #
@@ -322,6 +322,7 @@ tpriv	public.moodboard_theme_templates|anon	SIUD
 tpriv	public.moodboard_theme_templates|authenticated	SIUD
 tpriv	public.nav_slot_override|anon	SIUD
 tpriv	public.nav_slot_override|authenticated	SIUD
+tpriv	public.notice_closes|authenticated	SIUD
 tpriv	public.notifications|anon	SIUD
 tpriv	public.notifications|authenticated	SIUD
 tpriv	public.npc_filing_tasks|anon	SIUD
@@ -3344,6 +3345,10 @@ col	public.nav_slot_override.lucide_name	anon=SIU authenticated=SIU
 col	public.nav_slot_override.slot_key	anon=SIU authenticated=SIU
 col	public.nav_slot_override.updated_at	anon=SIU authenticated=SIU
 col	public.nav_slot_override.updated_by	anon=SIU authenticated=SIU
+col	public.notice_closes.close_count	anon=- authenticated=SIU
+col	public.notice_closes.closed_at	anon=- authenticated=SIU
+col	public.notice_closes.notice_key	anon=- authenticated=SIU
+col	public.notice_closes.user_id	anon=- authenticated=SIU
 col	public.notifications.body	anon=SIU authenticated=SIU
 col	public.notifications.created_at	anon=SIU authenticated=SIU
 col	public.notifications.event_id	anon=SIU authenticated=SIU
@@ -6894,6 +6899,10 @@ policy	public.moodboard_theme_templates|moodboard_theme_templates_admin_all	mode
 policy	public.moodboard_theme_templates|moodboard_theme_templates_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.nav_slot_override|nav_slot_override_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.nav_slot_override|nav_slot_override_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.notice_closes|notice_closes_owner_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
+policy	public.notice_closes|notice_closes_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(user_id = ( SELECT auth.uid() AS uid))
+policy	public.notice_closes|notice_closes_owner_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
+policy	public.notice_closes|notice_closes_owner_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.notifications|notifications_recipient_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
 policy	public.notifications|notifications_recipient_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.npc_filing_tasks|npc_filing_tasks_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL

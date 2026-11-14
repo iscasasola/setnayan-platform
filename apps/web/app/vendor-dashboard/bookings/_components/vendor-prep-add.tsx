@@ -16,21 +16,27 @@
 // tokens only.
 // ============================================================================
 
-import { useRef, useState, useTransition } from 'react';
-import { CalendarPlus, Loader2, Plus, Users, Wallet, X } from 'lucide-react';
+import { useId, useState, useTransition } from 'react';
+import { Plus, Users, Wallet, X } from 'lucide-react';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import {
   vendorAddPreparationItem,
   vendorDeletePreparationItem,
 } from '../actions';
-import { useModalA11y } from '@/lib/use-modal-a11y';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { useSaveLoader } from '@/components/sd-loader';
+import { ActionButton } from '@/components/action-button';
 import {
-  PrepKindPicker,
+  PREP_KIND_OPTIONS,
   type PrepKind,
 } from '@/app/dashboard/[eventId]/schedule/_components/prep-kind-picker';
+import {
+  ScheduleSheet,
+  SheetChoice,
+  SheetField,
+  SheetFoot,
+} from '@/app/dashboard/[eventId]/schedule/_components/schedule-sheet';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 export type VendorPrepItem = {
   itemId: string;
@@ -80,8 +86,7 @@ export function VendorPrepForBooking({
   const [kind, setKind] = useState<PrepKind>('task');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const labelRef = useRef<HTMLInputElement | null>(null);
+  const formId = useId();
   const save = useSaveLoader();
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
   const shown = items.filter((it) => !hidden.has(it.itemId));
@@ -116,15 +121,6 @@ export function VendorPrepForBooking({
     setKind('task');
   }
 
-  // Focus the label field on open; `close` already blocks mid-submit, so
-  // Esc-to-close stays gated while pending.
-  useModalA11y({
-    open,
-    onClose: close,
-    containerRef: overlayRef,
-    initialFocusRef: labelRef,
-  });
-
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -150,18 +146,11 @@ export function VendorPrepForBooking({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-md border border-mulberry/30 bg-white/70 px-2.5 py-1 text-xs font-medium text-mulberry transition-colors hover:border-mulberry/50 hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
-        >
-          <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Add to prep schedule
-        </button>
+        <ActionButton tone="brand" icon={Plus} label="Add to prep schedule" onClick={() => setOpen(true)} />
       </div>
 
       {shown.length > 0 ? (
-        <ul className="space-y-1">
+        <ul className="border-t border-[color:var(--m-line)]">
           {shown.map((it) => {
             const KindIcon =
               it.kind === 'meeting' ? Users : it.kind === 'payment' ? Wallet : null;
@@ -172,31 +161,31 @@ export function VendorPrepForBooking({
                 label={`Remove ${it.label}`}
                 word="Remove"
                 onDelete={() => removeItem(it)}
-                radiusClass="rounded-md"
+                radiusClass="rounded-none"
                 surfaceClass="bg-[var(--m-paper)]"
               >
               <div
-                className="flex min-h-11 items-center gap-2 rounded-md border border-mulberry/15 bg-mulberry/[0.03] px-2.5 py-1.5"
+                className="flex min-h-14 items-center gap-3 border-b border-[color:var(--m-line)] py-2"
                 data-vendor-prep-item=""
               >
-                <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-ink/50">
-                  {formatDateShort(it.dueDate)}
-                </span>
                 {KindIcon ? (
                   <KindIcon
                     aria-hidden
-                    className="h-3 w-3 shrink-0 text-mulberry"
+                    className="h-4 w-4 shrink-0 text-mulberry"
                     strokeWidth={1.75}
                   />
                 ) : null}
-                <span className="min-w-0 flex-1 truncate text-xs text-ink/80">
-                  {it.label}
-                  {it.kind === 'payment' && it.amountPhp != null ? (
-                    <span className="ml-1 font-mono text-ink/60">
-                      · {formatPhpShort(it.amountPhp)}
-                    </span>
-                  ) : null}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold text-ink">{it.label}</span>
+                  <span className="block text-[13px] text-[color:var(--m-slate-2)]">
+                    {formatDateShort(it.dueDate)}
+                  </span>
                 </span>
+                {it.kind === 'payment' && it.amountPhp != null ? (
+                  <span className="shrink-0 text-[15px] font-semibold tabular-nums text-ink">
+                    {formatPhpShort(it.amountPhp)}
+                  </span>
+                ) : null}
               </div>
               </SwipeToDelete>
             );
@@ -204,151 +193,104 @@ export function VendorPrepForBooking({
         </ul>
       ) : null}
 
-      {open ? (
-        <div
-          ref={overlayRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="vendor-add-prep-headline"
-          className="fixed inset-0 z-50 flex items-end justify-center p-4 focus:outline-none sm:items-center"
-        >
-          <OverlayBackdrop onClose={close} />
-          <div className="relative w-full max-w-md sn-tile p-5 shadow-xl sm:p-6">
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={close}
+      <ScheduleSheet
+        open={open}
+        onClose={close}
+        id="vendor-add-prep-headline"
+        title="Add to their prep schedule"
+        aside={eventName}
+        data="vendor-add-step"
+        foot={
+          <SheetFoot>
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={close} disabled={isPending} />
+            <ActionButton
+              tone="brand"
+              main
+              icon={Plus}
+              label={isPending ? 'Adding…' : 'Add item'}
+              type="submit"
+              form={formId}
               disabled={isPending}
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
-            >
-              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-            </button>
+              waiting={isPending}
+            />
+          </SheetFoot>
+        }
+      >
+        <p className="text-[13px] text-[color:var(--m-slate-2)]">
+          This dated step appears on{' '}
+          <span className="font-medium text-ink">{eventName}</span>&rsquo;s
+          Preparation schedule. They can remove it anytime.
+        </p>
+        <form id={formId} onSubmit={onSubmit} className="space-y-3.5">
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
+          <SheetChoice label="Type">
+            <PickMenu
+              label="Type"
+              value={kind}
+              compact
+              dataAttr="data-prep-kind"
+              options={PREP_KIND_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
+              onPick={(key) => setKind(key as PrepKind)}
+            />
+          </SheetChoice>
+          <SheetField
+            label={
+              kind === 'meeting'
+                ? 'Meeting title'
+                : kind === 'payment'
+                  ? 'What is this payment for?'
+                  : 'What should they do?'
+            }
+          >
+            <input
+              name="label"
+              required
+              maxLength={200}
+              placeholder={
+                kind === 'meeting'
+                  ? 'e.g. Pre-event consultation'
+                  : kind === 'payment'
+                    ? 'e.g. Package balance'
+                    : 'e.g. Send final shot list'
+              }
+              disabled={isPending}
+            />
+          </SheetField>
+          {kind === 'payment' ? (
+            <SheetField label="Amount (₱)">
+              <input
+                name="amount_php"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                required
+                placeholder="e.g. 15000"
+                disabled={isPending}
+              />
+            </SheetField>
+          ) : null}
+          <SheetField label={kind === 'payment' ? 'Due date' : 'By when?'}>
+            <input name="due_date" type="date" required defaultValue={todayLocal()} disabled={isPending} />
+          </SheetField>
+          <SheetField label={<>Notes <span className="text-[color:var(--m-slate-2)]">(optional)</span></>}>
+            <textarea
+              name="notes"
+              rows={3}
+              maxLength={2000}
+              placeholder="Any detail the couple should know"
+              disabled={isPending}
+            />
+          </SheetField>
 
-            <div className="mb-1 flex items-center gap-2">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-mulberry/10 text-mulberry">
-                <CalendarPlus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              </span>
-              <h2
-                id="vendor-add-prep-headline"
-                className="text-lg font-semibold tracking-tight text-ink"
-              >
-                Add to their prep schedule
-              </h2>
-            </div>
-            <p className="mb-4 text-xs text-ink/60">
-              This dated step appears on{' '}
-              <span className="font-medium text-ink">{eventName}</span>&rsquo;s
-              Preparation schedule. They can remove it anytime.
+          {errorMessage ? (
+            <p role="alert" className="text-[13px] text-danger-700">
+              {errorMessage}
             </p>
-
-            <form onSubmit={onSubmit} className="space-y-4">
-              <input type="hidden" name="event_id" value={eventId} />
-              <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
-              <PrepKindPicker value={kind} onChange={setKind} disabled={isPending} />
-              <label className="block space-y-1">
-                <span className="block text-xs font-medium text-ink">
-                  {kind === 'meeting'
-                    ? 'Meeting title'
-                    : kind === 'payment'
-                      ? 'What is this payment for?'
-                      : 'What should they do?'}
-                </span>
-                <input
-                  ref={labelRef}
-                  name="label"
-                  required
-                  maxLength={200}
-                  placeholder={
-                    kind === 'meeting'
-                      ? 'e.g. Pre-event consultation'
-                      : kind === 'payment'
-                        ? 'e.g. Package balance'
-                        : 'e.g. Send final shot list'
-                  }
-                  className="input-field"
-                  disabled={isPending}
-                />
-              </label>
-              {kind === 'payment' ? (
-                <label className="block space-y-1">
-                  <span className="block text-xs font-medium text-ink">Amount (₱)</span>
-                  <input
-                    name="amount_php"
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    required
-                    placeholder="e.g. 15000"
-                    className="input-field"
-                    disabled={isPending}
-                  />
-                </label>
-              ) : null}
-              <label className="block space-y-1">
-                <span className="block text-xs font-medium text-ink">
-                  {kind === 'payment' ? 'Due date' : 'By when?'}
-                </span>
-                <input
-                  name="due_date"
-                  type="date"
-                  required
-                  defaultValue={todayLocal()}
-                  className="input-field"
-                  disabled={isPending}
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="block text-xs font-medium text-ink">
-                  Notes <span className="text-ink/40">(optional)</span>
-                </span>
-                <textarea
-                  name="notes"
-                  rows={3}
-                  maxLength={2000}
-                  placeholder="Any detail the couple should know"
-                  className="input-field min-h-[80px] py-2"
-                  disabled={isPending}
-                />
-              </label>
-
-              {errorMessage ? (
-                <p role="alert" className="text-xs text-danger-700">
-                  {errorMessage}
-                </p>
-              ) : null}
-
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-                <button
-                  type="button"
-                  onClick={close}
-                  disabled={isPending}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-white/70 px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-                      Adding…
-                    </>
-                  ) : (
-                    <>
-                      <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-                      Add item
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+          ) : null}
+        </form>
+      </ScheduleSheet>
     </div>
   );
 }

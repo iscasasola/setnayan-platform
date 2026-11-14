@@ -8,6 +8,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { formatPhp } from '@/lib/orders';
 import { fetchVendorThreadsDetailed } from '@/lib/chat';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
+import { BOOKED_DATE_HELD_LINE } from '@/lib/booking-ask-words';
 import {
   fetchVendorBlocksDetailed,
   fetchVendorDayStates,
@@ -46,6 +47,8 @@ import {
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
+import { shopPerGuestNote } from '@/lib/claimed-per-guest-follow';
 import { buildCustomerCalendarMonth, computeEventMoneyPositions, type EventMoneyPosition } from '@/lib/vendor-customers';
 import {
   customerLaneOf,
@@ -566,6 +569,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     if (t && (t.archived || t.archived_at != null)) archivedOff.add(r.eventId);
   }
   const listed = derived.filter((r) => !archivedOff.has(r.eventId));
+  /* 👥 RW-08: this shop's claimed per-guest bookings — the figure and count the couple reads ("₱4,000 · 4 guests").
+     A refused read leaves the rows as shipped ("no quote yet"), never a guessed figure. */
+  const perGuest = await readShopPerGuest(rosterAdmin, vendorProfileId, listed.map((r) => r.eventId));
 
   /*
     ⇅ SHOW & SORT (v113; spec §9 #7) — Service · Status · Client · Handled by narrow EVERY event before the lists are
@@ -702,6 +708,10 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       note: moneyNote(r, moneyByEvent.get(r.eventId) ?? null, paydayIncomplete),
       kind: type && type !== 'unspecified' ? eventTypeLabel(type) : null,
       quoted: false,
+      perGuestNote: (() => {
+        const p = perGuest?.get(r.eventId);
+        return p ? shopPerGuestNote(p) : null;
+      })(),
       returning: Boolean(t?.is_returning),
       dateOptions: dateOptionsByEvent.get(r.eventId) ?? null,
     };
@@ -1236,7 +1246,7 @@ async function customersMonth({
 
   // Holding (amber): open conversations about unbooked, dated events — a COUNT per date crosses to the browser.
   const bookedEventIds = new Set(bookings.map((b) => b.eventId));
-  const { asks } = await readOpenAsks(threads, bookedEventIds);
+  const { asks } = await readOpenAsks(threads, bookedEventIds, vendorProfileId);
 
   const poolLabelOf = new Map(pools.map((p) => [p.poolId, p.label]));
   // Every closure still ahead: a one-off not yet over, or a REPEAT with no end or an end still ahead. Repeats first —
@@ -1366,7 +1376,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   // The booked events' place and kind (admin: the supplier holds no `events` RLS) — and the holders' names and dates.
   const bookedEventIds = new Set(bookings.map((b) => b.eventId));
   const [{ asks, measured: asksMeasured }, eventsRead, caps] = await Promise.all([
-    readOpenAsks(threadsRead.threads, bookedEventIds),
+    readOpenAsks(threadsRead.threads, bookedEventIds, vendorProfileId),
     bookedToday.length > 0
       ? readInChunks([...new Set(bookedToday.map((b) => b.eventId))], (part) =>
           createAdminClient().from('events').select('event_id, venue_name, event_type').in('event_id', part),
@@ -1465,7 +1475,13 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
 
   const holders = asks
     .filter((a) => a.date === day)
-    .map((a) => ({ threadId: a.threadId, title: a.name ?? 'A couple', line: `${askedOn(a.askedAt)} · not booked` }));
+    .map((a) => ({
+      threadId: a.threadId,
+      title: a.name ?? 'A couple',
+      // 📅 F-W1-68: an agreed booking waiting on its first payment is Booked — the date held once that payment is in.
+      line: a.agreed ? BOOKED_DATE_HELD_LINE : `${askedOn(a.askedAt)} · not booked`,
+      agreed: a.agreed,
+    }));
   const near = daysFrom(todayIso, day);
   const ceiling = caps.whitelistPerDate;
   const data: DaySheetData = {

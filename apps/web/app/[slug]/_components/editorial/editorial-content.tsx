@@ -111,8 +111,8 @@ const SHARE_SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan
  *  and the colophon link that AIMS at it cannot drift apart. */
 const WATCH_FILM_ANCHOR_ID = 'watch-the-film';
 
-/** 'wedding' → 'Wedding'; 'gender reveal' → 'Gender Reveal'. Two slots in this
- *  file are Title Case headings ("The Wedding Day (Live)"), so the event word
+/** 'wedding' → 'Wedding'; 'gender reveal' → 'Gender Reveal'. Title Case slots in this
+ *  file ("From The Couple"), so the event word
  *  has to be capitalised per word rather than lower-cased into them. */
 function capitaliseWords(s: string): string {
   return s.replace(/\b[a-z]/g, (c) => c.toUpperCase());
@@ -1136,7 +1136,7 @@ export async function EditorialContent({
                       style={styleOf('gallery')!}
                       photos={data.galleryPhotos}
                       captures={data.galleryCaptures}
-                      total={data.metrics.photos ?? data.galleryPhotos.length}
+                      total={typeof data.galleryDayTotal === 'number' ? Math.max(data.galleryDayTotal, data.galleryPhotos.length) : (data.metrics.photos ?? data.galleryPhotos.length)}
                       names={data.firstNames}
                       words={wordsOf('gallery')}
                     />
@@ -2017,7 +2017,8 @@ function Colophon({
               href={`/${slug}/hub`}
               className="border-b border-terracotta pb-0.5 text-ink no-underline"
             >
-              The {capitaliseWords(w.eventWord)} Day (Live)
+              {/* 🏷 Plain words after the day (F-W2-52): the day's page is a record now, never "(Live)". */}
+              The day as it happened
             </a>
           ) : null}
           {watchFilmShown ? (

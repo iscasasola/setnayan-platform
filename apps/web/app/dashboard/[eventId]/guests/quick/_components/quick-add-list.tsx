@@ -6,6 +6,7 @@ import { CheckCircle2, X, Pencil, ArrowUp, Loader2 } from 'lucide-react';
 import { bulkAddGuests } from '../actions';
 import { formatCount } from '@/lib/format-number';
 import { parsePersonName } from '@/lib/person-name-parse';
+import { InfoTip } from '@/app/_components/info-tip';
 
 type Guest = { firstName: string; lastName: string };
 
@@ -140,7 +141,7 @@ export function QuickAddList({ eventId }: Props) {
           return (
             <li
               key={i}
-              className="flex items-center gap-3 rounded-lg border border-success-300/60 bg-success-50/40 px-3 py-2 transition-colors"
+              className="flex min-h-14 items-center gap-3 border-b border-ink/10 px-1 py-2 transition-colors"
             >
               <CheckCircle2
                 aria-hidden
@@ -200,8 +201,8 @@ export function QuickAddList({ eventId }: Props) {
       </ul>
 
       {/* Live entry row */}
-      <div className="rounded-xl border border-terracotta/40 bg-cream p-3 ring-1 ring-terracotta/10">
-        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-700">
+      <div className="rounded-2xl bg-[var(--m-paper-2)] p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           New guest · row {formatCount(guests.length + 1)}
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -229,40 +230,32 @@ export function QuickAddList({ eventId }: Props) {
             className="input-field flex-1"
           />
         </div>
-        <p className="mt-2 text-xs text-ink/55">
-          <kbd className="rounded bg-ink/10 px-1.5 py-0.5 font-mono text-[10px]">
-            Enter
-          </kbd>{' '}
-          jumps first &rarr; last, then finalizes the row.{' '}
-          {guests.length > 0 ? (
-            <>
-              Press{' '}
-              <kbd className="rounded bg-ink/10 px-1.5 py-0.5 font-mono text-[10px]">
-                Enter
-              </kbd>{' '}
-              twice on an empty first-name field to upload all{' '}
-              <span className="font-medium text-ink">{formatCount(guests.length)}</span> guests.
-            </>
-          ) : (
-            <>Add as many guests as you need, then click Upload below.</>
-          )}
-        </p>
+        {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 7): one line; the keyboard how-to behind ⓘ. */}
+        <div className="mt-2 text-xs text-ink/70">
+          <InfoTip label="Enter jumps first → last, then finalizes the row." labelAs="span" labelClassName="text-ink/70" align="start">
+            {guests.length > 0
+              ? `Press Enter twice on an empty first-name field to upload all ${formatCount(guests.length)} guests.`
+              : 'Add as many guests as you need, then click Upload below.'}
+          </InfoTip>
+        </div>
       </div>
 
       {/* Submit */}
       <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
-        <p className="text-sm text-ink/60">
+        <div className="text-sm text-ink/70">
           {guests.length === 0 ? (
             <>Nothing to upload yet.</>
           ) : (
-            <>
-              <span className="font-semibold text-ink">{formatCount(guests.length)}</span>{' '}
-              guest{guests.length === 1 ? '' : 's'} ready &middot; they&rsquo;ll go into{' '}
-              <span className="font-mono text-xs">Other (uncategorized)</span> with
-              default side &amp; role &mdash; refine later from the guest list.
-            </>
+            <InfoTip
+              label={`${formatCount(guests.length)} guest${guests.length === 1 ? '' : 's'} ready`}
+              labelAs="span"
+              labelClassName="font-semibold text-ink"
+              align="start"
+            >
+              They’ll go into Other (uncategorized) with default side &amp; role — refine later from the guest list.
+            </InfoTip>
           )}
-        </p>
+        </div>
         <UploadButton hasContent={guests.length > 0 || firstName.trim().length > 0} />
       </div>
     </form>

@@ -14,7 +14,12 @@
   - The supplier is told in words: "An offer on this quote was for the first couples only, and they already have it.
     Take the offer off, then send — nothing was sent."
   - ⚠ Quotes sent before this carry no `from_offer_id` and are not counted (the two on record are the owner's test shop).
-- Guards: `apps/web/tests/db/a-first-n-offer-counts-its-earlier-uses.db.test.ts` (sabotage: the refusal removed → the
+- **OWN-02** The shop's Inquire sheet dropped an ask in silence: closing it during "Sending in N s…" cleared the timer
+  and closed — nothing sent, and its last words were "Sending". Undo is the one way not to send now; closing sends at
+  once and the sheet stays to say whether it went. Back from "Start a new event", the event just made is picked (the
+  sheet remembers the couple's events as they leave, in sessionStorage; two new or none → nothing is guessed).
+- Guards: `apps/web/lib/an-inquiry-never-drops-in-silence.test.ts` ·
+  `apps/web/tests/db/a-first-n-offer-counts-its-earlier-uses.db.test.ts` (sabotage: the refusal removed → the
   second couple is let through, red) · `apps/web/lib/a-first-n-offer-names-the-couple-who-has-it.test.ts`.
 
 SPEC IMPACT: None.

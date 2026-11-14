@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Sparkles } from 'lucide-react';
@@ -113,6 +115,10 @@ function score(d: Dest, needle: string): number {
 export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  /* ➕ ADMIN FOCUS | FULL (owner approved 14 Nov 2026, ruling (4)): opened from the ask PILL, the field stays where the
+     pill was — at the bottom, same pill — and the suggestions rise above it. Opened from ⌘K or the top bar it stays a
+     panel at the top, as shipped. */
+  const [dock, setDock] = useState<'top' | 'bottom'>('top');
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -435,7 +441,10 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
    * searchbar."* A shortcut nobody was told about is not a door.
    */
   useEffect(() => {
-    const onOpen = () => setOpen(true);
+    const onOpen = (e: Event) => {
+      setDock((e as CustomEvent<{ dock?: string } | null>).detail?.dock === 'bottom' ? 'bottom' : 'top');
+      setOpen(true);
+    };
     window.addEventListener(ADMIN_SEARCH_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(ADMIN_SEARCH_OPEN_EVENT, onOpen);
   }, []);
@@ -518,7 +527,12 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
         role="dialog"
         aria-modal="true"
         aria-label="Search every admin page"
-        className="fixed left-1/2 top-[11vh] z-[61] w-[min(620px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border shadow-2xl"
+        data-dock={dock}
+        className={
+          dock === 'bottom'
+            ? 'fixed inset-x-3 bottom-3 z-[61] flex flex-col-reverse overflow-hidden rounded-3xl border shadow-2xl lg:left-1/2 lg:right-auto lg:w-[620px] lg:-translate-x-1/2'
+            : 'fixed left-1/2 top-[11vh] z-[61] w-[min(620px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border shadow-2xl'
+        }
         style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-paper, #FFFFFF)' }}
       >
         <div
@@ -859,8 +873,22 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
           )}
             </>
           )}
+          {/* ➕ "What can I ask?" is the LAST suggestion, always (ruling (3)) — the cheat sheet, with its download. */}
+          <Link
+            href="/admin/ask"
+            onClick={close}
+            className="mt-1 flex min-h-11 items-center gap-2 rounded-lg px-3 text-left text-[13px] font-semibold"
+            style={{ color: 'var(--sn-ink-900)' }}
+            data-ask-cheat-sheet
+          >
+            <span className="flex-1">What can I ask?</span>
+            <span className="text-[11px] font-normal" style={{ color: 'var(--sn-ink-500)' }}>
+              The cheat sheet
+            </span>
+          </Link>
         </div>
 
+        {dock === 'top' ? (
         <div
           className="flex gap-4 border-t px-4 py-2 text-[11px]"
           style={{ borderColor: 'var(--sn-line-soft, #F1ECE3)', color: 'var(--sn-ink-500)' }}
@@ -868,6 +896,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
           <span>↑↓ move</span><span>↵ open</span><span>esc close</span>
           <span className="ml-auto font-mono">{formatCount(hits.length)} of {formatCount(all.length)}</span>
         </div>
+        ) : null}
       </div>
     </>
   );

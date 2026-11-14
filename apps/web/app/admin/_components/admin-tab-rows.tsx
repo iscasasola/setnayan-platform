@@ -70,11 +70,22 @@ function useAdminPlace(at?: string): AdminPlace | null {
   return adminPlaceFor(pathname, params);
 }
 
-export function AdminPinnedRow({ queueCounts, at }: { queueCounts?: AdminQueueCounts; /** Lab only. */ at?: string }) {
+export function AdminPinnedRow({
+  queueCounts,
+  at,
+  focus = false,
+}: {
+  queueCounts?: AdminQueueCounts;
+  /** Lab only. */ at?: string;
+  /** ➕ Focus mode (owner 14 Nov 2026): `/admin` is the Focus list, which has its own head — no "Work · All ▾" over it. */
+  focus?: boolean;
+}) {
   const place = useAdminPlace(at);
+  const { pathname } = useAdminAddress(at);
   const router = useRouter();
   const [gearOpen, setGearOpen] = useState(false);
   if (!place) return null;
+  if (focus && pathname === '/admin') return null;
 
   if (place.kind === 'avatar') {
     // Admin-of-admin: the same row, listing the avatar's pages that exist today.

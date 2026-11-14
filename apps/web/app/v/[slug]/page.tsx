@@ -1,3 +1,4 @@
+import { distinctShopServices } from '@/lib/distinct-shop-services';
 import Link from 'next/link';
 import { arrivalInquirySourceOf } from '@/lib/supplier-qr-codes';
 import { readOverdueTopUpEventIds, readPageRefsFromEvents } from '@/lib/booking-fee-top-up.server';
@@ -27,6 +28,7 @@ import { createClient } from '@/lib/supabase/server';
 import {
   SERVICE_GROUPS,
   displayServiceLabel,
+  isCanonicalService,
   resolveVendorDisplayName,
   serviceGroupOf,
   VENDOR_PLACEHOLDER_PHOTO,
@@ -1428,8 +1430,15 @@ export async function renderVendorBySlug({
   const portfolioUrls = portfolioPhotos.map((p) => p.url);
   const showPortfolio = isSectionVisible(pageSections, 'portfolio');
   const showTrustedBy = isSectionVisible(pageSections, 'trusted_by');
-  const orderedServices = orderFeaturedFirst(
+  // 🧹 RW-267 (re-walk 14 Nov 2026): one chip per service — "Lights & Sound" was listed twice, the second the shop's
+  // own service under an older key spelling. The key the category list knows wins (`distinctShopServices`, RW-167).
+  const distinctServiceKeys = distinctShopServices(
     vendor.services,
+    Object.fromEntries(vendor.services.filter(isCanonicalService).map((k) => [k, displayServiceLabel(k)])),
+    displayServiceLabel,
+  ).map((s) => s.key);
+  const orderedServices = orderFeaturedFirst(
+    distinctServiceKeys,
     canPersonalizePage ? microsite.featuredServiceIds : [],
   );
   // Pro hero override — a chosen portfolio photo leads the page as a banner.
@@ -2486,7 +2495,10 @@ export async function renderVendorBySlug({
           >
         <section className={SHOP_CARD_SECTION_CLASS}>
           <Logo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />
-          <div className="min-w-0 space-y-2">
+          {/* 📐 RW-270 (owner-seen 14 Nov, 390 px): `w-full`, as the sample card (`SampleShopPage`) — in the phone's
+              column flex (`items-start`) a fit-content column grew to its widest line and dragged the map and the
+              Directions row past the right gutter, cutting the map's credit. Pinned to the card's width, they fit. */}
+          <div className="w-full min-w-0 space-y-2">
             {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
                 system + /tmp/setnayan-keynote-template/components/vendor-
                 microsite.jsx hero typography. Italic-serif headline matches
@@ -2835,7 +2847,6 @@ export async function renderVendorBySlug({
 
         {cinematicHero && bookable ? (
           <ShopCanDoPanel
-            checkHref={checkDateHref}
             hasPackages={vendorPackages.length > 0}
           />
         ) : null}

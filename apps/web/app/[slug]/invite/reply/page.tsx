@@ -114,7 +114,7 @@ async function inviteReplyPage({ params, searchParams }: Props) {
     admin
       .from('events')
       .select(
-        `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, role_palette, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, venue_latitude, venue_longitude`,
+        `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, role_palette, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, venue_latitude, venue_longitude, date_candidates`,
       )
       // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
       .ilike('slug', slug)

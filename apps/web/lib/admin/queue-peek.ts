@@ -77,7 +77,8 @@ export type PeekForm = {
   submitLabel: string;
   fields: Array<
     | { name: string; type: 'text'; placeholder: string; required: boolean }
-    | { name: string; type: 'select'; options: string[]; required: boolean }
+    /** `placeholder` labels an EMPTY first option (`''`) — a select whose first real choice would otherwise read as chosen. */
+    | { name: string; type: 'select'; options: string[]; required: boolean; placeholder?: string }
   >;
 };
 
@@ -501,7 +502,10 @@ export async function peekQueue(
               { name: 'decision', type: 'select', options: ['apply', 'decline'], required: true },
               // ➕ A decline is refused without a reason from the list (admin supplier slice, 2026-10-28) — the
               // shop reads it. An apply ignores it.
-              { name: 'reason', type: 'select', options: [...SUPPLIER_WORK_REASONS.names], required: false },
+              // 🚫 NO DECLINE REASON IS PREFILLED (live walk 14 Nov): a bare <select> shows its first option as chosen, so
+              // the row read "apply · Too close to another shop's name" — a refusal sentence sitting on an approval. The
+              // first option is empty ("Reason, if declining"); a decline with it empty is refused on screen.
+              { name: 'reason', type: 'select', options: ['', ...SUPPLIER_WORK_REASONS.names], required: false, placeholder: 'Reason, if declining' },
             ],
           },
           href: '/admin/corrections',

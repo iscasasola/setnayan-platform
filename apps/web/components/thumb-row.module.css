@@ -90,3 +90,10 @@
 .row[data-riding] > [data-thumb-seat='field'] {
   background: rgb(var(--color-cream)); box-shadow: inset 0 0 0 2px rgb(var(--sn-accent)); backdrop-filter: none; -webkit-backdrop-filter: none;
 }
+/* ✍ A FIELD THAT GROWS (RW-274, re-walk 14 Nov, the group chat at 390): the seat is a 44 px pill, so a composer's
+   textarea grew INSIDE a box that did not — the second line was hidden. A seat holding a textarea grows with it (from 44
+   up, the composer caps itself at ~5 lines) and the row's other seats sit at its foot, as a chat's do. Search boxes (an
+   <input>) are untouched. Held by `lib/the-walk-round-9.test.ts`. */
+.fieldNode:has(textarea) { height: auto; min-height: 44px; border-radius: var(--m-r-lg); }
+.fieldNode:has(textarea) > * { height: auto; min-height: 44px; }
+.row:has(> .fieldNode textarea) { align-items: flex-end; }

@@ -92,3 +92,19 @@ test('a group covers a type only when EVERY one of its categories serves it (NUL
     { groupId: 'b', label: 'B', covered: false },
   ]);
 });
+
+test('a press on a request somebody already settled is said as that, never as Approved / Declined (live walk 14 Nov)', async () => {
+  const { ALREADY_SETTLED } = await import('./supplier-work');
+  assert.equal(redirectRefusal('NEXT_REDIRECT;replace;/admin/corrections?already_resolved=1;307;'), ALREADY_SETTLED);
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { stripComments } = await import('../strip-comments');
+  const actions = stripComments(readFileSync(join(process.cwd(), 'app/admin/corrections/actions.ts'), 'utf8'));
+  assert.match(actions, /if \(!row\) redirect\('\/admin\/corrections\?already_resolved=1'\);/, 'a decline that claimed no row');
+  // The Work drawer's decline reason starts EMPTY — a prefilled refusal sentence never sits on an approval.
+  const peek = stripComments(readFileSync(join(process.cwd(), 'lib/admin/queue-peek.ts'), 'utf8'));
+  assert.match(peek, /\{ name: 'reason', type: 'select', options: \['', \.\.\.SUPPLIER_WORK_REASONS\.names\], required: false, placeholder: 'Reason, if declining' \}/);
+  assert.equal(pickedReason('names', ''), null, 'the empty reason is no reason — a decline with it is refused on screen');
+  const drawer = stripComments(readFileSync(join(process.cwd(), 'app/admin/queues/_components/queue-drawer.tsx'), 'utf8'));
+  assert.match(drawer, /\{o === '' \? \(fl\.placeholder \?\? '—'\) : o\.replace\(\/_\/g, ' '\)\}/);
+});

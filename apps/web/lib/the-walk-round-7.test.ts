@@ -34,13 +34,16 @@ test('RW-65 · plain words for the simple preset; the Get-together tile says sup
   assert.match(sql, /AND description = '[\s\S]*?No vendors, no marketplace\.'/, 'only the seed text is replaced — an admin edit stays');
 });
 
-test('RW-87 · before the event day the run of show says when it starts, never "Not started yet"', () => {
+test('RW-87 · before the event day the run of show says when it starts, never "Not started yet" (round 9: labelled "Starts", with the year)', () => {
   const h = code('app/_components/run-of-show-header.tsx');
-  assert.match(h, /startsOnWords \? `Starts on \$\{startsOnWords\}\.` : 'Not started yet\.'/, 'the card');
-  assert.match(h, /startsOnWords \? `Starts on \$\{startsOnWords\}` : 'Not started yet'/, 'the strip');
+  // Re-walk 14 Nov: a "NOW" label still sat over a day 179 days out, and the day had no year. The box is labelled
+  // "Starts" before the day and carries the day with its year.
+  assert.match(h, /startsOnWords \?\? 'Not started yet\.'/, 'the card');
+  assert.match(h, /startsOnWords \?\? 'Not started yet'/, 'the strip');
+  assert.equal((h.match(/notStarted && startsOnWords \? 'Starts' : 'Now'/g) ?? []).length, 2, 'both labels say Starts before the day');
   assert.match(
     code('app/vendor-dashboard/clients/[eventId]/page.tsx'),
-    /props\.brief\.event\.event_date\.slice\(0, 10\) > manilaToday\(\)\s*\?\s*hubDayWords\(props\.brief\.event\.event_date\)/,
+    /props\.brief\.event\.event_date\.slice\(0, 10\) > manilaToday\(\)\s*\?\s*weekdayDateWithYear\(props\.brief\.event\.event_date\)/,
   );
 });
 

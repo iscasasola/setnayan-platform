@@ -1086,7 +1086,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const mk = marketplaceCardByVendorId.get(v.vendor_id);
     return {
       vendor_id: v.vendor_id,
-      vendor_name: v.vendor_name,
+      // 🏷 RW-264 (re-walk 14 Nov 2026): a row tied to a shop reads the shop's CURRENT name (`mk.name`, the same
+      // hybrid-anonymity answer the card uses) — after an approved rename it no longer shows the name copied in at
+      // booking time. A couple's own typed supplier keeps their typed name.
+      vendor_name: mk?.name ?? v.vendor_name,
       category: v.category,
       status: v.status,
       // PR-H · the marker and the DB-stamped deadline. Both carried RAW; the

@@ -188,11 +188,18 @@ export function workBackHref(back: string, outcome: string, why?: string): strin
  * 🚨 A page action ALSO refuses by redirecting (`fail()` in corrections → `?error=<why>`); a wrapper that swallowed
  * every redirect announced those refusals as success. Reads Next's redirect digest: `NEXT_REDIRECT;<type>;<url>;…`.
  */
+/** Said when a press lands on a request somebody already settled: nothing changed. */
+export const ALREADY_SETTLED = 'Someone already settled this one — nothing was changed.';
+
 export function redirectRefusal(digest: string): string | null {
   const url = digest.split(';')[2] ?? '';
   const q = url.indexOf('?');
   if (q === -1) return null;
-  const err = new URLSearchParams(url.slice(q + 1)).get('error');
+  const params = new URLSearchParams(url.slice(q + 1));
+  // 🚨 `already_resolved=1` (corrections) changed NOTHING — someone settled it first. Read as success it announced
+  // "Approved" over a press that did nothing (live walk 14 Nov, correction S89Z-5EMGY0V2MW). It is said as what it is.
+  if (params.get('already_resolved') === '1') return ALREADY_SETTLED;
+  const err = params.get('error');
   return err === null ? null : err || 'That could not be done.';
 }
 

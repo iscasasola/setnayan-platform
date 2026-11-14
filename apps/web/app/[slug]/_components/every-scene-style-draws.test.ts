@@ -247,7 +247,7 @@ test('venue · full photo puts the name on the photo, the address and directions
   assert.match(out, /data-venue-map-pins="2"/, 'one map for both, by default');
 });
 
-test('venue · the journey: one map with both pins joined, each stop its time from the run of show and ONE Directions dropdown', async () => {
+test('venue · the journey: one map with both pins joined, each stop its time from the run of show and ONE Get directions button', async () => {
   const { VenueWidget } = await import('./venue-widget');
   const out = decode(html(h(VenueWidget, { event: EVENT, sceneStyle: 'journey', blocks: BLOCKS } as never)));
   assertStyled(out, 'journey', 'journey');
@@ -255,10 +255,13 @@ test('venue · the journey: one map with both pins joined, each stop its time fr
   assert.match(out, /data-venue-route=""/, 'the stops are joined');
   assert.match(out, /© OpenStreetMap/, 'the map is credited');
   for (const v of VENUES) assert.ok(out.includes(v.name));
-  assert.equal(out.split('data-venue-directions=').length - 1, 2, 'one Directions dropdown per stop');
-  assert.match(out, /<summary[^>]*>Directions/, 'the dropdown says what it is');
-  for (const app of [/maps\.google|google\.com\/maps/, /waze/, /maps\.apple/]) assert.match(out, app);
-  assert.doesNotMatch(out, /label="Get directions"|Get directions/, 'never three buttons in the journey');
+  /* 🧭 Map card + Get directions (approved 2026-11-14): each stop has ONE "Get directions" button; the map apps live
+     in the sheet it opens (built from the device at the press, so not in this server markup — `lib/map-directions.test.ts`
+     holds which apps each device is offered). */
+  assert.equal(out.split('data-venue-directions=').length - 1, 2, 'one Get directions per stop');
+  assert.equal((out.match(/data-get-directions=""/g) ?? []).length, 2, 'ONE button per stop — never three');
+  assert.match(out, /<button[^>]*data-get-directions=""[^>]*>[\s\S]*?Get directions<\/button>/, 'the button says what it does');
+  assert.doesNotMatch(out, /waze|maps\.apple/, 'no app is drawn beside the button — the sheet lists them');
   const { formatBlockTimeRange } = await import('@/lib/schedule');
   assert.ok(out.includes(formatBlockTimeRange(BLOCKS[0]!.start_at, null)), 'the ceremony stop shows the ceremony block time');
   assert.ok(out.includes(formatBlockTimeRange(BLOCKS[2]!.start_at, null)), 'the reception stop shows the reception block time');

@@ -184,7 +184,8 @@ test('every guest-page door into a seat room sits behind the one rule', () => {
 
 test('the public landing’s "Find your seat" pill asks the rule (site-body.tsx)', () => {
   const code = stripComments(src('app/[slug]/_components/site-body.tsx'));
-  assert.match(code, /\{insideAllowed && doorwayFacts\?\.seatingSurfaceEnabled && doorwayFacts\?\.seatingPublished \? \(\s*<div className="mt-8 text-center">\s*<Link\s*href=\{`\/\$\{event\.slug\}\/find-seat`\}/);
+  /* `!storyLeads`: after the day the story replaces the invitation, and its pill with it (F-W2-53). */
+  assert.match(code, /\{insideAllowed && !storyLeads && doorwayFacts\?\.seatingSurfaceEnabled && doorwayFacts\?\.seatingPublished \? \(\s*<div className="mt-8 text-center">\s*<Link\s*href=\{`\/\$\{event\.slug\}\/find-seat`\}/);
   // `!seatMap`: under the day's floor plan, which already names the table, the line stands down (one place per fact).
   assert.match(code, /\{seatPassActive && !isMakerCanvas && !seatMap \? \(\s*<SeatDoorLine/, 'the Details seat line (data-seat-door)');
 });

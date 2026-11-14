@@ -50,6 +50,12 @@ export type LockAnswerContext = {
    */
   feeHeld?: boolean;
   /**
+   * 💳 RW-38 (walk 13 Nov 2026): is the unpaid fee gating THIS event's details and day-of tools right now
+   * (`resolveFeeEnforcement` — the env switch AND `platform_settings.fee_unlocks_event_enforced`)? Read by the page,
+   * never assumed; absent = not gating, and the notice then claims no gate.
+   */
+  feeLocksEvent?: boolean;
+  /**
    * `hall_taken` (owner 2026-10-14 🏛, prototype "A + B asked, A taken") — which of the card's halls are already taken
    * that day, and which of the shop's halls are free to offer instead (`vendor_card_halls_on`, read before the yes).
    */
@@ -81,6 +87,12 @@ export const LOCK_AGREE_FEE_HELD = 'held';
 export function lockAgreeFeeHeld(raw: unknown): boolean {
   return raw === LOCK_AGREE_FEE_HELD;
 }
+/** RW-38: the booking stands for the couple whatever the supplier owes us. */
+export const BOOKING_STANDS = 'You took the booking — it stands for the couple whatever happens.';
+/** RW-38: what is owed, plainly. */
+export const FEE_DUE = 'Your Setnayan booking fee for it is due.';
+/** RW-38: true to the code today — the couple's "your booking is confirmed" waits for the fee. */
+export const COUPLE_TOLD_ONCE_PAID = 'We tell the couple their booking is confirmed once it is paid.';
 /** Where the supplier pays — the shipped booking-fee hub (each due bill has its Pay there). */
 const PAY_THE_FEE_HREF = '/vendor-dashboard/booking-fees';
 
@@ -91,7 +103,14 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
     ctx.feeHeld
       ? {
           tone: 'ok',
-          text: 'You said yes. Pay the booking fee and we’ll tell the couple their booking is confirmed.',
+          // RW-38 (walk 13 Nov 2026): the couple is never hurt by the supplier's fee (DECISION_LOG 2026-11-12) — the
+          // booking stands; what the unpaid fee gates is the SUPPLIER's side, said only when the live gate is on.
+          // ⚠ The couple's "confirmed" message IS still held until the fee settles (`vendorAgreeToLock`'s
+          // `feeBilledUnpaid`) — so the supplier is told that too, truthfully (the conflict with the 2026-11-12
+          // ruling is flagged to the owner in the PR, not hidden by the words).
+          text: ctx.feeLocksEvent
+            ? `${BOOKING_STANDS} ${FEE_DUE} ${COUPLE_TOLD_ONCE_PAID} Paying it also opens this event’s details and day-of tools.`
+            : `${BOOKING_STANDS} ${FEE_DUE} ${COUPLE_TOLD_ONCE_PAID}`,
           door: { label: 'Pay the booking fee', href: PAY_THE_FEE_HREF },
         }
       : {

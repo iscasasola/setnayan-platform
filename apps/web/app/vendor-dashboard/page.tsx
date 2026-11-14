@@ -92,8 +92,6 @@ import { renderUrlQrSvg } from '@/lib/qr';
 import { ownPageUrl } from '@/lib/supplier-qr-codes';
 import { siteOrigin } from '@/lib/site-origin';
 import { SETUP_TOUR_KEY } from '@/lib/supplier-setup';
-import { fetchVendorPoolsOrNull } from '@/lib/vendor-schedule';
-import { VENUE_CATEGORIES } from '@/lib/supplier-where';
 import { TOURS } from '@/lib/tours';
 import { readTourSeen } from '@/lib/tour-seen.server';
 
@@ -231,6 +229,8 @@ export default async function VendorOverviewPage({
     lockAgreeNotice(search.lock_agree, {
       competing: Number.isFinite(competing) ? competing : null,
       feeHeld: lockAgreeFeeHeld(search.fee),
+      // RW-38: the live gate, so the notice claims a gate only when there is one.
+      feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false,
       halls: lockAgreeHalls(search.taken, search.free),
     }) ?? lockDeclineNotice(search.lock_decline);
   // ⚡ The layout already asked the auth server who this is (`getCurrentUser`,
@@ -346,9 +346,6 @@ export default async function VendorOverviewPage({
   // 🔦 Step 6's ✓ is the tour after it, on record (`SETUP_TOUR_KEY` in `users.tour_seen_keys`). A refused read is
   // NULL — the step says it could not load and the tour does not run — never "not yet" to a shop that finished it.
   const setupTourSeenP = settingUpP.then((yes) => (yes ? readTourSeen(supabase, user.id, SETUP_TOUR_KEY) : null)).catch(() => null);
-  // 7️⃣ Step 7 — How many a day: the shop's schedules (the Clients ⚙ read, which also makes a service's schedule the
-  // first time). NULL when refused — the row then says it could not load. Only while setting up.
-  const setupPoolsP = settingUpP.then((yes) => (yes ? fetchVendorPoolsOrNull(supabase, vendorProfileId) : null)).catch(() => null);
   const setupMakerP = settingUpP.then((yes) =>
     yes
       ? loadMakerContext(supabase, vendorProfileId)
@@ -573,7 +570,7 @@ export default async function VendorOverviewPage({
   let setup: ReactNode = null;
   if (firstSteps) {
     const offerLeft = (firstSteps.offer?.toGo ?? 1) > 0;
-    const [details, makerParts, tourSeen, setupPools] = await Promise.all([setupDetailsP, offerLeft ? setupMakerP : Promise.resolve(null), setupTourSeenP, setupPoolsP]);
+    const [details, makerParts, tourSeen] = await Promise.all([setupDetailsP, offerLeft ? setupMakerP : Promise.resolve(null), setupTourSeenP]);
     if (details) {
       // 📥 Step 6 — the shop's OWN Setnayan page, `/v/<slug>` (owner 7 Nov 2026). Never the root `/<slug>`: that is a
       // couple's Event Hub. 🔒 app/vendor-dashboard/_components/the-papers-and-the-qr-hold.test.ts
@@ -600,12 +597,6 @@ export default async function VendorOverviewPage({
           today={todayIso}
           gear={<TodaySettings />}
           tour={{ script: TOURS[SETUP_TOUR_KEY].spotlight!, seen: tourSeen }}
-          daily={{
-            schedules: setupPools
-              ? setupPools.map((p) => ({ poolId: p.poolId, name: p.label, capacity: p.capacity, hall: p.isHall === true }))
-              : null,
-            venue: (profile.services ?? []).some((c) => VENUE_CATEGORIES.has(String(c))) || (setupPools ?? []).some((p) => p.isHall),
-          }}
         />
       );
     }

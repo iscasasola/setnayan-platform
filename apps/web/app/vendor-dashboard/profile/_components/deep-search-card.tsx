@@ -72,24 +72,24 @@ export function DeepSearchCard({
 
   return (
     <div className="space-y-3 pb-4" data-deep-search-card="">
-      <p className="text-[17px] font-medium leading-snug text-ink" data-deep-search-title="">
+      <p className="text-base font-semibold leading-snug text-ink" data-deep-search-title="">
         See what the web says about your shop
       </p>
-      <p className="text-sm text-ink/70">
-        We search the web for <b className="font-medium text-ink">{businessName}</b> — never other shops — and show you what we found.
+      <p className="text-sm text-[color:var(--m-slate-2)]">
+        We search the web for <b className="font-semibold text-ink">{businessName}</b> — never other shops — and show you what we found.
         Nothing on your page changes on its own: you choose what to use.
       </p>
 
-      <ul className="divide-y divide-ink/10" data-deep-search-findings="">
+      <ul className="divide-y divide-[color:var(--m-line)]" data-deep-search-findings="">
         {DEEP_SEARCH_FINDINGS.map((f) => (
-          <li key={f.key} className="flex items-baseline justify-between gap-3 py-2">
-            <span className="text-[15px] font-medium text-ink">{f.title}</span>
-            <span className="text-right text-[13px] text-ink/60">{f.line}</span>
+          <li key={f.key} className="flex min-h-14 items-center justify-between gap-3 py-2">
+            <span className="text-base font-semibold text-ink">{f.title}</span>
+            <span className="text-right text-sm text-[color:var(--m-slate-2)]">{f.line}</span>
           </li>
         ))}
       </ul>
 
-      <InfoTip label="How it’s priced" labelAs="p" labelClassName="text-sm text-ink/70" align="start">
+      <InfoTip label="How it’s priced" labelAs="p" labelClassName="text-sm text-[color:var(--m-slate-2)]" align="start">
         {deepSearchBandWords(offer.band)} Each search is kept {DEEP_SEARCH_KEEP_DAYS} days with its PDF,
         then deleted.
       </InfoTip>
@@ -105,12 +105,12 @@ export function DeepSearchCard({
         <GetVerifiedLine title="Deep Search is for verified shops" line="You can run it once you’re verified" data="deep-search" />
       )}
 
-      <div className="divide-y divide-ink/10 border-t border-ink/10" data-deep-search-last="">
-        <div className="flex min-h-[60px] flex-wrap items-center gap-3 py-2.5">
+      <div className="divide-y divide-[color:var(--m-line)] border-t border-[color:var(--m-line)]" data-deep-search-last="">
+        <div className="flex min-h-14 flex-wrap items-center gap-3 py-2.5">
           <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-medium leading-snug text-ink">{deepSearchFoldLine(last)}</span>
+            <span className="block text-base font-semibold leading-snug text-ink">{deepSearchFoldLine(last)}</span>
             {found ? (
-              <span className="mt-0.5 block text-[13px] text-ink/60">
+              <span className="mt-0.5 block text-sm tabular-nums text-[color:var(--m-slate-2)]">
                 {[
                   countWords(found.services, 'service', 'services'),
                   countWords(found.prices, 'price', 'prices'),
@@ -130,8 +130,8 @@ export function DeepSearchCard({
           ) : null}
         </div>
         {last.measured && last.last ? (
-          <Link href="/vendor-dashboard/deep-search" className="sn-press flex min-h-[52px] items-center gap-3 py-2.5" data-deep-search-all="">
-            <span className="flex-1 text-[15px] text-ink">All your Deep Searches</span>
+          <Link href="/vendor-dashboard/deep-search" className="sn-press flex min-h-14 items-center gap-3 py-2.5" data-deep-search-all="">
+            <span className="flex-1 text-base font-semibold text-ink">All your Deep Searches</span>
             <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
           </Link>
         ) : null}

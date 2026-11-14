@@ -144,3 +144,15 @@ export function allocateChapterCounts(groupSizes: number[], total: number): numb
   }
   return out;
 }
+
+/**
+ * 📷 WAS THIS SHOT ON THE EVENT'S OWN DAYS? (F-W2-49) — the gallery's "From the day" holds only these. A Papic camera
+ * may shoot for months before the event, so a capture's own instant is checked against the window. No window (an
+ * event with no date): every capture, as before. No instant: not provably the day, so not "from the day".
+ */
+export function capturedOnTheDay(capturedAt: string | null | undefined, window: StoryDayWindow | null): boolean {
+  if (!window) return true;
+  const t = capturedAt ? Date.parse(capturedAt) : Number.NaN;
+  if (!Number.isFinite(t)) return false;
+  return t >= Date.parse(window.startIso) && t <= Date.parse(window.endIso);
+}

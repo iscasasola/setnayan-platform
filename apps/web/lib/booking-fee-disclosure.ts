@@ -848,3 +848,17 @@ export function bookingFeeNoticeCopy(bill: DueFeeBill): { title: string; body: s
       'Pay it by QR or transfer to our receiving accounts — it clears once our team confirms your payment (within 24 hours).',
   };
 }
+
+/**
+ * 💳 RW-43 (walk 13 Nov 2026): the forecast beside Agree, with the Setnayan gift the accepted quote carries — the fee,
+ * the gift and the one bill they make, said BEFORE the press. Pure; the amounts are whole centavos.
+ */
+export function withGiftOnTheBill(forecast: FeeDisclosure, feeCentavos: number, giftCentavos: number): FeeDisclosure {
+  const php = (c: number) => feePesos(c / 100);
+  return {
+    ...forecast,
+    detail:
+      `${forecast.detail} This quote includes your Setnayan gift for your couple, so agreeing bills you ` +
+      `${php(feeCentavos)} booking fee + ${php(giftCentavos)} gift = ${php(feeCentavos + giftCentavos)}.`,
+  };
+}

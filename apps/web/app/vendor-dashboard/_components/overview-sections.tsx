@@ -17,6 +17,7 @@ import {
 import { customerLandingHref } from '../customers/anchors';
 import { ActionButton } from '@/components/action-button';
 import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import { Fold } from '@/app/_components/fold';
 import { SupplierSubmit } from './supplier-submit';
 import { waitingAge } from '@/lib/waiting-age';
@@ -324,10 +325,11 @@ export function WhatsNewFeed({
         {statusLine ? <span className="sr-only"> — {statusLine}</span> : null}
       </p>
       {incomplete ? (
-        <p role="status" className="pb-2 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
-          Some booking asks and payments couldn&rsquo;t load, so this list may be
-          missing some. Refresh the page to try again.
-        </p>
+        <div role="status" className="pb-2 text-[13px] font-semibold text-warn-800">
+          <InfoTip label="Some booking asks and payments couldn’t load" align="start">
+            So this list may be missing some. Refresh the page to try again.
+          </InfoTip>
+        </div>
       ) : null}
       <div className="[&>div:first-child]:border-t-0">
         {rows.map(({ card, label, line, open, words }) =>
@@ -624,12 +626,12 @@ function MarkCompleteBody({
   */
   return (
     <div className="space-y-3">
-      <p className="text-sm text-ink/75">
-        {card.eventName} has finished. Confirm you delivered your service — that
-        lets the couple confirm they received it, which is what opens your
-        review.
-      </p>
-      <p className="text-xs text-ink/55">{metaLine([card.eventDate ? formatLongDate(card.eventDate) : null])}</p>
+      <div className="text-[15px] text-ink">
+        <InfoTip label={`${card.eventName} has finished. Confirm you delivered your service`} align="start">
+          That lets the couple confirm they received it, which is what opens your review.
+        </InfoTip>
+      </div>
+      <p className="text-xs text-ink/70">{metaLine([card.eventDate ? formatLongDate(card.eventDate) : null])}</p>
       {/* 🔑 `event_id` ONLY. The shipped `vendorMarkServiceComplete` resolves the
           booking from (event, this shop's own profile) and ignores any vendor id
           — passing one would look like it scoped the write when it did not. */}
@@ -663,7 +665,7 @@ function InquiryBody({
   return (
     <>
       <p className="text-sm font-semibold text-ink">{card.descriptor}</p>
-      <p className="mt-0.5 font-mono text-xs text-ink/60">
+      <p className="mt-0.5 text-[13px] tabular-nums text-ink/70">
         {meta}
         {/* § 2.4 EXTEND 1 — how long this couple has been waiting for a reply.
           *  ⚠ IT USED TO BE A SECOND COPY OF THIS, inline, with a docblock saying
@@ -747,11 +749,11 @@ export function LockRequestBody({
   return (
     <>
       {onCard ? (
-        fuse ? <p className="mb-1 text-[13px] text-ink/60">{fuse}</p> : null
+        fuse ? <p className="mb-1 text-[13px] text-ink/70">{fuse}</p> : null
       ) : (
         <>
           <p className="text-sm font-semibold text-ink">{card.coupleName} wants to book you</p>
-          <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
+          <p className="mt-0.5 text-sm text-ink/70">{detail}</p>
         </>
       )}
       <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
@@ -806,15 +808,21 @@ export function DateChangeBody({
   return (
     <>
       <p className="text-sm font-semibold text-ink">{card.coupleName} asks to move their date</p>
-      <p className="mt-0.5 text-sm text-ink/60">
+      <p className="mt-0.5 text-sm text-ink/70">
         {from} &rarr; {to}
       </p>
-      <p className="mt-2 max-w-prose text-sm text-ink/70">
-        The new date clashes with your calendar. Tell them whether you can move with them.{' '}
-        {overdue
-          ? 'Your 3 days are up — they may now release the booking themselves.'
-          : `Answer by ${formatLongDate(card.dueAt)} — after that they may release the booking themselves.`}
-      </p>
+      <div className="mt-2 text-[13px] font-semibold text-ink">
+        <InfoTip
+          label={
+            overdue
+              ? 'Your 3 days are up — they may now release the booking themselves.'
+              : `Answer by ${formatLongDate(card.dueAt)} — after that they may release the booking themselves.`
+          }
+          align="start"
+        >
+          The new date clashes with your calendar. Tell them whether you can move with them.
+        </InfoTip>
+      </div>
       <div className="mt-3 flex flex-wrap items-center gap-2" data-date-change-answer={card.eventVendorId}>
         <form action={answerDateChange}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
@@ -829,10 +837,12 @@ export function DateChangeBody({
           <SupplierSubmit tone="neutral" icon={<LogOut {...ico} />} label="Unlock my service" pendingLabel="Releasing…" />
         </form>
       </div>
-      <p className="mt-2 max-w-prose text-xs text-ink/60">
-        Unlocking releases this booking. Any payment is settled by the cancellation terms on the booking — Setnayan
-        never decides a refund.
-      </p>
+      <div className="mt-2 text-[13px] text-ink/70">
+        <InfoTip label="What unlocking does" align="start">
+          Unlocking releases this booking. Any payment is settled by the cancellation terms on the booking — Setnayan
+          never decides a refund.
+        </InfoTip>
+      </div>
     </>
   );
 }
@@ -879,15 +889,13 @@ export function DeleteRequestBody({
       <p className="text-sm font-semibold text-ink">
         An event you were paid for is being removed
       </p>
-      <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
-      <p className="mt-2 max-w-prose text-sm text-ink/70">
-        Their records show a payment to you. If you agree, the couple&rsquo;s
-        event is removed —{' '}
-        <strong className="font-semibold text-ink">
-          your booking record, your reviews and your figures stay with your shop
-        </strong>
-        . Nothing is removed until you answer, and there is no time limit.
-      </p>
+      <p className="mt-0.5 text-sm text-ink/70">{detail}</p>
+      <div className="mt-2 text-[13px] font-semibold text-ink">
+        <InfoTip label="Your booking record, your reviews and your figures stay with your shop" align="start">
+          Their records show a payment to you. If you agree, the couple&rsquo;s event is removed — your booking record,
+          your reviews and your figures stay with your shop. Nothing is removed until you answer, and there is no time limit.
+        </InfoTip>
+      </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={agreeDeletion}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
@@ -955,7 +963,7 @@ function LockBody({
   return (
     <>
       <p className="text-sm font-semibold text-ink">{card.coupleName}</p>
-      <p className="mt-0.5 text-sm text-ink/60">
+      <p className="mt-0.5 text-sm text-ink/70">
         {detail}
         {' · '}
         <AgeLine since={card.recordedAt} />
@@ -966,13 +974,13 @@ function LockBody({
         <dl className="mt-2 grid grid-cols-2 gap-x-4" data-lock-logged="">
           {card.amountPhp ? (
             <div>
-              <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55">Amount</dt>
+              <dt className="text-xs font-semibold uppercase tracking-[0.08em] text-ink/70">Amount</dt>
               <dd className="text-[15px] tabular-nums text-ink">{formatPhp(card.amountPhp)}</dd>
             </div>
           ) : null}
           {card.method ? (
             <div>
-              <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55">How</dt>
+              <dt className="text-xs font-semibold uppercase tracking-[0.08em] text-ink/70">How</dt>
               <dd className="text-[15px] text-ink">{card.method}</dd>
             </div>
           ) : null}
@@ -996,7 +1004,7 @@ function LockBody({
           See what they sent
         </a>
       ) : (
-        <p className="mt-2 text-sm text-ink/55">They attached no receipt.</p>
+        <p className="mt-2 text-sm text-ink/70">They attached no receipt.</p>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={confirmLock} className="contents">
@@ -1032,11 +1040,12 @@ function LockBody({
           />
           <SupplierSubmit tone="danger" icon={<X {...ico} />} label="It never arrived" pendingLabel="Sending…" />
         </form>
-        <p className="mb-2 mt-2 max-w-prose text-[12px] text-ink/55">
-          Their record of paying is cleared so they can send it again with the
-          right receipt. It does not cancel the booking, and nothing about your
-          date changes.
-        </p>
+        <div className="mb-2 mt-2 text-[13px] text-ink/70">
+          <InfoTip label="What this does" align="start">
+            Their record of paying is cleared so they can send it again with the right receipt. It does not cancel the
+            booking, and nothing about your date changes.
+          </InfoTip>
+        </div>
       </Fold>
     </>
   );
@@ -1069,7 +1078,7 @@ function ReviewBody({
   return (
     <>
       <p className="text-sm font-semibold text-ink">{card.coupleName}</p>
-      <p className="mt-0.5 font-mono text-xs text-ink/60">
+      <p className="mt-0.5 text-[13px] tabular-nums text-ink/70">
         {stars}
         {' · '}
         <AgeLine since={card.createdAt} />
@@ -1079,7 +1088,7 @@ function ReviewBody({
           &ldquo;{card.quote}&rdquo;
         </p>
       ) : (
-        <p className="mt-1 text-sm text-ink/60">They left a rating with no words.</p>
+        <p className="mt-1 text-sm text-ink/70">They left a rating with no words.</p>
       )}
       <form action={postReviewReply} className="mt-3 space-y-2">
         <input type="hidden" name="review_id" value={card.reviewId} />
@@ -1098,7 +1107,7 @@ function ReviewBody({
           className="input-field min-h-[64px] w-full py-2 text-sm"
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] text-ink/50">
+          <p className="text-xs text-ink/70">
             One public reply, and it&rsquo;s final once posted.
           </p>
           <div className="flex items-center gap-2">
@@ -1131,19 +1140,16 @@ function DisputeBody({ card }: { card: Extract<WhatsNewCard, { kind: 'dispute' }
       <p className="text-sm font-semibold text-ink">
         A couple flagged a delivery delay
       </p>
-      <p className="mt-0.5 font-mono text-xs text-ink/60">
+      <p className="mt-0.5 text-[13px] tabular-nums text-ink/70">
         {metaLine([card.eventName, card.label])}
         {' · '}
         <AgeLine since={card.createdAt} />
       </p>
-      <p className="mt-2 max-w-prose text-sm text-ink/70">
-        They marked something you handed over as late. Nothing is decided by us
-        and no money moves —{' '}
-        <strong className="font-semibold text-ink">
-          read what they said and answer them in your own words
-        </strong>
-        . A flag they raised by mistake comes down when they clear it.
-      </p>
+      <div className="mt-2 text-[13px] font-semibold text-ink">
+        <InfoTip label="Read what they said and answer them in your own words" align="start">
+          They marked something you handed over as late. Nothing is decided by us and no money moves. A flag they raised by mistake comes down when they clear it.
+        </InfoTip>
+      </div>
       <div className="mt-3">
         {/*
           THE DESTINATION MATCHES THE SENTENCE ABOVE IT. "Read what they said
@@ -1200,17 +1206,18 @@ function LockRequestLapsedBody({
       <p className="text-sm font-semibold text-ink">
         {card.coupleName} asked to book you, and nobody answered in time
       </p>
-      <p className="mt-0.5 font-mono text-xs text-ink/60">
+      <p className="mt-0.5 text-[13px] tabular-nums text-ink/70">
         {metaLine([
           card.eventDate ? monthDay(card.eventDate) : null,
           closed ? `closed ${closed}` : null,
         ])}
       </p>
-      <p className="mt-2 max-w-prose text-sm text-ink/70">
-        The date was never held for you and nothing was booked. If they still
-        want you, they can ask again — this note clears itself in about{' '}
-        {CLOSED_WINDOW_GRACE_DAYS} days.
-      </p>
+      <div className="mt-2 text-[13px] text-ink/70">
+        <InfoTip label="Nothing was booked" align="start">
+          The date was never held for you. If they still want you, they can ask again — this note clears itself in about{' '}
+          {CLOSED_WINDOW_GRACE_DAYS} days.
+        </InfoTip>
+      </div>
     </>
   );
 }
@@ -1228,7 +1235,7 @@ function MessageBody({ card }: { card: Extract<WhatsNewCard, { kind: 'message' }
   return (
     <>
       <p className="text-sm font-semibold text-ink">{card.coupleName}</p>
-      <p className="mt-0.5 font-mono text-xs text-ink/60">
+      <p className="mt-0.5 text-[13px] tabular-nums text-ink/70">
         <AgeLine since={card.lastMessageAt} />
       </p>
       {card.excerpt ? (
@@ -1301,7 +1308,7 @@ function MeetingBody({
       <p className="text-sm font-semibold text-ink">
         {card.coupleName} — {card.label}
       </p>
-      <p className="mt-0.5 font-mono text-xs text-ink/60">
+      <p className="mt-0.5 text-[13px] tabular-nums text-ink/70">
         {metaLine([
           when,
           card.meetingKind === 'in_person' ? APPOINTMENT_KIND_LABEL.in_person : virtualSummary(parseVirtualLocation(card.location)),
@@ -1312,10 +1319,11 @@ function MeetingBody({
         <AgeLine since={card.passed && card.scheduledAt ? card.scheduledAt : card.proposedAt} />
       </p>
       {card.passed ? (
-        <p className="mt-2 max-w-prose text-sm text-ink/70">
-          That time has been and gone with no answer from you. Nothing is booked —
-          open the customer to offer them another one.
-        </p>
+        <div className="mt-2 text-[13px] font-semibold text-warn-800">
+          <InfoTip label="That time has passed with no answer from you" align="start">
+            Nothing is booked — open the customer to offer them another one.
+          </InfoTip>
+        </div>
       ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {!card.passed && card.scheduledAt ? (
@@ -1379,7 +1387,7 @@ function QuoteDraftBody({ card }: { card: Extract<WhatsNewCard, { kind: 'quote_d
   return (
     <>
       <p className="text-sm font-semibold text-ink">{card.title}</p>
-      <p className="mt-0.5 font-mono text-xs text-ink/60">
+      <p className="mt-0.5 text-[13px] tabular-nums text-ink/70">
         {metaLine([amount, 'saved, never sent'])}
         {' · '}
         <AgeLine since={card.createdAt} />
@@ -1400,7 +1408,7 @@ function ContractDraftBody({
   return (
     <>
       <p className="text-sm font-semibold text-ink">{card.title}</p>
-      <p className="mt-0.5 font-mono text-xs text-ink/60">
+      <p className="mt-0.5 text-[13px] tabular-nums text-ink/70">
         {'drafted, never sent'}
         {' · '}
         <AgeLine since={card.createdAt} />

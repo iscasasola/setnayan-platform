@@ -29,7 +29,7 @@ export const SP_VENDOR_PROFILE_ID = '5e7a0000-0000-4000-8000-00000000b001';
 export const SP_PLANS = [
   { plan: 'free', label: 'Free', tier: 'free', verified: false },
   { plan: 'verified', label: 'Verified', tier: 'verified', verified: true },
-  { plan: 'solo', label: 'Solo', tier: 'solo', verified: true },
+  { plan: 'solo', label: 'Supplier Plus', tier: 'solo', verified: true },
   { plan: 'pro', label: 'Pro', tier: 'pro', verified: true },
   { plan: 'ultra', label: 'Ultra', tier: 'enterprise', verified: true },
 ] as const;

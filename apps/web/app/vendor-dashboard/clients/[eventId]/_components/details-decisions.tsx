@@ -16,7 +16,7 @@ export function DetailsDecisions({ threadId }: { threadId: string | null; eventI
     return (
       <section data-details-decisions="" aria-label="Decisions">
         <h3 className="home-k2">Decisions · 0</h3>
-        <p className="py-2 text-[12px] text-ink/60" data-details-decisions-empty="">
+        <p className="py-2 text-xs text-ink/70" data-details-decisions-empty="">
           Nothing decided yet.
         </p>
       </section>
@@ -27,7 +27,7 @@ export function DetailsDecisions({ threadId }: { threadId: string | null; eventI
       fallback={
         <section data-details-decisions="" aria-label="Decisions" aria-busy="true">
           <h3 className="home-k2">Decisions</h3>
-          <p className="py-2 text-[12px] text-ink/55" role="status">
+          <p className="py-2 text-xs text-ink/70" role="status">
             Loading…
           </p>
         </section>

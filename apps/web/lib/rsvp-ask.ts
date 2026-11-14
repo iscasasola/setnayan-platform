@@ -122,7 +122,7 @@ export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
    * GETS A CELEBRATION (PRO)'): None · Confetti · Fireworks · Petals ·
    * Sparklers, played ONCE as an attending guest's thank-you appears. Stored
    * beside the When yes words; absent = None (`readRsvpCelebration`). The four
-   * effects are Event Hub Pro — Apply holds them without it
+   * effects are Event Pro — Apply holds them without it
    * (`eventItemIsPro`, lib/hub-draft.ts). See `lib/rsvp-celebration.ts`.
    */
   celebration?: RsvpCelebration;

@@ -153,7 +153,7 @@ export type VenueBookings = {
 //                     and only where the library has one for this venue. Absent =
 //                     the photo (if any) — a drawing NEVER replaces a photo by
 //                     itself (owner 2026-10-16, DECISION_LOG "A VENUE CARD'S
-//                     PICTURE IS THE COUPLE'S CHOICE"). Event Hub Pro: tried in
+//                     PICTURE IS THE COUPLE'S CHOICE"). Event Pro: tried in
 //                     the draft, held at Apply (`venueBagNewDrawings`, hub-draft.ts).
 //                     The photo refs are kept beside it, so picking the photo back
 //                     restores it.

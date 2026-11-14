@@ -18,7 +18,7 @@ import {
 /**
  * lib/qr-look.server.ts — THE ONE place a QR's look is resolved for an event.
  *
- * Reads Event Hub Pro (`eventCoupleWebsiteProActive` — bundle-aware,
+ * Reads Event Pro (`eventCoupleWebsiteProActive` — bundle-aware,
  * admin-approved, and TRUE for §10a internal-hosted events, which is why the
  * owner's own event always shows the Pro side), the couple's saved choices
  * (`events.style_preferences.qr`), their palette, and their mark — the drawn
@@ -166,7 +166,7 @@ export async function resolveEventQrLook(
     // 💎 Your logo on the QR, its shape, pattern and colour are the Logo & QR part's (owner 2026-10-22, gate 29).
     ownsPro = await asViewed(eventHubPartActive(client, eventId, 'logo_qr'));
   } catch (err) {
-    console.error('[qr-look] Event Hub Pro could not be read; rendering the free look', err instanceof Error ? err.message : err);
+    console.error('[qr-look] Event Pro could not be read; rendering the free look', err instanceof Error ? err.message : err);
     ownsPro = false;
   }
   return qrLookFromRow(row, ownsPro);

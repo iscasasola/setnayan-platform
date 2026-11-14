@@ -120,6 +120,6 @@ test('no vendor-facing screen shows a token balance', () => {
   assert.deepEqual(
     offenders.map((f) => relative(WEB, f)),
     [],
-    'a vendor screen reads a token wallet — the currency is retired and cannot be earned or spent',
+    'a vendor screen reads a token balance — the currency is retired and cannot be earned or spent',
   );
 });

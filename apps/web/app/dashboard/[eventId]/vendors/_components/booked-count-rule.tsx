@@ -82,7 +82,7 @@ export function BookedCountRule({
           <b className="block text-[20px] font-medium leading-none tabular-nums text-ink" data-booked-count={shown.counted}>
             {shown.counted}
           </b>
-          <span className="block text-[11.5px] text-ink/55">counted</span>
+          <span className="block text-[12px] text-ink/55">counted</span>
         </span>
         <ChevronRight aria-hidden strokeWidth={2} className="h-4 w-4 text-sn-accent" />
       </button>
@@ -146,7 +146,7 @@ function CountRuleSheet({
   return (
     <Sheet open onClose={onClose} labelledById={titleId} rise>
       <div className="space-y-1 px-5 pb-6 pt-5" data-count-rule-sheet={service.id}>
-        <h2 id={titleId} className="pr-10 font-display text-[22px] leading-tight text-ink">
+        <h2 id={titleId} className="pr-10 text-[17px] font-semibold leading-snug text-ink">
           {service.label} · {shop}
         </h2>
         <div className="flex items-center justify-between gap-3 border-b border-ink/10 py-3 text-[15px]">

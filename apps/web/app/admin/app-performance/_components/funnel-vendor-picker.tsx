@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { InsightsParamPick } from './insights-param-pick';
 
 /**
  * The vendor picker for the Funnels drill-down.
@@ -19,6 +20,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
  *
  * (Measured in production 2026-08-17: 2 vendor profiles exist, so the 500-row
  * cap truncates nothing today. The disclosure only appears when it bites.)
+ *
+ * Re-drawn 2026-11-14 onto the approved drawing (`admin_pub/insights.html` ›
+ * Funnels): the native <select> + "Show funnel" GET form became the one
+ * dropdown row (`InsightsParamPick`, moves `?vendor=` and keeps `?range=`). The
+ * cap disclosure is now the list's own last, greyed line — its sentence in that
+ * line's ⓘ — exactly where a missing supplier would be looked for. Same read,
+ * same cap, same honest failure sentence.
  */
 
 const VENDOR_PICKER_CAP = 500;
@@ -54,16 +62,16 @@ export async function fetchVendorPickerOptions(): Promise<VendorPickerResult> {
 
 export function VendorPicker({
   result,
-  range,
   selectedVendorId,
 }: {
   result: VendorPickerResult;
+  /** The current range. The pick keeps `?range=` on its own (it moves only `?vendor=`), so nothing reads this now. */
   range: string;
   selectedVendorId: string | null;
 }) {
   if (result.error || result.options === null) {
     return (
-      <p className="mb-4 text-sm text-ink/70">
+      <p role="alert" className="my-2 rounded-lg bg-[var(--sn-warning-soft)] px-3 py-2 text-sm text-ink">
         The supplier list could not be read, so there is nobody to choose from
         here — that is not the same as having no suppliers.
         {result.error ? ` (${result.error.message})` : ''}
@@ -71,42 +79,28 @@ export function VendorPicker({
     );
   }
 
+  const options = [
+    { key: '', label: 'Select a supplier…' },
+    ...result.options.map((v) => ({ key: v.vendor_profile_id, label: v.business_name })),
+    ...(result.truncated
+      ? [
+          {
+            key: '__past-the-cap',
+            label: `Listing the first ${VENDOR_PICKER_CAP.toLocaleString()} suppliers by name`,
+            disabledNote:
+              'There are more — a supplier missing from this list has not been ruled out, it is past the end of it.',
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <>
-      <form method="get" className="mb-2 flex flex-wrap items-center gap-2">
-        <input type="hidden" name="tab" value="funnels" />
-        {/* Preserve the current range when changing vendor. */}
-        <input type="hidden" name="range" value={range} />
-        <label
-          htmlFor="vendor"
-          className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/70"
-        >
-          Supplier
-        </label>
-        <select
-          id="vendor"
-          name="vendor"
-          defaultValue={selectedVendorId ?? ''}
-          className="input-field h-9 max-w-[22rem] py-0 text-sm"
-        >
-          <option value="">Select a supplier…</option>
-          {result.options.map((v) => (
-            <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
-              {v.business_name}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="button-secondary h-9 px-3 text-xs">
-          Show funnel
-        </button>
-      </form>
-      {result.truncated ? (
-        <p className="mb-4 text-xs text-ink/70">
-          Listing the first {VENDOR_PICKER_CAP.toLocaleString()} suppliers by
-          name. There are more — a supplier missing from this list has not been
-          ruled out, it is past the end of it.
-        </p>
-      ) : null}
-    </>
+    <InsightsParamPick
+      name="Supplier"
+      param="vendor"
+      value={selectedVendorId ?? ''}
+      options={options}
+      about="Their views → inquiries → quotes → booked funnel, for the range above."
+    />
   );
 }

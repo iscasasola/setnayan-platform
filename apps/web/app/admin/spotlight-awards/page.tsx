@@ -28,6 +28,5 @@ export default async function AdminSpotlightAwardsRedirect({ searchParams }: Pro
     const val = first(search[key]);
     if (val !== undefined) params.set(key, val);
   }
-  const qs = params.toString();
-  redirect(qs ? `/admin/badges?${qs}` : '/admin/badges');
+  redirect(`/admin/badges?${params.toString()}`);
 }

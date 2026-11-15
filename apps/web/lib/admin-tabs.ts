@@ -102,6 +102,7 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
 
   // ── MONEY — what came in, what is owed, what goes out ──────────────────────
   { route: '/admin/money', tab: 'money', note: 'Today the Money landing.' },
+  { route: '/admin/badges', tab: 'money', note: 'Badges & seals (15 Nov 2026) — the reward ledger, the seals, and the folded-in Spotlight Awards.' },
   {
     route: '/admin/payments',
     tab: 'money',
@@ -180,7 +181,7 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
   { route: '/admin/moodboard-library', tab: 'catalogue', stubTo: '/admin/studio?tab=moodboard-library' },
   { route: '/admin/journal-spotlights', tab: 'catalogue', stubTo: '/admin/studio?tab=journal-spotlights' },
   { route: '/admin/social-queue', tab: 'catalogue', stubTo: '/admin/studio?tab=social-queue' },
-  { route: '/admin/spotlight-awards', tab: 'catalogue', stubTo: '/admin/studio?tab=spotlight-awards', note: 'A Studio redirect stub.' },
+  { route: '/admin/spotlight-awards', tab: 'money', stubTo: '/admin/badges', note: 'Folded into Money › Badges & seals (15 Nov 2026).' },
   { route: '/admin/hub-music', tab: 'catalogue' },
   { route: '/admin/background-videos', tab: 'catalogue', note: 'Design kit › Backgrounds extends this.' },
   { route: '/admin/website-media', tab: 'catalogue' },

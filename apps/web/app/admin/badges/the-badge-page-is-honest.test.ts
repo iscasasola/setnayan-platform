@@ -26,7 +26,7 @@ test('the page is one Money view, and the Spotlight Awards addresses fold into i
     assert.equal(place?.kind, 'tab', path);
     assert.equal(place?.kind === 'tab' ? `${place.tab.key}/${place.view.key}` : null, 'money/badges', `${path}?${q}`);
   }
-  assert.match(code('app/admin/spotlight-awards/page.tsx'), /redirect\(qs \? `\/admin\/badges\?\$\{qs\}` : '\/admin\/badges'\)/);
+  assert.match(code('app/admin/spotlight-awards/page.tsx'), /redirect\(`\/admin\/badges\?\$\{params\.toString\(\)\}`\)/);
   assert.match(PAGE, /<SpotlightAwardsSurface /, 'the monthly awards are mounted on this page');
 });
 

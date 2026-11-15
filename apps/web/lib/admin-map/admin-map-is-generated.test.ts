@@ -81,8 +81,10 @@ test('most stubs keep the tab they forward to', () => {
   // 6 → 7 (2026-11-14): the old Settings studio's tabs became the avatar's own PAGES — /admin/compliance ·
   // /admin/notifications · /admin/settings/demo-mode · /admin/settings now forward to /admin/business ·
   // /admin/email-delivery · /admin/switches, which have no tabs to keep.
+  // 7 → 8 (2026-11-15): /admin/spotlight-awards forwarded to the Studio tab; the monthly Spotlight Awards now fold
+  // into Money › Badges & seals (DECISION_LOG dd7d05f1), a page with no tabs, so it forwards to /admin/badges.
   assert.ok(
-    withTab.length >= stubs.length - 7,
-    `${stubs.length - withTab.length} stubs lost their tab (expected at most 7)`,
+    withTab.length >= stubs.length - 8,
+    `${stubs.length - withTab.length} stubs lost their tab (expected at most 8)`,
   );
 });

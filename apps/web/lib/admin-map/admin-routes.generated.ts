@@ -2,8 +2,8 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:map
 //
 // Every place inside /admin a person can land, scanned from the route tree.
-// 102 destinations (66 real pages, 36 redirect stubs)
-// as of 75478c65. admin-map-is-generated.test.ts fails if this drifts from the tree.
+// 103 destinations (67 real pages, 36 redirect stubs)
+// as of 833b4b09. admin-map-is-generated.test.ts fails if this drifts from the tree.
 
 import type { AdminRoute } from './scan-admin-routes';
 
@@ -55,6 +55,12 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
     "kind": "page",
     "redirectsTo": null,
     "inMenuSource": true
+  },
+  {
+    "path": "/admin/badges",
+    "kind": "page",
+    "redirectsTo": null,
+    "inMenuSource": false
   },
   {
     "path": "/admin/booking-fees",
@@ -515,7 +521,7 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
   {
     "path": "/admin/spotlight-awards",
     "kind": "redirect",
-    "redirectsTo": "/admin/studio?tab=spotlight-awards",
+    "redirectsTo": "/admin/badges",
     "inMenuSource": true
   },
   {

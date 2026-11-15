@@ -595,3 +595,45 @@
   .dock { display: none; }
   .close { padding-block: 160px 96px; }
 }
+
+/* 💸 How Setnayan earns (beat 11, `#earn`) — corpus prototypes/supplier_how_we_earn_2026-11-16/ v2, on the page's tokens */
+.earn { background: var(--sf-ivory); border-radius: 22px; padding: 22px 18px; display: grid; gap: 22px; scroll-margin-top: calc(var(--sf-head) + 16px); }
+.earnHead { display: grid; gap: 6px; }
+.earnHead h3 { font-size: 1.6rem; max-width: 22ch; }
+.promises { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.promises li { position: relative; display: grid; gap: 4px; background: var(--sf-paper); border: 1px solid var(--sf-line); border-radius: var(--m-r-md, 14px); padding: 14px 14px 14px 42px; line-height: 1.4; }
+.promises li::before { content: '✓'; position: absolute; left: 14px; top: 14px; color: var(--sf-ok); font-weight: 800; }
+.promises li b { color: var(--sf-ink); }
+.promises li span { color: var(--sf-text); font-size: .94rem; }
+.earnCols { display: grid; gap: 22px; }
+.earnCols h4, .wedding h4 { margin: 0 0 6px; color: var(--sf-ink); font-size: 1.08rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.earnRow { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--sf-line); }
+.earnRow b { color: var(--sf-ink); }
+.earnRow span { color: var(--sf-text); }
+.earnPrice { margin: 4px 0 0; font-family: var(--sf-mono); font-size: .86rem; color: var(--sf-ink); }
+.receipt { display: grid; gap: 4px; margin-top: 6px; }
+.receipt small { color: var(--sf-muted); }
+.srcTag { justify-self: start; background: var(--sf-paper); color: var(--m-orange-deep); border: 1px solid var(--sf-line); border-radius: var(--m-r-full); padding: 5px 10px; font-size: .82rem; font-weight: 600; }
+.feePill { background: var(--sf-paper); color: var(--m-orange-deep); }
+.wedding { display: grid; gap: 8px; }
+.wedding ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.wedding li { display: grid; gap: 6px; background: var(--sf-paper); border-radius: var(--m-r-md, 14px); padding: 12px 14px; border-left: 4px solid var(--sf-line); }
+.wedding li > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.wedding li b { color: var(--sf-ink); }
+.wedding li small { color: var(--sf-muted); }
+.wedding li p { margin: 0; color: var(--sf-text); font-size: .94rem; }
+.wFree { border-left-color: var(--sf-sage-fg) !important; }
+.wFee { border-left-color: var(--sf-gold) !important; }
+.wRow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.earnRule { margin: 4px 0 0; color: var(--sf-ink); font-weight: 600; max-width: 60ch; }
+.earnCtas { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+@media (min-width: 960px) {
+  .earn { padding: 32px; }
+  .earnHead h3 { font-size: 2.1rem; }
+  .promises { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .promises li { padding: 40px 14px 14px; }
+  .promises li::before { top: 14px; }
+  .earnCols { grid-template-columns: 1fr 1.4fr; gap: 40px; }
+  .wedding ol { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .wedding li { align-content: start; }
+}

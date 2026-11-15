@@ -21,6 +21,7 @@ import Image from 'next/image';
 import type { ReactNode } from 'react';
 import { bookingFeeFigures, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
+import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import {
   ADDONS_HEAD,
   BADGE_FIRST,
@@ -64,6 +65,7 @@ import {
   type QrKey,
 } from './supplier-front-client';
 import { Info } from './supplier-front-info';
+import { SupplierHowWeEarn } from './supplier-how-we-earn';
 import { SupplierBadgeShelf } from './supplier-badge-shelf';
 import { PlanPagePreview } from './plan-page-preview';
 import {
@@ -280,6 +282,11 @@ export function SupplierFrontPage({
                 <p>
                   Free to join and free to run your bookings. Couples pay you straight to your GCash or bank; Setnayan never
                   takes a cut of the deal. {words.heroFee} Your own clients, the ones you bring or import, never carry a fee.
+                </p>
+                <p>
+                  <a className={s.tlink} href="#earn">
+                    How Setnayan earns
+                  </a>
                 </p>
               </Info>
             </div>
@@ -818,6 +825,15 @@ export function SupplierFrontPage({
                 them to your quote. Your client gets more from your package than they would buying alone, and it arrives with
                 their first payment.
               </p>
+            </div>
+
+            <div className={s.sub}>
+              <SupplierHowWeEarn
+                feeEnabled={fee.enabled}
+                figures={words.figures}
+                plans={{ plus: prices.soloMonthly, pro: prices.proMonthly, ultra: prices.enterpriseMonthly }}
+                deepSearch={prices.bySku[VENDOR_DEEP_SEARCH_SKU_CODE] ?? null}
+              />
             </div>
 
             <div className={`${s.sub} ${s.shelf} ${s.dark}`}>

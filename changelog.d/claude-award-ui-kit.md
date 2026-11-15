@@ -23,3 +23,5 @@ New in `apps/web/app/_components/award/`, client-only (no fetch, no server write
 Render and source tests in `award-kit.test.ts` (17, including the set layer under the No. 1 plaque, a per-frame cost guard and the confetti ledges). Screenshots at 375×640, 390×844, 768×1024 and 1440×900 are in `build-sessions/shots-award-ui-kit/`. No route was added and the bundle budget was not raised.
 
 SPEC IMPACT: None. This ports the approved prototype; nothing is wired into a live page yet (slices A, B and D mount it).
+
+**Mounted (2026-11-15).** The kit's four views now mount from a dev-only lab, `/dev/award-lab` (`page.lab.tsx`; production 404s it, like every `/dev/*-lab`). It draws the tickets in all three states, the full-screen badge, the gold seal plaque and "Share to story" on sample data. This is the harness the screenshots came from, and it clears `ugat-both-ends` ("component-no-mount") without adding to that baseline. The lab takes one reasoned line in `lib/ugat/baselines/no-door.baseline.txt`, the same line every one of the other `/dev/*-lab` pages carries (reached by typing its address). It does not use `no1Seal`.

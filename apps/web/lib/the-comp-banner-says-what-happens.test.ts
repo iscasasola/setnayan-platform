@@ -37,3 +37,16 @@ test('the over-limit banner says what happened and promises no second check', ()
   assert.doesNotMatch(banner, /co-approval|owner\+spouse|lands V1\.x/i);
   assert.doesNotMatch(body, /co-approval \(exceeds/);
 });
+
+/** The form's hint under "Retail value (₱)" on the Users surface — owner 16 Nov: it must not promise a check that never happens. */
+const FORM = join(__dirname, '..', 'app', 'admin', 'accounts', '_surfaces', 'users-surface.tsx');
+const form = stripComments(readFileSync(FORM, 'utf8'));
+
+test('the comp form hint says the same as the banner and promises no second check', () => {
+  const at = form.indexOf('name="retail_value_php"');
+  assert.ok(at >= 0, 'anti-vacuity: the retail value field moved');
+  const hint = form.slice(at, form.indexOf('</p>', at));
+  assert.match(hint, /\{formatCount\(COMP_GRANT_CO_REVIEW_PESOS\)\}/, 'the limit is typed instead of read');
+  assert.match(hint.replace(/\s+/g, ' '), /still goes through at once\. Nobody else checks a customer comp yet, so tell the owner you gave it\./);
+  assert.doesNotMatch(form, /co-approval|get\s+flagged/i, 'the form promises a check that never happens');
+});

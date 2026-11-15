@@ -5,3 +5,6 @@ Owner ruling 16 Nov (DECISION_LOG 75a46e3c, (7)): keep the ₱10,000 rule and re
 Not changed (same promise, outside this ruling's scope): the comp form's hint on the Users surface still says grants over the limit "get flagged for co-approval".
 
 SPEC IMPACT: None — wording only; the rule and its number are kept.
+
+The comp form's hint on the Users surface ("Grants over ₱… get flagged for co-approval") now says the same thing:
+the grant still goes through at once, nobody else checks it yet, so tell the owner. Guarded in the same test file.

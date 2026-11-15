@@ -16,3 +16,7 @@ address but the card stayed — only a reload got out.
   Sabotaged: unwrapping the Overdue row turns 1–2 red; deleting `@client/page.tsx` turns 3 red.
 
 SPEC IMPACT: None.
+- **Root map:** the new `customers/@client/page.tsx` made the screens scanner list `/vendor-dashboard/customers` twice
+  (the slot as a second, empty screen), which hid the page's `#outside` section from the root-map check. A slot page
+  now yields to the plain page at the same address (`lib/ugat/scan-screens.ts`; held by `scan-screens.test.ts`,
+  sabotaged once — removing the rule turns it red).

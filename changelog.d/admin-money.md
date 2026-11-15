@@ -25,7 +25,7 @@ page, and `lib/admin/admin-tabs.ts` already gives each one its tab.
   supplier refunds (table and totals kept). Each list says "Couldn't read" on a refusal, never "none".
 - **Money › Everything (`/admin/money`)** — the card grid under the ledger is gone; every card already has a home in
   View ▾, the Money ⚙, or Catalogue (`admin-routes-all-have-a-tab.test.ts` holds that).
-- **Money ⚙ › Launch offer** — status as hairline rows, sections with the ⓘ; the two forms unchanged.
+- ~~**Money ⚙ › Launch offer**~~ — the redraw is withdrawn (owner, 16 Nov 2026: the free 2,000 founder bookings are being removed). The page stays as `main` ships it.
 - The desk's drawing moved into `app/admin/payments/_components/desk.tsx` (the page keeps every read) so the new
   fixture lab `/dev/admin-money-lab` can draw it; the guards that read the page now read both files.
 - `app/_components/template-rows.tsx` is byte-identical to the one in #7632 (the template row kit), so whichever

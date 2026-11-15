@@ -42,6 +42,21 @@ import { opensSupplierView } from '@/lib/discover-suppliers';
 import { marketplaceFaithOptions } from '@/lib/marketplace-faith-options';
 import { DiscoverCategoryButton, DiscoverFiltersButton } from './discover-supplier-controls';
 import type { MarketplaceSearchParams } from '@/app/(shell)/explore/_lib/marketplace-view';
+import { redirect } from 'next/navigation';
+import { discoverViewOf, signedOutRedirect } from '@/lib/discover-six-parts';
+import { loadDiscoverInspiration, loadDiscoverServiceCards } from './discover-six-parts-data';
+import {
+  ArticlesShelf,
+  EventStoriesShelf,
+  EventStoriesView,
+  InspirationShelf,
+  InspirationView,
+  ServiceCardsShelf,
+  moodBoardSaveHref,
+} from './discover-six-parts';
+import { resolveRailStudioEvent } from './rail-data';
+import { loadPublishedShowcasesResult } from '@/lib/showcase-db';
+import { editorialsToStories } from '@/lib/front-door-editorials';
 
 export async function FrontDoor({ q, params = {} }: { q?: string; params?: MarketplaceSearchParams }) {
   /*
@@ -61,6 +76,10 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
     supplier view reads nothing the sections need — the shelves, the command items and the landing reads are skipped.
   */
   const supplierView = opensSupplierView(params);
+  /* 🧭 Discover's own two "See all" views (Event stories · Inspiration) open on `/` too, on keys the supplier view
+     never reads (`lib/discover-six-parts.ts`). */
+  const view = supplierView ? ({ kind: 'feed' } as const) : discoverViewOf(params as Record<string, string | string[] | undefined>);
+  const ownView = view.kind !== 'feed';
   // Loaded only when it is drawn — the plain `/` does not even load the pipeline's module.
   const MarketplaceView = supplierView
     ? (await import('@/app/(shell)/explore/_lib/marketplace-view')).MarketplaceView
@@ -83,8 +102,37 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
       out it is the world layer and People to follow; signed in, the viewer's
       own people come first.
     */
-    searchQuery || supplierView ? null : loadDiscover(),
+    searchQuery || supplierView || ownView ? null : loadDiscover(),
   ]);
+
+  /*
+    🔒 SIGNED OUT, `/` IS THE PROMOTIONAL FRONT DOOR ONLY (owner 16 Nov, rulings 41057aae · 448fd3c1). A search, the
+    supplier view or a "See all" view asks the stranger to sign in and returns to this same address afterwards — the
+    control they pressed is never dead and never shows the feed. Exact links (a shop, its QR, an event, a story) are
+    other routes and stay open.
+  */
+  if (!account.signedIn) {
+    const to = signedOutRedirect(params as Record<string, string | string[] | undefined>);
+    if (to) redirect(to);
+  }
+
+  /*
+    DISCOVER IN SIX PARTS (owner 16 Nov) — parts 3 and 6 read here, signed in only, each failing soft on its own.
+    "Save" on an inspiration photo needs to know which event's Mood Board (`resolveRailStudioEvent`, cache()d and
+    already read by the rail). Event stories reuse the feed's own published-story read; their "See all" reads it
+    once more with the event type.
+  */
+  const feedShelves = account.signedIn && !searchQuery && !supplierView;
+  const [serviceCardShelf, inspirationShelf, studio, storyRead, storyOccasions] = await Promise.all([
+    feedShelves && !ownView ? loadDiscoverServiceCards(8) : null,
+    feedShelves && view.kind !== 'stories'
+      ? loadDiscoverInspiration(view.kind === 'inspiration' ? 48 : 12, view.kind === 'inspiration' ? view.part : null)
+      : null,
+    feedShelves && view.kind !== 'stories' ? resolveRailStudioEvent() : null,
+    feedShelves && view.kind === 'stories' ? loadPublishedShowcasesResult(48).catch(() => null) : null,
+    feedShelves && view.kind === 'stories' ? getEventTypeVocab() : [],
+  ]);
+  const saveHref = studio ? moodBoardSaveHref(studio) : null;
 
   /*
     A SEARCH REPLACES THE FEED, IT DOES NOT FILTER IT. Owner 2026-08-20: the
@@ -173,6 +221,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
           sortInside: false,
           offSeason: false,
           carry: [['browse', '1']],
+          verifiedToggle: false,
         }}
       />
     </div>
@@ -299,25 +348,53 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
           /* The coordinator band says "Free" on the floor kit only while the paywall itself makes it free. */
           floorKitFree={specializationFreeWindowActive(vendorDayOfFreeUntilIso(), Date.now())}
           sample={frontPageSample(new Date())}
-          shelves={
+        />
+      ) : (
+        <>
+          {view.kind === 'stories' ? (
+            <EventStoriesView
+              stories={
+                storyRead && storyRead.ok
+                  ? (() => {
+                      const real = storyRead.items.filter((e) => !e.isSample);
+                      const byHref = new Map(real.map((e) => [e.href, e]));
+                      return editorialsToStories(real).map((st) => ({
+                        ...st,
+                        eventType: byHref.get(st.href)?.eventType ?? null,
+                        eventDate: byHref.get(st.href)?.eventDate ?? null,
+                      }));
+                    })()
+                  : null
+              }
+              occasions={storyOccasions.map((t) => ({ key: t.key, label: t.label }))}
+              occasion={view.occasion}
+              order={view.order}
+            />
+          ) : view.kind === 'inspiration' ? (
+            inspirationShelf ? <InspirationView shelf={inspirationShelf} part={view.part} saveHref={saveHref} /> : null
+          ) : (
             <FrontDoorFeed
               data={data}
               storeShell={await isStoreShellRequest()}
               shopTools={shopTools}
-              beforeShops={discover ? <DiscoverEventShelves discover={discover} /> : null}
-              afterShops={discover ? <PeopleToFollowShelf discover={discover} /> : null}
+              beforeShops={
+                discover ? (
+                  <>
+                    <DiscoverEventShelves discover={discover} />
+                    <PeopleToFollowShelf discover={discover} />
+                  </>
+                ) : null
+              }
+              afterShops={
+                <>
+                  {serviceCardShelf ? <ServiceCardsShelf shelf={serviceCardShelf} /> : null}
+                  <EventStoriesShelf stories={data.stories} />
+                  <ArticlesShelf />
+                  {inspirationShelf ? <InspirationShelf shelf={inspirationShelf} saveHref={saveHref} /> : null}
+                </>
+              }
             />
-          }
-        />
-      ) : (
-        <>
-          <FrontDoorFeed
-            data={data}
-            storeShell={await isStoreShellRequest()}
-            shopTools={shopTools}
-            beforeShops={discover ? <DiscoverEventShelves discover={discover} /> : null}
-            afterShops={discover ? <PeopleToFollowShelf discover={discover} /> : null}
-          />
+          )}
           {/* First visit only — the shipped MiniTour (owner rule 2026-09-25:
               every feature gets a first-visit tour). It renders nothing for a
               stranger or for anyone who has seen it. */}

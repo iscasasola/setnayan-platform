@@ -23,10 +23,8 @@ import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake, HeartHandshake } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
-import { fetchDiscountsWithOffers } from '@/lib/offers.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { displayServiceLabel } from '@/lib/vendors';
 import { formatPhpRounded } from '@/lib/php';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import {
@@ -43,17 +41,7 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
-import {
-  fetchTrustedReviewStatsForMany,
-  formatStarRating,
-  type TrustedReviewStatsRow,
-} from '@/lib/reviews';
-import { cardRecordEnabled } from '@/lib/card-record-flag';
-import {
-  cardRecordRatingFromTrusted,
-  fetchServiceCardRecords,
-  type CompiledCardRecord,
-} from '@/lib/service-card-record';
+import { formatStarRating } from '@/lib/reviews';
 // ⚡ Supplier view only — fetched only when drawn (../_components/marketplace-lazy.tsx).
 import { EventTypeNotifyForm } from '../_components/marketplace-lazy';
 import { TaxonomySearch } from '../_components/taxonomy-search';
@@ -89,17 +77,8 @@ import { regionPin } from '@/lib/your-place';
 import { readCardRefusals, readSuppliersWithNoBookingLeft } from '@/lib/bench-bookable-days.server';
 import { keepCardsThatFit, keepSuppliersThatFit } from '@/lib/discover-shows-what-fits';
 import { dateUncheckedWords, findNobodyFreeWords } from '@/lib/supplier-find-empty';
-import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
-import { toServiceCard, type ServiceShowcaseMedia } from '@/lib/service-card-view-model';
-import {
-  fetchCoveragesByIdPublic,
-  fetchInclusionsByService,
-  type VendorServiceCoverage,
-  type VendorServiceInclusion,
-} from '@/lib/vendor-service-public';
-import type { VendorServiceDiscount } from '@/lib/vendor-services';
-import { buildServesLine } from '@/lib/service-serves-line';
 import { ServiceCardView } from '@/app/_components/service-card-view';
+import { readMarketplaceCardFaces } from '@/lib/marketplace-service-card-faces';
 import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
 // ⚡ Supplier view only — fetched only when drawn (../_components/marketplace-lazy.tsx).
 import { StickyMarketplaceHeader } from '../_components/marketplace-lazy';
@@ -133,7 +112,6 @@ import {
 import { TAXONOMY_OPTIONS, taxonomyLabel } from '@/lib/marketplace-category-options';
 import { getTaxonomy, type TaxonomySnapshot } from '@/lib/taxonomy-db';
 import {
-  displayLogoUrl,
   displayUrlForCatalogueArt,
   publicUrlForStoredAsset,
 } from '@/lib/uploads';
@@ -1600,7 +1578,7 @@ export async function MarketplaceView({
     identifier, revertible in one line.
   */
   const listedServiceCards = isLandingView
-    ? await fetchMarketplaceServiceCards(admin, { limit: 24 }).catch(() => null)
+    ? await fetchMarketplaceServiceCards(admin, { limit: 24, verifiedOnly: surface === 'discover' }).catch(() => null)
     : null;
   /*
     ═ WE ONLY SHOW WHAT FITS (owner 13 Nov 2026, 6134) ═
@@ -1660,162 +1638,12 @@ export async function MarketplaceView({
     if (!fit.checked) dateUnchecked = true;
   }
   /*
-    ═ THE CARD CARRIES ITS SHOP'S LOGO — resolved ONCE PER SHOP ═
-    Owner, 2026-09-09: the card body opens that service's details, the LOGO
-    opens the shop.
-
-    🪤 `logo_url` DOES NOT HOLD A URL. Anything uploaded through the shop editor
-    is stored as `r2://bucket/key`; a browser cannot fetch that, so it renders a
-    broken-image glyph and throws nothing. `displayLogoUrl` is the ONE shipped
-    resolver for this column — never a second one, and never `publicUrlFor`,
-    whose argument is an object KEY and which would fold the `r2://` scheme into
-    the object path.
-
-    Keyed by SHOP, not by card: the marketplace lists one row per card, so a
-    shop with four cards would otherwise be signed four times for one picture.
-    Signing is a round trip each.
-
-    A failure costs a picture, never the grid — the card falls back to the
-    initials tile, which is a real design state, not an error state.
+    ═ THE REST OF THE CARD — logo · record · price choice · cover · inclusions · discount · Serves · showcase ═
+    One batch read, shared with Discover's Service cards shelf (`lib/marketplace-service-card-faces.ts`), whose
+    docblock carries the four defects (SUP-41 ×2, C2, S43 · 5) each of these pieces once was on this grid. A second
+    grid copying them by hand would inherit whichever it forgot.
   */
-  /*
-    ═ SUP-41 · THE CARD'S RECORD COMES WITH IT, AND SO DOES THE SHOP'S PRICE CHOICE ═
-    The shop's own page (`app/v/[slug]`) grows each card its record — booked
-    count, event-type mix, anonymized ledger, medals — and this grid drew the
-    SAME `ServiceCardView` with the record hard-wired to null, so a card with a
-    real history looked brand new on the marketplace and veteran one click
-    later. Same batched RPC, same flag, same shop-rating rule
-    (`cardRecordRatingFromTrusted`) as the shop page, so the two cannot disagree.
-
-    It also passed `hidePrices: false` for every card. A shop that ticked "hide
-    my prices publicly" had them hidden on its own page and on the vendor grid
-    (`hidingPrices` below) — and printed on this grid. Same batch reader,
-    same fail-open default.
-
-    Each read fails soft to "nothing extra", never to an empty grid: a missing
-    record renders the card as it rendered yesterday.
-  */
-  const serviceCardShopIds = serviceCards
-    ? [...new Set(serviceCards.map((c) => c.vendorProfileId))]
-    : [];
-  const [serviceCardRecords, serviceCardShopStats, serviceCardHidingPrices] = serviceCards
-    ? await Promise.all([
-        cardRecordEnabled()
-          ? fetchServiceCardRecords(
-              admin,
-              serviceCards.map((c) => c.row.vendor_service_id),
-            ).catch(() => new Map<string, CompiledCardRecord>())
-          : Promise.resolve(new Map<string, CompiledCardRecord>()),
-        cardRecordEnabled()
-          ? fetchTrustedReviewStatsForMany(admin, serviceCardShopIds).catch(
-              () => new Map<string, TrustedReviewStatsRow>(),
-            )
-          : Promise.resolve(new Map<string, TrustedReviewStatsRow>()),
-        fetchVendorsHidingPricesPublicly(admin, serviceCardShopIds),
-      ])
-    : [
-        new Map<string, CompiledCardRecord>(),
-        new Map<string, TrustedReviewStatsRow>(),
-        new Set<string>(),
-      ];
-  const serviceCardLogoUrls = new Map<string, string | null>();
-  if (serviceCards) {
-    const byShop = new Map<string, string | null>();
-    for (const c of serviceCards) {
-      if (!byShop.has(c.vendorProfileId)) byShop.set(c.vendorProfileId, c.businessLogoRef);
-    }
-    const shops = [...byShop.entries()];
-    const resolved = await Promise.all(
-      shops.map(([, ref]) =>
-        displayLogoUrl({ logo_url: ref }).catch(() => null),
-      ),
-    );
-    shops.forEach(([vendorProfileId], i) => {
-      serviceCardLogoUrls.set(vendorProfileId, resolved[i] ?? null);
-    });
-  }
-  /*
-    ═ C2 (2026-09-11): A CARD WITH A COVER SHOWS IT ON THE MAIN GRID ═
-    This grid never resolved showcase photos at all (the `toServiceCard` call
-    below always passed `showcase: undefined`), so a card drew with nothing to
-    look at unless its category's icon glyph counted. The cover
-    (`primary_photo_r2_key`, required to publish per `lib/vendor-services.ts`)
-    was already read into `c.row` by `fetchMarketplaceServiceCards` — it just
-    had no display URL and no wire to the card.
-    `publicUrlForStoredAsset` — NOT `displayUrlForStoredAsset` — per its own
-    docblock: this exact grid is a named example of the public, unsigned
-    surface it exists for, and it's synchronous (no signing round trip), so
-    resolving one per card costs nothing.
-  */
-  const serviceCardCoverUrls = new Map<string, string | null>();
-  if (serviceCards) {
-    for (const c of serviceCards) {
-      serviceCardCoverUrls.set(
-        c.row.vendor_service_id,
-        publicUrlForStoredAsset(c.row.primary_photo_r2_key),
-      );
-    }
-  }
-  /*
-    ═ S43 · 5: THE REST OF THE CARD FACE — inclusions, discount, Serves, showcase ═
-    The shop page (`app/v/[slug]`) hands `toServiceCard` four things this grid
-    passed as `undefined`: the free inclusions, the discounts (so the best badge
-    can be picked), the Serves line and the showcase photos/clip. So the SAME
-    `ServiceCardView` drew a thinner card here than one click later on the shop
-    — no "Includes …", no "20% off", no photo strip.
-
-    Same readers as the shop page (`lib/vendor-service-public`, the shared
-    `buildServesLine`), batched over the 24 cards, each fail-soft to "nothing
-    extra" by its own contract — a failed read renders the card as it rendered
-    yesterday, never an empty grid.
-
-    ⚖ SHOWCASE URLS ARE PUBLIC, NOT PRESIGNED. The shop page presigns them
-    (`displayUrlForStoredAsset`); this grid resolves them the way it already
-    resolves the cover — `publicUrlForStoredAsset`, whose docblock names this
-    grid as the surface it exists for. A ref it cannot serve publicly resolves
-    to null and is dropped, so a card loses that photo, never the grid.
-    `coupleEventDate` stays null: the grid is anonymous, so the early-booking
-    ladder advertises "up to", exactly as the shop page does for a guest.
-  */
-  const serviceCardIds = serviceCards ? serviceCards.map((c) => c.row.vendor_service_id) : [];
-  const serviceCardCoverageIds = serviceCards
-    ? [
-        ...new Set(
-          serviceCards
-            .map((c) => c.row.coverage_id)
-            .filter((id): id is number => id !== null),
-        ),
-      ]
-    : [];
-  const [serviceCardInclusions, serviceCardDiscounts, serviceCardCoverages] = serviceCards
-    ? await Promise.all([
-        fetchInclusionsByService(admin, serviceCardIds),
-        // 🏷 the cards' own rows + the shop's running offers (Build 6 Lane D) — couples see the single best of both.
-        fetchDiscountsWithOffers(admin, serviceCardIds),
-        fetchCoveragesByIdPublic(admin, serviceCardCoverageIds),
-      ])
-    : [
-        new Map<string, VendorServiceInclusion[]>(),
-        new Map<string, VendorServiceDiscount[]>(),
-        new Map<number, VendorServiceCoverage>(),
-      ];
-  const serviceCardServes = new Map<string, string>();
-  const serviceCardShowcase = new Map<string, ServiceShowcaseMedia>();
-  if (serviceCards) {
-    for (const c of serviceCards) {
-      const id = c.row.vendor_service_id;
-      if (c.row.coverage_id !== null) {
-        const line = buildServesLine(serviceCardCoverages.get(c.row.coverage_id), eventTypeLabel);
-        if (line) serviceCardServes.set(id, line);
-      }
-      const photos = (c.row.showcase_photo_r2_keys ?? [])
-        .slice(0, 5)
-        .map((k) => publicUrlForStoredAsset(k))
-        .filter((u): u is string => Boolean(u));
-      const videoUrl = publicUrlForStoredAsset(c.row.showcase_video_r2_key) ?? null;
-      if (photos.length > 0 || videoUrl) serviceCardShowcase.set(id, { photos, videoUrl });
-    }
-  }
+  const serviceCardFace = await readMarketplaceCardFaces(admin, serviceCards ?? [], eventTypeLabel, new Date());
   const marketplaceIsEmpty = liveShopCount === 0;
 
   /*
@@ -2004,7 +1832,8 @@ export async function MarketplaceView({
   } else {
     query = query.match(FINDABLE_SHOP_GATE);
     // "Verified only" is a real narrowing again now that unverified shops list.
-    if (filters.verifiedOnly) {
+    // ✅ Discover shows verified shops only, always (owner 15–16 Nov, "Discover in six parts").
+    if (filters.verifiedOnly || surface === 'discover') {
       query = query.in('public_visibility', allowedVisibilities as readonly string[]).eq('verification_state', 'verified');
     }
   }
@@ -3477,34 +3306,7 @@ export async function MarketplaceView({
                 The public id the address needs is read from the DATABASE ROW,
                 which always carries it — see `lib/service-card-address.ts`.
               */}
-              <ServiceCardView
-                card={toServiceCard(
-                  c.row,
-                  serviceCardInclusions.get(c.row.vendor_service_id),
-                  serviceCardDiscounts.get(c.row.vendor_service_id),
-                  serviceCardServes.get(c.row.vendor_service_id),
-                  serviceCardShowcase.get(c.row.vendor_service_id),
-                  serviceCardHidingPrices.has(c.vendorProfileId),
-                  null,
-                  new Date(),
-                  serviceCardRecords.get(c.row.vendor_service_id) ?? null,
-                  cardRecordRatingFromTrusted(serviceCardShopStats.get(c.vendorProfileId)),
-                  false,
-                  serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null,
-                )}
-                detailsEnabled
-                detailsHref={serviceCardAddress(c)}
-                path={displayServiceLabel(c.row.category)}
-                coverUrl={serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null}
-                shop={{
-                  name: c.businessName,
-                  href: shopAddress(c.businessSlug),
-                  logoUrl: serviceCardLogoUrls.get(c.vendorProfileId) ?? null,
-                  city: c.locationCity,
-                  isDemo: c.isDemo,
-                  verified: c.verified,
-                }}
-              />
+              <ServiceCardView {...serviceCardFace(c)} detailsEnabled />
             </li>
           ))}
         </ul>
@@ -3602,14 +3404,13 @@ export async function MarketplaceView({
     if (filters.city) summary.push(filters.city);
     if (shownEventType) summary.push(shownEventType);
     if (filters.faithFilter) summary.push(FAITH_KEY_TO_LABEL[filters.faithFilter]);
-    if (filters.verifiedOnly) summary.push('Verified only');
+    // "Verified only" is not a filter on Discover — it is always on there (owner 15–16 Nov).
     if (filters.matchEvent) summary.push('Matches your event');
     if (filters.offSeason) summary.push('Off-season savings');
     const filterCount = [
       filters.city.length > 0,
       shownEventType !== null,
       filters.faithFilter !== null,
-      filters.verifiedOnly,
       filters.matchEvent,
       filters.offSeason,
     ].filter(Boolean).length;
@@ -3646,6 +3447,7 @@ export async function MarketplaceView({
       sortInside: false,
       offSeason: filters.offSeason,
       carry: drawerCarry,
+      verifiedToggle: false,
     } satisfies Omit<FilterDrawerProps, 'open' | 'onClose'>;
     return (
       <div data-discover-supplier-view="" className="w-full pb-16">

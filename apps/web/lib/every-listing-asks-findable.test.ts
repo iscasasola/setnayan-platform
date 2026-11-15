@@ -26,6 +26,12 @@
  *
  * Comments are stripped through the real lexer (`lib/strip-comments.ts`) so a
  * docblock that NAMES the gate can never satisfy it.
+ *
+ * ─── 2026-11-16 · DISCOVER IS VERIFIED-ONLY ──────────────────────────────
+ * Owner ruling "Discover in six parts": the account's Discover page shows VERIFIED shops only.
+ * `DISCOVER_SHOP_GATE` is `LIVE_SHOP_GATE` (so the findable rule) PLUS the verified pair — a NARROWING on
+ * top of the gate, never a replacement — so applying it counts as applying the rule (pinned in test 3).
+ * The supplier search everywhere else is unchanged.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -33,13 +39,13 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { stripComments } from './strip-comments';
 import { FINDABLE_SHOP_GATE, findableShopGate, isShopFindable } from './findable-shop';
-import { LIVE_SHOP_GATE, REAL_SHOP_GATE } from './live-shops';
+import { DISCOVER_REAL_SHOP_GATE, DISCOVER_SHOP_GATE, LIVE_SHOP_GATE, REAL_SHOP_GATE } from './live-shops';
 
 const WEB = join(import.meta.dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 /** Applies the one rule: a `.match()` of the findable gate (direct, embedded, or the live-shop gate built on it). */
-const APPLIES_GATE = /\.match\(\s*(?:FINDABLE_SHOP_GATE|LIVE_SHOP_GATE|findableShopGate\(\s*['"][a-z_]+['"]\s*\))\s*\)/g;
+const APPLIES_GATE = /\.match\(\s*(?:FINDABLE_SHOP_GATE|LIVE_SHOP_GATE|DISCOVER_SHOP_GATE|DISCOVER_REAL_SHOP_GATE|findableShopGate\(\s*['"][a-z_]+['"]\s*\))\s*\)/g;
 /** Imports it from its one home. */
 const IMPORTS_GATE =
   /from\s+['"](?:@\/lib\/findable-shop|\.\/findable-shop|@\/lib\/live-shops|\.\/live-shops)['"]/;
@@ -54,7 +60,9 @@ const LISTINGS: ReadonlyArray<{ surface: string; path: string; minGates?: number
   // Explore — the grid, the "Show all" count and the empty-landing live shops (3 gates). The one re-typed pair is the
   // "Verified only" filter, a NARROWING the couple asks for on top of the gate.
   { surface: 'Explore grid', path: 'app/(shell)/explore/_lib/marketplace-view.tsx', minGates: 3, retypedAllowed: 1 }, // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
-  { surface: 'Explore service cards', path: 'lib/marketplace-service-cards.ts' },
+  // The one re-typed pair is `verifiedOnly` — the "Verified only" filter and Discover's verified-only rule (owner
+  // 2026-11-16), a NARROWING on top of the gate.
+  { surface: 'Explore service cards', path: 'lib/marketplace-service-cards.ts', retypedAllowed: 1 },
   // Tile counts + preview cards ask the gate (2). The two re-typed pairs are deliberately VERIFIED-only: the
   // marketing "N verified suppliers" figure (a claim about verified shops), and the tile's "Sample: A · B · C" line,
   // which prints raw business names — an undecided shop's name stays hidden until it replies (hybrid anonymity).
@@ -167,4 +175,15 @@ test('the detector convicts the shapes it is meant to, and not prose', () => {
   assert.equal((`.eq('verification_state', 'verified')`.match(RETYPED_VERIFIED) ?? []).length, 1);
   assert.equal((`.eq('vendor_profiles.verification_state', 'verified')`.match(RETYPED_VERIFIED) ?? []).length, 1);
   assert.equal((`r.verification_state === 'verified'`.match(RETYPED_VERIFIED) ?? []).length, 0, 'a row read was convicted as a filter');
+});
+
+test('3b · 2026-11-16 — Discover\'s gate is the live gate PLUS verified, never a replacement for it', () => {
+  for (const [k, v] of Object.entries(LIVE_SHOP_GATE)) {
+    assert.equal((DISCOVER_SHOP_GATE as Record<string, unknown>)[k], v, `Discover dropped ${k} from the live gate`);
+  }
+  assert.equal(DISCOVER_SHOP_GATE.verification_state, 'verified');
+  for (const [k, v] of Object.entries(DISCOVER_SHOP_GATE)) {
+    assert.equal((DISCOVER_REAL_SHOP_GATE as Record<string, unknown>)[k], v, `the real-shop count dropped ${k}`);
+  }
+  assert.equal(DISCOVER_REAL_SHOP_GATE.is_demo, false);
 });

@@ -83,10 +83,18 @@ const SURFACES: Surface[] = [
     draws: [/isDemo: shop\.isDemo/],
   },
   {
-    name: 'service card — the explore page hands each card its shop\'s demo fact',
-    file: 'app/(shell)/explore/_lib/marketplace-view.tsx', // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
-    imports: /import \{ fetchMarketplaceServiceCards \} from '@\/lib\/marketplace-service-cards';/,
+    // 🔄 2026-11-16: the card's face (its shop line included) is built once for the explore grid AND Discover's
+    // Service cards shelf, in `lib/marketplace-service-card-faces.ts`; both spread it into `ServiceCardView`.
+    name: 'service card — the shared card face hands each card its shop\'s demo fact',
+    file: 'lib/marketplace-service-card-faces.ts',
+    imports: /import type \{ MarketplaceServiceCard \} from '@\/lib\/marketplace-service-cards';/,
     draws: [/isDemo: c\.isDemo,/],
+  },
+  {
+    name: 'service card — the explore grid and Discover both draw the shared face',
+    file: 'app/(shell)/explore/_lib/marketplace-view.tsx',
+    imports: /import \{ readMarketplaceCardFaces \} from '@\/lib\/marketplace-service-card-faces';/,
+    draws: [/<ServiceCardView \{\.\.\.serviceCardFace\(c\)\} detailsEnabled \/>/],
   },
   {
     name: 'service card — the read carries is_demo',
@@ -231,6 +239,8 @@ test('demo shops never move a real number on the public pages that list them', (
   assert.doesNotMatch(explore, /\(liveShopCount \?\? 0\) >= TRENDING_MIN_LIVE_SHOPS/);
   assert.match(explore, /badgesFor\(visible\.filter\(\(v\) => v\.is_demo !== true\)\)/, 'real cards are ranked among real cards');
   assert.match(explore, /badgesFor\(visible\.filter\(\(v\) => v\.is_demo === true\)\)/, 'demo cards among demo cards');
-  assert.match(read('lib/home-public-reads-core.ts'), /\.match\(REAL_SHOP_GATE\)/, 'the front page reads a real count');
-  assert.match(read('app/_components/frontdoor/front-door-feed.tsx'), /liveShops: realShopCount \?\? 0,/, 'the front page heading counts real shops');
+  // 🔄 2026-11-16 (owner, "Discover in six parts"): Discover's shelf is "Suppliers", verified only — its heading no longer
+  // earns "Trending" from a count. The real count is still read apart from the demo one, through Discover's gate.
+  assert.match(read('lib/home-public-reads-core.ts'), /\.match\(DISCOVER_REAL_SHOP_GATE\)/, 'the front page reads a real count');
+  assert.doesNotMatch(read('app/_components/frontdoor/front-door-feed.tsx'), /liveShops: liveShopCount/, 'the front page heading counts demo shops');
 });

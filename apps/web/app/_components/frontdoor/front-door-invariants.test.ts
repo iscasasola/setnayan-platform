@@ -258,37 +258,18 @@ test('a count that failed to load renders words, not a zero', () => {
     /value === null/.test(SHELL_CODE) && /couldn/.test(SHELL_CODE),
     'the rail must have a null → "couldn\'t load" branch',
   );
+  // 🔄 2026-11-16: the feed's count text (New uploads' "N ours · N theirs") retired with New uploads. What survives is
+  // the Suppliers shelf's own unknown: a failed count says so, never "none".
   assert.ok(
-    /value === null/.test(FEED_CODE) && /couldn/.test(FEED_CODE),
-    'the feed must have a null → "couldn\'t load" branch',
-  );
-  /*
-    THE COERCION IS LEGAL IN EXACTLY ONE PLACE, and the guard has to say which.
-
-    `composeFrontDoor` takes plain numbers and floors unknowns at 0 on purpose,
-    so a failed read can never PROMOTE a rail — that `?? 0` is the fail-safe and
-    must stay. Everywhere else it is the bug: "0 shops" and "we could not count
-    the shops" are different sentences.
-
-    So: cut the composer call out of the source, then require that no nullable
-    count is coerced anywhere in what remains.
-  */
-  const feedOutsideComposer = FEED_CODE.replace(
-    /composeFrontDoor\(\{[\s\S]*?\}\);/,
-    '',
-  );
-  assert.ok(
-    /composeFrontDoor\(\{/.test(FEED_CODE),
-    'the composer call must exist for this test to be meaningful',
+    /liveShopCount === 0[\s\S]{0,200}couldn/.test(FEED_CODE),
+    'the feed must have a "couldn\'t load" branch for a failed shop count, apart from a real zero',
   );
   for (const [name, src] of [
     ['shell', SHELL_CODE],
-    ['feed (outside the composer call)', feedOutsideComposer],
+    ['feed', FEED_CODE],
   ] as const) {
     assert.ok(
-      !/(liveShopCount|realWeddingCount|eventCount|alaalaCount)\s*\?\?\s*0/.test(
-        src,
-      ),
+      !/(liveShopCount|realWeddingCount|eventCount|alaalaCount)\s*\?\?\s*0/.test(src),
       `${name}: a count must never fall back to 0 on the way to the screen`,
     );
   }
@@ -297,51 +278,10 @@ test('a count that failed to load renders words, not a zero', () => {
 /* ── 5 · "TRENDING" IS EARNED ─────────────────────────────────────────────
    The heading must be decided by the live count against the threshold, not
    hand-typed. */
-test('the shops heading is derived from the shared composer, not hardcoded', () => {
-  /*
-    🔑 ANCHOR ON WHAT REACHES THE SCREEN. The first cut asserted three strings —
-    that `composeFrontDoor` appeared, that `shape.shopsHeading === 'trending'`
-    appeared, and that the `shopsHeading` DECLARATION mentioned `shape.`. All
-    three survive the regression: nothing checked that `{shopsHeading}` is
-    actually rendered, and nothing checked the two ternary arms DIFFER. This is
-    the same fault the JSON-LD test above already carries a warning about,
-    repeated one test later.
-  */
-  assert.ok(/composeFrontDoor\(\{/.test(FEED_CODE), 'the feed must call the composer');
-
-  const decl = FEED_CODE.match(/const shopsHeading\s*=([\s\S]*?);/)?.[1] ?? '';
-  assert.ok(decl.length > 0, 'shopsHeading assignment not found');
-  assert.ok(
-    /shape\.shopsHeading/.test(decl),
-    'the heading must come from the composer verdict',
-  );
-
-  // THE ACT: the value must actually be rendered.
-  assert.ok(
-    /\{shopsHeading\}/.test(FEED_CODE),
-    'shopsHeading is computed but never rendered — the guard would otherwise ' +
-      'pass over a page that prints something else entirely',
-  );
-
-  // THE DISTINCTION: every outcome must be reachable and different.
-  // Only the ternary ARMS — a comparison literal (`=== 'trending'`) is not an arm.
-  // 2026-09-30: THREE arms. The composer's `none` (no shop to show — the normal
-  // state since the two trial shops became `is_demo`, DECISION_LOG 2026-09-29
-  // "LANE 2 §2C" (1)) is headed plain "Shops": "The first shops" over an empty
-  // grid names shops that are not there.
-  const armText = decl.slice(decl.indexOf('?') + 1).replace(/===\s*'[^']+'/g, '');
-  const arms = armText.match(/'([^']+)'/g) ?? [];
-  assert.equal(
-    new Set(arms).size,
-    3,
-    `the three headings must differ and all be present, saw: ${arms.join(', ')}`,
-  );
-  assert.ok(
-    arms.some((a) => /trending/i.test(a)) &&
-      arms.some((a) => /first/i.test(a)) &&
-      arms.some((a) => a === "'Shops'"),
-    `expected a Trending arm, a "first shops" arm and a plain "Shops" arm, saw: ${arms.join(', ')}`,
-  );
+test('the shop shelf is headed "Suppliers" — no earned "Trending shops" heading survives', () => {
+  // 🔄 2026-11-16: the owner named part 2 "Suppliers" (verified shops only); the three earned headings retired with it.
+  assert.match(FEED_CODE, /<span>Suppliers<\/span>/, 'the shelf is not headed Suppliers');
+  assert.doesNotMatch(FEED_CODE, /Trending shops|The first shops/, 'a retired shop heading came back');
 });
 
 /* ── 6 · PAKANTA IS IN THE RAIL, AND ITS DOOR IS REAL ─────────────────────
@@ -605,16 +545,10 @@ test('chapter reading time is computed from the body, never the excerpt', () => 
  * still asks the shared composer for the lead/trailing split) and #15 is
  * rewritten for the new structure.
  */
-test('New uploads still comes from the shared composer, not a local copy', () => {
-  assert.ok(
-    /splitShelfRows\(\s*stories,\s*articles\s*,?\s*\)/.test(FEED_CODE),
-    'the feed must ask the shared composer for the full stories+articles split ' +
-      '— there is no chip-filtered subset to pass it any more',
-  );
-  assert.ok(
-    /leadStories\.map/.test(FEED_CODE) && /leadArticles\.map/.test(FEED_CODE),
-    'both kinds must render into New uploads',
-  );
+test('New uploads is retired — Event stories replaced it', () => {
+  // 🔄 2026-11-16 (owner, "Discover in six parts"): New uploads and Trending are replaced by Event stories (part 4).
+  assert.doesNotMatch(FEED_CODE, /New uploads|splitShelfRows|leadArticles/, 'New uploads came back');
+  assert.match(DOOR_CODE, /<EventStoriesShelf\b/, 'Event stories, which replaced it, is not drawn');
 });
 
 /* ── 15 · THE KIND LIVES ON THE CARD ──────────────────────────────────────
@@ -631,11 +565,8 @@ test('New uploads still comes from the shared composer, not a local copy', () =>
    no longer follows. The KIND TAGS themselves are the rule that survives,
    and are checked directly — a rewrite that quietly drops "Article" or
    "Their story" from the cards is exactly what this still catches. */
-test('every card in New uploads and Trending declares its kind', () => {
-  assert.ok(
-    /fd-kindtag[^]*?>\s*Article\s*</.test(FEED_CODE),
-    'the article card must carry the word Article',
-  );
+test('a story card declares its kind', () => {
+  // 🔄 2026-11-16: the article card left with New uploads; the story card (reused by Event stories) keeps its tag.
   assert.ok(
     /fd-kindtag[^]*?>\s*Their story\s*</.test(FEED_CODE),
     'the story card must carry the words Their story',
@@ -665,23 +596,9 @@ test('a story\'s video flag comes from the loader, never from its thumbnail', ()
    `lib/front-door-composition.test.ts`, which proves nothing about this page
    unless the page actually uses it. A hard-coded `slice(4, …)` here silently
    drops articles the day the first chapter is featured. */
-test('the shelf rows are split by the composer, not by a hard-coded index', () => {
-  assert.ok(
-    /splitShelfRows\(/.test(FEED_CODE),
-    'the feed must ask the composer where the lead grid stops',
-  );
-  // THE CONSEQUENCE — all three returned rows must reach the screen.
-  assert.ok(
-    /leadStories\.map/.test(FEED_CODE) &&
-      /leadArticles\.map/.test(FEED_CODE) &&
-      /trailingArticles\.map/.test(FEED_CODE),
-    'a row that is computed and never rendered is an article nobody can read',
-  );
-  // NO HAND-TYPED BOUNDARY left beside it.
-  assert.ok(
-    !/shownArticles\.slice\(\s*4\s*,/.test(FEED_CODE),
-    'the trailing row must not start at a hard-coded index',
-  );
+test('no hand-typed row split survives New uploads', () => {
+  // 🔄 2026-11-16: the lead/trailing split had one user, New uploads, which is retired.
+  assert.doesNotMatch(FEED_CODE, /trailingArticles|shownArticles\.slice/, 'a New uploads row split came back');
 });
 
 /* ── 18 · A COUPLE'S STORY SHOWS ITSELF, NOT THE WORDS "THEIR STORY" ──────
@@ -836,24 +753,12 @@ test('the story poster is not routed through the image optimizer', () => {
    the defect this project has already paid for more than once.
 
    These two assertions were mutation-checked by occurrence count. */
-test('the front page keeps a permanent door into the stories hub', () => {
-  const links = FEED_CODE.match(/href="\/realstories"/g) ?? [];
-  assert.ok(
-    links.length >= 2,
-    `The feed holds ${links.length} link(s) to /realstories; at least 2 are ` +
-      'required — the shelf HEADING (permanent) and the invitation (conditional). ' +
-      'If the heading link was removed, the hub is orphaned every day the real-' +
-      'weddings grid is earned.',
-  );
-  // …and specifically the PERMANENT one. Counting alone would stay green if
-  // somebody added a second conditional link and deleted the heading.
-  assert.match(
-    FEED_CODE,
-    /<Link href="\/realstories" className="fd-sechead-go">/,
-    'The "Stories" shelf heading is no longer a link into the hub. It replaced ' +
-      'the rail row retired on 2026-08-20 and is the only link here that does ' +
-      'not depend on the real-weddings grid being empty.',
-  );
+test('Event stories keeps a permanent door to every story', () => {
+  /* 🔄 2026-11-16: the /realstories hub is being taken down (R1's blog takedown repoints it), so the door to every
+     published story is Event stories' "See all", which opens on Discover itself with Event type ▾ and Sort ▾. */
+  const SIX = code(readFileSync(join(HERE, 'discover-six-parts.tsx'), 'utf8'));
+  assert.match(SIX, /SeeAll href=\{STORIES_SEE_ALL_HREF\}/, 'Event stories has no "See all" door');
+  assert.doesNotMatch(FEED_CODE, /href="\/realstories"/, 'the feed still sends people to the retiring hub');
 });
 
 test('the retired Stories rail row has not quietly returned', () => {
@@ -944,35 +849,9 @@ test('an empty query still yields no row — the palette is not an advert', () =
    exists specifically to say why it is empty (earned, never sold) and how it
    fills, or it repeats the exact defect the old "Stories" chip's empty state
    was corrected for. */
-test('Trending explains itself when it is honestly empty, and never fakes a ranking', () => {
-  assert.ok(
-    /selectTrendingChapters\(/.test(FEED_CODE),
-    'the feed must ask the shared composer which chapters have earned a ' +
-      'Trending spot, not decide inline',
-  );
-
-  const heading = FEED_CODE.indexOf('label="Trending"');
-  assert.ok(heading > -1, 'the Trending heading is missing');
-  const section = FEED_CODE.slice(heading);
-
-  assert.match(
-    section,
-    /No story has earned a spot yet/,
-    'the empty state must say what Trending is FOR, not a generic ' +
-      '"nothing here" — prod holds zero chapters with a real view count, so ' +
-      'this is the state most visitors actually meet',
-  );
-  assert.match(
-    section,
-    /<EmptyShelf[\s\S]{0,300}href="\/realstories"/,
-    'the empty Trending state has no way onward — an apology with no door',
-  );
-  assert.match(
-    section,
-    /never seeded, padded, or sold/,
-    'Trending must state its own "earned, never sold" rule where a visitor ' +
-      'reads it (its ⓘ since 2026-10-23), not only in a code comment',
-  );
+test('Trending is retired — Event stories replaced it', () => {
+  // 🔄 2026-11-16 (owner, "Discover in six parts").
+  assert.doesNotMatch(FEED_CODE, /label="Trending"|selectTrendingChapters/, 'Trending came back');
 });
 
 test('Trending never admits an editorial, even structurally', () => {
@@ -1000,14 +879,15 @@ test('Trending never admits an editorial, even structurally', () => {
    page's tail to directly under the anchor. This just checks the ORDER
    didn't quietly drift back: Shops before New uploads, New uploads before
    Trending. */
-test('the sections render in claim-then-proof order: Shops, New uploads, Trending', () => {
-  const shops = FEED_CODE.indexOf('Open your shop');
-  const uploads = FEED_CODE.indexOf('New uploads');
-  const trending = FEED_CODE.indexOf('label="Trending"');
-  assert.ok(shops > -1 && uploads > -1 && trending > -1, 'a section heading is missing');
-  assert.ok(
-    shops < uploads && uploads < trending,
-    'the sections are out of order — Shops must render before New uploads, ' +
-      'which must render before Trending',
-  );
+test('the parts render in the owner’s order: events, People, Suppliers, Service cards, Event stories, Articles, Inspiration', () => {
+  // 🔄 2026-11-16 (owner, "Discover in six parts"). Before the suppliers: the events, then People to follow; after them,
+  // parts 3–6 in order. Read off the page that assembles them and the feed that places the slots.
+  const before = FEED_CODE.indexOf('{beforeShops}');
+  const suppliers = FEED_CODE.indexOf('<span>Suppliers</span>');
+  const after = FEED_CODE.indexOf('{afterShops}');
+  assert.ok(before > -1 && suppliers > before && after > suppliers, 'the slots are out of order around Suppliers');
+  const order = ['<DiscoverEventShelves', '<PeopleToFollowShelf', '<ServiceCardsShelf', '<EventStoriesShelf', '<ArticlesShelf', '<InspirationShelf'];
+  const at = order.map((tag) => DOOR_CODE.indexOf(tag));
+  assert.ok(at.every((i) => i > -1), `a part is missing: ${order.filter((_, i) => at[i] === -1).join(', ')}`);
+  for (let i = 1; i < at.length; i += 1) assert.ok(at[i - 1]! < at[i]!, `${order[i - 1]} must come before ${order[i]}`);
 });

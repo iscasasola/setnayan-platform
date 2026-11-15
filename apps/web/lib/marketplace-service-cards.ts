@@ -67,6 +67,11 @@ export type MarketplaceQuery = {
   /** Page size. The marketplace is browsable, so this is a window, not a cap. */
   limit?: number;
   offset?: number;
+  /**
+   * ✅ Verified shops only — Discover's rule (owner 15–16 Nov, "Discover in six parts"; `DISCOVER_SHOP_GATE`). Off by
+   * default: `/explore` and Suppliers › Find keep the findable rule.
+   */
+  verifiedOnly?: boolean;
 };
 
 const SERVICE_COLS =
@@ -132,6 +137,7 @@ export async function fetchMarketplaceServiceCards(
   // list like any other and wear "(DEMO ONLY)" (`isDemo` below). Selected through the service-role client the
   // explore page passes: `is_demo` is not anon-readable (migration 20271014385411) and stays that way.
 
+  if (query.verifiedOnly) q = q.eq('vendor_profiles.verification_state', 'verified');
   if (query.category) q = q.eq('category', query.category);
 
   const text = query.q ? safeForOr(query.q) : '';

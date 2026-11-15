@@ -154,6 +154,11 @@ export type FilterDrawerProps = {
   offSeason?: boolean;
   /** More parameters to keep through Apply (tile, lens, Discover's view mark) — hidden inputs, in order. */
   carry?: ReadonlyArray<readonly [string, string]>;
+  /**
+   * The "Verified only" row. Default true (`/explore`). Discover passes false: Discover shows verified shops only,
+   * always (owner 15–16 Nov, "Discover in six parts"), so the row has nothing to switch there.
+   */
+  verifiedToggle?: boolean;
 };
 
 export function FilterDrawer({
@@ -173,6 +178,7 @@ export function FilterDrawer({
   sortInside = true,
   offSeason,
   carry,
+  verifiedToggle = true,
 }: FilterDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const cityId = useId();
@@ -401,8 +407,9 @@ export function FilterDrawer({
               <input type="hidden" name="faith" value={filters.faith} />
             ) : null}
 
-            {/* Verified only */}
-            <div className="rounded-xl border border-ink/10 bg-cream p-3">
+            {/* Verified only — not on Discover, where it is always on (`verifiedToggle`). */}
+            {verifiedToggle ? (
+            <div className="rounded-xl border border-ink/10 bg-cream p-3" data-verified-toggle="">
               <label
                 htmlFor={verifiedId}
                 className="flex cursor-pointer items-start gap-3 text-sm text-ink/80"
@@ -425,6 +432,7 @@ export function FilterDrawer({
                 </span>
               </label>
             </div>
+            ) : null}
 
             {/* Off-season savings — a SWITCH in the drawer on Discover (`offSeason` given); `/explore` keeps its chip. */}
             {offSeason !== undefined ? (

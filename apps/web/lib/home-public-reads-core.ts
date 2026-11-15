@@ -6,7 +6,7 @@ import { COVER_NOT_OWNED, coverOwnershipFrom, type CoverOwnership } from '@/lib/
 import { ownershipCanChangeTheCover } from '@/lib/hub-look-given';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
-import { LIVE_SHOP_GATE, REAL_SHOP_GATE } from '@/lib/live-shops';
+import { DISCOVER_REAL_SHOP_GATE, DISCOVER_SHOP_GATE } from '@/lib/live-shops';
 import { ReadRefused } from '@/lib/remembered-read-core';
 import { HOME_SHELF_TAGS } from '@/lib/home-shelf-tags';
 import type { DiscoverEventRow } from '@/lib/discover-events-core';
@@ -407,14 +407,15 @@ export type LiveShopRefusal = LiveShopRows & { countError: unknown; rowsError: u
 async function readLiveShopRows(limit: number): Promise<LiveShopRows> {
   const admin = createAdminClient();
   const [counted, listed, realCounted] = await Promise.all([
-    admin.from('vendor_profiles').select('vendor_profile_id', { count: 'exact', head: true }).match(LIVE_SHOP_GATE),
+    // ✅ Discover's shelf — verified shops only (DISCOVER_SHOP_GATE, owner 15–16 Nov).
+    admin.from('vendor_profiles').select('vendor_profile_id', { count: 'exact', head: true }).match(DISCOVER_SHOP_GATE),
     admin
       .from('vendor_profiles')
       .select(SHOP_COLUMNS)
-      .match(LIVE_SHOP_GATE)
+      .match(DISCOVER_SHOP_GATE)
       .order('created_at', { ascending: false })
       .limit(limit),
-    admin.from('vendor_profiles').select('vendor_profile_id', { count: 'exact', head: true }).match(REAL_SHOP_GATE),
+    admin.from('vendor_profiles').select('vendor_profile_id', { count: 'exact', head: true }).match(DISCOVER_REAL_SHOP_GATE),
   ]);
   const count = counted.error ? null : (counted.count ?? null);
   // A failed REAL count is not a refusal of the shelf: the heading floors it to "Shops", never to "Trending".

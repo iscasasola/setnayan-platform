@@ -67,6 +67,24 @@ export const REAL_SHOP_GATE = {
 } as const;
 
 /**
+ * ✅ DISCOVER SHOWS VERIFIED SHOPS ONLY (owner 15 Nov; DECISION_LOG 16 Nov "Discover in six parts", approved
+ * 41057aae · 448fd3c1). Findable is wider — a shop Setnayan has not decided yet stays findable until its first
+ * inquiry (2026-11-07), and that still holds for its own link and Suppliers › Find. Discover's Suppliers shelf, its
+ * search and its supplier view ask THIS gate, so "Verified only" left Discover's Filters: it is always on there.
+ * Guard: `app/_components/frontdoor/discover-in-six-parts.test.ts`.
+ */
+export const DISCOVER_SHOP_GATE = {
+  ...LIVE_SHOP_GATE,
+  verification_state: 'verified',
+} as const;
+
+/** {@link DISCOVER_SHOP_GATE} without demo shops — for the figure a Discover heading counts. */
+export const DISCOVER_REAL_SHOP_GATE = {
+  ...DISCOVER_SHOP_GATE,
+  is_demo: false,
+} as const;
+
+/**
  * How many shops the public may see.
  *
  * Returns `null` on a failed read — NEVER 0. The difference is the whole point:

@@ -1132,6 +1132,9 @@ export async function renderVendorBySlug({
     readCardBadges(admin, {
       vendorProfileId: vendor.vendor_profile_id,
       shopVerified: vendor.verification_state === 'verified',
+      /* ⏳ The Verified Partner seal is badge build J2's and is stored nowhere yet — no shop holds it today. When J2
+         records the award, its read goes here; the card already draws "Verified Partner · for life" in Verified's slot. */
+      verifiedPartner: false,
     }).catch((err: unknown): CardBadgesRead => {
       console.error('[renderVendorBySlug] card badges unreadable', err);
       return { kind: 'unreadable' };

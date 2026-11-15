@@ -15,10 +15,14 @@
 
 export const CARD_BADGE_KEYS = ['book', 'quick', 'trend', 'rave', 'gift'] as const;
 export type EarnedCardBadgeKey = (typeof CARD_BADGE_KEYS)[number];
-export type CardBadgeKey = EarnedCardBadgeKey | 'verified';
+/** `partner` is the shop's Verified Partner seal, drawn in Verified's slot IN PLACE of it (DECISION_LOG 11d044c0). */
+export type CardBadgeKey = EarnedCardBadgeKey | 'verified' | 'partner';
 
-/** The display order — Verified always last. Never sorted by anything else (the queue order is UNRULED). */
-export const CARD_BADGE_ORDER: readonly CardBadgeKey[] = ['book', 'quick', 'trend', 'rave', 'gift', 'verified'];
+/**
+ * The display order — and the QUEUE order of the rotating label and award pop-ups (owner, DECISION_LOG 7fbff0cd): the
+ * row's order, Setnayan Verified (or Verified Partner in its place) always last. Never sorted by anything else.
+ */
+export const CARD_BADGE_ORDER: readonly Exclude<CardBadgeKey, 'partner'>[] = ['book', 'quick', 'trend', 'rave', 'gift', 'verified'];
 
 export type CardBadgeDef = { key: CardBadgeKey; name: string; rule: string };
 
@@ -54,7 +58,15 @@ export const CARD_BADGES: Record<CardBadgeKey, CardBadgeDef> = {
     name: 'Setnayan Verified',
     rule: 'Setnayan checked the owner, the business papers and the work. A real business stands behind this name. It belongs to the shop, so every one of its cards shows it.',
   },
+  partner: {
+    key: 'partner',
+    name: 'Verified Partner',
+    rule: 'A verified shop that has used every part of Setnayan and made it work. It is kept for life and takes the place of Setnayan Verified. It belongs to the shop, so every one of its cards shows it.',
+  },
 };
+
+/** The words a held time is replaced with on a Verified Partner medal — it is kept for life (DECISION_LOG 11d044c0). */
+export const PARTNER_HELD_WORDS = 'for life';
 
 /** The thresholds, named — the guard reads these, the rules above say them in words. */
 export const CARD_BADGE_THRESHOLDS = {
@@ -167,13 +179,15 @@ export type CardBadgeView = { key: CardBadgeKey; since: string | null };
 /** The card's row, in display order, Verified last when the shop is verified. */
 export function cardBadgeRow(
   holds: ReadonlyArray<{ badge: EarnedCardBadgeKey; held_since: string }>,
-  verified: { on: boolean; since: string | null },
+  verified: { on: boolean; since: string | null; partner?: boolean },
 ): CardBadgeView[] {
   const byKey = new Map(holds.map((h) => [h.badge, h.held_since]));
   const row: CardBadgeView[] = [];
   for (const k of CARD_BADGE_ORDER) {
     if (k === 'verified') {
-      if (verified.on) row.push({ key: 'verified', since: verified.since });
+      // A Verified Partner shop's 6th medal is the Partner seal, in place of Setnayan Verified (rule 8: it replaces it).
+      if (verified.partner) row.push({ key: 'partner', since: null });
+      else if (verified.on) row.push({ key: 'verified', since: verified.since });
     } else if (byKey.has(k)) {
       row.push({ key: k, since: byKey.get(k) ?? null });
     }
@@ -184,6 +198,7 @@ export function cardBadgeRow(
 /** "Hot Booking · 4 mos" — or the name alone when the start is unknown. */
 export function badgeLabel(b: CardBadgeView, nowMs: number): string {
   const name = CARD_BADGES[b.key].name;
+  if (b.key === 'partner') return `${name} · ${PARTNER_HELD_WORDS}`;
   if (!b.since) return name;
   const t = Date.parse(b.since);
   if (!Number.isFinite(t)) return name;

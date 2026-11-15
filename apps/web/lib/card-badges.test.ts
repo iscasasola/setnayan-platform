@@ -6,7 +6,9 @@
  *   2 · the Quick Responder clock stops being 7am–7pm Manila (an inquiry after 7pm is timed from 7am), an automatic
  *       or unanswered-past-the-hour inquiry passes, or a withdrawn one counts;
  *   3 · an unpublished card or a shop not in good standing earns a medal;
- *   4 · the row's order changes, or Setnayan Verified is not last, or shows without a verified shop;
+ *   4 · the row's order changes (it is also the queue order, DECISION_LOG 7fbff0cd), Setnayan Verified is not last,
+ *       shows without a verified shop, or a Verified Partner shop's 6th medal is not "Verified Partner · for life" in
+ *       Verified's place (DECISION_LOG 11d044c0);
  *   5 · "time held" stops reading weeks → months → years;
  *   6 · a malformed facts read parses as a card with no badges (it must be a failed read, never zero);
  *   7 · a label ink drops under 4.5:1 on the card's paper, light or dark;
@@ -115,7 +117,7 @@ test('4 · the order is fixed and Setnayan Verified is always last — and only 
   assert.deepEqual([...CARD_BADGE_ORDER], ['book', 'quick', 'trend', 'rave', 'gift', 'verified']);
   assert.deepEqual(
     Object.values(CARD_BADGES).map((b) => b.name),
-    ['Hot Booking', 'Quick Responder', 'Trending Now', 'Rave Reviews', 'Generous Giver', 'Setnayan Verified'],
+    ['Hot Booking', 'Quick Responder', 'Trending Now', 'Rave Reviews', 'Generous Giver', 'Setnayan Verified', 'Verified Partner'],
   );
   const holds = [
     { badge: 'gift' as const, held_since: '2026-10-01T00:00:00Z' },
@@ -127,6 +129,10 @@ test('4 · the order is fixed and Setnayan Verified is always last — and only 
   );
   assert.deepEqual(cardBadgeRow(holds, { on: false, since: '2025-01-01T00:00:00Z' }).map((b) => b.key), ['book', 'gift']);
   assert.deepEqual(cardBadgeRow([], { on: true, since: null }).map((b) => b.key), ['verified'], 'every card of a verified shop shows it');
+  // DECISION_LOG 11d044c0: a Verified Partner shop's 6th medal is the Partner seal, IN PLACE of Setnayan Verified.
+  const partnerRow = cardBadgeRow(holds, { on: true, since: '2025-01-01T00:00:00Z', partner: true });
+  assert.deepEqual(partnerRow.map((b) => b.key), ['book', 'gift', 'partner'], 'Partner takes Verified’s slot, never beside it');
+  assert.equal(badgeLabel(partnerRow[2]!, NOW), 'Verified Partner · for life');
 });
 
 test('5 · time held reads weeks under a month, then months, then years', () => {

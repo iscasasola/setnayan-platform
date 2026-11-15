@@ -60,6 +60,13 @@ export const CARD_BADGE_ART: Record<CardBadgeKey, CardBadgeArt> = {
     inkDark: '#8AB6FF',
     icon: [{ d: 'm5.5 12.5 4 4 9-9' }],
   },
+  // The Partner seal's dark gold (v86 seal "partner": its rim runs to #4a3208); the check, as it takes Verified's place.
+  partner: {
+    fill: '#7A4E08',
+    ink: '#7A4E08',
+    inkDark: '#FFE27A',
+    icon: [{ d: 'm5.5 12.5 4 4 9-9' }],
+  },
 };
 
 /** The paper the label sits on, for the contrast check (ServiceFace `--m-paper`, light and dark). */

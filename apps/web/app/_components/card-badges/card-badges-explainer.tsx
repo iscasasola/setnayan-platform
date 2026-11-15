@@ -10,7 +10,7 @@
  */
 import { useId } from 'react';
 import { Sheet } from '@/app/_components/sheet';
-import { CARD_BADGES, heldWords, sinceWords, type CardBadgeView } from '@/lib/card-badges';
+import { CARD_BADGES, PARTNER_HELD_WORDS, heldWords, sinceWords, type CardBadgeView } from '@/lib/card-badges';
 import { CardBadgeMedal } from './card-badge-medal';
 
 const DAY_MS = 86_400_000;
@@ -50,7 +50,9 @@ export function CardBadgesExplainer({
                 <CardBadgeMedal badge={b.key} size={26} />
                 <span>
                   <b className="block text-[13.5px] text-ink">{def.name}</b>
-                  {Number.isFinite(t) ? (
+                  {b.key === 'partner' ? (
+                    <em className="block not-italic text-ink/70">Held {PARTNER_HELD_WORDS}</em>
+                  ) : Number.isFinite(t) ? (
                     <em className="block not-italic text-ink/70">
                       Held {heldWords((now - t) / DAY_MS)} · since {sinceWords(b.since!)}
                     </em>
@@ -62,8 +64,8 @@ export function CardBadgesExplainer({
           })}
         </ul>
         <p className="text-[13px] leading-snug text-ink/70">
-          Each badge is checked each time this card is shown. It comes off the moment the card stops passing, and its
-          time starts again when it earns it back.
+          Each badge is checked each time this card is shown. It comes off the moment the card stops passing; the time it
+          was held stays in the shop’s record, and the card can earn it again.
         </p>
         <button
           type="button"

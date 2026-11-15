@@ -30,7 +30,12 @@ import {
  */
 export async function readCardBadges(
   admin: SupabaseClient,
-  args: { vendorProfileId: string; shopVerified: boolean },
+  args: {
+    vendorProfileId: string;
+    shopVerified: boolean;
+    /** The shop holds the Verified Partner seal — its cards' 6th medal reads "Verified Partner · for life". */
+    verifiedPartner: boolean;
+  },
 ): Promise<CardBadgesRead> {
   const { data, error } = await admin.rpc('service_card_badge_facts', { p_vendor_profile_id: args.vendorProfileId });
   if (error) {
@@ -65,6 +70,7 @@ export async function readCardBadges(
   const verified = {
     on: args.shopVerified && facts.good_standing,
     since: facts.verified_since,
+    partner: args.verifiedPartner && facts.good_standing,
   };
   const byCard: Record<string, ReturnType<typeof cardBadgeRow>> = {};
   for (const c of facts.cards) {

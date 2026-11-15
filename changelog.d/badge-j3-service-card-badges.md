@@ -10,6 +10,12 @@ Badge build J3 (owner-approved prototypes 15 Nov: `prototypes/supplier_badges_20
   A tap on the row opens the rules explainer (the house Sheet, loaded on the first tap).
 - **Setnayan Verified is the shop's:** every card of a verified shop shows it, from the SAME fact as the blue check by
   the shop's name (which stays), and its time held runs from the date the shop was verified.
+- **Verified Partner (DECISION_LOG 11d044c0):** on a Verified Partner shop's cards the 6th medal reads
+  "Verified Partner · for life" in place of Setnayan Verified. The seal itself is badge build J2's and is stored nowhere
+  yet, so no shop shows it today; the page passes `false` until J2 records the award.
+- **Losing a badge (DECISION_LOG 7fbff0cd):** the medal leaves the row once the card no longer qualifies; the span is
+  closed (`lost_at`), never deleted, so the time held stays in the shop's record; the card can earn it again (a new
+  span, a new congratulations). **Queue order** (same ruling) = the row's order.
 - **What a supplier gets:** a Today notice (`card_badge_earned`, in-app + push, not email) the first time a card earns
   a badge — exactly once per earning.
 - **Data:** migrations `20271348664988_notification_type_card_badge_earned` (enum value; J0 adds the same one with
@@ -19,4 +25,4 @@ Badge build J3 (owner-approved prototypes 15 Nov: `prototypes/supplier_badges_20
 - **A failed read says so** above the cards ("We couldn’t check these cards’ badges just now.") — never an empty row.
 - Guards: `lib/card-badges.test.ts` (8) · `tests/db/service-card-badges.db.test.ts` (5) — each red on its sabotage.
 
-SPEC IMPACT: None — implements the approved v86 design. Known gaps and the two unruled items are named in the PR body.
+SPEC IMPACT: None — implements the approved v86 design and rulings 7fbff0cd · 11d044c0. Known gaps are named in the PR body.

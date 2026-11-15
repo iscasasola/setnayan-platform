@@ -8,8 +8,9 @@
  *   2 · an inquiry about a card stops being timed from the shop's first OWN reply (a bot message, or a couple's, is not
  *       a reply), or a category-only inquiry is credited to a card;
  *   3 · a shop that does not exist reads as zero instead of NULL (a failed read must look failed);
- *   4 · `service_card_badge_settle` announces a badge twice, keeps one that stopped passing (the count must reset), or
- *       takes a card of ANOTHER shop;
+ *   4 · `service_card_badge_settle` announces a badge twice, keeps showing one that stopped passing, ERASES its time
+ *       held instead of keeping it in the shop's record (owner, DECISION_LOG 7fbff0cd), refuses to let the card earn it
+ *       again, or takes a card of ANOTHER shop;
  *   5 · either function, or the holds table, becomes reachable by anon or a signed-in user.
  */
 import { test, before, after } from 'node:test';
@@ -195,7 +196,7 @@ test('3 · a shop that does not exist reads as NULL — a failed read, never zer
   assert.equal(await facts('00000000-0000-0000-0000-000000000000'), null);
 });
 
-test('4 · settle announces a badge ONCE, forgets one that stopped passing, and ignores another shop’s card', async () => {
+test('4 · settle announces a badge ONCE, keeps a lost one on record, lets it be earned again, ignores another shop’s card', async () => {
   const shop = await newShop();
   const other = await newShop();
   const film = await newCard(shop, 'Wedding Film');
@@ -215,9 +216,19 @@ test('4 · settle announces a badge ONCE, forgets one that stopped passing, and 
   assert.deepEqual(again.map((r) => [r.badge, r.is_new]), [['book', false]], 'never announced twice');
   assert.equal(String(again[0]!.held_since), String(first[0]!.held_since), 'the held time keeps running');
 
-  assert.deepEqual(await settle([]), [], 'stopped passing → the hold is gone');
+  assert.deepEqual(await settle([]), [], 'stopped passing → the medal leaves the row');
+  const kept = await db.query<{ held_since: string; lost_at: string | null }>(
+    `SELECT held_since, lost_at FROM public.service_card_badge_holds WHERE vendor_service_id = $1 AND badge = 'book'`,
+    [film],
+  );
+  assert.equal(kept.rows.length, 1, 'its time held stays in the shop’s record');
+  assert.ok(kept.rows[0]!.lost_at, '…closed, not erased');
+
   const back = await settle([{ card: film, badge: 'book' }]);
-  assert.equal(back[0]!.is_new, true, 'earned back → its time starts again');
+  assert.equal(back.length, 1);
+  assert.equal(back[0]!.is_new, true, 'the card can earn it again — and is congratulated again');
+  const spans = await db.query(`SELECT 1 FROM public.service_card_badge_holds WHERE vendor_service_id = $1 AND badge = 'book'`, [film]);
+  assert.equal(spans.rows.length, 2, 'the old span and the new one, both on record');
 
   const stranger = await db.query(`SELECT 1 FROM public.service_card_badge_holds WHERE vendor_service_id = $1`, [theirs]);
   assert.equal(stranger.rows.length, 0);

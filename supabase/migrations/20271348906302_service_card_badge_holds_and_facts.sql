@@ -13,8 +13,9 @@
 --     times). The thresholds live ONCE, in apps/web/lib/card-badges.ts, so the app and its tests read one rule.
 --   · service_card_badge_settle(shop, passing) — remembers since when each card has held each badge (the "time
 --     held" a medal shows) and answers which ones are NEW, exactly once, so the Today congratulations fires once.
---     A badge that stops passing is deleted: losing it resets the count (row 6419). ⚠ What a supplier is TOLD when a
---     card loses a badge is UNRULED — this only does what the design draws: the medal leaves the row, no notice.
+--     ⚖ LOSING A BADGE (owner, DECISION_LOG 7fbff0cd): the medal leaves the card's row once the card no longer
+--     qualifies; its time held STAYS in the shop's record (the span is closed with lost_at, never deleted); the card
+--     can earn it again — a new span, so the medal's count starts again (row 6419) and the congratulations fires again.
 --
 -- ⚖ SOURCES AND THEIR LIMITS (said in the PR, never faked):
 --   · a "paid booking" is the Card Record's own booked filter narrowed to PAID: status deposit_paid · delivered ·
@@ -33,12 +34,20 @@
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.service_card_badge_holds (
+  hold_id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   vendor_service_id UUID NOT NULL REFERENCES public.vendor_services (vendor_service_id) ON DELETE CASCADE,
   vendor_profile_id UUID NOT NULL REFERENCES public.vendor_profiles (vendor_profile_id) ON DELETE CASCADE,
   badge             TEXT NOT NULL CHECK (badge IN ('book', 'quick', 'trend', 'rave', 'gift')),
   held_since        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (vendor_service_id, badge)
+  -- NULL while held. Set the moment the card stops qualifying: the span stays in the shop's record.
+  lost_at           TIMESTAMPTZ,
+  CHECK (lost_at IS NULL OR lost_at >= held_since)
 );
+
+-- At most ONE open span per card and badge — the winner of a concurrent earning is decided here.
+CREATE UNIQUE INDEX IF NOT EXISTS service_card_badge_holds_one_open
+  ON public.service_card_badge_holds (vendor_service_id, badge)
+  WHERE lost_at IS NULL;
 
 ALTER TABLE public.service_card_badge_holds ENABLE ROW LEVEL SECURITY;
 
@@ -50,7 +59,7 @@ CREATE INDEX IF NOT EXISTS service_card_badge_holds_shop_idx
   ON public.service_card_badge_holds (vendor_profile_id);
 
 COMMENT ON TABLE public.service_card_badge_holds IS
-  'Badge build J3 (owner prototypes 2026-11-15): since when each service card has held each card badge (book · quick · trend · rave · gift) — the medal''s "time held". A row exists only while the badge passes; losing it deletes the row, so the count resets. Written and read only by service_card_badge_settle (service_role). Setnayan Verified is the shop''s and is never stored here.';
+  'Badge build J3 (owner prototypes 2026-11-15; losing ruled DECISION_LOG 7fbff0cd): every span a service card held a card badge (book · quick · trend · rave · gift). lost_at NULL = held now (one open span per card and badge); losing sets lost_at, so the time held stays in the shop''s record; earning it again opens a new span. Written and read only by service_card_badge_settle (service_role). Setnayan Verified is the shop''s and is never stored here.';
 
 -- ----------------------------------------------------------------------------
 -- The raw numbers, per card of one shop. No thresholds here: apps/web/lib/card-badges.ts holds them.
@@ -194,7 +203,7 @@ REVOKE ALL ON FUNCTION public.service_card_badge_facts(UUID) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.service_card_badge_facts(UUID) TO service_role;
 
 -- ----------------------------------------------------------------------------
--- Remember what passes now; forget what does not; say which are new — once.
+-- Remember what passes now; close what does not (kept on record); say which are new — once.
 -- p_passing: [{"card":"<vendor_service_id>","badge":"book"}, …] — the app's verdict. Cards not of this shop are ignored.
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.service_card_badge_settle(p_vendor_profile_id UUID, p_passing JSONB)
@@ -203,6 +212,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+#variable_conflict use_column
 BEGIN
   CREATE TEMP TABLE IF NOT EXISTS _scb_pass (card UUID, badge TEXT) ON COMMIT DROP;
   TRUNCATE _scb_pass;
@@ -214,17 +224,19 @@ BEGIN
      AND vs.vendor_profile_id = p_vendor_profile_id
    WHERE x->>'badge' IN ('book', 'quick', 'trend', 'rave', 'gift');
 
-  -- Off the moment it is not true: the row goes, so a later return starts the count again.
-  DELETE FROM public.service_card_badge_holds h
+  -- Off the moment it is not true: the open span is CLOSED, never deleted — its time stays in the shop's record.
+  UPDATE public.service_card_badge_holds h
+     SET lost_at = NOW()
    WHERE h.vendor_profile_id = p_vendor_profile_id
+     AND h.lost_at IS NULL
      AND NOT EXISTS (SELECT 1 FROM _scb_pass p WHERE p.card = h.vendor_service_id AND p.badge = h.badge);
 
-  -- New holds: ON CONFLICT DO NOTHING makes ONE caller the winner, so a badge is announced once.
+  -- New spans: the partial unique index makes ONE caller the winner, so a badge is announced once per earning.
   RETURN QUERY
   WITH ins AS (
     INSERT INTO public.service_card_badge_holds AS t (vendor_service_id, vendor_profile_id, badge)
     SELECT p.card, p_vendor_profile_id, p.badge FROM _scb_pass p
-    ON CONFLICT ON CONSTRAINT service_card_badge_holds_pkey DO NOTHING
+    ON CONFLICT (vendor_service_id, badge) WHERE lost_at IS NULL DO NOTHING
     RETURNING t.vendor_service_id, t.badge, t.held_since
   )
   SELECT i.vendor_service_id, i.badge, i.held_since, TRUE FROM ins i
@@ -232,12 +244,13 @@ BEGIN
   SELECT h.vendor_service_id, h.badge, h.held_since, FALSE
     FROM public.service_card_badge_holds h
    WHERE h.vendor_profile_id = p_vendor_profile_id
+     AND h.lost_at IS NULL
      AND NOT EXISTS (SELECT 1 FROM ins i WHERE i.vendor_service_id = h.vendor_service_id AND i.badge = h.badge);
 END;
 $$;
 
 COMMENT ON FUNCTION public.service_card_badge_settle(UUID, JSONB) IS
-  'Badge build J3: given the app''s verdict (the card badges passing now), deletes every hold of this shop no longer passing (the count resets), inserts the new ones, and returns every hold with held_since and is_new — is_new is TRUE for exactly one caller per earning (ON CONFLICT DO NOTHING), which sends the one card_badge_earned notice. Cards of another shop are ignored. service_role only.';
+  'Badge build J3: given the app''s verdict (the card badges passing now), closes every open span of this shop no longer passing (lost_at — the time held stays in the shop''s record, DECISION_LOG 7fbff0cd), opens the new ones, and returns every OPEN span with held_since and is_new — is_new is TRUE for exactly one caller per earning (the one-open-span index), which sends the one card_badge_earned notice. Cards of another shop are ignored. service_role only.';
 
 REVOKE ALL ON FUNCTION public.service_card_badge_settle(UUID, JSONB) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.service_card_badge_settle(UUID, JSONB) FROM anon;

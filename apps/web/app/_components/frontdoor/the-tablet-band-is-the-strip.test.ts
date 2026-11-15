@@ -126,7 +126,7 @@ test('1 · only the designed trees opt into the 701 line', () => {
     );
   }
   // …and the account bar passes what it is told straight to the dock.
-  assert.match(read('app/dashboard/(launcher)/_components/account-bar-slot.tsx'), /<AccountBottomNav tabs=\{tabs\} boundary=\{boundary\} \/>/);
+  assert.match(read('app/dashboard/(launcher)/_components/account-bar-slot.tsx'), /<AccountBottomNav tabs=\{tabs\} boundary=\{boundary\} hasShop=\{hasShop\} \/>/);
   assert.match(read('app/dashboard/(launcher)/_components/account-bottom-nav.tsx'), /<BottomDock boundary=\{boundary\}>/);
 });
 

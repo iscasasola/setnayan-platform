@@ -191,8 +191,12 @@ export const BADGE_REWARDS: Readonly<Record<RewardBadge, BadgeRewardRule>> = {
   /** Gift points for gifts given on completed events (`shop_gift_points`, lib/gift-points.ts). */
   gifts_given: shopLadder('gifts_given', 'Gifts given', ['gift point', 'gift points'], true),
   /**
-   * Suppliers the shop added who have a completed booking (219fb192). ⚠ NOT COUNTED YET: nothing records one supplier
-   * adding another (the add door is unbuilt; `vendor_invites` is the COUPLE's invite). Ships showing "Not counted yet".
+   * Suppliers the shop imported onto Setnayan, each counted once, at the imported supplier's first COMPLETED event
+   * (owner 15 Nov, DECISION_LOG "BADGE OPEN ITEMS RULED" (3): "successful booking" = the event is completed — the same
+   * test as Completed bookings). ⚠ NOT COUNTED YET: nothing records one supplier importing another — the import door
+   * and its address are unbuilt and unruled (`/[slug]/invite` is the couple's guest invitation; `vendor_invites` is the
+   * couple's invite; `vendor_partnerships` needs both shops to exist already). Ships showing "Not counted yet"; the
+   * door's build supplies `BadgeRewardFacts.invites`.
    */
   invites: shopLadder('invites', 'Invites', ['supplier you added', 'suppliers you added'], false),
   verified: { badge: 'verified', title: 'SETNAYAN Verified', measured: true, shape: 'once', reward: papic(1) },

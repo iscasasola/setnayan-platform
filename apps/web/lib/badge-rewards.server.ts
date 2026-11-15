@@ -165,7 +165,8 @@ export async function readBadgeRewardFacts(
     fiveStarReviews,
     trustedBy: bookedLoops,
     giftPoints,
-    // 🤝 Invites: no counter exists yet (nothing records one supplier adding another) — "Not counted yet".
+    // 🤝 Invites: no counter exists yet (nothing records one supplier importing another) — "Not counted yet". When the
+    // import door lands: count each imported supplier once, at its first COMPLETED event (owner 15 Nov, open item 3).
     invites: null,
   };
 }

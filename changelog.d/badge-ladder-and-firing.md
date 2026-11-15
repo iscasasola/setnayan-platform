@@ -23,7 +23,7 @@ Controller's J0 brief on the later 15 Nov rulings (corpus DECISION_LOG 2026-11-1
   - **Five-star reviews** — 50 · 250 · 500 · 1,000 · 2,500 · 5,000 · 10,000
   - **Gifts given** — 150 · 750 · 1,500 · 3,000 · 5,000 · 10,000 · 20,000 points
   - **Trusted by** — 1 · 5 · 10 · 25 · 50 · 100 · 250 clients who booked the shop again for another event, each counted once (`shop_booked_loop_count`)
-  - **Invites** — the same steps. It ships as "Not counted yet", because no record of a supplier bringing in another supplier exists.
+  - **Invites** — the same steps: each supplier the shop imported, counted once at its first COMPLETED event (owner 15 Nov, "badge open items ruled" (3)). It ships as "Not counted yet", because nothing yet records one supplier importing another — the import door and its address are unbuilt and unruled.
   - `MILESTONE_THRESHOLDS` is untouched; its readers are unchanged.
 - **Retired ladders grant nothing new, and keep what they gave**: Booked Loop · 1st Pick · Service cards · Inspiration box · Branches · the Firsts · the old Reviews and Events ladders. This is code only, so no row is revoked.
   - A new reward key is `badge:tierN`.
@@ -46,4 +46,4 @@ SPEC IMPACT: None new — implements the controller's J0 brief from DECISION_LOG
 - Event Ultra's gift points use its regular price (₱9,990 → 1,000, as ruled); the brief had said to leave it empty.
 - Trusted by counts a returning client from their second booking (contracted or later), not only once the second event is complete.
 - A Booked Loop reward already given does not block Trusted by Bronze.
-- Invites is not counted yet.
+- Invites is not counted yet: its rule is ruled (counts at the imported supplier's completed event); its import door is not.

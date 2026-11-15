@@ -25,3 +25,28 @@ Render and source tests in `award-kit.test.ts` (17, including the set layer unde
 SPEC IMPACT: None. This ports the approved prototype; nothing is wired into a live page yet (slices A, B and D mount it).
 
 **Mounted (2026-11-15).** The kit's four views now mount from a dev-only lab, `/dev/award-lab` (`page.lab.tsx`; production 404s it, like every `/dev/*-lab`). It draws the tickets in all three states, the full-screen badge, the gold seal plaque and "Share to story" on sample data. This is the harness the screenshots came from, and it clears `ugat-both-ends` ("component-no-mount") without adding to that baseline. The lab takes one reasoned line in `lib/ugat/baselines/no-door.baseline.txt`, the same line every one of the other `/dev/*-lab` pages carries (reached by typing its address). It does not use `no1Seal`.
+
+## 2026-11-15 · feat(award): the award kit brought up to v86 (BADGE BUILD · J1)
+
+A port of `prototypes/supplier_badges_2026-11-15/badge-milestones_v86.html` and the owner's 15 Nov rulings. Still client-only, still opened only on a tap; zero new server actions and zero new routes; the art is loaded lazily.
+
+- **Reward ticket:** no rainbow foil. It is never a button and has no "tap to claim": rewards are claimed automatically. Its states are locked · "✓ New · in your gifts" · "✓ In your gifts".
+- **One ✕ on every full screen** (`AwardClose`): 44 px, round, top left, dark glass with an ivory ring.
+- **Days line:** "You achieved this after N days" appears on tiered badges only.
+- **Setnayan Verified:** its own navy full screen, with no plaque and no days line.
+- **The locked look** (`LockedTile`): the shop's own badge page shows a grey version of each badge's art under a lock, with what it takes to earn it. Couples never see it.
+- **Seals:** the #1 RANK medal (Cinzel outlines, 34 diamonds) on a gold-ray stage with no glow. Confetti is for No. 1 only and ends when the seal lands. The velvet is matte, and the landing is smooth.
+- **Five tap shows, with final counts** (`tap-shows.ts`, loaded lazily):
+  - Gifts given and Invites: 5–35.
+  - Trusted by: 1–7 shield pulses.
+  - Five-star reviews: the five row stars.
+  - Completed bookings: the calendar steps.
+- **Service-card badges:**
+  - The congratulations screen (`CardBadgeCongrats`).
+  - The rules pop-up shell (`CardBadgeRules`), which J3 fills.
+- **Off by default (props):** the ticket frame metal, the shop-logo watermark behind No. 1, and No. 1's gift.
+- **Guards** (`award-kit.test.ts`, `card-badge.test.ts`, `tap-shows.test.ts`):
+  - Confetti appears only on No. 1, and the days line only on tiered badges.
+  - The art loads lazily, and the tickets have no rainbow.
+
+SPEC IMPACT: None. The kit follows v86 and the DECISION_LOG rulings of 2026-11-15; no ruling changes.

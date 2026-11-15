@@ -1,0 +1,289 @@
+/* 🎗 SERVICE-CARD BADGES — the congratulations full screen (v86 .scz) and the rules pop-up shell (v86 .vrp.cbp).
+   Colours live here, not in .tsx (the raw-hex guard counts .tsx files). */
+
+/* ── the congratulations: the card badge's own colour on a dark stage, rays and motes (v86 .scz) ── */
+.scz {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 72px 22px calc(28px + env(safe-area-inset-bottom));
+  text-align: center;
+  color: #f4ead0;
+  overflow: hidden;
+  cursor: pointer;
+  background: radial-gradient(120% 72% at 50% 34%, color-mix(in srgb, var(--c) 55%, #0b0a08) 0, #100c08 58%, #050403 100%);
+  animation: sczIn 0.3s ease-out both;
+}
+.scz::backdrop {
+  background: transparent;
+}
+.sczRays {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 190vmax;
+  height: 190vmax;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 225, 170, 0.11) 0 5deg, rgba(255, 225, 170, 0) 5deg 15deg);
+  -webkit-mask: radial-gradient(closest-side, #000 10%, transparent 45%);
+  mask: radial-gradient(closest-side, #000 10%, transparent 45%);
+  animation: sczSpin 70s linear infinite;
+}
+.sczMo {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #f3d58a;
+  box-shadow: 0 0 6px #f3d58a;
+  opacity: 0.7;
+  animation: sczMo 7s ease-in-out infinite;
+}
+.sczMedal {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin-bottom: 10px;
+  color: #fff6d6;
+  background: radial-gradient(
+    circle at 35% 30%,
+    color-mix(in srgb, var(--c) 40%, #fff) 0,
+    var(--c) 45%,
+    color-mix(in srgb, var(--c) 55%, #000) 100%
+  );
+  box-shadow:
+    0 0 0 5px #e8c77a,
+    0 0 0 7px #8a6218,
+    0 18px 34px rgba(0, 0, 0, 0.55);
+  animation: sczArt 0.7s cubic-bezier(0.2, 1.35, 0.4, 1) 0.05s both;
+}
+.sczMedal svg {
+  width: 62px;
+  height: 62px;
+}
+.scz p {
+  margin: 0;
+  position: relative;
+  animation: sczUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.scz .sczHi {
+  font-family: var(--font-editorial-display, Georgia), serif;
+  font-style: italic;
+  font-size: 32px;
+  line-height: 1.1;
+  color: #fbf4e2;
+  animation-delay: 0.08s;
+}
+.scz .sczWt {
+  max-width: 330px;
+  margin-top: 6px;
+  font-size: 16px;
+  line-height: 1.4;
+  color: rgba(244, 234, 208, 0.92);
+  animation-delay: 0.14s;
+}
+.sczWt b {
+  color: #fff;
+}
+.scz .sczAw {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--m-r-full);
+  background: rgba(255, 255, 255, 0.1);
+  font: 700 11px/1 var(--font-sans, system-ui), sans-serif;
+  letter-spacing: 0.16em;
+  color: #f3d58a;
+  animation-delay: 0.2s;
+}
+.scz .sczRl {
+  max-width: 330px;
+  margin-top: 12px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: rgba(244, 234, 208, 0.78);
+  animation-delay: 0.28s;
+}
+.scz .sczKp {
+  max-width: 330px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: rgba(244, 234, 208, 0.6);
+  animation-delay: 0.34s;
+}
+.scz .sczTap {
+  margin-top: 18px;
+  font-size: 13px;
+  color: rgba(244, 234, 208, 0.6);
+  animation-delay: 1.2s;
+}
+@keyframes sczIn {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sczArt {
+  from {
+    transform: scale(0.5) rotate(-12deg);
+    opacity: 0;
+  }
+}
+@keyframes sczUp {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+@keyframes sczSpin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+@keyframes sczMo {
+  50% {
+    transform: translateY(-18px);
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scz,
+  .scz * {
+    animation: none !important;
+  }
+}
+
+/* ── the rules pop-up: styled like the Setnayan Verified pop-up, in gold (v86 .vrp.cbp) ── */
+.cbp {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  width: min(360px, calc(100vw - 32px));
+  max-width: none;
+  overflow: visible;
+  color: inherit;
+}
+.cbp::backdrop {
+  background: rgba(8, 14, 30, 0.55);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.cbpCard {
+  position: relative;
+  background: Canvas;
+  color: CanvasText;
+  border-radius: var(--m-r-lg);
+  padding: 26px 22px 18px;
+  text-align: left;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4);
+  border: 1px solid color-mix(in srgb, #b8862b 30%, transparent);
+  overflow: hidden;
+}
+.cbpCard::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 170px;
+  background: radial-gradient(60% 80% at 50% 20%, rgba(226, 190, 110, 0.28), transparent 70%);
+  pointer-events: none;
+}
+.cbpX {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: inherit;
+  cursor: pointer;
+  z-index: 2;
+}
+.cbp h3 {
+  position: relative;
+  margin: 0;
+  font-family: var(--font-editorial-display, serif);
+  font-size: 24px;
+  line-height: 1.15;
+}
+.cbpSh {
+  position: relative;
+  margin: 4px 0 0;
+  font-size: 14px;
+  opacity: 0.75;
+}
+.cbpList {
+  position: relative;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  max-height: 52vh;
+  overflow: auto;
+}
+.cbpList li {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.cbpList li i {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--c);
+  box-shadow:
+    0 0 0 1.6px #e2be6e,
+    0 0 0 2.3px #6b4a10;
+}
+.cbpList li svg {
+  width: 16px;
+  height: 16px;
+}
+.cbpList li b,
+.cbpList li em {
+  display: block;
+}
+.cbpList li em {
+  font-style: normal;
+  opacity: 0.75;
+}
+.cbpList li:only-child b {
+  display: none;
+}
+.cbpNote {
+  position: relative;
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  opacity: 0.75;
+}
+.cbpOk {
+  position: relative;
+  margin-top: 14px;
+  display: grid;
+}

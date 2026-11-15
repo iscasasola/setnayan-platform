@@ -306,7 +306,7 @@ test('8 · the Shop row says Checking · Live · Not yet, what is left of the de
   assert.match(await shopOf({ findable: false }), /not shown yet Not yet/);
   assert.match(
     await shopOf({ verified: false, findable: false, views: null, shop: { name: 'San Agustin Parish', categoryWord: 'Church', details: { done: 4, total: 6, complete: false }, awardWord: null, milestoneWord: null } }),
-    /San Agustin Parish Church · send your documents to go live · details 4 of 6 Checking How is business Couples see your shop once you are live/,
+    /San Agustin Parish Church · send your documents to get Verified · details 4 of 6 Checking How is business Couples can open your page by its link and message you/,
   );
   // A views read that did not come back prints no number at all — never 0.
   assert.doesNotMatch(await shopOf({ views: null }), /\b0 looked/);

@@ -24,6 +24,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PLACE_DIDNT_LOAD,
+  PLACE_EVENT_NOT_YOURS,
+  PLACE_EVENT_REMOVED,
+  PLACE_SHOP_GONE,
+  PLACE_SHOP_ONE_OF,
+  placeMissingWords,
   eventStanceWords,
   notificationPart,
   opensWords,
@@ -129,6 +134,31 @@ test('4 · a place that cannot be said is null, and is drawn as "Place didn’t 
   assert.equal(placeLineText(null), 'Place didn’t load');
 });
 
+test('4b · a null place says WHY — "Place didn’t load" only when a read really failed (F-W3-27, 2026-11-14)', () => {
+  // Measured on prod: the "didn't load" rows were 26 notices about deleted events and 8 shop notices for an account
+  // that no longer has a shop — places whose reads WORKED. Each now says what it is.
+  const removed = { related_url: `/dashboard/${EV}/orders`, event_id: null };
+  assert.equal(placeMissingWords(removed, FACTS), PLACE_EVENT_REMOVED);
+  assert.equal(placeLineText(resolveNotificationPlace(removed, FACTS), placeMissingWords(removed, FACTS)), 'An event that was removed');
+  // The read answered and this event is not in it → no longer this login's.
+  const gone = { related_url: `/dashboard/${EV}`, event_id: EV };
+  assert.equal(placeMissingWords(gone, { events: new Map(), who: null }), PLACE_EVENT_NOT_YOURS);
+  // The read FAILED → the only honest words are still "didn't load".
+  assert.equal(placeMissingWords(gone, { events: null, who: FACTS.who }), PLACE_DIDNT_LOAD);
+  assert.equal(placeMissingWords(gone, null), PLACE_DIDNT_LOAD);
+  // Shop: none left vs several.
+  const none = { events: new Map(), who: { photoUrl: null, initial: 'C', shops: [] } };
+  assert.equal(placeMissingWords({ related_url: '/vendor-dashboard/orders' }, none), PLACE_SHOP_GONE);
+  const two = { events: null, who: { photoUrl: null, initial: 'C', shops: [{ name: 'A', logoUrl: null }, { name: 'B', logoUrl: null }] } };
+  assert.equal(placeMissingWords({ related_url: '/vendor-dashboard/orders' }, two), PLACE_SHOP_ONE_OF);
+  // The menu's facts did not load → "didn't load".
+  assert.equal(placeMissingWords({ related_url: '/vendor-dashboard' }, { events: null, who: null }), PLACE_DIDNT_LOAD);
+  // The row component draws these words, not the bare default.
+  const list = stripComments(readFileSync(join(__dirname, '..', 'app', '_components', 'notifications', 'notifications-list.tsx'), 'utf8'));
+  assert.match(list, /missing=\{placeMissingWords\(n, places\)\}/);
+  assert.match(list, /placeLineWords\(place, missing\)/);
+});
+
 test('5 · the push title is the place line — the name is cut at a word, the stance never', () => {
   const long = 'Indalecio Casasola & Claire Marie Villanueva-Santos';
   const t = placeTitle(long, 'You organise');
@@ -170,7 +200,7 @@ test('6 · 🔒 a row’s place line is never blank — every part, every failur
   // The row draws the line from these words — not from a copy that could go blank on its own.
   const LIST = stripComments(readFileSync(join(process.cwd(), 'app', '_components', 'notifications', 'notifications-list.tsx'), 'utf8'));
   const item = LIST.slice(LIST.indexOf('function NotificationItem('), LIST.indexOf('function RowButton('));
-  assert.match(item, /const words = placeLineWords\(place\);/, 'the row no longer takes its place line from placeLineWords');
+  assert.match(item, /const words = placeLineWords\(place, missing\);/, 'the row no longer takes its place line from placeLineWords');
   assert.match(item, /data-notice-place=""[\s\S]*?<PlaceWords words=\{words\}/, 'the place line is not drawn inside the row');
   assert.match(LIST, /place=\{resolveNotificationPlace\(n, places\)\}/, 'the list no longer resolves each row through the one rule');
   const placeWords = LIST.slice(LIST.indexOf('function PlaceWords('), LIST.indexOf('function PlaceFace('));

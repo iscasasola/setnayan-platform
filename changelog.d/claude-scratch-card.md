@@ -5,3 +5,5 @@ A shared `<ScratchCard>` (`app/_components/scratch-card.tsx`): any content under
 The rules for when it is done are pure (`lib/scratch-card.ts`) with their own tests. Built for the couple's "a supplier's gift landed" unwrap moment; **not wired into any screen yet**.
 
 SPEC IMPACT: None
+
+**Mounted (2026-11-15).** `<ScratchCard>` now mounts from a dev-only lab, `/dev/scratch-card-lab` (`page.lab.tsx`; production 404s it). It shows the gold cover, the controlled `revealed` and `disabled` on sample content, so the canvas can be tried on a real phone. This clears `ugat-both-ends` ("component-no-mount") without adding to that baseline. The lab takes one reasoned line in `lib/ugat/baselines/no-door.baseline.txt`, like every other `/dev/*-lab`.

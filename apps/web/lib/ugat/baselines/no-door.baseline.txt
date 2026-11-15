@@ -100,3 +100,4 @@
 /papic/lightcheck	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /sample/[...rest]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
+/dev/scratch-card-lab	# 2026-11-15 · internal (dev lab, 404 in production) · the shared scratch card on sample content; reached by typing its address

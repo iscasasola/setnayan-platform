@@ -106,6 +106,9 @@ export const SOURCED_INQUIRY_SOURCES: ReadonlySet<string> = new Set([
   'auto_build',
   'editorial',
   'influencer',
+  // 💳 An organic arrival on the shop page (owner 2026-11-13: "their website, we charge them"; migration
+  // 20271345227050). The supplier's own link / QR is stamped 'website' and stays an import.
+  'shop_page',
 ]);
 
 /** Map a thread's inquiry_source to the fee attribution axis (sourced | import). */

@@ -39,6 +39,7 @@ import { formatCount } from '@/lib/format-number';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { applyFindFilter, parseFindFilter, type FindCategory } from '@/lib/supplier-find';
 import { readFindList } from '@/lib/supplier-find-read';
+import { findEmptyState, findEmptyWords } from '@/lib/supplier-find-empty';
 import { searchCategoryVendors } from '../_actions/category-search';
 import { searchMarketplaceForBench } from '../_actions/bench-marketplace-search';
 import { ContactShortlistVendorButton } from '../_components/contact-shortlist-vendor-button';
@@ -125,6 +126,14 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
       hideUnbookable: true,
     });
     const rows = applyFindFilter(res.results, picked);
+    // 2026-11-13 "we only show what fits": a list the date hide emptied says WHO is missing and WHY — "Nobody is
+    // free on <date>" — never "No supplier lists this yet" (lib/supplier-find-empty.ts).
+    const empty = findEmptyState({
+      found: res.results.length,
+      shown: rows.length,
+      hiddenForDate: res.hiddenForDate ?? 0,
+      filtering: picked.length > 0,
+    });
     return (
       <div className="mx-auto w-full max-w-2xl px-4 pb-24 pt-5">
         <PageMasthead title={openTile.label} />
@@ -159,16 +168,16 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
           </Suspense>
         </form>
 
-        <p className="mt-3 text-[13px] text-ink/55">
-          {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`}
-          {res.hasReceptionCoords ? ' · nearest first' : ''}
-        </p>
+        {empty === 'nobody_free' ? null : (
+          <p className="mt-3 text-[13px] text-ink/55">
+            {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`}
+            {res.hasReceptionCoords ? ' · nearest first' : ''}
+          </p>
+        )}
 
-        {rows.length === 0 ? (
-          <p className="mt-6 text-[15px] text-ink/65">
-            {picked.length > 0
-              ? 'No supplier matches this filter. Try fewer.'
-              : 'No supplier lists this yet. Check back soon.'}
+        {empty ? (
+          <p className="mt-6 text-[15px] text-ink/65" data-find-empty={empty}>
+            {findEmptyWords(empty, res.hiddenForDateScope)}
           </p>
         ) : (
           <ul className="mt-2">

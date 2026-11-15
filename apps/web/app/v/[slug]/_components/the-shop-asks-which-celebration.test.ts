@@ -19,7 +19,9 @@ import { stripComments } from '@/lib/strip-comments';
 
 const WEB = process.cwd();
 const PAGE = join(WEB, 'app/v/[slug]/page.tsx');
-const COMPOSER = join(WEB, 'app/v/[slug]/_components/inquiry-composer.tsx');
+// 13 Nov 2026 (owner, "Yes, only one"): the inline InquiryComposer was retired and deleted; the shop's ONE Inquire
+// is the pop-up, so the no-celebration rule is pinned where it now lives.
+const INQUIRE_SHEET = join(WEB, 'app/v/[slug]/_components/inquire-sheet.tsx');
 const RESOLVER = join(WEB, 'app/v/[slug]/_components/add-shop-to-event-data.ts');
 
 function code(path: string): string {
@@ -60,39 +62,20 @@ test('the URL claim is CHECKED against the viewer’s own memberships', () => {
   );
 });
 
-test('the picker is MOUNTED, and only when there is a real choice', () => {
+// 13 Nov 2026 (owner, "Yes, only one"): the inline composer and its "which celebration" picker left the foot of the
+// page with the Inquire section. The question is still asked, in the two places a couple acts: "Add to your event"
+// (SaveVendorButton's own "Add to your event…" choice) and the Inquire pop-up's event step — both fed by THIS resolver.
+test('the picker\'s choices still reach the page — Add to your event and the Inquire pop-up', () => {
   const src = code(PAGE);
-  const mounts = src.match(/<AddToEvent\b/g) ?? [];
-  assert.equal(mounts.length, 1, `expected exactly one picker mount, found ${mounts.length}`);
+  assert.doesNotMatch(src, /<AddToEvent\b/, 'the retired foot picker came back');
+  assert.match(src, /const inquireEventState = canMessage && viewerSignedIn \? await resolveAddShopToEvent\(slug\) : null;/);
+  const save = src.slice(src.indexOf('<SaveVendorButton'), src.indexOf('<SaveVendorButton') + 700);
   assert.match(
-    src,
-    /shopEventPicker\?\.signedIn && shopEventPicker\.options\.length > 1/,
-    'the picker must be offered only when more than one celebration qualifies',
+    save,
+    /events=\{\s*inquireEventState\?\.signedIn && inquireEventState\.options\.length >= 2/,
+    'Add to your event must ask which celebration only when there is a real choice, from the resolver',
   );
-  // And what it renders must be the resolved options, not a literal.
-  assert.match(src, /options=\{shopEventOptions\}/);
-
-  /*
-    ⚠ THE GATE IT SITS BEHIND, NOT JUST ITS PRESENCE. A mutation run caught this
-    version of the guard passing while the mount was gated on `{false ? (`: the
-    component was still in the file, still had its props, and was unreachable.
-    A picker that exists and a picker that is used are identical to a grep, so
-    read the CONDITION of the JSX conditional the mount is inside.
-  */
-  const at = src.indexOf('<AddToEvent');
-  const open = src.lastIndexOf('{', at);
-  assert.ok(open > -1 && open < at, 'the picker is no longer inside a JSX expression');
-  const condition = src.slice(open + 1, src.indexOf('?', open));
-  assert.match(
-    condition,
-    /shopEventOptions\.length > 0/,
-    `the picker's mount gate is not the resolved options — gate was: ${condition.trim()}`,
-  );
-  assert.doesNotMatch(
-    condition,
-    /\bfalse\b|\btrue\b/,
-    `the picker's gate was replaced by a constant — gate was: ${condition.trim()}`,
-  );
+  assert.match(src, /events=\{inquireEvents\}/, 'the pop-up lost the resolved events');
 });
 
 test('the resolver reuses the shipped filtering rule, surfaceless', () => {
@@ -124,21 +107,16 @@ test('choosing writes NOTHING — every row is a link', () => {
 });
 
 test('a person with no celebration is ASKED which kind, never marched into a wedding', () => {
-  const src = code(COMPOSER);
+  const src = code(INQUIRE_SHEET);
   const hardcoded = src.match(/['"`]\/onboarding\/wedding/g) ?? [];
   assert.equal(
     hardcoded.length,
     0,
     `${hardcoded.length} hard-coded wedding onboarding path(s) remain in code`,
   );
-  // Both no_event branches NAVIGATE there. Counting bare `noEventDestination()`
-  // would also match its own declaration — `function noEventDestination(): string`
-  // — and report 3, so this counts the assignment that actually leaves the page.
-  const sends = src.match(/window\.location\.href = noEventDestination\(\)/g) ?? [];
-  assert.equal(
-    sends.length,
-    2,
-    `expected both no_event branches to navigate, found ${sends.length}`,
-  );
-  assert.match(src, /\/dashboard\/create-event\?next=/);
+  // The retired composer NAVIGATED from two no_event branches (pinned as a count of 2). The pop-up never reaches a
+  // no_event send: with no event it offers "Start a new event", a LINK to the create-event picker (which asks the
+  // kind) carrying this shop back in `next` — so the claim is that link, once.
+  const sends = src.match(/\/dashboard\/create-event\?next=/g) ?? [];
+  assert.equal(sends.length, 1, `expected one create-event hand-off in the Inquire pop-up, found ${sends.length}`);
 });

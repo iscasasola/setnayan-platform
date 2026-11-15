@@ -14,7 +14,7 @@ import ScheduleLabClient from '../schedule-lab/schedule-lab-client';
 import { ScheduleOneLine } from '@/app/dashboard/[eventId]/schedule/_components/schedule-one-line';
 import { SCHEDULE_TOOLS_SLOT } from '@/app/dashboard/[eventId]/schedule/_components/schedule-tools-slot';
 import { ChaptersHost, PlanningChapters, type ChaptersInput } from '@/app/dashboard/[eventId]/schedule/_components/chapters-host';
-import { LAB_ASKS, LAB_CHAPTERS, LAB_CHAPTER_MOMENTS, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MARCHES, LAB_MOMENT_ROW, LAB_SCHEDULE_CHAPTERS, LAB_TASKS, LAB_VENUES, LAB_WHO, labDefaultChapters } from './lab-chapters';
+import { LAB_ASKS, LAB_CHAPTERS, LAB_CHAPTER_MOMENTS, LAB_SUPPLIER_TIMES, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MARCHES, LAB_MOMENT_ROW, LAB_SCHEDULE_CHAPTERS, LAB_TASKS, LAB_VENUES, LAB_WHO, labDefaultChapters } from './lab-chapters';
 import { labViewAs } from './lab-view-as';
 
 export function LabScheduleChapters({
@@ -31,6 +31,7 @@ export function LabScheduleChapters({
   defaults = false,
   held = false,
   lock = false,
+  times = false,
 }: {
   /** `?held=1`: 🏛 with `?defaults=1`, Blue Leaf holds Cocktail + Reception's hours. */
   held?: boolean;
@@ -53,6 +54,8 @@ export function LabScheduleChapters({
   asks?: boolean | 'fail';
   /** `?lock=1`: 🔒 D7 — the hair-and-make-up supplier locked their part (the moment sheet says so before a change). */
   lock?: boolean;
+  /** `?times=1`: 🗓 the photographer's own arrive / done on the Reception (Schedules hand in hand (b)). */
+  times?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   const [fresh] = useState(() => labDefaultChapters(held));
@@ -62,7 +65,7 @@ export function LabScheduleChapters({
     : {
         measured: true,
         chapters: empty ? [] : defaults ? fresh.chapters : LAB_SCHEDULE_CHAPTERS,
-        moments: empty ? [] : defaults ? fresh.moments : [...LAB_CHAPTER_MOMENTS, LAB_MOMENT_ROW],
+        moments: empty ? [] : defaults ? fresh.moments : [...LAB_CHAPTER_MOMENTS, LAB_MOMENT_ROW, ...(times ? LAB_SUPPLIER_TIMES : [])],
         // 📖 Step 3b: the run-of-show moment holds three tasks at once in two places; `?clash=1` puts Coord A in the
         // lobby too, at the same time; `?tasksfail=1` is the tasks read failing (said, never "no tasks").
         tasks: tasksFail ? null : empty ? [] : clash ? [...LAB_TASKS, LAB_CLASH_TASK] : LAB_TASKS,

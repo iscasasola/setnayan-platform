@@ -44,19 +44,20 @@ import type { ReactNode } from 'react';
  *      fill is invisible. Nothing here ever puts one on the other.
  *   2. `gild` fails contrast below ~0.85rem. So gild is used ONLY for rules,
  *      hairlines, borders and decorative marks — never for small type. Every
- *      eyebrow, label and caption below is `text-ink/70` or darker, and the
+ *      eyebrow, label and caption below is dark grey (`--m-slate-2`) or ink, and the
  *      only gild in the type scale is on display-sized text.
  */
 
 /**
- * The eyebrow — small caps mono label with a short gild rule, the guest site's
- * `.pahina-eyebrow` recipe. The label itself is INK, not gild: at 0.66rem gild
+ * The eyebrow — the house section label (small grey capitals, design template
+ * rule 2) with a short gild rule, after the guest site's `.pahina-eyebrow`. The
+ * label itself is dark grey, not gild: at 12 px gild
  * does not carry (see trap 2 above). The gild lives in the rule beside it,
  * where it is decoration and carries no information.
  */
 export function ConsoleEyebrow({ children }: { children: ReactNode }) {
   return (
-    <p className="flex items-center gap-[0.6em] font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
+    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
       <span>{children}</span>
       <span aria-hidden className="h-px w-14 shrink-0 bg-gild/55" />
     </p>
@@ -81,7 +82,7 @@ export function ConsolePlate({
   return (
     <div
       id={id}
-      className={`relative border border-ink/10 bg-paper-deep p-5 ${className}`}
+      className={`relative border border-[color:var(--m-line)] bg-paper-deep p-5 ${className}`}
     >
       <span
         aria-hidden
@@ -111,5 +112,5 @@ export function ConsoleHeading({
 /** The hairline rule — `.pahina-rule`. Ink, not gild: it is a divider between
  *  content, so it should recede. */
 export function ConsoleRule({ className = '' }: { className?: string }) {
-  return <hr className={`h-px border-0 bg-ink/[0.12] ${className}`} />;
+  return <hr className={`h-px border-0 bg-[color:var(--m-line)] ${className}`} />;
 }

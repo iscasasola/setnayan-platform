@@ -167,12 +167,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/account-deletions',
       },
       {
-        // A couple asking us to remove a celebration that money is holding —
+        // A couple asking us to remove an event that money is holding —
         // a confirmed bill, or a payment nobody has checked yet. Distinct from
         // Account deletions above: that closes a PERSON, this removes one
-        // celebration and leaves the account alone.
+        // event and leaves the account alone.
         key: 'event-deletions',
-        label: 'Celebration removals',
+        label: 'Event removals',
         href: '/admin/event-deletions',
         icon: UserX,
         matchPrefix: '/admin/event-deletions',
@@ -649,9 +649,9 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       {
         key: 'demo-mode',
         label: 'Demo mode',
-        href: '/admin/settings?tab=demo-mode',
+        href: '/admin/switches',
         icon: Settings,
-        matchPrefix: '/admin/settings/demo-mode',
+        matchPrefix: '/admin/switches',
       },
       {
         // Settings Studio shell + first tab (Money split 2026-07-10). Same
@@ -663,9 +663,20 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // hrefMatch (tab===settings) lights this row. (Money-split review.)
         key: 'settings',
         label: 'Settings',
-        href: '/admin/settings?tab=settings',
+        href: '/admin/business',
         icon: Settings,
-        matchPrefix: '/admin/settings?tab=settings',
+        matchPrefix: '/admin/business',
+      },
+      {
+        // Colours (owner 2026-11-12, corpus Design_App_Colours_2026-11-12) — the app's colours by JOB (page, band,
+        // frame, money, decision, private chat, toggle, icon tiles) on every screen except the guest Event Hub. A
+        // STANDALONE page beside Settings: platform look the owner sets once. `Palette` is shared with the Moodboard
+        // library row (a couple's colours); this one is the app's own.
+        key: 'colours',
+        label: 'Colours',
+        href: '/admin/colours',
+        icon: Palette,
+        matchPrefix: '/admin/colours',
       },
       {
         // Compliance — the RA 10173 / NPC registration facts (PIC identity, DPO
@@ -675,16 +686,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // phone) live only in the DB behind admin-only RLS, never in the repo.
         key: 'compliance',
         label: 'Compliance',
-        href: '/admin/settings?tab=compliance',
+        href: '/admin/business#compliance',
         icon: ShieldCheck,
         matchPrefix: '/admin/compliance',
       },
       {
         key: 'notifications',
         label: 'Notifications',
-        href: '/admin/settings?tab=notifications',
+        href: '/admin/email-delivery',
         icon: Bell,
-        matchPrefix: '/admin/notifications',
+        matchPrefix: '/admin/email-delivery',
       },
       {
         // Integration Activation Console — the one place the solo operator flips

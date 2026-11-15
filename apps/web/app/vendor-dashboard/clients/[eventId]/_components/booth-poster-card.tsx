@@ -1,8 +1,10 @@
 'use client';
 
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { useState, useTransition } from 'react';
 import Image from 'next/image';
-import { ImageIcon, Loader2 } from 'lucide-react';
+import { ImageIcon, Trash2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { setBoothPoster } from '../cocktail/actions';
 import {
@@ -61,16 +63,17 @@ export function BoothPosterCard({
   }
 
   return (
-    <div className="rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-4 sm:p-5">
-      <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
-        <ImageIcon aria-hidden className="h-4 w-4 text-terracotta" /> Your booth poster
+    // 📐 Design template rule 2: a section, not a tinted card — a small label, the ⓘ for the explaining (rule 7).
+    <div className="border-t border-ink/10 pt-4">
+      <h2 className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">
+        <ImageIcon aria-hidden className="h-4 w-4 text-terracotta" />
+        <InfoTip label="Your booth poster" align="start">
+          Design something for <em>this</em> wedding — it goes on your booth in the couple&rsquo;s 3D plan, where their
+          guests will walk past it. Your company logo shows alongside it automatically, so the poster is free for the
+          artwork.
+        </InfoTip>
       </h2>
-      <p className="mt-2 text-sm text-ink/65">
-        Design something for <em>this</em> wedding — it goes on your booth in the couple&rsquo;s 3D
-        plan, where their guests will walk past it. Your company logo shows alongside it
-        automatically, so the poster is free for the artwork.
-      </p>
-      <p className="mt-1 text-xs text-ink/50">
+      <p className="mt-1 text-[13px] text-ink/70">
         Portrait {POSTER_DIMENSION_LABEL} (2:3), up to {formatCount(POSTER_MAX_MB * 1000)} KB. JPG, PNG or WebP.
       </p>
 
@@ -84,14 +87,7 @@ export function BoothPosterCard({
             unoptimized
             className="h-[120px] w-20 rounded-md border border-ink/10 object-cover"
           />
-          <button
-            type="button"
-            onClick={() => persist(null, null)}
-            disabled={pending}
-            className="text-sm font-medium text-ink/60 underline hover:text-ink disabled:opacity-50"
-          >
-            Remove poster
-          </button>
+          <ActionButton type="button" tone="danger" icon={Trash2} label="Remove poster" onClick={() => persist(null, null)} disabled={pending} />
         </div>
       ) : null}
 
@@ -117,13 +113,13 @@ export function BoothPosterCard({
       </div>
 
       {pending ? (
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-ink/50">
-          <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> Saving&hellip;
+        <p role="status" className="mt-2 text-[13px] text-ink/70">
+          Saving&hellip;
         </p>
       ) : null}
       {error ? <p className="mt-2 text-xs text-danger-700">{error}</p> : null}
       {saved && !error ? (
-        <p className="mt-2 text-xs text-ink/50">Saved. It appears on your booth in their 3D plan.</p>
+        <p className="mt-2 text-xs text-ink/70">Saved. It appears on your booth in their 3D plan.</p>
       ) : null}
     </div>
   );

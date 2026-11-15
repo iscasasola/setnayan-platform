@@ -4,6 +4,7 @@ import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { eventWordFilters } from '@/lib/ugat/data-pure';
 import { deleteEvent, setEventFaceMode } from '@/app/admin/events/actions';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -115,9 +116,9 @@ export async function EventsSurface({
     .order('event_date', { ascending: true, nullsFirst: false })
     .limit(EVENT_ROW_LIMIT);
   if (!showArchived) query = query.eq('archived', false);
-  if (q.length > 0) {
-    query = query.or(`display_name.ilike.%${q}%,slug.ilike.%${q}%,public_id.ilike.%${q}%`);
-  }
+  // 🔎 F-W2-37: the same word-by-word match as the admin search box (`eventWordFilters`) — sanitised, so a comma no
+  // longer breaks the whole read into "No event matches".
+  for (const f of q.length > 0 ? (eventWordFilters(q) ?? []) : []) query = query.or(f);
 
   const { data, error } = await query;
   if (error) {
@@ -369,7 +370,9 @@ export async function EventsSurface({
         reads="the event list"
         cap={EVENT_ROW_LIMIT}
         label="Events"
-        minWidth="46rem"
+        // 📱 F-W2-38 (walk 14 Nov): at 390 the table was 736 px and cut DATE off. On a phone it is Event · Date · Actions;
+        // the counts and the face override show from md up (the event's own page carries everything).
+        minWidth="20rem"
         rowKey={(e) => e.event_id}
         empty={{
           Icon: CalendarDays,
@@ -379,7 +382,6 @@ export async function EventsSurface({
             : showArchived
               ? 'Nothing has been created on the platform yet — archived events included.'
               : 'No active events. Tick "Include archived" if you are looking for one that was put away.',
-          verifiedNote: 'Verified: read permitted · 0 events matched',
         }}
         columns={[
           {
@@ -418,6 +420,7 @@ export async function EventsSurface({
           {
             header: 'Guests',
             align: 'right',
+            hideBelow: 'md',
             mono: true,
             cell: (e) => rollup(guestsMeasured, guestCounts.get(e.event_id) ?? 0),
           },
@@ -469,6 +472,7 @@ export async function EventsSurface({
                the admin forcing it; the couple's own "off" beats both. */
             header: 'Face tagging',
             align: 'right',
+            hideBelow: 'md',
             cell: (e) => (
               <ConfirmForm
                 action={setEventFaceMode}

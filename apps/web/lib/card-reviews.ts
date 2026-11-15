@@ -30,6 +30,8 @@ export function monthYear(iso: string): string {
 }
 
 export type CardHostReviewLike = {
+  /** 🃏 Carried so the shop can hide the quoted review on this card (`lib/service-card-hides.ts`). */
+  review_id?: string;
   service_id?: string | null;
   body: string | null;
   created_at: string;
@@ -67,6 +69,7 @@ export function buildCardReviews(input: {
           ? [withWords.couple_display_name?.trim() || 'Verified couple', monthYear(withWords.created_at)].filter(Boolean).join(' · ')
           : null,
         verifiedBooking: Boolean(withWords?.booked_through_setnayan),
+        ...(withWords?.review_id ? { reviewId: withWords.review_id } : {}),
       };
     }
     let guests: CardReviews['guests'] = null;
@@ -81,6 +84,7 @@ export function buildCardReviews(input: {
               stars: g.rating_overall,
               line: g.line,
               photoUrl: g.capture_id ? (input.guestPhotoUrls.get(g.capture_id) ?? null) : null,
+              reviewId: g.review_id,
             }
           : null,
         readAllHref: input.readAllHref,

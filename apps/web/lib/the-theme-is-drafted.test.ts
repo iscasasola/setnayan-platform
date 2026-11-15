@@ -2,7 +2,7 @@
  * the-theme-is-drafted.test.ts — the theme is a Maker edit like any other
  * (owner 2026-09-28: *"we want the theme picker to be there actively
  * editable"*): a pick goes into the DRAFT, Undo steps it back, and Apply puts
- * it live — Classic free, every other theme Event Hub Pro, weddings only.
+ * it live — Classic free, every other theme Event Pro, weddings only.
  *
  * The draft's rules are pure (`lib/hub-draft.ts`) and exercised as functions.
  * Apply's write is read as source, because its whole claim is ORDER: the theme
@@ -65,7 +65,7 @@ test('a Pro theme is held without Pro; a free one (Classic, Modern, Cyber Neon) 
 
   const toPro = planHubDraftApply(pickTheme('vintage'), live('house'), false);
   assert.equal(toPro.apply.length, 0);
-  assert.equal(toPro.refused.length, 1, 'a Pro theme went live without Event Hub Pro');
+  assert.equal(toPro.refused.length, 1, 'a Pro theme went live without Event Pro');
   assert.equal(toPro.remaining.events.invite_theme, 'vintage', 'the held theme left the draft');
 
   const owned = planHubDraftApply(pickTheme('vintage'), live('house'), true);

@@ -104,7 +104,7 @@ test('5 · the circle shows the bare picture — one <img>, nothing drawn over i
   assert.doesNotMatch(body, /dashed|dotted|grid|::before|::after|backgroundImage|linear-gradient|conic-gradient/i, 'an overlay is drawn on the circle');
   assert.doesNotMatch(CONTROL, /border-dashed|border-dotted|borderStyle: 'dashed'|borderStyle: 'dotted'/, 'a guide line is drawn in the framer');
   // The lab frames a real photo (v21's own), never a screenshot that carries another screen's guides.
-  assert.doesNotMatch(read('app/dev/open-shop-lab/page.tsx'), /feature-shots\/logo-maker/);
+  assert.doesNotMatch(read('app/dev/open-shop-lab/page.lab.tsx'), /feature-shots\/logo-maker/);
 });
 
 test('6 · one picture per logo surface: the upload is `[Replace photo] [Remove]`, no second preview', () => {

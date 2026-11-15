@@ -40,6 +40,13 @@ import { loadSupplierWork } from '@/lib/admin/supplier-work.server';
 import { coerceSupplierWorkKind } from '@/lib/admin/supplier-work';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SupplierInbox } from './_components/supplier-inbox';
+import { Suspense } from 'react';
+import { NoticeSlot } from '@/app/_components/notices/notices';
+import { AppleSecretReminder } from '../_apple-secret-reminder';
+import { EmailDeliveryStrip } from '../_email-delivery-strip';
+import { readPaymentLights, type PaymentLightsRead } from '@/lib/admin/green-payments.server';
+import { withReceiptVerdicts } from '@/lib/admin/payment-verdicts.server';
+import type { GreenBatch } from '../queues/_components/green-batch';
 
 export const metadata = { title: 'Work · Admin' };
 
@@ -85,17 +92,33 @@ export default async function AdminWorkLanding({
   // never as an all-clear (admin audit 2026-09-30, row 5).
   const digest = await getAdminQueueDigest().catch(() => ({}) as AdminQueueDigest);
   const nowMs = Date.now();
+  // ➕ The green / held sort behind "Approve all N green" — read once, used by
+  // the payments row's button AND (when opened) its drawer. Only when there is
+  // something pending: an empty or unreadable queue needs no sort.
+  const paymentLights: PaymentLightsRead | undefined =
+    (digest.payments?.count ?? 0) > 0 ? await readLightsWithVerdicts() : undefined;
+  const greenBatch: GreenBatch | undefined = paymentLights
+    ? paymentLights.ok
+      ? { ok: true, rows: paymentLights.rows }
+      : { ok: false }
+    : undefined;
 
   const rows: TriageItem[] = BASE_ROWS.map((base, index) => {
     const d = digest[base.key] ?? { count: null, oldestAt: null };
     const meta = ADMIN_QUEUE_META[base.key];
-    const slaHours = meta?.slaHours ?? 48;
+    /* 🪤 `meta?.slaHours ?? 48` turned a queue with NO CLOCK (`null`, the
+       partnerships rule) back into a 48-hour promise, because `??` cannot tell
+       "no clock" from "no meta". Only a queue missing from the meta defaults. */
+    const slaHours = meta ? meta.slaHours : 48;
     const dueState = computeDueState(d, slaHours, nowMs);
     const age = ageShort(d.oldestAt, nowMs);
 
     let ageLabel: string | undefined;
-    if (age && dueState === 'overdue') ageLabel = `Oldest ${age} · past SLA`;
+    if (meta?.watchOnly) ageLabel = 'In the last 7 days — you only watch these';
+    else if (age && dueState === 'overdue') ageLabel = `Oldest ${age} · past SLA`;
     else if (age && dueState === 'due-soon') ageLabel = `Oldest ${age} · due soon`;
+    // ⏳ F-A-05: a queue with no promise says so — its oldest item is not "on pace", it has no clock at all.
+    else if (age && dueState === 'ok' && meta?.slaHours === null) ageLabel = `Oldest ${age} · no set time`;
     else if (age && dueState === 'ok') ageLabel = `Oldest ${age}`;
 
     return {
@@ -104,6 +127,10 @@ export default async function AdminWorkLanding({
       lane: meta?.lane,
       dueState,
       ageLabel,
+      watchOnly: meta?.watchOnly === true,
+      noPromise: meta?.slaHours === null,
+      // ➕ "Approve all N green" lives on the payments row itself (admin slice 4).
+      greenBatch: base.key === 'payments' && (d.count ?? 0) > 0 ? greenBatch : undefined,
       _index: index,
     } as TriageItem & { _index: number };
   });
@@ -119,7 +146,8 @@ export default async function AdminWorkLanding({
     .map(({ _index, ...row }) => row as TriageItem);
 
   const totalOpen = rows.reduce(
-    (sum, row) => sum + Math.max(0, row.count ?? 0),
+    // A trail to watch is not work waiting (ADMIN_QUEUE_META `watchOnly`).
+    (sum, row) => (row.watchOnly ? sum : sum + Math.max(0, row.count ?? 0)),
     0,
   );
 
@@ -147,7 +175,9 @@ export default async function AdminWorkLanding({
   const withPeek: TriageItem[] = openKey
     ? await Promise.all(
         ordered.map(async (row) =>
-          row.key === openKey ? { ...row, peek: await peekQueue(row.key, viewerUserId) } : row,
+          row.key === openKey
+            ? { ...row, peek: await peekQueue(row.key, viewerUserId, { paymentLights }) }
+            : row,
         ),
       )
     : ordered;
@@ -181,6 +211,20 @@ export default async function AdminWorkLanding({
       basePath="/admin/work"
       openKey={openKey}
       lead={
+        <>
+        {/* ➕ "ALSO WAITING" (approved drawing, work.html) — the two engine-room
+            reminders that used to sit on the old /admin Overview. Each renders
+            ONLY when there is something to do (the Apple secret from Dec 8; an
+            email that did not arrive, an unreadable log, or email switched off),
+            so a healthy day draws nothing here. The email strip streams behind
+            its own Suspense so a slow log read never holds the list. */}
+        {/* 🔔 The page's top for notices (ONE NOTICE SYSTEM, owner approved 14 Nov 2026): the two reminders below
+            register here; at most two lines show, the rest wait in the bell. */}
+        <NoticeSlot place="top" className="mb-4" />
+        <AppleSecretReminder />
+        <Suspense fallback={null}>
+          <EmailDeliveryStrip />
+        </Suspense>
         <SupplierInbox
           read={supplierRead}
           kind={supplierKind}
@@ -189,7 +233,24 @@ export default async function AdminWorkLanding({
           eventTypes={((typesRead.data ?? []) as Array<{ event_type: string; label_en: string }>).map((t) => ({ key: t.event_type, label: t.label_en }))}
           nowMs={nowMs}
         />
+        </>
       }
     />
   );
+}
+
+/**
+ * The payments row's green / held sort, then the receipt read's line on each
+ * row for DISPLAY. Two steps on purpose: the sort is what the batch re-checks
+ * with, and it never sees what a model read (lib/admin/payment-verdicts.server.ts).
+ */
+async function readLightsWithVerdicts(): Promise<PaymentLightsRead> {
+  try {
+    const admin = createAdminClient();
+    const lights = await readPaymentLights(admin);
+    if (!lights.ok) return lights;
+    return { ...lights, rows: await withReceiptVerdicts(admin, lights.rows) };
+  } catch {
+    return { ok: false };
+  }
 }

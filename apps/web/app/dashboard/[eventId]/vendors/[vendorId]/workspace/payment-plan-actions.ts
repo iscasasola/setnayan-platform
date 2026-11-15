@@ -38,6 +38,7 @@ import {
 } from '@/lib/self-added-payment-plan';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { readOneBookingMoney } from '@/lib/event-vendor-money';
 
 // ============================================================================
 // saveSelfAddedPaymentPlan (2026-09-20)
@@ -85,12 +86,16 @@ export async function saveSelfAddedPaymentPlan(formData: FormData): Promise<void
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: booking, error: bookingErr } = await supabase
+  // 🔒 the booking amounts come from event_vendor_money_read (#5936), not the row select.
+  const { data: bookingRow, error: bookingErr } = await supabase
     .from('event_vendors')
-    .select('total_cost_php, marketplace_vendor_id')
+    .select('marketplace_vendor_id')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
+  const booking = bookingRow
+    ? { ...bookingRow, ...(await readOneBookingMoney(supabase, eventId, vendorId)) }
+    : bookingRow;
   if (bookingErr) throw new Error(bookingErr.message);
   if (!booking) throw new Error('Booking not found');
   const bk = booking as {

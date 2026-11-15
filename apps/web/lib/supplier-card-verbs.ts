@@ -17,7 +17,8 @@
  *   booked, nothing due          Payments · [Your record] · Chat · Workspace
  *   asked to book (no yes yet)   Nudge · Chat · Withdraw
  *   their quote is in            Read their reply · Remove
- *   taken on the date            Ask about another day · Remove
+ *   taken on the date, asked     Ask about another day · Remove
+ *   taken on the date, not asked Remove   (owner 13 Nov 2026: "we only show what fits" — no new ask to a full day)
  *   priced                       Add to build | In your build · Book · Chat | Your record · Remove
  *   does not fit the build       Chat · Remove
  *   added by you, no price       Your record · Remove
@@ -147,6 +148,10 @@ export function cardVerbs(i: CardVerbInput): CardVerb[] {
   const build = actions.build?.kind ?? null;
 
   // Taken on the couple's date: the card stays, but it cannot be added or booked.
+  // 🔑 "Ask about another day" ONLY where the couple already asked (a live conversation, `thread`) — owner 13 Nov
+  // 2026, 6134: "If a supplier is unavailable for that day, then we do not need to show them. we only show what
+  // fits." A supplier never asked is not invited to a new conversation about a day they cannot do; the couple keeps
+  // Remove. Held by `find-shows-only-what-can-be-booked.test.ts` and `supplier-card-verbs.test.ts`.
   if (build === 'not_available') {
     if (thread) out.push(verb('another_day', { main: true, quiet: true }));
     out.push(verb('remove'));

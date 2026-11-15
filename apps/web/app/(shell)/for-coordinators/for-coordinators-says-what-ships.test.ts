@@ -113,7 +113,7 @@ test('the fee is named only from the live schedule; unreadable → no rate is na
 test('reach, seats, cards and photos come from lib/vendor-tier-caps.ts', () => {
   assert.match(FACTS, /from '@\/lib\/vendor-tier-caps'/);
   assert.doesNotMatch(WORDS, /\b\d+\s?km\b/, 'a reach is typed');
-  assert.doesNotMatch(WORDS, /'(Solo|Pro|Ultra) plan|from (Solo|Pro|Ultra)\b|on (Solo|Pro|Ultra)\b|Only Ultra\b/, 'a plan name is typed');
+  assert.doesNotMatch(WORDS, /'(Solo|Supplier Plus|Pro|Ultra) plan|from (Solo|Supplier Plus|Pro|Ultra)\b|on (Solo|Supplier Plus|Pro|Ultra)\b|Only Ultra\b/, 'a plan name is typed');
 });
 
 // ── FULL EVENT ACCESS FOLLOWS THE APP ─────────────────────────────────────────────────────────────────

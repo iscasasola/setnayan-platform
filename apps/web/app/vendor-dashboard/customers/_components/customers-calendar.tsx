@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
 import { DayBox, feelDay, glideScrollTo, scrollerOf, useCalendarSwipe } from '@/app/_components/calendar-day-box';
@@ -11,7 +12,7 @@ import { monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type Ca
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
 import type { WaitlistDateGroup } from '@/lib/vendor-waitlist';
 import { buildCustomerCalendarMonth, type CustomerCalendarMonth } from '@/lib/vendor-customers';
-import { dayHeadWords, dayLongWords, dayRowsOf, daySheetHref, dayStateOf, nearWord, type DatesBlock, type DatesBooking, type DayRow } from '@/lib/vendor-dates';
+import { dayHeadWords, dayLongWords, dayRowsOf, daySheetHref, dayStateOf, nearWord, withAgreedDot, type DatesBlock, type DatesBooking, type DatesInquiry, type DayRow } from '@/lib/vendor-dates';
 import { fetchCustomerCalendarMonth } from '../actions';
 import { DatesRow } from './dates-row';
 import { DayBar } from './day-bar';
@@ -132,7 +133,7 @@ export function CustomersCalendar({
   initialDayStatesRead?: boolean;
   initialWaitlist: WaitlistDateGroup[];
   /** Dates couples are asking about, counted (`pendingInquiryDates`). */
-  inquiries?: { requestedDate: string; count: number }[];
+  inquiries?: DatesInquiry[];
   /** 'YYYY-MM' of the first-painted month. */
   initialMonth: string;
   /** The day picked on arrival; null = none (the one Clients screen opens on its whole list, v113). */
@@ -176,6 +177,9 @@ export function CustomersCalendar({
     if (onClients) window.dispatchEvent(new CustomEvent(CLIENTS_SCHEDULING_EVENT, { detail: scope }));
   }, [scope, onClients]);
   const [pending, startTransition] = useTransition();
+  // 🗓 "Try again" under a booked row whose hours could not be read — the page's server read runs again.
+  const router = useRouter();
+  const [rereading, startReread] = useTransition();
   const [monthInputs, setMonthInputs] = useState<Map<string, MonthInputs>>(
     () => new Map([[initialMonth, { dayStates: initialDayStates, dayStatesRead: initialDayStatesRead, waitlist: initialWaitlist }]]),
   );
@@ -209,14 +213,16 @@ export function CustomersCalendar({
     );
   }, [month, monthInputs, shownPools, bookings, blocks, todayIso, inquiries]);
 
+  // 📅 F-W1-68: the agreed, not-yet-paid bookings per day — Booked (a dot and a row), never counted as asking.
+  const agreedOn = useMemo(() => new Map(inquiries.filter((i) => i.agreed?.length).map((i) => [i.requestedDate, i.agreed!])), [inquiries]);
   const readStates = useMemo(() => {
     const out = new Map<CalendarDay, CalendarDayState>();
     for (const d of data.days) {
-      const st = dayStateOf(d);
+      const st = withAgreedDot(dayStateOf(d), agreedOn.has(d.date));
       if (st) out.set(d.date, st);
     }
     return out;
-  }, [data.days]);
+  }, [data.days, agreedOn]);
 
   // 🎉 #29 ACCEPT BOOKINGS IS FELT: the day bar's switch is flipped → the day's cell (month + week strip) is struck /
   // un-struck AT ONCE, in the picked fill too, from what the switch now SHOWS — not when the write's re-read lands.
@@ -457,6 +463,7 @@ export function CustomersCalendar({
       blocks,
       holds,
       asking: at?.inquiryCount ?? 0,
+      agreed: agreedOn.get(day) ?? [],
       waiting: at?.waitlistCount ?? 0,
     });
   };
@@ -467,12 +474,14 @@ export function CustomersCalendar({
         .filter((d) => d.date >= todayIso)
         .map((d) => ({ day: d.date, rows: rowsOf(d.date).filter((r) => r.kind !== 'nothing') }))
         .filter((g) => g.rows.length > 0);
-  const drawRow = (r: DayRow, day: CalendarDay) => (
+  const drawRow = (r: DayRow, day: CalendarDay) => {
+    const row = (
     <DatesRow
       key={r.key}
       data={r.kind}
       title={r.title}
       line={r.line || undefined}
+      line2={r.line2 || undefined}
       badge={r.hours ? { tone: 'quiet', word: r.hours } : r.badge}
       href={onClients ? daySheetHref(day) : undefined}
       lead={
@@ -488,7 +497,33 @@ export function CustomersCalendar({
         ) : undefined
       }
     />
-  );
+    );
+    if (!r.unread) return row;
+    // 🗓 A refused hours read SAYS so under the plain row (approved prototype) — outside the row's link, so the press
+    // means one thing. Try again re-reads the page's own month (the server reads the hours again).
+    return (
+      <div key={r.key} data-dates-row-hours-unread="">
+        {row}
+        <p role="status" className="-mt-1.5 pb-2 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
+          Couldn&rsquo;t read the hours ·{' '}
+          <button
+            type="button"
+            className="sn-press min-h-0 font-semibold text-sn-accent underline-offset-2 hover:underline"
+            disabled={rereading}
+            onClick={() =>
+              startReread(() => {
+                // one-render: keep (retry) — nothing was written here; the hours read is asked again after a refusal.
+                router.refresh();
+              })
+            }
+            data-testid="dates-hours-try-again"
+          >
+            {rereading ? 'Reading…' : 'Try again'}
+          </button>
+        </p>
+      </div>
+    );
+  };
   // 📌 A day heading pins under the pinned row, and under the week strip once it shows.
   const headTop = pinH + (folded ? 54 : 0);
 

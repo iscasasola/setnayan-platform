@@ -32,6 +32,7 @@ import { InterconnectionsSurface } from './_surfaces/interconnections-surface';
 import { BrowserBlocksSurface } from './_surfaces/browser-blocks-surface';
 import { SlowLoadsSurface } from './_surfaces/slow-loads-surface';
 import { VisitsSurface } from './_surfaces/visits-surface';
+import { AdminTotalsSurface } from './_surfaces/admin-totals-surface';
 
 /**
  * Insights Studio — the tabbed /admin/app-performance shell that consolidates
@@ -206,13 +207,18 @@ function activeSurface(
     case 'slow-loads':
       return <SlowLoadsSurface targetNotice={first(search.target)} />;
     default:
+      // ➕ The old /admin Overview's standing totals, What you change and Recent
+      // admin activity live here now (approved drawing, insights.html › Overview).
       return (
-        <CockpitSurface
-          searchParams={Promise.resolve({
-            range: first(search.range),
-            demo: first(search.demo),
-          })}
-        />
+        <>
+          <CockpitSurface
+            searchParams={Promise.resolve({
+              range: first(search.range),
+              demo: first(search.demo),
+            })}
+          />
+          <AdminTotalsSurface />
+        </>
       );
   }
 }

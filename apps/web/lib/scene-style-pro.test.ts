@@ -1,5 +1,5 @@
 /**
- * 💎 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO ◆"): every style card but
+ * 💎 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT PRO ◆"): every style card but
  * the theme's own default is Pro — the table is recomputed from the registry below.
  *
  * 💎 THE PRO LOOKS IN STYLE — owner 2026-10-17 (DECISION_LOG "APPROVED — LOVE STORY, TWO VOICES"), verbatim:

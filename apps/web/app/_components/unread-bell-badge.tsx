@@ -35,9 +35,15 @@ import { usePathname, useRouter } from 'next/navigation';
 // a static import was one of the three edges that put the whole client in the Maker's first load
 // (`scripts/check-maker-js-budget.mjs`, 2026-11-04). Nothing it draws waits on it.
 import type { NotificationRow, NotificationType } from '@/lib/notifications';
+import type { EventPlaceFact, NotificationPlaceFacts, PlaceWho } from '@/lib/notification-place';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import dynamic from 'next/dynamic';
+// 🔔 ONE NOTICE SYSTEM (owner approved 14 Nov 2026): notices that do not fit a page's top wait here, in a
+// "Waiting on this page" group above the notifications. The badge's NUMBER stays the notifications count; waiting
+// notices add only a dot.
+import { NoticesWaiting, openTray, useNoticesWaiting, useTrayRequest } from '@/app/_components/notices/notices';
+import { bellMounted } from '@/app/_components/notices/notice-store';
 
 /*
   The pop-over's rows ride in a chunk of their own, fetched when the bell is first pressed — the bell is in the first
@@ -89,6 +95,14 @@ type Props = {
   pulse?: boolean;
   /** DEV LABS ONLY (`/dev/notifications-lab`, no sign-in): the rows the pop-over draws instead of reading them. */
   labRows?: NotificationRow[];
+  /** DEV LABS ONLY: the rows' events, instead of reading them. */
+  labEvents?: ReadonlyMap<string, EventPlaceFact>;
+  /**
+   * 📍 Who is reading — the account menu's picture and shops (`placeWhoFromSwitcher(switcherData)`), so each row can
+   * name its PLACE (owner 2026-11-13). Absent → shop rows say "Place didn't load"; your-account rows draw an initial-less
+   * circle.
+   */
+  who?: PlaceWho | null;
 };
 
 export function UnreadBellBadge({
@@ -99,6 +113,8 @@ export function UnreadBellBadge({
   ariaUnreadSuffix,
   pulse = false,
   labRows,
+  labEvents,
+  who = null,
 }: Props) {
   const [unread, setUnread] = useState(initialUnread);
   const router = useRouter();
@@ -145,11 +161,23 @@ export function UnreadBellBadge({
   const [mounted, setMounted] = useState(false);
   /** undefined = not read yet · null = could not read · rows = the latest eight. */
   const [rows, setRows] = useState<NotificationRow[] | null | undefined>(undefined);
+  /** The rows' events (one batch read). null = that read failed → those rows say "Place didn't load". */
+  const [events, setEvents] = useState<ReadonlyMap<string, EventPlaceFact> | null>(null);
   const [here, setHere] = useState('/');
   const panelRef = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
 
   useEffect(() => setMounted(true), []);
+
+  // 🔔 This page has a bell: its notices' "N more" opens it.
+  useEffect(() => bellMounted(), []);
+  const waiting = useNoticesWaiting();
+  const trayAsked = useTrayRequest();
+  useEffect(() => {
+    if (!trayAsked) return;
+    setOpen(true);
+    openTray(false);
+  }, [trayAsked]);
 
   function close() {
     setOpen(false);
@@ -167,6 +195,7 @@ export function UnreadBellBadge({
     let live = true;
     setHere(`${window.location.pathname}${window.location.search}`);
     if (labRows) {
+      setEvents(labEvents ?? null);
       setRows(labRows);
       return;
     }
@@ -177,12 +206,20 @@ export function UnreadBellBadge({
     */
     void (async () => {
       try {
-        const [{ fetchOwnNotifications }, { createClient }] = await Promise.all([
+        const [{ fetchOwnNotifications }, { fetchNotificationEventPlaces }, { createClient }] = await Promise.all([
           import('@/lib/notifications'),
+          import('@/lib/notification-places'),
           import('@/lib/supabase/client'),
         ]);
-        const r = await fetchOwnNotifications(createClient(), userId, 8);
-        if (live) setRows(r);
+        const supabase = createClient();
+        const r = await fetchOwnNotifications(supabase, userId, 8);
+        // 📍 Their places in ONE batch beside the rows — never a read per row. Drawn together, so a row never
+        // flashes "Place didn't load" before its event arrives.
+        const ev = await fetchNotificationEventPlaces(supabase, userId, r);
+        if (live) {
+          setEvents(ev);
+          setRows(r);
+        }
       } catch {
         if (live) setRows(null);
       }
@@ -190,7 +227,7 @@ export function UnreadBellBadge({
     return () => {
       live = false;
     };
-  }, [open, labRows, userId]);
+  }, [open, labRows, labEvents, userId]);
 
   function markedRead(id: string) {
     const at = new Date().toISOString();
@@ -204,7 +241,10 @@ export function UnreadBellBadge({
     setUnread(0);
   }
 
-  const label = unread > 0 ? `${ariaBaseLabel} · ${unread} ${ariaUnreadSuffix}` : ariaBaseLabel;
+  const label =
+    (unread > 0 ? `${ariaBaseLabel} · ${unread} ${ariaUnreadSuffix}` : ariaBaseLabel) +
+    (waiting > 0 ? ` · ${waiting} waiting on this page` : '');
+  const places: NotificationPlaceFacts = { events, who };
   // The badge's count covers notices older than the eight drawn, so either one keeps "Mark all read" on show.
   const rowsUnread = rows ? Math.max(unread, rows.filter((r) => !r.read_at).length) : 0;
 
@@ -247,6 +287,7 @@ export function UnreadBellBadge({
         <NotificationsHead unreadCount={rowsUnread} returnTo={here} level="popover" onMarkAll={markedAllRead} />
 
         <div className="min-h-0 flex-1 overflow-y-auto pb-1" aria-busy={rows === undefined || undefined}>
+          <NoticesWaiting />
           {rows === undefined ? (
             <div className="mx-3 mt-8 h-[186px] rounded-tile bg-[var(--m-paper)] opacity-60" data-notifications-loading="" />
           ) : rows === null ? (
@@ -257,6 +298,7 @@ export function UnreadBellBadge({
           ) : (
             <NotificationsList
               items={rows}
+              places={places}
               returnTo={here}
               onRead={markedRead}
               inset="popover"
@@ -305,6 +347,8 @@ export function UnreadBellBadge({
           >
             {unread > 9 ? '9+' : unread}
           </span>
+        ) : waiting > 0 ? (
+          <span aria-hidden data-notice-dot="" className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-terracotta-700" />
         ) : null}
       </button>
 

@@ -4,6 +4,8 @@ import 'server-only';
  * on a page load), through shipped readers where one exists. It keeps "could
  * not read" apart from "there are none".
  */
+import { readOverdueTopUpEventIds } from '@/lib/booking-fee-top-up.server';
+import { manilaToday } from '@/lib/std-views';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchReviewsForVendor, fetchVendorCompletedEvents } from '@/lib/reviews';
 import {
@@ -46,8 +48,10 @@ export async function readSupplierSheet(
   input: { vendorProfileId: string; userId: string; tile: string | null },
 ): Promise<SupplierSheetData> {
   const { vendorProfileId, userId } = input;
+  // 💸 A review from an event whose booking-fee top-up is overdue is unlisted until settled (owner 2026-11-12).
+  const unlisted = await readOverdueTopUpEventIds(vendorProfileId, manilaToday());
   const [reviews, completed, profile, services, following, taxonomy] = await Promise.all([
-    fetchReviewsForVendor(supabase, vendorProfileId, { limit: 12 })
+    fetchReviewsForVendor(supabase, vendorProfileId, { limit: 12, excludeEventIds: [...unlisted] })
       .then((rows) => sheetReviews(rows))
       .catch((err) => {
         console.error('[supplier-sheet] reviews read failed', err);

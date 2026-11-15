@@ -58,7 +58,7 @@ export default async function VendorTheftWatchPage() {
       <VendorTierGate
         feature="Theft Watch"
         requiredTier="pro"
-        blurb="We fingerprint every photo you upload and scan the marketplace for copies, flagging reposts as yours. Portfolio protection is a Pro feature."
+        blurb="We fingerprint every photo you upload and scan the marketplace for copies, flagging reposts as yours. Portfolio protection is a Supplier Pro feature."
         icon={<ShieldAlert aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
       />
     );

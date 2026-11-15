@@ -47,6 +47,7 @@ import {
   type ChangeLineRow,
 } from '@/lib/agreed-total-and-its-changes';
 import { limitedHelperRefusal } from '@/lib/host-gate';
+import { mergeBookingMoney, readBookingMoney } from '@/lib/event-vendor-money';
 
 export type RunBuildResult =
   | { ok: true; filled: number; cleared: number; unfilled: { groupId: string; label: string }[] }
@@ -110,7 +111,7 @@ export async function proposeBuildFromQuotes(input: {
   // `events_moderator_read` admits every accepted delegate. The AI-gate fields
   // (planning_mode / setnayan_ai_active) + reception coords are read alongside
   // the budget so the Auto rank mode can switch to compat when Setnayan AI is on.
-  const [evRes, vendorsRes, pickRes, decisionRes] = await Promise.all([
+  const [evRes, vendorsRes, pickRes, decisionRes, moneyRes] = await Promise.all([
     supabase
       // SEC-2b: public.events_host, not public.events — this select names a column
       // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
@@ -127,7 +128,8 @@ export async function proposeBuildFromQuotes(input: {
       // Change lines ride along: a quote a change order already moved is ranked
       // at its agreed total NOW (owner 2026-09-11, "Show the total now").
       .select(
-        `vendor_id, category, status, total_cost_php, transport_php, food_allowance_php, marketplace_vendor_id, ${CHANGE_LINES_EMBED}`,
+        // 🔒 the three amounts come from event_vendor_money_read (#5936), not the row select.
+        `vendor_id, category, status, marketplace_vendor_id, ${CHANGE_LINES_EMBED}`,
       )
       .eq('event_id', input.eventId),
     // ── Fillable inputs (spec §4). Both are couple-own, RLS-scoped, and
@@ -143,6 +145,10 @@ export async function proposeBuildFromQuotes(input: {
       .select('plan_group_id, tile, decision')
       .eq('event_id', input.eventId)
       .in('decision', ['excluded', 'complete']),
+    readBookingMoney(supabase, input.eventId).then(
+      (money) => ({ money, error: null as unknown }),
+      (error: unknown) => ({ money: null, error }),
+    ),
   ]);
 
   if (!evRes.data) return { ok: false, error: 'Could not load this event.' };
@@ -157,15 +163,15 @@ export async function proposeBuildFromQuotes(input: {
     marketplace_vendor_id: string | null;
     change_lines?: ChangeLineRow[] | null;
   };
-  if (vendorsRes.error) {
+  if (vendorsRes.error || !moneyRes.money) {
     // Refused ≠ "no quotes": filling from an empty list would silently skip
     // every quoted supplier. Say so instead.
-    logQueryError('proposeBuildFromQuotes (event_vendors)', vendorsRes.error, {
+    logQueryError('proposeBuildFromQuotes (event_vendors)', vendorsRes.error ?? moneyRes.error, {
       event_id: input.eventId,
     });
     return { ok: false, error: 'Could not load your suppliers.' };
   }
-  const vendors = (vendorsRes.data ?? []) as VRow[];
+  const vendors = mergeBookingMoney((vendorsRes.data ?? []) as Array<{ vendor_id: string }>, moneyRes.money) as unknown as VRow[];
 
   // ── Setnayan-AI gate → rank mode. AI ON (flag on + assisted) ranks Auto rows
   // by compat-score (reception-anchored distance + reviews + verification +

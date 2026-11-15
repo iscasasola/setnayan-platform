@@ -103,7 +103,7 @@ const REGISTER = [
   '| Pricing | `/pricing` | `app/(shell)/pricing/page.tsx` |',
   '| Guests | `/dashboard/[eventId]/guests/*` | `lib/guests.ts` |',
   '## 7. PRICES', '| SKU key | What it unlocks (canon name) | Who pays |', '|---|---|---|',
-  '| `EVENT_PLUS` | Event Plus | host |', '| `solo_vendor_monthly` · `solo_vendor_annual` | Solo plan | supplier |',
+  '| `EVENT_PLUS` | Event Plus | host |', '| `solo_vendor_monthly` · `solo_vendor_annual` | Supplier Plus plan | supplier |',
   '## 9d', '| `NEXT_PUBLIC_CHAT_LIVE_ENABLED` | chat |',
 ].join('\n');
 
@@ -219,7 +219,7 @@ test('readRows: no URL is a reason, not a crash; psql runs read-only; output is 
 test('the printout names each key\'s feature from the register and flags keys with no row', () => {
   const idx = pricesIndex(REGISTER);
   assert.equal(idx.get('EVENT_PLUS').feature, 'Event Plus');
-  assert.equal(idx.get('solo_vendor_annual').feature, 'Solo plan');
+  assert.equal(idx.get('solo_vendor_annual').feature, 'Supplier Plus plan');
   const rows = [
     { catalogue: 'platform_retail_catalog_v2', key: 'EVENT_PLUS', title: 'Event Plus', price_php: 100, gift_price_php: 90, included_papic_credits: 5, billing: 'one_time', is_active: true },
     { catalogue: 'vendor_billing_catalog', key: 'mystery_sku', title: 'M', price_php: 7, billing: 'x', is_active: false, retired_on: '2026-11-05' },

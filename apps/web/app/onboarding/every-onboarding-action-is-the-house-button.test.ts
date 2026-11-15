@@ -35,8 +35,8 @@ const BARE: Readonly<Record<string, number>> = {
   'open-shop/_components/plan-sheet.tsx › PlanBody': 2,
   'open-shop/_components/service-cards.tsx › ServiceCards': 1,
   'open-shop/_components/service-cards.tsx › Specialties': 1,
-  'open-shop/_components/service-picker.tsx › ServicePicker': 2,
-  'open-shop/_components/service-picker.tsx › CategoryTiles': 1,
+  '_components/service-picker.tsx › ServicePicker': 2,
+  '_components/service-picker.tsx › CategoryTiles': 1,
   'open-shop/_components/services-at-events.tsx › ServicesAtEvents': 1,
 };
 
@@ -56,9 +56,15 @@ export function bareByComponent(source: string): { component: string; bare: numb
   return slices.map((s) => ({ component: s.name, bare: (s.body.match(/<button(?=[\s>/])/g) ?? []).length }));
 }
 
+/**
+ * Sign-up components that live OUTSIDE the two folders because a second surface draws them too — scanned all the
+ * same, so lifting one into a shared folder (ruling 5820: the Add-a-service picker, shared with the dashboard's
+ * "Add a service") never walks it out of this ratchet.
+ */
+const SHARED_SIGNUP = ['app/_components/service-picker.tsx'];
+
 function scan(): Record<string, number> {
-  const files = execSync('git ls-files app/onboarding app/open-shop', { cwd: web, encoding: 'utf8' })
-    .split('\n')
+  const files = [...execSync('git ls-files app/onboarding app/open-shop', { cwd: web, encoding: 'utf8' }).split('\n'), ...SHARED_SIGNUP]
     .filter((f) => f.endsWith('.tsx') && !f.includes('.test.'));
   assert.ok(files.length > 30, `scanned ${files.length} files — the walk has gone blind`);
   const out: Record<string, number> = {};

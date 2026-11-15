@@ -62,7 +62,7 @@ test('no shop surface promises a review interval the code does not compute', () 
 
 // SABOTAGE: make the Value card's body an unconditional string again → RED.
 test('the download page cannot claim notarization while saying it is not notarized', () => {
-  const src = readCode('app/download/page.tsx');
+  const src = readCode('app/(shell)/download/page.tsx');
   assert.equal(
     count(src, /body="Signed with an Apple Developer ID and notarized by Apple/),
     0,

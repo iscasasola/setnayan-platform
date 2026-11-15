@@ -193,6 +193,11 @@ export const LAB_ADDED_ROW: EventVendorRowInput = row({
   manual_vendor_id: 'm-tita',
 });
 
+/** 🧾 Tita, priced as the couple recorded her (price basis v2's samples — `/dev/suppliers-lab?basis=…`). */
+export function labAddedRowPriced(total: number): EventVendorRowInput {
+  return { ...LAB_ADDED_ROW, total_cost_php: total };
+}
+
 /** Where each hand-added supplier's claim link stands — one of every state. */
 export function labInviteStatuses(nowMs: number): Record<string, SupplierInviteStatus> {
   const at = (days: number) => new Date(nowMs + days * 86_400_000).toISOString();

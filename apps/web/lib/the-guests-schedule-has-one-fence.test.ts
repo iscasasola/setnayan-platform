@@ -125,6 +125,8 @@ const NOT_GUEST_FACING: Record<string, string> = {
     'host — the Schedule’s write doors ask which moment a "right after" moment follows (its siblings’ order keys), on the host’s own session; never a guest',
   'lib/supplier-part-notify.server.ts':
     'host — the schedule actions read the moments a save touches, before and after, to tell the suppliers on them (audit D6); on the host’s own session, never a guest’s',
+  'lib/booked-day-hours.server.ts':
+    'supplier — a booked day’s hours on the supplier’s own Clients calendar (SCHEDULES HAND-IN-HAND part (b), 2026-11-12): the chapters’ clocks and the shop’s own arrive / done, read for the booked shop on its vendor dashboard; never notes, never a guest',
   'lib/schedule-suggestion-decide.server.ts':
     'host — the ONE accept path of a supplier’s request (Approve · Approve all · Auto-agree, Step 4b); it writes the block a host approved, never reads one for a guest',
   'app/dashboard/[eventId]/schedule/activity-picks-actions.ts': 'host — activity picks on the Schedule',

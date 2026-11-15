@@ -86,7 +86,7 @@ export function BlockDateAdd({
         <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
           Not available
         </h2>
-        <p className="mt-1 text-[13.5px] text-ink/60">Set once.</p>
+        <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">Set once.</p>
         <form
           ref={form}
           action={action}
@@ -147,7 +147,7 @@ export function BlockDateAdd({
             <SupplierSubmit
               tone="brand"
               main
-              icon={<CalendarX2 aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+              icon={<CalendarX2 aria-hidden className="h-5 w-5" strokeWidth={1.9} />}
               label="Mark not available"
               pendingLabel="Marking…"
               className="w-full"
@@ -213,7 +213,7 @@ export function CalendarSheet({
         <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
           {editing ? pool!.name : 'New schedule'}
         </h2>
-        <p className="mt-1 text-[13.5px] text-ink/60">A schedule holds how many events a day one team can take, for the services on it.</p>
+        <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">A schedule holds how many events a day one team can take, for the services on it.</p>
         <form
           ref={form}
           action={editing ? editAction : createAction}
@@ -239,7 +239,7 @@ export function CalendarSheet({
           <FormRows width="wide">
             <TypedRow name="Name" value={name} required maxLength={80} fieldName="calendar_name" autoCapitalize="words" onKeep={(t) => setName(t)} />
           </FormRows>
-          <div className="flex min-h-[60px] items-center gap-3 border-t border-ink/10">
+          <div className="flex min-h-14 items-center gap-3 border-t border-ink/10">
             <span className="min-w-0 flex-1 text-[15px] font-medium text-ink">How many a day</span>
             <FormCounter name="capacity" value={pool?.capacity ?? 1} min={1} max={ceiling} label="How many a day" data="calendar-sheet" />
           </div>
@@ -247,10 +247,10 @@ export function CalendarSheet({
             <fieldset className="border-t border-ink/10 pt-2">
               <legend className="home-k2 pt-3">Services on it</legend>
               {services.map((s) => (
-                <label key={s.serviceId} className="flex min-h-[52px] items-center gap-3 border-t border-ink/10 first-of-type:border-t-0">
+                <label key={s.serviceId} className="flex min-h-14 items-center gap-3 border-t border-ink/10 first-of-type:border-t-0">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] text-ink">{s.label}</span>
-                    {s.poolId && s.poolId !== pool?.poolId ? <span className="block text-[12.5px] text-ink/55">On another schedule</span> : null}
+                    {s.poolId && s.poolId !== pool?.poolId ? <span className="block text-[13px] text-[color:var(--m-slate-2)]">On another schedule</span> : null}
                   </span>
                   <input type="checkbox" role="switch" name="service_ids" value={s.serviceId} defaultChecked={on.has(s.serviceId)} className="peer sr-only" />
                   <span aria-hidden className={SWITCH_TRACK} />
@@ -258,13 +258,13 @@ export function CalendarSheet({
               ))}
             </fieldset>
           ) : (
-            <p className="mt-3 text-[13.5px] text-ink/60">Add a service first — then it can go on a schedule.</p>
+            <p className="mt-3 text-[13px] text-[color:var(--m-slate-2)]">Add a service first — then it can go on a schedule.</p>
           )}
           <div className="mt-4">
             <SupplierSubmit
               tone="brand"
               main
-              icon={(editing ? <Pencil aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />)}
+              icon={(editing ? <Pencil aria-hidden className="h-5 w-5" strokeWidth={1.9} /> : <Plus aria-hidden className="h-5 w-5" strokeWidth={1.9} />)}
               label={editing ? 'Save schedule' : 'Make the schedule'}
               pendingLabel="Saving…"
               className="w-full"
@@ -323,7 +323,7 @@ export function ShareTeamPick({
   const mark = useRef<HTMLSpanElement>(null);
   const target = useRef<HTMLInputElement>(null);
   return (
-    <StayForm door="supCalendar.reassignCategoryPool" action={moveAction} className="flex min-h-[60px] items-center gap-3 border-t border-ink/10" data-dates-share-team={categoryKey}>
+    <StayForm door="supCalendar.reassignCategoryPool" action={moveAction} className="flex min-h-14 items-center gap-3 border-t border-ink/10" data-dates-share-team={categoryKey}>
       <span ref={mark} hidden />
       <input type="hidden" name="return_to" value="dates" />
       <input type="hidden" name="return_fold" value="capacity" />
@@ -395,7 +395,7 @@ export function HallSheet({
         <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
           {editing ? hall!.name : 'New hall'}
         </h2>
-        <p className="mt-1 text-[13.5px] text-ink/60">Free on every plan. Join halls on a card to sell a bigger one.</p>
+        <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">Free on every plan. Join halls on a card to sell a bigger one.</p>
         <form
           ref={form}
           action={editing ? editAction : createAction}
@@ -431,7 +431,7 @@ export function HallSheet({
             <SupplierSubmit
               tone="brand"
               main
-              icon={editing ? <Pencil aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+              icon={editing ? <Pencil aria-hidden className="h-5 w-5" strokeWidth={1.9} /> : <Plus aria-hidden className="h-5 w-5" strokeWidth={1.9} />}
               label={editing ? 'Save hall' : 'Add the hall'}
               pendingLabel="Saving…"
               className="w-full"

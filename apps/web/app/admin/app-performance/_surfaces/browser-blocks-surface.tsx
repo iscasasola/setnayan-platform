@@ -42,6 +42,9 @@ import { ShieldAlert } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { InfoTip } from '@/app/_components/info-tip';
+import { One } from '../_components/insights-parts';
 
 const ROW_LIMIT = 200;
 
@@ -74,22 +77,18 @@ export async function BrowserBlocksSurface() {
   const total = listed.reduce((n, r) => n + Number(r.hits ?? 0), 0);
   const origins = new Set(listed.map((r) => r.blocked_origin)).size;
 
+  // One column, no frames (approved drawing, insights.html › Browser blocks): the explanation in the opening ⓘ,
+  // the count line above the rows, the allowlist advice in that line's ⓘ.
   return (
-    <section className="sn-col">
-      <header className="flex items-start gap-3">
-        <ShieldAlert aria-hidden className="mt-1 h-5 w-5 text-ink/60" />
-        <div>
-          <h2 className="text-lg font-medium text-ink">Browser blocks</h2>
-          <p className="mt-1 text-sm text-ink/70">
-            What the wide browser-protection policy <em>would</em> have stopped.
-            It is currently watching, not blocking — so nothing here was
-            actually blocked from a visitor. This is the evidence for deciding
-            whether it is safe to switch it on.
-          </p>
-        </div>
-      </header>
+    <section className="max-w-3xl">
+      <PageMasthead title="Browser blocks" className="mb-0" />
+      <One label="Watching, not blocking">
+        What the wide browser-protection policy <em>would</em> have stopped. It is currently watching, not blocking —
+        so nothing here was actually blocked from a visitor. This is the evidence for deciding whether it is safe to
+        switch it on.
+      </One>
 
-      <div className="mt-5">
+      <div className="mt-3">
         <ConsoleTable
           rows={rows}
           readPermitted
@@ -97,18 +96,22 @@ export async function BrowserBlocksSurface() {
           reads="the violation log"
           cap={ROW_LIMIT}
           label="Browser blocks"
-          minWidth="46rem"
+          minWidth="20rem"
           rowKey={(r) => `${r.directive}|${r.blocked_origin}|${r.route_shape}|${r.day}`}
           note={
-            <>
-              <strong>{total.toLocaleString()}</strong>{' '}
-              {total === 1 ? 'report' : 'reports'} across{' '}
-              <strong>{origins}</strong> {origins === 1 ? 'source' : 'sources'},
-              busiest first. A source that appears here repeatedly and is one of
-              ours belongs in the allowlist before the policy is tightened.
-              Since 13 October 2026 a block is counted at most once per server
-              every ten minutes, so the numbers say how often, not how many.
-            </>
+            <span className="inline-flex flex-wrap items-center gap-1">
+              <span>
+                <strong>{total.toLocaleString()}</strong>{' '}
+                {total === 1 ? 'report' : 'reports'} across{' '}
+                <strong>{origins}</strong> {origins === 1 ? 'source' : 'sources'},
+                busiest first
+              </span>
+              <InfoTip label="· ours belongs in the allowlist" align="start">
+                A source that appears here repeatedly and is one of ours belongs in the allowlist before the policy is
+                tightened. Since 13 October 2026 a block is counted at most once per server every ten minutes, so the
+                numbers say how often, not how many.
+              </InfoTip>
+            </span>
           }
           empty={{
             Icon: ShieldAlert,

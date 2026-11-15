@@ -115,7 +115,7 @@ export async function applySuggestedCoverage(
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard/services');
   if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
 
   return { ok: true, addedLabels: confirmed.map((c) => c.label) };
 }

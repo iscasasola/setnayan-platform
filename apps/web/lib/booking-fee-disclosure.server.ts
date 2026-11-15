@@ -1,4 +1,5 @@
 import 'server-only';
+import { quoteSetnayanGift } from '@/lib/setnayan-gift.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -24,12 +25,14 @@ import {
   type WaivedFeeCharge,
   WAIVED_FEE_RECEIPT_STATUSES,
   waivedFeeReasonOf,
+  withGiftOnTheBill,
 } from '@/lib/booking-fee-disclosure';
-import type { BookingFeeSchedule } from '@/lib/booking-fee';
+import { bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { isBookingFeeFreeWindowActive } from '@/lib/booking-fee-free-window';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
 import { launchOfferIsOpen } from '@/lib/launch-offer';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { TOP_UP_CHARGE_KIND } from '@/lib/booking-fee-top-up';
 
 /**
  * The DB half of the booking-fee disclosure — resolves WHERE A SUPPLIER STANDS
@@ -339,7 +342,34 @@ export async function forecastForBooking(
       vendorProfileId: args.vendorProfileId,
       eventId,
     });
-    return bookingFeeForecast(standing, totalPhp);
+    const forecast = bookingFeeForecast(standing, totalPhp);
+    /*
+      💳 RW-43 (walk 13 Nov 2026): THE GIFT, BEFORE THE YES. A Setnayan gift on the accepted quote rides on the SAME bill
+      (`collectBookingFeeAtLock`: fee + gift), and the supplier used to meet it only after pressing Agree. Priced by the
+      very function the quote screen uses (`quoteSetnayanGift`, the accepted quote's own switch), and said only where a
+      fee is actually billed — never on a free, promo or badge-reward booking, whose bill this sentence would misstate.
+    */
+    const total = Number(totalPhp);
+    if (
+      forecast &&
+      standing.kind === 'billable' &&
+      !standing.badgeReward &&
+      eventId &&
+      args.vendorProfileId &&
+      Number.isFinite(total) &&
+      total > 0
+    ) {
+      const gift = await quoteSetnayanGift(admin, {
+        eventId,
+        vendorProfileId: args.vendorProfileId,
+        amountCentavos: Math.round(total * 100),
+        quoteSwitch: null,
+      });
+      if (gift && !gift.freeWithBadge && gift.chargeCentavos > 0) {
+        return withGiftOnTheBill(forecast, Math.round(bookingFeePhp(total, standing.schedule) * 100), gift.chargeCentavos);
+      }
+    }
+    return forecast;
   } catch {
     return bookingFeeForecast({ kind: 'unreadable' }, null);
   }
@@ -618,10 +648,11 @@ export async function fetchDueFeeBills(
     .filter((id): id is string => !!id);
   const dueByCharge = new Map<string, string | null>();
   const introducedByCharge = new Map<string, string | null>();
+  const topUpCharges = new Set<string>();
   if (chargeIds.length > 0) {
     const { data, error } = await admin
       .from('booking_fee_charges')
-      .select('charge_id,expires_at,vendor_profile_id,event_id')
+      .select('charge_id,expires_at,vendor_profile_id,event_id,kind')
       .in('charge_id', chargeIds);
     if (error) logQueryError('booking-fee-disclosure: charge expiry', error);
     const charges = (data ?? []) as Array<{
@@ -629,9 +660,12 @@ export async function fetchDueFeeBills(
       expires_at: string | null;
       vendor_profile_id: string | null;
       event_id: string | null;
+      kind?: string | null;
     }>;
     for (const c of charges) {
       dueByCharge.set(c.charge_id, c.expires_at ? c.expires_at.slice(0, 10) : null);
+      // 💸 A TOP-UP (owner 2026-11-12): the fee grew with a booked quote — due on the event day, held before it.
+      if (c.kind === TOP_UP_CHARGE_KIND) topUpCharges.add(c.charge_id);
     }
     // WHY A BOOKING THE COUPLE TYPED IN IS BILLABLE (owner 2026-10-12, answer
     // 11): the day Setnayan first showed them this shop. One small read per due
@@ -677,6 +711,8 @@ export async function fetchDueFeeBills(
       coupleName: o.event_id ? (nameByEvent.get(o.event_id) ?? null) : null,
       dueOn: chargeId ? (dueByCharge.get(chargeId) ?? null) : null,
       introducedOn: chargeId ? (introducedByCharge.get(chargeId) ?? null) : null,
+      topUp: chargeId ? topUpCharges.has(chargeId) : false,
+      referenceCode: o.reference_code ?? null,
     };
   });
 }

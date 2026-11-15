@@ -50,6 +50,8 @@ import {
   withBrandVersion,
 } from '@/lib/brand-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
+import { getAppColours } from '@/lib/app-colours.server';
+import { appColoursToCss } from '@/lib/app-colours';
 import { scheduleBookingFeeMintingStamp } from '@/lib/booking-fee-minting-stamp.server';
 import { orgSameAs } from '@/lib/seo/org-same-as';
 import { envFlagEnabled } from '@/lib/env-flag';
@@ -513,7 +515,7 @@ const organizationJsonLd = {
   // companies. ⚠ No event-type COUNT and "event", not "celebration" (a wake is a
   // live type) — the same two rules page.tsx records.
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged Memories and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and Event Hub Pro (its Logo & QR part animates your own logo) — each priced individually in PHP. Everything a host creates gathers into one living memory (Memories) they keep, and each event becomes its own recurring anniversary. 0% commission on supplier bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged Memories and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and Event Pro (its Logo & QR part animates your own logo) — each priced individually in PHP. Everything a host creates gathers into one living memory (Memories) they keep, and each event becomes its own recurring anniversary. 0% commission on supplier bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {
@@ -615,11 +617,15 @@ export default async function RootLayout({
   //     SiteChrome overlays public.site-nav.* labels; fails open to code defaults).
   //   • loader appearance (owner 2026-07-05; variant/veil/cadence/pop, threaded
   //     to every <SDLoader> via LoaderConfigProvider; DEFAULT on any DB error).
-  const [brandSettings, navSlots, loaderConfig] = await Promise.all([
+  //   • the app's colours by job (Admin › Colours, owner 2026-11-12) — remembered under the platform-settings tag,
+  //     DEFAULT (today's colours) on any refusal. '' when nothing is saved → no <style> at all.
+  const [brandSettings, navSlots, loaderConfig, appColours] = await Promise.all([
     getBrandSettings(),
     getNavSlotMap(),
     getLoaderSettings(),
+    getAppColours(),
   ]);
+  const appColoursCss = appColoursToCss(appColours);
   const brandMarkUrl = resolveBrandMarkUrl(brandSettings);
 
   return (
@@ -690,8 +696,15 @@ export default async function RootLayout({
             <link rel="dns-prefetch" href={r2Origin} />
           </>
         ) : null}
+        {/*
+          🎨 THE APP'S COLOURS BY JOB — Admin › Colours (owner 2026-11-12). Only when a saved set differs from the code
+          defaults; nothing at all otherwise. `html:not(.dark)` out-ranks the stylesheet's `:root` whatever the order
+          of the two in <head>, leaves dark mode untouched, and the guest Event Hub (`.sn-editorial`) is handed back
+          today's values inside the same tag. Built from parsed hexes only (`appColoursToCss`), never raw input.
+        */}
+        {appColoursCss ? <style id="sn-app-colours" dangerouslySetInnerHTML={{ __html: appColoursCss }} /> : null}
       </head>
-      <body className="min-h-dvh bg-cream font-sans text-ink antialiased">
+      <body className="min-h-dvh bg-page font-sans text-ink antialiased">
         {/*
           App cold-start ("initialization") splash — the animated brand mark on
           Warm Alabaster, shown only when the head gate set data-sn-boot (first
@@ -755,6 +768,15 @@ export default async function RootLayout({
           visitors make no request and see nothing. (Perf sweep 2026-07-02.)
         */}
         <DemoModeBanner />
+        {/* 🔑 A TAB OLDER THAN THE SITE SHOULD SAY SO — at the very TOP (a live notice, one notice system 2026-11-14). We deploy every 15–25
+            minutes and a page left open can break in a way that throws NOTHING
+            — no exception, so no error boundary and no stale-bundle reload,
+            just a blank screen that reads as an outage (it did, to the owner,
+            on 2026-09-20). Mounted at the ROOT so it covers a couple's
+            dashboard, a supplier's workspace AND a guest on an invitation; it
+            renders null unless two different real build versions are known.
+            See lib/build-version.ts. */}
+        <StaleTabNotice />
         {/* SiteChrome = the ONE persistent marketing top nav, mounted once
             here so it survives page navigations (the body swaps, the nav
             stays). It self-gates to public marketing routes and renders null
@@ -798,15 +820,6 @@ export default async function RootLayout({
             only — sign-in, security, a guest's pass, the person's own Appearance
             choice — so there is nothing optional to ask about. The guard is
             app/_components/essential-cookies-only.test.ts. */}
-        {/* 🔑 A TAB OLDER THAN THE SITE SHOULD SAY SO. We deploy every 15–25
-            minutes and a page left open can break in a way that throws NOTHING
-            — no exception, so no error boundary and no stale-bundle reload,
-            just a blank screen that reads as an outage (it did, to the owner,
-            on 2026-09-20). Mounted at the ROOT so it covers a couple's
-            dashboard, a supplier's workspace AND a guest on an invitation; it
-            renders null unless two different real build versions are known.
-            See lib/build-version.ts. */}
-        <StaleTabNotice />
         {/*
           V2 Cutover Phase G — offline daemon mount (IndexedDB + SW for
           7 media services). Default OFF for pilot per CLAUDE.md

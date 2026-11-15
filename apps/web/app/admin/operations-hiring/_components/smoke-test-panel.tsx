@@ -1,6 +1,14 @@
 'use client';
 
+/**
+ * Prod smoke tests — drawn as the approved drawing's last section of Operations & hiring (insights.html): a section
+ * head whose explanation lives in its ⓘ (T17), two equal-weight 44 px buttons, and the result as plain lines in the
+ * house tones (no boxes around read-only words, T18). The two tests fire exactly as before — no confirm step was
+ * added or removed.
+ */
 import { useState } from 'react';
+
+import { Sec } from '@/app/admin/app-performance/_components/insights-parts';
 
 type SmokeResult =
   | { ok: true; type: string; messageId?: string; recipient?: string; via?: string }
@@ -63,25 +71,26 @@ export function SmokeTestPanel() {
   }
 
   return (
-    <section className="rounded-lg border border-ink/10 bg-cream p-5">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-ink/50">
-          Prod smoke tests
-        </h2>
-        <span className="text-xs text-ink/50">owner-only · run in prod</span>
-      </div>
-      <p className="mt-2 text-sm text-ink/60">
-        Verifies Sentry capture + Resend email delivery against the live deployment.
-        Sentry test triggers a controlled error (expected 500); Resend test sends a
-        test email to <code className="rounded bg-ink/5 px-1 py-0.5">{`OWNER_NOTIFICATION_EMAIL`}</code>.
-      </p>
+    <section aria-labelledby="ops-smoke">
+      <Sec
+        id="ops-smoke"
+        title="Prod smoke tests"
+        about={
+          <>
+            Verifies Sentry capture + Resend email delivery against the live deployment. Sentry test triggers a
+            controlled error (expected 500); Resend test sends a test email to{' '}
+            <code className="rounded bg-ink/5 px-1 py-0.5">{`OWNER_NOTIFICATION_EMAIL`}</code>.
+          </>
+        }
+        right={<span className="text-[12px] text-ink/55">owner-only · run in prod</span>}
+      />
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
           onClick={runResendTest}
           disabled={resendBusy || sentryBusy}
-          className="rounded-full bg-ink px-4 py-1.5 text-sm text-cream disabled:opacity-50"
+          className="min-h-11 rounded-full bg-[var(--sn-info-soft)] px-3 text-[14px] font-semibold text-[var(--sn-info)] disabled:opacity-50"
         >
           {resendBusy ? 'Sending…' : 'Send Resend test email'}
         </button>
@@ -89,22 +98,22 @@ export function SmokeTestPanel() {
           type="button"
           onClick={runSentryTest}
           disabled={sentryBusy || resendBusy}
-          className="rounded-full border border-ink/20 bg-ink/5 px-4 py-1.5 text-sm text-ink/80 hover:bg-ink/10 disabled:opacity-50"
+          className="min-h-11 rounded-full bg-[var(--sn-warning-soft)] px-3 text-[14px] font-semibold text-[var(--sn-warning-deep)] disabled:opacity-50"
         >
           {sentryBusy ? 'Triggering…' : 'Trigger Sentry test error'}
         </button>
       </div>
 
       {lastResult && lastResult.ok && (
-        <div className="mt-3 rounded border border-success-200 bg-success-50 p-3 text-sm text-success-900">
+        <div role="status" className="mt-3 text-[14px] text-[var(--sn-success-deep)]">
           <strong>{lastResult.type} test fired ✓</strong>
           {lastResult.messageId && (
-            <span className="ml-2 text-success-700/80">message_id: <code className="font-mono text-xs">{lastResult.messageId}</code></span>
+            <span className="ml-2 text-ink/65">message_id: <code className="font-mono text-xs">{lastResult.messageId}</code></span>
           )}
           {lastResult.recipient && (
-            <span className="ml-2 text-success-700/80">→ {lastResult.recipient}</span>
+            <span className="ml-2 text-ink/65">→ {lastResult.recipient}</span>
           )}
-          <div className="mt-1 text-xs text-success-700/80">
+          <div className="mt-1 text-[13px] text-ink/65">
             {lastResult.type === 'resend'
               ? 'Check your inbox at the OWNER_NOTIFICATION_EMAIL. If the email does not arrive within 60s, see the troubleshooting steps in the Resend dashboard.'
               : 'Check Sentry dashboard for the captured event. The error subject contains the trace_id you can search by.'}
@@ -113,17 +122,17 @@ export function SmokeTestPanel() {
       )}
 
       {lastResult && !lastResult.ok && (
-        <div className="mt-3 rounded border border-danger-200 bg-danger-50 p-3 text-sm text-danger-900">
+        <div role="alert" className="mt-3 text-[14px] text-[var(--sn-danger)]">
           <strong>{lastResult.type} test FAILED</strong>
-          {lastResult.reason && <div className="mt-1 text-xs">reason: {lastResult.reason}</div>}
-          {lastResult.error && <div className="mt-1 text-xs">error: {lastResult.error}</div>}
+          {lastResult.reason && <div className="mt-1 text-[13px]">reason: {lastResult.reason}</div>}
+          {lastResult.error && <div className="mt-1 text-[13px]">error: {lastResult.error}</div>}
         </div>
       )}
 
       {lastError && (
-        <div className="mt-3 rounded border border-danger-200 bg-danger-50 p-3 text-sm text-danger-900">
+        <p role="alert" className="mt-3 text-[14px] text-[var(--sn-danger)]">
           {lastError}
-        </div>
+        </p>
       )}
     </section>
   );

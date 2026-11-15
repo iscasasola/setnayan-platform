@@ -340,7 +340,7 @@ test('9 · the guest-facing schedule scene reads the rows the rail writes', () =
 });
 
 test('10 · the schedule lab drives the real rail and is dev-only', () => {
-  const lab = readWeb('app/dev/schedule-lab/page.tsx');
+  const lab = readWeb('app/dev/schedule-lab/page.lab.tsx');
   assert.match(lab, /if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/);
   const client = readWeb('app/dev/schedule-lab/schedule-lab-client.tsx');
   assert.match(client, /from '@\/app\/dashboard\/\[eventId\]\/schedule\/_components\/day-rail'/);

@@ -3,7 +3,7 @@
  *
  * `lib/hub-look-given.ts` is `resolveHubTheme` / `resolveHubLook`
  * (`app/[slug]/_lib/hub-look.ts`) with their one read — "does this event own
- * Event Hub Pro?" — lifted out into an argument. Two things are held:
+ * Event Pro?" — lifted out into an argument. Two things are held:
  *
  *   1 · EXECUTED: for every theme the product ships, owned and not, the theme
  *       it answers is the one the gate's own rule (`resolveInviteTheme`) gives,

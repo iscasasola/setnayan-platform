@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { BadgeCheck } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 
 /** The papers fold on Your details — where every "Get verified" lands. */
 export const VERIFY_DOCS_ANCHOR = 'docs';
@@ -45,27 +46,33 @@ export function GetVerifiedLine({
   data?: string;
 }) {
   const router = useRouter();
+  // 🔔 Inventory #8 — a To-do (one notice system, owner approved 14 Nov 2026), drawn where being unverified holds
+  // something back; it leaves for good when the shop is verified. Same words as the verification redesign.
   return (
-    <div className="flex min-h-[60px] items-center gap-3 py-2.5" data-get-verified={data ?? ''} role="group" aria-label={title}>
-      <BadgeCheck aria-hidden className="h-5 w-5 shrink-0 text-sn-accent" strokeWidth={1.75} />
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-medium leading-snug text-ink">{title}</span>
-        <span className="mt-0.5 block text-[13px] leading-snug text-ink/60">{line}</span>
-      </span>
-      <ActionButton
-        tone="brand"
-        main
-        icon={BadgeCheck}
-        label="Get verified"
-        onClick={() => {
-          if (!document.getElementById(VERIFY_DOCS_ANCHOR)) {
-            router.push(VERIFY_DOCS_HREF);
-            return;
-          }
-          const target = `#${VERIFY_DOCS_ANCHOR}`;
-          if (window.location.hash === target) window.dispatchEvent(new HashChangeEvent('hashchange'));
-          else window.location.hash = target;
-        }}
+    <div data-get-verified={data ?? ''} role="group" aria-label={title}>
+      <InlineNotice
+        kind="todo"
+        noticeKey={`get-verified:${data ?? 'line'}`}
+        mark={<BadgeCheck aria-hidden className="h-5 w-5 shrink-0 text-sn-accent" strokeWidth={1.75} />}
+        title={title}
+        detail={line}
+        actions={
+          <ActionButton
+            tone="brand"
+            main
+            icon={BadgeCheck}
+            label="Get verified"
+            onClick={() => {
+              if (!document.getElementById(VERIFY_DOCS_ANCHOR)) {
+                router.push(VERIFY_DOCS_HREF);
+                return;
+              }
+              const target = `#${VERIFY_DOCS_ANCHOR}`;
+              if (window.location.hash === target) window.dispatchEvent(new HashChangeEvent('hashchange'));
+              else window.location.hash = target;
+            }}
+          />
+        }
       />
     </div>
   );

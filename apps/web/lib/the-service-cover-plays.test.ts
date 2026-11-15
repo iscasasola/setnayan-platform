@@ -106,6 +106,8 @@ test('the face plays its photos when it has two or more, and its door can be fou
 test('the photo owns only a swipe that STARTS on it — no fight with a rail, a row, or a long-press', () => {
   // Up/down still scrolls the page from the photo; a sideways drag is the photo's, so a rail it sits in stays still.
   assert.match(SHOW, /touch-pan-y/);
+  // The supplier sheet's next-supplier swipe skips a gesture that starts inside `data-swipe-photo`.
+  assert.match(SHOW, /data-swipe-photo=""/);
   // A row's swipe-to-delete listens to touch events — they stop at the photo.
   assert.match(SHOW, /onTouchStart=\{\(e\) => e\.stopPropagation\(\)\}/);
   assert.match(SHOW, /onTouchMove=\{\(e\) => e\.stopPropagation\(\)\}/);

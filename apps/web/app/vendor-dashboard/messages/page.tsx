@@ -132,7 +132,7 @@ async function readSupplierChats(
     const kind = facts?.eventType && facts.eventType !== 'unspecified' ? eventTypeLabel(facts.eventType) : null;
     // ONE EVENT, ONE CHAT TITLE — the same words the thread head prints. With no facts read, the builder's own honest
     // fallback ("A Setnayan event"), never an invented "(date not set)".
-    const name = facts ? eventChatTitle({ name: facts.displayName, kind, date: facts.eventDate, nowMs }) : r.displayName;
+    const name = facts ? eventChatTitle({ name: facts.displayName, kind, date: facts.eventDate, nowMs, options: facts.dateOptions }) : r.displayName;
     return {
       threadId: r.threadId,
       // ✉️ The picked client, already on its Chat page — drawn over this list (`./@client`).

@@ -257,7 +257,8 @@ test('🔑 Ask goes through the ONE inquiry path; Follow flips here and takes it
 test('the sheet is lazy — not part of the page’s first JavaScript — and both kinds of card open it', () => {
   assert.match(BENCH, /const SupplierSheet = dynamic\(\(\) => import\('\.\/supplier-sheet'\), \{ ssr: false \}\);/);
   assert.doesNotMatch(BENCH, /^import (?!type)[^\n]*from '\.\/supplier-sheet';/m, 'a static import puts the sheet in the first bundle');
-  assert.equal(count(BENCH, /sheetDoor\.open\(\{/g), 2, 'one of the two cards (yours · More to compare) no longer opens the sheet');
+  // Three doors since 2026-11-12: your card · a More-to-compare card · a liked photo's "From <shop> · <card> ›".
+  assert.equal(count(BENCH, /sheetDoor\.open\(\{/g), 3, 'one of the three doors (yours · More to compare · a liked photo) no longer opens the sheet');
   assert.match(BENCH, /<SheetDoorCtx\.Provider value=\{replan \? sheetDoor : null\}>/, 'the sheet opens off the one-screen page');
   assert.match(BENCH, /nameWithheld: row\.nameAnonymized,/);
 });

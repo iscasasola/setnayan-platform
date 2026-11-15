@@ -162,7 +162,7 @@ export function IapPapicSheet({
         )}
         {screen?.kind === 'on' || screen?.kind === 'pending' ? null : (
           <p className="mb-3.5 text-sm text-ink/60">
-            {left !== null ? `You have ${left.toLocaleString('en-PH')} credits` : 'Credits land once Apple confirms.'}
+            {left !== null ? `You have ${left.toLocaleString('en-PH')} ${left === 1 ? 'credit' : 'credits'}` : 'Credits land once Apple confirms.'}
           </p>
         )}
         {body}

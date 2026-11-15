@@ -128,7 +128,7 @@ test('the dropdown lists every mode, and every mode key is a shipped tab', () =>
   // `suppliers-shell.test.ts` executes that every bus key opens a body and each
   // body owns one key; here, that the dropdown offers each body (Booked is just the team since 2026-11-02).
   const shell = shellBody();
-  assert.match(shell, /\{ key: 'find', label: SUPPLIERS_MODE_LABEL\.find \}/);
+  assert.match(shell, /\{ key: 'find', label: SUPPLIERS_MODE_LABEL\.find,/);
   assert.match(shell, /\{ key: 'build', label: SUPPLIERS_MODE_LABEL\.build,/);
   assert.match(shell, /\{ key: 'booked', label: SUPPLIERS_MODE_LABEL\.booked,/);
   assert.match(code(SHELL_RULES), /find: 'shortlist',\s*build: 'build',\s*booked: 'budget',/);

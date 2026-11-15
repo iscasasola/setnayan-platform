@@ -72,6 +72,14 @@ const HomeOverlays = dynamic(
   CSS rule rather than a Tailwind string). `doorway-shell.test.ts` is the
   replacement that actually watches this.
 */
+/*
+  2026-11-12 — EMPTY ON PURPOSE (owner: "these are on old shells"). Its last
+  members — /blog, /download, /creators, /our-story, /monogram, /tl/about and
+  /waitlist — moved into app/(shell)/ and wear the front-door bar + rail. The
+  glass nav therefore renders on no route; the set and isNavRoute stay so
+  FOOTER_ONLY_PREFIXES (/blog/<article>, /help/<article>, /tour) keep the
+  reskin footer, and so a route added back here is an explicit decision.
+*/
 const NAV_ROUTES = new Set<string>([
   // NOTE: '/' is intentionally OMITTED. The homepage (ELN reskin · 2026-06-29)
   // renders its OWN nav instance (HomeReskin), which carries the cinematic
@@ -84,17 +92,17 @@ const NAV_ROUTES = new Set<string>([
      app/(shell)/for-suppliers/for-suppliers-wears-the-shell.test.ts. */
   // /creators — the public storyteller marketing page (2026-07-16); joins the
   // marketing shell alongside its /vendors sibling.
-  '/creators',
-  '/our-story',
-  '/blog',
+  /* 2026-11-12 — /blog and /download LEFT THIS SET (owner: "these are on old
+     shells"). Both page.tsx files now live in app/(shell)/ and wear the
+     front-door bar + rail; listing them here would draw this glass nav ON TOP
+     of that bar. Held by app/(shell)/old-shell-pages-wear-the-shell.test.ts.
+     /blog/[slug] still matches FOOTER_ONLY_PREFIXES below — untouched. */
   /* 2026-10-19 — /features and /tl/features LEFT THIS SET (sweep row C5).
      They wore this glass nav while every /features/<slug> page beneath them
      wore the front-door bar, so a press from the hub into a feature swapped
      the whole header. Both now live in app/(shell)/ beside their children and
      inherit the one shared shell; `features-wear-one-bar.test.ts` holds it. */
-  '/monogram',
   // "Pa-" feature landing pages (owner-approved 2026-06-27; Pa- naming LOCKED).
-  '/tl/about',
   // Added 2026-07-03 with the reskin chrome: the legal + support + download +
   // waitlist pages the homepage footer links to previously wore the legacy
   // SiteHeader, a page-local footer, or no chrome at all — they join the one
@@ -106,8 +114,6 @@ const NAV_ROUTES = new Set<string>([
   // URL. /explore, /help and /alaala left the same way on the same day. A
   // comment describing a member that is gone is how a reader concludes the set
   // is bigger than it is.
-  '/download',
-  '/waitlist',
 ]);
 
 // FOOTER-ONLY surfaces — the article/reading DETAIL pages (`/blog/[slug]`,

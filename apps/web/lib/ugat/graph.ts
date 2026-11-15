@@ -23,7 +23,7 @@ import type { UgatSchemaClaim } from './schema-claims';
  * The nine type nodes and their bindings mirror the schema confirmed live on
  * setnayan-prod (2026-07-04): users · events · guests · vendor_profiles ·
  * vendor_services · orders · chat_threads · billing (vendor_subscriptions +
- * token wallets) · the taxonomy tree (service_categories +
+ * token balances) · the taxonomy tree (service_categories +
  * canonical_service_taxonomy + canonical_service_schemas + onboarding_refinements).
  */
 
@@ -258,7 +258,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
     id: 'TYPE-BILLING',
     type: 'billing',
     name: 'Billing',
-    blurb: 'vendor subscriptions (org) · token wallets dormant',
+    blurb: 'supplier subscriptions (org) · token balances dormant',
     countKey: 'billing',
     icon: 'wallet',
     color: 'var(--ug-e-billing)',
@@ -1458,7 +1458,7 @@ export const UGAT_FINDINGS: UgatFinding[] = [
       'origin/main@39f1ce0c3 · still denormalized with no re-sync trigger, but lib/sku-activation.ts:1280-1293 stamps tier_expires_at and migration 20270720243717_custom_plan_lapse_sweep.sql added sweep_vendor_tier_expiry',
     signalKey: 'tier-lapsed-badges',
     trace: [
-      ['Surface', 'Vendor profile badge (Solo/Pro/Ultra pill)'],
+      ['Surface', 'Vendor profile badge (Supplier Plus/Pro/Ultra pill)'],
       ['Still true', 'tier_state remains denormalized on vendor_profiles; NO database trigger re-syncs it'],
       ['New since 07-05', 'Pay-activation stamps tier_expires_at = now+28d; a login-driven sweep fires from vendor-dashboard/layout.tsx:238 (write guard 20270920020000)'],
       ['The residual', 'Public readers are BUILT to pair the columns (v/[slug]/page.tsx:253-259,1516-1520 · vendorHoldsActivePaidSub · enterprise-vendor-gate.ts:32) — but any NEW reader of tier_state alone regresses silently. A convention cannot be enforced by review alone.'],
@@ -2328,6 +2328,14 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'shop_gift_stock_entries', column: 'proposal_id', references: 'vendor_proposals' },
       { kind: 'fk', table: 'shop_gift_stock_entries', column: 'pool_grant_id', references: 'papic_event_point_grants' },
       { kind: 'column', table: 'shop_gift_stock_entries', column: 'delta' },
+      // 🎁 THE GIFT MOMENT'S CLAIM (owner 2026-11-14: "once the redeem is pressed they already claimed it … redeem
+      // cannot duplicate"): one row per claimed gift, UNIQUE (source, ref_id) — a supplier gift keyed to the accepted
+      // quote whose 'given' stock rows reached the event, a badge reward to its shop_badge_rewards row. Grants nothing
+      // (the gift already landed); written only by gift_moment_claim.
+      { kind: 'table', table: 'gift_moment_claims' },
+      { kind: 'fk', table: 'gift_moment_claims', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'gift_moment_claims', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'check', table: 'gift_moment_claims', name: 'gift_moment_claims_source_allowed', mentions: 'source' },
       {
         kind: 'check',
         table: 'shop_gift_stock_entries',
@@ -4243,6 +4251,94 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'guard_event_supplier_file (a thread with the event · a service of THIS event’s sent/seen/accepted quote · the shop’s own card and copy · taken_at copied from the copy · counts recomputed every write) · guard_supplier_media_own_folder · column grants (the supplier never writes counts/taken_at/couple_decision) · tests/db/a-supplier-files-an-event-under-its-quoted-services.db.test.ts',
     traps:
       'A portfolio photo shared into a client’s chat or Files is a MAPPING (grp linked, portfolio_ref) — never a supplier_media row and never counted. The listing rule is a VIEW, not a stored flag: a moved event date or a couple’s Hide applies at once. Photos on a portfolio from before this piece have no hash, so a re-upload of one is only caught once it is put on the portfolio through a hashed path (in_portfolio).',
+  },
+  {
+    /**
+     * 🏷 THE OFFER CARD (Quote + negotiation · Piece 1 · PR-4, owner 2026-11-12). A supplier drops one of their own
+     * Offer Maker offers into the conversation with a Good-until day; the couple taps Apply and the PROPOSAL gets a
+     * new version carrying the offer as its own named line. The chat row is the marker (the offered_service_id
+     * precedent); "applied" is never a column — it is a later version whose line_items[].offer_id names the offer.
+     */
+    id: 'J70',
+    claims: [
+      { kind: 'fk', table: 'chat_messages', column: 'vendor_offer_id', references: 'vendor_offers' },
+      { kind: 'column', table: 'chat_messages', column: 'offer_good_until' },
+      { kind: 'fk', table: 'vendor_offers', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      // Applied is derived from the version's lines, never stored on the message or the quote.
+      { kind: 'no_column', table: 'chat_messages', column: 'offer_applied_at' },
+      { kind: 'no_column', table: 'vendor_proposals', column: 'applied_offer_id' },
+    ],
+    chain: 1,
+    pair: ['TYPE-THREADS', 'TYPE-PROPOSAL'],
+    title: 'Thread → Proposal (an offer dropped in the chat, applied as the quote’s next version)',
+    joint: 'chat_messages.vendor_offer_id',
+    cardinality:
+      'A message names at most one offer (nullable BIGINT → vendor_offers.id, ON DELETE SET NULL) · one apply per offer per quote: the next version carries exactly one line with that offer_id, and an offer never stacks with another on the same quote',
+    implementedBy:
+      'chat_messages.vendor_offer_id + offer_good_until (migration 20271339379038) · apply_dropped_offer() writes vendor_proposals (a new row with the predecessor’s status) and supersedes the predecessor · lib/offer-drop.ts derives open / applied / expired / ended',
+    writtenBy:
+      'the drop: the supplier’s own insert (app/_components/chat/cards/offer-calls.ts · dropOfferIntoChat) · the apply: app/_actions/offer-card-actions.ts applyDroppedOffer → apply_dropped_offer (service role only), priced by offersForQuote',
+    guardedBy:
+      'trigger chat_messages_offer_is_this_suppliers (CARD_NOT_THIS_CONVERSATION · OFFER_NOT_YOURS · OFFER_NEEDS_GOOD_UNTIL · words-only private lines) · apply_dropped_offer refusals (OFFER_DROP_EXPIRED · OFFER_ENDED · NOT_THE_COUPLE · NO_LIVE_QUOTE · QUOTE_EXPIRED · DEAL_LOCKED · ALREADY_APPLIED · NOT_BETTER · BAD_VERSION · PAID_ROW_CHANGED) · tests/db/a-dropped-offer-is-a-card-the-couple-applies.db.test.ts · lib/offer-drop.test.ts',
+    traps:
+      'vendor_offers keys on id BIGSERIAL (its public_id is the S89D- text the line_items carry), so the marker is BIGINT, not UUID. A couple reads only a switched-on offer of a published shop: an ended offer is unreadable to them, so the card reads "ended" from a set marker it cannot follow — never "removed". The apply writes the SAME status the predecessor had (sent stays sent, accepted stays accepted) and supersedes directly — supersede_prior_vendor_proposals is the supplier’s door and would reset an acceptance.',
+  },
+  {
+    /**
+     * 💎 THE EVENT PLAN — Event Plus · Event Pro · Event Ultra (Ultra: owner 2026-11-13, "EVENT ULTRA APPROVED — BUILD
+     * IT"). One order per plan; what it unlocks is read off that order, never minted as rows per part.
+     */
+    id: 'J71',
+    claims: [
+      { kind: 'column', table: 'platform_retail_catalog_v2', column: 'included_papic_credits' },
+      { kind: 'column', table: 'platform_retail_catalog_v2', column: 'fullres_extra_keep_days' },
+      { kind: 'check', table: 'platform_retail_catalog_v2', name: 'platform_retail_catalog_v2_fullres_extra_keep_days_nonneg', mentions: 'fullres_extra_keep_days' },
+      { kind: 'column', table: 'papic_event_point_grants', column: 'source' },
+      { kind: 'column', table: 'orders', column: 'service_key' },
+    ],
+    chain: 1,
+    pair: ['TYPE-EVENTS', 'TYPE-ORDERS'],
+    title: 'Event → Order (the plan: Event Plus · Event Pro · Event Ultra)',
+    joint: 'orders.service_key',
+    cardinality:
+      'One plan order per event (EVENT_PLUS · COUPLE_WEBSITE_PRO · EVENT_ULTRA); each refused once owned (order-charge-authority, iap-actions). A higher plan includes the lower one.',
+    implementedBy:
+      'platform_retail_catalog_v2 rows (price · included_papic_credits · fullres_extra_keep_days, admin-managed) · lib/sku-activation.ts activateEventPlan (Setnayan AI + credits topped up to the row) · lib/entitlements.ts SKU_OWNERSHIP_ALIASES (an EVENT_ULTRA order confers COUPLE_WEBSITE_PRO, LIVE_STUDIO, PATIKTOK_COMPILER and the Pro alias lists) · papic_events_past_fullres_clock (adds the largest fullres_extra_keep_days of any paid/fulfilled order) · lib/event-ultra-gates.ts (canvas prints)',
+    writtenBy:
+      'the couple checkout and the App Store purchase (`com.setnayan.app.event_plus` · `event_pro` · `event_ultra`) → admin approval runs the activation hook; migration 20271344860040 adds the Ultra row',
+    guardedBy:
+      'lib/event-ultra.test.ts · tests/db/event-ultra-keeps-originals-12-months.db.test.ts · app/_components/frontdoor/the-plan-prices-come-from-the-list.test.ts · lib/iap/products.test.ts',
+    traps:
+      'Aliases are NOT transitive: a list that confers something with COUPLE_WEBSITE_PRO must name EVENT_ULTRA too (event-ultra.test.ts holds it). The extra hold reads only APPROVED orders — a pending Ultra keeps nothing longer. Canvas prints are in Ultra but no surface sells them until the Our Day poster ships; a Pro bought before CANVAS_LEFT_PRO_AT keeps canvas.',
+  },
+  {
+    /**
+     * 🏷 A FILES PHOTO TAGGED TO INSPIRATIONS (migration 20271345380761 · DECISION_LOG 2026-11-14). The tag IS the shipped
+     * inspiration record (moodboard_library_assets, supplier_gallery, the part in asset_subtype) made from a Files photo:
+     * one new pointer back to that photo, one row per (photo, part). The slot stays in asset_subtype — J45's no_column
+     * on slot_key still holds.
+     */
+    id: 'J72',
+    claims: [
+      { kind: 'fk', table: 'moodboard_library_assets', column: 'event_file_id', references: 'event_supplier_files' },
+      { kind: 'unique', table: 'moodboard_library_assets', columns: ['asset_subtype', 'event_file_id'] },
+      { kind: 'no_column', table: 'moodboard_library_assets', column: 'slot_key' },
+      { kind: 'no_column', table: 'moodboard_library_assets', column: 'event_file_slot_key' },
+    ],
+    chain: 7,
+    pair: ['TYPE-GALLERY', 'TYPE-EVENTS'],
+    title: 'Files photo → its inspirations (one row per photo × part, shown only while the shop shows the photo)',
+    joint: 'moodboard_library_assets.event_file_id',
+    cardinality:
+      'A Files photo (event_supplier_files, grp service, kind photo) has 0..n inspiration rows, at most one per part (UNIQUE event_file_id × asset_subtype); every other library row has NULL',
+    implementedBy:
+      'moodboard_library_assets.event_file_id → event_supplier_files ON DELETE SET NULL · trigger inspiration_tag_follows_its_files_photo (copies source_event_id + vendor_service_id from the photo; a part its card offers in inspiration_part_services; photos only) · public read policy + inspiration_photo_is_on_the_shop (the view event_supplier_photos_listed) · retire_tags_of_a_files_photo · inspiration_tag_event_lines (type · venue · month, also-in)',
+    writtenBy:
+      'importEditorialMediaToGallery’s Files arm (app/vendor-dashboard/moodboard-library/actions.ts → storeScreenedAsset: screen · watermark · store · scan, approved_at NULL) from the Files board (event-files-board.tsx); untag through eventFilesAction op untag (app/_actions/event-files-actions.ts)',
+    guardedBy:
+      'tests/db/a-tagged-files-photo-shows-in-inspiration-only-when-the-shop-does.db.test.ts (card parts · nothing before the shop shows it · one per photo × part · no public read of source_event_id/event_file_id · removed → retired) · column grants (event_file_id: service role only)',
+    traps:
+      'Never DELETE a tag that was ever approved — event_inspiration_assets.library_asset_id CASCADES, so a delete takes the tile off every saved board; untag RETIRES. The shop page reads on the service role, which skips the policy, so it filters by the listing view itself (lib/inspiration-tags.server.ts). The gate is LIVE: a Hide or a moved date takes the tag off at once — never copy “shown” into a column.',
   },
 ];
 

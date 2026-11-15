@@ -20,17 +20,7 @@ import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { logoSwitchedOff, resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 
-/** Reusable SELECT column list for any page that resolves the hero monogram. */
-export const HERO_MONOGRAM_COLUMNS =
-  /* ⛔ `role_palette` DELIBERATELY NOT HERE. Adding it made `lint:dup-rule`
-   * fail on 14 hand-typed selects across 8 files: every narrow read that
-   * reproduces part of this list was suddenly "dropping a canonical column".
-   * Those reads are deliberate and pre-existing — lengthening the canonical
-   * list is what broke them, not the reads themselves. And role_palette is a
-   * PALETTE column, not a monogram one; it does not belong in the monogram's
-   * canonical list just because one feature wants it.
-   * The ink is passed instead — see the `ink` option on resolveEventMonogram. */
-  'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, monogram_motion_key, monogram_studio_config';
+export { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-columns';
 
 /** The reveal a BESPOKE mark plays when the couple hasn't tuned the studio panel
  *  (the engine's own defaults: a 6s handwriting draw-on). */

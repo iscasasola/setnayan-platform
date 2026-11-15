@@ -520,7 +520,7 @@ export type HubDraftBarData = {
   storeShell: boolean;
   /** `formatPhp` over the live catalogue row, or null (unreadable, or the shell). */
   priceLabel: string | null;
-  /** The one Event Hub Pro buy surface — Apple's page where Apple sells it, else null in the shell. */
+  /** The one Event Pro buy surface — Apple's page where Apple sells it, else null in the shell. */
   proHref: string | null;
   /**
    * 🍎 The store shell may sell Pro through Apple here (lib/iap/iap-gate.ts —
@@ -545,7 +545,7 @@ export type HubDraftBarData = {
    */
   ownsPro: boolean;
   /**
-   * 💎 What the event holds of Event Hub Pro, AS SHOWN (owner 2026-10-22, part by
+   * 💎 What the event holds of Event Pro, AS SHOWN (owner 2026-10-22, part by
    * part) — Full Pro, the parts one by one, and what it has paid toward
    * everything. Serializable for the client; the Apply re-reads it server-side.
    */

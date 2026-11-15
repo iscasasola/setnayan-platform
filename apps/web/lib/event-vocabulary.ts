@@ -65,6 +65,9 @@ export const EVENT_TYPE_BADGE: Record<string, string> = {
   // Same as the fallback would print — listed so `tournament` can carry its
   // search words below (every TERMS key must have a BADGE, and vice versa).
   tournament: 'TOURNAMENT',
+  // 🏷 F-W3-30 (walk 13 Nov): the admin roster names `simple_event` "Get-together"; without a badge the fallback
+  // printed the raw key — "SIMPLE EVENT" on a Group's event card.
+  simple_event: 'GET-TOGETHER',
 };
 
 export function eventTypeBadge(type: string): string {
@@ -99,6 +102,7 @@ export const EVENT_TYPE_TERMS: Record<string, ReadonlyArray<string>> = {
   // "DISCOVER — UNPARKED": "Competition (as Tournament)") — a search word, not
   // a new type.
   tournament: ['tournament', 'competition', 'contest'],
+  simple_event: ['get-together', 'simple_event', 'get together', 'simple event', 'gathering'],
 };
 
 /** The month and year an event sits in, as words somebody would type. */

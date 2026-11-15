@@ -22,7 +22,7 @@ const WIZARD = read('app/open-shop/_components/open-shop-wizard.tsx');
 const ACTIONS = read('app/open-shop/actions.ts');
 const PAGE = read('app/open-shop/page.tsx');
 const ACCOUNT = read('lib/open-shop-account.server.ts');
-const PICKER = read('app/open-shop/_components/service-picker.tsx');
+const PICKER = read('app/_components/service-picker.tsx');
 const CITY_PIN = read('app/open-shop/_components/city-pin.tsx');
 const TAKEN = read('app/open-shop/_components/taken-sign-in.tsx');
 const LOGO_SCREEN = read('app/open-shop/logo/_components/add-your-logo.tsx');
@@ -145,7 +145,9 @@ test('A4 · the picker calls the SHARED ranker with reviewed aliases — no priv
   assert.match(PICKER, /aliases: l\.aliases/);
   assert.doesNotMatch(PICKER, /\.startsWith\(q\)|\.includes\(q\)/, 'the private search is back');
   assert.match(PICKER, /Close matches/);
-  assert.match(PAGE, /reviewedAliasesByLiveTrade\(/);
+  // The page reads the tree through the ONE loader every Add-a-service door shares (ruling 5820) — the aliases ride there.
+  assert.match(PAGE, /await getServicePickerTree\(\)/);
+  assert.match(read('lib/service-picker-tree.server.ts'), /reviewedAliasesByLiveTrade\(/);
   // Never auto-picked: a close match is a row the vendor taps, like any hit.
   assert.doesNotMatch(PICKER, /onPick\(close\[0\]/);
 });
@@ -159,7 +161,7 @@ test('A5 · the hint, with the categories per plan read from TIER_CAPS', () => {
   assert.match(PAGE, /planCategories=\{categoryLadder\(\)\}/);
   const ladder = categoryLadder();
   assert.ok(ladder.length >= 3);
-  const solo = ladder.find((l) => l.plan.includes('Solo'))!;
+  const solo = ladder.find((l) => l.plan.includes('Supplier Plus'))!;
   assert.equal(solo.categories, `${TIER_CAPS.solo.parentCategories} categories`, 'the number is not TIER_CAPS’');
   assert.ok(!ladder.some((l) => /Custom/.test(l.plan)), 'Custom is retired from the app (2026-11-06)');
 });
@@ -214,8 +216,8 @@ test('A10 · one line, the numbers inside the ⓘ, still before "Open my shop"',
   const at = WIZARD.indexOf('data-testid="open-shop-fee-disclosure"');
   assert.ok(at > 0);
   const line = WIZARD.slice(at, WIZARD.indexOf('</p>', WIZARD.indexOf('</InfoTip>', at)));
-  // The sentence IS the ⓘ's label (2026-11-06, the prototype: "…through Setnayan ⓘ", no full stop before the ⓘ).
-  assert.match(line, /label="Free to open, free to run\. You pay only when a couple books you through Setnayan"/);
+  // The sentence IS the ⓘ's label (2026-11-06). Walk 13 Nov (F-W1-12): it ends with a full stop like every other line.
+  assert.match(line, /label="Free to open, free to run\. You pay only when a couple books you through Setnayan\."/);
   assert.match(line, /<InfoTip[\s\S]*\{feeNotice\.detail\}/, 'the numbers left the ⓘ');
   assert.ok(at < WIZARD.indexOf('Open my shop — free'), 'the fee line moved below the button');
 });

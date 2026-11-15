@@ -50,7 +50,13 @@ import {
   OPEN_SHOP_ERRORS,
   OPEN_SHOP_LOGO_REQUIRED,
 } from '@/lib/open-shop-validation';
-import { decideOpenShopAccount, OPEN_SHOP_ACCOUNT_ERRORS } from '@/lib/open-shop-account';
+import {
+  accountEmailAtSubmit,
+  decideOpenShopAccount,
+  OPEN_SHOP_ACCOUNT_ERRORS,
+  PREFILLED_ACCOUNT_EMAIL_FIELD,
+  shopOwnerNameOf,
+} from '@/lib/open-shop-account';
 import { createVendorAccountForShop } from '@/lib/open-shop-account.server';
 import { captchaTokenFromForm } from '@/lib/turnstile';
 import { OPEN_SHOP_LOGO_PATH } from '@/lib/open-shop-logo';
@@ -180,7 +186,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // shown everywhere else.
   const typedName = titleCasePersonName(clean(formData.get('contact_name')) ?? '') || null;
   //
-  // ── THE VENDOR'S NAME IS THEIR ACCOUNT NAME (owner-locked 2026-08-10) ──────
+  // ── 🪪 THE TYPED NAME WINS (owner 13 Nov 2026 — supersedes the 2026-08-10 lock below) ──
+  // "When the name a supplier typed on About you differs from the name on the account they open the shop with,
+  // keep the typed name, and never let the account name overwrite it." `shopOwnerNameOf` decides it; the account
+  // name is read only as the fallback when nothing was typed. The history of the old lock is kept below.
+  //
+  // ── (SUPERSEDED) THE VENDOR'S NAME IS THEIR ACCOUNT NAME (owner-locked 2026-08-10) ──────
   // "vendor's name is their account name. so it should not be editable."
   //
   // 🔑 THE READ-ONLY BOX ON SCREEN WAS NEVER ENOUGH, AND HAD NEVER ONCE
@@ -206,7 +217,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       ((data as { display_name?: string | null } | null)?.display_name ?? '').trim(),
     ) || null;
   })();
-  const contactName = accountName ?? typedName;
+  const contactName = shopOwnerNameOf(typedName, accountName);
   const contactPosition = clean(formData.get('contact_position'), 64);
   const contactPhoneRaw = clean(formData.get('contact_phone'), 32);
   // ── THE NUMBER MUST BELONG TO WHERE THE SHOP IS (owner 2026-08-10) ────────
@@ -220,7 +231,13 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     ? parseVendorPhone(contactPhoneRaw, (clean(formData.get('hq_country'), 2) ?? '').toUpperCase())
     : null;
   const contactPhone = phone?.ok ? phone.e164 : contactPhoneRaw;
-  const contactEmail = cleanEmail(formData.get('contact_email'));
+  // 🔁 F-W1-13 (walk 13 Nov): a company email still exactly as it was PREFILLED from an account is re-read from the
+  // account that submits — the page may have been drawn for a different one (`accountEmailAtSubmit`).
+  const contactEmail = accountEmailAtSubmit({
+    posted: cleanEmail(formData.get('contact_email')),
+    prefilled: cleanEmail(formData.get(PREFILLED_ACCOUNT_EMAIL_FIELD)),
+    sessionEmail: sessionUser?.email ? cleanEmail(sessionUser.email) : null,
+  });
   if (!shopName) redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.shopName));
   // Logo gate reads the SHARED flag (client wizard reads the same one), so the
   // two layers can never disagree. Off since 2026-07-21 — see the flag's doc.

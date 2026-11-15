@@ -8,6 +8,8 @@
  * action's revalidation, so the answered ask leaves the list — never a refresh of our own.
  */
 import { useState, useTransition } from 'react';
+import { Check, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { crewAskWords, type CrewSkipAsk } from '@/lib/change-the-schedule';
 import { guestToast } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import { floorChangeSchedule } from './actions';
@@ -35,31 +37,31 @@ export function CrewAsks({ eventId, asks }: { eventId: string; asks: readonly Cr
 
   return (
     <section className="space-y-1" data-crew-asks="">
-      <h5 className="text-xs font-semibold uppercase tracking-wide text-ink/55">Your crew asks</h5>
-      <ul className="divide-y divide-ink/10">
+      <h5 className="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">Your crew asks</h5>
+      <ul className="divide-y divide-[color:var(--m-line)]">
         {asks.map((a) => (
-          <li key={a.suggestionId} className="py-2.5" data-crew-ask={a.suggestionId}>
-            <p className="text-[13.5px] leading-snug text-ink">{crewAskWords(a)}</p>
+          <li key={a.suggestionId} className="min-h-14 py-2.5" data-crew-ask={a.suggestionId}>
+            <p className="text-sm leading-snug text-ink">{crewAskWords(a)}</p>
             <div className="mt-2 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={busy !== null}
+              <ActionButton
+                tone="neutral"
+                icon={X}
+                label={busy === `${a.suggestionId}:d` ? 'Declining…' : 'Decline'}
+                waiting={busy === `${a.suggestionId}:d`}
+                disabled={busy !== null && busy !== `${a.suggestionId}:d`}
                 onClick={() => answer(a.suggestionId, false)}
-                className="h-10 rounded-full px-4 text-[13px] font-semibold text-ink/75 ring-1 ring-inset ring-ink/15 disabled:opacity-60"
-              >
-                {busy === `${a.suggestionId}:d` ? 'Declining…' : 'Decline'}
-              </button>
-              <button
-                type="button"
-                disabled={busy !== null}
+              />
+              <ActionButton
+                tone="ok"
+                icon={Check}
+                label={busy === `${a.suggestionId}:a` ? 'Skipping…' : 'Approve skip'}
+                waiting={busy === `${a.suggestionId}:a`}
+                disabled={busy !== null && busy !== `${a.suggestionId}:a`}
                 onClick={() => answer(a.suggestionId, true)}
-                className="h-10 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-60"
-              >
-                {busy === `${a.suggestionId}:a` ? 'Skipping…' : 'Approve skip'}
-              </button>
+              />
             </div>
             {problem?.id === a.suggestionId ? (
-              <p role="alert" className="mt-1.5 text-right text-[12.5px] font-semibold text-danger-700">
+              <p role="alert" className="mt-1.5 text-right text-sm font-semibold text-danger-700">
                 {problem.text}
               </p>
             ) : null}

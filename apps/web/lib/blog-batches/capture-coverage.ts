@@ -11,6 +11,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-06-22',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -69,8 +70,8 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Compare real portfolios, inclusions, and availability in one place, with no commission added to what you pay your supplier.',
-        href: '/explore',
-        label: 'Browse the vendor marketplace',
+        href: '/?browse=1',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -152,6 +153,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-07-29',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -218,8 +220,8 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Message and compare photographers directly, with everything you agree on kept in one place.',
-        href: '/explore',
-        label: 'Browse the vendor marketplace',
+        href: '/?browse=1',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -233,6 +235,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-08-17',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -291,8 +294,8 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Find photographers whose prenup work feels like the story you want to tell.',
-        href: '/explore',
-        label: 'Browse the vendor marketplace',
+        href: '/?browse=1',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -306,6 +309,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-09-04',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -364,8 +368,8 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Compare videographers and their actual style of work side by side.',
-        href: '/explore',
-        label: 'Browse the vendor marketplace',
+        href: '/?browse=1',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -379,6 +383,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-09-23',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -437,8 +442,8 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'See which video teams include a same-day edit and what it actually adds.',
-        href: '/explore',
-        label: 'Browse the vendor marketplace',
+        href: '/?browse=1',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -525,6 +530,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-10-30',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -583,8 +589,8 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Find video teams that offer aerial coverage and know the local rules.',
-        href: '/explore',
-        label: 'Browse the vendor marketplace',
+        href: '/?browse=1',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -655,7 +661,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Start your free plan and keep every video, vendor, and deadline in one place.',
+        text: 'Start your free plan and keep every video, supplier, and deadline in one place.',
         href: '/signup',
         label: 'Start planning free',
       },
@@ -729,8 +735,8 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Book suppliers you can verify and message in one place, with 0% commission on what you pay them.',
-        href: '/explore',
-        label: 'Browse the vendor marketplace',
+        href: '/?browse=1',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },

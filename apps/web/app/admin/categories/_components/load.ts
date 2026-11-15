@@ -411,13 +411,14 @@ async function loadRequests(
   if (pending.length === 0) return [];
   const ids = pending.map((r) => r.request_id);
   const supplierIds = [...new Set(pending.map((r) => r.proposed_by_vendor_id))];
-  const [draftRes, vpRes, forwards] = await Promise.all([
-    admin
-      .from('taxonomy_category_request_drafts')
-      .select('request_id, suggested_label, suggested_tile_id, tile_reason, verdict, closest_existing, near_matches, drafted_by')
-      .in('request_id', ids),
+  const [drafts, vpRes] = await Promise.all([
+    loadRequestDrafts(
+      admin,
+      ids,
+      new Map(services.map((s) => [s.canonical, s.en])),
+      new Map(categories.map((c) => [c.id, c.label])),
+    ),
     admin.from('vendor_profiles').select('vendor_profile_id, business_name').in('vendor_profile_id', supplierIds),
-    getServiceMergeForwards().catch(() => ({})),
   ]);
   noteFailure(failed, 'supplier names', vpRes.error);
   const supplierName = new Map(
@@ -426,12 +427,55 @@ async function loadRequests(
       v.business_name ?? 'a supplier',
     ]),
   );
-  const liveLabel = new Map(services.map((s) => [s.canonical, s.en]));
-  const tileLabel = new Map(categories.map((c) => [c.id, c.label]));
+
+  return pending.map((r) => ({
+    requestId: r.request_id,
+    proposedLabel: r.proposed_label,
+    proposedNote: r.proposed_note,
+    supplierName: supplierName.get(r.proposed_by_vendor_id) ?? 'a supplier',
+    draft: drafts.get(r.request_id) ?? null,
+  }));
+}
+
+/**
+ * The C4 drafts for some requests, keyed by request id — shared by the Categories queue and
+ * Admin › Service requests (2026-11-13) so the two read one parse, never two. `liveLabel` maps a
+ * live service key to its label; `tileLabel` a category id to its label. A missing table or any
+ * read error yields no drafts (every request then renders as it did before drafts existed).
+ */
+export async function loadRequestDrafts(
+  admin: Admin,
+  ids: readonly string[],
+  liveLabel: ReadonlyMap<string, string>,
+  tileLabel: ReadonlyMap<string, string>,
+): Promise<Map<string, RequestDraft>> {
+  if (ids.length === 0) return new Map();
+  const [draftRes, forwards] = await Promise.all([
+    admin
+      .from('taxonomy_category_request_drafts')
+      .select(
+        'request_id, suggested_label, suggested_tile_id, tile_reason, verdict, closest_existing, near_matches, drafted_by, suggested_description, suggested_search_words, suggested_inspirations',
+      )
+      .in('request_id', [...ids]),
+    getServiceMergeForwards().catch(() => ({})),
+  ]);
+  let rows: unknown[] | null = draftRes.data;
+  if (draftRes.error) {
+    // A database still behind the 2026-11-13 columns answers with the shipped ones.
+    const older = await admin
+      .from('taxonomy_category_request_drafts')
+      .select('request_id, suggested_label, suggested_tile_id, tile_reason, verdict, closest_existing, near_matches, drafted_by')
+      .in('request_id', [...ids]);
+    if (older.error) return new Map();
+    rows = older.data;
+  }
   const labelFor = (key: string): string | null => liveLabel.get(resolveMergedService(key, forwards)) ?? null;
 
   const drafts = new Map<string, RequestDraft>();
-  for (const row of (draftRes.data ?? []) as Array<{
+  for (const row of (rows ?? []) as Array<{
+    suggested_description?: string | null;
+    suggested_search_words?: string[] | null;
+    suggested_inspirations?: unknown;
     request_id: string;
     suggested_label: string;
     suggested_tile_id: string | null;
@@ -466,16 +510,15 @@ async function loadRequests(
           : null,
       nearMatches,
       draftedBy: row.drafted_by,
+      description: row.suggested_description ?? null,
+      searchWords: Array.isArray(row.suggested_search_words) ? row.suggested_search_words.filter((w) => typeof w === 'string') : [],
+      inspirations: Array.isArray(row.suggested_inspirations)
+        ? row.suggested_inspirations.map((x) => (typeof x === 'string' ? x : String((x as Record<string, unknown>)?.label ?? ''))).filter(Boolean)
+        : [],
     });
   }
 
-  return pending.map((r) => ({
-    requestId: r.request_id,
-    proposedLabel: r.proposed_label,
-    proposedNote: r.proposed_note,
-    supplierName: supplierName.get(r.proposed_by_vendor_id) ?? 'a supplier',
-    draft: drafts.get(r.request_id) ?? null,
-  }));
+  return drafts;
 }
 
 /** The "what couples choose" cards anchored to ONE category, photos signed. */

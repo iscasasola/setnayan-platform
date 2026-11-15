@@ -20,6 +20,7 @@
 import type { TaskContact } from './task-contact';
 import { chapterDayKey } from './supplier-where';
 import { inRunOrder, isRightAfter, momentClockWords } from './moment-order';
+import { TIMES_SUFFIX } from './schedule-hand-in-hand';
 import { VENUE_TBA, clockWords, wallDay, wallIso, wallTime, shiftWall, momentSection, type ChapterSection } from './schedule-chapters';
 
 /* ── Auto-agree ─────────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -383,9 +384,9 @@ export function timesRequests(input: {
   const shop = input.shop.trim() || 'Supplier';
   const a = input.arrive.trim() ? momentStartIn(input.chapter, input.arrive) : null;
   let d = input.done.trim() ? momentStartIn(input.chapter, input.done) : null;
-  if (a) out.push({ parent: input.chapter.block_id, label: `${shop} arrives`.slice(0, 120), start: a, end: shiftWall(a, MOMENT_MINUTES_DEFAULT) });
+  if (a) out.push({ parent: input.chapter.block_id, label: `${shop}${TIMES_SUFFIX.arrive}`.slice(0, 120), start: a, end: shiftWall(a, MOMENT_MINUTES_DEFAULT) });
   if (d && a && Date.parse(d) < Date.parse(a)) d = shiftWall(d, 1440);
-  if (d) out.push({ parent: input.chapter.block_id, label: `${shop} is done`.slice(0, 120), start: d, end: shiftWall(d, MOMENT_MINUTES_DEFAULT) });
+  if (d) out.push({ parent: input.chapter.block_id, label: `${shop}${TIMES_SUFFIX.done}`.slice(0, 120), start: d, end: shiftWall(d, MOMENT_MINUTES_DEFAULT) });
   return out;
 }
 

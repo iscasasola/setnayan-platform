@@ -89,7 +89,7 @@ export function MusicButtonRow({
 
   return (
     <div data-music-button-row="" className="mt-3 flex flex-col">
-      <p className="text-[0.72rem] font-semibold text-ink/80">Music button</p>
+      <p className="text-[12px] font-semibold text-ink/80">Music button</p>
       {hasSong ? (
         <div role="group" aria-label="Music button" className="flex items-start gap-5 pb-1 pt-3">
           {HUB_MUSIC_BUTTONS.map((d) => {
@@ -117,7 +117,7 @@ export function MusicButtonRow({
           })}
         </div>
       ) : (
-        <p data-music-button-quiet="" className="pt-1 text-xs text-ink/60">
+        <p data-music-button-quiet="" className="pt-1 text-xs text-ink/75">
           {MUSIC_BUTTON_NO_SONG}
         </p>
       )}

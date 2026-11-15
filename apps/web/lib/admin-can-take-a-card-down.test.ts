@@ -136,7 +136,7 @@ test('a taken-down card cannot render on the shop page or in Find', () => {
   assert.match(body(read(ACTIONS), 'takeDownServiceCard'), /\.update\(\{\s*is_active: false,\s*taken_down_at:/);
   // …and both public surfaces read that switch.
   assert.match(read('app/v/[slug]/page.tsx'), /const activeServices = allServices\.filter\(\(s\) => s\.is_active\);/);
-  const find = read('app/(shell)/explore/page.tsx');
+  const find = read('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   assert.match(find, /\.eq\('vendor_services\.is_active', true\)/);
   assert.match(read('app/(shell)/explore/actions.ts'), /\.eq\('is_active', true\)/);
 });

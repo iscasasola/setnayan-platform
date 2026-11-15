@@ -35,6 +35,8 @@ export type QuoteVersionLine = {
   /** A service/card id, when a line carries one — the stable identity to match on. */
   service_card_id?: string | null;
   card_id?: string | null;
+  /** The Offer Maker offer this line IS (`vendor_offers.public_id`) — "applied" is derived from it (lib/offer-drop.ts). */
+  offer_id?: string | null;
 };
 
 /** The columns a version needs — `QUOTE_VERSION_SELECT`. */
@@ -208,22 +210,35 @@ function amountOf(li: QuoteVersionLine): number | null {
   return typeof li.amount_centavos === 'number' && Number.isFinite(li.amount_centavos) ? li.amount_centavos : null;
 }
 
-export function quoteChanges(prev: QuoteSide, next: QuoteSide): QuoteChanges {
-  const before = identities(prev.lines);
-  const after = identities(next.lines);
+/**
+ * The two sides' lines, paired by identity, in display order: the newer side's order first, then what the older side
+ * had and the newer one dropped. The ONE pairing — `quoteChanges` and `versionsSideBySide` both read it, so the list
+ * of changes and the side-by-side sheet can never disagree about which line is which.
+ */
+function pairLines(
+  prev: readonly QuoteVersionLine[],
+  next: readonly QuoteVersionLine[],
+): Array<{ key: string; before: QuoteVersionLine | null; after: QuoteVersionLine | null }> {
+  const before = identities(prev);
+  const after = identities(next);
   const beforeByKey = new Map(before.map((b) => [b.key, b.line]));
   const afterKeys = new Set(after.map((a) => a.key));
+  return [
+    ...after.map(({ key, line }) => ({ key, before: beforeByKey.get(key) ?? null, after: line })),
+    ...before.filter(({ key }) => !afterKeys.has(key)).map(({ key, line }) => ({ key, before: line, after: null })),
+  ];
+}
+
+export function quoteChanges(prev: QuoteSide, next: QuoteSide): QuoteChanges {
   const lines: QuoteLineChange[] = [];
-  for (const { key, line } of after) {
-    const old = beforeByKey.get(key);
-    if (!old) {
+  for (const { before: old, after: line } of pairLines(prev.lines, next.lines)) {
+    if (line && !old) {
       lines.push({ kind: 'added', label: lineLabel(line), to: amountOf(line) });
-    } else if (amountOf(old) !== amountOf(line)) {
+    } else if (line && old && amountOf(old) !== amountOf(line)) {
       lines.push({ kind: 'changed', label: lineLabel(line), from: amountOf(old), to: amountOf(line) });
+    } else if (old && !line) {
+      lines.push({ kind: 'removed', label: lineLabel(old), from: amountOf(old) });
     }
-  }
-  for (const { key, line } of before) {
-    if (!afterKeys.has(key)) lines.push({ kind: 'removed', label: lineLabel(line), from: amountOf(line) });
   }
   const plan = (prev.plan ?? null) !== (next.plan ?? null) ? { from: prev.plan ?? null, to: next.plan ?? null } : null;
   return {
@@ -232,6 +247,48 @@ export function quoteChanges(prev: QuoteSide, next: QuoteSide): QuoteChanges {
     total: { from: prev.totalCentavos, to: next.totalCentavos },
     count: lines.length + (plan ? 1 : 0),
   };
+}
+
+// ── SEE EVERY VERSION · SIDE BY SIDE ───────────────────────────────────────────
+
+/** One row of the two-picker comparison: a line on either side (absent = `undefined`), or the plan, or the total. */
+export type SideBySideRow = {
+  key: string;
+  label: string;
+  kind: 'line' | 'plan' | 'total';
+  /** Line: centavos, null = complimentary, undefined = not on that version. Plan: its words. Total: centavos. */
+  a: number | string | null | undefined;
+  b: number | string | null | undefined;
+  /** Marked as changed — exactly the lines `quoteChanges` lists, the plan when it differs, the total when it moved. */
+  changed: boolean;
+};
+
+/**
+ * "See every version · side by side" (approved design 12 Nov — two pickers, one table, changed rows marked). Every
+ * line of either version once, in the newer version's order, then the plan and the total. Built on `pairLines` +
+ * `quoteChanges`, never a second comparison (🔒 quote-versions.test.ts: the marked rows ARE `quoteChanges`).
+ */
+export function versionsSideBySide(a: QuoteVersion, b: QuoteVersion): SideBySideRow[] {
+  const changes = quoteChanges(
+    { lines: a.lines, plan: a.plan, totalCentavos: a.totalCentavos },
+    { lines: b.lines, plan: b.plan, totalCentavos: b.totalCentavos },
+  );
+  const rows: SideBySideRow[] = pairLines(a.lines, b.lines).map(({ key, before, after }) => ({
+    key,
+    label: lineLabel((after ?? before)!),
+    kind: 'line',
+    a: before ? amountOf(before) : undefined,
+    b: after ? amountOf(after) : undefined,
+    changed: !before || !after || amountOf(before) !== amountOf(after),
+  }));
+  rows.push({ key: 'plan', label: 'Payment plan', kind: 'plan', a: a.plan, b: b.plan, changed: changes.plan !== null });
+  rows.push({ key: 'total', label: 'Total', kind: 'total', a: a.totalCentavos, b: b.totalCentavos, changed: changes.total.from !== changes.total.to });
+  return rows;
+}
+
+/** The pair's versions oldest → newest, for the two pickers; empty when `proposalId` is not among them. */
+export function versionsOldestFirst(versions: readonly QuoteVersion[], proposalId: string): QuoteVersion[] {
+  return versionsNewestFirst(versions, proposalId).reverse();
 }
 
 /** The diff between a version and the one it replaced; null for version 1. */

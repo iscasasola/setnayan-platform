@@ -70,6 +70,9 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { POST_EVENT_WAITING, galleryTabsFor, postEventReader, postEventSceneKeyForBlock } from '@/lib/post-event-scenes';
 import { OpenUpScene, OpenUpTabs } from './open-up-layer';
 import type { PostEventDraft } from '@/lib/post-event-draft';
+import { readOwnGiftThanks, type OwnGiftThanks } from '@/lib/gift-thanks.server';
+import { fullSizeKeptUntil } from '@/lib/papic-originals-reminder-core';
+import { StoryProgress } from './story-progress';
 import { postEventElementScope, postEventLookKey, postEventStyleHome } from '@/lib/post-event-styles';
 import { resolvePostEventStyle } from '@/lib/post-event-style-resolve';
 import { hubElementSceneCss, hubSceneFxAttr } from '@/lib/element-style';
@@ -77,7 +80,7 @@ import { filmTimecode, mastheadEdition } from '@/lib/story-spine';
 import { guestLayerAdmits } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { loadEntourage } from '../../_lib/loaders';
 import type { EntourageGroup } from '@/lib/entourage';
-import { BeforeAfterScene, EntourageScene, RoadScene, SeatingScene, type RoadEntry } from './post-event-scene-views-3';
+import { BeforeAfterScene, EntourageScene, GiftThanksScene, RoadScene, SeatingScene, type RoadEntry } from './post-event-scene-views-3';
 import {
   FrontPageScene,
   GalleryPreview,
@@ -107,8 +110,8 @@ const SHARE_SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan
  *  and the colophon link that AIMS at it cannot drift apart. */
 const WATCH_FILM_ANCHOR_ID = 'watch-the-film';
 
-/** 'wedding' → 'Wedding'; 'gender reveal' → 'Gender Reveal'. Two slots in this
- *  file are Title Case headings ("The Wedding Day (Live)"), so the event word
+/** 'wedding' → 'Wedding'; 'gender reveal' → 'Gender Reveal'. Title Case slots in this
+ *  file ("From The Couple"), so the event word
  *  has to be capitalised per word rather than lower-cased into them. */
 function capitaliseWords(s: string): string {
   return s.replace(/\b[a-z]/g, (c) => c.toUpperCase());
@@ -124,7 +127,15 @@ export async function EditorialContent({
   draft = null,
   hostPreview = false,
   sharedStyles = null,
+  storyReading = false,
 }: {
+  /**
+   * 📖 STORY READING (owner 2026-11-13, DECISION_LOG "POST EVENT = A STORY (ONE SCENE PER SCREEN) — SIX CALLS
+   * SETTLED" (1)) — the Event Hub's Post Event reads one scene per screen, with progress bars on top, unless the couple
+   * chose Page under "Reads as" (`draft_json.readAs`). Passed only by the Event Hub (`site-body.tsx`); every other
+   * surface (the /realstories sample, print) keeps the long page.
+   */
+  storyReading?: boolean;
   /**
    * 🎨 The style picked on a SECTION that is the same scene on another stage
    * (`POST_EVENT_STYLE_HOME`: the Schedule and Gallery rows' `canvas.style`),
@@ -282,6 +293,7 @@ export async function EditorialContent({
       ...(draft.sections !== undefined ? { sections: draft.sections as EditorialData['sections'] } : {}),
       ...(draft.sectionOrder !== undefined ? { sectionOrder: draft.sectionOrder } : {}),
       ...(draft.sceneLooks !== undefined ? { sceneLooks: draft.sceneLooks } : {}),
+      ...(draft.readAs !== undefined ? { readAs: draft.readAs } : {}),
     };
   }
 
@@ -467,6 +479,11 @@ export async function EditorialContent({
     ? Promise.resolve([])
     : loadEntourage(createAdminClient(), eventId).catch(() => []);
   const ownRead = loadYourOwnDay(eventId).catch(() => null);
+  /* 🎁 THE GIFT THANK-YOU (owner 2026-11-13 (2)) — asked only when the couple wrote their line, and only for a reader
+     who is not the host: is THIS reader a guest with a gift record here (`readOwnGiftThanks`, the gift writer's own
+     check)? Yes or no and a first name — never an amount. Fails closed. A sample has no guests. */
+  const giftLine = (data.sceneLooks ?? {}).gifts?.words?.body ?? null;
+  const giftRead: Promise<OwnGiftThanks> | null = !isSample && giftLine && !viewer.isHost ? readOwnGiftThanks(eventId) : null;
 
   const mono: HeroMonogramData | null = await monoRead;
 
@@ -571,6 +588,7 @@ export async function EditorialContent({
      invitation content, owner 2026-09-15). A sample has no guest list. */
   const entourage: EntourageGroup[] = await entourageRead;
 
+  const giftThanks: OwnGiftThanks | null = giftRead ? await giftRead : null;
   let own = await ownRead;
   own ??= { signedIn: false, appearsIn: [], shot: [], said: [], tableLabel: null };
   timer.mark('past-the-gate');
@@ -762,9 +780,12 @@ export async function EditorialContent({
      above, or its index anchors point at minutes the page did not place. The
      spine's layout runs twice for this (pure arithmetic over the chapters,
      on the server) — the price of not keeping a second copy of that layout. */
+  /* 📸 "Full size until <date>" on the reader's own Were you there? (owner 2026-11-13 (4)) — the drop's own clock. */
+  const keptUntil = isSample ? null : (fullSizeKeptUntil(data.eventDate, data.eventEndDate, Date.now())?.label ?? null);
   const youScene = (
     <StorySpine
       you="only"
+      keptUntil={keptUntil}
       makerMarkers={makerMarkers}
       data={data}
       facts={spineFacts}
@@ -781,12 +802,33 @@ export async function EditorialContent({
     />
   );
 
+  /* 📖 STORY READING (owner 2026-11-13 (1)) — one scene per screen, unless the couple chose Page. The page's markup is
+     the same either way: `data-reads-as` turns on the full-screen scenes, the scroll snap and the progress bars
+     (globals.css `[data-reads-as='story']`); every scene the page draws is a screen — a styled scene's frame
+     (`data-post-event-look`) or a plain one marked `data-story-screen`. */
+  const readsAsStory = storyReading && data.readAs !== 'page';
+  /* 🔗 THE STORY'S LAST SCREEN — the old Recap page's Share + Save-the-card, folded in (owner 2026-11-13 (5)). Shown
+     only when the story is set to Everyone (`published`): a story only its people may read is not shared outward. */
+  const shareScreen =
+    readsAsStory && data.published && effectiveShare && !share ? (
+      <section data-story-screen="" data-story-share="" className="mt-14 flex flex-col items-center justify-center gap-5 text-center">
+        <p className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-700">Share this story</p>
+        <p className="m-0 max-w-[32ch] font-serif text-2xl italic leading-snug">{data.displayName}</p>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <ShareButtons url={effectiveShare.url} title={effectiveShare.title} image={effectiveShare.image} />
+          {storyCard ? <SaveStoryCardButton storyCardUrl={storyCard.url} filenameBase={storyCard.filenameBase} /> : null}
+        </div>
+      </section>
+    ) : null;
+
   return (
     <div
       data-story-light
+      data-reads-as={readsAsStory ? 'story' : 'page'}
       style={paintAtRest(stages, ROAD_STAGE) as CSSProperties}
       className="min-h-screen bg-cream text-ink"
     >
+      {readsAsStory ? <StoryProgress /> : null}
       {/*
         ═══ THE SPINE — the page IS the event's clock ═══════════════════════
         08 step 2.1 · Design_Editorial_By_The_Minute_2026-09-07.
@@ -1070,7 +1112,7 @@ export async function EditorialContent({
                       style={styleOf('gallery')!}
                       photos={data.galleryPhotos}
                       captures={data.galleryCaptures}
-                      total={data.metrics.photos ?? data.galleryPhotos.length}
+                      total={typeof data.galleryDayTotal === 'number' ? Math.max(data.galleryDayTotal, data.galleryPhotos.length) : (data.metrics.photos ?? data.galleryPhotos.length)}
                       names={data.firstNames}
                       words={wordsOf('gallery')}
                     />
@@ -1105,7 +1147,7 @@ export async function EditorialContent({
             ),
             // Live Photo Wall (LIVE_WALL SKU).
             liveWall: photo.liveWall ? (
-              <div key="liveWall" {...anchorProps('liveWall')}>
+              <div key="liveWall" data-story-screen="" {...anchorProps('liveWall')}>
                 <SectionRule title="Memory lane" />
                 <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
               </div>
@@ -1176,21 +1218,19 @@ export async function EditorialContent({
                   {waitingScene('videos', 'Videos', true)}
                 </Fragment>
               ) : null,
-            // What they said (reviews). Renders even when empty (empty state).
-            reviews: isOn('reviews') ? (
-              <div key="reviews">
-                <SectionRule title="What They Said" />
-                {data.reviews.length ? (
+            // What they said (reviews). 📖 RW-167 (re-walk 14 Nov 2026): never an empty scene (the F-W2-53 rule) — with no
+            // review yet the scene is not drawn, rather than a "Reviews … will appear here" plate on the recap.
+            reviews:
+              isOn('reviews') && data.reviews.length ? (
+                <div key="reviews" data-story-screen="">
+                  <SectionRule title="What They Said" />
                   <ReviewsWall reviews={data.reviews} />
-                ) : (
-                  <ReviewsEmptyState />
-                )}
-              </div>
-            ) : null,
+                </div>
+              ) : null,
             // Powered by Setnayan — the in-app services the couple availed.
             poweredBy:
               isOn('poweredBy') && data.servicesAvailed.length ? (
-                <div key="poweredBy">
+                <div key="poweredBy" data-story-screen="">
                   <SectionRule title="Powered by Setnayan" />
                   <SetnayanExperience services={data.servicesAvailed} />
                 </div>
@@ -1198,7 +1238,7 @@ export async function EditorialContent({
             // Vendors we loved — the couple's opt-in recommendations.
             vendorsWeLoved:
               isOn('vendorsWeLoved') && data.vendorsWeLoved.length ? (
-                <div key="vendorsWeLoved" {...suppliersId('vendorsWeLoved')}>
+                <div key="vendorsWeLoved" data-story-screen="" {...suppliersId('vendorsWeLoved')}>
                   <SectionRule title="Suppliers We Loved" />
                   <VendorsWeLoved vendors={data.vendorsWeLoved} />
                 </div>
@@ -1250,7 +1290,7 @@ export async function EditorialContent({
                 return (
                   <Fragment key={k}>
                     {node}
-                    {youScene}
+                    <div data-story-screen="">{youScene}</div>
                   </Fragment>
                 );
               }
@@ -1265,7 +1305,7 @@ export async function EditorialContent({
               );
             }
             return (
-              <div key={k}>
+              <div key={k} data-story-screen="">
                 <SectionRule title={col.title} />
                 <CustomColumnBody body={col.body} />
               </div>
@@ -1277,6 +1317,24 @@ export async function EditorialContent({
             (Editorial_Experience_Spec §7: every editorial closes with the
             couple's words then their song). Pinned after the reorderable run;
             excluded from sectionOrder so no reorder can move them. ------------- */}
+        {/* 🎁 THANK YOU FOR YOUR GIFT (owner 2026-11-13, "SIX CALLS SETTLED" (2)) — the couple's ONE line for every
+            giver, just before their closing words. 🔒 Drawn for a guest ONLY when `readOwnGiftThanks` said this reader
+            has a gift record here (the gift writer's own check), and for the couple on their own canvas, where it
+            waits for the line. Never another guest, never a stranger, never an amount. */}
+        {(giftLine && giftThanks?.giver) || (hostPreview && (giftLine || POST_EVENT_WAITING.gifts)) ? (
+          <>
+            {marker('gifts')}
+            <PostEventSceneFrame scene="gifts" style="one-line" css={cssOf('gifts')} fx={fxOf('gifts')}>
+              <GiftThanksScene
+                line={giftLine}
+                firstName={giftThanks?.firstName ?? null}
+                label={wordsOf('gifts').label ?? null}
+                placeholder={hostPreview && !giftLine ? POST_EVENT_WAITING.gifts! : null}
+              />
+            </PostEventSceneFrame>
+          </>
+        ) : null}
+
         {/* 💌 THANK YOU — their closing words, in its style. Guests meet it only
             when there ARE words; the couple alone sees it wait for them. */}
         {isOn('fromTheCouple') && (data.specialMessage || wordsOf('couple').body || placeholderOf('couple')) && styleOf('couple') ? (
@@ -1303,8 +1361,10 @@ export async function EditorialContent({
         {data.song.url || data.song.label ? (
           <>
             {marker('song')}
-            <SectionRule title="Their Song" />
-            <TheirSong song={data.song} names={data.firstNames} words={w} />
+            <div data-story-screen="">
+              <SectionRule title="Their Song" />
+              <TheirSong song={data.song} names={data.firstNames} words={w} />
+            </div>
           </>
         ) : null}
 
@@ -1326,7 +1386,12 @@ export async function EditorialContent({
           host announced nothing.
         */}
         {backCover ? marker('next') : null}
-        <BackCoverBlock cover={backCover} />
+        {backCover ? (
+          <div data-story-screen="">
+            <BackCoverBlock cover={backCover} />
+          </div>
+        ) : null}
+        {shareScreen}
       </article>
     </div>
   );
@@ -1664,14 +1729,6 @@ function SectionRule({ title }: { title: string }): ReactElement {
   );
 }
 
-
-function ReviewsEmptyState(): ReactElement {
-  return (
-    <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/70">
-      Reviews from guests and suppliers will appear here.
-    </p>
-  );
-}
 
 /**
  * "From the Day" — shared photo gallery (events.our_photos). A newspaper photo
@@ -2042,7 +2099,8 @@ function Colophon({
               href={`/${slug}/hub`}
               className="border-b border-terracotta pb-0.5 text-ink no-underline"
             >
-              The {capitaliseWords(w.eventWord)} Day (Live)
+              {/* 🏷 Plain words after the day (F-W2-52): the day's page is a record now, never "(Live)". */}
+              The day as it happened
             </a>
           ) : null}
           {watchFilmShown ? (

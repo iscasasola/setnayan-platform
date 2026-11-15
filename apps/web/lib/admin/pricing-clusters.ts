@@ -25,7 +25,7 @@
 export type PriceCluster =
   | 'Papic'
   | 'Setnayan AI'
-  | 'The celebration page'
+  | 'The event page'
   | 'Film and music'
   | 'Planning tools'
   | 'Bundles'
@@ -44,7 +44,7 @@ export function clusterForRetail(serviceCode: string): PriceCluster {
   if (c.startsWith('PAPIC')) return 'Papic';
   if (c.startsWith('SETNAYAN_AI')) return 'Setnayan AI';
   if (c === 'COUPLE_WEBSITE_PRO' || c.startsWith('COUPLE_HUB_PART_') || c === 'CUSTOM_QR_GUEST' || c === 'SEATING_3D') {
-    return 'The celebration page';
+    return 'The event page';
   }
   if (
     c === 'PAKANTA' ||
@@ -69,7 +69,7 @@ export function clusterForVendor(offeringType: string | null | undefined): Price
 export const CLUSTER_ORDER: readonly PriceCluster[] = [
   'Papic',
   'Setnayan AI',
-  'The celebration page',
+  'The event page',
   'Film and music',
   'Planning tools',
   'Bundles',

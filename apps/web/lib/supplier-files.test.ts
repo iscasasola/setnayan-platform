@@ -94,7 +94,7 @@ test('a share maps the shop’s OWN photos only, and the couple’s Hide posts a
   const act = read('app/_actions/event-files-actions.ts');
   assert.match(act, /\.filter\(\(r\) => own\.has\(r\)\)/, 'a “portfolio” ref from the phone is trusted without reading the shop’s own portfolio');
   assert.match(act, /grp: 'linked'/);
-  assert.doesNotMatch(act.slice(act.indexOf("if (op === 'map')"), act.indexOf("if (op === 'remove')")), /supplier_media/, 'a share wrote a stored copy');
+  assert.doesNotMatch(act.slice(act.indexOf("if (op === 'map')"), act.indexOf("if (op === 'filechat')")), /supplier_media/, 'a share wrote a stored copy');
   assert.match(act, /`\$\{who\} hid \$\{photos\} · taken off your shop`/);
 });
 

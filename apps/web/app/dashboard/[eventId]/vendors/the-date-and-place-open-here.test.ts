@@ -77,7 +77,8 @@ test('the page plans on the EVENT’S date — one date, never a drafted second 
   assert.match(page, /const ev = \(eventCtx\.data as EventBudgetRow \| null\) \?\? null;/, '`ev` stays the live row');
   assert.match(page, /const planDate = ev\?\.event_date \?\? null;/);
   assert.doesNotMatch(page, /draftedEventDate|readHubDraft/, 'the page still reads a drafted date');
-  assert.match(page, /suppliersDateFact\(planDate, planPrecision\)/);
+  // 📅 2026-11-13: the same event date, plus its own last day and options (never a drafted one).
+  assert.match(page, /suppliersDateFact\(planDate, planPrecision(\)|, \{\s*endDate: ev\.event_end_date)/);
   assert.match(page, /planDate && planPrecision === 'day'/, 'the bench fit follows the event’s day');
 });
 

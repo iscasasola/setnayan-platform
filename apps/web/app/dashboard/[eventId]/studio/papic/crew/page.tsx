@@ -10,6 +10,7 @@ import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import { CopyButton } from './_components/copy-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
+import { InfoTip } from '@/app/_components/info-tip';
 // Papic · One code for everyone (couple-side).
 //
 // ⛔ THE PER-SEAT CARDS ARE GONE (owner 2026-10-23, of "Free camera 1 / 2 / 3 / Free camera / Free camera
@@ -149,10 +150,10 @@ export default async function PapicCrewPage({ params }: Props) {
             />
             <div className="min-w-0 flex-1 space-y-2">
               <h2 className="text-lg font-semibold tracking-tight text-ink">Print it, or show it at the door</h2>
-              <p className="max-w-prose text-sm text-ink/70">
-                Anyone who scans it gets a camera and shoots from your shared credits — no app, no
+              <InfoTip labelAs="p" label="Anyone who scans it gets a camera and shoots from your shared credits" labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+                no app, no
                 sign-up. Each guest&rsquo;s own invite QR is their camera too.
-              </p>
+              </InfoTip>
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <CopyButton value={poolJoinUrl} />
                 <Link
@@ -165,10 +166,10 @@ export default async function PapicCrewPage({ params }: Props) {
                   Print the poster
                 </Link>
               </div>
-              <p className="pt-1 text-xs text-ink/50">
-                Anyone holding this code can shoot. Reprint from a fresh code if it ends up somewhere you
+              <InfoTip labelAs="p" label="Anyone holding this code can shoot." labelClassName="pt-1 text-xs text-ink/70" align="start">
+                Reprint from a fresh code if it ends up somewhere you
                 didn&rsquo;t intend.
-              </p>
+              </InfoTip>
             </div>
           </div>
         </div>
@@ -187,12 +188,12 @@ export default async function PapicCrewPage({ params }: Props) {
               {posterLink.state === 'private' ? (
                 <Link
                   href={`/dashboard/${eventId}/website`}
-                  className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
+                  className="ab ab-brand ab-main mt-1"
                 >
                   Open your Event Hub settings
                 </Link>
               ) : null}
-              <p className="pt-1 text-xs text-ink/50">
+              <p className="pt-1 text-xs text-ink/70">
                 Your guests&rsquo; own invite QRs still work — this only affects the one shared code.
               </p>
             </div>

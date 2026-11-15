@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Star } from 'lucide-react';
+import { Badge } from '@/app/_components/badge';
 import { createClient } from '@/lib/supabase/client';
 import type { ReviewWithCouple } from '@/lib/reviews';
 
@@ -81,44 +82,25 @@ export function LiveReviews({
     <div>
       <div className="flex items-center justify-between gap-2">
         <h2 className="sn-sec">Reviews, as they land</h2>
-        <span
-          className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
-          style={{
-            background: live ? 'var(--sn-success-soft)' : 'var(--m-line-soft)',
-            color: live ? 'var(--sn-success)' : 'var(--m-slate-3)',
-          }}
-        >
-          <span
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ background: live ? 'var(--sn-success)' : 'var(--m-slate-3)' }}
-          />
-          {live ? 'Live' : 'Syncing'}
-        </span>
+        <Badge tone={live ? 'ok' : 'quiet'}>{live ? 'Live' : 'Syncing'}</Badge>
       </div>
 
       {reviews.length === 0 ? (
-        <p className="sn-tile mt-3 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-          No reviews yet. When your couple confirms delivery and rates this booking, it appears here
-          instantly.
+        <p className="mt-3 text-sm text-[color:var(--m-slate-2)]">
+          None yet — a review appears here the moment your couple confirms delivery and rates this booking.
         </p>
       ) : (
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-3 divide-y divide-[color:var(--m-line)]">
           {reviews.map((r) => (
-            <li key={r.review_id} className="sn-tile">
+            <li key={r.review_id} className="flex min-h-14 flex-col justify-center py-2">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                  {r.couple_display_name ?? 'A couple'}
-                </span>
-                <span className="inline-flex items-center gap-1 font-mono text-sm" style={{ color: 'var(--m-ink)' }}>
-                  <Star aria-hidden className="h-3.5 w-3.5" style={{ color: 'var(--m-gold, #b8860b)' }} strokeWidth={1.75} />
+                <span className="text-sm font-semibold text-ink">{r.couple_display_name ?? 'A couple'}</span>
+                <span className="inline-flex items-center gap-1 text-sm font-bold tabular-nums text-ink">
+                  <Star aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
                   {r.rating_overall.toFixed(1)}
                 </span>
               </div>
-              {r.body ? (
-                <p className="mt-1.5 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-                  {r.body}
-                </p>
-              ) : null}
+              {r.body ? <p className="mt-1 text-sm text-[color:var(--m-slate-2)]">{r.body}</p> : null}
             </li>
           ))}
         </ul>

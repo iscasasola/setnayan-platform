@@ -93,6 +93,12 @@ type Props = {
    * login that also hosts the event still speaks as the SHOP here. The host's passes nothing (the old derivation).
    */
   sentAs?: ChatSentAs;
+  /**
+   * 💸 WORDS ONLY WHILE A TOP-UP IS OVERDUE (owner 2026-11-12, booking-fee top-up; prototype "New inquiry · text only"):
+   * the supplier's event is locked by an unsettled booking-fee top-up, so the message box keeps WORDS — no ＋, no 🔒,
+   * no "/", no file. The string is why, said under the box ("Settle ₱X booking fee to use this"). Absent → as shipped.
+   */
+  wordsOnly?: string | null;
 };
 
 // The picker's list and the size ceilings are DERIVED from the one shared
@@ -101,7 +107,8 @@ type Props = {
 // which is how a picker comes to offer a type the server refuses, with a file
 // that simply will not send as the only symptom.
 
-export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId, sentAs }: Props) {
+export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId, sentAs, wordsOnly = null }: Props) {
+  const feeWordsOnly = Boolean(wordsOnly);
   // 🔒 MESSAGING ONE PERSON PRIVATELY (DECISION_LOG 2026-11-09 🔒), set by a face in the host strip. While it is on the message is
   // WORDS ONLY (owner, 9 Nov: "private messages are just words. everything else is public."): the ＋ and every attach
   // (paperclip · camera · photo) are not drawn, and a file already picked is let go. × on the chip → everyone again.
@@ -122,7 +129,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
      already private never draws them at all. Reduced motion: the same end states, no movement. */
   const toolsOut = Boolean(privateTo) || hasDraft;
   const reduceMotion = usePrefersReducedMotion();
-  const [toolsMounted, setToolsMounted] = useState(!privateTo);
+  const [toolsMounted, setToolsMounted] = useState(!privateTo && !feeWordsOnly);
   const [toolsShown, setToolsShown] = useState(!toolsOut);
   useEffect(() => {
     if (!toolsOut) {
@@ -154,7 +161,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   const plus = usePlus(threadId);
   const [slashText, setSlashText] = useState<string | null>(null);
   const [slashHi, setSlashHi] = useState(0);
-  const slashQ = privateTo || slashText === null ? null : slashQuery(slashText);
+  const slashQ = privateTo || feeWordsOnly || slashText === null ? null : slashQuery(slashText);
   const slashOn = slashQ !== null && plus.slash.length > 0;
   const slashList = slashOn ? filterSlash(plus.slash, slashQ) : [];
   const slashRunning = plus.draft
@@ -245,6 +252,25 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   const takeShortcut = (input: HTMLInputElement) => {
     const file = input.files?.[0] ?? null;
     input.value = '';
+    attachFile(file);
+  };
+  /**
+   * 📥 Piece 3c (DECISION_LOG 2026-11-12 "EVERYTHING SHARED IN THE CHAT IS COLLECTED ON FILES"): a file DRAGGED onto
+   * the chat or PASTED into the box rides the same ONE `attachment` input as the shortcuts — so it is compressed,
+   * judged and sent exactly like a picked one, and lands on Files sorted by kind. While private: words only.
+   */
+  const [dropping, setDropping] = useState(false);
+  const takeDropped = (files: FileList | null | undefined): boolean => {
+    const file = files?.[0] ?? null;
+    if (!file) return false;
+    if (privateTo) {
+      setFileError(PRIVATE_WORDS_ONLY_MESSAGE);
+      return true;
+    }
+    attachFile(file);
+    return true;
+  };
+  function attachFile(file: File | null) {
     if (!file || !fileInputRef.current) return;
     try {
       const dt = new DataTransfer();
@@ -255,7 +281,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       return;
     }
     acceptFile(file);
-  };
+  }
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const photoRef = useRef<HTMLInputElement | null>(null);
 
@@ -316,6 +342,31 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   return (
     <form
       ref={formRef}
+      data-chat-dropping={dropping ? '' : undefined}
+      onDragOver={(e) => {
+        if (!Array.from(e.dataTransfer?.types ?? []).includes('Files')) return;
+        e.preventDefault();
+        if (!dropping) setDropping(true);
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+        setDropping(false);
+      }}
+      onDrop={(e) => {
+        setDropping(false);
+        if (!e.dataTransfer?.files?.length) return;
+        e.preventDefault();
+        takeDropped(e.dataTransfer.files);
+      }}
+      onPaste={(e) => {
+        // 📥 A pasted picture or file (not private — the box's own handler already refused that) is attached like a
+        // picked one; pasted words stay words.
+        if (privateTo || e.defaultPrevented) return;
+        const dt = e.clipboardData;
+        if (!dt.files.length) return;
+        e.preventDefault();
+        takeDropped(dt.files);
+      }}
       action={async (formData: FormData) => {
         // We strip `return_to` so the server action doesn't redirect — the
         // Realtime stream is now the source of truth for the painted UI.
@@ -331,6 +382,11 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         // 🔒 Words only, said in words — never a private file sent anyway (the server refuses it too).
         if (privateTo && hasFile) {
           setFileError(PRIVATE_WORDS_ONLY_MESSAGE);
+          return;
+        }
+        // 💸 Words only while a top-up is overdue — said in the lock's own words.
+        if (wordsOnly && hasFile) {
+          setFileError(wordsOnly);
           return;
         }
 
@@ -397,6 +453,11 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       ) : null}
 
       {/* Chosen-file chip — shown once a file is picked, before send. */}
+      {dropping ? (
+        <p role="status" className="mb-2 rounded-2xl border-2 border-dashed border-sn-accent/50 py-3 text-center text-[14px] font-medium text-ink" data-chat-drop-line="">
+          Drop to send
+        </p>
+      ) : null}
       {fileName ? (
         <div className="flex items-center gap-2 self-start rounded-full border border-ink/15 bg-ink/[0.04] py-1 pl-3 pr-1 text-xs text-ink/75">
           <Paperclip className="h-3.5 w-3.5 text-ink/50" strokeWidth={1.75} />
@@ -435,8 +496,15 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         </p>
       ) : null}
 
-      <div className="flex items-end gap-0.5" data-chat-composer-row="" {...(privateTo ? { 'data-chat-words-only': '' } : {})}>
-        {toolsMounted ? (
+      {wordsOnly ? (
+        // 💸 Why the box keeps words only — one quiet line, the prototype's words.
+        <p className="self-stretch px-1 pb-1 text-[12.5px] font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-chat-fee-words-only="">
+          {wordsOnly}
+        </p>
+      ) : null}
+      <div className="flex items-end gap-0.5" data-chat-composer-row="" {...(privateTo || feeWordsOnly ? { 'data-chat-words-only': '' } : {})}>
+        {/* 💸 Words only while a top-up is overdue: the tools group is never drawn (no ＋, no 🔒, no file). */}
+        {toolsMounted && !feeWordsOnly ? (
         <div
           className="sn-composer-tools"
           data-chat-composer-tools={toolsShown ? 'in' : 'out'}
@@ -512,6 +580,14 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           className={`sn-composer-box relative my-[3px] flex min-w-0 flex-1 rounded-2xl ${toolsOut ? 'ml-0 mr-1' : 'mx-1'} ${privateTo ? PRIVATE_BOX_OUTLINE : ''}`}
           data-chat-message-box=""
           {...(privateTo ? { 'data-chat-private-box': '' } : {})}
+          // 💸 Words only while a top-up is overdue: a pasted file is refused, in the lock's own words.
+          onPasteCapture={(e) => {
+            if (!wordsOnly) return;
+            const dt = e.clipboardData;
+            if (!(dt.files.length > 0 || Array.from(dt.items).some((it) => it.kind === 'file'))) return;
+            e.preventDefault();
+            setFileError(wordsOnly);
+          }}
         >
           {privateTo ? (
             <Lock aria-hidden className={`pointer-events-none absolute bottom-[11px] left-3 h-4 w-4 ${PRIVATE_MARK}`} strokeWidth={2.2} />

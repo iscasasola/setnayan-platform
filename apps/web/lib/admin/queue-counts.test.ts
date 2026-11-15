@@ -130,8 +130,27 @@ test('partnerships is the queue that carries no clock', () => {
 
 test('every other queue still has a clock', () => {
   // "No clock" must stay the rare, argued exception rather than a habit.
+  // ⚖ THE TEN SILENT QUEUES (admin slice 4, 2026-11-13) are the second argued
+  // exception: they were given COUNTS, and a promise time is the owner's to
+  // set, not a builder's to guess. Each leaves this list the day he names one.
   const clockless = Object.entries(ADMIN_QUEUE_META)
     .filter(([, m]) => m.slaHours === null)
     .map(([k]) => k);
-  assert.deepEqual(clockless, ['vendor-partnerships'], `unexpected clockless queues: ${clockless.join(', ')}`);
+  assert.deepEqual(
+    clockless,
+    [
+      'vendor-partnerships',
+      'repost-watch',
+      'fraud',
+      'editorial-review',
+      'pax-changes',
+      'social-queue',
+      'pakanta',
+      'supplier-refunds',
+      'service-requests',
+      'problems',
+      'email-bounces',
+    ],
+    `unexpected clockless queues: ${clockless.join(', ')}`,
+  );
 });

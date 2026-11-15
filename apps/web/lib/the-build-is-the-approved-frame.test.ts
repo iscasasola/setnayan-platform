@@ -120,6 +120,8 @@ test('6 · B1 money in three lines · B2 filled lines first, nobody folded · B3
   assert.match(lines, /<details[\s\S]*<summary[\s\S]*emptyLines\.map\(lineRow\)/, 'B2: the empty lines are not inside the fold');
   assert.match(BODY, /const isNobody = \(l: BuildLine\) => l\.booked == null && l\.pick == null && l\.candidates\.length === 0;/);
   assert.match(BODY, /<details open=\{filledLines\.length === 0 \|\| undefined\}>/, 'B2: a fresh build hides every category');
+  // A nobody line's door sits on its own row under the words (2026-11-13), never squeezing a long category name.
+  assert.match(BODY, /\{who == null && !canChoose \? \(\s*<div className="col-span-2 justify-self-start" data-build-find=\{line\.tile\}>\s*<ActionButton tone="brand" icon=\{Search\} label=\{`Find in \$\{line\.label\}`\}/, 'the Find door is back beside the words');
   // B3: on a phone the section is one button that opens the SAME sheet.
   const sec = slice(BODY, '<section id="svc-compare"', 3200);
   assert.match(sec, /\{wide \? \(/, 'B3: the heading row is not the computer’s only');

@@ -126,6 +126,8 @@ export type QuoteRevisionSeed = {
   discountPhp: number;
   /** The offer this quote carried (its own named line), or null. */
   offer: QuoteRevisionOffer | null;
+  /** OWN-01: the offer the Discount was filled in from (`from_offer_id`), so the revision still names it; or null. */
+  discountOfferId: string | null;
   /** The quote's ONE pax minimum (`merge_snapshot.min_pax`); null on a quote written before it. */
   minPax: number | null;
   title: string;
@@ -188,6 +190,7 @@ export function seedQuoteRevision(row: QuoteRevisionSource): QuoteRevisionSeed {
 
   const lines: QuoteRevisionLine[] = [];
   let discountCentavos = 0;
+  let discountOfferId: string | null = null;
   let offer: QuoteRevisionOffer | null = null;
   const offerGifts: { id: string; label: string }[] = [];
   for (const li of raw) {
@@ -206,6 +209,7 @@ export function seedQuoteRevision(row: QuoteRevisionSource): QuoteRevisionSeed {
       }
       // Folded into the Discount field — see the header for why.
       discountCentavos += -amount;
+      if (s.from_offer_id && !discountOfferId) discountOfferId = s.from_offer_id;
       continue;
     }
     if (amount == null && s.offer_id) {
@@ -258,6 +262,7 @@ export function seedQuoteRevision(row: QuoteRevisionSource): QuoteRevisionSeed {
     lines,
     discountPhp: peso(discountCentavos),
     offer,
+    discountOfferId,
     minPax,
     title: row.title ?? '',
     note: row.rendered_body ?? '',

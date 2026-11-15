@@ -13,7 +13,7 @@
  * Pure: the sheet (`vendors/_components/fact-sheets.tsx`) and the picker (`launch/_components/details-city-pick.tsx`)
  * draw from these; `your-place.test.ts` holds them.
  */
-import { CITIES, kmBetween, type WeddingCity } from '@/app/onboarding/wedding/_data/wedding-cities';
+import { CITIES, REGION_CENTROID, cityByKey, kmBetween, type WeddingCity } from '@/app/onboarding/wedding/_data/wedding-cities';
 import type { PlaceSheetData } from './suppliers-fact-sheets';
 
 /** How many of the ranked cities the picker opens on. */
@@ -35,6 +35,22 @@ export function nearestCity(at: { lat: number; lng: number }): WeddingCity | nul
     if (!best || d < best.d) best = { c, d };
   }
   return best?.c ?? null;
+}
+
+/**
+ * 📍 WHERE AN EVENT WITH NO PIN IS (owner 2026-11-13, "fit reads candidates + Region + span"): the event's Region
+ * (`events.region`, the onboarding vocabulary `resolvePick` writes) read as the curated centroid the onboarding pick
+ * itself falls back to (`REGION_CENTROID`, `wedding-cities.ts`) — never a second list. A curated city key resolves to
+ * that city. Unknown or empty → null, and distance stays off. Only used when the event has no venue pin.
+ */
+export function regionPin(region: string | null | undefined): { latitude: number; longitude: number } | null {
+  const key = typeof region === 'string' ? region.trim().toLowerCase() : '';
+  if (!key) return null;
+  const city = cityByKey(key);
+  if (city) return { latitude: city.lat, longitude: city.lon };
+  // `resolvePick` writes 'cagayan' for the centroid table's 'cagayan-valley'.
+  const c = REGION_CENTROID[key === 'cagayan' ? 'cagayan-valley' : key];
+  return c ? { latitude: c[0], longitude: c[1] } : null;
 }
 
 /** "Cavite · CALABARZON" → "CALABARZON" (the region half of a curated city's sub-line). */

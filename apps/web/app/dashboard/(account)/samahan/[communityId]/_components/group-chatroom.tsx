@@ -36,10 +36,11 @@ import {
 } from '@/lib/samahan-chatroom';
 import type { SamahanMessage } from '@/lib/communities';
 import type { SamahanStory } from '@/lib/samahan-stories';
-import { deleteSamahanMessage, leaveCommunity, postSamahanMessage } from '../../actions';
+import { deleteSamahanMessage, leaveCommunity } from '../../actions';
 import { SamahanStories, type StoriesControl } from './samahan-stories';
 import { CollagePlayer, GroupCollage } from './group-collage';
 import { StayForm } from '@/app/_components/stay-form';
+import { GroupComposer } from './group-composer';
 
 /**
  * group-chatroom.tsx — 💬 THE GROUP IS A CHATROOM (owner 2026-10-28, verbatim: *"groups should look like a chatroom
@@ -118,6 +119,42 @@ function useFillToFoot(ref: React.RefObject<HTMLElement | null>) {
       mo.disconnect();
     };
   }, [ref]);
+}
+
+/**
+ * A chat reads from the bottom: it opens on the newest line and STAYS there while it settles (RW-276, re-walk 14 Nov:
+ * the group chat opened at the top). Landing once on mount was not enough — the box is re-fitted after it mounts
+ * (`useFillToFoot`, at 250 ms and 1 s) and collages and event cards load in later, each moving the bottom away from a
+ * scroll position that was set once. While the reader has not scrolled up, every size change re-pins the newest line;
+ * once they scroll up, nothing moves under them. A new message re-pins.
+ */
+function useStickToNewest(ref: React.RefObject<HTMLElement | null>, count: number) {
+  const stuck = useRef(true);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const pin = () => {
+      if (stuck.current) el.scrollTop = el.scrollHeight;
+    };
+    const onScroll = () => {
+      stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+    };
+    pin();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(pin);
+    ro?.observe(el);
+    if (el.firstElementChild) ro?.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      ro?.disconnect();
+    };
+  }, [ref]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    stuck.current = true;
+    el.scrollTop = el.scrollHeight;
+  }, [ref, count]);
 }
 
 function MessageBubble({
@@ -265,7 +302,6 @@ export function GroupChatroom({
   const [leaveAsk, setLeaveAsk] = useState(false);
   const [armedMsg, setArmedMsg] = useState<string | null>(null);
   const [playerKey, setPlayerKey] = useState<string | null>(null);
-  const [text, setText] = useState('');
 
   const collages = useMemo(() => hourlyCollages(stories, nowMs), [stories, nowMs]);
   const items = useMemo<ChatItem[]>(
@@ -274,11 +310,7 @@ export function GroupChatroom({
   );
 
   useFillToFoot(chatRef);
-  // A chat reads from the bottom: land on the newest line.
-  useEffect(() => {
-    const el = chatRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [items.length]);
+  useStickToNewest(chatRef, items.length);
   // From 1024 (no dock) the row sits under the reading column, not across the rail.
   useEffect(() => {
     const el = hostRef.current;
@@ -510,7 +542,13 @@ export function GroupChatroom({
                     buttonText="Add"
                     options={plusOptions}
                     dataAttr="data-group-plus"
-                    trigger={<Plus aria-hidden className="h-5 w-5" strokeWidth={2} />}
+                    /* RW-276: wrapped, as the row's own ＋ face (`ActionFace`) — a BARE svg inside a round's menu button is
+                       hidden by `thumb-row.module.css` (`.menu button[aria-haspopup='listbox'] > svg`), so the ＋ drew blank. */
+                    trigger={
+                      <span aria-hidden className="inline-flex" data-group-plus-face="">
+                        <Plus className="h-5 w-5" strokeWidth={2} />
+                      </span>
+                    }
                     className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/80"
                     onPick={(k) => {
                       if (k === 'story') return record();
@@ -523,35 +561,9 @@ export function GroupChatroom({
             ]}
             field={{
               node: (
-                /* Sends IN PLACE (owner 2026-10-26, "a save never resets the screen" — the chat keeps its scroll):
-                   the `accGroup.postSamahanMessage` door; the box empties once the line has landed (a refusal keeps
-                   the words, said under the box). An empty box sends nothing — the action lands it as a no-op. */
-                <StayForm
-                  door="accGroup.postSamahanMessage"
-                  action={postSamahanMessage}
-                  onSaved={() => setText('')}
-                  className="flex h-full min-w-0 flex-1 items-center gap-1 pl-3.5 pr-1"
-                  data-group-send-form=""
-                >
-                  <input type="hidden" name="community_id" value={communityId} />
-                  <input
-                    // field-ok: the group chat's composer in the ThumbRow (a chat composer, another template — rule 2 of lint-field-template)
-                    name="body"
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    maxLength={2000}
-                    autoComplete="off"
-                    enterKeyHint="send"
-                    placeholder="Message the group"
-                    aria-label="Message the group"
-                    className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink/45"
-                  />
-                  {text.trim() ? (
-                    <span className="shrink-0" data-group-send="">
-                      <ActionButton tone="brand" filled iconOnly icon={ArrowUp} label="Send" type="submit" />
-                    </span>
-                  ) : null}
-                </StayForm>
+                /* Sends IN PLACE (owner 2026-10-26, "a save never resets the screen"); Enter sends, Shift+Enter is a new
+                   line, the box grows, one send per message (walk 13 Nov, F-W3-12 — `GroupComposer`). */
+                <GroupComposer communityId={communityId} />
               ),
             }}
             right={[{ icon: Camera, label: 'Add a story', onClick: record, testId: 'group-story' }]}

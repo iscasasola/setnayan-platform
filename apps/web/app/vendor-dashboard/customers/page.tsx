@@ -8,6 +8,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { formatPhp } from '@/lib/orders';
 import { fetchVendorThreadsDetailed } from '@/lib/chat';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
+import { BOOKED_DATE_HELD_LINE } from '@/lib/booking-ask-words';
 import {
   fetchVendorBlocksDetailed,
   fetchVendorDayStates,
@@ -35,6 +36,7 @@ import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import { entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
 import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { datesBlocksForWire, datesBookingsForWire } from './dates-wire';
+import { readBookedDayHours } from '@/lib/booked-day-hours.server';
 import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import {
@@ -45,6 +47,8 @@ import {
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
+import { shopPerGuestNote } from '@/lib/claimed-per-guest-follow';
 import { buildCustomerCalendarMonth, computeEventMoneyPositions, type EventMoneyPosition } from '@/lib/vendor-customers';
 import {
   customerLaneOf,
@@ -53,6 +57,7 @@ import {
   CUSTOMER_LANES,
   type CustomerLane,
   type PipelineCustomer,
+  onlyCandidateDay,
 } from '@/lib/vendor-customer-pipeline';
 import { rowReadsCompleted } from '@/lib/vendor-thread-stage';
 import { eventTypeLabel } from '@/lib/demand-radar';
@@ -90,7 +95,7 @@ import { CustomersSettings } from './_components/customers-settings';
 import { CustomersSettingsBody } from './_components/customers-settings-body';
 import { InquiryOutcomesRollup } from '../messages/_components/inquiry-outcomes-rollup';
 import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
-import { eventChatTitle } from '@/lib/event-chat-title';
+import { eventChatTitle, eventDateOptionWords } from '@/lib/event-chat-title';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { OutsideClientAdd } from './_components/outside-client-add';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -445,6 +450,10 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const eventTypeByEvent = new Map<string, string | null>();
   const eventNameByEvent = new Map<string, string | null>();
   const eventDateByEvent = new Map<string, string | null>();
+  // 📅 No day set yet → the couple's candidate date(s) / window, as the chat title says them (walk 13 Nov 2026).
+  const dateOptionsByEvent = new Map<string, string | null>();
+  // 📅 F-W1-47: no day fixed but exactly one candidate → the day the list files the client under.
+  const onlyCandidateByEvent = new Map<string, string | null>();
   const rosterEventIds = [
     ...new Set([...bookedByEvent.keys(), ...bookingByEvent.keys(), ...threadByEvent.keys()]),
   ];
@@ -457,7 +466,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       (part) =>
         rosterAdmin
           .from('events')
-          .select('event_id, display_name, event_date, venue_name, event_type')
+          .select('event_id, display_name, event_date, venue_name, event_type, date_candidates, date_window_start, date_window_end')
           .in('event_id', part),
     );
     // ⚠ THE EVENT DATE, VENUE AND TYPE for every customer. Refused, all three
@@ -474,11 +483,27 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       event_date: string | null;
       venue_name: string | null;
       event_type: string | null;
+      date_candidates?: unknown;
+      date_window_start?: string | null;
+      date_window_end?: string | null;
     }[]) {
       venueByEvent.set(e.event_id, e.venue_name);
       eventTypeByEvent.set(e.event_id, e.event_type);
       eventNameByEvent.set(e.event_id, e.display_name);
       eventDateByEvent.set(e.event_id, e.event_date);
+      if (!e.event_date) {
+        onlyCandidateByEvent.set(e.event_id, onlyCandidateDay(e.date_candidates));
+        dateOptionsByEvent.set(
+          e.event_id,
+          eventDateOptionWords({
+            eventDate: null,
+            precision: null,
+            candidates: e.date_candidates,
+            windowStart: e.date_window_start ?? null,
+            windowEnd: e.date_window_end ?? null,
+          }),
+        );
+      }
     }
   }
 
@@ -523,6 +548,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         // `display_name`, never to hide one.
         descriptor: 'Customer',
         eventDate: eventDateByEvent.get(eventId) ?? null,
+        onlyCandidateDate: onlyCandidateByEvent.get(eventId) ?? null,
         place: venueByEvent.get(eventId) ?? null,
         // A live hold in this shop's own pool. Carrying it forward is what stops
         // a customer whose `event_vendors` row is archived, or was never stamped
@@ -548,6 +574,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     if (t && (t.archived || t.archived_at != null)) archivedOff.add(r.eventId);
   }
   const listed = derived.filter((r) => !archivedOff.has(r.eventId));
+  /* 👥 RW-08: this shop's claimed per-guest bookings — the figure and count the couple reads ("₱4,000 · 4 guests").
+     A refused read leaves the rows as shipped ("no quote yet"), never a guessed figure. */
+  const perGuest = await readShopPerGuest(rosterAdmin, vendorProfileId, listed.map((r) => r.eventId));
 
   /*
     ⇅ SHOW & SORT (v113; spec §9 #7) — Service · Status · Client · Handled by narrow EVERY event before the lists are
@@ -684,7 +713,12 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       note: moneyNote(r, moneyByEvent.get(r.eventId) ?? null, paydayIncomplete),
       kind: type && type !== 'unspecified' ? eventTypeLabel(type) : null,
       quoted: false,
+      perGuestNote: (() => {
+        const p = perGuest?.get(r.eventId);
+        return p ? shopPerGuestNote(p) : null;
+      })(),
       returning: Boolean(t?.is_returning),
+      dateOptions: dateOptionsByEvent.get(r.eventId) ?? null,
     };
   };
   const noLanes = Object.fromEntries(CUSTOMER_LANES.map((l) => [l, [] as PipelineCustomer[]])) as Record<CustomerLane, PipelineCustomer[]>;
@@ -834,6 +868,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
           kind: type && type !== 'unspecified' ? eventTypeLabel(type) : null,
           date: eventDateByEvent.get(t.event_id) ?? null,
           nowMs: rosterNowMs,
+          options: dateOptionsByEvent.get(t.event_id) ?? null,
         }),
         why: t.archived
           ? 'Archived'
@@ -1167,7 +1202,11 @@ async function customersMonth({
   teamRows: Awaited<ReturnType<typeof fetchVendorTeam>>;
   reads: ReturnType<typeof startMonthReads>;
 }) {
-  const [monthDayStates, monthWaitlist, upcomingWaitlist, settingsRead, pickedRead] = await reads;
+  const [[monthDayStates, monthWaitlist, upcomingWaitlist, settingsRead, pickedRead], bookedHours] = await Promise.all([
+    reads,
+    // 🗓 A booked day's hours and the shop's own times (part (b)) — a hall reads only its own chapter.
+    readBookedDayHours(bookings, new Set(pools.filter((p) => p.isHall).map((p) => p.poolId)), todayIso),
+  ]);
   // 🔴 G7: refused (null) is not "nothing held" — the month says so over itself (`initialDayStatesRead`).
   const dayStates = monthDayStates ?? [];
   const blocks = blocksRead.blocks;
@@ -1212,7 +1251,7 @@ async function customersMonth({
 
   // Holding (amber): open conversations about unbooked, dated events — a COUNT per date crosses to the browser.
   const bookedEventIds = new Set(bookings.map((b) => b.eventId));
-  const { asks } = await readOpenAsks(threads, bookedEventIds);
+  const { asks } = await readOpenAsks(threads, bookedEventIds, vendorProfileId);
 
   const poolLabelOf = new Map(pools.map((p) => [p.poolId, p.label]));
   // Every closure still ahead: a one-off not yet over, or a REPEAT with no end or an end still ahead. Repeats first —
@@ -1248,7 +1287,7 @@ async function customersMonth({
       todayIso,
       pools,
       // Only what the month and the day's rows read — a block's contact and note never cross the wire.
-      bookings: datesBookingsForWire(bookings),
+      bookings: datesBookingsForWire(bookings, bookedHours),
       blocks: datesBlocksForWire(blocks),
       agents,
       agentCategories,
@@ -1342,7 +1381,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   // The booked events' place and kind (admin: the supplier holds no `events` RLS) — and the holders' names and dates.
   const bookedEventIds = new Set(bookings.map((b) => b.eventId));
   const [{ asks, measured: asksMeasured }, eventsRead, caps] = await Promise.all([
-    readOpenAsks(threadsRead.threads, bookedEventIds),
+    readOpenAsks(threadsRead.threads, bookedEventIds, vendorProfileId),
     bookedToday.length > 0
       ? readInChunks([...new Set(bookedToday.map((b) => b.eventId))], (part) =>
           createAdminClient().from('events').select('event_id, venue_name, event_type').in('event_id', part),
@@ -1441,7 +1480,13 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
 
   const holders = asks
     .filter((a) => a.date === day)
-    .map((a) => ({ threadId: a.threadId, title: a.name ?? 'A couple', line: `${askedOn(a.askedAt)} · not booked` }));
+    .map((a) => ({
+      threadId: a.threadId,
+      title: a.name ?? 'A couple',
+      // 📅 F-W1-68: an agreed booking waiting on its first payment is Booked — the date held once that payment is in.
+      line: a.agreed ? BOOKED_DATE_HELD_LINE : `${askedOn(a.askedAt)} · not booked`,
+      agreed: a.agreed,
+    }));
   const near = daysFrom(todayIso, day);
   const ceiling = caps.whitelistPerDate;
   const data: DaySheetData = {

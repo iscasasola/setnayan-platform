@@ -82,6 +82,28 @@ function formatDay(day: string): string {
   );
 }
 
+/**
+ * 📸 "FULL SIZE UNTIL <date>" — what a guest reads on their own "Were you there?" screen (owner 2026-11-13, DECISION_LOG
+ * "POST EVENT = A STORY (ONE SCENE PER SCREEN) — SIX CALLS SETTLED" (4)). The SAME day the host's reminder names
+ * (`dueOriginalsReminder`'s `lastKeptDay`): the last day before the drop's clock — the event's LAST day +
+ * `FULL_RES_POST_EVENT_GRACE_DAYS` — runs out. The sweep can only keep originals LONGER than this (the retention env
+ * override, a Drive copy still pending), never drop them sooner, so the date is a promise the drop keeps.
+ * Null when the event has no date, or once that window has closed — the originals may already be gone, and a date in
+ * the past would be a false promise.
+ */
+export function fullSizeKeptUntil(
+  eventDate: string | null | undefined,
+  eventEndDate: string | null | undefined,
+  nowMs: number,
+): { day: string; label: string } | null {
+  const last = eventLastDay(eventDate, eventEndDate);
+  if (!last) return null;
+  const since = daysBetween(last, manilaToday(nowMs));
+  if (!Number.isFinite(since) || since >= FULL_RES_POST_EVENT_GRACE_DAYS) return null;
+  const day = addDays(originalsKeptUntil(last), -1);
+  return { day, label: formatDay(day) };
+}
+
 /** Title — one line, the deadline. */
 export function originalsReminderTitle(due: DueOriginalsReminder): string {
   return `Original photos kept until ${formatDay(due.lastKeptDay)}`;

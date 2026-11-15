@@ -51,12 +51,21 @@ const CSS = read('app/globals.css');
 
 type Vars = Record<string, string>;
 const varsOf = (block: string): Vars => Object.fromEntries([...block.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)].map((m) => [m[1]!, m[2]!.trim()]));
+/* `var(--x)` and `var(--x, fallback)` — innermost first, so a fallback that is itself a `var()` is resolved before the
+   outer one is judged. An unset name with a fallback takes the fallback, exactly as the browser does (the decision
+   tokens are unset until Admin › Colours saves a set — `lib/app-colours.ts`); an unset name WITHOUT one fails. */
 const resolve = (value: string, vars: Vars, depth = 0): string => {
   assert.ok(depth < 8, `a variable loops: ${value}`);
-  return value.replace(/var\((--[a-z0-9-]+)\)/g, (_, name: string) => {
-    assert.ok(name in vars, `${name} is not set`);
-    return resolve(vars[name]!, vars, depth + 1);
-  });
+  let out = value;
+  for (let guard = 0; /var\(/.test(out); guard += 1) {
+    assert.ok(guard < 16, `a variable does not resolve: ${value}`);
+    out = out.replace(/var\((--[a-z0-9-]+)(?:,\s*([^()]*))?\)/g, (_, name: string, fallback?: string) => {
+      if (name in vars) return resolve(vars[name]!, vars, depth + 1);
+      assert.ok(fallback !== undefined, `${name} is not set`);
+      return fallback.trim();
+    });
+  }
+  return out;
 };
 const ROOT = CSS.slice(CSS.indexOf(':root {'), CSS.indexOf('html.dark {'));
 const THE_ONE_LINE = '--sn-accent: var(--color-mulberry);';
@@ -161,8 +170,12 @@ test('(2b) the remove confirm answers with the second button and the DELETE butt
   assert.ok(fill, 'the main button’s fill is not its tone');
   assert.equal(resolve(brand, LIGHT), '194 78 37');
   assert.equal(resolve(brand, BLUED), BLUE, 'the main button does not follow the accent');
+  /* 🎨 DECISION SPLIT FROM TOGGLE (Admin › Colours, 12 Nov 2026): the main button is the DECISION job — it follows the
+     accent only while no decision colour is saved; a saved one wins and the toggle no longer drags it along. */
+  assert.equal(resolve(brand, { ...BLUED, '--sn-decision': '194 78 37' }), '194 78 37', 'a saved decision colour does not hold the main button when the toggle moves');
   const word = /:is\(button, a\)\.ab\.ab-brand\.ab-main,\s*html\.dark :is\(button, a\)\.ab\.ab-brand\.ab-main \{ color: ([^;]+); \}/.exec(CSS)?.[1] ?? '';
-  assert.equal(word, 'rgb(var(--sn-on-accent))', 'the main button’s word is not the ink that reads on the accent');
+  assert.equal(word, 'rgb(var(--sn-on-decision, var(--sn-on-accent)))', 'the main button’s word is not the ink that reads on the decision (falling back to the accent’s)');
+  assert.equal(resolve(word, LIGHT), 'rgb(255 255 255)');
 });
 
 /* ── (3) a direction is a dropdown; Grow | Shrink is the pill ─────────── */

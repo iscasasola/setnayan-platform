@@ -1,4 +1,5 @@
 import type { NotificationRow } from '@/lib/notifications';
+import type { NotificationPlaceFacts } from '@/lib/notification-place';
 import { NotificationsHead, NotificationsList } from '@/app/_components/notifications/notifications-list';
 import { DatesRow } from '../customers/_components/dates-row';
 
@@ -10,7 +11,16 @@ import { DatesRow } from '../customers/_components/dates-row';
  * pop-over — the visible "Notifications" title with the quiet "Mark all read" beside it. The "Recent" line left: the
  * rows now carry their own Today / Earlier.
  */
-export function NotificationsView({ items, returnTo }: { items: NotificationRow[]; returnTo: string }) {
+export function NotificationsView({
+  items,
+  returnTo,
+  places = null,
+}: {
+  items: NotificationRow[];
+  returnTo: string;
+  /** Each row's place (`lib/notification-place.ts`); absent → the rows that need it say "Place didn't load". */
+  places?: NotificationPlaceFacts | null;
+}) {
   const unreadCount = items.filter((n) => !n.read_at).length;
   return (
     <div className="mx-auto w-full max-w-xl pb-16 pt-4 sm:pt-7" data-supplier-notifications="">
@@ -18,6 +28,7 @@ export function NotificationsView({ items, returnTo }: { items: NotificationRow[
 
       <NotificationsList
         items={items}
+        places={places}
         returnTo={returnTo}
         emptyState={{
           title: 'Nothing yet.',

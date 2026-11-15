@@ -207,7 +207,10 @@
   position: absolute;
   left: 0;
   right: 0;
-  top: 33cqw;
+  /* 🏷 THE CHIPS NEVER COVER THE MARK (controller 2026-11-13, Home at 390 px: "YOU ORGANISE THIS" sat on
+     the "S"). A collection card with chips sets `--chip-room` (the stacked chips' height); the mark's top
+     edge (centre − half its 22cqw size) starts below it. Elsewhere `--chip-room` is unset → 0 → as before. */
+  top: max(33cqw, calc(var(--chip-room, 0px) + 11cqw));
   transform: translateY(-50%);
   text-align: center;
   color: #fff;
@@ -220,7 +223,7 @@
 .markImg {
   position: absolute;
   left: 50%;
-  top: 33cqw;
+  top: max(33cqw, calc(var(--chip-room, 0px) + 19cqw));
   width: 38cqw;
   height: 38cqw;
   transform: translate(-50%, -50%);
@@ -230,7 +233,8 @@
   position: absolute;
   left: 8cqw;
   right: 8cqw;
-  top: 57cqw;
+  /* Follows the mark down when the chips push it (mark bottom + a 6cqw gap … the 57cqw it always had). */
+  top: max(57cqw, calc(var(--chip-room, 0px) + 44cqw));
   text-align: center;
 }
 .deepTxt .names {

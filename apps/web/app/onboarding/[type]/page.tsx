@@ -256,6 +256,7 @@ export default async function GenericOnboardingPage({
       // clock rather than the visitor's device timezone.
       todayISO={manilaToday()}
       dateExempt={await viewerIsInternal().catch(() => false)}
+      maxDays={profile.maxDays}
       setupView={setupView}
       setupSteps={setupSteps}
     />

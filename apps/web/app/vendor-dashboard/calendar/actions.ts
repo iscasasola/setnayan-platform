@@ -169,9 +169,9 @@ function backToCalendar(formData: FormData, notice: string, block: string | null
 
 function revalidateScheduleSurfaces() {
   revalidatePath('/vendor-dashboard/calendar');
-  // 7️⃣ Today's step 7 draws How many a day too (a new shop's setup, `setup-daily-step.tsx`) — saved in place there, so
-  // Today re-renders with the saved number. (Today is NOT one of the door's `within` screens: the no-shop bounce lands on
-  // bare `/vendor-dashboard`, and that must never read as "saved".)
+  // Today reads schedule facts too (its step 7 "How many a day" left Today on 13 Nov 2026 — the limit is per service).
+  // (Today is NOT one of the door's `within` screens: the no-shop bounce lands on bare `/vendor-dashboard`, and that
+  // must never read as "saved".)
   revalidatePath('/vendor-dashboard');
   revalidatePath('/vendor-dashboard/clients');
   // Customers › Dates and People draw every schedule fact now (S-PR3).
@@ -608,7 +608,8 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
         // makes somebody open a page to find out which date is a notice that
         // waits until they have time.
         body: `You were on the waitlist and ${shop} has chosen you. Book it with them soon — they can hold it for only so long.`,
-        relatedUrl: v?.business_slug ? `/${v.business_slug}` : '/explore',
+        // No shop page → Discover's supplier view (`/explore` retired into `/` 2026-11-12).
+        relatedUrl: v?.business_slug ? `/${v.business_slug}` : '/?browse=1',
       });
     } catch (e) {
       console.error('[waitlist] pick notify failed:', String(e), {

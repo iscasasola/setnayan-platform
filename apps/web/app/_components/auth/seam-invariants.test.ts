@@ -532,12 +532,16 @@ test('the marketing top nav never appears inside the app', () => {
     That premise was falsified on 2026-08-15 when /help joined the shared shell.
     Repointed to `/download`, which is a pure marketing endpoint with no product
     surface behind it — the property that actually makes a route a safe control.
+    ⚠ REPOINTED AGAIN 2026-11-12: /download joined the shared shell with /blog
+    (owner: "these are on old shells"). /waitlist is the next pure marketing
+    endpoint; if it converts too, repoint here rather than loosen the check.
   */
-  assert.ok(
-    routes.includes('/download'),
-    `The marketing route parser did not find /download, a stable member — it ` +
-      `is broken and every assertion below would pass vacuously. Found ${routes.length}: ` +
-      routes.slice(0, 6).join(', '),
+  // 2026-11-12: NAV_ROUTES is EMPTY on purpose — its last seven members moved into app/(shell)/ (owner: "these are on old shells") — so no real member can be the positive control. The parser is probed instead: fed a one-member declaration of the same shape, it must return that member.
+  assert.match(chrome, /const NAV_ROUTES = new Set<string>\(\[/, 'NAV_ROUTES is gone from site-chrome.tsx');
+  assert.deepEqual(
+    [..."const S = new Set<string>([\n  '/probe',\n]);".matchAll(/^\s*'(\/[^']*)',/gm)].map((m) => m[1]),
+    ['/probe'],
+    'the marketing route parser cannot read a one-member probe — every assertion below would pass vacuously',
   );
   const crossed = routes.filter((r) =>
     APP_TREES.some((tree) => r === `/${tree.slice(0, -1)}` || r.startsWith(`/${tree}`)),
@@ -555,6 +559,8 @@ test('the app bottom bar never appears on a public page', () => {
     const rel = file.slice(APP.length + 1);
     if (APP_TREES.some((tree) => rel.startsWith(tree))) continue;
     if (rel.startsWith('_components/nav/')) continue; // the primitive itself
+    // A /dev lab is never public: every one 404s in production (`app/dev/layout.tsx`, held by the-labs-never-ship.test.ts).
+    if (rel.startsWith('dev/')) continue;
     if (/<(Customer|Admin|Vendor)BottomNav\b/.test(code(readFileSync(file, 'utf8')))) {
       offenders.push(rel);
     }
@@ -632,12 +638,17 @@ test('the events row says Events everywhere, and never points back', () => {
     /events: LayoutGrid,/,
     'the shell no longer maps the focus name to the events drawing',
   );
+  /* ↩ 2026-11-12 (owner, on the event menu beside the shop's: *"The need to have similar way of
+     presenting this to go back to home"*): inside an event the focus row is now the SAME row HQ, the
+     shop and every account spoke wear — "My Home", the default arrow, to /dashboard. It no longer
+     names the events drawing, so the 2026-09-23 "same word AND same drawing as the events row" pin is
+     replaced by "the same row as every other focused rail". */
   assert.match(
     layout,
-    /label: 'Events',[\s\S]{0,80}icon: 'events'/,
-    'the focused row must carry the same word AND the same drawing as the ' +
-      'events row on every other surface.',
+    /focus=\{\{\s*href: '\/dashboard',\s*label: 'My Home',\s*caption: 'Home',?\s*\}\}/,
+    'inside an event the way back must read exactly as on HQ and the shop: "My Home", the arrow.',
   );
+  assert.doesNotMatch(layout, /icon: 'events'/, 'the event row went back to the events drawing.');
 });
 
 /* ── THE SIGN-IN CARD'S OWN COLOURS CLEAR AA ─────────────────────────────────

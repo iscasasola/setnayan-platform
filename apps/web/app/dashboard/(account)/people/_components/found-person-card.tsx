@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Clock } from 'lucide-react';
-import { GuestPopup } from '@/app/dashboard/[eventId]/guests/_components/guest-popup';
-import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.module.css';
+import { Check } from 'lucide-react';
+import { Sheet } from '@/app/_components/sheet';
+import { Badge } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 import type { PersonHit } from '@/lib/people-search-query';
 import { PEOPLE_PATH, PERSON_PARAM } from '@/lib/people-person-link';
@@ -63,48 +63,37 @@ export function FoundPersonCard({ hit }: { hit: PersonHit }) {
 
   const meta = [hit.handle, hit.fullName, hit.hint].filter(Boolean).join(' · ');
   return (
-    <GuestPopup
-      onClose={close}
-      rootClassName="fixed inset-0 z-[80]"
-      panelClassName="gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-paper px-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-2 shadow-xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
-      labelledById="found-person-name"
-      panelData={{ 'data-person-card': '', 'data-found-person': '' }}
-    >
-      <div className={ps.cardBody}>
-        <span aria-hidden className="mx-auto mb-3.5 mt-1.5 block h-1 w-10 rounded-full bg-ink/15" />
+    <Sheet open={open} onClose={close} labelledById="found-person-name" rise>
+      <div className={ps.cardBody} data-person-card="" data-found-person="">
         <div className="flex items-start gap-3.5">
           <span className={ps.cardFace} aria-hidden>
             <PersonAvatar name={hit.name} photoUrl={hit.photoUrl} size="row" />
           </span>
           <div className="min-w-0">
             <p className={ps.eyebrow}>On Setnayan</p>
-            <h2 id="found-person-name" className="mt-0.5 text-[26px] font-semibold leading-tight text-ink">
+            <h2 id="found-person-name" className="mt-0.5 text-2xl font-semibold leading-tight text-ink">
               {hit.name}
             </h2>
-            {meta ? <p className="mt-1 text-[14px] text-ink/60">{meta}</p> : null}
+            {meta ? <p className="mt-1 text-sm text-ink/70">{meta}</p> : null}
           </div>
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-2.5">
           {following ? (
-            <span className={`${gs.pill} ${gs.pillOk} ${ps.pillRow}`} data-following>
-              <Check aria-hidden className="h-3 w-3" strokeWidth={2.2} />
-              Following
+            <span data-following="">
+              <Badge tone="ok">Following</Badge>
             </span>
           ) : hit.followable ? (
             <ActionButton tone="neutral" icon={Check} label="Follow" onClick={follow} disabled={pending} />
           ) : null}
           {asked ? (
-            <span className={`${gs.pill} ${gs.pillWine} ${ps.pillRow}`}>
-              <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Asked
-            </span>
+            <Badge tone="wait">Asked</Badge>
           ) : (
             <ActionButton tone="brand" main icon={Check} label="Add" onClick={add} disabled={pending} />
           )}
         </div>
         {error ? (
-          <p role="alert" className="mt-3 text-sm text-red-700 dark:text-red-300">
+          <p role="alert" className="mt-3 text-sm text-[rgb(var(--color-danger))]">
             {error}
           </p>
         ) : null}
@@ -114,6 +103,6 @@ export function FoundPersonCard({ hit }: { hit: PersonHit }) {
           </p>
         ) : null}
       </div>
-    </GuestPopup>
+    </Sheet>
   );
 }

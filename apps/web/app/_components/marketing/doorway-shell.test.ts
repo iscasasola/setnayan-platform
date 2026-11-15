@@ -106,7 +106,10 @@ const DOORWAYS = [
  * NAV_ROUTES, the old fixed glass nav renders ON TOP of the shell's bar.
  * Any one missing looks fine in a browser on a fast connection while signed in.
  */
-const SHELLED_PUBLIC = ['explore', 'help', 'alaala'] as const;
+// 🔄 2026-11-12: 'explore' LEFT this list — `/explore` is no longer a page; it forwards (308) to Discover (`/`), where
+// the supplier view now lives (owner: *"find suppliers needs to be also inside discover already. they do not need to
+// have their own page"*). `app/(shell)/explore/` keeps only `/explore/compare` and the shared pipeline.
+const SHELLED_PUBLIC = ['help', 'alaala'] as const;
 
 /**
  * NAV_ROUTES as the file actually declares it.
@@ -121,8 +124,7 @@ const SHELLED_PUBLIC = ['explore', 'help', 'alaala'] as const;
  * was inlined in a single test; the second caller would have been a copy, and
  * a copied parser is two things that must be fixed together forever.
  */
-function navRoutes(): string[] {
-  const src = code(read(join(HERE, 'site-chrome.tsx')));
+function navRoutes(src: string = code(read(join(HERE, 'site-chrome.tsx')))): string[] {
   const block = /const NAV_ROUTES = new Set<string>\(\[([\s\S]*?)\]\)/.exec(src);
   assert.ok(block, 'NAV_ROUTES not found — this guard would pass vacuously.');
   return [...(block[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1] ?? '');
@@ -386,14 +388,17 @@ test('no doorway is still a NAV_ROUTE', () => {
     REASON not to convert, or it re-fires every slice: /download and /waitlist
     are pure marketing endpoints with no product surface behind them and nobody
     has ever asked for them to be shelled.
+    ⚠ REPOINTED AGAIN 2026-11-12: the owner DID ask — "these are on old shells"
+    — and /download moved into app/(shell)/ with /blog. /our-story replaces it;
+    if that one converts too, repoint here rather than loosen the check.
   */
-  assert.ok(
-    listed.includes('/download') && listed.includes('/waitlist'),
-    `NAV_ROUTES parser did not find /download and /waitlist, both stable ` +
-      `members with no reason to convert — it is broken and every assertion ` +
-      `below would pass vacuously. Found ` +
-      `${listed.length}: ${listed.slice(0, 6).join(', ')}`,
+  // 2026-11-12: NAV_ROUTES is EMPTY on purpose — its last seven members moved into app/(shell)/ (owner: "these are on old shells") — so no real member can be the positive control. The parser is probed instead: fed a one-member declaration of the same shape, it must return that member.
+  assert.deepEqual(
+    navRoutes(code("const NAV_ROUTES = new Set<string>([\n  // it's a note\n  '/probe',\n]);")),
+    ['/probe'],
+    'the NAV_ROUTES parser cannot read a one-member probe — every assertion below would pass vacuously',
   );
+  assert.equal(listed.length, 0, `NAV_ROUTES has members again: ${listed.join(', ')}`);
   for (const d of DOORWAYS) {
     assert.ok(
       !listed.includes(`/${d}`),

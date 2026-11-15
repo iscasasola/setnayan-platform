@@ -183,6 +183,9 @@ export function ServiceFaceCoverShow({ photos, cornerAbove = false }: { photos: 
     <span
       ref={root}
       data-cover-show=""
+      // The full-screen supplier sheet's body swipe (next supplier) ignores a gesture that STARTS inside this mark —
+      // sideways on the photo stays the photo's. Contract with `vendors/_components/supplier-sheet.tsx`.
+      data-swipe-photo=""
       data-cover-show-at={index}
       className="absolute inset-0 z-10 cursor-pointer touch-pan-y select-none"
       onPointerDown={onPointerDown}

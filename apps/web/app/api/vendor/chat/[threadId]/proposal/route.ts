@@ -24,6 +24,10 @@ const STATUS_BY_CODE: Record<SendProposalError, number> = {
   // 📅 no lifetime quotation (2026-11-09): sent without a Valid until — nothing was written.
   needs_valid_until: 422,
   plan_not_in_full: 422,
+  // 🧪 the demo rule refused the pairing — a retry never changes it.
+  demo_scope: 422,
+  // 🧾 a "first N couples" offer on the quote is already used up (OWN-01) — nothing was sent.
+  offer_taken: 409,
   failed: 500,
 };
 

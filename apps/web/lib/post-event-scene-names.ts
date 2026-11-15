@@ -30,6 +30,7 @@ export const POST_EVENT_SCENE_NAMES: Readonly<Record<string, string>> = {
   seating: 'Where Everyone Sat',
   entourage: 'Entourage',
   beforeAfter: 'Before & After',
+  gifts: 'Thank you for your gift',
   couple: 'Thank You',
   song: 'Song',
   next: 'What comes next',

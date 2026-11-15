@@ -56,7 +56,9 @@ test('all five sections pass focus back to /dashboard', () => {
        the component, which is what the layout then passed across a
        server→client boundary — a 500 on every page inside an event. See
        `RailFocusIcon`. */
-    ['app/dashboard/[eventId]/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'Events',\s*caption: 'Events',\s*icon: 'events',?\s*\}\}/],
+    /* ↩ SUPERSEDED 2026-11-12: the event row now reads as the other three — "My Home", the arrow
+       (owner: *"similar way of presenting this to go back to home"*). */
+    ['app/dashboard/[eventId]/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'My Home',\s*caption: 'Home',?\s*\}\}/],
     ['app/vendor-dashboard/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'My Home'/],
     ['app/admin/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'My Home'/],
     ['app/dashboard/(account)/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'My Home',[\s\S]{0,60}paths: ACCOUNT_FOCUS_PATHS/],

@@ -16,7 +16,7 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import type { VendorCategory } from '@/lib/vendors';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { siteOrigin } from '@/lib/site-origin';
-import { PROMOTE_HREF, PROMOTE_QR_MODES, myPageUrl as myPageUrlOf, promoteQrModeOf, type PromoteQrMode } from '@/lib/supplier-qr-codes';
+import { PROMOTE_HREF, PROMOTE_QR_MODES, ownPageUrl, promoteQrModeOf, type PromoteQrMode } from '@/lib/supplier-qr-codes';
 import { printLine, printQrUrl } from '@/lib/supplier-prints-shop';
 import { QrCodes } from '../../../invite/_components/qr-codes';
 import { PromoteBridge } from './promote-bridge';
@@ -92,7 +92,8 @@ export async function PromoteBody({
     const selectedCat = search.cat && coverage.includes(search.cat as VendorCategory) ? (search.cat as VendorCategory) : null;
     const selectedEt = search.et && eventTypes.some((t) => t.key === search.et) ? search.et : null;
     const shortUrl = buildVendorInviteUrl(slug!, { eventType: selectedEt, category: selectedCat });
-    const pageUrl = myPageUrlOf(origin, slug!);
+    // 💳 The "My page" code is the supplier's own: ?src=own (owner 2026-11-13, F-W1-58) — its couples are theirs, no fee.
+    const pageUrl = ownPageUrl(origin, slug!);
     pageLink = pageUrl;
     const reviewsUrl = printQrUrl('reviews', origin, slug!);
     const [dates, shortSvg, pageSvg, reviewsSvg] = await Promise.all([

@@ -1,7 +1,8 @@
-import { ArrowRight, Layers } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { ActionButton } from '@/components/action-button';
+import { Notice } from '@/app/_components/notices/notices';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readStayOn } from '@/lib/service-plan-hold.server';
 import { HOLD_WORDS, stayOnNeed } from '@/lib/service-plan-hold';
@@ -31,17 +32,21 @@ export async function StayOnTodayLine({
 }
 
 /** The drawn line — one sentence and one door. Exported so the dev lab mounts this, not a copy. */
+/**
+ * 🔔 Inventory #9 — a To-do (one notice system, owner approved 14 Nov 2026), registered for Today's top: "Pick which stay
+ * on · Not now" (back after 7 days) until the pick is made.
+ */
 export function StayOnTodayLineView({ text }: { text: string }) {
   return (
-    <section aria-label={HOLD_WORDS.door} className="mb-3 flex flex-wrap items-center gap-3 border-b border-ink/10 py-3" data-stay-on-today="">
-      <Layers aria-hidden className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
-      <p className="min-w-[12rem] flex-1 text-[14px] text-ink">{text}</p>
-      <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label="Pick which stay on" href="/vendor-dashboard/shop#stay-on" className="!h-11 !min-h-11" />
-    </section>
+    <Notice
+      kind="todo"
+      noticeKey="pick-service-on"
+      title={text}
+      actions={<ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label="Pick which stay on" href="/vendor-dashboard/shop#stay-on" className="!h-11 !min-h-11" />}
+    />
   );
 }
 
-/** The day the current plan ends, as a Manila calendar day ("November 30, 2026"); unknown → no date in the sentence. */
 function whenItStarts(tierExpiresAt: string | null): string | null {
   if (!tierExpiresAt) return null;
   const d = new Date(tierExpiresAt);

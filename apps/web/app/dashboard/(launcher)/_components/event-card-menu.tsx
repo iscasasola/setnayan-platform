@@ -11,7 +11,9 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useHydrated } from '@/lib/use-hydrated';
-import { Archive, CalendarPlus, Eye, MoreVertical, Trash2 } from 'lucide-react';
+import { Archive, ArrowLeft, CalendarPlus, Eye, MessageCircle, MoreVertical, Send, Trash2, X } from 'lucide-react';
+import { ActionButton, EQUAL_ROW_CLASS } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 
 import { setEventArchived } from '../../[eventId]/archive-actions';
 import {
@@ -400,13 +402,13 @@ export function EventCardMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Options for ${eventName}`}
-        className={`absolute right-2 top-2 z-20 grid h-8 w-8 place-items-center rounded-full backdrop-blur-[6px] transition-colors ${
+        className={`absolute right-1 top-1 z-20 grid h-11 w-11 place-items-center rounded-full backdrop-blur-sm transition-colors duration-sn-control ${
           dark
             ? 'bg-black/35 text-white/80 hover:bg-black/55 hover:text-white'
-            : 'bg-white/80 text-ink/60 shadow-[0_2px_8px_rgba(30,26,18,0.10)] hover:bg-white hover:text-ink'
+            : 'bg-white/80 text-ink/75 shadow-sn-sm hover:bg-white hover:text-ink'
         }`}
       >
-        <MoreVertical aria-hidden className="h-[17px] w-[17px]" strokeWidth={2} />
+        <MoreVertical aria-hidden className="h-4 w-4" strokeWidth={2} />
       </button>
 
       {open && !confirming ? (
@@ -425,7 +427,7 @@ export function EventCardMenu({
             role="menu"
             data-board-menu=""
             style={menuShift ? { transform: `translateX(${menuShift}px)` } : undefined}
-            className={`absolute top-11 z-50 w-[17.5rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 text-left shadow-lg ${
+            className={`absolute top-12 z-50 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 text-left shadow-sn-float ${
               align === 'left' ? 'left-0' : 'right-0'
             }`}
           >
@@ -442,12 +444,12 @@ export function EventCardMenu({
                     close();
                     openEventHub(hubUrl);
                   }}
-                  className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
+                  className="flex min-h-14 w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
                 >
-                  <Eye aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/60" strokeWidth={2} />
+                  <Eye aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={2} />
                   <span>
                     <span className="block font-semibold">View Event Hub</span>
-                    <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">What your guests see.</span>
+                    <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">What your guests see.</span>
                   </span>
                 </a>
                 <div className="my-1 h-px bg-ink/10" />
@@ -463,18 +465,18 @@ export function EventCardMenu({
                   href={icsHref}
                   filename={`${eventName}.ics`}
                   role="menuitem"
-                  className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
+                  className="flex min-h-14 w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
                 >
                   <CalendarPlus
                     aria-hidden
-                    className="mt-0.5 h-4 w-4 shrink-0 text-ink/60"
+                    className="mt-0.5 h-4 w-4 shrink-0 text-ink/70"
                     strokeWidth={2}
                   />
                   <span>
                     <span className="block font-semibold">
                       Add to calendar
                     </span>
-                    <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
+                    <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">
                       Just this event, on your phone.
                     </span>
                   </span>
@@ -489,18 +491,18 @@ export function EventCardMenu({
               role="menuitem"
               onClick={putAway}
               disabled={pending}
-              className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5 disabled:opacity-60"
+              className="flex min-h-14 w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5 disabled:opacity-60"
             >
               <Archive
                 aria-hidden
-                className="mt-0.5 h-4 w-4 shrink-0 text-ink/60"
+                className="mt-0.5 h-4 w-4 shrink-0 text-ink/70"
                 strokeWidth={2}
               />
               <span>
                 <span className="block font-semibold">
                   {archived ? 'Bring it back' : 'Put this away'}
                 </span>
-                <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
+                <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">
                   {archived
                     ? 'Back onto your active list.'
                     : 'Off your list. Nothing is deleted.'}
@@ -515,7 +517,7 @@ export function EventCardMenu({
               role="menuitem"
               onClick={openDelete}
               disabled={pending}
-              className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-[color:var(--sn-danger)] hover:bg-[color:var(--sn-danger-soft)] disabled:opacity-60"
+              className="flex min-h-14 w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-[color:var(--sn-danger)] hover:bg-[color:var(--sn-danger-soft)] disabled:opacity-60"
             >
               <Trash2
                 aria-hidden
@@ -524,7 +526,7 @@ export function EventCardMenu({
               />
               <span>
                 <span className="block font-semibold">Remove for good</span>
-                <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
+                <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">
                   Photos and everything else, gone for good.
                 </span>
               </span>
@@ -533,7 +535,7 @@ export function EventCardMenu({
             {error ? (
               <p
                 role="alert"
-                className="px-3 pb-2 pt-1 text-[11.5px] font-semibold text-[color:var(--sn-danger)]"
+                className="px-3 pb-2 pt-1 text-[13px] font-semibold text-[color:var(--sn-danger)]"
               >
                 {error}
               </p>
@@ -576,12 +578,12 @@ export function EventCardMenu({
       */}
       <RemoveDialog open={confirming} onDismiss={close} label={`Remove ${eventName}?`}>
         <div className="p-4">
-          <p className="text-sm font-bold text-ink">
+          <p className="text-base font-bold text-ink">
             Remove {eventName}?
           </p>
 
           {!impact ? (
-            <p className="mt-1.5 text-[12px] text-ink/60">
+            <p className="mt-1.5 text-sm text-ink/70">
               {error ? error : 'Checking what’s on this one…'}
             </p>
           ) : requested || impact.pendingRequest ? (
@@ -593,7 +595,7 @@ export function EventCardMenu({
               duplicate, which reads as the product being broken.
             */
             <>
-              <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+              <p className="mt-1.5 text-sm leading-snug text-ink/75">
                 <strong className="font-semibold text-ink">
                   We have your request
                 </strong>{' '}
@@ -601,7 +603,7 @@ export function EventCardMenu({
                 know when we do.
               </p>
               {impact.pendingRequest ? (
-                <p className="mt-1 text-[11.5px] leading-snug text-ink/55">
+                <p className="mt-1 text-[13px] leading-snug text-ink/70">
                   You said: {deletionReasonLabel(impact.pendingRequest.reasonCode).toLowerCase()}
                   {impact.pendingRequest.reason
                     ? ` — “${impact.pendingRequest.reason}”`
@@ -612,7 +614,7 @@ export function EventCardMenu({
                 type="button"
                 onClick={withdrawRequest}
                 disabled={pending}
-                className="sn-press mt-2 text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink disabled:opacity-60"
+                className="sn-press mt-2 inline-flex min-h-11 items-center text-[13px] font-bold text-ink/75 underline underline-offset-2 hover:text-ink disabled:opacity-60"
               >
                 {pending ? 'Withdrawing…' : 'Withdraw the request'}
               </button>
@@ -625,7 +627,7 @@ export function EventCardMenu({
               done about the money.
             */
             <>
-              <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+              <p className="mt-1.5 text-sm leading-snug text-ink/75">
                 Tell us why and a person will answer you.
               </p>
               <ReasonPicker
@@ -642,7 +644,7 @@ export function EventCardMenu({
                somebody to type their wedding's name and then telling
                them no is a worse refusal than no button at all. */
             <>
-              <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+              <p className="mt-1.5 text-sm leading-snug text-ink/75">
                 {impact.blockedReason}
               </p>
               {/*
@@ -661,11 +663,11 @@ export function EventCardMenu({
               {(impact.blockKind === 'settled' ||
                 impact.blockKind === 'awaiting_check') &&
               impact.paidItems.length > 0 ? (
-                <ul className="mt-2 grid gap-1">
+                <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10">
                   {impact.paidItems.map((item, i) => (
                     <li
                       key={`${item.description}-${i}`}
-                      className="flex items-start justify-between gap-2 rounded-md bg-ink/5 px-2 py-1.5 text-[11.5px] leading-snug"
+                      className="flex min-h-11 items-center justify-between gap-2 py-2 text-sm leading-snug"
                     >
                       <span className="font-semibold text-ink">
                         {item.description}
@@ -688,14 +690,16 @@ export function EventCardMenu({
                 person in the middle of somebody else's money.
               */}
               {impact.blockKind === 'suppliers' ? (
-                <button
-                  type="button"
+                <ActionButton
+                  tone="brand"
+                  main
+                  icon={Send}
+                  label={pending ? 'Asking…' : 'Ask them to agree'}
                   onClick={askSuppliers}
                   disabled={pending}
-                  className="sn-press mt-2.5 inline-flex items-center gap-2 rounded-full bg-mulberry px-3 py-1.5 text-[12.5px] font-bold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
-                >
-                  {pending ? 'Asking…' : 'Ask them to agree'}
-                </button>
+                  waiting={pending}
+                  className="mt-3 w-full"
+                />
               ) : null}
               {/*
                 ⛔ AND THE UNREADABLE ONE KEEPS ITS DEAD END, DELIBERATELY.
@@ -705,14 +709,15 @@ export function EventCardMenu({
                 room we cannot describe.
               */}
               {impact.canAsk ? (
-                <button
-                  type="button"
+                <ActionButton
+                  tone="brand"
+                  main={impact.blockKind !== 'suppliers'}
+                  icon={MessageCircle}
+                  label="Ask us to remove it"
                   onClick={() => setAsking(true)}
                   disabled={pending}
-                  className="sn-press mt-2.5 inline-flex items-center gap-2 rounded-full bg-mulberry px-3 py-1.5 text-[12.5px] font-bold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
-                >
-                  Ask us to remove it
-                </button>
+                  className="mt-3 w-full"
+                />
               ) : null}
             </>
           ) : step === 'why' ? (
@@ -761,7 +766,7 @@ export function EventCardMenu({
                   setReasonText('');
                   setStep('confirm');
                 }}
-                className="sn-press mt-2.5 text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+                className="sn-press mt-2.5 inline-flex min-h-11 items-center text-[13px] font-bold text-ink/75 underline underline-offset-2 hover:text-ink"
               >
                 I’d rather not say
               </button>
@@ -774,7 +779,7 @@ export function EventCardMenu({
             <>
               <PermanenceWarning />
               <SupplierRecordsNote />
-              <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 text-[11.5px] leading-snug text-ink/55">
+              <div className="mt-2 flex flex-wrap items-center gap-x-1.5 text-[13px] leading-snug text-ink/70">
                 <span>
                   {reasonCode
                     ? `You said: ${deletionReasonLabel(reasonCode).toLowerCase()}`
@@ -783,7 +788,7 @@ export function EventCardMenu({
                 <button
                   type="button"
                   onClick={() => setStep('why')}
-                  className="sn-press font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+                  className="sn-press inline-flex min-h-11 items-center font-bold text-ink/75 underline underline-offset-2 hover:text-ink"
                 >
                   {reasonCode ? 'Change' : 'Say why'}
                 </button>
@@ -799,7 +804,7 @@ export function EventCardMenu({
                 <button
                   type="button"
                   onClick={() => setNoteOpen(true)}
-                  className="sn-press mt-1.5 text-[11.5px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+                  className="sn-press mt-1.5 inline-flex min-h-11 items-center text-[13px] font-bold text-ink/75 underline underline-offset-2 hover:text-ink"
                 >
                   Add a note
                 </button>
@@ -812,7 +817,7 @@ export function EventCardMenu({
                   onText={setReasonText}
                 />
               ) : null}
-              <label className="mt-2.5 block text-[11.5px] font-semibold text-ink/70">
+              <label className="mt-2.5 block text-[13px] font-semibold text-ink/75">
                 Type <span className="font-bold text-ink">{eventName}</span> to
                 confirm
                 <input
@@ -840,13 +845,13 @@ export function EventCardMenu({
                     confirmDelete();
                   }}
                   autoComplete="off"
-                  className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2.5 py-1.5 text-sm font-normal text-ink outline-none focus:border-mulberry"
+                  className="mt-1 min-h-12 w-full rounded-xl border border-ink/20 bg-white px-3 py-2 text-base font-normal text-ink outline-none focus:border-mulberry"
                 />
               </label>
               {error ? (
                 <p
                   role="alert"
-                  className="mt-1.5 text-[11.5px] font-semibold text-[color:var(--sn-danger)]"
+                  className="mt-1.5 text-[13px] font-semibold text-[color:var(--sn-danger)]"
                 >
                   {error}
                 </p>
@@ -856,7 +861,7 @@ export function EventCardMenu({
 
           {asked !== null ? (
             <>
-              <p className="mt-2 text-[12px] leading-snug text-[color:var(--sn-ink-500)]">
+              <p className="mt-2 text-sm leading-snug text-[color:var(--sn-ink-500)]">
                 {asked === 0
                   ? 'Everyone has already been asked — we’re waiting on them.'
                   : `Asked ${asked === 1 ? '1 supplier' : `${asked} suppliers`}. We’ll let you know as they answer; you can remove this once they agree.`}
@@ -873,42 +878,43 @@ export function EventCardMenu({
                 type="button"
                 onClick={withdrawAsk}
                 disabled={pending}
-                className="sn-press mt-1.5 text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink disabled:opacity-60"
+                className="sn-press mt-1.5 inline-flex min-h-11 items-center text-[13px] font-bold text-ink/75 underline underline-offset-2 hover:text-ink disabled:opacity-60"
               >
                 {pending ? 'Withdrawing…' : 'Withdraw the request'}
               </button>
             </>
           ) : null}
-          <div className="mt-3 flex items-center justify-end gap-1.5">
-            <button
-              type="button"
+          <div className={`mt-4 ${EQUAL_ROW_CLASS}`}>
+            <ActionButton
+              tone="neutral"
+              icon={asking ? ArrowLeft : X}
+              label={asking ? 'Back' : 'Cancel'}
               onClick={asking ? () => setAsking(false) : close}
               disabled={pending}
-              className="rounded-full px-3 py-1.5 text-[12.5px] font-bold text-ink/70 hover:text-ink disabled:opacity-60"
-            >
-              {asking ? 'Back' : 'Cancel'}
-            </button>
+            />
             {asking ? (
-              <button
-                type="button"
+              <ActionButton
+                tone="brand"
+                main
+                icon={Send}
+                label={pending ? 'Sending…' : 'Send it'}
                 onClick={sendRequest}
                 disabled={pending || !reasonIsComplete(reasonCode, reasonText)}
-                className="rounded-full bg-mulberry px-3 py-1.5 text-[12.5px] font-bold text-cream disabled:opacity-45"
-              >
-                {pending ? 'Sending…' : 'Send it'}
-              </button>
+                waiting={pending}
+              />
             ) : impact && !impact.blocked && step === 'confirm' ? (
               /* Not on the "why" screen — see the note there. The disabled
                  condition itself is UNCHANGED: Remove still waits on the typed
                  name and nothing else. */
-              <button
-                type="button"
+              <ActionButton
+                tone="danger"
+                filled
+                icon={Trash2}
+                label={pending ? 'Removing…' : 'Remove for good'}
                 onClick={confirmDelete}
                 disabled={pending || typed.trim().length === 0}
-                className="rounded-full bg-[color:var(--sn-danger)] px-3 py-1.5 text-[12.5px] font-bold text-cream disabled:opacity-45"
-              >
-                {pending ? 'Removing…' : 'Remove for good'}
-              </button>
+                waiting={pending}
+              />
             ) : null}
           </div>
         </div>
@@ -1025,7 +1031,7 @@ function ImpactLines({ impact }: { impact: DeletionImpact }) {
   ].filter(Boolean) as string[];
 
   return (
-    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+    <p className="mt-1.5 text-sm leading-snug text-ink/75">
       {parts.length > 0 ? (
         <>
           <span className="font-semibold text-ink">{parts.join(' · ')}</span> go
@@ -1056,7 +1062,7 @@ function ImpactLines({ impact }: { impact: DeletionImpact }) {
  */
 function PermanenceWarning() {
   return (
-    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+    <p className="mt-1.5 text-sm leading-snug text-ink/75">
       <strong className="font-semibold text-ink">
         Your photos and everything about this event are deleted for good
       </strong>{' '}
@@ -1088,14 +1094,19 @@ function PermanenceWarning() {
  * happens, this sentence goes red instead of quietly becoming untrue.
  */
 function SupplierRecordsNote() {
+  /* Rule 7 of the design sheet: the label stays, the explaining sits behind the ⓘ — every word kept. */
   return (
-    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
-      <strong className="font-semibold text-ink">Suppliers you worked with</strong> keep a
-      record of payments they confirmed (the amount and date, never your bank details,
-      notes or screenshots), plus the quotes and contracts they sent you. Your
-      conversations with them, their payment schedules and their deliveries for this
-      event are removed with it.
-    </p>
+    <div className="mt-1.5">
+      <InfoTip
+        label="Suppliers you worked with keep a record"
+        labelClassName="text-sm font-semibold text-ink"
+        align="start"
+      >
+        Suppliers you worked with keep a record of payments they confirmed (the amount and date, never your bank
+        details, notes or screenshots), plus the quotes and contracts they sent you. Your conversations with them,
+        their payment schedules and their deliveries for this event are removed with it.
+      </InfoTip>
+    </div>
   );
 }
 
@@ -1141,10 +1152,10 @@ function ReasonPicker({
 }) {
   return (
     <div className="mt-2.5">
-      <p className="text-[11.5px] font-semibold text-ink/70">
+      <p className="text-[13px] font-semibold text-ink/75">
         Why are you removing it?
         {optional ? (
-          <span className="ml-1 font-normal text-ink/45">Optional</span>
+          <span className="ml-1 font-normal text-ink/70">Optional</span>
         ) : null}
       </p>
       {/* ONE dropdown, not six chips (owner rule 2026-09-28: a choice of
@@ -1161,7 +1172,7 @@ function ReasonPicker({
         aria-label="Why are you removing it?"
         value={code}
         onChange={(e) => onCode(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2.5 py-2 text-[12.5px] font-semibold text-ink outline-none focus:border-mulberry"
+        className="mt-1 min-h-12 w-full rounded-xl border border-ink/20 bg-white px-3 py-2 text-base font-semibold text-ink outline-none focus:border-mulberry"
       >
         <option value="">{optional ? 'Choose a reason (optional)' : 'Choose a reason'}</option>
         {DELETION_REASONS.map((r) => (
@@ -1203,17 +1214,17 @@ function ReasonNote({
   onText: (t: string) => void;
 }) {
   return (
-    <label className="mt-2 block text-[11.5px] font-semibold text-ink/70">
+    <label className="mt-2 block text-[13px] font-semibold text-ink/75">
       {label}
       {required ? null : (
-        <span className="ml-1 font-normal text-ink/45">Optional</span>
+        <span className="ml-1 font-normal text-ink/70">Optional</span>
       )}
       <textarea
         value={text}
         onChange={(e) => onText(e.target.value)}
         rows={2}
         maxLength={1000}
-        className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2.5 py-1.5 text-[12px] font-normal leading-snug text-ink outline-none focus:border-mulberry"
+        className="mt-1 w-full rounded-xl border border-ink/20 bg-white px-3 py-2 text-base font-normal leading-snug text-ink outline-none focus:border-mulberry"
       />
     </label>
   );

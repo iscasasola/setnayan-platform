@@ -41,6 +41,7 @@ export function ImageBadge({
   uid,
   size = 64,
   label,
+  drawn = false,
 }: {
   shape: BadgeShape;
   face: BadgeFace;
@@ -53,6 +54,13 @@ export function ImageBadge({
   size?: number;
   /** The badge in words, for a screen reader. Absent = decorative (the caption beside it says it). */
   label?: string;
+  /**
+   * ✍ DRAWABLE (the verified shop page's seal, prototype public_pages_three_2026-11-13 motion 3): the face's inner ring
+   * and a ✓ become strokes with `pathLength=1` and `data-badge-ring` / `data-badge-tick`, so a page's CSS can draw them
+   * by animating `stroke-dashoffset` from 1. At rest (offset 0, or no CSS at all) they are complete — the same picture.
+   * Off (the default) ⇒ every other badge is byte-for-byte as before.
+   */
+  drawn?: boolean;
 }) {
   const p = PAINT[face];
   const id = (n: string) => `ib-${uid.replace(/[^a-zA-Z0-9_-]/g, '_')}-${n}`;
@@ -150,19 +158,49 @@ export function ImageBadge({
         <>
           <circle cx="50" cy="50" r={face2} fill={url('face')} />
           <circle cx="50" cy="50" r={face2} fill={url('faceGloss')} />
-          <circle cx="50" cy="50" r={face2 - 2} fill="none" stroke={ink} strokeOpacity=".5" strokeWidth=".7" />
+          {drawn ? (
+            <circle
+              cx="50"
+              cy="50"
+              r={face2 - 2}
+              fill="none"
+              stroke={ink}
+              strokeOpacity=".75"
+              strokeWidth="1.4"
+              pathLength={1}
+              strokeDasharray="1"
+              transform="rotate(-90 50 50)"
+              data-badge-ring=""
+            />
+          ) : (
+            <circle cx="50" cy="50" r={face2 - 2} fill="none" stroke={ink} strokeOpacity=".5" strokeWidth=".7" />
+          )}
           <circle cx="50" cy="50" r={face2 - 4} fill="none" stroke={ink} strokeOpacity=".38" strokeWidth=".6" strokeDasharray="1 2.1" />
         </>
       )}
 
-      <g style={{ fontFamily: 'var(--font-display), Georgia, serif', fontWeight: 600 }}>
-        <text x="50" y="53.5" dy=".9" textAnchor="middle" fontSize={numCls} fill={p.hl} opacity=".55">
-          {num}
-        </text>
-        <text x="50" y="53.5" textAnchor="middle" fontSize={numCls} fill={ink}>
-          {num}
-        </text>
-      </g>
+      {drawn && num === '✓' ? (
+        <path
+          d="M38.5 44.5l7.5 7.5 16-16"
+          fill="none"
+          stroke={ink}
+          strokeWidth="4.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          pathLength={1}
+          strokeDasharray="1"
+          data-badge-tick=""
+        />
+      ) : (
+        <g style={{ fontFamily: 'var(--font-display), Georgia, serif', fontWeight: 600 }}>
+          <text x="50" y="53.5" dy=".9" textAnchor="middle" fontSize={numCls} fill={p.hl} opacity=".55">
+            {num}
+          </text>
+          <text x="50" y="53.5" textAnchor="middle" fontSize={numCls} fill={ink}>
+            {num}
+          </text>
+        </g>
+      )}
       <text
         x="50"
         y={shape === 'star' ? 63.5 : 66}

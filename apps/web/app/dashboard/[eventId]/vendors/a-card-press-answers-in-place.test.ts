@@ -102,6 +102,7 @@ test('the actions skip their revalidate ONLY when asked', () => {
   assert.ok(pick.includes('if (!answersInPlace(formData)) {'), 'saveVendorToPicks no longer answers in place');
   const before = pick.slice(0, pick.indexOf('if (!answersInPlace(formData)) {'));
   assert.ok(!/revalidatePath\(/.test(before.slice(before.indexOf('// 4. Insert'))), 'a revalidate escaped the gate');
+  // 2026-11-12: still 3 — `/explore` became `/` (the marketplace lives on Discover; /explore forwards there).
   assert.equal((guarded.match(/revalidatePath\(/g) ?? []).length, 3);
 });
 

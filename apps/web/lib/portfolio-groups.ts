@@ -31,6 +31,12 @@ export type PortfolioAlbum = {
   total: number;
   /** Where the whole album lives, when it has its own screen (an event's album page). */
   href: string | null;
+  /**
+   * 💸 GREYED WHILE A TOP-UP IS OVERDUE (owner 2026-11-12, booking-fee top-up; prototype "Hub · Event photos by
+   * service"): the event's booking-fee top-up is past its event day and unsettled — the album is drawn greyed under
+   * "Unlisted and uncounted until the top-up is settled · Settle ›", and `href` is where to settle. Absent → as shipped.
+   */
+  unlisted?: { href: string } | null;
 };
 
 export type PortfolioStory = { eventId: string; slug: string; hostNames: string; line: string };
@@ -62,7 +68,16 @@ export function albumDay(iso: string, thisYear: number): string {
 export function eventAlbums(
   rows: ReadonlyArray<{ eventId: string; url: string | null; createdAt: string }>,
   bookings: ReadonlyArray<{ eventId: string; eventName: string | null; bookedDate: string }>,
-  { thisYear, albumHref }: { thisYear: number; albumHref: ((eventId: string) => string) | null },
+  {
+    thisYear,
+    albumHref,
+    unlisted = null,
+  }: {
+    thisYear: number;
+    albumHref: ((eventId: string) => string) | null;
+    /** 💸 Event id → where to settle its OVERDUE top-up (`overdueTopUps`). Absent → nothing is greyed. */
+    unlisted?: ReadonlyMap<string, string> | null;
+  },
 ): PortfolioAlbum[] {
   const first = new Map<string, { name: string | null; date: string }>();
   for (const b of bookings) {
@@ -87,6 +102,7 @@ export function eventAlbums(
         urls: a.urls,
         total: a.total,
         href: albumHref ? albumHref(eventId) : null,
+        ...(unlisted?.has(eventId) ? { unlisted: { href: unlisted.get(eventId)! } } : {}),
       };
     });
 }

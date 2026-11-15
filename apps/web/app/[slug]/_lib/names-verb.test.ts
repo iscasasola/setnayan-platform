@@ -66,7 +66,7 @@ test('(2) no guest page puts a fixed singular verb straight after the event’s 
       return /\.tsx$/.test(name) && !/\.(?:test|fixture)\.tsx$/.test(name) ? [rel] : [];
     });
   const files = walk('');
-  assert.ok(files.length > 150 && files.includes('recap/page.tsx') && files.includes('pabuya/page.tsx'), `anti-vacuity: walked ${files.length} files`);
+  assert.ok(files.length > 150 && files.includes('pabuya/_components/gift-page-body.tsx'), `anti-vacuity: walked ${files.length} files`);
   /* The event's name, or a local holding it — `{event.display_name}`, `{hostName}`, `${names}` — directly followed
      by a verb that would be wrong for two. */
   const NAME = String.raw`\$?\{(?:event\.display_name|displayName|hostName|coupleNames|names|name)\}`;
@@ -81,6 +81,7 @@ test('(2) no guest page puts a fixed singular verb straight after the event’s 
       if (FIXED.test(line)) fixed.push(`app/[slug]/${rel} line ${i + 1}: ${line.trim().slice(0, 120)}`);
     });
   }
-  assert.ok(agreeing >= 2, `anti-vacuity: only ${agreeing} sentence(s) were found agreeing with the name — the e-gifts page and the recap both should`);
+  /* ≥ 1 since 2026-11-13: the recap page that held the second sentence now only sends to the story. */
+  assert.ok(agreeing >= 1, `anti-vacuity: only ${agreeing} sentence(s) were found agreeing with the name — the e-gifts page should`);
   assert.deepEqual(fixed, [], 'a sentence about the hosts by NAME has a verb that is wrong when they are two — use hasntAfter (app/[slug]/_lib/names-verb.ts)');
 });

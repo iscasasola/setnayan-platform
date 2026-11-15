@@ -145,6 +145,7 @@ export function StorySpine({
   coverScene = null,
   hideRoad = false,
   you = 'here',
+  keptUntil = null,
 }: {
   data: EditorialData;
   facts: StorySpineFacts;
@@ -209,6 +210,8 @@ export function StorySpine({
    * page draws it right after the film).
    */
   you?: 'here' | 'none' | 'only';
+  /** 📸 "Full size until <date>" on the reader's own Were you there? (`fullSizeKeptUntil`). Null: no date to promise. */
+  keptUntil?: string | null;
 }): ReactElement {
   // A sample carries no audience and exists to be read — the same exemption the
   // shipped gate and `redactStoryLayers` both make, for the same reason.
@@ -754,6 +757,7 @@ export function StorySpine({
           occasion={words.occasion}
           host={words.host}
           storyCard={storyCard}
+          keptUntil={keptUntil}
         />
       </OpenUpScene>
     </>
@@ -900,6 +904,10 @@ export function StorySpine({
             {days.map((day) => {
               const mins = minutesByDay.get(day.date) ?? [];
               const entries = dayEntries(mins, sheetsByDay.get(day.date) ?? []);
+              /* 🔒 NEVER AN EMPTY SCENE (`lib/post-event-scenes.ts`; F-W2-48, the live walk after #7596): a day nobody
+                 has written a minute of is not drawn for a reader who may read it — no "The day" heading over "No
+                 minute of this day has been written up yet". A day still closed to this reader keeps its one line. */
+              if (entries.length === 0 && guestOpen) return null;
               return (
                 <section key={day.date} aria-label={longDate(day.date)}>
                   <PartHead
@@ -908,9 +916,7 @@ export function StorySpine({
                   />
                   {entries.length === 0 ? (
                     <p className="py-6 font-serif text-lg italic text-ink/70">
-                      {guestOpen
-                        ? 'No minute of this day has been written up yet.'
-                        : `The minutes of this day belong to the people who were there, until the ${words.host} publishes.`}
+                      {`The minutes of this day belong to the people who were there, until the ${words.host} publishes.`}
                     </p>
                   ) : null}
                   {entries.map((e, i) => {

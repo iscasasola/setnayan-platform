@@ -563,6 +563,13 @@ async function readCoupleStageFacts(
     status: string | null;
   }>) {
     if (r.marketplace_vendor_id && rowReadsCompleted(r)) facts.completed.add(r.marketplace_vendor_id);
+    // 📗 A CONTRACTED BOOKING IS BOOKED (walk 13 Nov 2026, F-W1-70). "Booked" was read only from a live schedule-pool
+    // hold; a booking made in the app (quote → ask to confirm → agree) reached `event_vendors.status = 'contracted'`
+    // with NO pool hold, so the couple's row stayed an inquiry — "Sent today" under a confirmed booking. The booking
+    // row's own status now counts too.
+    if (r.marketplace_vendor_id && (r.status === 'contracted' || r.status === 'deposit_paid')) {
+      facts.booked.add(r.marketplace_vendor_id);
+    }
   }
 
   return facts;

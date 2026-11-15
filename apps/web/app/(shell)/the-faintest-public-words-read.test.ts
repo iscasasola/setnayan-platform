@@ -71,7 +71,7 @@ test('the onboarding card, Real Stories and blog fine print are not tiny or fain
     ['app/realstories/[slug]/page.tsx', '>The palette</p>'],
     ['app/realstories/[slug]/page.tsx', '>The team</p>'],
     ['app/blog/_components/story-card.tsx', '{metaLine(article)}</p>'],
-    ['app/blog/page.tsx', '{metaLine(article)}</p>'],
+    ['app/(shell)/blog/page.tsx', '{metaLine(article)}</p>'],
   ];
   const bad: string[] = [];
   for (const [file, needle] of pins) {

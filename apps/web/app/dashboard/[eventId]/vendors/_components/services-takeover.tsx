@@ -43,8 +43,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { formatCount } from '@/lib/format-number';
 import { flushSync } from 'react-dom';
-import { Sparkles } from 'lucide-react';
-import { Explain } from '@/app/_components/explain';
+import { ChevronRight, Sparkles } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { Count } from '@/components/count';
@@ -60,7 +60,9 @@ import {
 } from '@/lib/budget-build';
 import {
   SUPPLIERS_MODE_LABEL,
+  SUPPLIERS_MODE_MEANING,
   SUPPLIERS_MODE_TAB,
+  SUPPLIERS_NEXT_MODE,
   isModeTab,
   liveBuildTally,
   suppliersModeOfTab,
@@ -69,16 +71,7 @@ import {
   type SuppliersMode,
 } from '@/lib/suppliers-shell';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
-import {
-  EXPLORE_INFO_BUTTON_LABEL,
-  EXPLORE_INFO_HANDSHAKE,
-  EXPLORE_INFO_STRIP,
-  EXPLORE_INFO_TITLE,
-  EXPLORE_INFO_WHAT,
-  EXPLORE_STATE_LEGEND,
-  COVERAGE_STRIP_HEADING,
-  EXPLORE_INFO_DATE,
-} from '@/lib/explore-info-copy';
+import { COVERAGE_STRIP_HEADING } from '@/lib/explore-info-copy';
 import { BuildCart } from './build-cart';
 import { BENCH_BUILT_EVENT, benchLocalStore, builtNowIn } from './bench-local';
 import { CoverBar, CoverCount, CoverRingProvider } from './cover-ring';
@@ -402,11 +395,19 @@ export function ServicesTakeover({
    * gone — Budget and Schedule are Home's own pages — so the dropdown names the three bodies, each with its count.
    */
   const buildCount = tally.filled > 0 ? `${tally.filled}/${tally.total}` : null;
+  // 📌 Each row of the menu carries its count and ONE line on what the page is for (owner 2026-11-12, "option 4").
   const faceOptions: PickOption[] = [
-    { key: 'find', label: SUPPLIERS_MODE_LABEL.find },
-    { key: 'build', label: SUPPLIERS_MODE_LABEL.build, trail: buildCount ? { text: buildCount, tone: 'muted' } : undefined },
-    { key: 'booked', label: SUPPLIERS_MODE_LABEL.booked, trail: bookedCount > 0 ? { text: formatCount(bookedCount), tone: 'muted' } : undefined },
+    { key: 'find', label: SUPPLIERS_MODE_LABEL.find, hint: SUPPLIERS_MODE_MEANING.find },
+    { key: 'build', label: SUPPLIERS_MODE_LABEL.build, trail: buildCount ? { text: buildCount, tone: 'muted' } : undefined, hint: SUPPLIERS_MODE_MEANING.build },
+    { key: 'booked', label: SUPPLIERS_MODE_LABEL.booked, trail: bookedCount > 0 ? { text: formatCount(bookedCount), tone: 'muted' } : undefined, hint: SUPPLIERS_MODE_MEANING.booked },
   ];
+  /**
+   * ▶ THE ROW'S ONE ACTION IS THE NEXT PAGE (owner 2026-11-12, "option 4"): Find → "Build 3/6", Build → "Booked 2",
+   * Booked → "Find". The same door as the menu — `goToBuildTab` — so the two can never land in different places.
+   */
+  const nextMode = SUPPLIERS_NEXT_MODE[mode];
+  const nextTrail = nextMode === 'build' ? buildCount : nextMode === 'booked' && bookedCount > 0 ? formatCount(bookedCount) : null;
+  const nextWords = nextTrail ? `${SUPPLIERS_MODE_LABEL[nextMode]} ${nextTrail}` : SUPPLIERS_MODE_LABEL[nextMode];
   const faceWords = SUPPLIERS_MODE_LABEL[mode];
   const pickFace = (key: string) => {
     if (key === mode || (key !== 'find' && key !== 'build' && key !== 'booked')) return;
@@ -415,7 +416,10 @@ export function ServicesTakeover({
   /** The count the row can count itself — Build's N/M, the team's N booked.
    *  `Count` rolls the number when a press moves it (Add to build answers in place). */
   const faceCount =
-    mode === 'build' && buildCount ? (
+    // 📋 "6 of 12 covered" sits beside Find ▾ — counted over the categories Find LISTS only (owner 2026-11-12).
+    mode === 'find' ? (
+      <CoverCount />
+    ) : mode === 'build' && buildCount ? (
       <span data-sup-row-count-of="build">
         <Count value={tally.filled} id="sup-row-filled" />/<Count value={tally.total} id="sup-row-total" />
       </span>
@@ -435,6 +439,7 @@ export function ServicesTakeover({
        the width as well?" → yes; prototype `home_service_widgets_2026-10-23.html` D4/D5 — supersedes the 19 Oct
        64-rem stage and the list's 820-px column). body = viewport − rail − 2 × 32, no cap; the date · place line,
        Find · Build · Booked, the list and the thumb row share its one left edge and one width. */
+    <CoverRingProvider>
     <section ref={rootRef} data-budget-build-takeover="" data-suppliers-mode={mode} className="mx-auto w-full max-w-5xl lg:max-w-none">
       <style>{LANDING_CSS}</style>
 
@@ -443,8 +448,9 @@ export function ServicesTakeover({
       <PageMasthead title="Suppliers" />
       {/* …and a visible title row from 1024 px only. On a phone the bottom
           bar names the page and the Maker has no title row either (owner
-          2026-10-07). aria-hidden: the h1 above already says it. */}
-      <p aria-hidden className="mb-1 hidden font-display text-[28px] leading-none text-ink lg:block">
+          2026-10-07). aria-hidden: the h1 above already says it. 📐 Design template rule 1 (14 Nov 2026): in the
+          body face, not a serif — the owner's desktop name row stays (your-team-phone-first.test.ts pins it). */}
+      <p aria-hidden className="mb-1 hidden text-[28px] font-bold leading-none text-ink lg:block">
         Suppliers
       </p>
 
@@ -481,12 +487,24 @@ export function ServicesTakeover({
           />
         </span>
         <span
-          className="min-w-0 flex-1 truncate text-[13px] text-ink/60"
+          className="min-w-0 flex-1 truncate text-[13px] text-ink/70"
           data-sup-row-count=""
           aria-live="polite"
         >
           {faceCount}
         </span>
+        {/* ▬ The covered count, drawn — along the row's foot, on Find only (owner 2026-11-12: the "Cover your event"
+            block folds into this row). */}
+        {mode === 'find' ? <CoverBar /> : null}
+        <ActionButton
+          tone="neutral"
+          icon={ChevronRight}
+          label={nextWords}
+          name={`Go to ${SUPPLIERS_MODE_LABEL[nextMode]}`}
+          onClick={() => goToBuildTab(SUPPLIERS_MODE_TAB[nextMode])}
+          className="shrink-0"
+          data-sup-row-next={nextMode}
+        />
         {/* ⚙ The row ends with the menu's ONE ⚙ (owner 2026-10-27) — at rest and pinned, the same button. */}
         {settingsSlot ? (
           <MenuSettingsButton menu="suppliers" open={settingsOpen} onOpenChange={setSettingsOpen}>
@@ -521,10 +539,10 @@ export function ServicesTakeover({
                 // a divider (owner 2026-10-11 — a frame only on what is pressed).
                 <p data-sai-line="" className="mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-ink/15 pb-3">
                   <Sparkles className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
-                  <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/70">
+                  <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                     Setnayan&nbsp;AI
                   </span>
-                  <span className="text-xs text-ink/60">
+                  <span className="text-xs text-ink/70">
                     Smart matching, fit scoring, and the watch guard are on — free while we are in launch.
                   </span>
                 </p>
@@ -575,6 +593,7 @@ export function ServicesTakeover({
 
       <BuildCart tally={tally} />
     </section>
+    </CoverRingProvider>
   );
 }
 
@@ -594,11 +613,11 @@ function ServiceSection({
   children: ReactNode;
 }) {
   const blurb = tabBlurb(tab);
-  // Page-level ⓘ (Explore Replan PR-B · spec §11.1) — Find only, and only
-  // behind the flag: there the heading is the ring's own ("Cover your event",
-  // plain, with the ⓘ beside it). Every other section keeps its shipped look.
-  const showInfo = tab === 'shortlist' && isExploreReplanEnabled();
-  const section = (
+  // 📋 FIND'S HEADER FOLDED INTO THE PINNED ROW (owner 2026-11-12, the organized-Find prototype — it overturns the
+  // 2026-10-26 "Cover your event ⓘ · N of M covered" block): the count sits beside Find ▾ and its bar along the row's
+  // foot (`CoverCount` · `CoverBar`). The heading stays for a screen reader; nothing of it is drawn on the page.
+  const folded = tab === 'shortlist' && isExploreReplanEnabled();
+  return (
     // Lands below the pinned block when scrolled to (`LANDING_CSS`).
     <section
       id={sectionId(tab)}
@@ -607,62 +626,14 @@ function ServiceSection({
       // last-seen data (lib/last-seen).
       data-money={tab === 'budget' || tab === 'compare' ? '' : undefined}
     >
-      <header className={showInfo ? 'mb-0.5' : 'mb-4'}>
-        <h2
-          id={`${sectionId(tab)}-h`}
-          className={
-            showInfo
-              ? 'flex items-center gap-2 font-display text-[21px] font-medium leading-tight text-ink'
-              : 'font-serif text-xl italic leading-tight text-ink sm:text-2xl'
-          }
-        >
+      <header className={folded ? 'sr-only' : 'mb-4'}>
+        <h2 id={`${sectionId(tab)}-h`} className={folded ? undefined : 'text-[17px] font-semibold leading-tight text-ink'}>
           {heading}
-          {/* The ONE explanatory affordance on the bench: what this page does,
-              the state-glyph legend, the lock handshake in a line, and what
-              the Coverage Strip means. Every string comes from
-              lib/explore-info-copy.ts; none is authored here. */}
-          {showInfo ? <ExploreInfoToggle /> : null}
-          {/* 🧭 "6 of 14 covered", quiet, on the title's right (owner 2026-10-26 — cover-ring.tsx). */}
-          {showInfo ? <CoverCount /> : null}
         </h2>
-        {/* …and the same count as a thin bar under the title; the bench's "Covered N of M" line is gone. */}
-        {showInfo ? <CoverBar /> : <p className="mt-0.5 text-sm text-ink/55">{blurb}</p>}
+        {folded ? null : <p className="mt-0.5 text-sm text-ink/70">{blurb}</p>}
       </header>
       <div id={`${sectionId(tab)}-body`}>{children}</div>
     </section>
-  );
-  // 🧭 The bench below publishes its count here (cover-ring.tsx); the title row draws it.
-  return showInfo ? <CoverRingProvider>{section}</CoverRingProvider> : section;
-}
-
-/**
- * The page-level ⓘ (Explore Replan PR-B · spec §11) — drawn by the ONE ⓘ
- * template, `Explain` (INTERACTION_RULES § 9, kind 7): on a phone a centred
- * popup with "Got it", the rest dark and blurred; on a computer a small note
- * under the ⓘ. It always starts closed (help, not a setting). All copy is
- * imported — none is authored in this file.
- */
-function ExploreInfoToggle() {
-  return (
-    <Explain title={EXPLORE_INFO_TITLE} label={EXPLORE_INFO_BUTTON_LABEL} data="suppliers-page" className="not-italic">
-      <span className="block text-[13px]">{EXPLORE_INFO_WHAT}</span>
-      <span className="block text-[13px]">{EXPLORE_INFO_STRIP}</span>
-      <span className="block text-[13px]">{EXPLORE_INFO_HANDSHAKE}</span>
-      {/* 📅 What the settled-date banner said, now that it is gone (owner 2026-10-26 — "free that day" in the ⓘ). */}
-      <span className="block text-[13px]">{EXPLORE_INFO_DATE}</span>
-      <span className="mt-1 grid gap-1 border-t border-ink/15 pt-3 text-left">
-        {EXPLORE_STATE_LEGEND.map((row) => (
-          <span key={row.state} className="flex items-baseline gap-2 text-[12.5px]">
-            <span className="w-3 shrink-0 text-center font-mono text-ink" aria-hidden>
-              {row.glyph}
-            </span>
-            <span>
-              <span className="font-semibold text-ink">{row.label}</span> — {row.meaning}
-            </span>
-          </span>
-        ))}
-      </span>
-    </Explain>
   );
 }
 
@@ -677,8 +648,8 @@ function SectionStub({ tab }: { tab: BudgetBuildTab }) {
         <Icon className="h-6 w-6" strokeWidth={1.5} aria-hidden />
       </span>
       <h3 className="text-lg font-semibold text-ink">{label}</h3>
-      <p className="text-sm text-ink/60">{blurb}</p>
-      <p className="mt-1 text-xs text-ink/40">Coming together as we build this out.</p>
+      <p className="text-sm text-ink/70">{blurb}</p>
+      <p className="mt-1 text-xs text-ink/70">Coming together as we build this out.</p>
     </div>
   );
 }

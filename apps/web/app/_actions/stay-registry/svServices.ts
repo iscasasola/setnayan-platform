@@ -6,6 +6,7 @@ import { setServiceAddons } from '@/app/vendor-dashboard/services/addon-actions'
 import { createCoverage, deleteCoverage, updateCoverageServes } from '@/app/vendor-dashboard/services/coverage-actions';
 import { saveServiceRefinements } from '@/app/vendor-dashboard/services/refinement-actions';
 import { pickServicesThatStayOn } from '@/app/vendor-dashboard/services/stay-on-actions';
+import { putCardUnderRequest } from '@/app/vendor-dashboard/services/requests/actions';
 import { kind, type Door } from './_door';
 
 /**
@@ -17,6 +18,9 @@ import { kind, type Door } from './_door';
  */
 const SV_SERVICES_WORDS: StayWords = { within: [supplierScreen('shop')], refuse: (q) => q.get('error') };
 const svServices = kind(SV_SERVICES_WORDS, false);
+/** A service request's own page (2026-11-13): "Put it here" stays on it and redraws its card list in place. */
+const SV_SERVICE_REQUEST_WORDS: StayWords = { within: [/^\/vendor-dashboard\/services\/requests\/[^/]+$/], refuse: (q) => q.get('error') };
+const svServiceRequest = kind(SV_SERVICE_REQUEST_WORDS, false);
 
 export const SV_SERVICES: Readonly<Record<SvServicesStayDoor, Door>> = {
   'svServices.toggleVendorServiceActive': svServices(toggleVendorServiceActive),
@@ -27,4 +31,5 @@ export const SV_SERVICES: Readonly<Record<SvServicesStayDoor, Door>> = {
   'svServices.saveServiceRefinements': svServices(saveServiceRefinements),
   'svServices.setServiceAddons': svServices(setServiceAddons),
   'svServices.pickServicesThatStayOn': svServices(pickServicesThatStayOn),
+  'svServices.putCardUnderRequest': svServiceRequest(putCardUnderRequest),
 };

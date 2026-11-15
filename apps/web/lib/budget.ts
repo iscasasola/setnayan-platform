@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { paidToVendorPhp } from './paid-to-vendor';
 import { VENDOR_CATEGORY_LABEL, type EventVendorRow } from './vendors';
 import { withBookedByPayment, type PaymentFact } from './booked-by-payment';
+import { mergeBookingMoney, readBookingMoney } from './event-vendor-money';
 import {
   VENDOR_PACKAGE_ITEM_SELECT,
   keptItemRows,
@@ -583,11 +584,12 @@ export async function fetchVendorBudgetSummary(
   eventId: string,
   vendorId: string,
 ): Promise<VendorBudgetSummary | null> {
-  const [vendorRes, lineItemsRes, paymentsRes] = await Promise.all([
+  // 🔒 the five amounts come from event_vendor_money_read (#5936), not the row select.
+  const [vendorRes, lineItemsRes, paymentsRes, money] = await Promise.all([
     supabase
       .from('event_vendors')
       .select(
-        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,deposit_paid_php,notes,created_at,marketplace_vendor_id,manual_vendor_id,event_vendor_package_id',
+        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,notes,created_at,marketplace_vendor_id,manual_vendor_id,event_vendor_package_id',
       )
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)
@@ -607,10 +609,18 @@ export async function fetchVendorBudgetSummary(
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)
       .order('paid_at', { ascending: false }),
+    // A refused amounts read returns null (the card says it could not load) — and is LOGGED, never swallowed.
+    readBookingMoney(supabase, eventId).catch((e: unknown) => {
+      console.error('[supabase-error] budget: fetchVendorBudgetSummary event_vendor_money_read', e);
+      return null;
+    }),
   ]);
 
-  if (vendorRes.error || !vendorRes.data) return null;
-  const vendor = vendorRes.data as EventVendorRow;
+  if (vendorRes.error) {
+    console.error('[supabase-error] budget: fetchVendorBudgetSummary event_vendors', vendorRes.error);
+  }
+  if (vendorRes.error || !vendorRes.data || !money) return null;
+  const vendor = mergeBookingMoney([vendorRes.data as { vendor_id: string }], money)[0] as unknown as EventVendorRow;
   const myLineItems = (lineItemsRes.data ?? []) as LineItemRow[];
   const myPayments = (paymentsRes.data ?? []) as PaymentRow[];
   // Supabase RESOLVES with `{ error }` rather than throwing, so a refused read
@@ -704,7 +714,8 @@ export async function fetchBudgetSnapshot(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<BudgetSnapshot> {
-  const [vendorsRes, lineItemsRes, paymentsRes] = await Promise.all([
+  // 🔒 the five amounts come from event_vendor_money_read (#5936), not the row select.
+  const [vendorsRes, lineItemsRes, paymentsRes, money] = await Promise.all([
     supabase
       .from('event_vendors')
       .select(
@@ -713,7 +724,7 @@ export async function fetchBudgetSnapshot(
         // lineage). Both fields are nullable + non-breaking — when the
         // column is missing in prod, Supabase returns undefined and the
         // downstream code treats it as null + falls back to 'manual'.
-        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,deposit_paid_php,notes,created_at,marketplace_vendor_id,manual_vendor_id,event_vendor_package_id',
+        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,notes,created_at,marketplace_vendor_id,manual_vendor_id,event_vendor_package_id',
       )
       .eq('event_id', eventId)
       .order('created_at', { ascending: true }),
@@ -730,6 +741,7 @@ export async function fetchBudgetSnapshot(
       )
       .eq('event_id', eventId)
       .order('paid_at', { ascending: false }),
+    readBookingMoney(supabase, eventId),
   ]);
 
   if (vendorsRes.error) throw new Error(vendorsRes.error.message);
@@ -741,7 +753,7 @@ export async function fetchBudgetSnapshot(
   // 💳 BOOKED IF PAID (owner 2026-10-20): a hand-added supplier with a recorded
   // payment reads as booked — the one resolver, at the load (lib/booked-by-payment.ts).
   const vendors = withBookedByPayment(
-    (vendorsRes.data ?? []) as EventVendorRow[],
+    mergeBookingMoney((vendorsRes.data ?? []) as Array<{ vendor_id: string }>, money) as unknown as EventVendorRow[],
     payments satisfies PaymentFact[],
   );
 

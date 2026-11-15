@@ -59,4 +59,12 @@ export const LAB_MESSAGES: ChatMessageRow[] = [
   row(6, 'vendor', 'We can also do an ocular at the venue on Saturday.', at(10, 6)),
   { ...row(7, 'vendor', '', at(10, 20)), attachment_name: 'Moodboard-draft.pdf' } as ChatMessageRow, // a file the 90-day rule took
   row(8, 'couple', 'Saturday works for us!', at(10, 30)),
+  // 👈 Ruling 6076 · a file YOU sent — it swipes left to Remove (dummy ref; the lab has no storage).
+  {
+    ...row(9, 'couple', '', at(10, 32)),
+    attachment_r2_key: `r2://setnayan-thread-files/chat/${LAB_THREADS[0].id}/${LAB_USER}/venue-floorplan.pdf`,
+    attachment_name: 'Venue-floorplan.pdf',
+    attachment_mime: 'application/pdf',
+    attachment_size_bytes: 482_000,
+  } as ChatMessageRow,
 ];

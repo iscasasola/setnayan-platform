@@ -64,7 +64,7 @@ function loggedDay(iso: string): string {
 export function ReservationLine({ acknowledgedAt }: { acknowledgedAt: string | null }) {
   if (!acknowledgedAt) return null;
   return (
-    <p className="mt-2 text-xs text-ink/45">
+    <p className="mt-2 text-xs text-ink/70">
       Protected by your reservation policy · acknowledged {fmtShortDate(acknowledgedAt)}.
     </p>
   );
@@ -93,7 +93,7 @@ export type PaymentPageProps = PickedPageProps & {
   refunds?: { eventVendorId: string; clientName: string; measured: boolean; rows: ClientRefundView[] };
 };
 
-const H = 'text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/55';
+const H = 'text-xs font-semibold uppercase tracking-[0.12em] text-ink/70';
 
 export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, asks, refunds }: PaymentPageProps) {
   if (!money) {
@@ -115,7 +115,7 @@ export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, as
     <div className="space-y-5 pb-24" data-client-payment={ctx.eventId}>
       {nothing ? (
         // Booked, no plan and nothing logged: nothing to add up — said, never "₱0 · all paid" (spec §4, test pinned).
-        <p className="text-[14px] text-ink/60" data-client-payment-empty="">
+        <p className="text-sm text-ink/70" data-client-payment-empty="">
           No payment plan on this booking yet. Ask for a payment below, or add the plan to your quote.
         </p>
       ) : (
@@ -183,16 +183,16 @@ export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, as
           <ul role="list">
             {money.pending.map((p) => (
               <li key={p.paymentId} className="border-t border-ink/10 py-3 first:border-t-0" data-client-payment-pending={p.paymentId}>
-                <p className="text-[14px] text-ink">
+                <p className="text-sm text-ink">
                   <b className="font-semibold tabular-nums">{formatPhp(p.amountPhp)}</b>
                   {p.installmentLabel ? ` · ${p.installmentLabel}` : p.isDepositRecord ? ' · first payment' : ''}
-                  <span className="text-ink/55"> · logged {loggedDay(p.paidAt)}</span>
+                  <span className="text-ink/70"> · logged {loggedDay(p.paidAt)}</span>
                 </p>
                 {p.method || p.reference ? (
-                  <p className="text-[12.5px] text-ink/55">{[p.method, p.reference].filter(Boolean).join(' · ')}</p>
+                  <p className="text-[13px] text-ink/70">{[p.method, p.reference].filter(Boolean).join(' · ')}</p>
                 ) : null}
                 {p.proofUrl ? (
-                  <a href={p.proofUrl} target="_blank" rel="noreferrer" className="text-[12.5px] text-sn-accent underline-offset-2 hover:underline">
+                  <a href={p.proofUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent underline-offset-2 hover:underline">
                     Their receipt
                   </a>
                 ) : null}
@@ -222,7 +222,7 @@ export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, as
 
       <div>
         <ReservationLine acknowledgedAt={reservationAcknowledgedAt} />
-        <p className="mt-2 text-xs text-ink/55" data-client-payment-footer="">
+        <p className="mt-2 text-xs text-ink/70" data-client-payment-footer="">
           Their budget shows only your lines. What you confirm here is what they see as paid.
         </p>
         {/* 💸 THE MONEY LEDGER HAS A DOOR FROM HERE (Build 2 parity, 8 Nov: it was reachable by URL only). The same door

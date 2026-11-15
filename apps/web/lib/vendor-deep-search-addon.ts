@@ -47,7 +47,7 @@ function coercePrice(value: number | null | undefined, fallback: number): number
 // ── Eligibility gate ─────────────────────────────────────────────────────────
 
 export type DeepSearchDenyReason =
-  /** Tier below Solo (Free/Verified) — a PAID-tier add-on. */
+  /** Tier below Supplier Plus (Free/Verified) — a PAID-tier add-on. */
   | 'tier_too_low'
   /** Paid tier but the shop is not verified yet. */
   | 'unverified';
@@ -77,7 +77,7 @@ export type DeepSearchEligibility =
  * rejects, so the surfaced reason always matches what a submit would return:
  * tier → verification.
  *
- * "Paid tiers only" is `isTierAtLeast('solo')`, so Solo, Pro and Ultra
+ * "Paid tiers only" is `isTierAtLeast('solo')`, so Supplier Plus, Pro and Ultra
  * (`enterprise`) pass — Free and Verified (the two free tiers)
  * do not. This mirrors the AI-addon gate.
  */
@@ -93,7 +93,7 @@ export function deepSearchEligibility(
 /** Human copy for each deny reason (surfaced in the vendor UI). */
 export const DEEP_SEARCH_DENY_MESSAGE: Record<DeepSearchDenyReason, string> = {
   tier_too_low:
-    'Running a Deep Search is part of the paid plans (Solo, Pro, Ultra). Pick one on the Plans page to run it.',
+    'Running a Deep Search is part of the paid plans (Supplier Plus, Supplier Pro, Supplier Ultra). Pick one on the Plans page to run it.',
   unverified: 'Get your shop verified first — Deep Search unlocks once you’re verified.',
 };
 

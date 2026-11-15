@@ -177,7 +177,7 @@ export default async function AboutPage() {
       />
 
 
-      <main className="min-h-dvh bg-cream">
+      <main className="min-h-dvh bg-page">
         {/* Locale switch — the RETURN path. Both Taglish pages already link back
             to English; neither English page linked forward, so the Taglish
             edition was unreachable from where every visitor actually lands.
@@ -332,7 +332,7 @@ export default async function AboutPage() {
                 <ArrowRight aria-hidden className="ml-1.5 h-4 w-4" strokeWidth={2} />
               </Link>
               <Link
-                href="/explore"
+                href="/?browse=1"
                 className="inline-flex h-11 items-center justify-center rounded-sm border border-ink/20 px-6 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
               >
                 Browse suppliers

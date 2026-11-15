@@ -23,6 +23,7 @@ import { Eye, Footprints, Navigation, Play, Sparkles, Square, Users } from 'luci
 import { InfoTip } from '@/app/_components/info-tip';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { actionButtonClass } from '@/components/action-button';
 
 /** One round glass tool: 44 px, a frame because it is pressable. */
 const TOOL =
@@ -168,11 +169,11 @@ export function RoomViewTools(p: RoomViewToolsProps) {
                   type="button"
                   onClick={p.onShow2d}
                   data-room-show-2d=""
-                  className="inline-flex min-h-11 items-center rounded-full border border-ink/20 px-4 text-sm font-medium text-ink hover:bg-ink/5"
+                  className={actionButtonClass('neutral')}
                 >
                   Switch to 2D
                 </button>
-                <span className="block text-ink/60">Drag to look around · pinch or scroll to zoom.</span>
+                <span className="block text-ink/70">Drag to look around · pinch or scroll to zoom.</span>
                 {p.about}
               </span>
             </InfoTip>

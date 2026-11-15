@@ -147,7 +147,7 @@ test('the free guest download is used, never the member-only guest-PNG route', (
   // account at all, so pointing this door there would 401 every one of them.
   // Asserted on the route itself so the reason cannot rot silently.
   // 🔄 2026-09-28: the route no longer asks about the CUSTOM_QR_GUEST SKU — that
-  // product folded into Event Hub Pro and the route draws the event's LOOK
+  // product folded into Event Pro and the route draws the event's LOOK
   // (lib/qr-look.server.ts) — but it still requires the account, which is the
   // reason this door cannot use it.
   const branded = readWeb('app/api/website/qr/guest/[guestId]/route.ts');

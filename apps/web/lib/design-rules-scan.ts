@@ -52,7 +52,8 @@ export function routeOfPage(file: string): string | null {
 /** Every page on disk (intercepting routes are a second view of a page, not a page). */
 export function listPages(): PageFile[] {
   return appFiles()
-    .filter((f) => f.endsWith(`${sep}page.tsx`))
+    // `page.lab.tsx`: a /dev lab (next.config.ts pageExtensions — built by `next dev` only).
+    .filter((f) => f.endsWith(`${sep}page.tsx`) || f.endsWith(`${sep}page.lab.tsx`))
     .flatMap((f) => {
       const route = routeOfPage(f);
       return route ? [{ route, file: relative(WEB, f) }] : [];

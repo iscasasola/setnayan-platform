@@ -72,7 +72,8 @@ export function vendorDayOfFreeUntilLabel(freeUntilIso: string | null): string |
   if (!freeUntilIso) return null;
   const d = new Date(freeUntilIso);
   if (Number.isNaN(d.getTime())) return null;
-  return `Free until ${d.toLocaleDateString('en-PH', { dateStyle: 'long', timeZone: 'Asia/Manila' })}`;
+  // RW-20 (walk 13 Nov 2026): say WHAT is free — the day-of tools, not each booking's fee.
+  return `Your day-of tools are free until ${d.toLocaleDateString('en-PH', { dateStyle: 'long', timeZone: 'Asia/Manila' })}. The booking fee is separate.`;
 }
 
 /** The past-tense copy for the console's ended state, or `null` when unset. */

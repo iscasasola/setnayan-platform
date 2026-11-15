@@ -44,7 +44,7 @@ import { limitedHelperRefusal, refuseLimitedHelper } from '@/lib/host-gate';
  * the checklist via RLS and render the card/page, but only a couple's render may
  * mutate it. Non-couple viewers short-circuit before any write.
  *
- * Returns the number of rows inserted · 0 when nothing was missing or the viewer
+ * Returns the number of rows inserted OR auto-ticked · 0 when nothing changed or the viewer
  * isn't a couple (or on any graceful-degrade path, e.g. the migration hasn't
  * reached this environment).
  */
@@ -205,7 +205,8 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
   if (inserted > 0 || flipped > 0) {
     after(() => revalidatePath(`/dashboard/${eventId}`));
   }
-  return inserted;
+  // Rows CHANGED — inserted or ticked by the reconcile — so Home (F-W2-15) knows to read its To do again.
+  return inserted + flipped;
 }
 
 /**

@@ -30,6 +30,7 @@
  * undo the pick. We add the vendor regardless and report inquired=false.
  */
 
+import { eventCandidateDays } from '@/lib/event-chat-title';
 import { revalidatePath } from 'next/cache';
 import { supplierInquiryBody } from '@/lib/supplier-inquiry-opening';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
@@ -120,7 +121,7 @@ export async function unlockCategoryWithInquiry(input: {
   // Membership gate — events RLS restricts the read to members.
   const { data: ev } = await supabase
     .from('events')
-    .select('event_id, event_date')
+    .select('event_id, event_date, date_candidates')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!ev) return { status: 'not_a_member' };
@@ -275,6 +276,9 @@ export async function unlockCategoryWithInquiry(input: {
           // 📅 No date on the event → "no date yet", never "for our date" (Build 5 F3).
           supplierInquiryBody(await resolveProfileByEvent(eventId), {
             dated: Boolean((ev as { event_date?: string | null }).event_date),
+            candidateDays: (ev as { event_date?: string | null }).event_date
+              ? null
+              : eventCandidateDays({ eventDate: null, precision: null, candidates: (ev as { date_candidates?: unknown }).date_candidates }),
           }),
         );
         // sendChatMessage posts as 'couple' + fires vendor_inquiry_received on

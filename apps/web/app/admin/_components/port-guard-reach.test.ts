@@ -96,3 +96,39 @@ test('a destination handed to a shared component still counts', () => {
     );
   }
 });
+
+test('a page moved into a route group still counts the sections it left behind', () => {
+  // 2026-11-12: only page.tsx + loading.tsx move into app/(shell)/; the sections
+  // stay in app/<route>/ and are imported by `@/app/<route>/…`. The walk read
+  // the group folder only, so regenerating silently dropped /creators'
+  // `/realstories` and `/signup` links and 19 blocks. This reads the GENERATED
+  // baseline, so a scanner that narrows again fails here on its next regenerate.
+  const raw = JSON.parse(readFileSync(join(WEB, 'scripts', 'port-control-baseline.json'), 'utf8'));
+  const routes = new Map<string, { files: string[]; destinations: string[] }>();
+  const collect = (node: Record<string, unknown>) => {
+    for (const [k, v] of Object.entries(node)) {
+      if (v && typeof v === 'object' && 'files' in v) routes.set(k, v as { files: string[]; destinations: string[] });
+      else if (v && typeof v === 'object') collect(v as Record<string, unknown>);
+    }
+  };
+  collect(raw);
+
+  const creators = routes.get('/(shell)/creators');
+  assert.ok(creators, '/(shell)/creators is missing from the baseline — the anchor moved');
+  assert.ok(
+    creators.files.some((f) => f.startsWith('creators/_components/')),
+    `/creators' sections (app/creators/_components/) are not read. Files: ${creators.files.join(', ')}`,
+  );
+  for (const d of ['/realstories', '/signup']) {
+    assert.ok(creators.destinations.includes(d), `/creators lost ${d} — it lives in a left-behind section`);
+  }
+
+  // The left-behind folder's CHILD ROUTES are their own routes, never this one's.
+  const blog = routes.get('/(shell)/blog');
+  assert.ok(blog, '/(shell)/blog is missing from the baseline — the anchor moved');
+  assert.ok(blog.files.includes('blog/_components/story-card.tsx'), 'the /blog story cards are not read');
+  assert.ok(
+    !blog.files.some((f) => f.startsWith('blog/[slug]/')),
+    '/blog absorbed /blog/[slug] — a child route was walked as a section',
+  );
+});

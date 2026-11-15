@@ -11,7 +11,7 @@ import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FIRST_BOOKING_FREE_LABEL, coverageLine, holdsMoreThanFree, whatEachPlanHolds, type MeterService } from '@/lib/open-shop-more-services';
 import { tileIcon } from '@/lib/taxonomy-icons';
-import { ServicePicker, type PickerLeafView, type PickerParentView } from './service-picker';
+import { ServicePicker, type PickerLeafView, type PickerParentView } from '@/app/_components/service-picker';
 
 /** Where a leaf sits in the tree: its tier-2 category (the meter's unit, the card it lands in) and its group. */
 export type LeafPlace = {
@@ -136,7 +136,6 @@ export function ServiceCards({
     return { categoryId: p?.categoryId ?? key, categoryLabel: p?.categoryLabel ?? key };
   };
   const list = picked.map((s) => meterOf(s.key));
-  const line = coverageLine(list);
   const over = holdsMoreThanFree(list);
 
   // Picked services grouped by CATEGORY, in the order the categories first appear.
@@ -175,22 +174,7 @@ export function ServiceCards({
     </SwipeToDelete>
   );
 
-  const tip = whatEachPlanHolds();
-  const tipBody = (
-    <span className="block space-y-1">
-      <b className="block">{tip.title}</b>
-      <span className="block">{tip.lead}</span>
-      {tip.ladder.map((r) => (
-        <span key={r.name} className="block">
-          <b>{r.name}</b> · {r.caps}
-        </span>
-      ))}
-      <span className="block">{tip.listing}</span>
-      <span className="block">{tip.after}</span>
-      <b className="block">{tip.firstBooking}</b>
-      <span className="block">{tip.fine}</span>
-    </span>
-  );
+  const tipBody = <PlanTipBody />;
 
   return (
     <div ref={rootRef} className="grid gap-3" data-open-shop-service-cards="">
@@ -372,26 +356,7 @@ export function ServiceCards({
       ) : null}
 
 
-      {/* The coverage line — "N categories · M services — ‹plan› covers this ⓘ", then the count per category. */}
-      <div className="relative grid gap-1 text-[13.5px]" style={{ color: 'var(--m-slate)' }} data-open-shop-coverage="">
-        <span className="block">
-          {/* v19 — the numbers count to their value (BUTTON_RULE rule 2; `Count` keys on its id, so a re-render never
-              replays). The words are `line.tally`'s, pluralised by the same counts. */}
-          <b className="font-semibold" style={{ color: 'var(--m-ink)' }} aria-label={line.tally}>
-            <Count value={line.categories} id="open-shop-cov-c" /> {line.categories === 1 ? 'category' : 'categories'} ·{' '}
-            <Count value={line.services} id="open-shop-cov-n" /> {line.services === 1 ? 'service' : 'services'}
-          </b>{' '}
-          <span aria-hidden>—</span>{' '}
-          <InfoTip label={line.verdict} labelClassName="text-[13.5px]" ariaLabel={tip.title} align="start" className="!static !inline [&>button]:ml-1 [&>button]:inline-flex [&>button]:align-[-2px]">
-            {tipBody}
-          </InfoTip>
-        </span>
-        {line.split ? (
-          <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }} data-open-shop-coverage-split="">
-            {line.split}
-          </span>
-        ) : null}
-      </div>
+      <CoverageMeter list={list} />
       {/* ② The one-line hint + ⓘ that stays inline; the explainer itself opens on Continue (`PlanSheet`). */}
       {over ? (
         <span className="relative flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }} data-open-shop-plan-note="">
@@ -417,7 +382,7 @@ export function ServiceCards({
  * none = "+ Specialties (optional)". Opening one closes the others (the wizard holds the one open key). Optional —
  * nothing here blocks Continue.
  */
-function Specialties({
+export function Specialties({
   service,
   fields,
   picks,
@@ -542,6 +507,59 @@ function SpecialtiesBar({
       <ActionButton tone="neutral" icon={ChevronUp} label={word} name={`Close ${word.toLowerCase()}`} onClick={onClose} aria-expanded />
       <ActionButton tone="danger" icon={Trash2} label="Remove" name={`Remove ${service.label}`} onClick={() => onRemove(service.key)} />
       <ActionButton tone="ok" icon={Check} label="Done" onClick={onClose} />
+    </div>
+  );
+}
+
+/** The ⓘ "What each plan adds" — the ladder once, read from `TIER_CAPS` through `whatEachPlanHolds` (never typed). */
+export function PlanTipBody() {
+  const tip = whatEachPlanHolds();
+  return (
+    <span className="block space-y-1">
+      <b className="block">{tip.title}</b>
+      <span className="block">{tip.lead}</span>
+      {tip.ladder.map((r) => (
+        <span key={r.name} className="block">
+          <b>{r.name}</b> · {r.caps}
+        </span>
+      ))}
+      <span className="block">{tip.listing}</span>
+      <span className="block">{tip.after}</span>
+      <b className="block">{tip.firstBooking}</b>
+      <span className="block">{tip.fine}</span>
+    </span>
+  );
+}
+
+/**
+ * THE PLAN METER — "N categories · M services — ‹plan› covers this ⓘ", then the count per category. Every number is
+ * counted from `list` or read from `TIER_CAPS` (`coverageLine`); none is typed. ⚠ A METER, NOT A GATE. Drawn by the
+ * sign-up's cards and by the dashboard's Add a service (ruling 5820), so the two can never name two different plans.
+ */
+export function CoverageMeter({ list }: { list: readonly MeterService[] }) {
+  const line = coverageLine(list);
+  const tip = whatEachPlanHolds();
+  const tipBody = <PlanTipBody />;
+  // The coverage line — "N categories · M services — ‹plan› covers this ⓘ", then the count per category.
+  return (
+    <div className="relative grid gap-1 text-[13.5px]" style={{ color: 'var(--m-slate)' }} data-open-shop-coverage="">
+      <span className="block">
+        {/* v19 — the numbers count to their value (BUTTON_RULE rule 2; `Count` keys on its id, so a re-render never
+            replays). The words are `line.tally`'s, pluralised by the same counts. */}
+        <b className="font-semibold" style={{ color: 'var(--m-ink)' }} aria-label={line.tally}>
+          <Count value={line.categories} id="open-shop-cov-c" /> {line.categories === 1 ? 'category' : 'categories'} ·{' '}
+          <Count value={line.services} id="open-shop-cov-n" /> {line.services === 1 ? 'service' : 'services'}
+        </b>{' '}
+        <span aria-hidden>—</span>{' '}
+        <InfoTip label={line.verdict} labelClassName="text-[13.5px]" ariaLabel={tip.title} align="start" className="!static !inline [&>button]:ml-1 [&>button]:inline-flex [&>button]:align-[-2px]">
+          {tipBody}
+        </InfoTip>
+      </span>
+      {line.split ? (
+        <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }} data-open-shop-coverage-split="">
+          {line.split}
+        </span>
+      ) : null}
     </div>
   );
 }

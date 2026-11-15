@@ -44,12 +44,12 @@ export function RoleMoreRow({
     >
       {note !== undefined ? (
         <span className="flex min-w-0 flex-1 items-center gap-1.5">
-          <PenLine aria-hidden strokeWidth={1.9} className="h-4 w-4 flex-none text-ink/55" />
+          <PenLine aria-hidden strokeWidth={1.9} className="h-4 w-4 flex-none text-ink/70" />
           {note ? <em className="min-w-0 truncate">“{note}”</em> : <span className="truncate text-ink/70">Add a note</span>}
         </span>
       ) : null}
       {note !== undefined && photos ? (
-        <span aria-hidden className="flex-none text-ink/30">
+        <span aria-hidden className="flex-none text-ink/70">
           ·
         </span>
       ) : null}
@@ -61,12 +61,12 @@ export function RoleMoreRow({
               <img key={k} src={src} alt="" className="h-6 w-6 flex-none rounded-md object-cover" />
             ))
           ) : (
-            <ImageIcon aria-hidden strokeWidth={1.9} className="h-4 w-4 flex-none text-ink/55" />
+            <ImageIcon aria-hidden strokeWidth={1.9} className="h-4 w-4 flex-none text-ink/70" />
           )}
           <span className="whitespace-nowrap text-ink/70">{photos.count > 0 ? `${formatCount(photos.count)} ${photos.count === 1 ? 'photo' : 'photos'}` : 'No photos yet'}</span>
         </span>
       ) : null}
-      <ChevronRight aria-hidden strokeWidth={1.9} className="ml-auto h-4 w-4 flex-none text-ink/45" />
+      <ChevronRight aria-hidden strokeWidth={1.9} className="ml-auto h-4 w-4 flex-none text-ink/70" />
     </button>
   );
 }

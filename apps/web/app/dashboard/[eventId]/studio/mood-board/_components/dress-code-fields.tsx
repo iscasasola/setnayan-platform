@@ -43,12 +43,12 @@ export function DressCodeFields({
 }) {
   const gap = compact ? 'space-y-4' : 'space-y-6';
   const label = compact
-    ? 'block text-[0.7rem] font-semibold text-ink/60'
+    ? 'block text-[0.7rem] font-semibold text-ink/70'
     : 'sn-eye block';
   const input = compact
     ? 'block w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline-none'
     : 'block w-full min-h-[44pt] rounded-md border border-ink/15 bg-white px-3 py-2 text-base text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
-  const hint = compact ? 'text-[0.7rem] text-ink/45' : 'text-xs text-ink/55';
+  const hint = compact ? 'text-[0.7rem] text-ink/70' : 'text-xs text-ink/70';
 
   /*
      THE GROUPS ARE DERIVED FROM `eventRoles`, NEVER PASSED IN.
@@ -152,7 +152,7 @@ export function DressCodeFields({
 
       <div className="space-y-2">
         <p className={label}>What each group wears</p>
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           What each group wears, and when they arrive, are set in Event Hub › Dress code. Here: a note.
         </p>
         <GroupAttireField
@@ -173,7 +173,7 @@ export function DressCodeFields({
 
       <div className="space-y-2">
         <p className={label}>What each role wears</p>
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           Their outfit and call time are set in Event Hub › Dress code. Here: a note.
         </p>
         <RoleAttireField roles={ownRowRoles} saved={config.roles} compact={compact} wear={wearOf} />
@@ -185,13 +185,13 @@ export function DressCodeFields({
       {/* ✅ Each list sits under its own heading. The two role sections above
           were once nested inside the Do block, between "Do" and its rows. */}
       <div className="space-y-1.5" data-dress-code-list="dos">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-success-700">Do</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-success-700">Do</p>
         <p className={hint}>What you&rsquo;d love guests to wear.</p>
         <ListField key={config.dos.join('\u0001')} name="dos" tone="do" initial={config.dos} />
       </div>
 
       <div className="space-y-1.5" data-dress-code-list="donts">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-danger-700">
+        <p className="text-xs uppercase tracking-[0.18em] text-danger-700">
           Don&rsquo;t
         </p>
         <p className={hint}>

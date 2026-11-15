@@ -143,7 +143,7 @@ export default async function SampleGuestHubPage({ params }: { params: Promise<{
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 text-base font-medium text-ink">
                       {d.label}
-                      {d.pro ? <PaidMark state="unlocked" label={`${d.pro} — part of Event Hub Pro`} size="sm" /> : null}
+                      {d.pro ? <PaidMark state="unlocked" label={`${d.pro} — part of Event Pro`} size="sm" /> : null}
                     </p>
                     <p className="mt-0.5 text-sm text-ink/70">{d.line}</p>
                   </div>

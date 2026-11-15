@@ -5,6 +5,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef } from '@/lib/papic-display-ref';
 import { KwentoQueueControls, type KwentoRow } from './kwento-queue-controls';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * Kwento review queue (0012 § Kwento · P2) — the couple sees EVERY message
  * immediately (pending/flagged first); `pending` gates only public surfaces.
@@ -39,16 +40,11 @@ export async function KwentoQueue({ eventId }: { eventId: string }) {
       'graceful_degrade',
     );
     return (
-      <p
-        role="alert"
-        className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
-      >
-        <strong className="text-ink">
-          We couldn&rsquo;t load your guests&rsquo; messages.
-        </strong>{' '}
-        This does not mean nobody has written one, and nothing has been shown on
-        Memory lane without you. Reload in a moment.
-      </p>
+      <div role="alert">
+        <InfoTip labelAs="p" label="We couldn&rsquo;t load your guests&rsquo; messages. This does not mean nobody has written one, and nothing has been shown on Memory lane without you." labelNode={<><strong className="text-ink"> We couldn&rsquo;t load your guests&rsquo; messages. </strong>{' '} This does not mean nobody has written one, and nothing has been shown on Memory lane without you.</>} labelClassName="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70" align="start">
+          Reload in a moment.
+        </InfoTip>
+      </div>
     );
   }
   const rows = messages ?? [];
@@ -186,16 +182,16 @@ export async function KwentoQueue({ eventId }: { eventId: string }) {
   });
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+    <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
       <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
         <MessageCircleHeart aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
         Photo Notes — stories from your guests
       </h2>
-      <p className="mt-1 text-sm text-ink/60">
-        Messages your guests wrote on their photos. Approve to publish; one tap
+      <InfoTip labelAs="p" label="Messages your guests wrote on their photos." labelClassName="text-sm text-ink/70" className="mt-1" align="start">
+        Approve to publish; one tap
         sends a sweet one to Memory lane. Flagged messages stay hidden until
         you decide.
-      </p>
+      </InfoTip>
       <KwentoQueueControls eventId={eventId} rows={enriched} />
     </section>
   );

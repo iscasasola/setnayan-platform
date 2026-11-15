@@ -1,26 +1,28 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, CalendarCheck, CalendarX, Check, LogIn, MessageCircle, Plus, Send, Store, Undo2 } from 'lucide-react';
-import { CalendarGrid } from '@/app/_components/calendar';
+import { CalendarCheck, CalendarX, Check, LogIn, MessageCircle, Plus, Send, Undo2, X } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { ChosenRow, FormRows, SwitchRow } from '@/app/_components/form-row';
-import { CALENDAR_HATCH, type CalendarDayState } from '@/lib/calendar-grid';
 import {
   CHECK_DATE_WORDS,
   checkDateAskLine,
   checkDateResumeHref,
   checkDateStateOf,
   checkDateWords,
+  type CheckDateEvent,
 } from '@/lib/check-a-date';
 import { startServiceInquiry } from '@/app/v/[slug]/inquiry-actions';
+import { SeatMonths } from './seat-months';
 
 /**
  * CHECK A DATE — the month and its one sheet (approved prototype `prototypes/check_a_date_2026-10-28/index.html`,
- * frames A · B · C · D). The month is the app's ONE grid (`CalendarGrid`, kind 31: a Not-bookable day is the hatched
+ * frames A · B · C · D), RE-DRAWN by SHOP-02 v7 (14 Nov 2026): it is a sheet over the shop now (`CheckADateSheet`), the
+ * month is the seat plan (`SeatMonths`: green you can ask, grey striped you can't, popular days shine), and a tapped day
+ * lists the shop's services at once, the ones that can take it first. Before v7 the month was the app's ONE grid (`CalendarGrid`, kind 31: a Not-bookable day was the hatched
  * square); the steps are the app's ONE sheet (`Sheet`).
  *
  * The page hands this file the shop's Not-bookable days and nothing else about its calendar — the answer, never the
@@ -32,17 +34,10 @@ import { startServiceInquiry } from '@/app/v/[slug]/inquiry-actions';
  * and the sheet says "Sending in N s" so that is never a surprise.
  */
 
-export type CheckDateEvent = {
-  eventId: string;
-  name: string;
-  typeLabel: string | null;
-  eventType: string;
-  date: string | null;
-  endDate: string | null;
-};
+export type { CheckDateEvent };
 
 type Service = { serviceId: string; label: string; price: string; category: string | null };
-type Step = 'day' | 'services' | 'event' | 'sending' | 'sent';
+type Step = 'day' | 'event' | 'sending' | 'sent';
 
 /** How long Send waits for an Undo (owner brief: "Undo (5 s)"). */
 export const CHECK_DATE_UNDO_MS = 5000;
@@ -51,7 +46,8 @@ const MAIN = 'w-full justify-center !min-h-12';
 
 export function CheckADateCalendar({
   shop,
-  shopHref,
+  logoUrl,
+  onClose,
   inquirySource,
   services,
   today,
@@ -65,8 +61,10 @@ export function CheckADateCalendar({
   initialStep,
 }: {
   shop: { vendorProfileId: string; slug: string; name: string; initials: string; verified: boolean; isDemo?: boolean };
-  /** "See the shop" — the shop page again, carrying where the visit came from (lib/shop-back.ts). */
-  shopHref: string;
+  /** The shop's own logo (a display URL), or null — its initials show instead, as everywhere else. */
+  logoUrl: string | null;
+  /** × — the sheet lowers back onto the shop (SHOP-02 v7: "See the shop" goes; × is the one way out). */
+  onClose: () => void;
   /** 💳 RW-19: what an ask from here is stamped — the same rule as the shop page (`arrivalInquirySourceOf`). */
   inquirySource: string;
   services: Service[];
@@ -85,11 +83,6 @@ export function CheckADateCalendar({
     () => (perService ? new Map(Object.entries(perService).map(([id, days]) => [id, new Set(days)])) : null),
     [perService],
   );
-  const states = useMemo(() => {
-    const m = new Map<string, CalendarDayState>();
-    for (const d of notBookable) m.set(d, { blocked: true });
-    return m;
-  }, [notBookable]);
 
   const firstDay = initialDay && checkDateStateOf(initialDay, { notBookable: closed, today, to }) ? initialDay : null;
   const [day, setDay] = useState<string | null>(firstDay);
@@ -214,12 +207,31 @@ export function CheckADateCalendar({
     ? `/dashboard/create-event?next=${encodeURIComponent(checkDateResumeHref(shop.slug, day, chosen))}`
     : '/dashboard/create-event';
 
+  // 🎟 The day's services, the ones that can take it FIRST (SHOP-02 v7: shown as soon as a day is tapped).
+  const dayServices = day
+    ? [...services].sort((a, b) => Number(serviceOpen(b.serviceId, day)) - Number(serviceOpen(a.serviceId, day)))
+    : services;
+
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col" data-check-date-shop={shop.slug}>
-      <header className="flex items-center gap-2.5 border-b border-ink/10 px-4 pb-2.5 pt-3.5">
-        <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full bg-ink text-[15px] font-bold text-cream">
-          {shop.initials}
-        </span>
+    <div className="flex w-full flex-col" data-check-date-shop={shop.slug}>
+      <header className="flex items-center gap-2.5 border-b border-ink/10 px-4 py-3">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="grid h-10 w-10 flex-none place-items-center rounded-full border border-ink/15 bg-cream text-ink"
+          data-testid="check-date-close"
+        >
+          <X aria-hidden className="h-5 w-5" strokeWidth={1.8} />
+        </button>
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- a 40px logo already resolved for the shop page above
+          <img src={logoUrl} alt="" className="h-10 w-10 flex-none rounded-full object-cover" data-check-date-logo="" />
+        ) : (
+          <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full bg-ink text-[15px] font-bold text-cream">
+            {shop.initials}
+          </span>
+        )}
         <div className="min-w-0">
           <p className="truncate text-[15px] font-bold" data-check-date-name="">
             {shop.name}
@@ -232,21 +244,15 @@ export function CheckADateCalendar({
 
       <div className="px-4 pb-16 pt-3.5">
         <h1 className="text-[20px] font-semibold leading-tight">Check a date</h1>
-        <p className="mb-3 text-[13px] text-ink/60">Tap a day to see if it can be booked.</p>
-        <CalendarGrid value={day} states={states} today={today} min={today} max={to} startAt={firstDay ?? today} onPick={pick} data="check-a-date" />
-        <p className="flex gap-4 px-0.5 pt-3 text-[12.5px] text-ink/65" data-check-date-legend="">
-          <span className="inline-flex items-center gap-1.5">
-            <b aria-hidden className="text-[12.5px] font-semibold text-ink">1</b>
-            {CHECK_DATE_WORDS.available}
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <i aria-hidden className="block h-3.5 w-3.5 rounded" style={{ backgroundImage: CALENDAR_HATCH }} />
-            {CHECK_DATE_WORDS.not_bookable}
-          </span>
-        </p>
-        <div className="mt-4">
-          <ActionButton tone="neutral" icon={Store} label="See the shop" href={shopHref} className={MAIN} data-testid="check-date-shop" />
-        </div>
+        <p className="mb-3 text-[13px] text-ink/60">Tap a date to know if it is available.</p>
+        <SeatMonths
+          today={today}
+          to={to}
+          value={day}
+          startAt={firstDay ?? today}
+          stateOf={(d) => checkDateStateOf(d, { notBookable: closed, today, to })}
+          onPick={pick}
+        />
       </div>
 
       <Sheet open={step !== null && day !== null && state !== null} onClose={close} labelledById="check-date-sheet-title" rise>
@@ -272,46 +278,38 @@ export function CheckADateCalendar({
               <span className="mb-2.5 mt-1 inline-block rounded-full bg-[rgb(var(--color-ok)/0.12)] px-2.5 py-0.5 text-[12px] font-bold text-[rgb(var(--color-ok))]" data-check-date-state="available">
                 {CHECK_DATE_WORDS.available}
               </span>
-              <p className="text-[13px] text-ink/60">Ask the shop about this day. They reply in your chat.</p>
-              <div className="mt-3 grid gap-2.5">
-                <ActionButton tone="brand" main icon={CalendarCheck} label="Ask about this date" onClick={() => setStep('services')} className={MAIN} data-testid="check-date-ask" />
-                <ActionButton tone="neutral" icon={CalendarX} label="Pick another day" onClick={close} className={MAIN} data-testid="check-date-pick-another" />
-              </div>
-            </>
-          ) : step === 'services' ? (
-            <>
-              <h2 id="check-date-sheet-title" className="pr-12 text-[17px] font-bold">
-                Which services?
-              </h2>
-              <p className="mb-2 text-[13px] text-ink/60">{words} · pick one or more</p>
               {services.length === 0 ? (
                 <p className="py-3 text-[14px] text-ink/70" data-check-date-no-services="">
                   This shop hasn&rsquo;t listed its services yet. Ask from the shop page.
                 </p>
               ) : (
-                <FormRows data="check-date-services">
-                  {services.map((s) => {
-                    const open = serviceOpen(s.serviceId, day);
-                    return (
-                      <SwitchRow
-                        key={s.serviceId}
-                        name={s.label}
-                        on={open && chosen.includes(s.serviceId)}
-                        disabled={!open}
-                        note={open ? s.price || undefined : CHECK_DATE_WORDS.not_bookable}
-                        onChange={(next) => setChosen((cur) => (next ? [...cur.filter((x) => x !== s.serviceId), s.serviceId] : cur.filter((x) => x !== s.serviceId)))}
-                        attrs={{ 'data-check-date-service': s.serviceId }}
-                      />
-                    );
-                  })}
-                </FormRows>
+                <>
+                  <p className="mb-1 text-[12.5px] font-bold text-ink/70">What {shop.name} can do that day</p>
+                  <FormRows data="check-date-services">
+                    {dayServices.map((s) => {
+                      const open = serviceOpen(s.serviceId, day);
+                      return (
+                        <SwitchRow
+                          key={s.serviceId}
+                          name={s.label}
+                          on={open && chosen.includes(s.serviceId)}
+                          disabled={!open}
+                          note={open ? s.price || undefined : 'Not bookable that day'}
+                          onChange={(next) => setChosen((cur) => (next ? [...cur.filter((x) => x !== s.serviceId), s.serviceId] : cur.filter((x) => x !== s.serviceId)))}
+                          attrs={{ 'data-check-date-service': s.serviceId, 'data-check-date-service-open': open ? '1' : '0' }}
+                        />
+                      );
+                    })}
+                  </FormRows>
+                </>
               )}
-              <div className="mt-3">
+              <div className="mt-3 grid gap-2.5">
                 {services.length === 0 ? (
-                  <ActionButton tone="neutral" icon={Store} label="See the shop" href={shopHref} className={MAIN} />
+                  <ActionButton tone="neutral" icon={X} label="Back to the shop" onClick={onClose} className={MAIN} />
                 ) : (
-                  <ActionButton tone="brand" main icon={ArrowRight} label="Next" onClick={() => setStep('event')} disabled={chosen.length === 0} className={MAIN} data-testid="check-date-next" />
+                  <ActionButton tone="brand" main icon={CalendarCheck} label="Ask about this date" onClick={() => setStep('event')} disabled={chosen.length === 0} className={MAIN} data-testid="check-date-ask" />
                 )}
+                <ActionButton tone="neutral" icon={CalendarX} label="Pick another day" onClick={close} className={MAIN} data-testid="check-date-pick-another" />
               </div>
             </>
           ) : step === 'event' ? (

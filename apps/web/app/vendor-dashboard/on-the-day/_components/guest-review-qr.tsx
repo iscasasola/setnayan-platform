@@ -23,6 +23,8 @@ import { Maximize2, Printer, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { QrActions } from '@/app/_components/qr-actions';
 import { svgDataUri } from '@/lib/qr-download';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 
 export function GuestReviewQr({
   qrSvg,
@@ -80,8 +82,8 @@ export function GuestReviewQr({
   return (
     <>
       <div
-        className="flex flex-col items-center gap-5 rounded-xl border p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-6"
-        style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+        className="flex flex-col items-center gap-5 rounded-[var(--m-r-lg)] p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-6"
+        style={{ background: 'var(--m-paper)' }}
       >
         <div
           className="shrink-0 rounded-lg bg-white p-3"
@@ -90,27 +92,12 @@ export function GuestReviewQr({
           dangerouslySetInnerHTML={{ __html: qrSvg }}
         />
         <div className="min-w-0 flex-1 text-center sm:text-left">
-          <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-            Display it or print it at the event — guests the door checked in scan it and rate what they saw.
-            No app to install.
-          </p>
+          <InfoTip label="Display it or print it at the event." labelClassName="text-sm" align="start">
+            Guests the door checked in scan it and rate what they saw. No app to install.
+          </InfoTip>
           <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
-            <button
-              type="button"
-              onClick={print}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold text-white transition"
-              style={{ background: 'var(--m-ink)' }}
-            >
-              <Printer aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Print
-            </button>
-            <button
-              type="button"
-              onClick={() => setFullscreen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3.5 py-2 text-sm font-semibold transition"
-              style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)' }}
-            >
-              <Maximize2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Show fullscreen
-            </button>
+            <ActionButton tone="brand" onClick={print} icon={Printer} label="Print" />
+            <ActionButton tone="neutral" onClick={() => setFullscreen(true)} icon={Maximize2} label="Show fullscreen" />
           </div>
           <QrActions
             url={reviewUrl}

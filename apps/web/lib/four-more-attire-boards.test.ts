@@ -56,7 +56,7 @@ import { fallbackInspirationParts } from './inspiration-parts';
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {
     if (request === 'server-only' || request === 'client-only') return {};
-    if (request === 'next/navigation') return { useRouter: () => ({ refresh() {} }) };
+    if (request === 'next/navigation') return { useRouter: () => ({ refresh() {} }), usePathname: () => '/dashboard/e/studio/mood-board' };
     if (/(?:^|\/)(?:actions|wizard-actions|hub-draft-actions|colour-access-actions)$/.test(request)) {
       return new Proxy({}, { get: () => async () => ({}) });
     }

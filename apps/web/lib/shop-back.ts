@@ -37,17 +37,38 @@ export const SHOP_ARRIVAL_SRC = {
   search: 'search',
   /** Home › Memories › Saved suppliers (`/dashboard?seg=memories&tab=vendors`). */
   favorites: 'favorites',
+  /**
+   * 🔙 SB (W1 SHOP-01): any other page of ours (an event's own pages, its hub, a person's profile, the creator page,
+   * the 3D booth) — the page itself rides along as `from`, checked (`safeFromPath`), and Back returns to it.
+   */
+  page: 'page',
 } as const;
 
 /** The query keys that say where a person came from. Never shared, always carried. */
-export const SHOP_ARRIVAL_KEYS = ['src', 'event'] as const;
+export const SHOP_ARRIVAL_KEYS = ['src', 'event', 'q', 'from'] as const;
 
 export type ShopArrival = {
   /** `?src=` as it arrived (any value — only the ones above choose a back). */
   src: string | null;
   /** `?event=` — ONLY once the page has checked it is one of the viewer's own events. Never the raw param. */
   eventId: string | null;
+  /** `?q=` — the search words a `src=search` arrival came from, so Back returns to those results (SB, W1 SHOP-01). */
+  q?: string | null;
+  /** `?from=` — the page of ours a `src=page` arrival came from, already checked (`safeFromPath`). */
+  from?: string | null;
 };
+
+/**
+ * The page a `src=page` arrival came from — ONLY an in-app path: one leading "/", never "//" or a backslash (another
+ * site), never a shop page itself (Back to a shop from a shop would loop), at most 200 characters. Anything else → null.
+ */
+export function safeFromPath(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const p = v.trim();
+  if (!p.startsWith('/') || p.startsWith('//') || p.includes('\\') || p.length > 200) return null;
+  if (/^\/v\//.test(p)) return null;
+  return p;
+}
 
 export type ShopBackDoor = {
   /** Always an in-app absolute path. */
@@ -61,15 +82,20 @@ export type ShopBackDoor = {
 export const SHOP_BACK_COLD: ShopBackDoor = { href: '/explore', label: 'See more suppliers', back: false };
 
 /** The one rule. An explicit origin wins over the event, which wins over nothing. */
-export function shopBackDoor({ src, eventId }: ShopArrival): ShopBackDoor {
+export function shopBackDoor({ src, eventId, q, from }: ShopArrival): ShopBackDoor {
   switch (src) {
     case SHOP_ARRIVAL_SRC.explore:
       return { href: '/explore', label: 'Back to suppliers', back: true };
     case SHOP_ARRIVAL_SRC.discover:
-    case SHOP_ARRIVAL_SRC.search:
       return { href: '/', label: 'Back to Discover', back: true };
+    case SHOP_ARRIVAL_SRC.search:
+      // 🔎 SB (W1 SHOP-01): back to the RESULTS they came from (`/?q=`), never a bare "/" that drops their search.
+      return { href: q ? `/?q=${encodeURIComponent(q)}` : '/', label: q ? 'Back to results' : 'Back to Discover', back: true };
     case SHOP_ARRIVAL_SRC.favorites:
       return { href: '/dashboard?seg=memories&tab=vendors', label: 'Back to saved suppliers', back: true };
+    case SHOP_ARRIVAL_SRC.page:
+      if (from) return { href: from, label: 'Back', back: true };
+      break;
     default:
       break;
   }
@@ -89,14 +115,22 @@ export function shopBackDoor({ src, eventId }: ShopArrival): ShopBackDoor {
 export function shopTopBack(arrival: ShopArrival, signedIn: boolean): { href: string; label: string } {
   const door = shopBackDoor(arrival);
   if (!door.back) return coldWayBack(signedIn);
+  if (door.label === 'Back') return { href: door.href, label: 'Back' };
   const name = door.label.replace(/^Back to\s+/, '');
   return { href: door.href, label: name.charAt(0).toUpperCase() + name.slice(1) };
 }
 
 /** A tidy arrival from a URL's raw values (the event still UNCHECKED — the caller checks it). */
-export function arrivalParams(search: { src?: unknown; event?: unknown }): { src: string | null; event: string | null } {
+export function arrivalParams(search: { src?: unknown; event?: unknown; q?: unknown; from?: unknown }): {
+  src: string | null;
+  event: string | null;
+  q: string | null;
+  from: string | null;
+} {
   const clean = (v: unknown) => (typeof v === 'string' && /^[\w-]{1,64}$/.test(v.trim()) ? v.trim() : null);
-  return { src: clean(search.src), event: clean(search.event) };
+  // The search words: free text, trimmed, one line, at most 120 characters (they only ever go back into `/?q=`).
+  const words = typeof search.q === 'string' ? search.q.replace(/\s+/g, ' ').trim().slice(0, 120) : '';
+  return { src: clean(search.src), event: clean(search.event), q: words || null, from: safeFromPath(search.from) };
 }
 
 /**
@@ -105,7 +139,7 @@ export function arrivalParams(search: { src?: unknown; event?: unknown }): { src
  */
 export function withShopArrival(
   href: string,
-  arrival: { src: string | null; event?: string | null; eventId?: string | null },
+  arrival: { src: string | null; event?: string | null; eventId?: string | null; q?: string | null; from?: string | null },
   extra: Readonly<Record<string, string>> = {},
 ): string {
   const hashAt = href.indexOf('#');
@@ -117,6 +151,9 @@ export function withShopArrival(
   const event = arrival.eventId ?? arrival.event ?? null;
   if (arrival.src && !q.has('src')) q.set('src', arrival.src);
   if (event && !q.has('event')) q.set('event', event);
+  if (arrival.q && arrival.src === SHOP_ARRIVAL_SRC.search && !q.has('q')) q.set('q', arrival.q);
+  const from = arrival.src === SHOP_ARRIVAL_SRC.page ? safeFromPath(arrival.from) : null;
+  if (from && !q.has('from')) q.set('from', from);
   for (const [k, v] of Object.entries(extra)) q.set(k, v);
   const qs = q.toString();
   return `${path}${qs ? `?${qs}` : ''}${hash}`;

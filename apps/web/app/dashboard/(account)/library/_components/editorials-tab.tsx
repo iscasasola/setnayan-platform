@@ -163,13 +163,13 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
         <div className="mt-auto flex flex-wrap items-center gap-2">
           {item.relation === 'owned' ? (
             <>
-              <ActionButton tone="brand" icon={<Pencil aria-hidden />} label="Edit editorial" href={editorHref} />
+              <ActionButton tone="brand" icon={<Pencil aria-hidden />} label="Edit editorial" href={editorHref} className="!h-11" />
               {publicHref && item.published ? (
-                <ActionButton tone="neutral" icon={<ArrowRight aria-hidden />} label="View page" href={publicHref} />
+                <ActionButton tone="neutral" icon={<ArrowRight aria-hidden />} label="View page" href={publicHref} className="!h-11" />
               ) : null}
             </>
           ) : publicHref ? (
-            <ActionButton tone="brand" icon={<ArrowRight aria-hidden />} label="View editorial" href={publicHref} />
+            <ActionButton tone="brand" icon={<ArrowRight aria-hidden />} label="View editorial" href={publicHref} className="!h-11" />
           ) : (
             <p className="text-xs text-ink/70">
               The organizer hasn’t opened this event’s page yet.

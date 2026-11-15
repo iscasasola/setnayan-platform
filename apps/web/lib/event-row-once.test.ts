@@ -231,7 +231,17 @@ test('5 · every call site names the columns it would have read, of the same eve
   for (const { file, call } of sites) {
     const m = /^eventRowOnce\(\s*([\w.]+),\s*([\w.]+),\s*('[^']*'|[A-Z_]+),\s*\(\) =>\s*([\s\S]*)\)$/.exec(call);
     assert.ok(m, `${file}: this call is not in the one shape the guard can read:\n${call}`);
-    const [, client = '', id = '', columns = '', read = ''] = m;
+    const [, client = '', id = '', columns = ''] = m;
+    let read = m[4] ?? '';
+    /* ⚡ A fallback may be asked once per render (`askedOnce`, speed pass 2026-11-14). The wrapper must be keyed by the
+       SAME client and event id; the read inside it is then held to every rule below, unchanged. */
+    const once = /^askedOnce\(\s*([\w.]+),\s*'[^']+',\s*\[\s*([\w.]+)\s*\],\s*\(\) =>\s*Promise\.resolve\(\s*([\s\S]*?)\s*,?\s*\),?\s*\),?\s*$/.exec(read.trim());
+    if (/^askedOnce\(/.test(read.trim())) {
+      assert.ok(once, `${file}: an askedOnce fallback is not in the one shape the guard can read:\n${call}`);
+      assert.equal(once![1], client, `${file}: the askedOnce wrapper asks as a different client than the read:\n${call}`);
+      assert.equal(once![2], id, `${file}: the askedOnce wrapper is not keyed by the same event id:\n${call}`);
+      read = once![3] ?? '';
+    }
     const rest = read.replace(/\s+/g, '');
     assert.ok(rest.startsWith(`${client}.from('events').select(`), `${file}: the read is not this client's read of events:\n${call}`);
     const named = columns.replace(/\s+/g, '');

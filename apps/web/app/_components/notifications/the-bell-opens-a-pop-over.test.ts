@@ -64,8 +64,15 @@ test('4 · a row is one press: one form, whose one submit button is the whole ro
   assert.ok(ITEM.length > 0 && ROW_BUTTON.length > 0, 'anchors moved: NotificationItem or RowButton is gone');
   assert.match(
     ITEM,
-    /<form\s+action=\{markNotificationRead\}[\s\S]*?name="return_to" value=\{n\.related_url \?\? returnTo\}[\s\S]*?<RowButton/,
+    /<form\s+action=\{markNotificationRead\}[\s\S]*?name="return_to" value=\{lands \?\? returnTo\}[\s\S]*?<RowButton/,
     'the row is not a markNotificationRead form returning to the notice\'s own page (related_url ?? this page)',
+  );
+  // 📍 2026-11-13 (the notification place): the page it lands on is the notice's own link — unless that link names an
+  // event that was removed, which marks read and stays here (the approved drawing's § 6), never a dead page.
+  assert.match(
+    ITEM,
+    /const lands = eventWasRemoved\(n\.related_url, n\.event_id\) \? null : n\.related_url;/,
+    'the row no longer lands on its own related_url',
   );
   assert.match(ROW_BUTTON, /<button\s+type="submit"[\s\S]*?w-full/, 'the row is not one full-width submit button');
   // Everything the row shows sits inside that one button.

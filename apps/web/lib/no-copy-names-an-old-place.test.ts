@@ -17,7 +17,7 @@
  *     technically is gone since the pages there will be inside the different scenes it covers"*): Logo, Palette + Dress
  *     Code, Love Story, Schedule, E-Gifts, Info and Look are their scenes' editors, Prints is a row of the Hub's ⚙. The
  *     Maker's part doors say "Open <page>" (`makerSceneDoorWords`). The More menu's products (Papic, Live Studio, the
- *     Event Hub Pro page) are another "Studio" and are not named here.
+ *     Event Pro page) are another "Studio" and are not named here.
  *
  * Sabotage (2026-11-06, each seen red, then restored): `OUTFIT_SET_IN` back to "Mood Board & Dress Code" → red · the
  * venue-pin answer back to "Studio › Info › Venues" → red · the menu tour back to "Four places" → red.
@@ -29,6 +29,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { stripComments } from './strip-comments';
+import { publicHelpSourceText } from '@/lib/help-sources.test-helper';
 
 const WEB = join(__dirname, '..');
 const OLD_PLACES =
@@ -71,7 +72,8 @@ test('the swept words say where things live now', async () => {
   assert.match(tours, /title: 'Five places for your whole event'/);
   // 🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, v113): Home is Today, Memories before Hub; Papic is in Memories.
   assert.match(tours, /Today, Guests, Suppliers, Memories and Hub\./);
-  const help = stripComments(readFileSync(join(WEB, 'lib/help.ts'), 'utf8'));
+  // help split 2026-11-14: the prose lives in lib/help/*.ts — read every file, never lib/help.ts alone.
+  const help = stripComments(publicHelpSourceText());
   assert.match(help, /On Suppliers, tap your place in the date and place line at the top\./);
   assert.match(help, /add credits to the pot from the Papic card in Memories/);
 });

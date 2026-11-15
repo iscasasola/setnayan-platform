@@ -102,7 +102,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { AccentRow, FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
+import { AccentRow, FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventStoryControls, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
 import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
@@ -393,7 +393,7 @@ export function MakerWork({
         returnTo: string;
         /** The first-visit tour (`MiniTour`), server-rendered and handed down; mounts when the sheet opens. */
         tour?: ReactNode;
-        /** 💎 No Event Hub Pro: the scene is tried free and Apply asks — the ＋ wears ◆ PRO. */
+        /** 💎 No Event Pro: the scene is tried free and Apply asks — the ＋ wears ◆ PRO. */
         tried?: boolean;
       }
     | { note: string }
@@ -822,7 +822,7 @@ export function MakerWork({
   /* ＋ ADD A SCENE — the shell's ＋ (desktop) and More ▾ row (phone) cannot know
      whether a scene may be added here, so the work area REGISTERS the answer
      (`MakerAddScene`, `maker-context.tsx`): ready opens the sheet below; refused
-     carries the note (padlocked when it is Event Hub Pro); null where the
+     carries the note (padlocked when it is Event Pro); null where the
      navigator offers nothing either (the store shell, a stage without scenes
      of their own — `stageTakesOwnScenes`). */
   const setAddScene = maker?.setAddScene;
@@ -1005,6 +1005,28 @@ export function MakerWork({
     setEventBar?.(publicLandingUrl ? { on: guestBars, toggle: () => toggleRef.current() } : null);
   }, [setEventBar, guestBars, publicLandingUrl]);
   useEffect(() => () => setEventBar?.(null), [setEventBar]);
+  /* 📖🎁 "Reads as" (Story · Page) and, before Post Event opens, "Peek now" — the story-wide controls (owner
+     2026-11-13, "SIX CALLS SETTLED" (1)(6)). REGISTERED WITH THE MAKER, drawn by the stage toolbar while nothing is
+     picked (`stage-tools.tsx`, `data-stage-post-event-story`): they stood in this file's scenes column, which the
+     new Maker hides at every width (`maker-desk.tsx` on a desktop; the phone's navigator slot under the toolbar), so
+     no couple could reach them (F-W2-43, the live walk after #7596). */
+  const setPostEventStory = maker?.setPostEventStory;
+  const storyPostEvent = stage === 'editorial' && navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent : null;
+  const storyDraftAction = elementEditing?.draftAction ?? null;
+  useEffect(() => {
+    setPostEventStory?.(
+      storyPostEvent && storyDraftAction ? (
+        <PostEventStoryControls
+          eventId={eventId}
+          arrangement={storyPostEvent.arrangement}
+          chaptersPeek={storyPostEvent.chaptersPeek}
+          dayHappened={storyPostEvent.dayHappened}
+          draftAction={storyDraftAction}
+        />
+      ) : null,
+    );
+  }, [setPostEventStory, storyPostEvent, storyDraftAction, eventId]);
+  useEffect(() => () => setPostEventStory?.(null), [setPostEventStory]);
   /* 👁 SEE AS ▾ (PR-10) — the SAME canvas address, drawn as a sample guest:
      `?as=<state>` (lib/see-as.ts `SEE_AS_PARAM`). The draft, the
      bridge and the stage are unchanged; only who the page is drawn for. */
@@ -3593,7 +3615,7 @@ export function MakerWork({
 
       {/* ⚙ The Hub's ⚙ Event Hub settings: its "Your Event Hub" group is the shipped Studio rows (address · Go live · who can
           view · which version · Event Bar · the QR — `StudioHubSettings`, owner 2026-10-30), so the old navigator's rows
-          and their QR card are no longer drawn beside them (one setting, one place); only the Event Hub Pro line is the
+          and their QR card are no longer drawn beside them (one setting, one place); only the Event Pro line is the
           work area's to add. */}
       {moreHost
         ? createPortal(
@@ -3795,7 +3817,7 @@ function MoreExtras({
       {showProCta ? (
         <section className="rounded-md bg-ink px-4 py-3.5 text-cream">
           <p className="text-[13px] font-semibold text-cream">
-            <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} text="Event Hub Pro" size="md" tone="current" />
+            <PaidMark state="try" label={paidMarkLabel('try', 'Event Pro')} text="Event Pro" size="md" tone="current" />
           </p>
           <p className="mt-0.5 text-[12px] leading-relaxed text-cream/80">
             One unlock for every stage — the look, the reveal, your own photos and film, music and the

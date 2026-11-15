@@ -114,7 +114,7 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
    OUR LOVE STORY — THE ONE MOMENT ACTION (Event Hub Maker Phase 7, +1 export)
    ══════════════════════════════════════════════════════════════════════════
    Owner 2026-09-25: *"each love story is a scene"* · *"Max of 5 for free. no
-   media files. Place more, add media files, Go Event Hub Pro?"*. One action,
+   media files. Place more, add media files, Go Event Pro?"*. One action,
    five intents — `add · edit · delete · arrange · pick` — so the cap lives in
    exactly ONE place a request can reach:
 
@@ -123,7 +123,7 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
    may not gain ANY photo ref; removing is never refused. Pro is read with the
    ACTIVE gate (`eventCoupleWebsiteProActive`), never inferred from the form.
    A refusal writes nothing and returns to the scrapbook with `?pro=` so the page
-   draws the one line — "Add more stories and your photos · Go Event Hub Pro".
+   draws the one line — "Add more stories and your photos · Go Event Pro".
 
    Writes `events.love_story.moments` BESIDE the legacy keys (merge, never
    clobber — the same rule as `updateOurStory`). The first write materialises

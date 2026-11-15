@@ -33,37 +33,12 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 
 import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
 import { NAV_SLOT_DEFAULTS } from '@/lib/nav-registry-defaults';
 
-const SIDEBAR = path.join(import.meta.dirname, 'admin-sidebar.tsx');
-
 const groupKeys = ADMIN_NAV_GROUPS.map((g) => g.key);
 const itemKeys = ADMIN_NAV_GROUPS.flatMap((g) => g.items.map((i) => i.key));
-
-/**
- * MENU_HUBS group keys, read out of the sidebar as text. The sidebar is a
- * 'use client' module that imports next/navigation, so it cannot be imported
- * into a node test — the same text-scanning approach the house nav lints use
- * (scripts/lint-bottom-nav.mjs).
- */
-function menuHubKeys(): string[] {
-  const src = readFileSync(SIDEBAR, 'utf8');
-  const start = src.indexOf('const MENU_HUBS');
-  assert.notEqual(
-    start,
-    -1,
-    'MENU_HUBS is gone from admin-sidebar.tsx. It is what maps each nav group to ' +
-      'its hub landing; without it this guard is blind. Restore it or rewrite this test.',
-  );
-  const body = src.slice(start);
-  const end = body.indexOf('\n};');
-  assert.notEqual(end, -1, 'Could not find the end of the MENU_HUBS object literal.');
-  return [...body.slice(0, end).matchAll(/^ {2}'?([a-z][a-z0-9-]*)'?:\s*\{/gm)].map((m) => m[1]!);
-}
 
 test('the guard can actually fail — every source it reads is non-empty', () => {
   // A guard that silently matches nothing passes forever. These floors are
@@ -76,7 +51,6 @@ test('the guard can actually fail — every source it reads is non-empty', () =>
     'Found almost no admin.sidebar.* slots in NAV_SLOT_DEFAULTS — the slot key ' +
       'prefix probably changed, which would make this whole guard inert.',
   );
-  assert.ok(menuHubKeys().length >= 2, 'MENU_HUBS parsed as fewer than 2 groups.');
 });
 
 test('every renameable admin menu slot still has a nav item', () => {
@@ -97,28 +71,9 @@ test('every renameable admin menu slot still has a nav item', () => {
   );
 });
 
-test('every nav group has a hub, and every hub has a nav group', () => {
-  const hubs = menuHubKeys();
-
-  const groupsWithoutHub = groupKeys.filter((k) => !hubs.includes(k));
-  assert.deepEqual(
-    groupsWithoutHub,
-    [],
-    `Nav groups with no MENU_HUBS entry: ${groupsWithoutHub.join(', ')}. ` +
-      `deriveSixMenus() would land them on their first child instead of a hub.`,
-  );
-
-  const hubsWithoutGroup = hubs.filter((k) => !groupKeys.includes(k));
-  assert.deepEqual(
-    hubsWithoutGroup,
-    [],
-    `MENU_HUBS defines a hub for these groups but ADMIN_NAV_GROUPS has no such group: ` +
-      `${hubsWithoutGroup.join(', ')}.\n    → deriveSixMenus() maps over the GROUPS, so ` +
-      `each of these is a menu row that no longer renders. This is the exact shape of the ` +
-      `2026-08-02 regression, where 'directory' (Accounts) and 'media' (Studio) were ` +
-      `deleted and their hub entries left behind.`,
-  );
-});
+/* The "every nav group has a hub" check retired with `admin-sidebar.tsx` (2026-11-13): the six-group rail it fed
+   is now the approved five tabs (`lib/admin/admin-tabs.ts`), and every admin page's home is held by
+   `app/admin/admin-routes-all-have-a-tab.test.ts`. ADMIN_NAV_GROUPS still feeds the search and /admin/more. */
 
 test('no nav group is empty and no item key is duplicated', () => {
   const empty = ADMIN_NAV_GROUPS.filter((g) => g.items.length === 0).map((g) => g.key);

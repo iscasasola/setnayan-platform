@@ -59,6 +59,7 @@ import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/stud
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { StayForm } from '@/app/_components/stay-form';
 
+import { InfoTip } from '@/app/_components/info-tip';
 type RenderJobRow = {
   job_id: string;
   template_slug: string;
@@ -266,7 +267,7 @@ export default async function PatiktokGallery({
         </Link>
         <Link
           href={`/dashboard/${eventId}/studio/patiktok/booth`}
-          className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600"
+          className="ab ab-brand ab-main"
         >
           Open booth dashboard →
         </Link>
@@ -435,22 +436,24 @@ export default async function PatiktokGallery({
       </ul>
 
       {visibleTemplates.length === 0 ? (
-        <p className="sn-row p-6 text-center text-sm text-ink/55">
+        <p className="sn-row p-6 text-center text-sm text-ink/70">
           No templates in this category yet — pick another above.
         </p>
       ) : null}
 
       {/* 🍎 A quote for paid work, outside Apple — hidden in the store shell before first paint (review of #6844). */}
-      <p data-web-only="" className="text-xs text-ink/55">
-        Need a custom reel template? Open a{' '}
-        <Link
+      <div data-web-only="">
+        <InfoTip labelAs="p" label="Need a custom reel template?" labelClassName="text-xs text-ink/70" align="start">
+          Open a{' '}
+          <Link
           href={`/help#contact`}
           className="text-terracotta hover:underline"
-        >
+          >
           support request
-        </Link>{' '}
-        — describe the vibe + reference TikTok link and our team will quote.
-      </p>
+          </Link>{' '}
+          — describe the vibe + reference TikTok link and our team will quote.
+        </InfoTip>
+      </div>
     </section>
   );
 }
@@ -477,7 +480,7 @@ function BoothLaunchPanel({ eventId, owned }: { eventId: string; owned: boolean 
         </div>
         <Link
           href={`/dashboard/${eventId}/studio/patiktok/booth`}
-          className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+          className="ab ab-brand ab-main"
         >
           <Film aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Open booth dashboard
@@ -501,7 +504,7 @@ function TiktokConnectPanel({
   grant: TiktokGrant | null;
 }) {
   return (
-    <section className="sn-tile space-y-3 p-5">
+    <section className="border-t border-ink/10 space-y-3 py-5">
       <div className="space-y-1">
         <p className="sn-eye inline-flex items-center gap-1.5">
           <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -510,14 +513,13 @@ function TiktokConnectPanel({
         <h2 className="text-base font-semibold tracking-tight">
           Auto-post finished reels to your own TikTok
         </h2>
-        <p className="max-w-prose text-sm text-ink/70">
-          Connect your TikTok once and finished Patiktok reels post straight to
-          your handle. Skip it and you still get every reel to download here.
-        </p>
+        <InfoTip labelAs="p" label="Connect your TikTok once and finished Patiktok reels post straight to your handle." labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+          Skip it and you still get every reel to download here.
+        </InfoTip>
       </div>
       {grant ? (
         <div className="flex flex-wrap items-center gap-2">
-          <p className="inline-flex items-center gap-1.5 rounded-md bg-success-50 px-2.5 py-1 text-[11px] text-success-900">
+          <p className="inline-flex items-center gap-1.5 rounded-md bg-success-50 px-2.5 py-1 text-[12px] text-success-900">
             <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
             TikTok connected
             {grant.tiktok_handle ? `: @${grant.tiktok_handle}` : ''}
@@ -525,7 +527,7 @@ function TiktokConnectPanel({
           <StayForm door="patiktok.disconnectPatiktokTiktok" action={disconnectPatiktokTiktok}>
             <input type="hidden" name="event_id" value={eventId} />
             <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-[11px] text-ink/70 hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
+              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-[12px] text-ink/70 hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
               pendingLabel="Disconnecting…"
             >
               Disconnect TikTok
@@ -562,10 +564,10 @@ function YourRenders({
 }) {
   if (jobs.length === 0) return null;
   return (
-    <section className="sn-tile space-y-3 p-5">
+    <section className="border-t border-ink/10 space-y-3 py-5">
       <header className="flex items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight">Your renders</h2>
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
           Latest {Math.min(jobs.length, 20)} · live queue state
         </p>
       </header>
@@ -581,7 +583,7 @@ function YourRenders({
               <RenderStatusPill status={job.status} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-ink">{templateName}</p>
-                <p className="font-mono text-[11px] text-ink/55">
+                <p className="text-[13px] tabular-nums text-ink/70">
                   {job.duration_sec}s · queued{' '}
                   {new Date(job.enqueued_at).toLocaleString('en-PH', {
                     dateStyle: 'medium',
@@ -589,7 +591,7 @@ function YourRenders({
                   })}
                 </p>
                 {job.status === 'failed' && job.failure_reason ? (
-                  <p className="text-[11px] text-danger-700">
+                  <p className="text-[12px] text-danger-700">
                     {job.failure_reason}
                   </p>
                 ) : null}
@@ -599,7 +601,7 @@ function YourRenders({
                   href={downloadUrls[job.job_id]}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-2.5 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-mulberry-600"
+                  className="ab ab-brand ab-main"
                 >
                   <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Download
@@ -613,7 +615,7 @@ function YourRenders({
                   Save
                 </a>
               ) : job.status === 'completed' ? (
-                <p className="font-mono text-[11px] text-ink/55">Ready</p>
+                <p className="text-[13px] text-ink/70">Ready</p>
               ) : (
                 // The reel still waiting: queued, a preview never saved, or a
                 // failed render. Open it to render (paid: saves; unpaid: watch).
@@ -660,14 +662,14 @@ function RenderStatusPill({ status }: { status: RenderJobRow['status'] }) {
     },
     cancelled: {
       Icon: XCircle,
-      cls: 'bg-ink/5 text-ink/55',
+      cls: 'bg-ink/5 text-ink/70',
       label: 'Cancelled',
     },
   };
   const { Icon, cls, label } = map[status];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${cls}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] uppercase tracking-[0.15em] ${cls}`}
     >
       <Icon
         aria-hidden
@@ -712,7 +714,7 @@ function SaveShareCard({
   const priceLabel = pricePhp != null ? formatPhp(pricePhp) : null;
   const triggerLabel = priceLabel ? `Save & share · ${priceLabel}` : 'Save & share';
   return (
-    <section id="patiktok-save" className="sn-tile scroll-mt-24 space-y-3 p-5">
+    <section id="patiktok-save" className="border-t border-ink/10 scroll-mt-24 space-y-3 py-5">
       <div className="flex items-start justify-between gap-2">
         <div className="space-y-1">
           <p className="sn-eye inline-flex items-center gap-1.5">
@@ -720,30 +722,29 @@ function SaveShareCard({
             Save &amp; share
           </p>
           <h2 className="text-lg font-semibold tracking-tight">Keep your reels</h2>
-          <p className="max-w-prose text-sm text-ink/70">
-            Recording and watching your reels is free. Add Patiktok to save
+          <InfoTip labelAs="p" label="Recording and watching your reels is free." labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+            Add Patiktok to save
             them without the preview mark, download them and share them —
             every reel your booth makes, all event day.
-          </p>
+          </InfoTip>
         </div>
         {priceLabel ? (
-          <span className="shrink-0 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta-700">
+          <span className="shrink-0 rounded-full bg-terracotta/10 px-2 py-0.5 text-[12px] uppercase tracking-[0.15em] text-terracotta-700">
             {priceLabel}
           </span>
         ) : null}
       </div>
-      <p className="text-xs text-ink/55">
+      <p className="text-xs text-ink/70">
         Soft cap: {PATIKTOK_VIDEO_SOFT_CAP} captured videos per booth per day —
         guidance only, not a charge.
       </p>
       {pending ? (
-        <p
-          role="status"
-          className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70"
-        >
-          Your Patiktok payment is being confirmed. Once it is, open any reel in
-          &ldquo;Your renders&rdquo; and it saves without the mark.
-        </p>
+        <div role="status">
+          <InfoTip labelAs="p" label="Your Patiktok payment is being confirmed." labelClassName="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70" align="start">
+            Once it is, open any reel in
+            &ldquo;Your renders&rdquo; and it saves without the mark.
+          </InfoTip>
+        </div>
       ) : apple && !appleOnSale ? (
         <p role="status" className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70">
           Saving reels isn&rsquo;t on sale right now. Recording and watching stay free.
@@ -772,7 +773,7 @@ function SaveShareCard({
             triggerLabel={triggerLabel}
             triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
           />
-          <p className="pt-2 text-[11px] text-ink/55">
+          <p className="pt-2 text-[12px] text-ink/70">
             Apply-then-pay · Setnayan confirms inside 24 h after your
             payment is logged.
           </p>
@@ -852,7 +853,7 @@ function CategoryChips({
   // survives a refresh and the page stays server-rendered.
   return (
     <nav aria-label="Filter templates by category" className="flex items-center gap-2">
-      <Hash aria-hidden className="h-3.5 w-3.5 text-ink/50" strokeWidth={1.75} />
+      <Hash aria-hidden className="h-3.5 w-3.5 text-ink/70" strokeWidth={1.75} />
       <LinkPickMenu
         label="Template category"
         value={active}
@@ -894,9 +895,9 @@ function TemplateCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h2 className="text-base font-semibold text-ink">{template.name}</h2>
-            <p className="text-xs text-ink/55">{template.bestFor}</p>
+            <p className="text-xs text-ink/70">{template.bestFor}</p>
           </div>
-          <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/65">
+          <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[12px] uppercase tracking-[0.15em] text-ink/70">
             {template.defaultDurationSec}s
           </span>
         </div>
@@ -925,7 +926,7 @@ function TemplateCard({
         ) : (
           <Link
             href={`/dashboard/${eventId}/studio/patiktok/${template.slug}`}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+            className="ab ab-brand ab-main w-full"
           >
             <Film className="h-4 w-4" strokeWidth={1.75} />
             Choose template
@@ -966,7 +967,7 @@ function Preview({
       </div>
       <div className="flex flex-col items-center gap-2 px-4 text-center">
         <p
-          className="font-mono text-[10px] uppercase tracking-[0.3em]"
+          className="text-[12px] uppercase tracking-[0.3em]"
           style={{ color: dark }}
         >
           Patiktok · 9:16
@@ -982,7 +983,7 @@ function Preview({
           style={{ backgroundColor: accent2 }}
         />
         <p
-          className="font-mono text-[9px] uppercase tracking-[0.25em]"
+          className="text-[12px] uppercase tracking-[0.25em]"
           style={{ color: accent2 }}
         >
           {template.name}

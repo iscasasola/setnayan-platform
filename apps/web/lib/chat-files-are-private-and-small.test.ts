@@ -151,11 +151,14 @@ test('🔑 7 · the file is served through a route that re-proves membership', (
   // ⚠ THE READ MUST BE THE CALLER'S OWN SESSION. An admin client here would
   // make the app-side check the entire fence, one forgotten `if` from open.
   assert.ok(!/createAdminClient/.test(route), 'the route reads with the service role');
-  assert.equal(
-    (route.match(/createClient\(\)/g) ?? []).length,
-    1,
-    'the route stopped reading as the caller',
-  );
+  // One caller-session client PER HANDLER (GET reads the file; DELETE — ruling 6076 — removes your own, through
+  // `remove_my_chat_file`, which also decides as the caller). Each exported handler must open exactly one.
+  const handlers = route.split(/(?=export async function (?:GET|POST|PUT|PATCH|DELETE)\()/).slice(1);
+  assert.ok(handlers.length >= 1, 'the route has no handler');
+  for (const h of handlers) {
+    assert.equal((h.match(/createClient\(\)/g) ?? []).length, 1, `${h.slice(22, 28)}: the route stopped reading as the caller`);
+  }
+  assert.equal((route.match(/createClient\(\)/g) ?? []).length, handlers.length, 'a client opened outside a handler');
   assert.ok(/auth\.getUser\(\)/.test(route), 'the route stopped requiring a signed-in caller');
   // A stranger and a missing message must be answered identically, or the route
   // confirms that somebody else's file exists.

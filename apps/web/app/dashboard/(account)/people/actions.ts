@@ -19,6 +19,7 @@ import {
 } from '@/lib/people-connections';
 import {
   isOnePartnerRefusal,
+  labelConfirmedTitle,
   labelRequestLine,
   partnerHolding,
   replacePartnerQuestion,
@@ -27,13 +28,13 @@ import {
 import { getSpouseContext } from '@/lib/people-spouse-context';
 import { searchPeopleByName, type PersonHit } from '@/lib/people-search';
 import {
-  RELATION_LABEL,
   connectionRequestSentence,
   firstNameOf,
   normalizeEmail,
   spouseIsOfferable,
 } from '@/lib/people-add';
 import { followUser, unfollowUser } from '@/app/u/_actions/audience-actions';
+import { confirmedByName, type AccountNameParts } from '@/lib/person-page-facts';
 import { celebrantAccountsFor } from '@/lib/event-celebrants.server';
 import { requestConnection } from '@/lib/people-connection-request.server';
 import { removalWriteResult, removableConnectionFilter } from '@/lib/people-remove';
@@ -605,17 +606,24 @@ async function confirmLabel(
   // The answer travels back, on the same notice a confirmed connection uses.
   if (((data ?? []) as unknown[]).length > 0) {
     const admin = createAdminClient();
-    const [{ data: asker }, { data: me }] = await Promise.all([
+    const [{ data: asker }, { data: me }, { data: myAccount }] = await Promise.all([
       admin.from('people').select('claimed_by_user_id').eq('person_id', row.from_person_id).maybeSingle(),
       admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
+      // The account's own name — the person node's `display_name` can be empty (2026-11-13: "They confirmed").
+      admin.from('users').select('display_name').eq('user_id', user.id).maybeSingle(),
     ]);
     const askerUserId = (asker as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id;
     if (askerUserId) {
-      const myName = firstNameOf((me as { display_name: string | null } | null)?.display_name) ?? 'They';
       await emitNotification({
         userId: askerUserId,
         type: 'connection_confirmed',
-        title: `${myName} confirmed — they’re your ${RELATION_LABEL[asked]}`,
+        title: labelConfirmedTitle(
+          [
+            (me as { display_name: string | null } | null)?.display_name,
+            (myAccount as { display_name: string | null } | null)?.display_name,
+          ],
+          asked,
+        ),
         body:
           asked === 'partner'
             ? 'You’re a couple on Setnayan now. Plan an event together whenever you’re ready.'
@@ -802,18 +810,23 @@ export async function confirmConnection(
   // their row just quietly changes state the next time they load the page.
   if (rows.length > 0) {
     const admin = createAdminClient();
-    const [{ data: asker }, { data: me }] = await Promise.all([
+    const [{ data: asker }, { data: me }, { data: myAccount }] = await Promise.all([
       admin
         .from('people')
         .select('claimed_by_user_id')
         .eq('person_id', rows[0]!.from_person_id)
         .maybeSingle(),
       admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
+      // 👤 F-W3-27: "They confirmed your connection" — the person row's display name is blank on most accounts, so the
+      // account's own name (display, else first + last — `profileShownName`) is the fallback before the neutral word.
+      admin.from('users').select('display_name, first_name, last_name').eq('user_id', user.id).maybeSingle(),
     ]);
     const askerUserId = (asker as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id;
     if (askerUserId) {
-      const myName =
-        firstNameOf((me as { display_name: string | null } | null)?.display_name) ?? 'They';
+      const myName = confirmedByName(
+        (me as { display_name: string | null } | null)?.display_name,
+        myAccount as AccountNameParts | null,
+      );
       await emitNotification({
         userId: askerUserId,
         type: 'connection_confirmed',

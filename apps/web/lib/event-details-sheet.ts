@@ -86,7 +86,7 @@ export const EVENT_DETAILS_MAP: ReadonlyArray<{ asked: string; question: string;
   { asked: 'A-Hub', question: 'Colours', fact: 'colours', section: 'look' },
   { asked: 'A-Hub', question: 'Fonts', fact: 'fonts', section: 'look' },
   { asked: 'A-Hub', question: 'Music', fact: 'music', section: 'look' },
-  { asked: 'A-C', question: 'Event Hub Pro · Setnayan AI · Papic', fact: 'services', section: 'services' },
+  { asked: 'A-C', question: 'Event Pro · Setnayan AI · Papic', fact: 'services', section: 'services' },
   { asked: 'A-C', question: 'One bill', fact: 'purchases', section: 'purchases' },
   { asked: 'B1', question: 'When should guests arrive?', fact: 'arrive', section: 'key-dates' },
   { asked: 'B2', question: 'Parish / Reception', fact: 'venues', section: 'venues' },

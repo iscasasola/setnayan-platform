@@ -86,6 +86,11 @@ test('1 · every running chapter is Happening now, with its running moment; What
   assert.deepEqual(onItsDay.now, [], 'a Time TBA chapter runs at midnight');
   const ahead = homeScheduleFrom({ blocks: [tba], tasks: [], openRequests: 0, bookedVendorIds: [], nowMs: at('2026-11-01T09:00'), tz: TZ, today: '2026-11-01' });
   assert.equal(ahead.next[0]?.v, 'Sat, Nov 21 · Time TBA', 'a Time TBA chapter shows a clock');
+
+  // 📅 F-W2-01 (walk 13 Nov): an event with NO date — its blocks sit on a seeded placeholder day, so no day is said.
+  const undated = homeScheduleFrom({ blocks: DAY, tasks: [], openRequests: 0, bookedVendorIds: [], nowMs: at('2026-11-01T09:00'), tz: TZ, today: '2026-11-01', undated: true });
+  assert.match(undated.next[0]!.v, /^9:00 AM/, 'an undated event names a placeholder day');
+  assert.doesNotMatch(JSON.stringify(undated), /Sat, Dec 12/, 'an undated event names a placeholder day');
 });
 
 test('2 · the doors: to approve · Release in the last week (◆ PRO on Free) · need you · owe times — a zero hides its door', () => {
@@ -104,7 +109,7 @@ test('2 · the doors: to approve · Release in the last week (◆ PRO on Free) �
   assert.equal(f.oweTimes, 2, 'a booked supplier named on nothing is not counted (or a named one is)');
   const week = (days: number, pro: boolean) =>
     homeControlTiles(fixtureControl('e1', { countdown: { ...fixtureControl('e1').countdown, days }, schedule: { ...f, pro } })).tiles.find((t) => t.key === 'sched')!;
-  assert.deepEqual(week(7, false).doors!.map((d) => d.label), ['2 to approve', 'Release', '1 need you', '2 owe times']);
+  assert.deepEqual(week(7, false).doors!.map((d) => d.label), ['2 to approve', 'Release', '1 need you', '2 suppliers without a time']);
   assert.equal(week(7, false).doors!.find((d) => d.id === 'release')!.pro, true, 'Release on Free wears no ◆ PRO');
   assert.equal(week(7, true).doors!.find((d) => d.id === 'release')!.pro, false, 'Release on Pro wears ◆ PRO');
   assert.ok(!week(40, false).doors!.some((d) => d.id === 'release'), 'Release shows 40 days out');

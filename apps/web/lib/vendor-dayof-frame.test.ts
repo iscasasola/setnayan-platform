@@ -185,7 +185,7 @@ test('LAPSED mid-event → locked + a renew-flavoured upsell, kit intact', () =>
 
 test('the upsell quotes the floor from the gate constant, not a literal', () => {
   const model = frame(accessFor(['live_band'], 'free'));
-  assert.equal(model.upsell?.minTierLabel, 'Solo');
+  assert.equal(model.upsell?.minTierLabel, 'Supplier Plus');
 });
 
 test('the upsell wording comes from the gate registry — one source of truth', () => {

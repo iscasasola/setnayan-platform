@@ -19,7 +19,7 @@ const WEB = join(__dirname, '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const WIZARD = read('app/open-shop/_components/open-shop-wizard.tsx');
 const CARDS = read('app/open-shop/_components/service-cards.tsx');
-const PICKER = read('app/open-shop/_components/service-picker.tsx');
+const PICKER = read('app/_components/service-picker.tsx');
 const AT_EVENTS = read('app/open-shop/_components/services-at-events.tsx');
 const SHEET = read('app/open-shop/_components/plan-sheet.tsx');
 const PW = read('app/_components/password-field.tsx');

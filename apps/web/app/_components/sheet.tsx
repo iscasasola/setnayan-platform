@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useRef, type ReactNode } from 'react';
+import { createContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -95,7 +95,7 @@ import { useShellBoundary, type ShellBoundary } from './shell-boundary';
  */
 const SHEET_AT: Record<
   ShellBoundary,
-  { root: string; panel: string; narrow: string; wide: string; full: string; page: string }
+  { root: string; panel: string; narrow: string; wide: string; full: string; page: string; half: string; max: string; handle: string }
 > = {
   lg: {
     root: 'fixed inset-0 z-50 flex h-[100dvh] items-end justify-center lg:items-stretch lg:justify-end focus:outline-none',
@@ -104,6 +104,9 @@ const SHEET_AT: Record<
     narrow: 'lg:w-[22rem]',
     wide: 'lg:w-[min(34rem,92vw)]',
     full: 'max-lg:h-[100dvh] max-lg:max-h-[100dvh] max-lg:rounded-t-none max-lg:border-0',
+    half: 'max-lg:max-h-[52dvh]',
+    max: 'max-lg:max-h-[calc(100dvh-48px)]',
+    handle: 'lg:hidden',
     page:
       'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:mx-auto lg:my-6 lg:h-[calc(100dvh-3rem)] lg:max-h-none lg:w-[min(50rem,calc(100vw-3.5rem))] lg:rounded-3xl lg:shadow-[0_30px_80px_-40px_rgba(26,26,26,0.4)]', // no-card-ok: the modal sheet's own panel, the same surface as `panel` above, centred
   },
@@ -117,6 +120,9 @@ const SHEET_AT: Record<
     narrow: 'tab:w-[min(27.5rem,calc(100vw-3.5rem))]',
     wide: 'tab:w-[min(27.5rem,calc(100vw-3.5rem))]',
     full: 'max-tab:h-[100dvh] max-tab:max-h-[100dvh] max-tab:rounded-t-none max-tab:border-0',
+    half: 'max-tab:max-h-[52dvh]',
+    max: 'max-tab:max-h-[calc(100dvh-48px)]',
+    handle: 'tab:hidden',
     /* 📄 A FORM THAT IS A PAGE (makers-match § 1, approved 2026-11-07 — the Add manually sheet draws a wide form
        column on a tablet and a computer, and "always maximize the screen", owner 2026-10-29): centred, as wide as
        the drawing's column (50rem) or the screen allows, never the 440 drawer pinned right. Opt-in (`page`). */
@@ -224,6 +230,18 @@ export function Sheet({
      already open is drawn in place for its first frame, and the hook must hold the element that stays, not that one. */
   useModalA11y({ open: open && host !== null, onClose: close, containerRef: dialogRef });
   const at = SHEET_AT[useShellBoundary()];
+  /* 📐 OPENS AT HALF, DRAG UP FOR MORE (Piece 3c · prototype legend row 138, approved 2026-11-12): on a phone every
+     bottom sheet opens at about half the screen (≈7 rows) and scrolls inside itself; a drag up on its handle grows it
+     to the max (100dvh − 48px), a drag down from the max returns to half, a drag down past the half closes it. A
+     short sheet is only as tall as its content (max-height, never height). A `full` sheet IS the screen — untouched.
+     The tablet/desktop drawer is untouched (the classes are phone-only). */
+  const [snap, setSnap] = useState<'half' | 'max'>('half');
+  const dragFrom = useRef<number | null>(null);
+  // A drag that moved the sheet is not also a tap (the click that follows a pointerup is swallowed once).
+  const dragged = useRef(false);
+  useEffect(() => {
+    if (open) setSnap('half');
+  }, [open]);
 
   if (!open) return null;
 
@@ -244,8 +262,45 @@ export function Sheet({
           tablet, an unfolded foldable, and a phone folded at a hinge. */}
       <div
         data-sheet-panel=""
-        className={`${rise ? 'sn-rise ' : ''}${page ? at.page : `${at.panel} ${wide ? at.wide : at.narrow}`}${full ? ` ${at.full}` : ''}`}
+        data-sheet-snap={full ? undefined : snap}
+        className={`${rise ? 'sn-rise ' : ''}${page ? at.page : `${at.panel} ${wide ? at.wide : at.narrow}`}${full ? ` ${at.full}` : ` ${snap === 'max' ? at.max : at.half} transition-[max-height] duration-300 ease-out motion-reduce:transition-none`}`}
       >
+        {full ? null : (
+          <button
+            type="button"
+            aria-label={snap === 'half' ? 'Show more' : 'Show less'}
+            data-sheet-handle=""
+            className={`${at.handle} flex h-6 w-full shrink-0 touch-none items-center justify-center`}
+            onClick={() => {
+              if (dragged.current) {
+                dragged.current = false;
+                return;
+              }
+              setSnap((s) => (s === 'half' ? 'max' : 'half'));
+            }}
+            onPointerDown={(e) => {
+              dragFrom.current = e.clientY;
+              e.currentTarget.setPointerCapture?.(e.pointerId);
+            }}
+            onPointerUp={(e) => {
+              const from = dragFrom.current;
+              dragFrom.current = null;
+              if (from === null) return;
+              const dy = e.clientY - from;
+              dragged.current = Math.abs(dy) > 8;
+              if (dy < -40) setSnap('max');
+              else if (dy > 60) {
+                if (snap === 'max') setSnap('half');
+                else close();
+              }
+            }}
+            onPointerCancel={() => {
+              dragFrom.current = null;
+            }}
+          >
+            <span aria-hidden className="h-1 w-10 rounded-full bg-ink/20" />
+          </button>
+        )}
         {head ? (
           <div data-sheet-head="" className="shrink-0">
             {head}

@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 276 single-column FKs onto auth.users / public.users
-# CASCADE=74  RESTRICT=1  SET NULL=201
+# 283 single-column FKs onto auth.users / public.users
+# CASCADE=76  RESTRICT=1  SET NULL=206
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -40,6 +40,7 @@ chat_blocker_shows.user_id                                CASCADE      NOT NULL 
 chat_decision_messages.added_by_user_id                   SET NULL     nullable  -> auth.users
 chat_decision_topics.closed_by_user_id                    SET NULL     nullable  -> auth.users
 chat_decision_topics.opened_by_user_id                    SET NULL     nullable  -> auth.users
+chat_file_removals.user_id                                CASCADE      NOT NULL  -> auth.users
 chat_message_flags.reviewed_by                            SET NULL     nullable  -> users
 chat_message_flags.sender_user_id                         SET NULL     nullable  -> users
 chat_message_hearts.user_id                               CASCADE      NOT NULL  -> auth.users
@@ -173,6 +174,7 @@ moodboard_part_finalizations.reopen_answered_by_user_id   SET NULL     nullable 
 moodboard_part_finalizations.reopen_requested_by_user_id  SET NULL     nullable  -> users
 moodboard_part_finalizations.requested_by_user_id         SET NULL     nullable  -> users
 nav_slot_override.updated_by                              SET NULL     nullable  -> auth.users
+notice_closes.user_id                                     CASCADE      NOT NULL  -> users
 notifications.user_id                                     CASCADE      NOT NULL  -> users
 npc_filing_tasks.resolved_by                              SET NULL     nullable  -> auth.users
 oauth_grants.granted_by_user_id                           SET NULL     nullable  -> users
@@ -228,6 +230,7 @@ social_posts.created_by                                   SET NULL     nullable 
 stewardship_transfers.created_by_user_id                  SET NULL     nullable  -> users
 stewardship_transfers.from_user_id                        SET NULL     nullable  -> users
 stewardship_transfers.to_user_id                          SET NULL     nullable  -> users
+supplier_own_times.updated_by                             SET NULL     nullable  -> auth.users
 supplier_scan_claims.scanned_by_user_id                   SET NULL     nullable  -> auth.users
 supplier_scan_sessions.opened_by_user_id                  SET NULL     nullable  -> auth.users
 supplier_scan_settings.updated_by_user_id                 SET NULL     nullable  -> auth.users
@@ -272,6 +275,10 @@ vendor_lock_proposals.proposed_by_user_id                 SET NULL     nullable 
 vendor_lock_proposals.resolved_by_user_id                 SET NULL     nullable  -> auth.users
 vendor_member_token_wallets.user_id                       CASCADE      NOT NULL  -> auth.users
 vendor_payment_asks.asked_by_user_id                      SET NULL     nullable  -> auth.users
+vendor_plan_content_changes.changed_by                    SET NULL     nullable  -> users
+vendor_plan_content_changes.confirmed_by                  SET NULL     nullable  -> users
+vendor_plan_contents.changed_by                           SET NULL     nullable  -> users
+vendor_plan_contents.confirmed_by                         SET NULL     nullable  -> users
 vendor_profiles.created_by_admin_user_id                  SET NULL     nullable  -> users
 vendor_profiles.user_id                                   CASCADE      nullable  -> users
 vendor_qr_media_flags.reviewed_by                         SET NULL     nullable  -> users

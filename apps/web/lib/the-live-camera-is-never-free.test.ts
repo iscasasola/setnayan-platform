@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
+import { PUBLIC_HELP_SOURCES } from '@/lib/help-sources.test-helper';
 
 const WEB = join(__dirname, '..');
 const FILES = [
@@ -23,12 +24,12 @@ const FILES = [
   'app/(shell)/about/page.tsx',
   'app/(shell)/privacy/page.tsx',
   'app/panood/control/[eventId]/page.tsx',
-  'app/dev/home-lab/page.tsx',
+  'app/dev/home-lab/page.lab.tsx',
   'lib/home-first-screen.ts',
   'lib/iap/where-bought.ts',
   'lib/add-ons-catalog.ts',
   'lib/encoder/program-strings.ts',
-  'lib/help.ts',
+  ...PUBLIC_HELP_SOURCES, // help split 2026-11-14: lib/help.ts + every lib/help/*.ts
   'lib/llms-txt.ts',
 ];
 

@@ -8,7 +8,7 @@
  * Measured on his own shop before answering, and the answer is not taste. The
  * save enforces two caps — cards per kind, families per plan — and enforces them
  * **after the card is authored**, as a redirect carrying an error. SetnaProd is
- * on Solo (ONE family), covers *Pabati* (booths) and *Day-Of Coordinators*
+ * on Supplier Plus (ONE family), covers *Pabati* (booths) and *Day-Of Coordinators*
  * (planning), and is offered ~34 kinds. Everything outside those two families
  * was a refusal waiting to happen, collected after the photo was uploaded.
  *

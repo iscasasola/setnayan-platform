@@ -23,8 +23,10 @@
  *
  * Sabotage (each must fail): point a HOMES entry at a redirect stub (`/vendor-dashboard/clients`); drop a
  * tab from BAR_ROOTS; put `href="/"` back on a token page; add an ad-hoc "← Back" Link to a page; add a
- * `#123456` to a page; add a `<select>` to a page.
+ * `#123456` to a page; add a `<select>` to a page. 2026-11-12 (DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE
+ * APPROVED"): drop the `/[slug]` computed entry; make BackButton ignore `inPlace` (both red, then restored).
  */
+import { ADMIN_TABS } from '@/lib/admin/admin-tabs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -105,6 +107,30 @@ test('BackButton draws the map: the home on a page with one, nothing on a page w
   assert.match(legacy, /href="\/admin\/settings"/, 'the deprecated href still works');
 });
 
+test('a page Discover opens works its back out per visit — shop, person, the host’s event page (2026-11-12)', () => {
+  // DECISION_LOG 2026-11-12 "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED": every page opened from Discover has ONE
+  // back at the top left that returns IN PLACE; cold, "home" is Discover signed out and Home signed in. That is per
+  // visit, so the map hands each of the three to the module that decides it — never a fixed home.
+  assert.deepEqual(pageHome('/v/[slug]'), { kind: 'none', reason: 'computed', by: 'lib/shop-back.ts' });
+  assert.deepEqual(pageHome('/u/[userSlug]'), { kind: 'none', reason: 'computed', by: 'app/u/_components/profile-back.tsx' });
+  assert.deepEqual(pageHome('/[slug]'), { kind: 'none', reason: 'computed', by: 'lib/discover-way-back.ts' });
+  // …and their sub-pages keep their own homes.
+  assert.deepEqual(pageBackLink('/u/[userSlug]/c/[chapterId]', { userSlug: 'ana' }), { href: '/u/ana', label: 'Profile' });
+  assert.equal((pageHome('/[slug]/invite/reply') as { home: string }).home, '/[slug]');
+});
+
+test('BackButton’s `inPlace` returns in place — the pill is wrapped in ReturnInPlace (2026-11-12)', () => {
+  const bb = src('app/_components/back-button.tsx');
+  assert.match(bb, /inPlace\?: boolean \| \{ whileAt: string \}/);
+  assert.match(bb, /if \(!props\.inPlace\) return pill;\s*return <ReturnInPlace whileAt=\{[^}]*\}>\{pill\}<\/ReturnInPlace>;/);
+  // A press shows pressed at once (house rule).
+  assert.match(bb, /active:bg-ink\/15/);
+  const cb = src('app/_components/chat/chat-back.tsx');
+  assert.match(cb, /if \(whileAt !== undefined && here \+ window\.location\.hash !== whileAt\) return;/);
+  // Discover is a list the pages it opens return to: it marks the tab.
+  assert.match(src('app/page.tsx'), /<ChatOriginMark \/>/);
+});
+
 /* ── 2 · the bars ────────────────────────────────────────────────────────────────────────────────────── */
 
 /** The `href: '…'` values at `indent` inside the block that opens at `anchor` (to its closing `};` / `];`). */
@@ -129,7 +155,8 @@ test('the map’s bar roots are today’s bars', () => {
   const supplier = hrefsAfter('app/vendor-dashboard/_components/vendor-nav-destinations.ts', /export const VENDOR_DESTINATIONS/, '    ');
   assert.deepEqual(sorted(supplier), sorted(BAR_ROOTS.supplier));
 
-  const admin = hrefsAfter('app/admin/_components/admin-bottom-nav.tsx', /export const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem\[\] = \[/, '    ');
+  // The admin bar is drawn from the five tabs (owner 13 Nov 2026); read their landings from the one source.
+  const admin = ADMIN_TABS.map((t) => t.href);
   assert.deepEqual(sorted(admin), sorted(BAR_ROOTS.admin));
 });
 

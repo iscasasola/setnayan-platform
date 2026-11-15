@@ -1,9 +1,9 @@
 /**
  * ⏳ A SOLO PLAN IS ASKED TO LAPSE — Lane G · Step 0 rows 14–15 (Build 5 plan, 2026-11-10).
  *
- * SetnaProd's Solo gift ended 19 Oct 2026 and still read `tier_state='solo'` on 10 Nov; its Plan page printed
- * "You are on Solo · until Oct 19, 2026". Root cause, measured on prod (read-only): the SQL sweep
- * `sweep_vendor_tier_expiry` DOES lapse Solo (since 20271286893359) and `authenticated` may call it — but its
+ * SetnaProd's Supplier Plus gift ended 19 Oct 2026 and still read `tier_state='solo'` on 10 Nov; its Plan page printed
+ * "You are on Supplier Plus · until Oct 19, 2026". Root cause, measured on prod (read-only): the SQL sweep
+ * `sweep_vendor_tier_expiry` DOES lapse Supplier Plus (since 20271286893359) and `authenticated` may call it — but its
  * only caller, the vendor-dashboard layout, fired it only for an inline `['pro', 'enterprise']`. The database
  * knew; nobody asked it.
  *

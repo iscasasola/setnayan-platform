@@ -37,6 +37,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
 import { resolveLivePax } from '@/lib/pax';
+import { readSelfAddedPriceLines } from '@/lib/self-added-price-basis.server';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
@@ -47,7 +48,7 @@ import type { BookedFacts } from '@/lib/booked-rows';
 import { coveredKeyOf } from '@/lib/supplier-where';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { buildTally, suppliersDateFact, suppliersPlaceFact, type LiveTallyBase } from '@/lib/suppliers-shell';
-import { dateFitOf, type DateFit } from '@/lib/calendar-truth';
+import { dateFitOf, takenOnWords, type DateFit } from '@/lib/calendar-truth';
 import { readCalendarTruth } from '@/lib/calendar-truth.server';
 import { readOpenDateChange } from '@/lib/date-change.server';
 import { buildLinesOf, buildMoneyOf, buildSnapshotOf, buildViewOf, type BuildCardFree } from '@/lib/suppliers-build';
@@ -258,6 +259,9 @@ type EventBudgetRow = {
   date_candidates: string[] | null;
   date_window_start: string | null;
   date_window_end: string | null;
+  // 📅 The main span's last day and the day count (owner 2026-11-13) — the date · place line reads them.
+  event_end_date: string | null;
+  event_days: number | null;
   // Planning mode (owner 2026-06-05) — 'manual' collapses the strip + (Home)
   // turns off Setnayan AI + deadlines. Default 'guided'.
   planning_mode: string | null;
@@ -355,7 +359,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // read path; same columns, same row shape, guests get zero rows.
       .from('events_host')
       .select(
-        'event_date, event_date_precision, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
+        'event_date, event_date_precision, event_end_date, event_days, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
       )
       // `event_id`, NOT `id`. The view carries BOTH: `id` is the hidden
       // bigserial (internal joins only) and `event_id` is the uuid every route
@@ -390,9 +394,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return (
       <section className="sn-col space-y-4">
         <PageMasthead title="Suppliers" />
-        <p aria-hidden className="font-display text-[28px] leading-none text-ink">
-          Suppliers
-        </p>
+        {/* 📐 Design template rule 1: no visible title that restates the menu — the masthead names the page. */}
         <BookedBody
           eventId={eventId}
           state={{ kind: 'unreadable', retryHref: `/dashboard/${eventId}/vendors` }}
@@ -522,6 +524,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const inviteStatusRead = isExploreReplanEnabled()
     ? startRead(readInviteStatusByVendorId(supabase, vendors.map((v) => v.vendor_id), Date.now()))
     : null;
+  // 🧾 Each self-added card priced per guest / per hour: "₱1,350 per guest · 120 counted · ₱162,000" (owner-approved
+  // 2026-11-13). `null` = refused — the cards then draw their one total as shipped, never a made-up line.
+  const selfAddedPriceLinesRead = startRead(readSelfAddedPriceLines(supabase, eventId));
+  // ⚡ The one-per-event groups need nothing but the session — started with the rest (speed pass 2026-11-14; it was
+  // awaited alone, mid-page). It never throws; awaited where it was.
+  const onePerEventStarted = startRead(readOnePerEventGroups(supabase));
   // The bottom search's EMPTY STATE (owner 2026-10-21 — the big "Find a supplier"
   // button is gone; the search shows the categories when nothing is typed): the
   // Find page's own list, from the Find page's own read (`lib/supplier-find-read.ts`).
@@ -1079,7 +1087,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const mk = marketplaceCardByVendorId.get(v.vendor_id);
     return {
       vendor_id: v.vendor_id,
-      vendor_name: v.vendor_name,
+      // 🏷 RW-264 (re-walk 14 Nov 2026): a row tied to a shop reads the shop's CURRENT name (`mk.name`, the same
+      // hybrid-anonymity answer the card uses) — after an approved rename it no longer shows the name copied in at
+      // booking time. A couple's own typed supplier keeps their typed name.
+      vendor_name: mk?.name ?? v.vendor_name,
       category: v.category,
       status: v.status,
       // PR-H · the marker and the DB-stamped deadline. Both carried RAW; the
@@ -1391,7 +1402,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
   // ONE PER EVENT — the categories' switch (owner 2026-10-29), read once; display-only here (the database guard
   // refuses a second booking where it is on, whatever this read says).
-  const onePerEventRead = await readOnePerEventGroups(supabase);
+  const onePerEventRead = await onePerEventStarted;
   const onePerEventGroups = onePerEventRead.ok ? onePerEventRead.groups : new Set<string>();
   // eslint-disable-next-line no-console
   if (!onePerEventRead.ok) console.warn('[suppliers] One per event unreadable — every category drawn as multi-pick');
@@ -2048,12 +2059,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // read error degrades to the normal rails (the surface is unaffected).
   const coveredByTile: Record<string, string> = await coveredTilesRead;
   const inviteStatusByVendorId = inviteStatusRead ? await inviteStatusRead : undefined;
+  const selfAddedPriceLines = await selfAddedPriceLinesRead;
   // The bottom search's empty state. A refused read is said, never drawn as an
   // empty list: the box then opens on one line that says it could not load.
   const findRead = findListRead ? await findListRead.catch(() => null) : undefined;
   const findPanel =
     findRead === undefined ? null : findRead === null ? (
-      <p role="alert" className="pt-4 text-[13px] text-ink/60">
+      <p role="alert" className="pt-4 text-[13px] text-ink/70">
         We couldn&rsquo;t load the categories — reload in a moment.
       </p>
     ) : (
@@ -2337,6 +2349,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         nearOptions={nearRows(await nearAnchorsRead)}
         onePerEventGroups={[...onePerEventGroups]}
         inspiration={findInspiration}
+        // Owner 13 Nov 2026 — a supplier taken on the committed day reads "Taken on Dec 12" (the prototype's words).
+        takenOnLabel={planPrecision === 'day' ? takenOnWords(planDate) : null}
         // Pairs, not a Map — this component's own `teamCalendar` prop states the
         // rule: a Set/Map "crosses to the client as an array and is rebuilt there
         // rather than trusted to survive the boundary".
@@ -2369,6 +2383,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         )}
         // A self-added supplier's claim link: sent · declined · ran out · joined.
         inviteStatusByVendorId={inviteStatusByVendorId}
+        selfAddedPriceLines={selfAddedPriceLines}
         // Explore Replan PR-G1 — the convergence banner between the Coverage
         // Strip and the bench. Null on an open window (nothing to report yet)
         // and whenever the tier isn't running.
@@ -2594,34 +2609,38 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       try {
         const admin = createAdminClient();
         const byColumn: Record<string, CompareDatesInfo> = {};
-        for (const col of cols) {
-          const set = col.picks
-            .map((p) => (p.vendorId ? profileByVendorId.get(p.vendorId) : undefined))
-            .filter((x): x is { profileId: string; name: string } => Boolean(x));
-          if (set.length === 0) {
-            byColumn[col.key] = {
-              connectedCount: 0,
-              totalAvailable: 0,
-              dayLabels: [],
-              moreCount: 0,
-              conflictText: null,
-            };
-            continue;
-          }
-          const r = await getAvailableDaysForVendorSet(admin, set, range.start, range.end);
-          byColumn[col.key] = {
-            connectedCount: r.connectedVendorCount,
-            totalAvailable: r.availableDayKeys.length,
-            dayLabels: r.availableDayKeys.slice(0, 3).map(fmt),
-            moreCount: Math.max(0, r.availableDayKeys.length - 3),
-            conflictText:
-              r.availableDayKeys.length === 0
-                ? r.conflictPair
-                  ? `No single date works — ${r.conflictPair[0]} and ${r.conflictPair[1]} don't overlap. Swap one.`
-                  : 'No single date works for this combination — swap a supplier.'
-                : null,
-          };
-        }
+        // ⚡ Each column's dates are its own question — asked together, not one after another (speed pass 2026-11-14).
+        // A failure still lands in the same catch below; the columns keep their order.
+        const answered = await Promise.all(
+          cols.map(async (col): Promise<readonly [string, CompareDatesInfo]> => {
+              const set = col.picks
+                .map((p) => (p.vendorId ? profileByVendorId.get(p.vendorId) : undefined))
+                .filter((x): x is { profileId: string; name: string } => Boolean(x));
+              if (set.length === 0) {
+                return [col.key, {
+                  connectedCount: 0,
+                  totalAvailable: 0,
+                  dayLabels: [],
+                  moreCount: 0,
+                  conflictText: null,
+                }] as const;
+              }
+              const r = await getAvailableDaysForVendorSet(admin, set, range.start, range.end);
+              return [col.key, {
+                connectedCount: r.connectedVendorCount,
+                totalAvailable: r.availableDayKeys.length,
+                dayLabels: r.availableDayKeys.slice(0, 3).map(fmt),
+                moreCount: Math.max(0, r.availableDayKeys.length - 3),
+                conflictText:
+                  r.availableDayKeys.length === 0
+                    ? r.conflictPair
+                      ? `No single date works — ${r.conflictPair[0]} and ${r.conflictPair[1]} don't overlap. Swap one.`
+                      : 'No single date works for this combination — swap a supplier.'
+                    : null,
+              }] as const;
+          }),
+        );
+        for (const [key, info] of answered) byColumn[key] = info;
         return {
           windowLabel: formatEventDateWithPrecision(eventDate, matchPrecision).replace(
             /^Sometime in /,
@@ -2870,6 +2889,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         excludedTiles,
         pinnedTile: sp.open ?? null,
         starterTiles: [...popularTilesFor(ev?.event_type ?? null)],
+        // 📋 Build N/M counts the SAME rows Find lists — only the categories the couple added (owner 2026-11-12).
+        listedOnly: true,
       });
       liveTallyBase.ring = {
         tiles: shortlistFolders.flatMap((f) =>
@@ -2896,7 +2917,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         ? (teamRowList.find((r) => r.vendorId === booked.vendor_id)?.name ?? booked.vendor_name)
         : null;
       return {
-        date: suppliersDateFact(planDate, planPrecision),
+        date: suppliersDateFact(planDate, planPrecision, {
+          endDate: ev.event_end_date ?? null,
+          options: {
+            mode: ev.date_mode,
+            candidates: ev.date_candidates,
+            windowStart: ev.date_window_start,
+            windowEnd: ev.date_window_end,
+            days: ev.event_days ?? 1,
+          },
+        }),
         // The area by its own name; an unlisted spelling is shown as typed
         // (what the Build body's Location tile already prints).
         place: suppliersPlaceFact(venueName, regionLabel(ev.region) ?? ev.region),
@@ -3077,7 +3107,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       {/* 💡 C · "Your inspiration board", whole — the shipped board in the house sheet, over Find (reorg R5). */}
       {sp.board === '1' ? (
         <InspirationBoardSheet>
-          <Suspense fallback={<p className="py-6 text-sm text-ink/60">Opening your board…</p>}>
+          <Suspense fallback={<p className="py-6 text-sm text-ink/70">Opening your board…</p>}>
             <InspirationBoardBody eventId={eventId} />
           </Suspense>
         </InspirationBoardSheet>

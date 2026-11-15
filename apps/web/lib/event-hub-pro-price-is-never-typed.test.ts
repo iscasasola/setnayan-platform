@@ -1,12 +1,12 @@
 /**
- * event-hub-pro-price-is-never-typed.test.ts — no Event Hub Pro figure in code.
+ * event-hub-pro-price-is-never-typed.test.ts — no Event Pro figure in code.
  *
  * ⚖ Owner, 2026-09-25: *"make it 5000 with 40% off becoming 3000 on
  * onboarding"* — ₱5,000 regular, ₱3,000 at sign-up, replacing the same-day
  * ₱3,500 regular / ₱2,100 sign-up, which had itself replaced the ₱2,000 of two
  * days earlier, which had replaced ₱3,500, which had replaced ₱4,999.
  *
- * 🔑 "EVERY LOCATION" MUST BE ONE LOCATION. The only place Event Hub Pro's price
+ * 🔑 "EVERY LOCATION" MUST BE ONE LOCATION. The only place Event Pro's price
  * may live is its catalog row (`platform_retail_catalog_v2` · COUPLE_WEBSITE_PRO),
  * read at render through `formatV2Sku` / `proPriceLabelFrom` / the services-step
  * reader, and at charge through the order-charge authority or the onboarding
@@ -15,7 +15,7 @@
  *
  * So this is the Pro twin of `papic-copy-guardrails.test.ts`: it reads the CODE
  * (comments stripped — a docblock may quote history) of every non-test app/lib
- * file that names Event Hub Pro, and fails if any of the product's past or
+ * file that names Event Pro, and fails if any of the product's past or
  * present figures is typed within reach of that name.
  *
  * ⚠ IT GUARDS THE FIGURES THIS PRODUCT HAS ACTUALLY CARRIED. A brand-new figure
@@ -31,11 +31,11 @@ import { stripComments } from './strip-comments';
 
 const WEB = process.cwd();
 
-/** Every figure Event Hub Pro has been sold at, plus today's sign-up price. */
+/** Every figure Event Pro has been sold at, plus today's sign-up price. */
 const PRO_FIGURES = ['2000', '2100', '3000', '3500', '3999', '4999', '5000'];
 
 /** What counts as naming the product in code. */
-const PRO_NAME = /COUPLE_WEBSITE_PRO|Event Hub PRO|Event Hub Pro|'website-pro'|WebsitePro|HubPro/g;
+const PRO_NAME = /COUPLE_WEBSITE_PRO|Event Pro|Event PRO|'website-pro'|WebsitePro|HubPro/g;
 
 /** How far either side of a Pro mention a typed figure counts as "next to" it. */
 const REACH = 400;
@@ -86,19 +86,19 @@ function findTypedProFigures(files: readonly string[]): string[] {
 
 const FILES = [...walk(join(WEB, 'app')), ...walk(join(WEB, 'lib'))];
 
-test('no Event Hub Pro price is typed into app or lib code', () => {
+test('no Event Pro price is typed into app or lib code', () => {
   const hits = findTypedProFigures(FILES);
   assert.deepEqual(
     hits,
     [],
-    'Event Hub Pro’s price lives in platform_retail_catalog_v2 only — read it, never type it',
+    'Event Pro’s price lives in platform_retail_catalog_v2 only — read it, never type it',
   );
 });
 
 test('the guard can actually hit (a planted figure is caught, a comment is not)', () => {
   // A guard nobody has seen fail proves nothing. Plant both shapes in memory.
   const planted = code(
-    `const label = 'Unlock Event Hub PRO · ₱3,500';\n// Event Hub PRO was ₱2,000\n`,
+    `const label = 'Unlock Event Pro · ₱3,500';\n// Event Pro was ₱2,000\n`,
   );
   const hitsPeso = PRO_FIGURES.filter((n) => figure(n).test(planted));
   assert.deepEqual(hitsPeso, ['3500'], 'the typed figure is caught; the commented one is not');

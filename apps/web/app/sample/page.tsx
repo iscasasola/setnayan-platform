@@ -17,7 +17,7 @@ import { loadSampleOrNotFound } from '@/lib/sample-event/switch.server';
 export default async function SampleLandingPage() {
   const sample = await loadSampleOrNotFound();
   return (
-    <main className="min-h-dvh w-full bg-cream text-ink" data-sample-landing="">
+    <main className="min-h-dvh w-full bg-page text-ink" data-sample-landing="">
       <div className="mx-auto w-full max-w-3xl px-4 pb-16 pt-10 sm:px-8 sm:pt-16">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/60">Sample event</p>
         <h1 className="mt-3 font-display text-4xl leading-tight sm:text-5xl">{sample.displayName}</h1>

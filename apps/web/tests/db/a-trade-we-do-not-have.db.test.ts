@@ -77,7 +77,11 @@ test('the table exists with the columns the drafter writes', async () => {
     'drafted_by',
     'near_matches',
     'request_id',
+    // 2026-11-13 (20271342770993): the fuller draft for a truly new service.
+    'suggested_description',
+    'suggested_inspirations',
     'suggested_label',
+    'suggested_search_words',
     'suggested_tile_id',
     'tile_reason',
     'verdict',

@@ -22,6 +22,7 @@
  * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { ServiceFace } from '@/app/_components/service-face';
 import {
   Fragment,
@@ -42,8 +43,11 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
+import { afterClaim, agreedSuffix, type SelfAddedPriceLines } from '@/lib/self-added-price-basis';
+import { guestFollowLine } from '@/lib/claimed-per-guest-follow';
 import {
   Search,
+  Store,
   ChevronDown,
   ChevronRight,
   ArrowRight,
@@ -180,6 +184,7 @@ import {
   INLINE_MORE_UNDO,
   INLINE_MORE_UNDO_FAILED,
   inlineMoreSavedNote,
+  inlineMoreAskedNote,
   inlineMoreSeeAllLabel,
   inlineMoreSunkNote,
   MORE_TO_COMPARE_SAVE,
@@ -213,6 +218,8 @@ import {
   saveBenchArrangement,
 } from '../_actions/bench-arrangement';
 import { fetchInlineMoreRow } from '../_actions/inline-more-row';
+import { searchMarketplaceForBench, type BenchMarketResult } from '../_actions/bench-marketplace-search';
+import { categoryHitsFor, shopHitTile } from './bench-search-fallback';
 import {
   FIND_FILTERS_OFF,
   FIND_PAGE_CARDS,
@@ -234,8 +241,8 @@ import {
   type FindService,
 } from '@/lib/find-service-cards';
 import { FindServicesSheet } from './find-services-sheet';
-import { FindInspirationRow, FindInspirationStrip } from './find-inspiration';
-import { findBoardHref, type FindInspiration } from '@/lib/find-inspiration';
+import { FindInspirationRow, FindInspirationStrip, FindLikedIdeas } from './find-inspiration';
+import { FIND_INSPIRATION_WORDS, findBoardHref, likedCardFor, type FindInspiration, type FindLikedPhoto } from '@/lib/find-inspiration';
 import { findSortMenu } from './find-sort-menu';
 import { sheetFits, sheetStateLine } from '@/lib/supplier-sheet';
 import type { SupplierSheetLoad, SupplierSheetTarget } from './supplier-sheet';
@@ -301,7 +308,15 @@ import { countNoun, formatCount } from '@/lib/format-number';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 const SLCAT_CSS = `
-.slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
+/* 📋 The opened category's parts (owner 2026-11-12, the organized-Find prototype). */
+.slcat .planh{margin:4px 0 2px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgb(var(--color-ink)/.7)}
+.slcat .slstripe{margin:10px 0 4px;font-size:12.5px;font-weight:600;color:rgb(var(--color-ink)/.7)}
+.slcat .donerow{display:flex;width:100%;min-height:44px;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;padding:0 2px;border-top:1px solid rgb(var(--color-ink)/.1);font-size:14px;font-weight:500;color:rgb(var(--color-ink));text-align:left}
+.slcat .slempty{padding:16px 0 8px}
+.slcat .slempty .se-t{font-size:15px;font-weight:600;color:rgb(var(--color-ink))}
+.slcat .slempty .se-s{margin-top:2px;font-size:13.5px;line-height:1.45;color:rgb(var(--color-ink)/.7)}
+
+.slcat{--paper:var(--m-paper);--ink:var(--m-ink);--ink-soft:#4F535B;
   /* --ink-faint was USED SEVEN TIMES IN THIS STYLESHEET AND DEFINED NOWHERE
      (2026-09-09). An undefined custom property makes the declaration invalid at
      computed-value time, so every one of those rules fell back to INHERITED ink
@@ -310,7 +325,7 @@ const SLCAT_CSS = `
      Same family as the --font-serif and --sn-warn traps this repo has
      already paid for: rejected, not thrown, and the only symptom is an absence. */
   --ink-faint:#6B7079;
-  --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);
+  --gold:var(--m-orange);--gold-deep:var(--m-orange-2);
   /* THE ONLY GOLD THAT MAY CARRY TEXT. globals.css already worked this out and
      wrote the answer next to the token: #A9834B / #8A6B39 score 3.37:1 / 4.21:1
      on the pale gold wash — below the 4.5:1 AA floor — and #5C4726 clears it.
@@ -319,7 +334,7 @@ const SLCAT_CSS = `
      --gold-deep keeps its job as a FILL (white on it is fine); this is for
      letters. */
   --gold-text:var(--m-orange-deep,#5C4726);
-  --mulberry:var(--m-mulberry,#1B1A17);--line:var(--m-line,rgba(30,26,18,.12));
+  --mulberry:var(--m-mulberry);--line:var(--m-line,rgba(30,26,18,.12));
   --line-soft:rgba(30,26,18,.07);--card:#fff;
   /* Card EDGE + resting lift (visual parity 2026-07-28).
      The bench sits on the app-wide .sn-ambient ground. The original defect: the
@@ -367,9 +382,9 @@ const SLCAT_CSS = `
    that hides it, so 14 px of empty band hung under every closed row and each one read as a box with a lip — the
    template's row is its line, centred (owner 2026-10-21). It comes back the moment the row opens. */
 .slcat .fold.flat .cat:not(.open)>.cat-collapse>.cat-body{padding-top:0;padding-bottom:0}
-.slcat .fold.flat .cat-l{gap:12px}
+.slcat .fold.flat .cat-l{gap:12px;flex-wrap:wrap;row-gap:4px}
 .slcat .fold.flat .cat-ic{width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--m-r-full);background:rgba(169,131,75,.13)}
-.slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;flex:1 1 auto;min-width:6ch}
 .slcat .cat-yours{font-weight:400;font-size:15px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st{font-size:13px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st.ok{color:rgb(var(--color-ok))}
@@ -424,9 +439,9 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
 .slcat .fold.flat .vcw{transition:transform 90ms ease-out,border-color 90ms ease-out}
 .slcat button.vc{appearance:none;-webkit-appearance:none;font:inherit;color:inherit;text-align:left;width:100%;margin:0;padding:0;min-height:0;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.slcat .fold.flat .vcw:has(>.vc:active){transform:none}.slcat .fold.flat .vcw{transition:none}}
-.slcat .verb-err,.slcat .verb-ok{margin:4px 0 0;font-size:11.5px;line-height:1.35;color:var(--ink-soft)}
+.slcat .verb-err,.slcat .verb-ok{margin:4px 0 0;font-size:12px;line-height:1.35;color:var(--ink-soft)}
 .slcat .verb-err{color:rgb(var(--color-danger))}
-.slcat .verbs .verb-err,.slcat .verbs .verb-slot>p,.slcat .verbs .verb-slot>span{position:absolute;left:0;right:0;top:100%;margin:4px 0 0;font-size:11.5px;line-height:1.35}
+.slcat .verbs .verb-err,.slcat .verbs .verb-slot>p,.slcat .verbs .verb-slot>span{position:absolute;left:0;right:0;top:100%;margin:4px 0 0;font-size:12px;line-height:1.35}
 /* THE SERVICE CARD (owner 2026-10-07 · PR2) — inside a flat row the couple's
    cards are a LIST of service cards, not a sideways rail: an 80×112 cover, the
    service's name and offer, who and where, the price, what is included and what
@@ -451,8 +466,8 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
 .slcat .fold.flat .vc .incl{margin-top:0;padding-top:0}
 .slcat .fold.flat .vc .stand{margin-top:2px}
 .slcat .sc-name{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-family:var(--sans);font-size:14px;font-weight:600;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
-.slcat .sc-disc{font-size:10px;font-weight:500;line-height:1.3;padding:2px 8px;border-radius:var(--m-r-full);background:rgba(46,125,79,.1);color:#1F5C39}
-.slcat .sc-own{font-size:11.5px;color:var(--ink-soft)}
+.slcat .sc-disc{font-size:12px;font-weight:500;line-height:1.3;padding:2px 8px;border-radius:var(--m-r-full);background:rgba(46,125,79,.1);color:#1F5C39}
+.slcat .sc-own{font-size:12px;color:var(--ink-soft)}
 .slcat .sc-rec{font-size:12px;line-height:1.35;color:var(--ink-soft)}
 .slcat .sc-link{font-size:12px;font-weight:500;line-height:1.35;color:var(--ink-soft)}
 .slcat .sc-link.t-warn{color:#8a5a12}
@@ -463,10 +478,10 @@ html.dark .slcat .sc-link.t-danger{color:#f0958c}
 html.dark .slcat .sc-link.t-ok{color:#7bc79a}
 .slcat .sc-price{font-size:12.5px;font-weight:500;color:var(--m-orange-2,var(--gold-deep))}
 .slcat .sc-price.none{color:var(--ink-soft);font-weight:400}
-.slcat .sc-inc{display:flex;align-items:flex-start;gap:4px;font-size:11.5px;font-weight:500;line-height:1.35;color:#2e7d4f}
+.slcat .sc-inc{display:flex;align-items:flex-start;gap:4px;font-size:12px;font-weight:500;line-height:1.35;color:#2e7d4f}
 .slcat .sc-inc>svg,.slcat .sc-not>svg{flex:none;margin-top:2px}
-.slcat .sc-not{display:flex;align-items:flex-start;gap:4px;font-size:11px;line-height:1.35;padding:3px 8px;border-radius:var(--m-r-xs);background:rgba(169,131,75,.16);color:#6F5A2E}
-.slcat .sc-gift{display:flex;align-items:center;gap:4px;margin:0;font-size:10.5px;line-height:1.35;color:var(--m-orange-2,var(--gold-deep))}
+.slcat .sc-not{display:flex;align-items:flex-start;gap:4px;font-size:12px;line-height:1.35;padding:3px 8px;border-radius:var(--m-r-xs);background:rgba(169,131,75,.16);color:#6F5A2E}
+.slcat .sc-gift{display:flex;align-items:center;gap:4px;margin:0;font-size:12px;line-height:1.35;color:var(--m-orange-2,var(--gold-deep))}
 html.dark .slcat .sc-disc{color:#7bc79a;background:rgba(46,125,79,.18)}
 html.dark .slcat .sc-inc{color:#7bc79a}
 html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
@@ -492,7 +507,7 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 /* FIND v4 (owner 2026-10-29) — the count line's Clear, a card's service line, and a shop's other cards tucked under
    its first ("also <Service> · <card>"): a hairline-indented line inside the shop's place, its own price and Save. */
 .slcat .mrcount{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
-.slcat .sc-svc{font-size:11.5px;font-weight:500;line-height:1.3;color:var(--ink-soft)}
+.slcat .sc-svc{font-size:12px;font-weight:500;line-height:1.3;color:var(--ink-soft)}
 .slcat .cat.open>.cat-head-row [data-row-state='planned'],.slcat .cat.open>.cat-head-row [data-row-state='booked']{display:none}
 .slcat .cat-svc.on{color:var(--m-orange-2,var(--gold-deep));font-weight:600}
 .slcat .findbest{margin:2px 0 12px}
@@ -500,7 +515,7 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .findbest .fb-rail{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:0 0 4px}
 .slcat .findbest .fb-c{flex:0 0 min(82%,320px);scroll-snap-align:start;display:flex;flex-direction:column;gap:4px}
 .slcat .findbest .fb-c>.vcw{flex:1 1 auto}
-.slcat .findbest .fb-n{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .findbest .fb-n{font-family:var(--sans);font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft)}
 .slcat .mralso{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-4px 0 0 18px;padding:8px 0 8px 12px;border-left:1px solid var(--line)}
 .slcat .mralso.is-dim{opacity:.6}
 .slcat .mralso .mra-t{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -519,10 +534,10 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
    "Logistics & Safety") must stay readable on a narrow phone, so the name keeps
    its shipped WRAPPING behaviour. '.fold-l' carries min-width:0 so the flex
    shrink that makes that wrap possible still happens with the icon present. */
-.slcat .fold-nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);line-height:1.15;letter-spacing:.01em;min-width:0}
+.slcat .fold-nm{font-family:var(--sans);font-style:normal;font-size:18px;font-weight:600;color:var(--ink);line-height:1.15;letter-spacing:.01em;min-width:0}
 .slcat .fold.open .fold-nm{color:var(--mulberry)}
 .slcat .fold-rt{display:flex;align-items:center;gap:11px;flex:0 0 auto}
-.slcat .fold-meta{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .fold-meta{font-family:var(--sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
 .slcat .fold-meta.has{color:var(--gold-deep)}
 .slcat .fold-chev{color:var(--ink-soft);transition:transform .24s var(--ease),color .24s var(--ease);flex:0 0 auto}
 .slcat .fold.open .fold-chev{transform:rotate(180deg);color:var(--mulberry)}
@@ -577,7 +592,7 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .cat-nm{font-family:var(--sans);font-weight:600;font-size:14px;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .slcat .cat.open .cat-nm{color:var(--mulberry)}
 .slcat .cat-rt{display:flex;align-items:center;gap:9px;flex:0 0 auto}
-.slcat .cat-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
+.slcat .cat-count{font-family:var(--sans);font-size:12px;letter-spacing:.04em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
 /* "saved request" icon — view/edit the couple's saved requirements for this leaf */
 .slcat .cat-chev{color:var(--ink-soft);transition:transform .22s var(--ease);flex:0 0 auto}
 .slcat .cat.open .cat-chev{transform:rotate(180deg);color:var(--mulberry)}
@@ -594,16 +609,16 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc[data-inspector-selected='true'],.slcat .vc[data-inspector-selected='true']:hover{border-color:transparent;box-shadow:0 0 0 2px var(--gold),0 10px 28px -18px rgba(0,0,0,.4)}
 .slcat .vc .img{height:108px;flex:0 0 108px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
 .slcat .vc .img img{width:100%;height:100%;object-fit:cover}
-.slcat .vc .ini{font-family:var(--serif);font-style:italic;font-size:26px;color:rgba(255,255,255,.7)}
-.slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:4px 8px}
+.slcat .vc .ini{font-family:var(--sans);font-style:normal;font-size:26px;color:rgba(255,255,255,.7)}
+.slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:4px 8px}
 /* reason-labeled sort — the "why it's here" ribbon (top-left of the card) */
-.slcat .vc .rpill{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:var(--m-r-full);padding:4px 8px;line-height:1}
+.slcat .vc .rpill{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:var(--m-r-full);padding:4px 8px;line-height:1}
 .slcat .vc .rpill.ok{color:#fff;background:var(--gold-deep)}
 .slcat .vc .rpill.soft{color:var(--ink);background:rgba(255,255,255,.82);backdrop-filter:blur(2px)}
 html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,26,18,.7)}
 /* sort toggle — pill segmented control (databerry "Brand addition / Upcoming" feel) */
 .slcat .sortbar{display:flex;align-items:center;gap:9px;margin:0 0 13px;flex-wrap:wrap}
-.slcat .sortbar-lbl{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .sortbar-lbl{font-family:var(--sans);font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
 .slcat .sortseg{display:inline-flex;gap:3px;padding:3px;background:rgba(30,26,18,.05);border:0.5px solid var(--line);border-radius:var(--m-r-full)}
 .slcat .sortseg button{appearance:none;-webkit-appearance:none;border:0;cursor:pointer;font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-soft);background:transparent;border-radius:var(--m-r-full);padding:6px 13px;transition:background .18s var(--ease),color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
 .slcat .sortseg button:active{transform:scale(.96)}
@@ -642,13 +657,13 @@ html.dark .slcat .bench-search{background:#232019}
 .slcat .unrd{display:inline-flex;align-items:center;justify-content:center;
   min-width:17px;height:17px;padding:0 5px;margin-left:6px;border-radius:var(--m-r-full);
   background:var(--terracotta-700,#9c4221);color:#fff;
-  font-family:var(--sans);font-weight:700;font-size:10.5px;line-height:1;
+  font-family:var(--sans);font-weight:700;font-size:12px;line-height:1;
   font-variant-numeric:tabular-nums;vertical-align:middle;flex:0 0 auto}
 .slcat .cat-l .unrd,.slcat .fold-meta .unrd{margin-left:7px}
-.slcat .vc .sub{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;letter-spacing:.03em;color:var(--ink-soft)}
-.slcat .vc .stars{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:9px;color:var(--gold-deep)}
+.slcat .vc .sub{display:flex;align-items:center;gap:5px;font-family:var(--sans);font-size:12px;letter-spacing:.03em;color:var(--ink-soft)}
+.slcat .vc .stars{display:flex;align-items:center;gap:3px;font-family:var(--sans);font-size:12px;color:var(--gold-deep)}
 .slcat .vc .badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
-.slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft)}
+.slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft)}
 .slcat .vc .bdg.verified{color:#1F5C39;background:rgba(46,125,79,.1)}
 /* OUR OWN NAME WAS THE LEAST READABLE TEXT ON THE BENCH — 3.89:1, worse than
    either pairing the design review flagged, and behind no flag at all.
@@ -658,21 +673,23 @@ html.dark .slcat .bench-search{background:#232019}
 .slcat .vc .bdg.setnayan{color:#A83E19;background:rgba(30, 26, 18,.1)}
 /* ── fit-badges (2026-07-09): live reach + budget checks on the bench ── */
 .slcat .vc .fits{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
-.slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
+.slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
 .slcat .vc .fit.ok{color:#2e7d4f;background:rgba(46,125,79,.1)}
 .slcat .vc .fit.warn{color:#6F5A2E;background:rgba(169,131,75,.16)}
 .slcat .vc .fit.muted{color:rgb(var(--color-ink) / .7);background:rgb(var(--color-ink) / .06)}
 html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
 html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
-.slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
-.slcat .vc .incl{font-size:11px;font-weight:600;color:#2e7d4f;margin-top:auto;padding-top:4px}
+.slcat .vc .price{font-family:var(--sans);font-style:normal;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
+.slcat .vc [data-price-basis-line]{margin-top:auto;padding-top:4px}
+.slcat .vc [data-price-basis-line] .price{margin-top:0;padding-top:0}
+.slcat .vc .incl{font-size:12px;font-weight:600;color:#2e7d4f;margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the suppliers) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
 .slcat .act>*{flex:1;min-height:182px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;border-radius: var(--m-r-md);text-decoration:none;font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
 .slcat .act>*:active{transform:scale(.97)}
 .slcat .act.find>*{background:rgba(30, 26, 18,.05);border:1.5px dashed rgba(30, 26, 18,.4);color:var(--mulberry)}
 .slcat .act.manual>*{background:rgba(30,26,18,.03);border:1.5px dashed var(--line);color:var(--ink-soft)}
-.slcat .act .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4;padding:0 8px}
+.slcat .act .at{font-family:var(--sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4;padding:0 8px}
 /* empty category — Find + Add-manually share a row */
 .slcat .find-set{display:flex;flex-wrap:wrap;gap:8px;padding:2px 16px 2px 0}
 .slcat .fr{display:flex;align-items:center;gap:9px;flex:1 1 150px;padding:12px 14px;border-radius: var(--m-r-md);text-decoration:none;color:inherit;font:inherit;cursor:pointer;text-align:left;appearance:none;-webkit-appearance:none;transition:transform .13s cubic-bezier(.2,.7,.2,1)}
@@ -692,7 +709,7 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
    "grey-beige box" beside the white folder cards. Same paper, same edge, same
    lift as '.fold' — one surface language down the whole bench. */
 .slcat .plan-strip{margin:0 0 14px;padding:13px 15px;background:var(--card);border:1px solid var(--edge);border-radius:var(--m-r-md);box-shadow:var(--edge-lift)}
-.slcat .plan-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--gold-deep);margin:0 0 9px;display:flex;align-items:center;gap:6px}
+.slcat .plan-eyebrow{font-family:var(--sans);font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--gold-deep);margin:0 0 9px;display:flex;align-items:center;gap:6px}
 .slcat .plan-chips{display:flex;flex-wrap:wrap;gap:7px}
 .slcat .plan-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-full);font:inherit;font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;transition:border-color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
 .slcat .plan-chip:hover{border-color:rgba(30,26,18,.32)}
@@ -707,12 +724,12 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .cov-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 4px}
 .slcat .cov-hl{display:flex;align-items:center;gap:10px;min-width:0}
 .slcat .cov-hl b{font-family:var(--sans);font-size:13.5px;font-weight:700;color:var(--ink)}
-.slcat .cov-cnt{font-family:var(--mono);font-size:10.5px;color:var(--gold-deep);flex:0 0 auto}
+.slcat .cov-cnt{font-family:var(--sans);font-size:12px;color:var(--gold-deep);flex:0 0 auto}
 .slcat .cov-ring{width:34px;height:34px;flex:0 0 auto}
 .slcat .cov-ring circle{fill:none;stroke-width:3.4}
 .slcat .cov-ring .tr{stroke:var(--line)}
 .slcat .cov-ring .pr{stroke:var(--gold);stroke-linecap:round;transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset .4s var(--ease)}
-.slcat .cov-ring text{font-family:var(--mono);font-size:9px;fill:var(--gold-deep);font-weight:700}
+.slcat .cov-ring text{font-family:var(--sans);font-size:12px;fill:var(--gold-deep);font-weight:700}
 @media (prefers-reduced-motion:reduce){.slcat .cov-ring .pr{transition:none}}
 .slcat .cov-strip{display:flex;gap:10px;overflow-x:auto;padding:8px 2px 4px;scrollbar-width:none}
 .slcat .cov-strip::-webkit-scrollbar{display:none}
@@ -732,7 +749,7 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
   .slcat .fold-ic,.slcat .cat-ic,.slcat .ctile .ic,.slcat .ctile .lb,
   .slcat .fold-chev,.slcat .cat-chev,.slcat .fold{transition:none}
 }
-.slcat .ctile .lb{font-family:var(--sans);font-size:9.5px;line-height:1.15;text-align:center;color:var(--ink-soft);max-width:66px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.slcat .ctile .lb{font-family:var(--sans);font-size:12px;line-height:1.15;text-align:center;color:var(--ink-soft);max-width:66px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .slcat .ctile.st-exploring .ic,.slcat .ctile.st-picked .ic{border-style:solid;border-color:var(--gold);background:rgba(169,131,75,.1);color:var(--gold-deep)}
 .slcat .ctile.st-picked .lb{color:var(--gold-deep)}
 .slcat .ctile.st-asked .ic{border-style:dashed;border-width:2px;border-color:var(--gold);background:rgba(169,131,75,.08);color:var(--gold-deep)}
@@ -742,17 +759,17 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .ctile.st-covered .ic{border-style:solid;border-width:2.5px;border-color:#2e7d4f;background:rgba(46,125,79,.12);color:#2e7d4f}
 .slcat .ctile.st-covered .lb{color:#2e7d4f;font-weight:700}
 .slcat .ctile.is-next .ic{outline:2.5px solid var(--gold);outline-offset:2.5px}
-.slcat .ctile .mini{position:absolute;right:-3px;bottom:-3px;min-width:17px;height:17px;padding:0 3px;border-radius:var(--m-r-full);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9.5px;font-weight:700;color:#fff;border:2px solid var(--card)}
+.slcat .ctile .mini{position:absolute;right:-3px;bottom:-3px;min-width:17px;height:17px;padding:0 3px;border-radius:var(--m-r-full);display:flex;align-items:center;justify-content:center;font-family:var(--sans);font-size:12px;font-weight:700;color:#fff;border:2px solid var(--card)}
 .slcat .ctile .mini.dn{background:#2e7d4f}
 .slcat .ctile .mini.lk{background:var(--gold-deep)}
 .slcat .ctile .mini.ak{background:var(--card);color:var(--gold-deep);border-color:var(--gold);border-style:dashed}
 .slcat .ctile .mini.bd{background:var(--card);color:var(--gold-deep);border-color:var(--gold)}
-.slcat .ctile .nx{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:7.5px;letter-spacing:.12em;background:var(--gold-deep);color:#fff;border-radius:var(--m-r-full);padding:1px 6px;font-weight:700;line-height:1.6}
+.slcat .ctile .nx{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-family:var(--sans);font-size:12px;letter-spacing:.12em;background:var(--gold-deep);color:#fff;border-radius:var(--m-r-full);padding:1px 6px;font-weight:700;line-height:1.6}
 /* folder-head summary pills — "● N locked · N to decide · ＋N more" */
 .slcat .fsum{display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 /* 10px, not 9px: at 9px mono these read as texture rather than as the counts
    they are — the reference sets them at 10.5px. */
-.slcat .fsum .s{font-family:var(--mono);font-size:10px;letter-spacing:.03em;border-radius:var(--m-r-full);padding:2.5px 9px;font-weight:700;white-space:nowrap;line-height:1.5}
+.slcat .fsum .s{font-family:var(--sans);font-size:12px;letter-spacing:.03em;border-radius:var(--m-r-full);padding:2.5px 9px;font-weight:700;white-space:nowrap;line-height:1.5}
 .slcat .fsum .s.lk{background:rgba(169,131,75,.16);color:var(--gold-text)}
 .slcat .fsum .s.td{background:rgba(30,26,18,.07);color:var(--ink-soft)}
 .slcat .fsum .s.ad{border:1px dashed var(--line);color:var(--ink-soft)}
@@ -778,7 +795,7 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
    class-name sweep cannot see. danger-700, like every other error here. */
 .slcat .plan-err{font-family:var(--sans);font-size:12px;line-height:1.45;color:rgb(var(--color-danger));text-align:right;flex:1 1 200px}
 .slcat .addpool{margin:10px 14px 2px 34px;padding-top:10px;border-top:1px dashed var(--line)}
-.slcat .addpool .ap-t{margin:0 0 8px;font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .addpool .ap-t{margin:0 0 8px;font-family:var(--sans);font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
 .slcat .addpool .ap-chips{display:flex;flex-wrap:wrap;gap:7px}
 .slcat .addchip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;background:transparent;border:1px dashed var(--line);border-radius:var(--m-r-full);font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:border-color .18s var(--ease),color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
 .slcat .addchip:hover{border-color:var(--gold);color:var(--gold-deep)}
@@ -788,10 +805,10 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 
 
 /* "In your plan" marker beside a category name */
-.slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+.slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 /* Free first-venue-shortlist marker (owner 2026-07-09 · Pricing.md § 00) —
    presentational chip on the venue category while its shortlist is empty */
-.slcat .cat-free{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mulberry);background:rgba(30,26,18,.08);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+.slcat .cat-free{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mulberry);background:rgba(30,26,18,.08);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 
 /* ── Three-action card (Explore Replan slice D · flag-gated) ────────────────
    The prototype drew these as emoji + red pills; production draws them in the
@@ -804,7 +821,7 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 .slcat .vcw>.vc{flex:1 1 auto;width:100%;min-width:0;scroll-snap-align:none}
 .slcat .vacts{display:flex;flex-direction:column;gap:5px}
 .slcat .vact-slot{display:flex;flex-direction:column}
-.slcat .vact{display:inline-flex;align-items:center;justify-content:center;gap:5px;width:100%;padding:8px 9px;border:1px solid transparent;border-radius:var(--m-r-sm);font:inherit;font-family:var(--sans);font-size:11.5px;font-weight:600;line-height:1.15;text-align:center;text-decoration:none;cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
+.slcat .vact{display:inline-flex;align-items:center;justify-content:center;gap:5px;width:100%;padding:8px 9px;border:1px solid transparent;border-radius:var(--m-r-sm);font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;line-height:1.15;text-align:center;text-decoration:none;cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
 .slcat .vact:active{transform:scale(.97)}
 .slcat .vact:disabled{opacity:.55;cursor:default}
 .slcat .vact.primary{background:var(--mulberry);color:#fff;border-color:var(--mulberry)}
@@ -813,24 +830,24 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 .slcat .vact.quiet{background:rgba(169,131,75,.1);color:var(--gold-deep);border-color:rgba(169,131,75,.42)}
 .slcat .vact.quiet:hover{background:rgba(169,131,75,.17)}
 .slcat .vact.on{background:rgba(169,131,75,.14);color:var(--gold-deep);border-color:rgba(169,131,75,.42);cursor:default}
-.slcat .vact.note{background:transparent;color:var(--ink-soft);border-style:dashed;border-color:var(--line);font-weight:500;font-size:10.5px;cursor:default;text-align:left;justify-content:flex-start}
+.slcat .vact.note{background:transparent;color:var(--ink-soft);border-style:dashed;border-color:var(--line);font-weight:500;font-size:12px;cursor:default;text-align:left;justify-content:flex-start}
 /* Self-added supplier · inline price (owner 2026-09-20 — "they can just list
    manually"). Wears the card's own scale so it reads as one more control in
    the .vacts stack, not a form bolted on. */
 .slcat .vact-inline-price{display:flex;flex-direction:column;gap:4px}
-.slcat .vact-inline-price-row{display:flex;align-items:center;gap:4px;padding:5px 7px;border:1px solid var(--line);border-radius:var(--m-r-sm);background:var(--card);font-size:11.5px;font-weight:600;color:var(--ink)}
+.slcat .vact-inline-price-row{display:flex;align-items:center;gap:4px;padding:5px 7px;border:1px solid var(--line);border-radius:var(--m-r-sm);background:var(--card);font-size:12px;font-weight:600;color:var(--ink)}
 .slcat .vact-inline-price-row input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;color:inherit;padding:2px 0}
 .slcat .vact-inline-price-row input::placeholder{color:var(--ink-soft);font-weight:500}
 .slcat .vact-inline-price-row button{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:none;border:0;border-radius:var(--m-r-sm);background:var(--mulberry);color:#fff;cursor:pointer}
 .slcat .vact-inline-price-row button:disabled{opacity:.55;cursor:default}
-.slcat .vact-inline-price-err{margin:0;font-family:var(--sans);font-size:10px;line-height:1.3;color:var(--danger-900,#7f1d1d)}
-.slcat .vact-inline-price-more{font-family:var(--mono);font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);text-decoration:none;text-align:center;padding:2px}
+.slcat .vact-inline-price-err{margin:0;font-family:var(--sans);font-size:12px;line-height:1.3;color:var(--danger-900,#7f1d1d)}
+.slcat .vact-inline-price-more{font-family:var(--sans);font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);text-decoration:none;text-align:center;padding:2px}
 .slcat .vact-inline-price-more:hover,.slcat .vact-inline-price-more:focus{color:var(--ink);text-decoration:underline}
-.slcat .vact.mini{flex:0 0 auto;width:auto;padding:8px 10px;background:transparent;color:var(--ink-soft);border-color:var(--line);font-size:10.5px;font-weight:500}
+.slcat .vact.mini{flex:0 0 auto;width:auto;padding:8px 10px;background:transparent;color:var(--ink-soft);border-color:var(--line);font-size:12px;font-weight:500}
 .slcat .vact.mini:hover{color:var(--ink)}
 .slcat .vact-pair{display:flex;gap:5px;align-items:stretch}
 .slcat .vact-pair>.vact.on{flex:1 1 auto;min-width:0}
-.slcat .vact-err{font-family:var(--sans);font-size:10.5px;line-height:1.3;color:#9a3325;margin:4px 0 0}
+.slcat .vact-err{font-family:var(--sans);font-size:12px;line-height:1.3;color:#9a3325;margin:4px 0 0}
 html.dark .slcat .vact-err{color:#e9a99d}
 html.dark .slcat .vact.primary{background:#E5794E;color:#17160F;border-color:#E5794E}
 /* Locked names on a COLLAPSED category row (decision #8) — the row answers
@@ -852,7 +869,7 @@ html.dark .slcat .vact.primary{background:#E5794E;color:#17160F;border-color:#E5
 .slcat .convrg .cv-i{flex:0 0 auto;display:flex;color:var(--gold-deep);margin-top:1px}
 .slcat .convrg .cv-b{display:flex;flex-direction:column;gap:2px;min-width:0}
 .slcat .convrg .cv-b b{font-family:var(--sans);font-size:12.5px;font-weight:600;line-height:1.3;color:var(--ink)}
-.slcat .convrg .cv-b span{font-family:var(--sans);font-size:11px;line-height:1.4;color:var(--ink-soft)}
+.slcat .convrg .cv-b span{font-family:var(--sans);font-size:12px;line-height:1.4;color:var(--ink-soft)}
 .slcat .convrg.t-converged{border-color:rgba(169,131,75,.45);background:rgba(169,131,75,.1)}
 .slcat .convrg.t-conflict{border-color:rgba(169,131,75,.45);background:rgba(169,131,75,.14)}
 .slcat .convrg.t-conflict .cv-i,.slcat .convrg.t-converged .cv-i{color:var(--gold-deep)}
@@ -863,7 +880,7 @@ html.dark .slcat .convrg.t-converged,html.dark .slcat .convrg.t-conflict{backgro
 /* The sink divider — a vertical rule INSIDE the horizontal rail, so the sunk
    cards stay in the same carousel the couple is already scrolling. */
 .slcat .raildiv{flex:0 0 auto;display:flex;align-items:center;align-self:stretch;padding:0 4px;scroll-snap-align:start}
-.slcat .raildiv>span{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--mono);font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--gold-deep);border-left:0.5px solid rgba(169,131,75,.42);padding:8px 0 8px 7px;white-space:nowrap}
+.slcat .raildiv>span{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--sans);font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--gold-deep);border-left:0.5px solid rgba(169,131,75,.42);padding:8px 0 8px 7px;white-space:nowrap}
 
 /* DIM, never removed (decision #3): the card stays viewable and its Inquire
    leg stays live — only Add-to-build and Lock stand down. */
@@ -871,14 +888,14 @@ html.dark .slcat .convrg.t-converged,html.dark .slcat .convrg.t-conflict{backgro
 .slcat .vcw.is-dim:hover>.vc,.slcat .vcw.is-dim:focus-within>.vc{opacity:1;filter:none}
 
 /* The supplier's own free days, in the same mono voice as the price/meta rows. */
-.slcat .vc .freedays{display:block;font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;line-height:1.3;color:var(--ink-soft);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slcat .vc .freedays{display:block;font-family:var(--sans);font-size:12px;letter-spacing:.03em;line-height:1.3;color:var(--ink-soft);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* The withheld build CTA — a reason, not an error. Wraps, unlike .vact.note. */
 .slcat .vact.note.clash{align-items:flex-start;gap:6px;border-color:rgba(169,131,75,.42);color:var(--gold-deep);white-space:normal}
 .slcat .vact.note.clash svg{flex:0 0 auto;margin-top:1px}
 .slcat .vact-note-txt{display:flex;flex-direction:column;gap:1px;min-width:0;text-align:left}
 .slcat .vact-note-txt b{font-weight:600;color:var(--gold-deep)}
-.slcat .vact-note-txt>span{color:var(--ink-soft);font-weight:500;font-size:10px;line-height:1.35}
+.slcat .vact-note-txt>span{color:var(--ink-soft);font-weight:500;font-size:12px;line-height:1.35}
 html.dark .slcat .vact.note.clash{color:#e2b968}
 
 /* ── HARD tier · "Not available on your date" (PR-G2 · owner 2026-09-11) ─────
@@ -948,14 +965,14 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .morerow{margin-top:12px;padding:11px 0 3px;border-top:1px solid var(--line-soft);animation:slcat-mr .22s cubic-bezier(.2,.7,.2,1)}
 @keyframes slcat-mr{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .slcat .morehead{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:0 16px 9px 0}
-.slcat .morehead .mt{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
+.slcat .morehead .mt{font-family:var(--sans);font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
 
 /* The row-2 card's action pair. Save is the primary; Inquire sits beside it.
    There is no third slot, and that absence is the constraint: no Lock, no Add
    to build — the bench does not carry that machinery. */
 .slcat .mrc .mra{display:flex;flex-direction:column;gap:5px}
 .slcat .mrc.is-busy{opacity:.7;pointer-events:none}
-.slcat .mrsaved{font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;line-height:1.35;color:#2e7d4f}
+.slcat .mrsaved{font-family:var(--sans);font-size:12px;letter-spacing:.03em;line-height:1.35;color:#2e7d4f}
 
 /* Notes under the row: the loading line, the empty state, and the count of
    sunk cards. Said once here rather than printed on every card. */
@@ -963,8 +980,8 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 /* "Your order" — the couple's own arrangement is in force on this rail. Same
    treatment as .cat-plan, which the contrast guard already measures, so this
    label starts life on a wash that is known to carry its own text. */
-.slcat .arrl{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
-.slcat .arrt{font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
+.slcat .arrl{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+.slcat .arrt{font-family:var(--sans);font-size:12px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
 /* The per-card move controls, shown only while the rail is in rearrange mode.
    The handle is the shipped proposal-maker shape (a draggable grip beside a
    drop-target row); the two arrows are the SAME move, reachable without a mouse
@@ -972,8 +989,8 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .arrctl{display:flex;align-items:center;justify-content:center;gap:6px;padding:2px 0}
 .slcat .arrh{cursor:grab;user-select:none;font-size:15px;line-height:1;color:var(--ink-soft);padding:0 2px}
 .slcat .vcw.is-grabbed{opacity:.45}
-.slcat .mrnote{padding:8px 16px 2px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
-.slcat .mrerr{padding:0 16px 8px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:#8C3A3A}
+.slcat .mrnote{padding:8px 16px 2px 0;font-family:var(--sans);font-size:12px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
+.slcat .mrerr{padding:0 16px 8px 0;font-family:var(--sans);font-size:12px;letter-spacing:.04em;line-height:1.5;color:#8C3A3A}
 html.dark .slcat .mrsaved{color:#7FBF9A}
 html.dark .slcat .mrerr{color:#E39A9A}
 
@@ -983,11 +1000,11 @@ html.dark .slcat .mrerr{color:#E39A9A}
    1.09:1, invisible. */
 .slcat .fd-pop{display:block;margin:4px 0 2px;padding:7px 9px;border:1px solid rgba(169,131,75,.35);
   border-radius:var(--m-r-sm);background:var(--card)}
-.slcat .fd-pop-t{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.05em;
+.slcat .fd-pop-t{display:block;font-family:var(--sans);font-size:12px;letter-spacing:.05em;
   text-transform:uppercase;color:var(--gold-text);margin-bottom:4px}
 .slcat .fd-chip{display:inline-block;margin:2px 4px 0 0;padding:1px 7px;border-radius:var(--m-r-full);
-  background:rgba(27,26,23,.06);font-family:var(--mono);font-size:9.5px}
-.slcat .fd-out{display:block;margin-top:3px;font-size:9.5px;color:var(--gold-deep)}
+  background:rgba(27,26,23,.06);font-family:var(--sans);font-size:9.5px}
+.slcat .fd-out{display:block;margin-top:3px;font-size:12px;color:var(--gold-deep)}
 
 /* ── WHERE YOU STAND ────────────────────────────────────────────────────────
    The one line this stream adds to the card, ported from the binding prototype
@@ -1003,8 +1020,8 @@ html.dark .slcat .mrerr{color:#E39A9A}
    five contrast failures on this file happened. Both pairings are pinned in
    the-bench-is-legible.test.ts and measured in both themes. */
 .slcat .vc .stand{margin-top:auto;padding-top:6px;border-top:1px dashed var(--line);
-  font-size:10.5px;line-height:1.45;color:var(--ink-soft)}
-.slcat .vc .stand .lab{display:block;font-family:var(--mono);font-size:8px;letter-spacing:.12em;
+  font-size:12px;line-height:1.45;color:var(--ink-soft)}
+.slcat .vc .stand .lab{display:block;font-family:var(--sans);font-size:12px;letter-spacing:.12em;
   text-transform:uppercase;color:var(--gold-text);margin-bottom:2px}
 .slcat .vc .stand .line{display:block}
 .slcat .vc .stand b{color:var(--ink);font-weight:600}
@@ -1325,6 +1342,9 @@ const UnreadCtx = createContext<BenchUnread>(UNREAD_UNKNOWN);
  * that something is owed. Empty → no card offers Pay (it offers "Payments").
  */
 const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
+/** "Taken on Dec 12" — the couple's committed day, worded on the server (`takenOnWords`, lib/calendar-truth.ts).
+ *  Null → no committed day: a taken card keeps "Booked that day". */
+const TakenOnCtx = createContext<string | null>(null);
 /**
  * vendorId → where the couple's claim link stands, for a supplier they added
  * themselves (`lib/supplier-invite-status.ts`). `undefined` = this bench was
@@ -1333,6 +1353,9 @@ const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
  * failed read must not look like "no link was ever sent".
  */
 const InviteStatusCtx = createContext<InviteStatusByVendorId | undefined>(undefined);
+/** 🧾 A self-added supplier's price basis (v2, owner 2026-11-13) — "₱162,000 · 120 guests agreed" and its "After they
+ *  claim" line. Absent / null (a refused read) → every card draws its price as shipped. */
+const PriceLineCtx = createContext<SelfAddedPriceLines | null | undefined>(undefined);
 
 /**
  * THE SERVICE CARD A BENCH CARD WEARS (owner 2026-10-07 · PR2). On the
@@ -1447,9 +1470,17 @@ function VendorCard({
   const sheetDoor = useContext(SheetDoorCtx);
   const payHrefs = useContext(PayDueCtx);
   const inviteStatuses = useContext(InviteStatusCtx);
+  const priceLines = useContext(PriceLineCtx);
+  // The couple's own record — and, after the claim, a per-guest booking whose total now follows the guest list
+  // (its entry carries `follow`; 20271343652941). Any other Setnayan shop's card never reads this.
+  const priceLine = priceLines?.[v.vendorId] ?? null;
+  const basisLine = selfAdded || priceLine?.follow ? priceLine : null;
   const look = useContext(ServiceCardCtx);
   const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
   const hasRecordedPrice = v.totalCostPhp != null && v.totalCostPhp > 0;
+  // The recorded price, drawn ONCE (the-bench-card-keeps-everything pins it to one span) — bare as shipped, or
+  // inside the price-basis line when an agreed count follows it.
+  const priceEl = hasRecordedPrice ? <span className="price">{formatPhp(v.totalCostPhp)}</span> : null;
   const router = useRouter();
   const [detailsLoading, startDetails] = useTransition();
   const [details, setDetails] = useState<SelfAddedSupplierPrefill | null>(null);
@@ -1528,7 +1559,7 @@ function VendorCard({
       // a self-added supplier. Every other card keeps the inspector untouched.
       {...(selfAdded ? { onClick: openDetails, 'aria-busy': detailsLoading || undefined }
         : sheetDoor && tile
-          ? { onClick: openSheet, 'aria-haspopup': 'dialog' as const }
+          ? { onClick: openSheet, 'aria-haspopup': svc?.detailsHref ? undefined : ('dialog' as const) }
           : {})}
     >
       <span className="img">
@@ -1596,8 +1627,28 @@ function VendorCard({
           </span>
         ) : null}
         <FitBadges v={v} />
-        {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
-          <span className="price">{formatPhp(v.totalCostPhp)}</span>
+        {/* v2 (owner 2026-11-13): the card's own total, then what was agreed — "₱162,000 · 120 guests agreed" /
+            "₱30,000 · 5 hours agreed". One price span, so the bench card still draws the number exactly once. */}
+        {hasRecordedPrice ? (
+          !basisLine?.follow && agreedSuffix(basisLine) ? (
+            <span data-price-basis-line="">
+              {priceEl}{' '}
+              <span className="sc-price">· {agreedSuffix(basisLine)}</span>
+            </span>
+          ) : (
+            priceEl
+          )
+        ) : null}
+        {/* The decided after-claim line (owner 13 Nov: "Yes, follow it") — only while it is still the couple's record. */}
+        {/* 👥 After the claim (20271343652941): a per-guest total follows the guest list — one line saying why. */}
+        {basisLine?.follow && hasRecordedPrice && guestFollowLine(basisLine.follow) ? (
+          <span className="sc-rec" data-guest-follow="">
+            {guestFollowLine(basisLine.follow)}
+          </span>
+        ) : basisLine && hasRecordedPrice ? (
+          <span className="sc-rec" data-price-basis-after={basisLine.basis}>
+            {afterClaim(basisLine.basis).line}
+          </span>
         ) : null}
         {/* No price recorded with THIS couple yet → the service card's own
             "from ₱X". Withheld by the shop, or never set → "Price on request",
@@ -1617,7 +1668,10 @@ function VendorCard({
             <span>{svc.includesLine}</span>
           </span>
         ) : null}
-        {svc && svc.notIncluded.length > 0 ? (
+        {/* 🧾 CYC-15 (walk 13 Nov): the card's static "Not included" is the SERVICE CARD's word — once this couple has a
+            recorded price (a quote, a deal, a booking) the quote's own lines are the truth, and "Not included: crew meal"
+            beside a quote that charges it said the opposite of what they were billed. */}
+        {svc && svc.notIncluded.length > 0 && !hasRecordedPrice ? (
           <span className="sc-not">
             <AlertCircle size={12} strokeWidth={1.75} aria-hidden />
             <span>Not included: {svc.notIncluded.join(' · ')}</span>
@@ -1805,6 +1859,8 @@ function VendorCard({
  * computed batched upstream (page.tsx, one calendar query for the whole bench).
  */
 function FitBadges({ v }: { v: ShortlistVendor }) {
+  // "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026); null → "Booked that day".
+  const takenOn = useContext(TakenOnCtx);
   // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · spec §17). When the vendor
   // has DECLARED both rings, their own word replaces the tier-derived reach
   // read with a three-state, money-shaped answer:
@@ -1860,7 +1916,7 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
         ? {
             cls: 'warn',
             icon: <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />,
-            text: 'Booked that day',
+            text: takenOn ?? 'Booked that day',
           }
         : v.dateFit === 'not_set'
           ? {
@@ -1959,7 +2015,7 @@ function InlineMoreCard({
   sunk: boolean;
   /** The candidate named in the amber badge; null when there is no one culprit. */
   clashWith: string | null;
-  saved: { eventVendorId: string; undoable: boolean } | undefined;
+  saved: SavedFromMore | undefined;
   busy: boolean;
   /** Its Save is waiting on the write. */
   saving?: boolean;
@@ -1981,7 +2037,7 @@ function InlineMoreCard({
         photos={svc?.photos ?? null}
         coverCorner={
           v.boosted ? (
-            <span className="inline-block rounded-full bg-mulberry px-2 py-0.5 text-[9px] uppercase tracking-wide text-cream">
+            <span className="inline-block rounded-full bg-mulberry px-2 py-0.5 text-xs uppercase tracking-wide text-cream">
               Featured
             </span>
           ) : null
@@ -1994,11 +2050,11 @@ function InlineMoreCard({
             {/* Hybrid anonymity — the placeholder is a taxonomy-and-city string, and without this line a couple
                 reads it as a fake listing. Same sentence the full sheet shows, for the same reason. */}
             {v.nameAnonymized ? (
-              <span className="text-[11px] text-[var(--m-slate-2)]">Real name shown after they reply</span>
+              <span className="text-xs text-[var(--m-slate-2)]">Real name shown after they reply</span>
             ) : null}
             {/* No stars for a shop with 0 reviews — "New", never "0.0" (owner ruling 2026-09-11). */}
             {v.rating == null && typeof v.reviewCount === 'number' ? (
-              <span className="text-[11px] text-[var(--m-slate-2)]">{NEW_TO_SETNAYAN_LABEL}</span>
+              <span className="text-xs text-[var(--m-slate-2)]">{NEW_TO_SETNAYAN_LABEL}</span>
             ) : null}
             {/* Constraint 2 — the SAME badge row 1 draws, from the same function. Amber, never red. */}
             {sunk ? (
@@ -2024,8 +2080,8 @@ function InlineMoreCard({
           the card says where it went and offers the way back. */}
       {saved ? (
         <div className="mra">
-          <span className="mrsaved">{inlineMoreSavedNote(label)}</span>
-          {saved.undoable ? (
+          <span className="mrsaved">{saved.asked ? inlineMoreAskedNote(v.name) : inlineMoreSavedNote(label)}</span>
+          {saved.undoable && !saved.asked ? (
             <ActionButton tone="neutral" icon={Undo2} label={INLINE_MORE_UNDO} disabled={busy} onClick={onUndo} />
           ) : null}
         </div>
@@ -2120,7 +2176,10 @@ function MoreToCompare({
   onClearFilters,
   shape,
   onSeeAll,
+  suggest = false,
 }: {
+  /** 📋 "Suggested for you" (owner 2026-11-12): three fitting cards, then ONE "Search all <Category> (N) ›" door. */
+  suggest?: boolean;
   eventId: string;
   tile: string;
   label: string;
@@ -2380,6 +2439,11 @@ function MoreToCompare({
   const inquireFromMore = async (v: CategoryVendorResult) => {
     const vendorId = await saveFromMore(v);
     if (!vendorId) return;
+    // The card says the ASK, not the save, from here on (walk 13 Nov 2026 — "Saved to Mobile Bar." read over a sent
+    // ask while the chat opened). A refused ask puts the save's own words back.
+    const markAsked = (asked: boolean) =>
+      setMoreSaved((cur) => (cur[v.vendorProfileId] ? { ...cur, [v.vendorProfileId]: { ...cur[v.vendorProfileId]!, asked } } : cur));
+    markAsked(true);
     setMoreBusy(v.vendorProfileId);
     try {
       const res = await contactShortlistVendor({ eventId, vendorId });
@@ -2387,10 +2451,12 @@ function MoreToCompare({
         router.push(`/dashboard/${res.eventId}/messages/${res.threadId}`);
         return;
       }
+      markAsked(false);
       setMoreError(
         res.status === 'not_signed_in' ? INLINE_MORE_SIGNED_OUT : INLINE_MORE_INQUIRE_FAILED,
       );
     } catch {
+      markAsked(false);
       setMoreError(INLINE_MORE_INQUIRE_FAILED);
     } finally {
       setMoreBusy(null);
@@ -2450,7 +2516,7 @@ function MoreToCompare({
     ...clusterCards(moreClassified.fits.map((f) => f.row), listCards, order, keepCard).map((c) => ({ ...c, sunk: false })),
     ...clusterCards(moreClassified.clashes.map((c) => c.row), listCards, order, keepCard).map((c) => ({ ...c, sunk: true })),
   ];
-  const page = pageOfClusters(clusters, morePage);
+  const page = pageOfClusters(clusters, suggest ? SUGGESTED_CARDS : morePage);
   // A new look at the list starts at its first page.
   const pageKey = `${hiddenHere.join(',')}|${filters.rating}|${moreQ}|${effectiveSort}`;
   useEffect(() => setMorePage(FIND_PAGE_CARDS), [pageKey]);
@@ -2516,8 +2582,8 @@ function MoreToCompare({
     <div className="morerow" data-more-to-compare={tile}>
       <div className="morehead">
         <span className="mt">
-          {moreToCompareHeading(hasOwn)}
-          {counted ? (
+          {suggest ? SUGGESTED_HEAD : moreToCompareHeading(hasOwn)}
+          {counted && !suggest ? (
             <>
               {' '}
               · <Count value={shown} id={`sup-cmp-${tile}`} /> {shown === 1 ? 'card' : 'cards'}
@@ -2525,7 +2591,7 @@ function MoreToCompare({
           ) : null}
         </span>
       </div>
-      {best.length > 0 ? (
+      {best.length > 0 && !suggest ? (
         <section className="findbest" aria-label="Best for your event" data-find-best="">
           <div className="fb-h">
             <span>Best for your event</span>
@@ -2673,8 +2739,8 @@ function MoreToCompare({
           <span>{inlineMoreSunkNote(moreClassified.clashes.length)}</span>
         </div>
       ) : null}
-      {/* "Show 20 more" — never splits a shop (`pageOfClusters`). */}
-      {left > 0 ? (
+      {/* "Show 20 more" — never splits a shop (`pageOfClusters`). Suggested shows three; the rest is "Search all". */}
+      {left > 0 && !suggest ? (
         <div className="morefoot">
           <ActionButton
             tone="neutral"
@@ -2689,14 +2755,22 @@ function MoreToCompare({
         <div className="morefoot">
           <ActionButton
             tone="neutral"
-            icon={ListFilter}
-            label={inlineMoreSeeAllLabel(label)}
+            icon={suggest ? Search : ListFilter}
+            label={suggest ? searchAllLabel(label, page.totalCards) : inlineMoreSeeAllLabel(label)}
             onClick={onSeeAll}
           />
         </div>
       ) : null}
     </div>
   );
+}
+
+/** 📋 "Suggested for you" — three fitting cards before the full search (owner 2026-11-12: "3 suggested cards"). */
+const SUGGESTED_CARDS = 3;
+const SUGGESTED_HEAD = 'Suggested for you';
+/** "Search all Catering (36) ›" — the door to every card of the category. */
+function searchAllLabel(label: string, total: number): string {
+  return `Search all ${label} (${total}) ›`;
 }
 
 /** A list the ✎ or ⇅ emptied — said as that, never as "nobody here". */
@@ -2810,6 +2884,7 @@ export function ShortlistCategories({
   starterTiles,
   payHrefByVendorId = NO_PAY_DUE,
   inviteStatusByVendorId,
+  selfAddedPriceLines,
   serviceCardByVendorId = null,
   convergence = null,
   buildWindow = null,
@@ -2820,6 +2895,7 @@ export function ShortlistCategories({
   findPanel = null,
   onePerEventGroups = [],
   inspiration = null,
+  takenOnLabel = null,
 }: {
   /**
    * Unread messages per chat thread for this event, and whether we know them.
@@ -2908,6 +2984,8 @@ export function ShortlistCategories({
   /** vendorId → where a self-added supplier's claim link stands
    *  (`InviteStatusCtx`). Absent → no link line; `null` → the read failed. */
   inviteStatusByVendorId?: InviteStatusByVendorId;
+  /** 🧾 The per guest / per hour line of each self-added card (`readSelfAddedPriceLines`). Absent / null → as shipped. */
+  selfAddedPriceLines?: SelfAddedPriceLines | null;
   /** Pick id → the supplier's own service card. `null` = the read failed (or
    *  the pre-replan bench, which draws none). */
   serviceCardByVendorId?: Readonly<Record<string, BenchServiceCard>> | null;
@@ -2959,6 +3037,9 @@ export function ShortlistCategories({
    * read on the server (`readFindInspiration`). Null → not read for this viewer: no row, no strips.
    */
   inspiration?: FindInspiration | null;
+  /** "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026) — the badge on a supplier whose calendar
+   *  shows it taken. Null/absent → "Booked that day", as before. */
+  takenOnLabel?: string | null;
   /**
    * The plan groups that are ONE PER EVENT — the categories' switch (`service_categories.one_per_event`, owner
    * 2026-10-29), read on the server (lib/one-per-event.ts). An array: it crosses to the client. Absent → none, so
@@ -3101,6 +3182,69 @@ export function ShortlistCategories({
   const openSearch = (tile: string, label: string) => {
     setSearch({ ...benchSearchScopeForTile(tile), label });
   };
+  // 💗 A LIKED PHOTO'S TWO PRESSES (owner 2026-11-12, the organized-Find prototype).
+  //   "From <shop> · <card> ›" — the shop is on the couple's list here: open its card, the sheet every card opens.
+  //   "Ask for a quote" — the SAME ask a service card makes (`inquireFromMore`'s path): the shop joins the couple's list
+  //   in this category with the photo's card, then the quote thread opens. Only the press asks — never automatic.
+  const [likedBusy, setLikedBusy] = useState<string | null>(null);
+  const openLikedCard = (p: FindLikedPhoto, tile: string, label: string) => {
+    if (!p.vendorProfileId) return;
+    const here = folders.flatMap((f) => f.tiles).find((x) => x.tile === tile);
+    const there = here?.vendors.find((x) => x.marketplaceVendorId === p.vendorProfileId);
+    if (!there || !sheetDoor) {
+      openSearch(tile, label);
+      return;
+    }
+    sheetDoor.open({
+      vendorId: there.vendorId,
+      vendorProfileId: there.marketplaceVendorId,
+      name: there.name,
+      nameWithheld: false,
+      tile,
+      categoryLabel: label,
+      city: there.city,
+      rating: there.rating,
+      reviewCount: there.reviewCount,
+      verified: there.isVerified,
+      card: likedCardFor(p.serviceId, serviceLook.face ? (serviceLook.cards?.[there.vendorId] ?? null) : null),
+      cardsRead: Boolean(serviceLook.cards),
+      coverUrl: null,
+      stateLine: null,
+      fits: [],
+      threadId: there.threadId ?? null,
+      booked: there.status === 'locked',
+      onPage: sheetDoor.onPage(there.marketplaceVendorId, tile),
+    });
+  };
+  const askLiked = async (p: FindLikedPhoto, tile: string) => {
+    if (!p.vendorProfileId || likedBusy) return;
+    setLikedBusy(p.key);
+    const failed = () => setToast({ tone: 'bad', text: INLINE_MORE_INQUIRE_FAILED, key: Date.now() });
+    try {
+      const fd = new FormData();
+      fd.set('vendor_profile_id', p.vendorProfileId);
+      fd.set('event_id', eventId);
+      fd.set('tile', tile);
+      if (p.serviceId) fd.set('service_id', p.serviceId);
+      fd.set(ANSWER_IN_PLACE_FIELD, '1');
+      const saved = await saveVendorToPicks(fd);
+      if (saved.status !== 'ok' && saved.status !== 'already_saved') {
+        setToast({ tone: 'bad', text: saved.status === 'not_signed_in' ? INLINE_MORE_SIGNED_OUT : INLINE_MORE_INQUIRE_FAILED, key: Date.now() });
+        return;
+      }
+      markBenchDirty(eventId);
+      const res = await contactShortlistVendor({ eventId, vendorId: saved.eventVendorId });
+      if (res.status === 'ok') {
+        router.push(`/dashboard/${res.eventId}/messages/${res.threadId}`);
+        return;
+      }
+      failed();
+    } catch {
+      failed();
+    } finally {
+      setLikedBusy(null);
+    }
+  };
   /* ⚡ No refresh on close: each add from the search (`saveVendorToPicks`) revalidates, so the page behind was redrawn
      by the add's own answer — a refresh here drew it a second time. */
   const closeSearch = () => setSearch(null);
@@ -3129,6 +3273,12 @@ export function ShortlistCategories({
   // categories (and their considered vendors). Empty = the normal single-open
   // accordion; a query filters to matching tiles and auto-expands them.
   const [query, setQuery] = useState('');
+  // 🔎 Words the bench puts in the thumb row's box (a marketplace hit pressed, or a category hit emptying it).
+  const [thumbPreset, setThumbPreset] = useState<{ text: string; n: number } | null>(null);
+  const setBoxText = (text: string) => {
+    setQuery(text);
+    setThumbPreset((cur) => ({ text, n: (cur?.n ?? 0) + 1 }));
+  };
 
   // ── Inline "More in {category}" row · ROW 2 (owner 2026-09-06) ─────────────
   // Owner: "when they also click the find reception button, it must show a
@@ -3383,7 +3533,15 @@ export function ShortlistCategories({
   );
   const sheetDoor = useMemo<SheetDoor>(
     () => ({
-      open: setSheetTarget,
+      // 🃏 SERVICE CARD GROWN (owner 2026-11-13: "We have a full screen of a supplier card that expands all the
+      // information of that card"). A card with a service opens THAT shipped card — the shop page's `?service=`
+      // address raises `ServiceDetailsSheet` with the shop page's own props; nothing is redrawn here. The Find sheet
+      // stays for a card with no address (switched off, no slug, a withheld supplier, a self-added one).
+      open: (target) => {
+        const href = target.nameWithheld ? null : (target.card?.detailsHref ?? null);
+        if (href) router.push(href);
+        else setSheetTarget(target);
+      },
       onPage: (vendorProfileId, exceptTile) => {
         const out: Record<string, string> = {};
         if (!vendorProfileId) return out;
@@ -3406,7 +3564,7 @@ export function ShortlistCategories({
         return out;
       },
     }),
-    [folders, standings, buildPickVendorIds],
+    [folders, standings, buildPickVendorIds, router],
   );
   const plannedTileSet = new Set<string>(plannedList.map((p) => p.tile));
 
@@ -3644,9 +3802,14 @@ export function ShortlistCategories({
       })),
     ),
     excludedTiles,
-    pinnedTile: initialOpenTile,
+    // 📋 The OPEN category is pinned too: a category opened from the thumb row's search shows while it is open, even
+    // with nobody in it yet (owner 2026-11-12 — Find lists only what was added; the rest is reached through search).
+    pinnedTile: replan ? (openTile ?? initialOpenTile) : initialOpenTile,
     // The starter ring belongs to the one-screen shape only.
     starterTiles: replan ? starterTiles : undefined,
+    // 📋 FIND LISTS ONLY THE CATEGORIES THE COUPLE ADDED (owner 2026-11-12, "Yes, build it" on the organized-Find
+    // prototype; the count is *"only the ones listed"*). `lib/explore-in-plan.ts` `listedOnly`.
+    listedOnly: replan,
   });
   // Flag OFF → null everywhere below, so every adaptive branch is skipped and
   // the bench renders exactly as it does in production today.
@@ -3772,7 +3935,9 @@ export function ShortlistCategories({
    * opens and lands pinned (the same landing a head tap makes). False → not on this page.
    */
   function goToCategory(tile: string): boolean {
-    if (!benchRows.some((r) => r.t.tile === tile)) return false;
+    // 📋 Any category of the event's taxonomy opens here — one that is not listed yet shows while it is open
+    // (owner 2026-11-12: new categories are reached through this search).
+    if (!(replan ? folders.some((f) => f.tiles.some((t) => t.tile === tile)) : benchRows.some((r) => r.t.tile === tile))) return false;
     if (openAll) {
       setOpenAll(false);
       setFolded(new Set());
@@ -3879,6 +4044,53 @@ export function ShortlistCategories({
         }))
         .filter((f) => f.tiles.length > 0)
     : folders;
+  // 🔎 WHEN THE SHORTLIST HAS NO MATCH (walk 13 Nov 2026, `./bench-search-fallback.ts`): a hit is only a hit if its
+  // row is DRAWN — a matching category that is not on the event drew nothing, and said nothing either.
+  const drawnHit = visibleFolders.some((f) => f.tiles.some((t) => !inPlanTiles || inPlanTiles.has(t.tile)));
+  const shortlistMissed = searching && !drawnHit;
+  const categoryHits = shortlistMissed ? categoryHitsFor(q, poolRows.map(({ t, f }) => ({ tile: t.tile, label: t.label, f }))) : [];
+  const [marketHits, setMarketHits] = useState<{ q: string; results: BenchMarketResult[]; unreadable: boolean } | null>(null);
+  useEffect(() => {
+    if (!shortlistMissed || q.length < 2) return;
+    let cancelled = false;
+    void searchMarketplaceForBench(eventId, q)
+      .then((res) => {
+        if (!cancelled) setMarketHits({ q, ...res });
+      })
+      .catch(() => {
+        if (!cancelled) setMarketHits({ q, results: [], unreadable: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, q, shortlistMissed]);
+  const tilesOnEvent = new Set<string>(benchRows.map((r) => r.t.tile));
+  const tilesOnPage = new Set<string>(folders.flatMap((f) => f.tiles.map((t) => t.tile)));
+  const tileLabelOf = new Map<string, string>(folders.flatMap((f) => f.tiles.map((t) => [t.tile, t.label] as const)));
+  const shopHits =
+    shortlistMissed && marketHits?.q === q
+      ? marketHits.results.flatMap((r) => {
+          const tile = shopHitTile(r.tiles, tilesOnEvent, tilesOnPage);
+          return tile ? [{ r, tile }] : [];
+        })
+      : [];
+  /** A shop hit: its category row opens, searched by the shop's name — its card and "Ask for a quote" are there. */
+  const openShopHit = (tile: string, name: string) => {
+    const pool = poolRows.find((p) => p.t.tile === tile);
+    if (pool && !tilesOnEvent.has(tile)) {
+      if (!planEditing) addTileToPlan(pool.t.tile, pool.f.folder, pool.f.slug);
+    } else {
+      goToCategory(tile);
+    }
+    setBoxText(name);
+  };
+  /** A category hit: the "Add a category" picker's own add — the row opens, the box empties. */
+  const openCategoryHit = (tile: string) => {
+    const pool = poolRows.find((p) => p.t.tile === tile);
+    if (!pool || planEditing) return;
+    setBoxText('');
+    addTileToPlan(pool.t.tile, pool.f.folder, pool.f.slug);
+  };
 
 
   // Rebuilt from pairs on this side of the boundary — see the `unread` prop.
@@ -3937,7 +4149,9 @@ export function ShortlistCategories({
     <SheetDoorCtx.Provider value={replan ? sheetDoor : null}>
     <UnreadCtx.Provider value={benchUnread}>
     <PayDueCtx.Provider value={payHrefByVendorId}>
+    <TakenOnCtx.Provider value={takenOnLabel}>
     <InviteStatusCtx.Provider value={inviteStatusByVendorId}>
+    <PriceLineCtx.Provider value={selfAddedPriceLines}>
     <ServiceCardCtx.Provider value={serviceLook}>
     <div className="slcat" ref={benchRef}>
       <style>{SLCAT_CSS}</style>
@@ -3953,6 +4167,17 @@ export function ShortlistCategories({
       <BenchRollUp folders={folders} standings={standings} />
       {/* 💡 A · "Your inspiration board" — the first row of Find; it opens the whole board (`find-inspiration.tsx`). */}
       {inspiration ? <FindInspirationRow board={inspiration} href={findBoardHref(eventId)} /> : null}
+      {/* 📋 A BRAND-NEW EVENT (owner 2026-11-12, the organized-Find prototype): Find lists only the categories with
+          someone asked or booked, so before the first one there is nothing to list — said, with the way in. */}
+      {replan && !searching && benchRows.length === 0 ? (
+        <div className="slempty" data-find-empty="">
+          <p className="se-t">No suppliers yet.</p>
+          <p className="se-s">
+            Search a category below, or add someone you already know with ＋. A category shows here once you ask or book
+            someone in it.
+          </p>
+        </div>
+      ) : null}
       {replan && stripTiles.length > 0 && coverInHeader ? null : replan && stripTiles.length > 0 ? (
         /* "Covered N of M" — the ring IS the rows below now (owner 2026-10-07:
            one screen; a category unfolds in place). The Coverage Strip's icon
@@ -3992,21 +4217,29 @@ export function ShortlistCategories({
           2026-10-26): the date is already on the date · place line above, and "free that day" is in the ⓘ. A conflict,
           a narrowing build and "Booking these suppliers sets your date" still show here — they are news, not detail. */}
       {convergence && !(coverInHeader && convergence.tone === 'anchored') ? (
-        <div className={`convrg t-${convergence.tone}`} role="status">
-          <span className="cv-i" aria-hidden>
-            {convergence.tone === 'conflict' ? (
-              <CalendarX2 size={15} strokeWidth={1.9} />
-            ) : convergence.tone === 'converged' ? (
-              <CalendarCheck size={15} strokeWidth={1.9} />
-            ) : (
-              <CalendarDays size={15} strokeWidth={1.9} />
-            )}
-          </span>
-          <span className="cv-b">
-            <b>{convergence.headline}</b>
-            <span>{convergence.detail}</span>
-          </span>
-        </div>
+        // 🔔 Inventory #32 — a LIVE notice (info) in the one notice system (owner approved 14 Nov 2026), drawn where it
+        // stands (between the Coverage Strip and the bench): a fact about the build that is true right now, no close —
+        // it leaves when the build changes.
+        <InlineNotice
+          kind="live"
+          tone={convergence.tone === 'conflict' ? 'warning' : 'info'}
+          closable={false}
+          noticeKey={`build-date:${convergence.tone}`}
+          mark={
+            <span className="cv-i" aria-hidden>
+              {convergence.tone === 'conflict' ? (
+                <CalendarX2 size={15} strokeWidth={1.9} />
+              ) : convergence.tone === 'converged' ? (
+                <CalendarCheck size={15} strokeWidth={1.9} />
+              ) : (
+                <CalendarDays size={15} strokeWidth={1.9} />
+              )}
+            </span>
+          }
+          title={convergence.headline}
+          detail={convergence.detail}
+          className={`convrg-n t-${convergence.tone} mb-3.5`}
+        />
       ) : null}
       {/* The pre-replan bench keeps its bar above the folders. On the one-screen
           page the SAME dropdown sits in each open category's "More to compare"
@@ -4037,10 +4270,44 @@ export function ShortlistCategories({
           service card manually that i can give the supplier itself."*). The results stay HERE: a hit opens under its
           own category row below, and nothing in this block leaves the page — the whole-marketplace rows to `/v/…`
           and the "See all results" door to `/explore` are gone. The last row adds what was typed (`bench-add`). */}
-      {searching && visibleFolders.length === 0 ? (
+      {shortlistMissed ? (
         <div className="bench-empty" data-bench-empty="">
-          Nothing in your shortlist matches “{query.trim()}”. Add them as your own below.
+          Nothing in your shortlist matches “{query.trim()}”.{' '}
+          {categoryHits.length > 0 || shopHits.length > 0 ? 'On Setnayan:' : 'Add them as your own below.'}
         </div>
+      ) : null}
+      {/* 🔎 ON SETNAYAN — the categories not on the event, then the marketplace's shops, matching the words. Rows in
+          the "Add a category" row's own shape; nothing leaves the page. */}
+      {categoryHits.map((h) => (
+        <div key={`cat-${h.tile}`} className={`addmore ${FORM_ROW_RULE}`} data-bench-hit-category={h.tile}>
+          <button type="button" className="addcat sn-press sn-press-ring" disabled={planEditing} onClick={() => openCategoryHit(h.tile)}>
+            <span className="addcat-ic" aria-hidden>
+              <Plus size={18} strokeWidth={1.75} />
+            </span>
+            <span className="addcat-t">
+              <span className="addcat-nm">{h.label}</span>
+              <span className={FORM_ROW_SUBLINE}>Category · add it to your event and see its suppliers</span>
+            </span>
+          </button>
+        </div>
+      ))}
+      {shopHits.map(({ r, tile }) => (
+        <div key={`shop-${r.vendorProfileId}`} className={`addmore ${FORM_ROW_RULE}`} data-bench-hit-shop={r.vendorProfileId}>
+          <button type="button" className="addcat sn-press sn-press-ring" disabled={planEditing} onClick={() => openShopHit(tile, r.name)}>
+            <span className="addcat-ic" aria-hidden>
+              <Store size={18} strokeWidth={1.75} />
+            </span>
+            <span className="addcat-t">
+              <span className="addcat-nm">{r.name}</span>
+              <span className={FORM_ROW_SUBLINE}>
+                {[tileLabelOf.get(tile) ?? null, r.city].filter(Boolean).join(' · ')}
+              </span>
+            </span>
+          </button>
+        </div>
+      ))}
+      {shortlistMissed && marketHits?.q === q && marketHits.unreadable ? (
+        <div className="bench-empty" data-bench-market-unread="">Couldn’t search Setnayan’s suppliers just now.</div>
       ) : null}
       {visibleFolders.map((folder) => {
         // The one-screen shape has NO folder level: every folder is open and
@@ -4246,6 +4513,58 @@ export function ShortlistCategories({
                     : null;
                   // A booking settles the category: nothing more to compare.
                   const rowBooked = (rowCoverage?.lockedCount ?? 0) > 0;
+                  // 📋 THE OPENED CATEGORY, IN ITS OWN ORDER (owner 2026-11-12, the organized-Find prototype): what the couple
+                  // is planning first — Booked, then Asked — each under its own label; the cards are the same cards.
+                  const fitCard = ({ v, reason }: (typeof rail.fits)[number]) => (
+                                <VendorCard
+                                  key={v.vendorId}
+                                  v={v}
+                                  reason={reason}
+                                  eventId={eventId}
+                                  tileLabel={t.label}
+                                  tile={t.tile}
+                                  dates={dateViewFor(v)}
+                                  arrange={{
+                                    active: isArranging,
+                                    busy: tileBusy,
+                                    grabbed: grabbedCard === v.vendorId,
+                                    onEnter: () => setArrangeTile(t.tile),
+                                    canLeft:
+                                      keyboardMoveTarget(railOrder, v.vendorId, 'left') !== null,
+                                    canRight:
+                                      keyboardMoveTarget(railOrder, v.vendorId, 'right') !== null,
+                                    onMove: (direction) => {
+                                      const to = keyboardMoveTarget(railOrder, v.vendorId, direction);
+                                      if (to === null) return;
+                                      moveArrangedCard(t.tile, railOrder, v.vendorId, to);
+                                    },
+                                    onDragStart: () => setGrabbedCard(v.vendorId),
+                                    onDragEnd: () => setGrabbedCard(null),
+                                    onDropOn: () => {
+                                      const from = grabbedCard;
+                                      setGrabbedCard(null);
+                                      if (!from || from === v.vendorId) return;
+                                      const to = railOrder.indexOf(v.vendorId);
+                                      if (to < 0) return;
+                                      moveArrangedCard(t.tile, railOrder, from, to);
+                                    },
+                                  }}
+                                  standing={standings[v.vendorId] ?? null}
+                                  // Slice D — three-action card. The resolver is
+                                  // pure + unit-tested; flag OFF returns nothing
+                                  // and the card renders exactly as it shipped.
+                                  actions={resolveBenchCardActions({
+                                    enabled: replan,
+                                    vendor: v,
+                                    inBuild: buildPickSet.has(v.vendorId),
+                                  })}
+                                />
+                  );
+                  // The category's ONE door to its full search — "Search all", "Find who does this", "Search again".
+                  const searchHere = () => openSearch(t.tile, t.label);
+                  const bookedFits = replan ? rail.fits.filter(({ v }) => v.status === 'locked') : [];
+                  const askedFits = replan ? rail.fits.filter(({ v }) => v.status !== 'locked') : rail.fits;
+                  const askedCount = askedFits.length + rail.clashes.length + availability.unavailable.length;
                   return (
                     <div
                       key={t.tile}
@@ -4387,7 +4706,9 @@ export function ShortlistCategories({
                         <Explain title={t.label} label={categoryHintButtonLabel(t.label)} data="category-hint" className="cat-info">
                           {t.hint}
                         </Explain>
-                        {savedCanonical ? (
+                        {/* RW-89 (walk 13 Nov 2026): the saved search request is for FINDING a supplier — a booked row has
+                            found one, so it no longer offers "Your request" beside "Booked ✓". */}
+                        {savedCanonical && rowState?.kind !== 'booked' ? (
                           <ActionButton
                             tone="neutral"
                             quiet
@@ -4421,8 +4742,15 @@ export function ShortlistCategories({
                       ) : null}
                       <div className="cat-collapse">
                         <div className="cat-body">
-                          {/* 💡 B · the category's Inspiration strip, first — above its suppliers. */}
-                          <FindInspirationStrip board={inspiration} tile={t.tile} href={findBoardHref(eventId)} />
+                          {/* 💡 B · the category's Inspiration strip, first — above its suppliers (the pre-replan bench). On the
+                              one-screen page it is the category's "Ideas", after "Suggested for you" (owner 2026-11-12). */}
+                          {replan ? (
+                            <p className="planh" data-find-planning="">
+                              What you&rsquo;re planning
+                            </p>
+                          ) : (
+                            <FindInspirationStrip board={inspiration} tile={t.tile} href={findBoardHref(eventId)} />
+                          )}
                           {scopedNone && (rowBooked || Boolean(coveredGroup)) ? (
                             <p className="scope-none" role="status">
                               Nobody called “{query.trim()}” in {t.label} yet — add them as your own.
@@ -4456,6 +4784,19 @@ export function ShortlistCategories({
                             </div>
                           ) : t.vendors.length > 0 ? (
                             <>
+                            {replan && bookedFits.length > 0 ? (
+                              <>
+                                <p className="slstripe" data-find-part="booked">
+                                  Booked · {formatCount(bookedFits.length)}
+                                </p>
+                                <div className="rail">{bookedFits.map(fitCard)}</div>
+                              </>
+                            ) : null}
+                            {replan && askedCount > 0 ? (
+                              <p className="slstripe" data-find-part="asked">
+                                Asked · {formatCount(askedCount)}
+                              </p>
+                            ) : null}
                             {/* ── THE COUPLE'S OWN ORDER (owner 2026-09-09) ──
                                 "Your order" appears on the CATEGORY, not on the
                                 Sort by bar above, and that is the ruling rather
@@ -4495,51 +4836,7 @@ export function ShortlistCategories({
                               </div>
                             ) : null}
                             <div className="rail">
-                              {rail.fits.map(({ v, reason }) => (
-                                <VendorCard
-                                  key={v.vendorId}
-                                  v={v}
-                                  reason={reason}
-                                  eventId={eventId}
-                                  tileLabel={t.label}
-                                  tile={t.tile}
-                                  dates={dateViewFor(v)}
-                                  arrange={{
-                                    active: isArranging,
-                                    busy: tileBusy,
-                                    grabbed: grabbedCard === v.vendorId,
-                                    onEnter: () => setArrangeTile(t.tile),
-                                    canLeft:
-                                      keyboardMoveTarget(railOrder, v.vendorId, 'left') !== null,
-                                    canRight:
-                                      keyboardMoveTarget(railOrder, v.vendorId, 'right') !== null,
-                                    onMove: (direction) => {
-                                      const to = keyboardMoveTarget(railOrder, v.vendorId, direction);
-                                      if (to === null) return;
-                                      moveArrangedCard(t.tile, railOrder, v.vendorId, to);
-                                    },
-                                    onDragStart: () => setGrabbedCard(v.vendorId),
-                                    onDragEnd: () => setGrabbedCard(null),
-                                    onDropOn: () => {
-                                      const from = grabbedCard;
-                                      setGrabbedCard(null);
-                                      if (!from || from === v.vendorId) return;
-                                      const to = railOrder.indexOf(v.vendorId);
-                                      if (to < 0) return;
-                                      moveArrangedCard(t.tile, railOrder, from, to);
-                                    },
-                                  }}
-                                  standing={standings[v.vendorId] ?? null}
-                                  // Slice D — three-action card. The resolver is
-                                  // pure + unit-tested; flag OFF returns nothing
-                                  // and the card renders exactly as it shipped.
-                                  actions={resolveBenchCardActions({
-                                    enabled: replan,
-                                    vendor: v,
-                                    inBuild: buildPickSet.has(v.vendorId),
-                                  })}
-                                />
-                              ))}
+                              {(replan ? askedFits : rail.fits).map(fitCard)}
                               {/* The rail's two end tiles — the PRE-REPLAN
                                   bench only ("Find more" / "＋ Add another X" to
                                   the shipped `/explore?tile=`, and "Add
@@ -4676,8 +4973,39 @@ export function ShortlistCategories({
                               marketplace read only when it is looked at) and
                               only while nothing is booked here: a booking
                               settles the category. */}
+                          {/* A category opened from search, with nobody in it yet (owner 2026-11-12). */}
+                          {replan && !coveredGroup && t.vendors.length === 0 ? (
+                            <p className="scope-none" data-find-nobody="">
+                              Nobody asked yet.
+                            </p>
+                          ) : null}
+                          {/* 💗 LIKED IDEAS — the couple's liked photos here, each linked to its shop and card (owner 2026-11-12). */}
+                          {replan && tileOpen ? (
+                            <FindLikedIdeas
+                              board={inspiration}
+                              tile={t.tile}
+                              label={t.label}
+                              busyKey={likedBusy}
+                              onOpenCard={(p) => openLikedCard(p, t.tile, t.label)}
+                              onAsk={(p) => void askLiked(p, t.tile)}
+                              onFindWho={searchHere}
+                            />
+                          ) : null}
+                          {/* ✓ A BOOKED CATEGORY IS DONE — Suggested and Ideas fold into one row (owner 2026-11-12). */}
+                          {replan && tileOpen && (rowBooked || coveredGroup) ? (
+                            <button
+                              type="button"
+                              className="donerow"
+                              data-find-done-search=""
+                              onClick={searchHere}
+                            >
+                              <span>✓ Done · Search again</span>
+                              <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
+                            </button>
+                          ) : null}
                           {replan && tileOpen && !rowBooked && !coveredGroup ? (
                             <MoreToCompare
+                              suggest
                               eventId={eventId}
                               tile={t.tile}
                               label={t.label}
@@ -4694,7 +5022,18 @@ export function ShortlistCategories({
                               onLoaded={onListLoaded}
                               onClearFilters={() => setFiltersByTile((cur) => ({ ...cur, [t.tile]: FIND_FILTERS_OFF }))}
                               shape={sortShapeFor<CategoryVendorResult>((r) => r.ceremonyDistanceKm ?? null)}
-                              onSeeAll={() => openSearch(t.tile, t.label)}
+                              onSeeAll={searchHere}
+                            />
+                          ) : null}
+                          {/* 💡 IDEAS — the category's parts (the shipped strip, four at most) and the whole board. */}
+                          {replan && tileOpen && !rowBooked && !coveredGroup ? (
+                            <FindInspirationStrip
+                              board={inspiration}
+                              tile={t.tile}
+                              href={findBoardHref(eventId)}
+                              head={FIND_INSPIRATION_WORDS.ideasHead}
+                              more={FIND_INSPIRATION_WORDS.moreIdeas}
+                              max={4}
                             />
                           ) : null}
                           {/* No add of its own here (owner 2026-10-13: ONE add — the thumb row's ＋, which adds in
@@ -4807,6 +5146,7 @@ export function ShortlistCategories({
           onToggleAll={toggleOpenAll}
           scope={scopeRow ? scopeRow.t.label : 'all suppliers'}
           onSearch={setQuery}
+          preset={thumbPreset}
           onAdd={addYourOwn}
           emptyPanel={findPanel}
           onGoToCategory={goToCategory}
@@ -4985,10 +5325,12 @@ export function ShortlistCategories({
           >
             <OverlayBackdrop onClose={closeReqModal} />
             <div className="relative z-10 flex w-full items-center justify-center rounded-t-3xl border border-ink/10 bg-cream px-5 py-10 tab:w-full tab:max-w-lg tab:rounded-2xl">
-              <span
-                className="h-6 w-6 animate-spin rounded-full border-2 border-mulberry border-t-transparent"
-                aria-hidden
-              />
+              {/* A shimmer in the request's own shape, never a spinner (design template rule 15). */}
+              <span aria-hidden className="flex w-full flex-col gap-3">
+                <span className="sn-skeleton h-5 w-2/3 rounded-full" />
+                <span className="sn-skeleton h-12 w-full rounded-xl" />
+                <span className="sn-skeleton h-12 w-full rounded-xl" />
+              </span>
             </div>
           </div>
         ) : (
@@ -5019,7 +5361,9 @@ export function ShortlistCategories({
       ) : null}
     </div>
     </ServiceCardCtx.Provider>
+    </PriceLineCtx.Provider>
     </InviteStatusCtx.Provider>
+    </TakenOnCtx.Provider>
     </PayDueCtx.Provider>
     </UnreadCtx.Provider>
     </SheetDoorCtx.Provider>

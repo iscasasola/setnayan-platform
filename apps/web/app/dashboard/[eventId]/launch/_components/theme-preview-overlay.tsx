@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Check, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { sampleHubTileSrc } from '@/lib/theme-sample-stills';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
@@ -82,16 +83,14 @@ export function ThemePreviewOverlay({
       className="fixed inset-0 z-[70] flex flex-col bg-cream"
     >
       <div className="flex shrink-0 items-center gap-2 border-b border-ink/10 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
-        <button
+        <ActionButton
           ref={exitRef}
-          type="button"
+          tone="neutral"
+          icon={X}
+          label="Exit preview"
           onClick={exit}
           data-theme-preview-exit=""
-          className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink/5 px-4 text-sm font-semibold text-ink hover:bg-ink/10"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Exit preview
-        </button>
+        />
         <p className="flex min-w-0 flex-1 items-center justify-end gap-1.5 pr-1 text-sm font-semibold text-ink">
           <span className="truncate">{theme.name}</span>
           {mark}
@@ -104,29 +103,24 @@ export function ThemePreviewOverlay({
           /* The sample page, scrollable; no top navigation, no pop-ups, no forms. */
           sandbox="allow-scripts allow-same-origin"
           data-theme-preview-frame=""
-          className="h-full w-full max-w-[430px] border-0 bg-white md:my-3 md:rounded-2xl md:shadow-[0_30px_60px_-34px_rgba(30,26,18,.5)]"
+          className="h-full w-full max-w-[430px] border-0 bg-white md:my-3 md:rounded-2xl md:shadow-sn-float"
         />
       </div>
       {/* The one action, where a thumb is — clear of the home indicator. */}
       <div className="flex shrink-0 justify-center border-t border-ink/10 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          main
+          icon={Check}
+          label={picked ? 'Your theme' : 'Use this theme'}
           onClick={() => {
             onUse();
             exit();
           }}
           disabled={picked}
           data-theme-preview-use=""
-          className="button-primary inline-flex min-h-11 w-full max-w-[430px] items-center justify-center gap-1.5 text-sm disabled:opacity-60"
-        >
-          {picked ? (
-            <>
-              <Check aria-hidden className="h-4 w-4" strokeWidth={2.25} /> Your theme
-            </>
-          ) : (
-            'Use this theme'
-          )}
-        </button>
+          className="w-full max-w-[430px] !min-h-12"
+        />
       </div>
     </div>
   );

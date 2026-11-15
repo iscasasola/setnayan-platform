@@ -68,6 +68,7 @@
  */
 
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { TOP_UP_CHARGE_KIND, TOP_UP_WORDS, topUpIsHeld } from '@/lib/booking-fee-top-up';
 
 /** The flag. OFF by default: with it off, every stage resolves to `unlocked`. */
 export function isFeeUnlocksEventEnabled(): boolean {
@@ -123,6 +124,11 @@ export type BookingFeeChargeFacts =
       dueAt: string | null;
       /** The `orders` row that bills it, when one exists (waived charges have none). */
       orderId: string | null;
+      /**
+       * `booking_fee_charges.kind` — `amendment_delta` is a TOP-UP (owner 2026-11-12): HELD, not owed, through its
+       * due day (the event day). Absent → read as an ordinary charge, exactly as before.
+       */
+      chargeKind?: string | null;
     };
 
 /**
@@ -178,13 +184,18 @@ export type EventAccessReason =
    */
   | 'no_charge'
   | 'fee_unreadable'
+  /**
+   * 💸 A TOP-UP that is HELD (owner 2026-11-12 rules 1 + 4): the booked quote rose, the fee grew, and the top-up is
+   * due on the event day — before the day after, it locks nothing. SQL twin: `booking_fee_top_up_is_held`.
+   */
+  | 'top_up_held'
   | 'fee_due';
 
 export type EventAccessDecision = {
   unlocked: boolean;
   reason: EventAccessReason;
   /** Present only when `unlocked === false` — what the locked screen must say. */
-  owed: { amountPhp: number; dueAt: string | null; orderId: string | null } | null;
+  owed: { amountPhp: number; dueAt: string | null; orderId: string | null; topUp?: boolean } | null;
 };
 
 /**
@@ -206,6 +217,8 @@ export function eventAccessUnlocked(args: {
    * pay.
    */
   feeMinting?: boolean;
+  /** Manila's `YYYY-MM-DD` — when a top-up stops being held. Passed in so a test pins the day; defaults to now. */
+  todayPh?: string;
 }): EventAccessDecision {
   const enforced = args.enforced ?? isFeeUnlocksEventEnabled();
   // Flag off ⇒ byte-identical to today. Nothing below this line runs.
@@ -230,10 +243,18 @@ export function eventAccessUnlocked(args: {
   if (!FEE_UNSETTLED_STATUSES.has(charge.status)) {
     return { unlocked: true, reason: 'settled', owed: null };
   }
+  // 💸 HELD, NOT OWED (owner 2026-11-12): a top-up locks nothing through the event day.
+  const topUp = charge.chargeKind === TOP_UP_CHARGE_KIND;
+  if (
+    topUp &&
+    topUpIsHeld({ kind: charge.chargeKind, status: charge.status, dueAt: charge.dueAt }, args.todayPh ?? manilaYmdNow())
+  ) {
+    return { unlocked: true, reason: 'top_up_held', owed: null };
+  }
   return {
     unlocked: false,
     reason: 'fee_due',
-    owed: { amountPhp: charge.amountPhp, dueAt: charge.dueAt, orderId: charge.orderId },
+    owed: { amountPhp: charge.amountPhp, dueAt: charge.dueAt, orderId: charge.orderId, ...(topUp ? { topUp: true } : {}) },
   };
 }
 
@@ -588,6 +609,19 @@ export function feeLockCopy(args: {
     };
   }
 
+  // 💸 An OVERDUE TOP-UP (owner 2026-11-12): the prototype's words — "Settle ₱X booking fee to open this".
+  if (args.owed?.topUp) {
+    return {
+      headline: TOP_UP_WORDS.pageGated(args.owed.amountPhp),
+      detail: `Your quote rose, and the booking fee top-up was due on the event day${
+        args.owed.dueAt ? ` (${formatDue(args.owed.dueAt)})` : ''
+      }. ${listed.charAt(0).toUpperCase() + listed.slice(1)} — and this event’s day-of tools — open the moment it is settled. ${feeEnforcementSentence(
+        { enforced: true },
+      )}`,
+      cta: 'Settle the top-up',
+    };
+  }
+
   const amount = args.owed ? `₱${PHP.format(args.owed.amountPhp)}` : 'your booking fee';
   const due = args.owed?.dueAt ? ` Due ${formatDue(args.owed.dueAt)}.` : '';
   return {
@@ -614,4 +648,9 @@ function formatDue(raw: string): string {
     year: 'numeric',
     timeZone: 'Asia/Manila',
   }).format(d);
+}
+
+/** Manila's calendar day now, `YYYY-MM-DD` ('en-CA' formats ISO; the zone pins the day boundary). */
+function manilaYmdNow(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
 }

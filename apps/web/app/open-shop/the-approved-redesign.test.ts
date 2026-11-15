@@ -24,7 +24,7 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const WIZARD = read('app/open-shop/_components/open-shop-wizard.tsx');
 const ACTIONS = read('app/open-shop/actions.ts');
 const PAGE = read('app/open-shop/page.tsx');
-const PICKER = read('app/open-shop/_components/service-picker.tsx');
+const PICKER = read('app/_components/service-picker.tsx');
 const TILES = read('app/open-shop/_components/event-tiles.tsx');
 const PANE = read('app/_components/auth/sign-in-here-panel.tsx');
 const LINK = read('app/_components/auth/sign-in-here-link.tsx');
@@ -33,7 +33,7 @@ const PHONE = read('app/open-shop/_components/phone-field.tsx');
 const CARDS = read('app/open-shop/_components/service-cards.tsx');
 const AT_EVENTS = read('app/open-shop/_components/services-at-events.tsx');
 const SHEET = read('app/open-shop/_components/plan-sheet.tsx');
-const LAB = read('app/dev/open-shop-lab/page.tsx');
+const LAB = read('app/dev/open-shop-lab/page.lab.tsx');
 const METER = read('lib/open-shop-more-services.ts');
 
 /* ── every sentence has a box, and the box is on the step the server sends you to ─────────────────────────────── */
@@ -99,7 +99,7 @@ test('five steps in the approved order, the account LAST', () => {
   // Gone from the door: the logo upload, "In business since", any role LIST (none exists to reuse).
   assert.doesNotMatch(WIZARD, /<FileUpload\b|in_business_since_year|<PickMenu\b/);
   assert.match(WIZARD, /'About you', 'Who couples will talk to\.'/);
-  assert.match(WIZARD, /'Your account', guest \? 'Pick how you’ll sign in\. This creates your Setnayan account\.' : null/);
+  assert.match(WIZARD, /'Your account', guest \? 'Pick how you’ll sign in\. This creates your Setnayan account\.' : 'Your shop’s email, then open your shop\.'/);
   // Five segments in the step bar.
   assert.match(WIZARD, /\(\[1, 2, 3, 4, 5\] as Step\[\]\)\.map\(\(n\) => \(\s*<div key=\{n\} className="h-1 flex-1/);
 });
@@ -227,7 +227,9 @@ test('v16 ③ · specialties compile: picks in ink + "+ Add" when closed, every 
   // ONE open key, held by the wizard — opening one closes the others.
   assert.match(WIZARD, /const \[openSpecialty, setOpenSpecialty\] = useState<string \| null>\(null\)/);
   // From the shipped refinement schema, written through the ONE merge.
-  assert.match(PAGE, /fetchCategoryChipRefinementsMany\(/);
+  // Ruling 5820: the read moved to the ONE loader every picker door shares; the page calls it.
+  assert.match(PAGE, /getServicePickerSpecialties\(supabase, serviceTree\)/);
+  assert.match(read('lib/service-picker-tree.server.ts'), /fetchCategoryChipRefinementsMany\(/);
   assert.match(ACTIONS, /await mergeServiceRefinements\(admin, vendorProfileId as string, svc, fd\)/);
 });
 

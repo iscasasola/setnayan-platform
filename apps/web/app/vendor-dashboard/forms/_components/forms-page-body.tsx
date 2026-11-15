@@ -119,7 +119,7 @@ export function FormsPageBody({
           {event === null ? (
             <Unread what="the forms you sent" />
           ) : event.sent.length === 0 ? (
-            <p className="text-sm text-ink/60">None yet. Load a form and send it to the chat — they answer in their event.</p>
+            <p className="text-sm text-ink/70">None yet. Load a form and send it to the chat — they answer in their event.</p>
           ) : (
             <ul className="space-y-2" data-forms-sent>
               {event.sent.map((s) => (
@@ -127,12 +127,12 @@ export function FormsPageBody({
                   <SentHead open={openSent === s.formId} onToggle={() => setOpenSent((k) => (k === s.formId ? null : s.formId))}>
                     <span className="min-w-0">
                       <span className="block truncate text-[15px] font-medium text-ink">{s.title}</span>
-                      <span className="block text-[12px] text-ink/60">
+                      <span className="block text-xs text-ink/70">
                         {s.sentBy === 'on_booking' ? 'Sent on booking' : 'Sent'} · {formatDay(s.sentAt)}
                       </span>
                     </span>
                     <span
-                      className={`flex-none rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${
+                      className={`flex-none rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                         sentFormState(s).key === 'open' || sentFormState(s).key === 'some' ? 'bg-warn-100 text-warn-900' : 'bg-success-100 text-success-800'
                       }`}
                       data-forms-sent-state={sentFormState(s).key}
@@ -150,7 +150,7 @@ export function FormsPageBody({
                           .map((i) => (
                             <div key={i.question_id}>
                               <p className="text-[13px] font-medium text-ink">{i.prompt}</p>
-                              <p className={`text-[14px] ${s.answers[i.question_id] ? 'text-ink/80' : 'text-ink/50'}`}>
+                              <p className={`text-sm ${s.answers[i.question_id] ? 'text-ink/80' : 'text-ink/70'}`}>
                                 {s.answers[i.question_id] ?? 'Not answered yet.'}
                               </p>
                             </div>
@@ -173,7 +173,7 @@ export function FormsPageBody({
           {eventForms === null ? (
             <Unread what="this event’s forms" />
           ) : eventForms.length === 0 ? (
-            <p className="text-sm text-ink/60">None yet. Open a form from your library and tap Edit — the edit is saved for {coupleName} as a new form.</p>
+            <p className="text-sm text-ink/70">None yet. Open a form from your library and tap Edit — the edit is saved for {coupleName} as a new form.</p>
           ) : (
             <ul className="space-y-2">
               {eventForms.map((f) => {
@@ -183,12 +183,12 @@ export function FormsPageBody({
                     <button type="button" className={ROW} onClick={() => setViewing(f)} data-forms-event-row={f.formId}>
                       <span className="min-w-0">
                         <span className="block truncate text-[15px] font-medium text-ink">{f.title}</span>
-                        <span className="block text-[12px] text-ink/60">
+                        <span className="block text-xs text-ink/70">
                           {f.sizeLine} · {sent ? sentFormState(sent).words : 'Not sent yet'}
                           {f.inLibrary ? ' · in your library' : ''}
                         </span>
                       </span>
-                      <ChevronRight className="h-4 w-4 flex-none text-ink/40" aria-hidden />
+                      <ChevronRight className="h-4 w-4 flex-none text-ink/70" aria-hidden />
                     </button>
                   </li>
                 );
@@ -206,7 +206,7 @@ export function FormsPageBody({
         {library === null ? (
           <Unread what="your forms" />
         ) : library.length === 0 ? (
-          <p className="text-sm text-ink/60">No forms yet. Tap ＋ New form to make your first.</p>
+          <p className="text-sm text-ink/70">No forms yet. Tap ＋ New form to make your first.</p>
         ) : (
           <ul className="space-y-2" data-forms-library>
             {library.map((f) => (
@@ -214,11 +214,11 @@ export function FormsPageBody({
                 <button type="button" className={ROW} onClick={() => openForm(f)}>
                   <span className="min-w-0">
                     <span className="block truncate text-[15px] font-medium text-ink">{f.title}</span>
-                    <span className="block text-[12px] text-ink/60">
+                    <span className="block text-xs text-ink/70">
                       {f.sizeLine} · {usedWithLine(f.usedWith)}
                     </span>
                   </span>
-                  <ChevronRight className="h-4 w-4 flex-none text-ink/40" aria-hidden />
+                  <ChevronRight className="h-4 w-4 flex-none text-ink/70" aria-hidden />
                 </button>
               </li>
             ))}
@@ -234,16 +234,16 @@ export function FormsPageBody({
           {bookedUnread || event === null ? (
             <Unread what="the cards they booked" />
           ) : event.linkedToBooked.length === 0 ? (
-            <p className="text-sm text-ink/60">No form is linked to a card they booked. Link one in the Form Maker — it is sent by itself when they book.</p>
+            <p className="text-sm text-ink/70">No form is linked to a card they booked. Link one in the Form Maker — it is sent by itself when they book.</p>
           ) : (
             <ul className="space-y-2" data-forms-booked>
               {event.linkedToBooked.map((l) => (
                 <li key={l.formId} className={ROW}>
                   <span className="min-w-0">
                     <span className="block truncate text-[15px] font-medium text-ink">{l.cardTitles.join(' · ')}</span>
-                    <span className="block text-[12px] text-ink/60">Its card’s form · {l.title}</span>
+                    <span className="block text-xs text-ink/70">Its card’s form · {l.title}</span>
                   </span>
-                  <span className={`flex-none rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${l.sent ? 'bg-success-100 text-success-800' : 'bg-ink/[0.06] text-ink/70'}`}>
+                  <span className={`flex-none rounded-full px-2.5 py-0.5 text-xs font-semibold ${l.sent ? 'bg-success-100 text-success-800' : 'bg-ink/[0.06] text-ink/70'}`}>
                     {l.sent ? 'Attached' : 'Sends on booking'}
                   </span>
                 </li>
@@ -266,7 +266,7 @@ export function FormsPageBody({
           <ThumbRow
             name="client-forms"
             right={[{ icon: FolderOpen, label: 'Load a form', onClick: () => setLoadOpen(true), testId: 'forms-load' }]}
-            action={{ node: <ActionButton tone="brand" main icon={Plus} label="New form" onClick={fresh} data-testid="forms-new" /> }}
+            action={{ node: <ActionButton tone="brand" main icon={Plus} label="New form" onClick={fresh} data-testid="forms-new" className="!h-11" /> }}
           />
         }
       />
@@ -291,7 +291,7 @@ export function FormsPageBody({
             main
             icon={Plus}
             label="New form"
-            className="w-full"
+            className="w-full !h-11"
             onClick={() => {
               setLoadOpen(false);
               fresh();
@@ -349,11 +349,11 @@ export function FormsLibraryList({
   return (
     <>
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/60">Your forms · saved to your library</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink/70">Your forms · saved to your library</p>
         {library === null ? (
           <Unread what="your forms" />
         ) : library.length === 0 ? (
-          <p className="text-sm text-ink/60">No forms yet.</p>
+          <p className="text-sm text-ink/70">No forms yet.</p>
         ) : (
           library.map((f) => (
             <button
@@ -364,11 +364,11 @@ export function FormsLibraryList({
             >
               <span className="min-w-0">
                 <span className="block truncate text-[15px] font-medium text-ink">{f.title}</span>
-                <span className="block text-[12px] text-ink/60">
+                <span className="block text-xs text-ink/70">
                   {f.sizeLine} · {usedWithLine(f.usedWith)}
                 </span>
               </span>
-              <ChevronRight className="h-4 w-4 flex-none text-ink/40" aria-hidden />
+              <ChevronRight className="h-4 w-4 flex-none text-ink/70" aria-hidden />
             </button>
           ))
         )}
@@ -389,7 +389,7 @@ export function FormsLibraryList({
           busy={busy}
         />
       ) : null}
-      <p className="text-[13px] text-ink/60">Every form is open to every service. A form is sent to the couple from the chat; they answer in their event.</p>
+      <p className="text-[13px] text-ink/70">Every form is open to every service. A form is sent to the couple from the chat; they answer in their event.</p>
     </>
   );
 }
@@ -440,7 +440,7 @@ export function ShopFormsMaker({
           {said}
         </p>
       ) : null}
-      <ActionButton tone="brand" main icon={Plus} label="New form" className="w-full" onClick={() => setMaker({ open: true, draft: null })} />
+      <ActionButton tone="brand" main icon={Plus} label="New form" className="w-full !h-11" onClick={() => setMaker({ open: true, draft: null })} />
       <FormMaker
         open={maker.open}
         onClose={() => setMaker((m) => ({ ...m, open: false }))}
@@ -470,24 +470,24 @@ function SuggestionList({
 }) {
   return (
     <div className="space-y-2" data-forms-suggested>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/60">{heading}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink/70">{heading}</p>
       {items === null ? (
         <Unread what="the suggestions" />
       ) : items.length === 0 ? (
-        <p className="text-sm text-ink/60">{emptyLine}</p>
+        <p className="text-sm text-ink/70">{emptyLine}</p>
       ) : (
         items.map((s) => (
           <div key={s.templateKey} className={ROW}>
             <span className="min-w-0">
               <span className="block truncate text-[15px] font-medium text-ink">{s.title}</span>
-              <span className="block text-[12px] text-ink/60">
+              <span className="block text-xs text-ink/70">
                 {formatCount(s.itemCount)} question{s.itemCount === 1 ? '' : 's'}
               </span>
             </span>
             <button
               type="button"
               disabled={busy}
-              className="min-h-11 flex-none px-2 text-[14px] font-semibold text-sn-accent disabled:opacity-50"
+              className="min-h-11 flex-none px-2 text-sm font-semibold text-sn-accent disabled:opacity-50"
               onClick={() => onUse(s.templateKey)}
             >
               Use this
@@ -502,7 +502,7 @@ function SuggestionList({
 function Unread({ what }: { what: string }) {
   return (
     <p role="alert" className="text-sm text-ink/70">
-      <ClipboardList className="mr-1 inline h-4 w-4 align-[-2px] text-ink/50" aria-hidden />
+      <ClipboardList className="mr-1 inline h-4 w-4 align-[-2px] text-ink/70" aria-hidden />
       We couldn’t load {what}. Reload in a moment — nothing was lost.
     </p>
   );

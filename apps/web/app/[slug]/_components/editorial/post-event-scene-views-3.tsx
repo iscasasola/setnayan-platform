@@ -76,7 +76,10 @@ export function RoadScene({
       </div>
     );
   }
-  if (style === 'diary') {
+  /* ⏳ A COUNTDOWN ONLY WHEN SOMETHING COUNTS DOWN (F-W2-48, the live walk after #7596): a road whose steps carry no date
+     before the day (a year, or nothing) drew no figure but the last stop — "0 · THE DAY", an empty countdown. Such a
+     road reads as the diary: each step by its month or year, nothing counted. */
+  if (style === 'diary' || (style !== 'scrapbook' && !roadCountsDown(entries, dayMs))) {
     /* .diary — the month as the margin figure; one line per entry. */
     return (
       <div className="py-8">
@@ -150,17 +153,17 @@ export function RoadScene({
             </li>
           );
         })}
-        {dayMs !== null ? (
-          <li className="relative">
-            <span aria-hidden className="absolute -left-[22px] top-2.5 h-2.5 w-2.5 rounded-full bg-terracotta" />
-            <span className="block font-serif text-[1.9rem] leading-none text-terracotta-700">
-              0<span className={`${MICRO} ml-2`}>the day</span>
-            </span>
-          </li>
-        ) : null}
+        {/* (No "0 · the day" stop — F-W2-48, the walk after #7628: a stop with no step on it read as an empty row.
+            The road ends on its last real step; the day itself is the story's own next scene.) */}
       </ol>
     </div>
   );
+}
+
+/** ⏳ Does any step of the road come before the day by a whole day or more — something a countdown can count? */
+export function roadCountsDown(entries: readonly Pick<RoadEntry, 'atMs'>[], dayMs: number | null): boolean {
+  if (dayMs === null) return false;
+  return entries.some((e) => e.atMs !== null && Math.round((dayMs - e.atMs) / 86_400_000) > 0);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -474,6 +477,47 @@ export function BeforeAfterScene({
         <span className={MICRO}>The Save the Date</span>
         <span className={`${MICRO} text-right`}>The day after</span>
       </span>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   🎁 THANK YOU FOR YOUR GIFT (owner 2026-11-13, DECISION_LOG "POST EVENT = A
+   STORY (ONE SCENE PER SCREEN) — SIX CALLS SETTLED" (2)) — the couple's ONE
+   line for every giver. One look (`one-line`); its one part is the line
+   (`sceneLooks.gifts.words.body`).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * 🔒 WHO MEETS IT IS THE CALLER'S, AND THE DATA'S: it is mounted for a guest only
+ * when `readOwnGiftThanks` said this reader has a gift record here, and it is
+ * handed nothing about any gift — no amount, no wish, no count. `firstName` is
+ * the reader's own (their guest row), shown back only to them. `placeholder` is
+ * the couple's own canvas, before they wrote the line.
+ */
+export function GiftThanksScene({
+  line,
+  firstName,
+  label,
+  placeholder,
+}: {
+  line: string | null;
+  firstName: string | null;
+  label: string | null;
+  placeholder: string | null;
+}): ReactElement {
+  return (
+    <div className="py-8" data-gift-thanks="">
+      <p className={EYEBROW}>{label ?? 'For your gift'}</p>
+      <h2 className={H2}>{firstName ? `Thank you, ${firstName}.` : 'Thank you.'}</h2>
+      {line ? (
+        <p className="mt-4 max-w-[34ch] whitespace-pre-line font-serif text-[1.35rem] leading-snug text-ink">{line}</p>
+      ) : placeholder ? (
+        <span data-post-event-waiting="" className="mt-4 block font-serif text-lg italic leading-snug text-ink/70">
+          {placeholder}
+        </span>
+      ) : null}
+      <span className="mt-5 inline-block rounded-full bg-ink/[0.06] px-3 py-1 text-xs font-semibold text-ink/70">Only you see this screen</span>
     </div>
   );
 }

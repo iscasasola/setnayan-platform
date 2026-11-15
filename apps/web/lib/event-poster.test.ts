@@ -256,3 +256,33 @@ test('the poster circle never shrinks into an oval', () => {
   assert.match(block, /aspect-ratio:\s*1/, 'the circle lost its 1:1 shape');
   assert.match(block, /flex-shrink:\s*0/, 'the circle can shrink — a tall paper squashes it into an oval');
 });
+
+/* 🏷 THE CHIPS NEVER COVER THE MARK OR THE NAME (controller 2026-11-13, Home at 390 px: "YOU ORGANISE THIS" sat
+   on the deep poster's "S"). The card's kicker chips stack at its top-left; `CollectionCard` sets `--chip-room`
+   to their height and the deep poster's mark and words start below it. Measured by evaluating the stylesheet's
+   own expressions across the widths a poster card is drawn at (two-up phone to a five-up desktop). */
+test('a poster card keeps its mark and name below the chip stack at every card width', () => {
+  const web = join(dirname(fileURLToPath(import.meta.url)), '..');
+  const css = readFileSync(join(web, 'app/_components/event-poster.module.css'), 'utf8');
+  const card = readFileSync(join(web, 'app/_components/collection-card.tsx'), 'utf8');
+  const room = /'--chip-room':\s*'([\d.]+)rem'/.exec(card)?.[1];
+  assert.ok(room, 'CollectionCard no longer tells the poster how tall its chips are');
+  const chipRoomPx = Number(room) * 16;
+  // Two stacked chips (9px mono, py-1) from top-2 measured 56 px in the 390 px shot.
+  assert.ok(chipRoomPx >= 56, `--chip-room ${chipRoomPx}px is shorter than the two-row chip stack (56px)`);
+  const topOf = (sel: string): ((w: number) => number) => {
+    const block = new RegExp(`\\n\\${sel}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+    const m = /top:\s*max\(([\d.]+)cqw,\s*calc\(var\(--chip-room,\s*0px\)\s*\+\s*([\d.]+)cqw\)\)/.exec(block);
+    assert.ok(m, `${sel} no longer starts below the chip room`);
+    return (w) => Math.max((Number(m[1]) * w) / 100, chipRoomPx + (Number(m[2]) * w) / 100);
+  };
+  const mono = topOf('.mono'); // centre; the letter is 22cqw tall
+  const mark = topOf('.markImg'); // centre; the logo is 38cqw tall
+  const words = topOf('.deepTxt'); // top edge
+  for (let w = 128; w <= 300; w += 4) {
+    const cqw = w / 100;
+    assert.ok(mono(w) - 11 * cqw >= chipRoomPx - 0.5, `at ${w}px the monogram's top is under the chips`);
+    assert.ok(mark(w) - 19 * cqw >= chipRoomPx - 0.5, `at ${w}px the logo's top is under the chips`);
+    assert.ok(words(w) >= mark(w) + 19 * cqw, `at ${w}px the names start inside the mark`);
+  }
+});

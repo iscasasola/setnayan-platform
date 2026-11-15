@@ -17,7 +17,6 @@ import { readClaimedTeamInvite } from '@/lib/vendor-invites';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import {
-  TIER_PRICE_PHP,
   TIER_CAPS,
   asVendorTier,
   isTierAtLeast,
@@ -29,9 +28,7 @@ import {
 import {
   fetchVendorAiAddonState,
   isVendorAiAddonActive,
-  VENDOR_AI_ADDON_FALLBACK_PHP,
 } from '@/lib/vendor-addon-pricing';
-import { VENDOR_DEEP_SEARCH_FALLBACK_PHP } from '@/lib/vendor-deep-search-addon';
 import {
   fetchVendor3dBoothState,
   fetchVendor3dBoothPricePhp,
@@ -54,7 +51,7 @@ import {
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { PlanSheet, type PlanPick, type SheetPlan } from './plan-sheet';
-import { changeKind, payToday, planChanges, planRowLine, sheetPlans } from '@/lib/plan-sheet';
+import { changeKind, payToday, planChanges, planDirection, planRowLine, sheetPlans } from '@/lib/plan-sheet';
 import { papersProgress } from '@/lib/locks';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -72,6 +69,9 @@ import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-wo
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
 import { formatPhp } from '@/lib/php';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { downgradeFit } from '@/lib/downgrade-limits';
+import { readDowngradeFacts, readStoredBytes, storageAllowanceBytes } from '@/lib/downgrade-limits.server';
+import { storageRowLine } from '@/lib/supplier-storage';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveBookingFeeStanding } from '@/lib/booking-fee-disclosure.server';
 import type { BookingFeeStanding } from '@/lib/booking-fee-disclosure';
@@ -109,12 +109,16 @@ import { ShopNotice } from '../../_components/kit';
 
 const NUMBER = new Intl.NumberFormat('en-PH');
 
+/**
+ * 📅 RW-30 (walk 13 Nov 2026): ONE date phrasing on this page — "12 Dec 2026", the gift's own words (`offerDayWords`),
+ * of the MANILA day. It printed "Dec 11, 2026" (US order, the server's UTC day) beside the gift's "12 Dec 2026" for the
+ * same moment: a plan that ends at 00:24 on 12 Dec in Manila is still 11 Dec in UTC.
+ */
 function fmtDate(s: string) {
-  return new Date(s).toLocaleDateString('en-PH', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  const ms = Date.parse(s);
+  if (!Number.isFinite(ms)) return s;
+  const manilaDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+  return offerDayWords(manilaDay);
 }
 
 export type PlanSearch = {
@@ -243,9 +247,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     fetchVendorAddonPricePhp(supabase, 'ai_chatbot_basic', currentTier),
     fetchVendorAddonPricePhp(supabase, 'deep_search_about_you', currentTier),
   ]);
-  const aiAddonPricePhp = aiAddonBandPricePhp ?? VENDOR_AI_ADDON_FALLBACK_PHP;
+  // 💰 The catalogue row or NO figure (owner 2026-11-13: no typed prices) — never a remembered fallback on screen.
+  const aiAddonPricePhp = aiAddonBandPricePhp;
   // Deep Search — for the doorway copy below, so the tile never quotes a price the runner won't charge.
-  const deepSearchPricePhp = deepSearchBandPricePhp ?? VENDOR_DEEP_SEARCH_FALLBACK_PHP;
+  const deepSearchPricePhp = deepSearchBandPricePhp;
   const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
 
   // ── 3D Booth add-on state (owner 2026-07-22) ───────────────────────────────
@@ -430,8 +435,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       name: planWord(tier),
       price: Object.fromEntries(
         (['monthly', 'annual'] as const).flatMap((cy) => {
-          const v = priceBySku.get(skuFor(tier, cy)) ?? TIER_PRICE_PHP[tier][cy];
-          return Number.isFinite(v) ? [[cy, v]] : [];
+          // 💰 The catalogue row or nothing (owner 2026-11-13): an unread plan price shows no figure and no Pay button.
+          const v = priceBySku.get(skuFor(tier, cy));
+          return v !== undefined && Number.isFinite(v) ? [[cy, v]] : [];
         }),
       ) as PlanPick['price'],
       tooShort: {
@@ -473,6 +479,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     isStoreShellRequest(),
   ]);
   const pickBy = new Map(plans.map((p) => [p.key, p]));
+  // 📉 THE LIMITS SHEET (ruling 5683): what the shop has today that a LOWER plan does not hold — read once, only when
+  // there is a lower plan to show (Free has none below it).
+  const downgradeFacts =
+    currentTier === 'free' ? null : await readDowngradeFacts(supabase, createAdminClient(), profile.vendor_profile_id);
   const sheet: SheetPlan[] = sheetPlans(currentTier)
     .filter((t) => t === 'free' || t === 'verified' || (visibleTiers as readonly string[]).includes(t))
     .map((t) => {
@@ -502,6 +512,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         ),
         pickLine: planPickLine(currentTier, t, expiresOn),
         changes: planChanges(currentTier, t, paywallOn),
+        fit:
+          downgradeFacts && planDirection(currentTier, t) === 'down'
+            ? downgradeFit(downgradeFacts, currentTier, t, { paywallOn, storageAllowanceBytes: storageAllowanceBytes(t), now: new Date(now) })
+            : null,
       };
     });
   const currentPrice =
@@ -555,6 +569,21 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         giftEnded: Boolean(giftEnded),
       })
     : PORTFOLIO_ALLOWANCE_UNREAD;
+
+  // 💾 STORAGE (owner 2026-11-13 "plan storage": Solo 5 GB · Pro 10 GB · Ultra 15 GB) — "1.2 GB of 5 GB used", from the
+  // SAME read the limits sheet and the upload refusal use. A read that failed says so, never "0 MB". No allowance (Free ·
+  // Verified) = no row. The limits sheet above already read it for every paid plan; read again only if it did not.
+  const storageLine =
+    storageAllowanceBytes(currentTier) === null
+      ? null
+      : storageRowLine(
+          currentTier,
+          downgradeFacts
+            ? downgradeFacts.storedBytes === null
+              ? { status: 'unread' }
+              : { status: 'ok', bytes: downgradeFacts.storedBytes }
+            : await readStoredBytes(createAdminClient(), profile.vendor_profile_id),
+        );
 
   return (
     <Column embedded={embedded}>
@@ -631,6 +660,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         featured={featured}
         gift={gift ? { line: giftPlanLine(gift) } : giftEnded ? { line: giftEndedLine(giftEnded.plan, giftEnded.untilDay) } : null}
         photosLine={photosLine}
+        storageLine={storageLine}
       />
 
       {/* 🎁 YOUR GIFTS moved to Shop › Promote (owner 2026-11-05, DECISION_LOG "SHOP › PROMOTE IS THE HOME OF THE
@@ -721,7 +751,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
           <p className="mt-0.5 text-sm text-ink/60">
             {isPaidTierForAddon
               ? isVerifiedVendor
-                ? `We research your business and hand you a “what we learned” review. ₱${deepSearchPricePhp.toLocaleString('en-PH')} per search, one search per purchase.`
+                ? `We research your business and hand you a “what we learned” review. ${deepSearchPricePhp !== null ? `₱${deepSearchPricePhp.toLocaleString('en-PH')} per search, one` : 'One'} search per purchase.`
                 : 'Get verified to run Deep Search — it researches your business and hands you a “what we learned” review to copy in.'
               : 'A paid-plan add-on: we research your business and hand you a “what we learned” review to auto-fill your profile.'}
           </p>

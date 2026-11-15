@@ -73,7 +73,7 @@ test('⛔ the off-season nudge and its ?offpeak=1 seed are gone — the Offer Ma
 
 test('couples see the single best of the cards’ rows AND the shop’s offers, decided in ONE function', () => {
   assert.match(read('lib/offers.server.ts'), /fetchDiscountsByServicePublic\(client, serviceIds\), fetchOfferCandidatesByService\(client, serviceIds\)/);
-  for (const p of ['app/v/[slug]/page.tsx', 'app/(shell)/explore/page.tsx']) assert.match(read(p), /fetchDiscountsWithOffers\(admin,/, `${p} reads discounts without the offers`);
+  for (const p of ['app/v/[slug]/page.tsx', 'app/(shell)/explore/_lib/marketplace-view.tsx']) assert.match(read(p), /fetchDiscountsWithOffers\(admin,/, `${p} reads discounts without the offers`);
   assert.match(read('app/vendor-dashboard/messages/[threadId]/proposal-actions.ts'), /withOfferCandidates\(rows, offers\)/, 'the quote seed ignores the offers');
   assert.match(LIST, /return pickBestDiscount\(\[\.\.\.\(card\.discounts \?\? \[\]\), \.\.\.offerCandidatesFor\(offers, card\.id, today\)\]/, 'the maker decides "wins here" with a second opinion');
 });

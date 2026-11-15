@@ -23,10 +23,11 @@
  * Reuses updateVendorCosts (../../actions) — no new writer, no schema.
  */
 
-import { useRef, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { X, Receipt, Sparkles } from 'lucide-react';
-import { useModalA11y } from '@/lib/use-modal-a11y';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { ActionButton, EqualRow } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { Sheet } from '@/app/_components/sheet';
 import { updateVendorCosts } from '../../../actions';
 import { useSaveLoader } from '@/components/sd-loader';
 
@@ -93,17 +94,11 @@ export function QuoteBridge({
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const save = useSaveLoader();
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  // Focus trap + Esc-to-close + scroll lock. Esc is suspended mid-submit so an
-  // in-flight save can't be interrupted (matched the old inline guard).
-  useModalA11y({
-    open,
-    onClose: () => {
-      if (!pending) setOpen(false);
-    },
-    containerRef: dialogRef,
-  });
+  // Esc, the backdrop, the ✕ and the phone's Back all go through the house sheet's onClose — suspended mid-submit so
+  // an in-flight save can't be interrupted (matched the old inline guard).
+  const close = () => {
+    if (!pending) setOpen(false);
+  };
 
   const hasChat = showChatChip && chatAmountsPesos.length > 0;
   const hasProposals = proposalCandidates.length > 0;
@@ -169,34 +164,29 @@ export function QuoteBridge({
   // The single chat amount we lead the chip with (freshest, first in list).
   const leadChat = hasChat ? chatAmountsPesos[0] : null;
 
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 9 · 11 · 13 · 14): each offer is a row that needs you — a gold edge,
+  // bold money, one shared pill — not a tinted box; the money-safety gate RISES as the house sheet (✕ and Cancel go
+  // back, the two foot buttons equal widths) instead of a hand-drawn overlay. Every number and word kept.
   return (
     <>
       {/* --- Advisory affordances (no auto-fill; just open the gate) --- */}
-      <div className="space-y-2">
+      <div className="divide-y divide-ink/10">
         {hasChat && leadChat != null ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-terracotta/25 bg-terracotta/5 px-3 py-2.5">
-            <Sparkles
-              aria-hidden
-              className="h-4 w-4 shrink-0 text-terracotta"
-              strokeWidth={1.75}
-            />
-            <p className="min-w-0 flex-1 text-xs text-ink/75">
-              Quote received in chat —{' '}
-              <span className="font-semibold text-ink">{fmtPeso(leadChat)}</span>. Log it
+          <div className="flex min-h-14 flex-wrap items-center gap-2 border-l-[3px] border-l-terracotta py-2.5 pl-3">
+            <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+            <p className="min-w-0 flex-1 text-sm text-ink">
+              Quote received in chat — <span className="font-bold tabular-nums">{fmtPeso(leadChat)}</span>. Log it
               to your build?
             </p>
             <div className="flex flex-wrap gap-1.5">
               {chatAmountsPesos.slice(0, 3).map((amt) => (
-                <button
+                <ActionButton
                   key={`chat-${amt}`}
-                  type="button"
-                  onClick={() =>
-                    openWith({ servicePesos: amt, label: 'Quote from chat' })
-                  }
-                  className="inline-flex min-h-[36px] items-center gap-1 rounded-full border border-terracotta/30 bg-cream px-3 py-1.5 text-xs font-semibold text-terracotta-700 transition-colors hover:bg-terracotta/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                >
-                  Log {fmtPeso(amt)}
-                </button>
+                  tone="brand"
+                  icon={Receipt}
+                  label={`Log ${fmtPeso(amt)}`}
+                  onClick={() => openWith({ servicePesos: amt, label: 'Quote from chat' })}
+                />
               ))}
             </div>
           </div>
@@ -206,25 +196,19 @@ export function QuoteBridge({
           ? proposalCandidates.map((p) => (
               <div
                 key={p.id}
-                className="flex flex-wrap items-center gap-2 rounded-xl border border-mulberry/20 bg-mulberry/5 px-3 py-2.5"
+                className="flex min-h-14 flex-wrap items-center gap-2 border-l-[3px] border-l-terracotta py-2.5 pl-3"
               >
-                <Receipt
-                  aria-hidden
-                  className="h-4 w-4 shrink-0 text-mulberry"
-                  strokeWidth={1.75}
-                />
-                <p className="min-w-0 flex-1 text-xs text-ink/75">
-                  <span className="font-medium text-ink">{p.label}</span> —{' '}
-                  <span className="font-semibold text-ink">
-                    {fmtPeso(
-                      (p.servicePesos || 0) +
-                        (p.transportPesos || 0) +
-                        (p.foodPesos || 0),
-                    )}
+                <Receipt aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
+                <p className="min-w-0 flex-1 text-sm text-ink">
+                  <span className="font-semibold">{p.label}</span> —{' '}
+                  <span className="font-bold tabular-nums">
+                    {fmtPeso((p.servicePesos || 0) + (p.transportPesos || 0) + (p.foodPesos || 0))}
                   </span>
                 </p>
-                <button
-                  type="button"
+                <ActionButton
+                  tone="brand"
+                  icon={Receipt}
+                  label="Log as service price"
                   onClick={() =>
                     openWith({
                       servicePesos: p.servicePesos,
@@ -233,123 +217,91 @@ export function QuoteBridge({
                       label: p.label,
                     })
                   }
-                  className="inline-flex min-h-[36px] items-center gap-1 rounded-full border border-mulberry/30 bg-cream px-3 py-1.5 text-xs font-semibold text-mulberry transition-colors hover:bg-mulberry/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                >
-                  Log as service price
-                </button>
+                />
               </div>
             ))
           : null}
       </div>
 
-      {/* --- The money-safety gate: editable confirm modal --- */}
-      {open ? (
-        <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="quote-bridge-heading"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 focus:outline-none"
-        >
-          <OverlayBackdrop
-            onClose={() => {
-              if (!pending) setOpen(false);
-            }}
-          />
-          <div className="relative w-full max-w-md rounded-xl bg-cream p-6 shadow-xl ring-1 ring-ink/10">
-            <header className="flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
-                  {sourceLabel || 'Log this quote'}
-                </p>
-                <h2
-                  id="quote-bridge-heading"
-                  className="text-lg font-semibold text-ink"
-                >
-                  Log this quote to your build
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close"
-                disabled={pending}
-                className="rounded-full p-1 text-ink/50 hover:bg-ink/5 hover:text-ink disabled:opacity-50"
-              >
-                <X className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-            </header>
-
-            <p className="mt-3 text-sm text-ink/70">
-              We&rsquo;ve filled in the amount we found. Check every number and edit
-              anything before saving — nothing is saved until you confirm.
-            </p>
-
-            <form className="mt-4 space-y-3" onSubmit={handleConfirm}>
-              {[
-                { label: 'Service price', value: service, set: setService, name: 'service' },
-                {
-                  label: 'Transport cost',
-                  value: transport,
-                  set: setTransport,
-                  name: 'transport',
-                },
-                { label: 'Food allowance', value: food, set: setFood, name: 'food' },
-              ].map((line) => (
-                <label
-                  key={line.name}
-                  className="flex items-center justify-between gap-3 text-sm"
-                >
-                  <span className="text-ink/65">{line.label}</span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="text-ink/40">₱</span>
-                    <input
-                      name={line.name}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      inputMode="decimal"
-                      value={line.value}
-                      onChange={(e) => line.set(e.target.value)}
-                      autoFocus={line.name === 'service'}
-                      className="w-32 rounded-md border border-ink/15 bg-white dark:bg-raised px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
-                    />
-                  </span>
-                </label>
-              ))}
-
-              <p className="text-[11px] leading-relaxed text-ink/55">
-                Saving overwrites your stored costs for this supplier. Transport &amp; food
-                start from your current values — change them only if you mean to.
-              </p>
-
-              {errorMsg ? (
-                <p className="rounded-md bg-danger-50 px-3 py-2 text-xs text-danger-800 ring-1 ring-inset ring-danger-200">
-                  {errorMsg}
-                </p>
-              ) : null}
-
-              <div className="flex gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  disabled={pending}
-                  className="rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/10 disabled:opacity-60"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:opacity-60"
-                >
-                  {pending ? 'Saving…' : 'Confirm & save to build'}
-                </button>
-              </div>
-            </form>
+      {/* --- The money-safety gate: an editable confirm, in the house sheet --- */}
+      <Sheet
+        open={open}
+        onClose={close}
+        labelledById="quote-bridge-heading"
+        rise
+        foot={
+          <div className="px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3">
+            <EqualRow>
+              <ActionButton tone="neutral" icon={X} label="Cancel" onClick={close} disabled={pending} />
+              <ActionButton
+                type="submit"
+                form="quote-bridge-form"
+                tone="brand"
+                main
+                icon={Receipt}
+                label={pending ? 'Saving…' : 'Confirm & save to build'}
+                waiting={pending}
+              />
+            </EqualRow>
           </div>
+        }
+      >
+        <div className="space-y-3 px-4 pb-4 pt-3">
+          <header className="space-y-1 pr-12">
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
+              {sourceLabel || 'Log this quote'}
+            </p>
+            <h2 id="quote-bridge-heading" className="text-[17px] font-semibold text-ink">
+              <InfoTip label="Log this quote to your build" labelAs="span" labelClassName="text-[17px] font-semibold text-ink" align="start">
+                We&rsquo;ve filled in the amount we found. Check every number and edit anything before saving — nothing is
+                saved until you confirm.
+              </InfoTip>
+            </h2>
+          </header>
+
+          <form id="quote-bridge-form" className="divide-y divide-ink/10" onSubmit={handleConfirm}>
+            {[
+              { label: 'Service price', value: service, set: setService, name: 'service' },
+              {
+                label: 'Transport cost',
+                value: transport,
+                set: setTransport,
+                name: 'transport',
+              },
+              { label: 'Food allowance', value: food, set: setFood, name: 'food' },
+            ].map((line) => (
+              <label key={line.name} className="flex min-h-14 items-center justify-between gap-3 text-[15px]">
+                <span className="text-ink">{line.label}</span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="font-semibold text-ink/70">₱</span>
+                  <input
+                    name={line.name}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={line.value}
+                    onChange={(e) => line.set(e.target.value)}
+                    autoFocus={line.name === 'service'}
+                    className="min-h-12 w-36 rounded-xl border border-ink/15 bg-white dark:bg-raised px-3 text-right text-[15px] font-semibold tabular-nums text-ink focus:border-terracotta focus:outline-none"
+                  />
+                </span>
+              </label>
+            ))}
+          </form>
+
+          <p className="text-[13px] leading-relaxed text-ink/70">
+            Saving overwrites your stored costs for this supplier. Transport &amp; food start from your current values —
+            change them only if you mean to.
+          </p>
+
+          {errorMsg ? (
+            <p role="alert" className="text-[13px] text-[rgb(var(--color-danger))]">
+              {errorMsg}
+            </p>
+          ) : null}
         </div>
-      ) : null}
+      </Sheet>
     </>
   );
 }

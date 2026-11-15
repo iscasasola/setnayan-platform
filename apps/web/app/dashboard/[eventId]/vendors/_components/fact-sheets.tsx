@@ -42,7 +42,15 @@ import type { DateClash } from '@/lib/date-fits-booked';
 import { dateChangeAnswerLine, dateChangeWhen } from '@/lib/date-change';
 import { formatCount } from '@/lib/format-number';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
-import { updateEventDate, type EventDateSaveResult } from '../../actions';
+import {
+  updateEventDate,
+  updateEventMatchCriteria,
+  type EventDateOptionsResult,
+  type EventDateSaveResult,
+} from '../../actions';
+import { DateCalendar, type DateCalendarValue } from '@/app/onboarding/_shared/date-calendar';
+import { addDaysIso, asksHowManyDays, daysBetweenIso, MAX_EVENT_DAYS } from '@/lib/event-date-options';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { noDayWords } from '@/lib/help-me-choose';
 import type { MatrixDate } from '@/lib/schedule-matrix';
 import {
@@ -73,8 +81,13 @@ import { lockedPlaceWhy, placeLockedByReception } from '@/lib/your-place';
 
 export type FactSheetStandIns = {
   open: (which: FactSheetKey, month: string | null) => Promise<FactSheetData>;
-  /** 🗓 The date, straight to the event — its one live door (`updateEventDate`; owner 2026-11-05). */
-  date: (date: string, precision: 'day' | 'month') => Promise<EventDateSaveResult>;
+  /** 🗓 The date, straight to the event — its one live door (`updateEventDate`; owner 2026-11-05). `extra.end` posts the
+   *  main span's last day (null = "Same day"; owner 2026-11-13); `extra.clearOptions` — a day replaces the options. */
+  date: (date: string, precision: 'day' | 'month', extra?: { end?: string | null; clearOptions?: boolean }) => Promise<EventDateSaveResult>;
+  /** 📅 A few dates — the options and the day count (`updateEventDate` with `date_options=1`, owner 2026-11-13). Absent in a lab = saved. */
+  options?: (o: Required<Pick<DateCalendarValue, 'dateMode' | 'dateCandidates' | 'windowStart' | 'windowEnd'>> & { days: number }) => Promise<EventDateOptionsResult>;
+  /** 📍 A non-wedding's City or area = `events.region`, through `updateEventMatchCriteria` (owner 2026-11-13). Absent in a lab = saved. */
+  region?: (next: string, was: string | null) => Promise<{ ok: true } | { ok: false; message: string }>;
   /** A place patch through the one draft door (`hubDraftAction` intent `save`). */
   draft: (patch: Record<string, unknown>) => Promise<HubDraftActionResult>;
   /** The date-change request (J51): withdraw it. */
@@ -94,12 +107,34 @@ function useDoors(eventId: string, priced: readonly string[]): FactSheetStandIns
     () =>
       lab ?? {
         open: (which, month) => openFactSheet(eventId, { which, month, priced: pricedKey ? pricedKey.split(',') : [] }),
-        date: (date, precision) => {
+        date: (date, precision, extra) => {
           const fd = new FormData();
           fd.set('event_id', eventId);
           fd.set('event_date', date);
           fd.set('precision', precision);
+          if (extra && 'end' in extra) fd.set('event_end_date', extra.end ?? '');
+          if (extra?.clearOptions) fd.set('clear_options', '1');
           return updateEventDate(fd);
+        },
+        options: (o) => {
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('date_options', '1');
+          fd.set('date_mode', o.dateMode);
+          for (const c of o.dateCandidates) fd.append('date_candidate', c);
+          if (o.windowStart) fd.set('date_window_start', o.windowStart);
+          if (o.windowEnd) fd.set('date_window_end', o.windowEnd);
+          fd.set('event_days', String(o.days));
+          return updateEventDate(fd).then((r): EventDateOptionsResult => (r.ok ? { ok: true, message: r.note ?? 'Saved.' } : { ok: false, error: r.error }));
+        },
+        region: (next, was) => {
+          /* ONE value — the Region in ⚙ Event settings. Posted "based" (what it started from), so ONLY the region is
+             written: the feel, the budget and the names another screen holds are left exactly as they are. */
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('region', next);
+          fd.set(MERGE_BASE_FIELD, JSON.stringify({ region: JSON.stringify([was ?? '']) }));
+          return updateEventMatchCriteria(fd);
         },
         draft: (patch) => {
           const fd = new FormData();
@@ -172,14 +207,14 @@ export function FactSheet({
           </PeekToast>
         ) : null}
         <header>
-          <h2 id={headingId} className="font-serif text-[22px] leading-tight text-ink">
+          <h2 id={headingId} className="text-[17px] font-semibold leading-tight text-ink">
             {which === 'date' ? 'Your date' : 'Your place'}
           </h2>
-          <p className="text-[13px] text-ink/60">It gets sharper as you book.</p>
+          <p className="text-[13px] text-ink/70">It gets sharper as you book.</p>
         </header>
         {state.kind === 'loading' ? (
           <div aria-busy="true" data-fact-sheet-loading="" className="flex flex-col gap-2">
-            <p className="text-[13px] text-ink/60">{which === 'date' ? 'Checking your suppliers’ calendars…' : 'Opening your place…'}</p>
+            <p className="text-[13px] text-ink/70">{which === 'date' ? 'Checking your suppliers’ calendars…' : 'Opening your place…'}</p>
             <span className="skeleton block h-10 rounded-md" />
             <span className="skeleton block h-10 rounded-md" />
           </div>
@@ -190,6 +225,7 @@ export function FactSheet({
           </p>
         ) : state.data.which === 'date' ? (
           <DateBody
+            onCancel={onClose}
             eventId={eventId}
             data={state.data.date}
             helpFirst={helpFirst}
@@ -226,9 +262,9 @@ function Ladder({ rungs }: { rungs: readonly LadderRung[] }) {
         <li key={r.key} data-rung={r.key} data-on={r.on ? '1' : '0'} className="flex min-h-11 items-center gap-3 border-t border-ink/10 py-2 first:border-t-0">
           <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${r.on ? 'bg-sn-accent' : 'border border-ink/30'}`} />
           <span className="min-w-0 flex-1 text-[14px]">
-            <span className="text-ink/60">{r.label} · </span>
-            <span className={r.on ? 'text-ink' : 'text-ink/55'}>{r.value}</span>
-            {r.note ? <span className="text-ink/55"> · {r.note}</span> : null}
+            <span className="text-ink/70">{r.label} · </span>
+            <span className={r.on ? 'text-ink' : 'text-ink/70'}>{r.value}</span>
+            {r.note ? <span className="text-ink/70"> · {r.note}</span> : null}
           </span>
         </li>
       ))}
@@ -236,11 +272,12 @@ function Ladder({ rungs }: { rungs: readonly LadderRung[] }) {
   );
 }
 
-const SECTION_HEAD = 'font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55';
+const SECTION_HEAD = 'font-mono text-xs uppercase tracking-[0.06em] text-ink/70';
 
 /* ── DATE ──────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 function DateBody({
+  onCancel,
   eventId,
   data,
   helpFirst,
@@ -250,6 +287,7 @@ function DateBody({
   onFail,
   onReload,
 }: {
+  onCancel: () => void;
   eventId: string;
   data: DateSheetData;
   helpFirst: boolean;
@@ -259,23 +297,38 @@ function DateBody({
   onFail: (text: string) => void;
   onReload: () => void;
 }) {
-  const [mode, setMode] = useState<'have' | 'help'>(helpFirst ? 'help' : 'have');
+  const booked = data.bookedNames.length;
+  /* 📅 "A few dates" is offered while nobody is booked — once a booking holds the day it is gone (owner 2026-11-13). */
+  const fewOffered = booked === 0;
+  const maxDays = Math.min(MAX_EVENT_DAYS, Math.max(1, data.maxDays ?? 1));
+  const opts = data.options ?? { mode: 'specific' as const, candidates: [], windowStart: null, windowEnd: null };
+  const hasOptions = !data.date && (opts.candidates.length > 0 || !!(opts.windowStart && opts.windowEnd));
+  const [mode, setMode] = useState<'have' | 'few' | 'help'>(helpFirst ? 'help' : fewOffered && hasOptions ? 'few' : 'have');
   /* The date as it now stands on the event — shown at once after a save (the ladder, the row). */
-  const [shown, setShown] = useState({ date: data.date, precision: data.precision });
+  const [shown, setShown] = useState({ date: data.date, precision: data.precision, end: data.endDate ?? null });
   const [clash, setClash] = useState<{ reason: string; list: readonly DateClash[]; pick: { date: string; precision: string } } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [rowKey, setRowKey] = useState(0);
-  const booked = data.bookedNames.length;
 
-  /** A day (or a month) → the EVENT, at once. A day a booked supplier cannot do comes back refused, with who. */
-  const save = async (date: string, precision: 'day' | 'month'): Promise<SaveAnswer> => {
+  /* 📅 How long the span runs when a new first day is picked: the span as it stands, else the day count the options
+     carried ("your date becomes exact — N days from it"). Never past the type's cap. */
+  const spanLength = () => {
+    if (shown.precision === 'day' && shown.date && shown.end) return daysBetweenIso(shown.date, shown.end) + 1;
+    return Math.min(maxDays, Math.max(1, data.days ?? 1));
+  };
+
+  /** A day (or a month) → the EVENT, at once. A day a booked supplier cannot do comes back refused, with who. A DAY
+   *  also posts the span's last day (where the type may run longer than one) and replaces the options. */
+  const save = async (date: string, precision: 'day' | 'month', endIn?: string | null): Promise<SaveAnswer> => {
     setClash(null);
     setNote(null);
+    const spans = precision === 'day' && asksHowManyDays(maxDays);
+    const end = !spans ? null : endIn !== undefined ? endIn : spanLength() > 1 ? addDaysIso(date, spanLength() - 1) : null;
     try {
-      const r = await doors.date(date, precision);
+      const r = await doors.date(date, precision, precision === 'day' ? { ...(spans ? { end } : {}), clearOptions: true } : undefined);
       if (r.ok) {
-        setShown({ date, precision });
+        setShown({ date, precision, end: spans ? (end && end !== date ? end : null) : shown.end });
         setNote(r.note ?? savedDateNote(booked));
         onWrote(precision === 'day' ? `Your date is ${dayWords(date)}` : `Your date is ${dateChangeWhen(date, 'month')} for now`);
         return { ok: true };
@@ -292,11 +345,18 @@ function DateBody({
       return { ok: false, error: FAILED };
     }
   };
-  const ladder = dateLadder({ ...data, date: shown.date, precision: shown.precision });
+  const ladder = dateLadder({ ...data, date: shown.date, precision: shown.precision, endDate: shown.end, options: hasOptions && !shown.date ? opts : undefined });
+  const lastDayShown = asksHowManyDays(maxDays);
 
   return (
     <>
       <Ladder rungs={ladder} />
+      {booked > 0 && shown.precision === 'day' && shown.date ? (
+        <p className="text-[12.5px] text-ink/70" data-date-few-gone="">
+          {data.bookedNames[0]} is booked for {shown.end ? `${dayWords(shown.date)} – ${dayWords(shown.end)}` : dayWords(shown.date)}, so that is your
+          date — the dates you were considering are done with. A change asks them first.
+        </p>
+      ) : null}
       {data.change ? <PendingChange data={data} doors={doors} onWrote={onWrote} onFail={onFail} onReload={onReload} /> : null}
       <PillSelector
         label="Your date"
@@ -304,38 +364,78 @@ function DateBody({
         data="date-mode"
         options={[
           { key: 'have', label: 'I have a date' },
+          ...(fewOffered ? [{ key: 'few' as const, label: 'A few dates' }] : []),
           { key: 'help', label: 'Help me choose' },
         ]}
         onPick={(k) => setMode(k)}
       />
       {mode === 'have' ? (
-        <FormRows width="wide" data="fact-date">
-          <DateRow
-            key={rowKey}
-            name={shown.precision === 'day' ? 'Change the day' : 'The day'}
-            value={shown.precision === 'day' ? shown.date : null}
-            empty="Pick the day"
-            min={eventDateMinFor(todayKey(), false)}
-            onKeep={(day) => save(day, 'day')}
-            pillAttrs={{ 'data-fact-date-row': '' }}
-          />
-        </FormRows>
+        <>
+          <FormRows width="wide" data="fact-date">
+            <DateRow
+              key={rowKey}
+              name={shown.precision === 'day' ? 'Change the day' : 'The day'}
+              value={shown.precision === 'day' ? shown.date : null}
+              empty="Pick the day"
+              min={eventDateMinFor(todayKey(), data.dateExempt === true)}
+              onKeep={(day) => save(day, 'day')}
+              pillAttrs={{ 'data-fact-date-row': '' }}
+            />
+            {/* 📅 THE LAST DAY (owner 2026-11-13): shown from the start, "Same day" until picked; a 1-day type has none.
+                A day past the type's cap is refused with `eventSpanRefusal`'s one line (said under the row). */}
+            {lastDayShown ? (
+              <DateRow
+                key={`end-${rowKey}`}
+                name="Last day"
+                about={{ title: 'Last day', words: `If it runs more than a day — up to ${maxDays} days. Leave it as “Same day” for a one-day event.` }}
+                value={shown.end}
+                empty="Same day"
+                min={shown.precision === 'day' && shown.date ? shown.date : eventDateMinFor(todayKey(), data.dateExempt === true)}
+                max={shown.precision === 'day' && shown.date ? addDaysIso(shown.date, maxDays - 1) : null}
+                onKeep={(day) =>
+                  shown.precision === 'day' && shown.date
+                    ? save(shown.date, 'day', day === shown.date ? null : day)
+                    : { ok: false, error: 'Pick the first day before the last day.' }
+                }
+                pillAttrs={{ 'data-fact-date-last-day': '' }}
+              />
+            ) : null}
+          </FormRows>
+          {hasOptions && !shown.date ? (
+            <p className="text-[12.5px] text-ink/70" data-date-replaces-options="">
+              Picking one day replaces the {opts.candidates.length ? `${opts.candidates.length} ${(data.days ?? 1) > 1 ? 'options' : 'dates'}` : 'window'} you’re
+              considering — your date becomes exact{(data.days ?? 1) > 1 ? ` (${data.days} days from it)` : ''}.
+            </p>
+          ) : null}
+        </>
+      ) : mode === 'few' ? (
+        <FewDates data={data} maxDays={maxDays} doors={doors} onCancel={onCancel} onWrote={onWrote} onFail={onFail} />
       ) : (
         <HelpBody
           data={data}
           pending={pending}
           onUse={(day) => {
             start(async () => {
-              const r = await save(day, 'day');
-              if (!r.ok && !r.clashed) onFail(r.error ?? FAILED);
+              /* 📵 Caught here: the sheet is now opened inside the Maker too (its date Edit), where a rejection thrown
+                 into a transition replaces the whole Maker (`a-failed-press-never-replaces-the-maker.test.ts`). */
+              try {
+                const r = await save(day, 'day');
+                if (!r.ok && !r.clashed) onFail(r.error ?? FAILED);
+              } catch {
+                onFail(FAILED);
+              }
             });
           }}
           onMonth={(m) => {
             /* No day yet → the month IS the date for now (saved, as the prototype); a day already set → compare only. */
             if (shown.precision !== 'day') {
               start(async () => {
-                const r = await save(`${m}-01`, 'month');
-                if (!r.ok && !r.clashed) onFail(r.error ?? FAILED);
+                try {
+                  const r = await save(`${m}-01`, 'month');
+                  if (!r.ok && !r.clashed) onFail(r.error ?? FAILED);
+                } catch {
+                  onFail(FAILED);
+                }
               });
             }
             onMonth(m);
@@ -349,12 +449,114 @@ function DateBody({
         </p>
       ) : null}
       {booked > 0 && shown.precision === 'day' && !clash ? (
-        <p className="text-[12.5px] text-ink/60" data-date-held="">
+        <p className="text-[12.5px] text-ink/70" data-date-held="">
           A day {listWords(data.bookedNames)} can’t do is never moved quietly — they are asked first, and your date stays until
           they answer.
         </p>
       ) : null}
     </>
+  );
+}
+
+/**
+ * 📅 A FEW DATES (owner 2026-11-13, prototype `event_dates_edit_2026-11-13`): the shared onboarding calendar
+ * (`DateCalendar`, reused as-is — never forked) with "How many days is your event?" above it. Nothing reaches the event
+ * until Save; Save writes the options and the day count and leaves the exact date EMPTY (`updateEventDate` with `date_options=1`).
+ */
+function FewDates({
+  data,
+  maxDays,
+  doors,
+  onCancel,
+  onWrote,
+  onFail,
+}: {
+  data: DateSheetData;
+  maxDays: number;
+  doors: FactSheetStandIns;
+  onCancel: () => void;
+  onWrote: (toast: string | null) => void;
+  onFail: (text: string) => void;
+}) {
+  const o = data.options ?? { mode: 'specific' as const, candidates: [], windowStart: null, windowEnd: null };
+  const [w, setW] = useState({
+    mode: o.mode,
+    candidates: [...o.candidates].sort(),
+    windowStart: o.windowStart,
+    windowEnd: o.windowEnd,
+    days: Math.min(maxDays, Math.max(1, data.days ?? 1)),
+  });
+  const [saving, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const n = w.days;
+  const can = w.mode === 'specific' ? w.candidates.length > 0 : !!(w.windowStart && w.windowEnd);
+  const noun = n > 1 ? (w.candidates.length === 1 ? 'option' : 'options') : w.candidates.length === 1 ? 'date' : 'dates';
+  const label = saving ? 'Saving…' : w.mode === 'specific' ? (w.candidates.length ? `Save ${w.candidates.length} ${noun}` : `Save ${noun}`) : 'Save range';
+  return (
+    <section className="flex flex-col gap-2" data-date-few="">
+      <p className={SECTION_HEAD}>Dates you’re considering</p>
+      <p className="text-[12.5px] text-ink/70">
+        Your venue’s booked day becomes your date. Until then, these are options — Find checks suppliers against all of them.
+      </p>
+      <DateCalendar
+        chrome="bare"
+        dateExempt={data.dateExempt === true}
+        mode={w.mode}
+        candidates={w.candidates}
+        windowStart={w.windowStart}
+        windowEnd={w.windowEnd}
+        days={w.days}
+        maxDays={maxDays}
+        sayFloor
+        onChange={(p) => {
+          setError(null);
+          setW((s) => ({
+            mode: p.dateMode ?? s.mode,
+            candidates: p.dateCandidates ?? s.candidates,
+            windowStart: p.windowStart !== undefined ? p.windowStart : s.windowStart,
+            windowEnd: p.windowEnd !== undefined ? p.windowEnd : s.windowEnd,
+            days: p.days ?? s.days,
+          }));
+        }}
+      />
+      {error ? (
+        <p role="alert" className="text-[13px] text-sn-accent" data-date-few-error="">
+          {error}
+        </p>
+      ) : null}
+      <div className="sticky bottom-0 grid grid-cols-2 gap-2.5 border-t border-ink/10 bg-paper pb-1 pt-2.5 dark:bg-cream">
+        <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onCancel} disabled={saving} />
+        <ActionButton
+          tone="brand"
+          main
+          icon={Check}
+          label={label}
+          disabled={!can || saving}
+          data-date-few-save=""
+          onClick={() =>
+            start(async () => {
+              try {
+                const r = doors.options
+                  ? await doors.options({
+                      dateMode: w.mode,
+                      dateCandidates: w.mode === 'specific' ? w.candidates : [],
+                      windowStart: w.mode === 'window' ? w.windowStart : null,
+                      windowEnd: w.mode === 'window' ? w.windowEnd : null,
+                      days: w.days,
+                    })
+                  : ({ ok: true, message: 'Saved' } as const);
+                if (r.ok) {
+                  onWrote(r.message);
+                  onCancel();
+                } else setError(r.error);
+              } catch {
+                onFail(FAILED);
+              }
+            })
+          }
+        />
+      </div>
+    </section>
   );
 }
 
@@ -389,7 +591,7 @@ function PendingChange({
           </li>
         ))}
       </ul>
-      <p className="text-[12.5px] text-ink/60">Your date stays {from} meanwhile, and guests see nothing.</p>
+      <p className="text-[12.5px] text-ink/70">Your date stays {from} meanwhile, and guests see nothing.</p>
       <div className="flex flex-wrap gap-2">
         <ActionButton
           tone="neutral"
@@ -471,7 +673,7 @@ function HelpBody({
     <div className="flex flex-col gap-3" data-help-me-choose="">
       <p className={SECTION_HEAD}>The days you’re considering — ranked by your suppliers</p>
       {help.pricedCount > 0 ? (
-        <p className="text-[12.5px] text-ink/60" data-help-priced="">
+        <p className="text-[12.5px] text-ink/70" data-help-priced="">
           Only days all {formatCount(help.pricedCount)} of your priced suppliers can take are offered.
         </p>
       ) : null}
@@ -495,19 +697,19 @@ function HelpBody({
                       on ? 'bg-sn-accent/10 ring-2 ring-sn-accent' : ''
                     }`}
                   >
-                    <span className={`w-5 shrink-0 font-mono text-[11px] ${on ? 'text-sn-accent' : 'text-ink/45'}`}>{i + 1}</span>
+                    <span className={`w-5 shrink-0 text-xs ${on ? 'text-sn-accent' : 'text-ink/70'}`}>{i + 1}</span>
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">
                         <span className={`text-[17px] font-semibold tracking-tight ${on ? 'text-sn-accent' : 'text-ink'}`}>{d.label}</span>
-                        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">{d.dow}</span>
+                        <span className="text-xs uppercase tracking-[0.06em] text-ink/70">{d.dow}</span>
                         {d.isBest ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-sn-accent/15 px-2 py-0.5 text-[11px] font-medium text-sn-accent">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sn-accent/15 px-2 py-0.5 text-xs font-medium text-sn-accent">
                             <Star aria-hidden className="h-3 w-3" strokeWidth={2.25} />
                             Best match
                           </span>
                         ) : null}
                       </span>
-                      <span className="mt-0.5 block text-[13px] text-ink/60">{coverageHeadline(d)}</span>
+                      <span className="mt-0.5 block text-[13px] text-ink/70">{coverageHeadline(d)}</span>
                     </span>
                   </button>
                 </li>
@@ -555,13 +757,13 @@ function HelpBody({
           />
         </div>
       ) : null}
-      <p className="text-[12.5px] text-ink/60">
+      <p className="text-[12.5px] text-ink/70">
         {data.bookedNames.length > 0
           ? `Only days every booked supplier can do are offered — ${listWords(data.bookedNames)} ${data.bookedNames.length === 1 ? 'holds' : 'hold'} your date.`
           : 'Nobody is booked yet, so every Saturday your priced suppliers can take is offered — ranked by who is free.'}
       </p>
       {help.offPlatformCount > 0 ? (
-        <p className="text-[12.5px] text-ink/55">
+        <p className="text-[12.5px] text-ink/70">
           {formatCount(help.offPlatformCount)} of your suppliers {help.offPlatformCount === 1 ? 'is' : 'are'} not on Setnayan — their
           calendar can’t be seen, so confirm with them directly.
         </p>
@@ -619,6 +821,8 @@ function PlaceBody({
 }) {
   const [slots, setSlots] = useState<PlaceSlot[]>(data.slots);
   const [city, setCity] = useState(data.city ?? '');
+  /* 📍 A non-wedding's City or area IS its Region (owner 2026-11-13): the stored slug, and the place last picked here. */
+  const [region, setRegion] = useState<{ value: string | null; label: string | null }>(data.region ?? { value: null, label: null });
   const reception = slots.find((s) => s.slot === 'reception') ?? null;
   const pinNear = reception ? (reception.booked && reception.choice.source !== 'own' ? null : reception.pin) : null;
   /* 🔒 A BOOKED RECEPTION SETS THE PLACE (owner 2026-10-30, final Suppliers design: "once a reception is booked, location
@@ -643,7 +847,13 @@ function PlaceBody({
 
   return (
     <>
-      <Ladder rungs={placeLadder({ city: data.city === null ? null : locked ? locked.where : city, slots })} />
+      <Ladder
+        rungs={placeLadder({
+          city: data.city === null ? null : locked ? locked.where : city,
+          region: data.city === null && data.region ? (locked ? { value: locked.where, label: locked.where } : region) : null,
+          slots,
+        })}
+      />
       {locked ? (
         <section className="flex flex-col gap-1.5" data-place-locked="">
           <div className="flex items-center justify-between gap-3">
@@ -652,7 +862,7 @@ function PlaceBody({
               {locked.where}
             </span>
           </div>
-          <p className="text-[12.5px] text-ink/60" data-place-locked-why="">
+          <p className="text-[12.5px] text-ink/70" data-place-locked-why="">
             {lockedPlaceWhy(locked)}
           </p>
         </section>
@@ -672,9 +882,39 @@ function PlaceBody({
               });
             }}
           />
-          <p className="text-[12.5px] text-ink/60" data-place-before-booking="">
+          <p className="text-[12.5px] text-ink/70" data-place-before-booking="">
             Once you book a reception, your place becomes its city.
           </p>
+        </section>
+      ) : data.city === null && data.region ? (
+        <section className="flex flex-col gap-1.5" data-place-region="">
+          {/* ONE value: the event's Region (⚙ Event settings), written through its one writer — never a second column. */}
+          <CityPick
+            value={region.label ?? ''}
+            near={pinNear}
+            start="top10"
+            onPick={(name, place) => {
+              const was = region;
+              setRegion({ value: place.rk, label: name });
+              void (doors.region ? doors.region(place.rk, was.value) : Promise.resolve({ ok: true } as const))
+                .then((r) => {
+                  if (r.ok) onWrote();
+                  else {
+                    setRegion(was);
+                    onFail(r.message || FAILED);
+                  }
+                })
+                .catch(() => {
+                  setRegion(was);
+                  onFail(FAILED);
+                });
+            }}
+          />
+          <p className="text-[12.5px] text-ink/70" data-place-region-note="">
+            This is your <span className="font-semibold text-ink">Region</span> in ⚙ Event settings — one value, shown in both places.
+            Changing it here changes it there.
+          </p>
+          <p className="text-[12.5px] text-ink/70">Suppliers near this area fit your event. Once you book a venue, your place becomes its city.</p>
         </section>
       ) : null}
       {slots.map((s) => (
@@ -691,7 +931,7 @@ function PlaceBody({
           onFind={onFind}
         />
       ))}
-      <p className="text-[12.5px] text-ink/60" data-place-note="">
+      <p className="text-[12.5px] text-ink/70" data-place-note="">
         Saves as you type. Guests see it when you Apply your Event Hub. A place you type yourself is only its name and its pin, for
         your guests — it is not added to your suppliers.
       </p>
@@ -787,7 +1027,7 @@ function VenueSlotBody({
         <div className="flex flex-col" data-venue-booked="">
           <p className="text-[15px] font-medium text-ink">{slot.booked.name}</p>
           {slot.booked.address ? <p className="text-[13px] text-ink/65">{slot.booked.address}</p> : null}
-          <p className="text-[12px] text-ink/55">Booked · follows the booking{slot.booked.pinned && door !== 'shop' ? ' · pinned on the map' : ''}</p>
+          <p className="text-xs text-ink/70">Booked · follows the booking{slot.booked.pinned && door !== 'shop' ? ' · pinned on the map' : ''}</p>
           {door === 'shop' ? <ShopPinNote shop={slot.booked.name} pinned={slot.booked.pinned} /> : null}
           {door === 'manual' && slot.booked.vendorId ? (
             /* 📍 A supplier added by hand: its pin is set right here, on its own card (owner 2026-10-22). */
@@ -802,7 +1042,7 @@ function VenueSlotBody({
               />
             </div>
           ) : null}
-          <p className="pt-1 text-[12px] text-ink/55">Changing the venue means cancelling a booking — do that from Booked.</p>
+          <p className="pt-1 text-xs text-ink/70">Changing the venue means cancelling a booking — do that from Booked.</p>
         </div>
       ) : (
         <>

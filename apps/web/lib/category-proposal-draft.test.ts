@@ -290,3 +290,39 @@ test('a supplier who wrote no description does not become the word "null"', () =
   assert.match(prompt, /They wrote no description\./);
   assert.doesNotMatch(prompt, /"null"/);
 });
+
+test('a truly NEW service also gets a description, search words and inspiration parts (2026-11-13)', () => {
+  const draft = parseDraftReply(
+    reply({
+      verdict: 'new',
+      name: 'Kakanin Bilao',
+      tile_id: 'food_cart',
+      description: 'Bilao trays of suman, puto and kutsinta laid out at the venue.',
+      search_words: ['kakanin', 'bilao', 'KAKANIN', 'x', 42, 'suman', 'puto', 'kutsinta', 'sapin-sapin', 'biko', 'palitaw', 'cassava cake'],
+      inspirations: ['Tray layout', 'Banana-leaf lining'],
+    }),
+    TILES,
+    TRADES,
+  );
+  assert.equal(draft?.description, 'Bilao trays of suman, puto and kutsinta laid out at the venue.');
+  // Distinct (case-blind), at least two characters, strings only, at most eight.
+  assert.deepEqual(draft?.searchWords, ['kakanin', 'bilao', 'suman', 'puto', 'kutsinta', 'sapin-sapin', 'biko', 'palitaw']);
+  assert.deepEqual(draft?.inspirations, ['Tray layout', 'Banana-leaf lining']);
+});
+
+test('an EXISTING verdict carries no fuller draft — the supplier is sent to that service instead', () => {
+  const draft = parseDraftReply(
+    reply({ verdict: 'existing', name: 'Sorbetes', closest_existing: 'sorbetes_cart', description: 'x y z', search_words: ['a b'] }),
+    TILES,
+    TRADES,
+  );
+  assert.equal(draft?.description, undefined);
+  assert.equal(draft?.searchWords, undefined);
+});
+
+test('the prompt asks for the fuller draft only for a new service', () => {
+  const p = buildDraftPrompt('Kakanin bilao', null, 'menu');
+  assert.match(p, /"description": "only when verdict is new/);
+  assert.match(p, /"search_words"/);
+  assert.match(p, /"inspirations"/);
+});

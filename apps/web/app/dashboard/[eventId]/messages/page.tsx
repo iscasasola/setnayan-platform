@@ -59,6 +59,7 @@ type Props = {
     prefill_vendor_email?: string;
     /** 🖥 `'thread'` — drawn by `[threadId]/layout.tsx` as the LEFT column beside an open thread (from 701). Never a URL a person types. */
     __in?: string;
+    group?: string;
   }>;
 };
 
@@ -311,7 +312,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
       ) : null}
 
       {/* 💬 Groups first, then Suppliers (owner 11–12 Nov, "EVENT GROUP CHATS APPROVED AS DRAWN") — server-rendered rows. */}
-      <EventGroups supabase={supabase} eventId={eventId} />
+      <EventGroups supabase={supabase} eventId={eventId} openFailed={search.group === 'unopened'} />
 
       <ChatInbox
         rows={inboxRows}

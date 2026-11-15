@@ -45,7 +45,7 @@ import { formatPhp } from '@/lib/php';
 import { hubPart, type HubPartId } from '@/lib/hub-parts';
 
 /**
- * 💎 STUDIO NESTING (owner 2026-10-22, "Event Hub Pro, part by part"): each Studio card names the Pro parts that live
+ * 💎 STUDIO NESTING (owner 2026-10-22, "Event Pro, part by part"): each Studio card names the Pro parts that live
  * on its page — a quiet "◆ … from ₱500" line, ✓ when owned. Info → Custom address · Look → Style, Background, Motion,
  * Music · Logo → Logo & QR · Love Story → Photos · Prints → Prints. Mood Board & Dress Code, Schedule, Wedding March,
  * Seat plan and E-Gifts show no price (free). (Reveal and Post Event live in the Stages, Your own
@@ -127,7 +127,7 @@ export type StudioTilesInput = {
   giftMethods: number | null;
   /** Does this event draw the item (the type's own rule, `detailsItemApplies`, and what was read)? */
   offered: (item: DetailsItemKey) => boolean;
-  /** 💎 What the event holds of Event Hub Pro and each part's price — null in the store shell (no web price). */
+  /** 💎 What the event holds of Event Pro and each part's price — null in the store shell (no web price). */
   pro?: { owned: readonly HubPartId[]; full: boolean; pricePhp: Partial<Record<HubPartId, number>> } | null;
 };
 

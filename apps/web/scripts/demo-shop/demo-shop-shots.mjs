@@ -4,7 +4,7 @@
  *
  * Every picture is the REAL page the app serves (`next dev` against a local, throwaway database), never a drawing:
  *
- *   1. the public shop page `/v/setnayan-productions` at each plan (Free · Verified · Solo · Pro · Ultra) — the seed
+ *   1. the public shop page `/v/setnayan-productions` at each plan (Free · Verified · Supplier Plus · Pro · Ultra) — the seed
  *      moves the SAME shop to each plan in turn — at three sizes (mobile 390×844 · tablet 820×1180 · desktop
  *      1440×900), light and dark; a viewport shot (for the device photos) and a full-page shot each;
  *   2. signed in as Juan dela Cruz, at mobile 390: his part of a host's wedding (`/vendor-dashboard/clients/<id>`),
@@ -72,7 +72,7 @@ const COORD_EVENT = '5e7a0000-0000-4000-8000-e00000000002';
 const PLANS = [
   { plan: 'free', label: 'Free' },
   { plan: 'verified', label: 'Verified' },
-  { plan: 'solo', label: 'Solo' },
+  { plan: 'solo', label: 'Supplier Plus' },
   { plan: 'pro', label: 'Pro' },
   { plan: 'ultra', label: 'Ultra' },
 ];

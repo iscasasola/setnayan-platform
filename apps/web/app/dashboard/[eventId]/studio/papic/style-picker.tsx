@@ -104,7 +104,7 @@ export default function StylePicker({
                     </span>
                   ) : null}
                 </span>
-                <span className={`mt-1 block truncate text-[12px] ${isActive ? 'font-semibold text-mulberry' : 'text-ink/65'}`}>{label}</span>
+                <span className={`mt-1 block truncate text-[12px] ${isActive ? 'font-semibold text-mulberry' : 'text-ink/70'}`}>{label}</span>
               </button>
             </form>
           );
@@ -157,13 +157,13 @@ export default function StylePicker({
               ) : null}
               <div className="p-2.5">
                 <div className="text-sm font-medium text-ink">{s.label}</div>
-                <div className="text-xs leading-snug text-ink/55">{s.blurb}</div>
+                <div className="text-xs leading-snug text-ink/70">{s.blurb}</div>
               </div>
             </button>
           </form>
         );
       })}
-      <p className="col-span-full mt-1 flex items-center gap-1.5 text-xs text-ink/50">
+      <p className="col-span-full mt-1 flex items-center gap-1.5 text-xs text-ink/70">
         <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         This look is applied to every Papic camera at your event — your crew and
         guests can&rsquo;t change it.

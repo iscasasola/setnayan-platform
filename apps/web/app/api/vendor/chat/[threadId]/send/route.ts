@@ -25,6 +25,7 @@ const STATUS_BY_CODE: Record<SendMessageError, number> = {
   attachment_failed: 500,
   contact_blocked: 422, // off-platform contact info — caller edits + resends
   private_words_only: 422, // a private message is words only — send the file to everyone instead
+  fee_words_only: 403, // a booking-fee top-up is overdue — words only until it is settled
   private_recipient: 403, // the private recipient is not in this chat
   insert_failed: 500,
 };

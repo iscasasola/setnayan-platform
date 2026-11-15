@@ -86,7 +86,7 @@ export function QrCard({
         <b className="text-[16px] text-ink">Couldn&rsquo;t make the code</b>
         <p className="text-[13.5px] text-ink/60">Nothing was issued. Try again in a moment.</p>
         {retryHref ? (
-          <a href={retryHref} className={actionButtonClass('neutral')}>
+          <a href={retryHref} className={actionButtonClass('neutral', { extra: '!h-11' })}>
             <span className="lbl">Try again</span>
           </a>
         ) : null}
@@ -149,7 +149,7 @@ export function QrCard({
         <>
           {/* T19: the three are equal-weight doors on one code — ONE row, EQUAL widths (owner 9 Nov "buttons uniform,
               rows balanced"; Build 5 · Lane A slice 2). The row fits as one: icon + word → word → icons. */}
-          <EqualRow className="mt-1 w-full max-w-[24rem]" data="qr-card">
+          <EqualRow className="mt-1 w-full max-w-[24rem] [&_.ab]:!h-11" data="qr-card">
             <button type="button" onClick={share} className={actionButtonClass(primary === 'share' ? 'brand' : 'neutral', { main: primary === 'share' })} data-qr-share="">
               <Share aria-hidden strokeWidth={1.9} />
               <span className="lbl">Share</span>

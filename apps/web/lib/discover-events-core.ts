@@ -177,6 +177,12 @@ export type DiscoverEventCard = {
    * Filled by the loader with `scene`, under the same allow-list; `null` here.
    */
   paper: DiscoverPaper | null;
+  /**
+   * 🖼 THE INVITATION ON THE PICTURE — the whole poster behind `scene` (`DressedEventCover.scenePoster`),
+   * so the card draws the couple's names and date on their photo exactly as the home board does (owner
+   * 2026-11-12). Optional; absent or null = the bare picture, as before.
+   */
+  scenePoster?: DiscoverPaper | null;
   /** A host with a PUBLIC profile — their name is the card's second door. */
   host: { name: string; slug: string } | null;
   /**

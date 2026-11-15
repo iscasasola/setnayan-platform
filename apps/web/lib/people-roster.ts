@@ -1,4 +1,5 @@
 import 'server-only';
+import { ROSTER_UNNAMED } from '@/lib/no-name';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -135,6 +136,9 @@ export type RosterPerson = {
    *  claimed person by `publicId` (S89U-…) and leaves an unclaimed one (S89P-…) as plain text. */
   slug?: string | null;
 };
+
+/** The word People shows for a connection whose name is not shown — a placeholder, never a name to copy (F-W3-22). */
+export { ROSTER_UNNAMED } from '@/lib/no-name';
 
 export type PeopleRoster = {
   people: RosterPerson[];
@@ -500,7 +504,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
       // name I typed. ⚠ NEVER `declared_name` on a row somebody else made: that
       // is the name THEY typed for ME, and printing it as theirs would show me
       // my own name on their request.
-      name: names.get(otherId) ?? (iDeclared ? r.declared_name?.trim() : null) ?? 'Someone',
+      name: names.get(otherId) ?? (iDeclared ? r.declared_name?.trim() : null) ?? ROSTER_UNNAMED,
       relation: relationForViewer(stored, iDeclared),
       storedRelation: stored,
       ask,

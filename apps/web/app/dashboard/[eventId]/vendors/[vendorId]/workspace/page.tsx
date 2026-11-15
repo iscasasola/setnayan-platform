@@ -34,6 +34,7 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import { manilaToday } from '@/lib/provisional-approval';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { feedsCrews } from '@/lib/crew-meals';
 import { Suspense, type ReactNode } from 'react';
@@ -150,6 +151,7 @@ import { CouplePhotoApprovals } from './_components/couple-photo-approvals';
 import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
+import { followFromRows, guestFollowLine } from '@/lib/claimed-per-guest-follow';
 import { readPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CouplePayMethodsState } from '@/lib/deposit-pay-step';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
@@ -231,6 +233,9 @@ import { DEPOSIT_DISPUTE_COLUMNS } from '@/lib/payment-refusal';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { HOSTS_ONLY } from '@/lib/money-mask';
 import { StayForm } from '@/app/_components/stay-form';
+import { readOneBookingMoney } from '@/lib/event-vendor-money';
+// ⚡ The event date, three times a view, answered from the layout's ONE read of the row (speed pass 2026-11-14).
+import { eventRowOnce } from '@/lib/event-row-once';
 
 export const metadata = { title: 'Service workspace' };
 
@@ -348,14 +353,18 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // Primary fetch — event_vendors row, gated by RLS to host-on-event only.
   // `notFound()` covers both "row doesn't exist" and "row exists but RLS denied"
   // outcomes, since either way the host has no business viewing this URL.
-  const { data: vendorRow, error: vendorErr } = await supabase
+  // 🔒 the booking amounts come from event_vendor_money_read (#5936), not the row select.
+  const { data: vendorRaw, error: vendorErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, lock_request_state, lock_request_expires_at, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, category_key, crew_size, crew_meal_covered, created_at',
+      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, lock_request_state, lock_request_expires_at, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, category_key, crew_size, crew_meal_covered, created_at, pricing_basis, pax_quote_base',
     )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
+  const vendorRow = vendorRaw
+    ? { ...vendorRaw, ...(await readOneBookingMoney(supabase, eventId, vendorId)) }
+    : vendorRaw;
 
   if (vendorErr || !vendorRow) notFound();
 
@@ -501,7 +510,28 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     crew_size: number | null;
     crew_meal_covered: boolean | null;
     created_at: string;
+    pricing_basis?: string | null;
+    pax_quote_base?: number | null;
   };
+
+  // 👥 AFTER THE CLAIM (20271343652941): a booking the couple priced per guest, now a claimed shop's, follows the
+  // guest list. The one line under its Price says why the total is what it is. A refused read draws no line.
+  const guestFollow =
+    ev.marketplace_vendor_id && ev.pricing_basis === 'per_pax'
+      ? await supabase
+          .from('event_vendor_guest_follow')
+          .select('agreed_guests, billed_guests')
+          .eq('event_vendor_id', ev.vendor_id)
+          .maybeSingle()
+          .then(({ data, error }) => {
+            if (error) {
+              console.error('[supabase-error] app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx · from:event_vendor_guest_follow.select', error);
+              return null;
+            }
+            return followFromRows(ev.pax_quote_base ?? null, data as { agreed_guests: number | null; billed_guests: number | null } | null);
+          })
+      : null;
+  const guestFollowWords = guestFollowLine(guestFollow);
 
   // 🔒 The couple's deposit receipt is a PRIVATE file — a short-lived link scoped
   // to this booking's own event deposit folder, never the stored value.
@@ -636,7 +666,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   }
   // Offer the "also mark delivered" opt-in only when the booking hasn't already
   // reached delivered/complete (matches updateVendorStatus's own emit guard).
-  const canAdvanceToDelivered = ev.status !== 'delivered' && ev.status !== 'complete';
+  // 📅 …AND ONLY ONCE THE DAY HAS PASSED (walk 13 Nov 2026, F-W1-72): it was offered — and pre-ticked — 179 days before
+  // the event with nothing paid. A supplier cannot have delivered an event that has not happened; a refused or empty
+  // date read offers nothing (never a guess). The box itself now starts unticked (`HandoverInbox`).
+  const { data: deliverDateRow, error: deliverDateError } = await eventRowOnce(supabase, eventId, 'event_date', () => supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle());
+  // A refused read offers nothing (the box waits for a day it can prove has passed) — and is logged, never silent.
+  if (deliverDateError) logQueryError('CoupleVendorWorkspace.deliverDate', deliverDateError, { eventId }, 'graceful_degrade');
+  const deliverEventDate = (deliverDateRow as { event_date?: string | null } | null)?.event_date ?? null;
+  const dayHasPassed = deliverEventDate !== null && deliverEventDate.slice(0, 10) < manilaToday();
+  const canAdvanceToDelivered = dayHasPassed && ev.status !== 'delivered' && ev.status !== 'complete';
 
   // ── The couple's own service card for a self-added supplier (2026-09-20) ──
   // Under their own RLS (`event_manual_vendors_host_all`), keyed on the
@@ -1333,7 +1371,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         .eq('vendor_profile_id', ev.marketplace_vendor_id)
         .eq('status', 'accepted')
         .limit(1),
-      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+      eventRowOnce(supabase, eventId, 'event_date', () => supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle()),
     ]);
     if (aqErr) {
       logQueryError('VendorWorkspacePage.acceptedQuote', aqErr, { eventId }, 'graceful_degrade');
@@ -1509,6 +1547,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <dd className="mt-1 text-sm font-semibold text-ink">
               {moneyHidden ? HOSTS_ONLY : (heroPriceFormatted ?? '—')}
             </dd>
+            {!moneyHidden && guestFollowWords ? (
+              <dd className="mt-0.5 text-xs text-ink/60" data-guest-follow="">
+                {guestFollowWords}
+              </dd>
+            ) : null}
           </div>
           <div>
             <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
@@ -2035,19 +2078,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             readFailed={Boolean(changeOrderRowsError)}
           />
 
-          {/*
-            Delivery Handover — the vendor posted finished work (gallery link /
-            proof image / note / sign-off); the couple confirms receipt here.
-            Acknowledge is a single-winner RPC; confirming can also mark the
-            booking delivered (reuses the existing review-request emit).
-          */}
-          <HandoverInbox
-            eventId={eventId}
-            vendorId={ev.vendor_id}
-            vendorName={displayName}
-            handovers={handovers}
-            canAdvanceToDelivered={canAdvanceToDelivered}
-          />
+          {/* 📦 The Delivery Handover moved to Files (walk 13 Nov 2026, F-W1-71) — see `pickedBodies.files`. */}
 
           {/*
             DAY-10 · Shot list — the supplier's must-get shots from their day-of
@@ -2779,7 +2810,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         .eq('vendor_id', ev.vendor_id)
         .eq('event_id', eventId)
         .maybeSingle(),
-      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+      eventRowOnce(supabase, eventId, 'event_date', () => supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle()),
     ]);
     if (complRowError) {
       logQueryError('VendorWorkspacePage.complRow', complRowError, { event_id: eventId }, 'graceful_degrade');
@@ -3076,6 +3107,19 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {ev.marketplace_vendor_id ? (
           <CouplePhotoApprovals eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
         ) : null}
+        {/*
+          📦 Delivery Handover — the vendor posted finished work (gallery link / proof image / note / sign-off); the couple
+          confirms receipt here. Acknowledge is a single-winner RPC; confirming can also mark the booking delivered.
+          It lives in FILES (walk 13 Nov 2026, F-W1-71: the album was delivered and the couple looked for it in Files,
+          where it was not — it sat under Payment). The supplier's "delivered your handover" notice opens this page.
+        */}
+        <HandoverInbox
+          eventId={eventId}
+          vendorId={ev.vendor_id}
+          vendorName={displayName}
+          handovers={handovers}
+          canAdvanceToDelivered={canAdvanceToDelivered}
+        />
         {documentsSection}
       </div>
     ),

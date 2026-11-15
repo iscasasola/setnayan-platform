@@ -1,4 +1,3 @@
-import { Mail } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettingsMeasured } from '@/lib/platform-settings';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -9,7 +8,10 @@ import {
   type DigestSendRow,
   type LastDigest,
 } from '@/lib/admin/digest-content';
-import { SubmitButton } from '@/app/_components/submit-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
+import { ConfirmButton } from '@/app/admin/_components/avatar-confirm';
+import { ConfirmLines } from '@/app/admin/_components/avatar-screen';
 import { saveAdminDigest } from '@/app/admin/settings/actions';
 
 /**
@@ -43,38 +45,46 @@ export async function MorningDigestCard() {
   const on = settings.admin_digest_enabled;
 
   return (
-    <section className="mb-6 space-y-3 sn-tile p-5" aria-labelledby="morning-digest">
-      <div className="flex items-center gap-2">
-        <Mail className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-        <h2 id="morning-digest" className="text-sm font-semibold text-ink">
-          Morning digest
-        </h2>
-      </div>
-      <p className="text-xs text-ink/60">
-        An 8 AM (Manila) email of what&rsquo;s waiting, only when something is.
-      </p>
-      <p role="status" className="text-sm text-ink">
-        {lastDigestWords(last)}
-      </p>
-      {readFailed ? (
-        <p role="alert" className="text-xs text-warn-900">
-          Couldn&rsquo;t load the setting, so the switch is off until it loads. Refresh to try again.
-        </p>
-      ) : (
-        <form action={saveAdminDigest} className="flex flex-wrap items-center gap-3">
-          {/* One button: it flips to the opposite of what is saved. */}
-          {on ? null : <input type="hidden" name="admin_digest_enabled" value="on" />}
-          <span className="text-xs text-ink/60">
-            It&rsquo;s <span className="font-semibold text-ink/80">{on ? 'on' : 'off'}</span>.
+    <section aria-labelledby="morning-digest-heading" id="morning-digest" className="scroll-mt-28">
+      <h2 id="morning-digest-heading" className="mt-[18px] flex min-h-9 items-center gap-2 pb-1 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+        <InfoTip label="Morning digest" align="start" labelClassName="uppercase">
+          An 8 AM (Manila) email of what&rsquo;s waiting, only when something is. In-app notifications and phone alerts
+          keep coming either way.
+        </InfoTip>
+      </h2>
+      <div className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 py-2">
+        <span className="min-w-0 flex-1 basis-48">
+          <b className="block text-[15px] font-semibold leading-tight text-ink">
+            {readFailed ? 'Morning digest' : `It’s ${on ? 'on' : 'off'}`}
+          </b>
+          <span role="status" className={`mt-0.5 block ${TEMPLATE_SUBLINE}`}>
+            {lastDigestWords(last)}
           </span>
-          <SubmitButton
-            className="button-secondary inline-flex items-center gap-2"
-            pendingLabel="Saving…"
-          >
-            {on ? 'Turn off' : 'Turn on'}
-          </SubmitButton>
-        </form>
-      )}
+        </span>
+        {readFailed ? (
+          <span role="alert" className="text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
+            Couldn&rsquo;t load the setting, so the switch is off until it loads. Refresh to try again.
+          </span>
+        ) : (
+          <ConfirmButton
+            action={saveAdminDigest}
+            fields={on ? {} : { admin_digest_enabled: 'on' }}
+            tone={on ? 'neutral' : 'ok'}
+            icon={on ? 'pause' : 'play'}
+            label={on ? 'Turn off' : 'Turn on'}
+            title={on ? 'Turn the morning digest off' : 'Turn the morning digest on'}
+            confirmLabel={on ? 'Turn off' : 'Turn on'}
+            body={
+              <ConfirmLines
+                what={on ? ['No 8 AM email from tomorrow'] : ['An 8 AM email of what’s waiting, from tomorrow']}
+                not={on ? ['In-app notifications and phone alerts keep coming'] : []}
+                who="Every admin who gets the digest"
+              />
+            }
+            data="morning-digest"
+          />
+        )}
+      </div>
     </section>
   );
 }

@@ -57,8 +57,8 @@ test('ⓘ every info circle wears it — InfoTip, the Your Team category ⓘ, th
   assert.ok(catInfo.length >= 2, `found ${catInfo.length} Explain ⓘs — the folder and the category ⓘ`);
   assert.doesNotMatch(cats, /className="cat-info sn-dot-btn"/, 'a hand-made ⓘ came back');
 
-  const bench = read('app', 'dashboard', '[eventId]', 'vendors', '_components', 'services-takeover.tsx');
-  assert.match(bench, /<Explain title=\{EXPLORE_INFO_TITLE\} label=\{EXPLORE_INFO_BUTTON_LABEL\}/, 'the bench ⓘ is not the ⓘ template');
+  // (The bench's page-level ⓘ left with the "Cover your event" header — owner 2026-11-12, the organized-Find
+  // prototype folds that header into the pinned row, which has no ⓘ. Every ⓘ still on the page is asserted above.)
 });
 
 test('ⓘ the Your Team head rows let the head shrink, so the ⓘ stays on screen', () => {

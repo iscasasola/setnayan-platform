@@ -106,7 +106,7 @@ export function nextPhotoChallengeExpiry(
 // ── Can this shop BUY it? ────────────────────────────────────────────────────
 
 export type PhotoChallengeDenyReason =
-  /** Tier below Pro (Solo/Verified/Free) — Pro/Enterprise only, pre-2026-07-25 gate. */
+  /** Tier below Pro (Supplier Plus/Verified/Free) — Pro/Enterprise only, pre-2026-07-25 gate. */
   | 'tier_too_low'
   /** Paid tier but the shop is not verified yet. */
   | 'unverified'
@@ -125,7 +125,7 @@ export type PhotoChallengeEligibility =
 
 /**
  * The plans that may turn Papic Challenges on. OWNER 2026-08-29, verbatim:
- * *"Solo and Pro can buy Papic Challenges. they can only but if they are
+ * *"Supplier Plus and Pro can buy Papic Challenges. they can only but if they are
  * solo,pro,enterprise,custom. but not when they are free"*.
  *
  * `isTierAtLeast(tier, 'solo')` is exactly that list: the ladder is
@@ -170,7 +170,7 @@ export function photoChallengePurchaseEligibility(
   // WHETHER IT MAY BUY AT ALL. The owner turned that switch on the same day and
   // ruled the floor separately — *"not when they are free"* — which the old
   // shape could not express: with the flag on it admitted everybody, with the
-  // flag off it refused Solo, and he wants Solo in and free out.
+  // flag off it refused Supplier Plus, and he wants Supplier Plus in and free out.
   //
   // 🔑 One switch answering two questions is how a price change silently becomes
   // an access change. The flag keeps its PRICE job; the floor is its own rule.
@@ -210,7 +210,7 @@ export function photoChallengeEventReady(
 /** Human copy for each deny reason (surfaced in the vendor UI). */
 export const PHOTO_CHALLENGE_DENY_MESSAGE: Record<PhotoChallengeDenyReason, string> = {
   tier_too_low:
-    'Papic Challenges comes with a paid plan. Move up to Solo or above to turn it on.',
+    'Papic Challenges comes with a paid plan. Move up to Supplier Plus or above to turn it on.',
   unverified: 'Get your shop verified first — Papic Challenges unlocks once you’re verified.',
   already_subscribed: 'Papic Challenges is already on for your shop.',
   not_booked: 'You can only run Papic Challenges at an event you’re booked for.',
@@ -223,13 +223,12 @@ export const PHOTO_CHALLENGE_DENY_MESSAGE: Record<PhotoChallengeDenyReason, stri
 // ── DB readers (client passed in — no server-only import) ────────────────────
 
 /**
- * Resolve the live Papic Challenges price (PHP) from the admin-managed catalog,
- * falling back to {@link VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP} when the row is
- * missing/unreadable. Any non-positive / non-finite price is treated as missing.
+ * The live Papic Challenges price (PHP) from the admin-managed catalog — or null when the row is missing,
+ * inactive, unpriced or unreadable (💰 owner 2026-11-13: a screen shows no figure rather than a remembered one).
  */
 export async function fetchVendorPhotoChallengePricePhp(
   supabase: SupabaseClient,
-): Promise<number> {
+): Promise<number | null> {
   try {
     const { data, error } = await supabase
       .from('vendor_billing_catalog')
@@ -238,16 +237,14 @@ export async function fetchVendorPhotoChallengePricePhp(
       .eq('is_active', true)
       .maybeSingle();
     if (error) {
-      console.error('[supabase-error] vendor-photo-challenge: price (using fallback)', error);
-      return VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
+      console.error('[supabase-error] vendor-photo-challenge: price unread', error);
+      return null;
     }
-    if (!data) return VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
+    if (!data) return null;
     const price = Number((data as { price_php: number | string }).price_php);
-    return Number.isFinite(price) && price > 0
-      ? price
-      : VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
+    return Number.isFinite(price) && price > 0 ? price : null;
   } catch {
-    return VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
+    return null;
   }
 }
 

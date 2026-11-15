@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { weekdayDateWithYear } from '@/lib/format-date';
+import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -32,6 +34,8 @@ import {
   Wallet,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { startRead } from '@/lib/start-read';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -124,6 +128,13 @@ import {
 import { readDayCheck } from '@/lib/day-check.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import type { CarryOverTopUp } from './_components/top-up-carry-over';
+import { overdueTopUps, topUpOwedPhp, topUpStage } from '@/lib/booking-fee-top-up';
+import { readSettlePay } from '@/lib/booking-fee-settle-pay.server';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import type { SettlePay } from '@/app/_components/payment/settle-pay-by';
+import { TopUpSettleSheet } from '@/app/_components/top-up-settle-sheet';
+import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
@@ -151,6 +162,7 @@ import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-fla
 import { pipelineCurrentLabel, supplierNextMove } from '@/lib/supplier-next-move';
 import { ClientDayAnswers } from '../../_components/client-day-answers';
 import { detailsNumbers } from './_components/details-numbers';
+import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
@@ -591,10 +603,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const { eventId } = await params;
   const search = await searchParams;
   const tab: CustomerCardTab = normalizeTab(search.tab);
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // ⚡ The render's ONE sign-in answer — the layout already asked (`getCurrentUser` is `cache()`d), so this page no
+  // longer sends its own auth round trip before anything else can start (speed pass 2026-11-14).
+  const [supabase, user] = await Promise.all([createClient(), getCurrentUser()]);
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
@@ -632,9 +643,27 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // page shows the locked panel even if the flag read came back 'unlocked' —
   // otherwise the booked layout would be drawn over NULLs and read as a wedding
   // with nothing planned.
-  const rawGate = await resolveEventFeeGate(profile.vendor_profile_id, eventId, {
+  const theBookedCoordinator = isBookedCoordinator({
     booked: isBooked,
+    services: (profile as { services?: string[] | null }).services,
   });
+  /* ⚡ The fee gate and the booked supplier's own grants each need only the brief and the profile — asked together, not
+     one after the other (speed pass 2026-11-14). Same reads, same fallbacks. */
+  const grantsP = isBooked
+    ? Promise.all([
+        fetchMyAreaGrants(eventId),
+        fetchMyPendingAsk(eventId),
+        readMyLastAccessAnswer(supabase, eventId, user.id),
+        theBookedCoordinator ? readAsksForCoordinator(supabase, eventId) : Promise.resolve(null),
+        theBookedCoordinator ? readOpenChangeRequests(supabase, eventId) : Promise.resolve(null),
+      ])
+    : Promise.resolve([{} as Partial<Record<DelegateArea, 'edit' | 'view' | null>>, null, null, null, null] as const);
+  const [rawGate] = await Promise.all([
+    resolveEventFeeGate(profile.vendor_profile_id, eventId, {
+      booked: isBooked,
+    }),
+    grantsP,
+  ]);
   const feeGate = {
     ...rawGate,
     stage: reconcileStageWithPayload(rawGate.stage, rawBrief),
@@ -672,10 +701,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // regardless — this decides what to DRAW, never what is permitted.
   // 🧭 THE ONE FACT (owner 8 Nov 2026): booked AND the coordinator trade — `isBookedCoordinator`, the TS mirror of
   // `public.is_booked_coordinator(event)` (migration 20271329284628). Never the `wedding_planner_external` seat.
-  const theBookedCoordinator = isBookedCoordinator({
-    booked: isBooked,
-    services: (profile as { services?: string[] | null }).services,
-  });
+
   const lockRequest = brief.stage === 'requested' ? (brief.lock_request ?? null) : null;
 
   // ── ASKING THE HOST FOR ACCESS, ON A DAY THAT IS NOT THE WEDDING ──────────
@@ -696,15 +722,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // 🤝 …and, for the BOOKED COORDINATOR only, the other suppliers' asks waiting on them (owner 8 Nov 2026: "only
   // coordinator and hosts has the final say") — a fourth read in the same round trip, never for anybody else.
   // ✍️ …and the suppliers' proposed changes waiting on the coordinator (a fifth read, the coordinator only).
-  const [myGrants, myPendingAsk, myLastAnswer, asksForMe, changesForMe] = isBooked
-    ? await Promise.all([
-        fetchMyAreaGrants(eventId),
-        fetchMyPendingAsk(eventId),
-        readMyLastAccessAnswer(supabase, eventId, user.id),
-        theBookedCoordinator ? readAsksForCoordinator(supabase, eventId) : Promise.resolve(null),
-        theBookedCoordinator ? readOpenChangeRequests(supabase, eventId) : Promise.resolve(null),
-      ])
-    : [{} as Partial<Record<DelegateArea, 'edit' | 'view' | null>>, null, null, null, null];
+  const [myGrants, myPendingAsk, myLastAnswer, asksForMe, changesForMe] = await grantsP;
   // ✍️ A supplier who is NOT the coordinator, holding the guest list, the seat plan or the suppliers, PROPOSES changes
   // (owner 8 Nov 2026). Their composer's targets and their own changes — one more round trip, only for them.
   const proposeOps = isBooked && !theBookedCoordinator ? proposableOps(myGrants) : [];
@@ -741,6 +759,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     returningFlags,
     myTasksRes,
     myMarksRes,
+    myOwnTimesRes,
     myScheduleFacts,
     myContactsRes,
     headcountRule,
@@ -770,7 +789,25 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .order('created_at', { ascending: false }),
       fetchVendorThreads(supabase, profile.vendor_profile_id),
       getEditorialEligibility(admin, eventId, profile.vendor_profile_id),
-      supabase.rpc('get_vendor_cocktail_editor', { p_event_id: eventId }),
+      /*
+        🍸 RW-285c (live 14 Nov — "Saving the supplier cocktail editor — could not save", 62× in a day): the editor's read
+        REFUSES, by design and as an access error (42501), whenever the shop is not booked (`not_booked`), the booking fee
+        is not settled (`fee_unsettled`) or the couple has not opened the cocktail area to suppliers (`vendor_edit_off`).
+        This page asked it on EVERY client visit — inquiries included — so each ordinary "no editor here" was logged as a
+        refused write. It is asked now only when all three are already true; otherwise the answer is known: no editor.
+      */
+      (async (): Promise<{ data: unknown }> => {
+        if (!isBooked || !feeUnlocked) return { data: null };
+        const { data: plan, error: planError } = await admin
+          .from('event_floor_plan')
+          .select('cocktail_enabled, cocktail_vendor_edit')
+          .eq('event_id', eventId)
+          .maybeSingle();
+        // A refused read shows no editor (the same as before this gate) — logged, never read as "switched off".
+        if (planError) logQueryError('vendor customer card: event_floor_plan (cocktail gate)', planError, { eventId }, 'graceful_degrade');
+        if (!plan?.cocktail_enabled || !plan?.cocktail_vendor_edit) return { data: null };
+        return supabase.rpc('get_vendor_cocktail_editor', { p_event_id: eventId });
+      })(),
       // This org's booth poster for this event (its own table — one artwork per
       // vendor per event, not per booked service row). Admin-read: the page is
       // already booked/inquiry-gated above, and the row is scoped by
@@ -819,6 +856,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle(),
+      // 🕕 Your times (cut 5, 2026-11-14) — their own call time, arrival and finish, kept before the hosts' program
+      // exists (own row, RLS `supplier_own_times_shop_read`). A refused read is said on the view, never drawn as blank.
+      supabase
+        .from('supplier_own_times')
+        .select('call_clock, arrive_clock, done_clock, filed_at')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle(),
       Promise.all([
         admin.from('events').select('supplier_requests_auto_agree, event_date').eq('event_id', eventId).maybeSingle(),
         admin
@@ -863,7 +908,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     isBooked || lockRequest ? null : supplierAskOutcomeOf(completionRow, isLockHandshakeEnabled());
   // The answer to Agree / Decline pressed HERE lands back here (`return_to`).
   const lockNotice =
-    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), halls: lockAgreeHalls(search.taken, search.free) }) ??
+    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false, halls: lockAgreeHalls(search.taken, search.free) }) ??
     lockDeclineNotice(search.lock_decline);
   // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
   // a short-lived link scoped to THIS event's deposit folder — never the stored
@@ -876,10 +921,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       }
     : null;
 
-  // Source badge: event_vendors.source = 'vendor_invite' → Imported (they came in
-  // through the vendor's own invite QR); anything else (host_manual, cascade,
-  // legacy NULL) → In-house.
-  const isImported = completion?.source === 'vendor_invite';
+  // Source badge: the supplier brought them → Imported — their own invite QR, Locked QR or a reused booking
+  // (`SUPPLIER_BROUGHT_SOURCES`), or an inquiry through the supplier's own link (`website`, RW-22: the record now
+  // carries its thread's source); anything else (a Setnayan surface, host_manual, cascade, legacy NULL) → In-house.
+  const isImported =
+    (completion?.source != null && SUPPLIER_BROUGHT_SOURCES.has(completion.source)) || completion?.source === 'website';
+  // RW-39: the sources the fee counts as Setnayan's — a sourced inquiry stamp (`shop_page`, `explore`, …) or a Find save.
+  const isFromSetnayan =
+    !isImported &&
+    completion?.source != null &&
+    (bookingFeeAttribution(completion.source) === 'sourced' || SETNAYAN_SAVE_SOURCES.has(completion.source));
 
   const depositRecorded = Boolean(completion?.deposit_recorded_at);
   const depositAcked = Boolean(completion?.deposit_acknowledged_at);
@@ -896,63 +947,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // about to be shown — a booking ask on screen, or a booked client whose
   // deposit is still outstanding. The supplier's OWN profile id, never a param.
   const payoutMatters = Boolean(lockRequest) || (isBooked && !depositAcked);
-  const payoutReadiness: PayoutReadiness = payoutMatters
-    ? await readSupplierPayoutReadiness({
-        adminClient: admin,
-        vendorProfileId: profile.vendor_profile_id,
-        // The SHOP OWNER's account — the Pro-tier check (payment links) is theirs,
-        // and a team member may be the one looking.
-        vendorUserId: profile.user_id,
-      }).catch((): PayoutReadiness => 'unreadable')
-    : 'unreadable';
   const eventVendorId = completion?.vendor_id ?? null;
-
-  // ── THE BOOKING FEE, BOTH HALVES ────────────────────────────────────────
-  // BEFORE they agree: what agreeing will cost them, priced by the same
-  // `bookingFeePhp` the SQL charge is pinned against. Owner, 2026-09-20: "as a
-  // vendor i do not know i have to pay."
-  // AFTER it is billed: the unpaid bill FOR THIS COUPLE, with the door to pay.
-  //
-  // ⚠ The forecast is resolved ONLY while a lock ask is on screen — it is the
-  // sentence that belongs beside the Agree button, and nowhere else on this
-  // page is a decision being made about money.
-  // …and THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`): the ask's day through the SAME capacity
-  // rule the yes enforces (`vendor_day_check`), read beside the forecast — same moment, no extra wait.
-  // 🧭 …and whether the asked-for service is on PLAN hold (owner 2026-11-06, SERVICES LIFE CYCLE) — then Agree gives way
-  // to "Pick which stay on" and the card says why, naming the service.
-  const [feeForecast, dayCheck, heldService]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null, string | null] = lockRequest?.event_vendor_id
-    ? await Promise.all([
-        forecastForBooking(admin, {
-          vendorProfileId: profile.vendor_profile_id,
-          eventVendorId: lockRequest.event_vendor_id,
-        }),
-        readDayCheck(supabase, lockRequest.event_vendor_id),
-        heldServiceOfAsk(supabase, lockRequest.event_vendor_id),
-      ])
-    : [null, null, null];
-  const heldNotice = heldService ? lockAgreeNotice('service_on_hold', { heldService }) : null;
-  // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
-  // couple's fee can never appear on another couple's page.
-  // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
-  const [clientFeeBillsRead, feeEnforced] = await Promise.all([
-    fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE),
-    resolveFeeEnforcement(),
-  ]);
-  const clientFeeBills: DueFeeBill[] =
-    clientFeeBillsRead === FEE_BILLS_UNREADABLE
-      ? []
-      : billsForSurface(clientFeeBillsRead, 'client', { eventId });
-  // …and the WAIVED charge for this booking, if it was one of the free five.
-  // Owner 2026-09-20: a free booking must still name the fee it would have
-  // carried, so the first payable one is not a surprise.
-  const clientWaivedRead = await fetchWaivedFeeCharges(
-    admin,
-    profile.vendor_profile_id,
-  ).catch(() => FEE_BILLS_UNREADABLE);
-  const clientWaived: WaivedFeeCharge[] =
-    clientWaivedRead === FEE_BILLS_UNREADABLE
-      ? []
-      : clientWaivedRead.filter((c) => c.eventId === eventId);
 
   const isCompleteConfirmed =
     completion?.completion_status === 'confirmed' ||
@@ -970,14 +965,180 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // payment log (the one deposit reader, `recordedDepositPhp`). A refused
   // ledger read leaves the amount unknown ("an amount"), never ₱0.
   const acceptedTerms = acceptedQuoteTerms(proposals, brief.event.event_date);
-  let recordedDeposit: number | null = null;
-  if (acceptedTerms?.firstPaymentCentavos != null && completion?.vendor_id && completion.deposit_recorded_at) {
-    const { data: depRows, error: depErr } = await admin
+
+  /* ⚡ THE TAIL LEAVES TOGETHER (speed pass 2026-11-14). Every read started below needs only what the first batch
+     already answered (the booking row, the brief, the profile) — they used to run one after another, each waiting for
+     the last. They START here, on the same conditions as before, and each is still AWAITED where it was, so every
+     refusal branch below reads exactly as it did (`startRead` keeps an early failure for its await). The same
+     requests, in one wave — none added, none dropped. */
+  const payoutReadinessP: Promise<PayoutReadiness> = payoutMatters
+    ? startRead(readSupplierPayoutReadiness({
+        adminClient: admin,
+        vendorProfileId: profile.vendor_profile_id,
+        // The SHOP OWNER's account — the Pro-tier check (payment links) is theirs,
+        // and a team member may be the one looking.
+        vendorUserId: profile.user_id,
+      }).catch((): PayoutReadiness => 'unreadable'))
+    : Promise.resolve('unreadable');
+  const askReadsP = lockRequest?.event_vendor_id
+    ? startRead(Promise.all([
+        forecastForBooking(admin, {
+          vendorProfileId: profile.vendor_profile_id,
+          eventVendorId: lockRequest.event_vendor_id,
+        }),
+        readDayCheck(supabase, lockRequest.event_vendor_id),
+        heldServiceOfAsk(supabase, lockRequest.event_vendor_id),
+      ]))
+    : null;
+  const feeBillsP = startRead(fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE));
+  const clientWaivedP = startRead(fetchWaivedFeeCharges(
+    admin,
+    profile.vendor_profile_id,
+  ).catch(() => FEE_BILLS_UNREADABLE));
+  const depositRowsP =
+    acceptedTerms?.firstPaymentCentavos != null && completion?.vendor_id && completion.deposit_recorded_at
+      ? startRead(admin
       .from('event_vendor_payments')
       .select('amount_php, is_deposit_record')
       .eq('event_id', eventId)
       .eq('vendor_id', completion.vendor_id)
-      .eq('is_deposit_record', true);
+      .eq('is_deposit_record', true))
+      : null;
+  const supplierMoneyP = acceptedTerms || isBooked ? startRead(readBookedMoney(admin, {
+          eventId,
+          vendorProfileId: profile.vendor_profile_id,
+          eventDate: brief.event.event_date,
+          viewer: 'vendor',
+          otherName: 'the couple',
+        })) : null;
+  const reviewP = isBooked && isCompleteConfirmed ? startRead(supabase
+      .from('vendor_reviews')
+      .select('review_id, created_at')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .eq('event_id', eventId)
+      .limit(1)
+      .maybeSingle()) : null;
+  const plansP = isBooked ? startRead(Promise.all([
+      fetchPlanProgressForVendor({
+        adminClient: admin,
+        eventId,
+        vendorProfileId: profile.vendor_profile_id,
+      }),
+      fetchPendingVendorPayments({
+        adminClient: admin,
+        eventId,
+        vendorProfileId: profile.vendor_profile_id,
+      }),
+      // This event's rows only, paged to the server's exact count
+      // (`lib/vendor-payday-read.ts`) — never one capped request.
+      readVendorPaydayInstallments(supabase, { eventId }),
+    ])) : null;
+  const refundsP = isBooked && eventVendorId ? startRead(supabase
+      .from('event_vendor_refunds')
+      .select(CLIENT_REFUND_SELECT)
+      .eq('event_vendor_id', eventVendorId)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .is('removed_at', null)
+      .order('refunded_on', { ascending: false })
+      .order('created_at', { ascending: false })) : null;
+  const changeOrdersP = eventVendorId ? startRead(supabase
+        .from('vendor_change_orders')
+        .select(
+          'change_order_id, raised_by, title, description, delta_amount_php, proposed_due_date, status, acknowledged_at, decline_reason, created_at',
+        )
+        .eq('event_vendor_id', eventVendorId)
+        .order('created_at', { ascending: false })) : null;
+  const openAsksP = isBooked && eventVendorId ? startRead(readOpenPaymentAsks(supabase, eventVendorId)) : null;
+  const handoversP = isBooked ? startRead(supabase
+        .from('booking_handovers')
+        .select('handover_id, kind, label, payload, status, delivered_at, couple_acknowledged_at')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .order('created_at', { ascending: false })
+        .limit(20)) : null;
+  const notesP = startRead(supabase
+    .from('vendor_client_notes')
+    .select('note_id, body, remind_at, done_at, author_user_id, created_at')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false }));
+  const payoutReadiness: PayoutReadiness = payoutMatters
+    ? await payoutReadinessP
+    : 'unreadable';
+
+  // ── THE BOOKING FEE, BOTH HALVES ────────────────────────────────────────
+  // BEFORE they agree: what agreeing will cost them, priced by the same
+  // `bookingFeePhp` the SQL charge is pinned against. Owner, 2026-09-20: "as a
+  // vendor i do not know i have to pay."
+  // AFTER it is billed: the unpaid bill FOR THIS COUPLE, with the door to pay.
+  //
+  // ⚠ The forecast is resolved ONLY while a lock ask is on screen — it is the
+  // sentence that belongs beside the Agree button, and nowhere else on this
+  // page is a decision being made about money.
+  // …and THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`): the ask's day through the SAME capacity
+  // rule the yes enforces (`vendor_day_check`), read beside the forecast — same moment, no extra wait.
+  // 🧭 …and whether the asked-for service is on PLAN hold (owner 2026-11-06, SERVICES LIFE CYCLE) — then Agree gives way
+  // to "Pick which stay on" and the card says why, naming the service.
+  const [feeForecast, dayCheck, heldService]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null, string | null] = lockRequest?.event_vendor_id
+    ? await askReadsP!
+    : [null, null, null];
+  const heldNotice = heldService ? lockAgreeNotice('service_on_hold', { heldService }) : null;
+  // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
+  // couple's fee can never appear on another couple's page.
+  // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
+  // The lock state is the gate's own answer (`resolveFeeEnforcement()` is `cache()`d — already asked by the fee gate).
+  const [clientFeeBillsRead, feeEnforced] = await Promise.all([feeBillsP, resolveFeeEnforcement()]);
+  const clientFeeBills: DueFeeBill[] =
+    clientFeeBillsRead === FEE_BILLS_UNREADABLE
+      ? []
+      : billsForSurface(clientFeeBillsRead, 'client', { eventId });
+  // 💸 THE CARRY-OVER (owner 2026-11-12, top-up rule 4): an OVERDUE top-up on ANOTHER booking turns this ask's Agree
+  // into "Settle ₱X to accept". Read off the same shop-wide bills; a held top-up carries nothing over.
+  const overdueElsewhere =
+    lockRequest && clientFeeBillsRead !== FEE_BILLS_UNREADABLE
+      ? overdueTopUps(clientFeeBillsRead, manilaToday()).filter((b) => b.eventId !== eventId)
+      : [];
+  // 💸 WHERE TO PAY (owner 13 Nov, "how can they settle if they do not have the QR Code"): each top-up's settle sheet,
+  // and the carry-over's, shows the shipped pay block — the bill read as /pay reads it, its codes minted HERE. Only
+  // ONE overdue bill elsewhere gets it: a code carries one bill's figure, never a sum of several (that sheet keeps its
+  // shipped door to the bills). A failed read → null → the shipped door, never an empty sheet.
+  const settleBills = [
+    ...clientFeeBills.filter((b) => b.topUp),
+    ...(overdueElsewhere.length === 1 ? overdueElsewhere : []),
+  ];
+  const settlePays = new Map<string, SettlePay>();
+  if (settleBills.length > 0) {
+    const paySettings = await fetchPlatformSettings(supabase);
+    await Promise.all(
+      settleBills.map(async (b) => {
+        const pay = await readSettlePay(supabase, paySettings, b.referenceCode, user.id);
+        if (pay) settlePays.set(b.orderId, pay);
+      }),
+    );
+  }
+  const carryOver: CarryOverTopUp | null =
+    overdueElsewhere.length > 0
+      ? {
+          orderId: overdueElsewhere[0]!.orderId,
+          amountPhp: topUpOwedPhp(overdueElsewhere),
+          coupleName: overdueElsewhere[0]!.coupleName,
+          dueOn: overdueElsewhere[0]!.dueOn,
+          payHref: vendorBookingFeePayPath(overdueElsewhere[0]!.orderId),
+          pay: overdueElsewhere.length === 1 ? (settlePays.get(overdueElsewhere[0]!.orderId) ?? null) : null,
+        }
+      : null;
+  // …and the WAIVED charge for this booking, if it was one of the free five.
+  // Owner 2026-09-20: a free booking must still name the fee it would have
+  // carried, so the first payable one is not a surprise.
+  const clientWaivedRead = await clientWaivedP;
+  const clientWaived: WaivedFeeCharge[] =
+    clientWaivedRead === FEE_BILLS_UNREADABLE
+      ? []
+      : clientWaivedRead.filter((c) => c.eventId === eventId);
+
+  let recordedDeposit: number | null = null;
+  if (acceptedTerms?.firstPaymentCentavos != null && completion?.vendor_id && completion.deposit_recorded_at) {
+    const { data: depRows, error: depErr } = (await depositRowsP)!;
     if (depErr) {
       // eslint-disable-next-line no-console
       console.error('[VendorClientPage] recorded deposit read failed', depErr.message);
@@ -1002,13 +1163,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // money has been recorded, quote or no quote.
   const supplierMoney =
     acceptedTerms || isBooked
-      ? await readBookedMoney(admin, {
-          eventId,
-          vendorProfileId: profile.vendor_profile_id,
-          eventDate: brief.event.event_date,
-          viewer: 'vendor',
-          otherName: 'the couple',
-        })
+      ? await supplierMoneyP
       : null;
   const supplierNextLine =
     supplierMoney &&
@@ -1114,13 +1269,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     const { data: chatFileRows, error: chatFileRowsError } = await supabase
       .from('chat_messages')
       .select(
-        'message_id,sender_role,created_at,attachment_name,attachment_mime,attachment_size_bytes,attachment_url',
+        // 📎 CHAT-02 (live, 14 Nov): `attachment_r2_key` is WHERE every chat file has been stored since 2026-09-09
+        // (`attachment_url` is legacy and nothing writes it). Read without it, every file arrived with no reference
+        // and was listed "File expired", unlinked — `chatAttachmentHref` needs either column.
+        'message_id,sender_role,created_at,attachment_name,attachment_mime,attachment_size_bytes,attachment_r2_key,attachment_url',
       )
       .eq('thread_id', threadId)
       // A row counts as a file if EITHER the stored reference or the filename
       // survived — a name with no reference still tells the supplier the file
       // exists, and listing it unlinked beats pretending it never arrived.
-      .or('attachment_url.not.is.null,attachment_name.not.is.null')
+      .or('attachment_r2_key.not.is.null,attachment_url.not.is.null,attachment_name.not.is.null')
       .order('created_at', { ascending: false })
       .limit(200);
     if (chatFileRowsError) {
@@ -1148,13 +1306,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // the booking could plausibly have a review (booked + delivered).
   let hasReview = false;
   if (isBooked && isCompleteConfirmed) {
-    const { data: reviewRow, error: reviewRowError } = await supabase
-      .from('vendor_reviews')
-      .select('review_id, created_at')
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .eq('event_id', eventId)
-      .limit(1)
-      .maybeSingle();
+    const { data: reviewRow, error: reviewRowError } = (await reviewP)!;
     // ⚠ WHETHER THEY HAVE ALREADY REVIEWED THIS COUPLE. Refused, `Boolean(null)`
     // ⚠ is false, so the page invites them to write a review they have already
     // ⚠ written — "you did not do this", said to somebody who did.
@@ -1189,21 +1341,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // the Quote and Payments tabs say the payments couldn't load.
   let ledgerUnreadable = false;
   if (isBooked) {
-    const [plans, pending, payday] = await Promise.all([
-      fetchPlanProgressForVendor({
-        adminClient: admin,
-        eventId,
-        vendorProfileId: profile.vendor_profile_id,
-      }),
-      fetchPendingVendorPayments({
-        adminClient: admin,
-        eventId,
-        vendorProfileId: profile.vendor_profile_id,
-      }),
-      // This event's rows only, paged to the server's exact count
-      // (`lib/vendor-payday-read.ts`) — never one capped request.
-      readVendorPaydayInstallments(supabase, { eventId }),
-    ]);
+    const [plans, pending, payday] = (await plansP)!;
     planRowsAll = plans;
     if (!payday.complete) {
       logQueryError(
@@ -1228,14 +1366,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // this couldn't load" — never a Paid figure that silently ignores a refund.
   let clientRefunds: { measured: boolean; rows: ClientRefundView[] } | null = null;
   if (isBooked && eventVendorId) {
-    const { data: refundRows, error: refundErr } = await supabase
-      .from('event_vendor_refunds')
-      .select(CLIENT_REFUND_SELECT)
-      .eq('event_vendor_id', eventVendorId)
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .is('removed_at', null)
-      .order('refunded_on', { ascending: false })
-      .order('created_at', { ascending: false });
+    const { data: refundRows, error: refundErr } = (await refundsP)!;
     if (refundErr) {
       logQueryError('VendorClientPage.refunds', refundErr, { eventId }, 'graceful_degrade');
       clientRefunds = { measured: false, rows: [] };
@@ -1257,13 +1388,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   // Change-Order Trail — depends on the event_vendor id resolved above.
   const { data: changeOrderRows, error: changeOrderRowsError } = eventVendorId
-    ? await supabase
-        .from('vendor_change_orders')
-        .select(
-          'change_order_id, raised_by, title, description, delta_amount_php, proposed_due_date, status, acknowledged_at, decline_reason, created_at',
-        )
-        .eq('event_vendor_id', eventVendorId)
-        .order('created_at', { ascending: false })
+    ? (await changeOrdersP)!
     : { data: null, error: null };
   // ⚠ CHANGE ORDERS CARRY MONEY (`delta_amount_php`) AND CAN BE AWAITING AN
   // ⚠ ANSWER. Refused, `?? []` hides one raised by the couple, so the supplier
@@ -1296,7 +1421,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Read to the END (`readOpenPaymentAsks`): it was `.limit(20)`, so a 21st
   // open ask was hidden and the shop could bill the same thing twice.
   const askRead = isBooked && eventVendorId
-    ? await readOpenPaymentAsks(supabase, eventVendorId)
+    ? (await openAsksP)!
     : { rows: [] as OpenPaymentAskRow[], error: null, complete: true };
   const askRowsError = askRead.error;
   // 🪤 SAME DEPLOY-WINDOW CARVE-OUT AS THE COUPLE'S SIDE. A relation this build
@@ -1321,13 +1446,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Delivery handovers (booked). event_vendor scoped — safe to read for the
   // vendor's own booking via their RLS.
   const { data: handoverRows, error: handoverRowsError } = isBooked
-    ? await supabase
-        .from('booking_handovers')
-        .select('handover_id, kind, label, payload, status, delivered_at, couple_acknowledged_at')
-        .eq('event_id', eventId)
-        .eq('vendor_profile_id', profile.vendor_profile_id)
-        .order('created_at', { ascending: false })
-        .limit(20)
+    ? (await handoversP)!
     : { data: null, error: null };
   // ⚠ WORK THEY HAVE ALREADY DELIVERED — the gallery link, the files handed
   // ⚠ over. Refused, the delivery record reads as empty, so finished work
@@ -1345,12 +1464,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   // Private CRM notes (vendor-org-only RLS). Author display resolved best-effort
   // via the admin client (RLS on users would otherwise hide teammates).
-  const { data: noteRows, error: noteRowsError } = await supabase
-    .from('vendor_client_notes')
-    .select('note_id, body, remind_at, done_at, author_user_id, created_at')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .eq('event_id', eventId)
-    .order('created_at', { ascending: false });
+  const { data: noteRows, error: noteRowsError } = await notesP;
   // ⚠ THE TEAM'S PRIVATE NOTES ON THIS CLIENT, INCLUDING THEIR REMINDERS.
   // ⚠ Refused, the notes read as never written and any `remind_at` on them
   // ⚠ silently stops being shown — an absence that deletes a warning, which is
@@ -1524,6 +1638,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     asked: askedOfThem,
     where: ownWhere,
     elsewhere: crewElsewhere,
+    // 🕕 null = could not be read (said on the view); undefined row = none kept yet.
+    ownTimes: myOwnTimesRes.error
+      ? null
+      : (() => {
+          const r = myOwnTimesRes.data as { call_clock: string | null; arrive_clock: string | null; done_clock: string | null; filed_at: string | null } | null;
+          return { call: r?.call_clock ?? null, arrive: r?.arrive_clock ?? null, done: r?.done_clock ?? null, filedAt: r?.filed_at ?? null };
+        })(),
+    eventDate: factsRow?.event_date ?? null,
   };
   // The couple's invitation to arrange the cocktail area is a WORKING control
   // (ruling item 7): its own page is gated, so the door to it is too — a link
@@ -1811,6 +1933,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           dayCheck={dayCheck}
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={heldService}
+          carryOver={carryOver}
         />
       ) : askOutcome ? (
         <BookingAskOutcomeLine outcome={askOutcome} />
@@ -1822,6 +1945,25 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       <BookingFeeBills
         bills={clientFeeBills}
         copyFor={(b) => feeDueCopy(b, manilaToday(), feeEnforced)}
+        payDoorFor={(b) => {
+          // 💸 A top-up's door opens its settle sheet, with WHERE to pay in it (owner 13 Nov).
+          const pay = b.topUp ? settlePays.get(b.orderId) : undefined;
+          if (!pay) return null;
+          const copy = feeDueCopy(b, manilaToday(), feeEnforced);
+          return function topUpSettleDoor(accent: string) {
+            return (
+            <TopUpSettleSheet
+              orderId={b.orderId}
+              label={copy.payLabel ?? 'Settle'}
+              accent={accent}
+              stage={topUpStage(b.dueOn, manilaToday())}
+              dueOn={b.dueOn}
+              coupleName={b.coupleName}
+              pay={pay}
+            />
+            );
+          };
+        }}
       />
       <WaivedFeeRows charges={clientWaived} />
     </>
@@ -1847,6 +1989,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         {isImported ? (
           <>
             <UserRound aria-hidden className="h-3 w-3" /> Imported
+          </>
+        ) : isFromSetnayan ? (
+          // RW-39 (walk 13 Nov 2026): a couple Setnayan brought — the same sources the fee counts as sourced. It read
+          // "In-house" beside "fee due", which a supplier reads as "my own client".
+          <>
+            <Sparkles aria-hidden className="h-3 w-3" /> From Setnayan
           </>
         ) : (
           <>
@@ -2368,6 +2516,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const sentQuote = [...proposals]
     .filter((p) => p.status !== 'draft')
     .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
+  // 👥 RW-108: a claimed per-guest booking — the couple's figure and count (the same read as Customers, #7633).
+  const shopPerGuest = isBooked || sentQuote ? null : (await readShopPerGuest(admin, profile.vendor_profile_id, [eventId]))?.get(eventId) ?? null;
   const numbersCells = detailsNumbers({
     isBooked,
     todayIso: manilaTodayIso(),
@@ -2375,6 +2525,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     ledger: ledgerUnreadable ? null : { receivedPhp: ledgerMoney.receivedPhp, expectedPhp: ledgerMoney.expectedPhp },
     onPlan: planRowsAll.length > 0,
     sentQuotePhp: proposalRowsError ? null : sentQuote ? sentQuote.total_centavos / 100 : undefined,
+    perGuest: shopPerGuest,
     peso: (php) => fmtPeso(php),
   });
 
@@ -3604,6 +3755,12 @@ function ScheduleTab(props: {
               initial={runOfShowBlocks}
               canAdvance={canAdvance}
               compact
+              // RW-87: before the event's day the Now box says when it starts, never "Not started yet".
+              startsOnWords={
+                props.brief.event.event_date && props.brief.event.event_date.slice(0, 10) > manilaToday()
+                  ? weekdayDateWithYear(props.brief.event.event_date)
+                  : null
+              }
             />
           </div>
         ) : null}
@@ -3710,7 +3867,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Share an album link
               </summary>
-              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="gallery_link" />
                 <input type="text" name="label" maxLength={200} placeholder="e.g. Full wedding album" className={shopInputClass} />
@@ -3726,7 +3883,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <FileText aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Upload a sample/proof
               </summary>
-              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="file" />
                 <input type="text" name="label" maxLength={200} placeholder="e.g. Edited preview" className={shopInputClass} />
@@ -3742,7 +3899,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <MessageSquarePlus aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Leave a note
               </summary>
-              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="note" />
                 <input type="text" name="label" maxLength={200} placeholder="Subject (optional)" className={shopInputClass} />
@@ -3757,7 +3914,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <PackageCheck aria-hidden className="h-3.5 w-3.5 text-ink/55" /> All delivered (sign-off)
               </summary>
-              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="signoff" />
                 <textarea name="payload" maxLength={4000} rows={2} placeholder="Closing note (optional) — e.g. Everything’s been delivered. Thank you!" className={shopInputClass} />

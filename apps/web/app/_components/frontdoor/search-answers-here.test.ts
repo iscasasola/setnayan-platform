@@ -127,9 +127,12 @@ test('the results view resolves every noun the box promises', () => {
 
 test('the marketplace row is permanent, not an empty state', () => {
   const src = stripComments(read(RESULTS));
+  // 🔄 2026-11-12: the row hands the words to Discover's SUPPLIER VIEW (`/?q=…&browse=1`, built by
+  // `discoverSupplierHref`) — `/explore` is no longer a page (owner: *"find suppliers needs to be also inside discover
+  // already. they do not need to have their own page"*). Same row, same search; only the address moved.
   assert.match(
     src,
-    /href=\{`\/explore\?q=\$\{encodeURIComponent\(query\)\}`\}/,
+    /href=\{discoverSupplierHref\(new URLSearchParams\(\{ q: query \}\)\)\}/,
     'the row handing the typed words to the marketplace is gone — that row is ' +
       'the only way to reach the word-bridge and all 192 categories',
   );

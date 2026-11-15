@@ -37,7 +37,7 @@ export type ShareCreditMode = 'first_names' | 'anonymous';
 export const SHARE_ARTIFACT_LABEL: Record<ShareArtifactType, string> = {
   monogram: 'Monogram',
   save_the_date: 'Save the Date',
-  website: 'Wedding website',
+  website: 'Event Hub',
   reel: 'Reel',
 };
 
@@ -92,7 +92,7 @@ export function coupleCreationCaption({
   const lead: Record<ShareArtifactType, string> = {
     monogram: `This monogram belongs to ${credit} — designed on Setnayan, now part of their story.`,
     save_the_date: `${credit} said "Save the Date" in style — made on Setnayan, straight to every feed.`,
-    website: `A wedding website made by ${credit} on Setnayan — every detail, one beautiful page.`,
+    website: `An Event Hub made by ${credit} on Setnayan — every detail, one beautiful page.`,
     reel: `A little reel of love from ${credit}'s big day — made with Setnayan.`,
   };
   return `${lead[artifactType]} Set na 'yan. ✨\n\n#Setnayan #SetNaYan`;

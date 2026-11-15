@@ -671,7 +671,9 @@ function PosterCard({
       className={`sn-press sn-lift-4 sn-reveal group relative block aspect-[3/4] overflow-hidden rounded-2xl bg-[color:var(--m-paper-2)] shadow-[0_1px_0_rgba(44,42,41,0.05),0_20px_44px_-26px_rgba(44,42,41,0.55)] transition-shadow duration-300 hover:shadow-[0_30px_54px_-26px_rgba(44,42,41,0.6)] ${
         muted ? 'opacity-75 hover:opacity-100' : ''
       }`}
-      style={{ animationDelay: `${0.5 + index * 0.05}s` }}
+      /* 🏷 `--chip-room` — the height the stacked kicker chips take (two rows at a phone's two-up width).
+         The poster keeps its mark and name below it, so a chip never covers them (2026-11-13). */
+      style={{ animationDelay: `${0.5 + index * 0.05}s`, ...(kicker && kicker.length > 0 ? { '--chip-room': '3.75rem' } : {}) } as CSSProperties}
     >
       {/* THE ACCESSIBLE NAME. Every visible layer below is aria-hidden (the
           poster is art; the chips and the strip repeat facts this sentence

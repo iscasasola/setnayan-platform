@@ -7,7 +7,7 @@
  * PR-6b), and its load-bearing guarantee was that a PENDING inquiry's payload
  * "carries NO couple identity … only the neutral anonymized descriptor". Owner
  * ruling 2026-09-08: *"we do not need to hide anything, since no more tokens."*
- * The mask was the token wallet's storefront and the wallet was retired on
+ * The mask was the token balance's storefront and the balance was retired on
  * 2026-05-11 — see `the-inquiry-card-honours-the-ruling.test.ts` for the full
  * history, which is deliberately kept rather than deleted.
  *

@@ -152,3 +152,24 @@ function readTiffDate(v: DataView, tiff: number, end: number): string | null {
   const iso = `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${zone}`;
   return Number.isNaN(new Date(iso).getTime()) ? null : iso;
 }
+
+// ── 📥 Piece 3c — links pasted in the chat ─────────────────────────────────────────────────────────────────────
+/** Links in a message's words — http(s) only, trailing punctuation dropped. */
+export function linksIn(body: string | null | undefined): string[] {
+  if (!body) return [];
+  const out: string[] = [];
+  for (const m of body.matchAll(/https?:\/\/[^\s<>"')\]]+/g)) {
+    const url = m[0].replace(/[.,;:!?]+$/, '');
+    if (url.length <= 1000 && !out.includes(url)) out.push(url);
+  }
+  return out;
+}
+
+/** "youtube.com" from a URL — the Links tile's site name. */
+export function siteOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return 'link';
+  }
+}

@@ -17,6 +17,19 @@ import { AddressPinField } from './address-pin-field';
 import { ServicesCoveredPicker } from './services-covered-picker';
 import { PaymentPlanRows } from './payment-plan-rows';
 import { PayWaysEditor } from './pay-ways-editor';
+import { VendorDirectPay } from './vendor-direct-pay';
+import { payWaysAsDirectPay } from '@/lib/self-added-pay-ways';
+import { PriceBasisRows } from './price-basis-rows';
+import { agreedSuffix, type SelfAddedBasis } from '@/lib/self-added-price-basis';
+
+/** "How the price works ▾" — the modal owns the choice and the agreed count (the add sheet draws the same rows). */
+export type RecordBasisRows = {
+  basis: SelfAddedBasis;
+  onBasis: (b: SelfAddedBasis) => void;
+  /** The guests / hours agreed, as kept ('' = none yet). */
+  countKept: string;
+  onCountKeep: (t: string) => void;
+};
 
 /** A Form row's keep: the sheet's own Save sends the form, so keeping has nothing to write. */
 const KEEP = () => ({ ok: true as const });
@@ -71,6 +84,8 @@ export function RecordCardFolds({
   nameKept,
   priceKept,
   priceNumber,
+  keptTotalPhp,
+  basisRows,
   lines,
   planLine,
   payLine,
@@ -91,7 +106,11 @@ export function RecordCardFolds({
   pending: boolean;
   nameKept: string;
   priceKept: string;
+  /** What the payment plan adds up to: the typed total (null = none yet). */
   priceNumber: number | null;
+  /** The KEPT total the plan's dated rows count from — the modal works it out for every basis. */
+  keptTotalPhp?: number | null;
+  basisRows?: RecordBasisRows;
   lines: RecordLines;
   planLine: { text: string; warn: boolean } | null;
   payLine: string | null;
@@ -105,6 +124,11 @@ export function RecordCardFolds({
 }) {
   const row = (last = false) => `px-0.5 ${last ? '' : 'border-b border-ink/10'}`;
   const keptTotal = Number(priceKept.replace(/,/g, ''));
+  // The Price fold's closed line follows the choice (v2): "₱162,000 · 120 guests agreed".
+  const countN = basisRows ? Number(basisRows.countKept.replace(/,/g, '')) : NaN;
+  const suffix =
+    basisRows && Number.isFinite(countN) && countN > 0 ? agreedSuffix({ basis: basisRows.basis, count: countN }) : null;
+  const priceSummary = suffix && priceNumber != null ? `${formatPhp(priceNumber)} · ${suffix}` : lines.price;
   return (
     <div data-record-card-folds="" className="border-t border-ink/10">
       <Fold title="Contact" summary={lines.contact ?? 'Add who to call'} summaryEnd defaultOpen className={row()} data="record-contact">
@@ -150,34 +174,31 @@ export function RecordCardFolds({
         </FormRows>
       </Fold>
 
-      <Fold title="Price" summary={lines.price ?? 'Set the price'} summaryEnd className={row()} data="record-price">
-        <FormRows width="wide" data="add-manual-terms">
-          <TypedRow
-            name="Price"
-            fieldName="total_cost_php"
-            value={priceKept}
-            amount
-            placeholder="80000"
-            about={{ words: 'What you agreed, in pesos. The payment plan has to add up to it — change it and the unpaid payments re-split to match.' }}
-            attrs={{ 'data-manual-field': 'total_cost_php' }}
-            onType={onPriceType}
-            onKeep={(t) => {
-              onPriceKeep(t);
-              return { ok: true as const };
-            }}
-          />
-          <TypedRow
-            name="Inclusions"
-            fieldName="inclusions"
-            value={edit.inclusions}
-            long
-            maxLength={2000}
-            placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
-            about={{ words: 'One per line — what the price covers.' }}
-            attrs={{ 'data-manual-field': 'inclusions' }}
-            onKeep={KEEP}
-          />
-        </FormRows>
+      <Fold title="Price" summary={priceSummary ?? 'Set the price'} summaryEnd className={row()} data="record-price">
+        <PriceBasisRows
+          basis={basisRows?.basis ?? 'fixed'}
+          onBasis={basisRows?.onBasis ?? (() => {})}
+          totalKept={priceKept}
+          totalAbout={{ words: 'What you agreed, in pesos. The payment plan has to add up to it — change it and the unpaid payments re-split to match.' }}
+          onTotalType={onPriceType}
+          onTotalKeep={onPriceKeep}
+          countKept={basisRows?.countKept ?? ''}
+          onCountType={() => {}}
+          onCountKeep={basisRows?.onCountKeep ?? (() => {})}
+          after={
+            <TypedRow
+              name="Inclusions"
+              fieldName="inclusions"
+              value={edit.inclusions}
+              long
+              maxLength={2000}
+              placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
+              about={{ words: 'One per line — what the price covers.' }}
+              attrs={{ 'data-manual-field': 'inclusions' }}
+              onKeep={KEEP}
+            />
+          }
+        />
       </Fold>
 
       <Fold
@@ -199,7 +220,7 @@ export function RecordCardFolds({
               dates: edit.planDates ?? { lockIso: todayIso(), eventIso: null },
               seqs: edit.planSeqs,
               settledSeqs: edit.settledSeqs,
-              keptTotalPhp: Number.isFinite(keptTotal) && keptTotal > 0 ? keptTotal : null,
+              keptTotalPhp: keptTotalPhp !== undefined ? keptTotalPhp : Number.isFinite(keptTotal) && keptTotal > 0 ? keptTotal : null,
               lastReplot: edit.lastReplot ?? null,
               onLine: onPlanLine,
             }}
@@ -218,6 +239,12 @@ export function RecordCardFolds({
       >
         <div className="pb-3">
           <PayWaysEditor eventId={eventId} initial={edit.payWays === undefined ? [] : edit.payWays} disabled={pending} onSummary={onPayLine} />
+          {/* The saved ways in the SHIPPED direct-pay sheet — its look and its always-on disclosure (owner 2026-11-13). */}
+          {edit.payWays && edit.payWays.length > 0 ? (
+            <div className="pt-3" data-record-direct-pay="">
+              <VendorDirectPay vendorName={edit.name.trim() || 'this supplier'} methods={payWaysAsDirectPay(edit.payWays)} />
+            </div>
+          ) : null}
         </div>
       </Fold>
 

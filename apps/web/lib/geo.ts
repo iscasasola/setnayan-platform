@@ -93,12 +93,27 @@ export function wazeNavUrl(lat: number, lng: number): string {
 }
 
 /**
- * Apple Maps — open a pin at coords. On non-Apple devices this just renders
- * the Apple Maps web preview (which then offers "open in Google Maps"), so
- * the icon is safe to show universally.
+ * Apple Maps — a route to the coords, with a NAMED pin. `daddr` is the destination (Apple Maps opens with the route
+ * ready, like the Google Maps and Waze rows beside it in the Get directions sheet); `q` labels that pin with the
+ * place's name, so the guest sees "San Agustin Church", not a bare coordinate. No name → the route alone (still a
+ * dropped pin at the coords). Before 2026-11-14 this was `?ll=` only: Apple Maps centred the map there with no pin and
+ * no route (the live re-walk of the map card, #7682). On non-Apple devices it opens the Apple Maps web preview.
  */
-export function appleMapsUrl(lat: number, lng: number): string {
-  return `https://maps.apple.com/?ll=${encodeURIComponent(`${lat},${lng}`)}`;
+export function appleMapsUrl(lat: number, lng: number, name?: string | null): string {
+  const label = name?.trim();
+  return `https://maps.apple.com/?daddr=${encodeURIComponent(`${lat},${lng}`)}${label ? `&q=${encodeURIComponent(label)}` : ''}`;
+}
+
+/**
+ * Android's own map chooser — a `geo:` URI (RFC 5870 + Android's `?q=lat,lng(label)` extension). Android hands it to
+ * every map app actually installed (Google Maps, Waze, Grab…) and lets the guest pick: the only honest "which map apps
+ * do they have" a web page can ask (map card + Get directions, approved 2026-11-14). Never offered on an iPhone or a
+ * computer, where nothing answers it.
+ */
+export function geoUri(lat: number, lng: number, label?: string | null): string {
+  const at = `${lat},${lng}`;
+  const name = label?.replace(/[()]/g, '').trim();
+  return `geo:${at}?q=${encodeURIComponent(at)}${name ? `(${encodeURIComponent(name)})` : ''}`;
 }
 
 export type GeocodeResult = {

@@ -292,7 +292,9 @@ test('5 · ONE bar: the page’s own SiteMenuBar, marking the tab from the same 
   assert.match(BAR, /const page = tabKeys\.length > 0 \? activeHubTab\(params\?\.get\(HUB_TAB_PARAM\) \?\? null, tabKeys\) : null;/);
   /* The Day's lit tab is the page (`page`); `currentOf` says `true` only for a one-page stage's jump mark. */
   assert.match(BAR, /aria-current=\{currentOf\(slot\.key\)\}/);
-  assert.match(BAR, /const activeKey = onePage \? \(page === SCROLL_PAGE \? spied : page\) : page;/, 'off the one page, the address alone lights the tab');
+  assert.match(BAR, /const activeKey = onePage \? \(page === SCROLL_PAGE \? spied : page\) : \(page \?\? homeOfThisPage\);/, 'off the one page, the address alone lights the tab');
+  /* …and a page with NO tab pages (after the day) lights its Home, never nothing (F-W2-54) — only there. */
+  assert.match(BAR, /const homeOfThisPage = !onePage && tabKeys\.length === 0 &&/, 'a page of tabs would light Home over its own tab');
   assert.match(BAR, /key !== activeKey \? undefined : onePage && marks\.some\(\(m\) => m\.key === key\) \? 'true' : 'page'/);
   const BODY = stripComments(read('_components', 'site-body.tsx'));
   // Both trees: the bar and the shell read ONE value, and the shell rides with the bar.

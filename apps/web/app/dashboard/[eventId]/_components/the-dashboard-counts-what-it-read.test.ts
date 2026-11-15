@@ -28,6 +28,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
+import { budgetTileCommitted } from '@/lib/budget-tile-committed';
 
 // Comments stripped: this file now explains the defect using the very strings
 // it forbids, so a raw-source guard would flag its own explanation.
@@ -41,10 +42,22 @@ test('both reads report whether they actually happened', () => {
 });
 
 test('the committed figure needs BOTH reads, so it requires both flags', () => {
+  // Since #5936 the tile's state comes from lib/budget-tile-committed.ts, which returns `unread` unless BOTH flags
+  // are true (proved by calling it in lib/a-hidden-amount-never-reads-as-a-figure.test.ts) — so the dashboard must
+  // hand it both, and "measured" must be that rule's answer.
   assert.match(
     src,
-    /const committedMeasured = vendorsMeasured && ordersMeasured;/,
+    /budgetTileCommitted\(\{\s*vendorsMeasured,\s*ordersMeasured,/,
     'committed is a SUM — either refusal understates it, so one flag is not enough',
+  );
+  assert.match(src, /const committedMeasured = committed\.state === 'measured';/);
+  assert.deepEqual(
+    budgetTileCommitted({ vendorsMeasured: true, ordersMeasured: false, amountsHidden: false, centavos: 1 }),
+    { state: 'unread' },
+  );
+  assert.deepEqual(
+    budgetTileCommitted({ vendorsMeasured: false, ordersMeasured: true, amountsHidden: false, centavos: 1 }),
+    { state: 'unread' },
   );
 });
 

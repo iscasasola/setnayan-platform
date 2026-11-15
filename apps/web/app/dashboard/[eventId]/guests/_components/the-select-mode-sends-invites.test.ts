@@ -37,7 +37,7 @@ test('Select mode has ONE Invite N, the filled forward button, WAITING while not
 });
 
 test('it goes to the existing run with the selected, still-to-invite guests’ ids — and says so when there is nobody', () => {
-  assert.match(btn, /if \(invitable\.length === 0\) \{\s*toast\.info\('Everyone selected is already invited'\);\s*return;\s*\}/);
+  assert.match(btn, /if \(invitable\.length === 0\) \{\s*toast\.info\('Nobody selected still needs an invitation'\);\s*return;\s*\}/);
   assert.match(btn, /router\.push\(sendRunHref\(eventId, invitable\.map\(\(g\) => g\.guest_id\)\)\);/);
   /* …and the app's door IS the existing run, with exactly that param (the lab hands in its own). */
   const ctx = stripComments(readFileSync(join(HERE, 'guest-actions-context.tsx'), 'utf8'));

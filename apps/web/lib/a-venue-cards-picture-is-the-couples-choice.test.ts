@@ -17,7 +17,7 @@
  *       photo; picking a photo, an upload or None takes the drawing off and
  *       picking the drawing keeps the photo underneath;
  *   4 · THE CHOICE IS PRO — turning a drawing ON is held at Apply for a couple
- *       without Event Hub Pro (its photo edits still go live), applied for one
+ *       without Event Pro (its photo edits still go live), applied for one
  *       with it, named on the Apply sheet, and removable from there; turning it
  *       OFF is free; the Save-the-Date's live venue door can never set it.
  *   5 · THE PHONE HAS THE SAME ROW (controller ruling 2026-10-17 — phones are

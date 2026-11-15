@@ -150,7 +150,7 @@ async function refreshPublic(shopId: string): Promise<void> {
     .maybeSingle();
   const slug = (data as { business_slug?: string | null } | null)?.business_slug;
   if (slug) revalidatePath(`/v/${slug}`);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
 }
 
 // ── Take down ────────────────────────────────────────────────────────────────

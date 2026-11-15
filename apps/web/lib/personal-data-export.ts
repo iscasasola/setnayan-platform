@@ -918,6 +918,7 @@ export async function buildPersonalDataExport(
     stageNotesRes,
     founderSeatRes,
     savedSuppliersRes,
+    noticeClosesRes,
     helpMessagesRes,
     referralCodesRes,
     reservationsRes,
@@ -1066,6 +1067,12 @@ export async function buildPersonalDataExport(
       .select('vendor_profile_id, vendor_service_id, source_event_id, saved_at')
       .eq('user_id', user.id)
       .order('saved_at', { ascending: true }),
+    // Which notices they closed, when, and how many times (one notice system, 2026-11-14).
+    supabase
+      .from('notice_closes')
+      .select('notice_key, closed_at, close_count')
+      .eq('user_id', user.id)
+      .order('closed_at', { ascending: true }),
     // What they wrote to Setnayan support. Our staff's internal `admin_notes`
     // and the handler's id are not selected.
     supabase
@@ -1105,7 +1112,7 @@ export async function buildPersonalDataExport(
       .select('waitlist_id, vendor_profile_id, event_id, requested_date, status, created_at, notified_at, accepted_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
-    // Their balance in the RETIRED supplier token wallet. The currency can no
+    // Their balance in the RETIRED supplier token balance. The currency can no
     // longer be earned or spent, but the record is still held about them.
     supabase
       .from('vendor_member_token_wallets')
@@ -1241,6 +1248,7 @@ export async function buildPersonalDataExport(
   const stageNotes = listOutcome('stage_notes_sent', stageNotesRes, adminUnavailable);
   const founderSeat = listOutcome('founder_seat', founderSeatRes);
   const savedSuppliers = listOutcome('saved_suppliers', savedSuppliersRes);
+  const noticesClosed = listOutcome('notices_closed', noticeClosesRes);
   const helpMessages = listOutcome('help_messages_sent', helpMessagesRes);
   const referralCodes = listOutcome('referral_codes', referralCodesRes);
   const reservations = listOutcome('reservations_made', reservationsRes);
@@ -1388,6 +1396,7 @@ export async function buildPersonalDataExport(
     stageNotes,
     founderSeat,
     savedSuppliers,
+    noticesClosed,
     helpMessages,
     referralCodes,
     reservations,
@@ -1565,6 +1574,8 @@ export async function buildPersonalDataExport(
     stage_notes_sent: stageNotes.rows,
     founder_seat: founderSeat.rows,
     saved_suppliers: savedSuppliers.rows,
+    // Notices you closed (Got it / Not now / Hide), so they stay closed on a new phone.
+    notices_closed: noticesClosed.rows,
     // What you wrote to Setnayan support.
     help_messages_sent: helpMessages.rows,
     referral_codes: referralCodes.rows,
@@ -1572,7 +1583,7 @@ export async function buildPersonalDataExport(
     // Your face profile's consent record — never the face data itself.
     face_profile: faceProfile.rows,
     date_waitlists_joined: dateWaitlists.rows,
-    // Your balance in the supplier token wallet, which is retired.
+    // Your balance in the supplier token balance, which is retired.
     retired_token_balances: tokenBalances.rows,
     supplier_team_memberships: teamMemberships.rows,
     // Claim scans you made as a supplier's crew — what you scanned for which shop, when, and its number. The guest

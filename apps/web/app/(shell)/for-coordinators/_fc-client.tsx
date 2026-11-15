@@ -12,7 +12,7 @@
  *   <AccessCard>    Full Event Access: Edit · View · Off per part                     (script 6)
  *   <RunTheDay>     the coordinator's event-day phone: start the next part, Acknowledge (script 6)
  *   <FeeSlider>     the booking fee for any booking price, from the LIVE schedule      (script 5)
- *   <PlanTiers>     Solo · Pro · Ultra inside the Grow step                            (script 7)
+ *   <PlanTiers>     Supplier Plus · Pro · Ultra inside the Grow step                            (script 7)
  *
  * Words and numbers all come from the page (a server component), so they ship in the HTML and a
  * failed script leaves a readable page. Every motion stops under `prefers-reduced-motion: reduce`.
@@ -805,7 +805,7 @@ export function FeeSlider({
   );
 }
 
-/* ── Solo · Pro · Ultra ────────────────────────────────────────────────────────────────────── */
+/* ── Supplier Plus · Pro · Ultra ────────────────────────────────────────────────────────────────────── */
 
 export type TierCard = {
   key: string;

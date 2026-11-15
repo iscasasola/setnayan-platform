@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { HeartHandshake } from 'lucide-react';
+import { HeartHandshake, X } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { Drawer } from '@/app/dashboard/[eventId]/guests/_components/overlay-primitives';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { AddAlagaFields } from './add-alaga-fields';
@@ -40,37 +42,27 @@ export function AddAlagaButton() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="button-secondary inline-flex items-center gap-2 text-sm"
-      >
-        <HeartHandshake aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        Add a loved one
-      </button>
+      <ActionButton tone="neutral" icon={HeartHandshake} label="Add a loved one" onClick={() => setOpen(true)} />
 
       {open ? (
         <Drawer onClose={() => setOpen(false)} labelledById="add-alaga-heading">
           <StayForm door="accPeople.addDependent" action={addDependent} onSaved={() => setOpen(false)} className="space-y-4">
-            <h2 id="add-alaga-heading" className="text-base font-semibold text-ink">
-              Add a loved one
-            </h2>
-            <p className="text-sm text-ink/60">
+            <InfoTip
+              label="Add a loved one"
+              labelAs="h2"
+              labelId="add-alaga-heading"
+              labelClassName="text-base font-semibold text-ink"
+              align="start"
+            >
               Someone in your care — a child, an elder, a pet, or anything else you look after.
               Their profile lives inside yours until they take it over.
-            </p>
+            </InfoTip>
             <AddAlagaFields />
-            <div className="flex gap-2 pt-1">
-              <SubmitButton className="button-primary" pendingLabel="Adding…">
+            <div className="grid auto-cols-fr grid-flow-col gap-2 pt-1">
+              <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setOpen(false)} className="w-full !min-h-12" />
+              <SubmitButton className={actionButtonClass('brand', { main: true, extra: 'w-full !min-h-12' })} pendingLabel="Adding…">
                 Add
               </SubmitButton>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="button-secondary text-sm"
-              >
-                Cancel
-              </button>
             </div>
           </StayForm>
         </Drawer>

@@ -24,7 +24,7 @@ const OCT = '2026-10-19T05:00:00.000Z';
 test('the plan sentence names the plan a supplier is on', () => {
   assert.equal(
     planLines({ currentTier: 'pro', pendingTier: null, tierExpiresAt: OCT, creditPhp: 0 }).now,
-    'You are on Pro.',
+    'You are on Supplier Pro.',
   );
 });
 
@@ -36,7 +36,7 @@ test('a scheduled change says what it becomes AND on what date', () => {
     creditPhp: 0,
   });
   assert.ok(l.change, 'a scheduled change must be stated');
-  assert.match(l.change!, /Solo/, 'it must name the plan it becomes');
+  assert.match(l.change!, /Supplier Plus/, 'it must name the plan it becomes');
   assert.match(l.change!, /2026/, 'it must name the date it lands');
   assert.match(l.change!, /Nothing changes before then/, 'it must say today is unaffected');
 });
@@ -124,8 +124,8 @@ test('none of it speaks in jargon', () => {
 });
 
 test('every plan has a name a person would recognise', () => {
-  assert.equal(planWord('solo'), 'Solo');
-  assert.equal(planWord('enterprise'), 'Ultra');
+  assert.equal(planWord('solo'), 'Supplier Plus');
+  assert.equal(planWord('enterprise'), 'Supplier Ultra');
   assert.equal(planWord('verified'), 'Free · Verified');
   // An unknown value must never render as a raw database word.
   assert.equal(planWord('some_future_tier'), 'Free');

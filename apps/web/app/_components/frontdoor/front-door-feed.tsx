@@ -351,10 +351,16 @@ export function FrontDoorFeed({
   beforeShops,
   afterShops,
   storeShell = false,
+  shopTools = null,
 }: {
   data: FrontDoorData;
   /** Inside the App Store / Play Store shell — `isStoreShellRequest()`. */
   storeShell?: boolean;
+  /**
+   * "All categories ▾" and "Filters" under the Shops heading — the shelf's doors into Discover's supplier view
+   * (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"). Built by `FrontDoor`.
+   */
+  shopTools?: ReactNode;
 } & DiscoverSlots) {
   const {
     articles,
@@ -428,7 +434,15 @@ export function FrontDoorFeed({
             <span>{shopsHeading}</span>
             {/* 🧹 "not trending — one shop cannot trend" is gone (owner 2026-10-01, NO SMALL
                 EXPLAINER LABELS): the heading already says "The first shops". */}
+            {/* 🛒 More shops are open than the shelf shows → the door to every supplier, on this page (the
+                supplier view, 2026-11-12). `liveShopCount` decides it and is never printed. */}
+            {liveShopCount !== null && liveShopCount > shops.length ? (
+              <Link href="/?browse=1" className="fd-sechead-go" data-discover-see-all="">
+                See all suppliers →
+              </Link>
+            ) : null}
           </h2>
+          {shops.length > 0 ? shopTools : null}
           {/*
             🧪 THE EMPTY SHELF (2026-09-30). The two trial shops became `is_demo`
             (owner, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1): "Discover's Shops

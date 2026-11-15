@@ -128,7 +128,7 @@ export async function updatePublicLine(
   revalidateShopPage(vendorProfileId);
   revalidatePath('/vendor-dashboard/shop');
   if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
 
   // ── C5, 2026-08-28 (owner + DPO: "C5 yes") ─────────────────────────────
   // The FIRST time this shop's own website becomes known — never on a later

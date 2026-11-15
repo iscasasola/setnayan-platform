@@ -1,12 +1,12 @@
 'use client';
 
-import { useId, useState, useTransition } from 'react';
+import { useEffect, useId, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
-import { TERMS_FIELD, TERMS_SAVE_FAILED_MESSAGE } from '@/lib/terms-agreement';
+import { TERMS_FIELD, TERMS_SAVE_FAILED_MESSAGE, TERMS_VERSION } from '@/lib/terms-agreement';
 import { acceptTermsNow, type TermsAgreementResult } from './actions';
 
 /**
@@ -24,10 +24,38 @@ import { acceptTermsNow, type TermsAgreementResult } from './actions';
  *   · A failed save is SAID, with Retry, and the sheet stays. It closes only on a save that came back ok.
  *   · Closing it (×, Back, Esc, the dimmed space) puts it away for this visit only; it returns on the next one until
  *     they agree. It never traps anyone on a page they cannot leave.
+ *   · 🔁 "THIS VISIT" MEANS THE BROWSER SESSION, NOT THE PAGE (walk 13 Nov 2026, F-W1-10). The closed state used to live
+ *     only in this component, so every page load drew the sheet again over every screen. Closing it now writes
+ *     `TERMS_SHEET_CLOSED_KEY` (this version) to sessionStorage, read on mount; a new visit (a new tab / session) asks
+ *     again. "I agree" is the server's record (`users.terms_version`, re-read by every layout), so it ends the ask for
+ *     good — no storage involved.
  */
+export const TERMS_SHEET_CLOSED_KEY = 'sn_terms_sheet_closed';
+
+function closedThisVisit(): boolean {
+  try {
+    return window.sessionStorage.getItem(TERMS_SHEET_CLOSED_KEY) === TERMS_VERSION;
+  } catch {
+    return false;
+  }
+}
+
 export function TermsReacceptSheet() {
   const titleId = useId();
-  const [open, setOpen] = useState(true);
+  // Opened on mount, never in the initial state: the server render has no sessionStorage, and opening first then
+  // closing would flash a sheet the person already closed this visit.
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!closedThisVisit()) setOpen(true);
+  }, []);
+  const close = () => {
+    setOpen(false);
+    try {
+      window.sessionStorage.setItem(TERMS_SHEET_CLOSED_KEY, TERMS_VERSION);
+    } catch {
+      // Storage refused (private mode): it closes for this page, as before.
+    }
+  };
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -51,7 +79,7 @@ export function TermsReacceptSheet() {
   }
 
   return (
-    <Sheet open={open} onClose={() => setOpen(false)} labelledById={titleId} rise>
+    <Sheet open={open} onClose={close} labelledById={titleId} rise>
       <div className="px-5 pb-4 pt-7" data-terms-reaccept="">
         <InfoTip
           label="Our Terms have changed"

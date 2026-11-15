@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
-import { BellRing, ChevronDown, ChevronRight, ListOrdered, Loader2 } from 'lucide-react';
+import { BellRing, ChevronDown, ChevronRight, ListOrdered } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
@@ -87,10 +87,10 @@ export function YourNumbers({
           setShown((v) => !v);
         }}
         aria-expanded={shown}
-        className="sn-press flex min-h-12 w-full items-center gap-3 border-b border-ink/10 py-2 text-left"
+        className="sn-press flex min-h-14 w-full items-center gap-3 border-b border-[color:var(--m-line)] py-2 text-left"
       >
-        <ListOrdered aria-hidden className="h-5 w-5 flex-none text-ink/55" strokeWidth={1.8} />
-        <span className="min-w-0 flex-1 text-[15px] font-medium text-ink">Your numbers</span>
+        <ListOrdered aria-hidden className="h-5 w-5 flex-none text-terracotta" strokeWidth={1.8} />
+        <span className="min-w-0 flex-1 text-base font-semibold text-ink">Your numbers</span>
         {shown ? (
           <ChevronDown aria-hidden className="h-4 w-4 flex-none text-sn-accent" strokeWidth={2} />
         ) : (
@@ -99,17 +99,24 @@ export function YourNumbers({
       </button>
       {shown ? (
         rows === 'loading' ? (
-          <p className="flex items-center gap-2 py-3 text-[14px] text-ink/60">
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.8} /> Loading…
-          </p>
+          // The house shimmer in the shape of the rows it is waiting for — never a spinner.
+          <div className="divide-y divide-[color:var(--m-line)]" aria-busy="true">
+            <span className="sr-only">Loading…</span>
+            {[0, 1, 2].map((i) => (
+              <div key={i} aria-hidden className="flex min-h-14 items-center gap-3 py-2">
+                <span className="h-5 w-14 flex-none animate-pulse rounded-md bg-ink/10" />
+                <span className="h-4 flex-1 animate-pulse rounded-md bg-ink/[0.06]" />
+              </div>
+            ))}
+          </div>
         ) : rows === null ? (
-          <p role="alert" className="py-3 text-[14px] text-ink/70">
+          <p role="alert" className="py-3 text-sm text-warn-700">
             <strong className="text-ink">We couldn&rsquo;t load your numbers just now.</strong> Your scans are safe — only this list is missing.
           </p>
         ) : rows.length === 0 ? (
-          <p className="py-3 text-[14px] text-ink/60">No numbers yet — your first scan makes #0001.</p>
+          <p className="py-3 text-sm text-[color:var(--m-slate-2)]">No numbers yet — your first scan makes #0001.</p>
         ) : (
-          <ul className="divide-y divide-ink/10" data-your-numbers-list="">
+          <ul className="divide-y divide-[color:var(--m-line)]" data-your-numbers-list="">
             {rows.map((r) => {
               const isOpen = open === r.number;
               const st = numberState(r);
@@ -124,18 +131,18 @@ export function YourNumbers({
                     <>
                     <span className="w-16 flex-none font-pahina text-xl tabular-nums text-ink">{scanNumberLabel(r.number)}</span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] text-ink">
+                      <span className="block truncate text-sm font-medium text-ink">
                         {formatCount(r.guests)} {r.guests === 1 ? 'guest' : 'guests'}
                         {r.prints != null ? ` · ${formatCount(r.prints)} ${r.prints === 1 ? 'print' : 'prints'}` : ''} · {formatWallClock(r.firstAt)}
                       </span>
-                      <span className={`block truncate text-[12.5px] ${st === 'ready' ? 'font-medium text-ink' : 'text-ink/60'}`}>{numberStateWords(r)}</span>
+                      <span className={`block truncate text-sm ${st === 'ready' ? 'font-semibold text-ink' : 'text-[color:var(--m-slate-2)]'}`}>{numberStateWords(r)}</span>
                     </span>
-                    <ChevronRight aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform ${isOpen ? 'rotate-90' : ''}`} strokeWidth={2} />
+                    <ChevronRight aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform duration-sn-micro ease-sn ${isOpen ? 'rotate-90' : ''}`} strokeWidth={2} />
                     </>
                   }
                 >
                     <div className="space-y-2 pb-3 pl-16" data-your-number-open={r.number}>
-                      <p className="text-[13px] text-ink/65">
+                      <p className="text-sm text-[color:var(--m-slate-2)]">
                         {[`Ordered ${formatWallClock(r.firstAt)}`, r.readyAt ? `Ready ${formatWallClock(r.readyAt)}` : null, r.receivedAt ? `Received ${formatWallClock(r.receivedAt)}` : null]
                           .filter(Boolean)
                           .join(' · ')}
@@ -151,7 +158,7 @@ export function YourNumbers({
         )
       ) : null}
       {line ? (
-        <p role="status" className="pt-2 text-[13.5px] text-ink/70">
+        <p role="status" className="pt-2 text-sm text-ink">
           {line}
         </p>
       ) : null}
@@ -186,7 +193,7 @@ function NumberRow({
           onToggle();
         }}
         aria-expanded={isOpen}
-        className="sn-press flex min-h-[56px] w-full items-center gap-3 py-2 text-left"
+        className="sn-press flex min-h-14 w-full items-center gap-3 py-2 text-left"
       >
         {head}
       </button>

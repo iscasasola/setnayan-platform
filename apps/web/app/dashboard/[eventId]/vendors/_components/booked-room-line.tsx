@@ -55,20 +55,20 @@ export function BookedRoomLine({ line, threadId }: { line: RoomLine; threadId: s
           <b className="font-semibold tabular-nums text-ink">
             {formatCount(line.widthM)} × {formatCount(line.lengthM)} m
           </b>
-          <span className="whitespace-nowrap rounded-full bg-[rgb(var(--color-ok)_/_0.12)] px-2.5 py-1 text-[12px] leading-none text-[rgb(var(--color-ok))]">sent ✓</span>
-          {line.seatPlan ? <span className="text-ink/55">· used by your seat plan</span> : null}
+          <span className="whitespace-nowrap rounded-full bg-[rgb(var(--color-ok)_/_0.12)] px-2.5 py-1 text-xs leading-none text-[rgb(var(--color-ok))]">sent ✓</span>
+          {line.seatPlan ? <span className="text-ink/70">· used by your seat plan</span> : null}
         </>
       ) : line.kind === 'unread' ? (
-        <span className="text-ink/55">we couldn’t check</span>
+        <span className="text-ink/70">we couldn’t check</span>
       ) : asked ? (
-        <span className="text-ink/55">asked — waiting</span>
+        <span className="text-ink/70">asked — waiting</span>
       ) : (
         <>
-          <span className="text-ink/55">not sent</span>
+          <span className="text-ink/70">not sent</span>
           {line.canAsk && threadId ? (
             <ActionButton tone="info" icon={MessageCircle} label="Ask them" disabled={pending} onClick={ask} />
           ) : null}
-          {failed ? <span className="basis-full text-[12px] text-[rgb(var(--color-danger))]">That did not send. Nothing changed.</span> : null}
+          {failed ? <span className="basis-full text-xs text-[rgb(var(--color-danger))]">That did not send. Nothing changed.</span> : null}
         </>
       )}
     </p>

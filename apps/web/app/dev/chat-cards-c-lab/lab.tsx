@@ -5,11 +5,13 @@
  *   ?m=quote|payment|logpay|form|answer|files|decision|ask|askcard|counter|countercard|plan|plancard|recount|book   the card
  *   ?m=rose     "Quote rose to N pax · +₱X" as both sides' streams draw it (PR-2) · ?m=balance  the Final balance growing
  *   ?m=fell     "Quote fell to N pax · −₱X" as both sides' streams draw it · ?m=drop  the Final balance shrinking (paid stays)
+ *   ?m=make     🧾 Make a quote (cut 7) — the short card a no-quote chat drops (&e=1: a shop with no card on)
  *   &e=1                                                                          its honest EMPTY state
  *   &step=N                                                                       open on step N (filled up to it)
  */
 import { notFound } from 'next/navigation';
 import { QuoteStepCard } from '@/app/_components/chat/cards/quote-step-card';
+import { MakeQuoteCard } from '@/app/_components/chat/cards/make-quote-card';
 import { PaymentStepCard } from '@/app/_components/chat/cards/payment-step-card';
 import { LogPaymentCard } from '@/app/_components/chat/cards/log-payment-card';
 import { FormAnswerCard, FormStepCard } from '@/app/_components/chat/cards/form-step-card';
@@ -111,6 +113,25 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
             }
           />
         );
+      case 'make':
+        return (
+          <MakeQuoteCard
+            threadId={THREAD}
+            eventDate={EVENT_DAY}
+            seed={
+              empty
+                ? { cards: [] }
+                : {
+                    cards: [
+                      { id: 'c1', name: 'Garden centrepieces', fromCentavos: C(15_000) },
+                      { id: 'c2', name: 'Bridal bouquet', fromCentavos: C(4_500) },
+                      { id: 'c3', name: 'Ceremony arch', fromCentavos: C(12_000) },
+                    ],
+                    picked: ['c1'],
+                  }
+            }
+          />
+        );
       case 'payment':
         return <PaymentStepCard threadId={THREAD} eventId={EVENT} eventDate={EVENT_DAY} returnPath={BACK} seed={empty ? { ledger: null } : { ledger, step, pick: step > 0 ? '1' : undefined, amountPhp: step > 0 ? '30000' : undefined }} />;
       case 'logpay':
@@ -150,7 +171,15 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
         return (
           <div className="grid gap-1 py-2">
             <p className="text-[15px] font-semibold">Full-day coverage · v2</p>
-            <AskChangeDoor threadId={THREAD} supplierName="Lumina Studio" proposalId={QUOTE.proposalId} locks={empty ? { quote: true, plan: true } : {}} returnPath={BACK} />
+            {/* Ruling 6076 — the lines ARE the ask's door (tap a line or the payment plan). */}
+            <AskChangeDoor
+              threadId={THREAD}
+              supplierName="Lumina Studio"
+              proposalId={QUOTE.proposalId}
+              lines={QUOTE.lines.map((l) => ({ label: l.label, detail: l.detail, amount_centavos: l.amountCentavos }))}
+              locks={empty ? { quote: true, plan: true } : {}}
+              returnPath={BACK}
+            />
           </div>
         );
       case 'askcard':

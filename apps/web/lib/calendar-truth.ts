@@ -33,6 +33,18 @@ export const DATE_FIT_WORDS: Record<DateFit, string> = {
   not_set: `Calendar ${CALENDAR_NOT_SET.toLowerCase()}`,
 };
 
+/**
+ * "Taken on Dec 12" — the approved prototype's words for a supplier the couple ALREADY ASKED whose calendar shows
+ * their day taken (`prototypes/suppliers_page_2026-10-07_fable.html`: `Taken on ${shortDate(S.date)}`; owner
+ * 13 Nov 2026 — the asked stay, with this badge, "Ask about another day" and Remove). Parsed by its parts: a DATE
+ * column must not drift a day across time zones. Null for anything that is not a day.
+ */
+export function takenOnWords(day: string | null | undefined): string | null {
+  const [y, m, d] = (day ?? '').split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return `Taken on ${new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+}
+
 /** What a supplier's calendar says about the days asked (`calendar-truth.server.ts`). */
 export type CalendarTruth = {
   /** The supplier has a calendar — at least one schedule pool. */

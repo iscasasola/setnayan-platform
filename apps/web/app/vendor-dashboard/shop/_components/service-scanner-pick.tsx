@@ -33,8 +33,8 @@ export function ServiceScannerPick({
 
   return (
     <div className="flex flex-wrap items-center gap-2 pb-3 pl-[52px]" data-shop-service-scanner={coverageId}>
-      <ScanLine aria-hidden className="h-4 w-4 flex-none text-ink/50" strokeWidth={1.8} />
-      <span className="text-[12.5px] text-ink/65">Scanner</span>
+      <ScanLine aria-hidden className="h-4 w-4 flex-none text-ink/70" strokeWidth={1.8} />
+      <span className="text-[12.5px] text-ink/70">Scanner</span>
       <PickMenu
         label={`${serviceLabel} · scanner`}
         value={choice}

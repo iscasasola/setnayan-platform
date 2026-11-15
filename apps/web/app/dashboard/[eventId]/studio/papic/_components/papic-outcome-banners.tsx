@@ -1,4 +1,5 @@
 import { AlertCircle, CheckCircle2, Info, Unlink2 } from 'lucide-react';
+import { uploadPhotoCostWords } from '../_lib/upload-credits';
 import { PAPIC_CAPTURE_MONTHS_BEFORE } from '@/lib/papic-window';
 import { PAPIC_CAMERA_SALE_REFUSED, PAPIC_CAMERA_SALE_REFUSED_WORDS } from '@/lib/papic-sells-only-credits';
 
@@ -388,7 +389,7 @@ function StatusBanners({
         <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {uploadsOpenSet === '1'
-            ? 'Photos can now be added by hand. Each one uses a credit, the same as a camera shot.'
+            ? `Photos can now be added by hand. ${uploadPhotoCostWords()}`
             : 'Adding photos by hand is off. Only what your cameras capture goes into your Memories.'}
         </p>
       ) : null}
@@ -396,8 +397,7 @@ function StatusBanners({
       {uploadsReady ? (
         <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Uploads are on. Add photos and clips from your phone or laptop — each
-          one uses a credit, the same as a camera shot.
+          Uploads are on. Add photos and clips from your phone or laptop. {uploadPhotoCostWords()}
         </p>
       ) : null}
       {uploadsError ? (

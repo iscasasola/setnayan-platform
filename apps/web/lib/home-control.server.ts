@@ -39,6 +39,8 @@ import { buildBenchStandings } from '@/lib/conversation-list';
 import { standingRollUp } from '@/lib/supplier-standing';
 import type { VendorCategory } from '@/lib/vendors';
 import { fetchPreparationAgenda, planningProgress, planningRowId } from '@/lib/preparation';
+import { AUTO_COMPLETABLE_KEYS } from '@/lib/checklist-autocomplete';
+import { ensureChecklistSeeded } from '@/app/dashboard/[eventId]/checklist-actions';
 import type { HomeChecklistFacts, HomeHubFacts, HomeSuppliersFacts } from '@/app/dashboard/[eventId]/_components/home-control-faces';
 import { shortDay } from '@/app/dashboard/[eventId]/_components/home-control-faces';
 
@@ -178,17 +180,34 @@ export async function readHomeChecklist(
     };
   },
 ): Promise<HomeChecklistFacts | 'unread' | null> {
-  const agenda = await fetchPreparationAgenda({
-    supabase,
-    eventId,
-    eventDate: opts.event.event_date,
-    ceremonyType: null,
-    now: new Date(),
-    event: opts.event,
-    profile: opts.profile,
-    only: 'todo',
-  }).catch(() => null);
+  const readAgenda = () =>
+    fetchPreparationAgenda({
+      supabase,
+      eventId,
+      eventDate: opts.event.event_date,
+      ceremonyType: null,
+      now: new Date(),
+      event: opts.event,
+      profile: opts.profile,
+      only: 'todo',
+    }).catch(() => null);
+  let agenda = await readAgenda();
   if (agenda === null || agenda.unread.length > 0) return 'unread';
+  // ✅ F-W2-15 (walk 14 Nov): Home's To do listed tasks the couple had ALREADY answered (a budget set, a date locked,
+  // guests added) — the auto-complete reconcile (`ensureChecklistSeeded` → `computeSatisfiedChecklistKeys`) only ran
+  // when /schedule rendered, so Home showed them open until the couple happened to visit it. Home now runs the SAME
+  // reconcile — only while a task it can flip is still open — and reads again when it changed a row.
+  const openAuto = agenda.items.some((t) => t.source === 'task' && !t.done && t.templateKey != null && AUTO_COMPLETABLE_KEYS.has(t.templateKey));
+  if (openAuto) {
+    const changed = await ensureChecklistSeeded(eventId).catch((e: unknown) => {
+      logQueryError('HomeControl.checklistReconcile', e instanceof Error ? e : new Error(String(e)), { event_id: eventId }, 'graceful_degrade');
+      return 0;
+    });
+    if (changed > 0) {
+      agenda = await readAgenda();
+      if (agenda === null || agenda.unread.length > 0) return 'unread';
+    }
+  }
   // Four: Home's To do shows three, and the fourth fills in when Now holds one of them (round 3, Now never repeats).
   const p = planningProgress(agenda.items, 4);
   if (p.total === 0) return null;

@@ -237,6 +237,11 @@ type Props = {
    * behaviour exactly; only the filtered grid passes it.
    */
   activeCategory?: string | null;
+  /**
+   * The page the follow button repaints — `/explore` (the default, unchanged) or Discover's `/` when the card is drawn
+   * in Discover's supplier view (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED").
+   */
+  revalidateTo?: '/explore' | '/';
 };
 
 /**
@@ -271,6 +276,7 @@ export async function VendorCard({
   badges,
   reviews,
   activeCategory = null,
+  revalidateTo = '/explore',
 }: Props) {
   // Resolved ONCE per card and handed to VendorHero as an already-usable URL.
   // The hero's own fallback ladder (service photo → logo → placeholder) is
@@ -561,7 +567,7 @@ export async function VendorCard({
             isAuthenticated={isAuthenticated}
             initialFollowing={isFollowing}
             eventId={eventId}
-            revalidatePath="/explore"
+            revalidatePath={revalidateTo}
             variant="card"
           />
         ) : (

@@ -25,7 +25,7 @@ const FORMS_FILES = [
   'app/vendor-dashboard/clients/[eventId]/_pages/forms.tsx',
 ];
 
-test('the caps table: uploads Pro + Ultra, video links Solo + Pro + Ultra', () => {
+test('the caps table: uploads Pro + Ultra, video links Supplier Plus + Pro + Ultra', () => {
   const uploads = Object.entries(TIER_CAPS).filter(([, c]) => c.formMediaUploads).map(([t]) => t).sort();
   const video = Object.entries(TIER_CAPS).filter(([, c]) => c.formVideoLinks).map(([t]) => t).sort();
   assert.deepEqual(uploads, ['enterprise', 'pro']);

@@ -354,7 +354,7 @@ test('the two variants really produce different pixels', async () => {
 
 test('the mark is the URL, and the seal spells SETNAYAN out', () => {
   assert.equal(WATERMARK_TEXT, 'WWW.SETNAYAN.COM');
-  // Brand lock: never STNYN, and never a truncation of it.
+  // Brand lock: the full spelling — never an abbreviation, never a truncation.
   assert.equal(SEAL_NAME_TEXT, 'SETNAYAN');
   assert.equal(SEAL_SUB_TEXT, 'CELEBRATION');
   assert.ok(WATERMARK_TEXT.includes(SEAL_NAME_TEXT));

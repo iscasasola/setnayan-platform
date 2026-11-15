@@ -95,7 +95,7 @@ function Section({ s, isOpen, onToggle, children }: { s: AccordionSection; isOpe
   return (
     <div
       ref={card}
-      className="overflow-hidden rounded-2xl border border-ink/10 bg-white/70 shadow-sm backdrop-blur-sm"
+      className="overflow-hidden border-b border-[color:var(--m-line)]"
     >
       <button
         type="button"
@@ -107,7 +107,7 @@ function Section({ s, isOpen, onToggle, children }: { s: AccordionSection; isOpe
         className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-white"
       >
         {s.icon ? (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
             {s.icon}
           </span>
         ) : null}
@@ -116,14 +116,14 @@ function Section({ s, isOpen, onToggle, children }: { s: AccordionSection; isOpe
             {s.label}
           </span>
           {s.sub ? (
-            <span className="mt-0.5 block truncate text-[12.5px] text-ink/55">
+            <span className="mt-0.5 block truncate text-[13px] text-[color:var(--m-slate-2)]">
               {s.sub}
             </span>
           ) : null}
         </span>
         <ChevronDown
           aria-hidden
-          className={`h-5 w-5 shrink-0 text-ink/40 transition-transform duration-200 ${
+          className={`h-5 w-5 shrink-0 text-[color:var(--m-slate-2)] transition-transform duration-sn-control ${
             isOpen ? 'rotate-180' : ''
           }`}
           strokeWidth={1.75}

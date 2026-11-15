@@ -16,7 +16,7 @@
  *
  * Activation (the caller passes `enabled` = "we're in the Save-the-Date phase"):
  *   ALL REVEAL IS PAID (owner 2026-09-24) — lib/reveal-access.ts decides:
- *   - the event holds Event Hub Pro (`premiumUnlocked`) → the couple's choice,
+ *   - the event holds Event Pro (`premiumUnlocked`) → the couple's choice,
  *     else the admin house default `config.defaultTemplate`. A free couple gets
  *     no reveal. The admin toggle `config.enabled` is NOT an entitlement any more
  *     (it used to switch the paid veil on for every free couple).
@@ -103,7 +103,7 @@ type Props = {
   /** The couple's reveal effect toggles (events.std_reveal_effects, resolved):
    *  butterflies → envelopes · petals → church doors + veil. (2026-06-18) */
   eventEffects?: RevealEffects;
-  /** The event holds Event Hub Pro (COUPLE_WEBSITE_PRO → STD_PREMIUM_OPENINGS).
+  /** The event holds Event Pro (COUPLE_WEBSITE_PRO → STD_PREMIUM_OPENINGS).
    *  Since 2026-09-24 ("all reveal is paid") this is the ONLY path to a reveal
    *  for a public guest — see lib/reveal-access.ts. */
   premiumUnlocked?: boolean;
@@ -261,7 +261,7 @@ export function RevealOverlay({
   // ALL REVEAL IS PAID (owner 2026-09-24). The one decision lives in
   // lib/reveal-access.ts and is shared with the server mount
   // (reveal-overlay-server.tsx), which does not even mount this overlay for a
-  // couple without Event Hub Pro. The admin master toggle (`config.enabled`) is
+  // couple without Event Pro. The admin master toggle (`config.enabled`) is
   // NOT an input — it used to switch the paid veil on for every free couple.
   const decision = revealAllowedFor({
     ownsPro: premiumUnlocked,

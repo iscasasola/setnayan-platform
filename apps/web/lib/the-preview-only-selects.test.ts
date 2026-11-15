@@ -165,7 +165,7 @@ test('(3) something is always picked on arriving: the first part the page DRAWS,
   assert.equal((arrive.match(/pickPartRef\.current\(/g) ?? []).length, 1);
   assert.match(tools, /const ordered = useCallback\(\(\) => partsInPageOrder\(parts, \(k\) => makerPartTopOnScreen\(stageKey, k, frameSel\)\), \[frameSel, parts, stageKey\]\);/);
   /* A tap on the page's ground still lets go. */
-  /* 🫥 2026-10-30 (DECISION_LOG "EVENT HUB PRO (look redesign)"): a tap on the page's ground puts the toolbar away and
+  /* 🫥 2026-10-30 (DECISION_LOG "EVENT PRO (look redesign)"): a tap on the page's ground puts the toolbar away and
      KEEPS the part — something stays picked, as the rule above says. */
   assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) stowRef\.current\(\)/);
 });
@@ -207,7 +207,12 @@ test('(4) the last-used tool is remembered; a part opens on it where it works, e
   assert.equal((tools.match(/\bsetTool\(/g) ?? []).length, 2, 'the tool is set by something other than a tap on the selector or an edit of the RSVP stage’s list');
   assert.match(tools, /if \(part !== pickedRef\.current\) pickPartRef\.current\(part\);\s*if \(opens\) setTool\(opens\);/);
   const pick = tools.slice(tools.indexOf('const pickTool = (t: MakerPartTool) => {'), tools.indexOf('const away = typing || playing;'));
-  assert.match(pick, /if \(!toolWorks\(t\)\) return setWhy\([^;]*;\s*setTool\(t\);/, 'a grey tool is remembered');
+
+  /* 🔁 RE-AIMED 2026-11-13 (Maker Edit shell v3, owner-approved "maker shell approved"): a tap on a grey tool no longer
+     says its line in a toast over blank rows — it opens the line IN THE ROWS as Problem → Solution (`setLockTool`,
+     `makerPartToolLock(picked, lockShown, whyNot(lockShown))`). The claim is unchanged: the tap answers with the line
+     `whyNot` works out, and sets no tool. */
+  assert.match(pick, /if \(!toolWorks\(t\)\) return setLockTool\(t\);\s*setLockTool\(null\);\s*setTool\(t\);/, 'a grey tool is remembered');
 });
 
 test('(5) the Camera has only Style: Edit, Background and Animate are grey on it, each tap says why, and it opens on Style', () => {

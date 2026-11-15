@@ -73,19 +73,16 @@ test('the ✓ Verified chip never keys off public_visibility', () => {
   );
 });
 
-test('the ✓ Verified chip is not wrapped in the cinematic-hero suppression', () => {
-  // The name + tagline fragment is suppressed for top-plan shops with a cover
-  // photo. If the chip drifted inside it, exactly the shops paying the most
-  // would silently lose the trust signal.
+test('the ✓ Verified chip rides the badge row, which the verified look draws on the hero', () => {
+  // 13 Nov 2026: the badge row is ONE variable (`shopBadgesRow`), placed on the hero photo for a verified shop and in the
+  // calm header otherwise. The chip must sit in that row, and the row must reach the hero — else exactly the verified
+  // shops would silently lose the trust signal.
+  const rowAt = code.indexOf('const shopBadgesRow = (');
   const chipIdx = code.indexOf('Setnayan reviewed this shop');
-  const heroIdx = code.indexOf('{cinematicHero ? null : (');
-  assert.ok(heroIdx > 0 && chipIdx > 0, 'could not locate the hero guard or the chip');
-  const between = code.slice(heroIdx, chipIdx);
-  assert.ok(
-    between.includes(')}'),
-    'the ✓ Verified chip appears to sit inside the `cinematicHero ? null :` fragment — a ' +
-      'top-plan shop with a cover photo would render no Verified chip at all',
-  );
+  const rowEnd = code.indexOf('\n  );', rowAt);
+  assert.ok(rowAt > 0 && chipIdx > rowAt && chipIdx < rowEnd, 'the ✓ Verified chip left the badge row');
+  assert.match(code, /<ShopHero[\s\S]{0,400}badges=\{shopBadgesRow\}/, 'the hero no longer carries the badge row');
+  assert.match(code, /\{cinematicHero \? null : shopBadgesRow\}/, 'the calm header lost the badge row');
 });
 
 test('the anchor target and the pointer chip both exist, exactly once each', () => {

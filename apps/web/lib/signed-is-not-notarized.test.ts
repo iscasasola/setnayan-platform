@@ -45,7 +45,7 @@ import { parseDesktopRelease } from './desktop-release';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
-const PAGE = 'app/download/page.tsx';
+const PAGE = 'app/(shell)/download/page.tsx';
 
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 

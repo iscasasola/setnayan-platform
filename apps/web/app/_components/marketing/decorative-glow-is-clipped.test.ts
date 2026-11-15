@@ -60,7 +60,7 @@ test('every page that draws a bleeding glow clips its <main> on the x axis', () 
     if (!main) offenders.push(`${rel} draws ${hit.name} but has no <main className=…> to clip`);
     else if (!CLIPS.test(main[1]!)) offenders.push(`${rel} draws ${hit.name} but its <main> does not clip x (add overflow-x-clip)`);
   }
-  for (const want of ['app/(shell)/pa3d/page.tsx', 'app/(shell)/alaala/page.tsx', 'app/download/page.tsx']) {
+  for (const want of ['app/(shell)/pa3d/page.tsx', 'app/(shell)/alaala/page.tsx', 'app/(shell)/download/page.tsx']) {
     assert.ok(checked.includes(want), `the scan no longer sees ${want} — did the page or BLEEDERS change shape?`);
   }
   assert.deepEqual(offenders, [], 'A decorative glow widens the page (sideways scroll on a phone):\n  ' + offenders.join('\n  '));

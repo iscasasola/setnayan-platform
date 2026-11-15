@@ -6,7 +6,7 @@ import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { measureCoupleMediaBytes } from '@/lib/couple-media-allowance';
 
 /**
- * The I/O half of the plan's media allowance — Free 10 MB · Event Hub Pro 500 MB
+ * The I/O half of the plan's media allowance — Free 10 MB · Event Pro 500 MB
  * (`lib/couple-media-allowance.ts` holds the
  * rule and its reasoning). Service-role only: both functions it calls are
  * granted to `service_role` alone, so a couple can never move their own number.

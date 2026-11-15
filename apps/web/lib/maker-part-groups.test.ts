@@ -26,6 +26,7 @@ import {
   makerPartOffers,
   makerPartOfCanvas,
   makerPartsWithAdded,
+  makerStageOwnsCanvas,
   makerPostEventSceneOf,
 } from './maker-part-groups';
 import { compilePostEventScenes, type PostEventSources } from './post-event-scenes';
@@ -158,4 +159,20 @@ test('a part the couple added is a tile of the page it was added to', () => {
   assert.ok(parts.indexOf('song') > parts.indexOf('wishes'), 'drawn after Wishes');
   assert.equal(makerPartOfCanvas('editorial', 'p:song'), 'song' satisfies MakerPartKey);
   assert.equal(makerPartOfCanvas('editorial', 'p:you'), 'you');
+});
+
+test('F-W2-44: Post Event lists only its own scenes, once — never another stage’s pieces left on its canvas', () => {
+  /* The live walk after #7596: the canvas drew Post Event's scenes AND the old invitation's sections under them. */
+  const drawn = ['f:hero', 'f:greeting', 'p:cover', 'p:numbers', 'w:our_love_story', 'p:wishes', 'p:gallery', 'w:our_photos', 'f:pass', 'p:vendors', 'f:closing'];
+  const parts = makerPartsWithAdded({ stage: 'editorial', page: 'home', pages: ['home'], drawn });
+  for (const k of ['coverscene', 'greeting', 'pass', 'story', 'gallery'] as const) {
+    assert.ok(!parts.includes(k), `${k} (${makerPartLabelOn('editorial', k)}) is another stage’s piece, listed on Post Event`);
+  }
+  for (const k of ['cover', 'numbers', 'wishes', 'pegallery', 'suppliers', 'closing'] as const) assert.ok(parts.includes(k), `${k} is Post Event’s own and missing`);
+  const labels = parts.map((k) => makerPartLabelOn('editorial', k));
+  assert.equal(new Set(labels).size, labels.length, `a name is listed twice: ${labels.join(' · ')}`);
+  assert.equal(labels.filter((l) => l === 'Memories').length, 1);
+  // Every other stage keeps every section it draws.
+  assert.equal(makerStageOwnsCanvas('rsvp', 'f:greeting'), true);
+  assert.equal(makerStageOwnsCanvas('editorial', 'f:greeting'), false);
 });

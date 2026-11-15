@@ -56,7 +56,15 @@ test('1 · supplier rows: Negotiate (Change quote · Propose a payment plan · S
   assert.equal(camera.card, null);
 });
 
-const HOST_NEGOTIATE = ['Ask for a change', 'Counter with a price', 'Propose a payment plan', 'See every version'];
+// ✋ Ruling 6076: no generic "Ask for a change" row — an ask starts from the part it changes (the quote's lines · plan · form).
+const HOST_NEGOTIATE = ['Counter with a price', 'Propose a payment plan', 'See every version'];
+
+test('1a · the host’s (+) has no generic Ask for a change — and the slash list has no /ask (ruling 6076)', () => {
+  for (const rows of [hostPlusRows({ canLogPayment: true }), hostPlusRows({ canLogPayment: false })]) {
+    assert.equal(rows.some((r) => r.key === 'ask' || r.card === 'ask' || /ask for a change/i.test(r.label)), false);
+    assert.equal(slashRows(rows, true).some((r) => r.card === 'ask'), false);
+  }
+});
 
 test('1b · host rows: Negotiate · Decision · Poll · Log a payment · Meeting · Camera · Photos & files · Report a problem (no Log a payment without the right)', () => {
   assert.deepEqual(
@@ -216,7 +224,7 @@ test('6 · the slash list IS the (+): the same card rows, order, words and reaso
   assert.deepEqual(slashRows(supplierPlusRows({ paid: false }), true).map((r) => `/${r.word}`), [
     '/quote', '/plan', '/decision', '/poll', '/access', '/payment', '/form', '/meeting', '/file',
   ]);
-  assert.deepEqual(slashRows(hostPlusRows({ canLogPayment: true }), true).slice(0, 3).map((r) => `/${r.word}`), ['/ask', '/counter', '/plan']);
+  assert.deepEqual(slashRows(hostPlusRows({ canLogPayment: true }), true).slice(0, 2).map((r) => `/${r.word}`), ['/counter', '/plan']); // no /ask — ruling 6076
   // "/p" → Propose a payment plan (its word /plan) · Poll · Payment · Photos & files.
   assert.deepEqual(filterSlash(slashRows(supplierPlusRows({ paid: false }), false), 'p').map((r) => r.label), ['Propose a payment plan', 'Poll', 'Payment', 'Photos & files']);
   assert.equal(slashQuery('/po'), 'po');

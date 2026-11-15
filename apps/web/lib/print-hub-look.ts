@@ -194,7 +194,7 @@ export type WornHub = { hub: PrintHubInput; picture: Uint8Array | null };
 /**
  * 🤍 THE FREE PRINT IS PLAIN WHITE (owner 2026-10-21, verbatim: *"Free version is the plain white. Themes that follows the event
  * hub is pro"*). White paper, a near-black ink and one neutral grey — no theme colours, no Mood Board palette, no picture, the
- * classic faces (Classic's own type and ornament). Every piece an event without Event Hub Pro prints wears THIS
+ * classic faces (Classic's own type and ornament). Every piece an event without Event Pro prints wears THIS
  * (`printLooksFor`, below); the Hub's look on paper is the Pro version. Here, beside the loader's door, so none of it rides the
  * Maker's first load (print-pieces.ts is a client import).
  */
@@ -204,7 +204,7 @@ export function plainPrintLook(): PrintLook {
   return { ...printLookFor('house', { source: 'theme', colours: { ...INVITE_THEMES.house.palette, ...PLAIN_PRINT_COLOURS } }), brand: 'line' };
 }
 
-/** The two looks a set can print in: `free` — what an event without Event Hub Pro gets; `pro` — the theme a Pro print is built on. */
+/** The two looks a set can print in: `free` — what an event without Event Pro gets; `pro` — the theme a Pro print is built on. */
 export type PrintLooks = { free: PrintLook; pro: PrintLook };
 
 /**
@@ -222,7 +222,7 @@ export function printLooksFor(theme: InviteThemeId, rolePalette: unknown, opts: 
 }
 
 /**
- * 🔒 THE HUB LOOK ON PAPER IS EVENT HUB PRO — THE ONE DOOR TO IT (owner 2026-10-21, on the gate contact sheet: *"yes wire all,
+ * 🔒 THE HUB LOOK ON PAPER IS EVENT PRO — THE ONE DOOR TO IT (owner 2026-10-21, on the gate contact sheet: *"yes wire all,
  * and yes it's Pro"* · *"Free version is the plain white. Themes that follows the event hub is pro"*; DECISION_LOG 2026-09-25
  * "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE THEMED VERSION IS PRO").
  *

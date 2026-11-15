@@ -68,7 +68,7 @@ const h = React.createElement;
 type Any = React.ComponentType<Record<string, unknown>>;
 const seen = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
-const EMPTY: PostEventArrangement = { sections: {}, sectionOrder: null, sceneLooks: {}, customIds: [] };
+const EMPTY: PostEventArrangement = { sections: {}, sectionOrder: null, sceneLooks: {}, customIds: [], readAs: 'story' };
 type Tile = Record<string, unknown>;
 const WISHES: Tile = { kind: 'post-event', key: 'p:wishes', anchor: 'p:wishes', scene: 'wishes', label: 'Photo Notes', status: 'auto', hidden: false, drawn: true, position: 3, template: null, source: 'the wishes your guests left', note: null, open: null, pinned: false, switchKey: 'kwento', runKey: 'kwento' };
 const COVER: Tile = { ...WISHES, key: 'p:cover', anchor: 'p:cover', scene: 'cover', label: 'Front Page', pinned: true, switchKey: null, runKey: null };
@@ -290,7 +290,7 @@ test('(4) Style on a phone is the scene’s look cards in the toolbar’s rows a
   assert.ok(cards.length >= 3 && cards.filter((c) => c.endsWith('*')).length === 1, `the scene’s looks, one picked (${cards.join(' ')})`);
   /* …and NOTHING of the old panel under them: no "This scene", no "Filled from", no switch, no Order, no "Its parts". */
   assert.doesNotMatch(phone, /data-form-row|role="switch"|post-event-move-|post-event-part-|This scene|Filled from|Its parts/);
-  assert.equal(seen(phone).replace(/Drawing…/g, '').replace(/\s+/g, ' ').trim(), postEventStyleOptions('wishes', 'wedding').map((o) => (o.isDefault ? o.name : `${o.name} ◆`)).join(' '), 'something besides the looks’ names (and a non-default look’s ◆ — Event Hub Pro since 2026-10-16) is printed under Style');
+  assert.equal(seen(phone).replace(/Drawing…/g, '').replace(/\s+/g, ' ').trim(), postEventStyleOptions('wishes', 'wedding').map((o) => (o.isDefault ? o.name : `${o.name} ◆`)).join(' '), 'something besides the looks’ names (and a non-default look’s ◆ — Event Pro since 2026-10-16) is printed under Style');
   /* A read that FAILED is still said, on the panel, in red. */
   assert.match(withToolbar({ arrangement: null }), /<p role="alert" data-post-event-unread="" class="[^"]*text-danger-700">Your story’s scenes could not be read just now — open the Maker again in a moment\.<\/p>/);
   /* THE DESKTOP (no toolbar): every row, as before — the same component, the same saves. */
@@ -327,8 +327,8 @@ test('(5) a scene with no look to pick has a grey Style that says so — exactly
     assert.equal(makerPartToolWorks(k, 'edit'), true);
   }
   /* (…and Were you there?, a part of its own since 2026-10-10 — (7).) */
-  assert.deepEqual(none.sort(), ['beforeafter', 'next', 'song', 'wall', 'you']);
-  assert.deepEqual([...MAKER_PARTS_NO_LOOK].sort(), ['beforeafter', 'coverphoto', 'next', 'song', 'spotlight', 'wall', 'you']);
+  assert.deepEqual(none.sort(), ['beforeafter', 'next', 'pegifts', 'song', 'wall', 'you']);
+  assert.deepEqual([...MAKER_PARTS_NO_LOOK].sort(), ['beforeafter', 'coverphoto', 'next', 'pegifts', 'song', 'spotlight', 'wall', 'you']);
 });
 
 /* ── (6) the ⓘ ────────────────────────────────────────────────────────── */

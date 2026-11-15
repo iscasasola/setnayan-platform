@@ -86,7 +86,7 @@ async function requireAdmin() {
 function revalidateRosterSurfaces() {
   revalidatePath(BASE);
   revalidatePath('/dashboard/create-event');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   revalidatePath('/vendor-dashboard/profile');
 }
 

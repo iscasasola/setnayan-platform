@@ -25,6 +25,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { inquiryServicesLine, supplierInquiryBody } from '@/lib/supplier-inquiry-opening';
+import { eventCandidateDays } from '@/lib/event-chat-title';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import * as Sentry from '@sentry/nextjs';
@@ -554,7 +555,11 @@ export async function startServiceInquiry(input: {
     const delivery = await postThreadMessage(
       supabase,
       threadId,
-      `${supplierInquiryBody(await resolveProfileByEvent(eventId), { dated: Boolean(theEvent?.event_date) })}${servicesLine}${requirementsBlock}${packagePicksBlock}${bundleAsk}`,
+      `${supplierInquiryBody(await resolveProfileByEvent(eventId), {
+        dated: Boolean(theEvent?.event_date),
+        // 📅 No date yet, but candidate day(s) → the message names them (walk 13 Nov 2026).
+        candidateDays: theEvent?.event_date ? null : eventCandidateDays({ eventDate: null, precision: null, candidates: theEvent?.date_candidates }),
+      })}${servicesLine}${requirementsBlock}${packagePicksBlock}${bundleAsk}`,
     );
     // Reported only when the build was inside that message; otherwise the note
     // stays best-effort exactly as it has always been.
@@ -758,10 +763,30 @@ export async function startServiceInquiry(input: {
   // Best-effort: a missing row or missing column (migration not yet applied)
   // must never block the inquiry — but it is now REPORTED, not discarded.
   try {
+    /*
+      💳 RW-22 (walk 13 Nov 2026): THE RECORD CARRIES THE THREAD'S SOURCE. The thread was stamped (`shop_page`, `website`,
+      `explore`, …) and the supplier record this inquiry writes stayed `source = NULL`, so every reader of the row —
+      the supplier's card badge above all — could not tell a couple Setnayan brought from one the supplier did. The
+      thread's own stamp is read back (never re-derived) and written onto the row: on insert, and onto an existing row
+      only while its source is still empty (a Find save's `host_marketplace_search` or a supplier's `vendor_invite`
+      is never overwritten). Money-neutral: the fee reads the thread first (`bookingFeeAttributionFromFacts`), and
+      none of these values is in the row-source sets it consults.
+    */
+    // Read with the service role scoped by THIS inquiry's own thread id (the upsert above proved it is the caller's),
+    // the same client that stamped it — the stamp is provenance, not event content.
+    const { data: threadSourceRow } = await admin
+      .from('chat_threads')
+      .select('inquiry_source')
+      .eq('thread_id', threadId)
+      .maybeSingle();
+    const threadSource =
+      typeof (threadSourceRow as { inquiry_source?: unknown } | null)?.inquiry_source === 'string'
+        ? ((threadSourceRow as { inquiry_source: string }).inquiry_source)
+        : null;
     // Look up the event_vendors row for this (event, marketplace_vendor) pair.
     const { data: evRow } = await supabase
       .from('event_vendors')
-      .select('vendor_id, requested_service_ids, service_id')
+      .select('vendor_id, requested_service_ids, service_id, source')
       .eq('event_id', eventId)
       .eq('marketplace_vendor_id', vendorProfileId)
       .maybeSingle();
@@ -803,6 +828,7 @@ export async function startServiceInquiry(input: {
        */
       const patch: Record<string, unknown> = { requested_service_ids: merged };
       if (!evRow.service_id && initialServiceId) patch.service_id = initialServiceId;
+      if (!(evRow as { source?: string | null }).source && threadSource) patch.source = threadSource;
 
       const { error: updateError } = await supabase
         .from('event_vendors')
@@ -846,6 +872,7 @@ export async function startServiceInquiry(input: {
           marketplace_vendor_id: vendorProfileId,
           service_id: initialServiceId,
           requested_service_ids: confirmedServiceIds,
+          ...(threadSource ? { source: threadSource } : {}),
         } as Record<string, unknown>);
         if (insertError) reportEventVendorFault('insert', insertError, cardKind);
       }

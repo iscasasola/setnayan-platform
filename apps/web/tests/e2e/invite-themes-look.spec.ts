@@ -32,7 +32,7 @@ import { test, expect } from '@playwright/test';
  *    `testnayan1..5@test.com` by email + password, never the Google button.
  *
  * ─── SET THESE ──────────────────────────────────────────────────────────────
- * `E2E_SLUG_PRO`   an event whose couple OWNS Event Hub Pro and has saved a
+ * `E2E_SLUG_PRO`   an event whose couple OWNS Event Pro and has saved a
  *                  Pro theme (Capiz/Velvet/Galeriya/Abaca).
  * `E2E_SLUG_FREE`  an event whose couple does NOT own Pro but HAS saved a Pro
  *                  theme. This is the I-2 case and it is the one worth

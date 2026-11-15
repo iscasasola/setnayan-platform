@@ -24,7 +24,7 @@ import { SCENE_MAX_SLOTS, sceneTemplateDefaults, type SceneTemplateId } from '@/
 /**
  * PICK (OR CHANGE TO) A TEMPLATE.
  *
- * `withMotion` = the event owns Event Hub Pro. Then the template's default
+ * `withMotion` = the event owns Event Pro. Then the template's default
  * motion and transition REPLACE whatever motion the scene had — the owner's
  * "every scene template comes with a default effect", and choosing a template
  * again is also how "Reset to template default" happens. Without Pro only the
@@ -71,7 +71,7 @@ export type SlotWrite =
  * 🔒 A PICTURE MUST BE ONE OF THEIRS (`ownRefs`: their hero, their gallery,
  * their hero clip), held to the public bucket by `hubMediaRef` first — the
  * background's fence, reused, never a second one.
- * `putsMediaUp` tells the action whether this write needs Event Hub Pro
+ * `putsMediaUp` tells the action whether this write needs Event Pro
  * (putting media into a scene is Pro; taking it off never is).
  */
 export function applySceneSlot(
@@ -152,7 +152,7 @@ export function applySceneVideo(
  * "shown", so only the host's canvas (`overlayHubDraftWidgets`) draws it, and
  * Apply is what writes `is_visible: true` for guests.
  *
- * 💎 TRIED FREE, PAID AT APPLY (owner 2026-09-28): a couple without Event Hub Pro
+ * 💎 TRIED FREE, PAID AT APPLY (owner 2026-09-28): a couple without Event Pro
  * may add a scene in the Maker too. Showing one of their OWN scenes that guests
  * do not see today is the Pro key at Apply (`classifyHubDraft`, "A SCENE OF
  * THEIR OWN, SHOWN FOR THE FIRST TIME"); outside the Maker the door still

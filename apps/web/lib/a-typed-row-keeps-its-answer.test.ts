@@ -24,6 +24,8 @@ const FILES = [
   'app/dashboard/[eventId]/_components/add-your-own-walk.tsx',
   'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx',
   'app/dashboard/[eventId]/_components/address-pin-field.tsx',
+  // The add sheet's Price row moved here with "How the price works ▾" (2026-11-13) — the rule travels with it.
+  'app/dashboard/[eventId]/_components/price-basis-rows.tsx',
 ];
 
 function rows(src: string): string[] {

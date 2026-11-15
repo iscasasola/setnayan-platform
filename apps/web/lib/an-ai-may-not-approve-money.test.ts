@@ -34,6 +34,12 @@ function stripComments(src: string): string {
 const MONEY_GATES = [
   'lib/orders.ts', // isDecisivePaymentMatch + orderReconciledToPaid live here
   'app/admin/payments/actions.ts', // approvePayment, batchApprovePayments
+  // "Approve all N green" on Work (admin slice 4, 2026-11-13): the rule, the
+  // re-check read, and the action that approves. The receipt read's DISPLAY
+  // line lives in lib/admin/payment-verdicts.server.ts, outside every gate.
+  'lib/admin/green-payments.ts',
+  'lib/admin/green-payments.server.ts',
+  'app/admin/work/actions.ts',
 ] as const;
 
 test('no money gate imports the receipt reader', () => {

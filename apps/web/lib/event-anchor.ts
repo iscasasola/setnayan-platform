@@ -680,6 +680,22 @@ export function singlePickedDate(
 }
 
 /**
+ * 💍 A WEDDING'S ONE PICKED DATE IS ITS DATE (owner ruling 14 Nov 2026, specs DECISION_LOG 16f7e76a — *"Yes, save it"*;
+ * walk F-W2-01). A wedding is `dateModel: 'output'` (its date comes from the venue booking), so `singlePickedDate`
+ * never applies to it — and a couple who picked exactly ONE day at sign-up was left with `event_date` NULL, "No date
+ * yet" on Home and Papic waiting for a date. Now: exactly one well-formed picked day → that day is the event date
+ * (day precision; the `sync_event_date_status` trigger marks it locked). Two or more picks stay OPTIONS
+ * (`date_candidates`) until a venue is booked; a booked venue's day still becomes the main date later.
+ */
+export function singlePickedWeddingDate(
+  candidates: readonly (string | null | undefined)[] | null | undefined,
+): string | null {
+  if (!Array.isArray(candidates) || candidates.length !== 1) return null;
+  const only = candidates[0];
+  return typeof only === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(only) ? only : null;
+}
+
+/**
  * The reader half, for events created before the write was fixed: the stored
  * `event_date`, else the one picked date of a fixed-date type. Same answer the
  * write now stores, so an old event reads exactly like a new one.
@@ -689,7 +705,21 @@ export function readEventDate(row: {
   event_date?: string | null;
   date_candidates?: readonly (string | null | undefined)[] | null;
 }): string | null {
-  return row.event_date ?? singlePickedDate(row.event_type, row.date_candidates);
+  return row.event_date ?? onePickedDay(row);
+}
+
+/**
+ * 📅 CYC-03 (walk 13 Nov): ONE STORY ABOUT THE DATE. Suppliers said "1 date · Dec 19" (it reads `date_candidates`) while
+ * the event's header said "No date yet" (it reads `event_date`, filled in only for a fixed-date-INPUT type) — a birthday
+ * (`person_birthdate`) or a wedding with exactly one picked day fell between the two. On READ, one well-formed picked day
+ * is the event's date for every type — the rule the owner set for weddings on 14 Nov (`singlePickedWeddingDate`, "Yes,
+ * save it"). Two or more picks stay options everywhere. Nothing stored is changed.
+ */
+export function onePickedDay(row: {
+  event_type?: string | null;
+  date_candidates?: readonly (string | null | undefined)[] | null;
+}): string | null {
+  return singlePickedDate(row.event_type, row.date_candidates) ?? singlePickedWeddingDate(row.date_candidates);
 }
 
 /**
@@ -707,6 +737,6 @@ export function withPickedDate<
   },
 >(row: T): T {
   if (row.event_date) return row;
-  const picked = singlePickedDate(row.event_type, row.date_candidates);
+  const picked = onePickedDay(row);
   return picked ? { ...row, event_date: picked, event_date_precision: 'day' } : row;
 }

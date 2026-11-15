@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { InfoTip } from '@/app/_components/info-tip';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import {
   pipelineDayLabel,
@@ -50,15 +51,15 @@ export async function PipelinePressureLine({
 
   if (pressure.state === 'full') {
     return (
-      <div className="mt-3 rounded-xl border border-mulberry/30 bg-mulberry/[0.05] p-3">
-        <p className="flex items-center gap-2 text-sm font-semibold text-mulberry-700">
+      // 📐 Design template rule 11: a row that needs you wears ONE coloured edge, never a tinted card.
+      <div className="mt-3 border-l-4 border-l-danger-600 py-1 pl-3">
+        <div className="flex items-center gap-2 text-[15px] font-semibold text-danger-700">
           <Pips filled={pressure.used} of={pips.length} tone="full" />
-          {line}
-        </p>
-        <p className="mt-1.5 text-[13px] text-ink/70">
-          Nothing is lost — this customer stays in your inbox and you can still read
-          and reply. You just can&rsquo;t start chasing another for {day ?? 'this date'}.
-        </p>
+          <InfoTip label={line} align="start">
+            Nothing is lost — this customer stays in your inbox and you can still read and reply. You just can&rsquo;t
+            start chasing another for {day ?? 'this date'}.
+          </InfoTip>
+        </div>
         <ul className="mt-2 space-y-1 text-[13px] text-ink/80">
           <li>
             <span className="font-semibold">Sign one of them</span> — a signed booking
@@ -72,7 +73,7 @@ export async function PipelinePressureLine({
         {/* 🔒 Not in the App Store / Play Store shell: plans are web-only there
             (lib/store-shell.ts), so "move up" would be a dead end. */}
         {(await isStoreShellRequest()) ? null : (
-          <p className="mt-2 border-t border-mulberry/20 pt-2 text-[13px] text-ink/70">
+          <p className="mt-2 text-[13px] text-ink/70">
             Or move up:{' '}
             <Link href="/vendor-dashboard/subscription" className="font-semibold text-link underline">
               see the plans
@@ -86,7 +87,7 @@ export async function PipelinePressureLine({
 
   if (pressure.state === 'last') {
     return (
-      <p className="mt-3 flex items-center gap-2 rounded-lg border border-terracotta/30 bg-terracotta/10 px-2.5 py-1.5 text-[13px] font-medium text-terracotta-700">
+      <p className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-warn-800">
         <Pips filled={pressure.used} of={pips.length} tone="last" />
         {line}
       </p>
@@ -94,7 +95,7 @@ export async function PipelinePressureLine({
   }
 
   return (
-    <p className="mt-3 flex items-center gap-2 text-[13px] text-ink/60">
+    <p className="mt-3 flex items-center gap-2 text-[13px] text-ink/70">
       <Pips filled={pressure.used} of={pips.length} tone="room" />
       {line}
     </p>
@@ -123,13 +124,13 @@ function Pips({
       ? 'border-mulberry-700 text-mulberry-700'
       : tone === 'last'
         ? 'border-terracotta-700 text-terracotta-700'
-        : 'border-ink/40 text-ink/40';
+        : 'border-ink/40 text-ink/70';
   return (
-    <span aria-hidden className="flex flex-none gap-[3px]">
+    <span aria-hidden className="flex flex-none gap-1">
       {Array.from({ length: of }, (_, i) => (
         <span
           key={i}
-          className={`h-[9px] w-[9px] rounded-sm border ${color} ${
+          className={`h-2 w-2 rounded-sm border ${color} ${
             i < filled ? 'bg-current' : ''
           }`}
         />

@@ -6,7 +6,7 @@
  *
  * Writes, all through the service-role client:
  *   · Juan dela Cruz's account (auth admin API) → his `users` row (the signup trigger) → his shop
- *   · the shop at the plan: `tier_state`, `verification_state`, the cards live at that plan, own web address (Solo+),
+ *   · the shop at the plan: `tier_state`, `verification_state`, the cards live at that plan, own web address (Supplier Plus and up),
  *     pinned review (Pro+), reach
  *   · five service cards with a cover, a price and what's included (the publish gate's three)
  *   · three reviews
@@ -145,7 +145,7 @@ export async function seedSetnayanProductions(
         // Free is public the way a new Free shop is: self-published, before it is verified.
         self_published_at: now,
         // "As far as my plan lets me" (no declared limit → the plan's own reach, `effectiveOuterRadiusKm`), so each
-        // plan's picture shows that plan's reach: Verified 20 km · Solo 30 · Pro 100 · Ultra nationwide. Metro
+        // plan's picture shows that plan's reach: Verified 20 km · Supplier Plus 30 · Pro 100 · Ultra nationwide. Metro
         // Manila, Cavite and Laguna (the brief) sit inside it from Pro up; the About text says so on every plan.
         outer_radius_km: null,
       },
@@ -243,7 +243,7 @@ export async function seedSetnayanProductions(
       .eq('vendor_profile_id', SP_VENDOR_PROFILE_ID),
   );
 
-  // ── own web address (Solo and up) ──────────────────────────────────────
+  // ── own web address (Supplier Plus and up) ──────────────────────────────────────
   await must('custom_domains (clear)', admin.from('custom_domains').delete().eq('owner_type', 'vendor').eq('owner_id', SP_VENDOR_PROFILE_ID));
   if (caps.customWebsiteName) {
     await must(

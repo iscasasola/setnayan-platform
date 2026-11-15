@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * stale-tab-notice.tsx — the bar that says your tab is older than the site.
+ * stale-tab-notice.tsx — the live notice that says your tab is older than the site (inventory #46).
  *
  * The whole reasoning lives in `lib/build-version.ts`, including why this is a
  * mitigation rather than the cure. In short: we deploy every 15–25 minutes, and
@@ -28,7 +28,8 @@
  * for a refused read.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { LazyInlineNotice } from './notices/inline-notice-lazy';
 import {
   LOADED_BUILD_VERSION,
   servingVersionFrom,
@@ -37,9 +38,7 @@ import {
 
 export function StaleTabNotice() {
   const [stale, setStale] = useState(false);
-  // Once dismissed, stay quiet for THIS version. A new deploy after the
-  // dismissal is a new fact and may speak again.
-  const dismissedFor = useRef<string | null>(null);
+  const [servingVersion, setServingVersion] = useState<string | null>(null);
 
   const check = useCallback(async () => {
     if (!LOADED_BUILD_VERSION) return; // nothing to compare — see build-version.ts
@@ -48,7 +47,7 @@ export function StaleTabNotice() {
       if (!res.ok) return;
       const serving = servingVersionFrom(await res.json());
       if (!serving) return;
-      if (dismissedFor.current === serving) return;
+      setServingVersion(serving);
       setStale(shouldOfferReload(LOADED_BUILD_VERSION, serving));
     } catch {
       // A failed check is a network fact, not a version fact. Say nothing.
@@ -70,70 +69,29 @@ export function StaleTabNotice() {
     };
   }, [check]);
 
-  /*
-    🔑 THE BAR MUST NOT HIDE THE PAGE'S LAST LINE. Owner 2026-09-21: "i cannot
-    see the bottom of the guest list." It is `fixed` over the bottom of the
-    screen, so without room reserved the last thing on ANY page — the final
-    guest row — sat underneath it and could not be scrolled clear. While it
-    shows, the body's bottom padding grows by the bar's height (measured, so a
-    wrapped two-line bar on a phone reserves two lines), and is put back exactly
-    as it was when the bar goes.
-  */
-  const bar = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = bar.current;
-    if (!stale || !el) return;
-    const body = document.body;
-    const before = body.style.paddingBottom;
-    const base = parseFloat(getComputedStyle(body).paddingBottom) || 0;
-    const reserve = () => {
-      body.style.paddingBottom = `${base + el.getBoundingClientRect().height}px`;
-    };
-    reserve();
-    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reserve);
-    ro?.observe(el);
-    return () => {
-      ro?.disconnect();
-      body.style.paddingBottom = before;
-    };
-  }, [stale]);
-
-  if (!stale) return null;
-
+  // 🔔 Inventory #46 — a LIVE notice (info) in the one notice system (owner approved 14 Nov 2026): "Reload · Hide", at the
+  // very top, never fixed over the page, never reloads by itself. "Hide" is kept by the one notice memory against the
+  // SERVING version, so the next deploy is a new fact and speaks again. (The fixed bottom bar and its body-padding
+  // reserve went with it: "No bar fixed to the screen.")
+  if (!stale || !servingVersion) return null;
   return (
-    <div
-      ref={bar}
-      data-app-chrome=""
-      role="status"
-      className="fixed inset-x-0 bottom-0 z-[60] flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-ink/10 bg-cream/95 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] text-center text-sm text-ink/80 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur"
-    >
-      <span>Setnayan was updated while this page was open.</span>
-      <button
-        type="button"
-        onClick={() => window.location.reload()}
-        className="rounded-sm bg-mulberry px-3 py-1 text-xs font-medium tracking-wide text-cream transition-colors hover:bg-mulberry-600"
-      >
-        Reload
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          // Remember WHICH version was waved away, not merely "dismissed" —
-          // otherwise the next deploy is silenced too.
-          void fetch('/api/health', { cache: 'no-store' })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((p) => {
-              dismissedFor.current = servingVersionFrom(p);
-            })
-            .catch(() => {
-              dismissedFor.current = null;
-            });
-          setStale(false);
-        }}
-        className="text-xs text-ink/45 underline-offset-2 hover:text-ink/70 hover:underline"
-      >
-        Not now
-      </button>
+    <div data-app-chrome="" role="status" aria-live="polite" className="px-4">
+      <LazyInlineNotice
+        kind="live"
+        tone="info"
+        noticeKey={`app-updated:${servingVersion}`}
+        title="Setnayan was updated while this page was open"
+        actions={
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="sn-press inline-flex min-h-11 items-center rounded-full bg-mulberry px-4 text-sm font-semibold text-cream"
+          >
+            Reload
+          </button>
+        }
+        onClose={() => setStale(false)}
+      />
     </div>
   );
 }

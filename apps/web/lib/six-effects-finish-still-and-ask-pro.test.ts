@@ -2,7 +2,7 @@
  * six-effects-finish-still-and-ask-pro.test.ts — ✨ THE SIX NEW EFFECTS (owner-approved 2026-10-16, DECISION_LOG
  * "APPROVED — SIX NEW EFFECTS: WORD BY WORD · SPREAD · GLOW (TEXT), DEVELOP · CURTAIN · LIGHT LEAK (PICTURES)", verbatim
  * *"Approved — build the six effects as the prototype shows."*; and "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT
- * HUB PRO ◆"). Two properties, held for EACH of the six:
+ * PRO ◆"). Two properties, held for EACH of the six:
  *
  *   (1) A GUEST WHO ASKED FOR STILLNESS (or is on Save-Data) SEES THE FINISHED STATE — never hidden, never a start
  *       frame. Every animation of the six lives behind `prefers-reduced-motion: no-preference` AND off `.sn-save-data`;

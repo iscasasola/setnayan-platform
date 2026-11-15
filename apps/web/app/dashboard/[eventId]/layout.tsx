@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { NoticeSlot } from '@/app/_components/notices/notices';
 import { COORDINATOR_SEAT_ROLE } from '@/lib/events-you-run';
 import { CoordinatingLine } from './_components/coordinating-line';
 import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
@@ -21,6 +22,7 @@ import { countUnreadMessages } from '@/lib/chat';
 import { countGuestsByEvent } from '@/lib/guests';
 import { getLocale, makeT } from '@/lib/i18n';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
@@ -33,6 +35,8 @@ import {
   eventRailMatchRows,
   type EventRailInputs,
 } from './_components/event-rail-match-rows';
+import { EventPinnedRow } from './_components/event-pinned-row';
+import { eventPinTable } from './_components/event-pin-places';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -579,6 +583,7 @@ export default async function EventLayout({ children, params }: Props) {
         href="/dashboard/notifications"
         ariaBaseLabel={tr('nav.notifications')}
         ariaUnreadSuffix="unread"
+        who={placeWhoFromSwitcher(switcherData)}
       />
       {/*
         AccountSwitcher — now at EVERY width (One Shell slice 1, 2026-08-13).
@@ -687,11 +692,14 @@ export default async function EventLayout({ children, params }: Props) {
            ⚠ THE OTHER THREE FOCUS ROWS ARE UNCHANGED and still wear the arrow
            ("My Home", from HQ · the shop · an account spoke). Those say what
            pressing them DOES; this one says where it goes. */
+        /* ↩ SUPERSEDED 2026-11-12 (owner, on the event menu beside the shop's: *"It need to be able to
+           go back home. The need to have similar way of presenting this to go back to home"*). The row
+           now reads exactly as HQ's, the shop's and every account spoke's: "← My Home", to the same
+           `/dashboard`. The 2026-09-23 "Events" + grid icon ruling below is kept for history only. */
         focus={{
           href: '/dashboard',
-          label: 'Events',
-          caption: 'Events',
-          icon: 'events',
+          label: 'My Home',
+          caption: 'Home',
         }}
         railContext={
           <EventRailContext
@@ -808,9 +816,16 @@ export default async function EventLayout({ children, params }: Props) {
                 their own and would otherwise touch the header. From `sm` up
                 nothing changes. */}
             <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+              {/* 🔔 THE EVENT PAGES' TOP for notices (one notice system, owner approved 14 Nov 2026): the live band and
+                  at most two lines; the rest wait in the bell. Every event page has exactly this one top slot. */}
+              {/* 📌 THE ONE PINNED ROW (design template rule 1, owner-approved 14 Nov 2026): `Page · View ▾` at the top
+                  of every event page, mounted HERE once — the way the admin and supplier layouts carry theirs. It
+                  draws nothing on the Home (its cover band) and on the pages that keep their own first row
+                  (`EVENT_OWN_ROW`). Built from the SAME inputs as the rail, so the two name one place. */}
+              <EventPinnedRow table={eventPinTable(eventRailInputs)} />
+              <NoticeSlot place="top" className="mb-4" />
               {/* Live "free this weekend" promo announcement (self-gates to null
                   when PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
-              <PromoFreeWindowBanner />
               {/* "You are now a co-host…" · CONFIRM — shows until acknowledged
                   (owner 2026-09-28). Renders nothing for everyone else. */}
               <CohostWelcome eventId={eventId} userId={user.id} />
@@ -841,6 +856,10 @@ export default async function EventLayout({ children, params }: Props) {
                 </HomeCoverWordsProvider>
                 </EventTeamPresence>
               </LastSeenScope>
+              {/* Live "free this weekend" promo — an OFFER, registered for the END of the page (one notice system,
+                  owner approved 14 Nov 2026). Self-gates to null when PROMO_FREE_WINDOWS_ENABLED is off or nothing is live. */}
+              <PromoFreeWindowBanner />
+              <NoticeSlot place="end" className="mt-6" />
             </div>
           </div>
         </main>

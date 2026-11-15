@@ -1,7 +1,7 @@
 /**
  * Supplier website by plan (owner-approved 2026-10-30) — slice 2 on the shop page itself:
  *   · the ONE "since" fact line (In business since · N events › · On Setnayan since) replaces the old pill + line;
- *   · "Check a date" sits in the action row beside Share, under the same `bookable` gate as Inquire.
+ *   · "Check a date" sits in the action row (Inquire · Add to your event, then Check a date · Share), under `bookable`.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,15 +19,18 @@ test('the page draws the since line, fed by the by-kind counter', () => {
   assert.doesNotMatch(PAGE, /\+ weddings</, 'the old "N+ weddings" pill came back beside the events count');
 });
 
-test('Check a date sits in the action row, after Share, inside the bookable gate', () => {
-  const row = PAGE.indexOf('<ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />');
-  assert.ok(row > 0, 'the action row moved — update this test with the markup');
-  const door = PAGE.indexOf('<CheckADateLink', row);
-  assert.ok(door > row && door - row < 800, 'Check a date is not beside Share in the action row');
+test('Check a date sits in the action row, after Add to your event and before Share, inside the bookable gate', () => {
+  // Order (prototype public_pages_three_2026-11-13, owner 13 Nov): Inquire · Add to your event, then Check a date · Share.
+  const add = PAGE.indexOf('label="Add to your event"');
+  assert.ok(add > 0, 'the action row moved — update this test with the markup');
+  const door = PAGE.indexOf('<CheckADateLink', add);
+  assert.ok(door > add && door - add < 1200, 'Check a date is not beside Add to your event in the action row');
+  const share = PAGE.indexOf('<ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />');
+  assert.ok(share > door && share - door < 600, 'Share does not follow Check a date');
   // The row itself opens on `canMessage` since an unverified shop takes messages (DECISION_LOG 2026-11-07, #7373), so
-  // the `bookable` gate is no longer the ROW's — it is the door's own, and it must sit between Share and the door.
+  // the `bookable` gate is no longer the ROW's — it is the door's own, and it must sit between Add and the door.
   const gate = PAGE.lastIndexOf('{bookable ? (', door);
-  assert.ok(gate > row && gate < door, 'Check a date is not inside its own bookable gate — an unverified shop would show it');
+  assert.ok(gate > add && gate < door, 'Check a date is not inside its own bookable gate — an unverified shop would show it');
   // One door: the Pro desktop rail it also sat in was retired 2026-10-30 (slice 4 — the whole card column is sticky now).
   assert.equal((PAGE.match(/<CheckADateLink/g) ?? []).length, 1, 'Check a date is on the action row only');
 });

@@ -54,7 +54,7 @@ test('the header wordmark and the bar controls carry a press expander', () => {
 test('the Taglish/English switch and the help/article top bars press at 44', () => {
   assert.match(LOCALE_SWITCH_CLASS, /min-h-\[44px\]/, 'LOCALE_SWITCH_CLASS lost its 44px press');
   assert.match(LOCALE_SWITCH_CLASS, /-my-3/, 'LOCALE_SWITCH_CLASS grows its row (no negative margin)');
-  for (const f of ['app/(shell)/about/page.tsx', 'app/(shell)/about/_about-motion.tsx', 'app/tl/about/page.tsx']) {
+  for (const f of ['app/(shell)/about/page.tsx', 'app/(shell)/about/_about-motion.tsx', 'app/(shell)/tl/about/page.tsx']) {
     assert.ok(!/text-\[11px\][^"]*hrefLang|hrefLang[^>]*text-\[11px\]/.test(read(f)), `${f} carries its own 11px switch again — use LOCALE_SWITCH_CLASS`);
     assert.ok(read(f).includes('LOCALE_SWITCH_CLASS'), `${f} no longer uses LOCALE_SWITCH_CLASS`);
   }

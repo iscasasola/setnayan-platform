@@ -104,7 +104,7 @@ export function resolveTransition(canvas: { transition?: HubTransition }): HubTr
  * `hub-auto-run.tsx`. `hub-scenes.test.ts` pinned the old line so that this
  * change had to be made on purpose — it was.
  *
- * ⛔ SCRUB AND AUTO RENDER AS SCROLL WITHOUT PRO. Both are Event Hub Pro (one
+ * ⛔ SCRUB AND AUTO RENDER AS SCROLL WITHOUT PRO. Both are Event Pro (one
  * unlock covers every advanced feature — owner ruling). The writer refuses a
  * free couple; this is the renderer's half of the same rule, so a lapsed unlock
  * falls back to the plain page instead of keeping the look.
@@ -120,7 +120,7 @@ export type RenderedTransition = 'scroll' | 'scrub' | 'auto';
 
 /**
  * THE WRITE — what the stored pair becomes after one editor tap, and whether
- * that tap needs Event Hub Pro. `setWidgetMotion` applies exactly this.
+ * that tap needs Event Pro. `setWidgetMotion` applies exactly this.
  *
  *   · an unrecognised value is IGNORED, never repaired (the stored pair stands);
  *   · Scroll and Normal are absences, so they come back as `null` (delete the key);

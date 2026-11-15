@@ -228,6 +228,8 @@ function chargeFacts(row: ChargeRow, orderId: string | null): BookingFeeChargeFa
     amountPhp: Math.max(0, Number(row.amount_charged_centavos ?? 0)) / 100,
     dueAt: row.expires_at,
     orderId,
+    // 💸 A top-up (`amendment_delta`) is HELD through the event day (owner 2026-11-12) — the rule reads the kind.
+    chargeKind: row.kind ?? null,
   };
 }
 
@@ -274,13 +276,14 @@ export async function resolveEventFeeGate(
   eventId: string,
   opts?: { booked?: boolean },
 ): Promise<EventFeeGate> {
-  const charge = await readEventFeeCharge(vendorProfileId, eventId);
+  // ⚡ The charge and the switch do not wait on each other — asked together (speed pass 2026-11-14; was one after the other).
+  const [charge, enforced] = await Promise.all([readEventFeeCharge(vendorProfileId, eventId), resolveFeeEnforcement()]);
   return resolveEventAccessStage({
     booked: opts?.booked ?? true,
     charge,
     // 🔑 The DB switch counts too, so the page can never believe 'unlocked' while
     // the RPC is narrowing. See `resolveFeeEnforcement`.
-    enforced: await resolveFeeEnforcement(),
+    enforced,
   });
 }
 

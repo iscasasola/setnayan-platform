@@ -102,6 +102,7 @@ test('the door itself never catches — a caught failure is an unmarked photo', 
 
 /** Server files that write to R2 and are NOT a supplier's public photo — each with why. */
 const NOT_A_SUPPLIER_PHOTO: Record<string, string> = {
+  'app/_actions/event-files-actions.ts': 'Piece 3c — r2Copy keeps a chat photo the shop filed as its PRIVATE stored copy (setnayan-thread-files/supplier-files/<shop>/), never served publicly; the shop page that will list event photos (the view event_supplier_photos_listed) must publish through publishMarkedSupplierPhoto when it is built',
   'app/admin/app-performance/actions.ts': 'admin performance snapshots',
   'app/admin/menus/actions.ts': 'admin-authored menu artwork',
   'app/admin/moodboard-library/actions.ts': 'the Setnayan template library (admin-authored, Setnayan-marked)',
@@ -113,6 +114,7 @@ const NOT_A_SUPPLIER_PHOTO: Record<string, string> = {
   'app/vendor-dashboard/contracts/actions.ts': 'a private contract PDF (vendor-contracts bucket)',
   'app/vendor-dashboard/moodboard-library/actions.ts': 'Inspiration: marked on the server with the Seal and plate (watermarkImageBytes + shopMarkFacts)',
   'app/vendor-dashboard/moodboard-library/page.tsx': 'the Inspiration page (its writes are the actions above)',
+  'lib/claim-door-pay.server.ts': 'a supplier\'s PAYMENT QR (r2Copy from the event\'s private payment-proof folder to vendor-payment-qr/<shop>/, same private bucket) — a payment method read through the shipped addPaymentMethod with its own decode and moderation gate, never served on the shop page as a photo',
   'lib/face-blur.ts': 'event wall derivatives (guests\' faces blurred)',
   'lib/old-photo-copies.server.ts': 'web copies of EVENT covers (media_web_copy_candidates)',
   'lib/pabuya-qr-store.server.ts': 'a couple\'s gift QR',

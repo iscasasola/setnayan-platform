@@ -15,7 +15,7 @@ import type { PaidMarkState } from '@/lib/paid-mark';
  *
  * It replaces the scattered "Pro" pills, gold chips and bare lock glyphs that
  * each paid surface used to draw its own way. A text label may sit beside it
- * (`text="Event Hub Pro"`) where the copy needs one — the mark is the signal,
+ * (`text="Event Pro"`) where the copy needs one — the mark is the signal,
  * the word is optional.
  *
  * 🔑 WHICH STATE IS NEVER DECIDED HERE. Callers ask `paidMarkState()` in
@@ -75,9 +75,9 @@ export function PaidMark({
   className = '',
 }: {
   state: PaidMarkState;
-  /** The accessible name — what a screen reader hears ("Locked — part of Event Hub Pro"). */
+  /** The accessible name — what a screen reader hears ("Locked — part of Event Pro"). */
   label: string;
-  /** Optional visible word beside the mark ("Event Hub Pro"). */
+  /** Optional visible word beside the mark ("Event Pro"). */
   text?: string;
   size?: PaidMarkSize;
   /** `current` inherits the surrounding colour (for inverted surfaces). */

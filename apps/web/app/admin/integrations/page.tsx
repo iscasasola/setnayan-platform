@@ -38,7 +38,7 @@ import { PasswordField } from '@/app/_components/password-field';
 // registry of "simple secret" integrations (OpenAI first; more follow).
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Integrations HQ' };
+export const metadata = { title: 'Integrations · Admin' };
 
 export default async function AdminIntegrationsPage({
   searchParams,
@@ -244,7 +244,7 @@ export default async function AdminIntegrationsPage({
             <>
               <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">Last tested</dt>
               <dd className="text-ink/80">
-                {new Date(lastVerifiedAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
+                {new Date(lastVerifiedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' })}
               </dd>
             </>
           ) : null}

@@ -39,13 +39,13 @@ export default async function SuppliersIndexPage() {
   // (owner, DECISION_LOG 2026-10-19 (2)): the whole page would be one "none has
   // yet" line, so the app goes to /explore — its search and categories are real.
   // The first qualifying page brings this page back in the app too. Web unchanged.
-  if (hidesEmptyShelfInApp(await isStoreShellRequest(), pages.length)) redirect('/explore');
+  if (hidesEmptyShelfInApp(await isStoreShellRequest(), pages.length)) redirect('/?browse=1');
   const byEvent = new Map<string, QualifyingPage[]>();
   for (const p of pages) byEvent.set(p.event, [...(byEvent.get(p.event) ?? []), p]);
   const tileSlug = source.taxonomy.tileSlug;
 
   return (
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
       <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{TITLE}</h1>
         <p className="mt-4 max-w-2xl text-base text-ink/70">
@@ -60,7 +60,7 @@ export default async function SuppliersIndexPage() {
               verified suppliers to compare — none has yet.
             </p>
             <p>
-              <Link href="/explore" className="font-medium text-ink underline underline-offset-4">Browse every verified supplier</Link>
+              <Link href="/?browse=1" className="font-medium text-ink underline underline-offset-4">Browse every verified supplier</Link>
               {' · '}
               <Link href="/for-suppliers" className="text-ink/70 underline underline-offset-4">Are you a supplier? List your services</Link>
             </p>

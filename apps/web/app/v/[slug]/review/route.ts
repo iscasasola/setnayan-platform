@@ -43,5 +43,5 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       door = { kind: 'read', slug, reason: 'read_failed' };
     }
   }
-  return NextResponse.redirect(new URL(reviewDoorTarget(door), origin));
+  return NextResponse.redirect(new URL(reviewDoorTarget(door, request.nextUrl.searchParams.get('src')), origin));
 }

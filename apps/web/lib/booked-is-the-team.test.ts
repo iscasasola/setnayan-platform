@@ -184,4 +184,6 @@ test('7 · K1 no "Booked" heading · K2 a pill only when it says more · K3 "Use
   const feeds = row.slice(row.indexOf('data-booked-feeds=""'), row.indexOf('data-booked-feeds=""') + 200);
   assert.match(feeds, /Used in: <span className="text-ink\/70">\{row\.feeds\.join\(' · '\)\}<\/span>/, 'K3: the feeds are not one line');
   assert.doesNotMatch(feeds, /row\.feeds\.map/, 'K3: the chips came back');
+  // The fold's one column never outgrows the row — an auto track grew to the pickers' width and the clip cut them (2026-11-13).
+  assert.match(row, /className="grid min-w-0 grid-cols-\[minmax\(0,1fr\)\][^"]*" data-booked-fold=/, 'the fold’s column can outgrow the row again');
 });

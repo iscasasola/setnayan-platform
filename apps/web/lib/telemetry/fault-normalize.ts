@@ -165,7 +165,7 @@ function isIdSegment(seg: string): boolean {
  * skipped) — add a top-level page and that test names this list.
  */
 export const TOP_LEVEL_SEGMENTS: ReadonlySet<string> = new Set([
-  '3d_plan', 'about', 'acceptable-use', 'admin', 'alaala', 'api', 'auth', 'blog',
+  '3d_plan', 'about', 'acceptable-use', 'admin', 'alaala', 'api', 'articles', 'auth', 'blog',
   'budget', 'claim', 'cookies', 'creators', 'dashboard', 'demo-capture', 'dev',
   'download', 'explore', 'favicon.ico', 'features', 'for-coordinators', 'for-suppliers',
   'forgot-password', 'guest-list', 'health', 'help', 'host', 'join', 'live',

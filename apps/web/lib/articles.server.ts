@@ -318,7 +318,10 @@ async function eventTypeIsActive(eventType: string): Promise<boolean | null> {
     .eq('event_type', eventType)
     .eq('status', 'active')
     .maybeSingle();
-  if (error) return null;
+  if (error) {
+    console.error('[supabase-error] lib/articles.server.ts · from:event_type_vocab.select', error);
+    return null;
+  }
   return Boolean(data);
 }
 
@@ -352,7 +355,8 @@ export async function postArticleTopic(
   if (!code) {
     // No code, no name to show: take the topic back rather than leave a post
     // nobody can be named on.
-    await admin.from('article_topics').delete().eq('topic_id', topic.topic_id);
+    const { error: undoErr } = await admin.from('article_topics').delete().eq('topic_id', topic.topic_id);
+    if (undoErr) logQueryError('postArticleTopic (take back a nameless topic)', undoErr, {}, 'graceful_degrade');
     return { ok: false, error: 'unavailable' };
   }
   return { ok: true, publicId: topic.public_id as string };
@@ -373,7 +377,10 @@ export async function postArticleReply(
     .select('topic_id, public_id, removed_at')
     .eq('public_id', input.topicPublicId)
     .maybeSingle();
-  if (error) return { ok: false, error: 'unavailable' };
+  if (error) {
+    logQueryError('postArticleReply (topic)', error, {}, 'graceful_degrade');
+    return { ok: false, error: 'unavailable' };
+  }
   if (!topic) return { ok: false, error: 'no_topic' };
   if (topic.removed_at) return { ok: false, error: 'topic_removed' };
   const code = await codeInTopic(topic.topic_id as string, userId, gate);

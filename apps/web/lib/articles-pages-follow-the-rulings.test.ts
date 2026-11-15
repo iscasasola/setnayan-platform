@@ -28,7 +28,7 @@ import { stripComments } from '@/lib/strip-comments';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
-const LIST = 'app/(shell)/articles/page.tsx';
+const LIST = 'app/(shell)/articles/(list)/page.tsx';
 const TOPIC = 'app/(shell)/articles/[topicId]/page.tsx';
 /** What the topic page draws (shared with the dev lab). */
 const VIEW = 'app/(shell)/articles/_components/thread-view.tsx';

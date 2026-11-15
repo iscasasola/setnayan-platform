@@ -1024,6 +1024,21 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
   why: string;
 }> = [
   {
+    table: 'article_replies',
+    column: 'author_user_id',
+    why: '💬 Articles (2026-11-16): the subject’s own replies — their words, CASCADE + NOT NULL. The topic and everyone else’s replies stay; the thread just loses these lines.',
+  },
+  {
+    table: 'article_topic_codes',
+    column: 'user_id',
+    why: '💬 Articles: the code ("Guest · 3F") the subject wore inside each topic — the only link between a topic and the account. CASCADE + NOT NULL; its own replies go with it (FK article_replies_author_has_a_code).',
+  },
+  {
+    table: 'article_posting_pauses',
+    column: 'user_id',
+    why: '💬 Articles: a moderator’s pause on the subject’s posting — about them alone; with the account gone there is nobody left to pause.',
+  },
+  {
     table: 'chat_poll_votes',
     column: 'voter_user_id',
     why: '🗳 CASCADE + NOT NULL — a vote is this person\u2019s own pick on a chat poll (migration 20271338412990). It goes with them; the poll and the other side\u2019s votes stay.',

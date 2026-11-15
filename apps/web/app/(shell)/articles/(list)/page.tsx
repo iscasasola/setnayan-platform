@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { listArticleTopics, type ArticleSort } from '@/lib/articles.server';
-import { ArticlesFilters } from './_components/articles-filters';
-import { TopicList } from './_components/topic-list';
-import { NewTopic } from './_components/article-composer';
-import { articleEventChoices, newTopicViewer } from './_components/articles-viewer';
+import { ArticlesFilters } from '../_components/articles-filters';
+import { TopicList } from '../_components/topic-list';
+import { NewTopic } from '../_components/article-composer';
+import { articleEventChoices, newTopicViewer } from '../_components/articles-viewer';
 
 /**
  * /articles — ARTICLES: topics people start and talk in.

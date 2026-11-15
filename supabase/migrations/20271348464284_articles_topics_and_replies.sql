@@ -213,6 +213,15 @@ COMMENT ON TABLE public.article_posting_pauses IS
   'read, plan and book. Admin-only RLS (Pattern F).';
 
 -- ----------------------------------------------------------------------------
+-- 4b. No table privilege for anon at all (defence in depth beside Pattern F):
+--     a signed-out reader reads a topic through the server, never PostgREST.
+-- ----------------------------------------------------------------------------
+REVOKE ALL ON public.article_topics FROM anon;
+REVOKE ALL ON public.article_topic_codes FROM anon;
+REVOKE ALL ON public.article_replies FROM anon;
+REVOKE ALL ON public.article_posting_pauses FROM anon;
+
+-- ----------------------------------------------------------------------------
 -- 5. user_reports — two new targets
 -- ----------------------------------------------------------------------------
 ALTER TABLE public.user_reports

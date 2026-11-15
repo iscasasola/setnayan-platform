@@ -320,6 +320,10 @@ export async function buildPersonalDataExport(
     ownMoodBoardChangesRes,
     ownFeeDisputesRes,
     ownPollVotesRes,
+    articleTopicsRes,
+    articleRepliesRes,
+    articleCodesRes,
+    articlePauseRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -1165,6 +1169,33 @@ export async function buildPersonalDataExport(
       // this person is one of them, wherever in the list.
       .contains('recipient_user_ids', [user.id])
       .order('created_at', { ascending: true }),
+    // 💬 RA 10173 (2026-11-16) — ARTICLES the subject wrote: their topics, their replies, the code they wore in
+    // each topic and any posting pause on them. AUTHOR-scoped. The tables are RLS Pattern F (admin-only, so no reader
+    // can see who posted), so the subject's own session reads nothing — privileged, bounded by the subject's id.
+    admin
+      ? admin
+          .from('article_topics')
+          .select('public_id, title, body, event_type, removed_at, created_at')
+          .eq('author_user_id', user.id)
+          .order('created_at', { ascending: true })
+      : Promise.resolve(null),
+    admin
+      ? admin
+          .from('article_replies')
+          .select('reply_id, topic_id, body, removed_at, created_at')
+          .eq('author_user_id', user.id)
+          .order('created_at', { ascending: true })
+      : Promise.resolve(null),
+    admin
+      ? admin
+          .from('article_topic_codes')
+          .select('topic_id, code, author_kind, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true })
+      : Promise.resolve(null),
+    admin
+      ? admin.from('article_posting_pauses').select('paused_at').eq('user_id', user.id)
+      : Promise.resolve(null),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -1208,6 +1239,10 @@ export async function buildPersonalDataExport(
   const ownMoodBoardChanges = listOutcome('mood_board_changes_made', ownMoodBoardChangesRes);
   const ownFeeDisputes = listOutcome('booking_fee_disputes_raised', ownFeeDisputesRes);
   const ownPollVotes = listOutcome('chat_poll_votes', ownPollVotesRes);
+  const articleTopics = listOutcome('article_topics', articleTopicsRes, adminUnavailable);
+  const articleReplies = listOutcome('article_replies', articleRepliesRes, adminUnavailable);
+  const articleCodes = listOutcome('article_topic_codes', articleCodesRes, adminUnavailable);
+  const articlePause = listOutcome('article_posting_pauses', articlePauseRes, adminUnavailable);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
     workingNotesRes,
@@ -1365,6 +1400,10 @@ export async function buildPersonalDataExport(
     ownMoodBoardChanges,
     ownFeeDisputes,
     ownPollVotes,
+    articleTopics,
+    articleReplies,
+    articleCodes,
+    articlePause,
     // ⚠ These ten were read and shipped but missing from this list until
     // 2026-11-05, so a failed read rendered `[]` under export_complete: TRUE —
     // the silent empty this file exists to prevent. Now pinned by
@@ -1537,6 +1576,10 @@ export async function buildPersonalDataExport(
     booking_fee_disputes_raised: ownFeeDisputes.rows,
     // 🗳 The votes the subject cast on chat polls (which choice, when). Author-scoped.
     chat_poll_votes: ownPollVotes.rows,
+    article_topics: articleTopics.rows,
+    article_replies: articleReplies.rows,
+    article_topic_codes: articleCodes.rows,
+    article_posting_pauses: articlePause.rows,
     // The years the subject grouped their own celebrations into, owner-scoped.
     years_you_grouped: eventClusters.rows,
     // RA 10173 (2026-09-11) — the payments this couple logged on events they

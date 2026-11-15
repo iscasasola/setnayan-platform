@@ -178,6 +178,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'admin',
   'alaala',
   'api',
+  'articles',
   'auth',
   'blog',
   'budget',

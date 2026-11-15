@@ -59,6 +59,9 @@ test('a paused account cannot post — and a pause reaches nothing outside Artic
   const allowed = new Set([
     'lib/articles.server.ts',
     'lib/articles-moderation.server.ts',
+    // Data rights, not a gate: the subject's own RA 10173 export and erasure name the row; neither decides anything.
+    'lib/personal-data-export.ts',
+    'lib/erasure/coverage.ts',
   ]);
   const offenders: string[] = [];
   const walk = (dir: string) => {

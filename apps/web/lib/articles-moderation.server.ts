@@ -72,7 +72,7 @@ export async function removeReportedArticlePost(
   }
   // Every other open report about the same post is answered by this one.
   if (removed) {
-    await admin
+    const { error: siblingErr } = await admin
       .from('user_reports')
       .update({
         status: 'actioned',
@@ -84,6 +84,9 @@ export async function removeReportedArticlePost(
       .eq('target_id', targetId)
       .eq('status', 'open')
       .neq('report_id', opts.reportId);
+    if (siblingErr) console.error('[articles] could not close the other reports about this post', siblingErr);
+  } else if (error) {
+    console.error('[articles] removing the reported post failed', error);
   }
   return { removed, paused };
 }

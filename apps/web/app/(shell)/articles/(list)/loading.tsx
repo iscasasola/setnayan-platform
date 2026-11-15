@@ -19,7 +19,7 @@
  * 🪤 A `loading.tsx` FORCES STREAMING, which commits the HTTP status before the
  * page body runs — that is how `/v/[slug]` shipped a soft-404 and it is why this
  * must never be added to a route that can `notFound()`. The topic LIST is always
- * found. The topic page ([topicId]) can notFound() and so has NO loading.tsx.
+ * found. The topic page ([topicId]) can notFound(), so this boundary sits in the (list) group, which covers the list only.
  */
 export default function DoorwayLoading() {
   return null;

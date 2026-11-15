@@ -449,6 +449,13 @@ const PARTIALLY_PURGED: Record<string, string> = {
  * countable rather than dissolving into the backlog.
  */
 const KNOWN_GAPS: Record<string, string> = {
+  // TODO(RA10173-erasure): Articles (2026-11-16). A TOPIC the subject started
+  // keeps its title and words: deleting the row would also delete every OTHER
+  // person's replies in it (article_replies CASCADE). The subject's own replies,
+  // codes and pause ARE erased (SUBJECT_ROW_DELETES). Whether a leaver's topic is
+  // blanked, kept or deleted with its thread is an owner/DPO call — named in PR
+  // "feat(articles)" as an unruled gap.
+  article_topics: 'A topic the subject started keeps its words: deleting it takes everyone else’s replies with it. Owner/DPO call.',
   // TODO(RA10173-erasure): auth.identities.identity_data survives erasure.
   // Not a public table, so the detector never sees it — listed by hand.
   // Each linked provider (email/google/facebook/apple) keeps a copy of the full

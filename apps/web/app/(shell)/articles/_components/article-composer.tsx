@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useRef, useState, useTransition } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Plus, X } from 'lucide-react';
 import { ThumbDock } from '@/components/thumb-dock';
@@ -125,7 +126,8 @@ export function NewTopic({
           action={{ icon: Plus, label: 'New topic', onClick: () => setOpen(true), testId: 'articles-new-topic' }}
         />
       </ThumbDock>
-      {open && (
+      {open &&
+        createPortal(
         <div
           ref={ref}
           role="dialog"
@@ -218,8 +220,9 @@ export function NewTopic({
               </>
             )}
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </>
   );
 }
@@ -240,6 +243,7 @@ export function ReplyComposer({ topic, postAs }: { topic: string; postAs: string
       const res = await post({ op: 'reply', topic, body });
       if (res.ok) {
         setBody('');
+        // one-render: keep (fetch) — it follows a `fetch()` to the Articles API route; no server action answered with a render.
         router.refresh();
       } else setError(ERROR_WORDS[res.error ?? 'unavailable'] ?? ERROR_WORDS.unavailable!);
     });

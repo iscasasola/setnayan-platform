@@ -490,7 +490,7 @@ export default async function AdminUserReportsPage({
                     const n = articleReportsOn.get(`${r.target_type}:${r.target_id}`) ?? 1;
                     return (
                       <div className="space-y-1 text-xs text-ink/70" data-article-report>
-                        <p>
+                        <div>
                           {r.target_type === 'article_reply' ? 'Reply in ' : 'Topic '}
                           {a.topicHref ? (
                             <a href={a.topicHref} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2 hover:text-terracotta-700">
@@ -501,17 +501,17 @@ export default async function AdminUserReportsPage({
                           )}
                           {n > 1 ? ` · ${formatCount(n)} reports` : ''}
                           {a.removed ? ' · removed' : ''}
-                        </p>
-                        <p className="whitespace-pre-line rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-sm text-ink/80">“{a.excerpt}”</p>
-                        <p>
+                        </div>
+                        <div className="whitespace-pre-line rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-sm text-ink/80">“{a.excerpt}”</div>
+                        <div>
                           Posted by <span className="font-medium text-ink">{a.posterName || a.posterEmail || 'Unknown account'}</span>
                           {a.label ? ` · ${a.label}` : ''}
-                        </p>
-                        <p className="text-ink/55">
+                        </div>
+                        <div className="text-ink/55">
                           Before {formatCount(a.removedBefore)} removed
-                          {a.joinedAt ? ` · joined ${new Date(a.joinedAt).toLocaleDateString('en-PH', { month: 'short', year: 'numeric' })}` : ''}
+                          {a.joinedAt ? ` · joined ${new Date(a.joinedAt).toLocaleDateString('en-PH', { month: 'short', year: 'numeric', timeZone: 'Asia/Manila' })}` : ''}
                           {a.paused ? ' · paused from posting' : ''}
-                        </p>
+                        </div>
                       </div>
                     );
                   })()}

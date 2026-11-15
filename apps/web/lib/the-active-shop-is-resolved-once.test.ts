@@ -56,6 +56,7 @@ const ENUMERATIONS: Record<string, { count: number; why: string }> = {
   'lib/booking-fee-mint.server.ts': { count: 1, why: 'catch-up sweep over EVERY shop the account owns.' },
   'lib/deposit-acknowledged-effects.server.ts': { count: 1, why: 'catch-up sweep over EVERY shop the account owns.' },
   'lib/chapter-event-participation.ts': { count: 1, why: 'every event any of the account\'s shops was booked on.' },
+  'lib/articles.server.ts': { count: 2, why: 'Articles: does this login own OR help in ANY shop — a supplier posts as "Supplier · code", never as Guest (owner ruling 2, 16 Nov).' },
   'lib/ghosting.ts': { count: 1, why: 'stale inquiries across EVERY shop the account owns.' },
   'lib/enterprise-vendor-gate.ts': { count: 1, why: 'the public API key path (no session, no cookie): any owned Enterprise shop. (Its second read, the Custom-plan API grant, went 2026-11-06 with the Custom plan.)' },
   'lib/erasure/purge.ts': { count: 5, why: 'account erasure: EVERY shop and seat of the person being erased.' },

@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7862
+# facts: 7899
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     638
-#   col       5658
-#   policy    1154
+#   tpriv     642
+#   col       5687
+#   policy    1158
 #   view      10
 #   func      398
 #
@@ -34,6 +34,10 @@ tpriv	public.api_keys|authenticated	SIUD
 tpriv	public.app_telemetry_logs|authenticated	SIUD
 tpriv	public.appointment_type_catalog|anon	SIUD
 tpriv	public.appointment_type_catalog|authenticated	SIUD
+tpriv	public.article_posting_pauses|authenticated	SIUD
+tpriv	public.article_replies|authenticated	SIUD
+tpriv	public.article_topic_codes|authenticated	SIUD
+tpriv	public.article_topics|authenticated	SIUD
 tpriv	public.blacklisted_emails|anon	SIUD
 tpriv	public.blacklisted_emails|authenticated	SIUD
 tpriv	public.blocked_users|anon	SIUD
@@ -742,6 +746,35 @@ col	public.appointment_type_catalog.is_active	anon=SIU authenticated=SIU
 col	public.appointment_type_catalog.label	anon=SIU authenticated=SIU
 col	public.appointment_type_catalog.sort_order	anon=SIU authenticated=SIU
 col	public.appointment_type_catalog.type	anon=SIU authenticated=SIU
+col	public.article_posting_pauses.paused_at	anon=- authenticated=SIU
+col	public.article_posting_pauses.paused_by	anon=- authenticated=SIU
+col	public.article_posting_pauses.report_id	anon=- authenticated=SIU
+col	public.article_posting_pauses.user_id	anon=- authenticated=SIU
+col	public.article_replies.author_user_id	anon=- authenticated=SIU
+col	public.article_replies.body	anon=- authenticated=SIU
+col	public.article_replies.created_at	anon=- authenticated=SIU
+col	public.article_replies.id	anon=- authenticated=SIU
+col	public.article_replies.removed_at	anon=- authenticated=SIU
+col	public.article_replies.removed_by	anon=- authenticated=SIU
+col	public.article_replies.reply_id	anon=- authenticated=SIU
+col	public.article_replies.topic_id	anon=- authenticated=SIU
+col	public.article_topic_codes.author_kind	anon=- authenticated=SIU
+col	public.article_topic_codes.code	anon=- authenticated=SIU
+col	public.article_topic_codes.created_at	anon=- authenticated=SIU
+col	public.article_topic_codes.topic_id	anon=- authenticated=SIU
+col	public.article_topic_codes.user_id	anon=- authenticated=SIU
+col	public.article_topics.author_user_id	anon=- authenticated=SIU
+col	public.article_topics.body	anon=- authenticated=SIU
+col	public.article_topics.created_at	anon=- authenticated=SIU
+col	public.article_topics.event_type	anon=- authenticated=SIU
+col	public.article_topics.id	anon=- authenticated=SIU
+col	public.article_topics.last_activity_at	anon=- authenticated=SIU
+col	public.article_topics.public_id	anon=- authenticated=SIU
+col	public.article_topics.removed_at	anon=- authenticated=SIU
+col	public.article_topics.removed_by	anon=- authenticated=SIU
+col	public.article_topics.reply_count	anon=- authenticated=SIU
+col	public.article_topics.title	anon=- authenticated=SIU
+col	public.article_topics.topic_id	anon=- authenticated=SIU
 col	public.blacklisted_emails.blacklisted_at	anon=SIU authenticated=SIU
 col	public.blacklisted_emails.blacklisted_by_user_id	anon=SIU authenticated=SIU
 col	public.blacklisted_emails.email	anon=SIU authenticated=SIU
@@ -6338,6 +6371,10 @@ policy	public.app_telemetry_logs|app_telemetry_logs: admin reads all	mode=PERMIS
 policy	public.app_telemetry_logs|app_telemetry_logs: admin updates	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND ((u.account_type = 'admin'::account_type) OR u.is_internal OR u.is_team_member)))) check=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND ((u.account_type = 'admin'::account_type) OR u.is_internal OR u.is_team_member))))
 policy	public.appointment_type_catalog|admin_writes_appointment_type_catalog	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.appointment_type_catalog|read_appointment_type_catalog	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
+policy	public.article_posting_pauses|article_posting_pauses_admin_only	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
+policy	public.article_replies|article_replies_admin_only	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
+policy	public.article_topic_codes|article_topic_codes_admin_only	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
+policy	public.article_topics|article_topics_admin_only	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.blacklisted_emails|blacklisted_emails: admin delete	mode=PERMISSIVE cmd=DELETE roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.blacklisted_emails|blacklisted_emails: admin insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=( SELECT is_admin() AS is_admin)
 policy	public.blacklisted_emails|blacklisted_emails: admin select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=NULL

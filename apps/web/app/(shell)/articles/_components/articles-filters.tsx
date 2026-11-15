@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { EventChoice } from './article-composer';
 
 /**
@@ -9,8 +10,6 @@ import type { EventChoice } from './article-composer';
  * Newest ▾ (Newest · Most replies). Each choice is this page's own query string,
  * so a filtered list is a link that can be opened again.
  */
-const PILL =
-  'h-11 appearance-none rounded-full border border-ink/15 bg-ink/[0.03] pl-4 pr-8 text-sm font-medium text-ink focus:border-terracotta/50 focus:outline-none';
 
 export function ArticlesFilters({
   q,
@@ -57,24 +56,25 @@ export function ArticlesFilters({
         />
       </form>
       <div className="flex gap-2">
-        <span className="relative">
-          <select aria-label="Event" value={eventType} onChange={(e) => go({ event: e.target.value })} className={PILL}>
-            <option value="">All events</option>
-            {events.map((ev) => (
-              <option key={ev.key} value={ev.key}>
-                {ev.label}
-              </option>
-            ))}
-          </select>
-          <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink/70">▾</span>
-        </span>
-        <span className="relative">
-          <select aria-label="Sort" value={sort} onChange={(e) => go({ sort: e.target.value })} className={PILL}>
-            <option value="newest">Newest</option>
-            <option value="replies">Most replies</option>
-          </select>
-          <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink/70">▾</span>
-        </span>
+        <PickMenu
+          label="Event"
+          value={eventType}
+          options={[{ key: '', label: 'All events' }, ...events]}
+          onPick={(k) => go({ event: k })}
+          dataAttr="data-articles-event"
+          className="!min-h-11"
+        />
+        <PickMenu
+          label="Sort"
+          value={sort}
+          options={[
+            { key: 'newest', label: 'Newest' },
+            { key: 'replies', label: 'Most replies' },
+          ]}
+          onPick={(k) => go({ sort: k })}
+          dataAttr="data-articles-sort"
+          className="!min-h-11"
+        />
       </div>
     </div>
   );

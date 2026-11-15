@@ -33,6 +33,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ThreadListAvatar } from '@/app/_components/chat/thread-list-card';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
 import { nameForThread, readCoupleThreadSupplierNames } from '@/lib/chat-supplier-names';
+import { displayLogoUrl } from '@/lib/uploads';
 import { buildCoupleConversationRows, type ConversationRow } from '@/lib/conversation-list';
 import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import { coupleUnreadCount, isActiveInboxThread, readCoupleUnread } from '@/lib/couple-inbox';
@@ -207,11 +208,20 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   const supplierNames = await namesRead;
   const displayNames = new Map<string, string>();
   const logoByVendor = new Map<string, string | null>();
+  const storedLogoByVendor = new Map<string, string>();
   for (const t of threads) {
     const label = nameForThread(supplierNames, t.thread_id);
     displayNames.set(t.vendor_profile_id, label.name);
-    logoByVendor.set(t.vendor_profile_id, label.logoUrl);
+    if (label.logoUrl) storedLogoByVendor.set(t.vendor_profile_id, label.logoUrl);
   }
+  // 🖼 `logo_url` is the STORED ref (`r2://…`), never a browser URL — handed straight to the avatar it reached
+  // `/_next/image` raw and drew a broken image (W1, live 08b8522, RW-327: Liwanag's logo). Signed here through the
+  // repo's one logo signer, the same call the open thread makes; a ref it refuses (private, malformed) stays initials.
+  await Promise.all(
+    [...storedLogoByVendor].map(async ([vendorId, stored]) => {
+      logoByVendor.set(vendorId, await displayLogoUrl({ logo_url: stored }).catch(() => null));
+    }),
+  );
 
   const rows = await buildCoupleConversationRows({
     supabase,

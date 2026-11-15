@@ -276,7 +276,7 @@ export default async function GalleriesHubPage({ params }: Props) {
                   under the floor for a control; `text-ink/70` is 5.40:1. */}
               <Link
                 href={s.viewHref}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                className={`sn-hit inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                   ready
                     ? 'bg-mulberry text-white hover:bg-mulberry-600'
                     : 'border border-ink/15 text-ink/70 hover:bg-ink/5 hover:text-ink'

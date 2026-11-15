@@ -130,7 +130,7 @@ test('the long-name rules: the name is cut with an ellipsis, the address never i
   const name = l.lines.find((x) => x.font === 'name')!;
   const addr = l.lines.find((x) => x.font === 'addr')!;
   assert.ok(name.text.endsWith('…'));
-  assert.equal(addr.text, 'setnayan.com/v/the-extremely-long-shop-name-events-and-styling-company');
+  assert.equal(addr.text, 'setnayan.com/the-extremely-long-shop-name-events-and-styling-company');
   assert.ok(l.plate.width <= 0.6 * 1200 + 1, 'the plate grows to 0.6·S at most');
 });
 

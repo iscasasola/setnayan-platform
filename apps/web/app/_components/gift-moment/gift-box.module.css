@@ -1,0 +1,896 @@
+/*
+ * 🎁 THE GIFT BOX — the approved realistic box (owner 15 Nov "giftbox approved";
+ * corpus prototypes/supplier_badges_2026-11-15/gift-box_APPROVED_2026-11-15.html), ported rule for rule.
+ *
+ * A real box in CSS 3D: 1em = 1% of the stage, every face is one flat plane, and the ONLY things that ever animate are
+ * transform and opacity. No canvas, no image, no video. Colours mix from the app's tokens, so dark mode follows; the
+ * gold Setnayan box keeps the approved foil and wine values.
+ *
+ * ⏱ MOTION: every length is a motion token or a multiple of one (--sn-dur-enter 640 · --sn-dur-elem 320 ·
+ * --sn-pill-dur 700 · --sn-dur-rise-reduced 120), every curve is a token (--sn-ease · --sn-ease-out ·
+ * --sn-pill-spring · --sn-ease-rise). Only the endless rays turn on `linear`, the keyword for a turn with no ends.
+ * Held by app/_components/gift-moment/the-gift-box-is-the-approved-one.test.ts.
+ */
+
+/* ── the stage: the box sits in it; 1em = 1% of its width ── */
+.stage {
+  position: relative;
+  width: min(68vw, 300px);
+  aspect-ratio: 1 / 1;
+  margin: 12px auto 0;
+  flex: none;
+  font-size: calc(min(68vw, 300px) / 100);
+  line-height: 1;
+  --gb-open: calc(var(--sn-dur-enter) * 1.8);
+}
+@media (min-width: 768px) {
+  .stage {
+    width: 340px;
+    font-size: 3.4px;
+  }
+}
+
+/* the box's own tones: a supplier's terracotta paper and gold ribbon, mixed from the app's tokens */
+.gbox {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-origin: 50% 88%;
+  --paper: var(--m-mulberry);
+  --gold: var(--m-orange);
+  --lining: var(--m-ivory);
+  --waxb: var(--paper);
+  --p-hi: color-mix(in srgb, var(--paper) 80%, #ffe2c4);
+  --p-top: color-mix(in srgb, var(--paper) 91%, #ffe2c4);
+  --p-lo: color-mix(in srgb, var(--paper) 82%, #2a0e05);
+  --p-sh: color-mix(in srgb, var(--paper) 63%, #2a0e05);
+  --p-dk: color-mix(in srgb, var(--paper) 48%, #2a0e05);
+  --g-sp: color-mix(in srgb, var(--gold) 22%, #fff9e6);
+  --g-hi: color-mix(in srgb, var(--gold) 55%, #fff1c9);
+  --g-lo: color-mix(in srgb, var(--gold) 70%, #2b1a05);
+  --g-dk: color-mix(in srgb, var(--gold) 46%, #2b1a05);
+  --l-lit: color-mix(in srgb, var(--lining) 82%, #3a2410);
+  --l-sh: color-mix(in srgb, var(--lining) 58%, #2a1608);
+  --l-dk: color-mix(in srgb, var(--lining) 40%, #1e0f05);
+  --wax-hi: color-mix(in srgb, var(--waxb) 62%, #ffc7a0);
+  --wax: color-mix(in srgb, var(--waxb) 66%, #5a1c08);
+  --wax-dk: color-mix(in srgb, var(--waxb) 38%, #330d03);
+  --press: color-mix(in srgb, var(--waxb) 30%, #2a0a02);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .9 0 0 0 -.42'/%3E%3C/filter%3E%3Crect width='96' height='96' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+}
+/* owner 15 Nov: "Setnayan box is gold" · "make the gift box of setnayan more premium and expensive" — polished gold
+   foil with the Setnayan mark embossed all over, a deep wine satin ribbon edged in gold, a wine wax pressed in gold
+   leaf, a dark velvet lining, a slow light across the foil while it waits. */
+.fromSn {
+  --paper: #c9982f;
+  --p-hi: #fff1bc;
+  --p-top: #edc867;
+  --p-lo: #9a6a19;
+  --p-sh: #7a5113;
+  --p-dk: #462c08;
+  --gold: #701330;
+  --g-sp: #c77590;
+  --g-hi: #992f55;
+  --g-lo: #4e0b21;
+  --g-dk: #2a0411;
+  --l-lit: #3e2632;
+  --l-sh: #26141c;
+  --l-dk: #140a0f;
+  --wax-hi: #9a3a58;
+  --wax: #541027;
+  --wax-dk: #21040e;
+  --press: #ebc66a;
+}
+
+.pool {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 46%;
+  background: radial-gradient(closest-side, rgba(246, 232, 206, 0.24), rgba(246, 232, 206, 0));
+  pointer-events: none;
+}
+.scene {
+  position: absolute;
+  inset: 0;
+  perspective: 230em;
+  perspective-origin: 50% 30%;
+}
+.world {
+  position: absolute;
+  left: 50%;
+  top: 70%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  font-size: 1.14em;
+  transform: rotateX(-25deg) rotateY(-29deg);
+}
+.g3 {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+}
+.f {
+  position: absolute;
+  left: 0;
+  top: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.f > i,
+.f > svg,
+.f > span > svg {
+  position: absolute;
+  display: block;
+}
+
+/* paper: grain + softened lit edges + a slow sheen + the face's own light */
+.pf.front {
+  background: var(--grain) 0 0 / 9.6em, linear-gradient(90deg, rgba(255, 232, 208, 0.34), rgba(255, 232, 208, 0) 1.3em),
+    linear-gradient(270deg, rgba(255, 232, 208, 0.3), rgba(255, 232, 208, 0) 0.55em),
+    linear-gradient(0deg, rgba(38, 12, 4, 0.42), rgba(38, 12, 4, 0) 6em),
+    linear-gradient(112deg, rgba(255, 255, 255, 0) 18%, rgba(255, 244, 230, 0.13) 36%, rgba(255, 255, 255, 0) 56%),
+    linear-gradient(168deg, var(--paper), var(--p-lo));
+}
+.pf.right {
+  background: var(--grain) 0 0 / 9.6em, linear-gradient(90deg, rgba(255, 226, 200, 0.2), rgba(255, 226, 200, 0) 0.5em),
+    linear-gradient(0deg, rgba(20, 6, 2, 0.4), rgba(20, 6, 2, 0) 7em), linear-gradient(180deg, var(--p-sh), var(--p-dk));
+}
+.pf.back,
+.pf.left {
+  background: var(--p-dk);
+}
+.pf.ltop {
+  background: var(--grain) 0 0 / 9.6em, linear-gradient(0deg, rgba(255, 238, 220, 0.55), rgba(255, 238, 220, 0) 0.5em),
+    linear-gradient(270deg, rgba(255, 238, 220, 0.38), rgba(255, 238, 220, 0) 0.5em),
+    linear-gradient(125deg, rgba(255, 255, 255, 0) 30%, rgba(255, 246, 234, 0.2) 46%, rgba(255, 255, 255, 0) 64%),
+    linear-gradient(140deg, var(--p-hi), var(--p-top) 55%, var(--paper));
+  outline: 0.14em solid var(--p-top);
+}
+.pf.lfront {
+  background: var(--grain) 0 0 / 9.6em, linear-gradient(180deg, rgba(255, 236, 216, 0.42), rgba(255, 236, 216, 0) 0.55em),
+    linear-gradient(0deg, rgba(38, 12, 4, 0.46), rgba(38, 12, 4, 0) 0.9em),
+    linear-gradient(90deg, rgba(255, 232, 208, 0.3), rgba(255, 232, 208, 0) 1.3em),
+    linear-gradient(270deg, rgba(255, 232, 208, 0.28), rgba(255, 232, 208, 0) 0.55em),
+    linear-gradient(170deg, var(--p-top), var(--paper));
+}
+.pf.lright {
+  background: var(--grain) 0 0 / 9.6em, linear-gradient(180deg, rgba(255, 226, 200, 0.26), rgba(255, 226, 200, 0) 0.5em),
+    linear-gradient(0deg, rgba(20, 6, 2, 0.42), rgba(20, 6, 2, 0) 0.9em),
+    linear-gradient(180deg, var(--p-sh), color-mix(in srgb, var(--p-sh) 55%, var(--p-dk)));
+}
+.pf.lback,
+.pf.lleft {
+  background: linear-gradient(180deg, var(--p-sh), var(--p-dk));
+}
+.pf.rim {
+  background: var(--p-top);
+}
+.pf.rim.rimSh {
+  background: var(--paper);
+}
+.pf.lrim {
+  background: var(--p-lo);
+}
+/* the gold box: the mark embossed in the foil, the ribbon edged in gold */
+.fromSn .pf.front,
+.fromSn .pf.ltop {
+  background-blend-mode: normal;
+}
+.fromSn .pf.front::before,
+.fromSn .pf.right::before,
+.fromSn .pf.ltop::before,
+.fromSn .pf.lfront::before,
+.fromSn .pf.lright::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--emb) 0 0 / 10em;
+  opacity: 0.9;
+}
+.fromSn .pf.right::before,
+.fromSn .pf.lright::before {
+  opacity: 0.55;
+}
+.fromSn .pf.rim,
+.fromSn .pf.lrim {
+  background: linear-gradient(90deg, #8a5e16, #fff1bc 40%, #c9982f 70%, #7a5113);
+}
+.fromSn .rb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    #fbe3a0 0 0.34em,
+    #7a4e0e 0.34em 0.52em,
+    rgba(0, 0, 0, 0) 0.52em calc(100% - 0.52em),
+    #7a4e0e calc(100% - 0.52em) calc(100% - 0.34em),
+    #e9c46a calc(100% - 0.34em)
+  );
+}
+.fromSn .rb.h::before {
+  background: linear-gradient(
+    180deg,
+    #fbe3a0 0 0.34em,
+    #7a4e0e 0.34em 0.52em,
+    rgba(0, 0, 0, 0) 0.52em calc(100% - 0.52em),
+    #7a4e0e calc(100% - 0.52em) calc(100% - 0.34em),
+    #e9c46a calc(100% - 0.34em)
+  );
+}
+.fromSn .bow :global([data-sheen]) {
+  stroke-opacity: 0.32;
+}
+.foil {
+  display: none;
+}
+.fromSn .foil {
+  display: block;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  overflow: hidden;
+}
+.fromSn .foil::after {
+  content: '';
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: 0;
+  width: 38%;
+  background: linear-gradient(100deg, rgba(255, 250, 228, 0), rgba(255, 250, 228, 0.55) 50%, rgba(255, 250, 228, 0));
+  transform: translateX(-120%) skewX(-14deg);
+  animation: gb-foil calc(var(--sn-dur-enter) * 6.5) var(--sn-ease) calc(var(--sn-dur-enter) * 1.9) infinite;
+}
+@keyframes gb-foil {
+  0% {
+    transform: translateX(-120%) skewX(-14deg);
+  }
+  45%,
+  100% {
+    transform: translateX(300%) skewX(-14deg);
+  }
+}
+.open .foil {
+  visibility: hidden;
+}
+
+/* the lining, in shadow; the warm light is a separate layer that only fades */
+.in {
+  background: var(--grain) 0 0 / 9.6em, linear-gradient(180deg, var(--l-sh), var(--l-dk));
+}
+.in.inb {
+  background: var(--grain) 0 0 / 9.6em, linear-gradient(100deg, rgba(24, 10, 3, 0.55), rgba(24, 10, 3, 0) 46%),
+    linear-gradient(180deg, var(--l-lit), var(--l-sh));
+}
+.in.inl {
+  background: var(--grain) 0 0 / 9.6em, linear-gradient(180deg, rgba(24, 10, 3, 0.25), rgba(24, 10, 3, 0.5)),
+    linear-gradient(180deg, var(--l-sh), var(--l-dk));
+}
+.in.flr {
+  background: var(--grain) 0 0 / 9.6em, linear-gradient(120deg, rgba(24, 10, 3, 0.6), rgba(24, 10, 3, 0.1) 70%), var(--l-sh);
+}
+.in.lin {
+  background: linear-gradient(180deg, var(--l-sh), var(--l-lit));
+}
+/* closed, nothing inside can be seen: leave it undrawn (a depth sort would otherwise show hairlines of lining) */
+.gbox:not(.open) .in {
+  visibility: hidden;
+}
+.glw {
+  inset: 0;
+  opacity: 0;
+  background: linear-gradient(0deg, rgba(255, 214, 140, 0.95), rgba(255, 198, 116, 0.42) 52%, rgba(255, 190, 100, 0.05));
+}
+.flr .glw {
+  background: radial-gradient(closest-side, rgba(255, 236, 190, 1), rgba(255, 206, 128, 0.8) 55%, rgba(255, 190, 100, 0.35));
+}
+
+/* satin ribbon: a hard bright streak along the length, a fine weave, a shadow where it sits on the paper */
+.rb {
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.085) 0 0.07em, rgba(255, 255, 255, 0) 0.07em 0.26em),
+    linear-gradient(180deg, rgba(255, 250, 230, 0.16), rgba(255, 250, 230, 0) 26%, rgba(30, 16, 2, 0) 64%, rgba(30, 16, 2, 0.22)),
+    linear-gradient(
+      90deg,
+      var(--g-dk) 0,
+      var(--g-lo) 7%,
+      var(--gold) 21%,
+      var(--g-hi) 33%,
+      var(--g-sp) 40%,
+      var(--g-hi) 46%,
+      var(--gold) 60%,
+      var(--g-lo) 86%,
+      var(--g-dk) 100%
+    );
+  box-shadow: 0.32em 0.08em 0.55em rgba(38, 12, 4, 0.42), -0.08em 0 0.22em rgba(38, 12, 4, 0.22);
+}
+.rb.h {
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.085) 0 0.07em, rgba(255, 255, 255, 0) 0.07em 0.26em),
+    linear-gradient(90deg, rgba(255, 250, 230, 0.2), rgba(255, 250, 230, 0) 30%, rgba(30, 16, 2, 0) 70%, rgba(30, 16, 2, 0.16)),
+    linear-gradient(
+      180deg,
+      var(--g-dk) 0,
+      var(--g-lo) 7%,
+      var(--gold) 20%,
+      var(--g-hi) 34%,
+      var(--g-sp) 42%,
+      var(--g-hi) 49%,
+      var(--gold) 63%,
+      var(--g-lo) 88%,
+      var(--g-dk) 100%
+    );
+  box-shadow: 0.08em 0.3em 0.5em rgba(38, 12, 4, 0.38);
+}
+.rb.fold {
+  background: linear-gradient(180deg, rgba(255, 250, 230, 0.5), rgba(255, 250, 230, 0) 0.45em),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.085) 0 0.07em, rgba(255, 255, 255, 0) 0.07em 0.26em),
+    linear-gradient(
+      90deg,
+      var(--g-dk) 0,
+      var(--g-lo) 7%,
+      var(--gold) 21%,
+      var(--g-hi) 33%,
+      var(--g-sp) 40%,
+      var(--g-hi) 46%,
+      var(--gold) 60%,
+      var(--g-lo) 86%,
+      var(--g-dk) 100%
+    );
+}
+.rb.shade::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(30, 12, 2, 0.44);
+}
+.rb.up {
+  transform-origin: 50% 0;
+}
+.rb.dn {
+  transform-origin: 50% 100%;
+}
+/* ambient occlusion: the lid's overhang shades the box under it; fades as the lid leaves */
+.ao {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 16em;
+  background: linear-gradient(
+    180deg,
+    rgba(26, 8, 2, 0.62) 0,
+    rgba(26, 8, 2, 0.62) var(--cover),
+    rgba(26, 8, 2, 0.22) calc(var(--cover) + 2.3em),
+    rgba(26, 8, 2, 0)
+  );
+}
+.dim {
+  inset: 0;
+  background: rgba(30, 10, 2, 0.3);
+  opacity: 0;
+}
+/* shadows on the floor: blurred once, never animated except by opacity */
+.sh {
+  background: rgba(14, 5, 2, 0.5);
+  box-shadow: 0 0 4.2em 3em rgba(14, 5, 2, 0.5);
+  border-radius: 2em;
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+.sh.far {
+  background: rgba(14, 5, 2, 0.16);
+  box-shadow: 0 0 12em 9em rgba(14, 5, 2, 0.16);
+}
+.sh.shLid {
+  opacity: 0;
+}
+.bow {
+  transform-origin: 50% 100%;
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+.bow svg {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* the wax seal: the puddle, and the sender's mark pressed into it */
+.seal {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  transform: translate(-50%, -50%);
+}
+.wxHost {
+  position: absolute;
+  inset: -12%;
+}
+.wxHost svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.mk {
+  position: relative;
+  width: 66%;
+  height: 66%;
+  display: grid;
+  place-items: center;
+}
+.mk svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mk .lo {
+  color: rgba(255, 206, 176, 0.62);
+  transform: translate(0.9%, 1.4%);
+}
+.mk .dk {
+  color: var(--press);
+}
+.fromSn .mk .lo {
+  color: rgba(20, 0, 6, 0.75);
+  transform: translate(1.2%, 1.8%);
+}
+.ini {
+  position: relative;
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-size: 6.4em;
+  letter-spacing: 0.03em;
+  color: var(--press);
+  text-shadow: 0.05em 0.07em 0 rgba(255, 206, 176, 0.55), -0.02em -0.03em 0.03em rgba(30, 6, 0, 0.55);
+}
+.logo {
+  position: relative;
+  width: 60%;
+  height: 60%;
+  border-radius: var(--m-r-full);
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.3) brightness(0.55) sepia(0.6);
+  mix-blend-mode: multiply;
+  opacity: 0.9;
+}
+
+/* the ticket they received, standing inside the box, turned to face you; the front wall hides it until it rises out */
+.tkt {
+  transform-origin: 50% 50%;
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+.tktImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.gbox:not(.open) .tkt {
+  visibility: hidden;
+}
+.open .tkt {
+  transform: var(--tk-end);
+}
+.open.anim .tkt {
+  animation: gmb-tk calc(var(--sn-dur-enter) * 1.1) var(--sn-ease) calc(var(--gb-open) * 0.36) both;
+}
+
+/* light from inside, the shipped gold flash, the sparks */
+.spill {
+  position: absolute;
+  left: 50%;
+  top: 41%;
+  width: 86em;
+  height: 74em;
+  margin: -40em 0 0 -43em;
+  border-radius: var(--m-r-full);
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(closest-side, rgba(255, 214, 140, 0.42), rgba(255, 186, 96, 0.16) 45%, rgba(255, 170, 80, 0));
+}
+.flash {
+  position: absolute;
+  inset: -18%;
+  border-radius: var(--m-r-full);
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle, color-mix(in srgb, var(--m-orange) 55%, transparent), transparent 66%);
+}
+.spk {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 2em;
+  height: 2em;
+  margin: -1em;
+  border-radius: var(--m-r-full);
+  opacity: 0;
+  pointer-events: none;
+  background: var(--g-sp);
+}
+.spk.s2 {
+  width: 1.1em;
+  height: 3.4em;
+  margin: -1.7em -0.55em;
+  border-radius: 0.6em;
+  background: var(--g-hi);
+}
+.spk.s3 {
+  width: 1.9em;
+  height: 1.9em;
+  margin: -0.95em;
+  border-radius: 0.3em;
+  background: var(--paper);
+}
+
+/* ── MOTION ── */
+.lid {
+  transform: var(--lid-rest);
+}
+/* 1 · the shake (one "enter"), ending in the squash that loads the lid */
+.shake {
+  animation: gb-shake var(--sn-dur-enter) var(--sn-ease) both;
+}
+@keyframes gb-shake {
+  0% {
+    transform: rotate(0);
+  }
+  14% {
+    transform: rotate(-2deg);
+  }
+  28% {
+    transform: rotate(2deg);
+  }
+  42% {
+    transform: rotate(-4deg);
+  }
+  56% {
+    transform: rotate(4deg);
+  }
+  70% {
+    transform: rotate(-5deg);
+  }
+  82% {
+    transform: rotate(3deg) scale(1.01, 0.99);
+  }
+  100% {
+    transform: rotate(0) scale(1.045, 0.93);
+  }
+}
+/* 2 · the open */
+.open .lid {
+  transform: var(--lid-end);
+}
+.open .rb.up,
+.open .rb.dn,
+.open .ao {
+  opacity: 0;
+}
+.open .glw {
+  opacity: 1;
+}
+.open .spill {
+  opacity: 0.85;
+}
+.open .dim,
+.open .sh.shLid {
+  opacity: 1;
+}
+.open .scene {
+  transform: translateX(-10em);
+}
+.open.anim {
+  animation: gb-rebound var(--sn-dur-elem) var(--sn-pill-spring) both;
+}
+@keyframes gb-rebound {
+  from {
+    transform: scale(1.045, 0.93);
+  }
+  to {
+    transform: none;
+  }
+}
+.open.anim .scene {
+  animation: gb-shift var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-shift {
+  0%,
+  12% {
+    transform: none;
+  }
+  100% {
+    transform: translateX(-10em);
+  }
+}
+.open.anim .lid {
+  animation: gmb-lid var(--gb-open) var(--sn-ease) both;
+}
+.open.anim .rb.up {
+  animation: gb-slip-up var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-slip-up {
+  0%,
+  6% {
+    transform: none;
+    opacity: 1;
+  }
+  30% {
+    transform: scaleY(0.04);
+    opacity: 1;
+  }
+  32%,
+  100% {
+    transform: scaleY(0.04);
+    opacity: 0;
+  }
+}
+.open.anim .rb.dn {
+  animation: gb-slip-dn var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-slip-dn {
+  0%,
+  8% {
+    transform: none;
+    opacity: 1;
+  }
+  40% {
+    transform: scaleY(0.05);
+    opacity: 1;
+  }
+  44%,
+  100% {
+    transform: scaleY(0.05);
+    opacity: 0;
+  }
+}
+.open.anim .ao {
+  animation: gb-out var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-out {
+  0%,
+  6% {
+    opacity: 1;
+  }
+  34%,
+  100% {
+    opacity: 0;
+  }
+}
+.open.anim .glw {
+  animation: gb-in var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-in {
+  0%,
+  8% {
+    opacity: 0;
+  }
+  46%,
+  100% {
+    opacity: 1;
+  }
+}
+.open.anim .dim,
+.open.anim .sh.shLid {
+  animation: gb-late var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-late {
+  0%,
+  52% {
+    opacity: 0;
+  }
+  90%,
+  100% {
+    opacity: 1;
+  }
+}
+.open.anim .spill {
+  animation: gb-spill var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-spill {
+  0%,
+  6% {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  34% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 0.85;
+    transform: none;
+  }
+}
+.open.anim .flash {
+  animation: gb-flash var(--sn-dur-elem) var(--sn-ease-out) calc(var(--sn-dur-elem) * 0.25);
+}
+@keyframes gb-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+.open.anim .spk {
+  animation: gb-spark var(--sn-dur-enter) var(--sn-ease-out) calc(var(--sn-dur-elem) * 0.3) both;
+}
+@keyframes gb-spark {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rt)) scale(0.7);
+  }
+}
+
+/* ── around the box, in the stage ── */
+/* the shipped touch glow's bloom under the finger */
+.tglow {
+  position: absolute;
+  width: 350px;
+  height: 350px;
+  margin: -175px 0 0 -175px;
+  border-radius: var(--m-r-full);
+  background: radial-gradient(closest-side, rgba(251, 233, 200, 0.39), rgba(251, 233, 200, 0));
+  mix-blend-mode: screen;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--sn-pill-dur) var(--sn-ease);
+}
+/* the ticket comes out to you: a flat, full-size copy takes over from the one in the box and lands big and sharp */
+.tkhero {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(90vw, 390px);
+  aspect-ratio: 316 / 170;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+.tkhero img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.tkhalo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  border-radius: var(--m-r-full);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  background: radial-gradient(closest-side, rgba(255, 214, 140, 0.5), rgba(255, 186, 96, 0.18) 45%, rgba(255, 170, 80, 0));
+}
+/* the box arrives: it drops in and settles */
+.arrive {
+  animation: gb-arrive calc(var(--sn-dur-enter) * 1.25) var(--sn-pill-spring) both;
+}
+@keyframes gb-arrive {
+  0% {
+    opacity: 0;
+    transform: translateY(-46px) scale(0.82);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+/* reduce motion: one short cross-fade from wrapped to opened; nothing else moves */
+.xfIn {
+  animation: gb-fade var(--sn-dur-rise-reduced) var(--sn-ease) backwards;
+}
+@keyframes gb-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ── the badge's background (owner 15 Nov: "the gift should live on the same background as to whatever badge it is
+   on"): its colour, its slowly turning rays and its drifting lights stay behind the box — no grey stage between.
+   Navy for Verified, gold for a tier up. ── */
+.badgeStage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(120% 72% at 50% 36%, #1c2d57 0, #0b1124 52%, #04060c 100%);
+}
+.badgeStage.tier {
+  background: radial-gradient(120% 72% at 50% 36%, #4a3410 0, #1e1406 52%, #0a0603 100%);
+}
+.rays {
+  position: absolute;
+  left: 50%;
+  top: 36%;
+  width: 190%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, rgba(140, 185, 255, 0.13) 0 5deg, rgba(140, 185, 255, 0) 5deg 15deg);
+  -webkit-mask: radial-gradient(closest-side, #000 18%, rgba(0, 0, 0, 0) 72%);
+  mask: radial-gradient(closest-side, #000 18%, rgba(0, 0, 0, 0) 72%);
+  animation: gb-spin calc(var(--sn-dur-enter) * 94) linear infinite;
+}
+.tier .rays {
+  background: repeating-conic-gradient(from 0deg, rgba(255, 215, 130, 0.13) 0 5deg, rgba(255, 215, 130, 0) 5deg 15deg);
+}
+@keyframes gb-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+.mote {
+  position: absolute;
+  bottom: -4%;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--m-r-full);
+  background: #f3d58a;
+  box-shadow: 0 0 6px 1px rgba(243, 213, 138, 0.7);
+  opacity: 0;
+  animation: gb-mote var(--d) linear var(--dl) infinite;
+}
+@keyframes gb-mote {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  12% {
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--x), -105vh);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shake,
+  .anim,
+  .anim *,
+  .arrive,
+  .rays,
+  .fromSn .foil::after {
+    animation: none !important;
+  }
+  .fromSn .foil::after {
+    opacity: 0;
+  }
+  .mote {
+    display: none;
+  }
+}

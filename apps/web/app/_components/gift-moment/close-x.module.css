@@ -1,0 +1,39 @@
+/*
+ * ✖️ ONE CLOSE BUTTON FOR EVERY FULL SCREEN (owner 15 Nov: "on full screen with (X), (X) should be consistent in all.
+ * Like for gifts or badge full screens."): a 44px round ✕, top LEFT inside the safe area, dark glass with an ivory
+ * ring. Keyboard focus shows one matching ivory ring. Corpus prototypes/supplier_badges_2026-11-15/gift-box_APPROVED.
+ */
+.x {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  right: auto;
+  z-index: 6;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--m-r-full);
+  background: rgba(20, 14, 8, 0.55);
+  border: 1px solid rgba(255, 240, 215, 0.35);
+  color: #f6e7c8;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.x:focus-visible {
+  outline: 2px solid #f6e7c8;
+  outline-offset: 3px;
+  box-shadow: none;
+}
+.x svg {
+  width: 22px;
+  height: 22px;
+}

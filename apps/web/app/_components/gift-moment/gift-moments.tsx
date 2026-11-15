@@ -148,11 +148,14 @@ export function GiftMoments({ url }: { url: string }) {
             setOpened((prev) => new Set([...prev, v.key]));
             void saveClose(openedKey(v), null);
           }}
-          onClaimed={() => {
+          onClaimed={(choiceId) => {
             const v = showing.view;
             const at = new Date().toISOString();
             // The waiting line goes at once; the page catches up on its next read.
             setViews((prev) => (prev ? prev.map((x) => (x.key === v.key ? { ...x, claimedAt: x.claimedAt ?? at } : x)) : prev));
+            // A badge or seal reward is claimed by itself when it shows (owner 15 Nov): the moment plays on, and a tap
+            // closes it as usual — nothing navigates, and the next gift still follows.
+            if (choiceId === 'auto') return;
             setQueue([]);
             setShowing(null);
             router.push(v.redeemHref);

@@ -34,7 +34,7 @@ export function RoleAttireField({
 }) {
   if (roles.length === 0) {
     return (
-      <p className="text-sm text-ink/60">
+      <p className="text-sm text-ink/70">
         Once your guest list has ninongs, ninangs or a wedding party, each role can be given its own
         outfit here.
       </p>
@@ -55,14 +55,14 @@ export function RoleAttireField({
             <div className="flex items-center gap-3">
               <span className={`${labelCls} flex-1`}>
                 {label}
-                <span className="ml-2 text-ink/45">
+                <span className="ml-2 text-ink/70">
                   {formatCount(count)} {count === 1 ? 'person' : 'people'}
                 </span>
               </span>
               {/* 👗 The Wear is the Studio's (2026-10-17): said here as the Studio says it, posted back unchanged so the
                   zipped arrays stay aligned and the stored Wear is never rewritten from here. */}
               <input type="hidden" name="role_style" value={current?.style ?? ''} />
-              <span className="max-w-[55%] text-right text-xs leading-snug text-ink/65" data-role-wear={role}>
+              <span className="max-w-[55%] text-right text-xs leading-snug text-ink/70" data-role-wear={role}>
                 {wear?.[`roles:${role}`] ?? (current?.style ? ATTIRE_STYLE_LABEL[current.style] : 'Not said yet')}
               </span>
             </div>

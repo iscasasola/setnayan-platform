@@ -472,7 +472,7 @@ export function ChaptersHost({
           }
         />
       ) : (
-        <p className="pt-16 text-center text-[14px] text-ink/55" data-schedule-chapter-empty="">
+        <p className="pt-16 text-center text-[14px] text-ink/70" data-schedule-chapter-empty="">
           Open a chapter to see it here.
         </p>
       )}
@@ -856,7 +856,7 @@ function ChapterPage({
             compact
           />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[14px] text-ink/60" data-chapter-count="">
+        <span className="min-w-0 flex-1 truncate text-[14px] text-ink/70" data-chapter-count="">
           {formatCount(moments.length)} moment{moments.length === 1 ? '' : 's'} · {formatCount(suppliers.length)} supplier{suppliers.length === 1 ? '' : 's'}
         </span>
         {viewAs ? (
@@ -953,19 +953,19 @@ function ChapterPage({
                   {SECTION_LETTER[s.key]}
                 </span>
                 <span className="text-[16px] font-semibold text-ink">{s.key}</span>
-                <span className="min-w-0 flex-1 truncate text-[14px] text-ink/60">
+                <span className="min-w-0 flex-1 truncate text-[14px] text-ink/70">
                   {s.sub} · {s.rows.length}
                 </span>
-                <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-ink/50 transition-transform ${on ? 'rotate-180' : ''}`} />
+                <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-ink/70 transition-transform ${on ? 'rotate-180' : ''}`} />
               </button>
               {on && backstage ? (
-                <p data-backstage-line="" className="flex items-center gap-1.5 pt-2 text-[12px] uppercase tracking-[0.06em] text-gold-deep">
+                <p data-backstage-line="" className="flex items-center gap-1.5 pt-2 text-xs uppercase tracking-[0.06em] text-gold-deep">
                   {BACKSTAGE_WORDS} <Tip>{BACKSTAGE_TIP}</Tip>
                 </p>
               ) : null}
               {on ? (
                 s.rows.length === 0 ? (
-                  <p className="py-3 text-[14px] text-ink/55">Nothing yet.</p>
+                  <p className="py-3 text-[14px] text-ink/70">Nothing yet.</p>
                 ) : (
                   <ul>
                     {s.rows.map((m) => {
@@ -986,14 +986,14 @@ function ChapterPage({
                           <span className="w-[4.5rem] flex-none text-[14px] tabular-nums text-ink/80" data-moment-clock={m.time_tba ? 'right-after' : 'time'}>
                             {momentClockWords(m, c, clockWords)}
                             {stayed?.has(m.block_id) ? (
-                              <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-gold-deep" data-moment-stayed="">
+                              <span className="block text-xs font-bold uppercase tracking-[0.06em] text-gold-deep" data-moment-stayed="">
                                 stays
                               </span>
                             ) : null}
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block text-[15px] text-ink">{m.label}</span>
-                            {sub ? <span className="block truncate text-[13px] text-ink/60">{sub}</span> : null}
+                            {sub ? <span className="block truncate text-[13px] text-ink/70">{sub}</span> : null}
                             {clash ? (
                               <span data-moment-clash="" className="block text-[13px] font-semibold text-danger-700">
                                 ⚠ Someone is in two places at once
@@ -1002,12 +1002,12 @@ function ChapterPage({
                           </span>
                           {s.key === 'Event' ? (
                             m.is_public ? (
-                              <Eye aria-label="Shown to guests" className="mt-0.5 h-4 w-4 flex-none text-ink/60" />
+                              <Eye aria-label="Shown to guests" className="mt-0.5 h-4 w-4 flex-none text-ink/70" />
                             ) : (
-                              <EyeOff aria-label="Hidden from guests" className="mt-0.5 h-4 w-4 flex-none text-ink/40" />
+                              <EyeOff aria-label="Hidden from guests" className="mt-0.5 h-4 w-4 flex-none text-ink/70" />
                             )
                           ) : (
-                            <EyeOff aria-label="Backstage — guests never see this" className="mt-0.5 h-4 w-4 flex-none text-ink/40" />
+                            <EyeOff aria-label="Backstage — guests never see this" className="mt-0.5 h-4 w-4 flex-none text-ink/70" />
                           )}
                         </>
                       );
@@ -1062,7 +1062,7 @@ function ChapterPage({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-semibold text-ink">{s.name}</span>
-                  <span className="block truncate text-[13px] text-ink/60">{chapterSupplierLine(s)}</span>
+                  <span className="block truncate text-[13px] text-ink/70">{chapterSupplierLine(s)}</span>
                 </span>
               </li>
             ))}
@@ -1130,7 +1130,7 @@ export function PlanningChapters() {
   if (rows.length === 0) return null;
   return (
     <section data-planning-chapters="" aria-label="Chapters before the day" className="mb-6">
-      <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Chapters before the day</h2>
+      <h2 className="text-xs uppercase tracking-[0.06em] text-ink/70">Chapters before the day</h2>
       <ul className="mt-1">
         {rows.map((c) => (
           <li key={c.block_id} className="border-b border-ink/10">
@@ -1140,10 +1140,10 @@ export function PlanningChapters() {
               onClick={() => api.open(c.block_id)}
               className="sn-press flex min-h-14 w-full items-center gap-4 py-2 text-left"
             >
-              <span className="w-14 flex-none text-[13px] text-ink/60">{dayShort(wallDay(c.start_at))}</span>
+              <span className="w-14 flex-none text-[13px] text-ink/70">{dayShort(wallDay(c.start_at))}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-semibold text-ink">{c.label}</span>
-                <span className="block truncate text-[13px] text-ink/60">
+                <span className="block truncate text-[13px] text-ink/70">
                   Chapter · {c.time_tba ? TIME_TBA : clockWords(c.start_at)} · {chapterWhere(c)}
                 </span>
               </span>

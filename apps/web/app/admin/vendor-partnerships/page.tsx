@@ -1,3 +1,5 @@
+import { InfoTip } from '@/app/_components/info-tip';
+import { FieldPick } from '@/app/admin/_components/field-pick';
 import { Handshake } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -270,20 +272,20 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                     {/* Details */}
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-md bg-mulberry/10 px-2 py-0.5 text-[11px] font-bold text-mulberry">
+                        <span className="rounded-md bg-mulberry/10 px-2 py-0.5 text-[12px] font-bold text-mulberry">
                           {RELATIONSHIP_LABELS[row.relationship_type] ?? row.relationship_type}
                         </span>
-                        <span className="rounded-md bg-warn-50 px-2 py-0.5 text-[11px] font-semibold text-warn-800">
+                        <span className="rounded-md bg-warn-50 px-2 py-0.5 text-[12px] font-semibold text-warn-800">
                           {STATUS_LABELS[row.status]}
                         </span>
                         {row.discount_pct ? (
-                          <span className="rounded-md bg-success-50 px-2 py-0.5 text-[11px] font-semibold text-success-700">
+                          <span className="rounded-md bg-success-50 px-2 py-0.5 text-[12px] font-semibold text-success-700">
                             {row.discount_pct}% off
                           </span>
                         ) : null}
                         {row.additional_fee_centavos !== null &&
                         row.relationship_type !== 'included_in_package' ? (
-                          <span className="rounded-md bg-warn-50 px-2 py-0.5 text-[11px] font-semibold text-warn-800">
+                          <span className="rounded-md bg-warn-50 px-2 py-0.5 text-[12px] font-semibold text-warn-800">
                             {formatFee(row.additional_fee_centavos, row.relationship_type)}
                           </span>
                         ) : null}
@@ -328,7 +330,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                           Reject
                         </SubmitButton>
                       </form>
-                      <p className="max-w-[180px] text-right text-[10px] text-ink/45">
+                      <p className="max-w-[180px] text-right text-[12px] text-ink/45">
                         Rejecting sets it inactive — no badge can ever show.
                       </p>
                     </div>
@@ -341,14 +343,16 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
       </section>
 
       {/* ── ADD PARTNERSHIP (HQ manual entry) ───────────────────────────── */}
-      <section className="mb-10 rounded-2xl border border-terracotta/20 bg-gradient-to-br from-cream to-terracotta-50/30 p-5 sm:p-6">
+      <section className="mb-10 bg-gradient-to-br from-cream to-terracotta-50/30 py-5 sm:py-6 border-t border-ink/10">
         <h2 className="mb-1 sn-eye">
           Add partnership (HQ entry)
         </h2>
-        <p className="mb-4 text-xs text-ink/70">
-          Propose a partnership on a supplier&apos;s behalf. It lands in the recommended
+        <div className="mb-4">
+          <InfoTip label="About proposing" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Propose a partnership on a supplier&apos;s behalf. It lands in the recommended
           supplier&apos;s partnerships inbox — the badge only goes live once THEY accept it.
-        </p>
+          </InfoTip>
+        </div>
 
         {/* An UNREADABLE picker and a truncated one fail the same way — the shop
             is not in the list and nothing says why — but they need different
@@ -379,55 +383,22 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
 
         <form action={createPartnershipHq} className="grid gap-4 sm:grid-cols-2">
           {/* Recommending vendor */}
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className="font-semibold text-ink">Recommending supplier</span>
-            <select
-              name="recommending_vendor_id"
-              required
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">Select supplier…</option>
-              {vendorOptions.map((v) => (
-                <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
-                  {v.business_name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <FieldPick name="recommending_vendor_id" label="Recommending supplier" placeholder="Select supplier…" required className="min-h-11 w-full" options={vendorOptions.map((v) => ({ key: v.vendor_profile_id, label: v.business_name }))} />
+          </div>
 
           {/* Recommended vendor */}
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className="font-semibold text-ink">Recommended supplier</span>
-            <select
-              name="recommended_vendor_id"
-              required
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">Select supplier…</option>
-              {vendorOptions.map((v) => (
-                <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
-                  {v.business_name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <FieldPick name="recommended_vendor_id" label="Recommended supplier" placeholder="Select supplier…" required className="min-h-11 w-full" options={vendorOptions.map((v) => ({ key: v.vendor_profile_id, label: v.business_name }))} />
+          </div>
 
           {/* Relationship type */}
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className="font-semibold text-ink">Relationship type</span>
-            <select
-              name="relationship_type"
-              required
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">Select type…</option>
-              {Object.entries(RELATIONSHIP_LABELS).map(([k, label]) => (
-                <option key={k} value={k}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <FieldPick name="relationship_type" label="Relationship type" placeholder="Select type…" required className="min-h-11 w-full" options={Object.entries(RELATIONSHIP_LABELS).map(([k, label]) => ({ key: k, label }))} />
+          </div>
 
           {/* Additional fee */}
           <label className="flex flex-col gap-1 text-sm">
@@ -539,7 +510,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
               header: 'Type',
               hideBelow: 'md',
               cell: (row) => (
-                <span className="whitespace-nowrap rounded-md bg-mulberry/10 px-2 py-0.5 text-[11px] font-semibold text-mulberry">
+                <span className="whitespace-nowrap rounded-md bg-mulberry/10 px-2 py-0.5 text-[12px] font-semibold text-mulberry">
                   {RELATIONSHIP_LABELS[row.relationship_type] ?? row.relationship_type}
                 </span>
               ),
@@ -573,7 +544,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                   <SubmitButton
                     formAction={rejectPartnership}
                     pendingLabel="Removing…"
-                    className="whitespace-nowrap rounded-md border border-terracotta/40 bg-white px-2.5 py-1 text-[11px] font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
+                    className="whitespace-nowrap rounded-md border border-terracotta/40 bg-white px-2.5 py-1 text-[12px] font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
                   >
                     Take down
                   </SubmitButton>

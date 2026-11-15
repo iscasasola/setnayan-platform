@@ -104,7 +104,7 @@ export async function chooseRevealTemplate(
   }
   const supabase = await requireCouple(eventId);
   // ALL REVEAL IS PAID (owner 2026-09-24 · lib/reveal-access.ts). 'none' is
-  // always writable; an opening needs Event Hub Pro. Ownership here counts a
+  // always writable; an opening needs Event Pro. Ownership here counts a
   // pending order (eventOwnsStdOpenings) so a couple who has just paid can set
   // their opening up; the live page still waits for the approved grant.
   if (
@@ -218,7 +218,7 @@ export async function saveAllStdContent(
   }
 
   /* ⛔ THEIR OWN PHOTO, FILM OR SONG ON THE PAGE IS PRO (owner 2026-09-24, "A"
-     — "Save-the-Date video" is one of the eight Event Hub Pro items, and the
+     — "Save-the-Date video" is one of the eight Event Pro items, and the
      song is the SAME `site_bg_music_*` column the site-chrome editor gates).
      This builder was a SECOND DOOR to all three: a free couple could upload
      here what the editor refuses. The film itself stays free — our themes, our
@@ -288,7 +288,7 @@ export async function saveAllStdContent(
   // Reveal effect toggles — sanitised to {butterflies,petals} booleans.
   //
   // ALL REVEAL IS PAID (owner 2026-09-24 · lib/reveal-access.ts). A couple
-  // without Event Hub Pro may re-save what is stored and flip `music` (the free
+  // without Event Pro may re-save what is stored and flip `music` (the free
   // film's own toggle, which lives in the same JSON) but may not CHANGE a
   // reveal-only effect. Refused loudly — never dropped while "Saved." shows.
   if (data.revealEffects !== undefined && data.revealEffects !== null) {
@@ -450,7 +450,7 @@ export async function saveAllStdContent(
         : {};
     const bag = config[VENUE_CHOICES_KEY];
     const venue = bag && typeof bag === 'object' && !Array.isArray(bag) ? (bag as Record<string, unknown>) : {};
-    // ⛪ "Our drawing ◆" is Event Hub Pro and only ever reaches the row through
+    // ⛪ "Our drawing ◆" is Event Pro and only ever reaches the row through
     // the Maker's Apply gate (`venueBagNewDrawings`, lib/hub-draft.ts). This live
     // door neither sets nor clears it: the card keeps whatever the row holds.
     delete choice.drawing;

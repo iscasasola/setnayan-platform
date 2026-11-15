@@ -78,8 +78,11 @@ test('most stubs keep the tab they forward to', () => {
   // is a floor on the rest, not a demand that every stub carry one.
   const stubs = ADMIN_ROUTES.filter((r) => r.kind === 'redirect');
   const withTab = stubs.filter((r) => (r.redirectsTo ?? '').includes('?tab='));
+  // 6 → 7 (2026-11-14): the old Settings studio's tabs became the avatar's own PAGES — /admin/compliance ·
+  // /admin/notifications · /admin/settings/demo-mode · /admin/settings now forward to /admin/business ·
+  // /admin/email-delivery · /admin/switches, which have no tabs to keep.
   assert.ok(
-    withTab.length >= stubs.length - 6,
-    `${stubs.length - withTab.length} stubs lost their tab (expected at most 6)`,
+    withTab.length >= stubs.length - 7,
+    `${stubs.length - withTab.length} stubs lost their tab (expected at most 7)`,
   );
 });

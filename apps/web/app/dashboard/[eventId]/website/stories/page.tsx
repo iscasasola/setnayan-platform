@@ -115,7 +115,7 @@ export default async function EventStoriesPage({
     <section className="space-y-8">
       <Link
         href={`/dashboard/${eventId}/launch`}
-        className="inline-flex items-center gap-1.5 text-sm text-terracotta hover:text-terracotta-700"
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-terracotta-700 hover:underline"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Back to your {noun} Event Hub
@@ -133,28 +133,30 @@ export default async function EventStoriesPage({
       {/* 🪤 A failed read is NOT "nobody has written about your day" — the two
           are indistinguishable to a reader, and the reassuring one is wrong. */}
       {rowsError ? (
-        <p className="text-sm text-ink/70">
+        <p className="text-sm text-warn-800">
           We couldn&rsquo;t load these just now. Please refresh — nothing has
           changed.
         </p>
       ) : chapters.length === 0 ? (
-        <p className="max-w-prose text-sm text-ink/70">
+        <p className="max-w-prose text-sm text-ink/75">
           Nobody has written about your {noun} yet. When one of your suppliers
           publishes their side of the day, it will appear here for you to add.
         </p>
       ) : (
-        <ul className="space-y-3">
+        /* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 13): one hairline row per story, no bordered tile; the press is the
+           shared pill; no pale ink. */
+        <ul className="divide-y divide-ink/10">
           {chapters.map((c) => {
             const author = authors.get(c.user_id);
             const on = Boolean(c.host_included_at);
             return (
               <li
                 key={c.chapter_id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-tile border border-ink/10 bg-white p-4"
+                className="flex min-h-14 flex-wrap items-center justify-between gap-3 py-3"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-ink">{c.title}</p>
-                  <p className="text-xs text-ink/60">
+                  <p className="text-[15px] font-semibold text-ink">{c.title}</p>
+                  <p className="text-[13px] text-ink/75">
                     by {author?.name ?? 'A Setnayan storyteller'}
                     {author?.slug ? (
                       <>
@@ -168,7 +170,7 @@ export default async function EventStoriesPage({
                       </>
                     ) : null}
                   </p>
-                  <p className="mt-1 text-xs text-ink/55">
+                  <p className="mt-1 text-[13px] text-ink/75">
                     {on
                       ? `Showing alongside your ${noun}.`
                       : `Not shown on your ${noun}. It is still on their own page.`}
@@ -179,7 +181,7 @@ export default async function EventStoriesPage({
                   <input type="hidden" name="chapter_id" value={c.chapter_id} />
                   <input type="hidden" name="include" value={on ? '0' : '1'} />
                   <SubmitButton
-                    className={on ? 'button-secondary' : 'button-primary'}
+                    className={on ? 'ab ab-neutral' : 'ab ab-brand'}
                     pendingLabel="Saving…"
                   >
                     {on ? 'Take off my day' : 'Add to my day'}

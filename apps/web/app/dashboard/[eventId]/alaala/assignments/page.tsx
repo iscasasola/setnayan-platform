@@ -82,7 +82,7 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
         actions={
           <Link
             href={`/dashboard/${eventId}/alaala`}
-            className="inline-flex items-center gap-1 text-[12px]"
+            className="inline-flex min-h-11 items-center gap-1 text-[12px]"
             style={{ color: 'var(--m-slate-2)' }}
           >
             ← Memories
@@ -104,13 +104,13 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
           return (
             <li
               key={moment.key}
-              className="rounded-2xl border p-5"
+              className="border-t border-ink/10 py-5"
               style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
             >
               <div className="flex items-baseline gap-3">
                 {/* terracotta-800 as a CLASS — was --m-orange-3 at 2.03:1. See the
                     twin on the Alaala page. */}
-                <span className="font-mono text-[11px] tabular-nums text-terracotta-800">
+                <span className="text-[12px] font-semibold tabular-nums text-terracotta-800">
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <span

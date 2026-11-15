@@ -118,15 +118,14 @@ export function nextVendor3dBoothExpiry(
 }
 
 /**
- * Resolve the live 3D Booth add-on renewal price (in PHP) from the admin-managed
- * catalog, falling back to {@link VENDOR_3D_BOOTH_FALLBACK_PHP} when the
- * `vendor_3d_booth` row is missing/unreadable. Reads the single active row and
- * treats any non-positive / non-finite price as missing. Takes the client as an
- * argument (import-type only) so this module has no server-only import.
+ * The live 3D Booth add-on renewal price (in PHP) from the admin-managed catalog — or null when the
+ * `vendor_3d_booth` row is missing, inactive, unpriced or unreadable. This read feeds SCREENS only (the Plan page
+ * card, a client's booth section), so null means "no figure" — never the fallback (💰 owner 2026-11-13: no typed
+ * prices). Takes the client as an argument (import-type only) so this module has no server-only import.
  */
 export async function fetchVendor3dBoothPricePhp(
   supabase: SupabaseClient,
-): Promise<number> {
+): Promise<number | null> {
   try {
     const { data, error } = await supabase
       .from('vendor_billing_catalog')
@@ -135,14 +134,14 @@ export async function fetchVendor3dBoothPricePhp(
       .eq('is_active', true)
       .maybeSingle();
     if (error) {
-      console.error('[supabase-error] vendor-3d-booth-pricing: price (using fallback)', error);
-      return VENDOR_3D_BOOTH_FALLBACK_PHP;
+      console.error('[supabase-error] vendor-3d-booth-pricing: price unread', error);
+      return null;
     }
-    if (!data) return VENDOR_3D_BOOTH_FALLBACK_PHP;
+    if (!data) return null;
     const price = Number((data as { price_php: number | string }).price_php);
-    return Number.isFinite(price) && price > 0 ? price : VENDOR_3D_BOOTH_FALLBACK_PHP;
+    return Number.isFinite(price) && price > 0 ? price : null;
   } catch {
-    return VENDOR_3D_BOOTH_FALLBACK_PHP;
+    return null;
   }
 }
 

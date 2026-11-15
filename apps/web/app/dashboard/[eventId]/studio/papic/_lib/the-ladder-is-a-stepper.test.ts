@@ -115,8 +115,8 @@ test('🚨 the Add credits sheet asks only how much — no helper, no range line
   }
   assert.match(strip(FORM), /<span>New total<\/span>/, 'the web sheet no longer says "New total"');
   assert.match(SHEETS[1]!.code, /<span>New total<\/span>/, 'the iPhone sheet no longer says "New total"');
-  assert.match(SHEETS[0]!.code, /`You have \$\{left\.toLocaleString\('en-PH'\)\} credits`/, 'the web sheet lost its one line');
-  assert.match(SHEETS[1]!.code, /`You have \$\{left\.toLocaleString\('en-PH'\)\} credits`/, 'the iPhone sheet lost its one line');
+  assert.match(SHEETS[0]!.code, /`You have \$\{left\.toLocaleString\('en-PH'\)\} \$\{left === 1 \? 'credit' : 'credits'\}`/, 'the web sheet lost its one line');
+  assert.match(SHEETS[1]!.code, /`You have \$\{left\.toLocaleString\('en-PH'\)\} \$\{left === 1 \? 'credit' : 'credits'\}`/, 'the iPhone sheet lost its one line');
   // The web button names the result; the iPhone's keeps Apple's word and Apple's price (never a web price).
   assert.match(strip(FORM), /`Add \$\{shown\.points\.toLocaleString\('en-PH'\)\} credits · \$\{shown\.priceLabel \?\?/);
   assert.match(SHEETS[1]!.code, /`Buy \$\{credits\(rung\.points\)\}`[\s\S]{0,80}rung\?\.priceLabel/);

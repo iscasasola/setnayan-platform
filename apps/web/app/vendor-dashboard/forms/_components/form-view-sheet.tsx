@@ -102,29 +102,30 @@ export function FormViewSheet({
         {items.length === 0 ? (
           <p className="text-sm text-ink/70">This form has no lines yet.</p>
         ) : (
-          <ol className="space-y-2" data-form-view-items>
-            {items.map((i, n) => (
-              <li key={i.question_id} className="rounded-xl bg-ink/[0.04] px-3.5 py-2.5">
+          <ol className="divide-y divide-[color:var(--m-line)]" data-form-view-items>
+            {items.map((i, n) => {
+              const kindLine =
+                (i.item_kind === 'question'
+                  ? answerTypeLabel(i.answer_type)
+                  : i.item_kind === 'media'
+                    ? `Media files · ${formatCount(i.media_keys?.length ?? 0)}`
+                    : 'Video link') + (i.item_kind === 'question' && i.options?.length ? ` · ${i.options.join(' · ')}` : '');
+              return (
+              <li key={i.question_id} className="py-2.5">
                 <p className="text-[15px] font-medium text-ink">
                   <span className="mr-1.5 text-ink/70">{formatCount(n + 1)}.</span>
                   {i.prompt}
                   {i.item_kind === 'question' && i.is_required ? <span className="ml-1 text-ink/70">· required</span> : null}
                 </p>
-                <p className="text-xs text-ink/70">
-                  {i.item_kind === 'question'
-                    ? answerTypeLabel(i.answer_type)
-                    : i.item_kind === 'media'
-                      ? `Media files · ${formatCount(i.media_keys?.length ?? 0)}`
-                      : 'Video link'}
-                  {i.item_kind === 'question' && i.options?.length ? ` · ${i.options.join(' · ')}` : ''}
-                </p>
+                <p className="text-[13px] text-[color:var(--m-slate-2)]">{kindLine}</p>
                 {sent && answersOpen && i.item_kind === 'question' ? (
                   <p className={`mt-1 text-sm ${sent.answers[i.question_id] ? 'text-ink/80' : 'text-ink/70'}`} data-form-view-answer>
                     {sent.answers[i.question_id] ?? 'Not answered yet.'}
                   </p>
                 ) : null}
               </li>
-            ))}
+              );
+            })}
           </ol>
         )}
         {sent && !answersOpen ? (

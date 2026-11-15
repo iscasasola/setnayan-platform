@@ -84,8 +84,19 @@ function ignoredBlocks(source: string): string[] {
   );
 }
 
+/**
+ * 📐 A Form-row template's `name` is the row's LABEL ("Price", "Cover photo"), never a form field: those rows post only
+ * through `fieldName` (app/_components/form-row.tsx · lib/tell-the-form.ts), and the maker's one form (ruling 6058) is
+ * drawn with them. Their label is set aside before the scan; a `fieldName` is not, so a row that posts still counts.
+ */
+const FORM_ROW_LABEL = /(<(?:TypedRow|ChosenRow|OpensRow|FormRow|SwitchRow)\s+)name(\s*=)/g;
+
 function namesIn(source: string): string[] {
   const out: string[] = [];
+  source = source.replace(FORM_ROW_LABEL, '$1label$2');
+  for (const m of source.matchAll(/(?<![\w$.])fieldName\s*=\s*"([^"]*)"/g)) {
+    out.push(m[1] ?? '');
+  }
   // name="literal"
   for (const m of source.matchAll(/(?<![\w$.])name\s*=\s*"([^"]*)"/g)) {
     out.push(m[1] ?? '');
@@ -202,9 +213,8 @@ test('the maker posts EVERY field the wizard posts — the server cannot tell a 
   );
   // Anything beyond the wizard's set is a NAMED field the save reads — never an unnamed extra.
   // `<SupplierThumbRow name="maker">` names the thumb row (its guard anchor), not a form field.
-  // 🃏 `<TypedRow name="A short note for Setnayan">` (card-checks.tsx, "It's mine — report it") is the row's LABEL; it has
-  // no `fieldName`, so it posts nothing with the card — the note goes by `cardPhotoAction`, never by the card form.
-  const known = new Set<string>([...MAKER_ONLY_FIELDS, 'maker', 'A short note for Setnayan']);
+  // 🃏 `<TypedRow name="A short note for Setnayan">` (card-checks.tsx) is a row's LABEL — set aside by `FORM_ROW_LABEL`.
+  const known = new Set<string>([...MAKER_ONLY_FIELDS, 'maker']);
   const onlyCanvas = sorted(canvas).filter((n) => !wizard.has(n) && !known.has(n));
   assert.deepEqual(
     onlyCanvas,
@@ -431,26 +441,41 @@ const MOUNTED_EDITORS = [
   'PriceBracketsEditor', // bracket_*
   'InclusionsEditor', //  inclusion_label
   'DiscountsEditor', //   discount_type · _rate · _unit · _expires_at · _conditions_md
-  'ShowcaseMediaFields', // showcase_photo_r2_keys · showcase_video_r2_key
   'CustomizationStep', // customization_draft
-  'FileUpload', //        primary_photo_r2_key (the cover picker)
+];
+
+/**
+ * 🖼 The photos are drawn differently on the two sides, on purpose (owner 2026-11-13, "CARD MAKER GALLERY UPLOAD
+ * APPROVED"): the canvas mounts ONE gallery for the cover + the showcase photos and the clip as its own row; the wizard
+ * keeps the cover picker and the boxed showcase. Same posted names on both sides — each side must still MOUNT its own.
+ */
+const MOUNTED_PER_SIDE: ReadonlyArray<{ fields: string; canvas: readonly string[]; wizard: readonly string[] }> = [
+  {
+    fields: 'primary_photo_r2_key · showcase_photo_r2_keys · showcase_video_r2_key',
+    canvas: ['CardPhotoGallery', 'ShowcaseClipField'],
+    wizard: ['FileUpload', 'ShowcaseMediaFields'],
+  },
 ];
 
 test('every shared editor is MOUNTED on both sides, not merely imported', () => {
   const canvas = stripComments(readFileSync(CANVAS, 'utf8'));
   const wizard = stripComments(readFileSync(WIZARD, 'utf8'));
+  // The JSX OPEN TAG, not the identifier — an import line must not satisfy
+  // this. `<X` also matches `<X\n  prop=…` and the self-closing form.
+  const openTag = (editor: string) => new RegExp(`<${editor}[\\s/>]`);
 
   for (const editor of MOUNTED_EDITORS) {
-    // The JSX OPEN TAG, not the identifier — an import line must not satisfy
-    // this. `<X` also matches `<X\n  prop=…` and the self-closing form.
-    const openTag = new RegExp(`<${editor}[\\s/>]`);
     assert.match(
       canvas,
-      openTag,
+      openTag(editor),
       `canvas-maker.tsx imports but never RENDERS <${editor}> — its fields would ` +
         'still pass the name-parity check while no vendor could fill them in',
     );
-    assert.match(wizard, openTag, `service-wizard.tsx must still render <${editor}>`);
+    assert.match(wizard, openTag(editor), `service-wizard.tsx must still render <${editor}>`);
+  }
+  for (const side of MOUNTED_PER_SIDE) {
+    for (const e of side.canvas) assert.match(canvas, openTag(e), `canvas-maker.tsx never RENDERS <${e}> (${side.fields})`);
+    for (const e of side.wizard) assert.match(wizard, openTag(e), `service-wizard.tsx must still render <${e}> (${side.fields})`);
   }
 });
 

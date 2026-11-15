@@ -46,7 +46,7 @@ export function HubSavesImmediately({ className }: { className?: string }) {
   return (
     <span
       data-hub-saves-immediately=""
-      className={`inline-flex text-[11.5px] font-medium text-terracotta-700${className ? ` ${className}` : ''}`}
+      className={`inline-flex text-[12px] font-medium text-terracotta-700${className ? ` ${className}` : ''}`}
     >
       <InfoTip label={HUB_LIVE_WORDS} align="start">
         This goes straight to your live Event Hub — guests see it as soon as you save. It is not part

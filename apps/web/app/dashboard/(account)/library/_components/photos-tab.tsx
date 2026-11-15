@@ -103,7 +103,7 @@ export async function PhotosTab({
         readPermitted
         action={
           lens === 'attended' ? undefined : (
-            <ActionButton tone="brand" main icon={<Plus aria-hidden />} label="Create an event" href="/dashboard/create-event" />
+            <ActionButton tone="brand" main icon={<Plus aria-hidden />} label="Create an event" href="/dashboard/create-event" className="!h-11" />
           )
         }
       />
@@ -203,6 +203,7 @@ export async function PhotosTab({
                 tone="info"
                 icon={<FacebookGlyph className="h-4 w-4" />}
                 label="Share the Memories link"
+                className="!h-11"
                 href={fbShareUrl}
                 target="_blank"
               />
@@ -325,7 +326,7 @@ function AlbumCard({ album }: { album: Album }) {
             icon={<ArrowRight aria-hidden />}
             label={hasMedia ? 'View & download' : 'Open album'}
             href={href}
-            className="mt-auto"
+            className="mt-auto !h-11"
           />
         ) : (
           <p className="mt-auto text-xs text-ink/70">

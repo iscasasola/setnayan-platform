@@ -62,7 +62,7 @@ export function GroupComposer({ communityId }: { communityId: string }) {
         setText('');
         setMessageId(freshId());
       }}
-      className="flex h-full min-w-0 flex-1 items-center gap-1 pl-3.5 pr-1"
+      className="flex h-full min-w-0 flex-1 items-end gap-1 pl-3.5 pr-1"
       data-group-send-form=""
     >
       <input type="hidden" name="community_id" value={communityId} />

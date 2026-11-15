@@ -306,7 +306,7 @@ test('6c · the picker and the tours name the free themes from the registry — 
     assert.ok(m[1]!.startsWith(free), `a tour types its own free-theme list: "${m[0]}"`);
   }
   const src = read('app/dashboard/[eventId]/launch/_components/maker-theme-picker.tsx');
-  assert.match(src, /\{themeNames\(FREE_THEMES\)\} are free; the others come with Event (?:Hub )?Pro\./);
+  assert.match(src, /\{themeNames\(FREE_THEMES\)\} are free; the others come with Event Pro\./);
   // No typed free list survives in anything a couple reads.
   const hits: string[] = [];
   for (const root of ['app', 'lib']) {

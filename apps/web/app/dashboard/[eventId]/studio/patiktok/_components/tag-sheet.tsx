@@ -252,7 +252,7 @@ export function TagSheet({
               <Tag aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
               Who’s recording?
             </h2>
-            <p className="mt-0.5 text-sm text-ink/60">
+            <p className="mt-0.5 text-sm text-ink/70">
               Optional — clips are kept either way. Pick, scan a place card, or
               tag a whole table.
             </p>
@@ -261,7 +261,7 @@ export function TagSheet({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 text-ink/50 hover:bg-ink/5 hover:text-ink"
+            className="rounded-lg p-1.5 text-ink/70 hover:bg-ink/5 hover:text-ink"
           >
             <X className="h-5 w-5" strokeWidth={1.75} />
           </button>
@@ -269,7 +269,7 @@ export function TagSheet({
 
         {/* Scan */}
         {allowScan ? (
-          <section className="mb-3 overflow-hidden rounded-xl border border-ink/10">
+          <section className="border-t border-ink/10 mb-3 overflow-hidden pt-4">
             {scanning ? (
               <div className="relative bg-ink">
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption -- silent viewfinder */}
@@ -289,7 +289,7 @@ export function TagSheet({
               <button
                 type="button"
                 onClick={startScanner}
-                className="flex w-full items-center justify-center gap-2 bg-terracotta-700 px-4 py-3.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-800"
+                className="ab ab-brand ab-main w-full"
               >
                 <Camera className="h-5 w-5" /> Scan place card or table QR
               </button>
@@ -305,7 +305,7 @@ export function TagSheet({
         {/* Pick from list */}
         <section className="mb-3">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/70" />
             <input
               type="search"
               value={query}
@@ -315,7 +315,7 @@ export function TagSheet({
             />
           </div>
           {matches.length > 0 ? (
-            <ul className="mt-2 divide-y divide-ink/5 overflow-hidden rounded-xl border border-ink/10 bg-white">
+            <ul className="border-t border-ink/10 mt-2 divide-y divide-ink/5 overflow-hidden pt-4">
               {matches.map((g) => (
                 <li key={g.guestId}>
                   <button
@@ -338,15 +338,15 @@ export function TagSheet({
                       </span>
                     )}
                     <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{g.name}</span>
-                    <UserRound aria-hidden className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} />
+                    <UserRound aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
                   </button>
                 </li>
               ))}
             </ul>
           ) : query.trim() ? (
-            <p className="mt-2 text-sm text-ink/55">No guest matches “{query.trim()}”.</p>
+            <p className="mt-2 text-sm text-ink/70">No guest matches “{query.trim()}”.</p>
           ) : guests.length === 0 ? (
-            <p className="mt-2 text-sm text-ink/55">
+            <p className="mt-2 text-sm text-ink/70">
               No guests on this event yet — scan a place card or type a name below.
             </p>
           ) : null}
@@ -355,7 +355,7 @@ export function TagSheet({
         {/* Just a name */}
         <section>
           <label className="block" htmlFor={manualId}>
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            <span className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
               Or just a name
             </span>
             <div className="mt-1 flex gap-2">
@@ -378,7 +378,7 @@ export function TagSheet({
                 type="button"
                 onClick={applyManual}
                 disabled={!manual.trim()}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-ink px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-ink/85 disabled:opacity-40"
+                className="ab ab-neutral shrink-0"
               >
                 <Users className="h-4 w-4" strokeWidth={1.75} /> Use
               </button>

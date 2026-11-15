@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect } from 'react';
-import { EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   VIEW_AS_FREE_HELP,
@@ -55,14 +56,15 @@ export function ViewAsFreeStrip() {
           {VIEW_AS_FREE_HELP}
         </InfoTip>
       </span>
-      <button
-        type="button"
+      <ActionButton
+        tone="brand"
+        main
+        icon={Eye}
+        label={VIEW_AS_FREE_STOP_LABEL}
         onClick={() => setViewAsFree(false)}
         data-maker-view-as-free-stop=""
-        className="sn-press inline-flex min-h-11 shrink-0 items-center rounded-full bg-mulberry px-4 text-[14px] font-semibold text-cream hover:bg-mulberry-600"
-      >
-        {VIEW_AS_FREE_STOP_LABEL}
-      </button>
+        className="shrink-0"
+      />
     </div>
   );
 }

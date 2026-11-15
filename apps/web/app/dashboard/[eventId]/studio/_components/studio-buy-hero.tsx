@@ -119,7 +119,7 @@ export function StudioBuyHero({
       <p className={`mt-4 text-lg leading-relaxed ${DOORWAY_TONE.muted}`}>{promise}</p>
 
       {price ? (
-        <p className="mt-6 font-mono text-2xl text-[var(--m-ink)] sm:text-3xl">{price}</p>
+        <p className="mt-6 text-2xl font-semibold tabular-nums text-[var(--m-ink)] sm:text-3xl">{price}</p>
       ) : null}
       {priceNote ? (
         <p className={`mt-1 text-sm ${DOORWAY_TONE.muted}`}>{priceNote}</p>

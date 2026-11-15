@@ -82,7 +82,7 @@ export function GuestAllotmentPicker({ eventId, guests, action }: Props) {
         className="w-full rounded-lg border border-ink/15 px-3 py-1.5 text-sm"
       />
 
-      <p aria-live="polite" className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink/45">
+      <p aria-live="polite" className="text-[12px] uppercase tracking-[0.12em] text-ink/70">
         {searching
           ? `${formatCount(ordered.length)} of ${formatCount(guests.length)}`
           : namedCount > 0
@@ -91,7 +91,7 @@ export function GuestAllotmentPicker({ eventId, guests, action }: Props) {
       </p>
 
       {ordered.length === 0 ? (
-        <p className="px-2 py-3 text-xs text-ink/55">
+        <p className="px-2 py-3 text-xs text-ink/70">
           Nobody on your guest list matches “{query.trim()}”.
         </p>
       ) : (
@@ -107,7 +107,7 @@ export function GuestAllotmentPicker({ eventId, guests, action }: Props) {
                 <span className="flex-1 truncate text-sm text-ink">
                   {g.name}
                   {g.role !== 'guest' ? (
-                    <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                    <span className="ml-2 text-[12px] uppercase tracking-[0.12em] text-ink/70">
                       {g.role}
                     </span>
                   ) : null}

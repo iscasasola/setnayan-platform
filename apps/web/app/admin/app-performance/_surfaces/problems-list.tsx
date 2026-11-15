@@ -24,6 +24,7 @@ import type { ReactNode } from 'react';
 import { Fold } from '@/app/_components/fold';
 import { formatCount } from '@/lib/format-number';
 import { readFaultIssues, type FaultIssue } from '@/lib/telemetry/fault-issues.server';
+import { mendAction } from '@/lib/telemetry/problem-line';
 
 import { Badge, Facts, One, Sec } from '../_components/insights-parts';
 
@@ -39,7 +40,8 @@ function IssueRow({ issue }: { issue: FaultIssue }) {
   const seen = `${formatCount(issue.hit_count)} times · first ${ago(issue.first_seen)} · last ${ago(issue.last_seen)}`;
   const facts: [string, ReactNode][] = [
     ['Kind', issue.kind],
-    ['What', <span key="what" className="break-all font-mono text-[13px]">{issue.action}</span>],
+    // The stored action can carry a pre-#7768 label ("IIndalecio") — mended on display, the row is untouched.
+    ['What', <span key="what" className="break-all font-mono text-[13px]">{mendAction(issue.action)}</span>],
   ];
   if (issue.page) facts.push(['Page', <span key="page" className="break-all font-mono text-[13px]">{issue.page}</span>]);
   if (issue.message) facts.push(['Error', <span key="error" className="break-words font-mono text-[13px]">{issue.message}</span>]);

@@ -19,6 +19,7 @@ import { useConfirm } from '@/app/_components/confirm-dialog';
 import { GO_LIVE_CONFIRM } from '@/lib/live-studio-go-live-confirm';
 import { formatCount } from '@/lib/format-number';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * Live Studio Phase 1 — one-tap "Go live" + the OBS connection card.
  *
@@ -130,12 +131,12 @@ export function GoLiveCard({
   return (
     <section
       aria-labelledby="go-live-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="border-t border-ink/10 space-y-4 py-5 sm:p-6"
     >
       {dialog}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
             Step 1b · go live in one tap
           </p>
           <h2
@@ -145,12 +146,11 @@ export function GoLiveCard({
             <Radio aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
             {active ? 'Your broadcast is ready' : 'Go live'}
           </h2>
-          <p className="max-w-prose text-sm text-ink/65">
-            One tap creates the live broadcast on <em>your</em> YouTube channel and
-            puts the watch player on your event page. You then stream into it from
+          <InfoTip labelAs="p" label="One tap creates the live broadcast on your YouTube channel and puts the watch player on your event page." labelNode={<>One tap creates the live broadcast on <em>your</em> YouTube channel and puts the watch player on your event page.</>} labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+            You then stream into it from
             OBS on a laptop (server + key below) or straight from the YouTube app —
             Setnayan never touches your video, it just sets everything up for you.
-          </p>
+          </InfoTip>
         </div>
 
         {/* Readiness donut — wine ring, dense status read of the props above. */}
@@ -162,7 +162,7 @@ export function GoLiveCard({
                   aria-hidden
                   className="h-1.5 w-1.5 rounded-full bg-mulberry"
                 />
-                <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-mulberry">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.1em] text-mulberry">
                   Live
                 </span>
               </span>
@@ -172,7 +172,7 @@ export function GoLiveCard({
               </span>
             )}
           </ProgressRing>
-          <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+          <span className="text-[12px] uppercase tracking-[0.15em] text-ink/70">
             {readinessCaption}
           </span>
         </div>
@@ -239,43 +239,41 @@ function GoLivePrompt({
   // missing prerequisite gets a plain-English reason rather than a dead button.
   if (!ownsPanood) {
     return (
-      <p className="rounded-xl border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/65">
+      <p className="rounded-xl border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/70">
         Buy Live Watch for this event to unlock one-tap go-live.
       </p>
     );
   }
   if (!oauthReady) {
     return (
-      <p className="rounded-xl border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/65">
-        One-tap go-live turns on once Setnayan&rsquo;s YouTube app review clears
-        with Google (1&ndash;4 weeks). Until then you can still go live manually
+      <InfoTip labelAs="p" label="One-tap go-live turns on once Setnayan&rsquo;s YouTube app review clears with Google (1&ndash;4 weeks)." labelClassName="rounded-xl border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/70" align="start">
+        Until then you can still go live manually
         from the YouTube app and paste the link below.
-      </p>
+      </InfoTip>
     );
   }
   if (!connected) {
     return (
-      <p className="rounded-xl border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/65">
+      <p className="rounded-xl border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/70">
         Connect your YouTube channel in step 1 first, then come back here to go
         live in one tap.
       </p>
     );
   }
   return (
-    <div className="space-y-2 rounded-xl border border-terracotta/30 bg-cream/80 p-5">
+    <div className="border-t border-ink/10 space-y-2 py-5">
       <button
         type="button"
         onClick={onGoLive}
         disabled={pending}
-        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-60"
+        className="ab ab-brand ab-main disabled:cursor-not-allowed"
       >
         <Radio aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         {pending ? 'Creating your broadcast…' : 'Go live'}
       </button>
-      <p className="text-xs text-ink/55">
-        Creates the broadcast on your channel (unlisted, ads off) and shows your
-        OBS connection details here. Takes a few seconds.
-      </p>
+      <InfoTip labelAs="p" label="Creates the broadcast on your channel (unlisted, ads off) and shows your OBS connection details here." labelClassName="text-xs text-ink/70" align="start">
+        Takes a few seconds.
+      </InfoTip>
     </div>
   );
 }
@@ -302,17 +300,15 @@ function ObsConnectionCard({
           <CheckCircle2 aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2} />
           Broadcast created on your channel
         </p>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 text-[12px] uppercase tracking-[0.15em] text-success-900">
           {active.status}
         </span>
       </div>
 
-      <p className="max-w-prose text-xs text-ink/65">
-        Point OBS (or any RTMP encoder) at the server + stream key below, press
-        &ldquo;Start Streaming&rdquo; there, and your broadcast goes live on your
-        event page automatically. Prefer your phone? Open the YouTube app and go
+      <InfoTip labelAs="p" label="Point OBS (or any RTMP encoder) at the server + stream key below, press &ldquo;Start Streaming&rdquo; there, and your broadcast goes live on your event page automatically." labelClassName="text-xs text-ink/70" className="max-w-prose" align="start">
+        Prefer your phone? Open the YouTube app and go
         live to the same broadcast — no copy-paste needed.
-      </p>
+      </InfoTip>
 
       {/* ⭐ THE COUPLE'S OWN COPY. YouTube auto-archives every broadcast and the
           recordings card resolves a permanent watch link to it — but a watch link is
@@ -323,16 +319,15 @@ function ObsConnectionCard({
           That makes this sentence the difference between a couple who ends the day
           holding their wedding and one who does not — so it is stated HERE, where the
           encoder is set up, not only in help text read afterwards. */}
-      <p className="max-w-prose rounded-lg border border-terracotta/25 bg-terracotta/5 p-3 text-xs text-ink/75">
-        <strong className="font-semibold text-ink/85">Press &ldquo;Start Recording&rdquo; too.</strong>{' '}
-        OBS saves a full-quality copy to your own computer while it streams — one extra click,
+      <InfoTip labelAs="p" label="Press &ldquo;Start Recording&rdquo; too. OBS saves a full-quality copy to your own computer while it streams" labelNode={<><strong className="font-semibold text-ink/85">Press &ldquo;Start Recording&rdquo; too.</strong>{' '} OBS saves a full-quality copy to your own computer while it streams</>} labelClassName="rounded-lg border border-terracotta/25 bg-terracotta/5 p-3 text-xs text-ink/75" className="max-w-prose" align="start">
+        one extra click,
         right next to Start Streaming. You keep that file even if the broadcast drops, and if
         Setnayan supplied the channel it is the only copy you can download.
-      </p>
+      </InfoTip>
 
       {/* RTMP server URL */}
-      <div className="rounded-lg border border-ink/10 bg-cream/70 p-3">
-        <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+      <div className="border-t border-ink/10 py-3">
+        <p className="flex items-center gap-1.5 text-[12px] uppercase tracking-[0.18em] text-ink/70">
           <Server aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           RTMP server (OBS &rarr; Stream &rarr; Server)
         </p>
@@ -356,8 +351,8 @@ function ObsConnectionCard({
 
       {/* Watch URL */}
       {active.watchUrl ? (
-        <div className="rounded-lg border border-ink/10 bg-cream/70 p-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+        <div className="border-t border-ink/10 py-3">
+          <p className="text-[12px] uppercase tracking-[0.18em] text-ink/70">
             Watch URL (live on your event page)
           </p>
           <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
@@ -377,7 +372,7 @@ function ObsConnectionCard({
 
       {/* End broadcast */}
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           Done streaming? Ending here closes the broadcast on YouTube and removes
           the player from your event page.
         </p>

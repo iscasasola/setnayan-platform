@@ -45,6 +45,21 @@ export const EVENT_HELD_PAGE_WORDS: Readonly<Record<string, string>> = {
   // The page's own section heading — not "Galleries" (owner 2026-10-23: no "gallery" word in the UI), and not its
   // masthead "Memories", which the Memories row's own page already carries in the same ▾.
   galleries: 'More from your day',
+  // The living-memory page — its masthead is "Your wedding, kept alive." — and its Story Assignments (RW-315).
+  alaala: 'Kept alive',
+  'alaala/assignments': 'Story Assignments',
+  // The page's own masthead / route word (lib/route-meta.ts).
+  sponsors: 'Sponsors',
+  manpower: 'Manpower',
+};
+
+/**
+ * Pages INSIDE a family claim (`EVENT_FAMILY_CLAIMS`) that no catalogue row names — each by its own masthead word, so a
+ * page under it never reads the bare row name (RW-315: the wax-seal page under Save the Date read only "Today").
+ * Held by the-event-wears-one-pinned-row.test.ts: each key sits under a family claim and is a real page.
+ */
+export const EVENT_FAMILY_PAGE_WORDS: Readonly<Record<string, string>> = {
+  'studio/save-the-date': 'Save the Date',
 };
 
 /**
@@ -121,7 +136,25 @@ export function eventPinTable(inputs: EventRailInputs): EventPinTable {
         const path = pathOf(claim);
         if (seen.has(path)) continue;
         const product = productName.get(path);
-        const word = EVENT_HELD_PAGE_WORDS[path.slice(base.length + 1)];
+        const rel = path.slice(base.length + 1);
+        // A FAMILY claim (`studio`) is no page itself — its pages are the products under it, each by its catalogue
+        // name (RW-315: the wax-seal page under Save the Date read only "Today").
+        if (EVENT_FAMILY_CLAIMS.includes(rel)) {
+          for (const [own, p] of productName) {
+            if (seen.has(own) || !own.startsWith(`${path}/`)) continue;
+            seen.add(own);
+            views.push({ href: p.href, path: own, label: p.name });
+          }
+          // …and the family's pages that are no catalogue row, by their own word (Save the Date).
+          for (const [r, w] of Object.entries(EVENT_FAMILY_PAGE_WORDS)) {
+            const own = `${base}/${r}`;
+            if (seen.has(own) || !r.startsWith(`${rel}/`)) continue;
+            seen.add(own);
+            views.push({ href: own, path: own, label: w });
+          }
+          continue;
+        }
+        const word = EVENT_HELD_PAGE_WORDS[rel];
         if (!product && !word) continue;
         seen.add(path);
         views.push({ href: product?.href ?? path, path, label: product?.name ?? word! });

@@ -138,7 +138,7 @@ const PBA_CSS = `
 .pbacc{
   --paper:var(--m-paper); --ink:var(--m-ink); --ink-soft:#4F535B;
   --gold:var(--m-orange); --gold-deep:var(--m-orange-2);
-  --mulberry:var(--m-mulberry); --mulberry-deep:var(--m-mulberry-2);
+  --mulberry:var(--m-mulberry); --mulberry-deep:var(--m-mulberry-2,#343A44);
   --line:rgb(var(--color-ink)/.12); --line-soft:rgb(var(--color-ink)/.07);
   --card:#fff; /* white card surface in light; flips to lifted obsidian in dark */
   /* --topbar-h was the dark P0 budget bar height; that bar is removed (owner

@@ -16,6 +16,9 @@ Badge build J3 (owner-approved prototypes 15 Nov: `prototypes/supplier_badges_20
 - **Losing a badge (DECISION_LOG 7fbff0cd):** the medal leaves the row once the card no longer qualifies; the span is
   closed (`lost_at`), never deleted, so the time held stays in the shop's record; the card can earn it again (a new
   span, a new congratulations). **Queue order** (same ruling) = the row's order.
+- **Imports never count (owner 16 Nov, DECISION_LOG fd5814dc):** Hot Booking, Generous Giver and Rave Reviews
+  count only bookings Setnayan sourced — the shop's invite, Locked QR, a reused booking or a `?src=own` arrival is an
+  import. One rule: the booking fee's own `booking_fee_attribution_for`.
 - **What a supplier gets:** a Today notice (`card_badge_earned`, in-app + push, not email) the first time a card earns
   a badge — exactly once per earning.
 - **Data:** migrations `20271348664988_notification_type_card_badge_earned` (enum value; J0 adds the same one with

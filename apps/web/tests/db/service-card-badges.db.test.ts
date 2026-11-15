@@ -3,8 +3,8 @@
  *
  * Fails if:
  *   1 · `service_card_badge_facts` stops counting a card's OWN paid bookings (another card's do not add up), its
- *       distinct couples, the bookings that carry a shop gift, or a booking that is archived / fraud / unpaid starts
- *       counting;
+ *       distinct couples, the bookings that carry a shop gift, or a booking that is archived / fraud / unpaid / an
+ *       IMPORT (the shop's invite, Locked QR, a reused booking — DECISION_LOG fd5814dc) starts counting;
  *   2 · an inquiry about a card stops being timed from the shop's first OWN reply (a bot message, or a couple's, is not
  *       a reply), or a category-only inquiry is credited to a card;
  *   3 · a shop that does not exist reads as zero instead of NULL (a failed read must look failed);
@@ -67,13 +67,20 @@ async function newEvent(): Promise<string> {
 }
 
 /** A paid booking of `card` on a fresh event (deposit recorded `daysAgo`). */
-async function paidBooking(shop: string, card: string, daysAgo = 3, extra = ''): Promise<{ event: string }> {
+async function paidBooking(
+  shop: string,
+  card: string,
+  daysAgo = 3,
+  extra = '',
+  source = 'host_marketplace_search',
+): Promise<{ event: string }> {
   const event = await newEvent();
+  // Found on Setnayan (a save from Find) unless the case says otherwise — an import never counts.
   await db.query(
     `INSERT INTO public.event_vendors
-       (event_id, category, vendor_name, status, marketplace_vendor_id, service_id, deposit_recorded_at, deposit_paid_php)
-     VALUES ($1, 'photographer', 'Badge Shop', 'deposit_paid', $2, $3, NOW() - ($4 || ' days')::interval, 1000)`,
-    [event, shop, card, String(daysAgo)],
+       (event_id, category, vendor_name, status, marketplace_vendor_id, service_id, deposit_recorded_at, deposit_paid_php, source)
+     VALUES ($1, 'photographer', 'Badge Shop', 'deposit_paid', $2, $3, NOW() - ($4 || ' days')::interval, 1000, $5)`,
+    [event, shop, card, String(daysAgo), source],
   );
   if (extra) await db.query(extra, [event]);
   return { event };
@@ -116,6 +123,10 @@ test('1 · a card counts its OWN paid bookings, its couples, and the ones the sh
   await paidBooking(shop, film, 45); // outside the 30 days
   await paidBooking(shop, film, 3, `UPDATE public.event_vendors SET archived_at = NOW() WHERE event_id = $1`);
   await paidBooking(shop, film, 3, `UPDATE public.event_vendors SET voided_by_fraud = TRUE WHERE event_id = $1`);
+  // Imports never count (DECISION_LOG fd5814dc): the shop's invite, its Locked QR, a reused booking.
+  await paidBooking(shop, film, 3, '', 'vendor_invite');
+  await paidBooking(shop, film, 3, '', 'vendor_locked_qr');
+  await paidBooking(shop, film, 3, '', 'reuse_accept');
   // An ask that never got paid is not a paid booking.
   await db.query(
     `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, service_id)
@@ -151,7 +162,7 @@ test('1 · a card counts its OWN paid bookings, its couples, and the ones the sh
   assert.equal(f!.good_standing, true);
   assert.ok(f!.verified_since, 'the held time of Verified runs from the date the shop was verified');
   const c = cardOf(f, film);
-  assert.equal(c.paid_bookings, 2, 'two paid, in the window, live — the archived, fraud, old and unpaid ones do not count');
+  assert.equal(c.paid_bookings, 2, 'two paid, in the window, live, found on Setnayan — the archived, fraud, old, unpaid and IMPORTED ones do not count');
   assert.equal(c.paid_couples, 2);
   assert.equal(c.paid_with_gift, 1, 'one of them carried the shop’s gift — a gift naming another card is not this card’s');
   assert.equal(cardOf(f, photos).paid_bookings, 1, 'the other card keeps its own count');

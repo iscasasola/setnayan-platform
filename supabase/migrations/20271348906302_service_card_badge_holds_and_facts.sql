@@ -20,7 +20,9 @@
 -- ⚖ SOURCES AND THEIR LIMITS (said in the PR, never faked):
 --   · a "paid booking" is the Card Record's own booked filter narrowed to PAID: status deposit_paid · delivered ·
 --     complete, deposit recorded in the window, unarchived, not fraud, a live celebration, arm's length
---     (vendor_booking_is_arms_length). There is no refund status on event_vendors; a voided/archived row stops counting.
+--     (vendor_booking_is_arms_length), and SOURCED by Setnayan — an import (the shop's invite, Locked QR, a reused
+--     booking, a ?src=own arrival) never counts (owner 16 Nov, DECISION_LOG fd5814dc; the booking fee's own rule,
+--     booking_fee_attribution_for). There is no refund status on event_vendors; a voided/archived row stops counting.
 --   · an inquiry ABOUT A CARD is a thread_service_interests row naming that card. An interest that names only a
 --     category (vendor_service_id NULL) belongs to no card and counts for none.
 --   · a reply is per THREAD (chat_messages has no card): the shop's first own message (sender_role 'vendor', not a
@@ -96,6 +98,9 @@ AS $$
        AND ev.voided_by_fraud = FALSE
        AND e.archived = FALSE
        AND public.vendor_booking_is_arms_length(shop.vpid, ev.event_id, ev.vendor_id)
+       -- An import is never a booking a badge counts (owner 16 Nov, DECISION_LOG fd5814dc): the shop's invite, Locked QR,
+       -- a reused booking, or a couple who arrived on the shop's own link (?src=own). ONE rule, the booking fee's own.
+       AND public.booking_fee_attribution_for(shop.vpid, ev.event_id) = 'sourced'
   ),
   paid_n AS (
     SELECT p.id,
@@ -121,6 +126,8 @@ AS $$
        AND r.created_at >= NOW() - INTERVAL '30 days'
        AND r.voided_by_fraud = FALSE
        AND r.booked_through_setnayan = TRUE
+       -- …nor a review of an imported booking (DECISION_LOG fd5814dc).
+       AND public.booking_fee_attribution_for(p_vendor_profile_id, r.event_id) = 'sourced'
   ),
   rev_n AS (
     SELECT x.id,

@@ -191,7 +191,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-      <BackButton href="/admin/business" label="Back to settings" />
+      <BackButton href="/admin/settings" label="Back to settings" />
 
       {/* The page starts at its content — the Back to settings link above is
           untouched, because on a phone it is the only way up a level.

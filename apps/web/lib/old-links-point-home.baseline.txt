@@ -3,6 +3,9 @@
 # This list ONLY SHRINKS: fix a link, delete its line. Never add one.
 app/admin/layout.tsx  /admin/settings
 app/admin/settings/actions.ts  /admin/settings
+# ↓ its BACK link must agree with lib/page-home.ts, which still names /admin/settings as this page's home — that map
+#   is being edited by #7717; move both together after it lands.
+app/admin/settings/payment-methods/page.tsx  /admin/settings
 app/admin/ugat/_surfaces/onboarding-surface.tsx  /admin/songs
 app/admin/users/actions.ts  /admin/users
 app/admin/vendors/[vendorProfileId]/plan/page.tsx  /admin/vendors

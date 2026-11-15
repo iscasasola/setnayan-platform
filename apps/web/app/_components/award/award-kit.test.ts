@@ -482,3 +482,54 @@ test('10 · the No. 1 seal option draws, carries the year it is given, and stays
     .filter((f) => /no1-seal-svg|no1Seal/.test(stripComments(readFileSync(join(WEB, f), 'utf8'))));
   assert.deepEqual(hits, []);
 });
+
+/* ── v86 · J1: the one ✕, the days line, Verified, the locked look ─────────────────────────────────── */
+
+test('17 · ONE ✕ for every full screen: only award-close draws it; top LEFT, 44px, dark glass, ivory ring', () => {
+  const draws = KIT.filter((f) => /from 'lucide-react'/.test(readFileSync(join(DIR, f), 'utf8')) && /\bX\b[,} ]/.test(readFileSync(join(DIR, f), 'utf8').match(/import \{([^}]*)\} from 'lucide-react'/)?.[1] ?? ''));
+  assert.deepEqual(draws, ['award-close.tsx'], 'no screen imports its own ✕');
+  for (const f of ['badge-fullscreen.tsx', 'seal-plaque.tsx', 'verified-fullscreen.tsx']) {
+    assert.match(stripComments(readFileSync(join(DIR, f), 'utf8')), /<AwardClose\b/, `${f} uses the shared ✕`);
+  }
+  const css = readFileSync(join(DIR, 'award.module.css'), 'utf8');
+  const block = css.slice(css.indexOf('.xClose {'), css.indexOf('}', css.indexOf('.xClose {')));
+  for (const rule of ['left: max(12px, env(safe-area-inset-left))', 'width: 44px', 'height: 44px', 'border-radius: 50%', 'rgba(20, 14, 8, 0.55)', '1px solid rgba(255, 240, 215, 0.35)']) {
+    assert.ok(block.includes(rule), `the ✕ keeps "${rule}"`);
+  }
+  assert.ok(!/\.(bzX|awX)\b/.test(css), 'no second ✕ style left');
+});
+
+test('18 · the days line is for TIERED badges only — never on a seal plaque or Setnayan Verified', async () => {
+  const { achievedAfterLine } = await import('./award-copy');
+  assert.equal(achievedAfterLine(1), 'You achieved this after 1 day');
+  assert.equal(achievedAfterLine(1234), 'You achieved this after 1,234 days');
+  assert.equal(achievedAfterLine(undefined), '', 'unknown is said as nothing, never 0');
+  for (const f of ['seal-plaque.tsx', 'verified-fullscreen.tsx', 'award-copy.ts']) {
+    const src = stripComments(readFileSync(join(DIR, f), 'utf8'));
+    if (f === 'award-copy.ts') continue;
+    assert.ok(!/achievedAfter|You achieved this/.test(src), `${f} carries no days line`);
+  }
+  assert.match(stripComments(readFileSync(join(DIR, 'badge-fullscreen.tsx'), 'utf8')), /achievedAfterLine\(achievedAfterDays\)/);
+});
+
+test('19 · Setnayan Verified: its own navy screen, v86 words verbatim, no plaque, no days line', async () => {
+  const { VERIFIED_COPY } = await import('./verified-fullscreen');
+  assert.equal(VERIFIED_COPY.to, 'AWARDED TO');
+  assert.equal(VERIFIED_COPY.exclusive, 'AN EXCLUSIVE SETNAYAN SEAL');
+  assert.equal(VERIFIED_COPY.tap, 'Tap anywhere to close');
+  const src = stripComments(readFileSync(join(DIR, 'verified-fullscreen.tsx'), 'utf8'));
+  assert.ok(!/awCard|SealPlaque|plaque/i.test(src.replace(/NO PLAQUE/g, '')), 'no plaque on Verified');
+  const css = readFileSync(join(DIR, 'award.module.css'), 'utf8');
+  assert.ok(css.includes('radial-gradient(120% 72% at 50% 36%, #1c2d57 0, #0b1124 52%, #04060e 100%)'), 'the navy stage');
+});
+
+test('20 · the locked look: grey art under a lock, the group, the name, what it takes — v86 words', async () => {
+  const { LockedTile, LOCKED_HOW, bronzeAtLine } = await import('./locked-tile');
+  assert.equal(LOCKED_HOW.shield, 'Bronze when 1 supplier recommends you');
+  assert.equal(bronzeAtLine('Bronze', 5, 'bookings'), 'Bronze at 5 bookings');
+  const m = renderToStaticMarkup(h(LockedTile, { art: h('svg'), group: 'Seal', name: 'Top 10 Supplier', how: 'Top 10 of the year' }));
+  assert.ok(m.includes('aria-label="Top 10 Supplier, locked. Top 10 of the year"'));
+  assert.ok(m.includes('>Seal<') && m.includes('<b>Top 10 Supplier</b>'));
+  const css = readFileSync(join(DIR, 'award.module.css'), 'utf8');
+  assert.ok(css.includes('filter: grayscale(1) contrast(0.75) brightness(1.08)'), 'the art is greyed');
+});

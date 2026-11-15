@@ -92,3 +92,14 @@ export function sealPlaqueCopy(kind: SealKind, year: number | string): { eyebrow
   const c = AWARD_COPY(year)[kind];
   return { eyebrow: c.eyebrow, title: c.title, body: c.body, how: c.how.map(([line]) => line) };
 }
+
+/**
+ * 📅 "You achieved this after N days" — v86 `AFTER()`, verbatim. ONLY the tiered badges (Completed bookings · Five-star
+ * reviews · Gifts given · Trusted by · Invites) carry it (owner 15 Nov); seals and Setnayan Verified never do.
+ * Empty when the count is unknown — a missing number is never shown as 0.
+ */
+export function achievedAfterLine(days: number | null | undefined): string {
+  if (typeof days !== 'number' || !Number.isFinite(days) || days < 0) return '';
+  const n = Math.round(days);
+  return `You achieved this after ${n.toLocaleString('en-US')} day${n === 1 ? '' : 's'}`;
+}

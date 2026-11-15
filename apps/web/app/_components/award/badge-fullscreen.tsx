@@ -10,15 +10,18 @@
  *   · everything sizes from the screen (`min(92vw, 520px, 60vh, room left)`);
  *   · the share button is plain glass, never colourful;
  *   · Setnayan's mark signs every full-screen badge ("AN EXCLUSIVE SETNAYAN BADGE");
- *   · nothing opens by itself — the caller mounts this on a tap; Esc / back / the × / a tap anywhere puts it back.
+ *   · nothing opens by itself — the caller mounts this on a tap; Esc / back / the ✕ / a tap anywhere puts it back;
+ *   · the ✕ is the ONE shared close (`AwardClose`: 44px round, top left, dark glass, ivory ring — v86);
+ *   · "You achieved this after N days" shows here, on the TIERED badge only (v86 `.bz-days`).
  *
  * Client-only, on the device: no fetch, no write. Mount it to open it; `onClose` unmounts it.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
-import { X } from 'lucide-react';
 import { SetnayanMark } from '../setnayan-mark-icon';
 import s from './award.module.css';
 import { badgeStack } from './fit';
+import { AwardClose } from './award-close';
+import { achievedAfterLine } from './award-copy';
 import { prefersReducedMotion, serializeArt, toneForTier, useModalDialog } from './shared';
 
 export type AwardTier = {
@@ -41,6 +44,12 @@ export type BadgeFullscreenProps = {
   shopName: string;
   /** Already-formatted award date ("12 Jan 2026"); shown as "Awarded 12 Jan 2026". */
   awardedOn?: string;
+  /**
+   * 📅 Days from the shop joining to this tier (owner 15 Nov: *"the line you achieved this in X days will only be for
+   * the badges with tiers"*). Shown as "You achieved this after N days". This full screen is the TIERED badge's; seals
+   * and Setnayan Verified never take this line (their screens have no such prop).
+   */
+  achievedAfterDays?: number;
   /** Shows "Share to story"; called with the badge's SVG markup (feed it to `<StoryVideo>`). Omit to hide sharing. */
   onShare?: (artSvg: string) => void;
   /** Called once the badge is put back (after the return flight). */
@@ -68,7 +77,7 @@ type Live = {
   py: number;
 };
 
-export function BadgeFullscreen({ art, tier, title, lines, shopName, awardedOn, onShare, onClose, origin }: BadgeFullscreenProps) {
+export function BadgeFullscreen({ art, tier, title, lines, shopName, awardedOn, achievedAfterDays, onShare, onClose, origin }: BadgeFullscreenProps) {
   const tone = tier.tone ?? toneForTier(tier.index);
   const live = useRef<Live>({ on: false, sz: 0, cx: 0, cy: 0, rx: 0, ry: 0, vx: 0, vy: 0, tx: null, ty: null, t0: 0, raf: 0, land: 0, drag: false, px: 0, py: 0 });
   const closing = useRef(false);
@@ -352,6 +361,7 @@ export function BadgeFullscreen({ art, tier, title, lines, shopName, awardedOn, 
         <em>Awarded to</em>
         <b>{shopName}</b>
         <span>{mainLine}</span>
+        {achievedAfterLine(achievedAfterDays) ? <span className={s.bzDays}>{achievedAfterLine(achievedAfterDays)}</span> : null}
         {lines?.map((l, i) => (
           <span key={i}>{l}</span>
         ))}
@@ -378,9 +388,7 @@ export function BadgeFullscreen({ art, tier, title, lines, shopName, awardedOn, 
         </div>
         <small>An exclusive Setnayan badge</small>
       </div>
-      <button ref={xBtn} type="button" className={s.bzX} aria-label="Close" onClick={(e) => (e.stopPropagation(), close())}>
-        <X aria-hidden size={22} strokeWidth={2} />
-      </button>
+      <AwardClose ref={xBtn} onClose={close} />
     </dialog>
   );
 }

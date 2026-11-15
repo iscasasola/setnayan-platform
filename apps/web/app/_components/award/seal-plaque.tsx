@@ -23,7 +23,7 @@
  * Client-only, on the device: no fetch, no write. Mount it on a tap; `onClose` unmounts it.
  */
 import { useCallback, useId, useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { AwardClose } from './award-close';
 import { subscribeKeyboard } from '@/lib/keyboard-ride';
 import { SetnayanMark } from '../setnayan-mark-icon';
 import s from './award.module.css';
@@ -518,9 +518,7 @@ export function SealPlaque({
         <canvas ref={cf} className={s.awCf} aria-hidden="true" />
         <div ref={fit} className={s.awFit}>
           <div className={s.awCard}>
-            <button type="button" className={s.awX} aria-label="Close" onClick={close}>
-              <X aria-hidden size={22} strokeWidth={2} />
-            </button>
+            <AwardClose onClose={close} />
             <i className={`${s.awOr} ${s.orTl}`} />
             <i className={`${s.awOr} ${s.orTr}`} />
             <i className={`${s.awOr} ${s.orBl}`} />

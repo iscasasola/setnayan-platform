@@ -62,10 +62,10 @@ export function VerifySection({
   papersAbove = null,
 }: {
   /**
-   * 📄 THE PAPERS ARE ASKED ONCE (walk 13 Nov 2026, F-W1-11). On Today the three required papers are already a list of
-   * their own ("Send your documents", `SetupPapers`) right above this section; here the documents step then only
-   * points to it — the id of that list — instead of loading and asking for the same three again. Absent (Your
-   * details), the step is the full upload it always was.
+   * 📄 THE PAPERS ARE ASKED ONCE (walk 13 Nov 2026, F-W1-11). On Today the three required papers already have their one
+   * upload place ("Send your documents", `SetupPaperPlace` → the same `PaperUploadPlace`) right above this section; here
+   * the documents step then only points to it — its id — instead of loading and asking for the same three again.
+   * Absent (Your details), the step is the full upload it always was.
    */
   papersAbove?: string | null;
   vendorProfileId: string;
@@ -354,7 +354,8 @@ function DocsStep({
       {papersAbove ? (
         <p className="text-sm" style={{ color: 'var(--m-slate)' }} data-verify-papers-above="">
           Your papers are in Send your documents, above.{' '}
-          <a href={`#${papersAbove}`} className="font-medium text-terracotta">
+          {/* 👆 Presses at 46 (`sn-hit`, the owner's 44 floor) without changing how the link is drawn. */}
+          <a href={`#${papersAbove}`} className="sn-hit inline-block font-medium text-terracotta" data-verify-go-to-papers="">
             Go to your papers
           </a>
         </p>

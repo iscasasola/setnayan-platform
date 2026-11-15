@@ -57,6 +57,7 @@ import { ReviewReplies } from '@/app/vendor-dashboard/website/_components/review
 import type { GuestReviewsRead } from '@/lib/guest-reviews';
 import { setupPapers, type SetupPaper } from '@/lib/setup-papers';
 import { DOC_SLOTS, REQUIRED_DOC_COUNT, REQUIRED_DOC_SLOT_KEYS } from '@/lib/vendor-verification';
+import type { InlineDocsPayload } from '@/app/vendor-dashboard/shop/inline-docs-actions';
 import { formatCount } from '@/lib/format-number';
 import type { ReviewWithCouple } from '@/lib/reviews';
 
@@ -382,6 +383,29 @@ export const LAB_PAPER_URLS: Record<string, string> = { [labPaperRef(LAB_PAPER_K
 export function labPapers(status: string | null, n: number, measured = true): SetupPaper[] | null {
   const uploads = Object.fromEntries(LAB_PAPER_KEYS.slice(0, n).map((k, i) => [k, { r2_key: labPaperRef(k, i) }]));
   return setupPapers({ measured, status, uploads });
+}
+
+/**
+ * 🧾 The lab's papers as Today's ONE upload place reads them (`SetupPaperPlace` → `PaperUploadPlace`, 15 Nov 2026) —
+ * the same `InlineDocsPayload` `loadInlineDocs` returns, built from the same first-`n` refs as `labPapers`.
+ */
+export function labPaperPayload(docs: LabDocs = 'none'): InlineDocsPayload {
+  const status = docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : docs === 'some' ? 'draft' : null;
+  const n = docs === 'some' ? 1 : docs === 'checking' ? REQUIRED_DOC_COUNT : 0;
+  const docMap = Object.fromEntries(LAB_PAPER_KEYS.slice(0, n).map((k, i) => [k, { r2_key: labPaperRef(k, i) }]));
+  return {
+    applicationId: status ? 'lab-application' : null,
+    status: status as InlineDocsPayload['status'],
+    editable: status !== 'pending_review',
+    docMap: docMap as InlineDocsPayload['docMap'],
+    seedDisplayUrls: LAB_PAPER_URLS,
+    vendorComplete: n,
+    vendorTotal: REQUIRED_DOC_COUNT,
+    allComplete: n >= REQUIRED_DOC_COUNT,
+    registrationNumberRaw: null,
+    registrationNumberNeedsReview: false,
+    identityValues: {},
+  };
 }
 
 export function labSetupDetails(docs: LabDocs = 'none', stage: 'fresh' | 'details' = 'fresh'): DetailsData {

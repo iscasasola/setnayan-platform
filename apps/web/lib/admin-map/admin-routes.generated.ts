@@ -2,8 +2,8 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:map
 //
 // Every place inside /admin a person can land, scanned from the route tree.
-// 98 destinations (63 real pages, 35 redirect stubs)
-// as of c1994163f. admin-map-is-generated.test.ts fails if this drifts from the tree.
+// 102 destinations (66 real pages, 36 redirect stubs)
+// as of f5284516d8. admin-map-is-generated.test.ts fails if this drifts from the tree.
 
 import type { AdminRoute } from './scan-admin-routes';
 
@@ -45,6 +45,12 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
     "inMenuSource": true
   },
   {
+    "path": "/admin/ask",
+    "kind": "page",
+    "redirectsTo": null,
+    "inMenuSource": false
+  },
+  {
     "path": "/admin/background-videos",
     "kind": "page",
     "redirectsTo": null,
@@ -64,6 +70,12 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
   },
   {
     "path": "/admin/budget-planner",
+    "kind": "page",
+    "redirectsTo": null,
+    "inMenuSource": true
+  },
+  {
+    "path": "/admin/business",
     "kind": "page",
     "redirectsTo": null,
     "inMenuSource": true
@@ -101,7 +113,7 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
   {
     "path": "/admin/compliance",
     "kind": "redirect",
-    "redirectsTo": "/admin/settings?tab=compliance",
+    "redirectsTo": "/admin/business",
     "inMenuSource": true
   },
   {
@@ -178,6 +190,12 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
   },
   {
     "path": "/admin/editorial-review",
+    "kind": "page",
+    "redirectsTo": null,
+    "inMenuSource": true
+  },
+  {
+    "path": "/admin/email-delivery",
     "kind": "page",
     "redirectsTo": null,
     "inMenuSource": true
@@ -311,8 +329,8 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
   {
     "path": "/admin/notifications",
     "kind": "redirect",
-    "redirectsTo": "/admin/settings?tab=notifications",
-    "inMenuSource": true
+    "redirectsTo": "/admin/email-delivery",
+    "inMenuSource": false
   },
   {
     "path": "/admin/npc-readiness",
@@ -466,15 +484,15 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
   },
   {
     "path": "/admin/settings",
-    "kind": "page",
-    "redirectsTo": null,
+    "kind": "redirect",
+    "redirectsTo": "/admin/business",
     "inMenuSource": false
   },
   {
     "path": "/admin/settings/demo-mode",
     "kind": "redirect",
-    "redirectsTo": "/admin/settings?tab=demo-mode",
-    "inMenuSource": true
+    "redirectsTo": "/admin/switches",
+    "inMenuSource": false
   },
   {
     "path": "/admin/settings/payment-methods",
@@ -508,6 +526,12 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
   },
   {
     "path": "/admin/subscriptions",
+    "kind": "page",
+    "redirectsTo": null,
+    "inMenuSource": true
+  },
+  {
+    "path": "/admin/switches",
     "kind": "page",
     "redirectsTo": null,
     "inMenuSource": true

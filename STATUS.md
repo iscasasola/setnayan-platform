@@ -9,6 +9,45 @@
 > previous picture; every number here was measured on 2026-09-28 and starts rotting at once —
 > re-measure with the command beside it before trusting it.
 
+## Admin People records (build A4) — old page → new home · 2026-11-14
+
+Branch `claude/admin-people` (draft PR, `do-not-auto-merge`; the controller audits and ships). Drawing:
+`Setnayan-specs/prototypes/admin_pub/people.html`.
+
+| Old page / control | New home |
+|---|---|
+| `/admin/users/[id]` › Overview tab (Profile & flags · Events & roles · Entitlements & comps) | People › person › **Profile** · **Events** · **Comps** folds (`?tab=overview` opens Profile) |
+| `/admin/users/[id]` › Money tab (Orders · Logged payments · Refunds) | person › **Orders & payments** fold (`?tab=money`) |
+| `/admin/users/[id]` › Support tab (Help · Disputes · Reports · AI abuse) | person › **Problems** fold (`?tab=support`) |
+| `/admin/users/[id]` › Activity tab | person › **Activity** fold (`?tab=activity`) |
+| `/admin/users/[id]` › Privacy tab (Their data · Who viewed · takeover note) | person › **Access** fold (`?tab=governance`) |
+| Account hold (Suspend / Unsuspend, #7584) | person, under the head — unchanged |
+| Users-list row: Confirm email · Reset password · Force sign-out | person › **Access** (also still on the list's ⋯) |
+| Users-list row: Team toggle · Blacklist · Delete | person › **Flags** (also still on the list's ⋯) |
+| Users-list row: Comp grants (view · revoke · issue) | person › **Comps** (view · revoke); **Give a comp** opens the list's shipped issue panel |
+| Admin actions on the account (was only in the Activity timeline) | person › **Admin log** fold |
+| `/admin/vendors/[id]` Shop facts · demo-shop switch · Edit unclaimed | People › shop, head + facts (unchanged controls) |
+| `/admin/vendors/[id]` Plan / Team / Verification tiles | shop › **Plan** · **Team** · **Verification** folds (doors to `/plan`, `/team`, `/admin/verify`) |
+| `/admin/vendors/[id]` Service cards (`#cards`) | shop › **Services** fold, open with the page — `#cards` still lands |
+| `/admin/vendors/[id]` Payouts | shop › **Money** fold |
+| `/admin/events/[id]` facts · Hosts | People › event, head + facts + Hosts rows |
+| `/admin/events/[id]` Guest list (Reopen) · Face tagging · counts / schedule / scans | event › **Guest list** · **Face tagging** · **Suppliers** folds |
+| `/admin/venues/[id]` VenueForm · Danger zone | People › venue, the form + **Remove** at the bottom |
+| `/admin/accounts` (Accounts list, approved 14 Nov) | unchanged here — owned by #7632 |
+
+**Not done here, on purpose (files held by other open PRs):**
+- `/admin/vendors/[id]/plan` and `/team` stay standalone (doors from the shop's Plan / Team folds) — #7671 and #7677
+  edit them; their forms move into the shop record and the addresses redirect once those land.
+- `/admin/verify` "See their service cards" still points at `/admin/vendors/[id]#cards` (lands on the shop record) —
+  #7624 · #7627 · #7671 edit that file. A Work request card's "Open record" (A1) should link `/admin/vendors/<id>`.
+- `app/admin/users/actions.ts` and `vendors/actions.ts` are edited by #7585, so the moved person actions still land
+  on People › Accounts with their banner, not back on the record.
+- ⚠ `app/admin/users/[userId]/page.tsx` is ALSO edited by #7677 (erased-email display) and #7671 (Manila dates):
+  this branch already carries the Manila-date change; #7677's `displayAccountEmail` must be re-applied on merge.
+- Event force-delete stays on the Events list (its paid-supplier/money reads word the consequence); events-surface is
+  edited by #7677. The drawing's NEW items (View as, Hold, Pause shop, Wipe and ban, People on their events,
+  Memories, shop Scores/Activity) are not built — nothing invented.
+
 **Owner deadline anchor:** December 2026 wedding
 
 ---
@@ -25,6 +64,43 @@ and `lib/grow-motion.ts`, and reaches every page through PressFeel, RiseScreen, 
 `app/vendor-dashboard/subscription/_components/{limits,plan}-sheet.tsx`, `app/_components/template-rows.tsx` (#7632) ·
 `app/vendor-dashboard/forms/_components/form-view-sheet.tsx` (#7663). Those that mount `Sheet` / `Fold` get the motion
 anyway; none needed a per-page edit. `rise-screen.tsx` (also in #7595) changed in two lines that merge cleanly with it.
+
+## Admin Insights views — old page → new home (area build, 2026-11-14)
+
+Every Insights view now wears the approved drawing (`Setnayan-specs/prototypes/admin_pub/insights.html`). Homes come
+from `lib/admin/admin-tabs.ts` (Insights tab, `Insights · View ▾`); every old address still answers (redirects
+unchanged). Re-measure a row with `/usr/bin/grep -n "<path>" apps/web/lib/admin/admin-tabs.ts`.
+
+| Old page | New home |
+|---|---|
+| `/admin/app-performance` · `?tab=overview` · `/admin/insights` (→ redirect) | Insights › Overview (kept as shipped 14 Nov) |
+| `/admin/app-performance?tab=visits` | Insights › Visits |
+| `?tab=growth` · `/admin/growth` (→) · `/admin/growth/export` (CSV) | Insights › Sign-ups & growth (Export CSV button) |
+| `?tab=intelligence` · `/admin/intelligence` (→) | Insights › Intelligence (Won & lost · Churn radar · Market pulse · Lead scores) |
+| `?tab=funnels` · `/admin/funnels` (→) | Insights › Funnels |
+| `?tab=seo` · `/admin/seo` (→) | Insights › SEO & GEO |
+| `?tab=operations` · `/admin/operations-hiring` (→) | Insights › Expenses & hiring (the drawing's Costs › Operations & hiring) |
+| Overview › Expenses & Receipts | stays on Overview until the Costs landing exists (see below) |
+| `?tab=connection-logs` · `/admin/connection-logs` (→) | Insights › Problems |
+| `?tab=slow-loads` | Insights › Slow loads |
+| `?tab=offline` · `/admin/offline` (→) | Insights › Offline daemon |
+| `?tab=interconnections` | Insights › Interconnections |
+| `?tab=browser-blocks` | Insights › Browser blocks |
+| `/admin/demand` | Insights › Demand |
+| `/admin/papic-storage` | Insights › Papic storage |
+| `/admin/live-studio-channels` | Insights › Live Watch channels |
+| `/admin/data-privacy` (+ `?tab=coverage·deletions·checklist·documents`) · `/admin/npc-readiness` (→ checklist) · `/admin/compliance/data-sheet` | Insights › Privacy & NPC — controls on the landing; the rest open from its Filing rows |
+
+**Skipped — files another open PR edits** (re-check with the PR's file list before touching):
+`app/admin/app-performance/page.tsx` (#7632 — removes the old tab strip), `_surfaces/overview-surface.tsx` + `_components/charts.tsx`
+(#7677), `lib/admin/admin-tabs.ts` (#7585), `app/admin/layout.tsx` (#7668), `app/admin/connection-logs/connection-logs-client.tsx` (#7671).
+
+**In the drawing, not built:** the grouped View ▾ and a Costs landing (both need `admin-tabs.ts`, #7585) · Top shops,
+budget-rule ratios, Growth sales split / delivery & trust / fastest movers, privacy-exceptions row, live counts on Filing
+rows (each needs a new read) · Problems Mark fixed / Ignore per issue, Expenses Note, channel Retire (each needs a new
+or newly-wired action) · data sheet Print.
+
+---
 
 ## Verified production state — 2026-09-28
 

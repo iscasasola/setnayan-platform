@@ -110,7 +110,7 @@ export function SideBySideView({
             people.length > 6 ? (
               <li role="none" className="sticky top-0 z-[2] -mx-1.5 -mt-1.5 mb-1 bg-cream/95 p-1.5">
                 <div className="relative">
-                  <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/45" strokeWidth={2} />
+                  <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/70" strokeWidth={2} />
                   <input
                     className="min-h-11 w-full rounded-xl border border-ink/15 bg-cream pl-9 pr-3 text-[14px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
                     type="search"
@@ -139,7 +139,7 @@ export function SideBySideView({
       </div>
 
       {sbs.columns.length === 0 ? (
-        <p className="py-3 text-[14px] text-ink/55">Nobody is on a timed chapter yet. Tag a supplier on a moment and their column appears here.</p>
+        <p className="py-3 text-[14px] text-ink/70">Nobody is on a timed chapter yet. Tag a supplier on a moment and their column appears here.</p>
       ) : (
         <div ref={wrap} className="relative -mx-4 max-h-[calc(100dvh-11rem)] overflow-auto overscroll-contain border-y border-ink/10" data-sbs-scroll="">
           <div className="relative" style={{ width: TIME_COL + colW * shown.length, height: HEAD + PAD + height }}>
@@ -157,13 +157,13 @@ export function SideBySideView({
                   style={{ width: colW }}
                 >
                   {c.group && (i === 0 || shown[i - 1]!.group !== c.group) ? (
-                    <span className="truncate text-[10.5px] uppercase tracking-[0.08em] text-gold-deep">{c.group}</span>
+                    <span className="truncate text-xs uppercase tracking-[0.06em] text-gold-deep">{c.group}</span>
                   ) : null}
                   <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="grid h-6 w-6 flex-none place-items-center rounded-full bg-ink/[0.07] text-[10px] font-semibold text-ink/75">{c.initials}</span>
+                    <span className="grid h-6 w-6 flex-none place-items-center rounded-full bg-ink/[0.07] text-xs font-semibold text-ink/75">{c.initials}</span>
                     <span className="truncate text-[13.5px] font-semibold text-ink">{c.name}</span>
                   </span>
-                  <span className="truncate text-[11.5px] text-ink/55">{c.line}</span>
+                  <span className="truncate text-xs text-ink/70">{c.line}</span>
                 </button>
               ))}
             </div>
@@ -177,12 +177,12 @@ export function SideBySideView({
                   className={`absolute ${i % 2 === 0 ? 'bg-gold/[0.08]' : 'bg-ink/[0.025]'}`}
                   style={{ top: y(b.startMs), height: Math.max(2, y(b.endMs) - y(b.startMs)), left: TIME_COL, right: 0 }}
                 >
-                  <span className="sticky left-14 ml-1 block w-max text-[10px] uppercase tracking-[0.08em] text-gold-deep">{b.label}</span>
+                  <span className="sticky left-14 ml-1 block w-max text-xs uppercase tracking-[0.06em] text-gold-deep">{b.label}</span>
                 </div>
               ))}
               <div className="sticky left-0 z-[3] h-full bg-cream" style={{ width: TIME_COL }}>
                 {hours.map((h) => (
-                  <span key={h} className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-ink/50" style={{ top: y(h) }}>
+                  <span key={h} className="absolute right-2 -translate-y-1/2 text-xs tabular-nums text-ink/70" style={{ top: y(h) }}>
                     {hourMark(h)}
                   </span>
                 ))}
@@ -200,14 +200,14 @@ export function SideBySideView({
                       } ${b.clash ? 'ring-2 ring-danger-600' : ''}`}
                       style={{ top: y(b.startMs) + 1, height: Math.max(22, y(b.endMs) - y(b.startMs) - 2) }}
                     >
-                      <span className="block truncate text-[12px] font-semibold leading-tight text-ink">
-                        {b.backstage ? <span className="mr-1 text-[9.5px] uppercase tracking-[0.08em] text-gold-deep">Backstage</span> : null}
+                      <span className="block truncate text-xs font-semibold leading-tight text-ink">
+                        {b.backstage ? <span className="mr-1 text-xs uppercase tracking-[0.06em] text-gold-deep">Backstage</span> : null}
                         {b.title}
                       </span>
-                      <span className="block truncate text-[11px] leading-tight text-ink/55">
+                      <span className="block truncate text-xs leading-tight text-ink/70">
                         <span className="tabular-nums">{b.time}</span> · {b.sub}
                       </span>
-                      {b.clash ? <span className="block truncate text-[10.5px] font-semibold text-danger-700">Two places at once</span> : null}
+                      {b.clash ? <span className="block truncate text-xs font-semibold text-danger-700">Two places at once</span> : null}
                     </div>
                   ))}
                 </div>
@@ -215,7 +215,7 @@ export function SideBySideView({
               {/* "Now" across every column on the day. */}
               {sbs.nowMs !== null ? (
                 <div data-sbs-now="" aria-hidden className="pointer-events-none absolute z-[2] h-0.5 bg-sn-accent" style={{ top: y(sbs.nowMs), left: 0, right: 0 }}>
-                  <span className="absolute -top-2 left-1 rounded bg-sn-accent px-1 text-[10px] font-bold text-sn-on-accent">Now</span>
+                  <span className="absolute -top-2 left-1 rounded bg-sn-accent px-1 text-xs font-bold text-sn-on-accent">Now</span>
                 </div>
               ) : null}
             </div>
@@ -227,12 +227,12 @@ export function SideBySideView({
       {tbaGroups.map(({ chapter: c, where, items }) => (
         <section key={c.block_id} data-view-as-stretch="tba" className="pt-1">
           <p className="text-[13px] font-semibold text-ink">
-            {c.label} <span className="font-normal text-ink/55">· Time TBA · {where}</span>
+            {c.label} <span className="font-normal text-ink/70">· Time TBA · {where}</span>
           </p>
           <ul>
             {items.map((i) => (
               <li key={i.id} data-view-as-line={i.id} className="flex items-baseline gap-2 py-1 text-[13px] text-ink/70">
-                <span className="tabular-nums text-ink/55">{i.time}</span>
+                <span className="tabular-nums text-ink/70">{i.time}</span>
                 <span className="font-semibold text-ink">{i.who}</span>
                 <span className="truncate">{i.title}</span>
               </li>
@@ -240,7 +240,7 @@ export function SideBySideView({
           </ul>
         </section>
       ))}
-      {sbs.otherDays.length > 0 ? <p className="text-[12.5px] text-ink/55">On another day: {sbs.otherDays.join(', ')}.</p> : null}
+      {sbs.otherDays.length > 0 ? <p className="text-[12.5px] text-ink/70">On another day: {sbs.otherDays.join(', ')}.</p> : null}
     </div>
   );
 }

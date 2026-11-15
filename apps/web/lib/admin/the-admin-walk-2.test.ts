@@ -23,7 +23,8 @@ test('F-A-16 · a Problems line is plain words: no code names, no placeholders, 
     assert.doesNotMatch(l, /vendor/i, l);
     assert.doesNotMatch(l, /\[|\]|_|database refused|rpc|[a-z][A-Z]/, l);
   }
-  assert.match(lines[0]!, /^Saving the supplier cocktail editor .* — could not save/);
+  // RW-285d (14 Nov): the call's own verb wins — a refused `get_…` LOADS; it never "could not save".
+  assert.match(lines[0]!, /^Loading the supplier cocktail editor .* — could not load/);
   assert.match(lines[1]!, /^Loading the supplier profiles .* — could not load/);
   assert.match(lines[2]!, /^Refresh bottleneck signals on admin — did not work/);
   assert.match(lines[3]!, /^Submit for … button/);

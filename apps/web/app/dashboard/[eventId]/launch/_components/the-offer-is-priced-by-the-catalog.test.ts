@@ -56,7 +56,7 @@ test('⛔ NOT ONE PESO FIGURE IS TYPED INTO THE OFFER PATH', () => {
     assert.doesNotMatch(
       src,
       /\b3[,._]?500\b/,
-      `${name} types today's Event Hub Pro figure, which the owner may change tomorrow`,
+      `${name} types today's Event Pro figure, which the owner may change tomorrow`,
     );
     assert.doesNotMatch(src, /PHP\s*\d/, `${name} types a PHP amount`);
     scanned += 1;

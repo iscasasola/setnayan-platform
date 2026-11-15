@@ -216,13 +216,13 @@ function PapicCounts({ total, left }: { total: number | null; left: number | nul
   const words = papicCountsWords(total, left);
   if (!words) {
     return (
-      <p role="status" className="text-[13px] text-ink/60" data-papic-card-counts="unread">
+      <p role="status" className="text-[13px] text-ink/75" data-papic-card-counts="unread">
         Credits · Couldn&rsquo;t check
       </p>
     );
   }
   return (
-    <dl className="flex items-baseline gap-3 text-[13px] text-ink/65" data-papic-card-counts="">
+    <dl className="flex items-baseline gap-3 text-[13px] text-ink/75" data-papic-card-counts="">
       {words.map(([k, v]) => (
         <div key={k} className="flex items-baseline gap-1">
           <dt>{k}</dt>

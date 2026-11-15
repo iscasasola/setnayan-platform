@@ -1,3 +1,5 @@
+import { InfoTip } from '@/app/_components/info-tip';
+import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { Check, X } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -147,8 +149,9 @@ export default async function AdminChatFlagsPage({
           reasonably think they were about to read a private conversation. */}
       <PageMasthead title="Chat contact flags" />
       <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          Couple↔supplier chat messages <strong>blocked</strong> for sharing
+        <div>
+          <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Couple↔supplier chat messages <strong>blocked</strong> for sharing
           off-platform contact info (phone, email, social/messaging links,
           @handles, app names, or &ldquo;add me on&hellip;&rdquo; solicitations).
           The message never reached the other person. This queue shows only the{' '}
@@ -156,25 +159,18 @@ export default async function AdminChatFlagsPage({
           the message text (Setnayan staff don&apos;t read chats). Use it to spot a
           repeat off-platform-pusher; review or dismiss false positives. Latest 200
           matching the filter, newest first.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <PillTrack className="mb-4">
         {STATUS_FILTERS.map((f) => (
-          <a
-            key={f.value}
-            href={`/admin/chat-flags?status=${f.value}`}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-              status === f.value
-                ? 'bg-ink text-cream'
-                : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
-            }`}
-          >
+          <PillLink key={f.value} on={status === f.value} href={`/admin/chat-flags?status=${f.value}`} aria-current={status === f.value ? 'page' : undefined} className="px-3">
             {f.label}
             {f.value === 'open' && openCount > 0 ? ` · ${formatCount(openCount)}` : ''}
-          </a>
+          </PillLink>
         ))}
-      </div>
+      </PillTrack>
 
       {listError && (
         <FormFlash tone="error">
@@ -196,23 +192,23 @@ export default async function AdminChatFlagsPage({
             return (
               <li
                 key={r.flag_id}
-                className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm"
+                className="flex flex-col gap-3 bg-surface py-4 border-t border-ink/10"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status]}`}
+                    className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${STATUS_TONE[r.status]}`}
                   >
                     {STATUS_LABEL[r.status]}
                   </span>
                   {(r.categories ?? []).map((c) => (
                     <span
                       key={c}
-                      className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium text-terracotta-700"
+                      className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[12px] font-medium text-terracotta-700"
                     >
                       {CATEGORY_LABEL[c] ?? c}
                     </span>
                   ))}
-                  <span className="font-mono text-[10px] text-ink/45">{r.public_id}</span>
+                  <span className="text-[12px] text-ink/45 tabular-nums">{r.public_id}</span>
                 </div>
 
                 <p className="text-sm text-ink/80">

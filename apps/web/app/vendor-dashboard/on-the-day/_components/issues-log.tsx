@@ -27,6 +27,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Plus } from 'lucide-react';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { Badge } from '@/app/_components/badge';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 
 import type { DayRequestRow } from '@/lib/day-requests';
@@ -151,20 +154,18 @@ function LocalIssuesLog({ eventId }: { eventId: string }) {
   }
 
   return (
-    <div className="sn-tile p-4 sm:p-6">
+    <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="flex items-center gap-2 text-base font-semibold">
-          <AlertTriangle aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} /> Issues
-          log
+          <AlertTriangle aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+          <InfoTip label="Issues log" align="start">
+            Track anything that comes up on the day — a late supplier, a swap, a delay — and clear it once
+            it&rsquo;s handled.
+          </InfoTip>
         </h3>
-        <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          {formatCount(openCount)} open
-        </span>
+        <Badge tone="quiet">{formatCount(openCount)} open</Badge>
       </div>
-      <p className="mt-2 text-sm text-ink/65">
-        Track anything that comes up on the day — a late supplier, a swap, a delay — and clear it once
-        it&rsquo;s handled. Private to you, on this device.
-      </p>
+      <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">Private to you, on this device.</p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <input
@@ -181,16 +182,10 @@ function LocalIssuesLog({ eventId }: { eventId: string }) {
           placeholder="Log an issue…"
           className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
         />
-        <button
-          type="button"
-          onClick={add}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-sm font-medium text-cream transition hover:bg-ink/90"
-        >
-          <Plus aria-hidden className="h-4 w-4" strokeWidth={2} /> Log
-        </button>
+        <ActionButton tone="brand" onClick={add} icon={Plus} label="Log" />
       </div>
 
-      <ul className="mt-4 space-y-1.5">
+      <ul className="mt-4 [&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
         {issues.length === 0 ? (
           <li className={shopEmptyInlineClass}>
             All clear — nothing logged yet.
@@ -206,7 +201,7 @@ function LocalIssuesLog({ eventId }: { eventId: string }) {
               radiusClass="rounded-xl"
               surfaceClass="bg-white"
             >
-            <div className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5" data-issue-row="">
+            <div className="flex min-h-14 items-center gap-3 bg-white px-1 py-2.5" data-issue-row="">
               <button
                 type="button"
                 onClick={() => toggle(i.id)}

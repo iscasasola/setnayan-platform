@@ -23,7 +23,7 @@ import { CouldNotLoad } from '../shop/_components/could-not-load';
  *     **Add** pill that opens the file picker straight away. No row to open first.
  *   · A ROW WITH A FILE: a small thumbnail · name · "✓ Saved · <file name>". Tapping it opens the preview, with
  *     **Replace** and **Remove** under it — the prototype's DTI row.
- *   · Papers Setnayan holds (Under review · Approved) say so as the row's line; nothing to press.
+ *   · Papers Setnayan holds (Waiting for Setnayan · Approved) say so as the row's line; nothing to press.
  *   · A SAVED PAPER SWIPES LEFT TO REMOVE, WITH UNDO (house T14, owner 2026-11-03 "SWIPE LEFT TO DELETE ON EVERY LIST
  *     ROW"; v21 `docRow` `data-swipe="doc:…"`, Build 5 item T). The swipe and the Remove inside the preview are ONE
  *     remove: the row goes back to "Add" at once, the Undo toast stands for its window, and only then is the empty
@@ -76,14 +76,15 @@ export function SetupPapers({
 
   if (papers === null) return <CouldNotLoad what="your papers" />;
   const of = papers.length;
-  const sentBack = papers.some((p) => p.state === 'new_copy');
+  // A send-back that NAMED its papers says its reason on those papers only (owner 2026-11-14, "Only the named one");
+  // the one line above the rows is for a send-back made before that rule, which named none.
+  const sentBack = papers.some((p) => p.state === 'new_copy') && !papers.some((p) => p.reason);
   return (
     <div className="space-y-2" data-setup-papers={formatCount(papersIn(papers))}>
       <p className="text-[13.5px] leading-snug text-ink/70">
         Setnayan checks them before you go live ·{' '}
         <InfoTip label={`${formatCount(papersIn(papers))} of ${formatCount(of)} in`} labelClassName="font-semibold text-ink" ariaLabel="About the documents" align="start">
-          <b>The four required papers</b> — DTI or SEC · BIR 2303 · Mayor’s Permit · bank account proof. The name on the
-          bank proof should match your DTI/SEC business name (or your own, if sole proprietor). {PAPER_FILES}. Each one
+          <b>The three required papers</b> — DTI or SEC · BIR 2303 · Mayor’s Permit. {PAPER_FILES}. Each one
           saves the moment it’s in; you send them to Setnayan from <b>Get verified</b>, below. <b>Optional, after
           these</b> — portfolio samples, past client references and your social links, on Your details.
         </InfoTip>
@@ -207,10 +208,12 @@ function PaperRow({
   ) : held ? (
     <span className="inline-flex items-center gap-1">
       <Check aria-hidden className="h-3.5 w-3.5 flex-none text-[rgb(var(--color-ok))]" strokeWidth={2.4} />
-      {p.state === 'review' ? `${PAPER_STATE_WORD.review} · Setnayan checks it` : PAPER_STATE_WORD.approved}
+      {p.state === 'review' ? PAPER_STATE_WORD.review : PAPER_STATE_WORD.approved}
     </span>
   ) : p.state === 'new_copy' ? (
-    <span className="text-danger-700">{`${PAPER_STATE_WORD.new_copy} · ${PAPER_FILES}`}</span>
+    <span className="text-danger-700" data-paper-reason={p.reason ? '' : undefined}>
+      {p.reason ? `${PAPER_STATE_WORD.new_copy} · ${p.reason}` : `${PAPER_STATE_WORD.new_copy} · ${PAPER_FILES}`}
+    </span>
   ) : (
     `Required · ${formatCount(p.n)} of ${formatCount(of)} · ${PAPER_FILES}`
   );

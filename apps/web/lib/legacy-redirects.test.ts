@@ -66,6 +66,9 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   [`/dashboard/${EID}/studio/papic`, `/dashboard/${EID}/memories?papic=open#papic`],
   // 🎬 R3 · THE THANK-YOU VIDEO MOVED TO MEMORIES (owner 2026-10-27; "all mapping will be kept", 2026-10-28).
   [`/dashboard/${EID}/studio/thank-you`, `/dashboard/${EID}/memories/thank-you`],
+  // 🔑 F-W3-01 (walk 13 Nov 2026): the two spellings people type for sign-in were a 404.
+  ['/signin', '/login'],
+  ['/sign-in', '/login'],
 ];
 
 /** The page file each old path used to be (relative to app/). */
@@ -94,6 +97,8 @@ const DELETED_PAGES: readonly string[] = [
   'dashboard/[eventId]/website/dress-code/page.tsx',
   'dashboard/[eventId]/studio/papic/page.tsx',
   'dashboard/[eventId]/studio/thank-you/page.tsx',
+  'signin/page.tsx', // never a page — a forward (F-W3-01)
+  'sign-in/page.tsx',
 ];
 
 test('every retired path forwards to the destination its stub had', () => {
@@ -139,6 +144,13 @@ test('the Studio’s old deep links keep their query, so they land on the same t
   assert.equal(legacyRedirectTarget('/admin/taxonomy', ''), '/admin/categories');
   // Every other row still drops it, exactly as the stub did.
   assert.equal(legacyRedirectTarget('/admin/marketing', '?x=1'), '/admin/studio');
+});
+
+test('F-W3-01 · /signin and /sign-in land on /login and keep where they were going', () => {
+  assert.equal(legacyRedirectTarget('/signin'), '/login');
+  assert.equal(legacyRedirectTarget('/sign-in/'), '/login');
+  assert.equal(legacyRedirectTarget('/signin', '?next=%2Fdashboard'), '/login?next=%2Fdashboard');
+  assert.equal(legacyRedirectTarget('/sign-in', '?next=/dashboard/people'), '/login?next=/dashboard/people');
 });
 
 test('the map and this test agree on the full list (nothing forwards unpinned)', () => {

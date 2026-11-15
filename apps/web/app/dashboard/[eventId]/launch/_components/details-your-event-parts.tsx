@@ -90,7 +90,7 @@ export type YourEventInput = {
     resolved: readonly EventVenue[];
     slots: readonly VenueSlot[];
     city: string | null;
-    /** ⛪ Event Hub Pro as the viewer is shown it — "Our drawing ◆" (owner 2026-10-16). Absent = not owned, web. */
+    /** ⛪ Event Pro as the viewer is shown it — "Our drawing ◆" (owner 2026-10-16). Absent = not owned, web. */
     pro?: { owns: boolean; storeShell: boolean };
   };
   /** 🚶 The march as the maker draws it — its sections and walks, the couple's sides included (`marchSections`). */

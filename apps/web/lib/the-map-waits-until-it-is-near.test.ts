@@ -10,7 +10,7 @@
  * hydrates: on the fixture invitation (Maria & Jose, two located venues → the pinned map) that is ZERO third-party
  * URLs — the map's box is drawn, its tiles are not. After hydration the tiles come only through `NearViewport` (one
  * IntersectionObserver, 300 px margin), which is held from source below. The same holds for a one-venue event's
- * embed. (The browser count itself — 17 on landing, as main — was walked; see the PR body.)
+ * map card. (The browser count itself — 17 on landing, as main — was walked; see the PR body.)
  *
  * Sabotage (2026-10-16): the tiles drawn outside `NearViewport` → 2 red; the embed without `deferUntilNear` → 2 red.
  */
@@ -41,12 +41,13 @@ test('the Invitation’s landing asks no third party for anything — the map is
   assert.match(html, /data-venue-map-pins="2"[^>]*>(?:(?!<\/figure>)[\s\S])*data-near-viewport="far"/, 'the tiles do not wait inside the map’s box');
 });
 
-test('a one-venue event’s map embed waits too', async () => {
+test('a one-venue event’s map card waits too', async () => {
   const one = { ...FIXTURE_EVENT, venues: FIXTURE_EVENT.venues?.slice(0, 1) } as typeof FIXTURE_EVENT;
   const html = await renderSiteBodyFixture({ event: one });
   if (one.venues?.[0]?.latitude == null) assert.fail('anti-vacuity: the fixture’s first venue has no pin');
   assert.match(html, /data-osm-embed=""/, 'anti-vacuity: the one venue’s own map is not drawn');
-  assert.doesNotMatch(html, /openstreetmap\.org\/export\/embed/, 'the embed loads on landing');
+  assert.doesNotMatch(html, /openstreetmap\.org\/export\/embed|tile\.openstreetmap\.org/, 'the one-venue map loads on landing');
+  assert.match(html, /data-osm-embed=""(?:(?!<\/figure>)[\s\S])*data-near-viewport="far"/, 'the one-venue map’s tiles do not wait inside its card');
   assert.deepEqual(thirdPartyFetches(html), []);
 });
 
@@ -55,10 +56,13 @@ test('NearViewport: one observer, a 300 px margin, the tiles and the guest’s e
   assert.match(NEAR, /export const NEAR_VIEWPORT_MARGIN = '300px';/);
   assert.match(NEAR, /rootMargin: `\$\{NEAR_VIEWPORT_MARGIN\} 0px`/);
   assert.match(NEAR, /\{near \? children : null\}/, 'the children are drawn before they are near');
-  const STYLES = src('app', '[slug]', '_components', 'venue-styles.tsx');
-  assert.match(STYLES, /<NearViewport className="absolute inset-0">\s*\{frame\.tiles\.map\(/, 'the tiles are not inside NearViewport');
-  const WIDGET = src('app', '[slug]', '_components', 'venue-widget.tsx');
-  assert.match(WIDGET, /<VendorLocationMap[^>]*\bdeferUntilNear\b/, 'the guest’s embed does not wait');
+  /* 🗺 Since the map card (approved 2026-11-14) every venue map is the ONE `MapCard` (vendor-location-map.tsx): its
+     tiles go through NearViewport when asked, and both guest maps ask — the pinned map always, the one-venue map by
+     `deferUntilNear`. */
   const MAP = src('app', '_components', 'vendor-location-map.tsx');
-  assert.match(MAP, /deferUntilNear \? \(\s*<NearViewport className="h-\[220px\] w-full">\{iframe\}<\/NearViewport>/);
+  assert.match(MAP, /\{deferUntilNear \? <NearViewport className="absolute inset-0">\{imgs\}<\/NearViewport> : imgs\}/, 'the tiles are not inside NearViewport');
+  const STYLES = src('app', '[slug]', '_components', 'venue-styles.tsx');
+  assert.match(STYLES, /<MapCard\b[^>]*?\bdeferUntilNear\b/, 'the pinned map’s tiles do not wait');
+  const WIDGET = src('app', '[slug]', '_components', 'venue-widget.tsx');
+  assert.match(WIDGET, /<VendorLocationMap[^>]*\bdeferUntilNear\b/, 'the guest’s one-venue map does not wait');
 });

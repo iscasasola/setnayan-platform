@@ -1,6 +1,6 @@
 import { Radar, MessageSquare, KeyRound, CheckCircle2 } from 'lucide-react';
 import type { DemandRadar } from '@/lib/demand-radar';
-import { ShopCard } from '../../_components/kit';
+import { InfoTip } from '@/app/_components/info-tip';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -34,12 +34,12 @@ export function DemandRadarCard({
 }) {
   if (unreadable) {
     return (
-      <div className="rounded-2xl border border-dashed border-ink/15 bg-white p-10 text-center">
-        <Radar aria-hidden className="mx-auto h-8 w-8 text-ink/30" strokeWidth={1.5} />
-        <p className="mt-3 text-sm font-medium text-ink">
+      <div className="py-3">
+        <p className="flex items-center gap-2 text-sm font-medium text-ink">
+          <Radar aria-hidden className="h-4 w-4 flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />
           We couldn&rsquo;t load {scope === 'admin' ? 'the' : 'your'} demand radar right now
         </p>
-        <p className="mx-auto mt-1 max-w-md text-sm text-ink/55">
+        <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">
           This is on our side, not a sign {scope === 'admin' ? 'the' : 'your'} market is quiet. Refresh in a
           moment.
         </p>
@@ -49,12 +49,9 @@ export function DemandRadarCard({
 
   if (!radar.hasData) {
     return (
-      <div className="rounded-2xl border border-dashed border-ink/15 bg-white p-10 text-center">
-        <Radar aria-hidden className="mx-auto h-8 w-8 text-ink/30" strokeWidth={1.5} />
-        <p className="mt-3 text-sm font-medium text-ink">
-          Not enough demand data yet
-        </p>
-        <p className="mx-auto mt-1 max-w-md text-sm text-ink/55">
+      <div className="flex items-center gap-2 py-3">
+        <Radar aria-hidden className="h-4 w-4 flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />
+        <InfoTip label="Not enough demand data yet" labelClassName="text-sm font-medium text-ink" align="start">
           {scope === 'vendor' ? (
             <>
               The radar fills in once there&rsquo;s enough activity in{' '}
@@ -70,7 +67,7 @@ export function DemandRadarCard({
               that still protects individual couples.
             </>
           )}
-        </p>
+        </InfoTip>
       </div>
     );
   }
@@ -83,7 +80,7 @@ export function DemandRadarCard({
   return (
     <div className="space-y-6">
       {/* Signal summary */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3 border-y border-[color:var(--m-line)] py-3">
         <SignalTile
           icon={<MessageSquare aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
           label="Inquiries"
@@ -102,16 +99,16 @@ export function DemandRadarCard({
       </div>
 
       {/* Month heat strip */}
-      <ShopCard pad="none" className="overflow-hidden">
-        <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
-          <h2 className="text-sm font-semibold text-ink">Month heat</h2>
-          <span className="text-xs text-ink/55">
+      <section>
+        <header className="flex items-center justify-between gap-2 pb-1">
+          <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Month heat</h2>
+          <span className="text-[13px] text-[color:var(--m-slate-2)]">
             Demand by the month events are happening
           </span>
         </header>
-        <ul className="divide-y divide-ink/[0.06]">
+        <ul className="divide-y divide-[color:var(--m-line)] border-t border-[color:var(--m-line)]">
           {radar.months.map((m) => (
-            <li key={m.month} className="flex items-center gap-3 px-4 py-3">
+            <li key={m.month} className="flex min-h-14 items-center gap-3 py-3">
               <span className="w-20 shrink-0 text-sm font-medium text-ink">
                 {m.label}
               </span>
@@ -121,31 +118,31 @@ export function DemandRadarCard({
                   style={{ width: `${Math.round((m.total / maxMonth) * 100)}%` }}
                 />
               </span>
-              <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-ink/80">
+              <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-ink">
                 {formatCount(m.total)}
               </span>
             </li>
           ))}
         </ul>
-      </ShopCard>
+      </section>
 
       {/* Hot looks */}
-      <ShopCard pad="none" className="overflow-hidden">
-        <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
-          <h2 className="text-sm font-semibold text-ink">Hot looks</h2>
-          <span className="text-xs text-ink/55">
+      <section>
+        <header className="flex items-center justify-between gap-2 pb-1">
+          <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Hot looks</h2>
+          <span className="text-[13px] text-[color:var(--m-slate-2)]">
             Capture styles couples are choosing
           </span>
         </header>
-        <ul className="divide-y divide-ink/[0.06]">
+        <ul className="divide-y divide-[color:var(--m-line)] border-t border-[color:var(--m-line)]">
           {topLooks.map((l) => (
             <li
               key={l.style}
-              className="flex items-center justify-between gap-3 px-4 py-3"
+              className="flex min-h-14 items-center justify-between gap-3 py-3"
             >
               <span className="text-sm font-medium text-ink">{l.label}</span>
-              <span className="text-xs text-ink/55">
-                <span className="font-semibold tabular-nums text-ink/80">
+              <span className="text-[13px] text-[color:var(--m-slate-2)]">
+                <span className="font-semibold tabular-nums text-ink">
                   {formatCount(l.total)}
                 </span>{' '}
                 signals
@@ -153,24 +150,24 @@ export function DemandRadarCard({
             </li>
           ))}
         </ul>
-      </ShopCard>
+      </section>
 
       {/* Admin-only breakdowns: regions + event types */}
       {scope === 'admin' ? (
         <>
-          <ShopCard pad="none" className="overflow-hidden">
-            <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
-              <h2 className="text-sm font-semibold text-ink">Top regions</h2>
-              <span className="text-xs text-ink/55">Demand by market</span>
+          <section>
+            <header className="flex items-center justify-between gap-2 pb-1">
+              <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Top regions</h2>
+              <span className="text-[13px] text-[color:var(--m-slate-2)]">Demand by market</span>
             </header>
-            <ul className="divide-y divide-ink/[0.06]">
+            <ul className="divide-y divide-[color:var(--m-line)] border-t border-[color:var(--m-line)]">
               {topRegions.map((r) => (
                 <li
                   key={r.region || '(unspecified)'}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
+                  className="flex min-h-14 items-center justify-between gap-3 py-3"
                 >
                   <span className="text-sm font-medium text-ink">{r.label}</span>
-                  <span className="text-xs text-ink/55">
+                  <span className="text-[13px] text-[color:var(--m-slate-2)]">
                     <span className="tabular-nums">{formatCount(r.inquiries)}</span> inq ·{' '}
                     <span className="tabular-nums">{formatCount(r.unlocks)}</span> unlocks ·{' '}
                     <span className="tabular-nums">{formatCount(r.bookings)}</span> bookings
@@ -178,22 +175,22 @@ export function DemandRadarCard({
                 </li>
               ))}
             </ul>
-          </ShopCard>
+          </section>
 
-          <ShopCard pad="none" className="overflow-hidden">
-            <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
-              <h2 className="text-sm font-semibold text-ink">By event type</h2>
-              <span className="text-xs text-ink/55">Where the demand sits</span>
+          <section>
+            <header className="flex items-center justify-between gap-2 pb-1">
+              <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">By event type</h2>
+              <span className="text-[13px] text-[color:var(--m-slate-2)]">Where the demand sits</span>
             </header>
-            <ul className="divide-y divide-ink/[0.06]">
+            <ul className="divide-y divide-[color:var(--m-line)] border-t border-[color:var(--m-line)]">
               {topEventTypes.map((et) => (
                 <li
                   key={et.eventType}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
+                  className="flex min-h-14 items-center justify-between gap-3 py-3"
                 >
                   <span className="text-sm font-medium text-ink">{et.label}</span>
-                  <span className="text-xs text-ink/55">
-                    <span className="font-semibold tabular-nums text-ink/80">
+                  <span className="text-[13px] text-[color:var(--m-slate-2)]">
+                    <span className="font-semibold tabular-nums text-ink">
                       {formatCount(et.total)}
                     </span>{' '}
                     signals
@@ -201,7 +198,7 @@ export function DemandRadarCard({
                 </li>
               ))}
             </ul>
-          </ShopCard>
+          </section>
         </>
       ) : null}
     </div>
@@ -218,12 +215,12 @@ function SignalTile({
   value: number;
 }) {
   return (
-    <ShopCard pad="tight">
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/55">
-        <span className="text-terracotta-700">{icon}</span>
+    <div className="grid min-h-11 content-center gap-0.5 text-center">
+      <span className="inline-flex items-center justify-center gap-1.5 text-[12px] text-[color:var(--m-slate-2)]">
+        {icon}
         {label}
       </span>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{value}</p>
-    </ShopCard>
+      <p className="text-[24px] font-bold leading-none tabular-nums text-ink">{value}</p>
+    </div>
   );
 }

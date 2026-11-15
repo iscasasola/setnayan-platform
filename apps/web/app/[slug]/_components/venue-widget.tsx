@@ -46,17 +46,18 @@ export function VenueWidget({
   // text; the band read as a picture that never loaded.)
   //
   // 🔑 RULE 0 — NOTHING IS DRAWN HERE. `VendorLocationMap` already ships and has
-  // been on public shop pages since 2026-06-28: the OFFICIAL OpenStreetMap embed,
-  // no API key, no paid dependency, free egress. It self-guards on missing
-  // coordinates, so the `hasCoords` test below is about which BACKDROP to paint,
-  // not about protecting the map from bad input.
+  // been on public shop pages since 2026-06-28 — since 2026-11-14 the approved
+  // MAP CARD (OSM tiles as pictures, a corner credit, one bigger-map button; no
+  // API key, no paid dependency). It self-guards on missing coordinates, so the
+  // `hasCoords` test below is about which BACKDROP to paint, not about
+  // protecting the map from bad input.
   //
-  // ⛔ AND THE CSP IS NOT TOUCHED BY THIS. `https://www.openstreetmap.org` has
-  // been in the ENFORCED `frame-src` since 2026-08-08 (next.config.ts), where it
-  // was added after this exact embed spent its whole life as an empty grey panel
-  // on every shop page with coordinates — a blocked iframe fails EXACTLY like a
-  // missing one. `lib/csp-embeds-are-allowed.test.ts` pins the host, and now
-  // names this surface too.
+  // ⛔ CSP: the card's tiles come from `https://tile.openstreetmap.org`, which
+  // the report-only draft's `img-src` carries (the enforced policy is
+  // frame-only). History: the old OSM EMBED spent its first two months as an
+  // empty grey panel because its origin was missing from `frame-src` — a
+  // blocked resource fails EXACTLY like a missing one.
+  // `the-venue-shows-real-streets.test.ts` pins the host.
   //
   // 🏛💒 TWO VENUES (2026-09-27 · lib/event-venues.ts). A wedding has a ceremony
   // and a reception (DECISION_LOG 2026-09-03), and this scene read ONE venue off
@@ -200,9 +201,9 @@ function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventR
             to a maps search when there is no pin, so leaving it mounted for a
             withheld venue would hand out a search for the venue by name — the
             withheld fact, one tap later.
-            ▾ ONE DROPDOWN, NOT THREE CHIPS (controller ruling 2026-10-21 from the owner's "any set of choices is a
-            dropdown"): Google Maps · Waze · Apple Maps are the styled cards' own `DirectionsMenu`, reused — it was
-            three side-by-side chips here, 26 px tall (the Hub button walk). */}
+            🧭 ONE BUTTON, NOT THREE CHIPS: three side-by-side chips (26 px tall, the Hub button walk) → one
+            "Directions ▾" dropdown (2026-10-21) → since 2026-11-14 one "Get directions" button whose sheet lists
+            the map apps (`DirectionsMenu`, the styled cards' own, reused). */}
         {event.venue_withheld ? null : <DirectionsMenu venue={venue} />}
       </div>
     </div>

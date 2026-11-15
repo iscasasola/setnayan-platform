@@ -75,10 +75,19 @@ export function DeepSearchCard({
       <p className="text-base font-semibold leading-snug text-ink" data-deep-search-title="">
         See what the web says about your shop
       </p>
-      <p className="text-sm text-[color:var(--m-slate-2)]">
-        We search the web for <b className="font-semibold text-ink">{businessName}</b> — never other shops — and show you what we found.
+      <InfoTip
+        label={`We search the web for ${businessName} — never other shops — and show you what we found.`}
+        labelNode={
+          <>
+            We search the web for <b className="font-semibold text-ink">{businessName}</b> — never other shops — and show you what we found.
+          </>
+        }
+        labelAs="p"
+        labelClassName="text-sm text-[color:var(--m-slate-2)]"
+        align="start"
+      >
         Nothing on your page changes on its own: you choose what to use.
-      </p>
+      </InfoTip>
 
       <ul className="divide-y divide-[color:var(--m-line)]" data-deep-search-findings="">
         {DEEP_SEARCH_FINDINGS.map((f) => (

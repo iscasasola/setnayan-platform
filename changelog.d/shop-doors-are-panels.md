@@ -9,3 +9,5 @@ One new door (`ShopDoorScreen`) does it, built only from the shared Sheet's exis
 Guards: the rise guard is narrowed to "rises below 701" (kept, not deleted); a new guard pins the 701 line, the panel (440 drawer, backdrop, head, foot) and that all eight doors go through it. Sabotaged three times — Share back to the full-screen rise → red; the door never becoming the panel → red; the phone branch becoming the panel → red (rise guard).
 
 SPEC IMPACT: None in the corpus beyond the owner's DECISION_LOG row (already written by the controller).
+
+The port baseline is regenerated in this PR: `/vendor-dashboard/shop` and `/vendor-dashboard/performance` now draw `<ShopDoorScreen>` where they drew `<RiseScreen>`. Nothing was lost; below 701px `ShopDoorScreen` IS `RiseScreen` with the same props. That swap is the baseline's only removal.

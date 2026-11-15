@@ -9,6 +9,7 @@ import {
 } from '@/lib/admin/completions-stuck';
 import { ACTIVE_STATUSES, BUNDLE_CHILD_SKUS } from '@/lib/entitlements';
 import { formatCount } from '@/lib/format-number';
+import { countOpenProblems } from '@/lib/telemetry/problem-merge';
 import { FAILED_DELIVERY_EVENTS, SUMMARY_WINDOW_MS } from '@/lib/email-delivery-log';
 
 /**
@@ -557,6 +558,26 @@ const QUEUE_DEFS: QueueDef[] = [
     lane: 'money',
     slaHours: 24,
     filter: (q) => q.eq('status', 'pending'),
+    /* 🔑 AN ORDER ALREADY PAID IS NOT WAITING ON YOU (walk RW-308a, 14 Nov 2026). A pending payment row can outlive the
+       order it pays for — the order reconciled through another payment — and was counted under Work / Reply while its own
+       card said "Already paid — nothing to confirm here". Counted through the order (inner join; `payments.order_id` is
+       NOT NULL, so no payment is lost), excluding paid orders. `readPaymentLights` reads the same way, so the count and
+       the cards agree. */
+    digest: async (admin) => {
+      const r = await admin
+        .from('payments')
+        .select('created_at, order:orders!inner(status)', { count: 'exact' })
+        .eq('status', 'pending')
+        .neq('order.status', 'paid')
+        .order('created_at', { ascending: true })
+        .limit(1);
+      if (r.error) {
+        logQueryError('queue-counts.payments (pending, order not paid)', r.error, {}, 'graceful_degrade');
+        return { count: null, oldestAt: null };
+      }
+      const rows = r.data as Array<{ created_at: string | null }> | null;
+      return { count: num(r.count), oldestAt: rows?.[0]?.created_at ?? null };
+    },
   },
   // lane money — a vendor is waiting for money.
   {
@@ -804,6 +825,8 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: null,
     filter: (q) => q.eq('status', 'open'),
     tsCol: 'first_seen',
+    // RW-285e: the count is the Problems page's own merged rows, never the raw row count.
+    digest: (admin) => countOpenProblems(admin),
     digestLine: { label: 'Problems', say: (n) => `${formatCount(n)} ${n === 1 ? 'thing is' : 'things are'} failing in the app` },
   },
   {

@@ -208,20 +208,23 @@ async function hubLegacyPartLines(
  */
 export function hubPartPrices(
   supabase: SupabaseClient,
-): Promise<{ parts: ReadonlyMap<string, number>; full: number | null; onSale: ReadonlySet<string> }> {
+): Promise<{ parts: ReadonlyMap<string, number>; full: number | null; onSale: ReadonlySet<string>; fullTitle: string | null }> {
   return askedOnce(supabase, 'hub-part-prices', [], async () => {
     const { data, error } = await supabase
       .from('platform_retail_catalog_v2')
-      .select('service_code, retail_price_php, is_active')
+      // `title` rides the same read: the plan's NAME is the catalogue's (RW-306 — "read it, never type it"; `fullTitle`).
+      .select('service_code, title, retail_price_php, is_active')
       .in('service_code', [...HUB_PART_SKUS, FULL_PRO_SKU, EVENT_PLUS_SKU]);
     if (error || !data) {
       if (error) console.error('[supabase-error] couple-website-pro: hub part prices', error);
-      return { parts: new Map(), full: null, onSale: new Set<string>() };
+      return { parts: new Map(), full: null, onSale: new Set<string>(), fullTitle: null };
     }
     const parts = new Map<string, number>();
     const onSale = new Set<string>();
     let full: number | null = null;
-    for (const r of data as Array<{ service_code: string; retail_price_php: number | string | null; is_active?: boolean | null }>) {
+    let fullTitle: string | null = null;
+    for (const r of data as Array<{ service_code: string; title?: string | null; retail_price_php: number | string | null; is_active?: boolean | null }>) {
+      if (r.service_code === FULL_PRO_SKU && r.title?.trim()) fullTitle = r.title.trim();
       const php = Number(r.retail_price_php);
       if (!Number.isFinite(php) || php <= 0) continue;
       /* A part taken off sale still COUNTS toward the cap at its price (it was paid for); it just cannot be bought. */
@@ -229,7 +232,7 @@ export function hubPartPrices(
       if (r.service_code === FULL_PRO_SKU) full = php;
       else parts.set(r.service_code, php);
     }
-    return { parts, full, onSale };
+    return { parts, full, onSale, fullTitle };
   });
 }
 

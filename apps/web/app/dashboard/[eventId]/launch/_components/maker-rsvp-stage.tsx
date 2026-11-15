@@ -124,7 +124,7 @@ export function MakerRsvpStage({
 }: {
   /**
    * 🎉 The When yes Celebration's inputs, measured by the launch page — Event
-   * Hub Pro (its ◆ marks) and the Mood Board's colours (its previews) — handed
+   * Pro (its ◆ marks) and the Mood Board's colours (its previews) — handed
    * through to the panel, which draws the mark (`CelebrationPick`).
    */
   celebration?: CelebrationInputs;

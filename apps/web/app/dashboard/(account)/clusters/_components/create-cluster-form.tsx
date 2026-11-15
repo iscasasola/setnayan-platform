@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { Plus } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { createCluster } from '../actions';
 
 /**
@@ -18,15 +20,17 @@ export function CreateClusterForm({
   const [pending, startTransition] = useTransition();
 
   return (
-    <section className="sn-tile">
-      <h2 className="sn-sec">Start a group</h2>
-      <p className="sn-sec-sub">
+    <section>
+      <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]">
+        Start a group
+      </h2>
+      <p className="mt-1 text-sm text-ink/75">
         Name it whatever you call it — “Our year”, “The Cruz wedding”.
       </p>
 
       {error ? (
         <p
-          className="mt-3 rounded-xl border border-ink/10 bg-white/40 px-3 py-2 text-sm text-red-700"
+          className="mt-3 text-sm text-[rgb(var(--color-danger))]"
           role="alert"
         >
           {error}
@@ -56,9 +60,15 @@ export function CreateClusterForm({
           placeholder="Our year"
           className="input-field flex-1"
         />
-        <button type="submit" disabled={pending} className="button-primary disabled:opacity-50">
-          {pending ? 'Creating…' : 'Create group'}
-        </button>
+        <ActionButton
+          type="submit"
+          tone="brand"
+          main
+          icon={Plus}
+          label={pending ? 'Creating…' : 'Create group'}
+          disabled={pending}
+          waiting={pending}
+        />
       </form>
 
       {/*
@@ -68,7 +78,7 @@ export function CreateClusterForm({
         which is not the same as "you have none" — so it says neither.
       */}
       {linkableMeasured && !hasLinkable ? (
-        <p className="mt-3 text-sm text-ink-soft">
+        <p className="mt-3 text-sm text-ink/75">
           Every event you host is already in a group, so a new one would start empty.
         </p>
       ) : null}

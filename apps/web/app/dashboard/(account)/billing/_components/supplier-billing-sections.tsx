@@ -50,20 +50,20 @@ function Heading({ section, line }: { section: BillingSection; line: string }) {
         label={BILLING_SECTION_LABEL[section]}
         labelAs="h2"
         align="start"
-        labelClassName="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-ink/55"
+        labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
       >
         {section === 'purchases'
           ? 'Every order your shop placed — plan, booking fees, add-ons and gift packs — newest first. Tap a row for its receipt.'
           : TIPS[section]}
       </InfoTip>
-      {line ? <p className="mt-0.5 truncate text-[12.5px] text-ink/60">{line}</p> : null}
+      {line ? <p className="mt-0.5 truncate text-[13px] text-ink/70">{line}</p> : null}
     </div>
   );
 }
 
 function Unread({ what }: { what: string }) {
   return (
-    <p role="status" className="border-y border-ink/10 py-6 text-center text-sm text-ink/60" data-billing-state="unread">
+    <p role="status" className="py-3 text-sm text-[rgb(var(--color-warn))]" data-billing-state="unread">
       {what} didn&rsquo;t load. Refresh the page to try again.
     </p>
   );
@@ -71,7 +71,7 @@ function Unread({ what }: { what: string }) {
 
 function Empty({ children }: { children: ReactNode }) {
   return (
-    <p className="border-y border-ink/10 py-6 text-center text-sm text-ink/60" data-billing-state="empty">
+    <p className="py-3 text-sm text-ink/70" data-billing-state="empty">
       {children}
     </p>
   );

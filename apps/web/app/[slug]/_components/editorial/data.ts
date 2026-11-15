@@ -136,7 +136,7 @@ export function serviceLabelOf(key: string): string {
 const SERVICE_LABELS: Record<string, string> = {
   ANIMATED_MONOGRAM: 'Animated Monogram',
   CAMERA_BRIDGE: 'Camera Bridge',
-  COUPLE_WEBSITE_PRO: 'Event Hub PRO',
+  COUPLE_WEBSITE_PRO: 'Event Pro',
   CUSTOM_QR_GUEST: 'Custom Guest QR',
   // EDITORIAL_PRO + STD_PREMIUM_OPENINGS are bundle-only (2026-07-22 · via Website
   // PRO). Kept here so existing/bundle owners still get a clean "Powered by" label.

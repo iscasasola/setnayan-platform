@@ -261,12 +261,12 @@ export function RecolorStudio({
           className="pointer-events-none absolute left-0 top-0 block h-auto w-full"
         />
         {!imgLoaded && (
-          <div className="flex h-44 items-center justify-center text-sm text-ink/55">
+          <div className="flex h-44 items-center justify-center text-sm text-ink/70">
             Loading photo…
           </div>
         )}
         {tainted && imgLoaded && (
-          <p className="absolute inset-x-0 bottom-0 bg-ink/70 px-2 py-1 text-center text-[10px] text-cream">
+          <p className="absolute inset-x-0 bottom-0 bg-ink/70 px-2 py-1 text-center text-[12px] text-cream">
             Preview only — this photo can&rsquo;t be recolored in-browser
           </p>
         )}
@@ -277,12 +277,12 @@ export function RecolorStudio({
         <>
           {/* ---- region chips ---- */}
           <div className="space-y-1.5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            <p className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
               1 · Pick a part to recolor
             </p>
             <div className="flex flex-wrap gap-1.5">
               {slots.length === 0 && (
-                <span className="text-xs text-ink/50">
+                <span className="text-xs text-ink/70">
                   No tagged regions — use the eyedropper to pick one.
                 </span>
               )}
@@ -316,7 +316,7 @@ export function RecolorStudio({
                   className={`rounded-full border px-2.5 py-1 text-xs transition ${
                     eyedropping
                       ? 'border-mulberry bg-mulberry/10 text-mulberry'
-                      : 'border-dashed border-ink/30 text-ink/60 hover:border-ink/50'
+                      : 'border-dashed border-ink/30 text-ink/70 hover:border-ink/50'
                   }`}
                 >
                   {eyedropping ? 'Tap the photo…' : '+ Eyedrop area'}
@@ -327,11 +327,11 @@ export function RecolorStudio({
 
           {/* ---- tapzone: controls for the active region ---- */}
           {activeSlotId != null && (
-            <div className="space-y-3 rounded-xl border border-ink/10 bg-white p-3">
+            <div className="border-t border-ink/10 space-y-3 py-3">
               {/* palette snap */}
               {paletteColors.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+                  <p className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
                     2 · Snap to a palette color
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -360,7 +360,7 @@ export function RecolorStudio({
 
               {/* manual adjust */}
               <div className="space-y-2">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+                <p className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
                   {paletteColors.length > 0 ? '3 · ' : '2 · '}Or adjust by hand
                 </p>
                 <Slider
@@ -397,7 +397,7 @@ export function RecolorStudio({
               <button
                 type="button"
                 onClick={resetActiveRegion}
-                className="text-[11px] uppercase tracking-[0.15em] text-ink/50 hover:text-terracotta"
+                className="text-[12px] uppercase tracking-[0.15em] text-ink/70 hover:text-terracotta"
               >
                 Reset this part
               </button>
@@ -410,7 +410,7 @@ export function RecolorStudio({
               type="button"
               onClick={handleSave}
               disabled={isSaving || (!dirty && editedCount === 0)}
-              className="rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream disabled:cursor-not-allowed disabled:opacity-50"
+              className="ab ab-brand ab-main disabled:cursor-not-allowed"
             >
               {isSaving ? 'Saving…' : 'Save to moodboard'}
             </button>
@@ -423,7 +423,7 @@ export function RecolorStudio({
                 Reset all
               </button>
             )}
-            <span className="text-[11px] text-ink/50">
+            <span className="text-[12px] text-ink/70">
               {editedCount > 0
                 ? `${formatCount(editedCount)} part${editedCount > 1 ? 's' : ''} recolored`
                 : 'Pick a part, then snap or adjust'}
@@ -452,8 +452,8 @@ function Slider({
 }) {
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center justify-between text-[11px] text-ink/65">
-        <label className="font-mono uppercase tracking-[0.15em]">{label}</label>
+      <div className="flex items-center justify-between text-[12px] text-ink/70">
+        <label className="uppercase tracking-[0.15em]">{label}</label>
         <span className="font-mono">
           {value > 0 ? '+' : ''}
           {value}

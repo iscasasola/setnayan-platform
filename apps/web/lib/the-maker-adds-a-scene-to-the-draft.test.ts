@@ -210,7 +210,7 @@ test('P · 💎 a free couple gets the sheet on the web (Apply asks for Pro); th
   const row = bar.slice(bar.indexOf("if (input.addScene?.kind === 'ready') {"), bar.indexOf('if (input.hasWork) stageRows.push'));
   assert.ok(row.length > 100, 'the Page ▾ row for Add a scene was not found — the scan is blind');
   assert.doesNotMatch(row, /'locked'|See Event (?:Hub )?Pro|unlockHref/, 'the Add a scene row still wears a Pro padlock');
-  assert.match(row, /paidMarkLabel\('try', 'Event (?:Hub )?Pro'\)/, 'the row does not wear ◆ PRO for a couple trying it');
+  assert.match(row, /paidMarkLabel\('try', 'Event Pro'\)/, 'the row does not wear ◆ PRO for a couple trying it');
   assert.match(row, /disabledNote: input\.addScene\.note/, 'a refused Add a scene does not say why');
   assert.doesNotMatch(row, /<form\b|formAction|action=/, 'the refused row must not be able to post anything');
 });

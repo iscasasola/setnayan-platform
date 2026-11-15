@@ -175,15 +175,31 @@ export function tierWords(tier: string | null | undefined, cycle: string | null 
   return `${t}${c}`;
 }
 
-/** A payment channel in words. */
+/**
+ * A payment channel in words, or "Method not given" when the payer did not say (walk RW-301: the card read
+ * "Sent by: Payment" for an empty method, which reads like an answer). A method we do not know by name is "Another way".
+ */
 export function channelWords(channel: string | null | undefined): string {
-  const c = (channel ?? '').toLowerCase();
+  const c = (channel ?? '').trim().toLowerCase();
+  if (!c) return 'Method not given';
   if (c.includes('gcash')) return 'GCash';
   if (c.includes('maya')) return 'Maya';
   if (c.includes('bdo')) return 'BDO';
   if (c.includes('bank')) return 'Bank transfer';
   if (c.includes('cash')) return 'Cash';
-  return 'Payment';
+  return 'Another way';
+}
+
+/**
+ * A person's two letters the way the admin's person page draws them (`app/admin/users/[userId]/page.tsx` `initials`):
+ * the first letters of the first two words of their name, else the first two letters of their name or email. An email
+ * is never split on its dots and @ (walk RW-301: "testnayan4@…" drew "TC" — the T of the name and the C of ".com").
+ */
+export function personInitials(name: string | null | undefined, email: string | null | undefined): string {
+  const src = (name?.trim() || email?.trim() || '?').trim();
+  const parts = src.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
+  return src.slice(0, 2).toUpperCase();
 }
 
 /** A payout-destination kind in words. */

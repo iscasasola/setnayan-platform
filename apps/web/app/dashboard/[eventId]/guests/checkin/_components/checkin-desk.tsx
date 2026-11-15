@@ -12,7 +12,10 @@ import {
   Undo2,
   UserRound,
   Utensils,
+  X,
 } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
 import { guestRoleLabel, type GuestRole, type GuestSide } from '@/lib/guests';
 import { useRoleNames } from '../../_components/role-names-context';
 import { parseGuestQrPayload, guestInitials } from '@/lib/checkin';
@@ -544,13 +547,13 @@ export function CheckinDesk({
           (the earlier time stands), or a scan the live check refused. Never dropped silently. */}
       {notes.length > 0 ? (
         <section aria-label="Needs a look" data-desk-notes="" className="space-y-1">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink/45">Needs a look</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink/70">Needs a look</h3>
           <ul className="divide-y divide-ink/10">
             {notes.map((n) => (
               <li key={n.guestId} className="flex items-start gap-3 py-2">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink">{n.name}</span>
-                  <span className="block text-xs text-ink/65">{n.detail}</span>
+                  <span className="block text-xs text-ink/70">{n.detail}</span>
                 </span>
                 <button
                   type="button"
@@ -568,7 +571,8 @@ export function CheckinDesk({
       {/* headcount */}
       <section
         aria-label="Arrival headcount"
-        className="rounded-xl border border-ink/10 bg-cream px-4 py-3"
+        /* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 13): the top of the page — the one number that matters now, on the warm surface. */
+        className="rounded-2xl bg-[var(--m-paper-2)] px-4 py-3"
       >
         <div className="flex items-baseline justify-between">
           <p className="text-sm font-medium text-ink/70">Arrived</p>
@@ -580,14 +584,14 @@ export function CheckinDesk({
         </div>
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink/10" role="presentation">
           <div
-            className="h-full rounded-full bg-terracotta transition-[width] duration-500"
+            className="h-full rounded-full bg-terracotta transition-[width] duration-[var(--sn-dur-elem)]"
             style={{ width: `${progress}%` }}
           />
         </div>
       </section>
 
       {/* scanner */}
-      <section aria-label="QR scanner" className="overflow-hidden rounded-xl border border-ink/10">
+      <section aria-label="QR scanner" className="overflow-hidden rounded-2xl">
         {scanning ? (
           <div className="relative bg-ink">
             {/* eslint-disable-next-line jsx-a11y/media-has-caption -- silent camera viewfinder */}
@@ -604,16 +608,10 @@ export function CheckinDesk({
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={startScanner}
-            className="flex w-full items-center justify-center gap-2 bg-terracotta-700 px-4 py-4 text-base font-semibold text-cream transition-colors hover:bg-terracotta-800"
-          >
-            <Camera className="h-5 w-5" /> Scan a guest’s QR
-          </button>
+          <ActionButton tone="brand" main icon={Camera} label="Scan a guest’s QR" onClick={startScanner} className="w-full" />
         )}
         {cameraError ? (
-          <p className="border-t border-ink/10 bg-warn-50 px-4 py-2 text-sm text-warn-800">
+          <p className="py-2 text-sm text-warn-800">
             {cameraError}
           </p>
         ) : null}
@@ -621,9 +619,9 @@ export function CheckinDesk({
 
       {/* NFC tag reader — shown only where this device can read tags */}
       {nfcDesk && nfc.supported ? (
-        <section aria-label="NFC tag reader" className="overflow-hidden rounded-xl border border-ink/10">
+        <section aria-label="NFC tag reader" className="border-y border-ink/10">
           {nfc.listening ? (
-            <div className="flex items-center justify-between gap-3 bg-cream px-4 py-3">
+            <div className="flex min-h-14 items-center justify-between gap-3 py-2">
               <p className="inline-flex items-center gap-2 text-sm font-medium text-ink/80">
                 <span
                   aria-hidden
@@ -631,25 +629,16 @@ export function CheckinDesk({
                 />
                 Listening — tap a guest&rsquo;s tag on this phone
               </p>
-              <button
-                type="button"
-                onClick={nfc.stop}
-                className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5"
-              >
-                Stop
-              </button>
+              <ActionButton tone="neutral" icon={X} label="Stop" onClick={nfc.stop} />
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => void nfc.start()}
-              className="flex w-full items-center justify-center gap-2 bg-white dark:bg-raised px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/[0.03]"
-            >
-              <Nfc className="h-5 w-5" /> Read a guest&rsquo;s tag
+            /* The shared pill's look (`actionButtonClass`) on a plain button: the ruled words stay in the markup. */
+            <button type="button" onClick={() => void nfc.start()} className={actionButtonClass('info', { extra: 'my-2 w-full' })}>
+              <Nfc aria-hidden className="h-5 w-5" /> Read a guest&rsquo;s tag
             </button>
           )}
           {nfc.failure ? (
-            <p role="alert" className="border-t border-ink/10 bg-warn-50 px-4 py-2 text-sm text-warn-800">
+            <p role="alert" className="py-2 text-sm text-warn-800">
               {nfcReadFailureCopy(nfc.failure)}
             </p>
           ) : null}
@@ -659,17 +648,17 @@ export function CheckinDesk({
       {/* manual search */}
       <section aria-label="Find a guest by name">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/70" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="No QR on hand? Search their name…"
-            className="w-full rounded-xl border border-ink/15 bg-white py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-ink/40 focus:border-terracotta"
+            className="min-h-12 w-full rounded-xl border border-ink/15 bg-white py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-ink/50 focus:border-terracotta"
           />
         </div>
         {matches.length > 0 ? (
-          <ul className="mt-2 divide-y divide-ink/5 overflow-hidden rounded-xl border border-ink/10 bg-white">
+          <ul className="mt-2 divide-y divide-ink/10">
             {matches.map((g) => {
               const at = checkins.get(g.guestId);
               return (
@@ -684,12 +673,12 @@ export function CheckinDesk({
                       setQuery('');
                       lastHitRef.current = null;
                     }}
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-ink/[0.03]"
+                    className="flex min-h-14 w-full items-center gap-3 px-1 py-2.5 text-left hover:bg-ink/[0.03]"
                   >
                     <GuestAvatar guest={g} size="sm" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-ink">{g.name}</span>
-                      <span className="block truncate text-xs text-ink/50">
+                      <span className="block truncate text-xs text-ink/70">
                         {g.tableLabel ? tableWords(g.tableLabel) : 'No table yet'}
                       </span>
                     </span>
@@ -732,7 +721,7 @@ export function CheckinDesk({
               <>
                 <Link
                   href={`/dashboard/${eventId}/guests/claims`}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-terracotta-700 px-4 text-base font-semibold text-cream hover:bg-terracotta-800"
+                  className={actionButtonClass('brand', { main: true })}
                 >
                   {DOOR_WORDS.pendingOpen}
                 </Link>
@@ -760,7 +749,7 @@ export function CheckinDesk({
               </button>
             )}
           </div>
-          <p className="mt-3 text-xs text-ink/60" data-checked-live="">
+          <p className="mt-3 text-xs text-ink/70" data-checked-live="">
             {DOOR_WORDS.checkedLive(timeLabel(live.checkedAt), checkedCount, expected)}
           </p>
         </section>
@@ -770,7 +759,7 @@ export function CheckinDesk({
       {selected ? (
         <section
           aria-label="Arriving guest"
-          className="rounded-2xl border border-terracotta/30 bg-white p-4 shadow-sm"
+          className="border-l-2 border-terracotta py-1 pl-4"
         >
           <div className="flex items-start gap-4">
             <GuestAvatar guest={selected} size="lg" />
@@ -785,7 +774,7 @@ export function CheckinDesk({
                 </p>
               ) : null}
               <h2 className="truncate text-lg font-semibold text-ink">{selected.name}</h2>
-              <p className="mt-0.5 text-sm text-ink/60">
+              <p className="mt-0.5 text-sm text-ink/70">
                 {[
                   hasSides ? SIDE_LABELS[selected.side] : null,
                   selected.role !== 'guest' ? guestRoleLabel(selected.role, roleNames) : null,
@@ -804,9 +793,7 @@ export function CheckinDesk({
                   </span>
                 ) : null}
                 {selected.rsvpStatus !== 'attending' ? (
-                  <span className="rounded-full bg-warn-100 px-2.5 py-1 text-xs font-medium text-warn-800">
-                    RSVP&rsquo;d {selected.rsvpStatus}
-                  </span>
+                  <Badge tone="wait">RSVP&rsquo;d {selected.rsvpStatus}</Badge>
                 ) : null}
               </div>
             </div>
@@ -819,28 +806,14 @@ export function CheckinDesk({
                   <CircleCheck className="h-5 w-5" />{' '}
                   {queued.has(selected.guestId) ? 'Checked in · saved on this phone' : `Checked in at ${timeLabel(selectedCheckin)}`}
                 </p>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => doUndo(selected.guestId)}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-success-900/70 hover:bg-success-100 disabled:opacity-50"
-                >
-                  <Undo2 className="h-4 w-4" /> Undo
-                </button>
+                <ActionButton tone="neutral" icon={Undo2} label="Undo" disabled={busy} onClick={() => doUndo(selected.guestId)} />
               </div>
             ) : (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => doCheckIn(selected.guestId, selectedVia)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-700 px-4 py-3 text-base font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
-              >
-                <Check className="h-5 w-5" /> Mark arrived
-              </button>
+              <ActionButton tone="brand" main icon={Check} label="Mark arrived" disabled={busy} onClick={() => doCheckIn(selected.guestId, selectedVia)} className="w-full" />
             )}
           </div>
           {live?.verdict === 'valid' && live.guestId === selected.guestId ? (
-            <p className="mt-3 text-xs text-ink/60" data-checked-live="">
+            <p className="mt-3 text-xs text-ink/70" data-checked-live="">
               {DOOR_WORDS.checkedLive(timeLabel(live.checkedAt), checkedCount, expected)}
             </p>
           ) : null}
@@ -850,16 +823,16 @@ export function CheckinDesk({
       {/* recent arrivals */}
       {recent.length > 0 ? (
         <section aria-label="Recent arrivals">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink/45">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             Recent arrivals
           </h3>
-          <ul className="mt-2 divide-y divide-ink/5 overflow-hidden rounded-xl border border-ink/10 bg-white">
+          <ul className="mt-2 divide-y divide-ink/10">
             {recent.map(({ guest, at }) => (
-              <li key={guest.guestId} className="flex items-center gap-3 px-3 py-2">
+              <li key={guest.guestId} className="flex min-h-14 items-center gap-3 px-1 py-2">
                 <GuestAvatar guest={guest} size="sm" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-ink">{guest.name}</span>
-                  <span className="block text-xs text-ink/50">
+                  <span className="block text-xs text-ink/70">
                     {timeLabel(at)}
                     {guest.tableLabel ? ` · ${tableWords(guest.tableLabel)}` : ''}
                     {queued.has(guest.guestId) ? ' · saved on this phone' : ''}
@@ -870,7 +843,7 @@ export function CheckinDesk({
                   disabled={busy}
                   onClick={() => doUndo(guest.guestId)}
                   aria-label={`Undo check-in for ${guest.name}`}
-                  className="rounded-lg p-1.5 text-ink/40 hover:bg-ink/5 hover:text-ink disabled:opacity-50"
+                  className="rounded-lg p-1.5 text-ink/70 hover:bg-ink/5 hover:text-ink disabled:opacity-50"
                 >
                   <Undo2 className="h-4 w-4" />
                 </button>

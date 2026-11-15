@@ -140,7 +140,7 @@ export function PlaylistPickRow({
           className="rounded border border-ink/15 px-2 py-1.5 text-xs italic focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
         />
         <div className="flex items-center justify-end gap-2 text-xs">
-          <span className={saved === 'failed' && !isPending ? 'text-danger-700' : 'text-ink/45'} data-pick-save={isPending ? 'saving' : saved}>
+          <span className={saved === 'failed' && !isPending ? 'text-danger-700' : 'text-ink/70'} data-pick-save={isPending ? 'saving' : saved}>
             {isPending ? 'Saving…' : saved === 'saved' ? 'Saved' : saved === 'failed' ? 'Not saved' : ''}
           </span>
           <button
@@ -173,7 +173,7 @@ export function PlaylistPickRow({
       <Music
         aria-hidden
         className={`mt-0.5 h-3.5 w-3.5 flex-shrink-0 ${
-          isBannedSlot ? 'text-danger-700/60' : 'text-ink/40'
+          isBannedSlot ? 'text-danger-700/60' : 'text-ink/70'
         }`}
         strokeWidth={2}
       />
@@ -188,7 +188,7 @@ export function PlaylistPickRow({
         {pick.artist ? (
           <p
             className={`truncate text-xs ${
-              isBannedSlot ? 'text-danger-900/65' : 'text-ink/65'
+              isBannedSlot ? 'text-danger-900/65' : 'text-ink/70'
             }`}
           >
             {pick.artist}
@@ -196,8 +196,8 @@ export function PlaylistPickRow({
         ) : null}
         {pick.notes ? (
           <p
-            className={`mt-0.5 truncate text-[11px] italic ${
-              isBannedSlot ? 'text-danger-900/55' : 'text-ink/55'
+            className={`mt-0.5 truncate text-[12px] italic ${
+              isBannedSlot ? 'text-danger-900/55' : 'text-ink/70'
             }`}
           >
             {pick.notes}

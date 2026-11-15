@@ -60,10 +60,10 @@ export function SourceRow({
 
   const body = (
     <>
-      {icon ? <span className="mt-0.5 shrink-0 text-ink/45">{icon}</span> : null}
+      {icon ? <span className="mt-0.5 shrink-0 text-ink/70">{icon}</span> : null}
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-ink">{label}</span>
-        <span className="mt-0.5 block text-xs text-ink/60">{blurb}</span>
+        <span className="mt-0.5 block text-xs text-ink/70">{blurb}</span>
       </span>
       <span
         className={
@@ -73,8 +73,8 @@ export function SourceRow({
               // and the action colour lives under `mulberry` — inherited, and
               // backwards. The drawing's receipts name this exact pairing for a
               // waiting badge.
-              'shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-mulberry-600'
-            : 'shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-ink/50'
+              'shrink-0 text-[12px] font-semibold uppercase tracking-[0.12em] text-mulberry-600'
+            : 'shrink-0 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink/70'
         }
       >
         {state}
@@ -89,7 +89,7 @@ export function SourceRow({
         className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-ink/[0.03]"
       >
         {body}
-        <ChevronRight aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} />
+        <ChevronRight aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
       </Link>
     );
   }
@@ -107,7 +107,7 @@ export function SourceRow({
         className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-ink/[0.03]"
       >
         {body}
-        <ChevronRight aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} />
+        <ChevronRight aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
       </button>
 
       {/* Mounted only while open — same reason as SettingRow: the controls

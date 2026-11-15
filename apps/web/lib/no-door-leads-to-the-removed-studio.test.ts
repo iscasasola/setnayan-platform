@@ -71,7 +71,7 @@ test('(1) the bar is one stage pill — no Studio half, no Studio pages, nothing
   const head = renderToStaticMarkup(
     React.createElement(StageSwitch, { side: 'studio', stage: 'rsvp', editor: { key: 'mood', label: 'Dress code', full: true }, onClose: () => {} }),
   );
-  assert.match(head, /aria-label="Close Dress code"[^>]*data-stage-editor-close=""/, 'a risen editor has no ✕ that names it');
+  assert.match(head, /<button(?=[^>]*aria-label="Close Dress code")(?=[^>]*data-stage-editor-close="")/, 'a risen editor has no ✕ that names it');
   assert.match(head, /data-stage-editor-title=""[^>]*>Dress code<\/h1>/);
   assert.doesNotMatch(head, /Studio|data-stage-pill=""/, 'a risen editor’s bar says Studio, or keeps the pill');
   // The pill is drawn first in the bar, by the shell, on every width (the Prints page names itself instead).

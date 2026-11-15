@@ -47,6 +47,7 @@ import { useGuestsLens } from '../../guests/_components/guests-lens';
 import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
 import { SEARCH_WAIT_MS } from '@/lib/guest-roster-view';
 import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { formatCount } from '@/lib/format-number';
@@ -98,7 +99,7 @@ export type MarchSectionData = MarchSection;
 /** The words for a step nobody could carry out (a thrown action says nothing a person can act on). */
 const DID_NOT_GO = 'That did not go through — nothing was changed.';
 // no-card-ok: a NAME you drag (a pressable chip), not a container — its edge is what the finger picks up.
-const NAME_CHIP = 'flex min-h-11 cursor-grab touch-pan-y select-none flex-col justify-center rounded-lg border px-2.5 py-1.5 transition-[box-shadow,opacity] duration-150 [-webkit-touch-callout:none]'; // no-card-ok: a draggable name chip
+const NAME_CHIP = 'flex min-h-11 cursor-grab touch-pan-y select-none flex-col justify-center rounded-lg border px-2.5 py-1.5 transition-[box-shadow,opacity] duration-sn-micro [-webkit-touch-callout:none]'; // no-card-ok: a draggable name chip
 const LAB_SAVED: MarchResult = { ok: true, written: 1 };
 /** The lab's save: it lands — or, with `?refuse=1`, throws with the database's own words, so the toast can be seen saying its own sentence instead. */
 const labStep = (): Promise<MarchResult> =>
@@ -803,10 +804,12 @@ function MarchMakerBody({
 
   if (!anyone) {
     return (
-      <p className="mx-auto max-w-md text-sm text-ink/65" data-march-maker="">
-        Nobody walks yet. Give a guest a role on their guest card — a sponsor, a bearer, the honour attendants — and
-        they appear here in walking order.
-      </p>
+      <div className="mx-auto max-w-md py-2" data-march-maker="">
+        <InfoTip label="Nobody walks yet." labelClassName="text-[15px] text-ink/70" align="start">
+          Give a guest a role on their guest card — a sponsor, a bearer, the honour attendants — and they appear here in walking
+          order.
+        </InfoTip>
+      </div>
     );
   }
 
@@ -1055,7 +1058,7 @@ function MarchMakerBody({
           <div
             data-march-playbar={play === null ? undefined : ''}
             aria-live="polite"
-            className={`absolute inset-x-0 top-1 flex items-center gap-2.5 rounded-2xl bg-ink py-2.5 pl-3.5 pr-2 text-cream shadow-lg transition-[transform,opacity] duration-[250ms] motion-reduce:transition-none ${
+            className={`absolute inset-x-0 top-1 flex items-center gap-2.5 rounded-2xl bg-ink py-2.5 pl-3.5 pr-2 text-cream shadow-lg transition-[transform,opacity] duration-sn-control motion-reduce:transition-none ${
               play === null ? 'pointer-events-none -translate-y-2.5 opacity-0' : 'translate-y-0 opacity-100'
             }`}
           >
@@ -1080,13 +1083,13 @@ function MarchMakerBody({
         </div>
         </>
       ) : (
-        <p className="px-1 pb-1 text-xs text-ink/60" data-march-count="">
+        <p className="px-1 pb-1 text-xs text-ink/70" data-march-count="">
           {walks} walk{walks === 1 ? '' : 's'} · {people} walking
         </p>
       )}
       {/* No LEFT / RIGHT words in Guests (owner 2026-10-29, prototype v13 — the two pills ARE the two sides). */}
       {guests ? null : (
-        <div aria-hidden className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 px-1.5 pt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-800">
+        <div aria-hidden className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 px-1.5 pt-1 text-[12px] uppercase tracking-[0.2em] text-terracotta-800">
           <span />
           <span className="text-center">Left</span>
           <span className="text-center">Right</span>
@@ -1097,7 +1100,7 @@ function MarchMakerBody({
         <div
           data-march-drop="gap|*|0"
           className={`mt-3 flex min-h-24 items-center justify-center rounded-xl border-[1.5px] border-dashed px-4 text-center text-sm ${
-            over?.zone === 'gap|*|0' ? 'border-terracotta-700 text-terracotta-800' : 'border-ink/15 text-ink/55'
+            over?.zone === 'gap|*|0' ? 'border-terracotta-700 text-terracotta-800' : 'border-ink/15 text-ink/70'
           }`}
         >
           Drag a name here from Not walking.
@@ -1130,12 +1133,12 @@ function MarchMakerBody({
               /* 📌 R4 slice 4 — in Guests, a walk group's header sticks under the pinned row while its walks pass (the
                  prototype's `.acc-h` sticky); the Maker's own march keeps its plain line. */
               guests ? 'sticky top-[calc(var(--gs-top,0px)+var(--gs-stick-h,60px))] z-[5] bg-[var(--gs-paper,rgb(var(--color-cream)))] ' : ''
-            }${marchSel === sec.key ? 'text-terracotta-800 underline decoration-2 underline-offset-4' : 'text-ink/65'} mt-3 flex min-h-9 items-baseline gap-2 rounded-lg px-1 pt-1 font-mono text-[10.5px] uppercase tracking-[0.18em] ${
+            }${marchSel === sec.key ? 'text-terracotta-800 underline decoration-2 underline-offset-4' : 'text-ink/70'} mt-3 flex min-h-11 items-baseline gap-2 rounded-lg px-1 pt-1 text-[12px] uppercase tracking-[0.18em] ${
               fixed ? '' : 'cursor-grab touch-pan-y [-webkit-touch-callout:none]'
             }${carried?.key === sectionKey ? ' ring-2 ring-ink' : ''}${ring(`section|${sec.key}`)}`}
           >
             {sec.label}
-            <small className="font-sans text-[11px] normal-case tracking-normal text-ink/50">
+            <small className="font-sans text-[12px] normal-case tracking-normal text-ink/70">
               {sec.rows.length} walk{sec.rows.length === 1 ? '' : 's'}
             </small>
           </p>
@@ -1145,7 +1148,7 @@ function MarchMakerBody({
               data-march-drop={`gap|${sec.key}|0`}
               data-march-own-empty=""
               className={`mt-1.5 flex min-h-16 items-center justify-center rounded-xl border-[1.5px] border-dashed px-4 text-center text-sm ${
-                over?.zone === `gap|${sec.key}|0` ? (over.ok ? 'border-terracotta-700 text-terracotta-800' : 'border-danger-500/60 text-danger-700') : 'border-ink/15 text-ink/55'
+                over?.zone === `gap|${sec.key}|0` ? (over.ok ? 'border-terracotta-700 text-terracotta-800' : 'border-danger-500/60 text-danger-700') : 'border-ink/15 text-ink/70'
               }`}
             >
               Hold a name and drag it here.
@@ -1218,7 +1221,7 @@ function MarchMakerBody({
                             {guests ? <GuestNick nick={p.nick} /> : null}
                           </span>
                           {p.tag ? (
-                            <span className="mt-0.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-terracotta-800">{p.tag}</span>
+                            <span className="mt-0.5 text-[12px] uppercase tracking-[0.18em] text-terracotta-800">{p.tag}</span>
                           ) : null}
                         </div>
                       );
@@ -1234,11 +1237,11 @@ function MarchMakerBody({
                         aria-label={anchor ? `Walk beside ${anchor.name}` : undefined}
                         aria-hidden={hideEmpty || undefined}
                         data-march-empty-side={guests ? (hideEmpty ? 'closed' : 'open') : undefined}
-                        className={`flex min-h-11 items-center justify-center rounded-lg border-[1.5px] border-dashed px-2 text-center text-[11px] leading-tight transition-colors ${
-                          dragging ? 'border-terracotta-700/40 text-terracotta-800' : 'border-ink/15 text-ink/50'
+                        className={`flex min-h-11 items-center justify-center rounded-lg border-[1.5px] border-dashed px-2 text-center text-[12px] leading-tight transition-colors ${
+                          dragging ? 'border-terracotta-700/40 text-terracotta-800' : 'border-ink/15 text-ink/70'
                         }${slot}${
                           guests
-                            ? ` overflow-hidden transition-[flex-grow,opacity,margin,padding] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:transition-none${hideEmpty ? ' pointer-events-none !grow-0 !border-0 !px-0 opacity-0' : ''}`
+                            ? ` overflow-hidden transition-[flex-grow,opacity,margin,padding] duration-sn-elem ease-sn-out motion-reduce:transition-none${hideEmpty ? ' pointer-events-none !grow-0 !border-0 !px-0 opacity-0' : ''}`
                             : ''
                         }${ring(zone)}`}
                       >
@@ -1316,9 +1319,9 @@ function PairBox({ guests, children }: { guests: boolean; children: ReactNode })
 
 function Gap({ zone, on, ok }: { zone: string; on: boolean; ok: boolean }) {
   return (
-    <div data-march-drop={zone} aria-hidden className={`relative mx-1 transition-[height] duration-200 ${on ? 'h-5' : 'h-2.5'}`}>
+    <div data-march-drop={zone} aria-hidden className={`relative mx-1 transition-[height] duration-sn-control ${on ? 'h-5' : 'h-2.5'}`}>
       <span
-        className={`absolute inset-x-8 top-1/2 h-0.5 -translate-y-1/2 rounded-full transition-opacity duration-150 ${
+        className={`absolute inset-x-8 top-1/2 h-0.5 -translate-y-1/2 rounded-full transition-opacity duration-sn-micro ${
           on ? (ok ? 'bg-terracotta-700 opacity-100' : 'bg-danger-500/60 opacity-100') : 'opacity-0'
         }`}
       />

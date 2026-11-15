@@ -45,7 +45,7 @@ export default async function ReferACouplePage({ params }: Props) {
   // a mint failure; degrade gracefully with a calm empty state.
   if (!referral) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 tab:mx-auto tab:w-full tab:max-w-3xl">
         <h1 className="sn-h1">Refer a couple</h1>
         <p className="text-sm text-ink/65">
           We couldn&rsquo;t load your referral link just now. Please refresh and try again.
@@ -57,7 +57,7 @@ export default async function ReferACouplePage({ params }: Props) {
   const { code, shareLink, redemptions, qualifiedCount } = referral;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 tab:mx-auto tab:w-full tab:max-w-3xl">
       <PageMasthead
         titleNode={
           <span>

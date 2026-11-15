@@ -1,13 +1,12 @@
 import { redirect } from 'next/navigation';
 
 /**
- * Legacy /admin/notifications → studio redirect (Money split · 2026-07-10). The surface
- * now lives at /admin/settings?tab=notifications; its body was re-homed into a _surfaces/*
- * file. actions/_components stay in this dir. Params are forwarded so deep-links
- * + post-mutation redirects land on the right tab with their flash intact.
+ * Legacy /admin/notifications → avatar › Email delivery (owner go 14 Nov 2026, the approved drawing
+ * `admin_five_tabs_2026-11-13/admin.html` `page('email-delivery' …)`). The delivery log, the morning digest, push on
+ * this device and the bell all live there now.
  */
 export const dynamic = 'force-dynamic';
 
 export default function Redirect() {
-  redirect('/admin/settings?tab=notifications');
+  redirect('/admin/email-delivery');
 }

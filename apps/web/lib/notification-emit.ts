@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
+import { isAdminNotice } from '@/lib/admin/admin-notices-stay-in-the-app';
 import { recordDelivery } from '@/lib/email-delivery.server';
 import {
   ADMIN_EMAIL_FOOTER,
@@ -401,6 +402,11 @@ export type EmitNotificationArgs = {
    * so the alert puts the host and event into the title itself.
    */
   email?: NotificationEmailParts;
+  /**
+   * 📥 Written FOR the admins (an admin fan-out). Set by `emitAdminNotice` — never by hand. Such a notice lands in the
+   * bell and on the phone and is never emailed (owner 2026-11-15, `lib/admin/admin-notices-stay-in-the-app.ts`).
+   */
+  adminNotice?: boolean;
 };
 
 export type NotificationEmailParts = {
@@ -426,6 +432,15 @@ export type NotificationEmailParts = {
  * Designed to fail soft: a failed notification or email never rolls back
  * the primary action. We log and continue.
  */
+/**
+ * 📥 A notice FOR an admin — every admin fan-out (the `is_internal / is_team_member / admin` read) sends through this.
+ * It lands in the bell and on the phone; it is never emailed (owner 2026-11-15, "1 email a day. not every
+ * notification" — the morning digest is that one). Guarded by `lib/admin-notices-stay-in-the-app.test.ts`.
+ */
+export async function emitAdminNotice(args: Omit<EmitNotificationArgs, 'adminNotice'>): Promise<void> {
+  return emitNotification({ ...args, adminNotice: true });
+}
+
 export async function emitNotification(args: EmitNotificationArgs): Promise<void> {
   const { userId, type, title, body = null, relatedUrl = null } = args;
   // Which wedding is this about? Derived from the link unless the caller said.
@@ -494,7 +509,11 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
   // (the log /admin reads) — the pre-check was the only thing stopping it from
   // being reached. So the type alone decides, and every way this block can end
   // without a send now writes a row saying why.
-  if (EMAIL_ENABLED_TYPES.has(type)) {
+  // 📥 ADMIN NOTICES STAY IN THE APP (owner 2026-11-15: "1 email a day. not every notification"): a per-event notice
+  // written for the admins is never emailed — the bell row above and the phone notice below carry it; the morning
+  // digest is the admin's one email a day. Withheld by ruling, not a failure, so no delivery row is written
+  // (a row per admin per notice would flood the very log the console reads).
+  if (EMAIL_ENABLED_TYPES.has(type) && !isAdminNotice(args)) {
     try {
       const admin = createAdminClient();
       const { data: recipient, error: recipientError } = await admin

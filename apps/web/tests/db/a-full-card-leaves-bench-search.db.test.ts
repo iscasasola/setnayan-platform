@@ -185,9 +185,9 @@ async function createVendor(email: string, name: string): Promise<string> {
   const uid = await createUser(email);
   const r = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles
-       (user_id, business_name, location_city, services, verification_state, last_verified_at, is_published)
+       (user_id, business_name, location_city, services, verification_state, last_verified_at, is_published, public_visibility)
      VALUES ($1, $2, 'Manila', ARRAY['photography']::text[],
-             'verified'::public.vendor_verification_state, NOW(), TRUE)
+             'verified'::public.vendor_verification_state, NOW(), TRUE, 'verified')
      RETURNING vendor_profile_id`,
     [uid, name],
   );

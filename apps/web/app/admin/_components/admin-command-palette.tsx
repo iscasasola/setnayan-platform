@@ -719,14 +719,14 @@ export function AdminCommandPalette({
               >
                 <Sparkles aria-hidden className="mt-0.5 h-3 w-3 shrink-0" style={{ color: 'var(--m-orange)' }} strokeWidth={2} />
                 <span className="min-w-0">
-                  <span className="block font-mono text-[9.5px] font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--sn-ink-500)' }}>
+                  <span className="block text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: 'var(--sn-ink-500)' }}>
                     Recommended
                   </span>
                   <span className="block text-[13px] font-semibold" style={{ color: 'var(--sn-ink)' }}>
                     {recommendationLine(rec)}
                   </span>
                 </span>
-                <span className="ml-auto shrink-0 self-center font-mono text-[10px]" style={{ color: 'var(--sn-ink-500)' }}>
+                <span className="ml-auto shrink-0 self-center text-[11px]" style={{ color: 'var(--sn-ink-500)' }}>
                   {rec.job && jobPrefillIsRead(rec.job.name) ? 'fill in a form' : 'open the page'}
                 </span>
               </button>
@@ -735,7 +735,7 @@ export function AdminCommandPalette({
           {/* WHAT CAN I ASK? — the advertised sentences, each pinned to its first row by ask-keywords.test.ts. */}
           {!q.trim() ? (
             <div className="mx-1.5 mb-1 mt-1 rounded-md px-2.5 py-2" data-palette-examples="" style={{ background: 'var(--m-paper-2)' }}>
-              <p className="font-mono text-[9.5px] font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--sn-ink-500)' }}>
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: 'var(--sn-ink-500)' }}>
                 What can I ask?
               </p>
               <ul className="mt-1 flex flex-wrap gap-1.5">
@@ -912,7 +912,7 @@ export function AdminCommandPalette({
                     >
                       <span>{d.label}</span>
                       {i === 0 && learnedHref === d.href ? (
-                        <span className="font-mono text-[10px] font-normal text-mulberry">
+                        <span className="text-[11px] font-normal text-mulberry">
                           You picked this before
                         </span>
                       ) : null}

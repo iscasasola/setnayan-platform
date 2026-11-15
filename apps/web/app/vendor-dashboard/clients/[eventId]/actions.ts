@@ -373,7 +373,7 @@ export async function createClientNote(formData: FormData) {
   const eventId = formData.get('event_id');
   const body = formData.get('body');
   if (typeof eventId !== 'string' || typeof body !== 'string' || body.trim().length === 0) {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -419,7 +419,7 @@ export async function toggleClientNoteDone(formData: FormData) {
   const noteId = formData.get('note_id');
   const done = formData.get('done') === '1';
   if (typeof eventId !== 'string' || typeof noteId !== 'string') {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -441,7 +441,7 @@ export async function deleteClientNote(formData: FormData) {
   const eventId = formData.get('event_id');
   const noteId = formData.get('note_id');
   if (typeof eventId !== 'string' || typeof noteId !== 'string') {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -546,7 +546,7 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     request === 'own_times';
   if (typeof eventId !== 'string' || (!sheetAsk && !quiet && (typeof note !== 'string' || note.trim().length === 0))) {
     if (quiet) return { ok: false, error: NOT_SENT_WORDS };
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -855,7 +855,7 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
         ? `Adds “${proposed.proposed_label ?? 'a moment'}”`
         : `Changes “${blockLabel ?? 'a moment'}”`;
   if (kind === 'adjust' && !typedNote && !proposed.proposed_label && !proposed.proposed_start_at && !(crew && crew.length)) {
-    return quiet ? { ok: false, error: 'Say what should change first.' } : redirect('/vendor-dashboard/clients');
+    return quiet ? { ok: false, error: 'Say what should change first.' } : redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const r = await ask({
@@ -901,7 +901,7 @@ export async function createVendorChallengeAction(formData: FormData) {
     typeof prompt !== 'string' ||
     prompt.trim().length === 0
   ) {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -983,7 +983,7 @@ export async function vendorPostHandover(formData: FormData) {
       ? kindRaw
       : null;
   if (typeof eventId !== 'string' || !kind) {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -1147,7 +1147,7 @@ export async function vendorRaiseChangeOrder(formData: FormData) {
   const eventId = formData.get('event_id');
   const title = formData.get('title');
   if (typeof eventId !== 'string' || typeof title !== 'string' || title.trim().length === 0) {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
   const magnitude = parseAmount(formData.get('amount_php'));
   if (magnitude === null) {
@@ -1268,7 +1268,7 @@ export async function vendorRespondChangeOrder(formData: FormData) {
     typeof changeOrderId !== 'string' ||
     (decision !== 'accept' && decision !== 'decline')
   ) {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -1341,7 +1341,7 @@ export async function vendorWithdrawChangeOrder(formData: FormData) {
   const eventId = formData.get('event_id');
   const changeOrderId = formData.get('change_order_id');
   if (typeof eventId !== 'string' || typeof changeOrderId !== 'string') {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -1961,7 +1961,7 @@ export async function vendorAskForPayment(formData: FormData): Promise<void> {
   if (res.ok) {
     redirect(vendorClientSurfaceHref(String(eventId), 'asks', { shellOn: isRelationshipWorkspaceEnabled(), query: { ask: 'sent' } }));
   }
-  if (res.code === 'event') redirect('/vendor-dashboard/clients');
+  if (res.code === 'event') redirect('/vendor-dashboard/customers?tab=clients');
   if (res.code === 'signin') redirect('/login');
   if (res.code === 'shop') redirect('/vendor-dashboard');
   redirect(vendorClientSurfaceHref(String(eventId), 'asks', { shellOn: isRelationshipWorkspaceEnabled(), query: { ask: res.code } }));
@@ -2064,7 +2064,7 @@ export async function vendorWithdrawPaymentAsk(formData: FormData) {
   const eventId = formData.get('event_id');
   const askId = formData.get('ask_id');
   if (typeof eventId !== 'string' || typeof askId !== 'string') {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
   const supabase = await createClient();
   const {

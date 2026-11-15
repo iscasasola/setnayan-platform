@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MAKER_STRIP_PHONE } from '@/lib/maker-phone-room';
 import { Check, ChevronDown, ChevronLeft, ChevronRight, List, Palette, Settings2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { useOneOpen } from '@/lib/one-open';
 import type { MakerTool } from './maker-context';
 
@@ -241,7 +242,7 @@ export function MakerLowerThird({
         <div
           data-lt-column=""
           aria-hidden={tool ? undefined : true}
-          className={`flex w-[52px] shrink-0 flex-col items-center gap-1 rounded-2xl bg-ink/[0.05] px-0.5 pb-1 pt-1.5 ring-1 ring-ink/10 transition-[opacity,transform] duration-[240ms] ease-out motion-reduce:transition-none ${
+          className={`flex w-[52px] shrink-0 flex-col items-center gap-1 rounded-2xl bg-ink/[0.05] px-0.5 pb-1 pt-1.5 ring-1 ring-ink/10 transition-[opacity,transform] duration-sn-control ease-sn-out motion-reduce:transition-none ${
             tool ? 'opacity-100' : 'pointer-events-none absolute left-1 top-2 h-[calc(100%-12px)] -translate-x-3 opacity-0'
           }`}
         >
@@ -290,15 +291,7 @@ export function MakerLowerThird({
                   <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2.2} />
                 </button>
               </span>
-              <button
-                type="button"
-                data-lt-close=""
-                aria-label={`Close ${tool.name}`}
-                onClick={tool.close}
-                className="sn-press mt-auto inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-ink ring-1 ring-ink/10"
-              >
-                <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />
-              </button>
+              <ActionButton tone="neutral" iconOnly icon={X} label={`Close ${tool.name}`} onClick={tool.close} data-lt-close="" className="mt-auto" />
             </>
           ) : null}
         </div>
@@ -308,7 +301,7 @@ export function MakerLowerThird({
           data-lt-rows=""
           aria-hidden={tool ? true : undefined}
           inert={tool ? true : undefined}
-          className={`flex min-w-0 flex-1 flex-col gap-2 transition-[opacity,transform] duration-[240ms] ease-out motion-reduce:transition-none ${
+          className={`flex min-w-0 flex-1 flex-col gap-2 transition-[opacity,transform] duration-sn-control ease-sn-out motion-reduce:transition-none ${
             /* No transform at rest: a transformed box would hold every `fixed` child (a floated (i) note, the scene templates). */
             tool ? 'pointer-events-none -translate-x-6 opacity-0' : 'opacity-100'
           }`}
@@ -328,7 +321,7 @@ export function MakerLowerThird({
               <List aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
               {/* The guided flow's own screen: the menu by its own name, never an item's. */}
               <span className="max-w-[9rem] truncate">{bare && !tool ? 'Menu' : pickLabel}</span>
-              <ChevronDown aria-hidden className={`h-3.5 w-3.5 transition-transform duration-[240ms] motion-reduce:transition-none ${menuOpen ? 'rotate-180' : ''}`} strokeWidth={2.2} />
+              <ChevronDown aria-hidden className={`h-3.5 w-3.5 transition-transform duration-sn-control motion-reduce:transition-none ${menuOpen ? 'rotate-180' : ''}`} strokeWidth={2.2} />
             </button>
             )}
             <p className={`min-w-0 flex-1 truncate pl-1 text-[15px] font-semibold text-ink ${short ? 'invisible' : ''}`} data-lt-where-words="">
@@ -363,7 +356,7 @@ export function MakerLowerThird({
           inert={menuOpen ? undefined : true}
           data-lt-menu=""
           data-menu-id={menuId}
-          className={`absolute inset-0 z-10 overflow-y-auto overscroll-contain rounded-t-2xl bg-white px-2 pb-6 pt-2 ring-1 ring-ink/10 transition-[transform,visibility] duration-[260ms] ease-out motion-reduce:transition-none ${
+          className={`absolute inset-0 z-10 overflow-y-auto overscroll-contain rounded-t-2xl bg-white px-2 pb-6 pt-2 ring-1 ring-ink/10 transition-[transform,visibility] duration-sn-control ease-sn-out motion-reduce:transition-none ${
             /* 🙈 Shut = INVISIBLE, not only slid down: on the guided flow's short row the
                sheet's 104% lands inside the iPhone's home-bar padding and peeked out under
                the Menu button (owner, live iPhone 2026-10-06, "Something is peeking from the
@@ -382,11 +375,11 @@ export function MakerLowerThird({
           </button>
           <div className="grid grid-cols-[1fr_1.1fr] gap-3 pt-3">
             <div data-lt-menu-group="global">
-              <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/55">Global settings</p>
+              <p className="px-2.5 pb-1 text-[12px] font-semibold uppercase tracking-[0.18em] text-ink/70">Global settings</p>
               <ul className="flex flex-col gap-0.5">{global.map(pickRow)}</ul>
             </div>
             <div data-lt-menu-group="stages">
-              <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/55">Stages</p>
+              <p className="px-2.5 pb-1 text-[12px] font-semibold uppercase tracking-[0.18em] text-ink/70">Stages</p>
               <ul className="flex flex-col gap-0.5">{stages.map(pickRow)}</ul>
             </div>
           </div>
@@ -416,7 +409,7 @@ export function LowerThirdTileButton({ tile, part = false, group = part ? 'parts
         {tile.icon ? <span className="flex flex-col items-center gap-1.5 text-ink/75">{tile.icon}<span className="text-ink">{tile.label}</span></span> : tile.label}
       </span>
       {tile.toggle || tile.caption || tile.note ? (
-        <span className="block w-full truncate border-t border-ink/10 px-1 py-1.5 text-center text-[11.5px] text-ink/65">
+        <span className="block w-full truncate border-t border-ink/10 px-1 py-1.5 text-center text-[12px] text-ink/70">
           {tile.toggle ? (tile.on ? 'On' : 'Off') : (tile.caption ?? tile.note)}
         </span>
       ) : null}

@@ -13,7 +13,6 @@ app/admin/fraud/_components/wipe-ban-dialog.tsx
 app/dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx
 app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
 app/dashboard/[eventId]/_components/vendor-direct-pay.tsx
-app/dashboard/[eventId]/invitation/_components/guest-invite-modal.tsx
 app/dashboard/[eventId]/launch/_components/maker-tour.tsx
 app/dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx
 app/dashboard/[eventId]/monogram/mark-everywhere.tsx

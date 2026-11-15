@@ -8,7 +8,6 @@ import {
   type QuestionAnswer,
   type VendorQuestion,
 } from '@/lib/emcee-questions';
-import { ShopCard } from '../../../_components/kit';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -54,19 +53,19 @@ export function TheyToldYou({
     );
   }
   return (
-    <ShopCard pad="none" className="p-3">
+    <section>
       <div id="their-answers" className="flex scroll-mt-4 flex-wrap items-baseline justify-between gap-2">
-        <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.2em] text-gold-dark">
+        <p className="inline-flex items-center gap-1.5 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           <MessageCircleQuestion className="h-3.5 w-3.5" aria-hidden />
           What {coupleName} told you
         </p>
-        <span className="font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
+        <span className="text-[13px] text-[color:var(--m-slate-2)]">
           {formatCount(questionnaire.answered)} of {formatCount(questionnaire.total)} answered
         </span>
       </div>
-      <dl className="mt-2 space-y-2.5">
+      <dl className="mt-2 [&>div+div]:border-t [&>div+div]:border-[color:var(--m-line)]">
         {questionnaire.rows.map(({ question, answer }) => (
-          <div key={question.question_id}>
+          <div key={question.question_id} className="py-2.5">
             <dt className="text-xs font-semibold text-ink/70">{question.prompt}</dt>
             <dd
               className={
@@ -87,7 +86,7 @@ export function TheyToldYou({
         </Link>{' '}
         carry on to the next.
       </p>
-    </ShopCard>
+    </section>
   );
 }
 

@@ -325,7 +325,7 @@ test('the selection carries NO price and NO tier for AI', () => {
   assert.deepEqual(Object.keys(parsed).sort(), ['ai', 'hubPro', 'poolRungKey']);
 });
 
-// ── event hub pro (owner 2026-09-25: "Papic, Setnayan AI, Event Hub Pro") ──
+// ── Event Pro (owner 2026-09-25: "Papic, Setnayan AI, Event Pro") ──
 //
 // The third card is the planner's twin: a yes/no, off by default, its own line
 // in the total. These are SHAPES, not the live price — the figure is the
@@ -334,7 +334,7 @@ test('the selection carries NO price and NO tier for AI', () => {
 const PRO_PHP = 700; // sign-up price (fixture)
 const PRO_LIST_PHP = 1_000; // later price (fixture)
 
-test('Event Hub Pro is OFF by default and adds nothing', () => {
+test('Event Pro is OFF by default and adds nothing', () => {
   assert.equal(EMPTY_SERVICES_SELECTION.hubPro, false);
   const q = quoteServicesStepSelection(TYPES, EMPTY_SERVICES_SELECTION, AI_PHP, PRO_PHP);
   assert.equal(q.hubProPhp, 0);

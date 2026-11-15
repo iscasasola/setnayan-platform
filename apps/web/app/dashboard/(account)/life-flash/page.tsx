@@ -263,7 +263,7 @@ export default async function LifeFlashPage({
               key={o.key}
               href={scopeHref(o.key)}
               aria-current={o.key === activeScopeKey ? 'page' : undefined}
-              className={`sn-chip sn-press ${o.key === activeScopeKey ? 'selected' : ''}`}
+              className={`sn-chip sn-press min-h-11 ${o.key === activeScopeKey ? 'selected' : ''}`}
             >
               {o.label}
             </Link>

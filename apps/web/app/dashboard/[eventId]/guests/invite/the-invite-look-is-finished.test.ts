@@ -6,7 +6,7 @@
  * behind it:
  *   · (no decision needed) the picker names three things and now LINKS each to
  *     the page that owns it;
- *   · Q3 = A — the invite theme is the EIGHTH Event Hub Pro item;
+ *   · Q3 = A — the invite theme is the EIGHTH Event Pro item;
  *   · Q7 = A — Pro themes are offered, and saved, only where the event type may
  *     carry the Save-the-Date film.
  *
@@ -80,7 +80,7 @@ test('the invite theme is one of the Pro items, and the list is the only copy of
   assert.ok(WEBSITE_PRO_ITEMS.length >= 8, 'the Pro item list scanned short — the import may be resolving empty');
   assert.ok(
     (WEBSITE_PRO_ITEMS as readonly string[]).includes(INVITE_ITEM),
-    'Event Hub Pro withholds the invite link’s theme from non-buyers ' +
+    'Event Pro withholds the invite link’s theme from non-buyers ' +
       '(app/[slug]/invite/_lib/load-invite-look.ts gates it) and no longer names it',
   );
   // It is a LIST, not a second list: the controller and the editor both read it.
@@ -209,7 +209,7 @@ test('🔒 APPLY still checks the host and the Pro gate before the theme write �
 
 test('the DOOR asks only for Pro — the one rule that protects an already-saved value', () => {
   // The resolution lives in `app/[slug]/_lib/hub-look.ts` (the invite door and
-  // the Event Hub pages share it). A lapse of Event Hub Pro turns a saved Pro
+  // the Event Hub pages share it). A lapse of Event Pro turns a saved Pro
   // theme back into House with no write; the event type is not part of it.
   const look = read('app/[slug]/_lib/hub-look.ts');
   assert.match(look, /resolveInviteTheme\(\{ saved, ownsPro \}\)/);

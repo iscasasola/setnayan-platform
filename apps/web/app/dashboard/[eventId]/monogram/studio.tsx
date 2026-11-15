@@ -236,18 +236,14 @@ export function VectorStudio({
       {notice ? (
         <p
           role="status"
-          className={`rounded-xl border px-4 py-3 text-sm ${
-            notice.tone === 'ok'
-              ? 'border-success-200 bg-success-50 text-success-800'
-              : 'border-terracotta/30 bg-terracotta/10 text-terracotta-700'
-          }`}
+          className={`text-sm font-semibold ${notice.tone === 'ok' ? 'text-success-800' : 'text-danger-700'}`}
         >
           {notice.text}
         </p>
       ) : null}
 
       {hasStudio ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="inline-flex items-center gap-2 text-sm font-medium text-success-800">
             <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
             This studio mark is your active monogram.
@@ -318,7 +314,7 @@ export function VectorStudio({
           )
         : null}
 
-      {ready ? null : <p className="text-xs text-ink/55">Starting the studio…</p>}
+      {ready ? null : <p className="text-xs text-ink/75">Starting the studio…</p>}
     </section>
   );
 }

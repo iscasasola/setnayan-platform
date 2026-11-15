@@ -36,7 +36,7 @@ export function OpenInPlace({
         type="button"
         data-open-in-place-door={data}
         onClick={() => setShown(true)}
-        className="sn-press inline-flex h-10 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold text-ink ring-1 ring-inset ring-ink/15"
+        className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold text-ink ring-1 ring-inset ring-ink/15"
       >
         <Plus aria-hidden className="h-4 w-4" strokeWidth={2.2} />
         {label}

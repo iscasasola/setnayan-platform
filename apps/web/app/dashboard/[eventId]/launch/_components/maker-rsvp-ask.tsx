@@ -116,7 +116,7 @@ const RSVP_ROW_ERROR = 'min-w-0 [&>p]:!px-0 [&>p]:!pt-0';
  */
 /** 🎉 What the When yes Celebration needs from the launch page (`CelebrationPick`). */
 export type CelebrationInputs = {
-  /** Event Hub Pro, as measured for this event. */
+  /** Event Pro, as measured for this event. */
   ownsPro: boolean;
   /** The Mood Board's colours (`celebrationColours`). */
   colours: readonly string[];

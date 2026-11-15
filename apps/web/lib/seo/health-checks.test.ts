@@ -213,7 +213,7 @@ test('a served llms.txt that lost a saved AI answer FAILS, naming the question',
 });
 
 // SABOTAGE: delete Check 7 → RED.
-test('a retired plan or product name in the served file FAILS (Enterprise · Event Hub Pro · tokens)', () => {
+test('a retired plan or product name in the served file FAILS (Enterprise · Event Pro · tokens)', () => {
   for (const text of ['Upgrade to Enterprise.', 'Buy the Pro Event Hub.', 'Top up your token wallet.']) {
     const res = runSeoHealthChecks({ llmsText: text, catalog: [], env: {} });
     assert.equal(res.findings.find((x) => x.check === 'llms.txt retired names')?.status, 'fail', text);

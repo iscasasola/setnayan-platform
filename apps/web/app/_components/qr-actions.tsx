@@ -46,7 +46,7 @@ export function QrActions({
         <SaveFileLink
           href={download.href}
           filename={download.filename}
-          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:bg-ink/5"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:bg-ink/5"
         >
           {(state) => (
             <>

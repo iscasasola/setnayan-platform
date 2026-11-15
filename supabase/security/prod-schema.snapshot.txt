@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1881
-# tables: 503
-# columns: 6097
-# notnull: 3678
+# ledger: 1886
+# tables: 504
+# columns: 6108
+# notnull: 3682
 [ledger]
 20260512000000
 20260513000000
@@ -1891,8 +1891,13 @@
 20271345494976
 20271345870082
 20271345904117
+20271346038449
 20271346331739
+20271346335702
 20271346561709
+20271347531019
+20271347719658
+20271348041863
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -6254,6 +6259,14 @@ supplier_night_before_email_log.event_date
 supplier_night_before_email_log.event_vendor_id
 supplier_night_before_email_log.resend_id
 supplier_night_before_email_log.sent_at
+supplier_own_times.arrive_clock
+supplier_own_times.call_clock
+supplier_own_times.done_clock
+supplier_own_times.event_id
+supplier_own_times.filed_at
+supplier_own_times.updated_at
+supplier_own_times.updated_by
+supplier_own_times.vendor_profile_id
 supplier_page_photo_notices.event_id
 supplier_page_photo_notices.notice_id
 supplier_page_photo_notices.noticed_at
@@ -7333,6 +7346,8 @@ vendor_profiles.microsite_video_ids
 vendor_profiles.name_revealed_at
 vendor_profiles.next_renewal_due_at
 vendor_profiles.outer_radius_km
+vendor_profiles.papers_current
+vendor_profiles.papers_lapsed_at
 vendor_profiles.papic_challenge_expires_at
 vendor_profiles.pending_tier
 vendor_profiles.pending_tier_billing_cycle
@@ -7342,6 +7357,7 @@ vendor_profiles.pending_tier_scheduled_at
 vendor_profiles.pending_tier_sku_code
 vendor_profiles.portfolio_photo_allowance
 vendor_profiles.portfolio_r2_keys
+vendor_profiles.portfolio_section_order
 vendor_profiles.presentation_pattern
 vendor_profiles.public_id
 vendor_profiles.public_visibility
@@ -10611,6 +10627,9 @@ supplier_media.vendor_profile_id
 supplier_night_before_email_log.event_date
 supplier_night_before_email_log.event_vendor_id
 supplier_night_before_email_log.sent_at
+supplier_own_times.event_id
+supplier_own_times.updated_at
+supplier_own_times.vendor_profile_id
 supplier_page_photo_notices.event_id
 supplier_page_photo_notices.notice_id
 supplier_page_photo_notices.noticed_at
@@ -11268,6 +11287,7 @@ vendor_profiles.microsite_featured_editorial_ids
 vendor_profiles.microsite_featured_service_ids
 vendor_profiles.microsite_sections
 vendor_profiles.portfolio_r2_keys
+vendor_profiles.portfolio_section_order
 vendor_profiles.public_id
 vendor_profiles.public_visibility
 vendor_profiles.registration_number_needs_review

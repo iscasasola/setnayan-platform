@@ -320,10 +320,6 @@ export async function buildPersonalDataExport(
     ownMoodBoardChangesRes,
     ownFeeDisputesRes,
     ownPollVotesRes,
-    articleTopicsRes,
-    articleRepliesRes,
-    articleCodesRes,
-    articlePauseRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -934,6 +930,10 @@ export async function buildPersonalDataExport(
     chatSeatsRes,
     blockerShowsRes,
     privateReceivedRes,
+    articleTopicsRes,
+    articleRepliesRes,
+    articleCodesRes,
+    articlePauseRes,
   ] = await Promise.all([
     // What Setnayan told this person in the app. Recipient-scoped: every row is
     // addressed to them. A body can quote a chat message somebody sent them, so

@@ -102,3 +102,4 @@
 /sample/[...rest]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /dev/story-suppliers-lab	# first run 2026-11-13 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/articles-lab	# 2026-11-16 · internal (dev, prototypes) · Articles list + thread on fixture data for screenshots; 404 in production, reached only by typing its address

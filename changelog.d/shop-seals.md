@@ -13,14 +13,17 @@ Engine only: no UI, no new server action, no new route.
 - **Migration `20271348269771`**: `seal_awarded` added IF NOT EXISTS (J0, #7753, adds it too — whichever lands first wins).
 - **`lib/shop-seals.ts`** (pure) + **`lib/shop-seals.server.ts`**: Top 10 (≥ 10 events that year, none cancelled by the
   shop, the ten highest review scores) · No. 1 (the first of them) · Most In-Demand (top 10% by completed bookings,
-  refunds not counted) · Verified Partner (ten rules; rules 9 and 10 swappable in `PARTNER_RULES_AWAITING_OWNER`) ·
-  `displayedSeals` (Verified Partner permanently replaces Setnayan Verified). They extend the Spotlight engine: same
+  refunds not counted) · Verified Partner (ten rules; rules 9 and 10 as ruled 15 Nov, 7fbff0cd, in one list `PARTNER_RULES_9_AND_10`) ·
+  `displayedSeals` (Verified Partner permanently replaces Setnayan Verified) · No. 1's ONE FREE YEAR of the shop's
+  current plan (7fbff0cd (6)) recorded `plan_gift_state = 'owed'` on its row with the plan at award, for G3's
+  gift-to-shop flow (#7674, not merged) to give — no new money path. They extend the Spotlight engine: same
   pool, same score (`topPickScore`, now exported from `lib/vendor-badges.ts`), same top-10% rule. `RETIRED_SPOTLIGHT_AWARDS`
   names the three monthly awards the seals replace; `vendor_spotlight_awards` is not touched.
 - **Named gaps (nothing invented):** the first award year (`FIRST_SEAL_YEAR = null` ⇒ the yearly run gives nothing) ·
   the award date / year window (calendar year, ended in Manila) · the Clients' Choice winner rule and its yearly count
   (no booked-at date) · "cancelled by the shop" (recorded only for schedule-pool bookings) · the yearly rating (trusted
-  stats are lifetime) · rule 10's invites counter (none exists ⇒ Verified Partner cannot be given yet).
+  stats are lifetime) · rule 10's Invites counter (ruled, but the supplier-import door is not built ⇒ unread ⇒ Verified Partner cannot be
+  given yet).
 - Tests: `lib/shop-seals.test.ts` (22) and `tests/db/the-seals-are-counted-and-given-once.db.test.ts` (7), each claim
   sabotage-checked. `tests/db/ugat-both-ends.baseline.txt` gains one named row (`seal_awarded`, paid down by J4).
 

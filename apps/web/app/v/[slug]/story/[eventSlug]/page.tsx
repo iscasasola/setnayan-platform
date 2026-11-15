@@ -49,7 +49,7 @@ export default async function ShopStoryPage({ params }: Props) {
           {shop.name}
         </a>
 
-        <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta-700" data-story-shop="">
+        <p className="mt-3 text-sm font-semibold text-terracotta-700" data-story-shop="">
           {[shop.name, shop.kind].filter(Boolean).join(' · ')}
         </p>
         <h1 className="mt-1 font-serif text-[30px] leading-tight text-ink sm:text-[40px]">{story.hostNames}</h1>
@@ -83,7 +83,7 @@ export default async function ShopStoryPage({ params }: Props) {
 
         {work ? (
           <section className="mt-7" data-story-work="">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">What we did</h2>
+            <h2 className="sn-sec">What we did</h2>
             <div className="mt-2 flex items-baseline justify-between gap-3 border-t border-ink/10 pt-2 text-[15px]">
               <span className="text-ink">{work.title}</span>
               {work.kind ? <span className="text-right text-[14px] text-ink/60">{work.kind}</span> : null}
@@ -93,14 +93,14 @@ export default async function ShopStoryPage({ params }: Props) {
 
         {note ? (
           <section className="mt-7" data-story-note="">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">{IN_OUR_WORDS}</h2>
+            <h2 className="sn-sec">{IN_OUR_WORDS}</h2>
             <p className="mt-2 whitespace-pre-line text-[15.5px] leading-relaxed text-ink">&ldquo;{note}&rdquo;</p>
           </section>
         ) : null}
 
         {review && (review.body || review.stars) ? (
           <section className="mt-7" data-story-review="">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">What they said</h2>
+            <h2 className="sn-sec">What they said</h2>
             {review.stars ? (
               <p className="mt-2 flex items-center gap-0.5 text-terracotta" aria-label={`${review.stars} of 5 stars`}>
                 {Array.from({ length: Math.max(0, Math.min(5, review.stars)) }, (_, i) => (

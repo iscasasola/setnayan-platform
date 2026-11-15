@@ -42,6 +42,7 @@
  *
  * Pure: `now` and the zone are handed in, so every branch runs under a test.
  */
+import { withPickedDate } from './event-anchor';
 import { getLifecyclePhase, isWebsitePhasesEnabled, manualLaunchPhase } from './invitation-widgets';
 import { invitationOpensOn, venueDayOf, ymdOf } from './invitation-opens-on';
 import { sanitizeRsvpAskConfig, type RepliesClose, type RepliesOpen } from './rsvp-ask';
@@ -88,11 +89,14 @@ export type ReplyWindowEvent = {
   /** The couple's Reply-by date (`guest_list_edit_deadline`). */
   guest_list_edit_deadline?: string | null;
   rsvp_ask_config: unknown;
+  /** 📅 RW-59: the type and its picked day(s) — an event with no `event_date` but ONE picked day is dated by it. */
+  event_type?: string | null;
+  date_candidates?: readonly (string | null | undefined)[] | null;
 };
 
 /** The columns `ReplyWindowEvent` names, for a select that must carry them (the zone comes from the venue). */
 export const REPLY_WINDOW_EVENT_COLUMNS =
-  'event_type, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, guest_list_edit_deadline, rsvp_ask_config, venue_latitude, venue_longitude' as const;
+  'event_type, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, guest_list_edit_deadline, rsvp_ask_config, venue_latitude, venue_longitude, date_candidates' as const;
 
 /** What of the event's TYPE the window needs: does it have a Save the Date face, and is it solemn. */
 export type ReplyFace = { phasesEnabled: boolean; solemn: boolean };
@@ -140,7 +144,12 @@ function invitationStage(event: ReplyWindowEvent, nowMs: number, tz: string | un
 /**
  * THE WINDOW. `now` is a Date or epoch ms; `tz` the venue's zone (`eventTimezoneFromCoords`).
  */
-export function replyWindow(event: ReplyWindowEvent, now: Date | number, tz: string | null | undefined, face: ReplyFace): ReplyWindow {
+export function replyWindow(eventIn: ReplyWindowEvent, now: Date | number, tz: string | null | undefined, face: ReplyFace): ReplyWindow {
+  /* 📅 RW-59 (re-walk 14 Nov 2026): ONE answer for every reader. The Event Hub dates an event by its one picked day
+     (`withPickedDate`, the Hub's loader) — so its cover offered "Confirm attendance" — while the reply page read the raw
+     row, found no date, and said "Replies are not open yet": a dead end. Applied here, every caller (the Hub, the reply
+     page, the landing, the writers, the reminder email) reads the same date. A row already dated is unchanged. */
+  const event = withPickedDate(eventIn);
   const nowMs = typeof now === 'number' ? now : now.getTime();
   const zone = (tz ?? '').trim() || undefined;
   const today = venueDayOf(zone, nowMs);

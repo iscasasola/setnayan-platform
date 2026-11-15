@@ -115,12 +115,12 @@ export default async function AdminPaymentOptionsPage() {
       <section className="mb-10">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
           Needs review
-          <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900">
+          <span className="rounded-full bg-warn-100 px-2 py-0.5 text-warn-900 text-[12px] font-bold">
             {error ? '—' : needsReview.length}
           </span>
         </h2>
         {error ? null : needsReview.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-ink/55">
+          <p className="border-dashed py-10 text-center text-sm text-ink/55 border-t border-ink/10">
             Nothing waiting for review — every payment method is approved or
             removed.
           </p>
@@ -139,7 +139,7 @@ export default async function AdminPaymentOptionsPage() {
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
           Published links &amp; QRs
-          <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
+          <span className="rounded-full bg-success-100 px-2 py-0.5 text-success-800 text-[12px] font-bold">
             {error ? '—' : published.length}
           </span>
         </h2>
@@ -148,7 +148,7 @@ export default async function AdminPaymentOptionsPage() {
           that look off with Hold or Remove.
         </p>
         {error ? null : published.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-ink/55">
+          <p className="border-dashed py-10 text-center text-sm text-ink/55 border-t border-ink/10">
             No approved links or QR codes yet.
           </p>
         ) : (
@@ -183,7 +183,7 @@ function PaymentMethodCard({
           <p className="truncate text-base font-semibold text-ink">
             {row.business_name}
           </p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+          <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             <span>{row.label || '—'}</span>
             {row.provider ? (
               <>
@@ -197,7 +197,7 @@ function PaymentMethodCard({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {row.is_primary ? (
-            <span className="rounded-full bg-ink/8 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/65">
+            <span className="rounded-full bg-ink/8 px-2 py-0.5 text-ink/65 text-[12px] font-bold">
               Primary
             </span>
           ) : null}
@@ -234,13 +234,13 @@ function MethodDetail({ row }: { row: CardRow }) {
         <div className="flex flex-wrap items-center gap-2">
           <AllowlistBadge allowlisted={allowlisted} />
           {row.link_domain ? (
-            <span className="font-mono text-[11px] text-ink/55">
+            <span className="text-[12px] text-ink/55 tabular-nums">
               {row.link_domain}
             </span>
           ) : null}
         </div>
         {row.link_url ? (
-          <p className="break-all font-mono text-[11px] text-ink/75">
+          <p className="break-all text-[12px] text-ink/75 tabular-nums">
             {row.link_url}
           </p>
         ) : (
@@ -265,14 +265,14 @@ function MethodDetail({ row }: { row: CardRow }) {
             />
           </span>
         ) : (
-          <span className="inline-flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-dashed border-ink/15 bg-white/50 text-center text-[10px] text-ink/45">
+          <span className="inline-flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-dashed border-ink/15 bg-white/50 text-center text-[12px] text-ink/45">
             No QR image
           </span>
         )}
         <div className="min-w-0 space-y-1">
           <p className="font-medium text-ink/75">Decoded destination</p>
           {row.decoded_destination ? (
-            <p className="break-all font-mono text-[11px] text-ink/75">
+            <p className="break-all text-[12px] text-ink/75 tabular-nums">
               {row.decoded_destination}
             </p>
           ) : (
@@ -297,7 +297,7 @@ function MethodDetail({ row }: { row: CardRow }) {
       {row.account_number ? (
         <p>
           <span className="text-ink/45">Account number:</span>{' '}
-          <span className="font-mono text-ink/75">{row.account_number}</span>
+          <span className="text-ink/75 tabular-nums">{row.account_number}</span>
         </p>
       ) : null}
       {!row.account_name && !row.account_number ? (
@@ -398,7 +398,7 @@ function MethodTypeBadge({ type }: { type: PaymentMethodType }) {
   };
   return (
     <span
-      className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${tone[type]}`}
+      className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${tone[type]}`}
     >
       {label[type]}
     </span>
@@ -420,7 +420,7 @@ function ModerationBadge({ status }: { status: ModerationStatus }) {
   };
   return (
     <span
-      className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${tone[status]}`}
+      className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${tone[status]}`}
     >
       {label[status]}
     </span>
@@ -429,11 +429,11 @@ function ModerationBadge({ status }: { status: ModerationStatus }) {
 
 function AllowlistBadge({ allowlisted }: { allowlisted: boolean }) {
   return allowlisted ? (
-    <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
+    <span className="rounded-full bg-success-100 px-2 py-0.5 text-success-800 text-[12px] font-bold">
       on allowlist
     </span>
   ) : (
-    <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900">
+    <span className="rounded-full bg-warn-100 px-2 py-0.5 text-warn-900 text-[12px] font-bold">
       off allowlist
     </span>
   );

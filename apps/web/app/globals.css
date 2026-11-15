@@ -3523,6 +3523,12 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-warning:    #B77E2E;  --sn-warning-soft: #F6EAD2;
   --sn-danger:     #A6483B;  --sn-danger-soft:  #F3E1DC;
   --sn-info:       #4E6C82;  --sn-info-soft:    #E2EAEF;
+  /* 🎟 SHOP-02 v7 · CHECK A DATE: days read like a cinema seat plan (approved 14 Nov 2026). ONE set, also the
+     supplier's Clients calendar. Owner ruling: the green is the SAME in both themes; only the shine changes. */
+  --seat-top: #B4E5AE;  --seat-bottom: #B4E5AE;  --seat-ink: #14281D;  --seat-shine: 0.60;
+  --seat-hot-line: #A9834B;
+  /* a day you can neither ask about nor book: filled grey, striped */
+  --seat-off: #EEEAE3;  --seat-off-ink: #5B5752;  --seat-off-line: #D9D3C8;  --seat-off-hatch: #CFC8BC;
 
   /* type — via next/font variables (see header note) */
   --sn-font: var(--font-hanken), system-ui, sans-serif;
@@ -3716,6 +3722,10 @@ html.dark {
   --sn-warning:    #F0B45A;  --sn-warning-soft: #403522;
   --sn-warning-deep: #F6CB8A;
   --sn-danger:     #F2817A;  --sn-danger-soft:  #443029;
+  /* 🎟 SHOP-02 v7: the seat green is the same in dark (owner ruling); only the shine is softer. */
+  --seat-top: #B4E5AE;  --seat-bottom: #B4E5AE;  --seat-ink: #14281D;  --seat-shine: 0.14;
+  --seat-hot-line: #A9834B;
+  --seat-off: #2A2620;  --seat-off-ink: #CFCAC0;  --seat-off-line: #423D35;  --seat-off-hatch: #4A443B;
   --sn-info:       #9DB2CE;  --sn-info-soft:    #373736;
 
   --sn-glass-bg:   rgba(35,32,25,.5);
@@ -4814,7 +4824,7 @@ html.dark [data-art='candlelight'] {
 /* ── Event Hub theme MATERIALS (owner 2026-09-22) ────────────────────────────
    Owner: *"we have event hub themes"* — and he was right. `lib/invite-themes.ts`
    has carried five since 2026-09-10 (House free · Capiz · Velvet · Galeriya ·
-   Abaca on Event Hub Pro), and they stopped at `/[slug]/invite`. Everything
+   Abaca on Event Pro), and they stopped at `/[slug]/invite`. Everything
    BEHIND that door — save-the-date, RSVP, event, editorial, recap, pabuya, hub
    — was still the one Clean-Editorial look. Owner ruling the same day: the site
    wears the theme the couple already picked for their door. One choice, one

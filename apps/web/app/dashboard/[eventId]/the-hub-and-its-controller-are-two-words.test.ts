@@ -240,8 +240,8 @@ test('the product card keeps the guest word and the Pro SKU keeps its name', () 
       'that it opens the controller is the papic shape the 2026-09-02 ruling asked for.',
   );
 
-  const pro = ADD_ONS.find((a) => a.label === 'Event Hub PRO');
-  assert.ok(pro, '"Event Hub PRO" lost its name — it upgrades the GUEST SITE, so it keeps the word');
+  const pro = ADD_ONS.find((a) => a.label === 'Event Pro');
+  assert.ok(pro, '"Event Pro" lost its name — it upgrades the GUEST SITE, so it keeps the word');
 });
 
 /* ══ 3 · THE HOSTED CHANNEL IS ON SALE, PER DAY ═════════════════════════════ */

@@ -32,9 +32,9 @@ const OfflineDiagnostic = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="m-card p-6 text-sm text-ink-soft">
+      <p className="py-3 text-[13px] text-ink/60" aria-busy="true">
         Loading offline diagnostic…
-      </div>
+      </p>
     ),
   },
 );

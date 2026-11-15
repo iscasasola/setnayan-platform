@@ -74,8 +74,8 @@ async function newEvent(name: string, token: string): Promise<string> {
 
 async function shop(name: string): Promise<string> {
   const vp = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (business_name, verification_state, last_verified_at)
-     VALUES ($1, 'verified', NOW()) RETURNING vendor_profile_id`,
+    `INSERT INTO public.vendor_profiles (business_name, verification_state, last_verified_at, public_visibility)
+     VALUES ($1, 'verified', NOW(), 'verified') RETURNING vendor_profile_id`,
     [name],
   );
   return vp.rows[0]!.vendor_profile_id;

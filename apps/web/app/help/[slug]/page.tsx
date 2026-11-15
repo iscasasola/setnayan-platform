@@ -4,8 +4,8 @@ import { ChevronLeft } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import {
-  ALL_HELP_ARTICLES,
   findHelpArticle,
+  HELP_PRERENDER_SLUGS,
   relatedHelpArticles,
   helpMetaDescription,
   HELP_NOT_IN_THE_APP,
@@ -18,7 +18,12 @@ import {
 // is a fixed in-code constant, so we pre-render all slugs and 404 anything
 // else at the routing layer (dynamicParams=false) — no DB, no soft-404, no
 // loading boundary that would commit a 200 before notFound() runs.
-export const dynamicParams = false;
+//
+// 🧱 Help split (2026-11-14): only the answers that existed before the split are built ahead
+// (HELP_PRERENDER_SLUGS); an answer from a slot file renders on its first visit and is cached by `revalidate`.
+// So dynamicParams is true — and an unknown slug still 404s: generateMetadata calls notFound() before anything
+// streams, and there is no loading boundary above this page (lib/help-pages-built-ahead-stay-fixed.test.ts).
+export const dynamicParams = true;
 export const revalidate = 3600;
 
 const SITE_URL = (
@@ -67,7 +72,7 @@ function renderHelpBody(body: string) {
 }
 
 export function generateStaticParams(): Array<{ slug: string }> {
-  return ALL_HELP_ARTICLES.map(({ article }) => ({ slug: article.slug }));
+  return HELP_PRERENDER_SLUGS.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: Props) {

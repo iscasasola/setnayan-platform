@@ -133,7 +133,7 @@ test('the City or area is a closed pick — onboarding’s list or nothing, refu
 
 test('AddressPinField hides its two hint lines behind a prop — set in the Maker, never on the manual sheet', () => {
   const pin = stripComments(PIN);
-  assert.match(pin, /\{hideHints \? null : \(\s*<p className="text-\[10px\] text-ink\/45">\s*\{required \? MANUAL_VENUE_ADDRESS_HINT/);
+  assert.match(pin, /\{hideHints \? null : \(\s*<p className="text-\[12px\] text-ink\/75">\s*\{required \? MANUAL_VENUE_ADDRESS_HINT/);
   assert.match(pin, /\{pin \|\| !hideHints \? \(/, 'the unpinned "Drag the map…" line still shows in the Maker');
   assert.match(pin, /hideHints = false,/, 'the default must show them');
   assert.match(EDITORS, /<AddressPinField[\s\S]{0,200}hideHints[\s\S]{0,80}onChange=\{\(next\) => edit\(s\.slot, next\)\}/);

@@ -79,7 +79,7 @@ export function ListField({
                 type="button"
                 onClick={() => setRows((prev) => prev.filter((p) => p.id !== r.id))}
                 aria-label={`Remove row ${i + 1}`}
-                className="inline-flex h-11 w-11 min-h-[44pt] items-center justify-center rounded-md border border-ink/15 bg-cream text-ink/60 transition-colors hover:border-ink/30 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                className="inline-flex h-11 w-11 min-h-[44pt] items-center justify-center rounded-md border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-ink/30 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
               >
                 <X aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               </button>
@@ -97,7 +97,7 @@ export function ListField({
           <span>Add another</span>
         </button>
       ) : (
-        <p className="text-xs italic text-ink/55">
+        <p className="text-xs italic text-ink/70">
           That&rsquo;s the cap — {LIST_MAX} keeps the list scannable for guests.
         </p>
       )}

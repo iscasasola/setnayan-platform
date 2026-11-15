@@ -574,9 +574,11 @@
   color: #2a1a08;
 }
 .awDlg::backdrop {
-  background: var(--sn-scrim);
-  backdrop-filter: blur(var(--sn-scrim-blur));
-  -webkit-backdrop-filter: blur(var(--sn-scrim-blur));
+  /* v86 (owner 15 Nov, "and also the background"): every seal's plaque stands on the same warm black stage its show
+     played on, never a grey veil over the page */
+  background: radial-gradient(85% 60% at 50% 40%, #3a2a10, #1a1208 45%, #080604 75%, #000);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 /* a closed dialog stays hidden (these classes set a display of their own) */
 .awDlg:not([open]),
@@ -644,16 +646,10 @@
 .arriving .awMnt {
   opacity: 0;
 }
+/* v86 (owner 15 Nov: "the seal landing to the plaque is still not smooth"): the mounted seal takes over AT REST and the
+   niche takes the weight with a 4% breath (slBind, below) — never a jump to 108% on the landing frame */
 .landed .awSeal {
-  animation: slLand 0.6s cubic-bezier(0.2, 1.6, 0.4, 1);
-}
-@keyframes slLand {
-  0% {
-    transform: scale(1.08);
-  }
-  100% {
-    transform: scale(1);
-  }
+  animation: slBind 0.55s cubic-bezier(0.3, 0, 0.3, 1);
 }
 /* mounted: the seal is held still on the board; only light moves over it */
 .awMnt {
@@ -1240,16 +1236,15 @@
 .awSeal {
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .75 0 0 0 -.22'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")
       0 0/180px 180px,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012 .03' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .55 0 0 0 0 .6 .5 0 0 0 -.22'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E")
-      0 0/260px 260px,
-    radial-gradient(55% 45% at 38% 28%, rgba(255, 90, 110, 0.28), transparent 70%),
     radial-gradient(120% 90% at 50% 40%, #a3102b, #7a0920 45%, #4a0414 78%, #2a020b);
   box-shadow: inset 0 0 0 2px #d9a93f, inset 0 0 0 3px #4a3206, inset 0 14px 22px rgba(20, 0, 4, 0.85), inset 0 -8px 18px rgba(20, 0, 4, 0.55),
     inset 10px 0 18px rgba(20, 0, 4, 0.45), inset -10px 0 18px rgba(20, 0, 4, 0.45), 0 1px 0 rgba(255, 236, 190, 0.15);
 }
+/* v86 (owner 15 Nov: "the velvet fabric should not be shining") — MATTE: no pink crushed sheen, no highlight, no edge
+   glow; the pile grain and the deep crimson only, lit softly */
 .awSeal::before {
-  opacity: 1;
-  background: radial-gradient(130% 100% at 50% 100%, transparent 55%, rgba(255, 120, 140, 0.1) 80%, transparent 95%);
+  opacity: 0;
+  background: none;
 }
 .awMnt::before {
   display: none;
@@ -1265,7 +1260,7 @@
 }
 .awDlg[data-k='no1'] .awMnt {
   width: 372px;
-  height: 414px;
+  height: 354px;
 }
 
 /* ───────────────────────── v44: the diamonds sparkle and the gold shines — on an iPhone too ─────────────────────────
@@ -1855,4 +1850,156 @@
   font-size: 12px;
   line-height: 1.35;
   opacity: 0.8;
+}
+
+/* ───────────────────────── v86 · THE SEAL STAGE, THE GLINTS, THE NAMED GAPS ─────────────────────────
+   owner 15 Nov: "a more premium background style like this but golden and elitist" (the Verified rays, in gold) — the
+   stage of the four other seals: warm black, broad gold rays and fine gold lines turning slowly in opposite directions,
+   gold motes drifting. Transform-only motion. "we can remove the gold glow" — there is no glow behind the plaque. */
+.awSky {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 200vmax;
+  height: 200vmax;
+  z-index: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  background: repeating-conic-gradient(from 0deg, rgba(242, 198, 96, 0.17) 0 5deg, rgba(242, 198, 96, 0) 5deg 15deg);
+  -webkit-mask: radial-gradient(closest-side, #000 8%, rgba(0, 0, 0, 0.55) 40%, transparent 72%);
+  mask: radial-gradient(closest-side, #000 8%, rgba(0, 0, 0, 0.55) 40%, transparent 72%);
+  animation: awSky 90s linear infinite;
+  opacity: 1;
+  transition: opacity 1.2s ease-out;
+}
+.awSky2 {
+  background: repeating-conic-gradient(from 7.5deg, rgba(255, 232, 170, 0.2) 0 0.5deg, rgba(255, 232, 170, 0) 0.5deg 15deg);
+  animation-duration: 140s;
+  animation-direction: reverse;
+}
+@keyframes awSky {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+.awMos {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  transition: opacity 1.2s ease-out;
+}
+.awMo {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #f6d98e;
+  box-shadow: 0 0 7px #f3c866;
+  opacity: 0.75;
+  animation: awMoDrift 7s ease-in-out infinite;
+}
+@keyframes awMoDrift {
+  50% {
+    transform: translateY(-18px);
+    opacity: 0.25;
+  }
+}
+.awDlg[data-k='no1'] .awSky,
+.awDlg[data-k='no1'] .awMos {
+  display: none;
+}
+.awDlg.arriving .awSky,
+.awDlg.arriving .awMos {
+  opacity: 0;
+}
+.awDlg > .awFit {
+  z-index: 1;
+}
+
+/* owner 15 Nov: "diamonds are not sparkling randomly / velvet still sparkles" — one glint, once, on a random diamond
+   (No. 1) or stud (the others), placed by the plaque at random moments; the mounted seal has no fixed sparkles */
+.awSp.awGlOne {
+  animation: awGlOnce 1.2s ease-out 1 forwards;
+}
+@keyframes awGlOnce {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) rotate(0);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1) rotate(35deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.3) rotate(80deg);
+  }
+}
+
+/* every seal's plaque: the costliest effects go (each repainted the whole plaque on every frame) — v86 */
+.awDlg .awGf,
+.awDlg .awHlSw,
+.awDlg .awPlate .awSh {
+  display: none;
+}
+.awDlg .awSt::after {
+  animation: none;
+  mix-blend-mode: normal;
+}
+.awDlg .awDg {
+  filter: none;
+}
+.awDlg .awShare {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ⚖ NAMED GAP (off by default) — v86 shopLogoWatermark: the shop's logo in gold line, large and faint behind the No. 1
+   plaque inside two gold rings; the stage shows through it */
+.awWm {
+  position: fixed;
+  left: 50%;
+  top: 36%;
+  width: min(118vw, 73vh, 760px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  opacity: 0.2;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 1.2s 0.3s;
+}
+.awDlg.arriving .awWm {
+  opacity: 0;
+}
+.awWmRings,
+.awWmRings > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.awWmLogo {
+  position: absolute;
+  inset: 7.5%;
+  background: linear-gradient(135deg, #fff1c0, #d9a93f 50%, #8a6214);
+  -webkit-mask: var(--wm) center/contain no-repeat;
+  mask: var(--wm) center/contain no-repeat;
+}
+
+/* ⚖ NAMED GAP, UNRULED — No. 1's gift (it has none yet): shown only when one is handed in; where it sits is unruled */
+.awGift {
+  position: absolute;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .awSky,
+  .awMo {
+    animation: none;
+  }
 }

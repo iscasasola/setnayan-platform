@@ -1,10 +1,13 @@
 /**
- * 🎊 BLACK AND GOLD CONFETTI — No. 1 ONLY. A port of `awConfetti` from the owner-approved prototype
- * `badge-milestones_v48.html` (owner 15 Nov). Two cannons at the lower left and lower right blow it up; it falls with
- * air drag, swaying and flipping, and it NEVER stops: a piece that leaves the bottom comes back in from the top. No
- * fade. v49: handed the No. 1 reveal's live pieces, it adopts them mid-air (no restart). v48: a 120-piece rain set falls alongside the burst so no gap ever opens. Kept light for phones: 110 + 120
- * pieces, one colour table, setTransform (no save/restore), dpr ≤ 1.5.
- * Frame-rate independent (dt). Runs until `alive()` turns false (the plaque closes). Loaded only by a dynamic import.
+ * 🎊 BLACK AND GOLD CONFETTI — No. 1 ONLY. A port of `awConfetti` + `awConfettiEnd` from the owner-approved prototype
+ * `badge-milestones_v86.html` (owner 15 Nov). Two cannons at the lower left and lower right blow it up; it falls with
+ * air drag, swaying and flipping, and a piece that leaves the bottom comes back in from the top — UNTIL `end()`.
+ * v86 (owner 15 Nov: "Let us end the confetti once the seal lands to the plaque"): from the landing on nothing new
+ * falls — rain still above the top is dropped, the pieces in the air finish their fall, the ones resting on the plaque
+ * slide off, and then the canvas is cleared and the loop stops by itself. (Supersedes v46 "never stops".) No fade.
+ * v49: handed the No. 1 reveal's live pieces, it adopts them mid-air (no restart). v48: a 120-piece rain set falls
+ * alongside the burst so no gap ever opens. Kept light for phones: 110 + 120 pieces, one colour table, setTransform
+ * (no save/restore), dpr ≤ 1.5. Frame-rate independent (dt). Loaded only by a dynamic import.
  */
 import type { RevealPiece } from './story-rig';
 
@@ -57,6 +60,8 @@ export type Piece = {
   sd?: boolean;
   /** v51: ledges this piece has already decided on (bit per ledge; cleared when it re-enters at the top). */
   done?: number;
+  /** v86: out of the show for good (after `end()`). */
+  gone?: boolean;
   /** v51: ms left resting on a ledge (> 0 = resting). */
   st?: number;
   /** v51: which ledge it rests on. */
@@ -152,15 +157,17 @@ export function adoptRevealPieces(seed: ConfettiSeed, dpr: number, rnd: (a: numb
 }
 
 /**
- * Rains confetti on `c` while `alive()` holds; returns a stop function. With a `seed` (the No. 1 reveal handing over)
- * it adopts the reveal's live pieces instead of firing the cannons; unseeded (Reduce Motion) it is unchanged.
+ * Rains confetti on `c` while `alive()` holds. With a `seed` (the No. 1 reveal handing over) it adopts the reveal's live
+ * pieces instead of firing the cannons; unseeded (Reduce Motion) it fires them. `end()` (the seal has landed) lets the
+ * last pieces finish and then stops; `stop()` clears at once (the plaque closed).
  */
-export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: ConfettiSeed, ledgeEls?: () => readonly (Element | null)[]): () => void {
+export type ConfettiHandle = { stop: () => void; end: () => void };
+export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: ConfettiSeed, ledgeEls?: () => readonly (Element | null)[]): ConfettiHandle {
   const dpr = Math.min(1.5, window.devicePixelRatio || 1);
   const W = (c.width = Math.round(window.innerWidth * dpr));
   const H = (c.height = Math.round(window.innerHeight * dpr));
   const x = c.getContext('2d');
-  if (!x) return () => {};
+  if (!x) return { stop: () => {}, end: () => {} };
   const rnd = (a: number, b: number) => a + Math.random() * (b - a);
   const g = 0.0009 * H;
   const N = CONFETTI_PIECES;
@@ -211,6 +218,8 @@ export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: Co
   const t0 = performance.now();
   let raf = 0;
   let stopped = false;
+  // v86 awConfettiEnd: once the seal lands, nothing new falls
+  let ended = false;
   let last = t0;
   // v51: ledges the paper can land on (canvas px), re-measured while the plaque rises
   let LG: Ledge[] = [];
@@ -246,7 +255,14 @@ export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: Co
     last = now;
     clear();
     ledges(now);
+    let live = 0;
     for (const p of P) {
+      if (p.gone) continue;
+      if (ended && p.rain && p.y < -4) {
+        p.gone = true;
+        continue;
+      }
+      live++;
       if (t < p.delay) continue;
       if ((p.st ?? 0) > 0) {
         ledgeRest(p, LG[p.lg ?? -1], dt, dpr, rnd);
@@ -267,6 +283,10 @@ export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: Co
         for (let li = 0; li < LG.length; li++) {
           if (ledgeDecide(p, py, LG[li]!, li, Math.random(), dpr, rnd)) break;
         }
+      if (p.y > H + 30 && ended) {
+        p.gone = true;
+        continue;
+      }
       if (p.y > H + 30) {
         p.done = 0;
         // rain re-enters just above the top; a burst piece re-enters anywhere across one screen above it (then rains)
@@ -280,12 +300,19 @@ export function awConfetti(c: HTMLCanvasElement, alive: () => boolean, seed?: Co
       else if (p.x > W + 40) p.x = -30;
       paint(p);
     }
+    // ended and nothing left in the air or on the plaque: the confetti is over
+    if (ended && !live) return clear();
     raf = requestAnimationFrame(step);
   };
   raf = requestAnimationFrame(step);
-  return () => {
-    stopped = true;
-    cancelAnimationFrame(raf);
-    clear();
+  return {
+    stop: () => {
+      stopped = true;
+      cancelAnimationFrame(raf);
+      clear();
+    },
+    end: () => {
+      ended = true;
+    },
   };
 }

@@ -476,6 +476,8 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
     hit: Uint8Array;
     ft: Float32Array;
     fq: Float32Array;
+    /** v86: where the cloth's middle sat when first drawn — the pile grain moves with it from there. */
+    vx0?: number;
   };
   let CL: Curtain[] = [];
   let simT = -1.2;
@@ -650,6 +652,73 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
     const sc = F3 / (F3 - p[k + 2]!);
     return [W / 2 + (p[k]! - W / 2) * sc, RAIL + (p[k + 1]! - RAIL) * sc, p[k + 2]!];
   };
+  // v57/v86 — the curtains wear the plaque niche's velvet: a fine dark pile grain made once as a tile (no image to load),
+  // laid over each cloth at one tile pixel per screen pixel and moved with it. MATTE (owner 15 Nov: "the velvet fabric
+  // should not be shining"): the grain only — v57's pink crushed-sheen tile is not made at all.
+  let VLV: CanvasPattern | null = null;
+  function velvetTiles(): CanvasPattern | null {
+    if (VLV) return VLV;
+    const vn = (N: number, gx: number, gy: number, oct: number, seed: number) => {
+      let sd = seed;
+      const R = () => {
+        sd = (sd * 16807) % 2147483647;
+        return sd / 2147483647;
+      };
+      const out = new Float32Array(N * N);
+      let amp = 1;
+      let tot = 0;
+      for (let o = 0; o < oct; o++) {
+        const X = gx << o;
+        const Y = gy << o;
+        const Gr = new Float32Array(X * Y);
+        for (let i = 0; i < Gr.length; i++) Gr[i] = R();
+        for (let py = 0; py < N; py++) {
+          const fy = (py / N) * Y;
+          const y0 = fy | 0;
+          const ty = fy - y0;
+          const sy = ty * ty * (3 - 2 * ty);
+          const y1 = (y0 + 1) % Y;
+          for (let px = 0; px < N; px++) {
+            const fx = (px / N) * X;
+            const x0 = fx | 0;
+            const tx = fx - x0;
+            const sx = tx * tx * (3 - 2 * tx);
+            const x1 = (x0 + 1) % X;
+            const a = Gr[y0 * X + x0]! + (Gr[y0 * X + x1]! - Gr[y0 * X + x0]!) * sx;
+            const b = Gr[y1 * X + x0]! + (Gr[y1 * X + x1]! - Gr[y1 * X + x0]!) * sx;
+            out[py * N + px] = out[py * N + px]! + (a + (b - a) * sy) * amp;
+          }
+        }
+        tot += amp;
+        amp *= 0.5;
+      }
+      for (let i = 0; i < out.length; i++) out[i] = out[i]! / tot;
+      return out;
+    };
+    const N = 260;
+    const tile = mkCanvas(N, N);
+    const tg = tile.getContext('2d');
+    if (!tg) return null;
+    const im = tg.createImageData(N, N);
+    const v = vn(N, 130, 130, 2, 11);
+    let sd = 7;
+    for (let i = 0; i < N * N; i++) {
+      sd = (sd * 16807) % 2147483647;
+      const r = (sd / 2147483647) * 0.55 + v[i]! * 0.45;
+      im.data[i * 4 + 3] = Math.max(0, Math.min(255, (0.75 * r - 0.22) * 255 * 0.95));
+    }
+    tg.putImageData(im, 0, 0);
+    VLV = x.createPattern(tile, 'repeat');
+    return VLV;
+  }
+  /** The current path (the cloth's outline) gets the grain; `dx` moves it with the cloth. */
+  function velvetOver(dx: number) {
+    const V = velvetTiles();
+    if (!V || typeof DOMMatrix === 'undefined') return;
+    V.setTransform(new DOMMatrix().translateSelf(dx, 0).multiplySelf(x.getTransform().invertSelf()));
+    x.fillStyle = V;
+    x.fill();
+  }
   function drawCurtain(cu: Curtain, spot: number) {
     // smooth (Gouraud-style) velvet: a normal per POINT, averaged from the faces around it, lit, then each cell is
     // painted with a gradient across it, so the folds read as soft round velvet, not facets
@@ -694,11 +763,11 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       const ny = N[k + 1]! / nn;
       const nz = Math.abs(N[k + 2]! / nn);
       const dif = Math.max(0, nx * LT[0] + ny * LT[1] + nz * LT[2]);
-      const rim = Math.pow(1 - nz, 1.5);
-      const sh = (0.08 + 1.25 * Math.pow(dif, 1.3)) * spot;
-      CRr[v] = Math.min(255, 150 * sh + 230 * rim * 0.45);
-      CGg[v] = Math.min(255, 8 * sh + 62 * rim * 0.45);
-      CBb[v] = Math.min(255, 30 * sh + 84 * rim * 0.45);
+      // v86 matte (owner 15 Nov: "the velvet fabric should not be shining"): no rim sheen, soft light, deep crimson
+      const sh = (0.3 + 0.72 * dif) * spot;
+      CRr[v] = Math.min(255, 163 * sh);
+      CGg[v] = Math.min(255, 16 * sh);
+      CBb[v] = Math.min(255, 43 * sh);
     }
     // velvet folds run top to bottom, so each fold is painted as ONE strip down the whole cloth (it follows every point
     // of the simulated edge), shaded across by its two edge colours, then darkened under the valance and at the floor
@@ -775,6 +844,15 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       x.lineTo(v[0], v[1]);
     }
     x.closePath();
+    {
+      // v86: the plaque's pile grain over the cloth, moving with it (so the grain never slides across it)
+      let mx = 0;
+      const m = CR >> 1;
+      for (let c = 0; c < CC; c++) mx += P[m * CC + c]![0];
+      mx /= CC;
+      if (cu.vx0 == null) cu.vx0 = mx;
+      velvetOver(mx - cu.vx0);
+    }
     x.fillStyle = vg;
     x.fill();
     // the gold edge braid on the stage-centre edge and the bullion fringe on the hem, riding the cloth
@@ -1071,18 +1149,16 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
     const cs: string[] = new Array(VN);
     for (let c = 0; c < VN; c++) {
       let sh = 0;
-      let rm = 0;
       for (let r = 1; r < VR; r++) {
         const k = (r * VN + c) * 3;
         const nn = Math.hypot(N[k]!, N[k + 1]!, N[k + 2]!) || 1;
         const nz = Math.abs(N[k + 2]! / nn);
         const dif = Math.max(0, (N[k]! / nn) * LT[0] + (N[k + 1]! / nn) * LT[1] + nz * LT[2]);
-        sh += 0.08 + 1.25 * Math.pow(dif, 1.3);
-        rm += Math.pow(1 - nz, 1.5);
+        // v86 matte: no rim sheen on the valance either
+        sh += 0.3 + 0.72 * dif;
       }
       sh = (sh / (VR - 1)) * spot;
-      rm = (rm / (VR - 1)) * 0.45;
-      cs[c] = `rgb(${Math.min(255, 150 * sh + 230 * rm) | 0},${Math.min(255, 8 * sh + 62 * rm) | 0},${Math.min(255, 30 * sh + 84 * rm) | 0})`;
+      cs[c] = `rgb(${Math.min(255, 163 * sh) | 0},${Math.min(255, 16 * sh) | 0},${Math.min(255, 43 * sh) | 0})`;
     }
     const y0 = P[VS]![1] - VTOP;
     const vg = x.createLinearGradient(0, y0, 0, y0 + 200);
@@ -1125,6 +1201,7 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       x.lineTo(v[0], v[1]);
     }
     x.closePath();
+    velvetOver(0);
     x.fillStyle = vg;
     x.fill();
     // the gold band, riding the cloth
@@ -1332,35 +1409,206 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
     }
     x.setTransform(KS, 0, 0, KS, 0, 0);
   }
+  /**
+   * v86 (owner 15 Nov: "place a ribbon banner for the and the no.1 supplier of the year is…"): the teaser words sit on
+   * a ribbon banner hung across the closed curtains — black satin (matte, like the velvet: no shine) with a double gold
+   * edge, its two notched tails folded behind each end. It replaces the dark pool that sat behind the words.
+   */
+  function teaserBanner(g: Ctx) {
+    const c = W / 2;
+    const L = c - 372;
+    const R = c + 372;
+    const T = 712;
+    const B = 1132;
+    const S = 30;
+    const DY = 70;
+    const TL = 104;
+    g.save();
+    const satin = (y0: number, y1: number) => {
+      const gr = g.createLinearGradient(0, y0, 0, y1);
+      gr.addColorStop(0, '#2b2214');
+      gr.addColorStop(0.18, '#17110a');
+      gr.addColorStop(0.82, '#0f0b07');
+      gr.addColorStop(1, '#231a0e');
+      return gr;
+    };
+    for (const d of [-1, 1]) {
+      const ox = d < 0 ? L : R;
+      const e = ox + d * TL;
+      const y0 = T + DY;
+      const y1 = B + DY;
+      g.shadowColor = 'rgba(0,0,0,.6)';
+      g.shadowBlur = 18;
+      g.shadowOffsetY = 8;
+      g.beginPath();
+      g.moveTo(ox - d * 60, y0);
+      g.lineTo(e, y0);
+      g.lineTo(e - d * 56, (y0 + y1) / 2);
+      g.lineTo(e, y1);
+      g.lineTo(ox - d * 60, y1);
+      g.closePath();
+      g.fillStyle = satin(y0, y1);
+      g.fill();
+      g.shadowColor = 'transparent';
+      g.lineJoin = 'miter';
+      g.strokeStyle = '#b8862a';
+      g.lineWidth = 5;
+      g.stroke();
+      g.beginPath();
+      g.moveTo(ox, B - 2);
+      g.lineTo(ox, y1);
+      g.lineTo(ox - d * 60, y1);
+      g.closePath();
+      g.fillStyle = '#050302';
+      g.fill();
+    }
+    const edge = (i: number) => {
+      g.beginPath();
+      g.moveTo(L + i, T + i);
+      g.quadraticCurveTo(c, T + i + S, R - i, T + i);
+      g.lineTo(R - i, B - i);
+      g.quadraticCurveTo(c, B - i + S, L + i, B - i);
+      g.closePath();
+    };
+    g.shadowColor = 'rgba(0,0,0,.7)';
+    g.shadowBlur = 30;
+    g.shadowOffsetY = 12;
+    edge(0);
+    g.fillStyle = satin(T, B + S);
+    g.fill();
+    g.shadowColor = 'transparent';
+    g.lineJoin = 'round';
+    const gl = g.createLinearGradient(0, T, 0, B + S);
+    gl.addColorStop(0, '#f3d27a');
+    gl.addColorStop(0.5, '#b8862a');
+    gl.addColorStop(1, '#e9c56a');
+    g.strokeStyle = gl;
+    g.lineWidth = 8;
+    edge(4);
+    g.stroke();
+    g.lineWidth = 2.5;
+    g.strokeStyle = 'rgba(217,169,63,.85)';
+    edge(20);
+    g.stroke();
+    g.restore();
+  }
+  // v86 (owner 15 Nov: "smoothest most realistic transition" / "fix the ribbon to flow in and flow out like a ribbon"):
+  // a REAL SCROLL. The banner starts as two tight rolls back to back in the middle and unrolls outward; the rolled part
+  // lies on a true cylinder (it foreshortens, turns from the light and shows the ribbon's dark back), each roll thins as
+  // it unwinds, the flat part carries a small travelling ripple that dies away, and every speed starts and ends at rest
+  // (smootherstep). Going out, it rolls back up from both ends and lifts away. `t` is the teaser clock.
+  let RBF: HTMLCanvasElement | null = null;
+  let RBK: HTMLCanvasElement | null = null;
+  function ribbonFlow(g: Ctx, src: HTMLCanvasElement, t: number, oy: number) {
+    const Hs = 960;
+    const C = W / 2;
+    const CY = 545;
+    const IN0 = 0.85;
+    const IN1 = 2.15;
+    const OUT0 = 3.05;
+    const OUT1 = 3.75;
+    if (t <= IN0 || t >= OUT1) return;
+    const cl = (u: number) => Math.max(0, Math.min(1, u));
+    const ss = (u: number) => {
+      u = cl(u);
+      return u * u * u * (u * (u * 6 - 15) + 10);
+    };
+    const kS = src.width / W;
+    const a = ss((t - IN0) / (IN1 - IN0));
+    const b = ss((t - OUT0) / (OUT1 - OUT0));
+    const MAXD = 480;
+    const hw = MAXD * a * (1 - b);
+    const r = 7 + 19 * Math.sqrt(Math.max(0, MAXD - hw) / MAXD);
+    const PR = Math.PI * r;
+    const amp = 1.5 + 9 * (1 - a) * a * 4 * 0.5 + 10 * b;
+    const yo = -12 * (1 - a) * (1 - a) - 46 * b * b;
+    if (!RBK) {
+      // the ribbon's dark back, made once
+      RBK = mkCanvas(src.width, src.height);
+      const q = RBK.getContext('2d');
+      if (q) {
+        q.drawImage(src, 0, 0);
+        q.globalCompositeOperation = 'source-atop';
+        q.fillStyle = '#070504';
+        q.fillRect(0, 0, RBK.width, RBK.height);
+      }
+    }
+    if (!RBF) RBF = mkCanvas(src.width, src.height);
+    const fx = RBF.getContext('2d');
+    if (!fx) return;
+    fx.setTransform(1, 0, 0, 1, 0, 0);
+    fx.clearRect(0, 0, RBF.width, RBF.height);
+    fx.setTransform(kS, 0, 0, kS, 0, 0);
+    const map = (d: number): [number, number, number] => {
+      if (d <= hw) return [d, 0, 0];
+      const th = (d - hw) / r;
+      return [hw + r * Math.sin(th), r * (1 - Math.cos(th)), th];
+    };
+    const SW = 4;
+    const flat: number[][] = [];
+    const roll: number[][] = [];
+    for (const side of [-1, 1])
+      for (let d0 = 0; d0 < MAXD; d0 += SW) {
+        if (d0 >= hw + PR) break;
+        const d1 = Math.min(d0 + SW, hw + PR);
+        const m = map((d0 + d1) / 2);
+        const p0 = map(d0);
+        const p1 = map(d1);
+        const xa = C + side * p0[0];
+        const xb = C + side * p1[0];
+        const L = Math.min(xa, xb);
+        const w = Math.abs(xb - xa) + 0.9;
+        if (w < 0.15) continue;
+        const ph = (d0 + d1) / 2 / 150 - t * 3.1;
+        const dy = amp * Math.sin(ph) * cl((d0 + d1) / 2 / 90);
+        const k = 1 + m[1] / 900;
+        const h = Hs * k;
+        const y = yo + dy + CY * (1 - k);
+        const sx = side > 0 ? C + d0 : C - d1;
+        const th = m[2];
+        const back = th > Math.PI / 2;
+        let dk: number;
+        if (th === 0) dk = (Math.max(0, -Math.cos(ph) * side) * amp) / 60;
+        else if (!back) dk = 0.62 * Math.pow(th / (Math.PI / 2), 1.4);
+        else dk = 0.9 - 0.3 * Math.sin(th);
+        (th === 0 ? flat : roll).push([sx, d1 - d0, L, y, w, h, Math.min(0.95, dk), m[1]]);
+      }
+    roll.sort((u, v) => u[7]! - v[7]!);
+    for (const [sx, sw, L, y, w, h, dk] of flat.concat(roll) as number[][] as Array<[number, number, number, number, number, number, number]>) {
+      fx.globalAlpha = 1;
+      fx.drawImage(src, sx * kS, 0, sw * kS, Hs * kS, L, y, w, h);
+      if (dk > 0.01) {
+        fx.globalAlpha = dk;
+        fx.drawImage(RBK, sx * kS, 0, sw * kS, Hs * kS, L, y, w, h);
+      }
+    }
+    fx.globalAlpha = 1;
+    const al = ss((t - IN0) / 0.22) * (1 - ss((b - 0.62) / 0.38));
+    g.save();
+    g.globalAlpha *= al;
+    g.drawImage(RBF, 0, 0, RBF.width, RBF.height, 0, oy, W, Hs);
+    g.restore();
+  }
   const gd2 = x.createLinearGradient(0, 760, 0, 1100);
   gd2.addColorStop(0, '#fff3c4');
   gd2.addColorStop(0.4, '#e9c56a');
   gd2.addColorStop(0.6, '#b8861e');
   gd2.addColorStop(1, '#f7dc8e');
-  /** v48 words on their dark pool, outlined and glowing (y 380–1340 of the scene), drawn once (v50). */
+  /** v86 words on their ribbon banner, outlined (y 380–1340 of the scene), drawn once (v50); shown by `ribbonFlow`. */
   function teaserBitmap(): HTMLCanvasElement {
     if (TZC) return TZC;
     TZC = mkCanvas(W, 960);
     const g = TZC.getContext('2d') as Ctx | null;
     if (g) {
       g.translate(0, -380);
-      // a dark pool behind the words so gold never sits straight on red velvet
-      g.save();
-      g.translate(W / 2, 950);
-      g.scale(1, 0.62);
-      const pool = g.createRadialGradient(0, 0, 0, 0, 0, 560);
-      pool.addColorStop(0, 'rgba(4,2,3,.88)');
-      pool.addColorStop(0.6, 'rgba(4,2,3,.7)');
-      pool.addColorStop(1, 'rgba(4,2,3,0)');
-      g.fillStyle = pool;
-      g.fillRect(-560, -560, 1120, 1120);
-      g.restore();
+      // v86: the black satin ribbon banner behind the words (it replaced the dark pool)
+      teaserBanner(g);
       g.textAlign = 'center';
       g.lineJoin = 'round';
       g.strokeStyle = 'rgba(6,3,4,.9)';
       g.fillStyle = gd2;
-      g.shadowColor = 'rgba(0,0,0,.9)';
-      g.shadowBlur = 22;
+      g.shadowColor = 'rgba(0,0,0,.75)';
+      g.shadowBlur = 8;
       const T = (f: string, ls: string, lw: number, s2: string, y: number) => {
         g.font = f;
         g.letterSpacing = ls;
@@ -1368,10 +1616,10 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
         g.strokeText(s2, W / 2, y);
         g.fillText(s2, W / 2, y);
       };
-      T('600 48px Georgia,serif', '12px', 8, 'AND THE', 790);
-      T('700 124px Georgia,serif', '6px', 12, 'No. 1', 925);
-      T('600 54px Georgia,serif', '8px', 8, 'SUPPLIER OF THE YEAR', 1020);
-      T('600 54px Georgia,serif', '8px', 8, 'IS…', 1100);
+      T('600 46px Georgia,serif', '12px', 6, 'AND THE', 790);
+      T('700 124px Georgia,serif', '6px', 10, 'No. 1', 925);
+      T('600 40px Georgia,serif', '5px', 6, 'SUPPLIER OF THE YEAR', 1015);
+      T('600 46px Georgia,serif', '8px', 6, 'IS…', 1088);
     }
     return TZC;
   }
@@ -1403,12 +1651,8 @@ export async function storyRig(o: StoryInput): Promise<StoryRig> {
       x.fillStyle = sl;
       x.fillRect(0, 0, W, H);
       x.restore();
-      const ta = Math.min(1, Math.max(0, (t - 0.9) / 0.7)) * (1 - Math.max(0, (t - OPEN0 + 0.3) / 0.5));
-      if (ta > 0) {
-        x.globalAlpha = ta;
-        x.drawImage(teaserBitmap(), 0, 380);
-        x.globalAlpha = 1;
-      }
+      // v86: the teaser scroll unrolls, holds, and rolls back up (its own fades are inside ribbonFlow)
+      if (t > 0.9 && t < 3.75) ribbonFlow(x, teaserBitmap(), t, 380);
     }
     if (t > OPEN0 + 1.3) vconf(t - (OPEN0 + 1.3));
     drawValance(spot);

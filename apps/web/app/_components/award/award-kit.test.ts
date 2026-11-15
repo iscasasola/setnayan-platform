@@ -402,7 +402,7 @@ test('7 · the recorder tries mp4 avc1 → mp4 → webm, else a picture; plaque 
   assert.equal(stripSlot('<svg/>'), '<svg/>');
 });
 
-test('11 · v46 the No. 1 reveal: confetti is No. 1 only and never stops; 15 s reveal vs 10 s; no blur on the sheen', async () => {
+test('11 · the No. 1 reveal: confetti is No. 1 only (v46) and ENDS when the seal lands (v86); 15 s reveal vs 10 s; no blur on the sheen', async () => {
   const { REVEAL_S, STORY_S, INTRO_END } = await import('./story-rig');
   assert.equal(REVEAL_S, 15);
   assert.equal(STORY_S, 10);
@@ -464,22 +464,40 @@ test('9 · the recorder is lazy: only its door names it, and only by import()', 
   assert.match(door, /lazy\(\(\) => import\(\s*(?:\/\*.*?\*\/\s*)?'\.\/story-video-impl'\)/);
 });
 
-test('10 · the No. 1 seal option draws, carries the year it is given, and stays out of the wiring', async () => {
+test('10 · v86 No. 1 IS the Top 10 medal reading #1 RANK — Cinzel outlines, 34 diamonds, its year, its own ids', async () => {
   const { no1Seal, no1SealSvg } = await import('./no1-seal-svg');
-  const svg = no1Seal(2027);
-  assert.match(svg, /viewBox="14 0 272 296"/);
-  assert.match(no1Seal(2027, 'arch'), /viewBox="17 0 266 296" width="372" height="414"/);
-  assert.ok(svg.includes('OF THE YEAR · 2027') && !svg.includes('2026'));
-  assert.ok(svg.includes('>SETNAYAN</textPath>'));
+  const card = no1Seal(2027);
+  assert.match(card, /viewBox="-10\.25 0 320 304" width="200" height="190"/, 'the medal frame, centred (v86 DY 14)');
+  assert.match(no1Seal(2027, 'arch'), /viewBox="-10\.25 0 320 304" width="372" height="354"/, 'fills the No. 1 niche');
+  // the #1 is v86's own Cinzel Bold outline, and NOTHING is <text> (a picture cannot use the page's Cinzel → Georgia)
+  assert.ok(card.includes('<path d="M40.85 46.8H42.56L38.38 70.6H36.67Z'), 'the #1 outline');
+  assert.doesNotMatch(card, /<text\b|<textPath\b|Georgia/, 'no <text> anywhere: SETNAYAN, RANK and the year are outlines too');
+  assert.ok(!card.includes('TOP 10') && !card.includes('SUPPLIER'), 'the medal reads #1 RANK, not TOP 10 SUPPLIER');
+  assert.equal((card.match(/class="dmd"/g) || []).length, 34, '34 brilliant-cut diamonds round the rim');
+  // the year it is given, on the ribbon, riding the 2.4× flow (a different year draws different digits)
+  assert.notEqual(no1Seal(2027), no1Seal(2031));
+  const yr = (y: string) => (no1Seal(y).match(/type="translate" values="[^"]*" keyTimes="0;\.34;\.68;1" dur="7\.4s"/g) || []).length;
+  assert.equal(yr('2027') - yr(''), 4, 'one riding outline per digit of the year');
+  // v86 ribbon movement 2.4× (95.9 → 96.45 becomes 95.9 → 97.22) and the swaying laurel
+  assert.ok(card.includes('M12,97.22 C37.33,90.22 62.67,93.34 88,94.82'), 'the year ribbon flows 2.4× further');
+  assert.ok(card.includes('type="rotate" values="0 40.93 111.29;-2.6 40.93 111.29;0.9 40.93 111.29;0 40.93 111.29"'), 'the wreath sways');
+  // every def id is this copy's own: two copies on one screen share none
+  const ids = (sv: string) => [...sv.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]!);
+  const A = ids(no1Seal(2027, 'arch', 'pa_'));
+  const B = ids(no1Seal(2027, 'arch', 'pb_'));
+  assert.ok(A.length > 20 && A.every((i) => i.startsWith('pa_')) && B.every((i) => i.startsWith('pb_')));
+  assert.equal(A.filter((i) => B.includes(i)).length, 0);
+  assert.ok(!no1Seal(2027).includes('§') && !no1Seal(2027).includes('{{YEAR}}'));
   assert.ok(!no1SealSvg({ anim: false, year: 2027 }).includes('<animate'), 'still art without anim');
-  assert.ok(no1SealSvg({ anim: true, year: 2027 }).includes('<animate'));
-  // an option only: nothing outside the kit may offer it until the owner rules what earns it
+  // the trophy drawing is NOT built
+  for (const f of KIT) assert.doesNotMatch(stripComments(readFileSync(join(DIR, f), 'utf8')), /trophySvg|awTro\b/, `${f}: no trophy`);
+  // an option only: nothing outside the kit may name its art until the owner rules what earns it
   const { execFileSync } = await import('node:child_process');
   const WEB = join(DIR, '..', '..', '..');
   const hits = execFileSync('git', ['ls-files', '--', 'app', 'lib'], { cwd: WEB, encoding: 'utf8' })
     .split('\n')
     .filter((f) => /\.(ts|tsx)$/.test(f) && !f.startsWith('app/_components/award/'))
-    .filter((f) => /no1-seal-svg|no1Seal/.test(stripComments(readFileSync(join(WEB, f), 'utf8'))));
+    .filter((f) => /no1-seal-svg|no1-rank-art|no1Seal\b/.test(stripComments(readFileSync(join(WEB, f), 'utf8'))));
   assert.deepEqual(hits, []);
 });
 
@@ -536,4 +554,174 @@ test('20 · the locked look: grey art under a lock, the group, the name, what it
   assert.ok(m.includes('>Seal<') && m.includes('<b>Top 10 Supplier</b>'));
   const css = readFileSync(join(DIR, 'award.module.css'), 'utf8');
   assert.ok(css.includes('filter: grayscale(1) contrast(0.75) brightness(1.08)'), 'the art is greyed');
+});
+
+/* ── v86 · the seals: No. 1's #1 RANK medal, the gold-ray stage, matte velvet, the smooth landing, the named gaps ── */
+
+test('21 · confetti is No. 1 ONLY, and it ENDS when the seal lands (v86 awConfettiEnd supersedes "never stops")', () => {
+  const plaque = stripComments(readFileSync(join(DIR, 'seal-plaque.tsx'), 'utf8'));
+  // the only door to the confetti refuses every seal but No. 1
+  const door = plaque.slice(plaque.indexOf('const confetti = ('), plaque.indexOf('const endConfetti = '));
+  assert.match(door, /if \(!c \|\| dead \|\| variant !== 'no1'\) return;/);
+  assert.match(door, /import\(\s*(?:\/\*.*?\*\/\s*)?'\.\/confetti'\)/, 'confetti only by import()');
+  // it is started in exactly two places: the No. 1 hand-over, and the Reduce-Motion burst that ends at once
+  const calls = [...plaque.matchAll(/(?<![.\w])confetti\(/g)].length;
+  assert.equal(calls, 2, 'confetti() is called twice: the reveal hand-over and the reduced-motion burst');
+  assert.match(plaque, /confetti\(\);\s*endConfetti\(\);/, 'without the show the burst ends at once (the seal is already home)');
+  // the gold seals' landing starts NO confetti
+  const goldLand = plaque.slice(plaque.indexOf('rig.hide = true;'), plaque.indexOf('} catch {', plaque.indexOf('rig.hide = true;')));
+  assert.ok(goldLand.length > 0 && !/\bconfetti\(/.test(goldLand), 'no confetti on Top 10, Clients’ Choice, Most In-Demand or Verified Partner');
+  // the end is wired to the landing: right after the flight finishes and the flyer is removed
+  const rev = plaque.slice(plaque.indexOf('const an = fly.animate(arcFrames(0, po.fy * k'), plaque.indexOf('rig.hide = true;'));
+  assert.match(rev, /await an\.finished[\s\S]*?fly\.remove\(\);\s*endConfetti\(\);/, 'the seal lands → the confetti ends');
+  assert.match(plaque, /const endConfetti = \(\) => \{\s*cfEnd = true;\s*cfH\?\.end\(\);/);
+  assert.match(plaque, /if \(cfEnd\) cfH\.end\(\);/, 'an end asked for before the chunk arrived still lands');
+  // and the confetti honours it: nothing new falls, the last pieces finish, then it stops by itself
+  const cf = stripComments(readFileSync(join(DIR, 'confetti.ts'), 'utf8'));
+  assert.match(cf, /if \(ended && p\.rain && p\.y < -4\) \{\s*p\.gone = true;/, 'rain still above the top is dropped');
+  assert.match(cf, /if \(p\.y > H \+ 30 && ended\) \{\s*p\.gone = true;/, 'a fallen piece does not come back once ended');
+  assert.match(cf, /if \(ended && !live\) return clear\(\);/, 'when nothing is left, the loop stops');
+  assert.match(cf, /end: \(\) => \{\s*ended = true;/);
+});
+
+test('22 · the four other seals stand on the gold-ray stage — rays and lines turning, motes drifting, NO glow', async () => {
+  const { SealPlaque } = await import('./seal-plaque');
+  const seal = h('svg', { viewBox: '0 0 100 100' }, h('circle', { cx: 50, cy: 50, r: 40 }));
+  const base = { seal, title: 'Top 10 Supplier', shopName: 'Petal & Pine', onClose: () => {} };
+  const gold = renderToStaticMarkup(h(SealPlaque, base));
+  assert.ok(gold.includes('data-award-stage="rays"') && gold.includes('data-award-stage="lines"') && gold.includes('data-award-stage="motes"'));
+  assert.equal((gold.match(/class="awMo"/g) || []).length, 16, 'v86 sixteen gold motes');
+  assert.doesNotMatch(gold, /glow|halo/i, 'no glow element behind the plaque');
+  const no1 = renderToStaticMarkup(h(SealPlaque, { ...base, variant: 'no1' }));
+  assert.ok(!no1.includes('data-award-stage'), 'No. 1 keeps its curtain stage, not the rays');
+  const css = readFileSync(join(DIR, 'award.module.css'), 'utf8');
+  const block = (sel: string) => css.slice(css.indexOf(`${sel} {`), css.indexOf('}', css.indexOf(`${sel} {`)));
+  const sky = block('.awSky');
+  assert.match(sky, /background: repeating-conic-gradient\(from 0deg, rgba\(242, 198, 96, 0\.17\) 0 5deg/, 'broad gold rays');
+  assert.match(sky, /animation: awSky 90s linear infinite/);
+  assert.doesNotMatch(sky.replace(/mask: radial-gradient\([^;]*;/g, ''), /radial-gradient/, 'the rays carry no glow of their own');
+  assert.match(block('.awSky2'), /animation-direction: reverse/, 'fine lines turning the other way');
+  // transform-only motion
+  const kf = (n: string) => css.slice(css.indexOf(`@keyframes ${n} {`), css.indexOf('}\n}', css.indexOf(`@keyframes ${n} {`)));
+  assert.doesNotMatch(kf('awSky').replace(/transform:[^;]*;/g, ''), /:\s/, 'the rays move by transform only');
+  assert.doesNotMatch(kf('awMoDrift').replace(/transform:[^;]*;|opacity:[^;]*;/g, ''), /:\s/, 'the motes by transform + opacity');
+  assert.match(css, /\.awDlg\[data-k='no1'\] \.awSky,\s*\.awDlg\[data-k='no1'\] \.awMos \{\s*display: none;/);
+  assert.match(block('.awDlg::backdrop'), /radial-gradient\(85% 60% at 50% 40%, #3a2a10, #1a1208 45%, #080604 75%, #000\)/, 'the warm black stage');
+});
+
+test('23 · the velvet is MATTE: no pink crushed sheen, no highlight, no edge glow — niche, curtains and valance', () => {
+  const css = readFileSync(join(DIR, 'award.module.css'), 'utf8');
+  const v41 = css.slice(css.indexOf('v41: the red velvet niche'), css.indexOf('No. 1 fills the arch'));
+  assert.ok(v41.length > 0);
+  assert.doesNotMatch(v41, /255, 90, 110|255, 120, 140|baseFrequency='\.012 \.03'/, 'no pink sheen, highlight or crushed layer on the niche');
+  assert.match(v41, /\.awSeal::before \{\s*opacity: 0;\s*background: none;/, 'no edge glow');
+  assert.match(v41, /#a3102b, #7a0920 45%, #4a0414 78%, #2a020b/, 'the deep crimson stays');
+  assert.match(v41, /baseFrequency='\.85'/, 'the pile grain stays');
+  const rig = stripComments(readFileSync(join(DIR, 'story-rig.ts'), 'utf8'));
+  const curtain = rig.slice(rig.indexOf('function drawCurtain('), rig.indexOf('// v49 (owner 15 Nov: "The upper curtain'));
+  assert.ok(curtain.length > 1000);
+  assert.doesNotMatch(curtain, /\brim\b/, 'the curtains have no rim sheen');
+  assert.match(curtain, /const sh = \(0\.3 \+ 0\.72 \* dif\) \* spot;/, 'lit softly');
+  assert.match(curtain, /velvetOver\(mx - cu\.vx0\)/, 'the pile grain rides the cloth');
+  const val = rig.slice(rig.indexOf('function drawValance('), rig.indexOf('// the gold band, riding the cloth'));
+  assert.ok(val.length > 1000);
+  assert.doesNotMatch(val, /\brm\b|Math\.pow\(1 - nz/, 'the valance has no rim sheen');
+  assert.match(val, /velvetOver\(0\);/);
+  const tiles = rig.slice(rig.indexOf('function velvetTiles('), rig.indexOf('function velvetOver('));
+  assert.doesNotMatch(tiles, /crush|140|153/, 'the crushed-sheen tile is not made at all');
+});
+
+test('24 · the No. 1 #1 is outlines; the named gaps (logo watermark, No. 1 gift) default OFF', async () => {
+  const { SealPlaque } = await import('./seal-plaque');
+  const seal = h('svg', { viewBox: '0 0 100 100' });
+  const base = { seal, title: 'No. 1 Supplier of the Year', shopName: 'Petal & Pine', onClose: () => {} };
+  const off = renderToStaticMarkup(h(SealPlaque, { ...base, variant: 'no1', shopLogoUrl: '/l.svg' }));
+  assert.ok(!off.includes('data-award-watermark'), 'no watermark unless showLogoWatermark');
+  assert.ok(!off.includes('data-award-no1-gift'), 'no gift unless one is handed in');
+  const noUrl = renderToStaticMarkup(h(SealPlaque, { ...base, variant: 'no1', showLogoWatermark: true }));
+  assert.ok(!noUrl.includes('data-award-watermark'), 'no logo, no watermark (nothing invented)');
+  const on = renderToStaticMarkup(h(SealPlaque, { ...base, variant: 'no1', showLogoWatermark: true, shopLogoUrl: '/l.svg', no1Gift: h('b', null, 'G') }));
+  assert.ok(on.includes('data-award-watermark') && on.includes('url(&quot;/l.svg&quot;)'), 'drawn when asked for');
+  assert.ok(on.includes('data-award-no1-gift') && on.includes('<b>G</b>'));
+  const gold = renderToStaticMarkup(h(SealPlaque, { ...base, showLogoWatermark: true, shopLogoUrl: '/l.svg', no1Gift: h('b', null, 'G') }));
+  assert.ok(!gold.includes('data-award-watermark') && !gold.includes('data-award-no1-gift'), 'both are No. 1 only');
+  const { logoWatermarkRings } = await import('./plaque-art');
+  assert.equal((logoWatermarkRings().match(/<circle /g) || []).length, 2, 'v86 shopLogoWatermark: two gold rings');
+  // seals never carry the days line (still): the plaque has no prop for it
+  assert.doesNotMatch(stripComments(readFileSync(join(DIR, 'seal-plaque.tsx'), 'utf8')), /achievedAfter|You achieved this/);
+});
+
+test('25 · art is lazy: the No. 1 art, the story rig and the confetti load only by import(), never in a first load', () => {
+  for (const f of KIT) {
+    const src = stripComments(readFileSync(join(DIR, f), 'utf8'));
+    const statics = [...src.matchAll(/^import\s[^;]*?from\s+['"]([^'"]+)['"]/gm)].filter((m) => !/^import\s+type\s/.test(m[0])).map((m) => m[1]);
+    if (f !== 'no1-seal-svg.ts') assert.ok(!statics.includes('./no1-rank-art'), `${f} statically imports the No. 1 art`);
+    assert.ok(!statics.includes('./no1-seal-svg'), `${f} statically imports the No. 1 builder`);
+    assert.ok(!statics.includes('./confetti'), `${f} statically imports the confetti`);
+    assert.doesNotMatch(src, /export\s*\{[^}]*\}\s*from\s*'\.\/no1-seal-svg'/, `${f} re-exports the No. 1 builder`);
+  }
+  const plaque = stripComments(readFileSync(join(DIR, 'seal-plaque.tsx'), 'utf8'));
+  assert.match(plaque, /await import\(\s*(?:\/\*.*?\*\/\s*)?'\.\/no1-seal-svg'\)/, 'the plaque fetches No. 1 on its tap');
+  const door = stripComments(readFileSync(join(DIR, 'no1-seal.ts'), 'utf8'));
+  assert.match(door, /import\(\s*(?:\/\*.*?\*\/\s*)?'\.\/no1-seal-svg'\)/);
+});
+
+test('26 · the landing is ONE smooth curve onto the seal AT REST; the niche breathes 4%, never jumps to 108%', async () => {
+  const { arcFrames } = await import('./fit');
+  const F = arcFrames(0, 12, 1, 0.02, 300, -200, 0.5);
+  assert.equal(F.length, 29, 'sampled densely');
+  assert.equal(F[0]!.transform, 'translate(0.00px,12.00px) scale(1.0000) rotate(0.0200rad)', 'starts on the staged medal');
+  assert.match(String(F[28]!.transform), /^translate\(300\.00px,-200\.00px\) scale\(0\.5000\) rotate\(-?0\.0000rad\)$/, 'ends exactly on the mounted seal, upright');
+  // no corner: every step's direction changes gently
+  const pts = F.map((f) => /translate\(([-\d.]+)px,([-\d.]+)px\)/.exec(String(f.transform))!.slice(1).map(Number));
+  for (let i = 2; i < pts.length; i++) {
+    const a = Math.atan2(pts[i - 1]![1]! - pts[i - 2]![1]!, pts[i - 1]![0]! - pts[i - 2]![0]!);
+    const b = Math.atan2(pts[i]![1]! - pts[i - 1]![1]!, pts[i]![0]! - pts[i - 1]![0]!);
+    assert.ok(Math.abs(b - a) < 0.25, `no corner at frame ${i}`);
+  }
+  const plaque = stripComments(readFileSync(join(DIR, 'seal-plaque.tsx'), 'utf8'));
+  assert.equal((plaque.match(/fly\.animate\(arcFrames\(/g) || []).length, 2, 'No. 1 and the gold seals both fly the arc');
+  assert.doesNotMatch(plaque, /offset: 0\.6/, 'the old two-segment flight (a corner at 60%) is gone');
+  // measured at rest: the plaque's rise is set aside before the target is read
+  assert.match(plaque, /if \(card\) card\.style\.animation = 'none';\s*const tb = tgt\.getBoundingClientRect\(\);/);
+  assert.match(plaque, /if \(cd\) cd\.style\.animation = 'none';\s*const tb = tgt\.getBoundingClientRect\(\);/);
+  const css = readFileSync(join(DIR, 'award.module.css'), 'utf8');
+  assert.match(css, /\.landed \.awSeal \{\s*animation: slBind/, 'every seal binds with the breath');
+  assert.match(css, /32% \{\s*transform: scale\(1\.04\);/);
+  assert.doesNotMatch(css, /scale\(1\.08\)/, 'never a jump to 108%');
+});
+
+test('27 · sparkles: nothing fixed on the seal or velvet; a glint lands on a random diamond / stud; copies own their ids', async () => {
+  const plaque = stripComments(readFileSync(join(DIR, 'seal-plaque.tsx'), 'utf8'));
+  assert.doesNotMatch(plaque, /\bSPARKS\b/, 'the fixed sparkles are gone');
+  assert.match(plaque, /querySelectorAll\('\.dfl'\)\.forEach\(\(x\) => x\.remove\(\)\)/, 'the drawn diamond flares come off the mounted seal');
+  assert.match(plaque, /const pts = glintSpots\(mnt\);/);
+  assert.match(plaque, /glT = window\.setTimeout\(glint, 180 \+ Math\.random\(\) \* 700\);/, 'at random moments');
+  assert.match(plaque, /if \(prefersReducedMotion\(\)\) return;/);
+  const { prefixSvgIds, BEAD_RING_SELECTOR } = await import('./plaque-art');
+  assert.equal(BEAD_RING_SELECTOR, 'circle[stroke-dasharray][stroke="#e8c66c"]', 'the stud ring the prototype names');
+  assert.equal(
+    prefixSvgIds('<svg><defs><linearGradient id="g"/></defs><path fill="url(#g)"/><use href="#g"/><path fill="url(#other)"/></svg>', 'p_'),
+    '<svg><defs><linearGradient id="p_g"/></defs><path fill="url(#p_g)"/><use href="#p_g"/><path fill="url(#other)"/></svg>',
+  );
+  const { SealPlaque } = await import('./seal-plaque');
+  const svg = '<svg viewBox="0 0 10 10"><defs><linearGradient id="g"/></defs><circle r="4" fill="url(#g)"/></svg>';
+  const m = renderToStaticMarkup(h(SealPlaque, { seal: svg, title: 'Top 10 Supplier', shopName: 'S', onClose: () => {} }));
+  assert.ok(!m.includes('id="g"') && /id="pq[a-zA-Z0-9]*_g"/.test(m), 'the plaque copy has its own ids');
+});
+
+test('28 · No. 1 keeps its curtain stage: the teaser sits on a black-satin ribbon that unrolls like a real scroll', () => {
+  const rig = stripComments(readFileSync(join(DIR, 'story-rig.ts'), 'utf8'));
+  assert.match(rig, /function teaserBanner\(g: Ctx\)/);
+  assert.match(rig, /function ribbonFlow\(g: Ctx, src: HTMLCanvasElement, t: number, oy: number\)/);
+  assert.match(rig, /const IN0 = 0\.85;\s*const IN1 = 2\.15;\s*const OUT0 = 3\.05;\s*const OUT1 = 3\.75;/, 'unrolls, holds, rolls back up');
+  const tz = rig.slice(rig.indexOf('function teaserBitmap('), rig.indexOf('function frame('));
+  assert.match(tz, /teaserBanner\(g\);/, 'the words sit on the banner');
+  assert.doesNotMatch(tz, /createRadialGradient/, 'the dark pool is gone');
+  for (const w of ["'AND THE', 790", "'No. 1', 925", "'SUPPLIER OF THE YEAR', 1015", "'IS…', 1088"]) assert.ok(tz.includes(w), w);
+  const fr = rig.slice(rig.indexOf('function frame('), rig.indexOf('function frame(') + 3000);
+  assert.match(fr, /if \(t > 0\.9 && t < 3\.75\) ribbonFlow\(x, teaserBitmap\(\), t, 380\);/);
+  // the 15 s No. 1 video vs 10 s, looping on its 0.5 s dip to dark
+  assert.match(rig, /export const REVEAL_S = 15;/);
+  assert.match(rig, /export const LOOP_DIP_S = 0\.5;/);
 });

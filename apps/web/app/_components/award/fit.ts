@@ -113,3 +113,28 @@ export function flightTarget(
   }
   return { x, y, scale };
 }
+
+/**
+ * v86 `arcFrames` (owner 15 Nov: "the seal landing to the plaque is still not smooth"): the flight is ONE smooth curve
+ * — a quadratic arc 70 px above the higher end, sampled densely (29 keyframes, so there is no corner mid-way) — ending
+ * EXACTLY on the mounted seal at its mounted scale and upright, so the mounted seal takes over at rest with no jump.
+ * (x0, y0, s0, r0) is where the flyer starts (translate px, scale, rotation rad); (x1, y1, s1) where it lands.
+ */
+export function arcFrames(x0: number, y0: number, s0: number, r0: number, x1: number, y1: number, s1: number): Keyframe[] {
+  const cx = (x0 + x1) / 2;
+  const cy = Math.min(y0, y1) - 70;
+  const N = 28;
+  const F: Keyframe[] = [];
+  for (let i = 0; i <= N; i++) {
+    const e = i / N;
+    const u = 1 - e;
+    const x = u * u * x0 + 2 * u * e * cx + e * e * x1;
+    const y = u * u * y0 + 2 * u * e * cy + e * e * y1;
+    const b = Math.sin(Math.PI * e);
+    F.push({
+      offset: e,
+      transform: `translate(${x.toFixed(2)}px,${y.toFixed(2)}px) scale(${(s0 + (s1 - s0) * e + 0.06 * b * ((s0 + s1) / 2)).toFixed(4)}) rotate(${(r0 * u - 0.1 * b).toFixed(4)}rad)`,
+    });
+  }
+  return F;
+}

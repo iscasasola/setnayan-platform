@@ -107,10 +107,10 @@ test('the section bar: verified About · Services · Portfolio · Reviews; unver
   assert.doesNotMatch(bar, /history\.|localStorage|sessionStorage/, 'the bar writes history or storage');
 });
 
-test('the unverified page prints no web address and draws its map under Where', () => {
+test('the unverified page prints no web address, and its Where is the city alone — no map (15 Nov "no exact address")', () => {
   assert.match(PAGE, /\{cinematicHero \? <ShopAddresses setnayanAddress=\{setnayanAddress\} ownAddress=\{ownAddress\} \/> : null\}/);
   const where = PAGE.slice(PAGE.indexOf('id="shop-where"'), PAGE.indexOf('id="get-in-touch"'));
-  assert.match(where, /<ShopReachMap\b/);
+  assert.doesNotMatch(where, /<ShopReachMap\b|<DirectionsMenu\b/);
   assert.match(where, /<ShopReachLine\b/);
 });
 
@@ -163,7 +163,8 @@ test('the shop page\'s reach ring is the map card: 9 : 5 capped at 250 px, the c
 });
 
 test('the Where tab and the Where section share one answer — a shop with nowhere to show has neither (re-walk 2026-11-14)', () => {
-  assert.match(PAGE, /const hasWhere = shopHasWhere\(\{/);
+  assert.match(PAGE, /const where = shopWhere\(/);
+  assert.match(PAGE, /const hasWhere = where\.has;/);
   assert.match(PAGE, /\.\.\.\(hasWhere \? \[\{ id: 'shop-where', label: 'Where' \}\] : \[\]\)/, 'the Where tab is drawn whatever the shop has');
   assert.match(PAGE, /\{cinematicHero \|\| !hasWhere \? null : \(\s*<div id="shop-where"/, 'the Where section is drawn whatever the shop has');
 });

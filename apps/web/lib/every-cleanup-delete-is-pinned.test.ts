@@ -89,6 +89,11 @@ const EXEMPT: Readonly<Record<string, string>> = {
     'minted, and deletes one asset an admin chose — the stored path held by ' +
     'libraryAssetObjectKeyForAdminDelete (lib/moodboard-library-key.ts) to what that row’s uploader ' +
     'could have filed, so a stylist-forged path cannot aim the admin’s press.',
+  'lib/paper-intake.server.ts':
+    'Only clean verification papers are kept (owner 2026-11-14). Removes ONLY objects THIS request brought — the refs ' +
+    'the supplier just uploaded, each parsed by parseClientRef under that shop\'s own vendors/<id>/verification/ ' +
+    'folder — and only those the merge did not file. It never reads a key out of a stored row (a replaced paper\'s ' +
+    'older object is left for the bucket\'s orphan cleaner, not deleted here).',
   'app/vendor-dashboard/moodboard-library/actions.ts':
     'Supabase storage, not R2. Rolls back a key it just minted; the stylist self-delete is pinned ' +
     'inline to the uploader’s own folder by stylistAssetObjectKey (lib/moodboard-library-key.ts).',

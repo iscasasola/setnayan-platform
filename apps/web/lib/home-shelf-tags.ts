@@ -85,7 +85,8 @@ export const HOME_SHELF_DEPENDS: Record<
   invitation_widgets: { subject: 'events', clears: [], waits: ['config_json', 'widget_type'] },
   vendor_profiles: {
     subject: 'shops',
-    clears: ['public_visibility', 'verification_state', 'is_demo', 'business_slug'],
+    // `papers_lapsed_at` (2026-11-14): its generated twin `papers_current` is in the live-shop gate the home reads use.
+    clears: ['public_visibility', 'verification_state', 'is_demo', 'business_slug', 'papers_lapsed_at'],
     waits: ['business_name', 'location_city', 'services', 'next_renewal_due_at', 'logo_url'],
   },
   creator_chapters: {

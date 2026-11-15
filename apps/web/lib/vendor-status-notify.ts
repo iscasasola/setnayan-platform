@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { emitNotification } from '@/lib/notification-emit';
+import { emitAdminNotice, emitNotification } from '@/lib/notification-emit';
 
 /**
  * Cross-account notification helpers for the vendor VERIFICATION + ACCOUNT
@@ -57,7 +57,7 @@ export async function notifyAdminsApplicationSubmitted(args: {
 
     await Promise.all(
       admins.map((row) =>
-        emitNotification({
+        emitAdminNotice({
           userId: row.user_id as string,
           type: 'vendor_status_change',
           title: `Verification submitted · ${name}`,

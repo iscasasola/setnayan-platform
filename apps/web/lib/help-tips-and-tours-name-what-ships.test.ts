@@ -20,8 +20,8 @@
  *      2026-10-21), the account bar (Events · People · Shop · Memories · Discover, 2026-11-11), and the iPhone app's event bar
  *      (Home · Guests · Suppliers · Hub, #6725). The bar's labels are READ from its own source, so when the web
  *      event bar loses More too (#6791) this is extended by adding one audience, not by rewording a list;
- *   6. "Event Hub Pro" (folded into Event Pro — couples see Free · Event Plus · Event Pro, 2026-11-13). HELP ONLY for
- *      now: the tours and the ⓘ are another build's and still say it; widen `only` the day they are renamed.
+ *   6. the old Hub plan name (folded into Event Pro — couples see Free · Event Plus · Event Pro · Event Ultra,
+ *      2026-11-13). Held on Help, every tour AND every ⓘ since RW-306 (2026-11-14), when the last screens were renamed.
  *
  * WHERE IT LOOKS: every public help string (`HELP_TOPICS`, the app's own `appBody`), every tour string
  * (`TOURS` — labels, slides, spotlight stops, finales, the switched-off carousels too, since they are the
@@ -170,18 +170,17 @@ const GONE: Gone[] = [
   { name: '"celebration" (say "event")', re: /\bcelebrations?\b/i, proof: () => null },
   {
     // Proof: the plan the couple is sold is NAMED Event Pro where it is sold — the iPhone app's product and the
-    // /features plan cards — and no plan card is called Event Hub Pro. If either reads Event Hub Pro again, it is back.
-    name: 'Event Hub Pro (now Event Pro)',
-    re: /\bEvent Hub Pro\b|\bPro Event Hub\b|\bEvent Hub PRO\b/i,
+    // /features plan cards — and no plan card carries the old Hub name. If either does again, it is back.
+    name: 'the old Hub plan name (now Event Pro)',
+    re: /\bEvent\s+Hub\s+Pro\b|\bPro\s+Event\s+Hub\b/i,
     proof: () => {
       const iap = read('lib/iap/products.ts');
       if (!/appStoreName:\s*'Event Pro'/.test(iap)) return 'lib/iap/products.ts no longer sells a product named Event Pro';
       const plans = read('lib/features-page.ts');
       if (!/name:\s*'Event Pro'/.test(plans)) return 'lib/features-page.ts has no plan card named Event Pro';
-      if (/name:\s*'Event Hub Pro'/.test(plans)) return 'lib/features-page.ts has a plan card named Event Hub Pro';
+      if (/name:\s*'Event\s+Hub\s+Pro'/.test(plans)) return 'lib/features-page.ts has a plan card named with the old name';
       return null;
     },
-    only: 'help',
   },
 ];
 

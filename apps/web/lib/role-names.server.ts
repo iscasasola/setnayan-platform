@@ -22,6 +22,7 @@ import { sanitizeRoleNames, withOneWord, type RoleName, type RoleNames, type Sec
 import type { GuestRole } from '@/lib/guests';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventRowOnce } from '@/lib/event-row-once';
+import { askedOnce } from '@/lib/request-once';
 import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 
 /** Is this string a role the vocabulary knows? (The sanitiser's `isKnownRole`.) */
@@ -76,12 +77,12 @@ export async function loadRoleNames(
   callSite = 'loadRoleNames',
 ): Promise<RoleNames> {
   // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+  // ⚡ The fallback read is asked once per render per asker (speed pass 2026-11-14: the Maker sent it twice); each
+  // caller still logs under its own `callSite`. Outside a render (a server action) it reads fresh, as before.
   const { data, error } = await eventRowOnce(client, eventId, 'role_names', () =>
-    client
-      .from('events')
-      .select('role_names')
-      .eq('event_id', eventId)
-      .maybeSingle(),
+    askedOnce(client, 'events.role_names', [eventId], () =>
+      Promise.resolve(client.from('events').select('role_names').eq('event_id', eventId).maybeSingle()),
+    ),
   );
   if (error) {
     logQueryError(callSite, error, { event_id: eventId }, 'graceful_degrade');

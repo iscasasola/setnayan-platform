@@ -221,7 +221,10 @@ const PRIVATE_UPLOADERS: Record<string, number> = {
   // `budgetPaymentProofPolicy` keeps the ref, and whose reader is already scoped.
   'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx': 1, // thread-files → event_vendor_payments.proof_r2_key
   'app/dashboard/[eventId]/paperwork/page.tsx': 1, // vendor-contracts → event_paperwork.document_r2_key
-  'app/vendor-dashboard/shop/_components/verify-pairs.tsx': 1, // vendor-verification → doc_uploads
+  // The one upload place (design v10, 2026-11-14): the SAME bucket and folder; the server files each paper into
+  // doc_uploads (lib/paper-intake.server.ts, folder-pinned by vendorVerificationDocPolicy) and the reader is
+  // openApplicationDocument (admin, 120 s attachment link) — exactly verify-pairs.tsx's reader.
+  'app/vendor-dashboard/shop/_components/paper-upload-place.tsx': 1, // vendor-verification → doc_uploads
   'app/vendor-dashboard/shop/_components/docs-body.tsx': 2, // vendor-verification → doc_uploads
   // Today step 5 (2026-11-07): one row per paper, the SAME bucket, path and save as verify-pairs.tsx
   // (`updateDocUploadInline`), read back only through `loadInlineDocs`, the shop's own scoped signer.

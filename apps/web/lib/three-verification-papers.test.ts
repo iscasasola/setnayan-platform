@@ -102,7 +102,7 @@ const SAID_TO_PEOPLE = [
   'lib/feature-pages/plan-b.ts',
   'app/vendor-dashboard/_components/setup-papers.tsx',
   'app/vendor-dashboard/shop/_components/verify-section.tsx',
-  'app/vendor-dashboard/shop/_components/verify-pairs.tsx',
+  'app/vendor-dashboard/shop/_components/paper-upload-place.tsx',
   'app/vendor-dashboard/shop/_components/docs-body.tsx',
   'app/vendor-dashboard/shop/_components/shop-settings-rows.tsx',
   'app/for-suppliers/_components/supplier-front-data.ts',

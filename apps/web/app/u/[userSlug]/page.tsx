@@ -1,4 +1,5 @@
 import { ProfileHeader, PROFILE_HEADER_CSS } from '../_components/profile-header';
+import { ShopLink } from '@/app/_components/shop-link';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -969,7 +970,7 @@ function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
       <ul className="uprof-inf-list">
         {vendors.map((v) => (
           <li key={v.slug}>
-            <Link href={`/v/${v.slug}`} className="uprof-inf-card">
+            <ShopLink href={`/v/${v.slug}`} className="uprof-inf-card">
               {v.logoUrl ? (
                 <span className="uprof-inf-logo">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -981,7 +982,7 @@ function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
                 </span>
               )}
               <span className="uprof-inf-name">{v.name}</span>
-            </Link>
+            </ShopLink>
           </li>
         ))}
       </ul>
@@ -1123,7 +1124,7 @@ const UPROF_CSS = `
     font-family: var(--font-mono-marketing), ui-monospace, monospace;
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--m-orange-2, #8A6B39);
+    color: var(--m-orange-2);
     text-transform: uppercase;
   }
   .uprof-inf-name {
@@ -1134,7 +1135,7 @@ const UPROF_CSS = `
 
   .uprof {
     min-height: 100dvh;
-    background: var(--m-paper, #FBFBFA);
+    background: var(--m-paper);
     color: var(--m-ink);
     display: flex;
     flex-direction: column;
@@ -1153,7 +1154,7 @@ const UPROF_CSS = `
     border: 1px solid var(--m-line);
     border-radius: var(--m-r-md, 14px);
     background: var(--m-ivory);
-    color: var(--m-slate, #4F535B);
+    color: var(--m-slate);
     font-size: 0.85rem;
     text-align: center;
   }
@@ -1262,7 +1263,7 @@ ${PROFILE_HEADER_CSS}
     padding: 0 14px;
     font-weight: 600;
     font-size: 0.92rem;
-    color: var(--m-slate-2, #6E6A62);
+    color: var(--m-slate-2);
     text-decoration: none;
     border-bottom: 2px solid transparent;
     white-space: nowrap;
@@ -1283,7 +1284,7 @@ ${PROFILE_HEADER_CSS}
     font: 700 .64rem var(--font-mono-marketing), ui-monospace, monospace;
     letter-spacing: .12em;
     text-transform: uppercase;
-    color: var(--m-slate-2, #6E6A62);
+    color: var(--m-slate-2);
     white-space: nowrap;
     cursor: pointer;
   }
@@ -1306,7 +1307,7 @@ ${PROFILE_HEADER_CSS}
     font: 700 .7rem var(--font-mono-marketing), ui-monospace, monospace;
     letter-spacing: .18em;
     text-transform: uppercase;
-    color: var(--m-slate-2, #6E6A62);
+    color: var(--m-slate-2);
   }
   .uprof-lab::before { content: ""; flex: none; width: 34px; height: 2px; background: rgb(var(--color-terracotta)); }
   /* ── COMING UP vs PAST ──────────────────────────────────────────────────
@@ -1325,13 +1326,13 @@ ${PROFILE_HEADER_CSS}
     font-size: 0.82rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
     padding: 0.55rem 1rem;
     border: 1px solid var(--m-line);
     border-radius: var(--m-r-full, 999px);
   }
   .uprof-more-btn::-webkit-details-marker { display: none; }
-  .uprof-more-btn:hover { color: var(--m-ink); border-color: var(--m-orange, #A9834B); }
+  .uprof-more-btn:hover { color: var(--m-ink); border-color: var(--m-orange); }
   .uprof-more[open] .uprof-more-btn { margin-bottom: 1.1rem; }
   .uprof-more-grid { margin-top: 0; }
 
@@ -1340,7 +1341,7 @@ ${PROFILE_HEADER_CSS}
   .uprof-section-head {
     font-size: 0.9rem;
     font-weight: 400;
-    color: var(--m-slate-2, #6E6A62);
+    color: var(--m-slate-2);
     margin: 0 0 0.75rem;
   }
   .uprof-past .uprof-section-head { color: var(--m-slate-3, #8A857B); }
@@ -1463,7 +1464,7 @@ ${PROFILE_HEADER_CSS}
   .uprof-moon {
     position: absolute; left: 50%; top: 12cqw; transform: translateX(-50%);
     width: 78cqw; aspect-ratio: 1; border-radius: 50%;
-    background: var(--m-paper, #FFFFFF);
+    background: var(--m-paper);
     color: var(--m-ink);
     display: grid; place-items: center; text-align: center; padding: 8cqw;
     box-shadow: 0 0 0 6px rgba(255,255,255,.24), 0 26px 44px -22px rgba(0,0,0,.5);
@@ -1611,7 +1612,7 @@ ${PROFILE_HEADER_CSS}
     background: #fff;
   }
   .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink); }
-  .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }
+  .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2); }
 
   /* ── WHO WAS THERE ────────────────────────────────────────────────────
      The warm band, and the one thing measured nowhere else in the category:
@@ -1663,7 +1664,7 @@ ${PROFILE_HEADER_CSS}
   .uprof-yr-rule { height: 2px; border-radius: var(--m-r-xs); flex: 1; background: var(--m-line); }
   .uprof-yr-c {
     font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
   }
   .uprof-list { list-style: none; margin: 0; padding: 0; }
 
@@ -1707,10 +1708,10 @@ ${PROFILE_HEADER_CSS}
     font-size: 0.66rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
     text-decoration: none;
     border-bottom: 1px solid transparent;
     transition: color .15s, border-color .15s;
   }
-  .uprof-foot-link:hover { color: var(--m-ink); border-color: var(--m-orange, #A9834B); }
+  .uprof-foot-link:hover { color: var(--m-ink); border-color: var(--m-orange); }
 `;

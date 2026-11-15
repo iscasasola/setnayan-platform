@@ -897,7 +897,7 @@ export function scheduleTile(input: HomeControlInput, today: HomeToday): HomeTil
   if (s.toApprove > 0) doors.push({ id: 'approve', label: `${n(s.toApprove)} to approve`, href: schedulePageHref(e, { sheet: 'requests' }), main: true });
   if (releaseOpen(input.countdown.days)) doors.push({ id: 'release', label: 'Release', href: schedulePageHref(e, { announce: '1' }), main: true, pro: !s.pro });
   if (s.needYou > 0) doors.push({ id: 'needyou', label: `${n(s.needYou)} need you`, href: door });
-  if (s.oweTimes > 0) doors.push({ id: 'owe', label: `${n(s.oweTimes)} owe times`, href: `/dashboard/${e}/vendors?tab=budget` });  // Booked › Team — each row says its call time
+  if (s.oweTimes > 0) doors.push({ id: 'owe', label: `${n(s.oweTimes)} ${s.oweTimes === 1 ? 'supplier' : 'suppliers'} without a time`, href: `/dashboard/${e}/vendors?tab=budget` });  // Booked › Team — each row says its call time
   return { key: 'sched', label: 'Schedule', door, failed: false, span: true, today: isToday, faces, info: SCHEDULE_TILE_INFO, doors };
 }
 

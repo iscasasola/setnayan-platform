@@ -163,7 +163,7 @@ test('App Store Server Notifications: ONE_TIME_CHARGE lands Live Watch with no s
   assert.equal((await ordersFor(eventId)).length, 1);
 });
 
-test('refund → deactivation: a REFUND notification takes Event Hub Pro off; a second REFUND changes nothing', async () => {
+test('refund → deactivation: a REFUND notification takes Event Pro off; a second REFUND changes nothing', async () => {
   const { userId, eventId } = await newCouple();
   await intent(FIXTURE_TOKENS.pro, userId, eventId, 'com.setnayan.app.event_hub_pro');
   const on = await fulfil.fulfilAppleTransaction(admin, tx('txPro'), { expectUserId: userId });

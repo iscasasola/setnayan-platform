@@ -39,9 +39,11 @@ export default async function DownloadAllPage({ params }: { params: Promise<{ ev
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-6">
         <PageMasthead title="Download all" />
-        <p role="alert" className="text-[15px] text-danger-700" data-download-all="unreadable">
-          We couldn&rsquo;t read your photos just now, so there is nothing to download yet. Please try again in a moment.
-        </p>
+        <div role="alert" data-download-all="unreadable">
+          <InfoTip labelAs="p" label="We couldn&rsquo;t read your photos just now, so there is nothing to download yet." labelClassName="text-[15px] text-danger-700" align="start">
+            Please try again in a moment.
+          </InfoTip>
+        </div>
       </div>
     );
   }
@@ -70,7 +72,7 @@ export default async function DownloadAllPage({ params }: { params: Promise<{ ev
             deleted from our side after {ZIP_KEEP_HOURS} hours; the ✓ is kept on this device.
           </InfoTip>
         </p>
-        <p className="text-[14px] text-ink/65" data-download-all="summary">
+        <p className="text-[14px] text-ink/70" data-download-all="summary">
           {plan.parts.length === 0
             ? 'No photos or clips to download yet.'
             : `${plan.count.toLocaleString('en-PH')} photos and clips · about ${formatBytes(plan.bytes)} in ${plan.parts.length} ${plan.parts.length === 1 ? 'zip' : 'zips'}.`}

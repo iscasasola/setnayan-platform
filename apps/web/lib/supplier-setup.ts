@@ -243,7 +243,9 @@ export function assembleSetup(input: SetupInput): SetupView {
       title: 'Add your logo',
       line: 'Shows on your page and your QR',
       done: step('logo')?.state === 'done',
-      badge: step('logo')?.state === 'done' ? null : { word: 'Needed to go live', tone: 'quiet' },
+      // No "Needed to go live" since 2026-11-14 (owner, DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT";
+      // profile gate: "Yes, remove it") — the logo no longer gates verification, so the badge would be untrue.
+      badge: null,
     },
     {
       key: 'offer',

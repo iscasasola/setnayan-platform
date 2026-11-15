@@ -141,21 +141,21 @@ export const PROFILE_HEADER_CSS = `
     border-radius: var(--m-r-full, 999px);
     overflow: hidden;
     background: var(--m-paper-2, #F4F2EC);
-    border: 1px solid var(--m-line, #E1DCD1);
+    border: 1px solid var(--m-line);
   }
   .uprof-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .uprof-avatar-initials {
     font-family: var(--font-display), Georgia, serif;
     font-size: 2rem;
     letter-spacing: .04em;
-    color: var(--m-orange, #A9834B);
+    color: var(--m-orange);
   }
   .uprof-head { text-align: center; margin-bottom: clamp(2.25rem, 5vw, 3.25rem); }
   .uprof-name {
     font-size: clamp(2.4rem, 7vw, 4rem);
     line-height: 1.04;
     margin: 0;
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
   }
   .uprof-badge-row {
     display: flex;
@@ -172,14 +172,14 @@ export const PROFILE_HEADER_CSS = `
   }
   .uprof-stat {
     font-size: 0.9rem;
-    color: var(--m-slate, #4F535B);
+    color: var(--m-slate);
   }
   .uprof-stat strong {
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
     font-weight: 600;
   }
   .uprof-stat-dot {
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
     opacity: 0.6;
   }
   .uprof-tier-chip {
@@ -190,9 +190,9 @@ export const PROFILE_HEADER_CSS = `
     display: inline-flex;
     align-items: center;
     padding: 0.34rem 0.95rem;
-    border: 1px solid var(--m-orange, #A9834B);
+    border: 1px solid var(--m-orange);
     border-radius: var(--m-r-full, 999px);
-    background: var(--m-orange, #A9834B);
+    background: var(--m-orange);
     color: #fff;
     font-size: 0.82rem;
     font-weight: 600;
@@ -203,8 +203,8 @@ export const PROFILE_HEADER_CSS = `
   .uprof-follow:disabled { opacity: 0.6; cursor: default; transform: none; }
   .uprof-follow[data-following='1'] {
     background: #fff;
-    color: var(--m-ink, #1B1A17);
-    border-color: var(--m-line, #E2DED4);
+    color: var(--m-ink);
+    border-color: var(--m-line);
   }
   /* E6 — the one-way promise. flex-basis:100% breaks it onto its own centered
      line inside the wrapping .uprof-audience row, so it never reads as a fourth
@@ -222,7 +222,7 @@ export const PROFILE_HEADER_CSS = `
     text-align: center;
     font-size: 0.78rem;
     line-height: 1.35;
-    color: var(--m-slate-2, #6E6A62);
+    color: var(--m-slate-2);
   }
 
   .uprof-rule {
@@ -230,12 +230,12 @@ export const PROFILE_HEADER_CSS = `
     width: 44px;
     height: 1px;
     margin: 1.25rem auto 0;
-    background: var(--m-orange, #A9834B);
+    background: var(--m-orange);
   }
   .uprof-sub {
     margin: 1rem 0 0;
     font-size: 0.98rem;
-    color: var(--m-slate, #4F535B);
+    color: var(--m-slate);
   }
 
   .uprof-relation {
@@ -243,11 +243,11 @@ export const PROFILE_HEADER_CSS = `
     align-items: center;
     margin: 0.5rem auto 0;
     padding: 0.2rem 0.7rem;
-    border: 1px solid var(--m-line, #E2DED4);
+    border: 1px solid var(--m-line);
     border-radius: var(--m-r-full, 999px);
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
   }
 
   /* ── 🏠 HOME'S LAYOUT (owner 11 Nov 2026, "One profile page approve" — v3): the same header, read as a profile row —
@@ -290,7 +290,7 @@ export const PROFILE_HEADER_CSS = `
     background: rgb(var(--color-terracotta));
     border: 2px solid rgb(var(--color-cream));
   }
-  .uprof-avwrap > .uprof-pen { position: absolute; left: -6px; top: -6px; }
+  .uprof-avwrap > .uprof-pen { position: absolute; left: -15px; top: -15px; margin: 0; }
   .uprof-head[data-layout='home'] .uprof-hname { min-width: 0; flex: 1; }
   .uprof-name-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .uprof-head[data-layout='home'] .uprof-name {
@@ -302,18 +302,18 @@ export const PROFILE_HEADER_CSS = `
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  /* v3 .pen: a 26-px circle (the 44-px floor would make it an oval — house memory), its touch target 44 via ::before. */
+  /* v3 .pen: a 26-px circle DRAWN inside a 44 × 44 box (RW-309, walk 15 Nov 2026: the box measured 26 × 26 — the press
+     is the box now, not an invisible ::before). The circle is ::before; the negative margin keeps the row as drawn. */
   .uprof-pen {
     position: relative;
-    width: 26px;
-    height: 26px;
-    min-height: 26px;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    margin: -9px;
     flex: 0 0 auto;
     display: inline-grid;
     place-items: center;
     border-radius: 50%;
-    border: 1px solid var(--sn-hair);
-    background: var(--surface);
     color: rgb(var(--color-link));
     transition: transform .06s, filter .06s;
   }
@@ -321,11 +321,14 @@ export const PROFILE_HEADER_CSS = `
     content: "";
     position: absolute;
     inset: 50% auto auto 50%;
-    width: 44px;
-    height: 44px;
+    width: 26px;
+    height: 26px;
     transform: translate(-50%, -50%);
     border-radius: 50%;
+    border: 1px solid var(--sn-hair);
+    background: var(--surface);
   }
+  .uprof-pen svg { position: relative; }
   .uprof-pen:active { filter: brightness(.93); transform: scale(.985); }
   .uprof-pen svg { width: 13px; height: 13px; }
   .uprof-line { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0 0; font-size: 14px; }
@@ -342,6 +345,8 @@ export const PROFILE_HEADER_CSS = `
   .uprof-handle a { color: inherit; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); }
   .uprof-head[data-layout='home'] .uprof-handle { color: rgb(var(--ink-soft)); }
   .uprof-head[data-layout='home'] .uprof-handle a { text-decoration: none; }
+  /* RW-309: the handle's link ("Choose your @handle", the public address) presses at 44 — its own box, not a 18-px line. */
+  .uprof-head[data-layout='home'] .uprof-handle a { display: inline-flex; align-items: center; min-height: 44px; vertical-align: middle; }
   .uprof-doors {
     display: flex;
     flex-wrap: wrap;

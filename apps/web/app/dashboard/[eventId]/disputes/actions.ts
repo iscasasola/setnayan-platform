@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
-import { emitNotification } from '@/lib/notification-emit';
+import { emitAdminNotice, emitNotification } from '@/lib/notification-emit';
 import { FLAG_TYPE_LABEL, isFlagType } from '@/lib/force-majeure';
 import { disputeEvidencePolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { refuseLimitedHelper } from '@/lib/host-gate';
@@ -132,7 +132,7 @@ export async function fileForceMajeureFlag(formData: FormData) {
       const summary = description.trim().slice(0, 140);
       await Promise.all(
         adminUsers.map((row) =>
-          emitNotification({
+          emitAdminNotice({
             userId: row.user_id as string,
             type: 'force_majeure_filed',
             title: `Force-majeure flag · ${flagPublicId || 'new'}`,

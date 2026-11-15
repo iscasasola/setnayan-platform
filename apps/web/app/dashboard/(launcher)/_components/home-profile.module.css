@@ -61,7 +61,8 @@
 .find input {
   min-width: 0;
   flex: 1;
-  height: 42px;
+  /* RW-309: the field itself is 44 (it measured 42 inside the 44 row); the row grows to hold it. */
+  height: 44px;
   background: transparent;
   font-size: 14px;
   outline: none;

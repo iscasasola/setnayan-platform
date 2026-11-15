@@ -131,7 +131,7 @@ export function isStaleBundleError(error: unknown): boolean {
   const message = typeof e.message === 'string' ? e.message : '';
   if (!message) return false;
   if (STALE_PATTERNS.some((p) => p.test(message))) return true;
-  return isWebpackRuntimeMissingModule(e);
+  return isWebpackRuntimeMissingModule(e) || isMissingClientModuleError(error);
 }
 
 /**
@@ -159,6 +159,43 @@ function isWebpackRuntimeMissingModule(e: { name?: unknown; message?: unknown; s
   if (typeof e.stack !== 'string') return false;
   const firstFrame = e.stack.split('\n').find((l) => /^\s*at\s/.test(l)) ?? '';
   return /\/_next\/static\/chunks\/webpack-[^/]*\.js/.test(firstFrame);
+}
+
+/**
+ * ── THE FIFTH SHAPE: the server named a component module this tab does not have (AW-12, 14 Nov 2026) ──
+ *
+ * Seen live five times (Problems: "/dashboard global crash", Safari):
+ *
+ *     TypeError: undefined is not an object (evaluating "t.then" / "t.__esModule" / "t[e[2]]")
+ *         s@…/_next/static/chunks/5006-<hash>.js:1:56419   ← React's own `requireModule`
+ *         H@…/_next/static/chunks/5006-<hash>.js:1:59967   ← initializeModuleChunk
+ *         S@…/_next/static/chunks/5006-<hash>.js:1:57208   ← readChunk
+ *
+ * Read off the live chunk: those offsets are React's Server Components client reading the module the server's
+ * payload named — `var t = __webpack_require__(id); … typeof t.then … t.__esModule ? t.default : t[name]`. `t` is
+ * undefined when the id is not in this tab's bundle. Measured against the telemetry: every one of the five fired as
+ * the crashing build's FIRST report, while other pages were still answering from the previous build — the cutover
+ * moment of a deploy. Same disease as the shapes above (the tab and the server are different builds); one reload
+ * picks up one build for both. Same one-per-session budget, so a real bug that happens to match shows the crash the
+ * second time.
+ *
+ * ⚠ NARROW ON PURPOSE: the message must read exactly one of the three properties that loader reads, off undefined,
+ * AND the top frame must be in a numbered SHARED chunk (`/_next/static/chunks/<n>-<hash>.js` — where the framework
+ * lives), never a route's own chunk (`/chunks/app/…`), where the same message would be our bug.
+ */
+const RSC_MODULE_PROPERTY =
+  /^(?:undefined is not an object \(evaluating ['"][\w$]+(?:\.then|\.__esModule|\.default|\[[\w$]+\[2\]\])['"]\)|Cannot read properties of undefined \(reading '(?:then|__esModule|default)'\))$/;
+const SHARED_CHUNK_FRAME = /\/_next\/static\/chunks\/\d+-[0-9a-f]+\.js:\d+:\d+/;
+
+export function isMissingClientModuleError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const e = error as { name?: unknown; message?: unknown; stack?: unknown };
+  if (e.name !== 'TypeError') return false;
+  if (typeof e.message !== 'string' || !RSC_MODULE_PROPERTY.test(e.message.trim())) return false;
+  if (typeof e.stack !== 'string') return false;
+  // The first frame line, in either engine's format (Safari `fn@url:l:c`, V8 `    at fn (url:l:c)`).
+  const firstFrame = e.stack.split('\n').find((l) => /(?:^\s*at\s|@https?:\/\/)/.test(l)) ?? '';
+  return SHARED_CHUNK_FRAME.test(firstFrame);
 }
 
 /**

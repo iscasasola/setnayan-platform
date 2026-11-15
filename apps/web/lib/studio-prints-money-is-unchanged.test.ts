@@ -55,8 +55,6 @@ const STATES: Array<[string, string, boolean, boolean]> = [
 
 /** What a customer reads and what the page hooks say — the same extraction the golden was recorded with. */
 function facts(markup: string): Facts {
-  // ⏳ TRANSITION #7605: the couple-side source says the old plan name until #7605 merges; read it as today’s name.
-  markup = markup.replace(/Event Hub Pro/g, 'Event Pro');
   const text = markup.replace(/<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&rsquo;|&#x27;|&#39;/g, '’').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
   return {
     text,

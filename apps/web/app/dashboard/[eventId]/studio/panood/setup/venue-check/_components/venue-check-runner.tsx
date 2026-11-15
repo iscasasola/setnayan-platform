@@ -196,7 +196,7 @@ export function VenueCheckReady({
   last: VenueCheckStatusProps;
 }) {
   return (
-    <section className="sn-tile space-y-5 p-5 sm:p-6">
+    <section className="border-t border-ink/10 space-y-5 py-5 sm:p-6">
       <div className="space-y-2">
         <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-ink">
           <Wifi aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
@@ -242,7 +242,7 @@ export function VenueCheckReady({
         data-testid="venue-check-start"
       />
       <div className="border-t border-ink/10 pt-4">
-        <p className="mb-1 text-xs font-medium uppercase tracking-[0.12em] text-ink/55">Last check</p>
+        <p className="mb-1 text-xs font-medium uppercase tracking-[0.12em] text-ink/70">Last check</p>
         <VenueCheckStatus {...last} />
       </div>
     </section>
@@ -263,7 +263,7 @@ export function VenueCheckBusy({
 }) {
   const pct = Math.round(Math.min(1, Math.max(0, progress)) * 100);
   return (
-    <section aria-live="polite" className="sn-tile space-y-5 p-5 sm:p-6">
+    <section aria-live="polite" className="border-t border-ink/10 space-y-5 py-5 sm:p-6">
       <div className="space-y-1">
         <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-ink">
           <Gauge aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
@@ -335,7 +335,7 @@ export function VenueCheckDone({
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-ink/5 p-3">
-      <dt className="text-xs text-ink/60">{label}</dt>
+      <dt className="text-xs text-ink/70">{label}</dt>
       <dd className="mt-0.5 text-lg font-semibold tracking-tight text-ink">{value}</dd>
     </div>
   );

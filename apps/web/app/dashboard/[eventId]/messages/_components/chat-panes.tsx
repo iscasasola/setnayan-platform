@@ -75,7 +75,16 @@ export function ChatPanes({
     };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    // 📏 Re-measured whenever the page above the chat changes height, not only on a window resize. The couple's
+    // "Plan with peace of mind" strip arrives AFTER this first measure and pushed the column down by its own height —
+    // the composer's foot at 1093 of 1024 at 768, 861 of 800 at 1280 (W1, live 08b8522, RW-327). Its "Got it" lifts
+    // the column back up the same way. 🔒 lib/the-chat-composer-stays-in-the-window.test.ts
+    const watch = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    watch?.observe(document.body);
+    return () => {
+      window.removeEventListener('resize', measure);
+      watch?.disconnect();
+    };
   }, [splits]);
 
   if (!splits) return <>{list}</>;

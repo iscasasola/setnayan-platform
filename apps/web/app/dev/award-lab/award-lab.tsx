@@ -12,11 +12,11 @@ import {
 } from '@/app/_components/award';
 import { TIERS } from '@/lib/badge-tiers';
 
-/** A plain sample badge and seal — drawn here, so the lab needs no real shop's art. */
+/** A plain sample badge and seal — drawn here in the current colour, so the lab needs no real shop's art and no colour of its own. */
 const SAMPLE_BADGE =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="54" fill="#C9A24A"/><circle cx="60" cy="60" r="42" fill="#F4E3B0"/><text x="60" y="70" text-anchor="middle" font-size="30" font-family="serif" fill="#5A3E12">10</text></svg>';
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="none" stroke="currentColor" stroke-width="6"><circle cx="60" cy="60" r="52"/><circle cx="60" cy="60" r="38" stroke-width="3"/><text x="60" y="70" text-anchor="middle" font-size="30" font-family="serif" fill="currentColor" stroke="none">10</text></svg>';
 const SAMPLE_SEAL =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="56" fill="#1B1B1B"/><circle cx="60" cy="60" r="46" fill="none" stroke="#C9A24A" stroke-width="4"/><text x="60" y="68" text-anchor="middle" font-size="18" font-family="serif" fill="#E8D08A">SEAL</text></svg>';
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="none" stroke="currentColor" stroke-width="4"><circle cx="60" cy="60" r="54"/><circle cx="60" cy="60" r="44" stroke-dasharray="4 4"/><text x="60" y="68" text-anchor="middle" font-size="18" font-family="serif" fill="currentColor" stroke="none">SEAL</text></svg>';
 
 const SHOP = 'Petal & Pine';
 const AWARDED = '12 Jan 2026';

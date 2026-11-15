@@ -24,7 +24,7 @@ import { CHAT_DOCUMENT_MAX_MB, CHAT_FILE_EXPIRY_DAYS, CHAT_PHOTO_MAX_MB, CHAT_VI
 import { formatCount } from '@/lib/format-number';
 import type { PickedPageProps } from './context';
 // ⚡ On-demand code (`./lazy`): the shipped `FilesFinder`, loaded with this page rather than the route's first load.
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { FilesFinder } from './lazy';
 
 export type FilesPageProps = PickedPageProps & {
@@ -55,7 +55,9 @@ export function FilesPage(props: FilesPageProps) {
   return (
     <div className="space-y-4 pb-24" data-client-files="">
       {/* 📁 Piece 3b: This booking · From the chat · Links · one group per QUOTED service, with the two doors. */}
-      {board}
+      {/* ⚡ The board streams in after the rest of the page (wave 5 speed pass) — Hub already wraps it the same way, so
+          its two read rounds no longer hold up the whole response. */}
+      {board ? <Suspense fallback={null}>{board}</Suspense> : null}
       {board ? <h3 className="pt-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">Shared in the chat · contracts · handover</h3> : null}
       {!chatFilesMeasured ? (
         <div role="status" className="text-[13px] font-semibold text-warn-800" data-files-chat-unread="">

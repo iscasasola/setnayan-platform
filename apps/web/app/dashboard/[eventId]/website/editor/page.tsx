@@ -124,6 +124,7 @@ import {
 } from '../widgets/actions';
 import {
   computeSectionContentMap,
+  startPublicScheduleCount,
   SECTION_CONTENT_EVENT_COLUMNS,
 } from '@/lib/website-section-content';
 import {
@@ -218,6 +219,8 @@ export default async function WebsiteEditorPage({
      Held by `the-maker-reads-start-together.test.ts`. */
   const startEditorReads = () => {
     const draftRead = startAhead(readHubDraft(supabase, eventId));
+    // ⚡ The public schedule count `computeSectionContentMap` needs (wave 5 speed pass) — it used to wait for its own trip.
+    const scheduleCountRead = startAhead(Promise.resolve(startPublicScheduleCount(supabase, eventId)));
     const widgetsRead = startAhead(Promise.resolve(
       supabase
         .from('invitation_widgets')
@@ -279,7 +282,7 @@ export default async function WebsiteEditorPage({
     const roleNamesRead = startAhead(loadRoleNames(supabase, eventId, 'WebsiteEditorPage.roleNames'));
     const revealStagesRead = startAhead(readMakerRevealStages(eventId));
     const logoFontsRead = startAhead(readMakerLogoFonts(eventId));
-    return { draftRead, widgetsRead, prefsRead, scheduleBlocksRead, couplePeopleRead, riteRead, roleRowsRead, entourageRead, roleNamesRead, revealStagesRead, logoFontsRead };
+    return { scheduleCountRead, draftRead, widgetsRead, prefsRead, scheduleBlocksRead, couplePeopleRead, riteRead, roleRowsRead, entourageRead, roleNamesRead, revealStagesRead, logoFontsRead };
   };
   const readPro = () =>
     Promise.all([
@@ -391,7 +394,7 @@ export default async function WebsiteEditorPage({
     arrives where it did; every one is awaited on every path below. Nothing here writes (`readPostEventForMaker`,
     which may, stays where it was). Held by `the-maker-reads-start-together.test.ts`.
   */
-  const { draftRead, widgetsRead, prefsRead, scheduleBlocksRead, couplePeopleRead, riteRead, roleRowsRead, entourageRead, roleNamesRead, revealStagesRead, logoFontsRead } = editorReads ?? startEditorReads();
+  const { scheduleCountRead, draftRead, widgetsRead, prefsRead, scheduleBlocksRead, couplePeopleRead, riteRead, roleRowsRead, entourageRead, roleNamesRead, revealStagesRead, logoFontsRead } = editorReads ?? startEditorReads();
   const iapGate = await getIapGate();
   const storeShell = iapGate.storeShell;
   /* 🍎 …UNLESS Apple can sell Pro in this app (lib/iap/iap-gate.ts, owner
@@ -667,6 +670,7 @@ export default async function WebsiteEditorPage({
     // The couple's own sections keep their words on their OWN row, so the rows
     // have to travel with the event for the map to know whether one is empty.
     allWidgets,
+    scheduleCountRead,
   );
 
   // Public schedule blocks — the same set guests see (source of truth stays

@@ -73,13 +73,35 @@ export async function readPostEventForMaker(input: {
   if (!input.eventEnded) return readPostEventBeforeTheDay(input);
   try {
     const admin = createAdminClient();
+    /* ⚡ SPEED (wave 5, 2026-11-15): everything below that needs only the event id starts NOW, beside the story loader
+       — the long pole — instead of after it. The back cover needs the event's date, which is the same `events.event_date`
+       the story loader reads (`data.eventDate`), so it chains off the event row and still runs alongside the story. Each
+       of these was already non-throwing (`.catch`, a resolved builder, `giftCount` logs and returns 0), so starting one
+       early can never leave an unhandled rejection when an earlier read fails and this returns `{ ok: false }`. */
+    const eventRead = admin
+      .from('events')
+      .select('landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref, chapters_peek, event_date')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const backCoverRead = Promise.resolve(eventRead)
+      .then((res) =>
+        loadBackCover({
+          eventId,
+          eventDateISO: typeof res.data?.event_date === 'string' ? res.data.event_date : null,
+          // Only the announcement's TITLE is read here, and the title is the same
+          // for every reader — the viewer decides the door, which this never draws.
+          viewer: STRANGER,
+        }),
+      )
+      .catch(() => null);
+    const sideReads = Promise.all([
+      admin.from('event_tables').select('public_id', { count: 'exact', head: true }).eq('event_id', eventId),
+      loadEntourage(admin, eventId).catch(() => []),
+      giftCount(admin, eventId),
+    ]);
     const [editorialRes, eventRes, data] = await Promise.all([
       admin.from('event_editorial').select('draft_json, hero_photo_id').eq('event_id', eventId).maybeSingle(),
-      admin
-        .from('events')
-        .select('landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref, chapters_peek')
-        .eq('event_id', eventId)
-        .maybeSingle(),
+      eventRead,
       loadEditorialData(eventId).catch(() => null),
     ]);
     if (editorialRes.error) {
@@ -118,23 +140,13 @@ export async function readPostEventForMaker(input: {
 
     /* What comes next — the back cover the couple announced, read by its own
        loader (the same one the page draws it with). */
-    const backCover = await loadBackCover({
-      eventId,
-      eventDateISO: data.eventDate,
-      // Only the announcement's TITLE is read here, and the title is the same
-      // for every reader — the viewer decides the door, which this never draws.
-      viewer: STRANGER,
-    }).catch(() => null);
+    const backCover = await backCoverRead;
     const whatsNext = backCover ? backCover.title : null;
 
     /* 🪑 👥 The seat plan's tables and the entourage — each read by the SAME
        loader the page draws it with, so a scene is filled exactly when the page
        has something to draw. */
-    const [tablesRes, entourageGroups, giftsRes] = await Promise.all([
-      admin.from('event_tables').select('public_id', { count: 'exact', head: true }).eq('event_id', eventId),
-      loadEntourage(admin, eventId).catch(() => []),
-      giftCount(admin, eventId),
-    ]);
+    const [tablesRes, entourageGroups, giftsRes] = await sideReads;
     /* 🎁 The gift thank-you scene reads the couple's line as the Maker shows it (live with the draft over it). */
     const draftedFirst = overlayPostEventDraftJson(draft, input.draftEditorial ?? null);
     if (tablesRes.error) logQueryError('PostEventCompile.tables', tablesRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -236,13 +248,15 @@ async function readPostEventBeforeTheDay(input: {
   const { eventId } = input;
   try {
     const admin = createAdminClient();
-    const [editorialRes, eventRes] = await Promise.all([
+    // ⚡ The gift count needs only the event id — it runs beside the two rows, not after them (wave 5 speed pass).
+    const [editorialRes, eventRes, gifts] = await Promise.all([
       admin.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle(),
       admin
         .from('events')
         .select('love_story, special_message, pakanta_song_r2_key, landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref, chapters_peek')
         .eq('event_id', eventId)
         .maybeSingle(),
+      giftCount(admin, eventId),
     ]);
     if (editorialRes.error) {
       logQueryError('PostEventCompile.before.editorial', editorialRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -261,7 +275,6 @@ async function readPostEventBeforeTheDay(input: {
     const anchors = love.anchors && typeof love.anchors === 'object' ? (love.anchors as Record<string, unknown>) : {};
     const hero = resolveHero(event);
     const draftedFirst = overlayPostEventDraftJson(draft, input.draftEditorial ?? null);
-    const gifts = await giftCount(admin, eventId);
     const sources: PostEventSources = {
       cover: hero.photoRef ? 'hero' : 'card',
       milestones: Array.isArray(love.milestones) ? love.milestones.length : 0,

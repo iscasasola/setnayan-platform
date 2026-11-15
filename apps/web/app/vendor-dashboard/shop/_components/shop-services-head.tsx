@@ -56,8 +56,7 @@ export function ShopServicesHead({ line, compact, serviceHref, bundlesOn }: { li
                 style={{ opacity: stuck ? 1 : 0, transition: 'opacity var(--sn-pill-dur) var(--sn-pill-spring)' }}
                 aria-hidden={!stuck}
               >
-                {' '}
-                · {compact}
+                {compact ? <>{' '}· {compact}</> : null}
               </span>
             </h2>
             <p

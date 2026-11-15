@@ -564,7 +564,7 @@ export function guestsTile(input: HomeControlInput, today: HomeToday): HomeTileM
   const g = input.guests;
   const isToday = today.target === 'guests';
   if (g === null) return null;
-  if (g === 'unread') return failedTile('guests', 'Guests', 'Couldn’t load', 'not zero · unread', `/dashboard/${e}/guests`, isToday);
+  if (g === 'unread') return failedTile('guests', 'Guests', 'Couldn’t load', 'Tap Reload to try again', `/dashboard/${e}/guests`, isToday);
   const faces: HomeFace[] = [];
   if (g.total === 0) {
     faces.push({
@@ -653,7 +653,7 @@ export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileMode
   const h = input.hub;
   const isToday = today.target === 'hub';
   if (h === null) return null;
-  if (h === 'unread') return failedTile('hub', 'Event Hub', 'Couldn’t load', 'unread · not private', `/dashboard/${e}/launch`, isToday);
+  if (h === 'unread') return failedTile('hub', 'Event Hub', 'Couldn’t load', 'Tap Reload to try again', `/dashboard/${e}/launch`, isToday);
   // When Today is "Finish your Event Hub", Maker opens the Maker on its guided "What's left" — the same door the
   // Next card's "Pick a stage" was (`?tool=details&guide=1`).
   const maker = { href: `/dashboard/${e}/launch` };
@@ -709,14 +709,15 @@ export function suppliersTile(input: HomeControlInput, today: HomeToday): HomeTi
   const s = input.suppliers;
   const isToday = today.target === 'sup';
   if (s === null) return null;
-  if (s === 'unread') return failedTile('sup', 'Suppliers', 'Couldn’t load', 'not zero · unread', `/dashboard/${e}/vendors`, isToday);
+  if (s === 'unread') return failedTile('sup', 'Suppliers', 'Couldn’t load', 'Tap Reload to try again', `/dashboard/${e}/vendors`, isToday);
   const faces: HomeFace[] = [
     {
       id: 'sup-booked',
       big: n(s.booked),
       count: { value: s.booked, format: 'int' },
-      unit: `of ${n(s.of)} booked`,
-      sm: s.of > s.booked ? `${n(s.of - s.booked)} still to book` : 'all booked',
+      // No "0 of 0 booked · all booked" when the plan lists no supplier yet — that read as a stray sum.
+      unit: s.of > 0 ? `of ${n(s.of)} booked` : 'booked',
+      sm: s.of > s.booked ? `${n(s.of - s.booked)} still to book` : s.of === 0 ? 'Find your suppliers' : 'all booked',
       href: `/dashboard/${e}/vendors`,
       // 👻 Nobody booked, asked or replying yet — the honest zero, with the tile's next face greyed under it.
       ...(s.booked === 0 && s.toDecide.length === 0 && s.replied === 0 ? { example: { ...SAMPLE_FACES.suppliers } } : {}),
@@ -775,7 +776,7 @@ export function checklistTile(input: HomeControlInput, today: HomeToday): HomeTi
   const isToday = today.target === 'plan';
   const door = planningTodoHref(e);
   if (c === null) return null;
-  if (c === 'unread') return failedTile('plan', 'To do', 'Couldn’t load', 'not zero · unread', door, isToday);
+  if (c === 'unread') return failedTile('plan', 'To do', 'Couldn’t load', 'Tap Reload to try again', door, isToday);
   const pct = c.total > 0 ? Math.round((c.done / c.total) * 100) : null;
   const faces: HomeFace[] = [];
   if (pct !== null) faces.push({ id: 'plan-pct', big: `${n(pct)}%`, count: { value: pct, format: 'pct' }, unit: 'done', sm: 'of the plan', href: door, meter: pct });
@@ -802,7 +803,7 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
   const b = input.budget;
   const isToday = today.target === 'budget';
   if (b === null) return null;
-  if (b === 'unread') return failedTile('budget', 'Budget', 'Money couldn’t load', 'paid and owing are unread, not ₱0', budgetPageHref(e), isToday, true);
+  if (b === 'unread') return failedTile('budget', 'Budget', 'Money couldn’t load', 'Tap Reload to try again', budgetPageHref(e), isToday, true);
   const agreed = b.paidPhp + b.owingPhp;
   const pct = agreed > 0 ? Math.round((b.paidPhp / agreed) * 100) : null;
   const faces: HomeFace[] = [];
@@ -866,7 +867,7 @@ export function scheduleTile(input: HomeControlInput, today: HomeToday): HomeTil
   const isToday = today.target === 'sched';
   if (s === undefined || s === null) return null;
   const door = schedulePageHref(e);
-  if (s === 'unread') return failedTile('sched', 'Schedule', 'Schedule couldn’t load', 'not empty · unread', door, isToday, true);
+  if (s === 'unread') return failedTile('sched', 'Schedule', 'Schedule couldn’t load', 'Tap Reload to try again', door, isToday, true);
   const faces: HomeFace[] = [];
   const chunk = (kicker: string, id: string, lines: HomeScheduleFacts['now']) => {
     for (let at = 0; at < lines.length; at += SCHEDULE_LINES_PER_FACE) {

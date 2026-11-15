@@ -62,10 +62,10 @@ export function VerifySection({
   papersAbove = null,
 }: {
   /**
-   * 📄 THE PAPERS ARE ASKED ONCE (walk 13 Nov 2026, F-W1-11). On Today the three required papers are already a list of
-   * their own ("Send your documents", `SetupPapers`) right above this section; here the documents step then only
-   * points to it — the id of that list — instead of loading and asking for the same three again. Absent (Your
-   * details), the step is the full upload it always was.
+   * 📄 THE PAPERS ARE ASKED ONCE (walk 13 Nov 2026, F-W1-11). On Today the three required papers already have their one
+   * upload place ("Send your documents", `SetupPaperPlace` → the same `PaperUploadPlace`) right above this section; here
+   * the documents step then only points to it — its id — instead of loading and asking for the same three again.
+   * Absent (Your details), the step is the full upload it always was.
    */
   papersAbove?: string | null;
   vendorProfileId: string;
@@ -354,7 +354,8 @@ function DocsStep({
       {papersAbove ? (
         <p className="text-sm" style={{ color: 'var(--m-slate)' }} data-verify-papers-above="">
           Your papers are in Send your documents, above.{' '}
-          <a href={`#${papersAbove}`} className="font-medium text-terracotta">
+          {/* 👆 Presses at 46 (`sn-hit`, the owner's 44 floor) without changing how the link is drawn. */}
+          <a href={`#${papersAbove}`} className="sn-hit inline-block font-medium text-terracotta" data-verify-go-to-papers="">
             Go to your papers
           </a>
         </p>
@@ -397,17 +398,38 @@ function SubmitBlock({ missing }: { missing: string[] }) {
   useEffect(() => {
     if (!state || state === handled.current) return;
     handled.current = state;
-    if (state.ok) toast.success('Submitted — our team reviews within 5 business days.');
+    // The approved design's words (Supplier Verification Redesign, state 3): the
+    // supplier sees the RESULT, never the checks.
+    if (state.ok) toast.success(state.verified ? 'You’re verified — your papers checked out.' : 'Submitted — waiting for Setnayan.');
     else toast.error(state.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   const ready = missing.length === 0;
+  if (state?.ok) {
+    return (
+      <div
+        className="mt-4 space-y-0.5"
+        role="status"
+      >
+        <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+          {state.verified ? 'You’re verified' : 'Waiting for Setnayan'}
+        </p>
+        <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+          {state.verified
+            ? 'Couples see your badge and can book you.'
+            : 'We’re checking your papers. Nothing for you to do.'}
+        </p>
+      </div>
+    );
+  }
   return (
     <form action={formAction} className="mt-4 space-y-2">
       <SubmitButton
         className="button-primary w-full justify-center py-2.5 text-sm"
-        pendingLabel="Submitting…"
+        // Clean papers are verified on the spot (owner "CLEAN PAPERS VERIFY THE
+        // SHOP ON SUBMIT") — the few seconds of checking say so.
+        pendingLabel="Checking your papers…"
         disabled={!ready}
       >
         Submit for review

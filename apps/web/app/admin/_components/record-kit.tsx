@@ -29,6 +29,10 @@ import { Fold } from '@/app/_components/fold';
 
 /** The line under a row's name — dark grey, never ink at half strength. */
 export const RECORD_SUBLINE = 'text-[13px] leading-snug text-[color:var(--m-slate-2)]';
+
+/** An inline text link on a record (an owner, a payments queue, a shop): the record's link colour, pressed at 44 — never
+ *  an 18-px line (admin walk, 15 Nov 2026). */
+export const RECORD_LINK = 'inline-flex min-h-11 items-center font-semibold text-mulberry underline-offset-2 hover:underline';
 const HAIRLINE = 'border-[color:var(--m-line)]';
 
 /** The way back to the list this record was opened from. */

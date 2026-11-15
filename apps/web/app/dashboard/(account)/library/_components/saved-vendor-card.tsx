@@ -75,7 +75,7 @@ export function SavedVendorCardItem({ vendor }: { vendor: SavedVendorCardData })
   if (vendor.businessSlug) {
     return (
       <li className={shell}>
-        <Link href={`/v/${vendor.businessSlug}`} className="flex min-w-0 flex-1 items-center gap-2">
+        <Link href={`/v/${vendor.businessSlug}?src=favorites`} className="flex min-w-0 flex-1 items-center gap-2">
           {inner}
           <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={1.75} />
         </Link>

@@ -25,7 +25,13 @@ test('(1) the toggle sits in the top bar: icons only on a phone, the word from t
   assert.match(topBar, /<AdminModeToggle mode=\{mode\} \/>/, 'the toggle left the top bar');
   const toggle = read('app/admin/_components/admin-mode-toggle.tsx');
   assert.match(toggle, /<span className="hidden lg:inline">\{label\}<\/span>/, 'the word shows on a phone, or never');
-  assert.match(toggle, /aria-checked=\{on\}/, 'the filled half no longer says which mode you are in');
+  // Spec (design session, specs 51e2f43b): each half is a button with aria-pressed + its label, at least 44 × 44,
+  // the chosen one filled with the accent and its words in the on-accent colour; Focus = a search bar icon.
+  assert.match(toggle, /aria-pressed=\{on\}/, 'the halves no longer say which one is chosen');
+  assert.match(toggle, /aria-label=\{label\}/);
+  assert.match(toggle, /min-h-11 min-w-11/, 'a half is smaller than 44 × 44');
+  assert.match(toggle, /background: 'rgb\(var\(--sn-accent\)\)', color: 'rgb\(var\(--sn-on-accent\)\)'/, 'the chosen half is not filled');
+  assert.match(toggle, /<rect x="1\.5" y="6\.5" width="21" height="11" rx="5\.5" \/>/, 'Focus lost its search bar icon');
 });
 
 test('(2) Focus has no bottom nav and no thumb row; Full keeps the shipped five tabs', () => {

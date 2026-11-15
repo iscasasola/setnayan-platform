@@ -11,6 +11,7 @@
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PrintButton } from './print-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ASK_EXAMPLES } from '@/lib/admin-map/ask-keywords';
 
 export const metadata = { title: 'What can I ask? · Admin' };
 
@@ -21,6 +22,10 @@ const ROWS: ReadonlyArray<{ type: string; get: string }> = [
   { type: '“Bea Santos”, an email', get: 'The person' },
   { type: 'A wedding’s name', get: 'The event' },
   { type: 'An order code', get: 'The order' },
+  // ASK-KW (14 Nov 2026): a sentence with a verb and a noun gets ONE recommended action first — it opens the page or
+  // prepares the form, never performs. The sentences are the box's own `ASK_EXAMPLES`, each pinned to its first row
+  // by `lib/admin-map/ask-keywords.test.ts`, so this sheet never promises one the box does not honour.
+  ...ASK_EXAMPLES.map((ex) => ({ type: `“${ex}”`, get: 'One recommended action' })),
 ];
 
 export default async function AdminAskPage() {
@@ -55,6 +60,7 @@ export default async function AdminAskPage() {
         <ol className="list-decimal space-y-2 pl-5 text-[13px]">
           <li>Go to a page. Type its name: refunds, prices, disputes.</li>
           <li>Look something up. A name, a shop, an email, an order code.</li>
+          <li>Say what you want to do. “add a new service in the catalog” — the first row is the one action to take.</li>
         </ol>
         <dl className="mt-2 grid grid-cols-[1fr_auto] text-[12.5px]">
           {ROWS.map((r) => (

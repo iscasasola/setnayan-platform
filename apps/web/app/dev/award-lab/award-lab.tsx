@@ -26,7 +26,6 @@ const TIER = TIERS[2]!;
 export function AwardLab() {
   const [open, setOpen] = useState<null | 'badge' | 'seal'>(null);
   const [story, setStory] = useState<StoryInput | null>(null);
-  const [claimed, setClaimed] = useState<Record<string, boolean>>({});
   const kinds = Object.keys(TICKET_SPECS) as TicketKind[];
 
   return (
@@ -39,8 +38,7 @@ export function AwardLab() {
             key={kind}
             kind={kind}
             label={kind}
-            state={i === 0 ? 'locked' : claimed[kind] ? 'claimed' : 'ready'}
-            onClaim={() => setClaimed((c) => ({ ...c, [kind]: true }))}
+            state={i === 0 ? 'locked' : i === 1 ? 'new' : 'in_gifts'}
           />
         ))}
       </section>

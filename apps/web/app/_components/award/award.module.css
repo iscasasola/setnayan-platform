@@ -388,7 +388,7 @@
   }
 }
 
-/* ───────────────────────── the reward ticket (.rw + tkSvg + rwClaim) ───────────────────────── */
+/* ───────────────────────── the reward ticket (.rw + tkSvg) — auto-claimed, never pressable (v86) ───────────────────────── */
 .rw {
   position: relative;
   display: grid;
@@ -424,13 +424,6 @@
 .rw b {
   font-size: 11.5px;
 }
-.rwFoot {
-  display: block;
-  font-size: 10px;
-  line-height: 1.3;
-  opacity: 0.72;
-  margin-top: 2px;
-}
 .rwLocked img {
   filter: saturate(0.4);
   opacity: 0.8;
@@ -441,113 +434,6 @@
 }
 .rwGot em {
   opacity: 1;
-}
-.rwClaim {
-  background: linear-gradient(135deg, #fff6d8, #fce7a8);
-  color: #6b4a0a;
-  box-shadow: 0 0 0 2px #e2b23f, 0 6px 18px rgba(226, 178, 63, 0.45);
-  cursor: pointer;
-  animation: rwPulse 1.8s ease-in-out infinite;
-  min-height: 44px;
-}
-.rwClaim em {
-  color: #8a5d0b;
-  font-weight: 800;
-  opacity: 1;
-}
-.rwClaim img {
-  animation: rwBob 1.8s ease-in-out infinite;
-}
-.rwClaim:focus-visible {
-  outline: 2px solid #8a5d0b;
-  outline-offset: 2px;
-}
-.rwTap {
-  font-style: normal;
-  margin-top: 3px;
-  padding: 6px 12px;
-  border-radius: var(--m-r-full);
-  background: #c24e25;
-  color: #fff;
-  font-size: 11.5px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
-@keyframes rwPulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 2px #e2b23f, 0 6px 18px rgba(226, 178, 63, 0.35);
-  }
-  50% {
-    box-shadow: 0 0 0 3px #f5cc5a, 0 8px 26px rgba(226, 178, 63, 0.7);
-  }
-}
-@keyframes rwBob {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-1deg);
-  }
-  50% {
-    transform: translateY(-3px) rotate(1deg);
-  }
-}
-.rwClaiming img {
-  animation: rwGrab 0.65s cubic-bezier(0.3, 1.4, 0.5, 1) forwards;
-}
-@keyframes rwGrab {
-  0% {
-    transform: scale(1);
-  }
-  35% {
-    transform: scale(1.22) rotate(-4deg);
-    filter: brightness(1.35);
-  }
-  100% {
-    transform: scale(1) rotate(0);
-  }
-}
-.rwJust {
-  animation: rwDone 0.6s ease-out;
-}
-@keyframes rwDone {
-  from {
-    background: #cfefda;
-  }
-}
-.rwFx {
-  position: absolute;
-  width: 0;
-  height: 0;
-  z-index: 5;
-  pointer-events: none;
-}
-.rwFx i {
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  border-radius: var(--m-r-xs);
-  animation: rwBurst 0.8s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
-}
-@keyframes rwBurst {
-  from {
-    transform: rotate(var(--a)) translateY(0) scale(1);
-    opacity: 1;
-  }
-  to {
-    transform: rotate(var(--a)) translateY(calc(-1 * var(--d))) scale(0.4);
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .rwClaim,
-  .rwClaim img,
-  .rwClaiming img,
-  .rwJust {
-    animation: none;
-  }
-  .rwFx {
-    display: none;
-  }
 }
 
 /* ───────────────────────── the story video sheet (.sty / storyMake) ───────────────────────── */

@@ -2,8 +2,8 @@
  * 🏅 THE SHARED AWARD UI KIT, HELD ON ITS REAL MARKUP (controller build map 2026-11-15, slice K; approved prototype
  * `Setnayan/prototypes/supplier_badges_2026-11-15/badge-milestones_v35.html`).
  *
- *   1 · the reward ticket prints every kind of the owner's ladder, the holo strip only on the top plans;
- *   2 · the ticket's three states say the build map's copy verbatim, and only "ready" is pressable;
+ *   1 · the reward ticket prints every kind of the owner's ladder, with no rainbow on any (v86);
+ *   2 · the ticket is auto-claimed (never pressable) and says v86's copy verbatim; the frame-metal gap is off;
  *   3 · the full-screen badge stacks badge → caption → hallmark and NEVER overlaps, at every verified size;
  *   4 · the plaque scales down to fit (never up), share button included;
  *   5 · the full-screen badge names the shop, the tier it was GIVEN (never a hard-coded name), and the hallmark;
@@ -44,7 +44,7 @@ const SIZES: Array<[number, number]> = [
   [1440, 900],
 ];
 
-test('1 · every ticket kind prints; the holo strip only on Event Pro and Event Ultra', async () => {
+test('1 · every ticket kind prints — and NO RAINBOW on any ticket (owner 15 Nov: "no rainbow design on the tickets")', async () => {
   const { TICKET_SPECS, ticketSvg, ticketDataUri } = await import('./ticket-svg');
   assert.deepEqual(Object.keys(TICKET_SPECS).sort(), ['eplus', 'epro', 'eultra', 'papic1000', 'papic150', 'papic3000']);
   for (const [k, spec] of Object.entries(TICKET_SPECS)) {
@@ -54,28 +54,37 @@ test('1 · every ticket kind prints; the holo strip only on Event Pro and Event 
     assert.ok(svg.includes(`SETNAYAN · ${spec.w}`), `${k} prints its word`);
     assert.ok(svg.includes('>REWARD</text>'), `${k} has the stub's REWARD`);
     assert.ok(svg.includes('feTurbulence'), `${k} has the paper grain`);
-    assert.equal(/width="16" height="150" fill="url\(#tq\w+h\)"/.test(svg), !!('holo' in spec && spec.holo), `${k} holo strip`);
+    // the holo strip was a rainbow gradient (#ff7ad9 → … ) on a 16-wide band: neither may appear on any plan
+    assert.ok(!/width="16" height="150"/.test(svg), `${k}: no holographic strip`);
+    assert.ok(!/#ff7ad9|#7affc4|#c77aff/i.test(svg), `${k}: no rainbow stop`);
+    assert.ok(!('holo' in spec), `${k}: the spec carries no holo flag`);
     assert.ok(ticketDataUri(k, spec).startsWith('data:image/svg+xml'));
     assert.equal(ticketDataUri(k, spec), ticketDataUri(k, spec), 'drawn once per kind');
   }
+  const src = stripComments(readFileSync(join(DIR, 'ticket-svg.ts'), 'utf8'));
+  assert.ok(!/holo/i.test(src), 'no holo path left in the ticket drawing');
 });
 
-test('2 · the ticket says the copy verbatim, and only "ready" is a button', async () => {
+test('2 · auto-claimed: the ticket is never a button; v86 copy verbatim; the frame-metal gap is off by default', async () => {
   const { RewardTicket, TICKET_COPY } = await import('./reward-ticket');
-  assert.equal(TICKET_COPY.claimed, '✓ Claimed · in your gifts');
-  assert.equal(TICKET_COPY.foot, 'A gift from Setnayan, for you to give.');
-  assert.equal(TICKET_COPY.tap, 'Tap to claim');
-  const ready = renderToStaticMarkup(h(RewardTicket, { kind: 'papic150', label: 'Papic 150', state: 'ready', onClaim: () => {} }));
-  assert.match(ready, /^<button type="button"/);
-  assert.ok(ready.includes('Tap to claim') && ready.includes('New reward'));
-  assert.ok(ready.includes('aria-label="Claim your reward: Papic 150"'));
+  assert.equal(TICKET_COPY.locked, 'Reward · gift for a customer');
+  assert.equal(TICKET_COPY.new, '✓ New · in your gifts');
+  assert.equal(TICKET_COPY.inGifts, '✓ In your gifts');
   const locked = renderToStaticMarkup(h(RewardTicket, { kind: 'epro', label: 'Event Pro', state: 'locked' }));
-  assert.ok(!locked.includes('<button'));
+  const fresh = renderToStaticMarkup(h(RewardTicket, { kind: 'papic150', label: 'Papic 150', state: 'new' }));
+  const held = renderToStaticMarkup(h(RewardTicket, { kind: 'eultra', label: 'Event Ultra', state: 'in_gifts' }));
   assert.ok(locked.includes('Reward · gift for a customer'));
-  const got = renderToStaticMarkup(h(RewardTicket, { kind: 'eultra', label: 'Event Ultra', state: 'claimed' }));
-  assert.ok(!got.includes('<button') && !got.includes('Tap to claim'));
-  assert.ok(got.includes('✓ Claimed · in your gifts'));
-  for (const m of [ready, locked, got]) assert.ok(m.includes('A gift from Setnayan, for you to give.'));
+  assert.ok(fresh.includes('✓ New · in your gifts'));
+  assert.ok(held.includes('✓ In your gifts'));
+  for (const m of [locked, fresh, held]) {
+    assert.ok(!m.includes('<button') && !/tap to claim/i.test(m) && !m.includes('role="button"'), 'nothing to tap: rewards claim themselves');
+  }
+  const src = stripComments(readFileSync(join(DIR, 'reward-ticket.tsx'), 'utf8'));
+  assert.ok(!/onClaim|Tap to claim/.test(src), 'no claim path left in the ticket');
+  // ⚖ GAP: "ticket frame metal" is unruled — off by default, so the drawn frame is v86's for the kind
+  const plain = renderToStaticMarkup(h(RewardTicket, { kind: 'epro', label: 'Event Pro', state: 'in_gifts' }));
+  const again = renderToStaticMarkup(h(RewardTicket, { kind: 'epro', label: 'Event Pro', state: 'in_gifts', frameMetal: undefined }));
+  assert.equal(plain, again, 'frameMetal undefined draws exactly the v86 frame');
 });
 
 test('3 · badge → caption → hallmark never overlap, at every verified size', async () => {

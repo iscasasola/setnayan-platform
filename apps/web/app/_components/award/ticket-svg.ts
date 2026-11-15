@@ -3,7 +3,8 @@
  * `Setnayan/prototypes/supplier_badges_2026-11-15/badge-milestones_v35.html` (owner 15 Nov: *"we want a realistic
  * effect of that ticket as well"*): a printed voucher, not a flat sticker — grained paper, guilloche security print,
  * a metal foil frame in the tier's metal, a real torn-stub perforation with notches, embossed foil numerals, a
- * Setnayan watermark, a serial number, a holographic strip on the top plans, and a light sheen.
+ * Setnayan watermark, a serial number, and a light sheen. NO rainbow / holographic strip on any plan (owner 15 Nov:
+ * "no rainbow design on the tickets" · "keep in all clean and premium" — contract `badge-milestones_v86.html`).
  *
  * PURE: a string of SVG per ticket kind, drawn once and cached as a data URI, so a row of 35 tickets costs six
  * drawings. No DOM, no server, safe in a server render.
@@ -27,20 +28,15 @@ export type TicketSpec = {
   face: readonly [string, string, string];
   /** Foil frame metal. */
   rim: TicketRim;
-  /** Holographic strip (the top plans). */
-  holo?: boolean;
 };
-
-/** The claim burst's four sparks — the ticket's own art, like its faces and rims (copied verbatim from the prototype). */
-export const TICKET_BURST: readonly string[] = ['#FFD860', '#fff', '#E0405E', '#86E9D3'];
 
 export const TICKET_SPECS = {
   papic150: { w: 'PAPIC', n: '150', s: 'CREDITS', ic: 'cam', face: ['#F7A08F', '#D63A55', '#5E0D24'], rim: 'bronze' },
   papic1000: { w: 'PAPIC', n: '1000', s: 'CREDITS', ic: 'cam', face: ['#F7A08F', '#C92F4E', '#55091F'], rim: 'silver' },
   papic3000: { w: 'PAPIC', n: '3000', s: 'CREDITS', ic: 'cam', face: ['#FFB39A', '#C42645', '#4A061A'], rim: 'gold' },
   eplus: { w: 'EVENT', n: 'PLUS', s: 'PLAN', ic: 'heart', face: ['#8FEBD6', '#17927B', '#063A32'], rim: 'silver' },
-  epro: { w: 'EVENT', n: 'PRO', s: 'PLAN', ic: 'heart', face: ['#C9B6FF', '#5E38D0', '#1D0B52'], rim: 'gold', holo: true },
-  eultra: { w: 'EVENT', n: 'ULTRA', s: 'PLAN', ic: 'heart', face: ['#5A4A7E', '#18121F', '#030204'], rim: 'plat', holo: true },
+  epro: { w: 'EVENT', n: 'PRO', s: 'PLAN', ic: 'heart', face: ['#C9B6FF', '#5E38D0', '#1D0B52'], rim: 'gold' },
+  eultra: { w: 'EVENT', n: 'ULTRA', s: 'PLAN', ic: 'heart', face: ['#5A4A7E', '#18121F', '#030204'], rim: 'plat' },
 } as const satisfies Record<string, TicketSpec>;
 
 export type TicketKind = keyof typeof TICKET_SPECS;
@@ -91,13 +87,12 @@ export function ticketSvg(id: string, T: TicketSpec): string {
   const sx = (W - 12) / W;
   const sy = (H - 12) / H;
   const inset = `translate(${W / 2} ${H / 2}) scale(${sx.toFixed(4)} ${sy.toFixed(4)}) translate(${-W / 2} ${-H / 2})`;
-  const mid = (SX + W - (T.holo ? 40 : 0)) / 2;
+  const mid = (SX + W) / 2;
   const serial = `Nº ${id.toUpperCase().slice(0, 3)}-0${T.n.length}7${T.n.charCodeAt(0) % 10}4`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -6 ${W + 16} ${H + 20}" width="${W + 16}" height="${H + 20}"><defs>
 <linearGradient id="${u}r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${R[0]}"/><stop offset=".18" stop-color="${R[1]}"/><stop offset=".38" stop-color="${R[2]}"/><stop offset=".55" stop-color="${R[3]}"/><stop offset=".78" stop-color="${R[2]}"/><stop offset="1" stop-color="${R[4]}"/></linearGradient>
 <radialGradient id="${u}f" cx=".3" cy=".1" r="1.15"><stop offset="0" stop-color="${F[0]}"/><stop offset=".26" stop-color="${F[1]}"/><stop offset=".62" stop-color="${F[1]}"/><stop offset="1" stop-color="${F[2]}"/></radialGradient>
 <linearGradient id="${u}t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${R[3]}"/><stop offset=".45" stop-color="${R[1]}"/><stop offset=".55" stop-color="${R[2]}"/><stop offset="1" stop-color="${R[3]}"/></linearGradient>
-<linearGradient id="${u}h" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff7ad9"/><stop offset=".2" stop-color="#ffe27a"/><stop offset=".4" stop-color="#7affc4"/><stop offset=".6" stop-color="#7ab8ff"/><stop offset=".8" stop-color="#c77aff"/><stop offset="1" stop-color="#ff7ad9"/></linearGradient>
 <linearGradient id="${u}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
 <linearGradient id="${u}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset=".42" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
 <filter id="${u}n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .55 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
@@ -113,7 +108,6 @@ export function ticketSvg(id: string, T: TicketSpec): string {
 <g fill="none" stroke="#fff" stroke-opacity=".13" stroke-width=".7">${gl}</g>
 <g fill="none" stroke="#fff" stroke-opacity=".12" stroke-width=".7">${wv}</g>
 <path fill="#fff" opacity=".07" transform="translate(${W - 112} ${H - 104}) scale(.03 -.03) translate(0 -4000)" d="${SY_PATH}"/>
-${T.holo ? `<rect x="${W - 38}" y="0" width="16" height="${H}" fill="url(#${u}h)" opacity=".75"/><rect x="${W - 38}" y="0" width="16" height="${H}" fill="url(#${u}g)"/>` : ''}
 <rect x="0" y="0" width="${W}" height="${H}" filter="url(#${u}n)" opacity=".22"/>
 <rect x="0" y="0" width="${W}" height="${H}" fill="url(#${u}g)"/>
 <rect x="-60" y="-20" width="40" height="${H + 40}" fill="url(#${u}s)" transform="rotate(18)"/>

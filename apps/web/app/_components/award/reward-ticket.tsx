@@ -1,24 +1,27 @@
 'use client';
 /**
  * 🎟 REWARD TICKET — the realistic voucher a tier earns (owner 15 Nov ladder: Papic 150 · Papic 150 · Papic 1000 ·
- * Papic 3000 · Event Plus · Event Pro · Event Ultra), ported from the approved prototype
- * `badge-milestones_v35.html`: the `.rw` card, the `tkSvg` picture (`ticket-svg.ts`), and `rwClaim`'s confetti burst.
+ * Papic 3000 · Event Plus · Event Pro · Event Ultra), ported from the approved contract `badge-milestones_v86.html`:
+ * the `.rw` card and the `tkSvg` picture (`ticket-svg.ts`).
  *
- * Three states, all said in words (copy verbatim from the build map):
- *   · locked  — "Reward · gift for a customer", the ticket greyed;
- *   · ready   — "New reward" + "Tap to claim", pulsing; a tap (or Enter / Space) claims it, once;
- *   · claimed — "✓ Claimed · in your gifts".
- * Footnote on every ticket: "A gift from Setnayan, for you to give."
+ * ✅ AUTO-CLAIMED (owner 15 Nov, the whole-flow ruling, pick (2)): a badge's reward is the shop's the moment it is
+ * earned — nothing to tap, and the same once-only key means it can never count twice. So the ticket is never a button.
+ * Three looks, copy verbatim from v86:
+ *   · locked   — "Reward · gift for a customer", the ticket greyed;
+ *   · new      — "✓ New · in your gifts" (the reward just earned);
+ *   · in_gifts — "✓ In your gifts".
+ * 🎟 NO RAINBOW (owner 15 Nov: "no rainbow design on the tickets" · "keep in all clean and premium"): every ticket keeps
+ * its metal frame, security print, torn stub, raised numerals and serial; no holographic strip on any plan.
  *
- * The claim itself is the caller's (`onClaim`); this only shows it. Pressing twice never claims twice: the ticket is
- * busy from the first press until the caller settles. Client-only; no fetch here.
+ * ⚖ UNRULED, LEFT AS A NAMED GAP: the ticket FRAME METAL (open item "ticket frame metal", DECISION_LOG 15 Nov approval).
+ * `frameMetal` is off by default — the ticket wears the frame drawn in v86 for its kind. Nothing is invented for it.
+ *
+ * Client-only; no fetch here.
  */
-import { useRef, useState, type CSSProperties } from 'react';
 import s from './award.module.css';
-import { TICKET_BURST, TICKET_H, TICKET_SPECS, TICKET_W, ticketDataUri, type TicketKind, type TicketSpec } from './ticket-svg';
-import { prefersReducedMotion } from './shared';
+import { TICKET_H, TICKET_SPECS, TICKET_W, ticketDataUri, type TicketKind, type TicketRim, type TicketSpec } from './ticket-svg';
 
-export type RewardTicketState = 'locked' | 'ready' | 'claimed';
+export type RewardTicketState = 'locked' | 'new' | 'in_gifts';
 
 export type RewardTicketProps = {
   /** Which voucher to print (`TICKET_SPECS`); or pass `spec` for a kind added later. */
@@ -28,115 +31,40 @@ export type RewardTicketProps = {
   /** What the reward is, in words ("Papic 150"). */
   label: string;
   state: RewardTicketState;
-  /** Claim it. May return a promise; a rejection puts the ticket back to "Tap to claim". */
-  onClaim?: () => void | Promise<unknown>;
+  /**
+   * ⚖ GAP — "ticket frame metal" is not ruled. Off by default (undefined = the frame v86 draws for this kind). A value
+   * here only takes effect once the owner rules on it; the kit never picks one on its own.
+   */
+  frameMetal?: TicketRim;
   className?: string;
 };
 
 export const TICKET_COPY = {
   locked: 'Reward · gift for a customer',
-  ready: 'New reward',
-  tap: 'Tap to claim',
-  claimed: '✓ Claimed · in your gifts',
-  foot: 'A gift from Setnayan, for you to give.',
+  new: '✓ New · in your gifts',
+  inGifts: '✓ In your gifts',
 } as const;
 
-
-export function RewardTicket({ kind, spec, label, state, onClaim, className }: RewardTicketProps) {
-  const print = spec ?? (TICKET_SPECS as Record<string, TicketSpec>)[kind];
-  const [phase, setPhase] = useState<'idle' | 'claiming' | 'just'>('idle');
-  const [burst, setBurst] = useState(0);
-  const busy = useRef(false);
-  const shown: RewardTicketState = phase === 'just' ? 'claimed' : state;
-
-  const claim = () => {
-    if (shown !== 'ready' || busy.current) return;
-    busy.current = true;
-    setBurst((n) => n + 1);
-    setPhase('claiming');
-    try {
-      navigator.vibrate?.(18);
-    } catch {
-      /* no haptics here */
-    }
-    let result: void | Promise<unknown> = undefined;
-    try {
-      result = onClaim?.();
-    } catch {
-      busy.current = false;
-      setPhase('idle');
-      return;
-    }
-    const settle = () => window.setTimeout(() => setPhase('just'), prefersReducedMotion() ? 0 : 650);
-    if (result && typeof (result as Promise<unknown>).then === 'function') {
-      (result as Promise<unknown>).then(settle, () => {
-        busy.current = false;
-        setPhase('idle');
-      });
-    } else settle();
-  };
-
-  const cls = [
-    s.rw,
-    shown === 'locked' ? s.rwLocked : '',
-    shown === 'claimed' ? s.rwGot : '',
-    shown === 'ready' ? s.rwClaim : '',
-    phase === 'claiming' ? s.rwClaiming : '',
-    phase === 'just' ? s.rwJust : '',
-    className ?? '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  const picture = print ? (
-    // a generated data: URI drawn on the device — next/image has nothing to optimise here
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={ticketDataUri(String(kind), print)} alt="" width={TICKET_W} height={TICKET_H} decoding="async" draggable={false} />
-  ) : null;
-  const eyebrow = shown === 'ready' ? TICKET_COPY.ready : shown === 'claimed' ? TICKET_COPY.claimed : TICKET_COPY.locked;
-  const fx =
-    phase === 'claiming' ? (
-      <span key={burst} className={s.rwFx} style={{ left: '50%', top: '42%' }} aria-hidden="true">
-        {Array.from({ length: 16 }, (_, k) => (
-          <i key={k} style={{ '--a': `${k * 22.5}deg`, '--d': `${40 + (k % 3) * 18}px`, background: TICKET_BURST[k % 4] } as CSSProperties} />
-        ))}
-      </span>
-    ) : null;
-
-  if (shown === 'ready') {
-    return (
-      <button
-        type="button"
-        className={cls}
-        data-reward-ticket="ready"
-        aria-label={`Claim your reward: ${label}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          claim();
-        }}
-      >
-        {fx}
-        <em>{eyebrow}</em>
-        {picture}
-        <b>{label}</b>
-        <i className={s.rwTap}>{TICKET_COPY.tap}</i>
-        <small className={s.rwFoot}>{TICKET_COPY.foot}</small>
-      </button>
-    );
-  }
+export function RewardTicket({ kind, spec, label, state, frameMetal, className }: RewardTicketProps) {
+  const base = spec ?? (TICKET_SPECS as Record<string, TicketSpec>)[kind];
+  const print = base && frameMetal ? { ...base, rim: frameMetal } : base;
+  const got = state !== 'locked';
+  const cls = [s.rw, got ? s.rwGot : s.rwLocked, className ?? ''].filter(Boolean).join(' ');
+  const eyebrow = state === 'new' ? TICKET_COPY.new : state === 'in_gifts' ? TICKET_COPY.inGifts : TICKET_COPY.locked;
   return (
     <span
       className={cls}
-      data-reward-ticket={shown}
-      aria-label={shown === 'claimed' ? `Claimed: ${label}, in your gifts` : `Reward, ${label}: a gift for a customer`}
+      data-reward-ticket={state}
       role="group"
-      aria-live={phase === 'just' ? 'polite' : undefined}
+      aria-label={got ? `${label}, in your gifts` : `Reward, ${label}: a gift for a customer`}
     >
-      {fx}
       <em>{eyebrow}</em>
-      {picture}
+      {print ? (
+        // a generated data: URI drawn on the device — next/image has nothing to optimise here
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={ticketDataUri(String(kind), print)} alt="" width={TICKET_W} height={TICKET_H} decoding="async" draggable={false} />
+      ) : null}
       <b>{label}</b>
-      <small className={s.rwFoot}>{TICKET_COPY.foot}</small>
     </span>
   );
 }

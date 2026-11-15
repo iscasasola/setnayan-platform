@@ -37,7 +37,7 @@ import { offerProgress } from '@/lib/supplier-setup';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { myPageUrl } from '@/lib/supplier-qr-codes';
 import type { SpotlightScript } from '@/lib/tours';
-import { LAB_PAPER_URLS, labSetupDetails, type LabDocs } from './page-lab';
+import { labPaperPayload, labSetupDetails, type LabDocs } from './page-lab';
 import { forYourServicePages, type EventLines } from '@/lib/supplier-event-lines';
 import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
 import { HERO_UPLOAD_PILL } from '@/app/vendor-dashboard/_components/supplier-hero';
@@ -596,7 +596,7 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
               maker={<p className="py-6 text-center text-[13.5px] text-ink/65" data-lab-maker="">The service maker opens here, over Today — the shipped maker on the real page.</p>}
               qr={{ svg: qrSvg, url: LAB_SHOP_QR_URL }}
               tour={tourScript ? { script: tourScript, seen: false, lab: true } : null}
-              paperUrls={LAB_PAPER_URLS}
+              paperPayload={labPaperPayload(docs)}
               today={TODAY}
               lab
               gear={<TodaySettings />}

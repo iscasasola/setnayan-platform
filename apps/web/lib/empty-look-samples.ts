@@ -236,6 +236,7 @@ export const SAMPLE_HUB = {
 export type SamplePortfolioTile = { name: string; sub: string; photo: string };
 
 export const SAMPLE_PORTFOLIO: Readonly<Record<string, SamplePortfolioTile>> = {
+  best: { name: 'Most viewed', sub: 'Your best work', photo: '/marketing/2026-11-04/hero-wedding.webp' },
   page: { name: 'Cover', sub: '14 photos', photo: '/marketing/2026-11-04/hero-wedding.webp' },
   cards: { name: 'Wedding photo & video', sub: '6 photos', photo: '/event-types/wedding.webp' },
   albums: { name: SAMPLE_COUPLE, sub: '48 photos · 12 Dec', photo: '/marketing/2026-11-04/real-sister.webp' },

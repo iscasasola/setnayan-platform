@@ -2,7 +2,7 @@
  * the-app-opens-what-apple-sells.test.ts — 🍎 VERSION 1.1: WHERE APPLE SELLS IN
  * THE APP, WHAT IT SELLS IS USABLE THERE — AND NOWHERE ELSE DOES ANYTHING CHANGE.
  *
- * #6637 (merged flag-dark 2026-10-18) put Papic credits, Event Hub Pro and Live
+ * #6637 (merged flag-dark 2026-10-18) put Papic credits, Event Pro and Live
  * Watch on Apple's sheet; its "Not built here" list is this file's subject:
  *
  *   1 · the Papic and Live Watch CONTROL pages open in the app — only where Apple
@@ -480,7 +480,7 @@ const DOORS: Array<[file: string, gate: RegExp[]]> = [
       /\) : apple \? \(\s*<div className="pt-1">\s*<IapUnlockSheet\b/,
       /\) : apple && !appleOnSale \? \(/,
       /const settings = storeShell \? STORE_SHELL_NO_PAY_SETTINGS : await fetchPlatformSettings\(supabase\);/,
-      /<p data-web-only="" className="text-xs text-ink\/55">\s*Need a custom reel template\?/,
+      /<div data-web-only="">\s*<InfoTip labelAs="p" label="Need a custom reel template\?"/,
     ],
   ],
   [

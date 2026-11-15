@@ -387,14 +387,6 @@
           "dependents": 2
         },
         {
-          "path": "apps/web/app/v/[slug]/_components/anon-inquiry-composer.tsx",
-          "dependents": 1
-        },
-        {
-          "path": "apps/web/app/v/[slug]/_components/inquiry-composer.tsx",
-          "dependents": 1
-        },
-        {
           "path": "apps/web/app/v/[slug]/_components/service-details-sheet.tsx",
           "dependents": 1
         },

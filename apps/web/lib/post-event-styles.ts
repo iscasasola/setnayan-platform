@@ -155,6 +155,8 @@ export function postEventSceneOfScope(scope: string): string | null {
  * story's chapters, not one line of the scene.)
  */
 export function postEventWordParts(sceneKey: string, style: PostEventStyleId | null): Array<'label' | 'heading' | 'body'> {
+  /* 🎁 The gift thank-you has no style cards: its one part is the couple's one line (owner 2026-11-13). */
+  if (sceneKey === 'gifts') return ['body'];
   if (!style) return [];
   switch (postEventSceneTypeOf(sceneKey)) {
     case 'front-page':

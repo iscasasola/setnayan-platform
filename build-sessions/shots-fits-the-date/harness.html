@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fits the date · Now vs Proposed</title>
+<!--
+  HARNESS, DUMMY DATA — PR #7556 "only what fits the date". Not the live app: the pages are server-rendered
+  from Supabase, which a cloud builder may not read. Every sentence below is the COPY IN THE CODE on each side
+  (Now = the branch's base, #7511; Proposed = this PR), printed by the real functions where there is one:
+    findNobodyFreeWords(describeUnbookableScope('2026-12-12','day')) → "Nobody is free on Sat, Dec 12, 2026."
+    takenOnWords('2026-12-12') → "Taken on Dec 12"
+  Render: node shoot.mjs (Playwright, 390 px frames).
+-->
+<style>
+  :root { --cream:#FBFBFA; --ink:#1E2229; --gold:#A9834B; --accent:#C2502A; --line:rgba(30,34,41,.12); }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#F3F0EA; font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; color:var(--ink); }
+  .pair { display:flex; gap:24px; padding:24px; width:max-content; }
+  .col h2 { margin:0 0 12px; font-size:22px; font-weight:700; color:#333; }
+  .col.new h2 { color:var(--accent); }
+  .frame { width:390px; min-height:640px; background:var(--cream); border:1px solid var(--line); padding:20px 16px 32px; }
+  .top { font-size:12px; color:rgba(30,34,41,.6); margin-bottom:6px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; margin:12px 0; }
+  .chip { border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-size:13px; background:#fff; }
+  .chip.on { background:var(--ink); color:var(--cream); border-color:var(--ink); }
+  .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px; margin-top:12px; }
+  .card .ph { height:110px; border-radius:10px; background:linear-gradient(135deg,#e8e1d6,#d8cfc2); }
+  .card h3 { margin:10px 0 2px; font-size:16px; }
+  .card p { margin:0; font-size:13px; color:rgba(30,34,41,.65); }
+  .card.full { opacity:1; }
+  .empty { margin-top:28px; border:1.5px dashed rgba(30,34,41,.2); border-radius:16px; padding:36px 20px; text-align:center; }
+  .empty .l { font-size:16px; font-weight:500; color:rgba(30,34,41,.8); margin:0; }
+  .empty .s { font-size:14px; color:rgba(30,34,41,.6); margin:6px 0 0; }
+  .btn2 { display:inline-flex; align-items:center; height:40px; padding:0 16px; border:1px solid var(--line); border-radius:999px; background:#fff; font-size:14px; margin-top:16px; }
+  .out { margin-top:18px; border-top:1px solid var(--line); padding-top:14px; font-size:13px; color:rgba(30,34,41,.7); }
+  .count { font-size:13px; color:rgba(30,34,41,.6); margin-top:12px; }
+  .findempty { font-size:15px; color:rgba(30,34,41,.7); margin-top:24px; }
+  .search { border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:#fff; font-size:14px; color:rgba(30,34,41,.5); margin-top:12px; }
+  .sec { font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:rgba(30,34,41,.6); margin:20px 0 4px; }
+  .badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:3px 8px; border-radius:999px; margin-top:8px; }
+  .badge.warn { background:#FBEDE5; color:#9A3B1C; }
+  .badge.ok { background:#E8F2EA; color:#2C6B3B; }
+  .verbs { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .verb { font-size:13px; border:1px solid var(--line); border-radius:999px; padding:7px 12px; background:#fff; }
+  .verb.main { background:var(--ink); color:var(--cream); }
+  .note { font-size:11px; color:var(--accent); margin-top:6px; }
+  .bench { display:flex; gap:12px; align-items:flex-start; }
+  .av { width:44px; height:44px; border-radius:50%; background:#e5ddd1; flex:none; }
+</style>
+</head>
+<body>
+
+<!-- 1 · DISCOVER, supplier view, Photo & Video, couple's date Sat Dec 12 -->
+<section class="pair" id="s1">
+  <div class="col"><h2>Now · full supplier only moves down</h2>
+    <div class="frame">
+      <div class="top">Discover · Suppliers · your date Sat, Dec 12, 2026</div>
+      <h1>Photo &amp; Video</h1>
+      <div class="chips"><span class="chip">All</span><span class="chip on">Photo &amp; Video</span><span class="chip">Catering</span></div>
+      <div class="card"><div class="ph"></div><h3>Liwanag Studio</h3><p>Quezon City · from ₱45,000</p></div>
+      <div class="card"><div class="ph"></div><h3>Pamana Films</h3><p>Makati · from ₱60,000</p></div>
+      <div class="card full"><div class="ph"></div><h3>Bituin Photo Co.</h3><p>Pasig · from ₱38,000</p>
+        <div class="note">↑ no booking left on Dec 12 — still listed, last</div></div>
+    </div>
+  </div>
+  <div class="col new"><h2>Proposed · only what fits</h2>
+    <div class="frame">
+      <div class="top">Discover · Suppliers · your date Sat, Dec 12, 2026</div>
+      <h1>Photo &amp; Video</h1>
+      <div class="chips"><span class="chip">All</span><span class="chip on">Photo &amp; Video</span><span class="chip">Catering</span></div>
+      <div class="card"><div class="ph"></div><h3>Liwanag Studio</h3><p>Quezon City · from ₱45,000</p></div>
+      <div class="card"><div class="ph"></div><h3>Pamana Films</h3><p>Makati · from ₱60,000</p></div>
+      <div class="note">Bituin Photo Co. is not shown: no booking left on Dec 12 and not on your list. A supplier on your list, or who opened your event, stays.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 · DISCOVER, every supplier in the category full -->
+<section class="pair" id="s2">
+  <div class="col"><h2>Now · reads like nobody exists</h2>
+    <div class="frame">
+      <div class="top">Discover · Suppliers · your date Sat, Dec 12, 2026</div>
+      <h1>Lights &amp; Sound</h1>
+      <div class="chips"><span class="chip">All</span><span class="chip on">Lights &amp; Sound</span></div>
+      <div class="note">(Now: the full suppliers are still listed here, last. If the list were empty, it said:)</div>
+      <div class="empty"><p class="l">No suppliers match exactly.</p><p class="s">Try widening your search or clearing one filter at a time.</p><span class="btn2">Clear all filters</span>
+        <div class="out">Help this category grow · Know a great Lights &amp; Sound? Invite them — or list your own business</div></div>
+    </div>
+  </div>
+  <div class="col new"><h2>Proposed · says who and when</h2>
+    <div class="frame">
+      <div class="top">Discover · Suppliers · your date Sat, Dec 12, 2026</div>
+      <h1>Lights &amp; Sound</h1>
+      <div class="chips"><span class="chip">All</span><span class="chip on">Lights &amp; Sound</span></div>
+      <div class="empty"><p class="l">Nobody is free on Sat, Dec 12, 2026.</p><span class="btn2">Clear all filters</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 · FIND, category page on the Suppliers page -->
+<section class="pair" id="s3">
+  <div class="col"><h2>Now · "No supplier lists this yet"</h2>
+    <div class="frame">
+      <div class="top">Suppliers · Find</div>
+      <h1>Lights &amp; Sound</h1>
+      <div class="search">Search Lights &amp; Sound</div>
+      <div class="count">0 suppliers</div>
+      <div class="findempty">No supplier lists this yet. Check back soon.</div>
+    </div>
+  </div>
+  <div class="col new"><h2>Proposed · "Nobody is free on …"</h2>
+    <div class="frame">
+      <div class="top">Suppliers · Find</div>
+      <h1>Lights &amp; Sound</h1>
+      <div class="search">Search Lights &amp; Sound</div>
+      <div class="findempty">Nobody is free on Sat, Dec 12, 2026.</div>
+      <div class="note">Same sentence in the search sheet. A month date reads "Nobody is free in December 2026."</div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 · THE BENCH (couple's own list) -->
+<section class="pair" id="s4">
+  <div class="col"><h2>Now · "Booked that day"</h2>
+    <div class="frame">
+      <div class="top">Suppliers · your list · Sat, Dec 12, 2026</div>
+      <h1>Photo &amp; Video</h1>
+      <div class="sec">Not available on your date</div>
+      <div class="card"><div class="bench"><div class="av"></div><div><h3 style="margin-top:0">Bituin Photo Co.</h3><p>You asked · 2 messages</p>
+        <span class="badge warn">⊘ Booked that day</span></div></div>
+        <div class="verbs"><span class="verb main">Ask about another day</span><span class="verb">Remove</span></div></div>
+      <div class="card"><div class="bench"><div class="av"></div><div><h3 style="margin-top:0">Sinag Weddings</h3><p>Saved · never asked</p>
+        <span class="badge warn">⊘ Booked that day</span></div></div>
+        <div class="verbs"><span class="verb">Remove</span></div></div>
+    </div>
+  </div>
+  <div class="col new"><h2>Proposed · "Taken on Dec 12"</h2>
+    <div class="frame">
+      <div class="top">Suppliers · your list · Sat, Dec 12, 2026</div>
+      <h1>Photo &amp; Video</h1>
+      <div class="sec">Not available on your date</div>
+      <div class="card"><div class="bench"><div class="av"></div><div><h3 style="margin-top:0">Bituin Photo Co.</h3><p>You asked · 2 messages</p>
+        <span class="badge warn">⊘ Taken on Dec 12</span></div></div>
+        <div class="verbs"><span class="verb main">Ask about another day</span><span class="verb">Remove</span></div></div>
+      <div class="card"><div class="bench"><div class="av"></div><div><h3 style="margin-top:0">Sinag Weddings</h3><p>Saved · never asked</p>
+        <span class="badge warn">⊘ Taken on Dec 12</span></div></div>
+        <div class="verbs"><span class="verb">Remove</span></div>
+        <div class="note">Unchanged on purpose: saved-but-never-asked stays on the list (decision #3). Owner call.</div></div>
+    </div>
+  </div>
+</section>
+</body>
+</html>

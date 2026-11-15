@@ -105,7 +105,8 @@ const FIXED: readonly (readonly [from: string, to: string])[] = [
   ['/admin/marketing', '/admin/studio'], //                       retired 2026-07-04
   ['/vendor-dashboard/funnel', '/vendor-dashboard/performance'], // retired 2026-07-02
   ['/vendor-dashboard/tax-documents', '/vendor-dashboard'], //     retired 2026-05-29
-  ['/explore/categories', '/explore'], //                         retired 2026-08-15
+  // retired 2026-08-15 → /explore, which is itself retired since 2026-11-12 — so it lands where /explore now does.
+  ['/explore/categories', '/'],
 ];
 
 /**
@@ -116,6 +117,11 @@ const FIXED: readonly (readonly [from: string, to: string])[] = [
  */
 const KEEPS_QUERY: ReadonlyMap<string, string> = new Map([
   ['/admin/taxonomy', '/admin/categories'], //                    retired 2026-10-02
+  // 🔑 The two spellings people TYPE for the sign-in page (walk 13 Nov 2026, F-W3-01: both were a 404). Never pages
+  // (a page is a route against the cap), never `next.config` rules (same) — a forward, the query kept so `?next=…`
+  // still lands where it was going. Held by `lib/legacy-redirects.test.ts`.
+  ['/signin', '/login'],
+  ['/sign-in', '/login'],
 ]);
 
 /**
@@ -169,6 +175,23 @@ function oldPapicCardTarget(eventId: string, search: string): string | null {
   return papicCardHref(eventId, rest.toString());
 }
 
+/**
+ * 🔎 FIND SUPPLIERS MOVED INSIDE DISCOVER (owner 2026-11-12: *"find suppliers needs to be also inside discover
+ * already. they do not need to have their own page"*; DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED").
+ * `/explore` is no longer a page: it forwards to `/` with EVERY parameter carried, unchanged — Discover reads the
+ * same names (`lib/discover-suppliers.ts`), so `?category=…&city=…` opens the supplier view on the same filters,
+ * `?folder=…&from=plan` from inside an event keeps its plan context, and a bare `/explore` is Discover itself (its
+ * Shops shelf carries "All categories", "Filters" and "See all suppliers"). `notice` alone is dropped: the old
+ * compare notice — the compare line says it now (the drawing's Map card). Permanent (308) per the drawing's SEO
+ * plan. `/explore/compare` is a different path and is NOT forwarded.
+ */
+export function exploreRedirectTarget(search: string): string {
+  const q = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  q.delete('notice');
+  const qs = q.toString();
+  return qs ? `/?${qs}` : '/';
+}
+
 const EVENT_SCOPED_RE: ReadonlyMap<string, string> = new Map(EVENT_SCOPED);
 const FIXED_MAP: ReadonlyMap<string, string> = new Map(FIXED);
 
@@ -177,6 +200,7 @@ export const LEGACY_REDIRECT_OLD_PATHS: readonly string[] = [
   ...EVENT_SCOPED.map(([from]) => `/dashboard/<eventId>/${from}`),
   ...FIXED.map(([from]) => from),
   ...[...KEEPS_QUERY.keys()],
+  '/explore',
   '/dashboard/<eventId>/studio/papic',
   '/admin/event-types/<type>/categories',
   '/admin/event-types/<type>/profile',
@@ -192,6 +216,8 @@ export function legacyRedirectTarget(pathname: string, search = ''): string | nu
 
   const fixed = FIXED_MAP.get(path);
   if (fixed) return fixed;
+
+  if (path === '/explore') return exploreRedirectTarget(search);
 
   const keeps = KEEPS_QUERY.get(path);
   if (keeps) return search && search !== '?' ? `${keeps}${search.startsWith('?') ? search : `?${search}`}` : keeps;

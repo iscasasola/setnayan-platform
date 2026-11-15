@@ -368,7 +368,7 @@ function mainLineWhat(live: HubMainGround | null, next: HubMainGround | null): s
 /* ── THE LIST ────────────────────────────────────────────────────────────── */
 
 /**
- * Every Pro effect this draft holds that a couple WITHOUT Event Hub Pro could
+ * Every Pro effect this draft holds that a couple WITHOUT Event Pro could
  * not Apply, by name and place, in the order Apply meets them.
  *
  * `ownsPro` is the caller's measured entitlement (as the viewer is shown it —

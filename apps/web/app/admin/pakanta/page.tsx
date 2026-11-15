@@ -380,7 +380,7 @@ export default async function AdminPakantaPage() {
                     <p className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-success-800">
                       <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
                       Delivered{row.deliveredFilename ? ` — ${row.deliveredFilename}` : ''}
-                      {row.adopted ? ' · playing on their site' : ' · couple kept their own song'}
+                      {row.adopted ? ' · playing on their Event Hub' : ' · couple kept their own song'}
                     </p>
                     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                     <audio controls preload="none" src={row.previewUrl} className="w-full" />

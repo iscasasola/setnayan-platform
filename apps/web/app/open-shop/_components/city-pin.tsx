@@ -580,7 +580,10 @@ export function CityPin({
           </div>
         ) : !pin ? (
           <span
-            className="pointer-events-none absolute inset-x-0 bottom-0 z-[400] flex items-center justify-center gap-1.5 py-2 text-xs font-medium"
+            /* F-W1-07 (walk 13 Nov, 390 px): the band sat ON the bottom edge, under Leaflet's "Leaflet | © OpenStreetMap"
+               credit (bottom-right, drawn above every map layer), which covered the end of the sentence. The band now
+               ends just above that credit line, so both read in full. */
+            className="pointer-events-none absolute inset-x-0 bottom-[18px] z-[400] flex items-center justify-center gap-1.5 px-2 py-2 text-center text-xs font-medium"
             style={{ background: 'color-mix(in srgb, var(--m-paper) 92%, transparent)', color: 'var(--m-slate)' }}
           >
             <MapPin className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />

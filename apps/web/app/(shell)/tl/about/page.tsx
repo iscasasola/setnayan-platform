@@ -153,7 +153,7 @@ export default async function AboutPageTaglish() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
 
 
-      <main className="min-h-dvh bg-cream">
+      <main className="min-h-dvh bg-page">
         <section className="mx-auto w-full max-w-4xl px-4 pb-12 pt-16 sm:px-6 sm:pt-20 lg:px-8">
           <nav aria-label="Breadcrumb" className="mb-8 flex items-center justify-between gap-4 text-sm text-ink/50">
             <span>
@@ -294,7 +294,7 @@ export default async function AboutPageTaglish() {
                 <ArrowRight aria-hidden className="ml-1.5 h-4 w-4" strokeWidth={2} />
               </Link>
               <Link
-                href="/explore"
+                href="/?browse=1"
                 className="inline-flex h-11 items-center justify-center rounded-sm border border-ink/20 px-6 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
               >
                 Browse suppliers

@@ -30,7 +30,7 @@ import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const explore = stripComments(
-  readFileSync(join(HERE, '..', 'app', '(shell)', 'explore', 'page.tsx'), 'utf8'),
+  readFileSync(join(HERE, '..', 'app', '(shell)', 'explore', '_lib', 'marketplace-view.tsx'), 'utf8'), // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
 );
 
 test('the body renders SERVICE cards from the shared query', () => {

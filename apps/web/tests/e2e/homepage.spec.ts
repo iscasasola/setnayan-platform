@@ -45,7 +45,7 @@ test.describe('Homepage', () => {
       a screen reader read — says "Setnayan". This line is the live proof of
       that: an earlier draft asserted 'SETNAYAN' and could not find the element,
       which is exactly the evidence wanted.
-      Brand lock: the full spelling, never STNYN.
+      Brand lock: the full spelling, never abbreviated.
     */
     await expect(page.getByRole('link', { name: 'Setnayan', exact: true }).first()).toBeVisible();
 

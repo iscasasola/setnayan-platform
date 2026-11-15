@@ -83,6 +83,12 @@ export type GenericOnboardingPayload = {
   dateCandidates: string[];
   windowStart: string | null;
   windowEnd: string | null;
+  /**
+   * 📅 "How many days is your event?" (owner 2026-11-13) — N, 1 … the type's `max_days` (→ `events.event_days`). Each
+   * candidate is the START of an N-day option; a window is where the block may start. Optional: absent = 1, so every
+   * existing payload constructor and fixture stays valid. The server re-clamps it to the type's cap.
+   */
+  eventDays?: number;
   /** Palette feel key (→ events.mood_feel_key). */
   moodFeelKey: string | null;
   /** Experience-quiz intent — written ONLY when the experience-quiz flag is on (flag-guarded). */

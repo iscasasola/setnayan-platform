@@ -8,7 +8,7 @@
  * nothing at all. The other two are sparse overrides of the house look in the event's own
  * `events.std_reveal_effects.tune` (no new column), which every surface that plays the veil already lays over the
  * Reveal Studio's look (`tuneRevealLooks` — the guest page, the Maker's ▶ and the hold-▶ preview alike), and which
- * rides the draft and is Event Hub Pro at Apply like every other change to the reveal's effects.
+ * rides the draft and is Event Pro at Apply like every other change to the reveal's effects.
  *
  *   Fold   how much of the cover the LIFTED drape covers   `drape`   Light ≈ 12 % · Medium ≈ 18 % (today) · Full ≈ 28 %
  *   Weave  the thread count: how sheer the tulle reads     `weave`   Fine · Medium (today) · Dense

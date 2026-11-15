@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { NoticeSlot } from '@/app/_components/notices/notices';
+import { VendorNoticeTop } from './_components/vendor-notice-top';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
@@ -16,11 +18,13 @@ import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fe
 import { maybeCatchUpAcknowledgedDeposits } from '@/lib/deposit-acknowledged-effects.server';
 import { maybeCatchUpHandshakesWithoutFee } from '@/lib/booking-fee-mint.server';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
+import { maybeRunTopUpUnlist } from '@/lib/booking-fee-top-up.server';
 import { maybeRunSupplierPagePublish } from '@/lib/supplier-page-notice.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { SUPPLIER_CHATS_HREF } from './customers/anchors';
@@ -410,6 +414,7 @@ export default async function VendorDashboardLayout({
   // billed has been told nothing is owed and has no reason to open this page,
   // so a per-visitor sweep would reach everyone except the shops it is for.
   after(() => maybeRunUnbilledFeeRepair().catch(() => {}));
+  after(() => maybeRunTopUpUnlist().catch(() => {}));
   // CTRL-B3 build 5. Dual-mounted like the repair above, and for the same
   // reason: the meter this feeds belongs to SUPPLIERS, so it must not depend
   // on an admin opening one particular screen. `claim_periodic_job` makes the
@@ -502,6 +507,7 @@ export default async function VendorDashboardLayout({
         href="/vendor-dashboard/notifications"
         ariaBaseLabel="Notifications"
         ariaUnreadSuffix="unread"
+        who={placeWhoFromSwitcher(switcherData)}
       />
       {/* The SHOP's name, not the person's (the redesign's shell: "SETNAYAN ·
           shop name"). The person is the avatar beside it. */}
@@ -666,11 +672,14 @@ export default async function VendorDashboardLayout({
               is left at every width is the floating thumb row's measured room
               (`--sn-thumb-room`, lib/thumb-room.ts). */}
           <div className="pb-[max(calc(env(safe-area-inset-bottom)+92px),var(--sn-thumb-room,0px))] tab:pb-[var(--sn-thumb-room,0px)]">
-            {/* Live vendor deal announcement (self-gates to null when
-                PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS
-                vendor right now). */}
-            <PromoFreeWindowBannerVendor facts={tierProbe.dealFacts} />
+            {/* 🔔 The supplier pages' TOP for notices (one notice system, owner approved 14 Nov 2026) — every page but
+                Today, whose top sits under the photo (badge-earned-line.tsx). */}
+            <VendorNoticeTop />
             <BasicSetupHold hold={setupHold}>{children}</BasicSetupHold>
+            {/* Live vendor deal — an OFFER, registered for the END of the page (one notice system). Self-gates to null when
+                PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS vendor right now. */}
+            <PromoFreeWindowBannerVendor facts={tierProbe.dealFacts} />
+            <NoticeSlot place="end" className="mt-6 px-4" />
           </div>
         </main>
       </div>
@@ -705,12 +714,10 @@ export default async function VendorDashboardLayout({
         the list you are already reading is a door into the room you are
         standing in.
 
-        🪤 THE ADMIN DOORWAY STILL HAS ONE, so its absence here reads as an
-        oversight unless this note exists. `AdminNavFab` still mounts the
-        shared `NavFab` primitive, which is untouched — only the vendor wrapper
-        was deleted (and the couple's `CustomerNavFab`, owner 2026-10-01).
-        Do not "restore the missing fab for consistency": three doorways with
-        three different jobs is not an inconsistency.
+        🪤 NO DOORWAY HAS ONE NOW. The couple's `CustomerNavFab` went 2026-10-01,
+        and the admin's `AdminNavFab` — the last mount of the shared `NavFab`
+        primitive — retired with the five-tab admin (owner 13 Nov 2026), so the
+        primitive is deleted too. Do not "restore the missing fab".
       */}
       {/* Push notification opt-in banner. Client-only; renders null once the
           vendor has granted push permission or dismissed the prompt. */}

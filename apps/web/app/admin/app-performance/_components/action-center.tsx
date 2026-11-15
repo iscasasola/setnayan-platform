@@ -1,8 +1,10 @@
 import Link from 'next/link';
+import { manilaDayLabel } from '@/lib/admin/manila-stamp';
 import {
   ADMIN_QUEUE_META,
   computeDueState,
   getAdminQueueDigest,
+  deriveQueueUrgency,
   type AdminQueueDueState,
   compareQueuePriority,
 } from '@/lib/admin/queue-counts';
@@ -59,14 +61,14 @@ const QUEUE_CARDS: QueueCardDef[] = [
 const MANUAL_WATCHLIST: { label: string; todo: string }[] = [
   { label: 'Suno credits', todo: 'Top up before the next Music Maker batch — no balance API.' },
   { label: 'Claude API headroom', todo: 'Setnayan AI + contract intelligence draw on this.' },
-  { label: 'OpenAI / DALL·E balance', todo: 'Empty balance blocks Animated Monogram generation.' },
+  { label: 'OpenAI / DALL·E balance', todo: 'Empty balance blocks Logo Maker generation.' },
   { label: 'Recraft credits', todo: 'Marketing / editorial image generation.' },
   { label: 'R2 storage & Supabase tier', todo: 'Review usage vs plan — upgrade before it throttles.' },
   { label: 'Vercel build minutes', todo: 'Keep machine Elastic + skip-deployments ON; watch the spend.' },
   { label: 'Resend & Sentry quotas', todo: 'Email sends + error events vs monthly plan.' },
   { label: 'Secrets rotation', todo: 'R2 token · service-role key · API keys on a rotation calendar.' },
-  { label: 'Domains & certs', todo: 'setnayan.com · setnayan.ph · app-signing certificates.' },
-  { label: 'Supplier token packs', todo: 'Mint/adjust token packs in Pricing when campaigns need them.' },
+  // F-A-12 (admin walk 13 Nov 2026): we do not own setnayan.ph, and token packs were retired (2026-05-11 / 2026-08-07).
+  { label: 'Domains & certs', todo: 'setnayan.com · app-signing certificates.' },
 ];
 
 const STATE_STYLE: Record<
@@ -97,6 +99,16 @@ function paymentsTodo(payTo: string): string {
   return `Verify the ${payTo} proof and activate the order.`;
 }
 
+/** The one summary line of waiting work — Work's own numbers (F-A-04). */
+function workLine(u: { totalOpen: number; overdue: number; dueSoon: number; unknownCount: number }): string {
+  const waiting = `${formatCount(u.totalOpen)} waiting`;
+  const parts = [waiting];
+  if (u.overdue > 0) parts.push(`${formatCount(u.overdue)} ${u.overdue === 1 ? 'queue' : 'queues'} overdue`);
+  if (u.dueSoon > 0) parts.push(`${formatCount(u.dueSoon)} due soon`);
+  if (u.unknownCount > 0) parts.push(`${formatCount(u.unknownCount)} couldn’t be counted`);
+  return u.totalOpen === 0 && u.unknownCount === 0 ? 'Nothing waiting — every queue is clear.' : `${parts.join(' · ')} — the same as Work.`;
+}
+
 export async function ActionCenterZone() {
   const [digest, payTo] = await Promise.all([
     getAdminQueueDigest(),
@@ -122,10 +134,9 @@ export async function ActionCenterZone() {
       ),
   );
 
+  const urgency = deriveQueueUrgency(digest, nowMs);
   const active = cards.filter((c) => c.state !== 'clear');
   const clear = cards.filter((c) => c.state === 'clear');
-  const acting = active.filter((c) => c.state === 'overdue').length;
-  const watching = active.filter((c) => c.state === 'due-soon').length;
 
   return (
     <section className="mb-12" aria-labelledby="apx-action">
@@ -134,9 +145,10 @@ export async function ActionCenterZone() {
           Action Center
         </h2>
         <p className="text-xs text-ink/55">
-          {acting > 0 || watching > 0
-            ? `${acting} overdue · ${watching} due soon · ${clear.length} queues clear`
-            : `Nothing overdue — ${formatCount(clear.length)} of ${formatCount(cards.length)} queues clear.`}{' '}
+          {/* 🔢 F-A-04 (admin walk 13 Nov 2026): the SAME totals as Work and the Work badge (`deriveQueueUrgency`
+              over every queue) — this card's own list is a subset, and "15 of 15 queues clear" sat beside Work's
+              "53 pending". */}
+          {workLine(urgency)}{' '}
           Counts come from the same digest as the Work command center.
         </p>
       </header>
@@ -175,7 +187,7 @@ export async function ActionCenterZone() {
                     />
                     {style.word}
                     {c.row.oldestAt
-                      ? ` · oldest ${c.row.oldestAt.slice(0, 10)}`
+                      ? ` · oldest ${manilaDayLabel(c.row.oldestAt)}`
                       : ''}
                   </p>
                 </Link>

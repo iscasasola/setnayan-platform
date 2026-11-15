@@ -56,7 +56,7 @@ test('the scan reads the tree and knows the vocabulary (a zero-file sweep is a g
   assert.ok(isScannedPath('lib/supplier-find.ts'));
   assert.ok(!isScannedPath('lib/taxonomy.ts'), 'the seed owns the taxonomy and must not be scanned');
   assert.ok(!isScannedPath('lib/supplier-find.test.ts'));
-  assert.ok(!isScannedPath('app/dev/supplier-lab/page.tsx'));
+  assert.ok(!isScannedPath('app/dev/supplier-lab/page.lab.tsx'));
 });
 
 test('the scanner goes red on each kind, and not on prose or on an ambiguous word', () => {
@@ -139,7 +139,9 @@ test('the rows moved on 2026-11-09 stay on the live taxonomy', () => {
   // Since the shop card (#7454) the label comes from the shelf's one batched snapshot (`tax`), via folderLabelOf.
   assert.match(src('app/_components/frontdoor/data.ts'), /\btax\.folderLabel\[folder\]/);
   // /explore — the JSON-LD group list and the ?folder= filter read the live order.
-  const explore = src('app/(shell)/explore/page.tsx');
+  const explore = src('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   assert.match(explore, /buildVendorsItemListJsonLd\(vendorsSiteUrl, pageTax\)/);
-  assert.match(explore, /parseFilters\(raw, pageTax\.folderOrder\)/);
+  // 2026-11-12: parseFilters gained a third argument (the base address — `/explore` or Discover's `/`); the
+  // live folder order is still what it is handed.
+  assert.match(explore, /parseFilters\(raw, pageTax\.folderOrder, /);
 });

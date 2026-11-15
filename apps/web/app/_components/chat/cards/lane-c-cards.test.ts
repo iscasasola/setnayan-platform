@@ -79,7 +79,8 @@ test('💬 Ask for a change: only the hosts\' side, never on a locked item; the 
   assert.match(src, /'s price is final/);
   assert.match(src, /<EqualRow>\s*<ActionButton tone="neutral" icon=\{X\} label="Decline"[\s\S]{0,200}label="Revise"/);
   const stream = read('app/_components/chat-message-stream.tsx');
-  assert.match(stream, /viewerRole === 'couple' && isLatestProposal && card[\s\S]{0,120}<AskChangeDoor/);
+  assert.match(stream, /const askOnLines = !replaced && viewerRole === 'couple' && isLatestProposal && !!card[\s\S]{0,120}/);
+  assert.match(stream, /askOnLines \? \(\s*<AskChangeDoor/);
   assert.match(stream, /changes_locked, plan_locked/);
 });
 

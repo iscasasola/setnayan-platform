@@ -100,7 +100,7 @@ export async function rejectPartnership(formData: FormData) {
   });
 
   revalidatePath('/admin/vendor-partnerships');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   // ⚡ Both shops' pages show the partnership ("Trusted by") — their cached copies redraw without it.
   for (const r of (rejected ?? []) as Array<{ recommending_vendor_id?: string | null; recommended_vendor_id?: string | null }>) {
     revalidateShopPage(r.recommending_vendor_id);

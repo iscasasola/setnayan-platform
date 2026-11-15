@@ -58,7 +58,7 @@ test('1 · seven tiles, in the order an event gets made — RSVP (R1), Wedding M
 });
 
 test('1b · Studio ▾ lists Logo · Palette + Dress Code · Love Story — the rest open from their new homes; Prints is its own page (R8)', () => {
-  /* 🎛 Owner 2026-10-27 "STUDIO IS LOOK AND WORDS ONLY"; built 2026-10-30 (Event Hub Pro): Look and E-Gifts are the Hub's ⚙,
+  /* 🎛 Owner 2026-10-27 "STUDIO IS LOOK AND WORDS ONLY"; built 2026-10-30 (Event Pro): Look and E-Gifts are the Hub's ⚙,
      Info's facts Home's ⚙ (its address the Hub's ⚙), Schedule Suppliers › Booked — each still a page a door opens. */
   assert.deepEqual([...STUDIO_MENU_KEYS], ['logo', 'mood', 'story']);
   const menu = studioMenuTiles(studioTiles(input()));

@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { realNameOrNull } from '@/lib/no-name';
 import { cache } from 'react';
 import { chromeSnapshot } from '@/lib/chrome-snapshot';
 import { createClient } from '@/lib/supabase/server';
@@ -285,7 +286,8 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
 
   return {
     userId,
-    displayName: profile?.display_name ?? null,
+    // RW-64: a stand-in ("Someone —") is no name — the switcher then shows its own no-name words, never the stand-in.
+    displayName: realNameOrNull(profile?.display_name),
     // Anon-draft: hide the non-routable placeholder email from the switcher
     // (it would read "anon+<uuid>@…"); the dashboard banner carries the secure CTA.
     email: isPlaceholderEmail(profile?.email) ? '' : (profile?.email ?? ''),

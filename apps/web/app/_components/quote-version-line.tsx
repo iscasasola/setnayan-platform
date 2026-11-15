@@ -1,7 +1,8 @@
 'use client';
 
 import { QuoteVersionsRow } from './quote-versions-sheet';
-import { orderQuoteVersions, versionDay, versionsNewestFirst, type QuoteVersionRow } from '@/lib/quote-versions';
+import { QuoteVersionsCompareDoor } from './quote-versions-compare';
+import { orderQuoteVersions, versionDay, versionsNewestFirst, versionsOldestFirst, type QuoteVersionRow } from '@/lib/quote-versions';
 import { PROPOSAL_STATUS_LABEL, type ProposalStatus } from '@/lib/vendor-proposals';
 
 /**
@@ -11,6 +12,7 @@ import { PROPOSAL_STATUS_LABEL, type ProposalStatus } from '@/lib/vendor-proposa
  * `versionDay` (lib/quote-versions.ts) and the shipped `QuoteVersionsRow` sheet the quote card in the chat opens. The
  * status word is the app's (`PROPOSAL_STATUS_LABEL`). No quote sent yet → nothing (the builder below starts a first one).
  * `rows` NULL = unread — said as such, never as "no quote".
+ * PR-4 (owner 12 Nov): "Side by side" beside it — the two-picker comparison (`quote-versions-compare.tsx`).
  */
 export function QuoteVersionLine({
   rows,
@@ -40,6 +42,7 @@ export function QuoteVersionLine({
         v{latest.version} · {status} · {versionDay(latest.at)}
       </span>
       <QuoteVersionsRow versions={chain} counterpartyLabel={counterpartyLabel} />
+      <QuoteVersionsCompareDoor versions={versionsOldestFirst(versions, latest.proposalId)} />
     </div>
   );
 }

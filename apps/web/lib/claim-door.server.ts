@@ -7,7 +7,11 @@ import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { claimDatePhrase } from '@/lib/claim-invite-words';
 import { displayServiceLabel } from '@/lib/vendors';
 import { agreedTotalNow, CHANGE_LINES_EMBED, type ChangeLineRow } from '@/lib/agreed-total-and-its-changes';
-import type { ClaimDoorPayment, ClaimDoorRecord, ClaimDoorService } from './claim-door';
+import type { ClaimDoorPayWay, ClaimDoorPayment, ClaimDoorRecord, ClaimDoorService } from './claim-door';
+import { agreedCountFromRow, basisFromColumn } from '@/lib/self-added-price-basis';
+import { readStoredPayWays } from '@/lib/self-added-pay-ways';
+import { budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
+import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 
 /**
  * The couple's record, as the claim door reads it — through the SHIPPED token check, `fetchClaimLandingByToken`
@@ -50,7 +54,11 @@ export async function readClaimDoor(
       .eq('event_vendor_id', parent.vendor_id)
       .maybeSingle(),
     admin.from('events').select('event_type').eq('event_id', parent.event_id).maybeSingle(),
-    admin.from('event_vendors').select('manual_vendor_id').eq('vendor_id', parent.vendor_id).maybeSingle(),
+    admin
+      .from('event_vendors')
+      .select('manual_vendor_id, pricing_basis, pax_quote_base, agreed_hours')
+      .eq('vendor_id', parent.vendor_id)
+      .maybeSingle(),
     eventWordsForEvent(parent.event_id).catch(() => null),
   ]);
   if (siblingsRes.error) console.error('[supabase-error] lib/claim-door.server.ts · from:event_vendors.select', siblingsRes.error);
@@ -66,7 +74,39 @@ export async function readClaimDoor(
     manual_vendor_id: string | null;
     change_lines?: ChangeLineRow[] | null;
   };
-  const card = (cardRes.data as { manual_vendor_id?: string | null } | null)?.manual_vendor_id ?? null;
+  const own = (cardRes.data ?? null) as {
+    manual_vendor_id?: string | null;
+    pricing_basis?: string | null;
+    pax_quote_base?: number | string | null;
+    agreed_hours?: number | string | null;
+  } | null;
+  if (cardRes.error) console.error('[supabase-error] lib/claim-door.server.ts · from:event_vendors.select (invite row)', cardRes.error);
+  const card = own?.manual_vendor_id ?? null;
+  // 🧾 v2: how the couple said the price works, and the guests / hours they agreed — on the invite's own row.
+  const priceBasis = basisFromColumn(own?.pricing_basis);
+  const agreedCount = own ? agreedCountFromRow(priceBasis, own) : null;
+  // 🏦 How the couple recorded paying them — on their contact card. A refused read is no ways shown (said by the
+  // door as nothing to confirm), never a guessed one.
+  let payWays: ClaimDoorPayWay[] = [];
+  if (card) {
+    const { data: wayRow, error: wayErr } = await admin
+      .from('event_manual_vendors')
+      .select('pay_ways')
+      .eq('manual_vendor_id', card)
+      .eq('event_id', parent.event_id)
+      .maybeSingle();
+    if (wayErr) console.error('[supabase-error] lib/claim-door.server.ts · from:event_manual_vendors.select', wayErr);
+    const policy = budgetPaymentProofPolicy(parent.event_id);
+    payWays = await Promise.all(
+      readStoredPayWays((wayRow as { pay_ways?: unknown } | null)?.pay_ways).map(async (w) => ({
+        provider: w.provider ?? null,
+        accountName: w.account_name ?? null,
+        accountNumber: w.account_number ?? null,
+        qrUrl: w.qr ? await displayUrlForPrivateStoredAsset(w.qr, policy).catch(() => null) : null,
+        details: w.account_number ? null : w.details,
+      })),
+    );
+  }
   const all = (siblingsRes.data ?? []) as Row[];
   // The parent row always; its siblings only when they hang off the SAME manual contact card.
   const rows = card ? all.filter((r) => r.manual_vendor_id === card) : all.filter((r) => r.vendor_id === parent.vendor_id);
@@ -133,6 +173,9 @@ export async function readClaimDoor(
       price: total > 0 ? total : null,
       inclusions,
       plan,
+      priceBasis,
+      agreedCount,
+      payWays,
     },
   };
 }

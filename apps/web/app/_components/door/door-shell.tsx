@@ -8,7 +8,7 @@
  * Setnayan nobody had designed.
  *
  * WHY THIS EXISTS. Before this component the ten token-gated doors carried SIX
- * different hand-rolled wrappers — `min-h-screen bg-cream` centred, `min-h-dvh
+ * different hand-rolled wrappers — `min-h-screen bg-page` centred, `min-h-dvh
  * max-w-md` stacked, `max-w-xl` with its own card, and three more — plus a
  * local `Shell()` re-declared in four separate files. `JoinShell` had the right
  * idea first and never left `/join`: three of its own sibling steps hand-copied

@@ -249,8 +249,6 @@ export function EventMemoriesGallery({
   const { snap } = useGridPinch({ gridRef, cols, stepFrom, setCols });
 
   const steps = stepsFor(scale);
-  const zoomWords =
-    scale === 'desk' ? '+ / − change the columns' : 'Pinch to change the columns — 3 · 5 · 7, or one large';
 
   // The count is the album's: measured where it can be (All · Papic), what the page holds otherwise.
   const albumRefused = refusedParts.includes(album);
@@ -462,9 +460,13 @@ export function EventMemoriesGallery({
         {body}
       </div>
 
-      <p className="pt-2.5 text-[12px] text-ink/55" data-memories-foot="">
-        {zoomWords} · remembered on this device{footLine ? ` · ${footLine}` : ''}
-      </p>
+      {/* 🧹 F-W2-34 (walk 14 Nov): no gesture manual and no "remembered on this device" under the grid — the
+          pinch and the +/− just work. Only the line that says something about THESE photos stays. */}
+      {footLine ? (
+        <p className="pt-2.5 text-[12px] text-ink/55" data-memories-foot="">
+          {footLine}
+        </p>
+      ) : null}
       {cappedLine ? (
         <p className="pt-1 text-[12px] text-ink/55" data-memories-capped="">
           {cappedLine}

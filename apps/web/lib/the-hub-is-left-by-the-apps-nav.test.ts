@@ -1,7 +1,7 @@
 /**
  * 🧭 THE HUB IS LEFT BY THE APP'S OWN NAV — owner, 30 Oct, verbatim: *"i was thinking having the bottom nav still and
  * the bottom toolbar to show and hide when not needed?"*, then *"yes"* to the controller's call (1): drop the Maker's ✕
- * (DECISION_LOG 2026-10-30 "EVENT HUB PRO (look redesign) — THE APP'S NAV STAYS"; amends Maker_Two_Bars_LOCKED's
+ * (DECISION_LOG 2026-10-30 "EVENT PRO (look redesign) — THE APP'S NAV STAYS"; amends Maker_Two_Bars_LOCKED's
  * "✕ left everywhere" for the Hub tab).
  *
  * This file replaces `the-maker-exit-goes-to-the-event.test.ts` (25 Oct), which held the ✕ as ONE link to

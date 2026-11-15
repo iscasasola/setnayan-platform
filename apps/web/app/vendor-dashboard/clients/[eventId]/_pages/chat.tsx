@@ -32,7 +32,7 @@ export function ChatPage({ ctx }: PickedPageProps) {
   return (
     <Suspense
       fallback={
-        <p className="px-4 py-6 text-sm text-ink/55" role="status" data-picked-client-page="chat">
+        <p className="px-4 py-6 text-sm text-ink/70" role="status" data-picked-client-page="chat">
           Loading the chat…
         </p>
       }

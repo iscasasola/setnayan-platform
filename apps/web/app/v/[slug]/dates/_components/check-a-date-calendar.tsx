@@ -52,6 +52,7 @@ const MAIN = 'w-full justify-center !min-h-12';
 export function CheckADateCalendar({
   shop,
   shopHref,
+  inquirySource,
   services,
   today,
   to,
@@ -66,6 +67,8 @@ export function CheckADateCalendar({
   shop: { vendorProfileId: string; slug: string; name: string; initials: string; verified: boolean; isDemo?: boolean };
   /** "See the shop" — the shop page again, carrying where the visit came from (lib/shop-back.ts). */
   shopHref: string;
+  /** 💳 RW-19: what an ask from here is stamped — the same rule as the shop page (`arrivalInquirySourceOf`). */
+  inquirySource: string;
   services: Service[];
   today: string;
   to: string;
@@ -160,6 +163,7 @@ export function CheckADateCalendar({
         initialCategoryKey: svc?.category ?? null,
         alsoServiceIds: also,
         requirements: { specialRequest: checkDateAskLine(day) },
+        inquirySource,
       });
       if (res.status === 'ok' || res.status === 'ok_build_not_sent') {
         setSent({ eventId: res.eventId, threadId: res.threadId });

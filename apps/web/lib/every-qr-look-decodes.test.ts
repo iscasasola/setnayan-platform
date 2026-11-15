@@ -2,7 +2,7 @@
  * lib/every-qr-look-decodes.test.ts — A STYLE THAT DOES NOT SCAN DOES NOT SHIP.
  *
  * The Pro QR build (owner 2026-09-27: Setnayan logo on every free code; the
- * couple's logo + Square/Circle + pattern styles on Event Hub Pro) gives a QR
+ * couple's logo + Square/Circle + pattern styles on Event Pro) gives a QR
  * eighteen looks: 2 shapes × 3 patterns × 3 centres. Every one of them is
  * RENDERED here — as the SVG a page shows and as the PNG a guest saves — and
  * the PNG is DECODED with the repo's own detector (jsQR behind

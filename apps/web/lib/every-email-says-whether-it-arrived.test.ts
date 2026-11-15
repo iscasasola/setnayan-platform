@@ -74,19 +74,20 @@ test('a notification email is tagged with its type', () => {
 });
 
 test('the home strip is mounted — once, unconditionally', () => {
-  const home = code('app/admin/page.tsx');
+  // Since 13 Nov 2026 /admin IS the work list (it renders work/page.tsx), so the strip rides the list's lead.
+  const home = code('app/admin/work/page.tsx');
   assert.equal(count(home, '<EmailDeliveryStrip />'), 1);
   const at = home.indexOf('<EmailDeliveryStrip />');
   const before = home.slice(Math.max(0, at - 120), at);
   assert.ok(!/(false|0)\s*&&\s*[\s\S]*$/.test(before.split('\n').slice(-3).join('\n')), 'mounted behind a constant');
 });
 
-test('the Notifications tab renders the list, and the strip links to its id', () => {
+test('Email delivery renders the list, and the strip links to its id', () => {
   const surface = code('app/admin/settings/_surfaces/notifications-surface.tsx');
   assert.equal(count(surface, '<EmailDeliverySection />'), 1);
   const strip = code('app/admin/_email-delivery-strip.tsx');
-  const m = strip.match(/href="\/admin\/settings\?tab=notifications#([a-z-]+)"/);
-  assert.ok(m, 'the strip must link to the Notifications tab');
+  const m = strip.match(/href="\/admin\/email-delivery#([a-z-]+)"/);
+  assert.ok(m, 'the strip must link to avatar › Email delivery');
   const section = code('app/admin/settings/_components/email-delivery-section.tsx');
   assert.equal(count(section, `id="${m![1]}"`), 1, `#${m![1]} must exist exactly once on the target`);
 });

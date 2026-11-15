@@ -104,7 +104,9 @@ export function GuestPapicCamera({ eventId, guestId, ceiling }: { eventId: strin
           value={camera}
           options={GUEST_CAMERA_CHOICES.map((c) => ({ key: c, label: GUEST_CAMERA_WORDS[c] }))}
           onPick={(k) => void pick(k)}
-          className={`${FORM_PICK_CLASS} ${width}`}
+          // 📏 F-W2-23 (walk 13 Nov): on the phone's card the 200 px pill left "Their camera" ~40 px — one word a line. The
+          // pill keeps the list's width where there is room and never takes more than half the row.
+          className={`${FORM_PICK_CLASS} ${width} max-w-[50%]`}
         />
       </FormRow>
       {camera === 'set' ? (

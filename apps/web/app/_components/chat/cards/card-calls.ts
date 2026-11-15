@@ -35,6 +35,7 @@ import {
 } from '@/lib/chat-cards';
 import type { AutoBalanceMeta, InstallmentDraft } from '@/lib/proposal-payment-schedule';
 import { openDecision } from '@/lib/chat-decisions';
+import type { MakeQuoteCardOption } from '@/lib/make-a-quote';
 
 type Fail = { ok: false };
 
@@ -189,6 +190,30 @@ export async function loadQuoteForCard(threadId: string): Promise<QuoteRead> {
     pax,
     requote: gate.data === 'deal_locked' ? 'deal_locked' : gate.data === 'lock_requested' ? 'lock_requested' : 'ok',
     },
+  };
+}
+
+// ── 🧾 Make a quote (cut 7, 2026-11-14) · the shop's own active cards, for the short card ──────────────────────────
+
+/** The shop's active service cards, by its own session (RLS: a shop reads its own cards). For the chat's Make a quote. */
+export async function loadCardsForMakeQuote(threadId: string): Promise<{ ok: true; cards: MakeQuoteCardOption[] } | Fail> {
+  const supabase = createClient();
+  const { data: thread, error: tErr } = await supabase.from('chat_threads').select('vendor_profile_id').eq('thread_id', threadId).maybeSingle();
+  if (tErr || !thread) return refused('make quote · thread', tErr);
+  const { data, error } = await supabase
+    .from('vendor_services')
+    .select('vendor_service_id, title, category, starting_price_php')
+    .eq('vendor_profile_id', (thread as { vendor_profile_id: string }).vendor_profile_id)
+    .eq('is_active', true)
+    .order('created_at', { ascending: true });
+  if (error) return refused('make quote · cards', error);
+  return {
+    ok: true,
+    cards: ((data ?? []) as { vendor_service_id: string; title: string | null; category: string | null; starting_price_php: number | null }[]).map((r) => ({
+      id: r.vendor_service_id,
+      name: r.title?.trim() || 'Service card',
+      fromCentavos: r.starting_price_php == null ? null : Math.round(Number(r.starting_price_php) * 100),
+    })),
   };
 }
 
@@ -629,4 +654,35 @@ export async function askForPaymentFromChat(formData: FormData): Promise<AskResu
     return { ok: true };
   }
   return { ok: false, message: ASK_PAYMENT_WORDS[res.code] ?? ASK_PAYMENT_WORDS.error! };
+}
+
+// ── 🗓 The schedule card (SCHEDULES HAND-IN-HAND part (b), 2026-11-12) ────────────────────────────────────────────
+
+/**
+ * The supplier's Seen on this conversation's event (`event_supplier_schedule_marks.seen_at`) — both sides may read it
+ * (the supplier their own row, the hosts their event's). `seenAt: null` = never pressed; a refused read is `{ ok: false }`.
+ */
+export async function loadScheduleSeen(threadId: string): Promise<{ ok: true; eventId: string; seenAt: string | null } | Fail> {
+  const supabase = createClient();
+  const t = await supabase.from('chat_threads').select('event_id, vendor_profile_id').eq('thread_id', threadId).maybeSingle();
+  const thread = t.data as { event_id: string | null; vendor_profile_id: string | null } | null;
+  if (t.error || !thread?.event_id || !thread.vendor_profile_id) return refused('loadScheduleSeen.thread', t.error);
+  const m = await supabase
+    .from('event_supplier_schedule_marks')
+    .select('seen_at')
+    .eq('event_id', thread.event_id)
+    .eq('vendor_profile_id', thread.vendor_profile_id)
+    .maybeSingle();
+  if (m.error) return refused('loadScheduleSeen.marks', m.error);
+  return { ok: true, eventId: thread.event_id, seenAt: (m.data as { seen_at: string | null } | null)?.seen_at ?? null };
+}
+
+/** Seen — the shipped door (`supplier_mark_schedule` 'seen', the same mark the supplier's Schedule view presses). */
+export async function markScheduleSeenFromChat(eventId: string): Promise<AskResult> {
+  const { error } = await createClient().rpc('supplier_mark_schedule', { p_event_id: eventId, p_mark: 'seen' });
+  if (error) {
+    warned('markScheduleSeen', error);
+    return { ok: false, message: "That didn't send — try again." };
+  }
+  return { ok: true };
 }

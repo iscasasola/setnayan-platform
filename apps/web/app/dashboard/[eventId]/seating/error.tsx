@@ -41,7 +41,7 @@ export default function SeatingError({ error, reset }: Props) {
   return (
     <div className="flex min-h-[60vh] items-center justify-center bg-cream px-6 py-16 text-ink">
       <div className="w-full max-w-md text-center">
-        <p className="mb-5 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/40">
+        <p className="mb-5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           Seat plan
         </p>
         <h1 className="mb-4 font-display text-3xl italic leading-tight text-ink sm:text-4xl">
@@ -69,7 +69,7 @@ export default function SeatingError({ error, reset }: Props) {
           </button>
         </div>
         {error?.digest && (
-          <p className="mt-9 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/30">
+          <p className="mt-9 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             Reference: {error.digest}
           </p>
         )}

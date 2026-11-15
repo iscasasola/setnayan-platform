@@ -77,11 +77,11 @@ export async function HostQuestions({
   return (
     <section id="host-questions" className="sn-row scroll-mt-4 space-y-3 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="inline-flex items-center gap-2 font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
+        <h2 className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           <MessageCircleQuestion aria-hidden className="h-3.5 w-3.5 text-gild" strokeWidth={1.9} />
           {hostName} asks
         </h2>
-        <span className="font-mono text-[0.66rem] uppercase tracking-[0.16em] text-ink/55">
+        <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           {remaining === 0
             ? 'All answered'
             : `${formatCount(questionnaire.answered)} of ${formatCount(questionnaire.total)} answered`}
@@ -92,7 +92,7 @@ export async function HostQuestions({
         Things only you can tell your host — most of all, how to say the names they will read
         out loud. Spell them the way they sound.
       </p>
-      <p className="flex items-start gap-2 text-xs leading-relaxed text-ink/60">
+      <p className="flex items-start gap-2 text-xs leading-relaxed text-ink/70">
         <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gild" strokeWidth={1.9} />
         Only the two of you and {hostName} can read these — not your guests, not your other
         suppliers, not your coordinator.
@@ -115,7 +115,7 @@ export async function HostQuestions({
           <label key={question.question_id} className="block space-y-1">
             <span className="block text-sm font-medium text-ink">{question.prompt}</span>
             {question.hint ? (
-              <span className="block text-xs leading-relaxed text-ink/55">{question.hint}</span>
+              <span className="block text-xs leading-relaxed text-ink/70">{question.hint}</span>
             ) : null}
             {/* 👥 What this box showed — only a box this screen changes is saved (`lib/host-answers-merge.ts`). */}
             <input type="hidden" name={`base:${question.question_id}`} value={answer ?? ''} />
@@ -130,7 +130,7 @@ export async function HostQuestions({
         ))}
         <button
           type="submit"
-          className="bg-ink px-4 py-2.5 font-mono text-[0.6rem] uppercase tracking-[0.16em] text-paper transition-opacity hover:opacity-90"
+          className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center"
         >
           Save answers
         </button>
@@ -141,12 +141,9 @@ export async function HostQuestions({
 
 function HostQuestionsUnread() {
   return (
-    <p
-      role="alert"
-      className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
-    >
-      <strong className="text-ink">We couldn&rsquo;t load your host&rsquo;s questions.</strong>{' '}
-      Anything you already answered is safe. Reload in a moment.
+    // 📐 Design template rule 6: a failed read is one amber line with no box — never mistakable for "none".
+    <p role="alert" className="py-2 text-sm text-warn-800">
+      We couldn&rsquo;t load your host&rsquo;s questions — anything you already answered is safe. Reload in a moment.
     </p>
   );
 }

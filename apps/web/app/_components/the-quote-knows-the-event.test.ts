@@ -51,5 +51,5 @@ test('the page builds the brief from the rail\'s rows, the AREA (never the venue
 });
 
 test('the events read carries the three stage-1 columns the brief needs', () => {
-  assert.match(page, /select\('display_name, event_date, event_type, region, setnayan_ai_active, created_at, budget_band, mood_feel_key, ceremony_type'\)/);
+  assert.match(page, /select\('display_name, event_date, event_type, region, setnayan_ai_active, created_at, budget_band, mood_feel_key, ceremony_type, date_candidates, date_window_start, date_window_end'\)/);
 });

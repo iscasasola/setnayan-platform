@@ -97,22 +97,26 @@ const ROSTER: Record<string, { count: number; why: string }> = {
   'lib/paid-to-vendor.ts': { count: 0, why: 'THE AMOUNT RULE — takes the column as an argument, never names it' },
   'lib/booking-money-moved.ts': { count: 4, why: 'THE YES/NO RULE (#5670) — the column is one of its three signals' },
   'lib/budget-truth.ts': {
-    count: 4,
-    why: 'row type + select; the paid figure via paidToVendorCentavos, and the unreconciled_deposit warning compares the column to the log ON PURPOSE',
-  },
-  'lib/budget.ts': { count: 4, why: 'two selects; both paidTotal figures via paidToVendorPhp' },
-  'lib/vendors.ts': { count: 2, why: 'EventVendorRow type + fetchEventVendors select (a carrier)' },
-  'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx': {
     count: 3,
-    why: 'select + row type; "Paid so far" via paidToVendorPhp, Cancel-vs-Dispute via bookingMoneyMoved(ev)',
+    why: 'row type (the select no longer names it — #5936, merged from event_vendor_money_read); the paid figure via paidToVendorCentavos, and the unreconciled_deposit warning compares the column to the log ON PURPOSE',
+  },
+  'lib/budget.ts': { count: 2, why: 'both paidTotal figures via paidToVendorPhp (the two selects no longer name it — #5936, merged from the reader)' },
+  'lib/vendors.ts': { count: 1, why: 'EventVendorRow type (a carrier; fetchEventVendors merges it from event_vendor_money_read — #5936)' },
+  'lib/event-vendor-money.ts': {
+    count: 6,
+    why: 'THE READER (#5936) — the column name list, the type, the reader-row type, the parse, HIDDEN; a carrier that never decides paid/unpaid',
+  },
+  'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx': {
+    count: 2,
+    why: 'row type (merged from event_vendor_money_read — #5936); "Paid so far" via paidToVendorPhp, Cancel-vs-Dispute via bookingMoneyMoved(ev)',
   },
   'app/dashboard/[eventId]/vendors/page.tsx': {
     count: 2,
     why: 'the Booked body’s Cancel-vs-Dispute verb: the carried row’s column is one argument of bookingMoneyMoved (key + value), never read as an amount',
   },
   'app/dashboard/[eventId]/vendors/actions.ts': {
-    count: 2,
-    why: 'cancelBookingAsHost selects it for bookingMoneyMoved (select + row type); the vendors-list form that WROTE the typed figure was removed 2026-10-02 with createVendor',
+    count: 1,
+    why: 'cancelBookingAsHost reads it for bookingMoneyMoved (row type; merged from event_vendor_money_read — #5936); the vendors-list form that WROTE the typed figure was removed 2026-10-02 with createVendor',
   },
   'app/dashboard/[eventId]/delete-actions.ts': {
     count: 2,
@@ -163,6 +167,9 @@ const RULE_CALLS = new Set([
 /** The two files that ARE the rule, and the one deliberate comparison. */
 const EXEMPT_READS: Record<string, { callee: string; count: number; why: string }[]> = {
   'lib/booking-money-moved.ts': [{ callee: '*', count: 3, why: 'the rule itself' }],
+  'lib/event-vendor-money.ts': [
+    { callee: 'num', count: 1, why: 'THE READER (#5936) parses the column off event_vendor_money_read — a carrier, every reader downstream is held here' },
+  ],
   'lib/budget-truth.ts': [
     {
       callee: 'toCentavos',

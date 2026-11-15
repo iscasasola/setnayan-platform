@@ -72,7 +72,7 @@ export function specializationFreeWindowActive(
 }
 
 /**
- * THE TIER FLOOR — OWNER-LOCKED 2026-07-27: **Solo and up**, i.e. ANY paid tier.
+ * THE TIER FLOOR — OWNER-LOCKED 2026-07-27: **Supplier Plus and up**, i.e. ANY paid tier.
  *
  * The owner had already locked THAT specializations are subscription-gated;
  * this settles WHERE the floor sits. Asked "your cheapest paid plan, or only the
@@ -103,7 +103,7 @@ export const SPECIALIZATION_MIN_TIER: VendorTier = 'solo';
  * item 15): *"keep it free"* — the coordinator's day-of desk (cue the show via `advanceScheduleBlock`, the
  * `RequestsInbox`, the seat scanner) is free. The 2026-11-04 row said "no code change needed" because the console's
  * free-until date is unset; that was true of the console and FALSE of this gate, where an unset date means "no
- * window", so the floor-command desk stayed behind Solo. This set is the fix.
+ * window", so the floor-command desk stayed behind Supplier Plus. This set is the fix.
  *
  * "Booked" is not decided here — this module never knew the event. Every surface that mounts the desk is the
  * booked supplier's live console, and `floor-command/actions.ts` re-checks "booked coordinator on this event".

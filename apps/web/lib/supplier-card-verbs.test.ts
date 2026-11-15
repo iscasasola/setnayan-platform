@@ -51,6 +51,9 @@ const STEPS: Array<[name: string, verbs: ReturnType<typeof cardVerbs>, want: Car
   ['asked for a quote', at({ inquiry: THREAD, build: { kind: 'needs_price' }, buildGroupId: 'g' }), ['nudge', 'chat', 'remove'], []],
   ['their quote is in', at({ inquiry: THREAD, build: { kind: 'needs_price' }, buildGroupId: 'g' }, { quoteIn: true }), ['read_reply', 'remove'], ['read_reply']],
   ['taken on the date', at({ inquiry: THREAD, build: { kind: 'not_available', inBuild: false }, buildGroupId: 'g' }, { hasPrice: true }), ['another_day', 'remove'], ['another_day']],
+  // Owner 13 Nov 2026 ("we only show what fits"): never asked → no "Ask about another day", only Remove.
+  ['taken on the date, never asked', at({ inquiry: { kind: 'inquire' }, build: { kind: 'not_available', inBuild: false }, buildGroupId: 'g' }, { hasPrice: true }), ['remove'], []],
+  ['taken on the date, added by you', at({ connect: true, build: { kind: 'not_available', inBuild: false }, buildGroupId: 'g' }), ['remove'], []],
   ['priced', at({ inquiry: THREAD, build: { kind: 'add' }, buildGroupId: 'g', lockGroupId: 'g' }, { hasPrice: true }), ['add', 'book', 'chat', 'remove'], ['add']],
   ['in the build', at({ inquiry: THREAD, build: { kind: 'in_build' }, buildGroupId: 'g', lockGroupId: 'g' }, { hasPrice: true }), ['in_build', 'book', 'chat', 'remove'], ['in_build']],
   ['priced, added by you', at({ connect: true, build: { kind: 'add' }, buildGroupId: 'g', lockGroupId: 'g' }, { hasPrice: true }), ['add', 'book', 'record', 'remove'], ['add']],

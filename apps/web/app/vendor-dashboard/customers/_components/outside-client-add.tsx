@@ -107,9 +107,9 @@ export function OutsideClientAdd({
         <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
           Add a booking from outside
         </h2>
-        <p className="mt-1 text-[13.5px] text-ink/60">Holds the day so nothing double-books it. Free.</p>
+        <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">Holds the day so nothing double-books it. Free.</p>
         {pools.length === 0 ? (
-          <p className="mt-4 text-[14px] text-ink/70" data-outside-add-setup="">
+          <p className="mt-4 text-[15px] text-ink/70" data-outside-add-setup="">
             An outside client holds a date on one of your schedules, and you have none yet.{' '}
             <Link href={setupHref} className="inline-flex min-h-11 items-center font-semibold text-sn-accent underline">
               Set up a schedule
@@ -183,7 +183,7 @@ export function OutsideClientAdd({
                     data-outside-time=""
                   />
                   {time ? null : (
-                    <span aria-hidden className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-[15px] text-ink/45">
+                    <span aria-hidden className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-[15px] text-[color:var(--m-slate-2)]">
                       No time
                     </span>
                   )}
@@ -202,7 +202,7 @@ export function OutsideClientAdd({
               <SupplierSubmit
                 tone="brand"
                 main
-                icon={<Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+                icon={<Plus aria-hidden className="h-5 w-5" strokeWidth={1.9} />}
                 label="Add"
                 pendingLabel="Adding…"
                 className="w-full"

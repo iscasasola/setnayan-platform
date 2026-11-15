@@ -12,7 +12,7 @@ import { isTierAtLeast, type VendorTier } from './vendor-tier-caps';
  * WHY THE TIER FLOOR LIFTS (2026-07-25 tiered add-on model, owner-locked):
  * Papic Challenge (#3692/#3697) and 3D Plan Ads (#3699) now SELL to every tier at
  * the entry price. Their activation hooks previously hardcoded a Pro+ floor, so a
- * verified Free/Solo vendor could pay and then have activation throw on approval —
+ * verified Free/Supplier Plus vendor could pay and then have activation throw on approval —
  * money taken, entitlement never granted. That combination is not exotic:
  * verification does not set `tier_state`, so **verified-and-Free is the common
  * shape** for a real vendor. The floor must therefore move in lock-step with the

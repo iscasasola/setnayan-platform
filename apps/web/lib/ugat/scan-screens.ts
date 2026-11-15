@@ -89,8 +89,9 @@ interface RoutePattern {
   kind: RouteKind;
 }
 
-const PAGE_FILES = ['page.tsx', 'page.ts', 'page.jsx', 'page.js'];
-const HANDLER_FILES = ['route.ts', 'route.tsx', 'route.js'];
+// `page.lab.tsx` / `route.lab.ts`: the /dev labs (next.config.ts pageExtensions — built by `next dev` only).
+const PAGE_FILES = ['page.tsx', 'page.ts', 'page.jsx', 'page.js', 'page.lab.tsx'];
+const HANDLER_FILES = ['route.ts', 'route.tsx', 'route.js', 'route.lab.ts'];
 /** Metadata files Next serves at a fixed address beside their folder. */
 const METADATA_FILES: Record<string, string> = {
   'sitemap.ts': 'sitemap.xml',

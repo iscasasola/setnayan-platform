@@ -28,11 +28,11 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Megaphone, Send, Volume2 } from 'lucide-react';
+import { Check, Megaphone, Send, Volume2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { sendCoordinatorBroadcast, type ReleaseScheduleResult } from '../../_actions/day-of-broadcast';
 import { PaidMark } from '@/app/_components/paid-mark';
-import Link from 'next/link';
 import {
   BROADCAST_MAX_LENGTH,
   type BroadcastSenderRole,
@@ -88,6 +88,9 @@ export function AnnounceButton({
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [pending, startTransition] = useTransition();
+  const whenLine = isEventDay
+    ? 'Guests see it at the top of their Event Hub right away.'
+    : 'Guests see your latest announcement at the top of their Event Hub right away, and it stays there through the day.';
 
   function send() {
     setError(null);
@@ -120,32 +123,25 @@ export function AnnounceButton({
 
   return (
     <>
-      <button
-        type="button"
+      {/* 🔊 The door: a 44-px round on Booked › Schedule's one line (its word is its name), else icon + "Announce". */}
+      <ActionButton
+        tone="neutral"
+        icon={round ? Volume2 : Megaphone}
+        label={round ? 'Announce to your guests' : 'Announce'}
+        iconOnly={round}
         onClick={() => {
           setOpen(true);
           setSent(false);
           setError(null);
         }}
-        aria-label={round ? 'Announce to your guests' : undefined}
+        aria-haspopup="dialog"
         data-announce-door={round ? 'round' : 'word'}
-        className={
-          round
-            ? 'sn-press inline-grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.05]'
-            : 'inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold text-ink ring-1 ring-inset ring-ink/20 hover:bg-ink/[0.05]'
-        }
-      >
-        {round ? (
-          <Volume2 aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.8} />
-        ) : (
-          <Megaphone aria-hidden className="h-4 w-4" strokeWidth={1.8} />
-        )}
-        {round ? null : 'Announce'}
-      </button>
+        className={round ? 'shrink-0' : undefined}
+      />
       <Sheet open={open} onClose={() => setOpen(false)} labelledById="announce-title" wide rise>
         <div className="space-y-4 px-5 pb-6 pt-5">
           <div className="flex items-center gap-2 pr-14">
-            <h2 id="announce-title" className="font-display text-[22px] leading-tight text-ink">
+            <h2 id="announce-title" className="text-lg font-semibold leading-tight text-ink">
               Announce to your guests
             </h2>
             <Tip align="end">
@@ -160,15 +156,11 @@ export function AnnounceButton({
             rows={3}
             aria-label="Your announcement"
             placeholder="e.g. Dinner is moving up 15 minutes — please find your seats."
-            className="w-full resize-none border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[15px] leading-normal text-ink outline-none focus:border-ink"
+            className="w-full resize-none border-0 border-b border-[color:var(--m-line)] bg-transparent px-0 py-1.5 text-base leading-normal text-ink outline-none focus:border-ink"
           />
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-ink/55">
-              {isEventDay
-                ? 'Guests see it at the top of their Event Hub right away.'
-                : 'Guests see your latest announcement at the top of their Event Hub right away, and it stays there through the day.'}
-            </p>
-            <span className="font-mono text-[11px] text-ink/45">
+            <p className="text-sm text-[color:var(--m-slate-2)]">{whenLine}</p>
+            <span className="shrink-0 text-xs tabular-nums text-[color:var(--m-slate-2)]">
               {formatCount(text.length)}/{formatCount(BROADCAST_MAX_LENGTH)}
             </span>
           </div>
@@ -183,35 +175,35 @@ export function AnnounceButton({
             </p>
           ) : null}
           <div className="flex justify-end">
-            <button
-              type="button"
+            <ActionButton
+              tone="brand"
+              main
+              icon={Send}
+              label={pending ? 'Announcing…' : 'Announce'}
               onClick={send}
-              disabled={pending || text.trim().length === 0}
-              className="inline-flex h-10 items-center gap-1.5 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-50"
-            >
-              <Send aria-hidden className="h-3.5 w-3.5" />
-              {pending ? 'Announcing…' : 'Announce'}
-            </button>
+              waiting={pending}
+              disabled={!pending && text.trim().length === 0}
+            />
           </div>
 
           {release ? <ReleaseRow eventId={eventId} release={release} /> : null}
 
           <div className="pt-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/55">Latest</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">Latest</p>
             {recent === null ? (
-              <p className="mt-2 text-sm text-ink/60">
+              <p className="mt-2 text-sm text-[color:var(--m-slate-2)]">
                 We couldn’t load your recent announcements right now. Refresh in a moment.
               </p>
             ) : recent.length === 0 ? (
-              <p className="mt-2 text-sm text-ink/60">Nothing announced yet.</p>
+              <p className="mt-2 text-sm text-[color:var(--m-slate-2)]">Nothing announced yet.</p>
             ) : (
-              <ul className="mt-1">
+              <ul className="mt-1 divide-y divide-[color:var(--m-line)]">
                 {recent.map((b) => (
-                  <li key={b.broadcastId} className="border-b border-ink/[0.06] py-2.5">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink/50">
+                  <li key={b.broadcastId} className="py-2.5">
+                    <p className="text-xs font-semibold text-[color:var(--m-slate-2)]">
                       {SENDER[b.senderRole]} · {when(b.createdAt)}
                     </p>
-                    <p className="mt-0.5 text-sm text-ink/85">{b.body}</p>
+                    <p className="mt-0.5 text-sm text-ink">{b.body}</p>
                   </li>
                 ))}
               </ul>
@@ -268,10 +260,13 @@ function ReleaseRow({ eventId, release }: { eventId: string; release: ReleaseSta
     });
   }
 
+  const toldLine =
+    told !== null ? ` ${formatCount(told)} ${told === 1 ? 'guest was' : 'guests were'} notified.` : '';
+
   return (
-    <div className="space-y-2 border-t border-ink/10 pt-4" data-release-row={release.kind === 'unread' ? 'unread' : releasedAt ? 'released' : release.pro ? 'ready' : 'free'}>
+    <div className="space-y-2 border-t border-[color:var(--m-line)] pt-4" data-release-row={release.kind === 'unread' ? 'unread' : releasedAt ? 'released' : release.pro ? 'ready' : 'free'}>
       <div className="flex items-center gap-2">
-        <p className="text-[15px] font-semibold text-ink">Full schedule</p>
+        <p className="text-base font-semibold text-ink">Full schedule</p>
         <Tip align="end">
           Until you release it, guests see the chapters they are invited to, and people with a role see an estimated
           call time. After you release it, each guest sees their own full schedule and exact call time on Me. Guests
@@ -279,27 +274,26 @@ function ReleaseRow({ eventId, release }: { eventId: string; release: ReleaseSta
         </Tip>
       </div>
       {release.kind === 'unread' ? (
-        <p className="text-sm text-ink/60">We couldn’t load whether the schedule is released. Refresh in a moment.</p>
+        <p className="text-sm text-[color:var(--m-slate-2)]">We couldn’t load whether the schedule is released. Refresh in a moment.</p>
       ) : releasedAt ? (
-        <p role="status" className="text-sm text-ink/70">
-          Released {when(releasedAt)}. Each guest sees their own schedule on Me.
-          {told !== null ? ` ${formatCount(told)} ${told === 1 ? 'guest was' : 'guests were'} notified.` : ''}
+        <p role="status" className="text-sm text-[color:var(--m-slate-2)]">
+          Released {when(releasedAt)}. Each guest sees their own schedule on Me.{toldLine}
         </p>
       ) : !release.pro ? (
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-ink/60">Guests see their chapters and an estimated call time.</p>
+          <p className="text-sm text-[color:var(--m-slate-2)]">Guests see their chapters and an estimated call time.</p>
           {release.proHref ? (
-            <Link
+            <ActionButton
+              tone="neutral"
+              icon={<PaidMark state="try" label="Part of Pro" size="xs" />}
+              label="Release"
+              name="Release — part of Pro"
               href={release.proHref}
-              data-release-pro
-              aria-label="Release — part of Pro"
-              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold text-ink ring-1 ring-inset ring-ink/20"
-            >
-              Release
-              <PaidMark state="try" label="Part of Pro" size="xs" />
-            </Link>
+              data-release-pro=""
+              className="shrink-0"
+            />
           ) : (
-            <span className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-semibold text-ink/55">
+            <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-[color:var(--m-slate-2)]">
               Release
               <PaidMark state="try" label="Part of Pro" size="xs" />
             </span>
@@ -307,40 +301,33 @@ function ReleaseRow({ eventId, release }: { eventId: string; release: ReleaseSta
         </div>
       ) : asking ? (
         <div className="space-y-2" data-release-ask>
-          <p className="text-sm text-ink/75">
-            Release the full schedule now? Every guest sees their own lines and call time, and guests with an account
+          <p className="text-sm text-[color:var(--m-slate-2)]">
+            <strong className="font-semibold text-ink">Release the full schedule now?</strong> Every guest sees their own lines and call time, and guests with an account
             get a notification. This can’t be undone.
           </p>
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setAsking(false)}
-              className="inline-flex h-10 items-center rounded-full px-4 text-[13px] font-semibold text-ink ring-1 ring-inset ring-ink/20"
-            >
-              Not now
-            </button>
-            <button
-              type="button"
+            <ActionButton tone="neutral" icon={X} label="Not now" onClick={() => setAsking(false)} />
+            <ActionButton
+              tone="ok"
+              icon={Check}
+              label={pending ? 'Releasing…' : 'Release'}
               onClick={press}
-              disabled={pending}
-              data-release-confirm
-              className="inline-flex h-10 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-50"
-            >
-              {pending ? 'Releasing…' : 'Release'}
-            </button>
+              waiting={pending}
+              data-release-confirm=""
+            />
           </div>
         </div>
       ) : (
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-ink/60">Guests see their chapters and an estimated call time.</p>
-          <button
-            type="button"
+          <p className="text-sm text-[color:var(--m-slate-2)]">Guests see their chapters and an estimated call time.</p>
+          <ActionButton
+            tone="neutral"
+            icon={Volume2}
+            label="Release"
             onClick={() => setAsking(true)}
-            data-release-press
-            className="inline-flex h-10 shrink-0 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream"
-          >
-            Release
-          </button>
+            data-release-press=""
+            className="shrink-0"
+          />
         </div>
       )}
       {error ? (

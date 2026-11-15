@@ -171,7 +171,7 @@ export async function OneAnalyticsSection({
   const role = await resolveVendorRole(supabase, userId);
   if (!canManageVendor(role)) {
     return (
-      <p className="px-4 pt-5 text-[13.5px] text-ink/60" data-shop-analytics-owner-only="">
+      <p className="px-4 pt-5 text-[13.5px] text-ink/70" data-shop-analytics-owner-only="">
         Analytics are for the shop&rsquo;s owner and admins.
       </p>
     );
@@ -201,7 +201,7 @@ export async function OneAnalyticsSection({
       <VendorTierGate
         feature="Analytics"
         requiredTier="solo"
-        blurb="See how your shop is doing — every graph, each with what we recommend you do next. Analytics starts with Solo."
+        blurb="See how your shop is doing — every graph, each with what we recommend you do next. Analytics starts with Supplier Plus."
         icon={<Gauge aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
       />
     );

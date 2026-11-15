@@ -120,13 +120,13 @@ export function ShareYourWork({ data }: { data: ShareYourWorkData }) {
         <div className="border-t border-ink/10">
           <Fold
             title="Recaps"
-            line={recapsGated ? 'Starts with Solo' : countLine(recaps, recaps?.length === 1 ? 'recap' : 'recaps')}
+            line={recapsGated ? 'Starts with Supplier Plus' : countLine(recaps, recaps?.length === 1 ? 'recap' : 'recaps')}
             data="share-recaps"
           >
             <div className="pb-3">
               {recapsGated ? (
                 <p className="py-2 text-[13.5px] text-ink/60" data-share-gated="recaps">
-                  One-tap sharing of every recap you helped create is a Solo feature.
+                  One-tap sharing of every recap you helped create is a Supplier Plus feature.
                 </p>
               ) : recaps === null ? (
                 <p role="alert" className="py-2 text-[13.5px] text-ink/70" data-share-unread="recaps">

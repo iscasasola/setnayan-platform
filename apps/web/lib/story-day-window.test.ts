@@ -18,7 +18,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { storyDayWindow, storyDayList, manilaDayOf, allocateChapterCounts } from './story-day-window';
+import { storyDayWindow, storyDayList, manilaDayOf, allocateChapterCounts, capturedOnTheDay } from './story-day-window';
 
 for (const tz of ['Asia/Manila', 'America/Los_Angeles', 'Pacific/Auckland']) {
   test(`[TZ=${tz}] storyDayWindow: single-day event bounds to that Manila day`, () => {
@@ -105,4 +105,26 @@ test('allocateChapterCounts: proportional split roughly follows share', () => {
   const out = allocateChapterCounts([90, 10], 10);
   assert.ok(out[0]! > out[1]!, 'the bigger day gets more chapters');
   assert.equal(out[0]! + out[1]!, 10);
+});
+
+test('F-W2-49: "From the day" holds only what was shot on the event’s own (Manila) days', () => {
+  const w = storyDayWindow('2026-10-30', null)!;
+  assert.equal(capturedOnTheDay('2026-10-26T10:00:00+08:00', w), false, 'four days before the day is not from the day');
+  assert.equal(capturedOnTheDay('2026-10-30T00:00:00+08:00', w), true, 'the first Manila minute of the day');
+  assert.equal(capturedOnTheDay('2026-10-30T23:59:00+08:00', w), true, 'the last Manila minute of the day');
+  assert.equal(capturedOnTheDay('2026-10-30T16:30:00Z', w), false, '00:30 the next Manila morning');
+  assert.equal(capturedOnTheDay(null, w), false, 'no instant: not provably the day');
+  assert.equal(capturedOnTheDay('2026-10-26T10:00:00+08:00', null), true, 'an event with no date keeps every capture, as before');
+  const two = storyDayWindow('2026-10-30', '2026-10-31')!;
+  assert.equal(capturedOnTheDay('2026-10-31T20:00:00+08:00', two), true, 'a two-day event’s second day');
+});
+
+test('F-W2-49: the story’s gallery rows and its count are both kept to the day', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const data = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'editorial', 'data.ts'), 'utf8');
+  assert.match(data, /\.filter\(\(r\) => capturedOnTheDay\(r\.capturedAt, dayWindow\)\)/, 'the gallery’s Papic rows are not kept to the day');
+  assert.match(data, /const dayPhotoCount[\s\S]{0,900}\.gte\('captured_at', dayWindow\.startIso\)\s*\.lte\('captured_at', dayWindow\.endIso\)/, 'the gallery’s count is not bounded to the day');
+  const content = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'editorial', 'editorial-content.tsx'), 'utf8');
+  assert.match(content, /total=\{typeof data\.galleryDayTotal === 'number'/, 'the gallery heading does not count the day');
 });

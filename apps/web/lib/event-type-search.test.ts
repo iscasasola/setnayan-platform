@@ -148,7 +148,7 @@ test('results come back in the roster order they were given', () => {
 // moves, re-point the assertion at its new home.
 
 test('the marketplace search actually passes the roster to the matcher', () => {
-  const page = read('app/(shell)/explore/page.tsx');
+  const page = read('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   // Both call sites — the main query AND the broadened-count query. Missing the
   // second lets the empty state offer to widen a search that was already wider.
   //
@@ -187,7 +187,7 @@ test('the filter drawer offers a real occasion control, not a hidden input', () 
 });
 
 test('the drawer is given the roster to populate that control', () => {
-  const page = read('app/(shell)/explore/page.tsx');
+  const page = read('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   assert.match(
     page,
     /eventTypeOptions:\s*eventTypeVocab\.map/,
@@ -200,7 +200,7 @@ test('the landing page has an occasion handle of its own', () => {
   // Catalog mode renders NO FilterDrawer, so the drawer above cannot be the
   // only handle: without this row a visitor on a bare /explore has no way to
   // ask for their kind of celebration.
-  const page = read('app/(shell)/explore/page.tsx');
+  const page = read('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   assert.match(
     page,
     /occasionChips[^\n]*=/,
@@ -220,7 +220,7 @@ test('the landing page has an occasion handle of its own', () => {
 });
 
 test('the occasion chips are not silently capped', () => {
-  const page = read('app/(shell)/explore/page.tsx');
+  const page = read('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   const block = page.slice(
     page.indexOf('const occasionChips'),
     page.indexOf('const occasionChips') + 400,

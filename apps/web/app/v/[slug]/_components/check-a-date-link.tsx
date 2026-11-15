@@ -7,7 +7,16 @@ import { CalendarCheck } from 'lucide-react';
  * Available · Not bookable, never another couple's asks. The caller writes the address as a literal `href`, so the
  * route map (`port:baseline`, `ugat:screens`) sees the door on the page that has it.
  */
-export function CheckADateLink({ href, className }: { href: string; className: string }) {
+export function CheckADateLink({ href, className }: { href: string | null; className: string }) {
+  // `null` — the sample shop page (`SampleShopPage`): the same door, drawn, with no calendar behind it to open.
+  if (href === null) {
+    return (
+      <span data-shop-check-a-date="" className={className}>
+        <CalendarCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        Check a date
+      </span>
+    );
+  }
   return (
     <Link href={href} data-shop-check-a-date="" className={className}>
       <CalendarCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden />

@@ -166,7 +166,6 @@ type Props<Row> = {
     title: string;
     blurb: string;
     action?: ReactNode;
-    verifiedNote?: string;
   };
   /**
    * Read `true` ONLY when permission was positively proven — on admin surfaces
@@ -246,7 +245,6 @@ export function ConsoleTable<Row>({
         blurb={empty.blurb}
         action={empty.action}
         readPermitted
-        verifiedNote={empty.verifiedNote}
       />
     );
   }

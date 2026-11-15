@@ -1,75 +1,36 @@
 'use client';
 
 /**
- * Per-session dismissible client shell for `<DemoModeBanner>`.
+ * Client shell for `<DemoModeBanner>`.
  *
- * The server component decides whether to render at all (admin +
- * cookie set). This client piece adds the dismiss interaction and
- * persists the dismissed state in `sessionStorage` so a hard reload
- * keeps it dismissed until the admin signs out or closes the tab.
+ * The wrapper decides whether to render at all (admin + cookie set).
+ * This piece draws it as a live notice whose "Hide" the one notice
+ * memory keeps for the day.
  *
- * Dismissing the banner does NOT turn demo mode off — the cookie
+ * Hiding the banner does NOT turn demo mode off — the cookie
  * remains live so demo vendors keep surfacing on /vendors and
  * /v/[slug]. To turn demo mode off entirely, the admin uses the
  * toggle at /admin/settings/demo-mode.
  */
 
-import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { LazyInlineNotice } from './notices/inline-notice-lazy';
 
-const SESSION_DISMISS_KEY = 'setnayan_demo_mode_banner_dismissed';
-
+/**
+ * 🔔 Inventory #45 — "Demo mode active", a LIVE notice (warning) in the one notice system (owner approved 14 Nov 2026).
+ * Admin-only (the status route decides). "Hide" is kept by the one notice memory for the day (it was per tab); the
+ * fact is still true tomorrow, so it comes back. Demo shops are permanent and public, marked "(DEMO ONLY)" (owner,
+ * DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS"); the Dec-1 "must be cleaned out" deadline is retired.
+ */
 export function DemoModeBannerClient() {
-  // Default to "visible" so SSR + first paint never flash the
-  // banner in then-out — the dismissed state is applied after
-  // hydration if it was set.
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem(SESSION_DISMISS_KEY) === '1') {
-        setDismissed(true);
-      }
-    } catch {
-      // Private mode / storage disabled — treat as not dismissed.
-    }
-  }, []);
-
-  function onDismiss() {
-    setDismissed(true);
-    try {
-      sessionStorage.setItem(SESSION_DISMISS_KEY, '1');
-    } catch {
-      // No-op; banner stays hidden in-memory regardless.
-    }
-  }
-
-  if (dismissed) return null;
-
   return (
-    <aside
-      role="status"
-      aria-live="polite"
-      className="sticky top-0 z-50 border-b border-warn-300 bg-warn-50/95 px-4 py-2 text-[12px] text-warn-900 backdrop-blur"
-    >
-      <div className="mx-auto flex w-full max-w-6xl items-start justify-between gap-3 sm:items-center">
-        <p className="text-warn-900">
-          <span className="font-semibold uppercase tracking-[0.12em]">Demo mode active</span>{' '}
-          <span className="text-warn-800/85">
-            — demo shops show their prices publicly. Real-supplier posture is unchanged.
-            {/* The Dec-1 "must be cleaned out" deadline is retired: demo shops are permanent and public,
-                marked "(DEMO ONLY)" (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS"). */}
-          </span>
-        </p>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Dismiss demo-mode banner for this session"
-          className="shrink-0 rounded-full p-1 text-warn-800/70 hover:bg-warn-100 hover:text-warn-900"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </button>
-      </div>
+    <aside className="px-4 pt-2">
+      <LazyInlineNotice
+        kind="live"
+        tone="warning"
+        noticeKey={`demo-mode:${new Date().toISOString().slice(0, 10)}`}
+        title="Demo mode active"
+        detail="Demo shops show their prices publicly. Real-supplier posture is unchanged."
+      />
     </aside>
   );
 }

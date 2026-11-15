@@ -5,7 +5,7 @@ import { DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
 // How it works — who's who on Setnayan and how the flow connects.
 //
 // 🧾 BUILD 6 LANE J (owner 10 Nov: "/features Fix this as well") — four claims corrected, both locales:
-//   · the host's add-ons named the retired "Event Hub Pro" and sold Setnayan AI on its own (it comes inside Event
+//   · the host's add-ons named the retired "Event Pro" and sold Setnayan AI on its own (it comes inside Event
 //     Plus and Event Pro since 4 Nov) → the two plans + the add-ons that are sold;
 //   · the supplier was "Free profile, optional paid tier" → Free · Verified · Solo · Pro · Ultra;
 //   · "Reply-only chat — hosts reach out" → suppliers bring and import their own clients and chat with them;
@@ -101,7 +101,7 @@ const COPY: Record<
       },
       {
         label: 'Supplier',
-        who: 'You sell to hosts. Your shop is free, and Verified is free too. Solo, Pro and Ultra add reach, a team and branches.',
+        who: 'You sell to hosts. Your shop is free, and Verified is free too. Supplier Plus, Supplier Pro and Supplier Ultra add reach, a team and branches.',
         where: [
           'Today · Clients · Shop · Portfolio — the next thing to answer, your people, dates and event days, your services and page, your photos and videos',
           'One chat per client — hosts who find you, and the clients you bring or import yourself — with quotes, payments and files',
@@ -205,7 +205,7 @@ const COPY: Record<
       },
       {
         label: 'Supplier',
-        who: 'Nagbebenta ka sa mga host. Libre ang shop mo, at libre rin ang Verified. Dagdag na reach, team at branches sa Solo, Pro at Ultra.',
+        who: 'Nagbebenta ka sa mga host. Libre ang shop mo, at libre rin ang Verified. Dagdag na reach, team at branches sa Supplier Plus, Supplier Pro at Supplier Ultra.',
         where: [
           'Today · Clients · Shop · Portfolio — ang susunod na sasagutin, ang mga tao, petsa at event day mo, ang services at page mo, ang mga larawan at video mo',
           'Isang chat bawat client — ang mga host na nakahanap sa iyo, at ang mga client na dala o in-import mo — may quotes, bayad at files',

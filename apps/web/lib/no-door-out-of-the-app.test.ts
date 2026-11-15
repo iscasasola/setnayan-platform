@@ -154,6 +154,13 @@ const STAFF_OR_SHOP_OWN_TREES: ReadonlyArray<{ prefix: string; why: string }> = 
       "It imports the admin console's own actions, so it reaches what staff reach. Never a couple's or the public's page.",
   },
   {
+    prefix: 'app/dev/admin-shell-lab/',
+    why:
+      "The admin five-tab shell's dev lab — it draws the STAFF console's shell and, since slice 1b (13 Nov 2026), Work › All's " +
+      "real work list (whose drawers post to the admin console's own actions) from fixtures, and refuses to render in " +
+      "production (`notFound()`, pinned by app/dev/admin-shell-lab/the-lab-never-ships.test.ts). Never a couple's or the public's page.",
+  },
+  {
     prefix: 'app/vendor/claim/',
     why: 'A shop CLAIMING its own profile — the form is pre-filled with its own email and phone.',
   },
@@ -380,7 +387,7 @@ const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }
 ]);
 
 const ENTRY_RE =
-  /(^|\/)(page|layout|template|default|not-found|error|global-error|loading)\.(ts|tsx)$/;
+  /(^|\/)(page|layout|template|default|not-found|error|global-error|loading)(\.lab)?\.(ts|tsx)$/;
 
 function sourceFiles(): string[] {
   const out = execSync(
@@ -544,10 +551,10 @@ test('the surfaces that carried the exits are IN the scanned set (derived, not a
     'app/v/[slug]/page.tsx', // the public shop page
     'app/[slug]/page.tsx', // the bare-root address that renders it too
     'app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx', // the couple's supplier card
-    'app/v/[slug]/_components/anon-inquiry-composer.tsx', // the signed-out door
+    'app/v/[slug]/_components/inquire-sheet.tsx', // the one Inquire pop-up (13 Nov 2026: replaced the inline composers)
     'app/v/[slug]/_components/service-details-sheet.tsx',
     'app/v/[slug]/booth/page.tsx', // the shop's walk-in booth
-    'app/(shell)/explore/page.tsx', // the marketplace
+    'app/(shell)/explore/_lib/marketplace-view.tsx', // the marketplace
     'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx', // a supplier's workspace
     'app/dashboard/[eventId]/_components/vendor-itemization-card.tsx', // the budget card
     'app/dashboard/[eventId]/messages/page.tsx', // where a prefill lands, in plain sight
@@ -845,7 +852,7 @@ const SUPPLIER_CORRECTIONS_SURFACE: ReadonlyMap<string, string> = new Map([
   ['lib/booked-rows.ts', "The Booked row model: turns the kept corrections into the row's mark and the ⓘ lines."],
   ['app/dashboard/[eventId]/vendors/_components/booked-row.tsx', 'Draws the mark (the short word only) and the ⓘ lines the model built.'],
   ['app/dev/suppliers-lab/booked-fixtures.ts', 'The suppliers lab: a fictional fixture, no database read, nothing real.'],
-  ['app/dev/notifications-lab/page.tsx', 'The notifications lab: a fictional fixture, no database read, nothing real.'],
+  ['app/dev/notifications-lab/page.lab.tsx', 'The notifications lab: a fictional fixture, no database read, nothing real.'],
 ]);
 
 const CORRECTIONS_IMPORT_RE = /from\s+['"](?:@\/lib|\.{1,2}(?:\/\.\.)*(?:\/lib)?)\/supplier-corrections['"]/;

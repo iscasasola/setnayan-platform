@@ -56,8 +56,18 @@ function stub(byTable: Record<string, { data: unknown; error: unknown }>): Supab
     b.then = (res: (v: unknown) => unknown) => Promise.resolve(result).then(res);
     return b;
   };
+  // #5936 — the booking amounts arrive through event_vendor_money_read, built from the same event_vendors answer.
+  const rpc = () => {
+    const ev = byTable.event_vendors ?? { data: [], error: null };
+    const rows = (ev.data == null ? [] : Array.isArray(ev.data) ? ev.data : [ev.data]) as Array<Record<string, unknown>>;
+    return Promise.resolve({
+      data: ev.error ? null : rows.map((r) => ({ ...r, money_shown: true })),
+      error: ev.error,
+    });
+  };
   return {
     from: (table: string) => make(byTable[table] ?? { data: [], error: null }),
+    rpc,
   } as unknown as SupabaseClient;
 }
 

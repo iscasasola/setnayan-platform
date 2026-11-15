@@ -135,7 +135,7 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   // makes the daily drift check assert a page exists where none does.
   '/features',
   '/pricing',
-  '/explore',
+  // '/explore' left 2026-11-12 — a 308 to Discover `/` now (Find suppliers moved inside Discover).
   '/explore/compare',
   '/for-suppliers',
   // Build 6 Lane K — the coordinator front page (live since 2026-11-04, in the static sitemap) was missing here, so
@@ -200,7 +200,7 @@ export const MUST_BE_IN_SITEMAP: readonly string[] = [
   '/features',
   '/for-suppliers',
   '/for-coordinators',
-  '/explore',
+  // '/explore' left 2026-11-12 — it forwards to `/`, which is listed.
   '/download',
 ];
 

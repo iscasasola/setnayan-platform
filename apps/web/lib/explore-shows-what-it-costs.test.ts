@@ -85,7 +85,7 @@ test('the grid reads the SAME rule the shop’s own page reads', () => {
   const lib = read('lib/vendor-service-attributes.ts');
   assert.match(lib, /export function payloadHidesPricesPublicly/);
 
-  for (const rel of ['app/(shell)/explore/page.tsx', 'app/v/[slug]/page.tsx']) {
+  for (const rel of ['app/(shell)/explore/_lib/marketplace-view.tsx', 'app/v/[slug]/page.tsx']) { // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     const src = read(rel);
     assert.match(
       src,
@@ -98,7 +98,7 @@ test('the grid reads the SAME rule the shop’s own page reads', () => {
 test('nobody re-implements the rule', () => {
   // A second copy of "does this shop hide its prices" is how a shop that opted
   // out ends up with its prices on the marketplace anyway.
-  for (const rel of ['app/(shell)/explore/page.tsx', 'app/v/[slug]/page.tsx']) {
+  for (const rel of ['app/(shell)/explore/_lib/marketplace-view.tsx', 'app/v/[slug]/page.tsx']) { // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     assert.ok(
       !/hide_prices_publicly\s*===\s*true/.test(read(rel)),
       `${rel} re-implements the hide-prices test`,
@@ -107,7 +107,7 @@ test('nobody re-implements the rule', () => {
 });
 
 test('the grid honours the opt-out before it shows any price', () => {
-  const src = read('app/(shell)/explore/page.tsx');
+  const src = read('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   assert.match(src, /fetchVendorsHidingPricesPublicly\(/, 'the batch read must happen');
   assert.match(
     src,
@@ -119,7 +119,7 @@ test('the grid honours the opt-out before it shows any price', () => {
 test('the price is no longer gated on being a demo shop', () => {
   // The single line this whole change is: `is_demo === true && …` threw away a
   // figure the page had already computed for every visible shop.
-  const src = read('app/(shell)/explore/page.tsx');
+  const src = read('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   assert.ok(
     !/v\.is_demo === true && svc\?\.startingPrice/.test(src),
     'a real shop’s price must not be gated on demo mode',
@@ -130,7 +130,7 @@ test('the price is no longer gated on being a demo shop', () => {
 test('the demo label path is untouched', () => {
   // Demo cards carry their own label and their own styling; this change was
   // never about them.
-  const src = read('app/(shell)/explore/page.tsx');
+  const src = read('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   assert.match(src, /row\.demo_starts_at_label =/);
   const card = read('app/(shell)/explore/_components/vendor-card.tsx');
   assert.match(card, /isDemoCard && vendor\.demo_starts_at_label/);

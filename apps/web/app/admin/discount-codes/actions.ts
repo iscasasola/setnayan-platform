@@ -49,7 +49,7 @@ const CODE_PATTERN = /^[A-Z0-9]{8}$/;
  * Voucher discount types.
  *
  * ⛔ THE FOURTH TYPE, `grant_tokens`, IS GONE (2026-08-18). It minted a vendor
- * token wallet credit — a currency retired 2026-07-21 whose redeem RPC
+ * token balance credit — a currency retired 2026-07-21 whose redeem RPC
  * (`redeem_vendor_token_voucher`) never had a single caller, so every voucher
  * of that type was unredeemable from the hour it was created.
  *

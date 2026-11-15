@@ -75,7 +75,7 @@ test('no surface tells a couple that reviews unlock on upgrade', () => {
   const banned = /reviews?\s+unlock|unlock[^.]{0,40}reviews?/i;
   for (const rel of [
     'app/v/[slug]/page.tsx',
-    'app/(shell)/explore/page.tsx',
+    'app/(shell)/explore/_lib/marketplace-view.tsx', // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     // The approved /for-suppliers page of 2026-11-06 replaced the tier matrix
     // (vendor-tier-matrix.tsx, deleted); its plans are drawn by these files.
     ...SUPPLIER_PAGE_FILES,

@@ -38,9 +38,9 @@ const STATIC_ROUTES: ReadonlyArray<{
   // pre-pilot iteration cadence.
   { path: '/', lastmod: '2026-05-29', changefreq: 'daily', priority: '1.0' },
 
-  // /vendors browse — DB-backed catalog. Page itself updates on every
-  // verification + new tile lands. Daily.
-  { path: '/explore', lastmod: '2026-05-29', changefreq: 'daily', priority: '0.9' },
+  // /explore is NOT listed (removed 2026-11-12): Find suppliers moved inside Discover (DECISION_LOG "DISCOVER WITH
+  // SUPPLIERS — PROTOTYPE APPROVED"), and /explore answers 308 → `/` with its filters. The drawing's SEO plan: the
+  // filtered Discover addresses canonicalise to `/`; category search traffic stays with the /suppliers/… pages.
 
   // /explore/compare is NOT listed (removed 2026-11-01, live walk). Added
   // 2026-07-10 as "orphaned — indexable", but bare it is not a page: with no
@@ -59,11 +59,11 @@ const STATIC_ROUTES: ReadonlyArray<{
 
   // /features — v2.1 template adoption shipped (CLAUDE.md eleventh
   // 2026-05-28 row PR #581); localized to EN + Taglish 2026-06-13.
-  { path: '/features', lastmod: '2026-11-10', changefreq: 'monthly', priority: '0.85' },
+  { path: '/features', lastmod: '2026-11-13', changefreq: 'monthly', priority: '0.85' },
 
   // /tl/features — Taglish edition of /features (localization, 2026-06-13).
   // hreflang reciprocal lives in both pages' metadata.
-  { path: '/tl/features', lastmod: '2026-11-10', changefreq: 'monthly', priority: '0.75' },
+  { path: '/tl/features', lastmod: '2026-11-13', changefreq: 'monthly', priority: '0.75' },
 
   // /vendors — v2.1 publisher posture cutover (CLAUDE.md fifth
   // 2026-05-28 row PR #574).

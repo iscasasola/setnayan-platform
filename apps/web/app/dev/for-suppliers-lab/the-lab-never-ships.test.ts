@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const LAB = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+const LAB = stripComments(readFileSync(join(HERE, 'page.lab.tsx'), 'utf8'));
 
 test('the for-suppliers lab calls notFound() in production, before anything else', () => {
   assert.match(LAB, /import \{ notFound \} from 'next\/navigation';/, 'notFound is not imported');

@@ -57,6 +57,56 @@ export async function saveImageToDevice(url: string, filename: string): Promise<
   }
 }
 
+/**
+ * 📸 SAVE ALL — a guest's own photos, together (owner 2026-11-13, "SIX CALLS SETTLED" (4)). The viewer's own Save
+ * (`saveImageToDevice`), for many: every photo fetched as it is served (the full-size picture the viewer shows), then
+ * ONE share sheet with all of them where the phone can share files ("Save N Images"), else one download each. A photo
+ * that could not be fetched is skipped and counted, never pretended. Never throws.
+ */
+export async function saveImagesToDevice(
+  urls: readonly string[],
+  baseName: string,
+): Promise<{ result: SaveResult; saved: number; missed: number }> {
+  const files: File[] = [];
+  let missed = 0;
+  for (const [i, url] of urls.entries()) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        missed += 1;
+        continue;
+      }
+      const blob = await res.blob();
+      const type = blob.type || 'image/jpeg';
+      const ext = type.includes('avif') ? 'avif' : type.includes('webp') ? 'webp' : extForType(type);
+      files.push(new File([blob], `${baseName}-${i + 1}.${ext}`, { type }));
+    } catch {
+      missed += 1;
+    }
+  }
+  if (files.length === 0) return { result: 'failed', saved: 0, missed };
+  if (canShareFiles() && navigator.canShare({ files })) {
+    try {
+      await navigator.share({ files });
+      return { result: 'shared', saved: files.length, missed };
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return { result: 'shared', saved: files.length, missed };
+      // else fall through to the downloads
+    }
+  }
+  for (const file of files) {
+    const objectUrl = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+  }
+  return { result: 'downloaded', saved: files.length, missed };
+}
+
 /** What a `saveFileToDevice` call ended as — `expired` is iOS refusing a share whose tap ran out while the file was
  *  being made (`NotAllowedError`): the caller keeps the File and asks for one more tap. */
 export type SaveFileResult = 'shared' | 'dismissed' | 'downloaded' | 'expired' | 'failed';

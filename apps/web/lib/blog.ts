@@ -205,7 +205,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'cta',
         text: 'Ready to start booking? Browse verified Filipino wedding suppliers by city, category, and the styles they specialise in.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Explore the supplier marketplace',
       },
       {
@@ -271,7 +271,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'cta',
         text: 'Compare verified Filipino wedding suppliers by city, category, and the styles they specialize in.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the supplier marketplace',
       },
       {
@@ -412,7 +412,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'cta',
         text: 'See verified Filipino wedding suppliers filtered by your city and category.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse suppliers',
       },
     ],
@@ -729,7 +729,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'cta',
         text: 'Browse 100+ real Philippine wedding venues by city, with capacity and day-rate details.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Explore venues',
       },
     ],

@@ -89,7 +89,7 @@ export function PakantaDeliver({
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
           {result.adopted
             ? 'Delivered and now playing on the couple’s site.'
-            : 'Delivered. The couple already set their own site song — they can switch to this one in their Studio.'}
+            : 'Delivered. The couple already set their own Event Hub song — they can switch to this one in their Studio.'}
         </p>
       ) : null}
 

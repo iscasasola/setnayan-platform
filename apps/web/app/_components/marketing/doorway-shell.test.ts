@@ -106,7 +106,10 @@ const DOORWAYS = [
  * NAV_ROUTES, the old fixed glass nav renders ON TOP of the shell's bar.
  * Any one missing looks fine in a browser on a fast connection while signed in.
  */
-const SHELLED_PUBLIC = ['explore', 'help', 'alaala'] as const;
+// 🔄 2026-11-12: 'explore' LEFT this list — `/explore` is no longer a page; it forwards (308) to Discover (`/`), where
+// the supplier view now lives (owner: *"find suppliers needs to be also inside discover already. they do not need to
+// have their own page"*). `app/(shell)/explore/` keeps only `/explore/compare` and the shared pipeline.
+const SHELLED_PUBLIC = ['help', 'alaala'] as const;
 
 /**
  * NAV_ROUTES as the file actually declares it.

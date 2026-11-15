@@ -9,9 +9,12 @@
  * `PushMessage` can only be made HERE (`pushMessage()`; the brand below makes an
  * inline `{ title, body }` a type error at every sender). The rules:
  *
- *   · TITLE — who or what it is about, in a few words: the event's display name
- *     ("Indalecio & Claire") for an event notice, the shop's name for a shop
- *     notice, "Setnayan" for an account notice.
+ *   · TITLE — WHICH PART OF SETNAYAN it is from, the SAME words as the bell row's
+ *     place line (owner 2026-11-13, `prototypes/notifications_place_2026-11-13`):
+ *     "Indalecio & Claire · You organise" / "· Invited" for an event notice,
+ *     "Luz Photography · Your shop", "Setnayan HQ · Admin", and
+ *     "Setnayan · Your account". The part is `lib/notification-place.ts` — one rule
+ *     for the row and the phone. A long NAME is cut at a word; the stance never is.
  *   · BODY — one plain sentence saying what happened, in the house voice: short,
  *     "event" never "celebration", money through `formatPhp`, counts through
  *     `formatCount`. "Maria + 2 others replied · 34 coming so far".
@@ -31,14 +34,17 @@
  */
 import { formatCount } from './format-number';
 import type { PushLevel } from './push-levels';
+import { ACCOUNT_NAME, HQ_NAME, HQ_STANCE, SHOP_STANCE } from './notification-place';
 
 /** What a lock screen shows before it cuts. */
 export const PUSH_TITLE_MAX = 40;
 export const PUSH_BODY_MAX = 110;
 
 export type PushSubject =
-  | { kind: 'event'; name: string | null }
+  /** `stance`: "You organise" · "Invited" · "You help" (`eventStanceWords`), or null/absent when there is no seat. */
+  | { kind: 'event'; name: string | null; stance?: string | null }
   | { kind: 'shop'; name: string | null }
+  | { kind: 'hq' }
   | { kind: 'account' };
 
 declare const PUSH_MESSAGE: unique symbol;
@@ -92,10 +98,36 @@ export function fitWords(text: string, max: number): string {
   return `${cut.replace(/[\s,;:·—-]+$/, '')}…`;
 }
 
+/**
+ * name · stance, under `max`: the NAME is cut at a word to make room, the stance is never cut. A stance that leaves
+ * no room for a word of the name (it cannot, at 40) drops the name to its first word rather than cut the stance.
+ */
+export function placeTitle(name: string, stance: string | null | undefined, max: number = PUSH_TITLE_MAX): string {
+  const n = name.replace(/\s+/g, ' ').trim();
+  if (!stance) return fitWords(n, max);
+  const tail = ` · ${stance}`;
+  if (n.length + tail.length <= max) return `${n}${tail}`;
+  const room = Math.max(max - tail.length, 2);
+  return `${fitWords(n, room)}${tail}`;
+}
+
 function titleFor(subject: PushSubject): string {
-  if (subject.kind === 'account') return 'Setnayan';
-  const name = scrubInternal(subject.name ?? '');
-  return name || 'Setnayan';
+  switch (subject.kind) {
+    case 'account':
+      return placeTitle('Setnayan', ACCOUNT_NAME);
+    case 'hq':
+      return placeTitle(HQ_NAME, HQ_STANCE);
+    case 'shop': {
+      // A refused or unknowable shop name still says the PART — never a guessed shop.
+      const name = scrubInternal(subject.name ?? '');
+      return placeTitle(name || 'Setnayan', SHOP_STANCE);
+    }
+    case 'event': {
+      // A refused name read says "Setnayan" — never a blank title, and never a stance with no event to hang it on.
+      const name = scrubInternal(subject.name ?? '');
+      return name ? placeTitle(name, subject.stance ?? null) : 'Setnayan';
+    }
+  }
 }
 
 /** Short stable hash → the Web Push `Topic` (URL-safe base64 alphabet, ≤32 chars). */
@@ -128,7 +160,7 @@ export function pushMessage(input: {
 }): PushMessage {
   const body = fitWords(scrubInternal(input.sentence), PUSH_BODY_MAX);
   return {
-    title: fitWords(titleFor(input.subject), PUSH_TITLE_MAX),
+    title: titleFor(input.subject),
     body,
     url: safePath(input.url, input.fallbackUrl ?? '/dashboard'),
     collapseKey: input.collapseKey,

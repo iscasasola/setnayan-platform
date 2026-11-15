@@ -248,7 +248,7 @@ export const LAB_APPLY_MESSAGE = 'This is the sample event — that needs a real
  */
 export function labDraftStep(
   current: HubDraft,
-  /** `pro` — 💎 `?pro=1`: the lab's event owns Event Hub Pro, so ✓ Apply holds nothing (the real gate's `ownsPro`). */
+  /** `pro` — 💎 `?pro=1`: the lab's event owns Event Pro, so ✓ Apply holds nothing (the real gate's `ownsPro`). */
   fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown; expect?: unknown; pro?: unknown; base?: unknown; as?: unknown; to?: unknown; stamp?: unknown },
   scrub: boolean,
   /** What the lab has published so far (`labPublishedFrom`) — null: nothing. Changed only by `apply`. */
@@ -323,7 +323,7 @@ export function labDraftStep(
   }
   if (intent === 'apply') {
     /* ✓ APPLY PUBLISHES — IN THE LAB. The real planner decides, against what is published now: what is written, what a
-       couple without Event Hub Pro is held on. What went is folded into the lab's published state by the real merge;
+       couple without Event Pro is held on. What went is folded into the lab's published state by the real merge;
        the draft keeps only what was held, and no Undo history — as the real action leaves it. (A held scene's FREE
        part is not split out here: the whole scene waits. The lab's one shortcut.) */
     const plan = planHubDraftApply(current, labLive(scrub, published), fields.pro === true);

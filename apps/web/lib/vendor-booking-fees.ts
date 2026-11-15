@@ -252,3 +252,15 @@ export function bookingFeeErrorCopy(code: string | undefined): string | null {
   if (!code) return null;
   return (BOOKING_FEE_ERRORS as Record<string, string>)[code] ?? null;
 }
+
+/**
+ * 🧾 RW-48 (walk 13 Nov 2026): a fee order's description as a screen shows it. Minting writes the WAITING words into
+ * the stored description ("— up for verification, confirmation within 24 hrs"), so a PAID bill went on saying it was
+ * up for verification forever. The stored text is history and is never rewritten; the screen drops that clause once
+ * the bill is no longer due (the status pill beside it says what it is now).
+ */
+const WAITING_CLAUSE = /\s*—\s*up for verification, confirmation within 24 hrs\s*$/;
+export function feeOrderDescriptionNow(description: string | null | undefined, status: OrderStatus): string {
+  const d = (description ?? '').trim();
+  return isFeeOrderPayable(status) ? d : d.replace(WAITING_CLAUSE, '');
+}

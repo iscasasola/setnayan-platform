@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { House, Telescope } from 'lucide-react';
 import { BottomDock, BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { AccountBarTab } from '@/lib/account-bar';
-import { HOME_HREF, HOME_LAST_SEG_KEY, HOME_SEG_ORDER, homeSegHref, type HomeSeg } from '@/lib/home-segments';
+import { HOME_HREF } from '@/lib/home-segments';
+
+/** The supplier bar's Today — the shop's first screen (`vendor-bottom-nav.tsx`), the Home tab's twin. */
+const SHOP_TODAY_HREF = '/vendor-dashboard';
 
 /**
  * AccountBottomNav — the phone bar on the account-level screens (the Events
@@ -77,31 +79,21 @@ const TAB: Record<AccountBarTab, BottomNavItem> = {
 };
 
 /** The bar's items for a list of tabs — exported so the guard renders the real list. */
-export function accountBarItems(tabs: readonly AccountBarTab[]): BottomNavItem[] {
-  return tabs.map((t) => TAB[t]);
+export function accountBarItems(tabs: readonly AccountBarTab[], { hasShop = false }: { hasShop?: boolean } = {}): BottomNavItem[] {
+  // 👆👆 THE ONE DOUBLE TAP (owner 13 Nov 2026): already on Home, a second quick tap opens your shop — the last-used
+  // one, which `/vendor-dashboard` opens by the `sn_shop` cookie the account switcher's shop rows write — at Today's
+  // last view (`tab-memory.ts`). No shop, no twin: the double tap is just the top.
+  return tabs.map((t) => (t === 'home' && hasShop ? { ...TAB[t], twin: SHOP_TODAY_HREF } : TAB[t]));
 }
 
-/**
- * 🔁 THE OTHER TAB KEEPS ITS LAST STATE (T5): from Discover, Home comes back to the section you left (Home writes it,
- * `home-segment-bar.tsx`). Read after mount — the server draws the plain Home door, so the first paint matches.
- * Re-tapping Home ON Home is the page's to answer (back to the top, `useTabReselect('home')`).
+/*
+ * 🔁 THE OTHER TAB KEEPS ITS LAST STATE (T5; owner 9 Nov 2026, DECISION_LOG row 44a4c660, widened 13 Nov to "any
+ * menu"): from Discover, Home comes back to the section you left AND the place in it. That is the shared bar's job now,
+ * the same for every tab on every bar (`app/_components/nav/tab-memory.ts`, wired in `BottomNav`) — the Home tab's last
+ * address is `/dashboard?seg=…`. Re-tapping Home ON Home is the page's to answer (the top, `useTabReselect('home')`).
  */
-function useHomeDoor(): string {
-  const [href, setHref] = useState(HOME_HREF);
-  useEffect(() => {
-    try {
-      const last = window.sessionStorage.getItem(HOME_LAST_SEG_KEY) as HomeSeg | null;
-      if (last && HOME_SEG_ORDER.includes(last) && last !== 'events') setHref(homeSegHref(last));
-    } catch {
-      /* storage refused (private window) — the plain Home door is a correct answer */
-    }
-  }, []);
-  return href;
-}
-
-export function AccountBottomNav({ tabs }: { tabs: readonly AccountBarTab[] }) {
-  const homeDoor = useHomeDoor();
-  const items = accountBarItems(tabs).map((it) => (it.key === 'home' ? { ...it, href: homeDoor } : it));
+export function AccountBottomNav({ tabs, hasShop = false }: { tabs: readonly AccountBarTab[]; hasShop?: boolean }) {
+  const items = accountBarItems(tabs, { hasShop });
   return (
     <div data-account-bar="">
       <BottomDock>

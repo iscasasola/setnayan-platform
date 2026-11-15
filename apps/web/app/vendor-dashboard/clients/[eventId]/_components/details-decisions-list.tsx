@@ -42,26 +42,26 @@ export function DetailsDecisionsList({
         same list is in Chat.
       </InfoTip>
       {partial ? (
-        <p className="pb-1 text-[12px] text-ink/60" role="note" data-details-decisions-partial="">
+        <p className="pb-1 text-xs text-ink/70" role="note" data-details-decisions-partial="">
           Some couldn&rsquo;t load. Chat has the full list.
         </p>
       ) : null}
       {entries.length === 0 ? (
-        <p className="py-2 text-[12px] text-ink/60" data-details-decisions-empty="">
+        <p className="py-2 text-xs text-ink/70" data-details-decisions-empty="">
           Nothing decided yet.
         </p>
       ) : (
         <ol>
           {entries.map((e) => (
             <li key={e.key} className="border-t border-dashed border-ink/15 py-2" data-decision={e.kind}>
-              <p className="text-[14px] font-medium text-ink">
+              <p className="text-sm font-medium text-ink">
                 {e.kindLabel} · <span className="font-normal">{e.title}</span>
               </p>
               <p
-                className={`mt-0.5 text-[12px] ${e.now.needsYou ? 'font-medium text-terracotta-700' : 'text-ink/60'}`}
+                className={`mt-0.5 text-[13px] ${e.now.needsYou ? 'font-medium text-terracotta-700' : 'text-ink/70'}`}
                 data-decision-now={e.now.needsYou ? 'you' : ''}
               >
-                {e.now.wasText ? <s className="mr-1 text-ink/40">{e.now.wasText}</s> : null}
+                {e.now.wasText ? <s className="mr-1 text-ink/70">{e.now.wasText}</s> : null}
                 {e.now.text}
               </p>
               {e.reply ? <ReplyControls reply={e.reply} ctx={reply} /> : null}

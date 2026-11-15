@@ -3,7 +3,7 @@ import { eventDateFloorRefusal } from '@/lib/event-date-floor';
 import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { emitNotification } from '@/lib/notification-emit';
+import { emitAdminNotice, emitNotification } from '@/lib/notification-emit';
 import { datePickClash } from '@/lib/date-clash.server';
 import { eventDatePrecisionOf, type EventDatePrecision } from '@/lib/events';
 import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
@@ -134,7 +134,7 @@ async function tellAdminsOfMoneyCases(admin: Client, flagIds: readonly string[])
   const { data: admins } = await admin.from('users').select('user_id').or('is_internal.eq.true,is_team_member.eq.true');
   for (const flagId of flagIds) {
     for (const a of (admins ?? []) as Array<{ user_id: string }>) {
-      await emitNotification({
+      await emitAdminNotice({
         userId: a.user_id,
         type: 'force_majeure_filed',
         title: 'Date change · a booking with money logged was released',

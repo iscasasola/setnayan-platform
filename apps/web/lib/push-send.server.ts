@@ -6,6 +6,7 @@ import { isApnsConfigured, sendApns } from '@/lib/apns';
 import { noticeSentence, pushMessage, type PushSubject } from '@/lib/push-message';
 import { PUSH_LEVEL, type PushLevel } from '@/lib/push-levels';
 import type { NotificationType } from '@/lib/notifications';
+import { eventStanceWords, notificationPart } from '@/lib/notification-place';
 
 /**
  * THE PHONE-NOTIFICATION FUNNEL — the one place a push is sent from.
@@ -54,14 +55,33 @@ async function shopNameOfLink(admin: Admin, url: string): Promise<string | null>
   return (shop as { business_name?: string | null } | null)?.business_name ?? null;
 }
 
-/** Whose notice is this? A supplier-side link → the shop; an event → the event; else the account. */
-async function subjectFor(admin: Admin, url: string | null, eventId: string | null): Promise<PushSubject> {
-  if (url?.startsWith('/vendor-dashboard')) return { kind: 'shop', name: await shopNameOfLink(admin, url) };
-  if (eventId) {
-    const { data, error } = await admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle();
-    if (error) logQueryError('push.subject.event', error, { eventId }, 'graceful_degrade');
-    return { kind: 'event', name: (data as { display_name?: string | null } | null)?.display_name ?? null };
+/**
+ * Whose notice is this? The PART is `notificationPart` (lib/notification-place.ts) — the ONE rule the bell's row uses
+ * too, so the lock screen and the pop-over say it one way: a supplier-side link → the shop; `/admin` → Setnayan HQ;
+ * an event → the event, with this person's seat on it ("You organise" / "Invited"); else the account.
+ */
+async function subjectFor(admin: Admin, userId: string, url: string | null, eventId: string | null): Promise<PushSubject> {
+  const part = notificationPart(url, eventId);
+  if (part === 'shop') return { kind: 'shop', name: url ? await shopNameOfLink(admin, url) : null };
+  if (part === 'hq') return { kind: 'hq' };
+  if (part === 'event' && eventId) {
+    const [ev, seat] = await Promise.all([
+      admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+      admin.from('event_members').select('member_type').eq('event_id', eventId).eq('user_id', userId),
+    ]);
+    if (ev.error) logQueryError('push.subject.event', ev.error, { eventId }, 'graceful_degrade');
+    if (seat.error) logQueryError('push.subject.seat', seat.error, { eventId }, 'graceful_degrade');
+    const types = ((seat.data ?? []) as Array<{ member_type: string }>).map((m) => m.member_type);
+    // A refused seat read leaves the stance OUT — never a guessed "You organise".
+    const memberType = types.includes('couple') ? 'couple' : (types[0] ?? null);
+    return {
+      kind: 'event',
+      name: (ev.data as { display_name?: string | null } | null)?.display_name ?? null,
+      stance: seat.error ? null : eventStanceWords(memberType),
+    };
   }
+  // An event link whose event is gone (event_id null) names no event: plain "Setnayan", never a guessed event.
+  if (part === 'event') return { kind: 'event', name: null };
   return { kind: 'account' };
 }
 
@@ -88,7 +108,7 @@ export async function sendPush(
   try {
     const admin = createAdminClient();
     const [subject, badge] = await Promise.all([
-      subjectFor(admin, notice.url, notice.eventId),
+      subjectFor(admin, userId, notice.url, notice.eventId),
       unreadCount(admin, userId),
     ]);
     const message = pushMessage({

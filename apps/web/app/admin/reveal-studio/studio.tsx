@@ -113,10 +113,10 @@ const EFFECT_SLIDERS: Array<{ group: string; sliders: EffectSliderDef[] }> = [
   },
 ];
 
-const INK = 'var(--m-ink,#1b1a17)';
-const SLATE = 'var(--m-slate,#4f535b)';
-const LINE = 'var(--m-line,#e3e1da)';
-const ACCENT = 'var(--m-mulberry,#7d2b4f)';
+const INK = 'var(--m-ink)';
+const SLATE = 'var(--m-slate)';
+const LINE = 'var(--m-line)';
+const ACCENT = 'var(--m-mulberry)';
 
 function Slider({
   label,
@@ -231,7 +231,7 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
           </h2>
           <Toggle
             label="Show the reveal on couple sites"
-            hint="No longer switches the reveal on for couples: every reveal needs Event Hub Pro (owner 2026-09-24). A Pro couple who has not chosen gets the default template below; a free couple gets no reveal either way."
+            hint="No longer switches the reveal on for couples: every reveal needs Event Pro (owner 2026-09-24). A Pro couple who has not chosen gets the default template below; a free couple gets no reveal either way."
             checked={draft.enabled}
             onChange={(v) => setDraft((d) => ({ ...d, enabled: v }))}
           />

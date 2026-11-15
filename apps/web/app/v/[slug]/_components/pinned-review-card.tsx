@@ -10,11 +10,14 @@ export function PinnedReviewCard({
   stars,
   author,
   when,
+  reviewsHref = '#reviews',
 }: {
   quote: string;
   stars: number | null;
   author: string;
   when: string | null;
+  /** Where "All reviews" jumps — the shop page's `#reviews`; the sample shop page passes its own Reviews section. */
+  reviewsHref?: string | null;
 }) {
   return (
     <figure data-shop-pinned-review="" className="space-y-1 border-l-2 border-terracotta/40 pl-3">
@@ -34,7 +37,7 @@ export function PinnedReviewCard({
         ) : null}
         <span>{author}</span>
         {when ? <span>· {when}</span> : null}
-        <a href="#reviews" className="inline-flex min-h-[44px] items-center text-link hover:underline">
+        <a href={reviewsHref ?? '#reviews'} className="inline-flex min-h-[44px] items-center text-link hover:underline">
           · All reviews
         </a>
       </figcaption>

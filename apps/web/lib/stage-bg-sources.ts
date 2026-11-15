@@ -3,7 +3,7 @@
  * `stage-panel/stage-background.tsx`, mounted by `scene-background-row.tsx`).
  *
  * The Event Hub's · Colour — always. Scene ◆ · Video ◆ (our theme loops, where the mount handed their stills) ·
- * Upload ◆ — wherever Pro may be used here (`makerProUsable`: an event that owns Event Hub Pro, everywhere; on the web,
+ * Upload ◆ — wherever Pro may be used here (`makerProUsable`: an event that owns Event Pro, everywhere; on the web,
  * every event — tried free, named at ✓ Apply). Only the app-store shell's FREE event is not shown them. ◆ marks the
  * sources that are Pro (`makerProMark` — tried here, or owned), exactly as the row drew it before this moved here.
  *

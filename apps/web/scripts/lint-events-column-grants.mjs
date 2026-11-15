@@ -97,6 +97,12 @@ const NO_GRANT_NEEDED = new Set([
   // expose an old value.
   'std_background_retired',
 
+  // ── 📲 GUEST PHONE UPLOADS — the couple's "Right away / After I check" (20271345220516) ──
+  // Read and written ONLY through the service role: by the guest-capture route (after the guest session is proven
+  // for THIS event) and by app/api/papic/phone-uploads/route.ts (after the caller is proven a host). No user session
+  // names it, so a grant would only widen what a guest can read about the couple's settings.
+  'papic_phone_uploads_held',
+
   // ── ✅ THE 2026-08-15 BILL IS PAID — every line below was CHECKED ──────────
   // That list said: "Whether each is a live defect depends on whether its
   // feature reads it through the cookie-scoped client or only through

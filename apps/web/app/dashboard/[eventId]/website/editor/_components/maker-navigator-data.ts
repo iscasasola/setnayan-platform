@@ -78,6 +78,8 @@ export type MakerNavigatorData = {
          * style registry (`lib/post-event-style-resolve.ts`).
          */
         styles: Record<string, string>;
+        /** 🎁 The couple's "Peek now" (`events.chapters_peek`) — null when it could not be read. */
+        chaptersPeek: boolean | null;
       }
     | 'unreadable'
     | null;
@@ -233,6 +235,7 @@ export function buildMakerNavigatorData(input: {
           generatedAt: pe.generatedAt,
           dayHappened: pe.dayHappened,
           arrangement: pe.arrangement,
+          chaptersPeek: pe.chaptersPeek ?? null,
           styles: Object.fromEntries(
             pe.rows.flatMap((r) => {
               if (resolvePostEventStyle(r.key, null) === null) return [];

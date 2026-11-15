@@ -100,6 +100,13 @@ const JOBS = [
     fn: 'maybeRunUnbilledFeeRepair',
     what: 'raising the bill for a booking fee that opened but was never billed',
   },
+  // 💸 Owner 2026-11-12: the day a held booking-fee top-up becomes overdue, that event's review stops counting in the
+  // public stars. Nothing in the database marks that day — drop this line and the review keeps counting until the
+  // next review anywhere happens to refresh the stars.
+  {
+    fn: 'maybeRunTopUpUnlist',
+    what: 'uncounting a review from an event whose booking-fee top-up is overdue',
+  },
 ] as const;
 
 test('ANCHOR — the layout source was actually read, and stripping left code behind', () => {

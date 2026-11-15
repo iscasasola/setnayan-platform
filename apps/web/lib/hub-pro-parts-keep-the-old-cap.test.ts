@@ -1,5 +1,5 @@
 /**
- * ⚖ EVENT HUB PRO PART-HOLDERS KEEP THEIR FULL PRO (owner 2026-10-28, on PR #7005: "Keep their full Pro").
+ * ⚖ EVENT PRO PART-HOLDERS KEEP THEIR FULL PRO (owner 2026-10-28, on PR #7005: "Keep their full Pro").
  * Full Pro moved ₱5,000 → ₱6,590; parts bought under the old cap stay everything. The cap and the cutover live ONLY
  * in migration `*_hub_pro_parts_keep_the_old_cap.sql`; this pins the pure half and the wiring. The real-rows proof
  * (an old-week holder keeps it, the same total after the cutover does not) is

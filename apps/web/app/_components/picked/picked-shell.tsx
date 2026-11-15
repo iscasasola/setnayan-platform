@@ -145,11 +145,12 @@ export function PickedShell<P extends string>({
       const found = pickedPageFromUrl<P>(window.location.search, window.location.hash, menu.map((m) => m.id), pageOf);
       if (!found) return;
       if (found.page !== page) setPage(found.page);
+      // A hash becomes `?tab=`, written with `null` like `select` below (walk 13 Nov 2026, F-W1-67/73).
       if (found.fromHash) {
         const url = new URL(window.location.href);
         url.searchParams.set('tab', found.page);
         url.hash = '';
-        window.history.replaceState(window.history.state, '', url.toString());
+        window.history.replaceState(null, '', url.toString());
       }
     } catch {
       /* keep the server's page */
@@ -215,7 +216,14 @@ export function PickedShell<P extends string>({
         const url = new URL(window.location.href);
         url.searchParams.set('tab', id);
         url.hash = '';
-        window.history.replaceState(window.history.state, '', url.toString());
+        /* 🔗 THE ROUTER MUST HEAR THE TAB (walk 13 Nov 2026, F-W1-67/73: the supplier's card stayed `?tab=files`, the
+           couple's workspace `?tab=schedule`, and a refresh opened the wrong page). `window.history.state` carries Next's
+           `__NA` mark, and Next's patched replaceState passes such a write straight through WITHOUT telling the router —
+           so the router kept the landing address, and the next refresh it drew (a chat poll, a server action's
+           revalidation) wrote that address back. `null` is Next's documented way to change the URL: the router adopts it.
+           (The Clients month keeps `window.history.state` on purpose — its taps race a pending fetch; a tab switch here
+           sends no request. Details does the same as this, `lib/a-named-item-door-opens-its-item.test.ts` 6b.) */
+        window.history.replaceState(null, '', url.toString());
       } catch {
         /* a URL that cannot be written still shows the right page */
       }

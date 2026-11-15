@@ -258,6 +258,10 @@ const LIB_READERS: Record<string, { side: 'couple' | 'shop'; why: string }> = {
  */
 const LIB_COUPLE_READERS: Record<string, { side: 'couple' | 'shop'; why: string }> = {
   'lib/supplier-find-read.ts#readFindList': { side: 'couple', why: 'Find on the couple Suppliers page.' },
+  'lib/supplier-part-notify.server.ts#readShopNames': {
+    side: 'couple',
+    why: 'Host schedule actions (couple session): the booked shops’ names on a chapter, so only "<shop> arrives / is done" stays when it moves.',
+  },
   'lib/supplier-part-lock.server.ts#readPartLocks': {
     side: 'couple',
     why: 'Host schedule actions (couple session); the crew join page passes admin.',

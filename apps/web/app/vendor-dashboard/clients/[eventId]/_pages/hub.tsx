@@ -27,7 +27,7 @@ export function HubPage({ ctx }: PickedPageProps) {
     </section>
     <Suspense
       fallback={
-        <p className="px-4 py-6 text-sm text-ink/55" role="status" data-picked-client-page="hub">
+        <p className="px-4 py-6 text-sm text-ink/70" role="status" data-picked-client-page="hub">
           Loading this event&rsquo;s Hub…
         </p>
       }

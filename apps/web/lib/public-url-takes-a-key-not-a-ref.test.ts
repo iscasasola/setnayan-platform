@@ -192,7 +192,7 @@ test('the resolver is what the fixed call sites actually use', () => {
   // replacement is present at the four couple-facing covers rather than the
   // photo having simply been deleted from the screen.
   const sites: ReadonlyArray<readonly [string, RegExp]> = [
-    ['app/(shell)/explore/page.tsx', /publicUrlForStoredAsset\(svc\.photoR2Key\)/],
+    ['app/(shell)/explore/_lib/marketplace-view.tsx', /publicUrlForStoredAsset\(svc\.photoR2Key\)/], // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     [
       'app/dashboard/[eventId]/vendors/page.tsx',
       /publicUrlForStoredAsset\(row\.primary_photo_r2_key\)/,

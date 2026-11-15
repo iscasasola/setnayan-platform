@@ -20,7 +20,7 @@ async function band(floorKitFree: boolean): Promise<string> {
   const html = renderToStaticMarkup(
     React.createElement(FrontDoorLanding, {
       eventTypes: [],
-      planPrices: { plus: null, pro: null },
+      planPrices: { plus: null, pro: null, ultra: null },
       planFacts: { plusCredits: null, proCredits: null, freePapic: null },
       floorKitFree,
       sample: null,

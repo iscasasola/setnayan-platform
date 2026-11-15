@@ -21,7 +21,8 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
-import { TOURS, TOUR_KEYS } from '@/lib/tours';
+import { bookingFeeTourLine, TOURS, TOUR_KEYS } from '@/lib/tours';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
 import {
   SUPPLIER_PAGE_TOURS,
@@ -42,7 +43,7 @@ const DRAWN: Record<(typeof SUPPLIER_PAGE_TOURS)[number], string[]> = {
   vendor_dates_v1: ['dates-calendar', 'customers-add'],
   vendor_money_v1: ['money-summary', 'money-next', 'money-log', 'money-fees'],
   // Reading order since 2026-10-25 (the next events sit above the quiet day's panel), + the event day's own stop.
-  vendor_hub_v1: ['hub-next-days', 'hub-empty', 'hub-day-launch', 'hub-setup'],
+  vendor_hub_v1: ['hub-next-days', 'hub-empty', 'hub-day-launch', 'hub-post-update', 'hub-setup'],
   // + Owner 2026-10-25, "the spotlight tour is missing so many parts for each page".
   // THE ONE BUILD A13 (8 Nov): the new Today's stops (v2 was the Next card's).
   vendor_today_v3: ['supplier-messages', 'today-cover', 'today-next-events', 'today-stats', 'today-needs', 'today-show'],
@@ -143,7 +144,9 @@ test('6 · the words keep the house rules; the free booking is the fee engine’
   }
   const fee = TOURS.vendor_money_v1.spotlight!.steps.find((x) => x.anchor === 'money-fees')!.body;
   // ⚖ One free booking (owner 2026-10-23) — the tour says the fee engine's own sentence.
-  assert.ok(fee.includes(FIRST_BOOKING_ON_US), 'the Money tour does not say the fee engine’s free-booking sentence');
+  // RW-20 (walk 13 Nov 2026): the step follows the fee switch — with the fee on it carries the free-booking sentence.
+  assert.equal(fee, bookingFeeTourLine(isBookingFeeEnabled()), 'the Money tour’s fee step is not the rule’s own line');
+  assert.ok(bookingFeeTourLine(true).includes(FIRST_BOOKING_ON_US), 'the Money tour does not say the fee engine’s free-booking sentence');
   const src = readFileSync(join(WEB, 'lib', 'tours.ts'), 'utf8');
   assert.match(src, /\$\{FIRST_BOOKING_ON_US\}/, 'the free booking is typed into the tour instead of read from the fee engine');
 });

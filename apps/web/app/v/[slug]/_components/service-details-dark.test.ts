@@ -13,9 +13,8 @@
  *
  * IF YOU ARE HERE BECAUSE THIS TEST FAILED: the flag is not decoration. With it
  * off, the public vendor profile's service card must be the same static `<div>`
- * it has always been — no wrapper button, no affordance, no dialog mounted, and
- * the inquiry composer must keep opening on `activeServices[0]` with no window
- * listener attached. Restore the guard rather than deleting the assertion.
+ * it has always been — no wrapper button, no affordance, no dialog mounted.
+ * (The inquiry composer this once also pinned was retired 2026-11-13.) Restore the guard rather than deleting the assertion.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -36,7 +35,6 @@ const gallery =
 const face =
   readFileSync(join(here, '../../../_components/service-face.tsx'), 'utf8') +
   readFileSync(join(here, '../../../_components/service-face-door.tsx'), 'utf8');
-const composer = readFileSync(join(here, 'inquiry-composer.tsx'), 'utf8');
 // `toServiceCard` — and the conditional spread that keeps details-only keys out
 // of the flag-OFF payload — moved to `lib/service-card-view-model.ts` on
 // 2026-09-08. Read both: the page still owns the section, the builder owns the
@@ -97,24 +95,12 @@ test('the doorway, the affordance and the sheet are ALL behind the flag', () => 
   );
 });
 
-test('the composer keeps activeServices[0] until the server hands it per-service context', () => {
-  assert.match(
-    composer,
-    /serviceDetails = \[\]/,
-    'serviceDetails must default to [] so the shipped call sites are unchanged',
-  );
-  // No per-service context ⇒ no window listener at all.
-  assert.match(
-    composer,
-    /if \(detailById\.size === 0\) return;\s*\n\s*return onServiceInquiryFocus\(/,
-    'the focus bus must not be subscribed when there is no per-service context',
-  );
-  // And the focused service can only ever be one the SERVER serialized.
-  assert.match(
-    composer,
-    /const detail = detailById\.get\(id\);\s*\n\s*if \(!detail\) return;/,
-    'an unknown service id from the bus must be ignored, never trusted',
-  );
+// 13 Nov 2026 (owner, "Yes, only one"): the inline InquiryComposer — the only listener on the service-inquiry focus
+// bus — was retired with the shop page's second Inquire, and its file deleted. Its own claims (activeServices[0]
+// default, a listener only with per-service context) went with it. What must stay true: the page never asks the grown
+// card for 'focus', because with no listener that button would do nothing — worse than no button.
+test('the page never hands the details sheet a focus mode no composer listens to', () => {
+  assert.doesNotMatch(page, /inquireMode=\{[^}]*'focus'/, "the page passes 'focus' but nothing listens on the focus bus");
 });
 
 test('the flag-OFF card payload carries NEITHER details-only key', () => {

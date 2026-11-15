@@ -3,6 +3,7 @@
 import { useId, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, RotateCcw, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -178,14 +179,14 @@ export function MoodBoardAsks({
               A booked supplier suggested these for your Mood Board. Keep puts the photo on the board in the first free
               place; Decline sends it back. Anyone you gave Mood Board Edit can answer too.
             </InfoTip>
-            <p className="text-sm text-ink/60">Suppliers’ photos for your Mood Board.</p>
+            <p className="text-sm text-ink/75">Suppliers’ photos for your Mood Board.</p>
           </div>
           {waiting.length === 0 ? (
-            <p className="mt-4 text-sm text-ink/60">Nothing waiting.</p>
+            <p className="mt-4 text-sm text-ink/75">Nothing waiting.</p>
           ) : (
             <ul className="mt-3 divide-y divide-ink/10">
               {waiting.map((s) => (
-                <li key={s.suggestionId} className="flex items-center gap-3 py-3" data-mood-board-suggestion="">
+                <li key={s.suggestionId} className="flex min-h-14 items-center gap-3 py-3" data-mood-board-suggestion="">
                   {s.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- a supplier's screened photo URL, shown as the Studio shows it
                     <img src={s.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
@@ -194,27 +195,26 @@ export function MoodBoardAsks({
                   )}
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">From {s.shopLabel}</span>
-                    <span className="block text-[13px] text-ink/60">{s.partLabel}</span>
+                    <span className="block text-[13px] text-ink/75">{s.partLabel}</span>
                   </span>
-                  <button
-                    type="button"
+                  {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 3): the shared pills — red declines, green keeps (44 px). */}
+                  <ActionButton
+                    tone="danger"
+                    iconOnly
+                    icon={X}
+                    label="Decline"
+                    name={`Decline the photo from ${s.shopLabel}`}
                     onClick={() => decline(s)}
                     disabled={busy}
-                    aria-label={`Decline the photo from ${s.shopLabel}`}
-                    className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 disabled:opacity-60" // no-card-ok: a <button> (declines the photo)
-                  >
-                    <X aria-hidden className="h-5 w-5" strokeWidth={2} />
-                  </button>
-                  <button
-                    type="button"
+                  />
+                  <ActionButton
+                    tone="ok"
+                    icon={Check}
+                    label="Keep"
                     onClick={() => keep(s)}
                     disabled={busy}
                     data-testid="mood-board-keep"
-                    className="sn-press inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-mulberry px-4 text-[14px] font-semibold text-cream disabled:opacity-60" // no-card-ok: a <button> (keeps the photo)
-                  >
-                    <Check aria-hidden className="h-4 w-4" strokeWidth={2.2} />
-                    Keep
-                  </button>
+                  />
                 </li>
               ))}
             </ul>
@@ -236,30 +236,28 @@ export function MoodBoardAsks({
               that it stands. Undo puts that part back exactly as it was. If the same part changed again since, undo the
               later change first.
             </InfoTip>
-            <p className="text-sm text-ink/60">You have 24 hours to undo each one.</p>
+            <p className="text-sm text-ink/75">You have 24 hours to undo each one.</p>
           </div>
           {undoable.length === 0 ? (
-            <p className="mt-4 text-sm text-ink/60">Nothing left to undo.</p>
+            <p className="mt-4 text-sm text-ink/75">Nothing left to undo.</p>
           ) : (
             <ul className="mt-3 divide-y divide-ink/10">
               {undoable.map((c) => (
-                <li key={c.changeId} className="flex items-center gap-3 py-3" data-mood-board-change="">
+                <li key={c.changeId} className="flex min-h-14 items-center gap-3 py-3" data-mood-board-change="">
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{changeTitle(c)}</span>
-                    <span className="block text-[13px] text-ink/60">
+                    <span className="block text-[13px] text-ink/75">
                       {changeWhat(c)} · {undoLeft(c.undoUntil, clock)}
                     </span>
                   </span>
-                  <button
-                    type="button"
+                  <ActionButton
+                    tone="neutral"
+                    icon={RotateCcw}
+                    label="Undo"
                     onClick={() => undo(c)}
                     disabled={busy}
                     data-testid="mood-board-undo"
-                    className="sn-press inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-4 text-[14px] font-semibold text-ink disabled:opacity-60" // no-card-ok: a <button> (undoes the change)
-                  >
-                    <RotateCcw aria-hidden className="h-4 w-4" strokeWidth={2} />
-                    Undo
-                  </button>
+                  />
                 </li>
               ))}
             </ul>

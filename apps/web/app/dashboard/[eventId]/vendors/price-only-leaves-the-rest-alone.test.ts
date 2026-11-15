@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
+import { bookingCostWrite } from '@/lib/booking-cost-write';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ACTIONS = stripComments(readFileSync(path.join(HERE, 'actions.ts'), 'utf8'));
@@ -28,22 +29,28 @@ const BENCH_PRICE = stripComments(
 );
 
 describe('price-only leaves the rest of the costing alone', () => {
+  // The payload is decided by lib/booking-cost-write.ts (#5936); updateVendorCosts hands it the switch.
+  const write = (over: Partial<Parameters<typeof bookingCostWrite>[0]> = {}) =>
+    bookingCostWrite({
+      priceOnly: true,
+      quoteSettlesPrice: false,
+      existing: { total_cost_php: 40000, money_shown: true },
+      newTotal: 45000,
+      transport: 1500,
+      foodAllowance: 800,
+      crewSize: 3,
+      crewMealCovered: true,
+      ...over,
+    });
+
   it('the writer, in price-only mode, writes the price and nothing else', () => {
-    const a = ACTIONS.indexOf("const priceOnly = formData.get('price_only') === '1'");
-    assert.ok(a > 0, 'could not find the price-only switch in updateVendorCosts');
-    const b = ACTIONS.indexOf(': quoteSettlesPrice', a);
-    const payload = ACTIONS.slice(a, b);
-    assert.match(payload, /\{\s*total_cost_php:\s*newTotal\s*\}/);
-    for (const col of ['crew_size', 'crew_meal_covered', 'transport_php', 'food_allowance_php']) {
-      assert.ok(
-        !payload.includes(col),
-        `price-only now writes ${col} — setting a price would reset it again.`,
-      );
-    }
+    assert.match(ACTIONS, /const priceOnly = formData\.get\('price_only'\) === '1'/);
+    assert.match(ACTIONS, /bookingCostWrite\(\{[^}]*\bpriceOnly\b/, 'updateVendorCosts must hand priceOnly to bookingCostWrite');
+    assert.deepEqual(write().payload, { total_cost_php: 45000 });
   });
 
   it('writes NOTHING when an accepted quote already settles the price', () => {
-    assert.match(ACTIONS, /priceOnly\s*\?\s*quoteSettlesPrice\s*\?\s*\{\}/);
+    assert.deepEqual(write({ quoteSettlesPrice: true }).payload, {});
     assert.match(ACTIONS, /if \(Object\.keys\(updatePayload\)\.length === 0\) return;/);
   });
 

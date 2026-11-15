@@ -24,24 +24,24 @@ import {
   type TravelItinerary,
 } from '@/lib/schedule-travel';
 import type { ScheduleBlockRow } from '@/lib/schedule';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /** The GRD-06 clash guard — overlapping tour time-blocks + lodging-gap
  *  nights. Renders nothing when the itinerary is conflict-free. */
 export function TravelClashGuard({ clashes }: { clashes: TravelClash[] }) {
   if (clashes.length === 0) return null;
   return (
-    <section className="space-y-3 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5">
-      <header className="space-y-1">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
-          <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Guard · itinerary clashes · {clashes.length}
-        </p>
-        <p className="max-w-prose text-sm text-ink/65">
-          Your trip has scheduling conflicts. Fix the times below — no two tours
-          can share a slot, and every trip night needs a stay.
-        </p>
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 7 · 11 · 13): no card — the section's grey capitals with the explaining
+    // behind ⓘ; each clash a row with a red edge (it is wrong now), its kind in red words, never gold.
+    <section className="space-y-1">
+      <header className="mb-1 mt-[18px] flex items-center gap-1.5">
+        <AlertTriangle aria-hidden className="h-4 w-4 text-[rgb(var(--color-danger))]" strokeWidth={1.75} />
+        <InfoTip label={`Itinerary clashes · ${clashes.length}`} labelAs="p" labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70" align="start">
+          Your trip has scheduling conflicts. Fix the times below — no two tours can share a slot, and every trip night
+          needs a stay.
+        </InfoTip>
       </header>
-      <ul className="space-y-2">
+      <ul className="divide-y divide-ink/10">
         {clashes.map((clash, i) => (
           <li
             key={
@@ -49,17 +49,13 @@ export function TravelClashGuard({ clashes }: { clashes: TravelClash[] }) {
                 ? `overlap:${clash.slot}:${clash.itemA}:${clash.itemB}`
                 : `gap:${clash.nights[0] ?? i}`
             }
-            className="flex gap-2.5"
+            className="flex min-h-14 gap-2.5 border-l-[3px] border-l-[rgb(var(--color-danger))] py-2.5 pl-3"
           >
-            <span
-              aria-hidden
-              className="mt-1.5 h-2 w-2 flex-none rounded-full bg-terracotta"
-            />
             <span className="min-w-0">
-              <span className="block text-[10px] font-bold uppercase tracking-[0.13em] text-terracotta">
+              <span className="block text-[15px] font-semibold text-[rgb(var(--color-danger))]">
                 {clash.kind === 'tour_overlap' ? 'Tours clash' : 'Night uncovered'}
               </span>
-              <span className="mt-0.5 block text-[12.5px] leading-snug text-ink/75">
+              <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">
                 {travelClashCopy(clash)}
               </span>
             </span>
@@ -90,19 +86,19 @@ export function TravelItineraryView({
             <header className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="text-sm font-semibold text-ink">
                 Day {day.dayNumber}
-                <span className="ml-2 font-mono text-xs font-normal text-ink/55">
+                <span className="ml-2 text-xs font-normal text-ink/70">
                   {day.dateLabel}
                 </span>
               </p>
               {day.isLodgingGap ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+                <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 text-xs uppercase tracking-[0.06em] text-terracotta">
                   <MoonStar aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                   No stay booked
                 </span>
               ) : null}
             </header>
             {day.tours.length === 0 && day.lodging.length === 0 ? (
-              <p className="text-xs text-ink/50">
+              <p className="text-xs text-ink/70">
                 Nothing planned yet — add a tour or activity for this day.
               </p>
             ) : (
@@ -111,11 +107,11 @@ export function TravelItineraryView({
                   <li key={t.block_id} className="flex items-center gap-2 text-sm text-ink/80">
                     <Compass
                       aria-hidden
-                      className="h-3.5 w-3.5 flex-none text-ink/45"
+                      className="h-3.5 w-3.5 flex-none text-ink/70"
                       strokeWidth={1.75}
                     />
                     <span className="min-w-0 truncate">{t.label}</span>
-                    <span className="ml-auto flex-none font-mono text-xs text-ink/55">
+                    <span className="ml-auto flex-none text-xs text-ink/70">
                       {t.end_at
                         ? formatBlockTimeRange(t.start_at, t.end_at)
                         : formatBlockTime(t.start_at)}
@@ -126,11 +122,11 @@ export function TravelItineraryView({
                   <li key={l.block_id} className="flex items-center gap-2 text-sm text-ink/80">
                     <BedDouble
                       aria-hidden
-                      className="h-3.5 w-3.5 flex-none text-ink/45"
+                      className="h-3.5 w-3.5 flex-none text-ink/70"
                       strokeWidth={1.75}
                     />
                     <span className="min-w-0 truncate">{l.label}</span>
-                    <span className="ml-auto flex-none font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                    <span className="ml-auto flex-none text-xs uppercase tracking-[0.06em] text-ink/70">
                       Overnight
                     </span>
                   </li>

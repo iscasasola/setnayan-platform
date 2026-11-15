@@ -27,8 +27,8 @@ export type VendorCard = {
 // hardcoded tier set. Per the owner "open it up" lock (Vendor_Subscription_
 // Ladder_2026-07-22 §3): a vendor's NAME is never gated — every couple-facing
 // tier shows the real business name. This also fixes the long-standing bug the
-// §6 audit flagged: the old `{pro,enterprise,custom}` set excluded Solo (whose
-// `nameMode` is already 'true'), anonymizing a paid Solo vendor's card. Which
+// §6 audit flagged: the old `{pro,enterprise,custom}` set excluded Supplier Plus (whose
+// `nameMode` is already 'true'), anonymizing a paid Supplier Plus vendor's card. Which
 // vendors are shown at all is still gated by `verification_state='verified'` at
 // the query layer — this only decides the NAME shown for an already-visible row.
 

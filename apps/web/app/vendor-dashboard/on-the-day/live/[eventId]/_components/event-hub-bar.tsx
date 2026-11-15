@@ -9,10 +9,10 @@
  *
  * Draws only: every word and count is handed in by the page, which read them.
  */
-import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, MessageSquare } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { Explain } from '@/app/_components/explain';
 import { usePinLeadSlot } from '../../../_components/hub-event-menu';
@@ -43,13 +43,7 @@ export function EventHubBar({
   const face = `Hub · ${name}${dayWords ? ` · ${dayWords}` : ''}`;
   const row = (
     <span className="flex min-w-0 items-center gap-1.5" data-event-hub-bar="">
-      <Link
-        href={exitHref}
-        aria-label="Exit the Hub"
-        className="sn-press grid h-10 w-10 flex-none place-items-center rounded-full bg-ink/[0.05] text-ink"
-      >
-        <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
-      </Link>
+      <ActionButton tone="neutral" iconOnly icon={ChevronLeft} label="Exit the Hub" href={exitHref} className="flex-none" />
       <span className="min-w-0">
         <PickMenu
           label="The Hub — show"
@@ -65,13 +59,7 @@ export function EventHubBar({
       </span>
       <span className="ml-auto flex flex-none items-center gap-1">
         {chatHref ? (
-          <Link
-            href={chatHref}
-            aria-label="This event’s chat"
-            className="sn-press grid h-10 w-10 place-items-center rounded-full bg-ink/[0.05] text-ink"
-          >
-            <MessageSquare aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />
-          </Link>
+          <ActionButton tone="info" iconOnly icon={MessageSquare} label="This event’s chat" href={chatHref} />
         ) : null}
         <Explain title={name}>{about}</Explain>
       </span>
@@ -91,12 +79,12 @@ export function EventHubCounts({ tiles }: { tiles: readonly { key: string; value
       {tiles.map((t) => {
         const inner = (
           <>
-            <span className={`block truncate text-[19px] font-medium tabular-nums ${t.hot ? 'text-sn-accent' : 'text-ink'}`}>{t.value}</span>
-            <span className="block truncate text-[12px] text-ink/60">{t.word}</span>
+            <span className={`block truncate text-lg font-bold tabular-nums ${t.hot ? 'text-sn-accent' : 'text-ink'}`}>{t.value}</span>
+            <span className="block truncate text-xs text-[color:var(--m-slate-2)]">{t.word}</span>
           </>
         );
         return t.href ? (
-          <a key={t.key} href={t.href} className="sn-press block min-h-14 rounded-2xl bg-ink/[0.04] px-3 py-2" data-event-hub-count={t.key}>
+          <a key={t.key} href={t.href} className="sn-press block min-h-14 rounded-2xl bg-[color:var(--m-paper-2)] px-3 py-2" data-event-hub-count={t.key}>
             {inner}
           </a>
         ) : (

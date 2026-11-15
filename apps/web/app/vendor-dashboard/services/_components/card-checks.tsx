@@ -54,8 +54,10 @@ const DANGER = { color: 'rgb(var(--color-danger))' } as const;
  * closer would put one ⓘ's target over the other's (measured at 375 px, 2026-11-08 — the second word's ⓘ took the
  * first one's press).
  */
-const NOTE = 'flex min-h-[46px] items-center gap-2 text-[13px] font-medium leading-snug';
-const QUIET = 'mt-1.5 text-[12px] leading-snug text-ink/55';
+const NOTE = 'flex min-h-12 items-center gap-2 text-sm font-medium leading-snug';
+const QUIET = 'mt-1.5 text-sm leading-snug text-[color:var(--m-slate-2)]';
+/** A check that could not run — amber, never the quiet grey of "nothing to say" (template rule 6). */
+const UNREAD = 'mt-1.5 text-sm leading-snug text-warn-700';
 
 export type CardChecks = {
   /**
@@ -182,12 +184,12 @@ export function ServiceMismatchNote({
             Couples find a card under the service it is filed under. Rename it to say what it is
             {onMove ? `, or move it to ${mismatch.says.label}` : `, or make a ${mismatch.says.label} card`}.
           </span>
-          {moveWhy ? <span className="mt-1 block text-ink/60">{moveWhy}</span> : null}
+          {moveWhy ? <span className="mt-1 block text-[color:var(--m-slate-2)]">{moveWhy}</span> : null}
         </InfoTip>
       </p>
       {onMove && !moveWhy ? (
         <div>
-          <ActionButton tone="neutral" icon={MoveRight} label={`Move to ${mismatch.says.label}`} onClick={() => onMove(mismatch.says.key)} />
+          <ActionButton tone="neutral" icon={MoveRight} label={`Move to ${mismatch.says.label}`} onClick={() => onMove(mismatch.says.key)} className="!h-11" />
         </div>
       ) : !onMove ? (
         <p className={QUIET}>
@@ -211,14 +213,15 @@ export function PhotoCheckNotes({
   const blocked = checks.photos.filter(photoBlocks);
   const unchecked = checks.photos.filter((p) => p.verdict === 'unchecked');
   if (blocked.length === 0 && unchecked.length === 0 && !checks.checkingPhotos) return null;
+  const uncheckedWords = unchecked.length === 1 ? 'one photo' : `${formatCount(unchecked.length)} photos`;
   return (
     <div data-card-check="photo" className="mt-2 space-y-1">
       {blocked.map((v) => (
         <PhotoBlockedNote key={v.ref} verdict={v} serviceId={serviceId} position={v.where === 'showcase' ? showcaseRefs.indexOf(v.ref) + 1 : 0} />
       ))}
       {unchecked.length > 0 ? (
-        <p className={QUIET} data-card-check-unchecked="">
-          Couldn’t check {unchecked.length === 1 ? 'one photo' : `${formatCount(unchecked.length)} photos`} just now — Create checks again.
+        <p className={UNREAD} data-card-check-unchecked="">
+          Couldn’t check {uncheckedWords} just now — Create checks again.
         </p>
       ) : null}
       {checks.checkingPhotos && blocked.length === 0 ? (
@@ -269,8 +272,7 @@ function PhotoBlockedNote({ verdict, serviceId, position }: { verdict: CardPhoto
                   intend();
                   setOpen(true);
                 }}
-                aria-expanded={false}
-              />
+                aria-expanded={false} className="!h-11" />
             ) : (
               <div className="space-y-2">
                 <TypedRow
@@ -285,7 +287,7 @@ function PhotoBlockedNote({ verdict, serviceId, position }: { verdict: CardPhoto
                   data="card-photo-report-note"
                 />
                 <div className="flex flex-wrap items-center gap-2">
-                  <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setOpen(false)} />
+                  <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setOpen(false)} className="!h-11" />
                   <ActionButton
                     tone="brand"
                     icon={Flag}
@@ -299,11 +301,10 @@ function PhotoBlockedNote({ verdict, serviceId, position }: { verdict: CardPhoto
                         }));
                         setSent(res.ok ? { ok: true, text: '' } : { ok: false, text: res.message });
                       })
-                    }
-                  />
+                    } className="!h-11" />
                 </div>
                 {sent && !sent.ok ? (
-                  <p role="alert" className="text-[13px]" style={DANGER}>
+                  <p role="alert" className="text-sm" style={DANGER}>
                     {sent.text}
                   </p>
                 ) : null}
@@ -320,7 +321,7 @@ function PhotoBlockedNote({ verdict, serviceId, position }: { verdict: CardPhoto
 export function CardChecksSummary({ open, unread, isEdit }: { open: number; unread: string[]; isEdit: boolean }) {
   if (open === 0 && unread.length === 0) return null;
   return (
-    <div className="text-[13px] leading-snug" data-card-checks-open={open} style={open > 0 ? DANGER : undefined}>
+    <div className="text-sm leading-snug" data-card-checks-open={open} style={open > 0 ? DANGER : undefined}>
       {open > 0 ? (
         <span className="flex flex-wrap items-center gap-x-2">
           {isEdit ? 'Save' : 'Create'} waits for {open === 1 ? '1 thing' : `${open} things`} to fix on the card.
@@ -329,12 +330,11 @@ export function CardChecksSummary({ open, unread, isEdit }: { open: number; unre
             quiet
             icon={ArrowDown}
             label="Show me"
-            onClick={() => document.querySelector('[data-card-check] [role="alert"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })}
-          />
+            onClick={() => document.querySelector('[data-card-check] [role="alert"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })} className="!h-11" />
         </span>
       ) : null}
       {unread.length > 0 ? (
-        <span className="block text-ink/55">Couldn’t load {unread.join(' · ')} — {isEdit ? 'Save' : 'Create'} checks it again.</span>
+        <span className="block text-warn-700">Couldn’t load {unread.join(' · ')} — {isEdit ? 'Save' : 'Create'} checks it again.</span>
       ) : null}
     </div>
   );

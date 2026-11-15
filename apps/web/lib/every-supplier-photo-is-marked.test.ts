@@ -114,6 +114,7 @@ const NOT_A_SUPPLIER_PHOTO: Record<string, string> = {
   'app/vendor-dashboard/contracts/actions.ts': 'a private contract PDF (vendor-contracts bucket)',
   'app/vendor-dashboard/moodboard-library/actions.ts': 'Inspiration: marked on the server with the Seal and plate (watermarkImageBytes + shopMarkFacts)',
   'app/vendor-dashboard/moodboard-library/page.tsx': 'the Inspiration page (its writes are the actions above)',
+  'lib/claim-door-pay.server.ts': 'a supplier\'s PAYMENT QR (r2Copy from the event\'s private payment-proof folder to vendor-payment-qr/<shop>/, same private bucket) — a payment method read through the shipped addPaymentMethod with its own decode and moderation gate, never served on the shop page as a photo',
   'lib/face-blur.ts': 'event wall derivatives (guests\' faces blurred)',
   'lib/old-photo-copies.server.ts': 'web copies of EVENT covers (media_web_copy_candidates)',
   'lib/pabuya-qr-store.server.ts': 'a couple\'s gift QR',

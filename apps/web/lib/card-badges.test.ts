@@ -145,6 +145,8 @@ test('6 · a malformed facts read is a FAILED read (null), never a card with no 
   assert.equal(parseShopBadgeFacts(null), null);
   assert.equal(parseShopBadgeFacts({ cards: 'x', good_standing: true }), null);
   assert.equal(parseShopBadgeFacts({ cards: [{ id: 'c1', published: true }], good_standing: true }), null);
+  const { inquiries: _drop, ...noInquiries } = card();
+  assert.equal(parseShopBadgeFacts({ good_standing: true, cards: [noInquiries] }), null, 'a card with no inquiry list is unread, not "none"');
   const ok = parseShopBadgeFacts({ verified_since: null, good_standing: true, cards: [{ ...card(), inquiries: [] }] });
   assert.equal(ok?.cards.length, 1);
 });

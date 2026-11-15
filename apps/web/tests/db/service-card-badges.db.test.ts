@@ -110,7 +110,7 @@ test('1 · a card counts its OWN paid bookings, its couples, and the ones the sh
   const photos = await newCard(shop, 'Photo Coverage');
 
   const gifted = await paidBooking(shop, film);
-  await paidBooking(shop, film);
+  const notGifted = await paidBooking(shop, film);
   await paidBooking(shop, photos); // another card's booking — never adds up
   await paidBooking(shop, film, 45); // outside the 30 days
   await paidBooking(shop, film, 3, `UPDATE public.event_vendors SET archived_at = NOW() WHERE event_id = $1`);
@@ -134,13 +134,25 @@ test('1 · a card counts its OWN paid bookings, its couples, and the ones the sh
     [p.rows[0]!.proposal_id, shop],
   );
 
+  // A gift on that second event's quote that names ONLY the other card is not this card's gift.
+  const p2 = await db.query<{ proposal_id: string }>(
+    `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, status, service_card_ids)
+     VALUES ($1, $2, 'Quote', 'accepted', jsonb_build_array($3::text)) RETURNING proposal_id`,
+    [shop, notGifted.event, photos],
+  );
+  await db.query(
+    `INSERT INTO public.vendor_proposal_shop_gifts (proposal_id, vendor_profile_id, service_code, gift_kind, credits, srp_php, title)
+     VALUES ($1, $2, 'PAPIC_GUEST_1K', 'papic', 1000, 499, 'Papic 1000')`,
+    [p2.rows[0]!.proposal_id, shop],
+  );
+
   const f = await facts(shop);
   assert.equal(f!.good_standing, true);
   assert.ok(f!.verified_since, 'the held time of Verified runs from the date the shop was verified');
   const c = cardOf(f, film);
   assert.equal(c.paid_bookings, 2, 'two paid, in the window, live — the archived, fraud, old and unpaid ones do not count');
   assert.equal(c.paid_couples, 2);
-  assert.equal(c.paid_with_gift, 1, 'one of them carried the shop’s gift');
+  assert.equal(c.paid_with_gift, 1, 'one of them carried the shop’s gift — a gift naming another card is not this card’s');
   assert.equal(cardOf(f, photos).paid_bookings, 1, 'the other card keeps its own count');
 });
 

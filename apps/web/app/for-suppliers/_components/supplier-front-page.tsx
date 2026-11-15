@@ -207,8 +207,11 @@ export function SupplierFrontPage({
   codes,
   paywallOn,
   afterPlans,
+  giftFrom = null,
 }: {
   prices: SupplierFrontPrices;
+  /** Papic 150's catalogue LIST price, formatted ("₱…"), for the "How Setnayan earns" gift row; null when unread. */
+  giftFrom?: string | null;
   fee: SupplierFrontFee;
   /** `isVendorFeatureGateEnabled()`, read by the page: while the plan paywall is off, the table prints the seats and
    *  waiting list the actions actually allow (Build 5 Lane B's `allowance`), not a cap nobody enforces. */
@@ -833,6 +836,7 @@ export function SupplierFrontPage({
                 figures={words.figures}
                 plans={{ plus: prices.soloMonthly, pro: prices.proMonthly, ultra: prices.enterpriseMonthly }}
                 deepSearch={prices.bySku[VENDOR_DEEP_SEARCH_SKU_CODE] ?? null}
+                giftFrom={giftFrom}
               />
             </div>
 

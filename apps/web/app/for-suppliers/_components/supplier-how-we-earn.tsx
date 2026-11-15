@@ -8,12 +8,13 @@
  *   · (3) the badge reward ("a free booking fee from 1,000 events") stays ONLY in the Badges ⓘ — never repeated here.
  *
  * ⚠ NO TYPED PESO. Every ₱ arrives as a prop read from the catalogues (`getVendorPrices()` →
- * `vendor_billing_catalog`) or the live fee schedule; an unread price prints "—". The gift row carries NO price: the
- * gift price is a withheld catalogue column (anon/authenticated cannot read it) and applies only to Verified-and-up
- * shops, so a public figure here would be either unreadable or wrong for a Free shop.
+ * `vendor_billing_catalog`, `getCustomerSkuPrice` → `platform_retail_catalog_v2`) or the live fee schedule; an unread
+ * price prints "—". The gift row shows Papic 150's LIST price (`retail_price_php`) and "Buy 10, get 1 free": every shop
+ * pays the list price (DECISION_LOG 14 Nov "BUY 10, GET 1 FREE", 16 Nov 03e465e1). The withheld `gift_price_php` is
+ * superseded and is never read here.
  * Deep Search is sold to Plus, Pro and Ultra only (`vendor-deep-search-addon.ts` refuses Free/Verified), so this block
  * does not say "every plan".
- * 🔒 supplier-how-we-earn.test.ts
+ * 🔒 ../the-earn-block-says-what-was-ruled.test.ts
  */
 import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
 import { Info } from './supplier-front-info';
@@ -24,6 +25,7 @@ import {
   ONE_WEDDING,
   ONE_WEDDING_RULE,
   SAMPLE_FOUND_LINE,
+  GIFT_BUNDLE_WORDS,
 } from './supplier-how-we-earn-data';
 
 export type EarnFigures = { head: string; band: string; tail: string } | null;
@@ -33,6 +35,7 @@ export function SupplierHowWeEarn({
   figures,
   plans,
   deepSearch,
+  giftFrom,
 }: {
   feeEnabled: boolean;
   /** `bookingFeeFigures(schedule)` from the live schedule, or null when it could not be read / the fee is off. */
@@ -41,6 +44,8 @@ export function SupplierHowWeEarn({
   plans: { plus: string | null; pro: string | null; ultra: string | null };
   /** `vendor_billing_catalog.vendor_deep_search`, formatted; null when unread. */
   deepSearch: string | null;
+  /** Papic 150's catalogue LIST price — what every shop pays for a single gift; null when unread. */
+  giftFrom: string | null;
 }) {
   const dash = (v: string | null) => v ?? '—';
   const feePrice = figures
@@ -102,6 +107,9 @@ export function SupplierHowWeEarn({
           <div className={s.earnRow}>
             <b>Gifts for your couples</b>
             <span>Papic 150, Event Plus or Event Pro in your package — only if you choose.</span>
+            <p className={s.earnPrice}>
+              From {dash(giftFrom)} (Papic 150). {GIFT_BUNDLE_WORDS}
+            </p>
           </div>
         </div>
       </div>

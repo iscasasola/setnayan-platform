@@ -67,3 +67,6 @@ export const ONE_WEDDING: ReadonlyArray<Wedding> = [
 
 export const ONE_WEDDING_RULE =
   'Only the first supplier who brings a couple in is free with them. Once a couple plans on Setnayan, a supplier who joins them is a normal booking.';
+
+/** The gift bundle, in the 14 Nov ruling's words ("BUY 10, GET 1 FREE"; PR #7678's bundle lines). */
+export const GIFT_BUNDLE_WORDS = 'Buy 10, get 1 free.';

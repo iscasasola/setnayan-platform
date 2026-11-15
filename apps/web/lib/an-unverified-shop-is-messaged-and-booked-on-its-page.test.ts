@@ -158,3 +158,12 @@ test('the server booking doors ask the one booking rule', () => {
   assert.match(inquiry, /status: 'considering',/, 'the inquiry no longer saves the shop as considering');
   assert.ok(!/status: '(contracted|deposit_paid|delivered|complete)'/.test(inquiry), 'the inquiry path writes a booking status');
 });
+
+test('the Book press asks the server — no client short-circuit refuses an unverified shop before it is asked', () => {
+  // AccordionLockButton (every card's Book) used to stop an unverified shop in the browser with "completing
+  // verification and can't be booked just yet" and draw a "Verifying — can't book yet" pill, never reaching the
+  // server that now books it.
+  const lock = read('app/dashboard/[eventId]/vendors/_components/accordion-lock.tsx');
+  assert.doesNotMatch(lock, /isVerified === false/, 'the Book press refuses an unverified shop on the client again');
+  assert.doesNotMatch(lock, /Verifying — can/, 'the "can’t book yet" pill is back on the Book button');
+});

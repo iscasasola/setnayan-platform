@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:phrases
 //
 // The ⌘K box's phrase bank: every phrase and the ONE place its first row must open.
-// 1670 phrases — 332 page names · 337 job phrasings · 986 keyword-table phrasings · 15 misspellings.
+// 1677 phrases — 332 page names · 344 job phrasings · 986 keyword-table phrasings · 15 misspellings.
 // ask-phrase-bank.test.ts fails if this drifts from buildPhraseBank(), and holds the box's accuracy over it.
 
 import { parsePhraseBank } from './ask-phrase-bank';
@@ -210,26 +210,26 @@ demo suppliers	/admin/accounts?tab=demo-vendors	page
 open demo suppliers	/admin/accounts?tab=demo-vendors	page
 where is demo suppliers	/admin/accounts?tab=demo-vendors	page
 hanapin demo suppliers	/admin/accounts?tab=demo-vendors	page
-demo mode	/admin/settings?tab=demo-mode	page
-open demo mode	/admin/settings?tab=demo-mode	page
-where is demo mode	/admin/settings?tab=demo-mode	page
-hanapin demo mode	/admin/settings?tab=demo-mode	page
-settings	/admin/settings?tab=settings	page
-open settings	/admin/settings?tab=settings	page
-where is settings	/admin/settings?tab=settings	page
-hanapin settings	/admin/settings?tab=settings	page
+demo mode	/admin/switches	page
+open demo mode	/admin/switches	page
+where is demo mode	/admin/switches	page
+hanapin demo mode	/admin/switches	page
+settings	/admin/business	page
+open settings	/admin/business	page
+where is settings	/admin/business	page
+hanapin settings	/admin/business	page
 colours	/admin/colours	page
 open colours	/admin/colours	page
 where is colours	/admin/colours	page
 hanapin colours	/admin/colours	page
-compliance	/admin/settings?tab=compliance	page
-open compliance	/admin/settings?tab=compliance	page
-where is compliance	/admin/settings?tab=compliance	page
-hanapin compliance	/admin/settings?tab=compliance	page
-notifications	/admin/settings?tab=notifications	page
-open notifications	/admin/settings?tab=notifications	page
-where is notifications	/admin/settings?tab=notifications	page
-hanapin notifications	/admin/settings?tab=notifications	page
+compliance	/admin/business#compliance	page
+open compliance	/admin/business#compliance	page
+where is compliance	/admin/business#compliance	page
+hanapin compliance	/admin/business#compliance	page
+notifications	/admin/email-delivery	page
+open notifications	/admin/email-delivery	page
+where is notifications	/admin/email-delivery	page
+hanapin notifications	/admin/email-delivery	page
 integrations	/admin/integrations	page
 open integrations	/admin/integrations	page
 where is integrations	/admin/integrations	page
@@ -578,6 +578,7 @@ release payout hold	/admin/payments	job
 remap canonical	/admin/categories	job
 remove award	/admin/studio?tab=spotlight-awards	job
 remove eligible user	/admin/studio?tab=discount-codes	job
+remove merchant qr	/admin/business	job
 rename canonical service	/admin/categories	job
 rename taxonomy node	/admin/categories	job
 reorder event type vocab	/admin/categories	job
@@ -602,17 +603,21 @@ revoke admin vendor invite	/admin/accounts?tab=vendors	job
 revoke badge fee waiver	/admin/gifts	job
 revoke comp grant	/admin/accounts?tab=users	job
 revoke founder seat	/admin/founder-seats	job
+save admin digest	/admin/business	job
 save app colours	/admin/colours	job
+save business identity	/admin/business	job
 save card claim words	/admin/repost-watch	job
 save evergreen item	/admin/studio?tab=social-queue	job
 save fee review min	/admin/booking-fees	job
 save gift limit pct	/admin/gifts	job
 save integration secret	/admin/integrations	job
 save launch offer	/admin/launch-offer	job
+save loader appearance	/admin/business	job
 save load target	/admin/app-performance	job
 save maya config	/admin/integrations	job
 save o auth config	/admin/integrations	job
 save o auth field	/admin/integrations	job
+save payment instruments	/admin/business	job
 save resend config	/admin/integrations	job
 save unclaimed vendor profile	/admin/accounts?tab=vendors	job
 seo console	/admin/app-performance	job
@@ -673,6 +678,8 @@ update refinement option	/admin/categories	job
 update vercel secret	/admin/secrets	job
 uphold non delivery	/admin/completions	job
 upload asset	/admin/studio?tab=moodboard-library	job
+upload brand icon	/admin/business	job
+upload merchant qr	/admin/business	job
 upload slot icon	/admin/ugat?tab=menus	job
 upsert event type profile	/admin/categories	job
 upsert onboarding spec	/admin/categories	job

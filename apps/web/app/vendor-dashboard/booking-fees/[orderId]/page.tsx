@@ -1,10 +1,10 @@
-import Link from 'next/link';
 import { namesPhrase, openAccounts } from '@/lib/payment-channels';
 import { paymentWasLogged } from '@/lib/payment-logged';
 import { PaymentChannelName } from '@/app/_components/payment/payment-channel-name';
 import { payPath } from '@/lib/pay-path';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Send } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
@@ -195,13 +195,12 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
 
   return (
     <section className="mx-auto max-w-2xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
-      <Link
+      <ActionButton
         href={VENDOR_BOOKING_FEES_PATH}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to booking fees
-      </Link>
+        tone="neutral"
+        icon={<ArrowLeft aria-hidden />}
+        label="Back to booking fees"
+      />
 
       {search.logged === '1' ? (
         <ShopNotice tone="success" role="status">
@@ -230,7 +229,7 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
         }
         actions={
           <span
-            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+            className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
               ORDER_STATUS_TONE[order.status]
             }`}
           >
@@ -239,11 +238,11 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
         }
       />
 
-      <section className="sn-tile space-y-3 p-5">
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
+      <section className="space-y-3">
+        <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           Order <span className="normal-case">{order.public_id}</span>
         </p>
-        <p className="whitespace-pre-wrap text-sm text-ink/75">{feeOrderDescriptionNow(order.description, order.status)}</p>
+        <p className="whitespace-pre-wrap text-sm text-ink">{feeOrderDescriptionNow(order.description, order.status)}</p>
         {topUp ? (
           // 💸 The top-up's stage, said on its own bill (prototype: Held → Due today → Overdue).
           <p
@@ -257,7 +256,7 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
           >
             {TOP_UP_WORDS.badge[topUp.stage]}
             {topUp.dueOn ? ` · the event day, ${formatDueDate(topUp.dueOn)}` : ''}
-            <small className="block font-normal text-ink/65">
+            <small className="block font-normal text-[color:var(--m-slate-2)]">
               {topUp.stage === 'held'
                 ? 'Your quote rose, so your booking fee grows by this top-up. Nothing closes before the event day — you may settle it early.'
                 : topUp.stage === 'due_today'
@@ -266,23 +265,23 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
             </small>
           </p>
         ) : null}
-        <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-4">
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
+        <div className="border-y border-[color:var(--m-line)] py-3">
+          <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             Amount to send
           </p>
-          <p className="font-mono text-2xl font-semibold text-ink">
+          <p className="text-2xl font-bold tabular-nums text-ink">
             {formatPhp(totals.headlineTotal)}
           </p>
         </div>
         {payable ? (
-          <p className="text-xs text-ink/55">
+          <p className="text-[13px] leading-snug text-[color:var(--m-slate-2)]">
             Up for verification — once you pay and we confirm it (within 24 hours),
             this fee moves to paid automatically.
           </p>
         ) : null}
         {order.admin_notes ? (
-          <p className="rounded-md bg-ink/[0.04] p-3 text-sm text-ink/75">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+          <p className="text-sm text-ink">
+            <span className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
               Note from Setnayan
             </span>
             <br />
@@ -292,15 +291,15 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
       </section>
 
       {payable ? (
-        <section className="sn-tile space-y-4 p-5">
-          <h2 className="sn-eye">Payment instructions</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3">
+        <section className="space-y-2">
+          <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Payment instructions</h2>
+          <div className="[&>div+div]:border-t [&>div+div]:border-[color:var(--m-line)]">
+            <div className="flex min-h-14 items-center justify-between gap-3 py-2">
               <div className="min-w-0">
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
+                <p className="text-[13px] leading-snug text-[color:var(--m-slate-2)]">
                   Amount to send
                 </p>
-                <p className="font-mono text-lg font-semibold text-ink">
+                <p className="text-lg font-bold tabular-nums text-ink">
                   {formatPhp(totals.headlineTotal)}
                 </p>
               </div>
@@ -318,9 +317,9 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
                   the same digits. */}
               <CopyButton value={totals.headlineTotal.toFixed(2)} label="Copy" />
             </div>
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-4 py-3">
+            <div className="flex min-h-14 items-center justify-between gap-3 py-2">
               <div className="min-w-0">
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta-700">
+                <p className="text-[13px] leading-snug text-[color:var(--m-slate-2)]">
                   Reference code
                 </p>
                 <p className="truncate font-mono text-lg font-semibold text-ink">
@@ -344,7 +343,7 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
               already inside it and takes the proof — see "Paying this fee"
               below, and app/_components/payment/payment-rails.tsx for the one
               surface every payment screen now renders. */}
-          <p className="text-xs leading-relaxed text-ink/60">
+          <p className="text-[13px] leading-snug text-[color:var(--m-slate-2)]">
             Include the{' '}
             <span className="font-semibold text-ink">reference code</span> in your
             transfer note so we can match it to this fee.
@@ -360,27 +359,27 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
           guessing — travels with it: `requiresReference` makes the field
           mandatory there and nowhere else. */}
       {payable ? (
-        <section className="sn-tile space-y-3 p-5">
-          <h2 className="sn-eye">Paying this fee</h2>
-          <p className="text-sm text-ink/70">
+        <section className="space-y-3">
+          <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Paying this fee</h2>
+          <p className="text-sm text-ink">
             {feeWords.pointer} Have your {namesPhrase(openAccounts(settings).map((a) => a.label), 'bank or e-wallet')}{' '}
             confirmation to hand — we need its reference number to match your payment.
           </p>
-          <Link
+          {/* 💸 Rule 2: a top-up may be settled EARLY — before the event day the door says so. */}
+          <ActionButton
             href={payPath(order.reference_code)}
-            className="button-primary inline-flex items-center gap-2"
-          >
-            <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            {/* 💸 Rule 2: a top-up may be settled EARLY — before the event day the door says so. */}
-            {topUp ? topUpPayLabel(topUp.dueOn, manilaToday()) : 'Send your payment'}
-          </Link>
+            tone="brand"
+            main
+            icon={<Send aria-hidden />}
+            label={topUp ? topUpPayLabel(topUp.dueOn, manilaToday()) : 'Send your payment'}
+          />
         </section>
       ) : null}
 
       {disputeStatus ? (
-        <section className="sn-tile space-y-2 p-5" data-fee-dispute={disputeStatus}>
-          <h2 className="sn-eye">Your dispute</h2>
-          <p className="text-sm text-ink/75">
+        <section className="space-y-2" data-fee-dispute={disputeStatus}>
+          <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Your dispute</h2>
+          <p className="text-sm text-ink">
             {disputeStateLine(disputeStatus, disputeViewCount, dispute?.decision_note ?? null)}
           </p>
         </section>
@@ -393,9 +392,9 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
       ) : null}
 
       {canDispute ? (
-        <section className="sn-tile space-y-3 p-5" data-fee-dispute-form="">
-          <h2 className="sn-eye">Think this fee is wrong?</h2>
-          <p className="text-sm text-ink/70">
+        <section className="space-y-3" data-fee-dispute-form="">
+          <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Think this fee is wrong?</h2>
+          <p className="text-sm text-ink">
             If this couple did not find you through Setnayan, tell us and we will look at it.
           </p>
           <form action={bookingFeeDispute} className="space-y-3">
@@ -407,29 +406,29 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
         </section>
       ) : null}
 
-      <section className="sn-tile space-y-3 p-5">
-        <h2 className="sn-eye">Payment log</h2>
+      <section className="space-y-2">
+        <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Payment log</h2>
         {/* 🧾 RW-37: the bill's own placeholder row is not a payment — it used to read "PAID <today> · PENDING REVIEW". */}
         {loggedPayments.length === 0 ? (
-          <p className="sn-row border-dashed p-4 text-center text-xs text-ink/55">
+          <p className="py-3 text-[14px] text-[color:var(--m-slate-2)]">
             Nothing logged yet.
           </p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
             {loggedPayments.map((p) => (
               <li
                 key={p.payment_id}
-                className="flex flex-col gap-1 rounded-md bg-ink/[0.03] p-3 sm:flex-row sm:items-center sm:justify-between"
+                className="flex min-h-14 flex-col gap-1 py-2 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0 space-y-0.5">
                   <p className="text-sm">
-                    <span className="font-mono font-semibold">{formatPhp(p.amount_php)}</span>
-                    <span className="ml-2 text-ink/65">
+                    <span className="font-bold tabular-nums text-ink">{formatPhp(p.amount_php)}</span>
+                    <span className="ml-2 text-[color:var(--m-slate-2)]">
                       · <PaymentChannelName settings={settings} channel={p.channel} />
                       {p.reference_number ? ` · ref ${p.reference_number}` : ''}
                     </span>
                   </p>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  <p className="text-[13px] leading-snug text-[color:var(--m-slate-2)]">
                     Paid {p.paid_at}
                     {p.reviewed_at ? ` · reviewed ${p.reviewed_at.slice(0, 10)}` : ''}
                   </p>
@@ -445,7 +444,7 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
                   ) : null}
                 </div>
                 <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${
                     PAYMENT_STATUS_TONE[p.status]
                   }`}
                 >

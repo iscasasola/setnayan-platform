@@ -64,6 +64,11 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'chat_message_hearts', decision: 'exported', as: 'chat_message_hearts' },
   // 🗳 The votes this subject cast on chat polls (2026-11-11) — read on `voter_user_id`.
   { table: 'chat_poll_votes', decision: 'exported', as: 'chat_poll_votes' },
+  // Articles (2026-11-16): the subject's own topics, replies, codes and any pause on them — lib/personal-data-export.ts.
+  { table: 'article_topics', decision: 'exported', as: 'article_topics' },
+  { table: 'article_replies', decision: 'exported', as: 'article_replies' },
+  { table: 'article_topic_codes', decision: 'exported', as: 'article_topic_codes' },
+  { table: 'article_posting_pauses', decision: 'exported', as: 'article_posting_pauses' },
   {
     table: 'vendor_crew_codes',
     decision: 'excluded',

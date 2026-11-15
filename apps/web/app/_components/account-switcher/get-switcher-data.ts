@@ -68,7 +68,7 @@ export type SwitcherShop = {
   name: string;
   /** Display URL of the shop's logo (presigned), or null → the sheet draws its initials. */
   logoUrl: string | null;
-  /** Public page address `/v/<slug>` — the "View page ↗" row. Null → no row. */
+  /** Public page address `/<slug>` — the "View page ↗" row. Null → no row. */
   publicHref: string | null;
   owned: boolean;
 };

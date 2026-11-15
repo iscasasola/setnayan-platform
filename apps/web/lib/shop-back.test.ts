@@ -21,7 +21,7 @@
  *      in; and the foot door is drawn only cold ("The low button stays for cold arrivals") — never two "Back"s.
  *
  * Sabotage (each must fail): put `<Link href="/explore" …>Back to suppliers` back on the shop page; return
- * `/explore` for `discover`; make "See the shop" on Check a date a bare `/v/${…}`; drop `withShopArrival` from the
+ * `/explore` for `discover`; make "See the shop" on Check a date a bare `/${…}`; drop `withShopArrival` from the
  * Discover shelf's ShopCard. 2026-11-12: drop the header `<BackButton … inPlace />`; make `shopTopBack`'s cold
  * signed-out fallback `/explore`; draw the foot door with an arrival too.
  */
@@ -93,9 +93,9 @@ test('every screen the shop opens carries the arrival there and back', () => {
   for (const [, arrival] of CASES) {
     const before = shopBackDoor(arrival);
     const out = [
-      withShopArrival('/v/setnaprod/dates', arrival),
+      withShopArrival('/setnaprod/dates', arrival),
       withShopArrival('/setnaprod?reviewsPage=2#reviews', arrival),
-      withShopArrival('/v/setnaprod/booth', arrival),
+      withShopArrival('/setnaprod/booth', arrival),
       withShopArrival('/setnaprod', arrival, { wl: 'joined' }),
     ];
     for (const href of out) {
@@ -107,7 +107,7 @@ test('every screen the shop opens carries the arrival there and back', () => {
     }
   }
   assert.equal(withShopArrival('/x?reviewsPage=2#reviews', { src: 'discover' }), '/x?reviewsPage=2&src=discover#reviews');
-  assert.equal(shopHrefForEvent('setnaprod', EVENT, '#reviews'), `/v/setnaprod?event=${EVENT}#reviews`);
+  assert.equal(shopHrefForEvent('setnaprod', EVENT, '#reviews'), `/setnaprod?event=${EVENT}#reviews`);
 });
 
 test('Share sends the shop page, never where this visitor came from', () => {
@@ -139,9 +139,9 @@ test('Check a date, the booth and the waitlist send you back onto the shop with 
   // shop carrying the arrival; the printed address forwards with it.
   const cal = src('app/v/[slug]/dates/_components/check-a-date-calendar.tsx');
   assert.equal((cal.match(/label="See the shop"/g) ?? []).length, 0, '"See the shop" came back — × is the one way out');
-  assert.match(src('app/v/[slug]/page.tsx'), /shopHref=\{withShopArrival\(`\/v\/\$\{vendor\.business_slug \?\? slug\}`, shopArrival\)\}/);
-  assert.match(src('lib/check-a-date.ts'), /withShopArrival\(`\/v\/\$\{encodeURIComponent\(slug\)\}`, arrivalParams\(search\), extra\)/);
-  assert.match(src('app/v/[slug]/booth/page.tsx'), /withShopArrival\(`\/v\/\$\{slug\}`/);
+  assert.match(src('app/v/[slug]/page.tsx'), /shopHref=\{withShopArrival\(`\$\{shopPath\(vendor\.business_slug \?\? slug\)\}`, shopArrival\)\}/);
+  assert.match(src('lib/check-a-date.ts'), /withShopArrival\(shopPath\(encodeURIComponent\(slug\)\), arrivalParams\(search\), extra\)/);
+  assert.match(src('app/v/[slug]/booth/page.tsx'), /withShopArrival\(`\$\{shopPath\(slug\)\}`/);
   const wl = src('app/v/[slug]/waitlist-actions.ts');
   assert.ok(!/redirect\(`\$\{backTo\}\?wl=/.test(wl), 'a waitlist redirect dropped the arrival');
   assert.match(wl, /withShopArrival\(backTo, arrival/);

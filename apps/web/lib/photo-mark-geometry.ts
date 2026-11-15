@@ -63,7 +63,7 @@ export const MARK_FONT_URLS = { jost: '/logo-fonts/jost.ttf', cormorant: '/logo-
  * WHAT the mark says. Built on the SERVER from the shop's own row
  * (`lib/supplier-mark-spec.server.ts`) — never from client props.
  *   setnayan  — Setnayan only (admin library, an unverified shop).
- *   supplier  — Setnayan Verified + the shop name + setnayan.com/v/<slug>,
+ *   supplier  — Setnayan Verified + the shop name + setnayan.com/<slug>,
  *               when `verified`; otherwise identical to `setnayan`.
  */
 export type MarkSpec =

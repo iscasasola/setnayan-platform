@@ -45,7 +45,7 @@ test('Check a date opens the live landing (#7007) — never a 404', () => {
   // where the visit came from (`withShopArrival`, lib/shop-back.ts), so the shop's Back stays right.
   assert.match(
     PAGE,
-    /<CheckADateLink\s+href=\{withShopArrival\(`\/v\/\$\{vendor\.business_slug \?\? slug\}`, shopArrival, \{ dates: '1' \}\)\}/,
+    /<CheckADateLink\s+href=\{withShopArrival\(`\$\{shopPath\(vendor\.business_slug \?\? slug\)\}`, shopArrival, \{ dates: '1' \}\)\}/,
     'the door does not open the sheet over the shop (?dates=1)',
   );
 });

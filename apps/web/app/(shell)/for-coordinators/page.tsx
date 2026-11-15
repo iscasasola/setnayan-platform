@@ -1167,7 +1167,7 @@ export default async function ForCoordinatorsPage() {
                 <span className="fc-t">
                   <small>SEE THE SAMPLE SHOP</small>
                   <b style={{ fontSize: '1.02rem', letterSpacing: '.01em' }}>{SAMPLE_SHOP.name}</b>
-                  <span className="fc-mono">setnayan.com/v/{SAMPLE_SHOP.slug}</span>
+                  <span className="fc-mono">setnayan.com/{SAMPLE_SHOP.slug}</span>
                 </span>
               </Link>
             </div>

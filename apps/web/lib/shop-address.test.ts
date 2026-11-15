@@ -137,6 +137,7 @@ test('5 · no file builds a /v/ shop link by hand — every one goes through sho
     'middleware.ts', // the cached copy and the subdomain / custom-domain rewrites (internal)
     'lib/shop-view.ts', // the cached copy's own address
     'lib/custom-domain-resolve.ts', // the custom-domain rewrite target (internal)
+    'lib/ugat/scan-screens.ts', // the Root map reads `${shopPath(x)}` as the shop route it renders (`/v/${x}`)
   ]);
   const files: string[] = [];
   const walk = (dir: string) => {

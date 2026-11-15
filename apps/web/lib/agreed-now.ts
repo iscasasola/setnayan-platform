@@ -9,6 +9,7 @@
  * is already kept — quote VERSIONS (`lib/quote-versions.ts`, every sent quote is a row), and `booking_changes` for the
  * facts overwritten in place (event date · guest count · meeting time — `lib/booking-changes.ts`).
  */
+import { onePickedDay } from './event-anchor';
 import { changesFor, type BookingChange } from './booking-changes';
 import { formatPhp } from './php';
 import { shopPerGuestNote } from './claimed-per-guest-follow';
@@ -95,8 +96,8 @@ export function dayWords(iso: string | null | undefined): string | null {
 }
 
 /**
- * The event's date as the supplier should read it: the locked day; else the couple's still-open option(s), said as
- * not settled ("Not settled · Jun 19, 2027", "Not settled · 2 options · Jun 19, 2027 – Jul 3, 2027", "Not settled ·
+ * The event's date as the supplier should read it: the locked day, or the couple's ONE picked day (owner 14 Nov — it
+ * IS the date); else the couple's still-open options, said as not settled ("Not settled · 2 options · Jun 19, 2027 – Jul 3, 2027", "Not settled ·
  * between …"); only when there is neither, "No date set yet". The years are kept — these dates can be a year out.
  */
 export function eventDateWords(e: AgreedInputs['event']): string {
@@ -106,6 +107,10 @@ export function eventDateWords(e: AgreedInputs['event']): string {
   if (o) {
     const days = Math.max(1, Math.floor(o.days ?? 1) || 1);
     const span = days > 1 ? ` · ${days} days` : '';
+    /* 💍 ONE picked day IS the date (owner 14 Nov, DECISION_LOG 16f7e76a — the rule Home reads through
+       `withPickedDate`), so the supplier reads it as the date. Only 2+ options or a range are "Not settled". */
+    const picked = onePickedDay({ event_type: null, date_candidates: o.candidates ?? null });
+    if (picked && dayWords(picked)) return `${dayWords(picked)}${span}`;
     const c = [...new Set((o.candidates ?? []).map((x) => (/^(\d{4}-\d{2}-\d{2})/.exec(x) ?? [])[1]).filter((x): x is string => !!x && !!dayWords(x)))].sort();
     if (o.mode !== 'window' && c.length === 1) return `Not settled · ${dayWords(c[0])}${span}`;
     if (o.mode !== 'window' && c.length > 1) return `Not settled · ${c.length} options · ${dayWords(c[0])} – ${dayWords(c[c.length - 1])}${span}`;

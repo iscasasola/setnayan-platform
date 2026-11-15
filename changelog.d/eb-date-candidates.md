@@ -16,3 +16,5 @@ Guard: `lib/agreed-now-date-options.test.ts` (5 tests). Two sabotages, each meas
 Left as is, on purpose: the same card's day check still says "Their date isn't set to a day yet, so there is no day to check." That is true while the date is only an option: there is no locked day to check the calendar against.
 
 SPEC IMPACT: None.
+
+**Corrected 16 Nov:** one picked day IS the event's date (owner ruling 14 Nov, DECISION_LOG 16f7e76a — the same rule Home reads through `withPickedDate`), so the supplier's card prints it as the date ("Jun 19, 2027"). "Not settled · …" stays only for two or more options or a date range. It uses the existing `onePickedDay` rule; no new rule was added. Sabotage: disabling the one-day branch (1 → 0) failed 2 of 5.

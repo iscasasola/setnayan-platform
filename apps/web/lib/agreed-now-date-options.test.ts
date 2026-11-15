@@ -9,7 +9,8 @@
  * What would silently undo it:
  *   1. the row stops reading the options (back to "No date set yet" while the couple has a date);
  *   2. the card's read stops SELECTING the option columns (then 1 can never fire, whatever the row builder does);
- *   3. an unlocked option reads as a settled date (it must say "Not settled");
+ *   3. two or more options (or a range) read as a settled date (they must say "Not settled") — while ONE picked day
+ *      DOES read as the date (owner 14 Nov, DECISION_LOG 16f7e76a; Home reads it the same way through `withPickedDate`);
  *   4. a locked day stops winning over the options.
  * A refused read is not this row's job: the card already draws "Couldn't load what is agreed" for it.
  *
@@ -31,9 +32,9 @@ const opts = (o: Partial<NonNullable<AgreedInputs['event']['dateOptions']>>) => 
 });
 const ev = (o: Partial<AgreedInputs['event']>): AgreedInputs['event'] => ({ eventDate: null, estimatedPax: null, finalPax: null, ...o });
 
-test('1 · one open option reads as that date, not "No date set yet" (the prod case: Jun 19, 2027)', () => {
+test('1 · ONE picked day reads as THE date (owner 14 Nov, 16f7e76a — the prod case: Jun 19, 2027)', () => {
   const words = eventDateWords(ev({ dateOptions: opts({ candidates: ['2027-06-19'] }) }));
-  assert.equal(words, 'Not settled · Jun 19, 2027');
+  assert.equal(words, 'Jun 19, 2027');
   const rows = agreedRows({
     viewerUserId: 'v',
     quotes: [],
@@ -44,7 +45,7 @@ test('1 · one open option reads as that date, not "No date set yet" (the prod c
     booking: { isBooked: false, declined: false },
     quoteBy: 'You',
   });
-  assert.equal(rows.find((r) => r.key === 'event_date')?.value, 'Not settled · Jun 19, 2027');
+  assert.equal(rows.find((r) => r.key === 'event_date')?.value, 'Jun 19, 2027');
 });
 
 test('1b · several options and a window both read as not settled, with years', () => {
@@ -56,7 +57,11 @@ test('1b · several options and a window both read as not settled, with years', 
     eventDateWords(ev({ dateOptions: opts({ mode: 'window', windowStart: '2027-06-01', windowEnd: '2027-06-30' }) })),
     'Not settled · between Jun 1, 2027 and Jun 30, 2027',
   );
-  assert.equal(eventDateWords(ev({ dateOptions: opts({ candidates: ['2027-06-19'], days: 3 }) })), 'Not settled · Jun 19, 2027 · 3 days');
+  assert.equal(eventDateWords(ev({ dateOptions: opts({ candidates: ['2027-06-19'], days: 3 }) })), 'Jun 19, 2027 · 3 days');
+  assert.equal(
+    eventDateWords(ev({ dateOptions: opts({ candidates: ['2027-07-03', '2027-06-19'], days: 3 }) })),
+    'Not settled · 2 options · Jun 19, 2027 – Jul 3, 2027 · 3 days',
+  );
 });
 
 test('2 · the card SELECTS the option columns and hands them to the row', () => {

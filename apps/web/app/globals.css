@@ -3529,6 +3529,9 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --seat-hot-line: #A9834B;
   /* a day you can neither ask about nor book: filled grey, striped */
   --seat-off: #EEEAE3;  --seat-off-ink: #5B5752;  --seat-off-line: #D9D3C8;  --seat-off-hatch: #CFC8BC;
+  /* 📅 CLIENTS-CAL (owner 2026-11-14): the supplier's Clients calendar draws a day that cannot take a booking as an
+     OUTLINED near-white seat (Check a date greys it instead). Fable's values, approved in the ruling. */
+  --seat-out: #F7F5F1;  --seat-out-line: #A9A196;
 
   /* type — via next/font variables (see header note) */
   --sn-font: var(--font-hanken), system-ui, sans-serif;
@@ -3726,6 +3729,8 @@ html.dark {
   --seat-top: #B4E5AE;  --seat-bottom: #B4E5AE;  --seat-ink: #14281D;  --seat-shine: 0.14;
   --seat-hot-line: #A9834B;
   --seat-off: #2A2620;  --seat-off-ink: #CFCAC0;  --seat-off-line: #423D35;  --seat-off-hatch: #4A443B;
+  /* the outlined seat in dark: the dark seat-off ground, its hatch tone as the outline (no new colour) */
+  --seat-out: #2A2620;  --seat-out-line: #4A443B;
   --sn-info:       #9DB2CE;  --sn-info-soft:    #373736;
 
   --sn-glass-bg:   rgba(35,32,25,.5);

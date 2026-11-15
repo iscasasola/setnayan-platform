@@ -98,6 +98,16 @@ export function sealWindow(year: number, firstYear: number = FIRST_SEAL_YEAR): {
 /** Where "cancelled by the shop" is read from — a PARTIAL source (see the module note). */
 export const SHOP_CANCELLATION_SOURCE = "vendor_schedule_pool_bookings.release_reason = 'vendor_cancelled'" as const;
 
+/**
+ * 🚫 IMPORTS NEVER COUNT AS COMPLETED BOOKINGS (owner 16 Nov, DECISION_LOG fd5814dc (3); the controller applies it to
+ * every badge, seal and Most Booked count). A booking whose `event_vendors.source` is one of these — or onto which a
+ * Booking QR token was claimed — is left out of completed events, second bookings and Verified Partner's ₱ total. The
+ * SQL definition is `shop_booking_is_import` (migration 20271348504364); this list mirrors it and a test holds them equal.
+ * ⚠ Verified Partner rules 4–6 still COUNT the website / QR import / Booking QR channels by name (3077c9b3) — the
+ * two rulings overlap there, and the PR names it for the owner.
+ */
+export const IMPORT_SOURCES = ['vendor_invite', 'vendor_locked_qr', 'reuse_accept', 'website'] as const;
+
 // ── Yearly seals ───────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Top 10 / No. 1: "at least 10 events completed through Setnayan" that year (6373). */

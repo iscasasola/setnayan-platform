@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 
 import {
   FIRST_SEAL_YEAR,
+  IMPORT_SOURCES,
   NO1_PLAN_GIFT,
   PARTNER_RULES_9_AND_10,
   RETIRED_SPOTLIGHT_AWARDS,
@@ -233,4 +234,19 @@ test('the retired Spotlight awards keep their data: no seal migration writes or 
     const sql = readFileSync(join(dir, f), 'utf8').replace(/--.*$/gm, '');
     assert.doesNotMatch(sql, /(INSERT\s+INTO|UPDATE|DELETE\s+FROM|DROP\s+TABLE|TRUNCATE|ALTER\s+TABLE)\s+(IF\s+EXISTS\s+)?(public\.)?vendor_spotlight_awards/i, f);
   }
+});
+
+test('the import list here is exactly the SQL definition shop_booking_is_import reads (fd5814dc)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const sql = readFileSync(
+    join(process.cwd(), '..', '..', 'supabase', 'migrations', '20271348504364_shop_seals_the_yearly_and_lifetime_seals.sql'),
+    'utf8',
+  );
+  const m = /FUNCTION public\.shop_booking_is_import[\s\S]*?p_source IN \(([^)]*)\)/.exec(sql);
+  assert.ok(m, 'shop_booking_is_import lost its source list');
+  const inSql = m![1]!.split(',').map((x) => x.trim().replace(/'/g, ''));
+  assert.deepEqual(inSql, [...IMPORT_SOURCES]);
+  assert.match(sql, /AND NOT n\.is_import/, 'completed events leave imports out');
+  assert.match(sql, /FROM real_booking WHERE NOT is_import\) b/, 'second bookings leave imports out');
 });

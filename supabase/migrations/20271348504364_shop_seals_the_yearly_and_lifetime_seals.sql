@@ -99,6 +99,29 @@ CREATE POLICY shop_seals_admin_write ON public.shop_seals
 COMMENT ON TABLE public.shop_seals IS
   'Seals given to a shop (badge build J2, owner 15 Nov): yearly no1/top10/most_in_demand/clients_choice once per shop+seal+year; verified_partner once per shop for life (3077c9b3). Setnayan Verified is read live from vendor_profiles, never stored here. Written by the service role (lib/shop-seals.server.ts).';
 
+-- ── 1b · an IMPORT never counts as a completed booking ──────────────────────
+-- Owner, 16 Nov (DECISION_LOG fd5814dc (3)), applied by the controller to every badge, seal and Most Booked count:
+-- a booking the supplier brought in themselves — QR import ('vendor_invite'), the Booking QR ('vendor_locked_qr', or
+-- any booking a locked-QR token was claimed onto, since that claim keeps an earlier source), a reused booking
+-- ('reuse_accept'), or an own-link arrival ('website', the ?src=own door) — is never a completed booking for a seal.
+-- ONE definition, read by both counting functions below; lib/shop-seals.ts IMPORT_SOURCES mirrors the list (guarded).
+CREATE OR REPLACE FUNCTION public.shop_booking_is_import(p_event_vendor_id UUID, p_source TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT COALESCE(p_source IN ('vendor_invite', 'vendor_locked_qr', 'reuse_accept', 'website'), false)
+      OR EXISTS (SELECT 1 FROM public.vendor_locked_qr_tokens t WHERE t.claimed_event_vendor_id = p_event_vendor_id);
+$$;
+
+REVOKE ALL ON FUNCTION public.shop_booking_is_import(UUID, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.shop_booking_is_import(UUID, TEXT) TO service_role;
+
+COMMENT ON FUNCTION public.shop_booking_is_import(UUID, TEXT) IS
+  'Seals engine (J2): true when a booking was brought in by the supplier (QR import, Booking QR — by source or a claimed locked-QR token — reuse, or an own-link arrival). Imports never count as completed bookings for any badge or seal (owner 16 Nov, fd5814dc). service_role only.';
+
 -- ── 2 · the yearly facts, one read for every shop ───────────────────────────
 -- The seal year (owner, 11d044c0 (1)): 18 Dec last year → 17 Dec this year, given on 18 Dec; the first year runs
 -- from launch. The caller passes the window: p_from (inclusive, NULL = from launch) and p_to (exclusive, the 18 Dec
@@ -130,6 +153,7 @@ AS $$
            ev.vendor_id,
            ev.event_id,
            ev.status,
+           public.shop_booking_is_import(ev.vendor_id, ev.source) AS is_import,
            COALESCE(e.event_date, ev.event_date_at_delete) AS d
       FROM public.event_vendors ev
       LEFT JOIN public.events e ON e.event_id = ev.event_id
@@ -163,6 +187,7 @@ AS $$
     SELECT n.vpid, n.vendor_id, n.event_id
       FROM not_self n CROSS JOIN win
      WHERE n.status IN ('delivered', 'complete')
+       AND NOT n.is_import
        AND n.d IS NOT NULL
        AND (win.d0 IS NULL OR n.d >= win.d0)
        AND n.d < win.d1
@@ -180,7 +205,7 @@ AS $$
     -- Each couple member's distinct booked events with the shop, ordered by event date (the Trusted by family rule).
     SELECT b.vpid, em.user_id, b.event_id, b.d,
            row_number() OVER (PARTITION BY b.vpid, em.user_id ORDER BY b.d NULLS LAST, b.event_id) AS nth
-      FROM (SELECT DISTINCT vpid, event_id, d FROM real_booking) b
+      FROM (SELECT DISTINCT vpid, event_id, d FROM real_booking WHERE NOT is_import) b
       JOIN public.event_members em
         ON em.event_id = b.event_id AND em.member_type = 'couple' AND em.user_id IS NOT NULL
      WHERE NOT EXISTS (SELECT 1 FROM public.vendor_profiles vp WHERE vp.vendor_profile_id = b.vpid AND vp.user_id = em.user_id)
@@ -255,7 +280,8 @@ STABLE
 SET search_path = public
 AS $$
   WITH booked AS (
-    SELECT ev.vendor_id, ev.event_id, ev.source, ev.status, ev.total_cost_php
+    SELECT ev.vendor_id, ev.event_id, ev.source, ev.status, ev.total_cost_php,
+           public.shop_booking_is_import(ev.vendor_id, ev.source) AS is_import
       FROM public.event_vendors ev
      WHERE (ev.marketplace_vendor_id = p_vendor_profile_id
             OR ev.linked_vendor_profile_id = p_vendor_profile_id)
@@ -283,12 +309,13 @@ AS $$
   SELECT
     -- Rule 2 (11d044c0 (4)): the contract value of COMPLETED bookings, all years, minus refunded amounts. Cancelled
     -- bookings are already out (archived / never reached delivered·complete).
-    (COALESCE((SELECT sum(b.total_cost_php) FROM booked b WHERE b.status IN ('delivered', 'complete')), 0)
+    -- Imports never count (fd5814dc): rules 3–6 still COUNT the channels below, but their bookings add no value here.
+    (COALESCE((SELECT sum(b.total_cost_php) FROM booked b WHERE b.status IN ('delivered', 'complete') AND NOT b.is_import), 0)
      - COALESCE((SELECT sum(r.amount_php)
                    FROM booked b
                    JOIN public.event_vendor_refunds r ON r.event_vendor_id = b.vendor_id AND r.removed_at IS NULL
-                  WHERE b.status IN ('delivered', 'complete')), 0))::NUMERIC,
-    (SELECT count(*) FROM booked b WHERE b.status IN ('delivered', 'complete') AND b.total_cost_php IS NULL)::INTEGER,
+                  WHERE b.status IN ('delivered', 'complete') AND NOT b.is_import), 0))::NUMERIC,
+    (SELECT count(*) FROM booked b WHERE b.status IN ('delivered', 'complete') AND NOT b.is_import AND b.total_cost_php IS NULL)::INTEGER,
     -- Suppliers › Find: the marketplace save, or an Explore/search inquiry copied onto the booking (RW-22).
     (SELECT count(*) FROM booked b WHERE b.source IN ('host_marketplace_search', 'explore', 'search'))::INTEGER,
     -- The shop's website: its own link / personal QR ('website') or its Setnayan page ('shop_page').

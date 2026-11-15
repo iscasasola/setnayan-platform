@@ -24,11 +24,15 @@ Engine only: no UI, no new server action, no new route.
   ≥ 10 completed events, ties to the higher rating, one shop a year · Verified Partner rule 2 = completed bookings'
   contract value, all years, minus refunds · the Top 10 plaque line with the exact rank ("No. 4 of the Top 10
   Suppliers of 2026", stored in `facts.plaque_line`).
+- **Imports never count as completed bookings** (owner 16 Nov, fd5814dc; controller, on #7825): `shop_booking_is_import`
+  (source vendor_invite · vendor_locked_qr · reuse_accept · website, or a claimed Booking QR token) — one SQL
+  definition, mirrored by `IMPORT_SOURCES` — leaves imports out of completed events, second bookings and Verified
+  Partner's ₱ total. Rules 4–6 still count those channels by name (3077c9b3): the overlap is flagged for the owner.
 - **Named gaps (nothing invented):** a booking has no booked-at date, so a second booking falls in the seal year of
   its EVENT's date · "cancelled by the shop" is recorded only for schedule-pool bookings · the yearly rating (trusted
   stats are lifetime) · rule 10's Invites counter (ruled, but the supplier-import door is not built ⇒ unread ⇒
   Verified Partner cannot be given yet).
-- Tests: `lib/shop-seals.test.ts` (24) and `tests/db/the-seals-are-counted-and-given-once.db.test.ts` (8), each claim
+- Tests: `lib/shop-seals.test.ts` (25) and `tests/db/the-seals-are-counted-and-given-once.db.test.ts` (9), each claim
   sabotage-checked. `tests/db/ugat-both-ends.baseline.txt` gains one named row (`seal_awarded`, paid down by J4).
 
 SPEC IMPACT: None — implements the 15 Nov rulings as written; the open points are listed for the owner in the PR body.

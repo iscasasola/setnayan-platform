@@ -122,6 +122,27 @@ test('a seal year counts only completed bookings on events dated in it — never
   assert.equal((await yearFacts(2027, vpid))?.completed_events, 2, '20 Dec 2026 and 2 Jan 2027 fall in the 2027 seal year');
 });
 
+test('an IMPORT is never a completed booking or a second booking (fd5814dc): by source, or by a claimed Booking QR', async () => {
+  const { vpid, owner } = await newShop();
+  const c = await newUser();
+  await book(await newEvent('2026-02-01', c), vpid, { source: 'host_marketplace_search' });
+  for (const [i, source] of ['vendor_invite', 'vendor_locked_qr', 'reuse_accept', 'website'].entries()) {
+    await book(await newEvent(`2026-03-0${i + 1}`, await newUser()), vpid, { source });
+  }
+  // A Booking QR claimed onto a booking that kept an earlier source is still an import.
+  const claimed = await book(await newEvent('2026-04-01', await newUser()), vpid, { source: 'explore' });
+  await db.query(
+    `INSERT INTO public.vendor_locked_qr_tokens (token, vendor_profile_id, created_by_user_id, category, claimed_event_vendor_id)
+     VALUES ('seal-qr-import', $1, $2, 'photographer', $3)`,
+    [vpid, owner, claimed],
+  );
+  // The same client again, through an import: not a second booking.
+  await book(await newEvent('2026-05-01', c), vpid, { source: 'vendor_invite' });
+  const f = await yearFacts(2026, vpid);
+  assert.equal(f?.completed_events, 1, 'only the Find booking is a completed booking');
+  assert.equal(f?.second_bookings, 0, 'an imported booking is never a client coming back');
+});
+
 test('second bookings: a client\'s 2nd event counts in its own seal year, once per client; a 3rd never counts', async () => {
   const { vpid } = await newShop();
   const p1 = await newUser();
@@ -196,15 +217,16 @@ test('the Verified Partner counters read every channel, the Booking QR token, an
   const c = await newUser();
   await book(await newEvent('2026-01-01', c), vpid, { source: 'host_marketplace_search', total: 400_000 });
   await book(await newEvent('2026-01-02', c), vpid, { source: 'explore', total: 100_000 });
-  await book(await newEvent('2026-01-03', c), vpid, { source: 'shop_page', total: 250_000 });
+  const pageBooking = await book(await newEvent('2026-01-03', c), vpid, { source: 'shop_page', total: 250_000 });
   await book(await newEvent('2026-01-04', c), vpid, { source: 'website' });
   const qrBooking = await book(await newEvent('2026-01-05', c), vpid, { source: 'vendor_invite', total: 250_000 });
   await book(await newEvent('2026-01-06', c), vpid, { source: 'explore', status: 'considering', total: 9_999_999 });
 
   const r = await db.query<Record<string, string | number>>(`SELECT * FROM public.shop_verified_partner_facts($1)`, [vpid]);
   const f = r.rows[0]!;
-  assert.equal(Number(f.booked_total_php), 1_000_000, 'only completed real bookings add to the total');
-  assert.equal(Number(f.bookings_unpriced), 1);
+  // 400k + 100k + 250k: the QR import (250k) and the own-link booking are IMPORTS — they add no value (fd5814dc).
+  assert.equal(Number(f.booked_total_php), 750_000, 'only completed, non-import real bookings add to the total');
+  assert.equal(Number(f.bookings_unpriced), 0, 'an unpriced import is not counted as an unpriced booking');
   assert.equal(Number(f.find_bookings), 2);
   assert.equal(Number(f.website_bookings), 2);
   assert.equal(Number(f.qr_import_bookings), 1);
@@ -224,14 +246,14 @@ test('the Verified Partner counters read every channel, the Booking QR token, an
 
   // Rule 2 (11d044c0 (4)): a contracted (not completed) booking adds nothing; a refund comes off the total.
   await book(await newEvent('2026-01-07', c), vpid, { status: 'contracted', total: 500_000 });
-  const qrEvent = await db.query<{ event_id: string }>(`SELECT event_id FROM public.event_vendors WHERE vendor_id = $1`, [qrBooking]);
+  const pageEvent = await db.query<{ event_id: string }>(`SELECT event_id FROM public.event_vendors WHERE vendor_id = $1`, [pageBooking]);
   await db.query(
     `INSERT INTO public.event_vendor_refunds (event_id, event_vendor_id, vendor_profile_id, amount_php, refunded_on, reason)
      VALUES ($1, $2, $3, 50000, '2026-02-01', 'Part refund')`,
-    [qrEvent.rows[0]!.event_id, qrBooking, vpid],
+    [pageEvent.rows[0]!.event_id, pageBooking, vpid],
   );
   const t = await db.query<{ v: string }>(`SELECT booked_total_php AS v FROM public.shop_verified_partner_facts($1)`, [vpid]);
-  assert.equal(Number(t.rows[0]!.v), 950_000, 'completed value minus refunds');
+  assert.equal(Number(t.rows[0]!.v), 700_000, 'completed value minus refunds');
   assert.equal(Number(f.recommenders), 0);
 
   const other = await newShop();

@@ -96,7 +96,7 @@ export async function startAppStorePurchase(input: {
 
   // 🔒 Owned is never sold twice (prototype frames 10 · 11). Credits (Papic) are
   // consumable and always buyable; Pro, Live Watch and every 'event-unlock' are one per event.
-  // ⛔ Event Hub Pro is sold WHOLE (owner 2026-10-26, "just have the upgrade event hub pro"): the part products are
+  // ⛔ Event Pro is sold WHOLE (owner 2026-10-26, "just have the upgrade Event Pro"): the part products are
   // retired out of `IAP_PRODUCTS`, so one is an unknown product above. "Everything" is not sold in the app once ANY
   // part is owned (it would charge the full Apple price for what is less on the web, and the app may not say so);
   // such an event finishes on the web.
@@ -108,6 +108,14 @@ export async function startAppStorePurchase(input: {
     const own = await eventHubOwnership(admin, eventId, 'owned');
     if (own.full) return startRefusal('owned');
     if (own.parts.size > 0 || own.paidPhp > 0) return startRefusal('not_on_sale');
+    if (await eventOwnsSku(admin, eventId, 'EVENT_PLUS')) return startRefusal('not_on_sale');
+  } else if (product.kind === 'event-ultra') {
+    // 💎 Event Ultra (owner 2026-11-13): one per event. Like Pro above, it is not sold in the app to an event that has
+    // already PAID toward a plan (Plus, Pro or a part) — the full Apple price would charge that twice, and what such an
+    // event pays for Ultra is not ruled yet. It upgrades on the web.
+    if (await eventOwnsSku(admin, eventId, product.serviceKey)) return startRefusal('owned');
+    const own = await eventHubOwnership(admin, eventId, 'owned');
+    if (own.full || own.parts.size > 0 || own.paidPhp > 0) return startRefusal('not_on_sale');
     if (await eventOwnsSku(admin, eventId, 'EVENT_PLUS')) return startRefusal('not_on_sale');
   } else if (product.kind === 'event-plus') {
     if ((await eventHubOwnership(admin, eventId, 'owned')).full) return startRefusal('owned');

@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { stripComments } from './strip-comments';
+import { bookingCostWrite } from './booking-cost-write';
 import {
   acceptedQuoteTerms,
   decideDepositAmount,
@@ -168,7 +169,22 @@ test('recordDeposit decides the amount against the quote minimum before any writ
 test('updateVendorCosts leaves the price columns alone when the quote settles the price', () => {
   const body = bodyOf(ACTIONS, 'updateVendorCosts');
   assert.match(body, /quoteSettlesPrice\s*=\s*!manualCostingEditorShown\(/);
-  const payload = body.slice(body.indexOf('const updatePayload'));
-  const settledArm = payload.slice(payload.indexOf('quoteSettlesPrice'), payload.indexOf(':', payload.indexOf('}')));
-  assert.doesNotMatch(settledArm, /total_cost_php|transport_php|food_allowance_php/);
+  // The payload is decided by lib/booking-cost-write.ts (#5936) — the action must hand it the quote decision.
+  assert.match(body, /bookingCostWrite\(\{[^}]*\bquoteSettlesPrice\b/);
+  const base = {
+    quoteSettlesPrice: true,
+    existing: { total_cost_php: 50000, money_shown: true },
+    newTotal: 1,
+    transport: 2,
+    foodAllowance: 3,
+    crewSize: 4,
+    crewMealCovered: false,
+  };
+  for (const priceOnly of [false, true]) {
+    const { payload, totalChanged } = bookingCostWrite({ ...base, priceOnly });
+    for (const col of ['total_cost_php', 'transport_php', 'food_allowance_php']) {
+      assert.ok(!(col in payload), `priceOnly=${priceOnly}: a settled quote must not write ${col}`);
+    }
+    assert.equal(totalChanged, false);
+  }
 });

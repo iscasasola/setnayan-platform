@@ -1,9 +1,9 @@
 /**
- * apps/web/lib/scene-style-pro.ts — 💎 THE SCENE STYLES THAT ARE EVENT HUB PRO ◆, BY SCENE TYPE.
+ * apps/web/lib/scene-style-pro.ts — 💎 THE SCENE STYLES THAT ARE EVENT PRO ◆, BY SCENE TYPE.
  *
  * Owner, 2026-10-17 (DECISION_LOG "APPROVED — LOVE STORY, TWO VOICES"), verbatim: *"Conversation as the default
  * look, Timeline and Swipe cards as Pro looks in Style."* Under the 2026-10-16 rule ("ALL ANIMATE, EFFECTS, STYLES
- * AND ACCENTS ARE EVENT HUB PRO ◆"), by the shipped pattern: tried free in the Maker, named at ✓ Apply, and the
+ * AND ACCENTS ARE EVENT PRO ◆"), by the shipped pattern: tried free in the Maker, named at ✓ Apply, and the
  * event's unlock covers everyone on it (`planHubDraftApply`'s `ownsPro`).
  *
  * 🔑 KEYED BY SCENE TYPE, NEVER BY ID ALONE. Style ids are per type and repeat across types — `timeline` is also a
@@ -71,7 +71,7 @@ export const SCENE_STYLE_FREE: Readonly<Record<string, string>> = {
   my_guests: 'plain',
 };
 
-/** Is this style, on this scene type, Event Hub Pro ◆? */
+/** Is this style, on this scene type, Event Pro ◆? */
 export function sceneStyleIsPro(type: string | null | undefined, id: unknown): boolean {
   if (!type || typeof id !== 'string' || !id) return false;
   const free = SCENE_STYLE_FREE[type];

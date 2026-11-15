@@ -8,6 +8,7 @@ import {
   type SwitcherData,
 } from '@/app/_components/account-switcher/get-switcher-data';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { AccountBarSlot } from '../(launcher)/_components/account-bar-slot';
@@ -157,6 +158,7 @@ export default async function AccountDashboardLayout({
               href="/dashboard/notifications"
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
+              who={placeWhoFromSwitcher(switcherData)}
             />
             <AccountSwitcher data={switcherData} />
           </>
@@ -181,6 +183,7 @@ export default async function AccountDashboardLayout({
         <AccountBarSlot
           tabs={accountBarTabs({ discoverOpen })}
           boundary="tab"
+          hasShop={switcherData.context.hasVendor}
         />
         {/* 📲 What the account has, preloaded once the page is idle — the host app for
             the event they host, the supplier app for a shop (owner 2026-10-02, "THE

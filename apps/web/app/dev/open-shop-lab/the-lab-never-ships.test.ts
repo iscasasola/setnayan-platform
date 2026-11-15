@@ -13,7 +13,7 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 test('page.tsx calls notFound() in production, before anything else', () => {
-  const src = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+  const src = stripComments(readFileSync(join(HERE, 'page.lab.tsx'), 'utf8'));
   assert.match(src, /import \{ notFound \} from 'next\/navigation';/, 'notFound is not imported');
   const at = src.indexOf('export default async function OpenShopLabPage(');
   assert.ok(at >= 0, 'the lab function is gone');

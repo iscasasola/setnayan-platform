@@ -19,7 +19,8 @@ import {
   fetchAdminVendorContext,
   type VendorTeamRole,
 } from '@/lib/vendor-team';
-import { tierCaps, asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/lib/vendor-tier-caps';
+import { asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/lib/vendor-tier-caps';
+import { fetchLiveTierCaps } from '@/lib/vendor-plan-contents';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import { FREE_HELPER_ROLE, FREE_HELPER_SEATS, canSeat, type SeatMember } from '@/lib/vendor-free-helper';
 import {
@@ -72,8 +73,10 @@ async function seatCapFor(
   supabase: Awaited<ReturnType<typeof createClient>>,
   ctx: { tierState: string | null; vendorProfileId: string },
 ): Promise<number> {
+  // 🧮 The plan's seats as the admin last set them (vendor_plan_contents, owner 2026-11-13), the code value when unread.
+  const planCaps = await fetchLiveTierCaps(supabase, asVendorTier(ctx.tierState ?? 'free'));
   const baseCap = vendorAllowance(
-    tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts,
+    planCaps.agentAccounts,
     entryTierAllowance('agentAccounts'),
   );
   const extraSeats = await fetchExtraAgentSeats(supabase, ctx.vendorProfileId);
@@ -150,8 +153,11 @@ export async function inviteVendorTeamMember(formData: FormData) {
     if (!canSeat({ members, founderUserId: ctx.founderUserId, cap: seatCap, change: { kind: 'invite', role } })) {
       // The fee is the live catalogue price (`vendor_extra_seat`), read the same
       // way the buy-a-seat action and the Team page read it — never typed here.
+      const seatFee = canBuyExtraSeats(ctx.tierState) ? await fetchSeatFeePhp(supabase) : null;
       const moreHint = canBuyExtraSeats(ctx.tierState)
-        ? `Add a seat (${formatPhp(await fetchSeatFeePhp(supabase))}/${SEAT_PERIOD_DAYS}d) for more.`
+        ? seatFee !== null
+          ? `Add a seat (${formatPhp(seatFee)}/${SEAT_PERIOD_DAYS}d) for more.`
+          : 'Add a seat for more.'
         : 'Upgrade for more.';
       const helperHint =
         role !== FREE_HELPER_ROLE && FREE_HELPER_SEATS > 0
@@ -429,7 +435,7 @@ export async function buyExtraSeat(formData: FormData) {
   const { supabase, ctx, currentUserId } = await ensureAdmin();
 
   if (!canBuyExtraSeats(ctx.tierState)) {
-    return err('Extra team seats are an Ultra add-on. Upgrade to Ultra first.');
+    return err('Extra team seats are a Supplier Ultra add-on. Upgrade to Supplier Ultra first.');
   }
 
   // The rail is CHOSEN ON THE PAYMENT PAGE now, where the QR that carries it is
@@ -440,6 +446,8 @@ export async function buyExtraSeat(formData: FormData) {
   const channel = await railForNewOrder(supabase, formData.get('channel'));
   if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
   const feePhp = await fetchSeatFeePhp(supabase);
+  // 💰 No readable catalogue price ⇒ no order: never mint a seat at a remembered figure.
+  if (feePhp === null) return err('We couldn’t read the seat price just now. Please try again.');
   const referenceCode = generateSeatReferenceCode();
 
   // ── SEC-4b · service-role mint ─────────────────────────────────────────────

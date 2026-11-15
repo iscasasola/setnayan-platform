@@ -5,10 +5,9 @@ import { CollapsingTop } from '@/app/_components/collapsing-top/collapsing-top';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { ProfileHeader, PROFILE_HEADER_CSS, profileInitials } from '@/app/u/_components/profile-header';
 import { pictureFrameStyle } from '@/lib/picture-frame';
-import { formatCount } from '@/lib/format-number';
-import { homeSegHref, type HomeSeg } from '@/lib/home-segments';
+import type { HomeSeg } from '@/lib/home-segments';
 import type { HomeHandle } from '@/lib/home-profile.server';
-import { HomeDoorsInView, HomeSegBody, HomeSegMemory, HomeTabs } from './home-segment-bar';
+import { HomeSegBody, HomeSegMemory, HomeTabs } from './home-segment-bar';
 import hp from './home-profile.module.css';
 
 /**
@@ -19,8 +18,16 @@ import hp from './home-profile.module.css';
  *   Memories) → the picked section's body, which is the shipped page MOVED here, never redrawn.
  *
  * A WRAPPER AROUND THE BOARD, NOT INSIDE IT: `(launcher)/page.tsx` hands the Events board — or People, Shop or
- * Memories — in as `children`. The header's doors are numbers only where a cheap read exists (events; service cards;
- * "asking you"); People and Memories are words (v3 row 7: a number we have not read is worse than none).
+ * Memories — in as `children`.
+ *
+ * ONE ROW OF SECTIONS, NOT TWO (owner 13 Nov 2026, on a screenshot of Home): *"the buttons and the menu events people
+ * memories are dupes. we want them to be simple and just 1"*. v3 drew the same four places twice — a row of pill doors
+ * under the name ("3 events · people · 3 service cards · memories") and the underlined tabs under "＋ Create an event".
+ * The pills are gone; the TABS are the one row. Nothing the pills said is lost: the tabs carry the numbers where a cheap
+ * read exists (Events N · Shop N), and People carries "N asking" — the people waiting on you — in the brand colour
+ * (`hot`), the one number the pills had that the tabs did not. People's other words and Memories stay words (v3 row 7:
+ * a number we have not read is worse than none). The shared `ProfileHeader` still takes `doors` (optional); Home just
+ * stops passing them, and the public `/u/[slug]` is untouched.
  *
  * THE TOP (v3 `.segwrap`, row 7 "ONE pinned row"): the shared `CollapsingTop`. At rest it is the header and the
  * underlined tabs; as the header scrolls away it locks, leaving the section's ONE pinned row above the tabs. The row is
@@ -28,7 +35,7 @@ import hp from './home-profile.module.css';
  *
  * NOT drawn, on purpose (slice 1): v3's one line under the name. There is no column for it — `users` holds only the
  * `public_greeting_opt_in` switch — and a pencil that cannot save would be a control that lies.
- * 🔒 lib/home-is-the-profile.test.ts
+ * 🔒 lib/home-is-the-profile.test.ts (5 · one row of sections)
  */
 
 /** The public page's address, as a person would type it — the host the app is served from. */
@@ -67,51 +74,32 @@ export function HomeProfile({
   handle: HomeHandle;
   /** The rail's own count (`resolveRailAccount().eventCount`). null = not read — no number. */
   eventCount: number | null | undefined;
-  /** People waiting on you. null/0 = no number. */
+  /** People waiting on you — the People tab's number (`hot`). null/0 = no number. */
   asking: number | null;
   /** The shop's service cards. null = not read, or no shop. */
   cardCount: number | null;
   children: ReactNode;
 }) {
   const name = me.displayName?.trim() || me.email.replace(/@.*$/, '') || 'You';
-  const door = (s: HomeSeg, words: ReactNode) => (
-    <Link
-      key={s}
-      href={homeSegHref(s)}
-      className={hp.door}
-      aria-current={s === seg ? 'true' : undefined}
-      data-home-door={s}
-      scroll={false}
-    >
-      {words}
-    </Link>
-  );
-  const doors = segs.map((s) =>
-    s === 'events'
-      ? door(s, typeof eventCount === 'number' ? <><b>{formatCount(eventCount)}</b> {eventCount === 1 ? 'event' : 'events'}</> : 'events')
-      : s === 'people'
-        ? door(s, asking ? <>people · <b>{formatCount(asking)}</b> asking</> : 'people')
-        : s === 'shop'
-          ? door(s, typeof cardCount === 'number' ? <><b>{formatCount(cardCount)}</b> {cardCount === 1 ? 'service card' : 'service cards'}</> : 'service cards')
-          : door(s, 'memories'),
-  );
   const counts: Partial<Record<HomeSeg, number>> = {
     ...(typeof eventCount === 'number' ? { events: eventCount } : {}),
     ...(typeof cardCount === 'number' ? { shop: cardCount } : {}),
+    ...(asking ? { people: asking } : {}),
   };
+  // People's number is the people waiting on you — drawn in the brand colour, read as "N asking".
+  const hot: Partial<Record<HomeSeg, string>> = asking ? { people: 'asking' } : {};
   const host = publicHost();
   return (
     <>
       <style>{PROFILE_HEADER_CSS}</style>
-      <HomeSegMemory seg={seg} />
-      <HomeDoorsInView seg={seg} />
+      <HomeSegMemory />
       <CollapsingTop
         rowHeight={TOP_ROW_H}
         data={{ 'home-top': '' }}
         row={
           <div className={hp.topRow}>
             <div className={hp.slot} data-home-pin-slot="" />
-            <HomeTabs seg={seg} segs={segs} counts={counts} copy />
+            <HomeTabs seg={seg} segs={segs} counts={counts} hot={hot} copy />
           </div>
         }
       >
@@ -139,7 +127,6 @@ export function HomeProfile({
                 </Link>
               )
             }
-            doors={doors}
             actions={
               <Link href="/dashboard/create-event" className={hp.cta} data-home-create="">
                 <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
@@ -148,7 +135,7 @@ export function HomeProfile({
             }
             rule={false}
           />
-          <HomeTabs seg={seg} segs={segs} counts={counts} />
+          <HomeTabs seg={seg} segs={segs} counts={counts} hot={hot} />
         </div>
       </CollapsingTop>
       <HomeSegBody seg={seg}>{children}</HomeSegBody>

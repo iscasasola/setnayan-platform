@@ -56,6 +56,8 @@ export type PoolBookingEntry = {
   bookedDate: string; // YYYY-MM-DD
   eventName: string;
   threadId: string | null;
+  /** 🗓 The booking row (`event_vendors.vendor_id`) this seat holds — the chapters and times are tagged with it. */
+  eventVendorId?: string | null;
 };
 
 export type CalendarBlockEntry = {
@@ -399,7 +401,7 @@ export async function fetchVendorPoolBookings(
     async (from, to) => {
       const { data, error, count } = await supabase
         .from('vendor_schedule_pool_bookings')
-        .select('pool_booking_id, pool_id, event_id, booked_date', { count: 'exact' })
+        .select('pool_booking_id, pool_id, event_id, booked_date, event_vendor_id', { count: 'exact' })
         .eq('vendor_profile_id', vendorProfileId)
         .is('released_at', null)
         .order('booked_date', { ascending: true })
@@ -423,6 +425,7 @@ export async function fetchVendorPoolBookings(
     pool_id: string;
     event_id: string;
     booked_date: string;
+    event_vendor_id?: string | null;
   }[];
   if (bookings.length === 0) return [];
 
@@ -462,6 +465,7 @@ export async function fetchVendorPoolBookings(
     bookedDate: b.booked_date,
     eventName: nameByEvent.get(b.event_id) ?? 'A Setnayan event',
     threadId: threadByEvent.get(b.event_id) ?? null,
+    eventVendorId: b.event_vendor_id ?? null,
   }));
 }
 

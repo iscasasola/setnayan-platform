@@ -16,7 +16,7 @@ import { PICKED_GUESTS_PARAM, PICKED_GUEST_REFUSAL, parsePickedGuests, pickGuest
  *
  * 🎟 FREE FOR EVERY EVENT (owner 2026-10-22, "yes", DECISION_LOG "THE DIGITAL
  * TICKET ZIP IS FREE"; his rule, verbatim: *"the goal of the free is to keep
- * everything minimum ready but no personalization."*). It was Event Hub Pro
+ * everything minimum ready but no personalization."*). It was Event Pro
  * from 2026-09-29 (*"can we also create a zip file to download all? (PRO
  * feature)"*); handing out tickets is readiness, so the route asks NO Pro
  * question. What stays personal is the LOOK: the cards are drawn from

@@ -196,10 +196,13 @@ test('SABOTAGE-PROVEN: the mark job — --dry-run writes nothing, --apply needs 
 test('SABOTAGE-PROVEN: the wide displays draw a square-framed photo whole (MarkedPhoto), never cropped to 2.5:1+', () => {
   const card = code('app/(shell)/explore/_components/vendor-card.tsx');
   assert.match(card, /<MarkedPhoto[\s\S]{0,200}frame="square"[\s\S]{0,80}displayAspect=\{358 \/ 128\}/);
+  // 13 Nov 2026: ONE shop hero (the verified look's, `shop-hero.tsx`); the banner went with the old plan ladder. A
+  // shop photo (`photoIsMarked`) goes through MarkedPhoto, square-framed; only the shared placeholder uses <Image>.
   const shop = code('app/v/[slug]/page.tsx');
-  const heroes = shop.match(/<MarkedPhoto\s+src=\{heroPhotoUrl\}/g) ?? [];
-  assert.equal(heroes.length, 2, 'both shop heroes (cinematic and banner) must go through MarkedPhoto');
-  assert.doesNotMatch(shop, /<Image\s+src=\{heroPhotoUrl\}/);
+  assert.match(shop, /photoUrl=\{heroImage \?\? VENDOR_PLACEHOLDER_PHOTO\}\s*photoIsMarked=\{heroImage !== null\}/);
+  assert.doesNotMatch(shop, /<Image\s+src=\{hero(PhotoUrl|Image)\}/);
+  const hero = code('app/v/[slug]/_components/shop-hero.tsx');
+  assert.match(hero, /\{photoIsMarked \? \(\s*<MarkedPhoto src=\{photoUrl\}[^>]*frame="square"/);
   const mp = code('app/_components/marked-photo.tsx');
   assert.match(mp, /if \(displayAspectAllowed\(frame, displayAspect\)\)/);
   assert.match(mp, /object-contain/);

@@ -30,6 +30,8 @@
  * Pure data: no server-only import, so the page, the guards and `tsx --test` all read the same rows.
  */
 import type { FeatureSlug } from '@/lib/feature-pages/types';
+import type { CatalogueRow } from '@/lib/feature-pages/price';
+import { formatCount } from '@/lib/format-number';
 
 export type RowStatus = 'live' | 'coming';
 export type RowPrice = 'free' | 'free-plus' | 'paid' | 'credits' | 'per-day';
@@ -158,11 +160,11 @@ export const FEATURE_ROWS = {
   c03: F({ icon: 'shield', name: 'Free limits, explained', line: 'Every limit shows Problem → Solution, never hides.', price: 'free', status: 'live', reg: ['C03'], plan: 'Full limits list: Build 5 Lane B', problem: 'A greyed button with no reason.', solution: 'A feature past your plan stays visible; tapping it explains the problem, the solution and one way to get it.', why: 'You always know why, and what to do.' }),
   c04: F({ icon: 'cal', name: 'Papers renewal, 31 March yearly', line: 'Reminders in January and March.', price: 'free', status: 'coming', reg: ['C04'], plan: 'Build 5 · Lane B', problem: 'A badge that never expires stops meaning anything.', solution: 'Papers renew every 31 March, with reminders; the badge comes off, the shop stays.', why: 'A badge that means something.' }),
   c05: F({ icon: 'tag', name: 'The plan sheet', line: 'Going past a limit asks to upgrade; Change plan shows what changes and what you pay.', price: 'free', status: 'live', reg: ['C05'], problem: 'Limits appear as errors; plan changes are a bare dropdown.', solution: 'One sheet: the lowest plan that allows it, what else unlocks, what you pay today.', why: 'Upgrade with your eyes open.' }),
-  c06: F({ icon: 'crown', name: 'Supplier plans: Free · Verified · Solo · Pro · Ultra', line: 'Operate, grow, scale.', price: 'paid', status: 'live', reg: ['C06'], problem: 'Platforms charge listing fees up front.', solution: 'Free to join; paid plans add seats, reach and insights. Prices from the catalogue.', why: 'Start with nothing.' }),
+  c06: F({ icon: 'crown', name: 'Supplier plans: Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra', line: 'Operate, grow, scale.', price: 'paid', status: 'live', reg: ['C06'], problem: 'Platforms charge listing fees up front.', solution: 'Free to join; paid plans add seats, reach and insights. Prices from the catalogue.', why: 'Start with nothing.' }),
   c11: F({ icon: 'store', name: 'My Shop', line: 'Profile, photos, cover and logo menu, share, QR, badges.', price: 'free', status: 'live', reg: ['C11'], problem: 'Your business lives on someone else’s page.', solution: 'Your shop with cover, logo, photos, QR codes and badges.', why: 'Your page.' }),
   c12: F({ icon: 'store', name: 'A public sample shop (SetnaProd)', line: 'See what a full shop looks like.', price: 'free', status: 'coming', reg: ['C12'], plan: 'Build 5 · Lane H', problem: 'A new shop cannot picture the finished look.', solution: 'A public sample shop filled with cards, photos and inspiration.', why: 'Seeing the goal.' }),
   c13: F({ icon: 'door', name: 'Your public shop page', line: 'Dates, booth, guest reviews; written for Google and AI.', price: 'free', status: 'live', reg: ['C13'], problem: 'Nobody finds you from search.', solution: 'A page with your services, dates and reviews that search engines understand.', why: 'Free customers from search.' }),
-  c40: F({ icon: 'tag', name: 'The for-suppliers page and plan table', line: 'Free · Verified · Solo · Pro · Ultra, read from the limits.', price: 'free', status: 'live', reg: ['C40'], problem: 'The public table drifted from the app.', solution: 'Every cell read from the limits the app applies.', why: 'No surprises after signing up.' }),
+  c40: F({ icon: 'tag', name: 'The for-suppliers page and plan table', line: 'Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra, read from the limits.', price: 'free', status: 'live', reg: ['C40'], problem: 'The public table drifted from the app.', solution: 'Every cell read from the limits the app applies.', why: 'No surprises after signing up.' }),
   c41: F({ icon: 'grid', name: 'Your category comes from one list', line: 'Group › Category › Service › Part, one source.', price: 'free', status: 'live', reg: ['C41'], problem: 'Categories copied in many places drift apart.', solution: 'One taxonomy; your services, Find and the sheet all read it.', why: 'Couples find the right supplier.' }),
   c14: F({ icon: 'tag', name: 'Services, guided setup, packages', line: 'Attributes per service; packages on top.', price: 'free', status: 'live', reg: ['C14'], problem: 'A price list in a photo nobody can search.', solution: 'One card per service with attributes and packages.', why: 'Quoted right the first time.' }),
   c15: F({ icon: 'tag', name: 'Service card grown', line: 'Facts first, media last; section rows pin as you scroll.', price: 'free', status: 'live', reg: ['C15'], plan: 'Later slices: Build 5 Lane C', problem: 'A card showed a photo and a price and nothing else.', solution: 'The full card: inclusions, forms, record, reviews, events, photos; the same card couples see in Find.', why: 'The card sells by itself.' }),
@@ -342,21 +344,45 @@ export type PlanPrice =
   | { kind: 'free' }
   | { kind: 'paid'; catalogue: 'retail' | 'supplier'; codes: readonly string[] };
 
-export type PlanColumn = Readonly<{ name: string; tag: string; price: PlanPrice; lines: readonly string[] }>;
+export type PlanColumn = Readonly<{
+  name: string;
+  tag: string;
+  price: PlanPrice;
+  lines: readonly string[];
+  /**
+   * RW-12 (2026-11-14) · the line that names the plan's Papic credits, at `index` in `lines`. When the catalogue row's
+   * `included_papic_credits` is read, the compare swaps that line for `said(count)`; unread, the wordy line stays. The
+   * count is never typed here.
+   */
+  credits?: Readonly<{ index: number; said: (count: string) => string }>;
+}>;
 
 export const EVENT_PLANS: readonly PlanColumn[] = [
   { name: 'Free', tag: 'Plan and invite, complete.', price: { kind: 'free' }, lines: ['Guest list, Seat Plan, Budget, Schedule, Mood Board', 'Event Hub: Classic theme, your words, guests’ photos', 'The Post Event story, automatically', 'FaceBlock, always'] },
-  { name: 'Event Plus', tag: 'A nicer, bigger event.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_PLUS'] }, lines: ['Everything in Free', 'Papic credits included', 'Bigger uploads', 'One unlock covers everyone on the event'] },
-  { name: 'Event Pro', tag: 'The full show.', price: { kind: 'paid', catalogue: 'retail', codes: ['COUPLE_WEBSITE_PRO'] }, lines: ['Everything in Plus, more Papic credits', 'Nine themes, every reveal and scene animation', 'Your own photos, videos and music; custom scenes', 'Print-ready invitations, tickets, posters', 'Setnayan AI'] },
+  { name: 'Event Plus', tag: 'A nicer, bigger event.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_PLUS'] }, lines: ['Everything in Free', 'Papic credits included', 'Bigger uploads', 'One unlock covers everyone on the event'], credits: { index: 1, said: (n) => `${n} Papic credits included` } },
+  { name: 'Event Pro', tag: 'The full show.', price: { kind: 'paid', catalogue: 'retail', codes: ['COUPLE_WEBSITE_PRO'] }, lines: ['Everything in Plus, more Papic credits', 'Nine themes, every reveal and scene animation', 'Your own photos, videos and music; custom scenes', 'Print-ready invitations, tickets, posters', 'Setnayan AI'], credits: { index: 0, said: (n) => `Everything in Plus, ${n} Papic credits` } },
+  // 💎 Event Ultra (owner 2026-11-13) — only what a paid Ultra order unlocks today; canvas prints join when the Our Day
+  // poster ships (see ULTRA_PEEK in app/_components/frontdoor/front-door-landing-data.ts).
+  { name: 'Event Ultra', tag: 'Shared live, kept longer.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_ULTRA'] }, lines: ['Everything in Pro, the most Papic credits', 'Live Watch for one day', 'Full-size photos kept 12 months', 'Patiktok'], credits: { index: 0, said: (n) => `Everything in Pro, ${n} Papic credits` } },
 ];
 
 export const SUPPLIER_PLANS: readonly PlanColumn[] = [
   { name: 'Free', tag: 'Open and sell.', price: { kind: 'free' }, lines: ['Shop page, cards, bundles', 'Chat, quotes, payment plans', 'Full basic dashboard'] },
   { name: 'Verified', tag: 'Trusted.', price: { kind: 'free' }, lines: ['The badge on every card', 'Unlimited live cards', 'Everything in Free'] },
-  { name: 'Solo', tag: 'One person, no friction.', price: { kind: 'paid', catalogue: 'supplier', codes: ['solo_vendor_monthly'] }, lines: ['Everything in Verified', 'Operate the business alone, smoothly'] },
-  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: ['Team seats', 'Performance insights, more reach', 'Specialized tools unlock included'] },
-  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Branches and a bigger team', 'Everything in Pro', 'Specialized tools unlock included'] },
+  { name: 'Supplier Plus', tag: 'One person, no friction.', price: { kind: 'paid', catalogue: 'supplier', codes: ['solo_vendor_monthly'] }, lines: ['Everything in Verified', 'Operate the business alone, smoothly'] },
+  { name: 'Supplier Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: ['Team seats', 'Performance insights, more reach', 'Specialized tools unlock included'] },
+  { name: 'Supplier Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Branches and a bigger team', 'Everything in Pro', 'Specialized tools unlock included'] },
 ];
+
+/** RW-12 · a plan's lines with its credits line naming the catalogue's count, when the row is read and active. */
+export function planLines(plan: PlanColumn, rows: readonly CatalogueRow[] | null): readonly string[] {
+  if (!plan.credits || plan.price.kind !== 'paid' || !rows) return plan.lines;
+  const codes = plan.price.codes;
+  const n = rows.find((r) => r.catalogue === 'retail' && r.active && codes.includes(r.code))?.credits;
+  if (n == null || !Number.isFinite(n) || n <= 0) return plan.lines;
+  const said = plan.credits.said(formatCount(n));
+  return plan.lines.map((l, i) => (i === plan.credits!.index ? said : l));
+}
 
 /** A planned row — it wears the "Coming" chip and its ⓘ names the lane or ruling. */
 export function isComing(row: FeatureRow): boolean {

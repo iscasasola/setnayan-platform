@@ -127,7 +127,8 @@ test('2 · the authors’ names are ONE read, names only', async () => {
   const { client, urls } = fakeSupabase(() => [{ user_id: 'u2', display_name: 'Mika Santos' }]);
   const names = await readSpeakerNames(client, ['u2', 'u3']);
   assert.equal(urls.length, 1);
-  assert.equal(urls[0]!.searchParams.get('select'), 'user_id,display_name', 'the names read asks for more than names');
+  // The first and last name are names too: a person with no display name is named by them (walk F-W3-11, member names).
+  assert.equal(urls[0]!.searchParams.get('select'), 'user_id,display_name,first_name,last_name', 'the names read asks for more than names');
   assert.equal(names.get('u2'), 'Mika Santos');
   const none = fakeSupabase(() => []);
   await readSpeakerNames(none.client, []);

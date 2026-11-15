@@ -264,7 +264,7 @@ export async function SettingsSurface({ searchParams }: Props) {
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
             Last updated{' '}
-            {new Date(settings.updated_at).toLocaleString()}
+            {new Date(settings.updated_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
           </p>
           <SubmitButton
             className="button-primary inline-flex items-center gap-2"

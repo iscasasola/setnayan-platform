@@ -190,6 +190,8 @@ export const MAKER_PART_KEYS = [
   ...PE,
   'chapters',
   'pegallery',
+  /* 🎁 The gift thank-you (owner 2026-11-13, "POST EVENT = A STORY" (2)) — `gifts` is the RSVP's Gifts part, so its own key. */
+  'pegifts',
   /* ✍ THE COUPLE'S OWN SIX SCENES (`lib/custom-sections.ts` `custom_1`…`custom_6`, added by ＋ "A scene of your own").
      Owner 2026-10-17 on his own Maker, a "Your own section" just added: *"i cannot edit this"*. Measured: a tap on it
      named `w:custom_1`, no part had that canvas key, so `makerPartOfTap` answered null — the toolbar stayed on the
@@ -433,6 +435,7 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   /* The day's chapters share one marker (`p:ch-1`) and the Schedule's name; the story's Gallery is not `gallery`. */
   chapters: pe('ch-1'),
   pegallery: pe('gallery'),
+  pegifts: pe('gifts'),
   /* ✍ A scene of their own: tapped, it is picked like any scene; Edit is its Heading and Words (`stage-panel/part-words.ts`
      lists both even while the scene is still empty); Background and Animate are a `w:` scene's. Its name is the
      editor row's (`customSectionEditorLabel`, held equal by `own-scenes-are-parts.test.ts`). */
@@ -491,7 +494,7 @@ export function makerPartQuietRow(
  */
 /* 🖼 + the cover's photo (owner-approved 2026-10-16, "SIX NEW EFFECTS"): a picture with no colour, size or style cards of
    its own — it only moves. */
-export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you', 'coverphoto'];
+export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you', 'coverphoto', 'pegifts'];
 
 /**
  * 🚫 DOES A TOOL HAVE ANYTHING TO SET ON THIS PART? (owner rule: a failure never renders as success — a pill that
@@ -587,6 +590,54 @@ export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool):
   if (src?.kind === 'guests') return 'Nothing to change here — set it in Guests ⚙.';
   if (src?.kind === 'guests-view') return 'Nothing to change here — arrange it in Guests.';
   return `${MAKER_PART_TOOL_LABEL[tool]} has nothing to change on this part.`;
+}
+
+/**
+ * 📅 THE PARTS WHOSE EDIT IS THE EVENT DATE (Maker Edit shell v3, owner-approved 2026-11-13; DECISION_LOG 2026-11-13
+ * "MAKER › COUNTDOWN EDIT = THE EVENT DATE"): the Countdown and every part whose words are the date (`supplier:date` —
+ * the cover's Date). Their Edit shows the date and one button into the shipped date sheet, in place; it was a door out
+ * ("Open Info", "Change it in Suppliers"). Held by `lib/the-date-part-edits-the-date-in-place.test.ts`.
+ */
+export function makerPartEditsTheDate(key: MakerPartKey | null): boolean {
+  if (!key) return false;
+  return key === 'countdown' || MAKER_PARTS[key].source === 'supplier:date';
+}
+
+/**
+ * 🔒 A LOCKED TAB SAYS PROBLEM → SOLUTION, IN THE ROWS (Maker Edit shell v3, owner-approved 2026-11-13, "maker shell
+ * approved"; prototype `prototypes/approved_2026-11-13/maker-toolbar-fable.html` frame 5: *"A tab with nothing shows 🔒
+ * and opens Problem → Solution."*). The PROBLEM is the part's one line (`makerPartToolWhy`, unchanged); the SOLUTION
+ * is where the thing IS set; `door` is the one tap the panel ends in, where there is one in the toolbar itself (a
+ * cover word's Background: the Cover Scene). Held by `lib/a-locked-tab-says-problem-then-solution.test.ts`.
+ */
+export type MakerToolLock = { problem: string; solution: string; door: typeof MAKER_COVER_SCENE | null };
+/** 📷 The Camera keeps ONE style (owner 2026-11-13, verbatim: *"camera one style only."*) — its Style tab is locked too. */
+export const MAKER_CAMERA_STYLE_LOCK = 'The camera has one style.';
+export const MAKER_CAMERA_STYLE_FIX = 'Every guest gets the same camera, so it always looks the way they know.';
+/** The solution when the toolbar has no better door: the tool, said plainly. */
+const LOCK_FIX: Readonly<Record<MakerPartTool, string>> = {
+  edit: 'Pick another part of the page to edit it.',
+  style: 'It wears the look of the page around it.',
+  bg: 'Pick the scene it sits in to set a background.',
+  animate: 'It arrives with the scene it sits in.',
+};
+export function makerPartToolLock(key: MakerPartKey | null, tool: MakerPartTool, said?: string): MakerToolLock {
+  const problem = makerPartToolWhy(key, tool);
+  /* The toolbar said a line of its own (a SAMPLE on the canvas, an empty E-Gifts, a group of reply lines): it stays the problem. */
+  if (said !== undefined && said !== problem) return { problem: said, solution: LOCK_FIX[tool], door: null };
+  if (key === 'camera') {
+    if (tool === 'style') return { problem: MAKER_CAMERA_STYLE_LOCK, solution: MAKER_CAMERA_STYLE_FIX, door: null };
+    return { problem, solution: 'Guests use the camera as it is — the whole screen is theirs.', door: null };
+  }
+  if (key === MAKER_COVER_PHOTO && tool === 'edit') return { problem: 'The cover photo has no words to edit.', solution: MAKER_COVER_PHOTO_EDIT_WHY, door: null };
+  if (tool === 'bg' && key && makerPartParent(key) === MAKER_COVER_SCENE) {
+    return { problem: `The ${MAKER_PARTS[key].label.toLowerCase()} sits on the Cover Scene.`, solution: 'Set the background on the Cover Scene.', door: MAKER_COVER_SCENE };
+  }
+  const src = key ? makerPartSource(key) : null;
+  if (src?.kind === 'studio') return { problem: 'Nothing to change here.', solution: 'Tap the scene to open its editor.', door: null };
+  if (src?.kind === 'guests') return { problem: 'Nothing to change here.', solution: 'Set it in Guests ⚙.', door: null };
+  if (src?.kind === 'guests-view') return { problem: 'Nothing to change here.', solution: 'Arrange it in Guests.', door: null };
+  return { problem, solution: LOCK_FIX[tool], door: null };
 }
 
 /**

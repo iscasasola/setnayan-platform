@@ -2,6 +2,8 @@
 
 import { useActionState, useState } from 'react';
 import { Mic, Check } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
 import { saveBlockScript, type ScriptActionState } from '../script-actions';
 
 /**
@@ -58,7 +60,7 @@ export function ScriptComposer({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-2.5 w-full rounded-lg border border-dashed border-ink/20 px-3 py-2.5 text-left font-serif text-sm italic text-ink/35 transition hover:border-gold hover:text-ink/60"
+        className="mt-2.5 flex min-h-12 w-full items-center rounded-lg border border-dashed border-ink/20 px-3 text-left font-serif text-[15px] italic text-ink/70 hover:border-gold"
       >
         Write your line…
       </button>
@@ -71,23 +73,21 @@ export function ScriptComposer({
       <input type="hidden" name="blockId" value={blockId} />
       <input type="hidden" name="coupleName" value={coupleName} />
 
-      <p className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-ink/50">
+      <p className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">
         {isPrivate ? (
           <>
-            <span className="rounded bg-ink px-1.5 py-0.5 font-bold text-cream">
-              Not for the mic
-            </span>
+            <span className="rounded bg-ink px-1.5 py-0.5 font-bold text-cream">Not for the mic</span>
             Your note to self
           </>
         ) : (
           <>
-            <Mic className="h-3 w-3" aria-hidden />
+            <Mic className="h-4 w-4" aria-hidden />
             Your line
           </>
         )}
         {isDraft && !saved ? (
-          <span className="ml-auto rounded bg-gold/15 px-1.5 py-0.5 text-gold-dark">
-            Draft from your lines
+          <span className="ml-auto normal-case tracking-normal">
+            <Badge tone="wait" data="script-draft">Draft from your lines</Badge>
           </span>
         ) : null}
       </p>
@@ -110,28 +110,28 @@ export function ScriptComposer({
       />
 
       {unfilled.length > 0 ? (
-        <p className="mt-1.5 text-xs text-gold-dark">
+        <p className="mt-1.5 text-[13px] font-semibold text-warn-800">
           Fill before the day: {unfilled.map((u) => `⟨${u}⟩`).join(' · ')}
         </p>
       ) : null}
 
       <div className="mt-2 flex items-center gap-2">
-        <button
+        <ActionButton
           type="submit"
+          tone="brand"
+          icon={Check}
+          label={pending ? 'Saving…' : isDraft && !dirty ? 'Keep this line' : 'Save line'}
           disabled={pending || (!dirty && !isDraft)}
-          className="rounded-lg bg-ink px-3.5 py-1.5 text-xs font-semibold text-cream disabled:opacity-40"
-        >
-          {pending ? 'Saving…' : isDraft && !dirty ? 'Keep this line' : 'Save line'}
-        </button>
+        />
         {saved ? (
-          <span className="flex items-center gap-1 text-xs text-sage-deep">
-            <Check className="h-3.5 w-3.5" aria-hidden />
+          <span className="flex items-center gap-1 text-[13px] font-semibold text-success-700">
+            <Check className="h-4 w-4" aria-hidden />
             {state.message}
           </span>
         ) : state.status === 'error' ? (
-          <span className="text-xs text-terracotta-700">{state.message}</span>
+          <span role="alert" className="text-[13px] font-semibold text-danger-700">{state.message}</span>
         ) : (
-          <span className="ml-auto text-[11px] text-ink/40">
+          <span className="ml-auto text-[13px] text-ink/70">
             Saves to this moment — moves if they move it
           </span>
         )}

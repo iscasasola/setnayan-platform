@@ -187,7 +187,7 @@ test('Post Event — the approved default, and a couple’s saved order still wi
   assert.deepEqual(draftToScenes({}).map((r) => r.key), [
     'cover', 'before', 'numbers', 'chapters', 'gallery', 'film', 'videos', 'you',
     'wishes', 'asked', 'letters', 'seating', 'vendors', 'entourage', 'wall', 'said', 'powered', 'loved', 'beforeAfter',
-    'couple', 'song', 'next',
+    'gifts', 'couple', 'song', 'next',
   ]);
   const saved = ['kwento', 'chapters', 'watchFilm', 'gallery'];
   assert.deepEqual(resolveSectionOrder(saved).slice(0, 4), saved, 'the couple’s order leads, as saved');
@@ -203,7 +203,7 @@ test('Post Event — the page draws “Were you there?” right after the film, 
   assert.match(page, /<StorySpine\s+coverScene=\{coverScene\}\s+hideRoad=\{[^}]+\}\s+you="none"/);
   // …and it is drawn alone, by the spine's own code, right after the film block.
   assert.match(page, /const youScene = \(\s*<StorySpine\s+you="only"/);
-  assert.match(page, /if \(k === 'watchFilm'\) \{\s*return \(\s*<Fragment key=\{k\}>\s*\{node\}\s*\{youScene\}\s*<\/Fragment>/);
+  assert.match(page, /if \(k === 'watchFilm'\) \{\s*return \(\s*<Fragment key=\{k\}>\s*\{node\}\s*(?:<div data-story-screen="">)?\{youScene\}(?:<\/div>)?\s*<\/Fragment>/); // 📖 its own screen in a Story (2026-11-13)
   assert.equal(page.split('{youScene}').length - 1, 1, 'drawn exactly once');
   assert.match(spine, /if \(you === 'only'\) return youScene;/);
   assert.match(spine, /\{you === 'here' \? youScene : null\}/);

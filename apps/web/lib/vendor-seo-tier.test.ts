@@ -126,7 +126,7 @@ test('gate ON: unknown tier degrades to the FREE (basic) plan, never to a paid o
   }
 });
 
-test('gate ON: enhanced SEO+GEO unlocks at Solo and never below', () => {
+test('gate ON: enhanced SEO+GEO unlocks at Supplier Plus and never below', () => {
   assert.equal(vendorSeoPlan('free', true).entityGraph, false);
   assert.equal(vendorSeoPlan('verified', true).entityGraph, false);
   assert.equal(vendorSeoPlan('solo', true).entityGraph, true);
@@ -144,7 +144,7 @@ test('gate ON: AEO offer graph unlocks at Pro and never below', () => {
 
 // ── ladder shape ─────────────────────────────────────────────────────────────
 
-test('ladder · SEO level is monotonic Free ≤ Verified ≤ Solo ≤ Pro ≤ Enterprise', () => {
+test('ladder · SEO level is monotonic Free ≤ Verified ≤ Supplier Plus ≤ Pro ≤ Enterprise', () => {
   const order: VendorTier[] = ['free', 'verified', 'solo', 'pro', 'enterprise'];
   for (let i = 1; i < order.length; i += 1) {
     const lo = SEO_LEVEL_RANK[vendorSeoLevel(order[i - 1])];
@@ -392,7 +392,7 @@ test('the /v/[slug] JSON-LD gates both paid enrichments through vendorSeoPlan', 
   );
   assert.ok(
     src.includes('seoPlan.entityGraph'),
-    'knowsAbout (GEO · Solo+) must be gated on seoPlan.entityGraph',
+    'knowsAbout (GEO · Supplier Plus and up) must be gated on seoPlan.entityGraph',
   );
   assert.ok(
     src.includes('seoPlan.offerGraph'),

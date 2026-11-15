@@ -5,6 +5,8 @@ import { Camera, Image as ImageIcon, ScanLine, SwitchCamera, X } from 'lucide-re
 import { cameraDressTint, cameraInkOn } from '@/lib/camera-dress';
 import { FocusCorners } from '@/app/papic/guest/_components/camera-focus-corners';
 import { InfoTip } from '@/app/_components/info-tip';
+import { MAKER_CAMERA_STYLE_FIX, MAKER_CAMERA_STYLE_LOCK } from '@/lib/maker-parts';
+import { ToolLock } from './tool-lock';
 
 /**
  * 🖼 THE CAMERA'S SCREEN, DRAWN — the ONE guest camera, for the Maker's Camera page (owner 2026-10-24, verbatim:
@@ -162,13 +164,23 @@ export function CameraFace({ pro, logo, accent }: { pro: boolean; logo: string |
  * inside the ⓘ"). Nothing here saves anything.
  */
 export function CameraPartNote({ pro }: { pro: boolean }) {
+  /* 🔒 ONE STYLE (owner 2026-11-13, verbatim: "camera one style only."): Style is a locked tab — Problem → Solution, the
+     Maker Edit shell's own panel — and what the camera wears, with the detail in the ⓘ. */
   return (
-    <div data-camera-part-note="" className="flex min-h-0 flex-1 flex-col justify-center gap-1 px-1 py-2 text-[13px] text-ink/75">
-      <InfoTip label="One camera for every guest" labelClassName="font-semibold text-ink" align="start">
-        Every guest gets the same camera. Free events: a plain camera, and a small Setnayan mark on the saved photos. With
-        Logo &amp; QR or Full Pro: your logo on the shutter, your colours, and your monogram on the saved photos.
-      </InfoTip>
-      <p className="text-[12.5px] text-ink/60">{pro ? 'Wearing your logo and colours.' : 'Plain — your logo and colours come with Logo & QR.'}</p>
+    <div data-camera-part-note="" className="flex min-h-0 flex-1 flex-col">
+      <ToolLock
+        problem={MAKER_CAMERA_STYLE_LOCK}
+        solution={MAKER_CAMERA_STYLE_FIX}
+        more={
+          <div className="flex min-w-0 flex-col gap-0.5 text-[12.5px] text-ink/60">
+            <InfoTip label="One camera for every guest" labelClassName="font-semibold text-ink" align="start">
+              Every guest gets the same camera. Free events: a plain camera, and a small Setnayan mark on the saved photos. With
+              Logo &amp; QR or Full Pro: your logo on the shutter, your colours, and your monogram on the saved photos.
+            </InfoTip>
+            <span>{pro ? 'Wearing your logo and colours.' : 'Plain — your logo and colours come with Logo & QR.'}</span>
+          </div>
+        }
+      />
     </div>
   );
 }

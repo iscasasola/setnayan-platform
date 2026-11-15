@@ -27,6 +27,13 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MODAL = path.join(HERE, 'new-manual-vendor-modal.tsx');
+/**
+ * Since 2026-11-13 the Price row is "How the price works ▾" (One price · Per guest · Per hour), and the row itself
+ * lives in `price-basis-rows.tsx` — shared with the record card's edit fold. The sheet MOUNTS it; the component
+ * renders `total_cost_php`. Both halves are asserted below: the mount in the sheet, and the field in the component.
+ */
+const PRICE_ROWS = path.join(HERE, 'price-basis-rows.tsx');
+const PRICE_FIELD = /\b(?:name|fieldName)="total_cost_php"/g;
 
 /**
  * field → the string that proves it is RENDERED, not merely imported.
@@ -40,12 +47,20 @@ const EIGHT: ReadonlyArray<readonly [string, RegExp]> = [
   ['Address pin', /<AddressPinField\b/],
   ['Services covered', /<ServicesCoveredPicker\b/],
   ['Inclusions', /\b(?:name|fieldName)="inclusions"/],
-  ['Price', /\b(?:name|fieldName)="total_cost_php"/],
+  ['Price', /<PriceBasisRows\b/],
   ['Payment plan', /<PaymentPlanRows\b/],
 ];
 
 describe('the add-manually sheet carries all eight fields', () => {
   const src = readFileSync(MODAL, 'utf8');
+
+  it('renders Price — the mounted row really draws the total_cost_php field', () => {
+    assert.equal(
+      (readFileSync(PRICE_ROWS, 'utf8').match(PRICE_FIELD) ?? []).length,
+      1,
+      'price-basis-rows.tsx no longer renders total_cost_php exactly once — the sheet mounts it for its Price.',
+    );
+  });
 
   it('found the sheet', () => {
     assert.ok(src.includes('Add a contact') || src.includes('Add manually'), 're-point this guard');
@@ -87,10 +102,14 @@ describe('one save, and one writer per fact', () => {
       'the post-save panel has a price input again — the sheet already owns ' +
         'total_cost_php, so this is a second writer of one column.',
     );
+    // The sheet's one price field lives in the row it mounts (price-basis-rows.tsx); counted across BOTH files,
+    // so a second input in either is still a second writer.
+    const rows = readFileSync(PRICE_ROWS, 'utf8');
     assert.equal(
-      (src.match(/\b(?:name|fieldName)="total_cost_php"/g) ?? []).length,
+      (src.match(PRICE_FIELD) ?? []).length + (rows.match(PRICE_FIELD) ?? []).length,
       1,
-      'total_cost_php is rendered more than once in this file.',
+      'total_cost_php is rendered more than once across the sheet and its price row.',
     );
+    assert.equal((src.match(/<PriceBasisRows\b/g) ?? []).length, 1, 'the sheet mounts its price row more than once.');
   });
 });

@@ -1737,19 +1737,67 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 0,
   },
   {
-    // 6-menu respine 2026-07-03: the mobile Home tab is now "Overview" — the
-    // merged Home+Work task inbox (key stays 'home' so an existing admin
-    // label/icon override survives).
-    key: "admin.bottom-nav.home",
+    // 🛠 THE FIVE ADMIN TABS (owner 13 Nov 2026, "admin has been ok'ed" — prototypes/admin_pub): Work · Money ·
+    // People · Catalogue · Insights, no More. NEW keys, one per tab (`lib/admin/admin-tabs.ts`), so an override
+    // written for the retired Today / People / Money / More strip cannot rename a tab it was never about.
+    key: "admin.bottom-nav.work",
     scope: "admin",
     area: "admin-bottom-nav",
     route: "/admin",
-    label: "Today",
+    label: "Work",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "Home",
+    lucideName: "Inbox",
     customRef: null,
     sortOrder: 0,
+  },
+  {
+    key: "admin.bottom-nav.money",
+    scope: "admin",
+    area: "admin-bottom-nav",
+    route: "/admin/payments",
+    label: "Money",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Banknote",
+    customRef: null,
+    sortOrder: 1,
+  },
+  {
+    key: "admin.bottom-nav.people",
+    scope: "admin",
+    area: "admin-bottom-nav",
+    route: "/admin/accounts",
+    label: "People",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Users",
+    customRef: null,
+    sortOrder: 2,
+  },
+  {
+    key: "admin.bottom-nav.catalogue",
+    scope: "admin",
+    area: "admin-bottom-nav",
+    route: "/admin/categories",
+    label: "Catalogue",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "LayoutGrid",
+    customRef: null,
+    sortOrder: 3,
+  },
+  {
+    key: "admin.bottom-nav.insights",
+    scope: "admin",
+    area: "admin-bottom-nav",
+    route: "/admin/app-performance",
+    label: "Insights",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "LineChart",
+    customRef: null,
+    sortOrder: 4,
   },
   {
     // "All work" — desktop entry to the /admin/work command center (the ranked
@@ -2525,33 +2573,5 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: "CircleUser",
     customRef: null,
     sortOrder: 53,
-  },
-  {
-    // 6-menu respine 2026-07-03: Directory tab renders "Accounts" (key stays
-    // 'directory' so an existing override survives). The old Work + Money tab
-    // defaults were REMOVED with their tabs — Work merged into Overview, Money
-    // config moved to System Settings (More) + Marketing.
-    key: "admin.bottom-nav.directory",
-    scope: "admin",
-    area: "admin-bottom-nav",
-    route: "/admin/directory",
-    label: "People",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Users",
-    customRef: null,
-    sortOrder: 1,
-  },
-  {
-    key: "admin.bottom-nav.more",
-    scope: "admin",
-    area: "admin-bottom-nav",
-    route: "/admin/more",
-    label: "More",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Menu",
-    customRef: null,
-    sortOrder: 4,
   },
 ];

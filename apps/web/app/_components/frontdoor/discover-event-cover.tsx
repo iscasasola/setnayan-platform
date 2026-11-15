@@ -25,43 +25,50 @@
  * A picture that fails to load is an `alt=""` image, which draws nothing — so
  * the mark shows through with no `onError` and no client island of our own.
  *
- * No words are printed ON a photo here — the title sits below the cover and
- * the date plate is its own opaque chip — so a photo gets no veil. A theme's
- * still keeps the hub's measured scrim (`--hub-scrim`), because that scrim is
- * part of how the theme looks.
+ * 🗓 NAME ONLY, NO DATE (owner 2026-11-13): the cover prints the event's name
+ * and never a date — no corner date plate, no date line on the poster. A
+ * picture with no poster words gets no veil; a theme's still keeps the hub's
+ * measured scrim (`--hub-scrim`), because that scrim is part of how the theme
+ * looks.
  */
 import type { CSSProperties } from 'react';
 
-import type { DiscoverEventCard, DiscoverPaperGround } from '@/lib/discover-events-core';
+import type { DiscoverEventCard } from '@/lib/discover-events-core';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
-import { EventPoster } from '../event-poster';
+import { EventPoster, paperGroundStyle } from '../event-poster';
+
+type CoverFacts = Pick<DiscoverEventCard, 'cover' | 'scene' | 'paper' | 'scenePoster'>;
+
+/** Which cover the card wears: a picture (not a wake's), else the paper card, else the mark alone. */
+function coverOf(card: CoverFacts) {
+  const scene = card.scene && card.scene.kind !== 'quiet' ? card.scene : null;
+  const paper = scene ? null : card.paper;
+  return { scene, paper };
+}
+
+/**
+ * 🔁 THE COVER ALREADY SAYS THE NAME (owner 2026-10-11, *"yes ad drop so it is not twice"*; approved again
+ * with #7540 on 2026-11-13). True when the cover prints the event's names — the invitation on their photo,
+ * or the paper card — so the card drops its title line under the cover. A bare picture or the mark alone
+ * prints no name, and keeps the line.
+ */
+export function coverPrintsTheName(card: CoverFacts): boolean {
+  const { scene, paper } = coverOf(card);
+  return Boolean((scene && card.scenePoster) || paper);
+}
 
 /**
  * The couple's paper as the paper card's ground: the hub's own channels, the
  * poster's paper made transparent over them, and its ink following the hub's
  * legibility answer. Every value was built from parsed hexes (`guestLookFrom`).
  */
-function paperGroundStyle(g: DiscoverPaperGround): CSSProperties {
-  const style: Record<string, string> = { '--m-paper': 'transparent' };
-  if (g.cream) {
-    style['--color-cream'] = g.cream;
-    style.backgroundColor = 'rgb(var(--color-cream))';
-  }
-  if (g.ink) {
-    style['--color-ink'] = g.ink;
-    style['--m-ink'] = 'rgb(var(--color-ink))';
-  }
-  if (g.ombre) style.backgroundImage = g.ombre;
-  return style as CSSProperties;
-}
 
 export function DiscoverEventCover({
   card,
 }: {
-  card: Pick<DiscoverEventCard, 'cover' | 'datePlate' | 'scene' | 'paper'>;
+  card: CoverFacts;
 }) {
-  const scene = card.scene && card.scene.kind !== 'quiet' ? card.scene : null;
-  const paper = scene ? null : card.paper;
+  const { scene, paper } = coverOf(card);
   return (
     <div
       className="fd-thumb fd-thumb-event"
@@ -71,7 +78,22 @@ export function DiscoverEventCover({
       <span className="fd-mono-cover" aria-hidden="true">
         {card.cover}
       </span>
-      {scene ? (
+      {scene && card.scenePoster ? (
+        /* 🖼 THE INVITATION ON THE PICTURE (owner 2026-11-12: *"the event icons are not similar?"*). The
+           home board printed the couple's names and date on their photo while this card showed the bare
+           photo. It now draws the SAME `<EventPoster>` from the same poster facts, so one event wears one
+           cover on Home and on Discover. The poster brings its own measured legibility tones and scrim. */
+        <div className="fd-paper fd-scene-poster">
+          <EventPoster
+            poster={card.scenePoster.poster}
+            markText={card.scenePoster.markText}
+            markSvgUri={card.scenePoster.markSvg ? bespokeSvgToDataUri(card.scenePoster.markSvg) : null}
+            markSvg={card.scenePoster.markSvg}
+            markPlays={card.scenePoster.markPlays}
+            nameOnly
+          />
+        </div>
+      ) : scene ? (
         <>
           {/* A presigned R2 URL or the theme's public still — a plain <img>:
               the signing host is not in the next/image allowlist. */}
@@ -92,10 +114,10 @@ export function DiscoverEventCover({
             markSvgUri={paper.markSvg ? bespokeSvgToDataUri(paper.markSvg) : null}
             markSvg={paper.markSvg}
             markPlays={paper.markPlays}
+            nameOnly
           />
         </div>
       ) : null}
-      <span className="fd-date">{card.datePlate}</span>
     </div>
   );
 }

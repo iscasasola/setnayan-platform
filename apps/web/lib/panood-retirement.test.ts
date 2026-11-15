@@ -127,8 +127,9 @@ test('⚠ it removed the BUY, never the LAUNCH — a Cast buyer keeps their room
   // ownership (section 3 below proves that against a stubbed client), so the surviving
   // Live Studio surface resolves to the 'launch' state and opens the controller for
   // them. Nothing about their access ran through the page that was retired.
+  // 💎 Event Ultra (owner 2026-11-13) also confers Live Watch — the Cast codes must still be there, beside it.
   assert.deepEqual(
-    [...(SKU_OWNERSHIP_ALIASES.LIVE_STUDIO ?? [])].sort(),
+    [...(SKU_OWNERSHIP_ALIASES.LIVE_STUDIO ?? [])].filter((k) => k !== 'EVENT_ULTRA').sort(),
     [...PANOOD_PAID_SKUS].sort(),
     'a Cast buyer must still resolve as a Live Studio owner after the page is gone',
   );
@@ -210,7 +211,7 @@ test('a COMPED LIVE_STUDIO grant still resolves after retirement', async () => {
 });
 
 test('the alias is UNCHANGED — this PR retires a row, it does not rewrite ownership', () => {
-  assert.deepEqual(SKU_OWNERSHIP_ALIASES.LIVE_STUDIO, [...PANOOD_PAID_SKUS]);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.LIVE_STUDIO, [...PANOOD_PAID_SKUS, 'EVENT_ULTRA']);
   assert.deepEqual([...PANOOD_PAID_SKUS], ['PANOOD_SYSTEM', 'PANOOD_SYSTEM_MOBILE']);
 });
 

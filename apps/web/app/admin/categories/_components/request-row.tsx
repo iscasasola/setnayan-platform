@@ -36,6 +36,13 @@ export function RequestDraftNotes({ draft }: { draft: RequestDraft | null }) {
           ))}
         </ul>
       ) : null}
+      {draft.description ? <p className="text-ink/80">{draft.description}</p> : null}
+      {draft.searchWords && draft.searchWords.length > 0 ? (
+        <p className="text-xs text-ink/70">search words: {draft.searchWords.join(' · ')}</p>
+      ) : null}
+      {draft.inspirations && draft.inspirations.length > 0 ? (
+        <p className="text-xs text-ink/70">inspiration parts: {draft.inspirations.join(' · ')}</p>
+      ) : null}
       <p className="text-xs text-ink/70">
         {draft.suggestedTileLabel
           ? `suggested place: ${draft.suggestedTileLabel}${draft.tileReason ? ` — ${draft.tileReason}` : ''} · the weakest part of any draft, check it`

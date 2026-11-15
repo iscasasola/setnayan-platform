@@ -9,7 +9,7 @@
  *
  * The screen render is the sheet as it will be CUT: clipped to the theme's die
  * shape, no bleed, no spot layers. ⚠ A PRO-THEMED vector is only ever served
- * to a couple who holds Event Hub Pro; the free themes — Classic (owner
+ * to a couple who holds Event Pro; the free themes — Classic (owner
  * 2026-09-25, "EVERY PRINT IS FREE IN THE CLASSIC LOOK"), Modern and Cyber Neon
  * (2026-09-29) — are free for everyone, and so is the free group's page-1
  * thumbnail. A free couple's screen copy of a PRO-THEMED piece is

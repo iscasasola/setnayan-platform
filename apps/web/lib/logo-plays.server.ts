@@ -13,7 +13,7 @@ import { coupleLogoPlays } from '@/lib/couple-logo-plays';
  * The SAME gate as the Event Hub hero (`resolveEventMonogram`,
  * `app/[slug]/_lib/loaders.ts`) and the RSVP crest: (a) the couple owns the
  * logo animation (`eventAnimatedMonogramActive` — paid and approved, or
- * included with Event Hub Pro) AND (b) they have not chosen "Use Static Image"
+ * included with Event Pro) AND (b) they have not chosen "Use Static Image"
  * (`markAnimationSwitchedOff`). This file only fetches those two inputs for a
  * surface that does not already hold them. Asked with an admin client
  * because orders RLS is purchaser-scoped and several of these screens are a

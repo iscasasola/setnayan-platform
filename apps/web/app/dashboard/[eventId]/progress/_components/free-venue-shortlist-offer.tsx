@@ -22,6 +22,10 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
+import { Badge } from '@/app/_components/badge';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
+import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import {
   FREE_VENUE_ASSIST_BADGE,
   FIRST_VENUE_SHORTLIST_OFFER_TITLE,
@@ -83,18 +87,13 @@ export function FreeVenueShortlistOffer({
     });
   }
 
-  const badge = (
-    <span className="inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2.5 py-0.5 text-[11px] font-bold text-mulberry">
-      <span aria-hidden className="text-terracotta">
-        ✦
-      </span>
-      {FREE_VENUE_ASSIST_BADGE}
-    </span>
-  );
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 5 · 13 · 14): what the offer ANSWERS is a plain block — the shared soft
+  // chip, the line, a 13 px door with a › at the 44 px floor — never a tinted bordered card or a gradient-ruled tile.
+  const badge = <Badge tone="quiet">✦ {FREE_VENUE_ASSIST_BADGE}</Badge>;
 
   const benchLink = (label: string) => (
-    <Link href={benchHref} className="text-[12.5px] font-bold text-mulberry">
-      {label} →
+    <Link href={benchHref} className="inline-flex min-h-11 items-center gap-1 text-[13px] font-semibold text-terracotta-700 hover:underline">
+      {label} <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
     </Link>
   );
 
@@ -132,53 +131,46 @@ export function FreeVenueShortlistOffer({
       </>
     );
   } else {
-    body = (
-      <>
-        <p className="m-serif mt-1.5 text-lg leading-snug text-ink">
-          {FIRST_VENUE_SHORTLIST_OFFER_TITLE}
-        </p>
-        <p className="mt-1 max-w-[58ch] text-[13px] text-ink/60">
-          {FIRST_VENUE_SHORTLIST_OFFER_SUB}
-        </p>
-        <div className="mt-2.5 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={run}
-            disabled={working}
-            className="rounded-full bg-gradient-to-r from-mulberry-700 to-mulberry px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
-          >
-            {working ? 'Sai is looking…' : 'Build my venue shortlist'}
-          </button>
-          {benchLink('Browse on your own')}
-        </div>
-        {phase.error ? (
-          <p role="alert" className="mt-2 text-[12.5px] text-mulberry">
-            {phase.error}
-          </p>
-        ) : null}
-        {sell ? (
-          <p className="mt-2 text-[11.5px] text-ink/45">
-            {firstVenueShortlistUpsell(fullSaiPhp)}
-          </p>
-        ) : null}
-      </>
+    // 🔔 Inventory #29 — an OFFER (a free deal) in the one notice system (owner approved 14 Nov 2026), drawn where it
+    // stands: ◆ the offer · Build my venue shortlist · Not now (back after 30 days). The sub-line and the paid-Sai
+    // line (never in the app shell) are behind the ⓘ. What it ANSWERS (done / already / no matches) is not a notice.
+    return (
+      <InlineNotice
+        kind="offer"
+        noticeKey={`ai-venue-shortlist:${eventId}`}
+        title={FIRST_VENUE_SHORTLIST_OFFER_TITLE}
+        detail={
+          <>
+            <span className="block">{FIRST_VENUE_SHORTLIST_OFFER_SUB}</span>
+            {sell ? <span className="mt-1 block">{firstVenueShortlistUpsell(fullSaiPhp)}</span> : null}
+            {phase.name === 'idle' && phase.error ? <span className="mt-1 block text-danger-700">{phase.error}</span> : null}
+          </>
+        }
+        actions={
+          <>
+            <button type="button" onClick={run} disabled={working} className={NOTICE_ACTION}>
+              {working ? 'Sai is looking…' : 'Build my venue shortlist'}
+            </button>
+            <Link href={benchHref} className={NOTICE_ACTION}>
+              Browse on your own
+            </Link>
+          </>
+        }
+        className={variant === 'inline' ? 'mt-2.5' : ''}
+      />
     );
   }
 
   if (variant === 'inline') {
     return (
-      <div className="mt-2.5 rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-3.5 py-3">
+      <div className="mt-2.5 space-y-1">
         {badge}
         {body}
       </div>
     );
   }
   return (
-    <div className="m-card relative overflow-hidden border-terracotta/50 px-5 py-4">
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-terracotta to-transparent"
-      />
+    <div className="space-y-1 py-2">
       {badge}
       {body}
     </div>

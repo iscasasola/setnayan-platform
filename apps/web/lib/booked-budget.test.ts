@@ -36,7 +36,7 @@ const INPUTS: MoneyInputs = {
   payments: [
     { payment_id: 'p0', vendor_id: 'sd', line_item_id: null, amount_php: 26_499, paid_at: '2026-09-20T03:00:00Z' },
   ],
-  orders: [{ order_id: 'o1', description: 'Event Hub Pro', service_key: 'EVENT_HUB_PRO', requested_total_php: 2_500, confirmed_total_php: 2_500, status: 'paid', created_at: '2026-09-14T03:00:00Z' }],
+  orders: [{ order_id: 'o1', description: 'Event Pro', service_key: 'EVENT_HUB_PRO', requested_total_php: 2_500, confirmed_total_php: 2_500, status: 'paid', created_at: '2026-09-14T03:00:00Z' }],
   costs: [],
   pricing: new Map(),
   packageLockedCentavos: new Map(),

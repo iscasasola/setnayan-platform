@@ -37,14 +37,14 @@
  * thing he named instead joined it: "Photo and video backgrounds" — media behind
  * a scene or behind the whole page, which the Maker has gated since 2026-09-24.
  *
- * 🔄 EIGHT → NINE, 2026-09-24. Owner ("A then", DECISION_LOG "Event Hub Pro
+ * 🔄 EIGHT → NINE, 2026-09-24. Owner ("A then", DECISION_LOG "Event Pro
  * includes the logo animation"): `COUPLE_WEBSITE_PRO` now also confers
  * `ANIMATED_MONOGRAM` (SKU_OWNERSHIP_ALIASES in lib/entitlements.ts). The ₱500
  * standalone stays on sale; this list names the inclusion so the Pro offer
  * says what it buys.
  *
  * 🔄 SEVEN → EIGHT, 2026-09-11. Owner (Q3 = A, DECISION_LOG "the seven
- * invite-theme questions"): *"the invite theme becomes the eighth Event Hub Pro
+ * invite-theme questions"): *"the invite theme becomes the eighth Event Pro
  * item. Price and SKU unchanged."* It is not a new unlock and not a new SKU —
  * `COUPLE_WEBSITE_PRO` already gates the four Pro invite themes
  * (`app/[slug]/invite/_lib/load-invite-look.ts`), and this list is what the
@@ -62,7 +62,7 @@
  * passing its own suite. `WEBSITE_PRO_ITEMS` is still exported from
  * `pro-panels.tsx` under its old name so nothing that already imports it moves.
  *
- * ⛔ NO PRICE LIVES HERE. `COUPLE_WEBSITE_PRO` (titled "Event Hub Pro") is the
+ * ⛔ NO PRICE LIVES HERE. `COUPLE_WEBSITE_PRO` (titled "Event Pro") is the
  * ONE unlock that opens every item, and its figure is read live from
  * `platform_retail_catalog_v2` via `formatV2Sku` — never typed into source. The
  * `couple-website-pro.ts` docblock records why: three different figures for one
@@ -127,7 +127,7 @@ export const WEBSITE_PRO_ITEMS = [
   PRO_THEMES_ITEM,
   // The logo animation (owner 2026-09-24, "A then"). Granted by the
   // ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO alias; the couple meets it on the
-  // Logo Maker, where the owned state reads "Included with Event Hub Pro".
+  // Logo Maker, where the owned state reads "Included with Event Pro".
   'Animated logo',
   // The Pro QR (owner 2026-09-27: "QR on Pro makes the logo use their logo on
   // the center. and change the shape, pattern style"). Free codes carry the
@@ -162,7 +162,7 @@ export type WebsiteProItem = (typeof WEBSITE_PRO_ITEMS)[number];
  *
  * Its one member was "Editorial editing": `EDITORIAL_PRO` joined
  * `FREE_FOR_ALL_SKUS` on 2026-08-23 and `lib/couple-website-pro.ts` says *"Event
- * Hub PRO may NOT be SOLD on this inclusion while it is free."* On 2026-10-22 the
+ * Pro may NOT be SOLD on this inclusion while it is free."* On 2026-10-22 the
  * item left the list itself (owner, "Yes to all" — a free thing is not on the list
  * of what Pro buys), which is the stronger form of the same rule. The mechanism
  * stays: if a listed item ever turns free before its line comes off, it goes here

@@ -25,11 +25,15 @@ import type { ServiceCard } from '@/lib/service-card-view-model';
 // type's home is the view-model lib, which both sides of the app read.
 export type { ServiceCard };
 import type { CompiledCardRecord } from '@/lib/service-card-record';
+import { cardHideSaveError } from '@/lib/service-card-hides';
 import {
   ServiceDetailsSheet,
+  type GrownCardOwner,
   type ServiceInquireMode,
 } from './service-details-sheet';
 import { formatCount } from '@/lib/format-number';
+import { servicesFromCards } from '@/lib/photos-by-service';
+import { PhotosByServiceSheet } from './photos-by-service';
 
 export type ServiceGroup = {
   key: string;
@@ -48,7 +52,7 @@ export function ServicesGallery({
    */
   detailsEnabled = false,
   /**
-   * How the sheet's "Inquire about this" should behave — decided server-side
+   * How the sheet's "Choose this service" should behave — decided server-side
    * because only the server knows which composer is on the page. Ignored while
    * `detailsEnabled` is false.
    */
@@ -62,7 +66,14 @@ export function ServicesGallery({
   viewerSignedIn = false,
   shopName = null,
   countOpensFor = null,
+  ownerCheckFor = null,
 }: {
+  /**
+   * 🃏 THE SHOP'S OWN CARD (ruling 5970) — the shop to ask about, once, after the page: does this signed-in viewer run
+   * it? Then the grown card carries hide per card, 👁 Couple view and the card's opens. The database decides
+   * (`current_vendor_profile_ids()`); null = never ask (signed out, demo, lab).
+   */
+  ownerCheckFor?: string | null;
   groups: ServiceGroup[];
   /** The shop's name — the grown card's face says "by {shop}" under the card's name. */
   shopName?: string | null;
@@ -113,6 +124,68 @@ export function ServicesGallery({
   // The card whose details sheet is open, by `ServiceCard.id`. Seeded ONCE from
   // the deep link (lazy initial state, so a later re-render can't re-open a
   // sheet the couple already dismissed).
+  // 🃏 Asked once: is this viewer the shop? Hides start from what the server drew and change in place on a tap.
+  const [ownerOpens, setOwnerOpens] = useState<{ opens: Record<string, number> | null } | null>(null);
+  const [hides, setHides] = useState<Record<string, string[]>>(() =>
+    Object.fromEntries(groups.flatMap((g) => g.cards.map((c) => [c.id, c.hiddenOnCard ?? []]))),
+  );
+  useEffect(() => {
+    if (!ownerCheckFor || !detailsEnabled) return;
+    let live = true;
+    couplePhotoShare({ op: 'card_owner', vendorProfileId: ownerCheckFor })
+      .then((reply) => {
+        if (live && reply.op === 'card_owner' && reply.result.status === 'owner') setOwnerOpens({ opens: reply.result.opens });
+      })
+      .catch(() => {
+        /* Not known to be the shop → the card a couple sees. */
+      });
+    return () => {
+      live = false;
+    };
+  }, [ownerCheckFor, detailsEnabled]);
+  // 🃏 A toggle is drawn only once the save SUCCEEDED — never flipped first and put back, which would look like it
+  // worked. While it saves the item is marked busy; a failed or refused save leaves it as it was and says so.
+  const [pendingHide, setPendingHide] = useState<Record<string, string[]>>({});
+  const [hideError, setHideError] = useState<Record<string, string | null>>({});
+  const toggleHide = (cardId: string, key: string, hide: boolean) => {
+    if ((pendingHide[cardId] ?? []).includes(key)) return;
+    const busy = (on: boolean) =>
+      setPendingHide((p) => {
+        const cur = new Set(p[cardId] ?? []);
+        if (on) cur.add(key);
+        else cur.delete(key);
+        return { ...p, [cardId]: [...cur] };
+      });
+    busy(true);
+    setHideError((e) => ({ ...e, [cardId]: null }));
+    const settle = (error: string | null) => {
+      busy(false);
+      if (error) {
+        setHideError((e) => ({ ...e, [cardId]: error }));
+        return;
+      }
+      setHides((h) => {
+        const cur = new Set(h[cardId] ?? []);
+        if (hide) cur.add(key);
+        else cur.delete(key);
+        return { ...h, [cardId]: [...cur] };
+      });
+    };
+    couplePhotoShare({ op: 'card_hide', vendorServiceId: cardId, key, hidden: hide })
+      .then((reply) => settle(cardHideSaveError(reply.op === 'card_hide' ? reply.result : null, hide)))
+      .catch(() => settle(cardHideSaveError(null, hide)));
+  };
+  const ownerFor = (cardId: string): GrownCardOwner | null =>
+    ownerOpens
+      ? {
+          hidden: new Set(hides[cardId] ?? []),
+          saving: new Set(pendingHide[cardId] ?? []),
+          saveError: hideError[cardId] ?? null,
+          onToggle: (key, hide) => toggleHide(cardId, key, hide),
+          opens: ownerOpens.opens === null ? null : (ownerOpens.opens[cardId] ?? 0),
+        }
+      : null;
+
   const [openCardId, setOpenCardId] = useState<string | null>(() => {
     if (!detailsEnabled || !openServicePublicId) return null;
     for (const g of groups) {
@@ -139,6 +212,11 @@ export function ServicesGallery({
   const openCard = openCardId
     ? (groups.flatMap((g) => g.cards).find((c) => c.id === openCardId) ?? null)
     : null;
+
+  // 📸 Ⓐ PHOTOS BY SERVICE (owner 2026-11-14): the service named on each card opens every photo of that service, from
+  // every card in it — the same view the Portfolio's row opens. Built from the cards already here; nothing is fetched.
+  const photoServices = useMemo(() => servicesFromCards(groups.flatMap((g) => g.cards)), [groups]);
+  const [openService, setOpenService] = useState<string | null>(null);
 
   return (
     <div className="space-y-5">
@@ -172,6 +250,15 @@ export function ServicesGallery({
               <ServiceCardView
                 card={withViewerLooks(c)}
                 path={g.label}
+                pathLead={
+                  c.serviceKey && c.serviceLabel
+                    ? {
+                        label: c.serviceLabel,
+                        onPress: () => setOpenService(c.serviceKey ?? null),
+                        ariaLabel: `See every ${c.serviceLabel} photo from ${shopName ?? 'this shop'}`,
+                      }
+                    : null
+                }
                 detailsEnabled={detailsEnabled}
                 onOpen={(from) => {
                   originRef.current = from;
@@ -183,6 +270,13 @@ export function ServicesGallery({
         )}
       </ul>
 
+      <PhotosByServiceSheet
+        view={photoServices.find((v) => v.key === openService) ?? null}
+        open={openService !== null}
+        onClose={() => setOpenService(null)}
+        ownerShopId={ownerCheckFor}
+      />
+
       {/* ONE sheet for the whole gallery, not one per card — mounting a dialog
           per card would put N focus-trap subscriptions on the page for a screen
           only ever open on one of them. */}
@@ -193,6 +287,7 @@ export function ServicesGallery({
           inquireMode={inquireMode}
           shopName={shopName}
           from={originRef.current}
+          owner={ownerFor(openCard.id)}
           onClose={() => setOpenCardId(null)}
         />
       ) : null}

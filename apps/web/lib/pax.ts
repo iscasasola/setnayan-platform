@@ -4,6 +4,7 @@ import { guestListIsClosed } from './guest-list-closed';
 import { computeAddedPaxSurcharge } from './added-pax-surcharge';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from './guests';
 import { eventRowOnce } from '@/lib/event-row-once';
+import { withBookingMoney } from '@/lib/event-vendor-money';
 
 // Which guests count toward the live pax (events.headcount_basis). 'attending'
 // = sure guests only (owner-locked default). Mirrors the same union in
@@ -285,14 +286,14 @@ export async function fetchVendorPaxProposals(
     return [];
   }
 
-  const { data: rows } = await supabase
+  // 🔒 total_cost_php + pax_surcharge_php come from event_vendor_money_read (#5936), not the row select.
+  const { data: rawRows } = await supabase
     .from('event_vendors')
-    .select(
-      'vendor_id, category, vendor_name, service_id, status, total_cost_php, pax_quote_base, pax_surcharge_php, cost_basis_pax',
-    )
+    .select('vendor_id, category, vendor_name, service_id, status, pax_quote_base, cost_basis_pax')
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', vendorProfileId);
-  if (!rows || rows.length === 0) return [];
+  if (!rawRows || rawRows.length === 0) return [];
+  const rows = await withBookingMoney(supabase, eventId, rawRows);
 
   const serviceIds = Array.from(
     new Set(rows.map((r) => r.service_id).filter((v): v is string => !!v)),

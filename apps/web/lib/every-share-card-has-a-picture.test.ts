@@ -19,7 +19,8 @@
  * too, so the list can only shrink.
  *
  * SABOTAGE: delete `images: BRAND_OG_IMAGES,` from app/(shell)/pricing/page.tsx → RED.
- * SABOTAGE: delete `images: BRAND_TWITTER_IMAGES,` from app/(shell)/explore/page.tsx → RED.
+ * SABOTAGE: delete `images: BRAND_TWITTER_IMAGES,` from app/(shell)/pricing/page.tsx → RED. (Was explore/page.tsx,
+ * which is gone since 2026-11-12 — /explore forwards to Discover.)
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -121,7 +122,8 @@ test('every page that writes its own share card names its picture', () => {
     'A page declares its own openGraph / twitter object without `images`, which REPLACES the layout\'s brand ' +
       "card — a shared link previews blank. Add `images: BRAND_OG_IMAGES` (twitter: `BRAND_TWITTER_IMAGES`) from lib/brand-og.ts.",
   );
-  for (const f of ['app/(shell)/features/(hub)/page.tsx', 'app/(shell)/tl/features/(hub)/page.tsx', 'app/(shell)/pricing/page.tsx', 'app/(shell)/explore/page.tsx', 'app/(shell)/for-suppliers/page.tsx']) {
+  for (const f of ['app/(shell)/features/(hub)/page.tsx', 'app/(shell)/tl/features/(hub)/page.tsx', 'app/(shell)/pricing/page.tsx', 'app/(shell)/for-suppliers/page.tsx']) {
+    // 2026-11-12: '/explore' left this list — it is no longer a page (308 → Discover `/`).
     assert.ok(!files.has(f), `${f} — one of the five the live check found blank`);
   }
   const stale = Object.keys(KNOWN).filter((k) => !files.has(k));

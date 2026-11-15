@@ -102,6 +102,15 @@ export type CategoryProposalDraft = {
   closestExisting: string | null;
   nearMatches: NearMatch[];
   draftedBy: string;
+  /**
+   * 2026-11-13 (owner: "have AI analyze it and create their inspirations, their tags, their
+   * description … ONLY if the service is really a new service"). Drafted for a `new` verdict only;
+   * absent on an `existing` one and on the lexical arm. Suggestions for the admin, never published
+   * by themselves.
+   */
+  description?: string | null;
+  searchWords?: string[];
+  inspirations?: string[];
 };
 
 const LABEL_MIN = 2;
@@ -210,7 +219,10 @@ export function buildDraftPrompt(
     '  "closest_existing": "a trade key from the list, only when verdict is existing, else null",',
     '  "near_matches": [',
     '    { "canonical_service": "a trade key from the list", "why_not": "one short sentence" }',
-    '  ]',
+    '  ],',
+    '  "description": "only when verdict is new: two plain sentences a couple reads on the service page, else null",',
+    '  "search_words": ["only when verdict is new: up to 8 words or short phrases couples would type"],',
+    '  "inspirations": ["only when verdict is new: up to 8 parts of the service a couple picks looks for"]',
     '}',
     '',
     `Give at most ${MAX_NEAR_MATCHES} near_matches — the closest things we ` +
@@ -290,7 +302,7 @@ export function parseDraftReply(
     nearMatches.push({ canonicalService: key, label: trade.label, whyNot });
   }
 
-  return {
+  const draft: CategoryProposalDraft = {
     suggestedLabel: name,
     suggestedTileId,
     tileReason,
@@ -299,6 +311,35 @@ export function parseDraftReply(
     nearMatches,
     draftedBy: model.slice(0, 60),
   };
+  // The fuller draft is for a TRULY new service only; an `existing` verdict sends the supplier to
+  // that service instead, so describing a second one would be noise.
+  if (verdictRaw === 'new') {
+    const description = clamp(body.description, DESCRIPTION_MAX);
+    const searchWords = shortList(body.search_words, 40);
+    const inspirations = shortList(body.inspirations, 60);
+    if (description) draft.description = description;
+    if (searchWords.length) draft.searchWords = searchWords;
+    if (inspirations.length) draft.inspirations = inspirations;
+  }
+  return draft;
+}
+
+const DESCRIPTION_MAX = 600;
+const SHORT_LIST_MAX = 8;
+
+/** Up to 8 distinct non-empty strings, each clamped — anything else in the reply is dropped. */
+function shortList(value: unknown, each: number): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const v of value) {
+    if (out.length >= SHORT_LIST_MAX) break;
+    const t = clamp(v, each);
+    if (!t || t.length < 2 || seen.has(t.toLowerCase())) continue;
+    seen.add(t.toLowerCase());
+    out.push(t);
+  }
+  return out;
 }
 
 /**

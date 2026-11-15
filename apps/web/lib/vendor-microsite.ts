@@ -5,9 +5,9 @@ import { asVendorTier } from './vendor-tier-caps';
 /**
  * Website-tier capability gate (owner 2026-07-03 tier ladder). Maps a vendor's
  * subscription `tier_state` to what the microsite editor unlocks:
- *   - canPersonalize (Solo+): About · accent · featured services · sections
+ *   - canPersonalize (Supplier Plus and up): About · accent · featured services · sections
  *   - canPremium (Pro+): custom slug · hero photo · pinned review · editorials
- *     + the 2-column public layout (mirrors tierCaps.premiumPage — NOT customWebsiteName, which is Solo+ since 2026-11-04)
+ *     + the 2-column public layout (mirrors tierCaps.premiumPage — NOT customWebsiteName, which is Supplier Plus and up since 2026-11-04)
  *   - isEnterprise: the cinematic flagship layer
  * Free / Verified get the clean auto-composed page (no customization).
  */
@@ -16,7 +16,7 @@ export function micrositeCan(tierState: string | null | undefined): {
   canPremium: boolean;
   isEnterprise: boolean;
 } {
-  // Rank is the website ladder Free/Verified 0 · Solo 1 · Pro 2 · Ultra (enterprise) 3.
+  // Rank is the website ladder Free/Verified 0 · Supplier Plus 1 · Pro 2 · Ultra (enterprise) 3.
   const t = asVendorTier(tierState ?? null);
   const rank = t === 'enterprise' ? 3 : t === 'pro' ? 2 : t === 'solo' ? 1 : 0;
   return { canPersonalize: rank >= 1, canPremium: rank >= 2, isEnterprise: rank >= 3 };
@@ -282,7 +282,7 @@ export function isSectionVisible(
 }
 
 /**
- * Curated accent presets (Solo control) — each a hand-tuned 3-stop ramp (base · hover · deepest) that mirrors the
+ * Curated accent presets (Supplier Plus control) — each a hand-tuned 3-stop ramp (base · hover · deepest) that mirrors the
  * default champagne ramp's lightness relationships, so retinting stays legible on the microsite. A preset is stored
  * as its KEY; the ramp lives in code so it can be tuned later without a migration. `null` / unknown = the default
  * champagne accent (no override).

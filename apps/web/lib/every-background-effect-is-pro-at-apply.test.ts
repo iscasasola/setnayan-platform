@@ -1,8 +1,8 @@
 /**
- * ◆ EVERY BACKGROUND EFFECT IS EVENT HUB PRO — TRIED FREE IN THE MAKER, NAMED AT ✓ APPLY; FREE EVENTS KEEP WHAT THEY
+ * ◆ EVERY BACKGROUND EFFECT IS EVENT PRO — TRIED FREE IN THE MAKER, NAMED AT ✓ APPLY; FREE EVENTS KEEP WHAT THEY
  * PUBLISHED.
  *
- * Owner, 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO ◆"): *"all animate,
+ * Owner, 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT PRO ◆"): *"all animate,
  * effects, styles, accents are pro"* — "using the shipped pattern: tried free in the Maker, named at ✓ Apply" (the
  * #6623 pattern), and *"free events keep what they already published"*. The eight effects that lie on the main
  * background (Soft haze · Bokeh lights · Gold dust · Petal drift · Lanterns · Gold shimmer · Light leak · Film grain,
@@ -105,5 +105,5 @@ test('(4) the Maker writes every tap to the draft — no try-only path, no See P
   assert.match(block, /if \(fx\) pickLook\(\{ main: withEffect\(current, effectWith\(fx, change\)\) \}, FAILED, \{ fx: true \}\);/);
   assert.match(cards, /pro=\{locked && AMBIENT_EFFECT_IS_PRO\[kind\]\}/);
   // ◆ only while TRIED: `makerProMark` answers 'unlocked' (truthy) for an owner — a Pro couple sees no mark.
-  assert.match(block, /locked=\{proMark === 'try'\}/, 'an owner of Event Hub Pro is shown ◆ on every effect');
+  assert.match(block, /locked=\{proMark === 'try'\}/, 'an owner of Event Pro is shown ◆ on every effect');
 });

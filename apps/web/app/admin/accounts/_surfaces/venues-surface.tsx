@@ -265,7 +265,6 @@ export async function VenuesSurface({
             q || typeFilter || cityFilter
               ? 'The read went through and returned nothing for this search. Clear the filters to see the whole directory.'
               : 'Nothing has been curated into the directory yet. Add the first venue and it becomes available to the Paired-Venue panel.',
-          verifiedNote: 'Verified: read permitted · 0 venues matched',
         }}
         columns={[
           {

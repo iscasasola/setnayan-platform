@@ -6,6 +6,9 @@ import { FLOWS, funnelOf, type FunnelStep } from '@/lib/telemetry/flows';
 import { problemLine } from '@/lib/telemetry/problem-line';
 import { formatCount } from '@/lib/format-number';
 import { resolveActionName } from '@/lib/telemetry/server-fault';
+import { mergeSameProblem } from '@/lib/telemetry/problem-merge';
+
+export { mergeSameProblem };
 
 /**
  * Problems · THE READ. One server-only function that answers "what is broken,
@@ -183,10 +186,12 @@ export async function readFaultIssues(opts: { limit?: number; flowDays?: number 
 
   return {
     ok: true,
-    open: ((openRes.data ?? []) as Record<string, unknown>[]).map(shape),
-    closed: ((closedRes.data ?? []) as Record<string, unknown>[]).map(shape),
+    open: mergeSameProblem((openRes.data ?? []) as Record<string, unknown>[]).map(shape),
+    closed: mergeSameProblem((closedRes.data ?? []) as Record<string, unknown>[]).map(shape),
     dropOffs,
     closedNow,
     build,
   };
 }
+
+

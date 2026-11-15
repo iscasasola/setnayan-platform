@@ -105,7 +105,7 @@ test('THE PAID PLANS BUY IT, THE FREE ONES DO NOT — owner 2026-08-29', () => {
   // unless the 2026-07-25 tiered model is on", which is the shape the owner
   // struck: one switch decided both the PRICE BAND and WHO MAY BUY, so flipping
   // it on (he did, the same day) admitted free shops, and flipping it off
-  // refused Solo. He wants Solo in and free out — a combination the old shape
+  // refused Supplier Plus. He wants Supplier Plus in and free out — a combination the old shape
   // could not express at any setting.
   //
   // Verbatim: *"they can only but if they are solo,pro,enterprise,custom. but

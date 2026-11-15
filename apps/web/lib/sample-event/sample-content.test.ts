@@ -192,7 +192,7 @@ test('🗓 chapters and a minute-level run of show; the dress code with real hex
     'ivory · blush · plum · gold',
   );
   assert.deepEqual(SAMPLE_DAY_ONLY.map((d) => d.key), ['check-in', 'live-watch', 'papic', 'reveal']);
-  assert.equal(SAMPLE_DAY_ONLY.find((d) => d.key === 'reveal')!.pro, 'Reveal', 'the Reveal is an Event Hub Pro part (◆)');
+  assert.equal(SAMPLE_DAY_ONLY.find((d) => d.key === 'reveal')!.pro, 'Reveal', 'the Reveal is an Event Pro part (◆)');
 });
 
 test('🔤 the sample’s words are the shipped wedding words', () => {

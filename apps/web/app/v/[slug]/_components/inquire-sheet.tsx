@@ -90,12 +90,13 @@ export function InquireSheet({
   const { openSignIn, panel } = useSignInPanel();
 
   const open = useCallback(
-    (at?: Step, picks?: string[]) => {
+    (at?: Step, picks?: string[], made?: string | null) => {
       setNote(null);
       setSent(null);
       // ☝ Only what they tapped — never the first service by default (Build 5 F4).
       setChosen(inquireOpeningPicks(services, picks));
-      setEventId(events.length === 1 ? (events[0]?.eventId ?? null) : null);
+      // 🆕 OWN-02: the event they just started is the one this ask is for.
+      setEventId(made && events.some((e) => e.eventId === made) ? made : events.length === 1 ? (events[0]?.eventId ?? null) : null);
       setStep(at ?? (general ? 'event' : 'services'));
     },
     [services, events, general],
@@ -108,7 +109,7 @@ export function InquireSheet({
       const a = (e.target as Element | null)?.closest?.('a[href="#get-in-touch"]');
       if (!a) return;
       e.preventDefault();
-      // A service card's own "Inquire about this" names its card, so the pop-up opens with it picked.
+      // A service card's "Choose this service" names its card, so the pop-up opens with it picked.
       const svc = a.getAttribute('data-inquire-service');
       const picks = svc ? [svc] : undefined;
       if (!signedIn) {
@@ -123,12 +124,23 @@ export function InquireSheet({
     return () => document.removeEventListener('click', onClick, true);
   }, [open, openSignIn, signedIn]);
 
+  // 🔗 ARRIVING ON `#get-in-touch` (Compare's "Ask about your date", shared links): since 13 Nov the page has no Inquire
+  // section to land on (owner, "Yes, only one"), so a signed-in arrival opens the pop-up instead. Once per page view;
+  // signed out, nothing pops — the one Inquire button asks for sign-in when pressed.
+  const arrivedOnAsk = useRef(false);
+  useEffect(() => {
+    if (arrivedOnAsk.current || !signedIn) return;
+    if (window.location.hash !== '#get-in-touch' || inquireResumeOf(window.location.search)) return;
+    arrivedOnAsk.current = true;
+    open();
+  }, [open, signedIn]);
+
   // Back from sign-in or from starting an event: `?inquire=1&isvc=…` reopens on the event step, the picks kept.
   useEffect(() => {
     const ask = inquireResumeOf(window.location.search);
     if (!ask) return;
     // Picks already made → straight back to the event step; otherwise from the top.
-    open(ask.serviceIds.length > 0 || general ? 'event' : 'services', ask.serviceIds);
+    open(ask.serviceIds.length > 0 || general ? 'event' : 'services', ask.serviceIds, ask.eventId);
     // Once, on arrival — not again when the page refreshes its props.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -155,6 +167,13 @@ export function InquireSheet({
   const close = () => {
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
+    // 📨 OWN-02 (live 14 Nov): closing during "Sending in N s…" used to drop the ask in silence — the timer was
+    // cleared, nothing was sent, and the sheet's last words were "Sending". Undo is the one way not to send; closing
+    // SENDS NOW and the sheet stays to say whether it went.
+    if (step === 'sending') {
+      void fire();
+      return;
+    }
     setStep(null);
     setNote(null);
     const cleared = inquireClearedHref(window.location.href);
@@ -204,7 +223,13 @@ export function InquireSheet({
   };
 
   const hold = () => {
-    if (!eventId || (!general && chosen.length === 0)) return;
+    // 🔇 OWN-02 (walk 13 Nov): with two or more events nothing is picked, and a press on Send did nothing at all — no
+    // note, no movement. It now says what is missing, beside the button.
+    if (!eventId) {
+      setNote('Pick which event this is for first.');
+      return;
+    }
+    if (!general && chosen.length === 0) return;
     setNote(null);
     setStep('sending');
     const until = Date.now() + INQUIRE_UNDO_MS;
@@ -337,7 +362,7 @@ export function InquireSheet({
                     icon={Send}
                     label="Send"
                     onClick={hold}
-                    disabled={!eventId || (!general && chosen.length === 0)}
+                    disabled={!general && chosen.length === 0}
                     className={MAIN}
                     data-testid="inquire-send"
                   />

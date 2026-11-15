@@ -4,7 +4,7 @@
  * 📐 THE PLAN ALLOWANCES — owner 2026-11-04, DECISION_LOG "SUPPLIER PLAN ALLOWANCES", verbatim: *"pro reach 100,
  * ultra nationwide · main categories solo 2 pro 8, ultra unlimited · service cards free 1, solo 3, pro 10, ultra
  * unlimited · team seats 0,1,5,20 · waitlist 0,0,1,5 · website applies to solo as well"*; corrected the same day:
- * *"team seats ultra 15 only"*; and "BRANCHES PER PLAN": *"branches 0,0,3,10"*. Free·Verified / Solo / Pro / Ultra.
+ * *"team seats ultra 15 only"*; and "BRANCHES PER PLAN": *"branches 0,0,3,10"*. Free·Verified / Supplier Plus / Pro / Ultra.
  * SUPERSEDED FOR ULTRA the same day by "ULTRA = ₱5,990 PER 4 WEEKS / ₱59,900 PER YEAR, WITH TRIMMED ALLOWANCES":
  * categories 15 · service cards 25 · seats 10 · branches 6 · waitlist 3 (reach stays nationwide). 
  *
@@ -32,7 +32,7 @@ import { vendorHoldsActivePaidSub } from './vendor-favorite-gate';
 const LADDER = ['free', 'verified', 'solo', 'pro', 'enterprise'] as const;
 const NUMERIC = ['serviceRadiusKm', 'parentCategories', 'servicesPerLeaf', 'agentAccounts', 'waitlistAcceptances', 'branchesIncluded'] as const;
 
-test('allowances · the owner\'s 2026-11-04 numbers, Free·Verified / Solo / Pro / Ultra', () => {
+test('allowances · the owner\'s 2026-11-04 numbers, Free·Verified / Supplier Plus / Pro / Ultra', () => {
   const row = (k: (typeof NUMERIC)[number]) => LADDER.map((t) => TIER_CAPS[t][k]);
   assert.deepEqual(row('serviceRadiusKm'), [0, 20, 30, 100, Infinity], 'reach: 0·20 / 30 / 100 / nationwide');
   assert.deepEqual(row('parentCategories'), [1, 1, 2, 8, 15], 'main categories: 1 / 2 / 8 / 15 (Ultra trimmed)');
@@ -40,7 +40,7 @@ test('allowances · the owner\'s 2026-11-04 numbers, Free·Verified / Solo / Pro
   assert.deepEqual(row('agentAccounts'), [0, 0, 1, 5, 10], 'team seats: 0 / 1 / 5 / 10 (Ultra trimmed; was 15)');
   assert.deepEqual(row('waitlistAcceptances'), [0, 0, 0, 1, 3], 'waitlist per date: 0 / 0 / 1 / 3 (Ultra trimmed; was 5)');
   assert.deepEqual(row('branchesIncluded'), [0, 0, 0, 3, 6], 'branches: 0 / 0 / 3 / 6 (Ultra trimmed; was 10)');
-  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [false, false, true, true, true], 'own web address: Solo, Pro, Ultra');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [false, false, true, true, true], 'own web address: Supplier Plus, Pro, Ultra');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].premiumPage), [false, false, false, true, true], 'the Pro page parts stay Pro+');
 });
 
@@ -86,11 +86,11 @@ test('ladder · Free: 1 category, local reach, no market intel, no agent seats',
   assert.equal(c.agentAccounts, 0, 'Free has no agent seats');
 });
 
-test('ladder · Solo: expanded reach + analytics, still no Market Intel', () => {
+test('ladder · Supplier Plus: expanded reach + analytics, still no Market Intel', () => {
   const c = TIER_CAPS.solo;
-  assert.ok(c.serviceRadiusKm > 0, 'Solo unlocks reach beyond local');
-  assert.equal(c.performanceTrends, true, 'Solo gets business-performance analytics');
-  assert.equal(c.marketIntel, false, 'Solo does NOT get Market Intel (Pro+ only)');
+  assert.ok(c.serviceRadiusKm > 0, 'Supplier Plus unlocks reach beyond local');
+  assert.equal(c.performanceTrends, true, 'Supplier Plus gets business-performance analytics');
+  assert.equal(c.marketIntel, false, 'Supplier Plus does NOT get Market Intel (Pro+ only)');
   assert.equal(canSeeMarketIntel('solo'), false);
 });
 
@@ -101,7 +101,7 @@ test('ladder · Pro: Market Intel + up to 5 seats + expanded reach', () => {
   assert.equal(c.agentAccounts, 5, 'Pro = up to 5 agent seats (owner 2026-11-04; was 3)');
   assert.ok(
     c.serviceRadiusKm > TIER_CAPS.solo.serviceRadiusKm,
-    'Pro reach is wider than Solo',
+    'Pro reach is wider than Supplier Plus',
   );
 });
 
@@ -113,14 +113,14 @@ test('ladder · Ultra: up to 10 seats + nationwide reach + 15 categories', () =>
   assert.equal(c.marketIntel, true, 'Enterprise keeps Market Intel');
 });
 
-test('ladder · reach is monotonic Free ≤ Solo ≤ Pro ≤ Enterprise', () => {
+test('ladder · reach is monotonic Free ≤ Supplier Plus ≤ Pro ≤ Enterprise', () => {
   const { free, solo, pro, enterprise } = TIER_CAPS;
   assert.ok(free.serviceRadiusKm <= solo.serviceRadiusKm);
   assert.ok(solo.serviceRadiusKm <= pro.serviceRadiusKm);
   assert.ok(pro.serviceRadiusKm <= enterprise.serviceRadiusKm);
 });
 
-test('ladder · agent seats are monotonic Free ≤ Solo ≤ Pro ≤ Enterprise', () => {
+test('ladder · agent seats are monotonic Free ≤ Supplier Plus ≤ Pro ≤ Enterprise', () => {
   const { free, solo, pro, enterprise } = TIER_CAPS;
   assert.ok(free.agentAccounts <= solo.agentAccounts);
   assert.ok(solo.agentAccounts <= pro.agentAccounts);
@@ -155,7 +155,7 @@ test('name paywall removed: legacy Verified tier reveals the real name day-1', (
   assert.equal(isTrueNameTier('verified'), true);
 });
 
-test('every PAID tier reveals the real name day-1 (Solo/Pro/Ultra)', () => {
+test('every PAID tier reveals the real name day-1 (Supplier Plus/Pro/Ultra)', () => {
   for (const tier of ['solo', 'pro', 'enterprise'] as const) {
     assert.equal(TIER_CAPS[tier].nameMode, 'true', `${tier} shows the real name day-1`);
     assert.equal(isTrueNameTier(tier), true);
@@ -194,14 +194,14 @@ test('locked matrix · GROW row — market intel is Pro+ for every tier', () => 
   }
 });
 
-test('locked matrix · GROW row — vendor favorites unlock at Solo+', () => {
+test('locked matrix · GROW row — vendor favorites unlock at Supplier Plus and up', () => {
   // The favorites gate is the authority; assert it agrees with the ladder so
   // "favorites" can never drift to a different tier than the matrix says.
   for (const tier of VENDOR_TIERS) {
     assert.equal(
       vendorHoldsActivePaidSub({ tier_state: tier, tier_expires_at: null }),
       isTierAtLeast(tier, 'solo'),
-      `${tier} favoritability must equal Solo-and-up`,
+      `${tier} favoritability must equal Supplier-Plus-and-up`,
     );
   }
   assert.equal(

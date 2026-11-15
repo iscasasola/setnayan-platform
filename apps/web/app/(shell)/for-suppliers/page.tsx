@@ -44,7 +44,7 @@ type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
 const HEADLINE = 'Not just a place to sell. A place to stay.';
 
 /**
- * "Solo ₱1,000 · Pro ₱2,500" — only the tiers whose price was READ. A tier whose
+ * "Supplier Plus ₱… · Supplier Pro ₱…" — only the tiers whose price was READ. A tier whose
  * catalog row came back empty is left out of the copy entirely; it is never
  * priced from a typed fallback. `''` when nothing was readable.
  */
@@ -58,7 +58,7 @@ function tierPriceCopy(
     pro: p.proMonthly,
     enterprise: p.enterpriseMonthly,
   } as const;
-  const name = { solo: 'Solo', pro: 'Pro', enterprise: 'Ultra' } as const;
+  const name = { solo: 'Supplier Plus', pro: 'Supplier Pro', enterprise: 'Supplier Ultra' } as const;
   return tiers
     .filter((t) => price[t] !== null)
     .map((t) => `${name[t]} ${price[t]}${perEach}`)
@@ -100,7 +100,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
   '',
 );
 
-// Schema.org pricing — vendor tier Offers (Solo / Pro / Enterprise · prices
+// Schema.org pricing — supplier plan Offers (Supplier Plus / Supplier Pro / Supplier Ultra · prices
 // from the live catalog, never hardcoded).
 function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
   // An Offer is emitted only for a tier whose price was actually read.
@@ -157,21 +157,21 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
       },
       offer(
         'solo-vendor-subscription',
-        'Solo Supplier (28-day prepaid block)',
-        // Lane J: the plan's caps, read (this said "1 marketplace category · solo operator" — Solo is 2 · 1 seat since 4 Nov).
+        'Supplier Plus (28-day prepaid block)',
+        // Lane J: the plan's caps, read (this said "1 marketplace category · solo operator" — Supplier Plus is 2 · 1 seat since 4 Nov).
         `${growSpec('solo')}. ${supplierCommissionPromise(fee)}`,
         p.num.soloMonthly,
       ),
       offer(
         'pro-vendor-subscription',
-        'Pro Supplier (28-day prepaid block)',
+        'Supplier Pro (28-day prepaid block)',
         // Lane J: was "3 marketplace categories · 3 team accounts" — Pro is 8 · 5 since 4 Nov.
         `${growSpec('pro')}. 28-day prepaid blocks.`,
         p.num.proMonthly,
       ),
       offer(
         'enterprise-subscription',
-        'Ultra Supplier (28-day prepaid block)',
+        'Supplier Ultra (28-day prepaid block)',
         // Lane J: was "All marketplace categories · reach up to 100 km" — Ultra is 15 categories, nationwide, since 4 Nov.
         `${growSpec('enterprise')}. 28-day prepaid blocks.`,
         p.num.enterpriseMonthly,

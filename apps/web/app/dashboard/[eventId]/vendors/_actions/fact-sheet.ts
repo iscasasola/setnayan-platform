@@ -34,6 +34,8 @@ import { daysFreeForPricedPicks, helpMonthOf } from '@/lib/help-me-choose';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { DateSheetData, FactSheetData, FactSheetKey, PlaceSheetData } from '@/lib/suppliers-fact-sheets';
 import { loadYourEvent } from '../../launch/_components/details-your-event-load';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
+import { regionLabel } from '@/lib/region-source';
 
 const NOT_OPENED = 'This could not be opened just now. Nothing was changed — close it and try again in a moment.';
 const PRECISIONS = new Set(['day', 'month', 'year']);
@@ -67,8 +69,20 @@ export async function openFactSheet(
         draftedVenue: draft?.widgets.venue_map?.venue ?? null,
       });
       if (!yours) return { ok: false, error: NOT_OPENED };
+      /* 📍 No reception city line (a non-wedding) → City or area is the event's Region, one value (owner 2026-11-13). */
+      let region: PlaceSheetData['region'] = null;
+      if (yours.venues.city === null) {
+        const r = await supabase.from('events_host').select('region').eq('event_id', eventId).maybeSingle();
+        if (r.error || !r.data) {
+          if (r.error) logQueryError('suppliers fact sheet: region', r.error, { event_id: eventId }, 'graceful_degrade');
+          return { ok: false, error: NOT_OPENED };
+        }
+        const value = ((r.data as { region: string | null }).region ?? null) || null;
+        region = { value, label: value ? (regionLabel(value) ?? value) : null };
+      }
       const place: PlaceSheetData = {
         city: yours.venues.city,
+        region,
         slots: yours.venues.slots.map((s) => ({
           slot: s.slot,
           label: s.label,
@@ -93,18 +107,32 @@ export async function openFactSheet(
     }
 
     // ── THE DATE ──────────────────────────────────────────────────────────────
-    const [row, vendors, liveTime, change] = await Promise.all([
-      supabase.from('events_host').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle(),
+    const [row, vendors, liveTime, change, dateExempt] = await Promise.all([
+      supabase
+        .from('events_host')
+        .select('event_date, event_date_precision, event_end_date, event_days, date_mode, date_candidates, date_window_start, date_window_end')
+        .eq('event_id', eventId)
+        .maybeSingle(),
       fetchEventVendors(supabase, eventId),
       readLiveCeremonyTime(supabase, eventId).catch(() => null),
       readOpenDateChange(supabase, eventId),
+      eventDateFloorExempt(supabase, { eventId }).catch(() => false),
     ]);
     if (row.error || !row.data) {
       if (row.error) logQueryError('suppliers fact sheet: event', row.error, { event_id: eventId }, 'graceful_degrade');
       return { ok: false, error: NOT_OPENED };
     }
     // 🗓 The event's own date — never a drafted one (owner 2026-11-05, "it shouldn't rely on the hub").
-    const live = row.data as { event_date: string | null; event_date_precision: string | null };
+    const live = row.data as {
+      event_date: string | null;
+      event_date_precision: string | null;
+      event_end_date: string | null;
+      event_days: number | null;
+      date_mode: string | null;
+      date_candidates: string[] | null;
+      date_window_start: string | null;
+      date_window_end: string | null;
+    };
     const date = live.event_date ?? null;
     const rawPrecision = String(live.event_date_precision ?? 'day');
     const precision = date ? ((PRECISIONS.has(rawPrecision) ? rawPrecision : 'day') as DateSheetData['precision']) : null;
@@ -145,6 +173,17 @@ export async function openFactSheet(
         bookedDay: bookedNames.length > 0 && live.event_date && (live.event_date_precision ?? 'day') === 'day' ? live.event_date : null,
         change: change.ok ? change.view : null,
         help,
+        // 📅 The span, the day count, the type's cap and the options (owner 2026-11-13).
+        endDate: live.event_end_date ?? null,
+        days: Math.max(1, Number(live.event_days ?? 1) || 1),
+        maxDays: profile.maxDays,
+        options: {
+          mode: live.date_mode === 'window' ? 'window' : 'specific',
+          candidates: Array.isArray(live.date_candidates) ? live.date_candidates.filter((d): d is string => typeof d === 'string') : [],
+          windowStart: live.date_window_start ?? null,
+          windowEnd: live.date_window_end ?? null,
+        },
+        dateExempt,
       },
     };
   } catch (e) {

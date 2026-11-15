@@ -186,6 +186,28 @@ export function askForAChange(input: { readerIsSupplier: boolean; locked: boolea
 
 export const ASK_SUBJECT_WORD: Record<AskSubject, string> = { quote: 'Quotation', plan: 'Payment plan', form: 'Form' };
 
+/**
+ * ✋ AN ASK STARTS FROM ITS PART AND CARRIES IT (owner, ruling 6076). The ask is opened from the very thing it is about —
+ * one quote line, the payment plan, a sent form — never from a blank (+) row. A quote line and a form are named in the
+ * note itself ("“Photography” — drop the drone"), so the stored ask AND the chat line (`ask_for_a_change` quotes the
+ * note) both say which part; the payment plan is its own subject, so it needs no name. Capped at the database's 1000.
+ */
+export const ASK_NOTE_MAX = 1000;
+export type AskPart = { subject: AskSubject; /** The line's label or the form's title; null = the subject is the part (the plan). */ name: string | null };
+
+export function askNoteWithPart(part: AskPart, note: string): string {
+  const n = note.trim();
+  const name = (part.name ?? '').trim();
+  return (name ? `“${name}” — ${n}` : n).slice(0, ASK_NOTE_MAX);
+}
+
+/** The words the ask card wears over its note: "Photography · a line of the quotation" · "Payment plan" · "“Prep form” · form". */
+export function askPartWords(part: AskPart): string {
+  const name = (part.name ?? '').trim();
+  if (!name) return ASK_SUBJECT_WORD[part.subject];
+  return part.subject === 'quote' ? `${name} · a line of the quotation` : `${name} · form`;
+}
+
 /** The words the server's refusals arrive as → what the card says. */
 export function askRefusalWords(message: string | null | undefined): string {
   const m = message ?? '';

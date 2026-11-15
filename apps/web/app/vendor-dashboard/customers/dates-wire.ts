@@ -6,8 +6,15 @@ import type { DatesBlock, DatesBooking } from '@/lib/vendor-dates';
  * the picked client's Schedule, v113 `calC`; one part, not a second calendar). Only what the month and a day's rows
  * read crosses the wire: a block's contact and note never do, an outside booking's id never does.
  */
-export function datesBookingsForWire(bookings: PoolBookingEntry[]): DatesBooking[] {
-  return bookings.map((b) => ({ poolId: b.poolId, bookedDate: b.bookedDate, eventName: b.eventName }));
+export function datesBookingsForWire(
+  bookings: PoolBookingEntry[],
+  /** 🗓 The booked day's hours and the shop's own arrive · done (`readBookedDayHours`); absent = the plain row. */
+  hours?: ReadonlyMap<string, { hours: string | null; mine: string | null; unread?: true }>,
+): DatesBooking[] {
+  return bookings.map((b) => {
+    const h = hours?.get(b.poolBookingId);
+    return { poolId: b.poolId, bookedDate: b.bookedDate, eventName: b.eventName, ...(h ? { hours: h.hours, mine: h.mine, ...(h.unread ? { hoursUnread: true } : {}) } : {}) };
+  });
 }
 
 export function datesBlocksForWire(blocks: CalendarBlockEntry[]): DatesBlock[] {

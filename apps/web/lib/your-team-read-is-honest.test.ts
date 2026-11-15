@@ -22,6 +22,14 @@ function stubClient(result: { data: unknown; error: unknown }): SupabaseClient {
     builder[m] = () => builder;
   }
   builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve);
+  // #5936 — the booking amounts' reader answers the same way the row read does.
+  builder.rpc = () =>
+    Promise.resolve({
+      data: Array.isArray(result.data)
+        ? (result.data as Array<{ vendor_id: string }>).map((r) => ({ vendor_id: r.vendor_id, money_shown: true }))
+        : null,
+      error: result.error,
+    });
   return builder as unknown as SupabaseClient;
 }
 

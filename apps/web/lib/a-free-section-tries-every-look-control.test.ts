@@ -2,7 +2,7 @@
  * a-free-section-tries-every-look-control.test.ts — the editor half, RENDERED.
  * (Was `a-free-section-shows-no-look-controls.test.ts` — re-pointed 2026-09-28.)
  *
- * Owner, 2026-09-24 ("A"): how a section looks and moves is Event Hub Pro.
+ * Owner, 2026-09-24 ("A"): how a section looks and moves is Event Pro.
  * Owner, 2026-09-28, verbatim: *"they can edit it with pro features. but need to
  * upgrade to pro when clicked on apply and point out the effect chosen that
  * caused them to upgrade to pro"*. So in the Maker every look control posts to
@@ -98,7 +98,7 @@ test('💎 on the web a free couple gets every look control, drafted, marked ◆
   assert.match(html, /name="transition" value="auto"/, 'Auto scroll is not offered');
   if (SCRUB_OUT_OFFERED) assert.match(html, /name="transition" value="scrub"/, 'Scrub is not offered');
   else assert.doesNotMatch(html, /name="transition" value="scrub"/, 'Scrub is offered while it ships dark');
-  assert.doesNotMatch(html, /Unlock with Event Hub Pro/, 'a transition still sends them to the buy page');
+  assert.doesNotMatch(html, /Unlock with Event Pro/, 'a transition still sends them to the buy page');
   assert.ok(count(html, 'data-paid-mark="try"') >= 1, 'no ◆ PRO mark on the Pro controls');
   assert.equal(count(html, 'data-paid-mark="locked"'), 0, 'a padlock on a control that works');
   // Every look form drafts — Apply is the gate, never the form.

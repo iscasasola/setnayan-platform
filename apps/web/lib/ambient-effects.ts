@@ -63,8 +63,8 @@ export const AMBIENT_EFFECT_LABEL: Readonly<Record<HubMainEffectKind, string>> =
 };
 
 /**
- * ◆ Event Hub Pro — EVERY effect (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT
- * HUB PRO ◆": *"all animate, effects, styles, accents are pro"*). Soft haze and Bokeh lights were the free two of the
+ * ◆ Event Pro — EVERY effect (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT
+ * PRO ◆": *"all animate, effects, styles, accents are pro"*). Soft haze and Bokeh lights were the free two of the
  * 2026-10-14 drawing; the ruling takes them in. Tried free in the Maker, named at ✓ Apply (`mainGroundChange`,
  * lib/hub-draft.ts); free events keep what they already published.
  */
@@ -80,7 +80,7 @@ export const AMBIENT_EFFECT_IS_PRO: Readonly<Record<HubMainEffectKind, boolean>>
 };
 
 /**
- * 🧾 Drawn for a guest ONLY while the event owns Event Hub Pro — the six that were Pro from the day they shipped, so a
+ * 🧾 Drawn for a guest ONLY while the event owns Event Pro — the six that were Pro from the day they shipped, so a
  * free event could never have published one. Soft haze and Bokeh lights are NOT here: a free event that published one
  * before 2026-10-16 keeps it (*"free events keep what they already published"*) — the gate for them is ✓ Apply.
  * Guests see exactly what they saw before the ruling (`main-ground-layer.tsx` `effectOver`).

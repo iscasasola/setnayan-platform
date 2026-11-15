@@ -42,12 +42,6 @@ const ALLOW: Record<string, { count: number; why: string }> = {
       'WHITE words on the delete fill. The mirrored bg-danger-600 is #CD7252 in dark → white 3.43:1 (fails AA); ' +
       'dark danger-400 is #B65A3A (= the light danger-600 fill) → white 4.65:1. It un-mirrors on purpose.',
   },
-  'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx|dark:text-danger-800': {
-    count: 1,
-    why:
-      'Reject chip: words on bg-danger-100 (dark #5F3021). The mirrored text-danger-700 is #DD9477 → 4.44:1 (fails AA); ' +
-      'dark danger-800 #EAB8A2 → 6.15:1. A step LIGHTER in dark, added by the dark 3a contrast pass (2026-10-23).',
-  },
 };
 
 /**

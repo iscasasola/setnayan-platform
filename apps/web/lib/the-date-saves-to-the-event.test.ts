@@ -51,7 +51,7 @@ const doorBody = door.slice(door.indexOf('export async function updateEventDate'
 test('1 · every place a couple sets the date posts to `updateEventDate` — never the Event Hub draft', () => {
   const pickers: Array<[string, RegExp]> = [
     // The Suppliers page's "Your date" sheet.
-    [`${D}vendors/_components/fact-sheets.tsx`, /date: \(date, precision\) => \{[\s\S]{0,300}return updateEventDate\(fd\);/],
+    [`${D}vendors/_components/fact-sheets.tsx`, /date: \(date, precision(?:, extra)?\) => \{[\s\S]{0,500}return updateEventDate\(fd\);/],
     // The Maker's Details › Your date (a day, a month, Help me choose's "Use <day>").
     [`${D}launch/_components/details-your-event.tsx`, /const saveDate = async \(date: string, precision: 'day' \| 'month'\)[\s\S]{0,400}const r = await makerSave\(\(\) => updateEventDate\(fd\), NO_SECOND_RENDER\);/],
     // Event Settings › Personalization's governed row.
@@ -65,7 +65,8 @@ test('1 · every place a couple sets the date posts to `updateEventDate` — nev
 
   // The sheet's date save is `doors.date`, and its draft door never carries a date.
   const sheets = code(`${D}vendors/_components/fact-sheets.tsx`);
-  assert.match(sheets, /const r = await doors\.date\(date, precision\);/);
+  // 📅 2026-11-13: a day also carries its last day and replaces the options — still the one door.
+  assert.match(sheets, /const r = await doors\.date\(date, precision(?:, [^;]{0,160})?\);/);
   assert.doesNotMatch(sheets, /doors\.draft\(\{\s*events: \{\s*event_date/, 'the sheet still drafts the date');
   // No screen sends a date into a draft patch.
   for (const file of [`${D}vendors/_components/fact-sheets.tsx`, `${D}launch/_components/details-your-event.tsx`]) {
@@ -91,7 +92,7 @@ test('2 · `updateEventDate` writes `events` itself — the floor, the clash at 
     ['the clash comes back with who', /if \(asked\) return \{ ok: false, error: asked\.reason, clash: asked\.clash \};/],
     ['the one date rule', /let refusal = eventDateRefusal\(prior, next, confirmed\);/],
     ['Q8 clearance', /const clearance = await dateApplyClearance\(/],
-    ['the write itself, the couple’s session', /\.from\('events'\)\s*\.update\(\{\s*event_date: eventDate,\s*event_date_precision: newPrecision,\s*\}\)\s*\.eq\('event_id', eventId\)\s*\.select\('event_id'\);/],
+    ['the write itself, the couple’s session', /\.from\('events'\)\s*\.update\(\{\s*event_date: eventDate,\s*event_date_precision: newPrecision,[\s\S]{0,700}?\}\)\s*\.eq\('event_id', eventId\)\s*\.select\('event_id'\);/],
     ['a write that reached no row is said', /if \(error \|\| !wrote \|\| wrote\.length === 0\)/],
     ['each booked supplier is told', /await afterDateApplied\(\{ supabase, eventId,/],
     ['the Schedule follows the day', /const shifted = await moveScheduleWithDate\(\{/],

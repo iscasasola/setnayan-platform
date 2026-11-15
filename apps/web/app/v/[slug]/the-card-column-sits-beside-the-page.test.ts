@@ -18,11 +18,14 @@ import {
   SHOP_COLUMNS_CLASS,
 } from './_components/shop-columns';
 
-test('the two columns are drawn for every plan — no plan gate on the grid', () => {
+// 13 Nov 2026 (owner-approved "two looks"): the two columns are the VERIFIED look — every verified plan alike, never a
+// plan gate; the unverified shop is the calm one-column sibling (SHOP_CALM_COLUMN_CLASS).
+test('the two columns are drawn for every verified plan — the look is the gate, never the plan', () => {
   const at = PAGE.indexOf('data-shop-columns=""');
   assert.ok(at > 0, 'the column grid is gone');
   const tag = PAGE.slice(at, PAGE.indexOf('>', at));
-  assert.match(tag, /className=\{SHOP_COLUMNS_CLASS\}/);
+  assert.match(tag, /className=\{cinematicHero \? SHOP_COLUMNS_CLASS : SHOP_CALM_COLUMN_CLASS\}/);
+  assert.match(PAGE, /const cinematicHero = vendor\.verification_state === 'verified';/);
   assert.match(SHOP_COLUMNS_CLASS, /md:grid md:grid-cols-\[300px_minmax\(0,1fr\)\]/);
   assert.match(SHOP_COLUMNS_CLASS, /lg:grid-cols-\[360px_minmax\(0,1fr\)\]/);
   assert.doesNotMatch(tag, /premiumLayout/, 'the columns went back behind the Pro plan');
@@ -32,7 +35,7 @@ test('the card column is sticky and holds the identity section; the page body si
   const card = PAGE.indexOf('data-shop-card-column=""');
   const body = PAGE.indexOf('data-shop-body-column=""');
   assert.ok(card > 0 && body > card);
-  assert.match(PAGE.slice(card, PAGE.indexOf('>', card)), /className=\{SHOP_CARD_COLUMN_CLASS\}/);
+  assert.match(PAGE.slice(card, card + 200), /className=\{cinematicHero \? `\$\{SHOP_CARD_COLUMN_CLASS\} \$\{SHOP_CALLING_CARD_CLASS\}/);
   assert.match(SHOP_CARD_COLUMN_CLASS, /md:sticky/);
   assert.ok(PAGE.slice(card, body).includes('<ShareButton'), 'the action row left the card column');
 });

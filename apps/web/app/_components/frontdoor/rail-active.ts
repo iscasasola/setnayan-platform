@@ -127,10 +127,10 @@ export function railMatchRows(who: {
       the gap — that is the exact defect this file already records, a row lit
       on a URL that is not its own.
     */
-    // 🧭 2026-10-23: "Find suppliers" is a SIGNED-OUT row now (owner 2026-10-01);
-    // Features is a row for everyone. Both match only their own pages.
-    ...(who.signedIn ? [] : [{ key: 'find', href: '/explore' }]),
-    // 2026-11-06 (PLAN B2): "For suppliers" is a signed-out row right under it.
+    // 🧭 2026-11-12: NO 'find' ROW — "Find suppliers" moved inside Discover (DECISION_LOG "DISCOVER WITH SUPPLIERS
+    // — PROTOTYPE APPROVED"); `/explore` forwards to `/`, whose supplier view lights 'home' like the rest of Discover.
+    // Features is a row for everyone and matches only its own pages.
+    // 2026-11-06 (PLAN B2): "For suppliers" is a signed-out row (it sat under "Find suppliers" until 2026-11-12).
     ...(who.signedIn ? [] : [{ key: 'for-suppliers', href: '/for-suppliers' }]),
     // 2026-11-11 ("THE SIGNED-OUT SIDEBAR = DISCOVER · …"): "For coordinators" is the signed-out row under it.
     ...(who.signedIn ? [] : [{ key: 'for-coordinators', href: '/for-coordinators' }]),

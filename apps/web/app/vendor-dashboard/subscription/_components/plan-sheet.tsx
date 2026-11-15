@@ -33,6 +33,8 @@ import { DatesRow } from '../../customers/_components/dates-row';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { formatPhp } from '@/lib/php';
 import type { LimitChange, PayToday, PlanChanges } from '@/lib/plan-sheet';
+import type { DowngradeFit } from '@/lib/downgrade-limits';
+import { LimitsList, LowerPlanSwitch } from './limits-sheet';
 import type { PlanLine } from '@/lib/vendor-plan-rows';
 
 type Action = (formData: FormData) => void | Promise<void>;
@@ -70,6 +72,8 @@ export type SheetPlan = {
   pickLine: string;
   /** Now → after for every limit, and what else changes (`planChanges`). The current plan carries its own (all same). */
   changes: PlanChanges;
+  /** A LOWER plan only: what does not fit it, limit by limit (`downgradeFit`, ruling 5683). Absent = not read. */
+  fit?: DowngradeFit | null;
 };
 
 const lead = (Icon: typeof Gem) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
@@ -269,7 +273,14 @@ export function PlanSheet({
                       ))}
                       <AlsoRows also={p.changes.also} />
                     </div>
-                    {dir === 'down' ? (
+                    {dir === 'down' && p.fit ? (
+                      <>
+                        <p className="pt-2 text-[13px] text-ink/70" data-plan-lower="">
+                          A lower plan waits until your paid days end.
+                        </p>
+                        <LimitsList fit={p.fit} />
+                      </>
+                    ) : dir === 'down' ? (
                       <p className="pt-2 text-[13px] text-ink/70" data-plan-lower="">
                         A lower plan waits until your paid days end. You keep what you already have; you just can&rsquo;t add
                         past its limits.
@@ -306,7 +317,15 @@ export function PlanSheet({
                         <ActionButton tone="brand" main icon={BadgeCheck} label="Get verified" href="/vendor-dashboard/profile#docs" />
                       </div>
                     ) : null}
-                    {p.paid ? <div className="pt-3">{button(p, dir === 'up' ? 'up' : 'down')}</div> : null}
+                    {p.paid ? (
+                      <div className="pt-3">
+                        {dir === 'down' && p.fit && verified && !storeShell && price !== undefined && !tooShort ? (
+                          <LowerPlanSwitch fit={p.fit} switchForm={button(p, 'down')} endsOn={expiresOn} />
+                        ) : (
+                          button(p, dir === 'up' ? 'up' : 'down')
+                        )}
+                      </div>
+                    ) : null}
                     {p.paid && verified && !storeShell && price !== undefined && !tooShort ? (
                       <p className="pt-2 text-[12.5px] text-ink/60">
                         You pay by GCash or bank and log it; {p.name} turns on when Setnayan confirms it.

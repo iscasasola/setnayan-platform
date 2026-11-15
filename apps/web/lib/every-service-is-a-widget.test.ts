@@ -1,11 +1,11 @@
 /**
  * lib/every-service-is-a-widget.test.ts — HOME'S SERVICES, AS WIDGETS (owner 2026-10-23, approved
- * `prototypes/home_service_widgets_2026-10-23.html`, with his three answers: *"Event Hub Pro folded into Event Hub, no
+ * `prototypes/home_service_widgets_2026-10-23.html`, with his three answers: *"Event Pro folded into Event Hub, no
  * visits line, order Papic → Event Hub → rest"*).
  *
  * Held on what `homeServices` returns (the list Home draws), never on a flag:
  *   1. the order is Papic, then the Event Hub, then the rest;
- *   2. the Event Hub is ONE entry — never a second "Event Hub Pro" row, never a slim "Add" line — and its Pro is the
+ *   2. the Event Hub is ONE entry — never a second "Event Pro" row, never a slim "Add" line — and its Pro is the
  *      card's ◆ line (`hubProLine`), in every state the Pro row can be in;
  *   3. no line anywhere says "visits" (nothing counts them).
  */
@@ -50,7 +50,7 @@ test('2 · the Event Hub is one card — Pro is its ◆ line, never a row or an 
     assert.ok(hub.hub, `${state}: the Event Hub entry carries no card facts`);
     assert.equal(hub.paid, undefined, `${state}: the Event Hub is drawn as a paid row again`);
     assert.match(hub.status, /^◆ /, `${state}: the status is not the ◆ line — "${hub.status}"`);
-    assert.ok(!all.some((s) => /Event Hub Pro/.test(s.name)), `${state}: an "Event Hub Pro" row came back`);
+    assert.ok(!all.some((s) => /Event Pro/.test(s.name)), `${state}: an "Event Pro" row came back`);
   }
   // In the store shell there is no paid list at all (the app's own rows stand there).
   assert.equal(homeServices({ next: 'plan', storeShell: true, eventId: E, papic: 'On', ai: '—', paid: null }).some((s) => s.key === 'hub'), false);

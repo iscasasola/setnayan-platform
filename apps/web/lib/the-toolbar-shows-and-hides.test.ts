@@ -1,6 +1,6 @@
 /**
  * 🫥 THE EDITING TOOLBAR SHOWS AND HIDES — owner, 30 Oct, verbatim: *"i was thinking having the bottom nav still and
- * the bottom toolbar to show and hide when not needed?"*, then *"yes"* (DECISION_LOG 2026-10-30 "EVENT HUB PRO (look
+ * the bottom toolbar to show and hide when not needed?"*, then *"yes"* (DECISION_LOG 2026-10-30 "EVENT PRO (look
  * redesign) — THE APP'S NAV STAYS; THE EDITING TOOLBAR SHOWS AND HIDES; THREE OPEN CALLS SETTLED"; prototype
  * `prototypes/build-contracts-2026-10-30/event-hub-pro/` "Hide the toolbar").
  *

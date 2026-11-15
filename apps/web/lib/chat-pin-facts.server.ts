@@ -18,7 +18,12 @@ import { resolveBudgetVisibility } from './budget-visibility';
 import { buildPinFacts, type PinFactInputs } from './chat-pin-facts';
 import type { PinFact } from './chat-pins';
 import { manilaTodayIsoFor } from './quote-valid-until';
+import { callTimeIsSet } from './supplier-own-times';
 import { logQueryError } from './supabase/error-detect';
+import { scheduleChangePinned } from './schedule-hand-in-hand';
+
+/** 🗓 How many schedule-change lines one chat read takes — the newest and enough to count the older unanswered ones. */
+const SCHEDULE_LINES_READ = 20;
 
 export type ChatPinRead = {
   facts: PinFact[];
@@ -89,16 +94,28 @@ export async function readChatPinFacts(
     return { proposalId: row.proposal_id, status: row.status, title: row.title, validUntil: row.valid_until, updatedAt: row.updated_at };
   })();
 
+  // 🕕 Cut 5 (2026-11-14): a call time the supplier kept BEFORE the hosts' program exists counts as set, so the pin
+  // turns Done. Read beside the shipped RPC (both sides' own RLS reads `supplier_own_times`); a refused read of it is
+  // not "set" — the pin keeps what the RPC says.
   const callTimeRead = booked
-    ? supabase
-        .rpc('chat_call_time_for', { p_event_id: args.eventId, p_vendor_profile_id: args.vendorProfileId })
-        .then(({ data, error }) => {
-          if (error) {
-            logQueryError('chatPins.callTime', error, { event_id: args.eventId }, 'graceful_degrade');
-            return null;
-          }
-          return { at: (data as string | null) ?? null };
-        })
+    ? Promise.all([
+        supabase.rpc('chat_call_time_for', { p_event_id: args.eventId, p_vendor_profile_id: args.vendorProfileId }),
+        supabase
+          .from('supplier_own_times')
+          .select('call_clock')
+          .eq('event_id', args.eventId)
+          .eq('vendor_profile_id', args.vendorProfileId)
+          .maybeSingle(),
+      ]).then(([{ data, error }, own]) => {
+        if (error) {
+          logQueryError('chatPins.callTime', error, { event_id: args.eventId }, 'graceful_degrade');
+          return null;
+        }
+        if (own.error) logQueryError('chatPins.ownCallTime', own.error, { event_id: args.eventId }, 'graceful_degrade');
+        const rpcAt = (data as string | null) ?? null;
+        const ownCall = own.error ? null : ((own.data as { call_clock: string | null } | null)?.call_clock ?? null);
+        return { at: callTimeIsSet(rpcAt, ownCall) ? (rpcAt ?? `own:${ownCall}`) : null };
+      })
     : Promise.resolve(null);
 
   const accessRead = supabase
@@ -217,7 +234,47 @@ export async function readChatPinFacts(
           })
       : Promise.resolve(false);
 
-  const [quote, callTime, accessAsks, feeBills, coordinatorAgree, decisions, visibility, changes, hidden] = await Promise.all([
+  // 🗓 Rule 3 (SCHEDULES HAND-IN-HAND part (b), 12 Nov): the newest schedule-change line in this chat and the supplier's
+  // own Seen (`event_supplier_schedule_marks`, their RLS). Supplier side only — the hosts' copy never pins.
+  const scheduleRead =
+    args.side === 'vendor'
+      ? (async () => {
+          const [line, mark] = await Promise.all([
+            supabase
+              .from('chat_messages')
+              .select('message_id, created_at, body')
+              .eq('thread_id', args.threadId)
+              .eq('sender_role', 'system')
+              .like('body', 'Schedule changed · %')
+              .order('created_at', { ascending: false })
+              // The newest, and enough older ones to say "+ N older changes" under it (approved prototype).
+              .limit(SCHEDULE_LINES_READ),
+            supabase
+              .from('event_supplier_schedule_marks')
+              .select('seen_at')
+              .eq('event_id', args.eventId)
+              .eq('vendor_profile_id', args.vendorProfileId)
+              .maybeSingle(),
+          ]);
+          if (line.error || mark.error) {
+            logQueryError('chatPins.scheduleChange', line.error ?? mark.error, { thread_id: args.threadId }, 'graceful_degrade');
+            return null;
+          }
+          const rows = (line.data ?? []) as { message_id: string; created_at: string; body: string | null }[];
+          const row = rows[0];
+          if (!row) return null;
+          const seenAt = (mark.data as { seen_at: string | null } | null)?.seen_at ?? null;
+          return {
+            messageId: row.message_id,
+            at: row.created_at,
+            body: row.body ?? '',
+            seenAt,
+            unseen: rows.filter((r) => scheduleChangePinned(r.created_at, seenAt)).length,
+          };
+        })()
+      : Promise.resolve(null);
+
+  const [quote, callTime, accessAsks, feeBills, coordinatorAgree, decisions, visibility, changes, hidden, scheduleChange] = await Promise.all([
     quoteRead,
     callTimeRead,
     accessRead,
@@ -227,6 +284,7 @@ export async function readChatPinFacts(
     visibilityRead,
     changesRead,
     hiddenRead,
+    scheduleRead,
   ]);
   const masked = !visibility.mayRead || hidden === true;
 
@@ -245,6 +303,7 @@ export async function readChatPinFacts(
     quote,
     decisions,
     changes,
+    scheduleChange,
   };
   return {
     facts: buildPinFacts(inputs),

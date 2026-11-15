@@ -129,7 +129,7 @@ test('1b · the name ▾’s list is the form, in the form’s order, under the 
   assert.deepEqual([...new Set(pieces.map((p) => p.group))], ['Your invitation set · one at a time is free', 'For the day · free for every event', 'Everything']);
   assert.equal(pieces.at(-1)!.label, 'Everything', 'the last slide is not "Everything"');
   assert.equal(STUDIO_FORM_HEADS[EVERY_PRINT_ITEM], undefined, 'the ⚙ row names itself — a heading over it says it twice');
-  assert.deepEqual(STUDIO_FORM_HEADS.download, { title: 'Everything', line: 'one file · Event Hub Pro' });
+  assert.deepEqual(STUDIO_FORM_HEADS.download, { title: 'Everything', line: 'one file · Event Pro' });
   assert.ok(STUDIO_FORM_ITEMS.includes(EVERY_PRINT_ITEM), '"Print settings" does not fill the phone screen like the rest of Prints');
   assert.ok(STUDIO_FORM_ITEMS.includes('digital-ticket'), 'the Digital ticket does not fill the phone screen like the rest of Prints');
   /* The Prints PAGE opens at the head of its form (where the tile opened, until R8) — the carousel then opens on its first print. */

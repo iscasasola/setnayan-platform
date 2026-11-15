@@ -16,7 +16,7 @@
  *   • Free One points    → papic_event_pool_config.free_one_camera_points
  *   • Photo / clip weight→ lib/papic-cameras.ts constants, via papic-tier-copy
  *   • Setnayan AI price  → the type's tier SKU, via resolveSetnayanAiTypePricePhp
- *   • Event Hub Pro price→ platform_retail_catalog_v2 COUPLE_WEBSITE_PRO (same rule as the rungs)
+ *   • Event Pro price→ platform_retail_catalog_v2 COUPLE_WEBSITE_PRO (same rule as the rungs)
  * A rung whose tier row is inactive, or whose catalog price is missing/inactive,
  * DISAPPEARS from the ladder rather than rendering at a stale or invented price.
  * That degradation is the point: the couple sees a shorter true ladder, never a
@@ -41,9 +41,10 @@ import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 import {
   readPapicOneTiers,
   readPapicPassTiers,
-  readPapicFreeGrantPoints,
+  readPapicFreeGrantRead,
   readPapicFreeOneCameraPoints,
 } from '@/lib/papic-tier-config-read';
+import { papicFreeCreditPoints } from '@/lib/papic-free-credit-promise';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { setnayanAiTierSkuForEventType } from '@/lib/setnayan-ai-type-pricing';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
@@ -75,7 +76,7 @@ export async function readServicesStepView(
     customerSkus,
     poolTiers,
     oneTiers,
-    freePoolPoints,
+    freePoolRead,
     freeOnePoints,
     aiPricePhp,
     aiListPricePhp,
@@ -85,7 +86,10 @@ export async function readServicesStepView(
       fetchV2CustomerCatalog(),
       readPapicPassTiers(),
       readPapicOneTiers(),
-      readPapicFreeGrantPoints(),
+      // 💰 The PROMISE reader, not the mint reader (2026-11-13): `readPapicFreeGrantPoints` folds an admin "0 —
+      // switched off" and a failed read onto the seed 50, so this card advertised 50 free credits SQL would not
+      // grant. `papicFreeCreditPoints` answers null for both — and the card says nothing (0 below).
+      readPapicFreeGrantRead(),
       readPapicFreeOneCameraPoints(),
       aiOffered
         ? // 🔴 THROUGH THE SHARED RESOLVER, IN ONBOARDING CONTEXT. This used to
@@ -193,7 +197,7 @@ export async function readServicesStepView(
   );
 
   /**
-   * ── CARD 3 · EVENT HUB PRO (owner 2026-09-25) ──────────────────────────────
+   * ── CARD 3 · EVENT PRO (owner 2026-09-25) ──────────────────────────────
    * Priced by the SAME rule and the SAME maps as the Papic rungs above — the
    * catalog row through `setupPricePhp` — because that is exactly what the mint
    * charges for it (`priceOf` in onboarding-services-orders.ts). No resolver of
@@ -217,7 +221,7 @@ export async function readServicesStepView(
     oneTiers,
     pricePhpByCode,
     listPricePhpByCode,
-    freePoolPoints,
+    freePoolPoints: papicFreeCreditPoints(freePoolRead) ?? 0,
     freeOnePoints,
     aiPricePhp: aiOffered ? (setupApplies ? aiPricePhp : aiListPricePhp) : null,
     aiListPricePhp: aiOffered ? aiListPricePhp : null,

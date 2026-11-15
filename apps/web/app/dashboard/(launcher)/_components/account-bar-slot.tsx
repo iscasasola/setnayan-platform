@@ -28,6 +28,14 @@ const AccountBottomNav = dynamic(() => import('./account-bottom-nav').then((m) =
  * `boundary` is the line the layout gave its shell (`shell-boundary.tsx`), handed to the dock so the phone bar and the
  * rail's strip switch at ONE width. Both account layouts pass `"tab"` (701, owner-approved plan D5, 2026-11-13).
  */
-export function AccountBarSlot({ tabs, boundary }: { tabs: readonly AccountBarTab[]; boundary?: ShellBoundary }) {
-  return <AccountBottomNav tabs={tabs} boundary={boundary} />;
+export function AccountBarSlot({
+  tabs,
+  boundary,
+  hasShop = false,
+}: {
+  tabs: readonly AccountBarTab[];
+  boundary?: ShellBoundary;
+  hasShop?: boolean;
+}) {
+  return <AccountBottomNav tabs={tabs} boundary={boundary} hasShop={hasShop} />;
 }

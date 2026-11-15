@@ -193,7 +193,7 @@ const BEN = 'user-ben';
 
 /** Everything the Maker page and the guest pages were measured asking, in one render. */
 const MAKER_AND_GUEST_ASKS: Array<(db: () => SupabaseClient, eventId: string) => Promise<unknown>> = [
-  // The Maker page — Event Hub Pro was asked NINE times by nine components.
+  // The Maker page — Event Pro was asked NINE times by nine components.
   ...Array.from({ length: 9 }, () => (db: () => SupabaseClient, e: string) => eventSkuActive(db(), e, 'COUPLE_WEBSITE_PRO')),
   (db, e) => eventOwnsSku(db(), e, 'COUPLE_WEBSITE_PRO'),
   (db, e) => eventOwnsSku(db(), e, 'ANIMATED_MONOGRAM'),

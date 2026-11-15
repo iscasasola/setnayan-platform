@@ -13,6 +13,7 @@
  * (`lib/budget-build.ts`); the counts are derived from the plan model and the
  * team rows the page already built.
  */
+import { dateOptionsFactWords } from './event-date-options';
 import type { BudgetBuildTab } from './budget-build';
 import { LOCKED_VENDOR_STATUSES } from './shortlist-taxonomy';
 import { teamMoney } from './your-team';
@@ -28,6 +29,20 @@ export const SUPPLIERS_MODE_LABEL: Record<SuppliersMode, string> = {
   find: 'Find',
   build: 'Build',
   booked: 'Booked',
+};
+
+/** 📌 One line under each page's name in the row's menu (owner 2026-11-12, "option 4" — the prototype's words). */
+export const SUPPLIERS_MODE_MEANING: Record<SuppliersMode, string> = {
+  find: 'look, ask, accept a price',
+  build: 'combine and compare',
+  booked: 'who is booked, what is next',
+};
+
+/** ▶ The row's one action — the NEXT page: Find → Build → Booked → Find (owner 2026-11-12, "option 4"). */
+export const SUPPLIERS_NEXT_MODE: Record<SuppliersMode, SuppliersMode> = {
+  find: 'build',
+  build: 'booked',
+  booked: 'find',
 };
 
 /**
@@ -261,12 +276,29 @@ const MONTH_FORMAT: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric
  * ("December 2026"), a year ("2026"), or the ask when there is none.
  * Parsed by its parts — a DATE column must not drift a day across timezones.
  */
-export function suppliersDateFact(iso: string | null | undefined, precision: string | null | undefined): SuppliersFact {
+export function suppliersDateFact(
+  iso: string | null | undefined,
+  precision: string | null | undefined,
+  more: {
+    /** 📅 The main span's last day (owner 2026-11-13) — a day's line reads "Sat, Dec 19 – Sun, Dec 20, 2026". */
+    endDate?: string | null;
+    /** The options being considered while there is no date (`lib/event-date-options.ts`'s words). */
+    options?: Parameters<typeof dateOptionsFactWords>[0] | null;
+  } = {},
+): SuppliersFact {
   const [y, m, d] = (iso ?? '').split('-').map(Number);
-  if (!y || !m || !d) return { text: 'Pick your date', open: true };
+  if (!y || !m || !d) {
+    const options = more.options ? dateOptionsFactWords(more.options) : null;
+    return { text: options ?? 'Pick your date', open: true };
+  }
   if (precision === 'year') return { text: String(y), open: true };
   if (precision === 'month') {
     return { text: new Date(y, m - 1, 1).toLocaleDateString('en-US', MONTH_FORMAT), open: true };
+  }
+  const [ey, em, ed] = (more.endDate ?? '').split('-').map(Number);
+  if (ey && em && ed && (more.endDate ?? '') > (iso ?? '')) {
+    const start = new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return { text: `${start} – ${new Date(ey, em - 1, ed).toLocaleDateString('en-US', DAY_FORMAT)}`, open: false };
   }
   return { text: new Date(y, m - 1, d).toLocaleDateString('en-US', DAY_FORMAT), open: false };
 }

@@ -38,6 +38,7 @@ import {
   type BookingFeeSchedule,
 } from '@/lib/booking-fee';
 import {
+  BOOKING_FEE_CHARGED_WHEN,
   FIRST_BOOKING_ON_US_CLAUSE,
   FREE_BOOKING_LIMIT,
   freeHeldBackSentence,
@@ -47,6 +48,7 @@ import {
 import { monthDay } from '@/lib/format-date';
 import { feeEnforcementSentence } from '@/lib/event-access-stage';
 import { freeWindowEndsLabel } from './booking-fee-free-window';
+import { TOP_UP_WORDS, topUpStage } from './booking-fee-top-up';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    1 · WHERE A SUPPLIER STANDS WITH THE FEE, ON ONE BOOKING
@@ -142,6 +144,11 @@ export type FeeDisclosure = {
   headline: string;
   detail: string;
   tone: 'good' | 'info' | 'due' | 'overdue';
+  /**
+   * The pay door's own word when it is not the plain "Pay" — a top-up before the event day reads "Settle early"
+   * (owner 2026-11-12, top-up rule 2). Absent → the surface's shipped label.
+   */
+  payLabel?: string;
 };
 
 /** How many free bookings are left AFTER the one at `ordinal`. Pure. */
@@ -614,6 +621,16 @@ export type DueFeeBill = {
    * the supplier is told, on their bill only). Null/absent otherwise.
    */
   introducedOn?: string | null;
+  /**
+   * 💸 A TOP-UP (owner 2026-11-12, `lib/booking-fee-top-up.ts`): the bill is an `amendment_delta` — the fee grew
+   * because a booked quote rose. It is due on the event day and HELD before it. Absent/false → an ordinary bill.
+   */
+  topUp?: boolean;
+  /**
+   * 💸 `orders.reference_code` — the settle sheet reads the bill the way /pay does (`readSettlePay`), so it can show
+   * WHERE to pay (owner 13 Nov). Absent → the shipped door to the pay page.
+   */
+  referenceCode?: string | null;
 };
 
 /** The one line that tells a supplier why a booking the couple typed in carries a fee. Null = nothing to say. */
@@ -723,6 +740,8 @@ export function feeDueCopy(
    */
   enforced: boolean,
 ): FeeDisclosure {
+  // 💸 A TOP-UP speaks its own three stages (held · due today · overdue — `lib/booking-fee-top-up.ts`).
+  if (bill.topUp) return topUpDueCopy(bill, todayPh, enforced);
   const stage = feeDueStage(bill.dueOn, todayPh);
   const who = bill.coupleName?.trim() ? ` for ${bill.coupleName.trim()}` : '';
   const amount = feePesos(bill.amountPhp);
@@ -758,7 +777,42 @@ export function feeDueCopy(
         tone: 'due',
         headline: `Booking fee due${by} — ${amount}${who}`,
         detail:
-          'Setnayan charges this once a couple we brought you agrees to book. Pay it the same way your couples pay — it clears within 24 hours of our team confirming it.',
+          `${BOOKING_FEE_CHARGED_WHEN} Pay it the same way your couples pay — it clears within 24 hours of our team confirming it.`,
+      };
+  }
+}
+
+/**
+ * 💸 THE TOP-UP'S WORDS (owner 2026-11-12). Before the event day it is HELD — said as the fee growing, with the day it
+ * is due and "Settle early" on the door (rule 2); on the event day "Due today", still nothing locked (rule 1); from
+ * the day after it is overdue, and the consequence clause is the SAME `feeEnforcementSentence` every overdue bill uses.
+ */
+function topUpDueCopy(bill: DueFeeBill, todayPh: string, enforced: boolean): FeeDisclosure {
+  const stage = topUpStage(bill.dueOn, todayPh);
+  const who = bill.coupleName?.trim() ? ` for ${bill.coupleName.trim()}` : '';
+  switch (stage) {
+    case 'held':
+      return {
+        tone: 'due',
+        headline: `${TOP_UP_WORDS.grows(bill.amountPhp, bill.dueOn)}${who}`,
+        detail: TOP_UP_WORDS.heldDetail,
+        payLabel: TOP_UP_WORDS.settleEarly,
+      };
+    case 'due_today':
+      return {
+        tone: 'due',
+        headline: `${TOP_UP_WORDS.dueTodayHeadline(bill.amountPhp)}${who}`,
+        detail: TOP_UP_WORDS.dueTodayDetail,
+        payLabel: TOP_UP_WORDS.settle,
+      };
+    case 'overdue':
+      return {
+        tone: 'overdue',
+        headline: `${TOP_UP_WORDS.overdueHeadline(bill.amountPhp)}${who}`,
+        detail:
+          `This was due${bill.dueOn ? ` on ${formatDueDate(bill.dueOn)}` : ''}, the event day. ${feeEnforcementSentence({ enforced })} ` +
+          'Pay it the same way your couples pay; it clears within 24 hours of our team confirming it.',
+        payLabel: TOP_UP_WORDS.settle,
       };
   }
 }
@@ -792,5 +846,19 @@ export function bookingFeeNoticeCopy(bill: DueFeeBill): { title: string; body: s
     body:
       `Your ${feePesos(bill.amountPhp)} Setnayan booking fee${who} is ready to pay.${by} ` +
       'Pay it by QR or transfer to our receiving accounts — it clears once our team confirms your payment (within 24 hours).',
+  };
+}
+
+/**
+ * 💳 RW-43 (walk 13 Nov 2026): the forecast beside Agree, with the Setnayan gift the accepted quote carries — the fee,
+ * the gift and the one bill they make, said BEFORE the press. Pure; the amounts are whole centavos.
+ */
+export function withGiftOnTheBill(forecast: FeeDisclosure, feeCentavos: number, giftCentavos: number): FeeDisclosure {
+  const php = (c: number) => feePesos(c / 100);
+  return {
+    ...forecast,
+    detail:
+      `${forecast.detail} This quote includes your Setnayan gift for your couple, so agreeing bills you ` +
+      `${php(feeCentavos)} booking fee + ${php(giftCentavos)} gift = ${php(feeCentavos + giftCentavos)}.`,
   };
 }

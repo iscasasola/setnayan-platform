@@ -55,7 +55,7 @@ export function ClientDayAnswersBody({
   return (
     <section data-client-day-answers={eventId} aria-label="Waiting on your answer" className="space-y-4">
       {!read.complete ? (
-        <p role="status" className="text-[13.5px] text-[rgb(var(--color-danger))]" data-client-day-answers-unread="">
+        <p role="status" className="text-[13px] text-danger-700" data-client-day-answers-unread="">
           Some of this couple’s requests couldn’t load. Refresh to try again — nothing is lost.
         </p>
       ) : null}

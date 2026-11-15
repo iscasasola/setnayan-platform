@@ -52,12 +52,8 @@ export function ListPager({
   const incompleteNote = incomplete ? (
     <p
       role="status"
-      className="mt-2 rounded-xl border px-3 py-2 text-xs"
-      style={{
-        background: 'var(--sn-warning-soft)',
-        borderColor: 'color-mix(in srgb, var(--sn-warning) 30%, transparent)',
-        color: 'var(--sn-warning-deep)',
-      }}
+      className="mt-2 text-[13px] font-medium"
+      style={{ color: 'var(--sn-warning-deep)' }}
     >
       Some of this list could not be loaded, so it may be missing entries. Reload
       the page to try again.
@@ -68,7 +64,7 @@ export function ListPager({
 
   const hrefFor = (n: number) => pageHref(keepParams, param, n, hash);
   const control =
-    'inline-flex min-h-9 min-w-9 items-center justify-center rounded-full border px-2.5 text-xs font-semibold';
+    'inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border px-2.5 text-[13px] font-semibold';
   const idle = { background: 'transparent', color: 'var(--m-slate)', borderColor: 'var(--m-line)' };
   const on = { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' };
   const off = { ...idle, opacity: 0.4 };
@@ -80,7 +76,7 @@ export function ListPager({
         data-list-pager={param}
         className="mt-3 flex flex-wrap items-center justify-between gap-2"
       >
-        <p className="font-mono text-xs" style={{ color: 'var(--m-slate-2)' }}>
+        <p className="tabular-nums text-xs" style={{ color: 'var(--m-slate-2)' }}>
           {nf.format(from)}–{nf.format(to)} of {nf.format(total)}
         </p>
         <div className="flex flex-wrap items-center gap-1">
@@ -94,7 +90,7 @@ export function ListPager({
             </span>
           )}
           <span
-            className={`${control} font-mono sm:hidden`}
+            className={`${control} tabular-nums sm:hidden`}
             style={on}
             aria-current="page"
           >
@@ -105,7 +101,7 @@ export function ListPager({
               <span
                 key={`gap-${i}`}
                 aria-hidden
-                className="hidden px-1 font-mono text-xs sm:inline"
+                className="hidden px-1 tabular-nums text-xs sm:inline"
                 style={{ color: 'var(--m-slate-2)' }}
               >
                 …
@@ -114,7 +110,7 @@ export function ListPager({
               <span
                 key={n}
                 aria-current="page"
-                className={`${control} hidden font-mono sm:inline-flex`}
+                className={`${control} hidden tabular-nums sm:inline-flex`}
                 style={on}
               >
                 {n}
@@ -124,7 +120,7 @@ export function ListPager({
                 key={n}
                 href={hrefFor(n)}
                 aria-label={`Page ${n}`}
-                className={`${control} hidden font-mono sm:inline-flex`}
+                className={`${control} hidden tabular-nums sm:inline-flex`}
                 style={idle}
               >
                 {n}

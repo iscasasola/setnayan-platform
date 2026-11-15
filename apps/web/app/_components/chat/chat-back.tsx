@@ -50,7 +50,7 @@ export function cameFromAList(raw: string | null, here: string, doc: string, lan
   return landing !== here;
 }
 
-export function ReturnInPlace({ children }: { children: ReactNode }) {
+export function ReturnInPlace({ children, whileAt }: { children: ReactNode; whileAt?: string }) {
   const router = useRouter();
   return (
     <span
@@ -63,6 +63,9 @@ export function ReturnInPlace({ children }: { children: ReactNode }) {
           raw = null;
         }
         const here = window.location.pathname + window.location.search;
+        // ↩ `whileAt` (2026-11-12): only while the address is still where the visit arrived — after the page pushed a
+        // step of its own (a tab), the browser's back is that step, so the link goes instead.
+        if (whileAt !== undefined && here + window.location.hash !== whileAt) return;
         if (cameFromAList(raw, here, thisDocument(), landedOn(), window.history.length)) {
           // Captured before the link's own handler, which honours a prevented default and does not navigate.
           e.preventDefault();

@@ -257,6 +257,40 @@ test('"after the event" shows nothing to anyone — hosts included — until it 
   await finishTheEvent(false);
 });
 
+/* ── 4b · The couple's surprise (owner 2026-11-13, "POST EVENT = A STORY" (6)) ──────────────────────────────── */
+
+test('🎁 the couple\'s surprise: an Everybody chapter is hidden from the couple until done — unless they peek; guests are never affected', async () => {
+  const reception = await chapter('Reception · surprise', { photo_who: 'everybody', photo_when: 'right_away' });
+  const shot = await shotInto(reception, F.inGuest);
+  const peek = async (on: boolean) => {
+    await asOwner();
+    await db.query(`UPDATE public.events SET chapters_peek = $2 WHERE event_id = $1`, [F.eventId, on]);
+  };
+
+  await finishTheEvent(false);
+  await peek(false);
+  assert.equal(sees(await memoriesOf(F.couple), shot, reception), false, 'the surprise is ON by default: the couple does not see it yet');
+  assert.ok(sees(await memoriesOf(F.outUser), shot, reception), 'a guest still sees an Everybody chapter right away');
+
+  await peek(true);
+  assert.ok(sees(await memoriesOf(F.couple), shot, reception), 'Peek now: the couple sees it early');
+  assert.ok(sees(await memoriesOf(F.outUser), shot, reception), 'peeking changes nothing for guests');
+
+  await peek(false);
+  await finishTheEvent(true);
+  assert.ok(sees(await memoriesOf(F.couple), shot, reception), 'once Post Event opens, every chapter is theirs');
+  await finishTheEvent(false);
+
+  // The couple flips their own switch; a guest cannot.
+  await asUser(F.couple);
+  const mine = await db.query(`UPDATE public.events SET chapters_peek = TRUE WHERE event_id = $1 RETURNING event_id`, [F.eventId]);
+  assert.equal(mine.rows.length, 1, 'the couple writes their own peek');
+  await asUser(F.outUser);
+  const theirs = await db.query(`UPDATE public.events SET chapters_peek = FALSE WHERE event_id = $1 RETURNING event_id`, [F.eventId]).catch(() => ({ rows: [] }));
+  assert.equal(theirs.rows.length, 0, 'a guest cannot flip the couple\'s peek');
+  await peek(false);
+});
+
 /* ── 5 · Add to Chapter ───────────────────────────────────────────────────────────────────────────────────── */
 
 test('Add to Chapter: a chapter’s person adds a photo to another chapter they are in — never one they are not in', async () => {

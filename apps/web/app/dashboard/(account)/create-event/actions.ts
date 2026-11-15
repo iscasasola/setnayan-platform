@@ -13,7 +13,7 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { safeNext } from '@/lib/auth';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { resolveCreateCapture } from '@/lib/create-event-capture';
-import { anchorForType, isAnchorOrigin, parseISO, canToggleRecur, resolveCadence } from '@/lib/event-anchor';
+import { anchorForType, isAnchorOrigin, parseISO, canToggleRecur, resolveCadence, singlePickedDate } from '@/lib/event-anchor';
 import {
   buildNextYearClonePayload,
   canPlanNextYear,
@@ -360,6 +360,7 @@ export async function createWeddingEvent(formData: FormData) {
   const slug = await generateUniqueSlug(admin, display_name);
 
   // Insert the event. The on_event_created trigger mints the join token row.
+  const pickedDate = singlePickedDate(event_type, capture.dateCandidates);
   const { data: insertedEvent, error: insertError } = await admin
     .from('events')
     .insert({
@@ -394,9 +395,14 @@ export async function createWeddingEvent(formData: FormData) {
       // event_date stays NULL — the LOCKED single date is chosen later (date-as-
       // output; the date-selection lock ceremony). What's captured here is the
       // couple's tentative timing: up to 4 candidate dates OR a range.
-      event_date: null,
+      // 📅 ONE PICKED DATE IS THE DATE (owner 2026-10-08; walk 13 Nov, F-W3-30 / F-W3-25): for a type whose date is an
+      // INPUT, a single pick is `event_date` at day precision — exactly what onboarding's `buildGenericEventInsert` and
+      // onboarding/simple write. This door kept it as a one-entry candidate list, so a Get-together made from a Group
+      // read "TBD" on its card and its page never left the Save the Date (no date → replies "not open yet").
+      event_date: pickedDate,
+      ...(pickedDate ? { event_date_precision: 'day' } : {}),
       date_mode: capture.dateMode,
-      date_candidates: capture.dateCandidates.length ? capture.dateCandidates : null,
+      date_candidates: pickedDate || !capture.dateCandidates.length ? null : capture.dateCandidates,
       date_window_start: capture.dateWindowStart,
       date_window_end: capture.dateWindowEnd,
       estimated_pax: capture.estimatedPax,

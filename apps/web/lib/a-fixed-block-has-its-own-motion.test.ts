@@ -571,7 +571,13 @@ test('5 · the toolbar: Animate is live on the real blocks; the samples stay gre
   /* 🔁 RE-AIMED 2026-10-10 (same change): E-Gifts with nothing for a guest to see says so for Background too — it
      would otherwise answer "edit it in Studio", which is no longer where a block's background is. */
   assert.match(TOOLS, /const empty = blockAt && !blockIsReal && \(t === 'bg' \|\| t === 'animate'\) \? BLOCK_EMPTY_WHY : undefined;\s*return sample \?\? empty \?\? makerPartToolWhy\(picked, t\);/);
-  assert.match(TOOLS, /if \(!toolWorks\(t\)\) return setWhy\(\(w\) => \(\{ words: whyNot\(t\), n: \(w\?\.n \?\? 0\) \+ 1 \}\)\);/);
+
+  /* 🔁 RE-AIMED 2026-11-13 (Maker Edit shell v3, owner-approved "maker shell approved"): a tap on a grey tool no longer
+     says its line in a toast over blank rows — it opens the line IN THE ROWS as Problem → Solution (`setLockTool`,
+     `makerPartToolLock(picked, lockShown, whyNot(lockShown))`). The claim is unchanged: the tap answers with the line
+     `whyNot` works out, and sets no tool. */
+  assert.match(TOOLS, /if \(!toolWorks\(t\)\) return setLockTool\(t\);/);
+  assert.match(TOOLS, /const lock = lockShown \? makerPartToolLock\(picked, lockShown, whyNot\(lockShown\)\) : null;/);
   assert.match(BLOCK_EMPTY_WHY, /^Guests see nothing here until /);
   /* Nothing a couple reads here says "celebration". */
   for (const words of [...Object.values(BLOCK_SAMPLE_WHY), BLOCK_EMPTY_WHY]) assert.doesNotMatch(words, /celebration/i);

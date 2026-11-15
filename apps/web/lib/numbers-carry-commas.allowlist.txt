@@ -63,3 +63,4 @@ lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, a
 lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, already a string from pct() ("30%") or peso() (toLocaleString, grouped); one row per use in the plan line
 lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, already a string from pct() ("30%") or peso() (toLocaleString, grouped); one row per use in the plan line
 app/dashboard/(account)/billing/_components/billing-list.tsx :: amount :: TEXT — BillingRow's amount is a ReactNode every caller already built with formatPhp() or manilaDay() (billing-list Row, supplier-billing-sections); never a raw number
+app/admin/colours/_components/colours-editor.tsx :: firstRefusal :: TEXT — the first refusal sentence from judgeAppColours (lib/app-colours.ts), a whole sentence whose ratios are already printed by shownRatio; never a count

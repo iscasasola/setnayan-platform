@@ -2,7 +2,7 @@
 
 import { RefreshCw } from 'lucide-react';
 
-import { savedMark, supplierOfflinePaths, type SavedMark } from '@/lib/offline-copies';
+import { offlineNotYetWords, savedMark, supplierOfflinePaths, type SavedMark } from '@/lib/offline-copies';
 
 import { SavedMarkLine } from './saved-mark-line';
 import { useOfflineCopy } from './use-offline-copy';
@@ -18,21 +18,31 @@ export function SupplierSavedStrip({
   eventId,
   eventDate,
   checkin,
+  liveToday = true,
 }: {
   viewer: string;
   eventId: string;
   eventDate: string | null;
   checkin: boolean;
+  /** The booked day is today — only then does the live console exist to be saved (F-W1-77). */
+  liveToday?: boolean;
 }) {
-  const copy = useOfflineCopy({ viewer, eventId, eventDate, paths: supplierOfflinePaths(eventId, { checkin }) });
+  const copy = useOfflineCopy({ viewer, eventId, eventDate, paths: supplierOfflinePaths(eventId, { checkin, liveToday }) });
+  // F-W1-77: before saving can start, say so — never a silent "Update now" over "Not saved on this phone yet".
+  const notYet = copy.onCopy === null && copy.savedAt === null ? offlineNotYetWords(eventDate, copy.now) : null;
   return (
     <SupplierSavedStripView
-      mark={savedMark({ phase: copy.phase, savedAt: copy.savedAt, now: copy.now, online: copy.online, eventDay: true, onCopy: copy.onCopy })}
+      mark={
+        notYet !== null
+          ? { tone: 'muted', text: notYet }
+          : savedMark({ phase: copy.phase, savedAt: copy.savedAt, now: copy.now, online: copy.online, eventDay: true, onCopy: copy.onCopy })
+      }
       busy={copy.phase === 'saving'}
-      canUpdate={copy.onCopy !== null || (copy.phase !== 'saving' && copy.online && copy.phase !== 'unsupported')}
+      canUpdate={notYet === null && (copy.onCopy !== null || (copy.phase !== 'saving' && copy.online && copy.phase !== 'unsupported'))}
       updateLabel={copy.onCopy !== null ? 'Load the latest' : 'Update now'}
       installed={copy.installed}
       onUpdate={() => void copy.update()}
+      consoleLater={!liveToday}
     />
   );
 }
@@ -45,6 +55,7 @@ export function SupplierSavedStripView({
   installed,
   onUpdate,
   updateLabel = 'Update now',
+  consoleLater = false,
 }: {
   mark: SavedMark;
   busy: boolean;
@@ -53,6 +64,8 @@ export function SupplierSavedStripView({
   onUpdate: () => void;
   /** "Load the latest" when the page on screen is the saved copy. */
   updateLabel?: string;
+  /** Before the booked day: the live console is saved on the day itself (it does not open before). */
+  consoleLater?: boolean;
 }) {
   return (
     <div data-supplier-saved="" className="mb-4 space-y-2 border-b pb-3" style={{ borderColor: 'rgba(251,251,250,0.14)' }}>
@@ -70,6 +83,7 @@ export function SupplierSavedStripView({
       </div>
       <p className="text-[12.5px]" style={{ color: 'rgba(251,251,250,0.62)' }}>
         Only what your day needs is saved. It&rsquo;s erased from this phone after the event.
+        {consoleLater ? ' The live console opens on the day and is saved then.' : null}
         {installed ? null : ' For no-signal venues, use the Setnayan app or Add to Home Screen.'}
       </p>
     </div>

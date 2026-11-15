@@ -33,7 +33,7 @@ import { Suspense, lazy, type ComponentType, type ReactNode } from 'react';
 /** The house's quiet loading line — the same words and look the bodies' own <Suspense> fallbacks use. */
 function Quiet({ what }: { what: string }) {
   return (
-    <p className="px-4 py-6 text-sm text-ink/55" role="status" data-picked-page-loading="">
+    <p className="px-4 py-6 text-sm text-ink/70" role="status" data-picked-page-loading="">
       Loading {what}&hellip;
     </p>
   );

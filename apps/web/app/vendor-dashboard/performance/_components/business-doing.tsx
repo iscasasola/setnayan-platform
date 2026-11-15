@@ -4,23 +4,25 @@
  * HOW IS MY BUSINESS DOING — the top of the Insights page, in plain words (simpler supplier dashboard step 6;
  * owner-APPROVED 2026-10-14; prototype SCREENS.insights).
  *
- *   window ▾ (Last 28 days · Last 12 months) — ONE dropdown, swapped client-side (both windows arrive pre-read, the
- *   way the page's own Daily/Monthly/Annual toggle already works — no refetch);
+ *   the window — the house sliding switch (`PillSelector`: "28 days" · "12 months"), swapped client-side (both windows
+ *   arrive pre-read — no refetch). Owner 11 Nov 2026 (DECISION_LOG 🎚✅ *"Sliding switch"*, ruling 6075; prototype
+ *   `prototypes/analytics_option_b_2026-11-11`, option 3) — it replaced the ▾ dropdown, exactly as the Shop carousel's
+ *   cards did. The card keeps its OWN window; a card handed one window shows it as a label and has no switch;
  *   the answer line — "48 couples looked at you · 6 asked · 2 booked";
- *   three rows that count up — Looked at you · Asked · Booked;
- *   the bars — bookings a month, the page's own 12-month series;
+ *   three rows that count — Looked at you · Asked · Booked — up on arrival, then old → new when the switch slides;
+ *   the bars — bookings a month, the page's own 12-month series — regrowing when the switch slides;
  *   How you are doing ▾ — reply time (the public badge's verdict) · what couples say · where bookings come from;
  *   More ▾ — doors to the full cards below (◆ only where the plan paywall actually applies).
  *
  * Every figure is a prop the server read with the SHIPPED readers; nothing here fetches. Motion stops under
- * "reduce motion" (the count lands at once, the bars do not grow).
+ * "reduce motion" (the thumb jumps, the count lands at once, the bars do not grow).
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Check, Eye, MessageSquare } from 'lucide-react';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { PillSelector } from '@/app/_components/pill-selector';
 import { Fold } from '@/app/_components/fold';
 import { DatesRow } from '../../customers/_components/dates-row';
-import { CountUp } from './count-up';
+import { HeldCount } from './growth-motion';
 import { formatPhp } from '@/lib/php';
 
 export type DoingWindow = {
@@ -69,25 +71,27 @@ export function BusinessDoing({
 }) {
   const [key, setKey] = useState<'month' | 'year'>(windows.some((x) => x.key === initial) ? initial : (windows[0]?.key ?? 'year'));
   const still = useStill();
+  // One id per card, so two cards on one screen never share a count's "last shown" value.
+  const card = useId();
   const w = windows.find((x) => x.key === key) ?? windows[0];
   if (!w) return null;
-  const dur = still ? 0 : 650;
 
   return (
     <section aria-label="How is my business doing" data-business-doing="">
       <div className="flex min-h-11 items-center" data-business-window="">
         {windows.length > 1 ? (
-          <PickMenu
+          <PillSelector
             label="Which days"
             value={key}
-            options={windows.map((x) => ({ key: x.key, label: x.label }))}
-            onPick={(k) => setKey(k === 'year' ? 'year' : 'month')}
-            dataAttr="data-business-window-pick"
-            compact
-            className="!min-h-11"
+            options={windows.map((x) => ({ key: x.key, label: x.label.replace(/^Last /, '') }))}
+            onPick={(k) => setKey(k)}
+            grow={false}
+            data="business-window-pick"
           />
         ) : (
-          <span className="home-k2">{w.label}</span>
+          <span className="home-k2" data-business-fixed-window="">
+            {w.label}
+          </span>
         )}
       </div>
 
@@ -101,33 +105,37 @@ export function BusinessDoing({
           lead={<Eye aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />}
           title="Looked at you"
           line="Couples who opened your page"
-          strong={<CountUp key={`v-${key}`} value={w.views} durationMs={dur} />}
+          strong={<HeldCount value={w.views} id={`${card}:views`} />}
         />
         <DatesRow
           data="business-asked"
           lead={<MessageSquare aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />}
           title="Asked"
           line={reply.line}
-          strong={<CountUp key={`a-${key}`} value={w.inquiries} durationMs={dur} />}
+          strong={<HeldCount value={w.inquiries} id={`${card}:inquiries`} />}
         />
         <DatesRow
           data="business-booked"
           lead={<Check aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />}
           title="Booked"
           line={w.bookedPhp > 0 ? `${formatPhp(w.bookedPhp)} booked` : 'Nothing booked in these days yet'}
-          strong={<CountUp key={`b-${key}`} value={w.booked} durationMs={dur} />}
+          strong={<HeldCount value={w.booked} id={`${card}:booked`} />}
         />
       </div>
 
       {bars.length > 0 ? (
         <figure className="mt-3" data-business-bars="">
-          <div className="flex h-[70px] items-end gap-1" aria-hidden>
+          {/* Keyed on the window: a slide of the switch remounts the row, so the bars regrow (still under reduce motion). */}
+          <div key={key} className="flex h-[70px] items-end gap-1" aria-hidden data-business-bars-window={key}>
             {bars.map((h, i) => (
               <i
                 key={i}
                 title={barLabels[i]}
-                className="block flex-1 rounded-t bg-sn-accent/25 transition-[height] duration-500 ease-out motion-reduce:transition-none"
-                style={{ height: `${Math.max(h, 3)}%` }}
+                className="block flex-1 origin-bottom rounded-t bg-sn-accent/25"
+                style={{
+                  height: `${Math.max(h, 3)}%`,
+                  ...(still ? {} : { animation: 'perf-bar-grow-y 0.6s cubic-bezier(0.22, 1, 0.36, 1) both', animationDelay: `${i * 30}ms` }),
+                }}
               />
             ))}
           </div>

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { NotFoundLinks } from './not-found-links';
 
 // Root 404 — brand-voice per feedback_setnayan_no_dev_text_post_launch lock.
 // Next.js auto-routes any unmatched URL here. Implicit entry point via routing.
@@ -16,7 +16,7 @@ export default function NotFound() {
   return (
     // data-dead-end: the browser observer (lib/telemetry/fault-observer.ts)
     // records an in-app tap that lands here, with the page it came from.
-    <main data-dead-end="not-found" className="min-h-screen bg-cream text-ink flex items-center justify-center px-6 py-16">
+    <main data-dead-end="not-found" className="min-h-screen bg-page text-ink flex items-center justify-center px-6 py-16">
       <div className="max-w-xl w-full text-center">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/40 mb-6">
           Setnayan
@@ -28,20 +28,8 @@ export default function NotFound() {
           It may have moved, or never been here. Either way, let&rsquo;s get you
           somewhere useful.
         </p>
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-center">
-          <Link
-            href="/"
-            className="inline-flex items-center justify-center px-6 py-3 bg-mulberry text-cream font-sans text-sm font-medium tracking-wide hover:bg-mulberry-600 transition-colors rounded-sm"
-          >
-            Take me home
-          </Link>
-          <Link
-            href="/explore"
-            className="inline-flex items-center justify-center px-6 py-3 border border-ink/20 text-ink font-sans text-sm font-medium tracking-wide hover:bg-ink/5 transition-colors rounded-sm"
-          >
-            Browse suppliers
-          </Link>
-        </div>
+        {/* ⚡ A client island, not server <Link>s: see not-found-links.tsx for the ~200KB this saves every page. */}
+        <NotFoundLinks />
       </div>
     </main>
   );

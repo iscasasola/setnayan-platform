@@ -23,7 +23,7 @@
  *     an `upgrade`; money already on the account comes off any charge; never below ₱0. The unused value is the server's
  *     own `vendor_unused_plan_value_php` — when it could not be read, there is NO number (`amount: null`), never a guess.
  *   · prices arrive from the catalogue; nothing here holds a peso.
- *   · words: `planWord` (Free · Free · Verified · Solo · Pro · Ultra) — no "tier", "proration" or "cycle".
+ *   · words: `planWord` (Free · Free · Verified · Supplier Plus · Pro · Ultra) — no "tier", "proration" or "cycle".
  *
  * PURE: no I/O, no clock of its own, no env. 🔒 lib/plan-sheet.test.ts
  */

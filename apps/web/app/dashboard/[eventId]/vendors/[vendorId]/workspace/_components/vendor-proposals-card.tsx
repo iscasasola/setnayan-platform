@@ -2,11 +2,12 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
-import { FileText } from 'lucide-react';
+import { ChevronRight, FileText } from 'lucide-react';
+import { Badge, type BadgeTone } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import { createClient } from '@/lib/supabase/server';
 import {
   PROPOSAL_STATUS_LABEL,
-  PROPOSAL_STATUS_TONE,
   formatCentavos,
   type ProposalStatus,
 } from '@/lib/vendor-proposals';
@@ -75,53 +76,61 @@ export async function VendorProposalsCard({
   const proposals = (data ?? []) as Row[];
   if (proposals.length === 0) return whenEmpty;
 
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 5 · 7 · 13 · 14): no card — the section's grey capitals, then one
+  // plain row per quote: the whole row opens it (terracotta ›), the money bold on the right, the status a soft chip
+  // with no border. "Accepting never charges you" sits behind the ⓘ on the label.
   return (
-    <section
-      id="proposals"
-      aria-labelledby="proposals-heading"
-      className="space-y-3 rounded-xl border border-ink/10 bg-cream/60 p-5"
-    >
-      <header className="flex items-center justify-between gap-3">
-        <h2
-          id="proposals-heading"
-          className="flex items-center gap-2 text-sm font-semibold text-ink"
+    <section id="proposals" aria-labelledby="proposals-heading">
+      <h2 id="proposals-heading" className="mb-1 mt-[18px] flex items-center gap-2">
+        <FileText aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+        <InfoTip
+          label={`Quotes from ${displayName}`}
+          labelAs="span"
+          labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
+          align="start"
         >
-          <FileText aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Quotes from {displayName}
-        </h2>
-      </header>
+          Open a quote to review, print, accept, or decline. Accepting signals your choice — it never charges you.
+        </InfoTip>
+      </h2>
 
-      <ul className="space-y-2">
+      <ul className="divide-y divide-ink/10">
         {proposals.map((p) => (
-          <li
-            key={p.proposal_id}
-            className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-cream/80 px-3 py-2"
-          >
-            <div className="min-w-0 flex-1">
-              <Link
-                href={`/proposals/${p.public_id}`}
-                className="block truncate text-sm font-medium text-ink hover:text-terracotta-700"
-              >
-                {p.title}
-              </Link>
-              <p className="text-[10px] text-ink/55">
-                {p.sent_at ? `Sent ${fmtDate(p.sent_at)}` : 'Sent'}
-                {p.valid_until ? ` · valid until ${fmtDate(p.valid_until)}` : ''}
-                {p.total_centavos > 0 ? ` · ${formatCentavos(p.total_centavos)}` : ''}
-              </p>
-            </div>
-            <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${PROPOSAL_STATUS_TONE[p.status]}`}
+          <li key={p.proposal_id}>
+            <Link
+              href={`/proposals/${p.public_id}`}
+              className="flex min-h-14 items-center justify-between gap-3 py-2.5 text-ink"
             >
-              {p.status === 'sent' ? 'Awaiting your reply' : PROPOSAL_STATUS_LABEL[p.status]}
-            </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-semibold">{p.title}</span>
+                <span className="block text-[13px] text-ink/70">
+                  {p.sent_at ? `Sent ${fmtDate(p.sent_at)}` : 'Sent'}
+                  {p.valid_until ? ` · valid until ${fmtDate(p.valid_until)}` : ''}
+                </span>
+              </span>
+              <span className="flex shrink-0 flex-col items-end gap-1">
+                {p.total_centavos > 0 ? (
+                  <span className="text-[15px] font-bold tabular-nums">{formatCentavos(p.total_centavos)}</span>
+                ) : null}
+                <Badge tone={PROPOSAL_BADGE_TONE[p.status]}>
+                  {p.status === 'sent' ? 'Awaiting your reply' : PROPOSAL_STATUS_LABEL[p.status]}
+                </Badge>
+              </span>
+              <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={1.75} />
+            </Link>
           </li>
         ))}
       </ul>
-      <p className="text-[11px] text-ink/45">
-        Open a quote to review, print, accept, or decline. Accepting signals your choice
-        — it never charges you.
-      </p>
     </section>
   );
 }
+
+/** The quote's state as the shared chip's tone — green done · amber waiting · red refused · grey nothing live. */
+const PROPOSAL_BADGE_TONE: Record<ProposalStatus, BadgeTone> = {
+  draft: 'quiet',
+  sent: 'wait',
+  viewed: 'wait',
+  accepted: 'ok',
+  declined: 'no',
+  expired: 'quiet',
+  superseded: 'quiet',
+};

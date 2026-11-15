@@ -20,7 +20,7 @@
  * renderer draws it with no new layout code, the six-slot cap is the shipped
  * one (`nextFreeCustomSlot`), and it is on Post Event only
  * (`widgetsGuestsMeet`). A preset scene is Pro at Apply: tried in the draft,
- * held until Event Hub Pro, everything else in the draft applied beside it.
+ * held until Event Pro, everything else in the draft applied beside it.
  *
  * Pure. No I/O. Client-safe (the picker imports it).
  */

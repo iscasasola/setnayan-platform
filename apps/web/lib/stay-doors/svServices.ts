@@ -9,5 +9,6 @@ export const SV_SERVICES_STAY_DOORS = [
   'svServices.saveServiceRefinements',
   'svServices.setServiceAddons',
   'svServices.pickServicesThatStayOn',
+  'svServices.putCardUnderRequest',
 ] as const;
 export type SvServicesStayDoor = (typeof SV_SERVICES_STAY_DOORS)[number];

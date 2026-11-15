@@ -1283,7 +1283,7 @@ export type BoothVendor = {
 export type BoothCardItem = { label: string };
 
 /** The plans that may brand a 3D booth. OWNER 2026-08-29, verbatim: *"3D Plan
- *  and papic Challenge is only for paid vendors Solo, Pro, Enterprise, and
+ *  and papic Challenge is only for paid vendors Supplier Plus, Pro, Enterprise, and
  *  Custom. not for free"*. */
 export const BOOTH_BRANDING_MIN_TIER = 'solo' as const;
 
@@ -1299,8 +1299,8 @@ export const BOOTH_BRANDING_MIN_TIER = 'solo' as const;
  *     could buy, lifted by an `allTiersAllowed` parameter fed from
  *     `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING`.
  *   · 2026-08-29 — the owner turned that switch on and, the same day, ruled the
- *     floor: **paid plans only, Solo and up, never free.** So it is neither
- *     "Pro+" nor "everybody": it is Solo · Pro · Enterprise · Custom.
+ *     floor: **paid plans only, Supplier Plus and up, never free.** So it is neither
+ *     "Pro+" nor "everybody": it is Supplier Plus · Pro · Enterprise · Custom.
  *
  *  🔑 THE PARAMETER IS GONE, AND ITS ABSENCE IS THE POINT. Fed from a PRICE
  *  switch, it meant one setting decided both what an add-on costs and who may
@@ -1318,10 +1318,10 @@ export function boothCanBrand(tier: string | null | undefined): boolean {
 
 /** 🧰 The plans whose booth may RENDER branded — Verified and up (owner 2026-11-09, Build 4).
  *  The branded booth is now opened by the Specialized tools unlock, which is sold to Verified and up
- *  (`SPECIALIZED_TOOLS_MIN_TIER` in lib/specialized-tools-access.ts). Left at Solo, a Verified shop would pay
+ *  (`SPECIALIZED_TOOLS_MIN_TIER` in lib/specialized-tools-access.ts). Left at Supplier Plus, a Verified shop would pay
  *  ₱499 and still render the generic booth. The ENTITLEMENT half of {@link boothIsBranded} is unchanged
  *  and never relaxes: a Verified shop with no unlock, no trial and no legacy window stays generic.
- *  {@link BOOTH_BRANDING_MIN_TIER} (Solo) stays the BUY floor of the retired `vendor_3d_booth` add-on. */
+ *  {@link BOOTH_BRANDING_MIN_TIER} (Supplier Plus) stays the BUY floor of the retired `vendor_3d_booth` add-on. */
 export const BOOTH_BRANDED_RENDER_MIN_TIER = 'verified' as const;
 
 /** THE single booth-branding decision boundary for a couple's rendered 3D Plan

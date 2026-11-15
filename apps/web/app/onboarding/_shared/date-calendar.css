@@ -85,7 +85,9 @@
 
 .sn-datecal .calday:hover:not(.disabled):not(.empty){border-color:var(--cal-gold);}
 .sn-datecal .calday.empty{cursor:default;}
-.sn-datecal .calday.inrange{background:rgba(30, 26, 18,.12);border-radius:0;}
+.sn-datecal .calday.inrange{background:color-mix(in srgb,var(--cal-mulberry) 72%,var(--cal-surface));color:var(--cal-paper);font-weight:600;border-radius:0;}
+/* ↑ owner 2026-11-13: an option's (and a window's) middle days are FILLED, so each reads as ONE bar — never like the
+   busy-day heat shading, which a pale grey .12 fill was indistinguishable from. */
 
 /* Micro-interaction bits that lived in MULTI-selector rules shared with
    non-calendar controls (`.chip,.opt,.sw,.btn,.calnav,…`). Those rules stay in
@@ -93,3 +95,25 @@
    nav keeps its behaviour here so a flow without that sheet still gets it. */
 .sn-datecal .calnav{will-change:transform;}
 .sn-datecal .calnav:active:not(:disabled){transform:scale(.92);}
+
+/* ── 📅 "HOW MANY DAYS IS YOUR EVENT?" + THE CHOSEN DAYS AS CHIPS (owner 2026-11-13, prototype
+ * `event_dates_edit_2026-11-13`). The stepper is asked before the calendar (− N +, every press 44 px; the presses are
+ * the shared ActionButton). The chips are the delta's one new piece: a pill per option with a 44 px ×. The refusal line
+ * (an overlapping tap, or options a new N dropped) is said once, in the accent. */
+.sn-datecal{
+  --cal-accent: rgb(var(--sn-accent, 194 78 37));
+}
+.sn-datecal .daysstep{margin:4px 0 10px;}
+.sn-datecal .daysstep-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;}
+.sn-datecal .daysstep-lab{font-size:14px;color:var(--cal-ink);}
+.sn-datecal .daysstep-ctl{display:inline-flex;align-items:center;border:1px solid var(--cal-line-2);border-radius:var(--m-r-full);background:var(--cal-surface);}
+.sn-datecal .daysstep-num{min-width:40px;text-align:center;font-size:16px;font-weight:600;color:var(--cal-ink);line-height:1.1;}
+.sn-datecal .daysstep-num small{display:block;font-family:var(--cal-mono);font-size:10px;font-weight:400;letter-spacing:.08em;text-transform:uppercase;color:var(--cal-ink-soft);}
+.sn-datecal .daysstep-cap{margin:4px 0 0;font-size:12.5px;color:var(--cal-ink-soft);}
+.sn-datecal .floornote{margin:6px 0 0;font-size:12.5px;line-height:1.45;color:var(--cal-ink-soft);}
+.sn-datecal .refuse{margin:8px 0 0;font-size:12.5px;line-height:1.45;color:var(--cal-accent);}
+.sn-datecal .datechips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0;padding:0;list-style:none;}
+.sn-datecal .datechip{display:inline-flex;align-items:center;gap:2px;min-height:44px;padding:0 2px 0 14px;border-radius:var(--m-r-full);background:var(--cal-ink);color:var(--cal-paper);font-size:13.5px;font-weight:500;}
+.sn-datecal .datechip .ab.rm{color:var(--cal-paper);background:none;border-color:transparent;opacity:.8;}
+.sn-datecal .datechip .ab.rm:hover{opacity:1;}
+.sn-datecal .refuse-offer{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 4px;}

@@ -332,7 +332,7 @@ test('(8) the whole page stands still: a page wraps its column in one pair a han
     const w = plan.map(row);
     assert.equal(hubScrubHolds(w as never, true, true), drawn(w), `${JSON.stringify(plan)}: the count is not what is drawn`);
     assert.ok(hubScrubHoldsAtMost(w as never, true, true) >= drawn(w), `${JSON.stringify(plan)}: the page would ask for fewer pairs than its scenes need`);
-    assert.equal(hubScrubHoldsAtMost(w as never, false, true), 0, 'without Event Hub Pro a page wraps itself');
+    assert.equal(hubScrubHoldsAtMost(w as never, false, true), 0, 'without Event Pro a page wraps itself');
   }
   assert.equal(hubScrubHoldsAtMost([null, null].map(row) as never, true, true), 0);
   /* BOTH TREES of the guest page wrap their article, with the one count. */
@@ -435,7 +435,7 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
      Now the real page (no door) asks the same as the lab's door, and the off arm (one line away) still closes it. */
   assert.equal(hubCoverLeaves(hero({ transition: 'scrub' }) as never, true), true, '"Scrub out" is offered: a Pro cover stored to leave by Scrub leaves');
   assert.equal(hubCoverLeaves(hero({ transition: 'scrub' }) as never, true, false), false, 'the door closed by hand: a cover still leaves');
-  assert.equal(hubCoverLeaves(hero({ transition: 'scrub' }) as never, false, true), false, 'without Event Hub Pro a cover leaves by Scrub');
+  assert.equal(hubCoverLeaves(hero({ transition: 'scrub' }) as never, false, true), false, 'without Event Pro a cover leaves by Scrub');
   assert.equal(hubCoverLeaves(hero({ transition: 'scrub', out: 'none' }) as never, true, true), false, 'a cover with no Build out hands over');
   assert.equal(hubCoverLeaves(hero(null) as never, true, true), false);
   assert.equal(hubCoverLeaves(hero({ transition: 'auto' }) as never, true, true), false);

@@ -100,6 +100,12 @@ export type EventPosterFacts = {
    * `--hub-scrim`. Hex / rgba built from parsed values only.
    */
   legibility: Record<string, string> | null;
+  /**
+   * Invitation only — the couple's OWN paper colour / ink / ombré when the Event Hub paints one
+   * (`paperGroundOf`, the same answer Discover's paper card wears). Optional: absent = plain paper.
+   * Owner 2026-11-12: a dark custom background drew dark words on dark on Home while Discover was right.
+   */
+  paperGround?: { cream: string | null; ink: string | null; ombre: string | null } | null;
 };
 
 /** WCAG AA for body text — the line between "type on the colour" and "a moon". */

@@ -372,7 +372,7 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       label: r.label,
       line: r.line,
       // A card wears its topic's glyph (above); a row that is not a card wears its own: the camera, the photo, the flag.
-      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : r.key === 'versions' ? 'quote' : 'file',
+      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : r.key === 'versions' || r.key === 'quote' ? 'quote' : 'file',
       shut: r.shutNow ?? (r.shutUntilAgreement && !hasAgreement ? r.shutUntilAgreement : null),
       card: r.card,
       href: d?.href,
@@ -397,16 +397,22 @@ export function ThreadToolsSheet({
   state,
   threadId,
   paid = false,
+  hasQuote,
 }: {
   eventId: string;
   state: VendorThreadToolsState;
   threadId?: string;
   /** A payment is confirmed on the quote — Quote reads "Change quote" (the paid total is the floor). */
   paid?: boolean;
+  /**
+   * 🧾 A quote is in this chat (`threadHasQuote`, the composer's 🧾 rung). `false` → "Send a quote" opens the builder and
+   * "See every version" is not drawn (walk 13 Nov 2026). Omitted keeps "Change quote".
+   */
+  hasQuote?: boolean;
 }) {
   // 🗳 One open poll per chat: the stream's poll card tells the store; the Poll row goes grey with its reason.
   const { pollOpen } = usePlus(threadId ?? '');
-  const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen }), 'vendor', eventId, state.hasAgreement);
+  const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen, hasQuote }), 'vendor', eventId, state.hasAgreement);
   return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} />;
 }
 

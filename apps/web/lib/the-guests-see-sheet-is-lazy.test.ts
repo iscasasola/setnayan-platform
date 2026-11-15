@@ -69,7 +69,7 @@ test('2 · the sheet reaches no server module: the work area lends the table and
 });
 
 test('3 · one row — in the Hub’s ⚙, no longer in Studio ▾ — only where the work area answers; a sheet, never a Studio page', () => {
-  /* ⚙ MOVED 2026-10-30 (owner, the Event Hub Pro prototype's Q4 drawn as A — DECISION_LOG 2026-10-26 "EACH MENU HAS ITS
+  /* ⚙ MOVED 2026-10-30 (owner, the Event Pro prototype's Q4 drawn as A — DECISION_LOG 2026-10-26 "EACH MENU HAS ITS
      OWN SETTINGS": "everything guests see on the Hub only in Event Hub Settings"). It was the last row of Studio ▾. */
   const src = stripComments(read(PARTS));
   assert.equal((src.match(/data-pick-option="guests-see"/g) ?? []).length, 0, 'the row is back in Studio ▾');

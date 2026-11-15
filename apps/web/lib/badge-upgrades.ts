@@ -7,9 +7,9 @@
  *
  *   Verified (once)                         → Papic Challenges
  *   First booking through Setnayan (once)   → 3D Booth  (a Free or Verified shop gets Papic Challenges instead — the
- *                                             booth logo only shows on Solo and up, `boothCanBrand`)
+ *                                             booth logo only shows on Supplier Plus and up, `boothCanBrand`)
  *   5 reviews (once)                        → AI Chatbot
- *   Top Pick / Most Booked of the month     → ONE of the three, the supplier's choice (the 3D Booth only for Solo+)
+ *   Top Pick / Most Booked of the month     → ONE of the three, the supplier's choice (the 3D Booth only for Supplier Plus and up)
  *                                             — in addition to the Event Plus that award already puts in the gift stock
  *   Rising and every other badge            → no upgrade
  *
@@ -60,7 +60,7 @@ export const BADGE_UPGRADE_NAME: Readonly<Record<BadgeUpgradeChoice, string>> = 
 
 /**
  * The plan the 3D Booth needs before its logo shows — the booth's own floor (`BOOTH_BRANDING_MIN_TIER` in
- * `lib/seating-3d.ts`, Solo and up). Re-stated as a value here so this module stays light enough for a screen; the
+ * `lib/seating-3d.ts`, Supplier Plus and up). Re-stated as a value here so this module stays light enough for a screen; the
  * test pins the two equal, and the Start door re-checks it in the database.
  */
 export const BADGE_UPGRADE_BOOTH_MIN_TIER = 'solo' as const;
@@ -123,9 +123,9 @@ export function upgradesOwed(f: BadgeRewardFacts): OwedUpgrade[] {
 }
 
 /**
- * What the shop may start TODAY from an upgrade's stored choices: on a plan below Solo the 3D Booth becomes Papic
+ * What the shop may start TODAY from an upgrade's stored choices: on a plan below Supplier Plus the 3D Booth becomes Papic
  * Challenges (owner, 6 Nov: "a Free or Verified shop gets Papic Challenges instead"). Decided at Start, not at grant,
- * so a shop that moves up to Solo before starting gets the booth it earned. The database's Start door applies the
+ * so a shop that moves up to Supplier Plus before starting gets the booth it earned. The database's Start door applies the
  * same rule (`shop_badge_upgrade_start`).
  */
 export function startableChoices(choices: readonly BadgeUpgradeChoice[], tier: string | null | undefined): BadgeUpgradeChoice[] {

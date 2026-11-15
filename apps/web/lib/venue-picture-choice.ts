@@ -11,7 +11,7 @@
  *   · the booked supplier's photos (shipped, 2026-09-30) and **Your photo** —
  *     the couple's own upload (`VenueChoice.ownPhoto`), or "Upload your photo";
  *   · **Our drawing ◆** — ONLY when the parish library has a drawing of this
- *     venue (`parishDrawingFor`), marked Event Hub Pro (tried free in the draft,
+ *     venue (`parishDrawingFor`), marked Event Pro (tried free in the draft,
  *     named at Apply — `venueBagNewDrawings` in lib/hub-draft.ts);
  *   · **None**.
  *
@@ -32,7 +32,7 @@ export const PICTURE_NONE = 'none';
 export const PICTURE_UPLOAD = 'upload';
 export const PICTURE_DRAWING = 'drawing';
 
-/** Event Hub Pro's mark on "Our drawing" — the house trail (`celebration-pick.tsx`'s), information, never a lock. */
+/** Event Pro's mark on "Our drawing" — the house trail (`celebration-pick.tsx`'s), information, never a lock. */
 function proTrail(mark: PaidMarkState | null, label: (m: PaidMarkState) => string): PickOption['trail'] {
   if (!mark) return undefined;
   return { text: mark === 'try' ? '◆ Pro' : '◆', tone: 'muted', label: label(mark) };

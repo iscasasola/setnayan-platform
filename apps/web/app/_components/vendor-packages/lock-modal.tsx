@@ -501,7 +501,11 @@ export function LockPackageModal({
         className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <PackageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />
-        Customize &amp; book this package
+        {/* The package card's one action (owner 2026-11-13, "Yes, one main button"; prototype public_pages_three_2026-11-13):
+            the ONLY booking door on the shop page, beside the package's price. Was "Customize & book this package" — the
+            modal it opens is unchanged. The prototype drew it as "Lock"; the word a couple reads is "Book" (owner d19,
+            lib/the-couple-books-never-locks.test.ts), so the control keeps its place and says "Book". */}
+        Book this package
       </button>
 
       {open ? (

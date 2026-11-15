@@ -154,10 +154,15 @@ export function coordinatorOfflinePaths(eventId: string, opts: { checkin: boolea
   return opts.checkin ? [base, `${base}/guests/checkin`] : [base];
 }
 
-/** The supplier's pages for one event: the Hub, the event's console, and — when they run its door — its desk. */
-export function supplierOfflinePaths(eventId: string, opts: { checkin: boolean }): string[] {
+/**
+ * The supplier's pages for one event: the Hub, the event's console, and — when they run its door — its desk.
+ * F-W1-77 (walk 13 Nov 2026): the console opens only ON the booked day (before it, the page sends you back to the Hub),
+ * so before the day it is not asked for — a save that can never land would fail every page's mark with it.
+ */
+export function supplierOfflinePaths(eventId: string, opts: { checkin: boolean; liveToday?: boolean }): string[] {
   if (!EVENT_ID.test(eventId)) return [];
-  const out = ['/vendor-dashboard/on-the-day', `/vendor-dashboard/on-the-day/live/${eventId}`];
+  const out = ['/vendor-dashboard/on-the-day'];
+  if (opts.liveToday !== false) out.push(`/vendor-dashboard/on-the-day/live/${eventId}`);
   if (opts.checkin) out.push(`/dashboard/${eventId}/guests/checkin`);
   return out;
 }
@@ -181,6 +186,20 @@ export function offlineEventDay(eventDate: string | null, now: number, eventEndD
   const end = phMidnight(eventEndDate || eventDate || '');
   if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
   return now >= start && now < end + DAY_MS;
+}
+
+/**
+ * F-W1-77 (walk 13 Nov 2026): why nothing CAN be saved yet, in words — or null when saving is open (or already over).
+ * "Update now" before the window used to do nothing and keep saying "Not saved on this phone yet"; now the mark says
+ * when saving starts. A dateless booking says it has no date.
+ */
+export function offlineNotYetWords(eventDate: string | null, now: number): string | null {
+  const start = phMidnight(eventDate || '');
+  if (!Number.isFinite(start)) return 'Nothing to save yet · this booking has no date';
+  const opens = start - SAVE_FROM_DAYS_BEFORE * DAY_MS;
+  if (now >= opens) return null;
+  const day = new Date(opens).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
+  return `Nothing to save yet · saving for offline starts ${day}, ${SAVE_FROM_DAYS_BEFORE} days before the event`;
 }
 
 /** True while copies of this event are kept: from T-3 days to `offlineCopiesUntil`. A dateless event keeps none. */

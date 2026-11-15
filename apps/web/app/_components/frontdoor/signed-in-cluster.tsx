@@ -7,6 +7,7 @@ import {
   type SwitcherData,
 } from '@/app/_components/account-switcher/get-switcher-data';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 
 /**
@@ -104,6 +105,7 @@ export async function SignedInCluster({
         href={href}
         ariaBaseLabel="Notifications"
         ariaUnreadSuffix="unread"
+        who={placeWhoFromSwitcher(switcherData)}
       />
       <AccountSwitcher data={switcherData} here={null} />
     </>

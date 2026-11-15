@@ -41,7 +41,7 @@ export const MAKER_CLIP_TOO_LONG_MESSAGE = 'Please pick a video under 15 seconds
 /**
  * The couple's own upload allowance per event, counted AFTER compression — the
  * SAME constant that held the single 100 MB cap (DECISION_LOG 2026-09-25), now
- * plan-aware (owner FINAL 2026-10-15: Free 10 MB · Event Hub Pro 500 MB). There
+ * plan-aware (owner FINAL 2026-10-15: Free 10 MB · Event Pro 500 MB). There
  * is no second quota constant; every caller reads it through
  * `coupleMediaCapBytes(isPro)` below.
  */
@@ -52,8 +52,8 @@ export const MAKER_EVENT_MEDIA_BYTES_CAP = {
 
 /**
  * THE ONE CAP FUNCTION — the couple's own upload allowance per event, counted
- * AFTER compression: Free 10 MB · Event Hub Pro 500 MB (owner FINAL 2026-10-15).
- * `isPro` is the event's Event Hub Pro entitlement as `lib/entitlements.ts`
+ * AFTER compression: Free 10 MB · Event Pro 500 MB (owner FINAL 2026-10-15).
+ * `isPro` is the event's Event Pro entitlement as `lib/entitlements.ts`
  * already decides it (`eventCoupleWebsiteProActive`; internal-hosted events are
  * Pro by that same rule). The reservation, the meter and the "full" sentence
  * all ask HERE — a second constant set would let them disagree.

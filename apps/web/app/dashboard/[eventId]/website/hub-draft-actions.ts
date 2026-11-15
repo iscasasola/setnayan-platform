@@ -13,7 +13,7 @@
  *             that carries `draft=1` (`HUB_DRAFT_FIELD`) sends its save here via
  *             `lib/hub-draft-store.ts`, after its own validation.
  *   apply   — write the draft to the live page. THE PRO GATE IS HERE: every key
- *             the one look rule calls Pro is refused without Event Hub Pro and
+ *             the one look rule calls Pro is refused without Event Pro and
  *             STAYS in the draft, so the couple can pay and Apply again. In the
  *             iOS / Android store shell Pro keys are always held ("Apply on the
  *             web") — web-bought Pro is not usable in the app yet (owner
@@ -205,6 +205,23 @@ export async function hubDraftAction(
       }
       revalidatePath(`/dashboard/${eventId}`);
       return r.ok ? { ok: true, intent, applied: 0, held: [], message: r.message } : { ok: false, intent, error: r.error };
+    }
+
+    /* ── 🎁 PEEK NOW — the couple's surprise (owner 2026-11-13, DECISION_LOG "POST EVENT = A STORY (ONE SCENE PER
+       SCREEN) — SIX CALLS SETTLED" (6)) ──────────────────────────────────────
+       Chapter photos stay hidden from the couple until Post Event opens (`papic_chapter_viewer_sees`, migration
+       20271344065097); this one switch lets them see early. It is the couple's own choice about what THEY see, so it
+       is written at once — never drafted, never Applied — like the date-change answers above. Folded into this door
+       (not a new server action: the route ceiling). Written on the couple's OWN session, so the events UPDATE policy
+       (couple-or-admin) is the fence — a co-host who is not the couple, a coordinator or a helper writes nothing — and
+       the row is counted: a zero-row update is said, never "saved". Guests are untouched. */
+    if (intent === 'peek') {
+      const on = formData.get('on') === '1';
+      if (!(await writeChaptersPeek(supabase, eventId, on))) {
+        return { ok: false, intent, error: 'Only the couple can peek — nothing was changed.' };
+      }
+      revalidatePath(`/dashboard/${eventId}/memories`);
+      return done();
     }
 
     /* ── RESTORE ─────────────────────────────────────────────────────────── */
@@ -401,7 +418,7 @@ export async function hubDraftAction(
     const live = await readHubLiveState(supabase, eventId);
     const storeShell = iapGate.storeShell && !iapGate.iap;
     /* ⛔ THE GATE. `hubOwnershipForWrite` is what the event ACTIVELY owns of
-       Event Hub Pro — Full Pro, each part, the cap (owner 2026-10-22, part by
+       Event Pro — Full Pro, each part, the cap (owner 2026-10-22, part by
        part) — the same read every live look writer's `lookProAllows` makes, and
        each drafted item is asked for ITS parts. In the store shell a Pro key is
        never applied. */
@@ -1116,4 +1133,19 @@ export async function hubDraftAction(
     // draft is only trimmed on success, so trying again is always safe.
     return { ok: false, intent, error: HUB_DRAFT_SAVE_FAILED_MESSAGE };
   }
+}
+
+/**
+ * 🎁 The couple's "Peek now" (owner 2026-11-13, "POST EVENT = A STORY" (6)) — `events.chapters_peek`, written with the
+ * couple's OWN session, so RLS + the column grant decide who may (a guest's write matches no row). Kept out of the
+ * action body: it is not a Hub write and never passes the Pro gate. True only when a row was really changed.
+ */
+async function writeChaptersPeek(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  on: boolean,
+): Promise<boolean> {
+  const { data: hit, error } = await supabase.from('events').update({ chapters_peek: on }).eq('event_id', eventId).select('event_id');
+  if (error) console.error('[supabase-error] hubDraftAction.peek', error, { eventId });
+  return !error && (hit?.length ?? 0) > 0;
 }

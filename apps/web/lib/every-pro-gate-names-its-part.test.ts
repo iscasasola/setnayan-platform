@@ -1,5 +1,5 @@
 /**
- * every-pro-gate-names-its-part.test.ts — 💎 EVENT HUB PRO, PART BY PART (owner 2026-10-22).
+ * every-pro-gate-names-its-part.test.ts — 💎 EVENT PRO, PART BY PART (owner 2026-10-22).
  *
  * The property: a Pro gate asks for ONE PART, never for "Pro". So
  *   (1) every look-write gate (`requireLookPro` / `lookProAllows`) names its part, as a literal the reader can see;
@@ -107,7 +107,6 @@ const EVERYTHING_ASKED_HERE: Record<string, string> = {
   'lib/couple-website-pro.ts': 'its definition, and the Editorial dual unlock (free for everyone)',
   'app/[slug]/_lib/hub-look.ts': '`websiteProActiveFor` — the footer reader (gate 37)',
   'app/[slug]/_lib/loaders.ts': 'the footer (`proWatermarkHidden`, gate 37) and the guest look shell',
-  'app/[slug]/recap/page.tsx': 'the recap footer (gate 37)',
   'lib/setnayan-mark-by-plan.server.ts': 'the Setnayan mark by plan — Event Pro (everything) takes every mark off (gate 37, DECISION_LOG 2026-11-04)',
   'app/[slug]/print/page.tsx': 'the print page footer (gate 37)',
   'app/[slug]/_components/editorial/editorial-content.tsx': 'the editorial colophon footer (gate 37)',
@@ -129,7 +128,7 @@ test('(2) "everything" is asked only where everything is the answer', () => {
   );
   console.log(`[pro-gates] files asking for everything: ${asked.size}`);
   const stray = [...asked].filter((f) => !(f in EVERYTHING_ASKED_HERE));
-  assert.deepEqual(stray, [], 'a gate asks for all of Event Hub Pro — name its ONE part instead (lib/hub-parts.ts)');
+  assert.deepEqual(stray, [], 'a gate asks for all of Event Pro — name its ONE part instead (lib/hub-parts.ts)');
   /* …and an entry that no longer asks is deleted, or it silently widens what may. */
   const stale = Object.keys(EVERYTHING_ASKED_HERE).filter((f) => !asked.has(f));
   assert.deepEqual(stale, [], 'listed as asking for everything, but no longer does — remove it from the list');

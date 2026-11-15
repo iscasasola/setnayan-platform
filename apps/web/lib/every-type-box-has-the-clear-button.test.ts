@@ -37,7 +37,7 @@ const OLDER_OWN_CLEAR = new Set([
   'app/dashboard/[eventId]/studio/patiktok/_components/booth-capture.tsx',
   'app/realstories/_components/gallery.tsx',
   'app/realstories/_components/stories-search.tsx',
-  'app/open-shop/_components/service-picker.tsx',
+  'app/_components/service-picker.tsx',
 ]);
 
 /* ── a stand-in DOM, just enough for the rule and the clear ─────────────────────────────────────────────────────── */

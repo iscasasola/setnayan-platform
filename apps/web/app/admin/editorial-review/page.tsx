@@ -145,7 +145,7 @@ function EditorialRow({ row }: { row: RowData }) {
             : 'No date'}{' '}
           · Scanned{' '}
           {row.scan_completed_at
-            ? new Date(row.scan_completed_at).toLocaleDateString('en-PH', {
+            ? new Date(row.scan_completed_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
                 month: 'short', day: 'numeric',
               })
             : 'not yet'}

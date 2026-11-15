@@ -63,6 +63,8 @@ test('Share + the heart join the top bar only after the page’s own buttons hav
   assert.match(BAR, /\{acts && acted \? \(/);
   assert.match(BAR, /document\.querySelector<HTMLElement>\('\[data-shop-quick\]'\)/);
   assert.match(PAGE, /data-shop-quick=""/);
+  // 44 px floor: `.ab.icon-only` is 40 px wide, so both icon buttons widen to 44 (measured in a browser: 44 × 44).
+  assert.equal((PAGE.match(/actionButtonClass\('neutral', \{ iconOnly: true, quiet: true, extra: '!w-11' \}\)/g) ?? []).length, 2);
 });
 
 // Sabotage: `<Link href="/">` around the wordmark, or a relative footer link → red.

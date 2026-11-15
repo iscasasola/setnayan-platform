@@ -2465,7 +2465,7 @@ export async function renderVendorBySlug({
         acts={
           canMessage ? (
             <>
-              <ShareButton title={displayLabel} iconOnly className={actionButtonClass('neutral', { iconOnly: true, quiet: true })} />
+              <ShareButton title={displayLabel} iconOnly className={actionButtonClass('neutral', { iconOnly: true, quiet: true, extra: '!w-11' })} />
               <SaveVendorButton
                 vendorProfileId={vendor.vendor_profile_id}
                 initiallySaved={false}
@@ -2473,7 +2473,7 @@ export async function renderVendorBySlug({
                 label="Add to your event"
                 icon="heart"
                 iconOnly
-                className={actionButtonClass('neutral', { iconOnly: true, quiet: true })}
+                className={actionButtonClass('neutral', { iconOnly: true, quiet: true, extra: '!w-11' })}
                 events={
                   inquireEventState?.signedIn && inquireEventState.options.length >= 2
                     ? inquireEventState.options.map(({ eventId, title, kindWord, dateISO }) => ({ eventId, title, kindWord, dateISO }))

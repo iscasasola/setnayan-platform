@@ -75,3 +75,5 @@ The controller posted the owner's 16 Nov rules on #7753:
 - DB tests: a reward-paid line adds 0; each import kind and the own-link arrival add 0 to Completed bookings; an all-import repeat client is not Trusted by; a gift on an imported event counts. Sabotage (drop both filters) turns both tests red.
 
 SPEC IMPACT: None — implements the controller's "owner-approved badge rules (16 Nov)" as written.
+
+- **One import rule for every badge and seal (controller, 16 Nov).** `shop_booking_is_import(uuid, uuid, text)` is the only definition; it now also treats source `website` and a Booking QR token of the shop claimed onto the booking as imports (the seals engine #7825 had these in a second, two-argument copy, which is removed there and calls this one).

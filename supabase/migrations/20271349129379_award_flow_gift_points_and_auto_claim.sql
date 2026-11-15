@@ -102,8 +102,11 @@ COMMENT ON FUNCTION public.shop_gift_points(UUID) IS
 -- ── 2b · imports never count toward a booking badge (owner 16 Nov, controller's rule 2 / DECISION_LOG fd5814dc) ──
 -- An import is a booking the supplier brought: event_vendors.source vendor_invite · vendor_locked_qr · reuse_accept,
 -- or the couple's chat with the shop arrived through the supplier's OWN link (`?src=own` → inquiry_source 'website',
--- lib/supplier-qr-codes.ts arrivalInquirySourceOf). Not booking_fee_attribution_for: that fails SAFE to 'import' for
--- the fee, which would drop real bookings from a badge.
+-- lib/supplier-qr-codes.ts arrivalInquirySourceOf), or the source says 'website', or a Booking QR token of this shop
+-- was claimed onto the booking (the claim keeps the booking's earlier source, so `source` alone misses it).
+-- Not booking_fee_attribution_for: that fails SAFE to 'import' for the fee, which would drop real bookings from a badge.
+-- ONE definition for every badge AND seal (the seals engine, PR #7825, calls this — it must never redefine it);
+-- lib/shop-seals.ts IMPORT_SOURCES mirrors the source list below and a test holds them equal.
 CREATE OR REPLACE FUNCTION public.shop_booking_is_import(
   p_vendor_profile_id UUID,
   p_event_id UUID,
@@ -114,7 +117,13 @@ LANGUAGE sql
 STABLE
 SET search_path = public
 AS $$
-  SELECT COALESCE(p_source, '') IN ('vendor_invite', 'vendor_locked_qr', 'reuse_accept')
+  SELECT COALESCE(p_source IN ('vendor_invite', 'vendor_locked_qr', 'reuse_accept', 'website'), false)
+      OR EXISTS (
+           SELECT 1 FROM public.vendor_locked_qr_tokens q
+             JOIN public.event_vendors ev ON ev.vendor_id = q.claimed_event_vendor_id
+            WHERE q.vendor_profile_id = p_vendor_profile_id
+              AND ev.event_id = p_event_id
+         )
       OR EXISTS (
            SELECT 1 FROM public.chat_threads t
             WHERE t.event_id = p_event_id
@@ -128,8 +137,9 @@ GRANT EXECUTE ON FUNCTION public.shop_booking_is_import(UUID, UUID, TEXT) TO ser
 
 COMMENT ON FUNCTION public.shop_booking_is_import(UUID, UUID, TEXT) IS
   'TRUE when a shop''s booking on an event is an IMPORT (owner 16 Nov: imports never count toward Completed bookings, '
-  'Trusted by, a seal or Most Booked): source vendor_invite / vendor_locked_qr / reuse_accept, or the couple''s chat '
-  'with the shop arrived through the shop''s own link (inquiry_source ''website''). service_role only.';
+  'Trusted by, a seal or Most Booked): source vendor_invite / vendor_locked_qr / reuse_accept / website, a Booking QR '
+  'token of this shop claimed onto the booking, or the couple''s chat with the shop arrived through the shop''s own '
+  'link (inquiry_source ''website''). The one definition for every badge and seal. service_role only.';
 
 -- ── 2c · Completed bookings, for the badge: the public completed-events rules, minus imports ──
 -- `vendor_public_completed_events_stats` (the shop page's public number) is untouched; this is the badge's own count.

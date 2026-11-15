@@ -281,8 +281,19 @@ test('16 Nov · 2 · imports never count toward Completed bookings or Trusted by
   }
   await booking(shop, c3, 'complete', null, true);
   assert.equal(await completed(), 1, 'an own-link (?src=own) arrival counted');
+  await booking(shop, c3, 'complete', 'website');
+  assert.equal(await completed(), 1, "a source 'website' booking counted");
+  // A Booking QR token of this shop claimed onto a booking that kept an earlier source is still an import (the seals
+  // engine's rule, folded into the one definition).
+  const claimed = await booking(shop, c3, 'complete', 'host_manual');
+  await db.query(
+    `INSERT INTO public.vendor_locked_qr_tokens (token, vendor_profile_id, created_by_user_id, category, claimed_event_vendor_id)
+     VALUES ('award-qr-import', $1, $2, 'photographer', (SELECT vendor_id FROM public.event_vendors WHERE event_id = $3))`,
+    [shop, owner, claimed],
+  );
+  assert.equal(await completed(), 1, 'a booking with a claimed Booking QR counted');
   // The public completed-events number is untouched by this rule.
-  assert.ok(Number(await one<string>(`SELECT count(*)::text AS v FROM public.event_vendors WHERE linked_vendor_profile_id = $1 AND status = 'complete'`, [shop])) >= 5);
+  assert.ok(Number(await one<string>(`SELECT count(*)::text AS v FROM public.event_vendors WHERE linked_vendor_profile_id = $1 AND status = 'complete'`, [shop])) >= 7);
 
   // Trusted by: c2 booked the shop on four events, every one an import → not trusted. c1 comes back without an import.
   assert.equal(await trusted(), 0);

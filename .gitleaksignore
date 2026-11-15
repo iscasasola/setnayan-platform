@@ -208,3 +208,9 @@ a853e2a422fb214dcab13cda675fa61b007a4b22:apps/web/lib/badge-rewards.test.ts:gene
 # platform_retail_catalog_v2 and lib/iap/products.ts carry. No credential. Pinned
 # by its introducing commit (gitleaks-action scans every commit in the PR range).
 1ae3aa51a129c04fed5f0a5f9d5df38509b1c250:apps/web/lib/badge-rewards.ts:generic-api-key:71
+#
+# Same rule flags the IAP gift-product list in lib/iap/products.test.ts (Event Ultra as a
+# supplier gift, 2026-11-15): a line of CATALOG SKU CODES (PAPIC_GUEST_150 / _1K / …),
+# public product identifiers. No credential. Pinned by its introducing commit (the scan
+# reads every commit in the PR range); the line is now one code per line.
+95178703ffd664cdfde97885cc8a2a5826053bb6:apps/web/lib/iap/products.test.ts:generic-api-key:261
